@@ -439,6 +439,8 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
         
         // Convert to DEM pixel
         Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
+        if (!bounding_box(interp_dem).contains(pix))
+          continue;
 
         PixelMask<float> h = interp_dem(pix.x(), pix.y());
 
@@ -541,6 +543,8 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
 
     // Convert to DEM pixel
     Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
+    if (!bounding_box(interp_dem).contains(pix))
+      continue;
 
     PixelMask<float> h = interp_dem(pix.x(), pix.y());
 
@@ -1068,6 +1072,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "A positive number of samples must be specified.\n"
              << usage << general_options);
 
+  if (!opt.dem_minus_plane.empty() && opt.dem.empty())
+    vw_throw(ArgumentErr() << "The option --dem must be set if using --dem-minus-plane.\n"
+             << usage << general_options);
+
   // Create the output prefix  
   std::string out_prefix = opt.bathy_plane;
   if (opt.bathy_plane.empty())
@@ -1118,9 +1126,9 @@ int main( int argc, char *argv[] ) {
     float dem_nodata_val = -std::numeric_limits<float>::max();
     ImageViewRef<float> dem;
     ImageViewRef<PixelMask<float>> masked_dem;
-    ImageViewRef< PixelMask<float>> interp_dem;
+    ImageViewRef<PixelMask<float>> interp_dem;
 
-    if (use_shapefile || use_mask || use_lon_lat) {
+    if (use_shapefile || use_mask || use_lon_lat || !opt.dem_minus_plane.empty()) {
       // Read the DEM and its associated data
       // TODO(oalexan1): Think more about the interpolation method
       vw_out() << "Reading the DEM: " << opt.dem << std::endl;
@@ -1143,7 +1151,10 @@ int main( int argc, char *argv[] ) {
       // Read the DEM
       dem = DiskImageView<float>(opt.dem);
       masked_dem = create_mask(dem, dem_nodata_val);
-      interp_dem = interpolate(masked_dem, BilinearInterpolation(), ConstantEdgeExtension());
+      PixelMask<float> nodata_pix(0);
+      nodata_pix.invalidate();
+      ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix);
+      interp_dem = interpolate(masked_dem, BilinearInterpolation(), ext_nodata);
     }
     
     bool use_proj_water_surface = !opt.use_ecef_water_surface;
@@ -1187,7 +1198,6 @@ int main( int argc, char *argv[] ) {
       vw_out() << "Reading the shapefile: " << opt.shapefile << std::endl;
       std::vector<vw::geometry::dPoly> polyVec;
       read_shapefile(opt.shapefile, poly_color, has_shape_georef, shape_georef, polyVec);
-      
       if (!has_shape_georef) 
         vw_throw(ArgumentErr() << "The input shapefile has no georeference.\n" );
       
@@ -1221,8 +1231,8 @@ int main( int argc, char *argv[] ) {
     std::vector<Eigen::Vector3d> dummy_vec(point_vec.size()); // Required by the interface
     std::vector<size_t> inlier_indices;
     double inlier_threshold = opt.outlier_threshold;
-    int    min_num_output_inliers = std::max(point_vec.size()/2, size_t(3));
-    bool   reduce_min_num_output_inliers_if_no_fit = true;
+    int min_num_output_inliers = std::max(point_vec.size()/2, size_t(3));
+    bool reduce_min_num_output_inliers_if_no_fit = true;
     vw::Matrix<double> plane;
     vw_out() << "Starting RANSAC.\n";
     try {
@@ -1232,12 +1242,9 @@ int main( int argc, char *argv[] ) {
       BestFitPlaneFunctor func(use_proj_water_surface);
       BestFitPlaneErrorMetric error_metric;
       math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric> 
-        ransac(func, error_metric,
-               opt.num_ransac_iterations, inlier_threshold,
+        ransac(func, error_metric, opt.num_ransac_iterations, inlier_threshold,
                min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
-    
       plane = ransac(point_vec, dummy_vec);
-      
       inlier_indices = ransac.inlier_indices(plane, point_vec, dummy_vec);
     } catch (const vw::math::RANSACErr& e ) {
       vw_out() << "RANSAC failed: " << e.what() << "\n";
@@ -1247,7 +1254,6 @@ int main( int argc, char *argv[] ) {
     
     calc_plane_properties(use_proj_water_surface, point_vec, inlier_indices,  
                            dem_georef, plane);
-
     save_plane(use_proj_water_surface, proj_lat, proj_lon,  
                plane, opt.bathy_plane);
 
