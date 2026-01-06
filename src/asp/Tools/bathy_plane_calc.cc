@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -14,7 +14,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
 
 /// \file bathy_plane_calc.cc
 ///
@@ -62,6 +61,41 @@ void addPointToPoly(vw::geometry::dPoly & poly, Vector2 const& p) {
                      isPolyClosed, poly_color, layer);
 }
 
+// Add a point to the point_vec, llh_vec, and used_vertices if it is valid
+void addPoint(vw::cartography::GeoReference const& dem_georef,
+              ImageViewRef<PixelMask<float>> const& interp_dem,
+              Vector2 const& lonlat,
+              Vector2 const& proj_pt,
+              // Append
+              std::vector<Eigen::Vector3d> & point_vec,
+              std::vector<vw::Vector3> & llh_vec,
+              std::vector<vw::Vector2> & used_vertices) {
+
+  // Convert to DEM pixel
+  Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
+  if (!bounding_box(interp_dem).contains(pix))
+    return;
+
+  PixelMask<float> h = interp_dem(pix.x(), pix.y());
+
+  if (!is_valid(h))
+    return;
+
+  Vector3 llh;
+  llh[0] = lonlat[0];
+  llh[1] = lonlat[1];
+  llh[2] = h.child();
+
+  Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
+  Eigen::Vector3d eigen_xyz;
+  for (size_t coord = 0; coord < 3; coord++)
+    eigen_xyz[coord] = xyz[coord];
+
+  point_vec.push_back(eigen_xyz);
+  used_vertices.push_back(proj_pt);
+  llh_vec.push_back(llh);
+}
+
 // Estimate the projection and convert point_vec to projected coordinates
 void find_projection(// Inputs
                      vw::cartography::GeoReference const& dem_georef,
@@ -74,17 +108,17 @@ void find_projection(// Inputs
   // Must have positive number of points
   if (llh_vec.size() == 0)
     vw::vw_throw(vw::ArgumentErr() << "Cannot find projection with zero input points.\n");
-    
+
   // Initialize the outputs
   proj_lat = -1.0;
   proj_lon = -1.0;
   point_vec.clear();
-  
+
   // Find the mean water height
   Vector3 mean_llh;
-  for (size_t it = 0; it < llh_vec.size(); it++) 
+  for (size_t it = 0; it < llh_vec.size(); it++)
     mean_llh += llh_vec[it];
-  
+
   mean_llh /= llh_vec.size();
 
   stereographic_georef.set_datum(dem_georef.datum());
@@ -92,13 +126,13 @@ void find_projection(// Inputs
   proj_lat = mean_llh[1];
   proj_lon = mean_llh[0];
   stereographic_georef.set_stereographic(proj_lat, proj_lon, scale);
-  
+
   // Convert the points to projected coordinates with this georeference
   for (size_t it = 0; it < llh_vec.size(); it++) {
     Vector3 point = stereographic_georef.geodetic_to_point(llh_vec[it]);
-    
+
     Eigen::Vector3d eigen_point;
-    for (size_t coord = 0; coord < 3; coord++) 
+    for (size_t coord = 0; coord < 3; coord++)
       eigen_point[coord] = point[coord];
 
     point_vec.push_back(eigen_point);
@@ -107,7 +141,7 @@ void find_projection(// Inputs
 
 // This is not used for now, it could be used to make the logic
 // of processing mask boundary points multi-threaded.
-class MaskBoundaryTask : public vw::Task, private boost::noncopyable {
+class MaskBoundaryTask: public vw::Task, private boost::noncopyable {
   vw::BBox2i m_bbox; // Region of image we're working in
 
   ImageViewRef<float>                   m_mask;
@@ -116,13 +150,13 @@ class MaskBoundaryTask : public vw::Task, private boost::noncopyable {
   vw::cartography::GeoReference         m_shape_georef;
   vw::cartography::GeoReference         m_dem_georef;
   ImageViewRef<PixelMask<float>>        m_masked_dem;
-  
+
   // Note how all of these are aliases
   Mutex                        & m_mutex;
   std::vector<Eigen::Vector3d> & m_point_vec;
   std::vector<vw::Vector3>     & m_llh_vec;
   std::vector<vw::Vector2>     & m_used_vertices;
-  
+
 public:
   MaskBoundaryTask(vw::BBox2i                            bbox,
                    ImageViewRef<float>                   mask,
@@ -140,12 +174,12 @@ public:
     m_dem_georef(dem_georef), m_masked_dem(masked_dem),
     m_mutex(mutex), m_point_vec(point_vec),
     m_llh_vec(llh_vec), m_used_vertices(used_vertices) {}
-  
+
   void operator()() {
 
     // Grow the box by 1 pixel as we need to look at the immediate neighbors
     BBox2i extra_box = m_bbox;
-    extra_box.expand(1); 
+    extra_box.expand(1);
     extra_box.crop(bounding_box(m_mask));
 
     // Make a local copy of the tile
@@ -155,29 +189,29 @@ public:
       for (int row = 0; row < mask_tile.rows(); row++) {
 
         // Look at pixels above threshold which have neighbors <= threshold
-        if (mask_tile(col, row) <= m_mask_nodata_val) 
+        if (mask_tile(col, row) <= m_mask_nodata_val)
           continue;
 
         // The four neighbors
         int col_vals[4] = {-1, 0, 0, 1};
         int row_vals[4] = {0, -1, 1, 0};
-          
+
         bool border_pix = false;
         for (int it = 0; it < 4; it++) {
-            
+
           int icol = col + col_vals[it];
           int irow = row + row_vals[it];
 
-          if (icol < 0 || irow < 0 || icol >= mask_tile.cols() || irow >= mask_tile.rows()) 
+          if (icol < 0 || irow < 0 || icol >= mask_tile.cols() || irow >= mask_tile.rows())
             continue;
-            
+
           if (mask_tile(icol, irow) <= m_mask_nodata_val) {
             border_pix = true;
             break;
           }
         }
-          
-        if (!border_pix) 
+
+        if (!border_pix)
           continue;
 
         // Create the pixel in the full image coordinates
@@ -187,7 +221,7 @@ public:
         // bigger box to be able to examine neighbors).
         if (!m_bbox.contains(pix))
           continue;
-        
+
         // The ray going to the ground
         // Here we assume that the camera model is thread-safe, which is
         // true for all cameras except ISIS, and this code will be used
@@ -206,16 +240,16 @@ public:
         Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
           (cam_ctr, cam_dir, m_masked_dem,
            m_dem_georef, treat_nodata_as_zero,
-           has_intersection, height_error_tol, max_abs_tol, max_rel_tol, 
+           has_intersection, height_error_tol, max_abs_tol, max_rel_tol,
            num_max_iter, xyz_guess);
-          
-        if (!has_intersection) 
+
+        if (!has_intersection)
           continue;
 
         Vector3 llh = m_dem_georef.datum().cartesian_to_geodetic(xyz);
 
         Eigen::Vector3d eigen_xyz;
-        for (size_t coord = 0; coord < 3; coord++) 
+        for (size_t coord = 0; coord < 3; coord++)
           eigen_xyz[coord] = xyz[coord];
 
         // TODO(oalexan1): This is fragile due to the 360 degree
@@ -230,11 +264,11 @@ public:
           m_llh_vec.push_back(llh);
         }
       }
-      
+
     }
-    
+
   }
-  
+
 };
 
 // Find the mask boundary (points where the points in the mask have
@@ -254,7 +288,7 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   // num_samples must be positive
   if (num_samples <= 0)
     vw_throw(ArgumentErr() << "The value of --num-samples must be positive.\n");
-  
+
   // Ensure that the outputs are initialized
   point_vec.clear();
   llh_vec.clear();
@@ -266,11 +300,13 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   // Likely it is because the DEM is shared. Need extra heuristics to cut
   // that one as appropriate for each task.
   
+  // TODO(oalexan1): Must review now that the lock issue got fixed
+
   // Subdivide the box for parallel processing
   int block_size = vw::vw_settings().default_tile_size();
   FifoWorkQueue queue(vw_settings().default_num_threads());
   std::vector<BBox2i> bboxes = subdivide_bbox(mask, block_size, block_size);
-  
+
   for (size_t it = 0; it < bboxes.size(); it++) {
     std::cout << "Box is " << bboxes[it] << std::endl;
   }
@@ -283,9 +319,9 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
                                 point_vec, llh_vec, used_vertices));
     queue.add_task(task);
   }
-  
+
   queue.join_all();
-  
+
 #else
 
   // Let the mask boundary be the mask pixels whose value
@@ -301,29 +337,29 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
     for (int row = 0; row < mask.rows(); row++) {
 
       // Look at pixels above threshold which have neighbors <= threshold
-      if (mask(col, row) <= mask_nodata_val) 
+      if (mask(col, row) <= mask_nodata_val)
         continue;
 
       // The four neighbors
       int col_vals[4] = {-1, 0, 0, 1};
       int row_vals[4] = {0, -1, 1, 0};
-          
+
       bool border_pix = false;
       for (int it = 0; it < 4; it++) {
-            
+
         int icol = col + col_vals[it];
         int irow = row + row_vals[it];
 
-        if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows()) 
+        if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows())
           continue;
-            
+
         if (mask(icol, irow) <= mask_nodata_val) {
           border_pix = true;
           break;
         }
       }
-          
-      if (!border_pix) 
+
+      if (!border_pix)
         continue;
 
       // The ray going to the ground
@@ -342,22 +378,22 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
       Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
         (cam_ctr, cam_dir, masked_dem,
          dem_georef, treat_nodata_as_zero,
-         has_intersection, height_error_tol, max_abs_tol, max_rel_tol, 
+         has_intersection, height_error_tol, max_abs_tol, max_rel_tol,
          num_max_iter, xyz_guess);
-          
-      if (!has_intersection) 
+
+      if (!has_intersection)
         continue;
 
       Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
 
       Eigen::Vector3d eigen_xyz;
-      for (size_t coord = 0; coord < 3; coord++) 
+      for (size_t coord = 0; coord < 3; coord++)
         eigen_xyz[coord] = xyz[coord];
 
       // TODO(oalexan1): This is fragile due to the 360 degree
       // uncertainty in latitude
       Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
-          
+
       point_vec.push_back(eigen_xyz);
       used_vertices.push_back(proj_pt);
       llh_vec.push_back(llh);
@@ -367,9 +403,9 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   }
 
   tpc.report_finished();
-  
+
 #endif
-  
+
   int num_pts = point_vec.size();
   if (num_pts > num_samples) {
     vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
@@ -389,7 +425,7 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
       used_vertices.push_back(big_used_vertices[random_index]);
     }
   }
-  
+
   return;
 }
 
@@ -406,60 +442,39 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
                                   std::vector<Eigen::Vector3d> & point_vec,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & used_vertices) {
-  
+
   // Ensure that the outputs are initialized
   point_vec.clear();
   llh_vec.clear();
   used_vertices.clear();
 
   int total_num_pts = 0;
-  
-  for (size_t p = 0; p < polyVec.size(); p++){
+
+  for (size_t p = 0; p < polyVec.size(); p++) {
     vw::geometry::dPoly const& poly = polyVec[p];
-      
+
     const double * xv       = poly.get_xv();
     const double * yv       = poly.get_yv();
     const int    * numVerts = poly.get_numVerts();
     int numPolys            = poly.get_numPolys();
 
     int start = 0;
-    for (int pIter = 0; pIter < numPolys; pIter++){
-        
+    for (int pIter = 0; pIter < numPolys; pIter++) {
+
       if (pIter > 0) start += numVerts[pIter - 1];
 
       int numV = numVerts[pIter];
       for (int vIter = 0; vIter < numV; vIter++) {
 
         total_num_pts++;
-        
+
         Vector2 proj_pt(xv[start + vIter], yv[start + vIter]);
 
         // Convert from projected coordinates to lonlat
         Vector2 lonlat = shape_georef.point_to_lonlat(proj_pt);
-        
-        // Convert to DEM pixel
-        Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
-        if (!bounding_box(interp_dem).contains(pix))
-          continue;
 
-        PixelMask<float> h = interp_dem(pix.x(), pix.y());
-
-        if (!is_valid(h)) 
-          continue;
-
-        Vector3 llh;
-        llh[0] = lonlat[0];
-        llh[1] = lonlat[1];
-        llh[2] = h.child();
-
-        Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
-        Eigen::Vector3d eigen_xyz;
-        for (size_t coord = 0; coord < 3; coord++) 
-          eigen_xyz[coord] = xyz[coord];
-
-        point_vec.push_back(eigen_xyz);
-        used_vertices.push_back(proj_pt);
-        llh_vec.push_back(llh);
+        addPoint(dem_georef, interp_dem, lonlat, proj_pt,
+                 point_vec, llh_vec, used_vertices);
       }
     }
   }
@@ -484,7 +499,7 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
   std::string csv_srs = ""; // not needed
   try {
     csv_conv.parse_csv_format(csv_format_str, csv_srs);
-  }catch (...) {
+  } catch (...) {
     // Give a more specific error message
     vw_throw(ArgumentErr() << "Could not parse --csv-format. Was given: "
              << csv_format_str << ".\n");
@@ -492,7 +507,7 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
   std::list<asp::CsvConv::CsvRecord> pos_records;
   typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   csv_conv.read_csv_file(water_height_measurements, pos_records);
-  
+
   // Create llh and vertices
   for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
     Vector3 llh = csv_conv.csv_to_geodetic(*iter, shape_georef);
@@ -534,36 +549,15 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
   std::list<asp::CsvConv::CsvRecord> pos_records;
   typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   csv_conv.read_csv_file(lon_lat_measurements, pos_records);
-  
+
   // Create llh and vertices
   int total_num_pts = 0;
   for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
     total_num_pts++;
     Vector2 lonlat = csv_conv.csv_to_lonlat(*iter, shape_georef);
-
-    // Convert to DEM pixel
-    Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
-    if (!bounding_box(interp_dem).contains(pix))
-      continue;
-
-    PixelMask<float> h = interp_dem(pix.x(), pix.y());
-
-    if (!is_valid(h)) 
-      continue;
-
-    Vector3 llh;
-    llh[0] = lonlat[0];
-    llh[1] = lonlat[1];
-    llh[2] = h.child();
-
-    Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
-    Eigen::Vector3d eigen_xyz;
-    for (size_t coord = 0; coord < 3; coord++) 
-      eigen_xyz[coord] = xyz[coord];
-
-    point_vec.push_back(eigen_xyz);
-    used_vertices.push_back(shape_georef.lonlat_to_point(lonlat));
-    llh_vec.push_back(llh);
+    Vector2 proj_pt = shape_georef.lonlat_to_point(lonlat);
+    addPoint(dem_georef, interp_dem, lonlat, proj_pt,
+             point_vec, llh_vec, used_vertices);
   }
 
   vw_out() << "Read " << total_num_pts << " vertices from CSV, with " << llh_vec.size()
@@ -574,7 +568,7 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
 
 void sample_mask_boundary(std::vector<Eigen::Vector3d> const& point_vec,
                           std::string const& mask_boundary_shapefile) {
-  
+
   vw::cartography::GeoReference llh_georef; // create a new explicit longlat WGS84 georef
   llh_georef.set_geographic();
   vw::cartography::Datum datum("WGS_1984");
@@ -599,20 +593,20 @@ void sample_mask_boundary(std::vector<Eigen::Vector3d> const& point_vec,
 // Best fit plane without outlier removal
 std::pair<Eigen::Vector3d, Eigen::Vector3d>
 best_plane_from_points(const std::vector<Eigen::Vector3d> & c) {
-  
+
   // Copy coordinates to a matrix in Eigen format
   size_t num_points = c.size();
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic > coord(3, num_points);
   for (size_t i = 0; i < num_points; i++)
     coord.col(i) = c[i];
-  
+
   // calculate centroid
   Eigen::Vector3d centroid(coord.row(0).mean(), coord.row(1).mean(), coord.row(2).mean());
-  
+
   // subtract centroid
-  for (size_t i = 0; i < 3; i++) 
+  for (size_t i = 0; i < 3; i++)
     coord.row(i).array() -= centroid(i);
-  
+
   // We only need the left-singular matrix here
   // http://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
   auto svd = coord.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
@@ -628,15 +622,15 @@ struct BestFitPlaneFunctor {
 
   BestFitPlaneFunctor(bool use_proj_water_surface):
     m_use_proj_water_surface(use_proj_water_surface) {}
-  
+
   typedef vw::Matrix<double, 1, 4> result_type;
 
   bool m_use_proj_water_surface;
-  
+
   /// A best fit plane requires pairs of data points to make a fit.
   template <class ContainerT>
   size_t min_elements_needed_for_fit(ContainerT const& /*example*/) const { return 3; }
-  
+
   /// This function can match points in any container that supports
   /// the size() and operator[] methods.  The container is usually a
   /// vw::Vector<>, but you could substitute other classes here as
@@ -645,43 +639,43 @@ struct BestFitPlaneFunctor {
   vw::Matrix<double> operator() (std::vector<ContainerT> const& p1,
                                  std::vector<ContainerT> const& p2,
                                  vw::Matrix<double> const& /*seed_input*/
-                                 = vw::Matrix<double>() ) const {
-    
+                                 = vw::Matrix<double>()) const {
+
     // check consistency
-    VW_ASSERT( p1.size() == p2.size(),
+    VW_ASSERT(p1.size() == p2.size(),
                vw::ArgumentErr() << "Cannot compute best fit plane. "
-               << "p1 and p2 are not the same size." );
-    VW_ASSERT( !p1.empty() && p1.size() >= min_elements_needed_for_fit(p1[0]),
+               << "p1 and p2 are not the same size.");
+    VW_ASSERT(!p1.empty() && p1.size() >= min_elements_needed_for_fit(p1[0]),
                vw::ArgumentErr() << "Cannot compute best fit plane. "
                << "Insufficient data.\n");
-    
+
     std::pair<Eigen::Vector3d, Eigen::Vector3d> plane = best_plane_from_points(p1);
-    
+
     Eigen::Vector3d & centroid = plane.first;
     Eigen::Vector3d & normal = plane.second;
-    
+
     Matrix<double> result(1, 4);
     for (int col = 0; col < 3; col++)
       result(0, col) = normal[col];
-    
+
     result(0, 3) = -normal.dot(centroid);
 
     if (!m_use_proj_water_surface) {
       // Make the normal always point "up", away from the Earth origin,
       // which means that the free term must be negative.
       if (result(0, 3) > 0) {
-        for (int col = 0; col < 4; col++) 
+        for (int col = 0; col < 4; col++)
           result(0, col) *= -1.0;
       }
-    }else {
+    } else {
       // Make the z coefficient positive, which will make the normal
       // point "up" in the projected coordinate system.
       if (result(0, 2) < 0) {
-        for (int col = 0; col < 4; col++) 
+        for (int col = 0; col < 4; col++)
           result(0, col) *= -1.0;
       }
     }
-    
+
     return result;
   }
 };
@@ -698,7 +692,7 @@ double dist_to_plane(vw::Matrix<double, 1, 4> const& plane, Vec3 const& point) {
       ans += plane(0, col) * point[col];
   }
   ans += plane(0, 3);
-  
+
   return std::abs(ans);
 }
 
@@ -719,7 +713,7 @@ void calc_plane_properties(bool use_proj_water_surface,
   double max_error = - 1.0, max_inlier_error = -1.0;
   for (size_t it = 0; it < point_vec.size(); it++)
     max_error = std::max(max_error, dist_to_plane(plane, point_vec[it]));
-  
+
   // Do estimates for the mean height and angle of the plane
   Vector3 mean_point(0, 0, 0);
   double mean_height = 0.0;
@@ -728,7 +722,7 @@ void calc_plane_properties(bool use_proj_water_surface,
     Eigen::Vector3d p = point_vec[inlier_indices[it]];
     Vector3 point(p[0], p[1], p[2]);
     max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, point));
-    
+
     if (!use_proj_water_surface) {
       // the point is xyz in ecef
       Vector3 llh = dem_georef.datum().cartesian_to_geodetic(point);
@@ -737,22 +731,22 @@ void calc_plane_properties(bool use_proj_water_surface,
       // the point is in the stereographic projection
       mean_height += point[2];
     }
-    
+
     num++;
-    
-    if (!use_proj_water_surface) 
+
+    if (!use_proj_water_surface)
       mean_point += point;
   }
-  
+
   mean_height /= num;
-  
-  if (!use_proj_water_surface) 
+
+  if (!use_proj_water_surface)
     mean_point /= num;
-  
+
   vw_out() << "Max distance to the plane (meters): " << max_error << std::endl;
   vw_out() << "Max inlier distance to the plane (meters): " << max_inlier_error << std::endl;
   vw_out() << "Mean plane height above datum (meters): " << mean_height << std::endl;
-  
+
   if (!use_proj_water_surface) {
     // This does not make sense for a curved surface
     Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
@@ -804,15 +798,15 @@ class DemMinusPlaneView: public ImageViewBase<DemMinusPlaneView>{
 public:
   DemMinusPlaneView(ImageViewRef<float> const& dem,
                     vw::cartography::GeoReference const& dem_georef,
-                    vw::Matrix<double> const& plane, 
+                    vw::Matrix<double> const& plane,
                     double dem_nodata_val,
                     bool use_proj_water_surface,
-                    vw::cartography::GeoReference const& stereographic_georef): 
-    m_dem(dem), m_dem_georef(dem_georef), m_plane(plane), 
+                    vw::cartography::GeoReference const& stereographic_georef):
+    m_dem(dem), m_dem_georef(dem_georef), m_plane(plane),
     m_dem_nodata_val(dem_nodata_val),
     m_use_proj_water_surface(use_proj_water_surface),
-    m_stereographic_georef(stereographic_georef){}
-  
+    m_stereographic_georef(stereographic_georef) {}
+
   typedef PixelT pixel_type;
   typedef PixelT result_type;
   typedef ProceduralPixelAccessor<DemMinusPlaneView> pixel_accessor;
@@ -821,25 +815,25 @@ public:
   inline int32 rows() const { return m_dem.rows(); }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+  inline pixel_type operator()(double/*i*/, double/*j*/, int32/*p*/ = 0) const {
     vw_throw(NoImplErr() << "DemMinusPlaneView::operator()(...) is not implemented");
     return pixel_type();
   }
 
   typedef CropView< ImageView<pixel_type> > prerasterize_type;
-  
+
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
     // Bring this portion in memory
     ImageView<result_type> cropped_dem = crop(m_dem, bbox);
-    
+
     ImageView<result_type> tile(bbox.width(), bbox.height());
-    
-    for (int col = 0; col < bbox.width(); col++){
-      for (int row = 0; row < bbox.height(); row++){
-        
+
+    for (int col = 0; col < bbox.width(); col++) {
+      for (int row = 0; row < bbox.height(); row++) {
+
         // Handle the case when the DEM is not valid
         if (cropped_dem(col, row) == m_dem_nodata_val) {
           tile(col, row) = m_dem_nodata_val;
@@ -882,16 +876,16 @@ public:
         // Go back to llh
         if (m_use_proj_water_surface) {
           llh = m_stereographic_georef.point_to_geodetic(P);
-        } else{ 
+        } else {
           llh = m_dem_georef.datum().cartesian_to_geodetic(P);
         }
-        
+
         tile(col, row) = cropped_dem(col, row) - llh[2];
       }
     }
-    
+
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
   }
 
   template <class DestT>
@@ -902,7 +896,7 @@ public:
 
 DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
                                   vw::cartography::GeoReference const& dem_georef,
-                                  vw::Matrix<double> plane, 
+                                  vw::Matrix<double> plane,
                                   double dem_nodata_val,
                                   bool use_proj_water_surface,
                                   vw::cartography::GeoReference const& stereographic_georef) {
@@ -912,10 +906,10 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
 
 struct Options : vw::GdalWriteOptions {
   std::string shapefile, dem, mask, camera, stereo_session, bathy_plane,
-    water_height_measurements, lon_lat_measurements, csv_format_str, 
-    output_inlier_shapefile, bundle_adjust_prefix, output_outlier_shapefile, 
+    water_height_measurements, lon_lat_measurements, csv_format_str,
+    output_inlier_shapefile, bundle_adjust_prefix, output_outlier_shapefile,
     mask_boundary_shapefile, dem_minus_plane;
-  
+
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
   bool save_shapefiles_as_polygons, use_ecef_water_surface;
@@ -929,7 +923,7 @@ void formSinglePoly(vw::geometry::dPoly const& inPoly,
   int num_pts = inPoly.get_totalNumVerts();
   const double * xv = inPoly.get_xv();
   const double * yv = inPoly.get_yv();
-  
+
   bool isPolyClosed = true;
   std::string layer = "";
   std::string poly_color = "green";
@@ -937,7 +931,7 @@ void formSinglePoly(vw::geometry::dPoly const& inPoly,
 }
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
-  
+
   po::options_description general_options("General Options");
   general_options.add_options()
     ("shapefile",   po::value(&opt.shapefile),
@@ -967,7 +961,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "best-fit plane to determine if it will be marked as outlier and not "
      "included in the calculation of that plane. Its value should be roughly the expected "
      "vertical uncertainty of the DEM.")
-    ("num-ransac-iterations", 
+    ("num-ransac-iterations",
      po::value(&opt.num_ransac_iterations)->default_value(1000),
      "Number of RANSAC iterations to use to find the best-fitting plane.")
     ("output-inlier-shapefile", po::value(&opt.output_inlier_shapefile)->default_value(""),
@@ -979,19 +973,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "sample of points (their number given by ``--num-samples``) at the "
      "mask boundary (water-land interface) to this shapefile and exit. "
      "The heights will be looked up in the DEM with bilinear interpolation.")
-    ("num-samples", 
+    ("num-samples",
      po::value(&opt.num_samples)->default_value(10000),
      "Number of samples to pick at the water-land interface if using a mask.")
-    ("save-shapefiles-as-polygons", 
+    ("save-shapefiles-as-polygons",
      po::bool_switch(&opt.save_shapefiles_as_polygons)->default_value(false),
      "Save the inlier and outlier shapefiles as polygons, rather than "
      "discrete vertices. May be more convenient for processing in a GIS tool.")
-    ("water-height-measurements", 
+    ("water-height-measurements",
      po::value(&opt.water_height_measurements)->default_value(""),
      "Use this CSV file having longitude, latitude, and height measurements "
      "for the water surface, in degrees and meters, respectively, relative to the WGS84 datum. "
      "The option --csv-format must be used.")
-    ("lon-lat-measurements", 
+    ("lon-lat-measurements",
      po::value(&opt.lon_lat_measurements)->default_value(""),
      "Use this CSV file having longitude and latitude measurements for the water surface. "
      "The heights will be looked up in the DEM with bilinear interpolation. The option "
@@ -1009,7 +1003,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::bool_switch(&opt.use_ecef_water_surface)->default_value(false),
      "Compute the best fit plane in ECEF coordinates rather than in a local stereographic "
      "projection. Hence don't model the Earth curvature. Not recommended.");
-  
+
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
@@ -1030,16 +1024,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // Need this to be able to load adjusted camera models. This must be set
   // before loading the cameras. 
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
-  
+
   bool use_shapefile = !opt.shapefile.empty();
   bool use_mask      = !opt.mask.empty();
   bool use_meas      = !opt.water_height_measurements.empty();
   bool use_lon_lat   = !opt.lon_lat_measurements.empty();
 
-  if (use_mask && opt.camera.empty()) 
+  if (use_mask && opt.camera.empty())
     vw_throw(ArgumentErr() << "If using a mask, must specify a camera.\n"
              << usage << general_options);
-    
+
   if (use_shapefile + use_mask + use_meas + use_lon_lat != 1)
     vw_throw(ArgumentErr() << "Must use either a mask and camera, a shapefile, "
               << "water height measurements, or lon-lat measurements, "
@@ -1047,28 +1041,28 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
               << usage << general_options);
 
   if (!use_meas && opt.dem == "")
-    vw_throw(ArgumentErr() << "Missing the input dem.\n" << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing the input dem.\n" << usage << general_options);
 
   if (opt.bathy_plane.empty() && opt.mask_boundary_shapefile.empty())
     vw_throw(ArgumentErr() << "Must set either --bathy-plane or --mask-boundary-shapefile.\n"
              << usage << general_options);
-  
-  if ((use_meas || use_lon_lat) && opt.csv_format_str == "") 
+
+  if ((use_meas || use_lon_lat) && opt.csv_format_str == "")
     vw_throw(ArgumentErr() << "Must set the option --csv-format.\n"
-             << usage << general_options );
-  
-  if (opt.use_ecef_water_surface && (use_meas || use_lon_lat)) 
+             << usage << general_options);
+
+  if (opt.use_ecef_water_surface && (use_meas || use_lon_lat))
     vw_throw(ArgumentErr() << "Cannot use --use-ecef-water-surface with "
              << "--water-height-measurements or --lon-lat-measurements.\n"
              << usage << general_options);
-    
-  if (!opt.mask_boundary_shapefile.empty() && 
+
+  if (!opt.mask_boundary_shapefile.empty() &&
       (opt.mask.empty() || opt.camera.empty() || opt.dem.empty()))
     vw_throw(ArgumentErr() << "If using --mask-boundary-shapefile, then "
              << "must specify a mask, a camera, and a DEM.\n"
              << usage << general_options);
 
-  if (use_mask && opt.num_samples <= 0) 
+  if (use_mask && opt.num_samples <= 0)
     vw_throw(ArgumentErr() << "A positive number of samples must be specified.\n"
              << usage << general_options);
 
@@ -1084,13 +1078,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   size_t pos = out_prefix.rfind(".");
   if (pos != std::string::npos)
     out_prefix = out_prefix.substr(0, pos);
-    
+
   // Create the output directory and turn on logging to file
   vw::create_out_dir(out_prefix);
   asp::log_to_file(argc, argv, "", out_prefix);
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
@@ -1105,7 +1099,7 @@ int main( int argc, char *argv[] ) {
     boost::shared_ptr<CameraModel> camera_model;
     if (use_mask) {
       std::string out_prefix;
-      asp::SessionPtr 
+      asp::SessionPtr
         session(asp::StereoSessionFactory::create(opt.stereo_session, // may change
                                                   opt,
                                                   opt.mask, opt.mask,
@@ -1133,21 +1127,21 @@ int main( int argc, char *argv[] ) {
       // TODO(oalexan1): Think more about the interpolation method
       vw_out() << "Reading the DEM: " << opt.dem << std::endl;
       if (!read_georeference(dem_georef, opt.dem))
-        vw_throw(ArgumentErr() << "The input DEM has no georeference.\n" );
-      
+        vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
+
       // We assume the WGS_1984 datum
       if (dem_georef.datum().name() != "WGS_1984")
         vw_throw(ArgumentErr() << "Only an input DEM with the "
                   << "WGS_1984 datum is supported.\n"
                   << "Got: " << dem_georef.datum().name() << ".\n");
-      
+
       // Note we use a float nodata
       if (!vw::read_nodata_val(opt.dem, dem_nodata_val))
         vw_out() << "Warning: Could not read the DEM nodata value. "
                  << "Using: " << dem_nodata_val << ".\n";
       else
         vw_out() << "Read DEM nodata value: " << dem_nodata_val << ".\n";
-      
+
       // Read the DEM
       dem = DiskImageView<float>(opt.dem);
       masked_dem = create_mask(dem, dem_nodata_val);
@@ -1156,7 +1150,7 @@ int main( int argc, char *argv[] ) {
       ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix);
       interp_dem = interpolate(masked_dem, BilinearInterpolation(), ext_nodata);
     }
-    
+
     bool use_proj_water_surface = !opt.use_ecef_water_surface;
     std::vector<Eigen::Vector3d> point_vec;
     std::vector<vw::Vector3> llh_vec;
@@ -1175,15 +1169,15 @@ int main( int argc, char *argv[] ) {
         vw_out() << "Read mask nodata value: " << mask_nodata_val << ".\n";
       mask_nodata_val = std::max(0.0f, mask_nodata_val);
       vw_out() << "Pixels with values no more than " << mask_nodata_val
-               << " are classified as water.\n"; 
+               << " are classified as water.\n";
       DiskImageView<float> mask(opt.mask);
-      
+
       shape_georef = dem_georef;
-      find_points_at_mask_boundary(mask, mask_nodata_val,  
-                                   camera_model, shape_georef,  
+      find_points_at_mask_boundary(mask, mask_nodata_val,
+                                   camera_model, shape_georef,
                                    dem_georef, masked_dem,
                                    opt.num_samples,
-                                   point_vec, llh_vec,  
+                                   point_vec, llh_vec,
                                    used_vertices);
 
       if (!opt.mask_boundary_shapefile.empty()) {
@@ -1191,40 +1185,40 @@ int main( int argc, char *argv[] ) {
         sample_mask_boundary(point_vec, opt.mask_boundary_shapefile);
         return 0;
       }
-      
-    } else if (use_shapefile) { 
-    
+
+    } else if (use_shapefile) {
+
       // Read the shapefile, overwriting shape_georef
       vw_out() << "Reading the shapefile: " << opt.shapefile << std::endl;
       std::vector<vw::geometry::dPoly> polyVec;
       read_shapefile(opt.shapefile, poly_color, has_shape_georef, shape_georef, polyVec);
-      if (!has_shape_georef) 
-        vw_throw(ArgumentErr() << "The input shapefile has no georeference.\n" );
-      
+      if (!has_shape_georef)
+        vw_throw(ArgumentErr() << "The input shapefile has no georeference.\n");
+
       // Find the ECEF coordinates of the shape corners
       find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, point_vec,
                                    llh_vec, used_vertices);
     } else if (use_meas) {
-      find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str, 
-                               shape_georef,  
+      find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str,
+                               shape_georef,
                                // Outputs
                                llh_vec, used_vertices);
     } else if (use_lon_lat) {
       shape_georef = dem_georef;
       has_shape_georef = true;
-      find_points_from_lon_lat_csv(opt.lon_lat_measurements, opt.csv_format_str, 
-                                   shape_georef, dem_georef, interp_dem,  
+      find_points_from_lon_lat_csv(opt.lon_lat_measurements, opt.csv_format_str,
+                                   shape_georef, dem_georef, interp_dem,
                                    // Outputs
                                    point_vec, llh_vec, used_vertices);
     }
-    
+
     // See if to convert to local stereographic projection
     if (use_proj_water_surface)
       find_projection(// Inputs
                       dem_georef, llh_vec,
                       // Outputs
-                      proj_lat, proj_lon,  
-                      stereographic_georef,  
+                      proj_lat, proj_lon,
+                      stereographic_georef,
                       point_vec);
 
     // Compute the water surface using RANSAC
@@ -1241,30 +1235,30 @@ int main( int argc, char *argv[] ) {
       // of scope prematurely, which will result in incorrect behavior.
       BestFitPlaneFunctor func(use_proj_water_surface);
       BestFitPlaneErrorMetric error_metric;
-      math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric> 
+      math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric>
         ransac(func, error_metric, opt.num_ransac_iterations, inlier_threshold,
                min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
       plane = ransac(point_vec, dummy_vec);
       inlier_indices = ransac.inlier_indices(plane, point_vec, dummy_vec);
-    } catch (const vw::math::RANSACErr& e ) {
+    } catch (const vw::math::RANSACErr& e) {
       vw_out() << "RANSAC failed: " << e.what() << "\n";
     }
-    vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size() 
+    vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size()
              << " inliers.\n";
-    
-    calc_plane_properties(use_proj_water_surface, point_vec, inlier_indices,  
+
+    calc_plane_properties(use_proj_water_surface, point_vec, inlier_indices,
                            dem_georef, plane);
-    save_plane(use_proj_water_surface, proj_lat, proj_lon,  
+    save_plane(use_proj_water_surface, proj_lat, proj_lon,
                plane, opt.bathy_plane);
 
     // Save the shape having the inliers.
     if (opt.output_inlier_shapefile != "") {
       vw::geometry::dPoly inlierPoly;
-      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++) 
+      for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++)
         addPointToPoly(inlierPoly, used_vertices[inlier_indices[inlier_it]]);
-      
+
       if (opt.save_shapefiles_as_polygons) {
-        vw::geometry::dPoly localPoly; 
+        vw::geometry::dPoly localPoly;
         formSinglePoly(inlierPoly, localPoly);
         inlierPoly = localPoly;
       }
@@ -1283,10 +1277,10 @@ int main( int argc, char *argv[] ) {
       std::set<int> inlier_set;
       for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++)
         inlier_set.insert(inlier_indices[inlier_it]);
-      
+
       vw::geometry::dPoly outlierPoly;
       for (size_t it = 0; it < used_vertices.size(); it++) {
-        
+
         if (inlier_set.find(it) != inlier_set.end())
           continue; // an inlier, skip it
 
@@ -1294,11 +1288,11 @@ int main( int argc, char *argv[] ) {
       }
 
       if (opt.save_shapefiles_as_polygons) {
-        vw::geometry::dPoly localPoly; 
+        vw::geometry::dPoly localPoly;
         formSinglePoly(outlierPoly, localPoly);
         outlierPoly = localPoly;
       }
-      
+
       std::vector<vw::geometry::dPoly> outlierPolyVec;
       outlierPolyVec.push_back(outlierPoly);
       vw_out() << "Writing outlier shapefile: " << opt.output_outlier_shapefile << "\n";
@@ -1318,6 +1312,6 @@ int main( int argc, char *argv[] ) {
     }
 
   } ASP_STANDARD_CATCHES;
-  
+
   return 0;
 }
