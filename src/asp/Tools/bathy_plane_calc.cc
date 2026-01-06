@@ -24,14 +24,9 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/BathyPlaneCalc.h>
 
-#include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Cartography/shapeFile.h>
-#include <vw/Math/RANSAC.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Cartography/CameraBBox.h>
-#include <vw/Core/ThreadPool.h>
-#include <vw/Math/RandomSet.h>
 #include <vw/FileIO/FileUtils.h>
 
 #include <Eigen/Dense>
@@ -42,11 +37,7 @@
 #include <iostream>
 #include <vector>
 
-using namespace vw;
-using namespace vw::cartography;
-using namespace vw::camera;
 namespace po = boost::program_options;
-namespace fs = boost::filesystem;
 
 struct Options: vw::GdalWriteOptions {
   std::string shapefile, dem, mask, ortho_mask, camera, stereo_session, bathy_plane,
@@ -166,43 +157,43 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   bool use_lon_lat    = !opt.lon_lat_measurements.empty();
 
   if (use_mask && opt.camera.empty())
-    vw_throw(ArgumentErr() << "If using a mask, must specify a camera.\n"
+    vw::vw_throw(vw::ArgumentErr() << "If using a mask, must specify a camera.\n"
              << usage << general_options);
 
   if (use_shapefile + use_mask + use_ortho_mask + use_meas + use_lon_lat != 1)
-    vw_throw(ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr() 
               << "Must use either a mask and camera, an ortho-mask, a shapefile, "
               << "water height measurements, or lon-lat measurements, "
               << "and just one of these.\n");
 
   if (!use_meas && opt.dem == "")
-    vw_throw(ArgumentErr() << "Missing the input dem.\n" << usage << general_options);
+    vw::vw_throw(vw::ArgumentErr() << "Missing the input dem.\n" << usage << general_options);
 
   if (opt.bathy_plane.empty() && opt.mask_boundary_shapefile.empty())
-    vw_throw(ArgumentErr() << "Must set either --bathy-plane or --mask-boundary-shapefile.\n"
+    vw::vw_throw(vw::ArgumentErr() << "Must set either --bathy-plane or --mask-boundary-shapefile.\n"
              << usage << general_options);
 
   if ((use_meas || use_lon_lat) && opt.csv_format_str == "")
-    vw_throw(ArgumentErr() << "Must set the option --csv-format.\n"
+    vw::vw_throw(vw::ArgumentErr() << "Must set the option --csv-format.\n"
              << usage << general_options);
 
   if (opt.use_ecef_water_surface && (use_meas || use_lon_lat))
-    vw_throw(ArgumentErr() << "Cannot use --use-ecef-water-surface with "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot use --use-ecef-water-surface with "
              << "--water-height-measurements or --lon-lat-measurements.\n"
              << usage << general_options);
 
   if (!opt.mask_boundary_shapefile.empty() &&
       (opt.mask.empty() && opt.ortho_mask.empty()))
-    vw_throw(ArgumentErr() << "If using --mask-boundary-shapefile, then "
+    vw::vw_throw(vw::ArgumentErr() << "If using --mask-boundary-shapefile, then "
              << "must specify a mask (with a camera) or an ortho-mask.\n"
              << usage << general_options);
 
   if ((use_mask || use_ortho_mask) && opt.num_samples <= 0)
-    vw_throw(ArgumentErr() << "A positive number of samples must be specified.\n"
+    vw::vw_throw(vw::ArgumentErr() << "A positive number of samples must be specified.\n"
              << usage << general_options);
 
   if (!opt.dem_minus_plane.empty() && opt.dem.empty())
-    vw_throw(ArgumentErr() << "The option --dem must be set if using --dem-minus-plane.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The option --dem must be set if using --dem-minus-plane.\n"
              << usage << general_options);
 
   // Create the output prefix  
@@ -232,7 +223,7 @@ int main(int argc, char *argv[]) {
     bool use_meas       = !opt.water_height_measurements.empty();
     bool use_lon_lat    = !opt.lon_lat_measurements.empty();
 
-    boost::shared_ptr<CameraModel> camera_model;
+    boost::shared_ptr<vw::camera::CameraModel> camera_model;
     if (use_mask) {
       std::string out_prefix;
       asp::SessionPtr
@@ -254,38 +245,38 @@ int main(int argc, char *argv[]) {
     vw::cartography::GeoReference shape_georef = dem_georef;
 
     float dem_nodata_val = -std::numeric_limits<float>::max();
-    ImageViewRef<float> dem;
-    ImageViewRef<PixelMask<float>> masked_dem;
-    ImageViewRef<PixelMask<float>> interp_dem;
+    vw::ImageViewRef<float> dem;
+    vw::ImageViewRef<vw::PixelMask<float>> masked_dem;
+    vw::ImageViewRef<vw::PixelMask<float>> interp_dem;
 
     if (use_shapefile || use_mask || use_ortho_mask || use_lon_lat || 
         !opt.dem_minus_plane.empty()) {
       // Read the DEM and its associated data
       // TODO(oalexan1): Think more about the interpolation method
-      vw_out() << "Reading the DEM: " << opt.dem << "\n";
-      if (!read_georeference(dem_georef, opt.dem))
-        vw_throw(ArgumentErr() << "The input DEM has no georeference.\n");
+      vw::vw_out() << "Reading the DEM: " << opt.dem << "\n";
+      if (!vw::cartography::read_georeference(dem_georef, opt.dem))
+        vw::vw_throw(vw::ArgumentErr() << "The input DEM has no georeference.\n");
 
       // We assume the WGS_1984 datum
       if (dem_georef.datum().name() != "WGS_1984")
-        vw_throw(ArgumentErr() << "Only an input DEM with the "
+        vw::vw_throw(vw::ArgumentErr() << "Only an input DEM with the "
                   << "WGS_1984 datum is supported.\n"
                   << "Got: " << dem_georef.datum().name() << ".\n");
 
       // Note we use a float nodata
       if (!vw::read_nodata_val(opt.dem, dem_nodata_val))
-        vw_out() << "Warning: Could not read the DEM nodata value. "
+        vw::vw_out() << "Warning: Could not read the DEM nodata value. "
                  << "Using: " << dem_nodata_val << ".\n";
       else
-        vw_out() << "Read DEM nodata value: " << dem_nodata_val << ".\n";
+        vw::vw_out() << "Read DEM nodata value: " << dem_nodata_val << ".\n";
 
       // Read the DEM
-      dem = DiskImageView<float>(opt.dem);
-      masked_dem = create_mask(dem, dem_nodata_val);
-      PixelMask<float> nodata_pix(0);
+      dem = vw::DiskImageView<float>(opt.dem);
+      masked_dem = vw::create_mask(dem, dem_nodata_val);
+      vw::PixelMask<float> nodata_pix(0);
       nodata_pix.invalidate();
-      ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix);
-      interp_dem = interpolate(masked_dem, BilinearInterpolation(), ext_nodata);
+      vw::ValueEdgeExtension<vw::PixelMask<float>> ext_nodata(nodata_pix);
+      interp_dem = vw::interpolate(masked_dem, vw::BilinearInterpolation(), ext_nodata);
       
       shape_georef = dem_georef; // may get overwritten below
     }
@@ -302,16 +293,16 @@ int main(int argc, char *argv[]) {
       // Read the mask. The nodata value is the largest of what
       // is read from the mask file and the value 0, as pixels
       // over land are supposed to be positive and be valid data.
-      vw_out() << "Reading the mask: " << opt.mask << "\n";
+      vw::vw_out() << "Reading the mask: " << opt.mask << "\n";
       float mask_nodata_val = -std::numeric_limits<float>::max();
       if (vw::read_nodata_val(opt.mask, mask_nodata_val))
-        vw_out() << "Read mask nodata value: " << mask_nodata_val << ".\n";
+        vw::vw_out() << "Read mask nodata value: " << mask_nodata_val << ".\n";
       mask_nodata_val = std::max(0.0f, mask_nodata_val);
       if (std::isnan(mask_nodata_val))
         mask_nodata_val = 0.0f;
-      vw_out() << "Pixels with values no more than " << mask_nodata_val
+      vw::vw_out() << "Pixels with values no more than " << mask_nodata_val
                << " are classified as water.\n";
-      DiskImageView<float> mask(opt.mask);
+      vw::DiskImageView<float> mask(opt.mask);
       shape_georef = dem_georef;
       asp::sampleMaskBd(mask, mask_nodata_val,
                         camera_model, shape_georef,
@@ -327,9 +318,9 @@ int main(int argc, char *argv[]) {
 
     } else if (use_ortho_mask) {
       // Read the ortho mask
-      vw_out() << "Reading the ortho mask: " << opt.ortho_mask << "\n";
-      if (!read_georeference(shape_georef, opt.ortho_mask))
-        vw_throw(ArgumentErr() << "The input ortho-mask has no georeference.\n");
+      vw::vw_out() << "Reading the ortho mask: " << opt.ortho_mask << "\n";
+      if (!vw::cartography::read_georeference(shape_georef, opt.ortho_mask))
+        vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       
       asp::sampleOrthoMaskBd(opt.ortho_mask, shape_georef, dem_georef, interp_dem,
                              opt.num_samples, point_vec, llh_vec,
@@ -343,15 +334,16 @@ int main(int argc, char *argv[]) {
     } else if (use_shapefile) {
 
       // Read the shapefile, overwriting shape_georef
-      vw_out() << "Reading the shapefile: " << opt.shapefile << "\n";
+      vw::vw_out() << "Reading the shapefile: " << opt.shapefile << "\n";
       std::vector<vw::geometry::dPoly> polyVec;
-      read_shapefile(opt.shapefile, poly_color, has_shape_georef, shape_georef, polyVec);
+      vw::geometry::read_shapefile(opt.shapefile, poly_color, has_shape_georef, 
+                                   shape_georef, polyVec);
       if (!has_shape_georef)
-        vw_throw(ArgumentErr() << "The input shapefile has no georeference.\n");
+        vw::vw_throw(vw::ArgumentErr() << "The input shapefile has no georeference.\n");
 
       // Find the ECEF coordinates of the shape corners
-      asp::find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, point_vec,
-                                        llh_vec, used_vertices);
+      asp::find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, 
+                                        point_vec, llh_vec, used_vertices);
     } else if (use_meas) {
       asp::find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str,
                                      shape_georef,
@@ -400,9 +392,9 @@ int main(int argc, char *argv[]) {
 
       std::vector<vw::geometry::dPoly> inlierPolyVec;
       inlierPolyVec.push_back(inlierPoly);
-      vw_out() << "Writing inlier shapefile: " << opt.output_inlier_shapefile << "\n";
-      write_shapefile(opt.output_inlier_shapefile, has_shape_georef, shape_georef,
-                      inlierPolyVec);
+      vw::vw_out() << "Writing inlier shapefile: " << opt.output_inlier_shapefile << "\n";
+      vw::geometry::write_shapefile(opt.output_inlier_shapefile, has_shape_georef, 
+                                     shape_georef, inlierPolyVec);
     }
 
     // Save the shape having the outliers.
@@ -430,20 +422,21 @@ int main(int argc, char *argv[]) {
 
       std::vector<vw::geometry::dPoly> outlierPolyVec;
       outlierPolyVec.push_back(outlierPoly);
-      vw_out() << "Writing outlier shapefile: " << opt.output_outlier_shapefile << "\n";
-      write_shapefile(opt.output_outlier_shapefile, has_shape_georef, shape_georef,
-                      outlierPolyVec);
+      vw::vw_out() << "Writing outlier shapefile: " << opt.output_outlier_shapefile << "\n";
+      vw::geometry::write_shapefile(opt.output_outlier_shapefile, has_shape_georef, 
+                                     shape_georef, outlierPolyVec);
     }
 
     if (opt.dem_minus_plane != "") {
       bool has_nodata = true, has_georef = true;
-      vw_out() << "Writing: " << opt.dem_minus_plane << "\n";
-      TerminalProgressCallback tpc("asp", ": ");
+      vw::vw_out() << "Writing: " << opt.dem_minus_plane << "\n";
+      vw::TerminalProgressCallback tpc("asp", ": ");
       auto dem_minus_plane 
         = asp::demMinusPlane(dem, dem_georef, plane, dem_nodata_val, use_proj_water_surface,
                              stereographic_georef);
-      block_write_gdal_image(opt.dem_minus_plane, dem_minus_plane, has_georef, dem_georef, 
-                             has_nodata, dem_nodata_val, opt, tpc);
+      vw::cartography::block_write_gdal_image(opt.dem_minus_plane, dem_minus_plane, 
+                                              has_georef, dem_georef, 
+                                              has_nodata, dem_nodata_val, opt, tpc);
     }
 
   } ASP_STANDARD_CATCHES;

@@ -18,7 +18,6 @@
 #include <asp/Core/BathyPlaneCalc.h>
 #include <asp/Core/PointUtils.h>
 
-#include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Math/RANSAC.h>
@@ -35,10 +34,6 @@
 #include <iterator>
 #include <iostream>
 #include <vector>
-
-using namespace vw;
-using namespace vw::cartography;
-using namespace vw::camera;
 
 namespace asp {
 
@@ -58,7 +53,7 @@ void formSinglePoly(vw::geometry::dPoly const& inPoly,
 
 // Add a polygon made up of just one point to given set of polygons.
 // Later that set will be saved as a shapefile made up of points.
-void addPointToPoly(vw::geometry::dPoly & poly, Vector2 const& p) {
+void addPointToPoly(vw::geometry::dPoly & poly, vw::Vector2 const& p) {
   std::vector<double> vx, vy;
   vx.push_back(p.x());
   vy.push_back(p.y());
@@ -71,30 +66,30 @@ void addPointToPoly(vw::geometry::dPoly & poly, Vector2 const& p) {
 
 // Add a point to the point_vec, llh_vec, and used_vertices if it is valid
 void addPoint(vw::cartography::GeoReference const& dem_georef,
-              ImageViewRef<PixelMask<float>> const& interp_dem,
-              Vector2 const& lonlat,
-              Vector2 const& proj_pt,
+              vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
+              vw::Vector2 const& lonlat,
+              vw::Vector2 const& proj_pt,
               // Append
               std::vector<Eigen::Vector3d> & point_vec,
               std::vector<vw::Vector3> & llh_vec,
               std::vector<vw::Vector2> & used_vertices) {
 
   // Convert to DEM pixel
-  Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
-  if (!bounding_box(interp_dem).contains(pix))
+  vw::Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
+  if (!vw::bounding_box(interp_dem).contains(pix))
     return;
 
-  PixelMask<float> h = interp_dem(pix.x(), pix.y());
+  vw::PixelMask<float> h = interp_dem(pix.x(), pix.y());
 
   if (!is_valid(h))
     return;
 
-  Vector3 llh;
+  vw::Vector3 llh;
   llh[0] = lonlat[0];
   llh[1] = lonlat[1];
   llh[2] = h.child();
 
-  Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
+  vw::Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
   Eigen::Vector3d eigen_xyz;
   for (size_t coord = 0; coord < 3; coord++)
     eigen_xyz[coord] = xyz[coord];
@@ -123,7 +118,7 @@ void find_projection(// Inputs
   point_vec.clear();
 
   // Find the mean water height
-  Vector3 mean_llh;
+  vw::Vector3 mean_llh;
   for (size_t it = 0; it < llh_vec.size(); it++)
     mean_llh += llh_vec[it];
 
@@ -137,7 +132,7 @@ void find_projection(// Inputs
 
   // Convert the points to projected coordinates with this georeference
   for (size_t it = 0; it < llh_vec.size(); it++) {
-    Vector3 point = stereographic_georef.geodetic_to_point(llh_vec[it]);
+    vw::Vector3 point = stereographic_georef.geodetic_to_point(llh_vec[it]);
 
     Eigen::Vector3d eigen_point;
     for (size_t coord = 0; coord < 3; coord++)
@@ -152,28 +147,28 @@ void find_projection(// Inputs
 class MaskBoundaryTask: public vw::Task, private boost::noncopyable {
   vw::BBox2i m_bbox; // Region of image we're working in
 
-  ImageViewRef<float>                   m_mask;
+  vw::ImageViewRef<float>                   m_mask;
   float                                 m_mask_nodata_val;
-  boost::shared_ptr<CameraModel>        m_camera_model;
+  boost::shared_ptr<vw::camera::CameraModel>        m_camera_model;
   vw::cartography::GeoReference         m_shape_georef;
   vw::cartography::GeoReference         m_dem_georef;
-  ImageViewRef<PixelMask<float>>        m_masked_dem;
+  vw::ImageViewRef<vw::PixelMask<float>>        m_masked_dem;
 
   // Note how all of these are aliases
-  Mutex                        & m_mutex;
+  vw::Mutex                        & m_mutex;
   std::vector<Eigen::Vector3d> & m_point_vec;
   std::vector<vw::Vector3>     & m_llh_vec;
   std::vector<vw::Vector2>     & m_used_vertices;
 
 public:
   MaskBoundaryTask(vw::BBox2i                            bbox,
-                   ImageViewRef<float>                   mask,
+                   vw::ImageViewRef<float>                   mask,
                    float                                 mask_nodata_val,
-                   boost::shared_ptr<CameraModel>        camera_model,
+                   boost::shared_ptr<vw::camera::CameraModel>        camera_model,
                    vw::cartography::GeoReference const & shape_georef,
                    vw::cartography::GeoReference const & dem_georef,
-                   ImageViewRef<PixelMask<float>>        masked_dem,
-                   Mutex                               & mutex,
+                   vw::ImageViewRef<vw::PixelMask<float>>        masked_dem,
+                   vw::Mutex                               & mutex,
                    std::vector<Eigen::Vector3d>        & point_vec,
                    std::vector<vw::Vector3>            & llh_vec,
                    std::vector<vw::Vector2>            & used_vertices):
@@ -186,12 +181,12 @@ public:
   void operator()() {
 
     // Grow the box by 1 pixel as we need to look at the immediate neighbors
-    BBox2i extra_box = m_bbox;
+    vw::BBox2i extra_box = m_bbox;
     extra_box.expand(1);
-    extra_box.crop(bounding_box(m_mask));
+    extra_box.crop(vw::bounding_box(m_mask));
 
     // Make a local copy of the tile
-    ImageView<float> mask_tile = crop(m_mask, extra_box);
+    vw::ImageView<float> mask_tile = vw::crop(m_mask, extra_box);
 
     for (int col = 0; col < mask_tile.cols(); col++) {
       for (int row = 0; row < mask_tile.rows(); row++) {
@@ -223,7 +218,7 @@ public:
           continue;
 
         // Create the pixel in the full image coordinates
-        Vector2 pix = Vector2(col, row) + extra_box.min();
+        vw::Vector2 pix = vw::Vector2(col, row) + extra_box.min();
 
         // Only work on pixels in the current box (earlier had a
         // bigger box to be able to examine neighbors).
@@ -234,8 +229,8 @@ public:
         // Here we assume that the camera model is thread-safe, which is
         // true for all cameras except ISIS, and this code will be used
         // on Earth only.
-        Vector3 cam_ctr = m_camera_model->camera_center(pix);
-        Vector3 cam_dir = m_camera_model->pixel_to_vector(pix);
+        vw::Vector3 cam_ctr = m_camera_model->camera_center(pix);
+        vw::Vector3 cam_dir = m_camera_model->pixel_to_vector(pix);
 
         // Intersect the ray going from the given camera pixel with a DEM.
         bool treat_nodata_as_zero = false;
@@ -244,8 +239,8 @@ public:
         double max_abs_tol = 1e-14;
         double max_rel_tol = 1e-14;
         int num_max_iter = 100;
-        Vector3 xyz_guess(0, 0, 0);
-        Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+        vw::Vector3 xyz_guess(0, 0, 0);
+        vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
           (cam_ctr, cam_dir, m_masked_dem,
            m_dem_georef, treat_nodata_as_zero,
            has_intersection, height_error_tol, max_abs_tol, max_rel_tol,
@@ -254,7 +249,7 @@ public:
         if (!has_intersection)
           continue;
 
-        Vector3 llh = m_dem_georef.datum().cartesian_to_geodetic(xyz);
+        vw::Vector3 llh = m_dem_georef.datum().cartesian_to_geodetic(xyz);
 
         Eigen::Vector3d eigen_xyz;
         for (size_t coord = 0; coord < 3; coord++)
@@ -262,11 +257,11 @@ public:
 
         // TODO(oalexan1): This is fragile due to the 360 degree
         // uncertainty in latitude
-        Vector2 proj_pt = m_shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
+        vw::Vector2 proj_pt = m_shape_georef.lonlat_to_point(vw::Vector2(llh[0], llh[1]));
 
         {
           // Need to make sure to lock the shared resource
-          Mutex::Lock lock(m_mutex);
+          vw::Mutex::Lock lock(m_mutex);
           m_point_vec.push_back(eigen_xyz);
           m_used_vertices.push_back(proj_pt);
           m_llh_vec.push_back(llh);
@@ -282,12 +277,12 @@ public:
 // Sample the mask boundary (points where the points in the mask have neighbors
 // not in the mask), shoot points from there onto the DEM, and return the
 // obtained points.
-void sampleMaskBd(ImageViewRef<float> mask,
+void sampleMaskBd(vw::ImageViewRef<float> mask,
                   float mask_nodata_val,
-                  boost::shared_ptr<CameraModel> camera_model,
+                  boost::shared_ptr<vw::camera::CameraModel> camera_model,
                   vw::cartography::GeoReference const& shape_georef,
                   vw::cartography::GeoReference const& dem_georef,
-                  ImageViewRef<PixelMask<float>> masked_dem,
+                  vw::ImageViewRef<vw::PixelMask<float>> masked_dem,
                   int num_samples,
                   std::vector<Eigen::Vector3d> & point_vec,
                   std::vector<vw::Vector3> & llh_vec,
@@ -295,7 +290,7 @@ void sampleMaskBd(ImageViewRef<float> mask,
 
   // num_samples must be positive
   if (num_samples <= 0)
-    vw_throw(ArgumentErr() << "The value of --num-samples must be positive.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The value of --num-samples must be positive.\n");
 
   // Ensure that the outputs are initialized
   point_vec.clear();
@@ -335,7 +330,7 @@ void sampleMaskBd(ImageViewRef<float> mask,
   // Let the mask boundary be the mask pixels whose value is above threshold and
   // which border pixels whose values is not above threshold.
 
-  vw_out() << "Processing points at mask boundary.\n";
+  vw::vw_out() << "Processing points at mask boundary.\n";
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / mask.cols();
   tpc.report_progress(0);
@@ -370,9 +365,9 @@ void sampleMaskBd(ImageViewRef<float> mask,
         continue;
 
       // The ray going to the ground
-      Vector2 pix(col, row);
-      Vector3 cam_ctr = camera_model->camera_center(pix);
-      Vector3 cam_dir = camera_model->pixel_to_vector(pix);
+      vw::Vector2 pix(col, row);
+      vw::Vector3 cam_ctr = camera_model->camera_center(pix);
+      vw::Vector3 cam_dir = camera_model->pixel_to_vector(pix);
 
       // Intersect the ray going from the given camera pixel with a DEM.
       bool treat_nodata_as_zero = false;
@@ -381,8 +376,8 @@ void sampleMaskBd(ImageViewRef<float> mask,
       double max_abs_tol = 1e-14;
       double max_rel_tol = 1e-14;
       int num_max_iter = 100;
-      Vector3 xyz_guess(0, 0, 0);
-      Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+      vw::Vector3 xyz_guess(0, 0, 0);
+      vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
         (cam_ctr, cam_dir, masked_dem,
          dem_georef, treat_nodata_as_zero,
          has_intersection, height_error_tol, max_abs_tol, max_rel_tol,
@@ -391,7 +386,7 @@ void sampleMaskBd(ImageViewRef<float> mask,
       if (!has_intersection)
         continue;
 
-      Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
+      vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(xyz);
 
       Eigen::Vector3d eigen_xyz;
       for (size_t coord = 0; coord < 3; coord++)
@@ -399,7 +394,7 @@ void sampleMaskBd(ImageViewRef<float> mask,
 
       // TODO(oalexan1): This is fragile due to the 360 degree
       // uncertainty in latitude
-      Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
+      vw::Vector2 proj_pt = shape_georef.lonlat_to_point(vw::Vector2(llh[0], llh[1]));
 
       point_vec.push_back(eigen_xyz);
       used_vertices.push_back(proj_pt);
@@ -415,7 +410,7 @@ void sampleMaskBd(ImageViewRef<float> mask,
 
   int num_pts = point_vec.size();
   if (num_pts > num_samples) {
-    vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
+    vw::vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
              << num_samples << " samples are desired. Picking a random subset "
              << "of this size.\n";
 
@@ -441,7 +436,7 @@ void sampleMaskBd(ImageViewRef<float> mask,
 void sampleOrthoMaskBd(std::string const& mask_file,
                        vw::cartography::GeoReference const& mask_georef,
                        vw::cartography::GeoReference const& dem_georef,
-                       ImageViewRef<PixelMask<float>> interp_dem,
+                       vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                        int num_samples,
                        std::vector<Eigen::Vector3d> & point_vec,
                        std::vector<vw::Vector3> & llh_vec,
@@ -450,28 +445,28 @@ void sampleOrthoMaskBd(std::string const& mask_file,
   // Read the mask. The nodata value is the largest of what
   // is read from the mask file and the value 0, as pixels
   // over land are supposed to be positive and be valid data.
-  vw_out() << "Reading the ortho mask: " << mask_file << "\n";
+  vw::vw_out() << "Reading the ortho mask: " << mask_file << "\n";
   float mask_nodata_val = -std::numeric_limits<float>::max();
   if (vw::read_nodata_val(mask_file, mask_nodata_val))
-    vw_out() << "Read ortho mask nodata value: " << mask_nodata_val << ".\n";
+    vw::vw_out() << "Read ortho mask nodata value: " << mask_nodata_val << ".\n";
   mask_nodata_val = std::max(0.0f, mask_nodata_val);
   if (std::isnan(mask_nodata_val))
     mask_nodata_val = 0.0f;
-  vw_out() << "Pixels with values no more than " << mask_nodata_val
-           << " are classified as water.\n";
+  vw::vw_out() << "Pixels with values no more than " << mask_nodata_val
+               << " are classified as water.\n";
 
-  DiskImageView<float> mask(mask_file);
+  vw::DiskImageView<float> mask(mask_file);
 
   // num_samples must be positive
   if (num_samples <= 0)
-    vw_throw(ArgumentErr() << "The value of --num-samples must be positive.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The value of --num-samples must be positive.\n");
 
   // Ensure that the outputs are initialized
   point_vec.clear();
   llh_vec.clear();
   used_vertices.clear();
 
-  vw_out() << "Processing points at ortho mask boundary.\n";
+  vw::vw_out() << "Processing points at ortho mask boundary.\n";
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / mask.cols();
   tpc.report_progress(0);
@@ -505,9 +500,9 @@ void sampleOrthoMaskBd(std::string const& mask_file,
       if (!border_pix)
         continue;
 
-      Vector2 pix(col, row);
-      Vector2 lonlat = mask_georef.pixel_to_lonlat(pix);
-      Vector2 proj_pt = mask_georef.lonlat_to_point(lonlat);
+      vw::Vector2 pix(col, row);
+      vw::Vector2 lonlat = mask_georef.pixel_to_lonlat(pix);
+      vw::Vector2 proj_pt = mask_georef.lonlat_to_point(lonlat);
 
       addPoint(dem_georef, interp_dem, lonlat, proj_pt,
                point_vec, llh_vec, used_vertices);
@@ -520,7 +515,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 
   int num_pts = point_vec.size();
   if (num_pts > num_samples) {
-    vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
+    vw::vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
              << num_samples << " samples are desired. Picking a random subset "
              << "of this size.\n";
 
@@ -550,7 +545,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
-                                  ImageViewRef< PixelMask<float> > interp_dem,
+                                  vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                                   std::vector<Eigen::Vector3d> & point_vec,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & used_vertices) {
@@ -580,10 +575,10 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
 
         total_num_pts++;
 
-        Vector2 proj_pt(xv[start + vIter], yv[start + vIter]);
+        vw::Vector2 proj_pt(xv[start + vIter], yv[start + vIter]);
 
         // Convert from projected coordinates to lonlat
-        Vector2 lonlat = shape_georef.point_to_lonlat(proj_pt);
+        vw::Vector2 lonlat = shape_georef.point_to_lonlat(proj_pt);
 
         addPoint(dem_georef, interp_dem, lonlat, proj_pt,
                  point_vec, llh_vec, used_vertices);
@@ -591,7 +586,7 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
     }
   }
 
-  vw_out() << "Read " << total_num_pts << " vertices, with " << llh_vec.size()
+  vw::vw_out() << "Read " << total_num_pts << " vertices, with " << llh_vec.size()
             << " of them having a valid DEM height value."  << "\n";
 }
 
@@ -613,7 +608,7 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
     csv_conv.parse_csv_format(csv_format_str, csv_srs);
   } catch (...) {
     // Give a more specific error message
-    vw_throw(ArgumentErr() << "Could not parse --csv-format. Was given: "
+    vw::vw_throw(vw::ArgumentErr() << "Could not parse --csv-format. Was given: "
              << csv_format_str << ".\n");
   }
   std::list<asp::CsvConv::CsvRecord> pos_records;
@@ -622,9 +617,9 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
 
   // Create llh and vertices
   for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
-    Vector3 llh = csv_conv.csv_to_geodetic(*iter, shape_georef);
+    vw::Vector3 llh = csv_conv.csv_to_geodetic(*iter, shape_georef);
     llh_vec.push_back(llh);
-    Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
+    vw::Vector2 proj_pt = shape_georef.lonlat_to_point(vw::Vector2(llh[0], llh[1]));
     used_vertices.push_back(proj_pt);
   }
 
@@ -637,7 +632,7 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
                                   std::string const& csv_format_str,
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
-                                  ImageViewRef<PixelMask<float>> interp_dem,
+                                  vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                                   // Outputs
                                   std::vector<Eigen::Vector3d> & point_vec,
                                   std::vector<vw::Vector3> & llh_vec,
@@ -655,7 +650,7 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
     csv_conv.parse_csv_format(csv_format_str, csv_srs, min_num_fields);
   } catch (...) {
     // Give a more specific error message
-    vw_throw(ArgumentErr() << "Could not parse --csv-format. Was given: "
+    vw::vw_throw(vw::ArgumentErr() << "Could not parse --csv-format. Was given: "
              << csv_format_str << ".\n");
   }
   std::list<asp::CsvConv::CsvRecord> pos_records;
@@ -666,13 +661,13 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
   int total_num_pts = 0;
   for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
     total_num_pts++;
-    Vector2 lonlat = csv_conv.csv_to_lonlat(*iter, shape_georef);
-    Vector2 proj_pt = shape_georef.lonlat_to_point(lonlat);
+    vw::Vector2 lonlat = csv_conv.csv_to_lonlat(*iter, shape_georef);
+    vw::Vector2 proj_pt = shape_georef.lonlat_to_point(lonlat);
     addPoint(dem_georef, interp_dem, lonlat, proj_pt,
              point_vec, llh_vec, used_vertices);
   }
 
-  vw_out() << "Read " << total_num_pts << " vertices from CSV, with " << llh_vec.size()
+  vw::vw_out() << "Read " << total_num_pts << " vertices from CSV, with " << llh_vec.size()
             << " of them having a valid DEM height value."  << "\n";
 
   return;
@@ -691,16 +686,16 @@ void saveShape(std::vector<Eigen::Vector3d> const& point_vec,
     vw::Vector3 xyz; // convert Eigen:Vector3 to vw::Vector3
     for (int c = 0; c < 3; c++) xyz[c] = point_vec[ptIter][c];
     vw::Vector3 llh = llh_georef.datum().cartesian_to_geodetic(xyz);
-    addPointToPoly(samplePoly, subvector(llh, 0, 2));
+    addPointToPoly(samplePoly, vw::math::subvector(llh, 0, 2));
   }
 
   std::vector<vw::geometry::dPoly> samplePolyVec;
   samplePolyVec.push_back(samplePoly);
-  vw_out() << "Writing shapefile of samples at mask boundary: "
+  vw::vw_out() << "Writing shapefile of samples at mask boundary: "
            << mask_boundary_shapefile << "\n";
   bool has_llh_georef = true;
-  write_shapefile(mask_boundary_shapefile, has_llh_georef, llh_georef,
-                  samplePolyVec);
+  vw::geometry::write_shapefile(mask_boundary_shapefile, has_llh_georef, llh_georef,
+                                samplePolyVec);
 }
 
 // Best fit plane without outlier removal
@@ -749,10 +744,10 @@ struct BestFitPlaneFunctor {
   /// vw::Vector<>, but you could substitute other classes here as
   /// well.
   template <class ContainerT>
-  vw::Matrix<double> operator() (std::vector<ContainerT> const& p1,
-                                 std::vector<ContainerT> const& p2,
-                                 vw::Matrix<double> const& /*seed_input*/
-                                 = vw::Matrix<double>()) const {
+  vw::Matrix<double> operator()(std::vector<ContainerT> const& p1,
+                                std::vector<ContainerT> const& p2,
+                                vw::Matrix<double> const& /*seed_input*/
+                                = vw::Matrix<double>()) const {
 
     // check consistency
     VW_ASSERT(p1.size() == p2.size(),
@@ -767,7 +762,7 @@ struct BestFitPlaneFunctor {
     Eigen::Vector3d & centroid = plane.first;
     Eigen::Vector3d & normal = plane.second;
 
-    Matrix<double> result(1, 4);
+    vw::Matrix<double> result(1, 4);
     for (int col = 0; col < 3; col++)
       result(0, col) = normal[col];
 
@@ -829,17 +824,17 @@ void calcPlaneProperties(bool use_proj_water_surface,
     max_error = std::max(max_error, dist_to_plane(plane, point_vec[it]));
 
   // Do estimates for the mean height and angle of the plane
-  Vector3 mean_point(0, 0, 0);
+  vw::Vector3 mean_point(0, 0, 0);
   double mean_height = 0.0;
   int num = 0;
   for (size_t it = 0; it < inlier_indices.size(); it++) {
     Eigen::Vector3d p = point_vec[inlier_indices[it]];
-    Vector3 point(p[0], p[1], p[2]);
+    vw::Vector3 point(p[0], p[1], p[2]);
     max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, point));
 
     if (!use_proj_water_surface) {
       // the point is xyz in ecef
-      Vector3 llh = dem_georef.datum().cartesian_to_geodetic(point);
+      vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(point);
       mean_height += llh[2];
     } else {
       // the point is in the stereographic projection
@@ -857,16 +852,16 @@ void calcPlaneProperties(bool use_proj_water_surface,
   if (!use_proj_water_surface)
     mean_point /= num;
 
-  vw_out() << "Max distance to the plane (meters): " << max_error << "\n";
-  vw_out() << "Max inlier distance to the plane (meters): " << max_inlier_error << "\n";
-  vw_out() << "Mean plane height above datum (meters): " << mean_height << "\n";
+  vw::vw_out() << "Max distance to the plane (meters): " << max_error << "\n";
+  vw::vw_out() << "Max inlier distance to the plane (meters): " << max_inlier_error << "\n";
+  vw::vw_out() << "Mean plane height above datum (meters): " << mean_height << "\n";
 
   if (!use_proj_water_surface) {
     // This does not make sense for a curved surface
-    Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
-    Vector3 surface_normal = mean_point / norm_2(mean_point); // ignore the datum flattening
-    double plane_angle = (180.0 / M_PI) * acos(dot_prod(plane_normal, surface_normal));
-    vw_out() << "Plane inclination (degrees): " << plane_angle << "\n";
+    vw::Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
+    vw::Vector3 surface_normal = mean_point / vw::math::norm_2(mean_point); // ignore the datum flattening
+    double plane_angle = (180.0 / M_PI) * acos(vw::math::dot_prod(plane_normal, surface_normal));
+    vw::vw_out() << "Plane inclination (degrees): " << plane_angle << "\n";
   }
 }
 
@@ -874,7 +869,7 @@ void calcPlaneProperties(bool use_proj_water_surface,
 void saveBathyPlane(bool use_proj_water_surface, double proj_lat, double proj_lon,
                     vw::Matrix<double> const& plane, std::string const& plane_file) {
 
-  vw_out() << "Writing: " << plane_file << "\n";
+  vw::vw_out() << "Writing: " << plane_file << "\n";
   vw::create_out_dir(plane_file);
   std::ofstream bp(plane_file.c_str());
   bp.precision(17);
@@ -900,8 +895,8 @@ void saveBathyPlane(bool use_proj_water_surface, double proj_lat, double proj_lo
 // (if m_use_proj_water_surface is true or to ECEF otherwise), tracing a ray
 // through them, seeing where it intersects the plane, converting that
 // point to geodetic, and taking the height difference.
-class DemMinusPlaneView: public ImageViewBase<DemMinusPlaneView>{
-  ImageViewRef<float> m_dem;
+class DemMinusPlaneView: public vw::ImageViewBase<DemMinusPlaneView>{
+  vw::ImageViewRef<float> m_dem;
   vw::cartography::GeoReference m_dem_georef;
   vw::Matrix<double> m_plane;
   double m_dem_nodata_val;
@@ -911,7 +906,7 @@ class DemMinusPlaneView: public ImageViewBase<DemMinusPlaneView>{
   typedef float PixelT;
 
 public:
-  DemMinusPlaneView(ImageViewRef<float> const& dem,
+  DemMinusPlaneView(vw::ImageViewRef<float> const& dem,
                     vw::cartography::GeoReference const& dem_georef,
                     vw::Matrix<double> const& plane,
                     double dem_nodata_val,
@@ -924,27 +919,27 @@ public:
 
   typedef PixelT pixel_type;
   typedef PixelT result_type;
-  typedef ProceduralPixelAccessor<DemMinusPlaneView> pixel_accessor;
+  typedef vw::ProceduralPixelAccessor<DemMinusPlaneView> pixel_accessor;
 
-  inline int32 cols() const { return m_dem.cols(); }
-  inline int32 rows() const { return m_dem.rows(); }
-  inline int32 planes() const { return 1; }
+  inline vw::int32 cols() const { return m_dem.cols(); }
+  inline vw::int32 rows() const { return m_dem.rows(); }
+  inline vw::int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()(double/*i*/, double/*j*/, int32/*p*/ = 0) const {
-    vw_throw(NoImplErr() << "DemMinusPlaneView::operator()(...) is not implemented");
+  inline pixel_type operator()(double/*i*/, double/*j*/, vw::int32/*p*/ = 0) const {
+    vw::vw_throw(vw::NoImplErr() << "DemMinusPlaneView::operator()(...) is not implemented");
     return pixel_type();
   }
 
-  typedef CropView< ImageView<pixel_type> > prerasterize_type;
+  typedef vw::CropView< vw::ImageView<pixel_type> > prerasterize_type;
 
-  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
+  inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
 
     // Bring this portion in memory
-    ImageView<result_type> cropped_dem = crop(m_dem, bbox);
+    vw::ImageView<result_type> cropped_dem = vw::crop(m_dem, bbox);
 
-    ImageView<result_type> tile(bbox.width(), bbox.height());
+    vw::ImageView<result_type> tile(bbox.width(), bbox.height());
 
     for (int col = 0; col < bbox.width(); col++) {
       for (int row = 0; row < bbox.height(); row++) {
@@ -955,16 +950,16 @@ public:
           continue;
         }
 
-        Vector2 pix(col + bbox.min().x(), row + bbox.min().y());
-        Vector2 lon_lat = m_dem_georef.pixel_to_lonlat(pix);
+        vw::Vector2 pix(col + bbox.min().x(), row + bbox.min().y());
+        vw::Vector2 lon_lat = m_dem_georef.pixel_to_lonlat(pix);
 
-        Vector3 llh;
-        subvector(llh, 0, 2) = lon_lat;
+        vw::Vector3 llh;
+        vw::math::subvector(llh, 0, 2) = lon_lat;
         llh[2] = cropped_dem(col, row);
 
         // Find the DEM point in local projection or ECEF.
         // Find another point on the same ray.
-        Vector3 point1, point2;
+        vw::Vector3 point1, point2;
 
         if (m_use_proj_water_surface) {
           point1 = m_stereographic_georef.geodetic_to_point(llh);
@@ -980,13 +975,13 @@ public:
         // The plane is a*x + b*y + c*z + d = 0, where plane = (a, b, c, d).
         // Then, dot(P, plane_normal) + plane_intercept = 0.
         // Use that to find t.
-        Vector3 plane_normal(m_plane(0, 0), m_plane(0, 1), m_plane(0, 2));
+        vw::Vector3 plane_normal(m_plane(0, 0), m_plane(0, 1), m_plane(0, 2));
         double plane_intercept = m_plane(0, 3);
 
-        double t = -(dot_prod(point1, plane_normal) + plane_intercept) /
-          dot_prod(point2 - point1, plane_normal);
+        double t = -(vw::math::dot_prod(point1, plane_normal) + plane_intercept) /
+          vw::math::dot_prod(point2 - point1, plane_normal);
 
-        Vector3 P = point1 + t * (point2 - point1);
+        vw::Vector3 P = point1 + t * (point2 - point1);
 
         // Go back to llh
         if (m_use_proj_water_surface) {
@@ -1004,12 +999,12 @@ public:
   }
 
   template <class DestT>
-  inline void rasterize(DestT const& dest, BBox2i bbox) const {
+  inline void rasterize(DestT const& dest, vw::BBox2i bbox) const {
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 };
 
-ImageViewRef<float> demMinusPlane(ImageViewRef<float> const& dem,
+vw::ImageViewRef<float> demMinusPlane(vw::ImageViewRef<float> const& dem,
                                   vw::cartography::GeoReference const& dem_georef,
                                   vw::Matrix<double> plane,
                                   double dem_nodata_val,
@@ -1030,23 +1025,23 @@ void calcBathyPlane(bool use_proj_water_surface,
   std::vector<Eigen::Vector3d> dummy_vec(point_vec.size()); // Required by the interface
   int min_num_output_inliers = std::max(point_vec.size()/2, size_t(3));
   bool reduce_min_num_output_inliers_if_no_fit = true;
-  vw_out() << "Starting RANSAC.\n";
+  vw::vw_out() << "Starting RANSAC.\n";
   try {
     // Must first create the functor and metric, then pass these to ransac. If
     // created as inline arguments to ransac, these may go go out
     // of scope prematurely, which will result in incorrect behavior.
     BestFitPlaneFunctor func(use_proj_water_surface);
     BestFitPlaneErrorMetric error_metric;
-    math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric>
+    vw::math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric>
       ransac(func, error_metric, num_ransac_iterations, inlier_threshold,
              min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
     plane = ransac(point_vec, dummy_vec);
     inlier_indices = ransac.inlier_indices(plane, point_vec, dummy_vec);
   } catch (const vw::math::RANSACErr& e) {
-    vw_out() << "RANSAC failed: " << e.what() << "\n";
+    vw::vw_out() << "RANSAC failed: " << e.what() << "\n";
   }
-  vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size()
-           << " inliers.\n";
+  vw::vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size()
+               << " inliers.\n";
 }
 
 } // end namespace asp

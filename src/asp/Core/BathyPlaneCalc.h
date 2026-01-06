@@ -101,7 +101,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
-                                  vw::ImageViewRef< vw::PixelMask<float> > interp_dem,
+                                  vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                                   std::vector<Eigen::Vector3d> & point_vec,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & used_vertices);
