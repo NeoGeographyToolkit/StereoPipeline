@@ -4,28 +4,18 @@ bathy_plane_calc
 ----------------
 
 The ``bathy_plane_calc`` program estimates the surface of a body of
-water. It can take inputs in three ways. In one, a DEM is given, a
-camera model, and a mask obtained from a raw image with that camera
-model. The mask has the value 1 on land and 0 where there is water, or
-positive values on land and no-data values on water. 
-
-Alternatively, one can pass a set of water height measurements, and the 
-tool will fit a plane through them.
-
-In the third way of specifying the inputs, a DEM and a shapefile are
-provided, with the latter's vertices at the water-land interface.
-
-The output water surface produced by this program is parameterized as
-a plane in a local stereographic projection. This plane can be
+water as a plane in a local stereographic projection. This plane can be
 slightly non-horizontal due to imperfections in the positions and
 orientations of the cameras that were used to create the input DEM.
 
 Further context is given in :numref:`shallow_water_bathy`.
 
+The examples below show the several ways in which the inputs an be specified.
+
 .. _bathy_plane_calc_example1:
 
-Example 1 (using a camera, a mask, and a DEM)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using a camera, a mask, and a DEM
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Preparation and running the program
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -49,10 +39,11 @@ follows::
     image_calc -c "max($thresh, var_0)" --output-nodata-value $thresh \
       image.tif -o mask.tif
 
-The image must be raw, not projected, and if the image
-is part of a stereo pair, the corresponding camera for that image be
-used. In particular, if the image is multispectral, the camera must
-be for this dataset, not for the PAN one.
+The larger of the no-data value and zero is used as the water value.
+ 
+The image must be raw, not projected, and if the image is part of a stereo pair,
+the corresponding camera for that image be used. In particular, if the image is
+multispectral, the camera must be for this dataset, not for the PAN one.
 
 For the DEM, it is suggested to use the one obtained from PAN images,
 as it is more accurate, or otherwise from the Green band images. 
@@ -139,8 +130,8 @@ adjustments must be passed to ``bathy_plane_calc`` via
 
 .. _bathy_plane_calc_example2:
 
-Example 2 (using water height measurements)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using water height measurements
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this example, a set of actual measurements of the water surface is
 provided, as the longitude and latitude (in degrees, in decimal
@@ -167,9 +158,9 @@ data is outlined further down this document
    6,-81.75601722,24.55176286,-23.89892
    7,-81.77999023,24.54843186,-23.89824
 
-Any lines starting with the pound sign (``#``) will be ignored as
-comments. If the first line does not start this way but does not have
-valid data it will be ignored as well.
+Any lines starting with the pound sign (``#``) will be ignored as comments. If
+the first line does not start this way but does not have valid data it will be
+ignored as well. Empty lines will be ignored too.
 
 The program is called as follows::
 
@@ -191,15 +182,17 @@ discussed further in :numref:`bathy_and_align`.
 
 .. _bathy_plane_calc_example3:
 
-Example 3 (using a DEM and shapefile)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Using a DEM and shapefile
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This example uses a DEM and a shapefile tracing the water edge as
 inputs::
 
-     bathy_plane_calc --shapefile shape.shp --dem dem.tif    \
-       --outlier-threshold 0.5                               \ 
-       --output-inlier-shapefile inliers.shp                 \
+     bathy_plane_calc                        \
+       --shapefile shape.shp                 \
+       --dem dem.tif                         \
+       --outlier-threshold 0.5               \ 
+       --output-inlier-shapefile inliers.shp \
        --bathy-plane plane.txt 
 
 As earlier, it is important to consider carefully what outlier
@@ -229,8 +222,33 @@ Here is an example of a shapefile created on top of an orthoimage:
 
    Example of a shapefile whose vertices are at the water-land boundary.
 
-Example 4 (pick a sample set of points at mask boundary)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _bathy_plane_calc_example4:
+
+Using a DEM and lon-lat values
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example is similar to the one using a shapefile, but the
+points at which the DEM is sampled are provided in a CSV file
+having longitude and latitude values::
+
+     bathy_plane_calc                        \
+       --lon-lat-measurements meas.csv       \
+       --csv-format "2:lon 3:lat"            \
+       --dem dem.tif                         \
+       --outlier-threshold 0.5               \
+       --output-inlier-shapefile inliers.shp \
+       --bathy-plane plane.txt
+
+The heights will be looked up in the DEM with bilinear interpolation. The
+longitude and latitude will be interpreted relative the DEM georeference.
+
+The ``--csv-format`` option must be set correctly to identify the columns
+having the longitude and latitude. The CSV file can have other columns
+as well (such as an ID), which will be ignored. See 
+:numref:`bathy_plane_calc_example2` for more details on the CSV format.
+
+Pick a sample set of points at mask boundary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this example, the ``bathy_plane_calc`` tool will take as inputs a
 DEM, a mask, and a camera (with the latter two corresponding to same
@@ -308,15 +326,17 @@ Command-line options for bathy_plane_calc
 
 --shapefile <filename>
     The shapefile with vertices whose coordinates will be looked up in
-    the DEM.
+    the DEM with bilinear interpolation.
 
 --dem <filename>
     The DEM to use.
 
 --mask <string (default: "")>
-    A input mask, created from a raw camera image and hence having the
+    An input mask, created from a raw camera image and hence having the
     same dimensions, with values of 1 on land and 0 on water, or
-    positive values on land and no-data values on water.
+    positive values on land and no-data values on water. The larger 
+    of the no-data value and zero is used as the water value. The
+    heights will be looked up in the DEM with bilinear interpolation.
 
 --camera <string (default: "")>
     The camera file to use with the mask.
@@ -352,11 +372,16 @@ Command-line options for bathy_plane_calc
     respectively, relative to the WGS84 datum. The option --csv-format
     must be used.
 
+--lon-lat-measurements <string (default: "")>
+    Use this CSV file having longitude and latitude measurements for
+    the water surface. The heights will be looked up in the DEM with
+    bilinear interpolation. The option --csv-format must be used.
+
 --csv-format <string (default: "")>
     Specify the format of the CSV file having water height
-    measurements. The format should have a list of entries
-    with syntax column_index:column_type (indices start from
-    1). Example: '2:lon 3:lat 4:height_above_datum'.
+    measurements or longitude and latitude values. The format should
+    have a list of entries with syntax column_index:column_type
+    (indices start from 1). Example: '2:lon 3:lat 4:height_above_datum'.
 
 --bathy-plane arg                     
     The output file storing the computed plane as four coefficients
@@ -374,6 +399,8 @@ Command-line options for bathy_plane_calc
     If specified together with a mask, camera, and DEM, save a random
     sample of points (their number given by ``--num-samples``) at the
     mask boundary (water-land interface) to this shapefile and exit.
+    The heights will be looked up in the DEM with bilinear
+    interpolation.
 
 --save-shapefiles-as-polygons
     Save the inlier and outlier shapefiles as polygons, rather than

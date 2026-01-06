@@ -11,6 +11,11 @@ image_calc (:numref:`image_calc`):
 disparitydebug (:numref:`disparitydebug`):
   * Added the option ``--raw`` to extract the horizontal and vertical
     disparities without normalization (:numref:`raw_disp`).
+
+bathy_plane_calc (:numref:`bathy_plane_calc`):
+  * Added the option ``--lon-lat-measurements`` to use a CSV file with
+    longitude and latitude measurements and lookup heights in a DEM
+    (:numref:`bathy_plane_calc_example4`).
     
 RELEASE 3.6.0, December 26, 2025
 --------------------------------

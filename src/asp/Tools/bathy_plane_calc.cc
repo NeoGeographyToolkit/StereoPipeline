@@ -71,6 +71,10 @@ void find_projection(// Inputs
                      vw::cartography::GeoReference & stereographic_georef,
                      std::vector<Eigen::Vector3d> & point_vec) {
 
+  // Must have positive number of points
+  if (llh_vec.size() == 0)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find projection with zero input points.\n");
+    
   // Initialize the outputs
   proj_lat = -1.0;
   proj_lon = -1.0;
@@ -432,7 +436,7 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
 
         // Convert from projected coordinates to lonlat
         Vector2 lonlat = shape_georef.point_to_lonlat(proj_pt);
-
+        
         // Convert to DEM pixel
         Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
 
@@ -494,6 +498,72 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
     Vector2 proj_pt = shape_georef.lonlat_to_point(Vector2(llh[0], llh[1]));
     used_vertices.push_back(proj_pt);
   }
+
+  return;
+}
+
+// Read a set of lon-lat measurements in CSV format, then interpolate into the DEM
+// with bilinear interpolation to find the height.
+void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
+                                  std::string const& csv_format_str,
+                                  vw::cartography::GeoReference const& shape_georef,
+                                  vw::cartography::GeoReference const& dem_georef,
+                                  ImageViewRef<PixelMask<float>> interp_dem,
+                                  // Outputs
+                                  std::vector<Eigen::Vector3d> & point_vec,
+                                  std::vector<vw::Vector3> & llh_vec,
+                                  std::vector<vw::Vector2> & used_vertices) {
+  // Wipe the outputs
+  point_vec.clear();
+  llh_vec.clear();
+  used_vertices.clear();
+
+  // Read the CSV file
+  asp::CsvConv csv_conv;
+  std::string csv_srs = ""; // not needed
+  try {
+    int min_num_fields = 2; // only lon and lat are needed
+    csv_conv.parse_csv_format(csv_format_str, csv_srs, min_num_fields);
+  } catch (...) {
+    // Give a more specific error message
+    vw_throw(ArgumentErr() << "Could not parse --csv-format. Was given: "
+             << csv_format_str << ".\n");
+  }
+  std::list<asp::CsvConv::CsvRecord> pos_records;
+  typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
+  csv_conv.read_csv_file(lon_lat_measurements, pos_records);
+  
+  // Create llh and vertices
+  int total_num_pts = 0;
+  for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+    total_num_pts++;
+    Vector2 lonlat = csv_conv.csv_to_lonlat(*iter, shape_georef);
+
+    // Convert to DEM pixel
+    Vector2 pix = dem_georef.lonlat_to_pixel(lonlat);
+
+    PixelMask<float> h = interp_dem(pix.x(), pix.y());
+
+    if (!is_valid(h)) 
+      continue;
+
+    Vector3 llh;
+    llh[0] = lonlat[0];
+    llh[1] = lonlat[1];
+    llh[2] = h.child();
+
+    Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
+    Eigen::Vector3d eigen_xyz;
+    for (size_t coord = 0; coord < 3; coord++) 
+      eigen_xyz[coord] = xyz[coord];
+
+    point_vec.push_back(eigen_xyz);
+    used_vertices.push_back(shape_georef.lonlat_to_point(lonlat));
+    llh_vec.push_back(llh);
+  }
+
+  vw_out() << "Read " << total_num_pts << " vertices from CSV, with " << llh_vec.size()
+            << " of them having a valid DEM height value."  << std::endl;
 
   return;
 }
@@ -867,14 +937,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("General Options");
   general_options.add_options()
     ("shapefile",   po::value(&opt.shapefile),
-     "The shapefile with vertices whose coordinates will be looked up in the DEM.")
+     "The shapefile with vertices whose coordinates will be looked up in the DEM "
+     "with bilinear interpolation.")
     ("dem",   po::value(&opt.dem),
      "The DEM to use.")
     ("mask",   po::value(&opt.mask),
-     "A input mask, created from a raw camera image and hence having the same dimensions, "
+     "An input mask, created from a raw camera image and hence having the same dimensions, "
      "with values of 1 on land and 0 on water, or positive values on land and no-data "
      "values on water. The larger of the no-data value and zero is used as the water "
-     "value.")
+     "value. The heights will be looked up in the DEM with bilinear interpolation.")
     ("camera",   po::value(&opt.camera),
      "The camera file to use with the mask.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -902,7 +973,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("mask-boundary-shapefile", po::value(&opt.mask_boundary_shapefile)->default_value(""),
      "If specified together with a mask, camera, and DEM, save a random "
      "sample of points (their number given by ``--num-samples``) at the "
-     "mask boundary (water-land interface) to this shapefile and exit.")
+     "mask boundary (water-land interface) to this shapefile and exit. "
+     "The heights will be looked up in the DEM with bilinear interpolation.")
     ("num-samples", 
      po::value(&opt.num_samples)->default_value(10000),
      "Number of samples to pick at the water-land interface if using a mask.")
@@ -1020,6 +1092,7 @@ int main( int argc, char *argv[] ) {
     bool use_shapefile = !opt.shapefile.empty();
     bool use_mask      = !opt.mask.empty();
     bool use_meas      = !opt.water_height_measurements.empty();
+    bool use_lon_lat   = !opt.lon_lat_measurements.empty();
 
     boost::shared_ptr<CameraModel> camera_model;
     if (use_mask) {
@@ -1047,7 +1120,7 @@ int main( int argc, char *argv[] ) {
     ImageViewRef<PixelMask<float>> masked_dem;
     ImageViewRef< PixelMask<float>> interp_dem;
 
-    if (use_shapefile || use_mask) {
+    if (use_shapefile || use_mask || use_lon_lat) {
       // Read the DEM and its associated data
       // TODO(oalexan1): Think more about the interpolation method
       vw_out() << "Reading the DEM: " << opt.dem << std::endl;
@@ -1126,6 +1199,13 @@ int main( int argc, char *argv[] ) {
                                shape_georef,  
                                // Outputs
                                llh_vec, used_vertices);
+    } else if (use_lon_lat) {
+      shape_georef = dem_georef;
+      has_shape_georef = true;
+      find_points_from_lon_lat_csv(opt.lon_lat_measurements, opt.csv_format_str, 
+                                   shape_georef, dem_georef, interp_dem,  
+                                   // Outputs
+                                   point_vec, llh_vec, used_vertices);
     }
     
     // See if to convert to local stereographic projection
@@ -1162,7 +1242,8 @@ int main( int argc, char *argv[] ) {
     } catch (const vw::math::RANSACErr& e ) {
       vw_out() << "RANSAC failed: " << e.what() << "\n";
     }
-    vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size() << " inliers.\n";
+    vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size() 
+             << " inliers.\n";
     
     calc_plane_properties(use_proj_water_surface, point_vec, inlier_indices,  
                            dem_georef, plane);
