@@ -57,15 +57,16 @@ Here it is assumed that the image and the mask have the same
 dimensions, the mask has value 1 for pixels to keep and 0 for pixels
 to discard, and that the output pixels with value 0 are invalid.
 
+.. _image_calc_create_mask:
+
 Create a mask
 ^^^^^^^^^^^^^
 
-::
+This will set values no less than a threshold to 1, and the rest to 0::
 
-    image_calc -c "sign(max(var_0, 0))" -d float32 \
+    thresh=0.27
+    image_calc -c "gte(var_0, $thresh, 1, 0)" -d float32 \
         input.tif -o output.tif
-
-Positive values will become 1, and the rest will become 0. 
 
 Invalidate values no more than a threshold
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

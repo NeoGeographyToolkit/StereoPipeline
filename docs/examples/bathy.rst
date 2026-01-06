@@ -350,7 +350,7 @@ When the water surface is determined using a DEM, a mask of the image
 portion above water, and corresponding camera, and the cameras have
 been bundle-adjusted or aligned, the option ``--bundle-adjust-prefix``
 must be used with ``bathy_plane_calc`` (see
-:numref:`bathy_plane_calc_example1`).
+:numref:`bathy_plane_raw_img`).
 
 Validation of alignment
 ~~~~~~~~~~~~~~~~~~~~~~~

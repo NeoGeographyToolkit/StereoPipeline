@@ -324,9 +324,8 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
 
 #else
 
-  // Let the mask boundary be the mask pixels whose value
-  // is above threshold and which border pixels whose values
-  // is not above threshold.
+  // Let the mask boundary be the mask pixels whose value is above threshold and
+  // which border pixels whose values is not above threshold.
 
   vw_out() << "Processing points at mask boundary.\n";
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
@@ -405,6 +404,111 @@ void find_points_at_mask_boundary(ImageViewRef<float> mask,
   tpc.report_finished();
 
 #endif
+
+  int num_pts = point_vec.size();
+  if (num_pts > num_samples) {
+    vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
+             << num_samples << " samples are desired. Picking a random subset "
+             << "of this size.\n";
+
+    // Select a subset
+    std::vector<int> w;
+    vw::math::pick_random_indices_in_range(num_pts, num_samples, w);
+    std::vector<Eigen::Vector3d> big_point_vec     = point_vec;     point_vec.clear();
+    std::vector<vw::Vector3>     big_llh_vec       = llh_vec;       llh_vec.clear();
+    std::vector<vw::Vector2>     big_used_vertices = used_vertices; used_vertices.clear();
+    for (size_t it = 0; it < w.size(); it++) {
+      int random_index = w[it];
+      point_vec.push_back(big_point_vec[random_index]);
+      llh_vec.push_back(big_llh_vec[random_index]);
+      used_vertices.push_back(big_used_vertices[random_index]);
+    }
+  }
+
+  return;
+}
+
+// Find the mask boundary (points where the points in the mask have
+// neighbors not in the mask), and look up the height in the DEM.
+void find_points_at_ortho_mask_boundary(std::string const& mask_file,
+                                        vw::cartography::GeoReference const& mask_georef,
+                                        vw::cartography::GeoReference const& dem_georef,
+                                        ImageViewRef<PixelMask<float>> interp_dem,
+                                        int num_samples,
+                                        std::vector<Eigen::Vector3d> & point_vec,
+                                        std::vector<vw::Vector3> & llh_vec,
+                                        std::vector<vw::Vector2> & used_vertices) {
+
+  // Read the mask. The nodata value is the largest of what
+  // is read from the mask file and the value 0, as pixels
+  // over land are supposed to be positive and be valid data.
+  vw_out() << "Reading the ortho mask: " << mask_file << std::endl;
+  float mask_nodata_val = -std::numeric_limits<float>::max();
+  if (vw::read_nodata_val(mask_file, mask_nodata_val))
+    vw_out() << "Read ortho mask nodata value: " << mask_nodata_val << ".\n";
+  mask_nodata_val = std::max(0.0f, mask_nodata_val);
+  if (std::isnan(mask_nodata_val))
+    mask_nodata_val = 0.0f;
+  vw_out() << "Pixels with values no more than " << mask_nodata_val
+           << " are classified as water.\n";
+
+  DiskImageView<float> mask(mask_file);
+
+  // num_samples must be positive
+  if (num_samples <= 0)
+    vw_throw(ArgumentErr() << "The value of --num-samples must be positive.\n");
+
+  // Ensure that the outputs are initialized
+  point_vec.clear();
+  llh_vec.clear();
+  used_vertices.clear();
+
+  vw_out() << "Processing points at ortho mask boundary.\n";
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = 1.0 / mask.cols();
+  tpc.report_progress(0);
+
+  for (int col = 0; col < mask.cols(); col++) {
+    for (int row = 0; row < mask.rows(); row++) {
+
+      // Look at pixels above threshold which have neighbors <= threshold
+      if (mask(col, row) <= mask_nodata_val)
+        continue;
+
+      // The four neighbors
+      int col_vals[4] = {-1, 0, 0, 1};
+      int row_vals[4] = {0, -1, 1, 0};
+
+      bool border_pix = false;
+      for (int it = 0; it < 4; it++) {
+
+        int icol = col + col_vals[it];
+        int irow = row + row_vals[it];
+
+        if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows())
+          continue;
+
+        if (mask(icol, irow) <= mask_nodata_val) {
+          border_pix = true;
+          break;
+        }
+      }
+
+      if (!border_pix)
+        continue;
+
+      Vector2 pix(col, row);
+      Vector2 lonlat = mask_georef.pixel_to_lonlat(pix);
+      Vector2 proj_pt = mask_georef.lonlat_to_point(lonlat);
+
+      addPoint(dem_georef, interp_dem, lonlat, proj_pt,
+               point_vec, llh_vec, used_vertices);
+    }
+
+    tpc.report_incremental_progress(inc_amount);
+  }
+
+  tpc.report_finished();
 
   int num_pts = point_vec.size();
   if (num_pts > num_samples) {
@@ -905,7 +1009,7 @@ DemMinusPlaneView dem_minus_plane(ImageViewRef<float> const& dem,
 }
 
 struct Options : vw::GdalWriteOptions {
-  std::string shapefile, dem, mask, camera, stereo_session, bathy_plane,
+  std::string shapefile, dem, mask, ortho_mask, camera, stereo_session, bathy_plane,
     water_height_measurements, lon_lat_measurements, csv_format_str,
     output_inlier_shapefile, bundle_adjust_prefix, output_outlier_shapefile,
     mask_boundary_shapefile, dem_minus_plane;
@@ -941,8 +1045,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The DEM to use.")
     ("mask",   po::value(&opt.mask),
      "An input mask, created from a raw camera image and hence having the same dimensions, "
-     "with values of 1 on land and 0 on water, or positive values on land and no-data "
-     "values on water. The larger of the no-data value and zero is used as the water "
+     "with values of 1 on land and 0 on water, or positive values on land and nodata "
+     "values on water. The larger of the nodata value and zero is used as the water "
      "value. The heights will be looked up in the DEM with bilinear interpolation.")
     ("camera",   po::value(&opt.camera),
      "The camera file to use with the mask.")
@@ -980,16 +1084,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      po::bool_switch(&opt.save_shapefiles_as_polygons)->default_value(false),
      "Save the inlier and outlier shapefiles as polygons, rather than "
      "discrete vertices. May be more convenient for processing in a GIS tool.")
-    ("water-height-measurements",
-     po::value(&opt.water_height_measurements)->default_value(""),
-     "Use this CSV file having longitude, latitude, and height measurements "
-     "for the water surface, in degrees and meters, respectively, relative to the WGS84 datum. "
-     "The option --csv-format must be used.")
+    ("ortho-mask",   po::value(&opt.ortho_mask),
+     "An input mask, that is georeferenced and aligned with the DEM, with positive values "
+     "on land and 0 or nodata values on water. The larger of the nodata value and zero is "
+     "used as the water value.")
     ("lon-lat-measurements",
      po::value(&opt.lon_lat_measurements)->default_value(""),
      "Use this CSV file having longitude and latitude measurements for the water surface. "
      "The heights will be looked up in the DEM with bilinear interpolation. The option "
      "--csv-format must be used.")
+    ("water-height-measurements",
+     po::value(&opt.water_height_measurements)->default_value(""),
+     "Use this CSV file having longitude, latitude, and height measurements for the water "
+     "surface, in degrees and meters, respectively, relative to the WGS84 datum. The "
+     "option --csv-format must be used.")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""),
      "Specify the format of the CSV file having water height measurements or lon and lat "
      "values. The format should have a list of entries with syntax "
@@ -1025,20 +1133,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // before loading the cameras. 
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
-  bool use_shapefile = !opt.shapefile.empty();
-  bool use_mask      = !opt.mask.empty();
-  bool use_meas      = !opt.water_height_measurements.empty();
-  bool use_lon_lat   = !opt.lon_lat_measurements.empty();
+  bool use_shapefile  = !opt.shapefile.empty();
+  bool use_mask       = !opt.mask.empty();
+  bool use_ortho_mask = !opt.ortho_mask.empty();
+  bool use_meas       = !opt.water_height_measurements.empty();
+  bool use_lon_lat    = !opt.lon_lat_measurements.empty();
 
   if (use_mask && opt.camera.empty())
     vw_throw(ArgumentErr() << "If using a mask, must specify a camera.\n"
              << usage << general_options);
 
-  if (use_shapefile + use_mask + use_meas + use_lon_lat != 1)
-    vw_throw(ArgumentErr() << "Must use either a mask and camera, a shapefile, "
+  if (use_shapefile + use_mask + use_ortho_mask + use_meas + use_lon_lat != 1)
+    vw_throw(ArgumentErr() 
+              << "Must use either a mask and camera, an ortho-mask, a shapefile, "
               << "water height measurements, or lon-lat measurements, "
-              << "and just one of these.\n"
-              << usage << general_options);
+              << "and just one of these.\n");
 
   if (!use_meas && opt.dem == "")
     vw_throw(ArgumentErr() << "Missing the input dem.\n" << usage << general_options);
@@ -1057,12 +1166,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << usage << general_options);
 
   if (!opt.mask_boundary_shapefile.empty() &&
-      (opt.mask.empty() || opt.camera.empty() || opt.dem.empty()))
+      (opt.mask.empty() && opt.ortho_mask.empty()))
     vw_throw(ArgumentErr() << "If using --mask-boundary-shapefile, then "
-             << "must specify a mask, a camera, and a DEM.\n"
+             << "must specify a mask (with a camera) or an ortho-mask.\n"
              << usage << general_options);
 
-  if (use_mask && opt.num_samples <= 0)
+  if ((use_mask || use_ortho_mask) && opt.num_samples <= 0)
     vw_throw(ArgumentErr() << "A positive number of samples must be specified.\n"
              << usage << general_options);
 
@@ -1091,10 +1200,11 @@ int main(int argc, char *argv[]) {
     handle_arguments(argc, argv, opt);
 
     // Load the camera if we use the mask and the camera
-    bool use_shapefile = !opt.shapefile.empty();
-    bool use_mask      = !opt.mask.empty();
-    bool use_meas      = !opt.water_height_measurements.empty();
-    bool use_lon_lat   = !opt.lon_lat_measurements.empty();
+    bool use_shapefile  = !opt.shapefile.empty();
+    bool use_mask       = !opt.mask.empty();
+    bool use_ortho_mask = !opt.ortho_mask.empty();
+    bool use_meas       = !opt.water_height_measurements.empty();
+    bool use_lon_lat    = !opt.lon_lat_measurements.empty();
 
     boost::shared_ptr<CameraModel> camera_model;
     if (use_mask) {
@@ -1122,7 +1232,8 @@ int main(int argc, char *argv[]) {
     ImageViewRef<PixelMask<float>> masked_dem;
     ImageViewRef<PixelMask<float>> interp_dem;
 
-    if (use_shapefile || use_mask || use_lon_lat || !opt.dem_minus_plane.empty()) {
+    if (use_shapefile || use_mask || use_ortho_mask || use_lon_lat || 
+        !opt.dem_minus_plane.empty()) {
       // Read the DEM and its associated data
       // TODO(oalexan1): Think more about the interpolation method
       vw_out() << "Reading the DEM: " << opt.dem << std::endl;
@@ -1149,6 +1260,8 @@ int main(int argc, char *argv[]) {
       nodata_pix.invalidate();
       ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix);
       interp_dem = interpolate(masked_dem, BilinearInterpolation(), ext_nodata);
+      
+      shape_georef = dem_georef; // may get overwritten below
     }
 
     bool use_proj_water_surface = !opt.use_ecef_water_surface;
@@ -1160,7 +1273,7 @@ int main(int argc, char *argv[]) {
     std::string poly_color = "green";
 
     if (use_mask) {
-      // Read the mask. The no-data value is the largest of what
+      // Read the mask. The nodata value is the largest of what
       // is read from the mask file and the value 0, as pixels
       // over land are supposed to be positive and be valid data.
       vw_out() << "Reading the mask: " << opt.mask << std::endl;
@@ -1168,6 +1281,8 @@ int main(int argc, char *argv[]) {
       if (vw::read_nodata_val(opt.mask, mask_nodata_val))
         vw_out() << "Read mask nodata value: " << mask_nodata_val << ".\n";
       mask_nodata_val = std::max(0.0f, mask_nodata_val);
+      if (std::isnan(mask_nodata_val))
+        mask_nodata_val = 0.0f;
       vw_out() << "Pixels with values no more than " << mask_nodata_val
                << " are classified as water.\n";
       DiskImageView<float> mask(opt.mask);
@@ -1186,6 +1301,24 @@ int main(int argc, char *argv[]) {
         return 0;
       }
 
+    } else if (use_ortho_mask) {
+      // Read the ortho mask
+      vw_out() << "Reading the ortho mask: " << opt.ortho_mask << std::endl;
+      if (!read_georeference(shape_georef, opt.ortho_mask))
+        vw_throw(ArgumentErr() << "The input ortho-mask has no georeference.\n");
+      
+      find_points_at_ortho_mask_boundary(opt.ortho_mask, shape_georef,
+                                         dem_georef, interp_dem,
+                                         opt.num_samples,
+                                         point_vec, llh_vec,
+                                         used_vertices);
+
+      if (!opt.mask_boundary_shapefile.empty()) {
+        // Just sample the mask boundary and return
+        sample_mask_boundary(point_vec, opt.mask_boundary_shapefile);
+        return 0;
+      }
+      
     } else if (use_shapefile) {
 
       // Read the shapefile, overwriting shape_georef
