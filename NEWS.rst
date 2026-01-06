@@ -13,6 +13,8 @@ disparitydebug (:numref:`disparitydebug`):
     disparities without normalization (:numref:`raw_disp`).
 
 bathy_plane_calc (:numref:`bathy_plane_calc`):
+  * Added the option ``--ortho-mask`` to use a georeferenced orthoimage
+    mask and a DEM to estimate the water plane (:numref:`bathy_plane_ortho_mask`).
   * Added the option ``--lon-lat-measurements`` to use a CSV file with
     longitude and latitude measurements and lookup heights in a DEM
     (:numref:`bathy_plane_lonlat`).
