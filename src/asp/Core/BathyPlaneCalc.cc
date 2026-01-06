@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Core/BathyPlaneCalc.h>
+#include <asp/Core/PointUtils.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/DiskImageUtils.h>
@@ -28,6 +29,12 @@
 #include <vw/FileIO/FileUtils.h>
 
 #include <Eigen/Dense>
+
+#include <random>
+#include <algorithm>
+#include <iterator>
+#include <iostream>
+#include <vector>
 
 using namespace vw;
 using namespace vw::cartography;

@@ -16,7 +16,6 @@
 // __END_LICENSE__
 
 /// \file bathy_plane_calc.cc
-///
 
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
@@ -314,15 +313,15 @@ int main(int argc, char *argv[]) {
                << " are classified as water.\n";
       DiskImageView<float> mask(opt.mask);
       shape_georef = dem_georef;
-      sampleMaskBd(mask, mask_nodata_val,
-                   camera_model, shape_georef,
-                   dem_georef, masked_dem,
-                   opt.num_samples,
-                   point_vec, llh_vec,
-                   used_vertices);
+      asp::sampleMaskBd(mask, mask_nodata_val,
+                        camera_model, shape_georef,
+                        dem_georef, masked_dem,
+                        opt.num_samples,
+                        point_vec, llh_vec,
+                        used_vertices);
 
       if (!opt.mask_boundary_shapefile.empty()) {
-        saveShape(point_vec, opt.mask_boundary_shapefile);
+        asp::saveShape(point_vec, opt.mask_boundary_shapefile);
         return 0;
       }
 
@@ -332,12 +331,12 @@ int main(int argc, char *argv[]) {
       if (!read_georeference(shape_georef, opt.ortho_mask))
         vw_throw(ArgumentErr() << "The input ortho-mask has no georeference.\n");
       
-      sampleOrthoMaskBd(opt.ortho_mask, shape_georef, dem_georef, interp_dem,
-                        opt.num_samples, point_vec, llh_vec,
-                        used_vertices);
+      asp::sampleOrthoMaskBd(opt.ortho_mask, shape_georef, dem_georef, interp_dem,
+                             opt.num_samples, point_vec, llh_vec,
+                             used_vertices);
 
       if (!opt.mask_boundary_shapefile.empty()) {
-        saveShape(point_vec, opt.mask_boundary_shapefile);
+        asp::saveShape(point_vec, opt.mask_boundary_shapefile);
         return 0;
       }
       
@@ -351,51 +350,51 @@ int main(int argc, char *argv[]) {
         vw_throw(ArgumentErr() << "The input shapefile has no georeference.\n");
 
       // Find the ECEF coordinates of the shape corners
-      find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, point_vec,
-                                   llh_vec, used_vertices);
+      asp::find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, point_vec,
+                                        llh_vec, used_vertices);
     } else if (use_meas) {
-      find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str,
-                               shape_georef,
-                               // Outputs
-                               llh_vec, used_vertices);
+      asp::find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str,
+                                     shape_georef,
+                                     // Outputs
+                                     llh_vec, used_vertices);
     } else if (use_lon_lat) {
       shape_georef = dem_georef;
       has_shape_georef = true;
-      find_points_from_lon_lat_csv(opt.lon_lat_measurements, opt.csv_format_str,
-                                   shape_georef, dem_georef, interp_dem,
-                                   // Outputs
-                                   point_vec, llh_vec, used_vertices);
+      asp::find_points_from_lon_lat_csv(opt.lon_lat_measurements, opt.csv_format_str,
+                                        shape_georef, dem_georef, interp_dem,
+                                        // Outputs
+                                        point_vec, llh_vec, used_vertices);
     }
 
     // See if to convert to local stereographic projection
     if (use_proj_water_surface)
-      find_projection(// Inputs
-                      dem_georef, llh_vec,
-                      // Outputs
-                      proj_lat, proj_lon,
-                      stereographic_georef,
-                      point_vec);
+      asp::find_projection(// Inputs
+                           dem_georef, llh_vec,
+                           // Outputs
+                           proj_lat, proj_lon,
+                           stereographic_georef,
+                           point_vec);
 
     // Compute the water surface using RANSAC
     std::vector<size_t> inlier_indices;
     double inlier_threshold = opt.outlier_threshold;
     vw::Matrix<double> plane;
-    calcBathyPlane(use_proj_water_surface, opt.num_ransac_iterations, inlier_threshold,
-                   point_vec, plane, inlier_indices);
-    calcPlaneProperties(use_proj_water_surface, point_vec, inlier_indices,
-                        dem_georef, plane);
-    saveBathyPlane(use_proj_water_surface, proj_lat, proj_lon,
-                   plane, opt.bathy_plane);
+    asp::calcBathyPlane(use_proj_water_surface, opt.num_ransac_iterations, inlier_threshold,
+                        point_vec, plane, inlier_indices);
+    asp::calcPlaneProperties(use_proj_water_surface, point_vec, inlier_indices,
+                             dem_georef, plane);
+    asp::saveBathyPlane(use_proj_water_surface, proj_lat, proj_lon,
+                        plane, opt.bathy_plane);
 
     // Save the shape having the inliers.
     if (opt.output_inlier_shapefile != "") {
       vw::geometry::dPoly inlierPoly;
       for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++)
-        addPointToPoly(inlierPoly, used_vertices[inlier_indices[inlier_it]]);
+        asp::addPointToPoly(inlierPoly, used_vertices[inlier_indices[inlier_it]]);
 
       if (opt.save_shapefiles_as_polygons) {
         vw::geometry::dPoly localPoly;
-        formSinglePoly(inlierPoly, localPoly);
+        asp::formSinglePoly(inlierPoly, localPoly);
         inlierPoly = localPoly;
       }
 
@@ -420,12 +419,12 @@ int main(int argc, char *argv[]) {
         if (inlier_set.find(it) != inlier_set.end())
           continue; // an inlier, skip it
 
-        addPointToPoly(outlierPoly, used_vertices[it]);
+        asp::addPointToPoly(outlierPoly, used_vertices[it]);
       }
 
       if (opt.save_shapefiles_as_polygons) {
         vw::geometry::dPoly localPoly;
-        formSinglePoly(outlierPoly, localPoly);
+        asp::formSinglePoly(outlierPoly, localPoly);
         outlierPoly = localPoly;
       }
 
@@ -441,8 +440,8 @@ int main(int argc, char *argv[]) {
       vw_out() << "Writing: " << opt.dem_minus_plane << "\n";
       TerminalProgressCallback tpc("asp", ": ");
       auto dem_minus_plane 
-        = demMinusPlane(dem, dem_georef, plane, dem_nodata_val, use_proj_water_surface,
-                        stereographic_georef);
+        = asp::demMinusPlane(dem, dem_georef, plane, dem_nodata_val, use_proj_water_surface,
+                             stereographic_georef);
       block_write_gdal_image(opt.dem_minus_plane, dem_minus_plane, has_georef, dem_georef, 
                              has_nodata, dem_nodata_val, opt, tpc);
     }
