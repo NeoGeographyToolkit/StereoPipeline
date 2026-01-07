@@ -13,6 +13,9 @@ disparitydebug (:numref:`disparitydebug`):
     disparities without normalization (:numref:`raw_disp`).
 
 bathy_plane_calc (:numref:`bathy_plane_calc`):
+  * Refined the algorithm by taking into account that given a mask of land
+    pixels, the true water interface is somewhere half way between those and the
+    water pixels.
   * Added the option ``--ortho-mask`` to use a georeferenced orthoimage
     mask and a DEM to estimate the water plane (:numref:`bathy_plane_ortho_mask`).
   * Added the option ``--lon-lat-measurements`` to use a CSV file with

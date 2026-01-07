@@ -430,6 +430,21 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
   return;
 }
 
+// A function that will find the mean of a std::vector<vw::Vector2> mid_pts
+vw::Vector2 meanOfPoints(std::vector<vw::Vector2> const& points) {
+
+  // Check that must have at least one input
+  if (points.size() == 0)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find mean of zero input points.\n");
+    
+  vw::Vector2 mean_point(0.0, 0.0);
+  for (size_t it = 0; it < points.size(); it++)
+    mean_point += points[it];
+    
+  mean_point /= points.size();
+  return mean_point;
+}
+
 // Find the mask boundary (points where the points in the mask have
 // neighbors not in the mask), and look up the height in the DEM.
 void sampleOrthoMaskBd(std::string const& mask_file,
@@ -445,13 +460,13 @@ void sampleOrthoMaskBd(std::string const& mask_file,
   // is read from the mask file and the value 0, as pixels
   // over land are supposed to be positive and be valid data.
   vw::vw_out() << "Reading the ortho mask: " << mask_file << "\n";
-  float mask_nodata_val = -std::numeric_limits<float>::max();
-  if (vw::read_nodata_val(mask_file, mask_nodata_val))
-    vw::vw_out() << "Read ortho mask nodata value: " << mask_nodata_val << ".\n";
-  mask_nodata_val = std::max(0.0f, mask_nodata_val);
-  if (std::isnan(mask_nodata_val))
-    mask_nodata_val = 0.0f;
-  vw::vw_out() << "Pixels with values no more than " << mask_nodata_val
+  float mask_thresh = -std::numeric_limits<float>::max();
+  if (vw::read_nodata_val(mask_file, mask_thresh))
+    vw::vw_out() << "Read ortho mask nodata value: " << mask_thresh << ".\n";
+  mask_thresh = std::max(0.0f, mask_thresh);
+  if (std::isnan(mask_thresh))
+    mask_thresh = 0.0f;
+  vw::vw_out() << "Pixels with values no more than " << mask_thresh
                << " are classified as water.\n";
 
   vw::DiskImageView<float> mask(mask_file);
@@ -474,14 +489,18 @@ void sampleOrthoMaskBd(std::string const& mask_file,
     for (int row = 0; row < mask.rows(); row++) {
 
       // Look at pixels above threshold which have neighbors <= threshold
-      if (mask(col, row) <= mask_nodata_val)
+      if (mask(col, row) <= mask_thresh)
         continue;
 
+      //begx
+      // For each neighbor on the other side, find the midpoint between
+      // current pixel and neighbor. 
+      std::vector<vw::Vector2> mid_pts;
+      
       // The four neighbors
       int col_vals[4] = {-1, 0, 0, 1};
       int row_vals[4] = {0, -1, 1, 0};
 
-      bool border_pix = false;
       for (int it = 0; it < 4; it++) {
 
         int icol = col + col_vals[it];
@@ -490,16 +509,19 @@ void sampleOrthoMaskBd(std::string const& mask_file,
         if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows())
           continue;
 
-        if (mask(icol, irow) <= mask_nodata_val) {
-          border_pix = true;
-          break;
+        if (mask(icol, irow) <= mask_thresh) {
+          vw::Vector2 mid_pt(0.5 * (col + icol), 0.5 * (row + irow));
+          mid_pts.push_back(mid_pt);
         }
       }
 
-      if (!border_pix)
+      if (mid_pts.empty())
         continue;
 
-      vw::Vector2 pix(col, row);
+      // Find the mean of the midpoints. This the best one can do with a mask.
+      vw::Vector2 pix = meanOfPoints(mid_pts);
+      //endx
+      
       vw::Vector2 shape_xy = mask_georef.pixel_to_point(pix);
       vw::Vector2 lonlat = mask_georef.point_to_lonlat(shape_xy);
 
@@ -522,7 +544,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
     std::vector<int> w;
     vw::math::pick_random_indices_in_range(num_pts, num_samples, w);
     std::vector<Eigen::Vector3d> big_ecef_vec     = ecef_vec;     ecef_vec.clear();
-    std::vector<vw::Vector3>     big_llh_vec       = llh_vec;       llh_vec.clear();
+    std::vector<vw::Vector3>     big_llh_vec      = llh_vec;      llh_vec.clear();
     std::vector<vw::Vector2>     big_shape_xy_vec = shape_xy_vec; shape_xy_vec.clear();
     for (size_t it = 0; it < w.size(); it++) {
       int random_index = w[it];
@@ -613,11 +635,10 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
              << csv_format_str << ".\n");
   }
   std::list<asp::CsvConv::CsvRecord> pos_records;
-  typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   csv_conv.read_csv_file(water_height_measurements, pos_records);
 
   // Create llh and vertices
-  for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+  for (auto iter = pos_records.begin(); iter != pos_records.end(); iter++) {
     vw::Vector3 llh = csv_conv.csv_to_geodetic(*iter, shape_georef);
     llh_vec.push_back(llh);
     vw::Vector2 shape_xy = shape_georef.lonlat_to_point(vw::Vector2(llh[0], llh[1]));
@@ -644,6 +665,7 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
                                   std::vector<Eigen::Vector3d> & ecef_vec,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & shape_xy_vec) {
+
   // Wipe the outputs
   ecef_vec.clear();
   llh_vec.clear();
@@ -661,12 +683,11 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
              << csv_format_str << ".\n");
   }
   std::list<asp::CsvConv::CsvRecord> pos_records;
-  typedef std::list<asp::CsvConv::CsvRecord>::const_iterator RecordIter;
   csv_conv.read_csv_file(lon_lat_measurements, pos_records);
 
   // Create llh and vertices
   int total_num_pts = 0;
-  for (RecordIter iter = pos_records.begin(); iter != pos_records.end(); iter++) {
+  for (auto iter = pos_records.begin(); iter != pos_records.end(); iter++) {
     total_num_pts++;
     vw::Vector2 lonlat = csv_conv.csv_to_lonlat(*iter, shape_georef);
     vw::Vector2 shape_xy = shape_georef.lonlat_to_point(lonlat);

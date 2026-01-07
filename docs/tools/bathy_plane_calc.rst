@@ -144,7 +144,9 @@ on land. The bathy plane is found as follows::
           --bathy-plane plane.txt              \
           --output-inlier-shapefile inliers.shp 
 
-An input mask can be created, for example, with ``image_calc`` (:numref:`image_calc_create_mask`).
+An input mask can be created, for example, with ``image_calc``
+(:numref:`image_calc_create_mask`). The orthoimage itself, before masking, can
+be produced with ``mapproject`` (:numref:`mapproject`).
 
 .. _bathy_plane_shapefile:
 

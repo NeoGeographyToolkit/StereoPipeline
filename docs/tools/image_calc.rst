@@ -65,8 +65,13 @@ Create a mask
 This will set values no less than a threshold to 1, and the rest to 0::
 
     thresh=0.27
-    image_calc -c "gte(var_0, $thresh, 1, 0)" -d float32 \
-        input.tif -o output.tif
+    image_calc -c "gte(var_0, $thresh, 1, 0)" \
+      -d float32                              \
+      --output-nodata-value -1e+6             \
+      input.tif -o output.tif
+
+It is suggested to ensure that both the input and output nodata values are
+different than either 0 or 1, and ideally less than these.
 
 Invalidate values no more than a threshold
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
