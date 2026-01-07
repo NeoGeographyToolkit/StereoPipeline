@@ -47,7 +47,7 @@ struct Options: vw::GdalWriteOptions {
 
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
-  bool save_shapefiles_as_polygons, use_ecef_water_surface;
+  bool save_shapefiles_as_polygons;
   Options(): outlier_threshold(0.5), num_ransac_iterations(1000) {}
 };
 
@@ -123,11 +123,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),
      "If specified, subtract from the input DEM the best-fit plane and save the "
-     "obtained DEM to this GeoTiff file.")
-    ("use-ecef-water-surface",
-     po::bool_switch(&opt.use_ecef_water_surface)->default_value(false),
-     "Compute the best fit plane in ECEF coordinates rather than in a local stereographic "
-     "projection. Hence don't model the Earth curvature. Not recommended.");
+     "obtained DEM to this GeoTiff file.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -175,11 +171,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if ((use_meas || use_lon_lat) && opt.csv_format_str == "")
     vw::vw_throw(vw::ArgumentErr() << "Must set the option --csv-format.\n"
-             << usage << general_options);
-
-  if (opt.use_ecef_water_surface && (use_meas || use_lon_lat))
-    vw::vw_throw(vw::ArgumentErr() << "Cannot use --use-ecef-water-surface with "
-             << "--water-height-measurements or --lon-lat-measurements.\n"
              << usage << general_options);
 
   if (!opt.mask_boundary_shapefile.empty() &&
@@ -281,10 +272,9 @@ int main(int argc, char *argv[]) {
       shape_georef = dem_georef; // may get overwritten below
     }
 
-    bool use_proj_water_surface = !opt.use_ecef_water_surface;
     std::vector<Eigen::Vector3d> ecef_vec;
     std::vector<vw::Vector3> llh_vec;
-    double proj_lat = -1.0, proj_lon = -1.0; // only for curved water surface
+    double proj_lat = -1.0, proj_lon = -1.0; 
     std::vector<vw::Vector2> used_vertices;
     vw::cartography::GeoReference stereographic_georef;
     std::string poly_color = "green";
@@ -359,23 +349,22 @@ int main(int argc, char *argv[]) {
 
     // See if to convert to local stereographic projection
     std::vector<Eigen::Vector3d> local_proj_point_vec;
-    if (use_proj_water_surface)
-      asp::find_projection(// Inputs
-                           dem_georef, llh_vec,
-                           // Outputs
-                           proj_lat, proj_lon,
-                           stereographic_georef,
-                           local_proj_point_vec);
+    asp::find_projection(// Inputs
+                         dem_georef, llh_vec,
+                         // Outputs
+                         proj_lat, proj_lon,
+                         stereographic_georef,
+                         local_proj_point_vec);
 
     // Compute the water surface using RANSAC
     std::vector<size_t> inlier_indices;
     double inlier_threshold = opt.outlier_threshold;
     vw::Matrix<double> plane;
-    asp::calcBathyPlane(use_proj_water_surface, opt.num_ransac_iterations, inlier_threshold,
+    asp::calcBathyPlane(opt.num_ransac_iterations, inlier_threshold,
                         local_proj_point_vec, plane, inlier_indices);
-    asp::calcPlaneProperties(use_proj_water_surface, local_proj_point_vec, inlier_indices,
+    asp::calcPlaneProperties(local_proj_point_vec, inlier_indices,
                              dem_georef, plane);
-    asp::saveBathyPlane(use_proj_water_surface, proj_lat, proj_lon,
+    asp::saveBathyPlane(proj_lat, proj_lon,
                         plane, opt.bathy_plane);
 
     // Save the shape having the inliers.
@@ -432,7 +421,7 @@ int main(int argc, char *argv[]) {
       vw::vw_out() << "Writing: " << opt.dem_minus_plane << "\n";
       vw::TerminalProgressCallback tpc("asp", ": ");
       auto dem_minus_plane 
-        = asp::demMinusPlane(dem, dem_georef, plane, dem_nodata_val, use_proj_water_surface,
+        = asp::demMinusPlane(dem, dem_georef, plane, dem_nodata_val,
                              stereographic_georef);
       vw::cartography::block_write_gdal_image(opt.dem_minus_plane, dem_minus_plane, 
                                               has_georef, dem_georef, 

@@ -93,11 +93,11 @@ void sampleOrthoMaskBd(std::string const& mask_file,
                        std::vector<vw::Vector2> & used_vertices);
 
 // Compute the 3D locations at the shape corners based on interpolating
-// into the DEM and converting either to ECEF or to local projected
+// into the DEM and converting to ECEF and to local projected
 // stereographic coordinates.
-// If using a curved water surface, compute the stereographic georeference
-// with the projection center being the mean lon and lat, and make the 3D locations
-// in reference to this projection
+// Compute the stereographic georeference with the projection center 
+// being the mean lon and lat, and make the 3D locations in reference 
+// to this projection.
 void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
@@ -131,26 +131,23 @@ void saveShape(std::vector<Eigen::Vector3d> const& point_vec,
                std::string const& mask_boundary_shapefile);
 
 // Calculate a few properties of the plane fitted to the given points and print them out
-void calcPlaneProperties(bool use_proj_water_surface,
-                         std::vector<Eigen::Vector3d> const& point_vec,
+void calcPlaneProperties(std::vector<Eigen::Vector3d> const& point_vec,
                          std::vector<size_t> const& inlier_indices,
                          vw::cartography::GeoReference & dem_georef,
                          vw::Matrix<double> const& plane);
 
 // Save the bathy plane and the projection parameters if needed
-void saveBathyPlane(bool use_proj_water_surface, double proj_lat, double proj_lon,
+void saveBathyPlane(double proj_lat, double proj_lon,
                     vw::Matrix<double> const& plane, std::string const& plane_file);
 
 vw::ImageViewRef<float> demMinusPlane(vw::ImageViewRef<float> const& dem,
                                       vw::cartography::GeoReference const& dem_georef,
                                       vw::Matrix<double> plane,
                                       double dem_nodata_val,
-                                      bool use_proj_water_surface,
                                       vw::cartography::GeoReference const& stereographic_georef);
 
 // Use RANSAC to find the best plane
-void calcBathyPlane(bool use_proj_water_surface,
-                    int num_ransac_iterations,
+void calcBathyPlane(int num_ransac_iterations,
                     double inlier_threshold,
                     std::vector<Eigen::Vector3d> const& point_vec,
                     vw::Matrix<double> & plane,

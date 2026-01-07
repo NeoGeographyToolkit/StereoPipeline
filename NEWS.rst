@@ -18,6 +18,8 @@ bathy_plane_calc (:numref:`bathy_plane_calc`):
   * Added the option ``--lon-lat-measurements`` to use a CSV file with
     longitude and latitude measurements and lookup heights in a DEM
     (:numref:`bathy_plane_lonlat`).
+  * Removed the option ``--use-ecef-water-surface``. It is now always assumed
+    that the bathy plane is computed in local projected coordinates.
     
 RELEASE 3.6.0, December 26, 2025
 --------------------------------

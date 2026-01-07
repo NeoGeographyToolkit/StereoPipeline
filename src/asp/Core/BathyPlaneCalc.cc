@@ -537,11 +537,11 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 }
 
 // Compute the 3D locations at the shape corners based on interpolating
-// into the DEM and converting either to ECEF or to local projected
+// into the DEM and converting to ECEF and to local projected
 // stereographic coordinates.
-// If using a curved water surface, compute the stereographic georeference
-// with the projection center being the mean lon and lat, and make the 3D locations
-// in reference to this projection
+// Compute the stereographic georeference with the projection center 
+// being the mean lon and lat, and make the 3D locations in reference 
+// to this projection.
 void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
@@ -728,12 +728,9 @@ best_plane_from_points(const std::vector<Eigen::Vector3d> & c) {
 
 struct BestFitPlaneFunctor {
 
-  BestFitPlaneFunctor(bool use_proj_water_surface):
-    m_use_proj_water_surface(use_proj_water_surface) {}
+  BestFitPlaneFunctor() {}
 
   typedef vw::Matrix<double, 1, 4> result_type;
-
-  bool m_use_proj_water_surface;
 
   /// A best fit plane requires pairs of data points to make a fit.
   template <class ContainerT>
@@ -768,20 +765,11 @@ struct BestFitPlaneFunctor {
 
     result(0, 3) = -normal.dot(centroid);
 
-    if (!m_use_proj_water_surface) {
-      // Make the normal always point "up", away from the Earth origin,
-      // which means that the free term must be negative.
-      if (result(0, 3) > 0) {
-        for (int col = 0; col < 4; col++)
-          result(0, col) *= -1.0;
-      }
-    } else {
-      // Make the z coefficient positive, which will make the normal
-      // point "up" in the projected coordinate system.
-      if (result(0, 2) < 0) {
-        for (int col = 0; col < 4; col++)
-          result(0, col) *= -1.0;
-      }
+    // Make the z coefficient positive, which will make the normal
+    // point "up" in the projected coordinate system.
+    if (result(0, 2) < 0) {
+      for (int col = 0; col < 4; col++)
+        result(0, col) *= -1.0;
     }
 
     return result;
@@ -813,8 +801,7 @@ struct BestFitPlaneErrorMetric {
 };
 
 // Calculate a few properties of the plane fitted to the given points and print them out
-void calcPlaneProperties(bool use_proj_water_surface,
-                         std::vector<Eigen::Vector3d> const& ecef_vec,
+void calcPlaneProperties(std::vector<Eigen::Vector3d> const& ecef_vec,
                          std::vector<size_t> const& inlier_indices,
                          vw::cartography::GeoReference & dem_georef,
                          vw::Matrix<double> const& plane) {
@@ -832,41 +819,21 @@ void calcPlaneProperties(bool use_proj_water_surface,
     vw::Vector3 point(p[0], p[1], p[2]);
     max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, point));
 
-    if (!use_proj_water_surface) {
-      // the point is xyz in ecef
-      vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(point);
-      mean_height += llh[2];
-    } else {
-      // the point is in the stereographic projection
-      mean_height += point[2];
-    }
+    // the point is in the stereographic projection
+    mean_height += point[2];
 
     num++;
-
-    if (!use_proj_water_surface)
-      mean_point += point;
   }
 
   mean_height /= num;
 
-  if (!use_proj_water_surface)
-    mean_point /= num;
-
   vw::vw_out() << "Max distance to the plane (meters): " << max_error << "\n";
   vw::vw_out() << "Max inlier distance to the plane (meters): " << max_inlier_error << "\n";
   vw::vw_out() << "Mean plane height above datum (meters): " << mean_height << "\n";
-
-  if (!use_proj_water_surface) {
-    // This does not make sense for a curved surface
-    vw::Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
-    vw::Vector3 surface_normal = mean_point / vw::math::norm_2(mean_point); // ignore the datum flattening
-    double plane_angle = (180.0 / M_PI) * acos(vw::math::dot_prod(plane_normal, surface_normal));
-    vw::vw_out() << "Plane inclination (degrees): " << plane_angle << "\n";
-  }
 }
 
 // Save the bathy plane and the projection parameters if needed
-void saveBathyPlane(bool use_proj_water_surface, double proj_lat, double proj_lon,
+void saveBathyPlane(double proj_lat, double proj_lon,
                     vw::Matrix<double> const& plane, std::string const& plane_file) {
 
   vw::vw_out() << "Writing: " << plane_file << "\n";
@@ -880,10 +847,8 @@ void saveBathyPlane(bool use_proj_water_surface, double proj_lat, double proj_lo
     else
       bp << "\n";
   }
-  if (use_proj_water_surface) {
-    bp << "# Latitude and longitude of the local stereographic projection with the WGS_1984 datum:\n";
-    bp << proj_lat << " " << proj_lon << "\n";
-  }
+  bp << "# Latitude and longitude of the local stereographic projection with the WGS_1984 datum:\n";
+  bp << proj_lat << " " << proj_lon << "\n";
   bp.close();
 }
 
@@ -891,16 +856,14 @@ void saveBathyPlane(bool use_proj_water_surface, double proj_lat, double proj_lo
 // inclination) subtract from each DEM height the height at that
 // plane. The height of the plane is obtained by considering the
 // current DEM grid point, and another point at same lon-lat but with
-// a height 100 meters less, converting these to the given projection
-// (if m_use_proj_water_surface is true or to ECEF otherwise), tracing a ray
-// through them, seeing where it intersects the plane, converting that
-// point to geodetic, and taking the height difference.
+// a height 100 meters less, converting these to the given projection, 
+// tracing a ray through them, seeing where it intersects the plane, 
+// converting that point to geodetic, and taking the height difference.
 class DemMinusPlaneView: public vw::ImageViewBase<DemMinusPlaneView>{
   vw::ImageViewRef<float> m_dem;
   vw::cartography::GeoReference m_dem_georef;
   vw::Matrix<double> m_plane;
   double m_dem_nodata_val;
-  bool m_use_proj_water_surface;
   vw::cartography::GeoReference m_stereographic_georef;
 
   typedef float PixelT;
@@ -910,11 +873,9 @@ public:
                     vw::cartography::GeoReference const& dem_georef,
                     vw::Matrix<double> const& plane,
                     double dem_nodata_val,
-                    bool use_proj_water_surface,
                     vw::cartography::GeoReference const& stereographic_georef):
     m_dem(dem), m_dem_georef(dem_georef), m_plane(plane),
     m_dem_nodata_val(dem_nodata_val),
-    m_use_proj_water_surface(use_proj_water_surface),
     m_stereographic_georef(stereographic_georef) {}
 
   typedef PixelT pixel_type;
@@ -961,15 +922,9 @@ public:
         // Find another point on the same ray.
         vw::Vector3 point1, point2;
 
-        if (m_use_proj_water_surface) {
-          point1 = m_stereographic_georef.geodetic_to_point(llh);
-          llh[2] -= 100.0;
-          point2 = m_stereographic_georef.geodetic_to_point(llh);
-        } else {
-          point1 = m_dem_georef.datum().geodetic_to_cartesian(llh);
-          llh[2] -= 100.0;
-          point2 = m_dem_georef.datum().geodetic_to_cartesian(llh);
-        }
+        point1 = m_stereographic_georef.geodetic_to_point(llh);
+        llh[2] -= 100.0;
+        point2 = m_stereographic_georef.geodetic_to_point(llh);
 
         // The ray is P = point1 + t * (point2 - point1), where t is real.
         // The plane is a*x + b*y + c*z + d = 0, where plane = (a, b, c, d).
@@ -984,11 +939,7 @@ public:
         vw::Vector3 P = point1 + t * (point2 - point1);
 
         // Go back to llh
-        if (m_use_proj_water_surface) {
-          llh = m_stereographic_georef.point_to_geodetic(P);
-        } else {
-          llh = m_dem_georef.datum().cartesian_to_geodetic(P);
-        }
+        llh = m_stereographic_georef.point_to_geodetic(P);
 
         tile(col, row) = cropped_dem(col, row) - llh[2];
       }
@@ -1008,15 +959,13 @@ vw::ImageViewRef<float> demMinusPlane(vw::ImageViewRef<float> const& dem,
                                   vw::cartography::GeoReference const& dem_georef,
                                   vw::Matrix<double> plane,
                                   double dem_nodata_val,
-                                  bool use_proj_water_surface,
                                   vw::cartography::GeoReference const& stereographic_georef) {
   return DemMinusPlaneView(dem, dem_georef, plane, dem_nodata_val,
-                           use_proj_water_surface, stereographic_georef);
+                           stereographic_georef);
 }
 
 // Use RANSAC to find the best plane
-void calcBathyPlane(bool use_proj_water_surface,
-                    int num_ransac_iterations,
+void calcBathyPlane(int num_ransac_iterations,
                     double inlier_threshold,
                     std::vector<Eigen::Vector3d> const& ecef_vec,
                     vw::Matrix<double> & plane,
@@ -1030,7 +979,7 @@ void calcBathyPlane(bool use_proj_water_surface,
     // Must first create the functor and metric, then pass these to ransac. If
     // created as inline arguments to ransac, these may go go out
     // of scope prematurely, which will result in incorrect behavior.
-    BestFitPlaneFunctor func(use_proj_water_surface);
+    BestFitPlaneFunctor func;
     BestFitPlaneErrorMetric error_metric;
     vw::math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric>
       ransac(func, error_metric, num_ransac_iterations, inlier_threshold,

@@ -435,11 +435,6 @@ Command-line options for bathy_plane_calc
     If specified, subtract from the input DEM the best-fit plane and save the 
     obtained DEM to this GeoTiff file.
 
---use-ecef-water-surface
-    Compute the best fit plane in ECEF coordinates rather than in a
-    local stereographic projection. Hence don't model the Earth
-    curvature. Not recommended.
-
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
