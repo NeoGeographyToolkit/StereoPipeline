@@ -501,8 +501,8 @@ void sampleOrthoMaskBd(std::string const& mask_file,
         continue;
 
       vw::Vector2 pix(col, row);
-      vw::Vector2 lonlat = mask_georef.pixel_to_lonlat(pix);
-      vw::Vector2 proj_pt = mask_georef.lonlat_to_point(lonlat);
+      vw::Vector2 proj_pt = mask_georef.pixel_to_point(pix);
+      vw::Vector2 lonlat = mask_georef.point_to_lonlat(proj_pt);
 
       addPoint(dem_georef, interp_dem, lonlat, proj_pt,
                point_vec, llh_vec, used_vertices);
