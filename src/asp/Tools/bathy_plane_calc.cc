@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
     bool use_meas       = !opt.water_height_measurements.empty();
     bool use_lon_lat    = !opt.lon_lat_measurements.empty();
 
-    boost::shared_ptr<vw::camera::CameraModel> camera_model;
+    vw::CamPtr camera_model;
     if (use_mask) {
       std::string out_prefix;
       asp::SessionPtr

@@ -21,7 +21,6 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Math/RANSAC.h>
-#include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Core/ThreadPool.h>
 #include <vw/Math/RandomSet.h>
@@ -147,31 +146,31 @@ void find_projection(// Inputs
 class MaskBoundaryTask: public vw::Task, private boost::noncopyable {
   vw::BBox2i m_bbox; // Region of image we're working in
 
-  vw::ImageViewRef<float>                   m_mask;
-  float                                 m_mask_nodata_val;
-  boost::shared_ptr<vw::camera::CameraModel>  m_camera_model;
-  vw::cartography::GeoReference         m_shape_georef;
-  vw::cartography::GeoReference         m_dem_georef;
-  vw::ImageViewRef<vw::PixelMask<float>>        m_masked_dem;
+  vw::ImageViewRef<float> m_mask;
+  float m_mask_nodata_val;
+  vw::CamPtr m_camera_model;
+  vw::cartography::GeoReference m_shape_georef;
+  vw::cartography::GeoReference m_dem_georef;
+  vw::ImageViewRef<vw::PixelMask<float>> m_masked_dem;
 
   // Note how all of these are aliases
-  vw::Mutex                        & m_mutex;
+  vw::Mutex                    & m_mutex;
   std::vector<Eigen::Vector3d> & m_ecef_vec;
   std::vector<vw::Vector3>     & m_llh_vec;
   std::vector<vw::Vector2>     & m_shape_xy_vec;
 
 public:
-  MaskBoundaryTask(vw::BBox2i                            bbox,
-                   vw::ImageViewRef<float>                   mask,
-                   float                                 mask_nodata_val,
-                   boost::shared_ptr<vw::camera::CameraModel>        camera_model,
-                   vw::cartography::GeoReference const & shape_georef,
-                   vw::cartography::GeoReference const & dem_georef,
-                   vw::ImageViewRef<vw::PixelMask<float>>        masked_dem,
-                   vw::Mutex                               & mutex,
-                   std::vector<Eigen::Vector3d>        & ecef_vec,
-                   std::vector<vw::Vector3>            & llh_vec,
-                   std::vector<vw::Vector2>            & shape_xy_vec):
+  MaskBoundaryTask(vw::BBox2i bbox,
+                   vw::ImageViewRef<float> mask,
+                   float mask_nodata_val,
+                   vw::CamPtr camera_model,
+                   vw::cartography::GeoReference   const & shape_georef,
+                   vw::cartography::GeoReference   const & dem_georef,
+                   vw::ImageViewRef<vw::PixelMask<float>>  masked_dem,
+                   vw::Mutex                             & mutex,
+                   std::vector<Eigen::Vector3d>          & ecef_vec,
+                   std::vector<vw::Vector3>              & llh_vec,
+                   std::vector<vw::Vector2>              & shape_xy_vec):
     m_bbox(bbox), m_mask(mask), m_mask_nodata_val(mask_nodata_val),
     m_camera_model(camera_model), m_shape_georef(shape_georef),
     m_dem_georef(dem_georef), m_masked_dem(masked_dem),
@@ -279,7 +278,7 @@ public:
 // obtained points.
 void sampleMaskBd(vw::ImageViewRef<float> mask,
                   float mask_nodata_val,
-                  boost::shared_ptr<vw::camera::CameraModel> camera_model,
+                  vw::CamPtr camera_model,
                   vw::cartography::GeoReference const& shape_georef,
                   vw::cartography::GeoReference const& dem_georef,
                   vw::ImageViewRef<vw::PixelMask<float>> masked_dem,

@@ -26,17 +26,12 @@
 #include <vw/Image/PixelMask.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Geometry/dPoly.h>
+#include <vw/Camera/CameraModel.h>
 
 #include <Eigen/Dense>
 
 #include <vector>
 #include <string>
-
-namespace vw {
-  namespace camera {
-    class CameraModel;
-  }
-}
 
 namespace asp {
 
@@ -72,7 +67,7 @@ void find_projection(// Inputs
 // obtained points.
 void sampleMaskBd(vw::ImageViewRef<float> mask,
                   float mask_nodata_val,
-                  boost::shared_ptr<vw::camera::CameraModel> camera_model,
+                  vw::CamPtr camera_model,
                   vw::cartography::GeoReference const& shape_georef,
                   vw::cartography::GeoReference const& dem_georef,
                   vw::ImageViewRef<vw::PixelMask<float>> masked_dem,
