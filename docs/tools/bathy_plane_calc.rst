@@ -134,8 +134,8 @@ Using a DEM and an orthoimage mask
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this example we assume that there exists a DEM and an orthoimage which is
-consistent with the DEM and has 0 or nodata values on water and positive values
-on land. The bathy plane is found as follows::
+consistent with the DEM and has zero or nodata values on water and positive
+values on land. The bathy plane is found as follows::
 
         bathy_plane_calc                       \
           --ortho-mask ortho_mask.tif          \
