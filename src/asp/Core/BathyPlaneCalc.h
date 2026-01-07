@@ -48,13 +48,13 @@ void formSinglePoly(vw::geometry::dPoly const& inPoly,
 // Later that set will be saved as a shapefile made up of points.
 void addPointToPoly(vw::geometry::dPoly & poly, vw::Vector2 const& p);
 
-// Add a point to the point_vec, llh_vec, and used_vertices if it is valid
+// Add a point to the ecef_vec, llh_vec, and used_vertices if it is valid
 void addPoint(vw::cartography::GeoReference const& dem_georef,
               vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
               vw::Vector2 const& lonlat,
               vw::Vector2 const& proj_pt,
               // Append
-              std::vector<Eigen::Vector3d> & point_vec,
+              std::vector<Eigen::Vector3d> & ecef_vec,
               std::vector<vw::Vector3> & llh_vec,
               std::vector<vw::Vector2> & used_vertices);
 
@@ -88,7 +88,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
                        vw::cartography::GeoReference const& dem_georef,
                        vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                        int num_samples,
-                       std::vector<Eigen::Vector3d> & point_vec,
+                       std::vector<Eigen::Vector3d> & ecef_vec,
                        std::vector<vw::Vector3> & llh_vec,
                        std::vector<vw::Vector2> & used_vertices);
 
@@ -102,7 +102,7 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
-                                  std::vector<Eigen::Vector3d> & point_vec,
+                                  std::vector<Eigen::Vector3d> & ecef_vec,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & used_vertices);
 
@@ -122,12 +122,12 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
                                   vw::cartography::GeoReference const& dem_georef,
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                                   // Outputs
-                                  std::vector<Eigen::Vector3d> & point_vec,
+                                  std::vector<Eigen::Vector3d> & ecef_vec,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & used_vertices);
 
 // Save the points as a shapefile
-void saveShape(std::vector<Eigen::Vector3d> const& point_vec,
+void saveShape(std::vector<Eigen::Vector3d> const& ecef_vec,
                std::string const& mask_boundary_shapefile);
 
 // Calculate a few properties of the plane fitted to the given points and print them out
