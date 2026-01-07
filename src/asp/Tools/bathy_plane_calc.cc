@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
     std::vector<Eigen::Vector3d> ecef_vec;
     std::vector<vw::Vector3> llh_vec;
     double proj_lat = -1.0, proj_lon = -1.0; 
-    std::vector<vw::Vector2> used_vertices;
+    std::vector<vw::Vector2> shape_xy_vec;
     vw::cartography::GeoReference stereographic_georef;
     std::string poly_color = "green";
 
@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
                         dem_georef, masked_dem,
                         opt.num_samples,
                         ecef_vec, llh_vec,
-                        used_vertices);
+                        shape_xy_vec);
 
       if (!opt.mask_boundary_shapefile.empty()) {
         asp::saveShape(ecef_vec, opt.mask_boundary_shapefile);
@@ -313,7 +313,7 @@ int main(int argc, char *argv[]) {
         vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       asp::sampleOrthoMaskBd(opt.ortho_mask, shape_georef, dem_georef, interp_dem,
                              opt.num_samples, ecef_vec, llh_vec,
-                             used_vertices);
+                             shape_xy_vec);
 
       if (!opt.mask_boundary_shapefile.empty()) {
         asp::saveShape(ecef_vec, opt.mask_boundary_shapefile);
@@ -332,19 +332,19 @@ int main(int argc, char *argv[]) {
 
       // Find the ECEF coordinates of the shape corners
       asp::find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, 
-                                        ecef_vec, llh_vec, used_vertices);
+                                        ecef_vec, llh_vec, shape_xy_vec);
     } else if (use_meas) {
       asp::find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str,
                                      shape_georef,
                                      // Outputs
-                                     llh_vec, used_vertices);
+                                     llh_vec, shape_xy_vec);
     } else if (use_lon_lat) {
       shape_georef = dem_georef;
       has_shape_georef = true;
       asp::find_points_from_lon_lat_csv(opt.lon_lat_measurements, opt.csv_format_str,
                                         shape_georef, dem_georef, interp_dem,
                                         // Outputs
-                                        ecef_vec, llh_vec, used_vertices);
+                                        ecef_vec, llh_vec, shape_xy_vec);
     }
 
     // See if to convert to local stereographic projection
@@ -371,7 +371,7 @@ int main(int argc, char *argv[]) {
     if (opt.output_inlier_shapefile != "") {
       vw::geometry::dPoly inlierPoly;
       for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++)
-        asp::addPointToPoly(inlierPoly, used_vertices[inlier_indices[inlier_it]]);
+        asp::addPointToPoly(inlierPoly, shape_xy_vec[inlier_indices[inlier_it]]);
 
       if (opt.save_shapefiles_as_polygons) {
         vw::geometry::dPoly localPoly;
@@ -395,12 +395,12 @@ int main(int argc, char *argv[]) {
         inlier_set.insert(inlier_indices[inlier_it]);
 
       vw::geometry::dPoly outlierPoly;
-      for (size_t it = 0; it < used_vertices.size(); it++) {
+      for (size_t it = 0; it < shape_xy_vec.size(); it++) {
 
         if (inlier_set.find(it) != inlier_set.end())
           continue; // an inlier, skip it
 
-        asp::addPointToPoly(outlierPoly, used_vertices[it]);
+        asp::addPointToPoly(outlierPoly, shape_xy_vec[it]);
       }
 
       if (opt.save_shapefiles_as_polygons) {

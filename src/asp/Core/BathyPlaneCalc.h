@@ -48,15 +48,15 @@ void formSinglePoly(vw::geometry::dPoly const& inPoly,
 // Later that set will be saved as a shapefile made up of points.
 void addPointToPoly(vw::geometry::dPoly & poly, vw::Vector2 const& p);
 
-// Add a point to the ecef_vec, llh_vec, and used_vertices if it is valid
+// Add a point to the ecef_vec, llh_vec, and shape_xy_vec if it is valid
 void addPoint(vw::cartography::GeoReference const& dem_georef,
               vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
               vw::Vector2 const& lonlat,
-              vw::Vector2 const& proj_pt,
+              vw::Vector2 const& shape_xy,
               // Append
               std::vector<Eigen::Vector3d> & ecef_vec,
               std::vector<vw::Vector3> & llh_vec,
-              std::vector<vw::Vector2> & used_vertices);
+              std::vector<vw::Vector2> & shape_xy_vec);
 
 // Estimate the projection and convert llh_vec to projected coordinates
 void find_projection(// Inputs
@@ -79,7 +79,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
                   int num_samples,
                   std::vector<Eigen::Vector3d> & ecef_vec,
                   std::vector<vw::Vector3> & llh_vec,
-                  std::vector<vw::Vector2> & used_vertices);
+                  std::vector<vw::Vector2> & shape_xy_vec);
 
 // Find the mask boundary (points where the points in the mask have
 // neighbors not in the mask), and look up the height in the DEM.
@@ -90,7 +90,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
                        int num_samples,
                        std::vector<Eigen::Vector3d> & ecef_vec,
                        std::vector<vw::Vector3> & llh_vec,
-                       std::vector<vw::Vector2> & used_vertices);
+                       std::vector<vw::Vector2> & shape_xy_vec);
 
 // Compute the 3D locations at the shape corners based on interpolating
 // into the DEM and converting to ECEF and to local projected
@@ -104,7 +104,7 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                                   std::vector<Eigen::Vector3d> & ecef_vec,
                                   std::vector<vw::Vector3> & llh_vec,
-                                  std::vector<vw::Vector2> & used_vertices);
+                                  std::vector<vw::Vector2> & shape_xy_vec);
 
 // Read a set of measurements in CSV format, to use later to fit the water surface
 void find_points_from_meas_csv(std::string const& water_height_measurements,
@@ -112,7 +112,7 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
                                vw::cartography::GeoReference const& shape_georef,
                                // Outputs
                                std::vector<vw::Vector3> & llh_vec,
-                               std::vector<vw::Vector2> & used_vertices);
+                               std::vector<vw::Vector2> & shape_xy_vec);
 
 // Read a set of lon-lat measurements in CSV format, then interpolate into the DEM
 // with bilinear interpolation to find the height.
@@ -124,7 +124,7 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
                                   // Outputs
                                   std::vector<Eigen::Vector3d> & ecef_vec,
                                   std::vector<vw::Vector3> & llh_vec,
-                                  std::vector<vw::Vector2> & used_vertices);
+                                  std::vector<vw::Vector2> & shape_xy_vec);
 
 // Save the points as a shapefile
 void saveShape(std::vector<Eigen::Vector3d> const& ecef_vec,
