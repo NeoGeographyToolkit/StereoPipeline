@@ -90,10 +90,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("output-outlier-shapefile", po::value(&opt.output_outlier_shapefile)->default_value(""),
      "If specified, save at this location the shape file with the outlier vertices.")
     ("mask-boundary-shapefile", po::value(&opt.mask_boundary_shapefile)->default_value(""),
-     "If specified together with a mask, camera, and DEM, save a random "
-     "sample of points (their number given by ``--num-samples``) at the "
-     "mask boundary (water-land interface) to this shapefile and exit. "
-     "The heights will be looked up in the DEM with bilinear interpolation.")
+     "If specified, save the extracted points (before RANSAC) to this shapefile "
+     "and exit. When the input is a mask, a random sample is picked (their "
+     "number given by ``--num-samples``). The heights are looked up in the DEM "
+     "if not already present in the input.")
     ("num-samples",
      po::value(&opt.num_samples)->default_value(10000),
      "Number of samples to pick at the water-land interface if using a mask.")
@@ -171,12 +171,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if ((use_meas || use_lon_lat) && opt.csv_format_str == "")
     vw::vw_throw(vw::ArgumentErr() << "Must set the option --csv-format.\n"
-             << usage << general_options);
-
-  if (!opt.mask_boundary_shapefile.empty() &&
-      (opt.mask.empty() && opt.ortho_mask.empty()))
-    vw::vw_throw(vw::ArgumentErr() << "If using --mask-boundary-shapefile, then "
-             << "must specify a mask (with a camera) or an ortho-mask.\n"
              << usage << general_options);
 
   if ((use_mask || use_ortho_mask) && opt.num_samples <= 0)
@@ -301,24 +295,14 @@ int main(int argc, char *argv[]) {
                         ecef_vec, llh_vec,
                         shape_xy_vec);
 
-      if (!opt.mask_boundary_shapefile.empty()) {
-        asp::saveShape(ecef_vec, opt.mask_boundary_shapefile);
-        return 0;
-      }
-
     } else if (use_ortho_mask) {
-      // Read the ortho mask. Its georef will become the shape georef for this case.
+      // Read the ortho mask. Will overwrite shape_georef.
       vw::vw_out() << "Reading the ortho mask: " << opt.ortho_mask << "\n";
       if (!vw::cartography::read_georeference(shape_georef, opt.ortho_mask))
         vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       asp::sampleOrthoMaskBd(opt.ortho_mask, shape_georef, dem_georef, interp_dem,
                              opt.num_samples, ecef_vec, llh_vec,
                              shape_xy_vec);
-
-      if (!opt.mask_boundary_shapefile.empty()) {
-        asp::saveShape(ecef_vec, opt.mask_boundary_shapefile);
-        return 0;
-      }
       
     } else if (use_shapefile) {
 
@@ -337,7 +321,7 @@ int main(int argc, char *argv[]) {
       asp::find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str,
                                      shape_georef,
                                      // Outputs
-                                     llh_vec, shape_xy_vec);
+                                     ecef_vec, llh_vec, shape_xy_vec);
     } else if (use_lon_lat) {
       shape_georef = dem_georef;
       has_shape_georef = true;
@@ -345,6 +329,13 @@ int main(int argc, char *argv[]) {
                                         shape_georef, dem_georef, interp_dem,
                                         // Outputs
                                         ecef_vec, llh_vec, shape_xy_vec);
+    } else {
+      vw::vw_throw(vw::LogicErr() << "Unhandled input case in bathy_plane_calc.cc.\n");
+    }
+
+    if (!opt.mask_boundary_shapefile.empty()) {
+      asp::saveShape(ecef_vec, opt.mask_boundary_shapefile);
+      return 0;
     }
 
     // See if to convert to local stereographic projection

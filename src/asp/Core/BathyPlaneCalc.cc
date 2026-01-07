@@ -594,9 +594,11 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
                                std::string const& csv_format_str,
                                vw::cartography::GeoReference const& shape_georef,
                                // Outputs
+                               std::vector<Eigen::Vector3d> & ecef_vec,
                                std::vector<vw::Vector3> & llh_vec,
                                std::vector<vw::Vector2> & shape_xy_vec) {
   // Wipe the outputs
+  ecef_vec.clear();
   llh_vec.clear();
   shape_xy_vec.clear();
 
@@ -620,6 +622,12 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
     llh_vec.push_back(llh);
     vw::Vector2 shape_xy = shape_georef.lonlat_to_point(vw::Vector2(llh[0], llh[1]));
     shape_xy_vec.push_back(shape_xy);
+
+    vw::Vector3 ecef = shape_georef.datum().geodetic_to_cartesian(llh);
+    Eigen::Vector3d eigen_ecef;
+    for (size_t coord = 0; coord < 3; coord++)
+      eigen_ecef[coord] = ecef[coord];
+    ecef_vec.push_back(eigen_ecef);
   }
 
   return;

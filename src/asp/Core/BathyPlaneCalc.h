@@ -106,6 +106,7 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
                                std::string const& csv_format_str,
                                vw::cartography::GeoReference const& shape_georef,
                                // Outputs
+                               std::vector<Eigen::Vector3d> & ecef_vec,
                                std::vector<vw::Vector3> & llh_vec,
                                std::vector<vw::Vector2> & shape_xy_vec);
 

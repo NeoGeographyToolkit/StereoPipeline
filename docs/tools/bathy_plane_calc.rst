@@ -266,16 +266,15 @@ Care must be taken to ensure all the measurements, resulting bathy
 plane, and any DEMs are in the same coordinate system. This is
 discussed further in :numref:`bathy_and_align`.
 
-Pick a sample set of points at mask boundary
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _bathy_plane_mask_samples:
 
-In this example, the ``bathy_plane_calc`` tool will take as inputs a
-DEM, a mask, and a camera (with the latter two corresponding to same
-image), as in :numref:`bathy_plane_raw_img`, but instead of
-computing the best-fitting plane it finds a set of samples (given by
-``--num-samples``) at the mask boundary (water-land interface), and
-saves them as a shapefile of points, having longitude-latitude
-pairs relative to the WGS_1984 datum (ellipsoid). 
+Pick a sample set of points at the water-land boundary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this example, instead of computing the best-fitting plane,
+``bathy_plane_calc`` finds a set of samples (given by ``--num-samples``) at the
+water-land interface and saves them as a shapefile of points, having
+longitude-latitude pairs relative to the WGS_1984 datum (ellipsoid). 
 
 Example::
 
@@ -283,8 +282,12 @@ Example::
        --camera camera.xml --dem dem.tif --num-samples 100 \
        --mask-boundary-shapefile samples.shp
 
-This shapefile may then be passed to some external tool for looking
-up water level heights at these points.
+When the input is a mask, a random sample is picked (their number given by
+``--num-samples``). The heights are looked up in the DEM if not already present
+in the input. 
+
+This shapefile may then be passed to some external tool for looking up water
+level heights at these points.
 
 .. _water_meas_collection:
 
@@ -420,11 +423,11 @@ Command-line options for bathy_plane_calc
     (indices start from 1). Example: '2:lon 3:lat 4:height_above_datum'.
 
 --mask-boundary-shapefile <string (default: "")>
-    If specified together with a mask, camera, and DEM, save a random
-    sample of points (their number given by ``--num-samples``) at the
-    mask boundary (water-land interface) to this shapefile and exit.
-    The heights will be looked up in the DEM with bilinear
-    interpolation.
+    If specified, save the extracted points (before RANSAC) to this
+    shapefile and exit. When the input is a mask, a random sample is
+    picked (their number given by ``--num-samples``). The heights are
+    looked up in the DEM if not already present in the input.
+    See an example in :numref:`bathy_plane_mask_samples`.
 
 --save-shapefiles-as-polygons
     Save the inlier and outlier shapefiles as polygons, rather than
