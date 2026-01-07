@@ -141,6 +141,53 @@ void find_projection(// Inputs
   }
 }
 
+// A function that will find the mean of a std::vector<vw::Vector2> mid_pts
+vw::Vector2 meanOfPoints(std::vector<vw::Vector2> const& points) {
+
+  // Check that must have at least one input
+  if (points.size() == 0)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find mean of zero input points.\n");
+    
+  vw::Vector2 mean_point(0.0, 0.0);
+  for (size_t it = 0; it < points.size(); it++)
+    mean_point += points[it];
+    
+  mean_point /= points.size();
+  return mean_point;
+}
+
+// Attempts to find the sub-pixel boundary interface for a specific pixel.
+// Returns true if a boundary point was calculated, false otherwise.
+bool calcSubpixBdPoint(vw::ImageViewRef<float> const& mask, 
+                       float mask_thresh, int col, int row, 
+                       vw::Vector2 & pix) {
+
+  std::vector<vw::Vector2> mid_pts;
+  
+  // The four neighbors
+  const int col_vals[4] = {-1, 0, 0, 1};
+  const int row_vals[4] = {0, -1, 1, 0};
+
+  for (int it = 0; it < 4; it++) {
+    int icol = col + col_vals[it];
+    int irow = row + row_vals[it];
+
+    // Check image bounds
+    if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows())
+      continue;
+
+    // Check if neighbor is on the other side of threshold
+    if (mask(icol, irow) <= mask_thresh)
+      mid_pts.push_back(vw::Vector2(0.5 * (col + icol), 0.5 * (row + irow)));
+  }
+
+  if (mid_pts.empty())
+    return false;
+
+  pix = meanOfPoints(mid_pts);
+  return true;
+}
+
 // This is not used for now, it could be used to make the logic
 // of processing mask boundary points multi-threaded.
 class MaskBoundaryTask: public vw::Task, private boost::noncopyable {
@@ -193,31 +240,14 @@ public:
         // Look at pixels above threshold which have neighbors <= threshold
         if (mask_tile(col, row) <= m_mask_nodata_val)
           continue;
-
-        // The four neighbors
-        int col_vals[4] = {-1, 0, 0, 1};
-        int row_vals[4] = {0, -1, 1, 0};
-
-        bool border_pix = false;
-        for (int it = 0; it < 4; it++) {
-
-          int icol = col + col_vals[it];
-          int irow = row + row_vals[it];
-
-          if (icol < 0 || irow < 0 || icol >= mask_tile.cols() || irow >= mask_tile.rows())
-            continue;
-
-          if (mask_tile(icol, irow) <= m_mask_nodata_val) {
-            border_pix = true;
-            break;
-          }
-        }
-
-        if (!border_pix)
+        
+        // Estimate the sub-pixel boundary point
+        vw::Vector2 local_pix;  
+        if (!calcSubpixBdPoint(mask_tile, m_mask_nodata_val, col, row, local_pix))
           continue;
 
         // Create the pixel in the full image coordinates
-        vw::Vector2 pix = vw::Vector2(col, row) + extra_box.min();
+        vw::Vector2 pix = local_pix + extra_box.min();
 
         // Only work on pixels in the current box (earlier had a
         // bigger box to be able to examine neighbors).
@@ -341,30 +371,12 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
       if (mask(col, row) <= mask_nodata_val)
         continue;
 
-      // The four neighbors
-      int col_vals[4] = {-1, 0, 0, 1};
-      int row_vals[4] = {0, -1, 1, 0};
-
-      bool border_pix = false;
-      for (int it = 0; it < 4; it++) {
-
-        int icol = col + col_vals[it];
-        int irow = row + row_vals[it];
-
-        if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows())
-          continue;
-
-        if (mask(icol, irow) <= mask_nodata_val) {
-          border_pix = true;
-          break;
-        }
-      }
-
-      if (!border_pix)
+      // Estimate the location of the interface  
+      vw::Vector2 pix;
+      if (!calcSubpixBdPoint(mask, mask_nodata_val, col, row, pix))
         continue;
-
+        
       // The ray going to the ground
-      vw::Vector2 pix(col, row);
       vw::Vector3 cam_ctr = camera_model->camera_center(pix);
       vw::Vector3 cam_dir = camera_model->pixel_to_vector(pix);
 
@@ -391,8 +403,6 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
       for (size_t coord = 0; coord < 3; coord++)
         eigen_xyz[coord] = xyz[coord];
 
-      // TODO(oalexan1): This is fragile due to the 360 degree
-      // uncertainty in latitude
       vw::Vector2 shape_xy = shape_georef.lonlat_to_point(vw::Vector2(llh[0], llh[1]));
 
       ecef_vec.push_back(eigen_xyz);
@@ -428,21 +438,6 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
   }
 
   return;
-}
-
-// A function that will find the mean of a std::vector<vw::Vector2> mid_pts
-vw::Vector2 meanOfPoints(std::vector<vw::Vector2> const& points) {
-
-  // Check that must have at least one input
-  if (points.size() == 0)
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find mean of zero input points.\n");
-    
-  vw::Vector2 mean_point(0.0, 0.0);
-  for (size_t it = 0; it < points.size(); it++)
-    mean_point += points[it];
-    
-  mean_point /= points.size();
-  return mean_point;
 }
 
 // Find the mask boundary (points where the points in the mask have
@@ -491,36 +486,11 @@ void sampleOrthoMaskBd(std::string const& mask_file,
       // Look at pixels above threshold which have neighbors <= threshold
       if (mask(col, row) <= mask_thresh)
         continue;
-
-      //begx
-      // For each neighbor on the other side, find the midpoint between
-      // current pixel and neighbor. 
-      std::vector<vw::Vector2> mid_pts;
       
-      // The four neighbors
-      int col_vals[4] = {-1, 0, 0, 1};
-      int row_vals[4] = {0, -1, 1, 0};
-
-      for (int it = 0; it < 4; it++) {
-
-        int icol = col + col_vals[it];
-        int irow = row + row_vals[it];
-
-        if (icol < 0 || irow < 0 || icol >= mask.cols() || irow >= mask.rows())
-          continue;
-
-        if (mask(icol, irow) <= mask_thresh) {
-          vw::Vector2 mid_pt(0.5 * (col + icol), 0.5 * (row + irow));
-          mid_pts.push_back(mid_pt);
-        }
-      }
-
-      if (mid_pts.empty())
+      // Estimate the location of the interface  
+      vw::Vector2 pix;
+      if (!calcSubpixBdPoint(mask, mask_thresh, col, row, pix))
         continue;
-
-      // Find the mean of the midpoints. This the best one can do with a mask.
-      vw::Vector2 pix = meanOfPoints(mid_pts);
-      //endx
       
       vw::Vector2 shape_xy = mask_georef.pixel_to_point(pix);
       vw::Vector2 lonlat = mask_georef.point_to_lonlat(shape_xy);
