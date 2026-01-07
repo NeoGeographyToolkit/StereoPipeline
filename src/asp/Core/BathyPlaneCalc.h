@@ -58,14 +58,14 @@ void addPoint(vw::cartography::GeoReference const& dem_georef,
               std::vector<vw::Vector3> & llh_vec,
               std::vector<vw::Vector2> & used_vertices);
 
-// Estimate the projection and convert point_vec to projected coordinates
+// Estimate the projection and convert llh_vec to projected coordinates
 void find_projection(// Inputs
                      vw::cartography::GeoReference const& dem_georef,
                      std::vector<vw::Vector3> const& llh_vec,
                      // Outputs
                      double & proj_lat, double & proj_lon,
                      vw::cartography::GeoReference & stereographic_georef,
-                     std::vector<Eigen::Vector3d> & point_vec);
+                     std::vector<Eigen::Vector3d> & proj_vec);
 
 // Sample the mask boundary (points where the points in the mask have neighbors
 // not in the mask), shoot points from there onto the DEM, and return the
@@ -77,7 +77,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
                   vw::cartography::GeoReference const& dem_georef,
                   vw::ImageViewRef<vw::PixelMask<float>> masked_dem,
                   int num_samples,
-                  std::vector<Eigen::Vector3d> & point_vec,
+                  std::vector<Eigen::Vector3d> & ecef_vec,
                   std::vector<vw::Vector3> & llh_vec,
                   std::vector<vw::Vector2> & used_vertices);
 

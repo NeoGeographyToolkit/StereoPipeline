@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
     }
 
     bool use_proj_water_surface = !opt.use_ecef_water_surface;
-    std::vector<Eigen::Vector3d> shape_point_vec;
+    std::vector<Eigen::Vector3d> ecef_vec;
     std::vector<vw::Vector3> llh_vec;
     double proj_lat = -1.0, proj_lon = -1.0; // only for curved water surface
     std::vector<vw::Vector2> used_vertices;
@@ -308,11 +308,11 @@ int main(int argc, char *argv[]) {
                         camera_model, shape_georef,
                         dem_georef, masked_dem,
                         opt.num_samples,
-                        shape_point_vec, llh_vec,
+                        ecef_vec, llh_vec,
                         used_vertices);
 
       if (!opt.mask_boundary_shapefile.empty()) {
-        asp::saveShape(shape_point_vec, opt.mask_boundary_shapefile);
+        asp::saveShape(ecef_vec, opt.mask_boundary_shapefile);
         return 0;
       }
 
@@ -322,11 +322,11 @@ int main(int argc, char *argv[]) {
       if (!vw::cartography::read_georeference(shape_georef, opt.ortho_mask))
         vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       asp::sampleOrthoMaskBd(opt.ortho_mask, shape_georef, dem_georef, interp_dem,
-                             opt.num_samples, shape_point_vec, llh_vec,
+                             opt.num_samples, ecef_vec, llh_vec,
                              used_vertices);
 
       if (!opt.mask_boundary_shapefile.empty()) {
-        asp::saveShape(shape_point_vec, opt.mask_boundary_shapefile);
+        asp::saveShape(ecef_vec, opt.mask_boundary_shapefile);
         return 0;
       }
       
@@ -342,7 +342,7 @@ int main(int argc, char *argv[]) {
 
       // Find the ECEF coordinates of the shape corners
       asp::find_points_at_shape_corners(polyVec, shape_georef, dem_georef, interp_dem, 
-                                        shape_point_vec, llh_vec, used_vertices);
+                                        ecef_vec, llh_vec, used_vertices);
     } else if (use_meas) {
       asp::find_points_from_meas_csv(opt.water_height_measurements, opt.csv_format_str,
                                      shape_georef,
@@ -354,7 +354,7 @@ int main(int argc, char *argv[]) {
       asp::find_points_from_lon_lat_csv(opt.lon_lat_measurements, opt.csv_format_str,
                                         shape_georef, dem_georef, interp_dem,
                                         // Outputs
-                                        shape_point_vec, llh_vec, used_vertices);
+                                        ecef_vec, llh_vec, used_vertices);
     }
 
     // See if to convert to local stereographic projection

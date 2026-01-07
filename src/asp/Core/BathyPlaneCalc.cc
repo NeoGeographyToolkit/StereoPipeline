@@ -64,13 +64,13 @@ void addPointToPoly(vw::geometry::dPoly & poly, vw::Vector2 const& p) {
                      isPolyClosed, poly_color, layer);
 }
 
-// Add a point to the point_vec, llh_vec, and used_vertices if it is valid
+// Add a point to the ecef_vec, llh_vec, and used_vertices if it is valid
 void addPoint(vw::cartography::GeoReference const& dem_georef,
               vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
               vw::Vector2 const& lonlat,
               vw::Vector2 const& proj_pt,
               // Append
-              std::vector<Eigen::Vector3d> & point_vec,
+              std::vector<Eigen::Vector3d> & ecef_vec,
               std::vector<vw::Vector3> & llh_vec,
               std::vector<vw::Vector2> & used_vertices) {
 
@@ -89,24 +89,24 @@ void addPoint(vw::cartography::GeoReference const& dem_georef,
   llh[1] = lonlat[1];
   llh[2] = h.child();
 
-  vw::Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
-  Eigen::Vector3d eigen_xyz;
+  vw::Vector3 ecef = dem_georef.datum().geodetic_to_cartesian(llh);
+  Eigen::Vector3d eigen_ecef;
   for (size_t coord = 0; coord < 3; coord++)
-    eigen_xyz[coord] = xyz[coord];
+    eigen_ecef[coord] = ecef[coord];
 
-  point_vec.push_back(eigen_xyz);
+  ecef_vec.push_back(eigen_ecef);
   used_vertices.push_back(proj_pt);
   llh_vec.push_back(llh);
 }
 
-// Estimate the projection and convert point_vec to projected coordinates
+// Estimate the projection and convert llh_vec to projected coordinates
 void find_projection(// Inputs
                      vw::cartography::GeoReference const& dem_georef,
                      std::vector<vw::Vector3> const& llh_vec,
                      // Outputs
                      double & proj_lat, double & proj_lon,
                      vw::cartography::GeoReference & stereographic_georef,
-                     std::vector<Eigen::Vector3d> & point_vec) {
+                     std::vector<Eigen::Vector3d> & proj_vec) {
 
   // Must have positive number of points
   if (llh_vec.size() == 0)
@@ -115,7 +115,7 @@ void find_projection(// Inputs
   // Initialize the outputs
   proj_lat = -1.0;
   proj_lon = -1.0;
-  point_vec.clear();
+  proj_vec.clear();
 
   // Find the mean water height
   vw::Vector3 mean_llh;
@@ -138,7 +138,7 @@ void find_projection(// Inputs
     for (size_t coord = 0; coord < 3; coord++)
       eigen_point[coord] = point[coord];
 
-    point_vec.push_back(eigen_point);
+    proj_vec.push_back(eigen_point);
   }
 }
 
@@ -149,14 +149,14 @@ class MaskBoundaryTask: public vw::Task, private boost::noncopyable {
 
   vw::ImageViewRef<float>                   m_mask;
   float                                 m_mask_nodata_val;
-  boost::shared_ptr<vw::camera::CameraModel>        m_camera_model;
+  boost::shared_ptr<vw::camera::CameraModel>  m_camera_model;
   vw::cartography::GeoReference         m_shape_georef;
   vw::cartography::GeoReference         m_dem_georef;
   vw::ImageViewRef<vw::PixelMask<float>>        m_masked_dem;
 
   // Note how all of these are aliases
   vw::Mutex                        & m_mutex;
-  std::vector<Eigen::Vector3d> & m_point_vec;
+  std::vector<Eigen::Vector3d> & m_ecef_vec;
   std::vector<vw::Vector3>     & m_llh_vec;
   std::vector<vw::Vector2>     & m_used_vertices;
 
@@ -169,13 +169,13 @@ public:
                    vw::cartography::GeoReference const & dem_georef,
                    vw::ImageViewRef<vw::PixelMask<float>>        masked_dem,
                    vw::Mutex                               & mutex,
-                   std::vector<Eigen::Vector3d>        & point_vec,
+                   std::vector<Eigen::Vector3d>        & ecef_vec,
                    std::vector<vw::Vector3>            & llh_vec,
                    std::vector<vw::Vector2>            & used_vertices):
     m_bbox(bbox), m_mask(mask), m_mask_nodata_val(mask_nodata_val),
     m_camera_model(camera_model), m_shape_georef(shape_georef),
     m_dem_georef(dem_georef), m_masked_dem(masked_dem),
-    m_mutex(mutex), m_point_vec(point_vec),
+    m_mutex(mutex), m_ecef_vec(ecef_vec),
     m_llh_vec(llh_vec), m_used_vertices(used_vertices) {}
 
   void operator()() {
@@ -262,7 +262,7 @@ public:
         {
           // Need to make sure to lock the shared resource
           vw::Mutex::Lock lock(m_mutex);
-          m_point_vec.push_back(eigen_xyz);
+          m_ecef_vec.push_back(eigen_xyz);
           m_used_vertices.push_back(proj_pt);
           m_llh_vec.push_back(llh);
         }
@@ -284,7 +284,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
                   vw::cartography::GeoReference const& dem_georef,
                   vw::ImageViewRef<vw::PixelMask<float>> masked_dem,
                   int num_samples,
-                  std::vector<Eigen::Vector3d> & point_vec,
+                  std::vector<Eigen::Vector3d> & ecef_vec,
                   std::vector<vw::Vector3> & llh_vec,
                   std::vector<vw::Vector2> & used_vertices) {
 
@@ -293,7 +293,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
     vw::vw_throw(vw::ArgumentErr() << "The value of --num-samples must be positive.\n");
 
   // Ensure that the outputs are initialized
-  point_vec.clear();
+  ecef_vec.clear();
   llh_vec.clear();
   used_vertices.clear();
 
@@ -319,7 +319,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
     boost::shared_ptr<MaskBoundaryTask>
       task(new MaskBoundaryTask(bboxes[it],  mask, mask_nodata_val, camera_model,
                                 shape_georef, dem_georef, masked_dem, mutex,
-                                point_vec, llh_vec, used_vertices));
+                                ecef_vec, llh_vec, used_vertices));
     queue.add_task(task);
   }
 
@@ -396,7 +396,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
       // uncertainty in latitude
       vw::Vector2 proj_pt = shape_georef.lonlat_to_point(vw::Vector2(llh[0], llh[1]));
 
-      point_vec.push_back(eigen_xyz);
+      ecef_vec.push_back(eigen_xyz);
       used_vertices.push_back(proj_pt);
       llh_vec.push_back(llh);
     }
@@ -408,7 +408,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
 
 #endif
 
-  int num_pts = point_vec.size();
+  int num_pts = ecef_vec.size();
   if (num_pts > num_samples) {
     vw::vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
              << num_samples << " samples are desired. Picking a random subset "
@@ -417,12 +417,12 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
     // Select a subset
     std::vector<int> w;
     vw::math::pick_random_indices_in_range(num_pts, num_samples, w);
-    std::vector<Eigen::Vector3d> big_point_vec     = point_vec;     point_vec.clear();
+    std::vector<Eigen::Vector3d> big_ecef_vec     = ecef_vec;     ecef_vec.clear();
     std::vector<vw::Vector3>     big_llh_vec       = llh_vec;       llh_vec.clear();
     std::vector<vw::Vector2>     big_used_vertices = used_vertices; used_vertices.clear();
     for (size_t it = 0; it < w.size(); it++) {
       int random_index = w[it];
-      point_vec.push_back(big_point_vec[random_index]);
+      ecef_vec.push_back(big_ecef_vec[random_index]);
       llh_vec.push_back(big_llh_vec[random_index]);
       used_vertices.push_back(big_used_vertices[random_index]);
     }
@@ -438,7 +438,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
                        vw::cartography::GeoReference const& dem_georef,
                        vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                        int num_samples,
-                       std::vector<Eigen::Vector3d> & point_vec,
+                       std::vector<Eigen::Vector3d> & ecef_vec,
                        std::vector<vw::Vector3> & llh_vec,
                        std::vector<vw::Vector2> & used_vertices) {
 
@@ -462,7 +462,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
     vw::vw_throw(vw::ArgumentErr() << "The value of --num-samples must be positive.\n");
 
   // Ensure that the outputs are initialized
-  point_vec.clear();
+  ecef_vec.clear();
   llh_vec.clear();
   used_vertices.clear();
 
@@ -505,7 +505,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
       vw::Vector2 lonlat = mask_georef.point_to_lonlat(proj_pt);
 
       addPoint(dem_georef, interp_dem, lonlat, proj_pt,
-               point_vec, llh_vec, used_vertices);
+               ecef_vec, llh_vec, used_vertices);
     }
 
     tpc.report_incremental_progress(inc_amount);
@@ -513,7 +513,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 
   tpc.report_finished();
 
-  int num_pts = point_vec.size();
+  int num_pts = ecef_vec.size();
   if (num_pts > num_samples) {
     vw::vw_out() << "Found " << num_pts << " samples at mask boundary, points but only "
              << num_samples << " samples are desired. Picking a random subset "
@@ -522,12 +522,12 @@ void sampleOrthoMaskBd(std::string const& mask_file,
     // Select a subset
     std::vector<int> w;
     vw::math::pick_random_indices_in_range(num_pts, num_samples, w);
-    std::vector<Eigen::Vector3d> big_point_vec     = point_vec;     point_vec.clear();
+    std::vector<Eigen::Vector3d> big_ecef_vec     = ecef_vec;     ecef_vec.clear();
     std::vector<vw::Vector3>     big_llh_vec       = llh_vec;       llh_vec.clear();
     std::vector<vw::Vector2>     big_used_vertices = used_vertices; used_vertices.clear();
     for (size_t it = 0; it < w.size(); it++) {
       int random_index = w[it];
-      point_vec.push_back(big_point_vec[random_index]);
+      ecef_vec.push_back(big_ecef_vec[random_index]);
       llh_vec.push_back(big_llh_vec[random_index]);
       used_vertices.push_back(big_used_vertices[random_index]);
     }
@@ -546,12 +546,12 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
                                   vw::cartography::GeoReference const& shape_georef,
                                   vw::cartography::GeoReference const& dem_georef,
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
-                                  std::vector<Eigen::Vector3d> & point_vec,
+                                  std::vector<Eigen::Vector3d> & ecef_vec,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & used_vertices) {
 
   // Ensure that the outputs are initialized
-  point_vec.clear();
+  ecef_vec.clear();
   llh_vec.clear();
   used_vertices.clear();
 
@@ -581,7 +581,7 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
         vw::Vector2 lonlat = shape_georef.point_to_lonlat(proj_pt);
 
         addPoint(dem_georef, interp_dem, lonlat, proj_pt,
-                 point_vec, llh_vec, used_vertices);
+                 ecef_vec, llh_vec, used_vertices);
       }
     }
   }
@@ -634,11 +634,11 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
                                   vw::cartography::GeoReference const& dem_georef,
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                                   // Outputs
-                                  std::vector<Eigen::Vector3d> & point_vec,
+                                  std::vector<Eigen::Vector3d> & ecef_vec,
                                   std::vector<vw::Vector3> & llh_vec,
                                   std::vector<vw::Vector2> & used_vertices) {
   // Wipe the outputs
-  point_vec.clear();
+  ecef_vec.clear();
   llh_vec.clear();
   used_vertices.clear();
 
@@ -664,7 +664,7 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
     vw::Vector2 lonlat = csv_conv.csv_to_lonlat(*iter, shape_georef);
     vw::Vector2 proj_pt = shape_georef.lonlat_to_point(lonlat);
     addPoint(dem_georef, interp_dem, lonlat, proj_pt,
-             point_vec, llh_vec, used_vertices);
+             ecef_vec, llh_vec, used_vertices);
   }
 
   vw::vw_out() << "Read " << total_num_pts << " vertices from CSV, with " << llh_vec.size()
@@ -674,7 +674,7 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
 }
 
 // Save the points as a shapefile
-void saveShape(std::vector<Eigen::Vector3d> const& point_vec,
+void saveShape(std::vector<Eigen::Vector3d> const& ecef_vec,
                std::string const& mask_boundary_shapefile) {
 
   vw::cartography::GeoReference llh_georef; // create a new explicit longlat WGS84 georef
@@ -682,9 +682,9 @@ void saveShape(std::vector<Eigen::Vector3d> const& point_vec,
   vw::cartography::Datum datum("WGS_1984");
   llh_georef.set_datum(datum);
   vw::geometry::dPoly samplePoly;
-  for (size_t ptIter = 0; ptIter < point_vec.size(); ptIter++) {
+  for (size_t ptIter = 0; ptIter < ecef_vec.size(); ptIter++) {
     vw::Vector3 xyz; // convert Eigen:Vector3 to vw::Vector3
-    for (int c = 0; c < 3; c++) xyz[c] = point_vec[ptIter][c];
+    for (int c = 0; c < 3; c++) xyz[c] = ecef_vec[ptIter][c];
     vw::Vector3 llh = llh_georef.datum().cartesian_to_geodetic(xyz);
     addPointToPoly(samplePoly, vw::math::subvector(llh, 0, 2));
   }
@@ -698,7 +698,7 @@ void saveShape(std::vector<Eigen::Vector3d> const& point_vec,
                                 samplePolyVec);
 }
 
-// Best fit plane without outlier removal
+// Best fit plane without outlier removal. The input points are in ECEF coordinates.
 std::pair<Eigen::Vector3d, Eigen::Vector3d>
 best_plane_from_points(const std::vector<Eigen::Vector3d> & c) {
 
@@ -814,21 +814,21 @@ struct BestFitPlaneErrorMetric {
 
 // Calculate a few properties of the plane fitted to the given points and print them out
 void calcPlaneProperties(bool use_proj_water_surface,
-                         std::vector<Eigen::Vector3d> const& point_vec,
+                         std::vector<Eigen::Vector3d> const& ecef_vec,
                          std::vector<size_t> const& inlier_indices,
                          vw::cartography::GeoReference & dem_georef,
                          vw::Matrix<double> const& plane) {
 
   double max_error = - 1.0, max_inlier_error = -1.0;
-  for (size_t it = 0; it < point_vec.size(); it++)
-    max_error = std::max(max_error, dist_to_plane(plane, point_vec[it]));
+  for (size_t it = 0; it < ecef_vec.size(); it++)
+    max_error = std::max(max_error, dist_to_plane(plane, ecef_vec[it]));
 
   // Do estimates for the mean height and angle of the plane
   vw::Vector3 mean_point(0, 0, 0);
   double mean_height = 0.0;
   int num = 0;
   for (size_t it = 0; it < inlier_indices.size(); it++) {
-    Eigen::Vector3d p = point_vec[inlier_indices[it]];
+    Eigen::Vector3d p = ecef_vec[inlier_indices[it]];
     vw::Vector3 point(p[0], p[1], p[2]);
     max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, point));
 
@@ -1018,12 +1018,12 @@ vw::ImageViewRef<float> demMinusPlane(vw::ImageViewRef<float> const& dem,
 void calcBathyPlane(bool use_proj_water_surface,
                     int num_ransac_iterations,
                     double inlier_threshold,
-                    std::vector<Eigen::Vector3d> const& point_vec,
+                    std::vector<Eigen::Vector3d> const& ecef_vec,
                     vw::Matrix<double> & plane,
                     std::vector<size_t> & inlier_indices) {
 
-  std::vector<Eigen::Vector3d> dummy_vec(point_vec.size()); // Required by the interface
-  int min_num_output_inliers = std::max(point_vec.size()/2, size_t(3));
+  std::vector<Eigen::Vector3d> dummy_vec(ecef_vec.size()); // Required by the interface
+  int min_num_output_inliers = std::max(ecef_vec.size()/2, size_t(3));
   bool reduce_min_num_output_inliers_if_no_fit = true;
   vw::vw_out() << "Starting RANSAC.\n";
   try {
@@ -1035,12 +1035,12 @@ void calcBathyPlane(bool use_proj_water_surface,
     vw::math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric>
       ransac(func, error_metric, num_ransac_iterations, inlier_threshold,
              min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
-    plane = ransac(point_vec, dummy_vec);
-    inlier_indices = ransac.inlier_indices(plane, point_vec, dummy_vec);
+    plane = ransac(ecef_vec, dummy_vec);
+    inlier_indices = ransac.inlier_indices(plane, ecef_vec, dummy_vec);
   } catch (const vw::math::RANSACErr& e) {
     vw::vw_out() << "RANSAC failed: " << e.what() << "\n";
   }
-  vw::vw_out() << "Found " << inlier_indices.size() << " / " << point_vec.size()
+  vw::vw_out() << "Found " << inlier_indices.size() << " / " << ecef_vec.size()
                << " inliers.\n";
 }
 
