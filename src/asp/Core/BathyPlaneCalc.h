@@ -131,7 +131,7 @@ void saveShape(std::vector<Eigen::Vector3d> const& point_vec,
                std::string const& mask_boundary_shapefile);
 
 // Calculate a few properties of the plane fitted to the given points and print them out
-void calcPlaneProperties(std::vector<Eigen::Vector3d> const& point_vec,
+void calcPlaneProperties(std::vector<Eigen::Vector3d> const& proj_vec,
                          std::vector<size_t> const& inlier_indices,
                          vw::cartography::GeoReference & dem_georef,
                          vw::Matrix<double> const& plane);
@@ -149,7 +149,7 @@ vw::ImageViewRef<float> demMinusPlane(vw::ImageViewRef<float> const& dem,
 // Use RANSAC to find the best plane
 void calcBathyPlane(int num_ransac_iterations,
                     double inlier_threshold,
-                    std::vector<Eigen::Vector3d> const& point_vec,
+                    std::vector<Eigen::Vector3d> const& proj_vec,
                     vw::Matrix<double> & plane,
                     std::vector<size_t> & inlier_indices);
 

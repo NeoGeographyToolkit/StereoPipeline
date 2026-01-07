@@ -698,7 +698,9 @@ void saveShape(std::vector<Eigen::Vector3d> const& ecef_vec,
                                 samplePolyVec);
 }
 
-// Best fit plane without outlier removal. The input points are in ECEF coordinates.
+// Best fit plane without outlier removal. The input points are in 3D coordinates.
+// In practice the points are in a local projected coordinate system, but the 
+// math works without this assumption.
 std::pair<Eigen::Vector3d, Eigen::Vector3d>
 best_plane_from_points(const std::vector<Eigen::Vector3d> & c) {
 
@@ -725,7 +727,6 @@ best_plane_from_points(const std::vector<Eigen::Vector3d> & c) {
 // A functor which returns the best fit plane a*x + b*y + c*z + d = 0
 // as the vector (a, b, c, d) with a*a + b*b + c*c = 1 to be used
 // with RANSAC to remove outliers.
-
 struct BestFitPlaneFunctor {
 
   BestFitPlaneFunctor() {}
@@ -801,21 +802,21 @@ struct BestFitPlaneErrorMetric {
 };
 
 // Calculate a few properties of the plane fitted to the given points and print them out
-void calcPlaneProperties(std::vector<Eigen::Vector3d> const& ecef_vec,
+void calcPlaneProperties(std::vector<Eigen::Vector3d> const& proj_vec,
                          std::vector<size_t> const& inlier_indices,
                          vw::cartography::GeoReference & dem_georef,
                          vw::Matrix<double> const& plane) {
 
   double max_error = - 1.0, max_inlier_error = -1.0;
-  for (size_t it = 0; it < ecef_vec.size(); it++)
-    max_error = std::max(max_error, dist_to_plane(plane, ecef_vec[it]));
+  for (size_t it = 0; it < proj_vec.size(); it++)
+    max_error = std::max(max_error, dist_to_plane(plane, proj_vec[it]));
 
   // Do estimates for the mean height and angle of the plane
   vw::Vector3 mean_point(0, 0, 0);
   double mean_height = 0.0;
   int num = 0;
   for (size_t it = 0; it < inlier_indices.size(); it++) {
-    Eigen::Vector3d p = ecef_vec[inlier_indices[it]];
+    Eigen::Vector3d p = proj_vec[inlier_indices[it]];
     vw::Vector3 point(p[0], p[1], p[2]);
     max_inlier_error = std::max(max_inlier_error, dist_to_plane(plane, point));
 
@@ -967,12 +968,12 @@ vw::ImageViewRef<float> demMinusPlane(vw::ImageViewRef<float> const& dem,
 // Use RANSAC to find the best plane
 void calcBathyPlane(int num_ransac_iterations,
                     double inlier_threshold,
-                    std::vector<Eigen::Vector3d> const& ecef_vec,
+                    std::vector<Eigen::Vector3d> const& proj_vec,
                     vw::Matrix<double> & plane,
                     std::vector<size_t> & inlier_indices) {
 
-  std::vector<Eigen::Vector3d> dummy_vec(ecef_vec.size()); // Required by the interface
-  int min_num_output_inliers = std::max(ecef_vec.size()/2, size_t(3));
+  std::vector<Eigen::Vector3d> dummy_vec(proj_vec.size()); // Required by the interface
+  int min_num_output_inliers = std::max(proj_vec.size()/2, size_t(3));
   bool reduce_min_num_output_inliers_if_no_fit = true;
   vw::vw_out() << "Starting RANSAC.\n";
   try {
@@ -984,12 +985,12 @@ void calcBathyPlane(int num_ransac_iterations,
     vw::math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric>
       ransac(func, error_metric, num_ransac_iterations, inlier_threshold,
              min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
-    plane = ransac(ecef_vec, dummy_vec);
-    inlier_indices = ransac.inlier_indices(plane, ecef_vec, dummy_vec);
+    plane = ransac(proj_vec, dummy_vec);
+    inlier_indices = ransac.inlier_indices(plane, proj_vec, dummy_vec);
   } catch (const vw::math::RANSACErr& e) {
     vw::vw_out() << "RANSAC failed: " << e.what() << "\n";
   }
-  vw::vw_out() << "Found " << inlier_indices.size() << " / " << ecef_vec.size()
+  vw::vw_out() << "Found " << inlier_indices.size() << " / " << proj_vec.size()
                << " inliers.\n";
 }
 
