@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -35,7 +35,7 @@ PLabels form_labels(int dim) {
   PLabels labels;
   typedef typename PointMatcher<double>::DataPoints::Label Label;
 
-  for (int i=0; i < dim; i++){
+  for (int i=0; i < dim; i++) {
     std::string text;
     text += char('x' + i);
     labels.push_back(Label(text, 1));
@@ -58,12 +58,12 @@ void load_cloud_as_mat(std::string const& file_name,
                        double & median_longitude,
                        bool verbose,
                        Eigen::MatrixXd & data) {
- 
+
   if (verbose)
     vw::vw_out() << "Reading: " << file_name << std::endl;
 
   // Remote files should not be checked for existence
-  if (!asp::is_las(file_name) || !pdal::Utils::isRemote(file_name)) 
+  if (!asp::is_las(file_name) || !pdal::Utils::isRemote(file_name))
     PointMatcherSupport::validateFile(file_name);
 
   // We will over-write this below for CSV and DEM files where
@@ -78,22 +78,22 @@ void load_cloud_as_mat(std::string const& file_name,
     load_pc(file_name, num_points_to_load, lonlat_box, calc_shift, shift,
             geo, verbose, data);
   else if (file_type == "LAS")
-    load_las(file_name, num_points_to_load, lonlat_box, 
+    load_las(file_name, num_points_to_load, lonlat_box,
              copc_win, copc_read_all,
              calc_shift, shift,
              geo, verbose, data);
   else if (file_type == "CSV") {
     bool verbose = true;
-    load_csv(file_name, num_points_to_load, lonlat_box, 
+    load_csv(file_name, num_points_to_load, lonlat_box,
              calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
              median_longitude, verbose, data);
   } else {
     vw::vw_throw(vw::ArgumentErr() << "Unknown file type: " << file_name << "\n");
   }
 
-  if (data.cols() == 0) 
+  if (data.cols() == 0)
     vw::vw_throw(vw::ArgumentErr() << "File: " << file_name << " has 0 valid points.\n");
-  
+
   if (verbose)
     vw::vw_out() << "Loaded points: " << data.cols() << std::endl;
 
@@ -112,14 +112,14 @@ void load_cloud(std::string const& file_name,
                 bool   & is_lola_rdr_format,
                 double & median_longitude,
                 bool verbose,
-                typename PointMatcher<double>::DataPoints & data){
-  
+                typename PointMatcher<double>::DataPoints & data) {
+
   data.featureLabels = form_labels(DIM);
-  load_cloud_as_mat(file_name, num_points_to_load,  lonlat_box, 
+  load_cloud_as_mat(file_name, num_points_to_load,  lonlat_box,
                     copc_win, copc_read_all,
-                    calc_shift, shift,  geo,  csv_conv,  is_lola_rdr_format,  
+                    calc_shift, shift,  geo,  csv_conv,  is_lola_rdr_format,
                     median_longitude, verbose,  data.features);
-  
+
 }
 
 // Calculate the lon-lat bounding box of the points and bias it based
@@ -134,17 +134,17 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                double max_disp,
                                Eigen::MatrixXd const & transform,
                                vw::BBox2 const& copc_win, bool copc_read_all,
-                               bool need_projwin, 
+                               bool need_projwin,
                                vw::cartography::GeoReference const& projwin_georef,
-                               vw::BBox2 & out_box, 
+                               vw::BBox2 & out_box,
                                vw::BBox2 & trans_out_box,
                                vw::BBox2 & needed_projwin) {
-  
+
   // Initialize
   out_box       = vw::BBox2();
   trans_out_box = vw::BBox2();
   needed_projwin  = vw::BBox2();
-    
+
   // If the user does not want to use the max-displacement parameter,
   // or if there is no datum to use to convert to/from lon/lat,
   // there is not much we can do.
@@ -173,9 +173,9 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
   for (int row = 0; row < DIM; row++)
     p1[row] = points.features(row, 0);
 
-  for (int x = -1; x <= 1; x += 2){
-    for (int y = -1; y <= 1; y += 2){
-      for (int z = -1; z <= 1; z += 2){
+  for (int x = -1; x <= 1; x += 2) {
+    for (int y = -1; y <= 1; y += 2) {
+      for (int z = -1; z <= 1; z += 2) {
         vw::Vector3 q   = p1 + vw::Vector3(x, y, z)*max_disp;
         vw::Vector3 llh = geo.datum().cartesian_to_geodetic(q);
         llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjust
@@ -200,7 +200,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
 
   // Make a box around each point the size of the box we computed earlier and 
   //  keep growing the output bounding box.
-  for (int col = 0; col < points.features.cols(); col++){
+  for (int col = 0; col < points.features.cols(); col++) {
     vw::Vector3 p;
     for (int row = 0; row < DIM; row++)
       p[row] = points.features(row, col);
@@ -239,7 +239,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
 // Sometime the box we computed with cartesian_to_geodetic is offset
 // from the box computed with pixel_to_lonlat by 360 degrees.
 // Fix that.
-void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box){
+void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box) {
 
   using namespace vw;
 
@@ -265,13 +265,13 @@ void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box){
 }
 
 double calc_mean(std::vector<double> const& errs, int len) {
-  
+
   // Check that len is valid
   if (len < 0 || len > static_cast<int>(errs.size()))
     vw::vw_throw(vw::ArgumentErr() << "Invalid length in calc_mean.\n");
-    
+
   double mean = 0.0;
-  for (int i = 0; i < len; i++){
+  for (int i = 0; i < len; i++) {
     mean += errs[i];
   }
   if (len == 0) return 0;
@@ -281,7 +281,7 @@ double calc_mean(std::vector<double> const& errs, int len) {
 double calc_stddev(std::vector<double> const& errs) {
 
   int len = errs.size();
-  if (len == 0) 
+  if (len == 0)
     return 0;
 
   double mean = calc_mean(errs, len);
@@ -294,27 +294,27 @@ double calc_stddev(std::vector<double> const& errs) {
 }
 
 double calc_mae(std::vector<double> const& errs) {
-  
+
   int len = errs.size();
-  
+
   double sum = 0.0;
   for (int i = 0; i < len; i++)
     sum += std::abs(errs[i]);
 
-  if (len == 0) 
+  if (len == 0)
     return 0;
   return sum/len;
 }
 
 double calc_rmse(std::vector<double> const& errs) {
-  
+
   int len = errs.size();
-  
+
   double sum = 0.0;
   for (int i = 0; i < len; i++)
     sum += errs[i] * errs[i];
 
-  if (len == 0) 
+  if (len == 0)
     return 0;
   return sqrt(sum/len);
 }
@@ -330,7 +330,7 @@ void calc_translation_vec(Eigen::MatrixXd const& initT,
                           vw::Vector3 & trans_xyz,
                           vw::Vector3 & trans_ned,
                           vw::Vector3 & trans_llh,
-                          vw::Matrix3x3 & NedToEcef){
+                          vw::Matrix3x3 & NedToEcef) {
 
   // The center of gravity of the source points (after the initial transform is applied to them)
   Eigen::VectorXd source_ctr
@@ -346,7 +346,7 @@ void calc_translation_vec(Eigen::MatrixXd const& initT,
 
   // Copy to VW's vectors
   vw::Vector3 trans_source_ctr_vec;
-  for (int row = 0; row < DIM; row++){
+  for (int row = 0; row < DIM; row++) {
     source_ctr_vec[row]       = source_ctr(row, 0);
     trans_source_ctr_vec[row] = trans_source_ctr(row, 0);
   }
@@ -363,21 +363,21 @@ void calc_translation_vec(Eigen::MatrixXd const& initT,
 
   // The matrix to go from the NED coordinate system to the ECEF coordinate system
   NedToEcef = datum.lonlat_to_ned_matrix(source_ctr_llh);
-  
+
   trans_ned = inverse(NedToEcef)*trans_xyz;
 }
 
 // Calculate the maximum displacement from the source points (after
 // any initial transform is applied to them) to the source points
 // after alignment with the reference.
-double calc_max_displacement(DP const& source, DP const& trans_source){
+double calc_max_displacement(DP const& source, DP const& trans_source) {
 
   double max_obtained_disp = 0.0;
   int numPts = source.features.cols();
-  for(int col = 0; col < numPts; col++){
-      
+  for (int col = 0; col < numPts; col++) {
+
     vw::Vector3 s, t;
-    for (int row = 0; row < DIM; row++){
+    for (int row = 0; row < DIM; row++) {
       s[row] = source.features(row, col);
       t[row] = trans_source.features(row, col);
     }
@@ -393,13 +393,13 @@ void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
                               vw::cartography::GeoReference const& geo,
                               std::string input_file,
                               std::string output_file,
-                              Eigen::MatrixXd const& T){
+                              Eigen::MatrixXd const& T) {
 
   // We will try to save the transformed cloud with a georef. Try to get it from
   // the input cloud, or otherwise from the "global" georef.
   vw::cartography::GeoReference curr_geo;
   bool has_georef = vw::cartography::read_georeference(curr_geo, input_file);
-  if (!has_georef && geo.datum().name() != UNSPECIFIED_DATUM){
+  if (!has_georef && geo.datum().name() != UNSPECIFIED_DATUM) {
     has_georef = true;
     curr_geo = geo;
   }
@@ -442,7 +442,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
   if (file_type == "DEM") {
     // TODO(oalexan1): This must be a function.
     vw::cartography::GeoReference dem_geo;
-    bool has_georef = vw::cartography::read_georeference( dem_geo, input_file );
+    bool has_georef = vw::cartography::read_georeference(dem_geo, input_file);
     if (!has_georef) vw_throw(vw::ArgumentErr() << "DEM: " << input_file
                            << " does not have a georeference.\n");
 
@@ -450,7 +450,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
     double nodata = std::numeric_limits<double>::quiet_NaN();
     {
       boost::shared_ptr<vw::DiskImageResource> dem_rsrc
-        ( new vw::DiskImageResourceGDAL(input_file) );
+        (new vw::DiskImageResourceGDAL(input_file));
       if (dem_rsrc->has_nodata_read()) nodata = dem_rsrc->nodata_read();
     }
     vw::ImageViewRef<vw::Vector3> point_cloud =
@@ -476,14 +476,14 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
     case 4:  save_trans_point_cloud_n<4>(opt, geo, input_file, output_file, T);  break;
     case 6:  save_trans_point_cloud_n<6>(opt, geo, input_file, output_file, T);  break;
     default:
-      vw_throw( vw::ArgumentErr() << "The point cloud from " << input_file
-                << " has " << nc << " channels, which is not supported.\n" );
+      vw_throw(vw::ArgumentErr() << "The point cloud from " << input_file
+                << " has " << nc << " channels, which is not supported.\n");
     }
 
-  }else if (file_type == "LAS") {
+  } else if (file_type == "LAS") {
 
     asp::apply_transform_to_las(input_file, output_file, copc_win, copc_read_all, T);
-    
+
   } else if (file_type == "CSV") {
 
     // Write a CSV file in format consistent with the input CSV file.
@@ -497,7 +497,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
     double      median_longitude;
     DP          point_cloud;
     load_cloud(input_file, std::numeric_limits<int>::max(),
-               empty_box, copc_win, copc_read_all, 
+               empty_box, copc_win, copc_read_all,
                calc_shift, shift,
                geo, csv_conv, is_lola_rdr_format,
                median_longitude, verbose, point_cloud);
@@ -527,7 +527,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
     int hundred = 100;
     int spacing = std::max(numPts/hundred, 1);
     double inc_amount = 1.0 / hundred;
-    for (int col = 0; col < numPts; col++){
+    for (int col = 0; col < numPts; col++) {
 
       Eigen::VectorXd V(DIM + 1);
       for (int row = 0; row < DIM; row++)
@@ -540,12 +540,12 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
       vw::Vector3 P;
       for (int row = 0; row < DIM; row++) P[row] = V[row];
 
-      if (csv_conv.is_configured()){
+      if (csv_conv.is_configured()) {
 
         vw::Vector3 csv = csv_conv.cartesian_to_csv(P, geo, median_longitude);
         outfile << csv[0] << ',' << csv[1] << ',' << csv[2] << std::endl;
 
-      }else{
+      } else {
         vw::Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
         llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjustment
 
@@ -555,12 +555,12 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
           outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << std::endl;
       }
 
-      if (col%spacing == 0) tpc.report_incremental_progress( inc_amount );
+      if (col%spacing == 0) tpc.report_incremental_progress(inc_amount);
     }
     tpc.report_finished();
     outfile.close();
 
-  }else{
+  } else {
     vw_throw(vw::ArgumentErr() << "Unknown file type: " << input_file << "\n");
   }
 } // end save_trans_point_cloud
@@ -568,21 +568,21 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
                                                    vw::cartography::GeoReference & georef) {
   // Load the georeference from the DEM
-  bool has_georef = vw::cartography::read_georeference( georef, dem_path );
+  bool has_georef = vw::cartography::read_georeference(georef, dem_path);
   if (!has_georef)
-    vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_path 
+    vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_path
                  << " does not have a georeference.\n");
 
   // Set up file handle to the DEM and read the nodata value
   vw::DiskImageView<float> dem(dem_path);
   double nodata = std::numeric_limits<double>::quiet_NaN();
   {
-    boost::shared_ptr<vw::DiskImageResource> 
+    boost::shared_ptr<vw::DiskImageResource>
       dem_rsrc(new vw::DiskImageResourceGDAL(dem_path));
     if (dem_rsrc->has_nodata_read())
       nodata = dem_rsrc->nodata_read();
   }
-  
+
   // Set up interpolation + mask view of the DEM
   vw::ImageViewRef<vw::PixelMask<float>> masked_dem = create_mask(dem, nodata);
   return InterpolationReadyDem(interpolate(masked_dem));
@@ -592,7 +592,7 @@ InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
 /// Try to read the georef/datum info, need it to read CSV files.
 void read_georef(std::vector<std::string> const& clouds,
                  std::string const& datum_str,
-                 std::string const& csv_srs, 
+                 std::string const& csv_srs,
                  double semi_major_axis,
                  double semi_minor_axis,
                  std::string & csv_format_str,
@@ -605,7 +605,7 @@ void read_georef(std::vector<std::string> const& clouds,
               "Reference Meridian", 1, 1, 0);
     geo.set_datum(datum);
   }
-  
+
   // First, get the datum from the DEM if available.
   bool is_good = false;
   std::string dem_file = "";
@@ -615,12 +615,12 @@ void read_georef(std::vector<std::string> const& clouds,
       break;
     }
   }
-  
+
   if (dem_file != "") {
     vw::cartography::GeoReference local_geo;
     bool have_georef = vw::cartography::read_georeference(local_geo, dem_file);
     if (!have_georef)
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "DEM: " << dem_file << " does not have a georeference.\n");
     geo = local_geo;
     is_good = true;
@@ -634,7 +634,7 @@ void read_georef(std::vector<std::string> const& clouds,
       break;
     if (asp::get_cloud_type(clouds[it]) == "PC") {
       vw::cartography::GeoReference local_geo;
-      if (vw::cartography::read_georeference(local_geo, clouds[it])){
+      if (vw::cartography::read_georeference(local_geo, clouds[it])) {
         pc_file = clouds[it];
         geo = local_geo;
         vw::vw_out() << "Detected datum from " << pc_file << ":\n" << geo.datum() << std::endl;
@@ -643,7 +643,7 @@ void read_georef(std::vector<std::string> const& clouds,
       }
     }
   }
-  
+
   // Then, try to set it from the las file if available.
   // Either one, or both or neither of the las files may have a georef.
   std::string las_file = "";
@@ -660,7 +660,7 @@ void read_georef(std::vector<std::string> const& clouds,
       }
     }
   }
-  
+
   // We should have read in the datum from an input file, but check to see if
   //  we should override it with input parameters.
   if (datum_str != "") {
@@ -691,13 +691,13 @@ void read_georef(std::vector<std::string> const& clouds,
     // did not specify the CSV format (then we set it to lat, lon,
     // height), or it is specified as containing lat, lon, rather than xyz.
     bool has_csv = false;
-    for (size_t it = 0; it < clouds.size(); it++) 
-      has_csv = has_csv || ( asp::get_cloud_type(clouds[it]) == "CSV" );
+    for (size_t it = 0; it < clouds.size(); it++)
+      has_csv = has_csv || (asp::get_cloud_type(clouds[it]) == "CSV");
     if (has_csv) {
       // We are in trouble, will not be able to convert input lat, lon, to xyz.
-      vw::vw_throw( vw::ArgumentErr() << "Cannot detect the datum. "
+      vw::vw_throw(vw::ArgumentErr() << "Cannot detect the datum. "
                     << "Please specify it via --csv-srs or --datum or "
-                    << "--semi-major-axis and --semi-minor-axis.\n" );
+                    << "--semi-major-axis and --semi-minor-axis.\n");
     } else {
       // The inputs have no georef. Will have to write xyz.
       vw::vw_out() << "No datum specified. Will write output CSV files "
@@ -714,11 +714,11 @@ void read_georef(std::vector<std::string> const& clouds,
   return;
 }
 
-void extract_rotation_translation(const double * transform, vw::Quat & rotation, 
+void extract_rotation_translation(const double * transform, vw::Quat & rotation,
                                   vw::Vector3 & translation) {
-  
+
   vw::Vector3 axis_angle;
-  for (int i = 0; i < 3; i++){
+  for (int i = 0; i < 3; i++) {
     translation[i] = transform[i];
     axis_angle[i]  = transform[i+3];
   }
@@ -743,15 +743,15 @@ bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float> > const& dem,
   vw::Vector2 pix;
   try {
     pix = georef.lonlat_to_pixel(subvector(lonlat, 0, 2));
-  }catch(...){
+  } catch(...) {
     return false;
   }
-  
+
   double c = pix[0], r = pix[1];
 
   // Quit if the pixel falls outside the DEM.
   if (c < 0 || c >= dem.cols()-1 || // TODO: This ought to be an image class function
-      r < 0 || r >= dem.rows()-1 )
+      r < 0 || r >= dem.rows()-1)
     return false;
 
   // Interpolate the DEM height at the pixel location
@@ -796,7 +796,7 @@ void filterPointsByError(DP & point_cloud, Eigen::MatrixXd &errors, double cutof
   // Init LPM data structure
   const int input_point_count = point_cloud.features.cols();
   if (errors.cols() != input_point_count)
-    vw_throw( LogicErr() << "Error: error size does not match point count size!\n");
+    vw_throw(LogicErr() << "Error: error size does not match point count size!\n");
   point_cloud.features.conservativeResize(DIM+1, input_point_count);
   point_cloud.featureLabels = asp::form_labels(DIM);
 

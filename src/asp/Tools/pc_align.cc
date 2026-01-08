@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -61,7 +61,7 @@ const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the larg
 /// Options container for the pc_align tool
 struct Options: public vw::GdalWriteOptions {
   // Input
-  string reference, source, init_transform_file, alignment_method, 
+  string reference, source, init_transform_file, alignment_method,
     datum, csv_format_str, csv_srs, match_file, hillshade_command, hillshade_options,
     ipfind_options, ipmatch_options, nuth_options, fgr_options, csv_proj4_str;
   Vector2 initial_transform_ransac_params;
@@ -78,17 +78,17 @@ struct Options: public vw::GdalWriteOptions {
   std::string initial_ned_translation, hillshading_transform;
   vw::BBox2 ref_copc_win, src_copc_win;
   bool ref_copc_read_all, src_copc_read_all;
-  
+
   // Output
   string out_prefix;
 
-  Options() : max_disp(-1.0), verbose(true){}
-  
+  Options() : max_disp(-1.0), verbose(true) {}
+
   /// Return true if the reference file is a DEM file and this option is not disabled
-  bool use_dem_distances() const { 
-    return (asp::get_cloud_type(this->reference) == "DEM") && !dont_use_dem_distances; 
+  bool use_dem_distances() const {
+    return (asp::get_cloud_type(this->reference) == "DEM") && !dont_use_dem_distances;
   }
-  
+
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -106,7 +106,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "Maximum expected displacement of source points as result of alignment, in meters (after the initial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75),
       "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
-    ("max-num-reference-points", 
+    ("max-num-reference-points",
      po::value(&opt.max_num_reference_points)->default_value(100000000),
      "Maximum number of (randomly picked) reference points to use.")
     ("max-num-source-points", po::value(&opt.max_num_source_points)->default_value(100000),
@@ -115,12 +115,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Alignment method. Options: point-to-plane, point-to-point, "
      "similarity-point-to-plane, similarity-point-to-point, nuth, fgr, least-squares, "
      "similarity-least-squares.")
-    ("highest-accuracy", 
+    ("highest-accuracy",
      po::bool_switch(&opt.highest_accuracy)->default_value(false)->implicit_value(true),
      "Compute with highest accuracy for point-to-plane (can be much slower).")
-    ("csv-format", po::value(&opt.csv_format_str)->default_value(""),  
+    ("csv-format", po::value(&opt.csv_format_str)->default_value(""),
      asp::csv_opt_caption().c_str())
-    ("csv-srs", po::value(&opt.csv_srs)->default_value(""), 
+    ("csv-srs", po::value(&opt.csv_srs)->default_value(""),
      "The PROJ or WKT string to use to interpret the entries in input CSV files.")
     ("datum", po::value(&opt.datum)->default_value(""),
      "Use this datum for CSV files instead of auto-detecting it. Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON).")
@@ -130,10 +130,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Explicitly set the datum semi-minor axis in meters.")
     ("output-prefix,o", po::value(&opt.out_prefix)->default_value(""),
      "Specify the output prefix.")
-    ("compute-translation-only", 
+    ("compute-translation-only",
      po::bool_switch(&opt.compute_translation_only)->default_value(false)->implicit_value(true),
      "Compute the transform from source to reference point cloud as a translation only (no rotation).")
-    ("save-transformed-source-points", 
+    ("save-transformed-source-points",
      po::bool_switch(&opt.save_trans_source)->default_value(false)->implicit_value(true),
       "Apply the obtained transform to the source points so they match the reference points and save them.")
     ("save-inv-transformed-reference-points", po::bool_switch(&opt.save_trans_ref)->default_value(false)->implicit_value(true),
@@ -142,17 +142,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Initialize the alignment transform based on a translation with this vector in the North-East-Down coordinate system around the centroid of the reference points. Specify it in quotes, separated by spaces or commas.")
     ("initial-rotation-angle", po::value(&opt.initial_rotation_angle)->default_value(0),
      "Initialize the alignment transform as the rotation with this angle (in degrees) around the axis going from the planet center to the centroid of the point cloud. If --initial-ned-translation is also specified, the translation gets applied after the rotation.")
-    ("initial-transform-from-hillshading", po::value(&opt.hillshading_transform)->default_value(""), 
+    ("initial-transform-from-hillshading", po::value(&opt.hillshading_transform)->default_value(""),
      "If both input clouds are DEMs, find interest point matches among their hillshaded "
      "versions, and use them to compute an initial transform to apply to the source cloud "
      "before proceeding with alignment. Specify here the type of transform, as one of: "
      "'similarity' (rotation + translation + scale), 'rigid' (rotation + translation) or "
      "'translation'. See the options further down for tuning this.")
-    ("hillshade-command", po::value(&opt.hillshade_command)->default_value(""), 
+    ("hillshade-command", po::value(&opt.hillshade_command)->default_value(""),
      "The hillshade command and options to use when computing the transform from "
      "hillshading. The default is: gdaldem hillshade -multidirectional -compute_edges -co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256. An alternative is: "
      "hillshade --azimuth 300 --elevation 20 --align-to-georef.")
-    ("hillshade-options", po::value(&opt.hillshade_options)->default_value(""), 
+    ("hillshade-options", po::value(&opt.hillshade_options)->default_value(""),
      "Options to pass to the hillshade program when computing the transform from "
      "hillshading. This is for backward compatibility. Use instead the --hillshade-command "
      "option.")
@@ -165,7 +165,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "will reject more outliers.")
     ("nuth-options", po::value(&opt.nuth_options)->default_value(""),
      "Options to pass to the Nuth and Kaab algorithm.")
-    ("fgr-options", po::value(&opt.fgr_options)->default_value("div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000"), 
+    ("fgr-options", po::value(&opt.fgr_options)->default_value("div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025 iteration_number: 100 tuple_scale: 0.95 tuple_max_cnt: 10000"),
      "Options to pass to the Fast Global Registration algorithm.")
     ("no-dem-distances", po::bool_switch(&opt.dont_use_dem_distances)->default_value(false)->implicit_value(true),
      "For reference point clouds that are DEMs, don't take advantage of the fact that it is possible to interpolate into this DEM when finding the closest distance to it from a point in the source cloud and hence the error metrics.")
@@ -183,11 +183,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "or minx maxy maxx miny, with no quotes. If not set, the --ref-copc-win option will "
      "be used, or otherwise it will be estimated based on the extent of reference points "
      "and the --max-displacement option.")
-    ("ref-copc-read-all", po::bool_switch(&opt.ref_copc_read_all)->default_value(false), 
+    ("ref-copc-read-all", po::bool_switch(&opt.ref_copc_read_all)->default_value(false),
      "Read the full reference COPC file, ignoring the --ref-copc-win option.")
-    ("src-copc-read-all", po::bool_switch(&opt.src_copc_read_all)->default_value(false), 
+    ("src-copc-read-all", po::bool_switch(&opt.src_copc_read_all)->default_value(false),
      "Read the full source COPC file, ignoring the --src-copc-win option.")
-    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""), 
+    ("csv-proj4", po::value(&opt.csv_proj4_str)->default_value(""),
      "An alias for --csv-srs, for backward compatibility.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -213,49 +213,49 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // If the user specifies no options at all, print the help message.
   // Otherwise, print the specific error.
   if (opt.reference.empty() && opt.source.empty() && opt.out_prefix.empty())
-    vw_throw( ArgumentErr() << "No input arguments provided.\n" 
+    vw_throw(ArgumentErr() << "No input arguments provided.\n"
              << usage << general_options);
 
   if (opt.reference.empty() || opt.source.empty())
-    vw_throw( ArgumentErr() << "Missing input files.\n");
+    vw_throw(ArgumentErr() << "Missing input files.\n");
 
   if (opt.out_prefix.empty())
-    vw_throw( ArgumentErr() << "Missing output prefix.\n");
+    vw_throw(ArgumentErr() << "Missing output prefix.\n");
 
-  if ( opt.max_disp == 0.0 )
-    vw_throw( ArgumentErr() << "The max-displacement option was not set. "
+  if (opt.max_disp == 0.0)
+    vw_throw(ArgumentErr() << "The max-displacement option was not set. "
               << "Use -1 if it is desired not to use it.\n");
 
   if (opt.num_iter < 0)
-    vw_throw( ArgumentErr() << "The number of iterations must be non-negative.\n");
+    vw_throw(ArgumentErr() << "The number of iterations must be non-negative.\n");
 
-  if ( (opt.semi_major_axis != 0 && opt.semi_minor_axis == 0) ||
-       (opt.semi_minor_axis != 0 && opt.semi_major_axis == 0) ){
+  if ((opt.semi_major_axis != 0 && opt.semi_minor_axis == 0) ||
+       (opt.semi_minor_axis != 0 && opt.semi_major_axis == 0)) {
 
-    vw_throw( ArgumentErr() << "One of the semi-major or semi-minor axes"
+    vw_throw(ArgumentErr() << "One of the semi-major or semi-minor axes"
               << " was specified, but not the other one.\n");
   }
 
-  if (opt.semi_major_axis < 0 || opt.semi_minor_axis < 0){
-    vw_throw( ArgumentErr() << "The semi-major and semi-minor axes cannot "
-                            << "be negative.\n" );
+  if (opt.semi_major_axis < 0 || opt.semi_minor_axis < 0) {
+    vw_throw(ArgumentErr() << "The semi-major and semi-minor axes cannot "
+                            << "be negative.\n");
   }
 
-  if (opt.datum != "" && opt.semi_major_axis != 0 && opt.semi_minor_axis != 0 ){
-    vw_throw( ArgumentErr() << "Both the datum string and datum semi-axes were "
+  if (opt.datum != "" && opt.semi_major_axis != 0 && opt.semi_minor_axis != 0) {
+    vw_throw(ArgumentErr() << "Both the datum string and datum semi-axes were "
                             << "specified. At most one needs to be set.\n");
   }
 
   if ((opt.initial_ned_translation != "" || opt.initial_rotation_angle != 0)
       && opt.init_transform_file != "")
-    vw_throw( ArgumentErr()
+    vw_throw(ArgumentErr()
               << "Cannot specify an initial transform both from a file "
               << "and as a NED vector or rotation angle.\n");
 
-  if ( (opt.hillshading_transform != "" || opt.match_file != "") &&
+  if ((opt.hillshading_transform != "" || opt.match_file != "") &&
        (opt.initial_ned_translation != "" || opt.init_transform_file != "" ||
         opt.initial_rotation_angle != 0)) {
-    vw_throw( ArgumentErr() << "Cannot both specify an initial transform "
+    vw_throw(ArgumentErr() << "Cannot both specify an initial transform "
               << "and expect one to be computed automatically.\n");
   }
 
@@ -274,9 +274,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Read the initial transform
   opt.init_transform = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
-  if (opt.init_transform_file != ""){
+  if (opt.init_transform_file != "") {
     asp::read_transform(opt.init_transform, opt.init_transform_file);
-    vw_out() << std::setprecision(16) << "Initial guess transform:\n" 
+    vw_out() << std::setprecision(16) << "Initial guess transform:\n"
              << opt.init_transform << "\n";
     vw_out() << std::setprecision(8); // undo the higher precision
   }
@@ -289,7 +289,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.alignment_method != "fgr"                       &&
       opt.alignment_method != "least-squares"             &&
       opt.alignment_method != "similarity-least-squares")
-    vw_throw( ArgumentErr() << "Only the following alignment methods are supported: "
+    vw_throw(ArgumentErr() << "Only the following alignment methods are supported: "
         << "point-to-plane, point-to-point, similarity-point-to-point, "
       << "similarity-point-to-plane, fgr, least-squares, and similarity-least-squares.\n");
 
@@ -299,40 +299,40 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       opt.alignment_method != "similarity-point-to-plane" &&
       opt.alignment_method != "nuth"                      &&
       opt.compute_translation_only) {
-    vw_throw( ArgumentErr() << "The option --compute-translation-only is only applicable "
+    vw_throw(ArgumentErr() << "The option --compute-translation-only is only applicable "
              << "to point-to-plane, point-to-point, similarity-point-to-point, "
              << "similarity-point-to-plane, and nuth alignment.\n");
   }
-  
+
   if ((opt.alignment_method == "least-squares" ||
     opt.alignment_method == "similarity-least-squares")
        && asp::get_cloud_type(opt.reference) != "DEM")
-    vw_throw( ArgumentErr()
+    vw_throw(ArgumentErr()
           << "Least squares alignment can be used only when the "
-          << "reference cloud is a DEM.\n" );
+          << "reference cloud is a DEM.\n");
 
   if (opt.alignment_method == "nuth") {
-         
+
     if (asp::get_cloud_type(opt.reference) != "DEM" ||
         asp::get_cloud_type(opt.source)    != "DEM")
       vw_throw(ArgumentErr()
           << "Nuth and Kaab alignment can be used only when both "
           << "the reference and source clouds are DEMs.\n");
-      
+
     if (!opt.init_transform_file.empty() ||
         !opt.initial_ned_translation.empty() ||
         !opt.hillshading_transform.empty())
       vw_throw(ArgumentErr()
-          << "Nuth and Kaab alignment cannot be used with an initial transform.\n");  
-      
+          << "Nuth and Kaab alignment cannot be used with an initial transform.\n");
+
     if (opt.dont_use_dem_distances)
       vw_throw(ArgumentErr()
           << "Nuth and Kaab alignment requires using DEM distances for statistics.\n");
-      
+
     if (!opt.match_file.empty())
       vw_throw(ArgumentErr()
           << "Nuth and Kaab alignment cannot be used with a match file.\n");
-    
+
     if (opt.initial_rotation_angle != 0)
       vw_throw(ArgumentErr()
           << "Nuth and Kaab alignment cannot be used with an initial rotation angle.\n");
@@ -340,14 +340,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      opt.max_num_reference_points /= 25;
      opt.max_num_reference_points = std::max(1000000, opt.max_num_reference_points);
      vw::vw_out() << "For Nuth and Kaab alignment, a smaller reference cloud is "
-        << "sufficient. Reducing --max-num-reference-points by about 25x, to: " 
+        << "sufficient. Reducing --max-num-reference-points by about 25x, to: "
         << opt.max_num_reference_points << ".\n";
   }
-      
+
   int num_iter  = opt.initial_transform_ransac_params[0];
   double factor = opt.initial_transform_ransac_params[1];
   if (num_iter < 1 || factor <= 0.0)
-    vw_throw( ArgumentErr() << "Invalid values were provided for "
+    vw_throw(ArgumentErr() << "Invalid values were provided for "
               << "--initial-transform-ransac-params.\n");
 
   // Support for minx maxy maxx miny format.
@@ -359,7 +359,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     if (opt.src_copc_win.min().y() > opt.src_copc_win.max().y())
       std::swap(opt.src_copc_win.min().y(), opt.src_copc_win.max().y());
   }
-  
+
   // Use ref_copc_win, if src_copc_win is not set
   if (asp::isCopc(opt.source) &&
       opt.src_copc_win == BBox2() &&
@@ -410,7 +410,7 @@ void calc_stats(string label, Eigen::MatrixXd const& dists) {
 
 /// Write the output points as xyz values in binary, to be used by
 /// https://github.com/IntelVCL/FastGlobalRegistration
-void dump_bin(string const& file, DP const & data){
+void dump_bin(string const& file, DP const & data) {
 
   vw_out() << "Writing: "   << data.features.cols()
            << " points to " << file << "\n";
@@ -420,31 +420,31 @@ void dump_bin(string const& file, DP const & data){
     nDim = 3; // tmp!
   fwrite(&nV, sizeof(int), 1, fid);
   fwrite(&nDim, sizeof(int), 1, fid);
-  for (int c = 0; c < data.features.cols(); c++){
+  for (int c = 0; c < data.features.cols(); c++) {
     float xyz[3];
     for (int r = 0; r < 3; r++) xyz[r] = data.features(r, c);
     fwrite(xyz, sizeof(float), 3, fid);
 
     // That code needs features
     fwrite(xyz, sizeof(float), 3, fid);
-    
+
   }
   fclose(fid);
-  
+
 }
 
 // Save a cloud to disk for debugging
 void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
                             Vector3 const& shift,
-                            string const& output_file){
+                            string const& output_file) {
 
   int numPts = point_cloud.features.cols();
 
   vw_out() << "Writing: " << numPts << " to " << output_file << "\n";
-  ofstream outfile( output_file.c_str() );
+  ofstream outfile(output_file.c_str());
   outfile.precision(18);
 
-  for (int col = 0; col < numPts; col++){
+  for (int col = 0; col < numPts; col++) {
     Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
     Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
@@ -476,20 +476,20 @@ void save_errors(DP const& point_cloud,
                  GeoReference const& geo,
                  asp::CsvConv const& csv_conv,
                  bool is_lola_rdr_format,
-                 double median_longitude){
+                 double median_longitude) {
 
   vw_out() << "Writing: " << output_file << "\n";
 
   VW_ASSERT(point_cloud.features.cols() == errors.cols(),
             ArgumentErr() << "Expecting as many errors as source points.");
 
-  ofstream outfile( output_file.c_str() );
+  ofstream outfile(output_file.c_str());
   outfile.precision(16);
 
   // Write the header line
-  if (csv_conv.is_configured()){
+  if (csv_conv.is_configured()) {
     outfile << "# " << csv_conv.write_header_string(",") << "error (meters)" << "\n";
-  }else{
+  } else {
     if (is_lola_rdr_format)
       outfile << "# longitude,latitude,radius (km),error (meters)" << "\n";
     else
@@ -503,14 +503,14 @@ void save_errors(DP const& point_cloud,
   }
 
   int numPts = point_cloud.features.cols();
-  for (int col = 0; col < numPts; col++){
+  for (int col = 0; col < numPts; col++) {
     Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
-    if (csv_conv.is_configured()){
+    if (csv_conv.is_configured()) {
       Vector3 csv = csv_conv.cartesian_to_csv(P, geo, median_longitude);
       outfile << csv[0] << ',' << csv[1] << ',' << csv[2]
               << "," << errors(0, col) << "\n";
-    }else{
+    } else {
       Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
       llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjustment
 
@@ -541,7 +541,7 @@ void calcErrorsWithDem(DP                                 const& point_cloud,
 
   // Loop through every point in the point cloud
   double dem_height_here;
-  for (std::int64_t i = 0; i < num_pts; i++){
+  for (std::int64_t i = 0; i < num_pts; i++) {
     // Extract and un-shift the point to get the real GCC coordinate
     Vector3 gcc_coord = get_cloud_gcc_coord(point_cloud, point_cloud_shift, i);
 
@@ -552,8 +552,7 @@ void calcErrorsWithDem(DP                                 const& point_cloud,
     if (!interp_dem_height(dem, georef, llh, dem_height_here)) {
       // If we did not intersect the DEM, record a flag error value here.
       errors[i] = BIG_NUMBER;
-    }
-    else { // Success, the error is the absolute height difference
+    } else { // Success, the error is the absolute height difference
       errors[i] = std::abs(llh[2] - dem_height_here);
     }
 
@@ -570,7 +569,7 @@ void update_best_error(std::vector<double>         const& dem_errors,
     vw_throw(LogicErr() << "Error: error size does not match point count size!\n");
 
   // Loop through points
-  for (std::int64_t col = 0; col < num_points; col++){
+  for (std::int64_t col = 0; col < num_points; col++) {
     // Use the DEM error if it is less
     if (dem_errors[col] < lpm_errors(0,col)) {
       lpm_errors(0, col) = dem_errors[col];
@@ -642,8 +641,8 @@ void filter_source_cloud(DP          const& ref_point_cloud,
         pm_icp_object.filterGrossOutliersAndCalcErrors(ref_point_cloud, opt.max_disp,
                                                        source_point_cloud, error_matrix);
     }
-  }catch(const PointMatcher<double>::ConvergenceError & e){
-    vw_throw( ArgumentErr() << "Error: No points left in source cloud after filtering. Consider increasing --max-displacement and/or see the documentation.\n");
+  } catch(const PointMatcher<double>::ConvergenceError & e) {
+    vw_throw(ArgumentErr() << "Error: No points left in source cloud after filtering. Consider increasing --max-displacement and/or see the documentation.\n");
   }
 
 
@@ -671,9 +670,9 @@ Eigen::Vector3d vw_vector3_to_eigen(vw::Vector3 const& vw_vector) {
 }
 
 // Need this to placate libpointmatcher.
-std::string alignment_method_fallback(std::string const& alignment_method){
+std::string alignment_method_fallback(std::string const& alignment_method) {
   if (alignment_method == "least-squares" || alignment_method == "similarity-least-squares" ||
-      alignment_method == "fgr" || alignment_method == "nuth") 
+      alignment_method == "fgr" || alignment_method == "nuth")
     return "point-to-plane";
   return alignment_method;
 }
@@ -685,29 +684,29 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
 
   // First, this works only for DEMs
   if (asp::get_cloud_type(opt.reference) != "DEM" ||
-      asp::get_cloud_type(opt.source) != "DEM" )
-    vw_throw( ArgumentErr() << "Cannot find an initial transform using hillshading "
+      asp::get_cloud_type(opt.source) != "DEM")
+    vw_throw(ArgumentErr() << "Cannot find an initial transform using hillshading "
               << "unless both point clouds are DEMs. Use point2dem to first create "
               << "DEMs from the input point clouds. Then this transform can be used "
-              << "with the original clouds.\n" );
+              << "with the original clouds.\n");
 
   // Cannot have both opt.hillshade_command and opt.hillshade_options set
   if (!opt.hillshade_command.empty() && !opt.hillshade_options.empty())
     vw::vw_throw(vw::ArgumentErr() << "Cannot have both --hillshade-command and "
               << "--hillshade-options set.\n");
-  
+
   // This is to ensure backward compatibility
-  if (opt.hillshade_options.empty()) { 
+  if (opt.hillshade_options.empty()) {
     if (opt.hillshade_command.empty())
        opt.hillshade_command = "gdaldem hillshade -multidirectional -compute_edges "
                                 "-co TILED=yes -co BLOCKXSIZE=256 -co BLOCKYSIZE=256";
   } else {
     std::string hillshade_path = vw::program_path("hillshade", curr_exec_path);
     opt.hillshade_command = hillshade_path + " " + opt.hillshade_options;
-  }                        
-  
+  }
+
   // ASP hillshade needs the "-o" switch.
-  std::string extra = " "; 
+  std::string extra = " ";
   if (opt.hillshade_command.find("gdaldem") == std::string::npos)
     extra = " -o ";
 
@@ -721,7 +720,7 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
   vw_out() << cmd << "\n";
   std::string ans = vw::exec_cmd(cmd.c_str());
   vw_out() << ans << "\n";
-  
+
   // Hillshade the source
   std::string source_hillshade = opt.out_prefix + "-source_hillshade.tif";
   cmd = opt.hillshade_command + " " + opt.source + extra + source_hillshade;
@@ -748,7 +747,7 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
 
   // The name of the file where the matches are written to
   std::string match_file = vw::ip::match_filename(opt.out_prefix, ref_hillshade, source_hillshade);
-  
+
   return match_file;
 }
 
@@ -759,9 +758,9 @@ initial_transform_from_match_file(std::string const& ref_file,
                                   std::string const& match_file,
                                   std::string const& hillshading_transform,
                                   Vector2 initial_transform_ransac_params) {
-  
+
   if (asp::get_cloud_type(ref_file) != "DEM" || asp::get_cloud_type(source_file) != "DEM")
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The alignment transform computation based on manually chosen "
              << "point matches only works for DEMs. Use point2dem to first create "
              << "DEMs from the input point clouds.\n");
@@ -783,10 +782,10 @@ initial_transform_from_match_file(std::string const& ref_file,
   vw::read_nodata_val(source_file, source_nodata);
 
   if (!has_ref_geo || !has_source_geo)
-    vw_throw( ArgumentErr() << "One of the inputs is not a valid DEM.\n" );
+    vw_throw(ArgumentErr() << "One of the inputs is not a valid DEM.\n");
 
   if (DIM != 3)
-    vw_throw( ArgumentErr() << "Expecting DIM = 3.\n" );
+    vw_throw(ArgumentErr() << "Expecting DIM = 3.\n");
 
   // Go from pixels to 3D points
   int num_matches = ref_ip.size();
@@ -819,16 +818,16 @@ initial_transform_from_match_file(std::string const& ref_file,
       .geodetic_to_cartesian(Vector3(source_ll[0], source_ll[1], source_h));
 
     // Store in matrices
-    ColView col_ref(points_ref, count); 
+    ColView col_ref(points_ref, count);
     ColView col_src(points_src, count);
     col_ref = ref_xyz;
     col_src = source_xyz;
-    
+
     count++;
   }
 
   if (count < 3)
-    vw_throw( ArgumentErr() << "Not enough valid matches were found.\n");
+    vw_throw(ArgumentErr() << "Not enough valid matches were found.\n");
 
   // Resize the matrix to keep only the valid points. Find the transform.
   points_src.set_size(DIM, count, true);
@@ -854,7 +853,7 @@ initial_transform_from_match_file(std::string const& ref_file,
   return globalT;
 }
 
-void apply_transform_to_cloud(Eigen::MatrixXd const& T, DP & point_cloud){
+void apply_transform_to_cloud(Eigen::MatrixXd const& T, DP & point_cloud) {
   for (int col = 0; col < point_cloud.features.cols(); col++) {
     point_cloud.features.col(col) = T*point_cloud.features.col(col);
   }
@@ -883,7 +882,7 @@ void processSourceCloud(Options                       const& opt,
   // happen if the source cloud is very different from the reference cloud.
   std::string tag = "";
   for (int attempt = 1; attempt <= 2; attempt++) {
-    
+
     source_point_cloud = DP(); // Clear the output
 
     int big_num = 1.0e+6;
@@ -891,16 +890,16 @@ void processSourceCloud(Options                       const& opt,
       big_num = 50.0e+6;
       tag = "(second attempt) ";
     }
-      
+
     int num_source_pts = opt.max_num_source_points;
     if (opt.max_disp > 0.0)
       num_source_pts = std::max((1+attempt) * num_source_pts, big_num);
-    
+
     // Use the same shift used for the reference point cloud    
-    bool calc_shift = false; 
+    bool calc_shift = false;
     Stopwatch sw;
     sw.start();
-    load_cloud(opt.source, num_source_pts, source_box, 
+    load_cloud(opt.source, num_source_pts, source_box,
                opt.src_copc_win, opt.src_copc_read_all,
                calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                mean_source_longitude, opt.verbose, source_point_cloud);
@@ -911,7 +910,7 @@ void processSourceCloud(Options                       const& opt,
 
     // Apply the initial guess transform to the source point cloud.
     apply_transform_to_cloud(shiftInitT, source_point_cloud);
-    
+
     // Filter gross outliers in the source point cloud with max_disp
     try {
       // This can throw an exception if the resulting cloud is empty 
@@ -920,22 +919,22 @@ void processSourceCloud(Options                       const& opt,
                           shift, dem_georef, reference_dem_ref, opt);
     } catch (std::exception const& e) {
       vw_out() << "Not enough points left in the source cloud after filtering. "
-               << "Try loading more.\n";  
+               << "Try loading more.\n";
       continue;
     }
-    
+
     random_pc_subsample(opt.max_num_source_points, source_point_cloud.features);
     vw_out() << "Reducing number of source points to: "
               << source_point_cloud.features.cols() << "\n";
-  
+
     if (source_point_cloud.features.cols() >= opt.max_num_source_points)
       break;
-    
-    if (attempt == 1)   
+
+    if (attempt == 1)
       vw_out() << "Not enough points left in the source cloud after filtering. "
-               << "Try loading more.\n";  
+               << "Try loading more.\n";
   }
-  
+
   // Write the point cloud to disk for debugging
   //debug_save_point_cloud(ref_point_cloud, geo, shift, "ref.csv");
   //dump_bin("ref.bin", ref_point_cloud);
@@ -943,9 +942,9 @@ void processSourceCloud(Options                       const& opt,
 
 // Convert a north-east-down vector at a given location to a vector in reference
 // to the center of the Earth and create a translation matrix from that vector. 
-Eigen::MatrixXd 
+Eigen::MatrixXd
 ned_to_cartesian_transform(vw::cartography::Datum const& datum,
-                           std::string& ned_str, 
+                           std::string& ned_str,
                            vw::Vector3 const & location) {
 
   vw::string_replace(ned_str, ",", " "); // replace any commas
@@ -954,7 +953,7 @@ ned_to_cartesian_transform(vw::cartography::Datum const& datum,
   vw::Vector3 loc_llh = datum.cartesian_to_geodetic(location);
   vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(loc_llh);
   vw::Vector3 xyz_shift = NedToEcef * ned;
-  
+
   Eigen::MatrixXd T = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
 
   // Append the transform
@@ -971,7 +970,7 @@ vw::Vector3 estimate_ref_cloud_centroid(Options const& opt,
                                         std::string const& reference) {
   Stopwatch sw;
   sw.start();
-  
+
   PointMatcherSupport::validateFile(reference);
   PointMatcher<double>::DataPoints points;
 
@@ -991,11 +990,11 @@ vw::Vector3 estimate_ref_cloud_centroid(Options const& opt,
 
   int numRefPts = points.features.cols();
   Eigen::VectorXd meanRef = points.features.rowwise().sum() / numRefPts;
-  
+
   vw::Vector3 centroid;
   for (int it = 0; it < 3; it++)
     centroid[it] = meanRef[it];
-  
+
   sw.stop();
   vw_out() << "Centroid estimation took " << sw.elapsed_seconds() << " s\n";
 
@@ -1006,13 +1005,13 @@ vw::Vector3 estimate_ref_cloud_centroid(Options const& opt,
 // 360 degree offset among the two.
 void adjust_and_intersect_ref_source_boxes(BBox2 & ref_box, BBox2 & source_box,
                                            std::string const& reference,
-                                           std::string const& source){
+                                           std::string const& source) {
 
   double lon_offset = 0.0;
-  
+
   // Compute the longitude offset
   double source_mean_lon = (source_box.min().x() + source_box.max().x())/2.0;
-  double ref_mean_lon    = (ref_box.min().x()    + ref_box.max().x()   )/2.0;
+  double ref_mean_lon    = (ref_box.min().x()    + ref_box.max().x())/2.0;
   lon_offset = source_mean_lon - ref_mean_lon;
   lon_offset = 360.0*round(lon_offset/360.0);
 
@@ -1025,7 +1024,7 @@ void adjust_and_intersect_ref_source_boxes(BBox2 & ref_box, BBox2 & source_box,
 
   // Move back the ref box to its domain
   ref_box -= Vector2(lon_offset, 0);
-  
+
   // Extra adjustments. These are needed since pixel_to_lonlat and
   // cartesian_to_geodetic can disagree by 360 degrees. Adjust ref
   // to source and vice-versa.
@@ -1036,33 +1035,33 @@ void adjust_and_intersect_ref_source_boxes(BBox2 & ref_box, BBox2 & source_box,
 // See if we need to estimate the proj win of the source points
 // based on reference points and max disp. This is needed for COPC
 // files when this win is not set by the user.
-void checkNeeForSrcProjWin(Options const& opt, 
+void checkNeeForSrcProjWin(Options const& opt,
                            bool & need_src_projwin,
                            vw::cartography::GeoReference & src_georef) {
 
   need_src_projwin = false;
   src_georef = vw::cartography::GeoReference();
-  
+
   if (asp::isCopc(opt.source) && opt.src_copc_win == vw::BBox2() &&
       !opt.src_copc_read_all && opt.max_disp > 0.0) {
 
     need_src_projwin = true;
-    
+
     // Sanity check
     bool has_src_georef = asp::georef_from_las(opt.source, src_georef);
     if (!has_src_georef)
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
                 << "Cannot read the georeference of the source point cloud.\n");
-    
+
     // Need this later when biasing by max_disp  
     if (!src_georef.is_projected())
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
                 << "The source point cloud is not in projected coordinates. "
                 << "Set the option: --src-copc-win.");
   }
-  
+
 }
-                                         
+
 int main(int argc, char *argv[]) {
 
   // Mandatory line for Eigen
@@ -1076,7 +1075,7 @@ int main(int argc, char *argv[]) {
     int processor_count = std::thread::hardware_concurrency();
     omp_set_dynamic(0);
     omp_set_num_threads(processor_count);
-    
+
     // Parse the csv format string and csv projection string
     asp::CsvConv csv_conv;
     csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs);
@@ -1086,20 +1085,20 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> clouds;
     clouds.push_back(opt.reference);
     clouds.push_back(opt.source);
-    read_georef(clouds, opt.datum, opt.csv_srs,  
-                opt.semi_major_axis, opt.semi_minor_axis,  
+    read_georef(clouds, opt.datum, opt.csv_srs,
+                opt.semi_major_axis, opt.semi_minor_axis,
                 opt.csv_format_str,  csv_conv, geo);
 
     // Use hillshading to create a match file
     if (opt.hillshading_transform != "" && opt.match_file == "")
       opt.match_file = find_matches_from_hillshading(opt, argv[0]);
-    
+
     // Create a transform based on a match file, either automatically generated, or
     // user-made (normally with stereo_gui).
     if (opt.match_file != "") {
-      if (opt.hillshading_transform == "") 
+      if (opt.hillshading_transform == "")
         opt.hillshading_transform = "similarity";
-      opt.init_transform 
+      opt.init_transform
         = initial_transform_from_match_file(opt.reference, opt.source,
                                             opt.match_file, opt.hillshading_transform,
                                             opt.initial_transform_ransac_params);
@@ -1124,8 +1123,8 @@ int main(int argc, char *argv[]) {
       opt.init_transform.block(0, 0, DIM, DIM) = rot;
 
       // The NED translation
-      if (opt.initial_ned_translation != "") 
-        opt.init_transform = 
+      if (opt.initial_ned_translation != "")
+        opt.init_transform =
           ned_to_cartesian_transform(geo.datum(), opt.initial_ned_translation, centroid)
           * opt.init_transform;
     }
@@ -1140,9 +1139,9 @@ int main(int argc, char *argv[]) {
                                     std::max(opt.max_num_source_points,
                                              opt.max_num_reference_points)/4);
       num_sample_pts = std::min(1.0e+6, 1.0 * num_sample_pts); // avoid being slow
-      
+
       // Compute GDC bounding box of the source and reference clouds.
-      vw_out() << "Computing the bounding boxes of the reference and source points using " 
+      vw_out() << "Computing the bounding boxes of the reference and source points using "
                << num_sample_pts << " sample points.\n";
 
       // See if we have to estimate the proj win of the src points
@@ -1150,7 +1149,7 @@ int main(int argc, char *argv[]) {
       vw::cartography::GeoReference src_georef, dummy_georef;
       vw::BBox2 src_projwin, dummy_projwin;
       checkNeeForSrcProjWin(opt, need_src_projwin, src_georef);
-      
+
       Eigen::MatrixXd inv_init_trans = opt.init_transform.inverse();
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
                                 opt.reference, opt.max_disp, inv_init_trans,
@@ -1171,7 +1170,7 @@ int main(int argc, char *argv[]) {
                                 dummy_flag, dummy_georef,
                                 source_box, trans_source_box, dummy_projwin); // outputs
       sw0.stop();
-      vw_out() << "Computation of bounding boxes took " 
+      vw_out() << "Computation of bounding boxes took "
               << sw0.elapsed_seconds() << " s\n";
 
       // When boxes are huge, it is hard to do the optimization of intersecting
@@ -1184,20 +1183,20 @@ int main(int argc, char *argv[]) {
                   << "the planet. It is suggested that they be cropped, to get more "
                   << "accurate results. Giving up on estimating their bounding boxes "
                   << "and filtering outliers based on them.\n";
-                
+
         ref_box = BBox2();
         source_box = BBox2();
       }
-    
+
       // This is useful to point out issues when the reference and source
       // boxes are shifted by 360 degrees relative to each other.
       vw_out() << "Reference points box: " << ref_box << "\n";
       vw_out() << "Source points box:    " << source_box << "\n";
-      
+
       if (!ref_box.empty() && !source_box.empty()) {
-        adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box, 
+        adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box,
                                               opt.reference, opt.source);
-        adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box, 
+        adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box,
                                               opt.reference, opt.source);
       }
       if (ref_box == source_box) {
@@ -1209,7 +1208,7 @@ int main(int argc, char *argv[]) {
         vw_out() << "Intersection source    box: " << source_box << "\n";
       }
     }
-    
+
     // Load the point clouds. We will shift both point clouds by the
     // centroid of the first one to bring them closer to origin.
 
@@ -1256,7 +1255,7 @@ int main(int argc, char *argv[]) {
       // Load the dem, then wrap it inside an ImageViewRef object. This is done
       // because the actual DEM type cannot be created without being
       // initialized.
-      InterpolationReadyDem 
+      InterpolationReadyDem
       reference_dem(load_interpolation_ready_dem(opt.reference, dem_georef));
       reference_dem_ref.reset(reference_dem);
     }
@@ -1277,18 +1276,18 @@ int main(int argc, char *argv[]) {
 
    // Load, filter, transform, and resample the source point cloud
    DP source_point_cloud;
-   processSourceCloud(opt, ref_point_cloud, shiftInitT, dem_georef, geo, csv_conv, 
-                      source_box, reference_dem_ref, is_lola_rdr_format, 
-                      mean_source_longitude, icp, shift, 
+   processSourceCloud(opt, ref_point_cloud, shiftInitT, dem_georef, geo, csv_conv,
+                      source_box, reference_dem_ref, is_lola_rdr_format,
+                      mean_source_longitude, icp, shift,
                       source_point_cloud); // output
 
     // Make the libpointmatcher error message clearer
     std::string libpointmatcher_error = "no point to minimize";
-    std::string pc_align_error = 
+    std::string pc_align_error =
        "This likely means that the clouds are too far. Consider increasing the "
        "--max-displacement value to something somewhat larger than the expected "
        "length of the displacement that may be needed to align the clouds.\n";
-    
+
     Eigen::MatrixXd beg_errors;
     try {
       elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
@@ -1300,7 +1299,7 @@ int main(int argc, char *argv[]) {
         error += ".\n" + pc_align_error; // clarify the error
       vw_throw(ArgumentErr() << error);
     }
-    
+
     calc_stats("Input", beg_errors);
     if (opt.verbose)
       vw_out() << "Initial error computation took " << elapsed_time << " s\n";
@@ -1312,7 +1311,7 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXd Id = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
     icp.setParams(opt.out_prefix, opt.num_iter, opt.outlier_ratio,
                   (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
-                  opt.diff_translation_err, 
+                  opt.diff_translation_err,
                   alignment_method_fallback(opt.alignment_method),
                   verbose);
 
@@ -1321,7 +1320,7 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXd T = Id;
     if (opt.num_iter > 0) {
       if (opt.alignment_method == "nuth") {
-        T = asp::nuthAlignment(opt.reference, opt.source, opt.out_prefix, 
+        T = asp::nuthAlignment(opt.reference, opt.source, opt.out_prefix,
                                opt.max_disp, opt.num_iter,
                                opt.num_threads, opt.compute_translation_only,
                                opt.nuth_options);
@@ -1342,7 +1341,7 @@ int main(int argc, char *argv[]) {
             error += ".\n" + pc_align_error; // clarify the error
           vw_throw(ArgumentErr() << error);
         }
-        
+
         vw_out() << "Match ratio: "
                  << icp.errorMinimizer->getWeightedPointUsedRatio() << "\n";
       } else if (opt.alignment_method == "least-squares" ||
@@ -1352,7 +1351,7 @@ int main(int argc, char *argv[]) {
                                     dem_georef, reference_dem_ref, opt.alignment_method,
                                     opt.num_iter, opt.num_threads);
       } else
-        vw_throw( ArgumentErr() << "Unknown alignment method: " << opt.alignment_method);
+        vw_throw(ArgumentErr() << "Unknown alignment method: " << opt.alignment_method);
     }
     sw4.stop();
     if (opt.verbose)
@@ -1373,9 +1372,9 @@ int main(int argc, char *argv[]) {
 
     // For each point, compute the distance to the nearest reference point.
     Eigen::MatrixXd end_errors;
-    elapsed_time 
+    elapsed_time
       = compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
-                                   shift, dem_georef, reference_dem_ref, opt, 
+                                   shift, dem_georef, reference_dem_ref, opt,
                                    end_errors);
     calc_stats("Output", end_errors);
     if (opt.verbose)
@@ -1403,7 +1402,7 @@ int main(int argc, char *argv[]) {
              << "\n";
     vw::vw_out() << "Maximum displacement of points between the source "
                  << "cloud with any initial transform applied to it and the "
-                 << "source cloud after alignment to the reference: " 
+                 << "source cloud after alignment to the reference: "
                  << max_obtained_disp << " m" << "\n";
     if (opt.max_disp > 0 && opt.max_disp < max_obtained_disp)
       vw_out() << "Warning: The input --max-displacement value is smaller than the "
@@ -1427,9 +1426,9 @@ int main(int argc, char *argv[]) {
 
     // Subtract one before printing the scale, to see a lot of digits of precision
     vw_out() << "Transform scale - 1 = " << (scale-1.0) << "\n";
-    
+
     Matrix3x3 rot_NED = inverse(NedToEcef) * rot * NedToEcef;
-   
+
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 euler_angles_NED = math::rotation_matrix_to_euler_xyz(rot_NED) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle(rot) * 180/M_PI;
