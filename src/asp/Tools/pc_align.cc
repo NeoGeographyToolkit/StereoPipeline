@@ -38,6 +38,7 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Core/CmdUtils.h>
 #include <vw/Math/Geometry.h>
+#include <vw/Math/Functors.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/FileUtils.h>
 
@@ -382,18 +383,27 @@ void calc_stats(string label, Eigen::MatrixXd const& dists) {
     errs[count] = dists(0, col);
     count++;
   }
-  sort(errs.begin(), errs.end());
+  std::sort(errs.begin(), errs.end());
 
   int len = errs.size();
   vw_out() << "Number of errors: " << len << "\n";
   if (len == 0)
     return;
 
+  // Find the median. This operation re-sorts the vector internally. This does a
+  // more careful job than the code below for even-length vectors. It looks
+  // safer, if redundant, to work on a copy of the vector.
+  std::vector<double> errs_copy = errs;
+  double median = vw::math::destructive_median(errs_copy);
+  
+  // Find nmad. As before, copy the vector to be safe.
+  errs_copy = errs;
+  double nmad = vw::math::destructive_nmad(errs_copy);
+  
   double p16 = errs[std::min(len-1, (int)round(len*0.16))];
-  double p50 = errs[std::min(len-1, (int)round(len*0.50))];
   double p84 = errs[std::min(len-1, (int)round(len*0.84))];
   vw_out() << label << ": error percentile of smallest errors (meters):"
-           << " 16%: " << p16 << ", 50%: " << p50 << ", 84%: " << p84 << "\n";
+           << " 16%: " << p16 << ", 50%: " << median << ", 84%: " << p84 << "\n";
 
   double a25 = calc_mean(errs,   len/4), a50  = calc_mean(errs, len/2);
   double a75 = calc_mean(errs, 3*len/4), a100 = calc_mean(errs, len);
@@ -401,11 +411,13 @@ void calc_stats(string label, Eigen::MatrixXd const& dists) {
            << " 25%: "  << a25 << ", 50%: "  << a50
            << ", 75%: " << a75 << ", 100%: " << a100 << "\n";
 
-  // Mean, StdDev, MAE, RMSE
+  // Mean, StdDev, RMSE, median, nmad
   vw_out() << label << " stats (meters): "
-           << " Mean: "    << calc_mean(errs, len) << ", "
-            << " StdDev: " << calc_stddev(errs) << ", "
-            << " RMSE: "   << calc_rmse(errs) << "\n";
+           << "Mean: "    << calc_mean(errs, len) << ", "
+           << "StdDev: " << calc_stddev(errs) << ", "
+           << "RMSE: "   << calc_rmse(errs) << ", "
+           << "Median: " << median << ", "
+           << "NMAD: "   << nmad << "\n";
 }
 
 /// Write the output points as xyz values in binary, to be used by

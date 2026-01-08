@@ -109,9 +109,6 @@ double calc_mean(std::vector<double> const& errs, int len);
 /// Compute the standard deviation of an std::vector
 double calc_stddev(std::vector<double> const& errs);
 
-/// Compute the mean absolute error of an std::vector
-double calc_mae(std::vector<double> const& errs);
-
 /// Compute the root mean square error of an std::vector
 double calc_rmse(std::vector<double> const& errs);
 

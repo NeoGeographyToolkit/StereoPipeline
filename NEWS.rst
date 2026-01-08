@@ -26,7 +26,7 @@ bathy_plane_calc (:numref:`bathy_plane_calc`):
     
 pc_align (:numref:`pc_align`):
   * Print to the terminal and the log file the following initial and final 
-    error stats: Mean, StdDev, RMSE.
+    error stats: Mean, StdDev, RMSE, Median, NMAD.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------

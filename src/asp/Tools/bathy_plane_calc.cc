@@ -244,9 +244,8 @@ int main(int argc, char *argv[]) {
 
       // We assume the WGS_1984 datum
       if (dem_georef.datum().name() != "WGS_1984")
-        vw::vw_throw(vw::ArgumentErr() << "Only an input DEM with the "
-                  << "WGS_1984 datum is supported.\n"
-                  << "Got: " << dem_georef.datum().name() << ".\n");
+        vw::vw_throw(vw::ArgumentErr() << "The input DEM must be relative to the "
+                  << "WGS_1984 datum.\n" << "Got: " << dem_georef.datum().name() << ".\n");
 
       // Note we use a float nodata
       if (!vw::read_nodata_val(opt.dem, dem_nodata_val))

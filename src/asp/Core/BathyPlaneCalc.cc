@@ -321,6 +321,11 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
   if (num_samples <= 0)
     vw::vw_throw(vw::ArgumentErr() << "The value of --num-samples must be positive.\n");
 
+  // We assume the WGS_1984 datum in the shape. For the DEM we checked already.
+  if (shape_georef.datum().name() != "WGS_1984")
+    vw::vw_throw(vw::ArgumentErr() << "The input shape must be relative to the "
+                 << "WGS_1984 datum.\n" << "Got: " << dem_georef.datum().name() << ".\n");
+
   // Ensure that the outputs are initialized
   ecef_vec.clear();
   llh_vec.clear();
@@ -450,6 +455,11 @@ void sampleOrthoMaskBd(std::string const& mask_file,
                        std::vector<Eigen::Vector3d> & ecef_vec,
                        std::vector<vw::Vector3> & llh_vec,
                        std::vector<vw::Vector2> & shape_xy_vec) {
+
+  // We assume the WGS_1984 datum in the mask. For the DEM we checked already.
+  if (mask_georef.datum().name() != "WGS_1984")
+    vw::vw_throw(vw::ArgumentErr() << "The input mask must be relative to the "
+                 << "WGS_1984 datum.\n" << "Got: " << dem_georef.datum().name() << ".\n");
 
   // Read the mask. The nodata value is the largest of what
   // is read from the mask file and the value 0, as pixels

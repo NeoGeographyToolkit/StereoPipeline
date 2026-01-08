@@ -293,19 +293,6 @@ double calc_stddev(std::vector<double> const& errs) {
   return std::sqrt(variance_sum / len);
 }
 
-double calc_mae(std::vector<double> const& errs) {
-
-  int len = errs.size();
-
-  double sum = 0.0;
-  for (int i = 0; i < len; i++)
-    sum += std::abs(errs[i]);
-
-  if (len == 0)
-    return 0;
-  return sum/len;
-}
-
 double calc_rmse(std::vector<double> const& errs) {
 
   int len = errs.size();
