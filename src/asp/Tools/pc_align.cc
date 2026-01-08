@@ -378,16 +378,14 @@ void calc_stats(string label, Eigen::MatrixXd const& dists) {
 
   vector<double> errs(dists.cols()*dists.rows());
   int count = 0;
-  for (int col = 0; col < dists.cols(); col++){
-    //for (int row = 0; row < dists.rows(); row++){
+  for (int col = 0; col < dists.cols(); col++) {
     errs[count] = dists(0, col);
     count++;
-    //}
   }
   sort(errs.begin(), errs.end());
 
   int len = errs.size();
-  vw_out() << "Number of errors: " << len << endl;
+  vw_out() << "Number of errors: " << len << "\n";
   if (len == 0)
     return;
 
@@ -395,13 +393,19 @@ void calc_stats(string label, Eigen::MatrixXd const& dists) {
   double p50 = errs[std::min(len-1, (int)round(len*0.50))];
   double p84 = errs[std::min(len-1, (int)round(len*0.84))];
   vw_out() << label << ": error percentile of smallest errors (meters):"
-           << " 16%: " << p16 << ", 50%: " << p50 << ", 84%: " << p84 << endl;
+           << " 16%: " << p16 << ", 50%: " << p50 << ", 84%: " << p84 << "\n";
 
   double a25 = calc_mean(errs,   len/4), a50  = calc_mean(errs, len/2);
   double a75 = calc_mean(errs, 3*len/4), a100 = calc_mean(errs, len);
   vw_out() << label << ": mean of smallest errors (meters):"
            << " 25%: "  << a25 << ", 50%: "  << a50
-           << ", 75%: " << a75 << ", 100%: " << a100 << endl;
+           << ", 75%: " << a75 << ", 100%: " << a100 << "\n";
+
+  // Mean, StdDev, MAE, RMSE
+  vw_out() << label << " stats (meters): "
+           << " Mean: "    << calc_mean(errs, len) << ", "
+            << " StdDev: " << calc_stddev(errs) << ", "
+            << " RMSE: "   << calc_rmse(errs) << "\n";
 }
 
 /// Write the output points as xyz values in binary, to be used by
@@ -436,7 +440,7 @@ void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
 
   int numPts = point_cloud.features.cols();
 
-  vw_out() << "Writing: " << numPts << " to " << output_file << endl;
+  vw_out() << "Writing: " << numPts << " to " << output_file << "\n";
   ofstream outfile( output_file.c_str() );
   outfile.precision(18);
 
@@ -444,7 +448,7 @@ void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
     Vector3 P = get_cloud_gcc_coord(point_cloud, shift, col);
 
     Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
-    outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << endl;
+    outfile << llh[1] << ',' << llh[0] << ',' << llh[2] << "\n";
   }
   outfile.close();
 }
@@ -454,12 +458,12 @@ void write_transforms(Options const& opt,
                      Eigen::MatrixXd const& T) {
 
   string transFile = opt.out_prefix + "-transform.txt";
-  vw_out() << "Writing: " << transFile << endl;
+  vw_out() << "Writing: " << transFile << "\n";
   write_transform(T, transFile);
 
   string iTransFile = opt.out_prefix + "-inverse-transform.txt";
   Eigen::MatrixXd invT = T.inverse();
-  vw_out() << "Writing: " << iTransFile << endl;
+  vw_out() << "Writing: " << iTransFile << "\n";
   write_transform(invT, iTransFile);
 }
 
@@ -484,12 +488,12 @@ void save_errors(DP const& point_cloud,
 
   // Write the header line
   if (csv_conv.is_configured()){
-    outfile << "# " << csv_conv.write_header_string(",") << "error (meters)" << endl;
+    outfile << "# " << csv_conv.write_header_string(",") << "error (meters)" << "\n";
   }else{
     if (is_lola_rdr_format)
-      outfile << "# longitude,latitude,radius (km),error (meters)" << endl;
+      outfile << "# longitude,latitude,radius (km),error (meters)" << "\n";
     else
-      outfile << "# latitude,longitude,height above datum (meters),error (meters)" << endl;
+      outfile << "# latitude,longitude,height above datum (meters),error (meters)" << "\n";
   }
 
   // Save the datum, may be useful to know what it was
@@ -505,17 +509,17 @@ void save_errors(DP const& point_cloud,
     if (csv_conv.is_configured()){
       Vector3 csv = csv_conv.cartesian_to_csv(P, geo, median_longitude);
       outfile << csv[0] << ',' << csv[1] << ',' << csv[2]
-              << "," << errors(0, col) << endl;
+              << "," << errors(0, col) << "\n";
     }else{
       Vector3 llh = geo.datum().cartesian_to_geodetic(P); // lon-lat-height
       llh[0] += 360.0*round((median_longitude - llh[0])/360.0); // 360 deg adjustment
 
       if (is_lola_rdr_format)
         outfile << llh[0] << ',' << llh[1] << ',' << norm_2(P)/1000.0
-                << "," << errors(0, col) << endl;
+                << "," << errors(0, col) << "\n";
       else
         outfile << llh[1] << ',' << llh[0] << ',' << llh[2]
-                << "," << errors(0, col) << endl;
+                << "," << errors(0, col) << "\n";
     }
   }
   outfile.close();
@@ -623,7 +627,7 @@ void filter_source_cloud(DP          const& ref_point_cloud,
   sw.start();
 
   if (opt.verbose)
-    vw_out() << "Filtering gross outliers" << endl;
+    vw_out() << "Filtering gross outliers" << "\n";
 
   Eigen::MatrixXd error_matrix;
   try {
@@ -1340,7 +1344,7 @@ int main(int argc, char *argv[]) {
         }
         
         vw_out() << "Match ratio: "
-                 << icp.errorMinimizer->getWeightedPointUsedRatio() << endl;
+                 << icp.errorMinimizer->getWeightedPointUsedRatio() << "\n";
       } else if (opt.alignment_method == "least-squares" ||
                 opt.alignment_method == "similarity-least-squares") {
         // Compute alignment using least squares
@@ -1429,11 +1433,11 @@ int main(int argc, char *argv[]) {
     Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
     Vector3 euler_angles_NED = math::rotation_matrix_to_euler_xyz(rot_NED) * 180/M_PI;
     Vector3 axis_angles = math::matrix_to_axis_angle(rot) * 180/M_PI;
-    vw_out() << "Euler angles (degrees): " << euler_angles  << endl;
-    vw_out() << "Euler angles (North-East-Down, degrees): " << euler_angles_NED  << endl;
+    vw_out() << "Euler angles (degrees): " << euler_angles  << "\n";
+    vw_out() << "Euler angles (North-East-Down, degrees): " << euler_angles_NED  << "\n";
     vw_out() << "Axis of rotation and angle (degrees): "
              << axis_angles/norm_2(axis_angles) << ' '
-             << norm_2(axis_angles) << endl;
+             << norm_2(axis_angles) << "\n";
 
     Stopwatch sw5;
     sw5.start();

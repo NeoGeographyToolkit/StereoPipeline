@@ -24,6 +24,10 @@ bathy_plane_calc (:numref:`bathy_plane_calc`):
   * Removed the option ``--use-ecef-water-surface``. It is now always assumed
     that the bathy plane is computed in local projected coordinates.
     
+pc_align (:numref:`pc_align`):
+  * Print to the terminal and the log file the following initial and final 
+    error stats: Mean, StdDev, RMSE.
+
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
 

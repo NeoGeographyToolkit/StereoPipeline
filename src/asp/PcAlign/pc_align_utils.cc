@@ -264,7 +264,12 @@ void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box){
   box += Vector2(lon_offset, 0);
 }
 
-double calc_mean(std::vector<double> const& errs, int len){
+double calc_mean(std::vector<double> const& errs, int len) {
+  
+  // Check that len is valid
+  if (len < 0 || len > static_cast<int>(errs.size()))
+    vw::vw_throw(vw::ArgumentErr() << "Invalid length in calc_mean.\n");
+    
   double mean = 0.0;
   for (int i = 0; i < len; i++){
     mean += errs[i];
@@ -273,14 +278,45 @@ double calc_mean(std::vector<double> const& errs, int len){
   return mean/len;
 }
 
-double calc_stddev(std::vector<double> const& errs, double mean){
-  double stddev = 0.0;
+double calc_stddev(std::vector<double> const& errs) {
+
   int len = errs.size();
-  for (int i = 0; i < len; i++){
-    stddev += (errs[i] - mean)*(errs[i] - mean);
-  }
-  if (len == 0) return 0;
-  return sqrt(stddev/len);
+  if (len == 0) 
+    return 0;
+
+  double mean = calc_mean(errs, len);
+  double variance_sum = 0.0;
+
+  for (int i = 0; i < len; i++)
+      variance_sum += (errs[i] - mean) * (errs[i] - mean);
+
+  return std::sqrt(variance_sum / len);
+}
+
+double calc_mae(std::vector<double> const& errs) {
+  
+  int len = errs.size();
+  
+  double sum = 0.0;
+  for (int i = 0; i < len; i++)
+    sum += std::abs(errs[i]);
+
+  if (len == 0) 
+    return 0;
+  return sum/len;
+}
+
+double calc_rmse(std::vector<double> const& errs) {
+  
+  int len = errs.size();
+  
+  double sum = 0.0;
+  for (int i = 0; i < len; i++)
+    sum += errs[i] * errs[i];
+
+  if (len == 0) 
+    return 0;
+  return sqrt(sum/len);
 }
 
 // Compute the translation vector from the source points (before any initial alignment
@@ -382,8 +418,8 @@ void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
 
 /// Apply a given transform to the point cloud in input file,
 /// and save it.
-/// - Note: We transform the entire point cloud, not just the resampled
-///         version used in alignment.
+/// Note: We transform the entire point cloud, not just the resampled
+/// version used in alignment.
 void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
@@ -525,7 +561,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
     outfile.close();
 
   }else{
-    vw_throw( vw::ArgumentErr() << "Unknown file type: " << input_file << "\n" );
+    vw_throw(vw::ArgumentErr() << "Unknown file type: " << input_file << "\n");
   }
 } // end save_trans_point_cloud
 
@@ -534,19 +570,21 @@ InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
   // Load the georeference from the DEM
   bool has_georef = vw::cartography::read_georeference( georef, dem_path );
   if (!has_georef)
-    vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_path << " does not have a georeference.\n");
+    vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_path 
+                 << " does not have a georeference.\n");
 
   // Set up file handle to the DEM and read the nodata value
   vw::DiskImageView<float> dem(dem_path);
   double nodata = std::numeric_limits<double>::quiet_NaN();
   {
-    boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(dem_path) );
+    boost::shared_ptr<vw::DiskImageResource> 
+      dem_rsrc(new vw::DiskImageResourceGDAL(dem_path));
     if (dem_rsrc->has_nodata_read())
       nodata = dem_rsrc->nodata_read();
   }
   
   // Set up interpolation + mask view of the DEM
-  vw::ImageViewRef< vw::PixelMask<float> > masked_dem = create_mask(dem, nodata);
+  vw::ImageViewRef<vw::PixelMask<float>> masked_dem = create_mask(dem, nodata);
   return InterpolationReadyDem(interpolate(masked_dem));
 }
 
@@ -582,7 +620,8 @@ void read_georef(std::vector<std::string> const& clouds,
     vw::cartography::GeoReference local_geo;
     bool have_georef = vw::cartography::read_georeference(local_geo, dem_file);
     if (!have_georef)
-      vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_file << " does not have a georeference.\n");
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "DEM: " << dem_file << " does not have a georeference.\n");
     geo = local_geo;
     is_good = true;
   }
