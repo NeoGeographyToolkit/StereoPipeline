@@ -412,8 +412,8 @@ void calc_stats(string label, Eigen::MatrixXd const& dists) {
            << ", 75%: " << a75 << ", 100%: " << a100 << "\n";
 
   // Mean, StdDev, RMSE, median, nmad
-  vw_out() << label << " stats (meters): "
-           << "Mean: "    << calc_mean(errs, len) << ", "
+  vw_out() << label      << " stats (meters): "
+           << "Mean: "   << calc_mean(errs, len) << ", "
            << "StdDev: " << calc_stddev(errs) << ", "
            << "RMSE: "   << calc_rmse(errs) << ", "
            << "Median: " << median << ", "
