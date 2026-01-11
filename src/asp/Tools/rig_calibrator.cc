@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -59,6 +59,7 @@
 #include <Rig/RigCameraUtils.h>
 #include <asp/Rig/RigCostFunction.h>
 #include <asp/Rig/rig_io.h>
+#include <asp/Rig/RigImageIO.h>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>

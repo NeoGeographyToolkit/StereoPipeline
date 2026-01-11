@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -62,55 +62,6 @@ std::string matchFileName(std::string const& match_dir,
   return match_file;
 }
   
-// Write an image with 3 floats per pixel. OpenCV's imwrite() cannot do that.
-void saveXyzImage(std::string const& filename, cv::Mat const& img) {
-  if (img.depth() != CV_32F)
-    LOG(FATAL) << "Expecting an image with float values\n";
-  if (img.channels() != 3) LOG(FATAL) << "Expecting 3 channels.\n";
-
-  std::ofstream f;
-  f.open(filename.c_str(), std::ios::binary | std::ios::out);
-  if (!f.is_open()) LOG(FATAL) << "Cannot open file for writing: " << filename << "\n";
-
-  // Assign these to explicit variables so we know their type and size in bytes
-  // TODO(oalexan1): Replace below with int32_t and check that it is same thing.
-  int rows = img.rows, cols = img.cols, channels = img.channels();
-
-  // TODO(oalexan1): Avoid C-style cast. Test if
-  // reinterpret_cast<char*> does the same thing.
-  f.write((char*)(&rows), sizeof(rows));         // NOLINT
-  f.write((char*)(&cols), sizeof(cols));         // NOLINT
-  f.write((char*)(&channels), sizeof(channels)); // NOLINT
-
-  for (int row = 0; row < rows; row++) {
-    for (int col = 0; col < cols; col++) {
-      cv::Vec3f const& P = img.at<cv::Vec3f>(row, col);  // alias
-      // TODO(oalexan1): See if using reinterpret_cast<char*> does the same
-      // thing.
-      for (int c = 0; c < channels; c++)
-        f.write((char*)(&P[c]), sizeof(P[c])); // NOLINT
-    }
-  }
-
-  return;
-}
-
-// Save images and depth clouds to disk
-void saveImagesAndDepthClouds(std::vector<rig::cameraImage> const& cams) {
-  for (size_t it = 0; it < cams.size(); it++) {
-
-    std::cout << "Writing: " << cams[it].image_name << std::endl;
-    cv::imwrite(cams[it].image_name, cams[it].image);
-
-    if (cams[it].depth_cloud.cols > 0 && cams[it].depth_cloud.rows > 0) {
-      std::cout << "Writing: " << cams[it].depth_name << std::endl;
-      rig::saveXyzImage(cams[it].depth_name, cams[it].depth_cloud);
-    }
-  }
-
-  return;
-}
-
 // Given all the merged and filtered tracks in pid_cid_fid, for each
 // image pair cid1 and cid2 with cid1 < cid2 < cid1 + num_overlaps + 1,
 // save the matches of this pair which occur in the set of tracks.
@@ -269,23 +220,6 @@ void savePairwiseConvergenceAngles(// Inputs
 
   return;
 } // end function savePairwiseConvergenceAngles
-  
-// Save the list of images, for use with bundle_adjust.
-void saveImageList(std::vector<rig::cameraImage> const& cams,
-                   std::string const& image_list) {
-
-  // Create the directory having image_list
-  std::string dir = fs::path(image_list).parent_path().string();
-  rig::createDir(dir);
-  
-  std::cout << "Writing: " << image_list << std::endl;
-  std::ofstream ofs(image_list.c_str());
-  for (size_t it = 0; it < cams.size(); it++)
-    ofs << cams[it].image_name << std::endl;
-  ofs.close();
-
-  return;
-}
   
 }  // namespace rig
 

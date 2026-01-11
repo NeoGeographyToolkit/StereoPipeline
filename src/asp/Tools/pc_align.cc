@@ -1447,8 +1447,7 @@ int main(int argc, char *argv[]) {
     vw_out() << "Euler angles (degrees): " << euler_angles  << "\n";
     vw_out() << "Euler angles (North-East-Down, degrees): " << euler_angles_NED  << "\n";
     vw_out() << "Axis of rotation and angle (degrees): "
-             << axis_angles/norm_2(axis_angles) << ' '
-             << norm_2(axis_angles) << "\n";
+             << axis_angles/norm_2(axis_angles) << ' ' << norm_2(axis_angles) << "\n";
 
     Stopwatch sw5;
     sw5.start();
@@ -1473,12 +1472,12 @@ int main(int argc, char *argv[]) {
     save_errors(trans_source_point_cloud, end_errors,  opt.out_prefix + "-end_errors.csv",
                 shift, geo, csv_conv, is_lola_rdr_format, mean_source_longitude);
 
-    if (opt.verbose) vw_out() << "Writing: " << opt.out_prefix
-      + "-iterationInfo.csv" << "\n";
+    if (opt.verbose) 
+      vw_out() << "Writing: " << opt.out_prefix + "-iterationInfo.csv" << "\n";
 
     sw5.stop();
-    if (opt.verbose) vw_out() << "Saving to disk took "
-                              << sw5.elapsed_seconds() << " s\n";
+    if (opt.verbose)
+      vw_out() << "Saving to disk took " << sw5.elapsed_seconds() << " s\n";
 
   } ASP_STANDARD_CATCHES;
 

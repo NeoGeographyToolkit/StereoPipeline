@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -43,15 +43,6 @@ std::string matchFileName(std::string const& match_dir,
                           std::string const& right_image,
                           std::string const& suffix);
 
-// Write an image with 3 floats per pixel.
-//
-// This is used for saving 3D point cloud data (XYZ) as an image.
-// OpenCV's imwrite() cannot do this.
-void saveXyzImage(std::string const& filename, cv::Mat const& img);
-
-// Save images and their corresponding depth clouds to disk.
-void saveImagesAndDepthClouds(std::vector<rig::cameraImage> const& cams);
-
 // Save the inlier matches for each image pair to disk.
 //
 // Given all the merged and filtered tracks, this function iterates through
@@ -75,10 +66,6 @@ void savePairwiseConvergenceAngles(// Inputs
                                    std::vector<Eigen::Vector3d>  const& xyz_vec,
                                    PidCidFidMap                  const& pid_cid_fid_inlier,
                                    std::string                   const& conv_angles_file);
-
-// Save the list of images, for use with bundle_adjust.
-void saveImageList(std::vector<rig::cameraImage> const& cams,
-                   std::string const& image_list);
 
 }  // end namespace rig
 

@@ -296,7 +296,6 @@ int main(int argc, char *argv[]) {
 
     } else if (use_ortho_mask) {
       // Read the ortho mask. Will overwrite shape_georef.
-      vw::vw_out() << "Reading the ortho mask: " << opt.ortho_mask << "\n";
       if (!vw::cartography::read_georeference(shape_georef, opt.ortho_mask))
         vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       asp::sampleOrthoMaskBd(opt.ortho_mask, shape_georef, dem_georef, interp_dem,

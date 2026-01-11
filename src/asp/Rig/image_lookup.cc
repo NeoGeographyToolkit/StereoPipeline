@@ -1,4 +1,4 @@
-/* Copyright (c) 2021, United States Government, as represented by the
+/* Copyright (c) 2021-2026, United States Government, as represented by the
  * Administrator of the National Aeronautics and Space Administration.
  *
  * All rights reserved.
@@ -25,6 +25,7 @@
 #include <asp/Rig/interpolation_utils.h>
 #include <asp/Rig/transform_utils.h>
 #include <asp/Core/nvm.h>
+#include <asp/Rig/RigImageIO.h>
 
 #include <vw/Core/Log.h>
 #include <glog/logging.h>
@@ -45,47 +46,7 @@ bool timestampLess(cameraImage i, cameraImage j) {
     (i.ref_timestamp == j.ref_timestamp && i.image_name < j.image_name);
 }
 
-// The images from the bag may need to be resized to be the same
-// size as in the calibration file. Sometimes the full-res images
-// can be so blurry that interest point matching fails, hence the
-// resizing.
-// Similar logic to deal with differences between image size and calibrated size
-// is used further down this code.
-void adjustImageSize(rig::CameraParameters const& cam_params, cv::Mat & image) {
-  int64_t raw_image_cols = image.cols;
-  int64_t raw_image_rows = image.rows;
-  int64_t calib_image_cols = cam_params.GetDistortedSize()[0];
-  int64_t calib_image_rows = cam_params.GetDistortedSize()[1];
-  int64_t factor = raw_image_cols / calib_image_cols;
 
-  // If the raw image has size 0, skip, but give a warning. This happens
-  // when the image is not found. If prior interest point matches exist,
-  // the workflow can still continue.
-  if (raw_image_cols == 0 || raw_image_rows == 0) {
-    LOG(WARNING) << "Image has size 0, skipping.";
-    return;
-  }
-  
-  if ((raw_image_cols != calib_image_cols * factor) ||
-      (raw_image_rows != calib_image_rows * factor)) {
-    LOG(FATAL) << "Image width and height are: "
-               << raw_image_cols << ' ' << raw_image_rows << "\n"
-               << "Calibrated image width and height are: "
-               << calib_image_cols << ' ' << calib_image_rows << "\n"
-               << "These must be equal up to an integer factor.\n";
-  }
-
-  if (factor != 1) {
-    // TODO(oalexan1): This kind of resizing may be creating aliased images.
-    cv::Mat local_image;
-    cv::resize(image, local_image, cv::Size(), 1.0/factor, 1.0/factor, cv::INTER_AREA);
-    local_image.copyTo(image);
-  }
-
-  // Check
-  if (image.cols != calib_image_cols || image.rows != calib_image_rows)
-    LOG(FATAL) << "The images have the wrong size.";
-}
 
 // Find cam type based on cam name
 void camTypeFromName(std::string const& cam_name,
@@ -156,7 +117,7 @@ size_t findCamType(std::string const& image_file,
 }
 
 // Must keep only alphanumeric characters in the s
-void removeNonAlnum(std::string & s) {
+void removeNonAlphaNum(std::string & s) {
   for (size_t it = 0; it < s.size(); it++) {
     if ((s[it] < '0' || s[it] > '9') &&
         (s[it] < 'a' || s[it] > 'z') &&
@@ -223,7 +184,7 @@ void findCamTypeAndTimestamp(std::string const& image_file,
     }
   }  
   
-  removeNonAlnum(group);
+  removeNonAlphaNum(group);
 
   // Read the last sequence of digits, followed potentially by a dot and more 
   // digits. Remove anything after <digits>.<digits>.
@@ -281,7 +242,7 @@ void findCamTypeAndGroup(std::string const& image_file,
   if (cam_name_pos != std::string::npos)
     group = basename.substr(0, cam_name_pos);
 
-  removeNonAlnum(group);
+  removeNonAlphaNum(group);
   
   // The group must be non-empty
   if (group.empty())
@@ -414,49 +375,7 @@ void readImageSensorTimestamp(std::string const& image_sensor_list,
   }
 }
 
-// Find an image at the given timestamp or right after it. We assume
-// that during repeated calls to this function we always travel
-// forward in time, and we keep track of where we are in the bag using
-// the variable start_pos that we update as we go.
-// TODO(oalexan1): Wipe this!
-bool lookupImage(// Inputs
-                 double desired_time, std::vector<ImageMessage> const& msgs,
-                 // Outputs
-                 cv::Mat& image, std::string & image_name,
-                 int& start_pos, double& found_time) {
-  // Initialize the outputs. Note that start_pos is passed in from outside.
-  image = cv::Mat();
-  image_name = "";
-  found_time = -1.0;
 
-  int num_msgs = msgs.size();
-  double prev_image_time = -1.0;
-
-  for (int local_pos = start_pos; local_pos < num_msgs; local_pos++) {
-    start_pos = local_pos;  // save this for exporting
-
-    found_time = msgs[local_pos].timestamp;
-
-    // Sanity check: We must always travel forward in time
-    if (found_time < prev_image_time) {
-      LOG(FATAL) << "Found images not in chronological order.\n"
-                 << std::fixed << std::setprecision(17)
-                 << "Times in wrong order: " << prev_image_time << ' ' << found_time << ".\n";
-      continue;
-    }
-
-    prev_image_time = found_time;
-
-    if (found_time >= desired_time) {
-      // Found the desired data. Do a deep copy, to not depend on the
-      // original structure.
-      msgs[local_pos].image.copyTo(image);
-      image_name = msgs[local_pos].name;
-      return true;
-    }
-  }
-  return false;
-}
 
   
 // Find an image at the given timestamp or right after it. We assume
@@ -535,75 +454,9 @@ void lookupFilesPoses(// Inputs
   }
 }
 
-// Read an image with 3 floats per pixel. OpenCV's imread() cannot do that.
-void readXyzImage(std::string const& filename, cv::Mat & img) {
-  std::ifstream f;
-  f.open(filename.c_str(), std::ios::binary | std::ios::in);
-  if (!f.is_open()) LOG(FATAL) << "Cannot open file for reading: " << filename << "\n";
 
-  int rows, cols, channels;
-  // TODO(oalexan1): Replace below with int32_t and check that it is same thing.
-  f.read((char*)(&rows), sizeof(rows));         // NOLINT
-  f.read((char*)(&cols), sizeof(cols));         // NOLINT
-  f.read((char*)(&channels), sizeof(channels)); // NOLINT
 
-  img = cv::Mat::zeros(rows, cols, CV_32FC3);
 
-  for (int row = 0; row < rows; row++) {
-    for (int col = 0; col < cols; col++) {
-      cv::Vec3f P;
-      // TODO(oalexan1): See if using reinterpret_cast<char*> does the same
-      // thing.
-      for (int c = 0; c < channels; c++)
-        f.read((char*)(&P[c]), sizeof(P[c])); // NOLINT
-      img.at<cv::Vec3f>(row, col) = P;
-    }
-  }
-
-  return;
-}
-
-void readImageEntry(// Inputs
-                    std::string const& image_file,
-                    Eigen::Affine3d const& world_to_cam,
-                    std::vector<std::string> const& cam_names,
-                    int cam_type,
-                    double timestamp,
-                    // Outputs
-                    std::vector<std::map<double, rig::ImageMessage>> & image_maps,
-                    std::vector<std::map<double, rig::ImageMessage>> & depth_maps) {
-  
-  // Aliases
-  std::map<double, ImageMessage> & image_map = image_maps[cam_type];
-  std::map<double, ImageMessage> & depth_map = depth_maps[cam_type];
-
-  if (image_map.find(timestamp) != image_map.end())
-    vw::vw_out(vw::WarningMessage) 
-      << "Duplicate timestamp " << std::setprecision(17) << timestamp
-      << " for sensor id " << cam_type << "\n";
-  
-  // Read the image as grayscale, in order for feature matching to work
-  // For texturing, texrecon should use the original color images.
-  //vw::vw_out() << "Reading: " << image_file << std::endl;
-  image_map[timestamp].image        = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
-  image_map[timestamp].name         = image_file;
-  image_map[timestamp].timestamp    = timestamp;
-  image_map[timestamp].world_to_cam = world_to_cam;
-
-  // Sanity check
-  if (depth_map.find(timestamp) != depth_map.end())
-    LOG(WARNING) << "Duplicate timestamp " << std::setprecision(17) << timestamp
-                 << " for sensor id " << cam_type << "\n";
-
-  // Read the depth data, if present
-  std::string depth_file = fs::path(image_file).replace_extension(".pc").string();
-  if (fs::exists(depth_file)) {
-    //vw::vw_out() << "Reading: " << depth_file << std::endl;
-    rig::readXyzImage(depth_file, depth_map[timestamp].image);
-    depth_map[timestamp].name      = depth_file;
-    depth_map[timestamp].timestamp = timestamp;
-  }
-}
 
 // Add poses for the extra desired images based on interpolation, extrapolation,
 // and/or the rig transform.
