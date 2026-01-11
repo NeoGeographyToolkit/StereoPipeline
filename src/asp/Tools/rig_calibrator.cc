@@ -53,6 +53,7 @@
 #include <Rig/transform_utils.h>
 #include <Rig/interpolation_utils.h>
 #include <Rig/interest_point.h>
+#include <asp/Rig/RigOutlier.h>
 #include <Rig/texture_processing.h>
 #include <Rig/camera_image.h>
 #include <Rig/rig_config.h>

@@ -26,6 +26,7 @@
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/interest_point.h>
+#include <asp/Rig/RigOutlier.h>
 #include <asp/Rig/triangulation.h> 
 #include <asp/Core/nvm.h>
 #include <asp/Rig/RigTypeDefs.h>
