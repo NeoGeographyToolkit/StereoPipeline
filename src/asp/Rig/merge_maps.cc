@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, United States Government, as represented by the
+/* Copyright (c) 2017-2026, United States Government, as represented by the
  * Administrator of the National Aeronautics and Space Administration.
  *
  * All rights reserved.
@@ -29,6 +29,7 @@
 #include <asp/Rig/triangulation.h> 
 #include <asp/Core/nvm.h>
 #include <asp/Rig/RigTypeDefs.h>
+#include <asp/Rig/rig_io.h>
 
 #include <ceres/ceres.h>
 #include <gflags/gflags.h>

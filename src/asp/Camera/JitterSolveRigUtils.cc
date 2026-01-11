@@ -21,6 +21,7 @@
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/image_lookup.h>
+#include <asp/Rig/rig_io.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>

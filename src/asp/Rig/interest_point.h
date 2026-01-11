@@ -100,22 +100,6 @@ void detectMatchAppendFeatures(// Inputs
 void shiftKeypoints(bool undo_shift, rig::RigSet const& R,
                     asp::nvmData & nvm); // output
   
-// Read camera information and images from a list or from an NVM file.
-// Can interpolate/extrapolate poses for data from an extra list.  
-void readListOrNvm(// Inputs
-                   std::string const& camera_poses_list,
-                   std::string const& nvm_file,
-                   std::string const& image_sensor_list, 
-                   std::string const& extra_list,
-                   bool use_initial_rig_transforms,
-                   double bracket_len, bool nearest_neighbor_interp,
-                   bool read_nvm_no_shift,
-                   rig::RigSet const& R,
-                   // Outputs
-                   asp::nvmData & nvm,
-                   std::vector<std::map<double, rig::ImageMessage>> & image_maps,
-                   std::vector<std::map<double, rig::ImageMessage>> & depth_maps);
-  
 // Break up each track of keypoints of length N into N pairs, (T0,
 // T1), (T1, T2), ,,. (T(N-1), T0). Find their indices in the merged
 // set of keypoints. Repeat this for each input map to merge and
