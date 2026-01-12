@@ -61,12 +61,6 @@ void readList(std::string const& file, std::set<std::string> & list) {
   fh.close();
 }
 
-// The parent subdirectory. Example: mydir/nav_cam/file.jpg will return
-// 'nav_cam'.
-std::string parentSubdir(std::string const& image_file) {
-  return fs::path(image_file).parent_path().filename().string();
-}
-
 // Replace .<extension> with <suffix>  
 std::string changeFileSuffix(std::string filename, std::string new_suffix) {
   // Find the last '.' character in the filename

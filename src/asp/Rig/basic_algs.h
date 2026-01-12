@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <set>
 #include <vector>
+
 namespace rig {
 
 // Look up a map value and throw an error when not found
@@ -103,10 +104,6 @@ void readList(std::string const& file, std::set<std::string> & list);
 
 // Replace .<extension> with <suffix>  
 std::string changeFileSuffix(std::string filename, std::string new_suffix);
-
-// The parent subdirectory. Example: mydir/nav_cam/file.jpg will return
-// 'nav_cam'.
-std::string parentSubdir(std::string const& image_file);
 
 std::string print_vec(double a);
 std::string print_vec(Eigen::Vector3d a);

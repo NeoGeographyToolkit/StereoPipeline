@@ -19,6 +19,7 @@
 
 #include <asp/Rig/system_utils.h>
 #include <asp/Rig/rig_utils.h>
+#include <asp/Rig/RigParse.h>
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/interpolation_utils.h>
@@ -43,100 +44,6 @@
 
 namespace rig {
 
-// A little function to replace separators with space. Note that the backslash
-// is a separator, in case, it used as a continuation line.
-void replace_separators_with_space(std::string & str) {
-  std::string sep = "\\:, \t\r\n";
-  for (size_t it = 0; it < sep.size(); it++) 
-    std::replace(str.begin(), str.end(), sep[it], ' ');
-}
-  
-// A function to parse a string like
-// 'cam1:focal_length,optical_center,distortion cam2:focal_length' and
-// extract the intrinsics to float. Separators can be space, comma,
-// colon.
-void parse_intrinsics_to_float(std::string const& intrinsics_to_float_str,
-                               std::vector<std::string> const& cam_names,
-                               std::vector<std::set<std::string>>& intrinsics_to_float) {
-  // Wipe the output
-  intrinsics_to_float.clear();
-
-  std::string input_str = intrinsics_to_float_str; // so we can edit it
-
-  replace_separators_with_space(input_str);
-
-  std::istringstream iss(input_str);
-  std::string curr_cam = "";
-  std::string val;
-  
-  // Temporary map of sets for collection. This will ensure variable order
-  // of inputs is supported.
-  std::map<std::string, std::set<std::string>> local_map;
-  while (iss >> val) {
-    // See if this is a camera name
-    bool have_cam_name = false;
-    for (size_t it = 0; it < cam_names.size(); it++) {
-      if (val == cam_names[it]) {
-        curr_cam = val;
-        have_cam_name = true;
-        break;
-      }
-    }
-
-    if (have_cam_name) // recorded the camera name
-      continue;
-    
-    if (val != "focal_length" && val != "optical_center" && val != "distortion")
-      LOG(FATAL) << "Unexpected value when parsing intrinsics to float: " << val << "\n";
-
-    if (curr_cam == "") 
-      LOG(FATAL) << "Incorrectly set option for floating intrinsics.\n";
-
-    local_map[curr_cam].insert(val);
-  }
-
-  // Export this
-  intrinsics_to_float.resize(cam_names.size());
-  for (size_t it = 0; it < cam_names.size(); it++)
-    intrinsics_to_float[it] = local_map[cam_names[it]];
-}
-
-// A  function to split a string like 'haz_cam sci_cam' into
-// its two constituents and validate against the list of known cameras.
-void parse_camera_names(std::vector<std::string> const& cam_names,
-                                              std::string const&
-                                              depth_to_image_transforms_to_float_str,
-                                              std::set<std::string>&
-                                              depth_to_image_transforms_to_float) {
-  // Wipe the output
-  depth_to_image_transforms_to_float.clear();
-
-  std::string input_str = depth_to_image_transforms_to_float_str; // so we can edit it
-  replace_separators_with_space(input_str);
-  
-  std::istringstream iss(input_str);
-  std::string curr_cam = "";
-  std::string val;
-  
-  while (iss >> val) {
-    bool have_cam_name = false;
-    for (size_t it = 0; it < cam_names.size(); it++) {
-      if (val == cam_names[it]) {
-        have_cam_name = true;
-        break;
-      }
-    }
-    
-    if (!have_cam_name) 
-      LOG(FATAL) << "Error: A specified sensor name is not among the known sensors. "
-                 << "Offending camera: " << val << "\n";
-    
-    depth_to_image_transforms_to_float.insert(val);
-  }
-
-  return;
-}  
-  
 // Read a 4x4 pose matrix of doubles from disk
 void readPoseMatrix(cv::Mat& pose, std::string const& filename) {
   pose = cv::Mat::zeros(4, 4, CV_64F);
@@ -317,31 +224,6 @@ void StampedPoseStorage::clear() { m_poses.clear(); }
 
 bool StampedPoseStorage::empty() const { return m_poses.empty(); }
 
-// Extract from a string of the form someDir/1234.5678.jpg the number 123.456.
-double fileNameToTimestamp(std::string const& file_name) {
-  size_t beg = file_name.rfind("/");
-  size_t end = file_name.rfind(".");
-  if (beg == std::string::npos || end == std::string::npos || beg > end) {
-    std::cout << "Could not parse file name: " + file_name;
-    exit(1);
-  }
-
-  std::string frameStr = file_name.substr(beg + 1, end - beg - 1);
-  return atof(frameStr.c_str());
-}
-
-// Minor utilities for converting values to a string below
-
-// Convert a string of values separated by spaces to a vector of doubles.
-std::vector<double> string_to_vector(std::string const& str) {
-  std::istringstream iss(str);
-  std::vector<double> vals;
-  double val;
-  while (iss >> val)
-    vals.push_back(val);
-  return vals;
-}
-
 void readCameraPoses(std::string const& filename,
                      std::map<double, double>& haz_depth_to_image_timestamps,
                      std::map<std::string, std::map<double, Eigen::Affine3d> >&
@@ -430,16 +312,6 @@ void pickTimestampsInBounds(std::vector<double> const& timestamps,
   out_timestamps.push_back(local_timestamps.back());
 
   return;
-}
-
-// Convert a string of space-separated numbers to a vector
-void strToVec(std::string const& str, std::vector<double> & vec) {
-
-  vec.clear();
-  std::istringstream iss(str);
-  double val = 0.0;
-  while (iss >> val)
-    vec.push_back(val);
 }
 
 // Read the images, depth clouds, and their metadata

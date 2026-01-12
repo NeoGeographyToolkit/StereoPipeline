@@ -20,9 +20,7 @@
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/system_utils.h>
-#include <asp/Rig/basic_algs.h> // for rig::parentSubdir if needed, but wait, looking at code, it is not used in the moved functions.
-// Actually, readImageEntry uses fs::path, so need boost filesystem.
-// And LOG.
+#include <asp/Rig/basic_algs.h>
 
 #include <vw/Core/Log.h>
 #include <glog/logging.h>

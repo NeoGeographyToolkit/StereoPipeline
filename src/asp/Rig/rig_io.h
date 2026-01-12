@@ -19,6 +19,7 @@
 #define ASP_RIG_RIG_IO_H
 
 #include <asp/Rig/RigTypeDefs.h>
+#include <asp/Rig/RigParse.h>
 #include <string>
 #include <vector>
 #include <map>
@@ -39,41 +40,6 @@ namespace asp {
 }
 
 namespace rig {
-
-// Given a file with name 
-// <dir><text><digits>.<digits><text>ref_cam<text>.jpg
-// or 
-// <dir>/<cam name>/<digits>.<digits>.jpg
-// find the cam type
-// Return the index in the basename where the cam name starts or std::string::npos if not found.
-size_t findCamType(std::string const& image_file,
-                   std::vector<std::string> const& cam_names,
-                   // Output
-                   int & cam_type);
-
-// Given a file with name 
-// <dir><text><digits>.<digits><text>ref_cam<text>.jpg
-// or 
-// <dir>/<cam name>/<digits>.<digits>.jpg
-// find the cam name and the timestamp. 
-// Can also handle:
-// <dir>/<group><separator><digits>.<digits><text>ref_cam<text>.jpg
-// when it parses the group.
-void findCamTypeAndTimestamp(std::string const& image_file,
-                             std::vector<std::string> const& cam_names,
-                             // Outputs
-                             int    & cam_type,
-                             double & timestamp,
-                             std::string & group);
-
-// Given a file with name 
-// <dir>/<group><separator><separator>ref_cam<text>.ext
-// parse the group and the cam index.
-void findCamTypeAndGroup(std::string const& image_file,
-                        std::vector<std::string> const& cam_names,
-                        // Outputs
-                        int         & cam_type,
-                        std::string & group);
 
 // For each image, find its sensor name and timestamp. The info can be in a list or
 // from the file or directory structure. If flexible_strategy is true, then 

@@ -21,6 +21,7 @@
 #define ASP_RIG_RIG_UTILS_H
 
 #include <asp/Rig/RigTypeDefs.h>
+#include <asp/Rig/RigParse.h>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
@@ -47,25 +48,6 @@ class ImageMessage;
 class RigSet;
 
 const std::string NO_DEPTH_FILE = "no_depth_file";
-
-// A function to parse a string like
-// 'cam1:focal_length,optical_center,distortion cam2:focal_length' and
-// extract the intrinsics to float. Separators can be space, comma,
-// colon.
-void parse_intrinsics_to_float(std::string const& intrinsics_to_float_str,
-                               std::vector<std::string> const& cam_names,
-                               std::vector<std::set<std::string>>& intrinsics_to_float);
-
-// A  function to split a string like 'haz_cam sci_cam' into
-// its two constituents and validate against the list of known cameras.
-void parse_camera_names(std::vector<std::string> const& cam_names,
-                        std::string const&
-                        depth_to_image_transforms_to_float_str,
-                        std::set<std::string>&
-                        depth_to_image_transforms_to_float);
-  
-// Convert a string of values separated by spaces to a vector of doubles.
-std::vector<double> string_to_vector(std::string const& str);
 
 // Read a 4x4 pose matrix of doubles from disk
 void readPoseMatrix(cv::Mat& pose, std::string const& filename);
@@ -105,9 +87,6 @@ class StampedPoseStorage {
  private:
   std::map<int, std::map<double, Eigen::Affine3d>> m_poses;
 };
-
-// Extract from a string of the form someDir/1234.5678.jpg the number 123.456.
-double fileNameToTimestamp(std::string const& file_name);
 
 // A little holding structure for nav, sci, and haz poses
 struct CameraPoses {
@@ -157,18 +136,6 @@ bool depthValue(// Inputs
 // Forward declaration
 struct cameraImage;
 
-// Create the image and depth cloud file names
-void genImageAndDepthFileNames(// Inputs
-                               std::vector<cameraImage> const& cams, 
-                               std::vector<std::string> const& cam_names,
-                               std::string const& out_dir,
-                               // Outputs
-                               std::vector<std::string>& image_files, 
-                               std::vector<std::string>& depth_files);
-
-// Convert a string of space-separated numbers to a vector
-void strToVec(std::string const& str, std::vector<double> & vec);
-  
 // Read the images, depth clouds, and their metadata
 // Save the properties of images. Use space as separator.
 void saveCameraPoses(std::string const& out_dir, std::vector<rig::cameraImage> const& cams,
