@@ -15,8 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#ifndef __ASP_TOOLS_BUNDLE_ADJUST_OPTIONS_H__
-#define __ASP_TOOLS_BUNDLE_ADJUST_OPTIONS_H__
+#ifndef __ASP_CAMERA_BUNDLE_ADJUST_OPTIONS_H__
+#define __ASP_CAMERA_BUNDLE_ADJUST_OPTIONS_H__
 
 #include <asp/Camera/BundleAdjustCamera.h>
 
@@ -105,4 +105,4 @@ void computeStatsOrIp(asp::BaOptions const& opt,
 
 } // end namespace asp
 
-#endif // __ASP_TOOLS_BUNDLE_ADJUST_OPTIONS_H__
+#endif // __ASP_CAMERA_BUNDLE_ADJUST_OPTIONS_H__

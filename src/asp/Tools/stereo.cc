@@ -1124,44 +1124,13 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     stereo_settings().min_triangulation_angle = 0;
   }
 
-  if (opt.session->do_bathymetry()) {
-
-     // If only the topo cloud needs computing, will use only the info from the
-     // left and right bathy masks, so does not need the refraction index and
-     // the bathy plane.
-     if (asp::stereo_settings().output_cloud_type != "topo") {
-
-      if (stereo_settings().refraction_index <= 1.0)
-        vw_throw(ArgumentErr() << "The water index of refraction to be used in "
-                  << "bathymetry correction must be bigger than 1.\n");
-
-      if (stereo_settings().bathy_plane == "")
-        vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
-
-      // Sanity check reading the bathy plane
-      std::vector<BathyPlaneSettings> bathy_plane_set;
-      read_bathy_plane_set(stereo_settings().bathy_plane, bathy_plane_set);
-    }
-
-    if (opt.session->name().find("isis") != std::string::npos)
-      vw_throw(ArgumentErr() << "Bathymetry correction does not work with ISIS cameras.\n");
-
-    if (stereo_settings().alignment_method != "homography"     &&
-        stereo_settings().alignment_method != "affineepipolar" &&
-        stereo_settings().alignment_method != "local_epipolar" &&
-        stereo_settings().alignment_method != "none")
-      vw_throw(ArgumentErr() << "Bathymetry correction only works with alignment methods "
-                << "homography, affineepipolar, local_epipolar, and none.\n");
-
-  }
-
-  if (opt.session->do_bathymetry() && stereo_settings().propagate_errors)
-    vw_throw(ArgumentErr() << "Error propagation is not implemented when "
-              << "bathymetry is modeled.\n");
+  if (opt.session->do_bathymetry())
+    asp::bathyChecks(opt.session->name(), asp::stereo_settings()); 
 
   // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].
   if (stereo_settings().outlier_removal_params[0] <= 50.0)
-    vw_throw(ArgumentErr() << "The --outlier-removal-params percentage must be more than 50.\n");
+    vw_throw(ArgumentErr() 
+             << "The --outlier-removal-params percentage must be more than 50.\n");
   if (stereo_settings().outlier_removal_params[1] <= 0.0)
     vw_throw(ArgumentErr() << "The --outlier-removal-params factor must be positive.\n");
 

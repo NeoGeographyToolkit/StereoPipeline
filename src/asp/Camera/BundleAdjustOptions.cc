@@ -26,9 +26,12 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/ImageNormalization.h>
 
+
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Geometry/dPoly.h>
+
 #include <boost/filesystem.hpp>
+
 #include <string>
 
 namespace fs = boost::filesystem;

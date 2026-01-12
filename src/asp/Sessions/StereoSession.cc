@@ -944,8 +944,11 @@ void StereoSession::read_aligned_bathy_masks
 }
 
 bool StereoSession::do_bathymetry() const {
-  return (stereo_settings().left_bathy_mask != "" ||
-          stereo_settings().right_bathy_mask != "");
+  // For stereo will use left and right bathy masks. For bundle adjustment and
+  // jitter_solve, will use a list of masks.
+  return (stereo_settings().left_bathy_mask  != "" ||
+          stereo_settings().right_bathy_mask != "" ||
+          stereo_settings().bathy_mask_list  != "");
 }
 
 // Align the bathy masks. This will be called in stereo_pprc and, if

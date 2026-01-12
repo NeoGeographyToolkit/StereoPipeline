@@ -28,6 +28,8 @@
 
 namespace asp {
 
+  class StereoSettings;
+  
   struct BathyPlaneSettings {
     std::vector<double> bathy_plane;
     bool use_curved_water_surface;
@@ -38,7 +40,7 @@ namespace asp {
     
   // Read left and right bathy plane settings and associated data.
   // More often than not they will be identical.
-  void read_bathy_plane_set(std::string const& bathy_plane_files,
+  void read_bathy_planes(std::string const& bathy_plane_files,
                             std::vector<BathyPlaneSettings> & bathy_plane_set);
 
   // Given a ray going down towards Earth, starting at point in_xyz and
@@ -100,8 +102,10 @@ namespace asp {
     double m_refraction_index;                   // Water refraction index
     std::vector<BathyPlaneSettings> m_bathy_set; // Bathy plane settings
   };
+
+  void bathyChecks(std::string const& session_name,
+                   asp::StereoSettings const& stereo_settings);
   
 } // end namespace asp
-
 
 #endif //__ASP_CORE_BATHYMETRY_H__

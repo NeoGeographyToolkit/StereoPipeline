@@ -70,7 +70,7 @@ namespace asp {
     vw::BBox2 right_image_crop_win;
 
     // Data for use with bathymetry
-    std::string left_bathy_mask, right_bathy_mask;
+    std::string left_bathy_mask, right_bathy_mask, bathy_mask_list;
     std::string bathy_plane, output_cloud_type;
     double refraction_index;
 
@@ -81,7 +81,7 @@ namespace asp {
     int   ip_per_tile;                      ///< How many ip to find in each 1024^2 tile
     int   ip_per_image;                     ///< How many ip to find in each image
     int   matches_per_tile;                 ///< How many ip matches to find in each 1024^2 tile
-    int   ip_detect_method;               ///< Method used for matching interest points
+    int   ip_detect_method;                 ///< Method used for matching interest points
                                             /// 0 = Zack's integral Obalog method
                                             /// 1 = OpenCV SIFT method
                                             /// 2 = OpenCV ORB method
@@ -103,7 +103,7 @@ namespace asp {
                                             //  This overrides the nodata values from input images.
     double nodata_pixel_percentage;         ///< Percentage of low-value pixels treated as no-data
     double nodata_stddev_thresh;            ///
-    int    nodata_stddev_kernel;            ///< Kernel size of the nadata stddev calculation
+    int    nodata_stddev_kernel;            ///< Kernel size of the nodata stddev calculation
     bool   skip_rough_homography;           ///< Use this if datum-based rough homography fails.
     bool   no_datum;                        ///< Do not assume a reliable datum exists
     bool   skip_image_normalization;        ///< Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
@@ -289,7 +289,6 @@ namespace asp {
   /// The stereo settings struct is created the first time this method
   /// is invoked.  You must *always* access the stereo settings through this function.
   StereoSettings& stereo_settings();
-
 }
 
-#endif//__ASP_CORE_STEREO_SETTINGS_H__
+#endif //__ASP_CORE_STEREO_SETTINGS_H__
