@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -92,7 +92,7 @@ void read_bathy_plane(std::string const& bathy_plane_file,
   water_surface_projection.set_datum(datum);
   water_surface_projection.set_stereographic(proj_lat, proj_lon, scale);
   vw_out() << "Read projection: " <<  water_surface_projection.overall_proj4_str()
-            << std::endl;
+            << "\n";
 }
 
 // Read left and right bathy plane settings and associated data.
@@ -186,7 +186,7 @@ void test_snells_law(std::vector<double> const& plane,
   double sin_out = sin(acos(dot_prod(-proj_normal, out_proj_dir)));
   std::cout << "proj sin_in, sin_out, sin_in - index * sin_out "
             << sin_in << ' ' << sin_out << ' '
-            << sin_in - refraction_index * sin_out << std::endl;
+            << sin_in - refraction_index * sin_out << "\n";
 
   // 2. In unprojected coordinates
   Vector3 proj_xyz_above_normal = out_proj_xyz + 1.0 * proj_normal; // go 1 m along the normal
@@ -198,7 +198,7 @@ void test_snells_law(std::vector<double> const& plane,
   sin_out = sin(acos(dot_prod(-unproj_normal, out_unproj_dir)));
   std::cout << "unproj sin_in, sin_out, sin_in - index * sin_out "
             << sin_in << ' ' << sin_out << ' '
-            << sin_in - refraction_index * sin_out << std::endl;
+            << sin_in - refraction_index * sin_out << "\n";
 
   // Verify that the incoming ray, outgoing ray, and the
   // normal are in the same plane in projected coordinates
@@ -206,14 +206,14 @@ void test_snells_law(std::vector<double> const& plane,
   // 1. In projected coordinates
   Vector3 in_out_normal = vw::math::cross_prod(in_proj_dir, out_proj_dir);
   double plane_error = dot_prod(in_out_normal, proj_normal);
-  std::cout << "proj plane error " << plane_error << std::endl;
+  std::cout << "proj plane error " << plane_error << "\n";
 
   // 2. In unprojected coordinates
   in_out_normal = vw::math::cross_prod(in_unproj_dir, out_unproj_dir);
   plane_error = dot_prod(in_out_normal, unproj_normal);
-  std::cout << "unproj plane error " << plane_error << std::endl;
+  std::cout << "unproj plane error " << plane_error << "\n";
 
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 // See the .h file for more info

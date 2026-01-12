@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2024, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -464,7 +464,7 @@ void validateBaOptions(po::variables_map const& vm,
   }
 
   if (have_datum)
-    vw_out() << "Datum:\n" << opt.datum << std::endl;
+    vw_out() << "Datum:\n" << opt.datum << "\n";
   else
     vw_out() << "No datum specified or detected.\n";
 
@@ -486,7 +486,7 @@ void validateBaOptions(po::variables_map const& vm,
     vw::read_matrix_as_txt(opt.initial_transform_file, opt.initial_transform);
     if (opt.initial_transform.cols() != 4 || opt.initial_transform.rows() != 4)
       vw_throw(ArgumentErr() << "Could not read the initial transform.\n");
-    vw_out() << "Initial transform:\n" << opt.initial_transform << std::endl;
+    vw_out() << "Initial transform:\n" << opt.initial_transform << "\n";
   }
 
   // Parse the indices of cameras not to float

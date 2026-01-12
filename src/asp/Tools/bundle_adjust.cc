@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -284,11 +284,11 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
     // Save the cnet
     if (opt.save_cnet_as_csv) {
       std::string cnet_file = opt.out_prefix + "-cnet.csv";
-      vw_out() << "Writing: " << cnet_file << std::endl;
+      vw_out() << "Writing: " << cnet_file << "\n";
       cnet.write_in_gcp_format(cnet_file, opt.datum);
     }
 
-    vw_out() << "Writing initial condition files." << std::endl;
+    vw_out() << "Writing initial condition files." << "\n";
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     write_residual_logs(residual_prefix, opt, param_storage,
                         cam_residual_counts, pixel_sigmas,
@@ -343,7 +343,7 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
   //  options->minimizer_type = ceres::LINE_SEARCH;
   //}
 
-  vw_out() << "Starting the Ceres optimizer." << std::endl;
+  vw_out() << "Starting the Ceres optimizer." << "\n";
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   final_cost = summary.final_cost;
@@ -356,7 +356,7 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
 
   // Write the condition files after each pass, as we never know which pass will be the last
   // since we may stop the passes prematurely if no more outliers are present.
-  vw_out() << "Writing final condition log files." << std::endl;
+  vw_out() << "Writing final condition log files." << "\n";
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   write_residual_logs(residual_prefix, opt, param_storage,
                       cam_residual_counts, pixel_sigmas,
@@ -447,7 +447,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
 
     // Clear out the extra files that were generated
     std::string cmd("rm -f " + opt.out_prefix + "*");
-    vw_out() << "Deleting temporary files: " << cmd << std::endl;
+    vw_out() << "Deleting temporary files: " << cmd << "\n";
     vw::exec_cmd(cmd.c_str());
   }
   opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
@@ -683,7 +683,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     if (opt.apply_initial_transform_only)
       continue;
 
-    vw_out() << "--> Bundle adjust pass: " << pass << std::endl;
+    vw_out() << "--> Bundle adjust pass: " << pass << "\n";
 
     bool first_pass = (pass == 0);
     bool convergence_reached = true; // will change

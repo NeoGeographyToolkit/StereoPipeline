@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -587,7 +587,7 @@ void write_point(std::string const& file, Vector3 const& point){
   fh.precision(18); // precision(16) is not enough
   for (int c = 0; c < (int)point.size(); c++)
     fh << point[c] << " ";
-  fh << std::endl;
+  fh << "\n";
 }
 
 // This is some logic unrelated to triangulation, but there seems to be no
@@ -726,7 +726,7 @@ void stereo_triangulation(std::string const& output_prefix,
                                                           stereo_settings().far_universe_radius);
       }
     } catch (std::exception &e) {
-      vw_out() << e.what() << std::endl;
+      vw_out() << e.what() << "\n";
       vw_out(WarningMessage) << "Could not find the camera center. "
                              << "Will not be able to filter triangulated points by radius.\n";
     } // End try/catch
@@ -754,7 +754,7 @@ void stereo_triangulation(std::string const& output_prefix,
     }
       
     if (is_map_projected)
-      vw_out() << "\t--> Inputs are map projected." << std::endl;
+      vw_out() << "\t--> Inputs are map projected." << "\n";
 
     // Strip the smart pointers and form the stereo model
     std::vector<const vw::camera::CameraModel*> camera_ptrs;
@@ -828,7 +828,7 @@ void stereo_triangulation(std::string const& output_prefix,
     vw::cartography::GeoReference georef = opt_vec[0].session->get_georef();
     
     // Apply radius function and stereo model in one go
-    vw_out() << "\t--> Generating a 3D point cloud." << std::endl;
+    vw_out() << "\t--> Generating a 3D point cloud." << "\n";
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
       (stereo_triangulation(disparity_maps, camera_ptrs, transforms, georef.datum(),
                             stereo_model, bathy_stereo_model,
@@ -854,14 +854,14 @@ void stereo_triangulation(std::string const& output_prefix,
           vw::Stopwatch sw;
           sw.start();
           cloud_center = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
-          vw_out() << "Writing point cloud center: " << cloud_center_file << std::endl;
+          vw_out() << "Writing point cloud center: " << cloud_center_file << "\n";
           write_point(cloud_center_file, cloud_center);
           sw.stop();
           vw::vw_out() << "Elapsed time in point cloud center estimation: " 
             << sw.elapsed_seconds() << " seconds.\n";
         }
       } else {
-        vw_out() << "Reading existing point cloud center: " << cloud_center_file << std::endl;
+        vw_out() << "Reading existing point cloud center: " << cloud_center_file << "\n";
       }
     }
     if (stereo_settings().compute_point_cloud_center_only) {
@@ -882,7 +882,7 @@ void stereo_triangulation(std::string const& output_prefix,
       if (num_cams > 2 && stereo_settings().compute_error_vector)
         vw_out(WarningMessage) << "For more than two cameras, the error "
                                << "vector between rays is not meaningful. "
-                               << "Setting it to (err_len, 0, 0)." << std::endl;
+                               << "Setting it to (err_len, 0, 0)." << "\n";
 
       ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
       save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt_vec[0]);

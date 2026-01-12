@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -271,7 +271,7 @@ void handle_multiview(int argc, char* argv[],
         vw_out() << cmd[t] << ",";
       if (largc > 0)
         vw_out() << cmd[largc-1];
-      vw_out() << std::endl;
+      vw_out() << "\n";
     }
 
   } // end loop through pairs
@@ -470,7 +470,7 @@ void parse_multiview(int argc, char* argv[],
 
   // Needed for stereo_parse
   if (verbose)
-    vw_out() << "num_stereo_pairs," << num_pairs << std::endl;
+    vw_out() << "num_stereo_pairs," << num_pairs << "\n";
 
   if (num_pairs == 1) {
     bool is_multiview = false, override_out_prefix = true;
@@ -1081,7 +1081,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
   if (stereo_settings().alignment_method != "none" && dem_provided) {
       stereo_settings().alignment_method  = "none";
     vw_out(WarningMessage) << "Changing the alignment method to 'none' "
-                            << "as the images are map-projected." << std::endl;
+                            << "as the images are map-projected." << "\n";
   }
 
   if (stereo_settings().corr_kernel[0]%2 == 0 ||
@@ -1212,7 +1212,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
       // why the first checks may fail. For example, the top left pixel
       // might not be valid on a map projected image. But notify the
       // user anyway.
-      vw_out(DebugMessage,"asp") << e.what() << std::endl;
+      vw_out(DebugMessage,"asp") << e.what() << "\n";
     }
   } // end camera checks
 
