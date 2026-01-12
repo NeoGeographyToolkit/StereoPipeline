@@ -98,7 +98,7 @@ void read_bathy_plane(std::string const& bathy_plane_file,
 // Read left and right bathy plane settings and associated data.
 // More often than not they will be identical.
 void read_bathy_planes(std::string const& bathy_plane_files,
-                          std::vector<BathyPlaneSettings> & bathy_plane_set) {
+                       std::vector<BathyPlaneSettings> & bathy_plane_set) {
 
   bathy_plane_set.clear();
   

@@ -26,7 +26,6 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/ImageNormalization.h>
 
-
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Geometry/dPoly.h>
 

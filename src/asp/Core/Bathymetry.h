@@ -41,7 +41,7 @@ namespace asp {
   // Read left and right bathy plane settings and associated data.
   // More often than not they will be identical.
   void read_bathy_planes(std::string const& bathy_plane_files,
-                            std::vector<BathyPlaneSettings> & bathy_plane_set);
+                         std::vector<BathyPlaneSettings> & bathy_plane_set);
 
   // Given a ray going down towards Earth, starting at point in_xyz and
   // with unit direction in_dir, a plane 'p' to the water surface with four
