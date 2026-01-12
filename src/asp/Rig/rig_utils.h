@@ -40,12 +40,8 @@
 
 // Forward declarations
 namespace rig {
-  class CameraParameters;
-}
 
-namespace rig {
-
-// Forward declarations  
+class CameraParameters;
 class cameraImage;
 class ImageMessage;
 class RigSet;
@@ -86,11 +82,6 @@ void writeCloud(std::vector<float> const& points, size_t point_size,
 // Return the type of an opencv matrix
 std::string matType(cv::Mat const& mat);
 
-// Implement some heuristic to find the maximum rotation angle that can result
-// from applying the given transform. It is assumed that the transform is not
-// too different from the identity.
-double maxRotationAngle(Eigen::Affine3d const& T);
-
 // A class to store timestamped poses, implementing O(log(n)) linear
 // interpolation at a desired timestamp. For fast access, keep the
 // poses in bins obtained by flooring the timestamp, which is measured
@@ -115,19 +106,6 @@ class StampedPoseStorage {
   std::map<int, std::map<double, Eigen::Affine3d>> m_poses;
 };
 
-// Compute the azimuth and elevation for a (normal) vector
-void normalToAzimuthAndElevation(Eigen::Vector3d const& normal, double& azimuth, double& elevation);
-
-// Compute a normal vector based on the azimuth and elevation angles
-void azimuthAndElevationToNormal(Eigen::Vector3d& normal, double azimuth, double elevation);
-
-// Snap the normal to the plane (and the plane itself) to make
-// all angles multiple of 45 degrees with the coordinate axes.
-void snapPlaneNormal(Eigen::Vector3d& plane_normal);
-
-// Find the best fitting plane to a set of points
-void bestFitPlane(const std::vector<Eigen::Vector3d>& points, Eigen::Vector3d& centroid, Eigen::Vector3d& plane_normal);
-
 // Extract from a string of the form someDir/1234.5678.jpg the number 123.456.
 double fileNameToTimestamp(std::string const& file_name);
 
@@ -148,18 +126,6 @@ void readCameraPoses(std::string const& filename,
                      std::map<double, double>& haz_depth_to_image_timestamps,
                      std::map<std::string, std::map<double, Eigen::Affine3d>>&
                      world_to_cam_poses);
-
-// Gamma and inverse gamma functions
-// https://en.wikipedia.org/wiki/SRGB#Specification_of_the_transformation
-double gamma(double x);
-double inv_gamma(double x);
-
-// Apply the inverse gamma transform to images, multiply them by
-// max_iso_times_exposure/ISO/exposure_time to adjust for
-// lightning differences, then apply the gamma transform back.
-void exposureCorrection(double max_iso_times_exposure, double iso,
-                        double exposure, cv::Mat const& input_image,
-                        cv::Mat& output_image);
 
 // Scale an image to correct for lightning variations by taking into
 // account that JPEG images have gamma correction applied to them.
