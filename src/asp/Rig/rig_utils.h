@@ -21,7 +21,6 @@
 #define ASP_RIG_RIG_UTILS_H
 
 #include <asp/Rig/RigTypeDefs.h>
-#include <asp/Rig/RigParse.h>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc.hpp>

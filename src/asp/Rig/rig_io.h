@@ -19,7 +19,6 @@
 #define ASP_RIG_RIG_IO_H
 
 #include <asp/Rig/RigTypeDefs.h>
-#include <asp/Rig/RigParse.h>
 #include <string>
 #include <vector>
 #include <map>

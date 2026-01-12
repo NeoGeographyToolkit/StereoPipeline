@@ -24,6 +24,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Rig/triangulation.h> 
 #include <asp/Rig/thread.h> 
+#include <asp/Rig/RigParse.h>
 
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>

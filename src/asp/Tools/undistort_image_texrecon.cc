@@ -19,6 +19,7 @@
 #include <Rig/rig_utils.h>
 #include <Rig/rig_config.h>
 #include <Rig/system_utils.h>
+#include <asp/Rig/RigParse.h>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>
