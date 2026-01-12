@@ -47,8 +47,6 @@ void validateBaOptions(po::variables_map const& vm,
                        bool inline_adjustments,
                        asp::BaOptions &opt) {
 
-  using namespace vw;
-  
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);
 
@@ -64,7 +62,7 @@ void validateBaOptions(po::variables_map const& vm,
   if (!opt.image_list.empty()) {
     // Read the images and cameras and put them in 'images_or_cams' to be parsed later
     if (!opt.image_files.empty())
-      vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
+      vw::vw_throw(vw::ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
 
     // Read image and camera lists. Consider he case of sharing intrinsics per sensor.
@@ -82,21 +80,21 @@ void validateBaOptions(po::variables_map const& vm,
 
   // Sanity checks
   if (!opt.mapprojected_data_list.empty() && opt.image_list.empty())
-    vw_throw(ArgumentErr() << "Found --mapprojected-data-list, "
+    vw::vw_throw(vw::ArgumentErr() << "Found --mapprojected-data-list, "
              << "but not --image-list.\n");
   if (!opt.mapprojected_data.empty() && !opt.mapprojected_data_list.empty())
-    vw_throw(ArgumentErr() << "Cannot specify both --mapprojected-data and "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot specify both --mapprojected-data and "
              << "--mapprojected-data-list.\n");
 
   // Sanity checks
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
   if (opt.image_files.size() != (int)opt.camera_files.size()) {
-    vw_out() << "Detected " << opt.image_files.size() << " images and "
+    vw::vw_out() << "Detected " << opt.image_files.size() << " images and "
              << opt.camera_files.size() << " cameras.\n";
-    vw_throw(ArgumentErr() << "Must have as many cameras as images.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Must have as many cameras as images.\n");
   }
   if (opt.image_files.empty())
-    vw_throw(ArgumentErr() << "Missing input image files.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Missing input image files.\n");
 
   // Guess the session if not provided. Do this as soon as we have
   // the cameras figured out.
@@ -125,12 +123,12 @@ void validateBaOptions(po::variables_map const& vm,
   // Sanity check in case the user set this option manually.
   if (opt.output_cnet_type != "match-files" && opt.output_cnet_type != "isis-cnet" &&
       opt.output_cnet_type != "nvm")
-    vw_throw(ArgumentErr() << "Unknown value for --output-cnet-type: "
+    vw::vw_throw(vw::ArgumentErr() << "Unknown value for --output-cnet-type: "
                            << opt.output_cnet_type << ".\n");
 
   if ((opt.isis_cnet != "" || opt.nvm != "") &&
       opt.match_pair_sigma != "") 
-    vw::vw_throw(ArgumentErr() << "Cannot use --match-pair-sigma "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot use --match-pair-sigma "
                  << "with ISIS cnet or NVM input.\n");
     
   //  When skipping matching, we are already forced to reuse match
@@ -142,16 +140,16 @@ void validateBaOptions(po::variables_map const& vm,
     // Must specify either csv_srs or csv_proj4_str, but not both. The latter is
   // for backward compatibility.
   if (!opt.csv_srs.empty() && !opt.csv_proj4_str.empty())
-    vw_throw(ArgumentErr() << "Cannot specify both --csv-srs and --csv-proj4.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Cannot specify both --csv-srs and --csv-proj4.\n");
   if (!opt.csv_proj4_str.empty() && opt.csv_srs.empty())
     opt.csv_srs = opt.csv_proj4_str;
 
   // Sanity checks for solving for intrinsics
   if (opt.intrinsics_options.share_intrinsics_per_sensor && !opt.solve_intrinsics)
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
       << "Must set --solve-intrinsics to solve for intrinsics per sensor.\n");
   if (opt.solve_intrinsics && !inline_adjustments) {
-    vw_out() << "Solving for intrinsics, so assuming --inline-adjustments.\n";
+    vw::vw_out() << "Solving for intrinsics, so assuming --inline-adjustments.\n";
     inline_adjustments = true;
   }
 
@@ -168,7 +166,7 @@ void validateBaOptions(po::variables_map const& vm,
     else if (opt.stereo_session == "csm")
       opt.camera_type = BaCameraType_CSM;
     else
-      vw_throw(ArgumentErr() << "Cannot use inline adjustments with session: "
+      vw::vw_throw(vw::ArgumentErr() << "Cannot use inline adjustments with session: "
                 << opt.stereo_session << ".\n");
   }
 
@@ -182,41 +180,41 @@ void validateBaOptions(po::variables_map const& vm,
   // and none being shared. Same with random passes, there also new logic is needed.
   if (opt.intrinsics_options.share_intrinsics_per_sensor) {
     if (opt.reference_terrain != "")
-      vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with "
+      vw::vw_throw(vw::ArgumentErr() << "Cannot share intrinsics per sensor with "
         << "--reference-terrain.\n");
     if (opt.num_random_passes > 0)
-      vw_throw(ArgumentErr() << "Cannot share intrinsics per sensor with "
+      vw::vw_throw(vw::ArgumentErr() << "Cannot share intrinsics per sensor with "
         << "--num-random-passes.\n");
   }
 
   bool external_matches = (!opt.clean_match_files_prefix.empty() ||
                            !opt.match_files_prefix.empty());
   if (external_matches && (opt.isis_cnet != "" || opt.nvm != ""))
-    vw_throw(ArgumentErr() << "Cannot use more than one of: ISIS cnet, nvm file, "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot use more than one of: ISIS cnet, nvm file, "
              << "match files.\n");
 
   if (opt.transform_cameras_using_gcp &&
       (!inline_adjustments) &&
       (opt.camera_type != BaCameraType_Pinhole)) {
-    vw_throw(ArgumentErr() << "Transforming cameras using GCP works only for pinhole "
+    vw::vw_throw(vw::ArgumentErr() << "Transforming cameras using GCP works only for pinhole "
               << "cameras and with the --inline-adjustments flag.\n");
   }
 
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
               << "Cannot specify both the overlap limit and the overlap list.\n");
 
   if (opt.overlap_list_file != "" && opt.match_first_to_last > 0)
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
       << "Cannot specify both the overlap limit and --match-first-to-last.\n");
 
   if (opt.overlap_limit < 0)
-    vw_throw(ArgumentErr() << "Must allow search for matches between "
+    vw::vw_throw(vw::ArgumentErr() << "Must allow search for matches between "
       << "at least each image and its subsequent one.\n");
 
   if (int(opt.overlap_list_file != "") + int(!vm["auto-overlap-buffer"].defaulted()) +
       int(opt.auto_overlap_params != "") + int(opt.overlap_limit > 0) > 1)
-    vw_throw(ArgumentErr() << "Cannot specify more than one of --overlap-list, "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot specify more than one of --overlap-list, "
               << "--auto-overlap-params, --overlap-limit, and --auto-overlap-buffer.\n");
 
   // By default, try to match all of the images
@@ -227,7 +225,7 @@ void validateBaOptions(po::variables_map const& vm,
   if (opt.overlap_list_file != "") {
    opt.have_overlap_list = true;
     if (!fs::exists(opt.overlap_list_file))
-      vw_throw(ArgumentErr() << "The overlap list does not exist.\n");
+      vw::vw_throw(vw::ArgumentErr() << "The overlap list does not exist.\n");
     opt.overlap_list.clear();
     std::string image1, image2;
     std::ifstream ifs(opt.overlap_list_file.c_str());
@@ -247,48 +245,52 @@ void validateBaOptions(po::variables_map const& vm,
     asp::readMatchPairSigmas(opt.match_pair_sigma, opt.image_files, opt.match_sigmas);
 
   if (opt.camera_weight < 0.0)
-    vw_throw(ArgumentErr() << "The camera weight must be non-negative.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The camera weight must be non-negative.\n");
 
   if (opt.rotation_weight < 0.0)
-    vw_throw(ArgumentErr() << "The rotation weight must be non-negative.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The rotation weight must be non-negative.\n");
 
   if (opt.camera_position_weight < 0.0)
-    vw_throw(ArgumentErr() << "The camera position weight must be non-negative.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The camera position weight must be non-negative.\n");
 
   if (opt.tri_weight < 0.0)
-    vw_throw(ArgumentErr() << "The triangulation weight must be non-negative.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The triangulation weight must be non-negative.\n");
 
   // NOTE(oalexan1): The reason min_triangulation_angle cannot be 0 is deep inside
   // StereoModel.cc. Better keep it this way than make too many changes there.
   if (opt.min_triangulation_angle <= 0.0)
-    vw_throw(ArgumentErr() << "The minimum triangulation angle must be positive.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The minimum triangulation angle must be positive.\n");
 
   // TODO: Make sure the normal model loading catches this error.
   //if (opt.create_pinhole && !vw::has_pinhole_extension(opt.camera_files[0]))
-  //  vw_throw(ArgumentErr() << "Cannot use special pinhole handling with non-pinhole input!\n");
+  // vw::vw_throw(vw::ArgumentErr() 
+  //    << "Cannot use special pinhole handling with non-pinhole input!\n");
 
   if ((opt.camera_type == BaCameraType_Other) && opt.solve_intrinsics)
-    vw_throw(ArgumentErr() << "Solving for intrinsic parameters is only supported with "
-              << "pinhole, optical bar, and CSM cameras.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Solving for intrinsic parameters is only supported with "
+                 << "pinhole, optical bar, and CSM cameras.\n");
 
   if ((opt.camera_type!=BaCameraType_Pinhole) && opt.approximate_pinhole_intrinsics)
-    vw_throw(ArgumentErr() << "Cannot approximate intrinsics unless using pinhole cameras.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Cannot approximate intrinsics unless using pinhole cameras.\n");
 
   if (opt.approximate_pinhole_intrinsics && opt.solve_intrinsics)
-    vw_throw(ArgumentErr() << "Cannot approximate intrinsics while solving for them.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Cannot approximate intrinsics while solving for them.\n");
 
   if (opt.camera_type != BaCameraType_Other   &&
       opt.camera_type != BaCameraType_Pinhole &&
       opt.camera_type != BaCameraType_CSM     &&
       opt.input_prefix != "")
-    vw_throw(ArgumentErr() << "Can only use initial adjustments with camera type "
+    vw::vw_throw(vw::ArgumentErr() << "Can only use initial adjustments with camera type "
               << "'pinhole', 'csm', or 'other'. Here likely having optical bar cameras.\n");
 
   vw::string_replace(opt.remove_outliers_params_str, ",", " "); // replace any commas
   opt.remove_outliers_params = vw::str_to_vec<vw::Vector<double, 4>>(opt.remove_outliers_params_str);
 
   // Ensure good order
-  if (opt.lon_lat_limit != BBox2(0,0,0,0)) {
+  if (opt.lon_lat_limit != vw::BBox2(0,0,0,0)) {
     if (opt.lon_lat_limit.min().y() > opt.lon_lat_limit.max().y())
       std::swap(opt.lon_lat_limit.min().y(), opt.lon_lat_limit.max().y());
     if (opt.lon_lat_limit.min().x() > opt.lon_lat_limit.max().x())
@@ -296,11 +298,12 @@ void validateBaOptions(po::variables_map const& vm,
   }
 
   if (!opt.camera_position_file.empty() && opt.csv_format_str == "")
-    vw_throw(ArgumentErr() << "When using a camera position file, the csv-format "
+    vw::vw_throw(vw::ArgumentErr() << "When using a camera position file, the csv-format "
               << "option must be set.\n");
 
   if (opt.max_pairwise_matches <= 0)
-    vw_throw(ArgumentErr() << "Must have a positive number of max pairwise matches.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Must have a positive number of max pairwise matches.\n");
 
   // Copy the IP settings to the global stereo_settings() object
   opt.copy_to_asp_settings();
@@ -333,7 +336,7 @@ void validateBaOptions(po::variables_map const& vm,
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!is_good)
-        vw_throw(ArgumentErr()
+        vw::vw_throw(vw::ArgumentErr()
                  << "The reference terrain DEM does not have a georeference.\n");
       // Ensure the datum read from the DEM agrees with the one from the cameras/user
       if (is_good && have_datum)
@@ -347,31 +350,35 @@ void validateBaOptions(po::variables_map const& vm,
   }
 
   if (opt.robust_threshold <= 0.0)
-    vw_throw(ArgumentErr() << "The value of --robust-threshold must be positive.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The value of --robust-threshold must be positive.\n");
 
   if (opt.tri_robust_threshold <= 0.0)
-    vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The value of --tri-robust-threshold must be positive.\n");
 
   if (opt.camera_position_robust_threshold <= 0.0)
-    vw_throw(ArgumentErr() << "The value of --camera-position-robust-threshold "
+    vw::vw_throw(vw::ArgumentErr() << "The value of --camera-position-robust-threshold "
               << "must be positive.\n");
 
   // This is a bug fix. The user by mistake passed in an empty height-from-dem string.
   if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem.empty())
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
              << "The value of --heights-from-dem is empty. "
              << "Then it must not be set at all.\n");
   if (!vm["heights-from-dem-uncertainty"].defaulted() &&
       vm["heights-from-dem"].defaulted())
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
              << "The value of --heights-from-dem-uncertainty is set, "
              << "but --heights-from-dem is not set.\n");
   if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem_uncertainty <= 0.0)
-    vw_throw(ArgumentErr() << "The value of --heights-from-dem-uncertainty must be "
-              << "positive.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The value of --heights-from-dem-uncertainty must be "
+                 << "positive.\n");
   if (opt.heights_from_dem_robust_threshold <= 0.0)
-    vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be "
-              << "positive.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "The value of --heights-from-robust-threshold must be "
+                 << "positive.\n");
 
   bool have_dem = (!opt.heights_from_dem.empty());
 
@@ -385,7 +392,7 @@ void validateBaOptions(po::variables_map const& vm,
       vw::cartography::GeoReference georef;
       bool is_good = vw::cartography::read_georeference(georef, dem_file);
       if (!is_good)
-        vw_throw(ArgumentErr() << "The DEM " << dem_file
+        vw::vw_throw(vw::ArgumentErr() << "The DEM " << dem_file
                   << " does not have a georeference.\n");
 
       // Must check the consistency of the datums
@@ -414,10 +421,10 @@ void validateBaOptions(po::variables_map const& vm,
     }
   } else if (opt.semi_major > 0 && opt.semi_minor > 0) {
     // Otherwise, if the user set the semi-axes, use that.
-    user_datum = cartography::Datum("User Specified Datum",
-                                    "User Specified Spheroid",
-                                    "Reference Meridian",
-                                    opt.semi_major, opt.semi_minor, 0.0);
+    user_datum = vw::cartography::Datum("User Specified Datum",
+                                        "User Specified Spheroid",
+                                        "Reference Meridian",
+                                        opt.semi_major, opt.semi_minor, 0.0);
     have_user_datum = true;
   }
 
@@ -456,37 +463,38 @@ void validateBaOptions(po::variables_map const& vm,
   // Many times the datum is mandatory
   if (!have_datum) {
     if (!opt.gcp_files.empty() || !opt.camera_position_file.empty())
-      vw_throw(ArgumentErr() << "When ground control points or a camera position "
+      vw::vw_throw(vw::ArgumentErr() << "When ground control points or a camera position "
                << "file are used, option --datum must be specified.\n");
     if (opt.elevation_limit[0] < opt.elevation_limit[1])
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                 << "When filtering by elevation limit, option --datum must be specified.\n");
   }
 
   if (have_datum)
-    vw_out() << "Datum:\n" << opt.datum << "\n";
+    vw::vw_out() << "Datum:\n" << opt.datum << "\n";
   else
-    vw_out() << "No datum specified or detected.\n";
+    vw::vw_out() << "No datum specified or detected.\n";
 
 
   if (opt.apply_initial_transform_only && opt.initial_transform_file == "")
-    vw_throw(vw::IOErr() << "Cannot use --apply-initial-transform-only "
+    vw::vw_throw(vw::IOErr() << "Cannot use --apply-initial-transform-only "
               << "without --initial-transform.\n");
 
   if (opt.apply_initial_transform_only) {
     if (opt.solve_intrinsics) {
-      vw_out() << "Not solving for intrinsics, as --apply-initial-transform-only was set.\n";
+      vw::vw_out() << "Not solving for intrinsics, as --apply-initial-transform-only "
+                   << "was set.\n";
       opt.solve_intrinsics = false;
     }
   }
     
   if (opt.initial_transform_file != "") {
-    vw_out() << "Reading the alignment transform from: "
+    vw::vw_out() << "Reading the alignment transform from: "
              << opt.initial_transform_file << "\n";
     vw::read_matrix_as_txt(opt.initial_transform_file, opt.initial_transform);
     if (opt.initial_transform.cols() != 4 || opt.initial_transform.rows() != 4)
-      vw_throw(ArgumentErr() << "Could not read the initial transform.\n");
-    vw_out() << "Initial transform:\n" << opt.initial_transform << "\n";
+      vw::vw_throw(vw::ArgumentErr() << "Could not read the initial transform.\n");
+    vw::vw_out() << "Initial transform:\n" << opt.initial_transform << "\n";
   }
 
   // Parse the indices of cameras not to float
@@ -497,13 +505,13 @@ void validateBaOptions(po::variables_map const& vm,
     while (is >> val) {
       opt.fixed_cameras_indices.insert(val);
       if (val < 0 || val >= (int)opt.image_files.size())
-        vw_throw(vw::IOErr() << "The camera index to keep fixed " << val
+        vw::vw_throw(vw::IOErr() << "The camera index to keep fixed " << val
                               << " is out of bounds.\n");
     }
   }
 
   if (!opt.fixed_cameras_indices.empty() && !opt.fixed_image_list.empty())
-    vw_throw(ArgumentErr() << "Cannot specify both --fixed-camera-indices and "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot specify both --fixed-camera-indices and "
              << "--fixed-image-list.\n");
   if (!opt.fixed_image_list.empty()) {
 
@@ -521,7 +529,7 @@ void validateBaOptions(po::variables_map const& vm,
     for (size_t image_it = 0; image_it < fixed_images.size(); image_it++) {
       auto map_it = all_indices.find(fixed_images[image_it]);
       if (map_it == all_indices.end())
-        vw_throw(ArgumentErr() << "Could not find image " << fixed_images[image_it]
+        vw::vw_throw(vw::ArgumentErr() << "Could not find image " << fixed_images[image_it]
                  << " read via --fixed-image-list among the input images.\n");
       opt.fixed_cameras_indices.insert(map_it->second);
     }
@@ -553,31 +561,31 @@ void validateBaOptions(po::variables_map const& vm,
   if (opt.reference_terrain != "") {
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
     if (file_type == "CSV" && opt.csv_format_str == "")
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                << "When using a csv reference terrain, "
                << "must specify the csv-format.\n");
     if (!have_datum)
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                << "When using a reference terrain, must specify the datum.\n");
     if (opt.disparity_list == "")
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                << "When using a reference terrain, must specify a list "
                << "of disparities.\n");
     if (opt.max_disp_error <= 0)
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                << "Must specify --max-disp-error in pixels as a positive value.\n");
     if (opt.reference_terrain_weight < 0)
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                << "The value of --reference-terrain-weight must be non-negative.\n");
   }
 
   if (opt.match_files_prefix != "" && opt.clean_match_files_prefix != "")
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
               << "Cannot specify both --match-files-prefix and "
               << "--clean-match-files-prefix.\n");
 
-  if (int(opt.proj_win != BBox2(0, 0, 0, 0)) + int(!opt.proj_str.empty()) == 1)
-    vw_throw(ArgumentErr()
+  if (int(opt.proj_win != vw::BBox2(0, 0, 0, 0)) + int(!opt.proj_str.empty()) == 1)
+    vw::vw_throw(vw::ArgumentErr()
              << "Must specify both or neither of --proj-win and --proj-str.\n");
 
   if (int(opt.transform_cameras_using_gcp) +
@@ -588,13 +596,14 @@ void validateBaOptions(po::variables_map const& vm,
                  << "--transform-cameras-with-shared-gcp, --init-camera-using-gcp.\n");
 
   if (opt.propagate_errors && !have_datum)
-    vw_throw(ArgumentErr() << "Cannot propagate errors without a datum. Set --datum.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Cannot propagate errors without a datum. Set --datum.\n");
 
   if (opt.update_isis_cubes_with_csm_state) {
     // This must happen after the session was auto-detected.
     bool have_csm = (opt.stereo_session == "csm");
-    bool have_cub_input = boost::iends_with(boost::to_lower_copy(opt.image_files[0]),
-                                            ".cub");
+    bool have_cub_input 
+      = boost::iends_with(boost::to_lower_copy(opt.image_files[0]), ".cub");
     if (!have_csm || !have_cub_input)
       vw::vw_throw(vw::ArgumentErr() << "Cannot update ISIS cubes with CSM state "
                << "unless using the CSM session with ISIS .cub images.\n");
@@ -606,7 +615,7 @@ void validateBaOptions(po::variables_map const& vm,
   if (opt.auto_overlap_params != "") {
     std::istringstream is(opt.auto_overlap_params);
     if (!(is >> opt.dem_file_for_overlap >> opt.pct_for_overlap))
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                 << "Could not parse correctly option --auto-overlap-params.\n");
       // Can also keep track of how many images to overlap with
       opt.overlap_limit = opt.image_files.size();
@@ -614,7 +623,7 @@ void validateBaOptions(po::variables_map const& vm,
       if (is >> val)
         opt.overlap_limit = val;
       try {
-        DiskImageView<float> dem(opt.dem_file_for_overlap);
+        vw::DiskImageView<float> dem(opt.dem_file_for_overlap);
       } catch (const vw::Exception& e) {
         vw::vw_throw(vw::ArgumentErr()
                   << "Could not load DEM: " << opt.dem_file_for_overlap << "\n");
@@ -658,8 +667,6 @@ void validateBaOptions(po::variables_map const& vm,
 // Process the bundle_adjust options and sanity checks
 void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
 
-  using namespace vw;
-  
   const double nan = std::numeric_limits<double>::quiet_NaN();
   std::string intrinsics_to_float_str, intrinsics_to_share_str,
     intrinsics_limit_str;
@@ -961,10 +968,10 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("max-gcp-reproj-err", po::value(&opt.max_gcp_reproj_err)->default_value(-1.0),
      "If positive, after each pass of bundle adjustment remove GCP whose reprojection "
      "error is more than this.")
-    ("elevation-limit", po::value(&opt.elevation_limit)->default_value(Vector2(0,0), "auto"),
+    ("elevation-limit", po::value(&opt.elevation_limit)->default_value(vw::Vector2(0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the elevation of the triangulated position (after cameras are optimized) is outside of this range. Specify as two values: min max.")
     // Note that we count later on the default for lon_lat_limit being BBox2(0,0,0,0).
-    ("lon-lat-limit", po::value(&opt.lon_lat_limit)->default_value(BBox2(0,0,0,0), "auto"),
+    ("lon-lat-limit", po::value(&opt.lon_lat_limit)->default_value(vw::BBox2(0,0,0,0), "auto"),
      "Remove as outliers interest points (that are not GCP) for which the longitude and latitude of the triangulated position (after cameras are optimized) are outside of this range. Specify as: min_lon min_lat max_lon max_lat.")
     ("match-files-prefix",  po::value(&opt.match_files_prefix)->default_value(""),
      "Use the match files from this prefix instead of the current output prefix. See the "
@@ -1057,13 +1064,13 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "No iterations, GCP loading, image matching, or report generation "
      "take place. Using --num-iterations 0 and without this option "
      "will create those.")
-    ("proj-win", po::value(&opt.proj_win)->default_value(BBox2(0,0,0,0), "auto"),
+    ("proj-win", po::value(&opt.proj_win)->default_value(vw::BBox2(0,0,0,0), "auto"),
      "Flag as outliers input triangulated points not in this proj win (box in projected "
      "units as provided by --proj_str). This should be generous if the input cameras have "
      "significant errors.")
     ("proj-str",   po::value(&opt.proj_str)->default_value(""),
      "To be used in conjunction with --proj-win.")
-    ("matches-per-tile-params",  po::value(&opt.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
+    ("matches-per-tile-params",  po::value(&opt.matches_per_tile_params)->default_value(vw::Vector2(1024, 1280), "1024 1280"),
      "To be used with --matches-per-tile. The first value is the image tile size for both "
      "images. A larger second value allows each right tile to further expand to this size, "
      "resulting in the tiles overlapping. This may be needed if the homography alignment "
@@ -1172,7 +1179,7 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
   // will be triggered when called with no arguments, so print the general
   // options, which functions as the help message.
   if (opt.out_prefix.empty())
-    vw_throw(ArgumentErr() << "Missing the output prefix.\n" << usage 
+    vw::vw_throw(vw::ArgumentErr() << "Missing the output prefix.\n" << usage 
              << general_options);
 
   // Turn on logging to file. Do this early.
@@ -1181,7 +1188,8 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
   // This is a little clumsy, but need to see whether the user set --max-iterations
   // or --num-iterations. They are aliases to each other.
   if (!vm["max-iterations"].defaulted() && !vm["num-iterations"].defaulted())
-    vw_throw(ArgumentErr() << "Cannot set both --num-iterations and --max-iterations.\n");
+    vw::vw_throw(vw::ArgumentErr() 
+                 << "Cannot set both --num-iterations and --max-iterations.\n");
   if (!vm["max-iterations"].defaulted())
     opt.num_iterations = max_iterations_tmp;
 

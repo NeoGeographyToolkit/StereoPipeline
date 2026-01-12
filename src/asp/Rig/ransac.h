@@ -76,8 +76,6 @@ class RandomSampleConsensus {
       if (m_error_func(H, p1[i], p2[i]) < m_inlier_threshold)
         result.push_back(i);
 
-    //LOG(INFO) << "RANSAC inliers / total = " << result.size() << " / " << p1.size() << ".\n";
-
     return result;
   }
 

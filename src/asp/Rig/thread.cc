@@ -18,8 +18,7 @@
 
 #include <asp/Rig/thread.h>
 
-#include <gflags/gflags.h>
-#include <glog/logging.h>
+#include <vw/Core/Exception.h>
 
 #include <sys/time.h>
 #include <thread>
@@ -52,9 +51,8 @@ void* HolderFunction(void* ptr) {
 ThreadPool::ThreadPool(int num_threads): max_concurrent_jobs_(num_threads) {
   pthread_mutex_init(&cond_mutex_, NULL);
   pthread_cond_init(&cond_, NULL);
-  if (max_concurrent_jobs_ <= 0) {
-    LOG(ERROR) << "Thread pool without threads created...";
-  }
+  if (max_concurrent_jobs_ <= 0)
+     vw::vw_throw(vw::ArgumentErr() << "Thread pool without threads created.\n");
 }
 
 ThreadPool::~ThreadPool() {

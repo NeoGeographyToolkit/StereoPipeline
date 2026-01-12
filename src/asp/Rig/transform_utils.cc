@@ -772,8 +772,8 @@ registrationTransform(std::string                  const& hugin_file,
     mean_err += (registration_trans*in.col(i) - user_xyz.col(i)).norm();
   mean_err /= user_xyz.cols();
 
-  // We don't use LOG(INFO) below, as it does not play well with
-  // Eigen.
+  // Print some info to stdout. If moving this to vw_out(), test if it plays well
+  // with Eigen data, or if custom formatting is needed.
   double scale = pow(registration_trans.linear().determinant(), 1.0 / 3.0);
   std::cout << "Registration transform (to measured world coordinates)." << std::endl;
   std::cout << "Rotation:\n" << registration_trans.linear() / scale << std::endl;

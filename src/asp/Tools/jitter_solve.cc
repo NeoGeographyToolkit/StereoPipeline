@@ -48,6 +48,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/nvm.h>
+#include <asp/Core/Bathymetry.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
@@ -349,6 +350,17 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      po::bool_switch(&asp::stereo_settings().accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
      "Accept the DEM provided on the command line as the one mapprojection was done with, "
      "even if it disagrees with the DEM recorded in the geoheaders of input images.")
+    // For bathymetry correction
+    ("bathy-mask-list", 
+     po::value(&asp::stereo_settings().bathy_mask_list)->default_value(""),
+     "List of masks to use for bathymetry. Must be one per input image and 1-to-1 with the "
+     "images. This is preliminary work. This program does not yet model bathymetry.")
+    ("bathy-plane",
+     po::value(&asp::stereo_settings().bathy_plane),
+      "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
+    ("refraction-index", 
+     po::value(&asp::stereo_settings().refraction_index)->default_value(0),
+      "The index of refraction of water to be used in bathymetry correction. (Must be specified and bigger than 1.)")
     ;
     general_options.add(vw::GdalWriteOptionsDescription(opt));
   po::options_description positional("");
@@ -635,6 +647,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw::vw_out(vw::WarningMessage) 
       << "The values of --anchor-dem and --heights-from-dem are different. "
       << "Check (with geodiff) that these are in agreement.\n";
+
+  if (session->do_bathymetry())
+    asp::bathyChecks(session->name(), asp::stereo_settings()); 
       
   return;
 }
