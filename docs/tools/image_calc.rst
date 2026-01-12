@@ -62,7 +62,7 @@ to discard, and that the output pixels with value 0 are invalid.
 Create a mask
 ^^^^^^^^^^^^^
 
-This will set values no less than a threshold to 1, and the rest to 0::
+This will set values greater or equal than a threshold to 1, and the rest to 0::
 
     thresh=0.27
     image_calc -c "gte(var_0, $thresh, 1, 0)" \
@@ -85,8 +85,8 @@ Invalidate values no more than a threshold
 
 .. _image_calc_above_thresh:
 
-Invalidate values no less than a threshold
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Invalidate values greater or equal than a threshold
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
