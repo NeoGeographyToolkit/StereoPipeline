@@ -773,7 +773,7 @@ void stereo_triangulation(std::string const& output_prefix,
     // when we skip the point cloud center computation. In that mode we are processing
     // individual parallel_stereo tiles, and the stereo_tri call which aligns the bathy
     // masks and computes the cloud center just finished. This is fragile logic.
-    bool bathy_correct = opt_vec[0].session->do_bathymetry();
+    bool bathy_correct = asp::doBathy(asp::stereo_settings());
     if (bathy_correct && !stereo_settings().skip_point_cloud_center_comp)
       opt_vec[0].session->align_bathy_masks(opt_vec[0]);
     

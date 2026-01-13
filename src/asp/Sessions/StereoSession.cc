@@ -22,6 +22,7 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/Bathymetry.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/CsmModel.h>
@@ -641,7 +642,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   vw_out() << "Writing right image elapsed time: " << sw4.elapsed_seconds() << " s\n";
 
   // For bathy runs only
-  if (this->do_bathymetry())
+  if (asp::doBathy(asp::stereo_settings()))
     this->align_bathy_masks(options);
 
 } // End function preprocessing_hook
@@ -743,7 +744,7 @@ shared_preprocessing_hook(vw::GdalWriteOptions           & options,
   // Note: Must make sure all outputs are initialized before we
   // get to this part where we exit early.
 
-  bool do_bathy = StereoSession::do_bathymetry();
+  bool do_bathy = asp::doBathy(asp::stereo_settings());
 
   std::vector<std::string> check_files;
   check_files.push_back(left_input_file);
@@ -939,16 +940,8 @@ void StereoSession::read_aligned_bathy_masks
   if (!vw::read_nodata_val(right_aligned_mask_file, right_bathy_nodata))
     vw_throw(ArgumentErr() << "Unable to read the nodata value from "
              << right_aligned_mask_file);
-  right_aligned_bathy_mask_image = create_mask(DiskImageView<float>(right_aligned_mask_file),
-                                right_bathy_nodata);
-}
-
-bool StereoSession::do_bathymetry() const {
-  // For stereo will use left and right bathy masks. For bundle adjustment and
-  // jitter_solve, will use a list of masks.
-  return (stereo_settings().left_bathy_mask  != "" ||
-          stereo_settings().right_bathy_mask != "" ||
-          stereo_settings().bathy_mask_list  != "");
+  right_aligned_bathy_mask_image 
+    = create_mask(DiskImageView<float>(right_aligned_mask_file), right_bathy_nodata);
 }
 
 // Align the bathy masks. This will be called in stereo_pprc and, if
@@ -958,7 +951,7 @@ bool StereoSession::do_bathymetry() const {
 // TODO(oalexan1): Such duplication of logic is not good.
 void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
 
-  bool do_bathy = StereoSession::do_bathymetry();
+  bool do_bathy = asp::doBathy(asp::stereo_settings());
 
   if (!do_bathy)
     return;
@@ -1130,7 +1123,7 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
 }
 
 std::string StereoSession::left_cropped_bathy_mask() const {
-  if (!do_bathymetry())
+  if (!asp::doBathy(asp::stereo_settings()))
     vw_throw(ArgumentErr() << "The left cropped bathy mask is requested when "
               << "bathymetry mode is not on.");
 
@@ -1142,7 +1135,7 @@ std::string StereoSession::left_cropped_bathy_mask() const {
 }
 
 std::string StereoSession::right_cropped_bathy_mask() const {
-  if (!do_bathymetry())
+  if (!asp::doBathy(asp::stereo_settings()))
     vw_throw(ArgumentErr() << "The right cropped bathy mask is requested when "
               << "bathymetry mode is not on.");
 

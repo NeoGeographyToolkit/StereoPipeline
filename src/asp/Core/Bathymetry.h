@@ -50,9 +50,9 @@ namespace asp {
   // upwards away from Earth, and water refraction index, find where
   // this ray meets the water plane named out_xyz, and the ray direction out_dir
   // after it bends according to Snell's law. Return true on success.
-  bool snells_law(vw::Vector3 const& in_xyz, vw::Vector3 const& in_dir,
-                  std::vector<double> const& plane, double refraction_index,
-                           vw::Vector3 & out_xyz, vw::Vector3 & out_dir);
+  bool snellLaw(vw::Vector3 const& in_xyz, vw::Vector3 const& in_dir,
+                std::vector<double> const& plane, double refraction_index,
+                vw::Vector3 & out_xyz, vw::Vector3 & out_dir);
   
   class BathyStereoModel: public vw::stereo::StereoModel {
   public:
@@ -105,6 +105,8 @@ namespace asp {
 
   void bathyChecks(std::string const& session_name,
                    asp::StereoSettings const& stereo_settings);
+  
+  bool doBathy(asp::StereoSettings const& stereo_settings);
   
 } // end namespace asp
 

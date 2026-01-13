@@ -648,7 +648,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       << "The values of --anchor-dem and --heights-from-dem are different. "
       << "Check (with geodiff) that these are in agreement.\n";
 
-  if (session->do_bathymetry())
+  if (asp::doBathy(asp::stereo_settings()))
     asp::bathyChecks(session->name(), asp::stereo_settings()); 
       
   return;

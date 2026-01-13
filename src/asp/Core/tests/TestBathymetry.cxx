@@ -24,7 +24,7 @@ using namespace asp;
 
 // Test using Snell's law to see how a ray bends after hitting water
 // TODO(oalexan1): Add a fuller test, verifying that incoming and outgoing
-// directions are in the same plane. See test_snells_law() in Bathymetry.cc.
+// directions are in the same plane. See testSnellLaw() in Bathymetry.cc.
 TEST(Bathymetry, BathyStereoModel) {
 
   double water_refraction_index = 1.333;
@@ -39,9 +39,9 @@ TEST(Bathymetry, BathyStereoModel) {
   bathy_plane.push_back(-6374384.66267670784);
 
   Vector3 waterCtr, waterDir;
-  bool ans = asp::snells_law(camCtr, camDir, bathy_plane,  
-                             water_refraction_index,  
-                             waterCtr, waterDir);
+  bool ans = asp::snellLaw(camCtr, camDir, bathy_plane,  
+                           water_refraction_index,  
+                           waterCtr, waterDir);
   
   EXPECT_TRUE(ans);
   

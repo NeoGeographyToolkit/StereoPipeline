@@ -21,6 +21,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/Bathymetry.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/IpMatchingAlgs.h>
@@ -159,7 +160,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   // Bathymetry will not work with skipping image normalization.
   // It could be made to work, but it is an obscure scenario not
   // worth testing.
-  if (skip_img_norm && opt.session->do_bathymetry()) 
+  if (skip_img_norm && asp::doBathy(asp::stereo_settings())) 
     vw_throw( ArgumentErr() 
              << "\nCannot do bathymetry when skipping image normalization.\n");
 

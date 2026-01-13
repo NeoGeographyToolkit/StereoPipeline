@@ -289,7 +289,7 @@ void handle_multiview(int argc, char* argv[],
               << "instead the stereo/parallel_stereo scripts with desired entry points.\n");
 
   // This must happen after StereoSession is initialized
-  if (opt_vec[0].session->do_bathymetry())
+  if (asp::doBathy(asp::stereo_settings()))
     vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
               << "multiview stereo.\n");
 
@@ -1124,7 +1124,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     stereo_settings().min_triangulation_angle = 0;
   }
 
-  if (opt.session->do_bathymetry())
+  if (asp::doBathy(asp::stereo_settings()))
     asp::bathyChecks(opt.session->name(), asp::stereo_settings()); 
 
   // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].

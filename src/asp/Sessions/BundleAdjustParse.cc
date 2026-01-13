@@ -658,7 +658,7 @@ void validateBaOptions(po::variables_map const& vm,
               << "Cannot use --calc-normalization-bounds or --calc-ip with "
               << "--stop-after-stats or --stop-after-matching.\n");
 
-  if (session->do_bathymetry())
+  if (asp::doBathy(asp::stereo_settings()))
     asp::bathyChecks(session->name(), asp::stereo_settings()); 
 
   return;

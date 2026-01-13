@@ -170,16 +170,14 @@ void signed_distances_to_planes(bool use_curved_water_surface,
 }
 
 // Test Snell's law in projected and unprojected coordinates
-void test_snells_law(std::vector<double> const& plane,
-                      vw::cartography::GeoReference const& water_surface_projection,
-                      double refraction_index,
-                      vw::Vector3 const& out_unproj_xyz,
-                      vw::Vector3 const& in_unproj_dir, vw::Vector3 const& out_unproj_dir,
-                      vw::Vector3 const& out_proj_xyz, 
-                      vw::Vector3 const& in_proj_dir, vw::Vector3 const& out_proj_dir) {
+void testSnellLaw(std::vector<double> const& plane,
+                  vw::cartography::GeoReference const& water_surface_projection,
+                  double refraction_index,
+                  vw::Vector3 const& out_unproj_xyz,
+                  vw::Vector3 const& in_unproj_dir, vw::Vector3 const& out_unproj_dir,
+                  vw::Vector3 const& out_proj_xyz, 
+                  vw::Vector3 const& in_proj_dir, vw::Vector3 const& out_proj_dir) {
 
-  // Verify Snell's law.
-  
   // 1. In projected coordinates
   Vector3 proj_normal(plane[0], plane[1], plane[2]);
   double sin_in = sin(acos(dot_prod(proj_normal, -in_proj_dir)));
@@ -217,10 +215,10 @@ void test_snells_law(std::vector<double> const& plane,
 }
 
 // See the .h file for more info
-bool snells_law(Vector3 const& in_xyz, Vector3 const& in_dir,
-                std::vector<double> const& plane,
-                double refraction_index, 
-                Vector3 & out_xyz, Vector3 & out_dir) {
+bool snellLaw(Vector3 const& in_xyz, Vector3 const& in_dir,
+              std::vector<double> const& plane,
+              double refraction_index, 
+              Vector3 & out_xyz, Vector3 & out_dir) {
 
   // The ray is given as in_xyz + alpha * in_dir, where alpha is real.
   // See where it intersects the plane.
@@ -343,11 +341,11 @@ public:
 // a point on the outgoing ray in projected coordinates Find another
 // close point further along it. Undo the projection for these two
 // points. That will give the outgoing direction in ECEF.
-bool snells_law_curved(Vector3 const& in_xyz, Vector3 const& in_dir,
-                        std::vector<double> const& plane,
-                        vw::cartography::GeoReference const& water_surface_projection,
-                        double refraction_index, 
-                        Vector3 & out_xyz, Vector3 & out_dir) {
+bool curvedSnellLaw(Vector3 const& in_xyz, Vector3 const& in_dir,
+                    std::vector<double> const& plane,
+                    vw::cartography::GeoReference const& water_surface_projection,
+                    double refraction_index, 
+                    Vector3 & out_xyz, Vector3 & out_dir) {
       
   // Find the mean water surface
   double mean_ht = -plane[3] / plane[2];
@@ -374,9 +372,9 @@ bool snells_law_curved(Vector3 const& in_xyz, Vector3 const& in_dir,
 
   // Snell's law in projected coordinates
   Vector3 out_proj_xyz, out_proj_dir;
-  bool ans = snells_law(in_proj_xyz, in_proj_dir,
-                        plane, refraction_index,
-                        out_proj_xyz, out_proj_dir);
+  bool ans = snellLaw(in_proj_xyz, in_proj_dir,
+                      plane, refraction_index,
+                      out_proj_xyz, out_proj_dir);
 
   // If Snell's law failed to work, exit early
   if (!ans)
@@ -410,11 +408,11 @@ bool snells_law_curved(Vector3 const& in_xyz, Vector3 const& in_dir,
   
 #if 0
   // Sanity check
-  test_snells_law(plane,  
-                  water_surface_projection,  
-                  refraction_index,
-                  out_xyz, in_dir, out_dir,
-                  out_proj_xyz, in_proj_dir, out_proj_dir);
+  testSnellLaw(plane,  
+               water_surface_projection,  
+               refraction_index,
+               out_xyz, in_dir, out_dir,
+               out_proj_xyz, in_proj_dir, out_proj_dir);
 #endif
 
   return true;
@@ -422,7 +420,7 @@ bool snells_law_curved(Vector3 const& in_xyz, Vector3 const& in_dir,
 
 // Settings used for bathymetry correction
 void BathyStereoModel::set_bathy(double refraction_index,
-                                  std::vector<BathyPlaneSettings> const& bathy_set) {
+                                 std::vector<BathyPlaneSettings> const& bathy_set) {
   
   m_bathy_correct = true;
   m_refraction_index = refraction_index;
@@ -553,7 +551,7 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
         
         // The simple case, when the water surface is a plane in ECEF
         for (size_t it = 0; it < 2; it++) {
-          bool ans = snells_law(camCtrs[it], camDirs[it], m_bathy_set[it].bathy_plane,
+          bool ans = snellLaw(camCtrs[it], camDirs[it], m_bathy_set[it].bathy_plane,
                                 m_refraction_index, 
                                 waterCtrs[it], waterDirs[it]);
           // If Snell's law failed to work, return the result before it
@@ -577,11 +575,11 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
         
         for (size_t it = 0; it < 2; it++) {
           // Bend each ray at the surface according to Snell's law.
-          bool ans = snells_law_curved(camCtrs[it], camDirs[it],
-                                        m_bathy_set[it].bathy_plane,  
-                                        m_bathy_set[it].water_surface_projection,
-                                        m_refraction_index,
-                                        waterCtrs[it], waterDirs[it]);
+          bool ans = curvedSnellLaw(camCtrs[it], camDirs[it],
+                                    m_bathy_set[it].bathy_plane,  
+                                    m_bathy_set[it].water_surface_projection,
+                                    m_refraction_index,
+                                    waterCtrs[it], waterDirs[it]);
           if (!ans) {
             did_bathy = false;
             return uncorr_tri_pt;
@@ -601,7 +599,7 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
     // Bend the rays
     if (!use_curved_water_surface) {
       for (size_t it = 0; it < 2; it++) {
-        bool ans = snells_law(camCtrs[it], camDirs[it],
+        bool ans = snellLaw(camCtrs[it], camDirs[it],
                               m_bathy_set[it].bathy_plane,  
                               m_refraction_index,
                               waterCtrs[it], waterDirs[it]);
@@ -611,11 +609,11 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
     } else {
       for (size_t it = 0; it < 2; it++) {
         // Bend each ray at the surface according to Snell's law.
-        bool ans = snells_law_curved(camCtrs[it], camDirs[it],
-                                      m_bathy_set[it].bathy_plane,  
-                                      m_bathy_set[it].water_surface_projection,
-                                      m_refraction_index,
-                                      waterCtrs[it], waterDirs[it]);
+        bool ans = curvedSnellLaw(camCtrs[it], camDirs[it],
+                                  m_bathy_set[it].bathy_plane,  
+                                  m_bathy_set[it].water_surface_projection,
+                                  m_refraction_index,
+                                  waterCtrs[it], waterDirs[it]);
         if (!ans)
           return uncorr_tri_pt;
       }
@@ -728,6 +726,14 @@ void bathyChecks(std::string const& session_name,
   if (stereo_settings.propagate_errors)
     vw_throw(ArgumentErr() << "Error propagation is not implemented when "
               << "bathymetry is modeled.\n");
+}
+
+// For stereo will use left and right bathy masks. For bundle adjustment and
+// jitter_solve will use a list of masks.
+bool doBathy(asp::StereoSettings const& stereo_settings) {
+  return (stereo_settings.left_bathy_mask  != "" ||
+          stereo_settings.right_bathy_mask != "" ||
+          stereo_settings.bathy_mask_list  != "");
 }
 
 } // end namespace asp

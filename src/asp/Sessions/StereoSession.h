@@ -140,8 +140,6 @@ public:
   virtual vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>
   pre_pointcloud_hook(std::string const& input_file);
 
-  bool do_bathymetry() const;
-
   // Return the left and right cropped images. These are the same as
   // the input images unless the cropping is on.
   std::string left_cropped_image() const;
