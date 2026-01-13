@@ -552,8 +552,8 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
         // The simple case, when the water surface is a plane in ECEF
         for (size_t it = 0; it < 2; it++) {
           bool ans = snellLaw(camCtrs[it], camDirs[it], m_bathy_set[it].bathy_plane,
-                                m_refraction_index, 
-                                waterCtrs[it], waterDirs[it]);
+                              m_refraction_index, 
+                              waterCtrs[it], waterDirs[it]);
           // If Snell's law failed to work, return the result before it
           if (!ans) {
             did_bathy = false;
@@ -600,9 +600,9 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
     if (!use_curved_water_surface) {
       for (size_t it = 0; it < 2; it++) {
         bool ans = snellLaw(camCtrs[it], camDirs[it],
-                              m_bathy_set[it].bathy_plane,  
-                              m_refraction_index,
-                              waterCtrs[it], waterDirs[it]);
+                            m_bathy_set[it].bathy_plane,  
+                            m_refraction_index,
+                            waterCtrs[it], waterDirs[it]);
         if (!ans)
           return uncorr_tri_pt;
       }

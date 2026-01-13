@@ -1193,14 +1193,15 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
   if (!vm["max-iterations"].defaulted())
     opt.num_iterations = max_iterations_tmp;
 
+  // Validate the options. This also populates some fields in opt,
+  // such as opt.intrinsics_options.share_intrinsics_per_sensor.
+  asp::validateBaOptions(vm, inline_adjustments, opt);
+
   // This better happen here so that do not need to carry all these strings around.
   load_intrinsics_options(opt.solve_intrinsics, !vm["intrinsics-to-share"].defaulted(),
                           intrinsics_to_float_str, intrinsics_to_share_str,
                           opt.intrinsics_options);
   asp::parse_intrinsics_limits(intrinsics_limit_str, opt.intrinsics_limits);
-
-  // Validate the options. This also populates some fields in opt.
-  asp::validateBaOptions(vm, inline_adjustments, opt);
 }
 
 } // end namespace asp
