@@ -31,10 +31,12 @@ namespace asp {
 using namespace vw;
 using namespace vw::stereo;
 
-void read_bathy_plane(std::string const& bathy_plane_file,
-                      std::vector<double> & bathy_plane,
-                      bool & use_curved_water_surface,
-                      vw::cartography::GeoReference & water_surface_projection) {
+// Read the bathy plane. Normally it should be in some local projection which is
+// read as well.
+void readBathyPlane(std::string const& bathy_plane_file,
+                    std::vector<double> & bathy_plane,
+                    bool & use_curved_water_surface,
+                    vw::cartography::GeoReference & water_surface_projection) {
 
   vw_out() << "Reading the water surface from: " << bathy_plane_file << "\n";
   
@@ -45,9 +47,8 @@ void read_bathy_plane(std::string const& bathy_plane_file,
   
   std::vector<std::string> lines;
   std::string line;
-  while ( getline(handle, line, '\n') ){
+  while (getline(handle, line, '\n'))
     lines.push_back(line);
-  }
 
   if (lines.empty())
     vw_throw(vw::IOErr() << "Invalid bathy plane file: " << bathy_plane_file << "\n");
@@ -95,29 +96,31 @@ void read_bathy_plane(std::string const& bathy_plane_file,
             << "\n";
 }
 
-// Read left and right bathy plane settings and associated data.
-// More often than not they will be identical.
-void read_bathy_planes(std::string const& bathy_plane_files,
-                       std::vector<BathyPlaneSettings> & bathy_plane_set) {
+// Read the bathy planes and associated data. More often than not they will be
+// identical. If there is more than one bathy plane file, they are all kept in
+// the same string, separated by space.
+void readBathyPlanes(std::string const& bathy_plane_files,
+                     int num_images,
+                     std::vector<BathyPlaneSettings> & bathy_plane_set) {
 
   bathy_plane_set.clear();
   
   std::string bathy_plane_file;
   std::istringstream iss(bathy_plane_files);
   while (iss >> bathy_plane_file) {
-
     bathy_plane_set.push_back(BathyPlaneSettings());
-    read_bathy_plane(bathy_plane_file,
-                      bathy_plane_set.back().bathy_plane,  
-                      bathy_plane_set.back().use_curved_water_surface,  
-                      bathy_plane_set.back().water_surface_projection);
+    readBathyPlane(bathy_plane_file,
+                   // Outputs
+                   bathy_plane_set.back().bathy_plane,  
+                   bathy_plane_set.back().use_curved_water_surface,  
+                   bathy_plane_set.back().water_surface_projection);
   }
 
-  if (bathy_plane_set.size() != 1 && bathy_plane_set.size() != 2) 
-    vw_throw(vw::ArgumentErr() << "One or two bathy planes expected.\n");
+  if (bathy_plane_set.size() != 1 && bathy_plane_set.size() != num_images) 
+    vw_throw(vw::ArgumentErr() << "1 or " << num_images << " bathy planes expected.\n");
 
   // Clone the bathy plane if there's only one
-  if (bathy_plane_set.size() == 1)
+  while (bathy_plane_set.size() < (size_t)num_images)
     bathy_plane_set.push_back(bathy_plane_set[0]);
 }
   
@@ -458,10 +461,11 @@ void BathyStereoModel::set_bathy(double refraction_index,
 // bathymetry mode, so m_bathy_correct is true, for this particular
 // pair of rays we may have do_bathy false, and then we won't do the
 // correction.  Return also a flag saying if we did bathymetry
-// correction or not.
+// correction or not. When the rays intersect above the water surface,
+// the correction is not done, but a valid 3D point is still returned.
 Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
-                                      Vector3& errorVec, bool do_bathy,
-                                      bool & did_bathy) const {
+                                     Vector3& errorVec, bool do_bathy,
+                                     bool & did_bathy) const {
 
   // Initialize the outputs
   did_bathy = false;
@@ -502,7 +506,9 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
 
     // Determine range by triangulation
     Vector3 uncorr_tri_pt = triangulate_point(camDirs, camCtrs, errorVec);
-    if ( m_least_squares ){
+    // TODO(oalexan1): Must wipe the least squares option from everywhere
+    // in VW, ASP, and docs. This is very old and not used.
+    if (m_least_squares) {
       if (num_cams == 2)
         refine_point(pixVec[0], pixVec[1], uncorr_tri_pt);
       else
@@ -561,7 +567,7 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
           }
         }
         
-      } else{
+      } else {
         
         // The more complex case, the water surface is curved. It is
         // however flat (a plane) if we switch to proj coordinates.
@@ -587,7 +593,7 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
         }
       }
       
-      // Re-triangulate with the new rays
+      // Re-triangulate with the new rays, after they get bent
       Vector3 corr_tri_pt = triangulate_point(waterDirs, waterCtrs, errorVec);
       
       did_bathy = true;
@@ -693,47 +699,59 @@ Vector3 BathyStereoModel::operator()(Vector2 const& pix1, Vector2 const& pix2,
   return Vector3();
 }
 
-void bathyChecks(std::string const& session_name,
-                 asp::StereoSettings const& stereo_settings) {
-
-  // If only the topo cloud needs computing, will use only the info from the
-  // left and right bathy masks, so does not need the refraction index and
-  // the bathy plane.
-  if (stereo_settings.output_cloud_type != "topo") {
-
-    if (stereo_settings.refraction_index <= 1.0)
-      vw_throw(ArgumentErr() << "The water index of refraction to be used in "
-                << "bathymetry correction must be bigger than 1.\n");
-
-    if (stereo_settings.bathy_plane == "")
-      vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
-
-    // Sanity check reading the bathy plane
-    std::vector<BathyPlaneSettings> bathy_plane_set;
-    read_bathy_planes(stereo_settings.bathy_plane, bathy_plane_set);
-  }
-
-  if (session_name.find("isis") != std::string::npos)
-    vw_throw(ArgumentErr() << "Bathymetry correction does not work with ISIS cameras.\n");
-
-  if (stereo_settings.alignment_method != "homography"     &&
-      stereo_settings.alignment_method != "affineepipolar" &&
-      stereo_settings.alignment_method != "local_epipolar" &&
-      stereo_settings.alignment_method != "none")
-    vw_throw(ArgumentErr() << "Bathymetry correction only works with alignment methods "
-              << "homography, affineepipolar, local_epipolar, and none.\n");
-
-  if (stereo_settings.propagate_errors)
-    vw_throw(ArgumentErr() << "Error propagation is not implemented when "
-              << "bathymetry is modeled.\n");
-}
-
 // For stereo will use left and right bathy masks. For bundle adjustment and
 // jitter_solve will use a list of masks.
 bool doBathy(asp::StereoSettings const& stereo_settings) {
   return (stereo_settings.left_bathy_mask  != "" ||
           stereo_settings.right_bathy_mask != "" ||
           stereo_settings.bathy_mask_list  != "");
+}
+
+void bathyChecks(std::string const& session_name,
+                 asp::StereoSettings const& stereo_settings,
+                 int num_images) {
+
+  if (doBathy(stereo_settings)) {
+    // If only the topo cloud needs computing, will use only the info from the
+    // left and right bathy masks, so does not need the refraction index and
+    // the bathy plane.
+    if (stereo_settings.output_cloud_type != "topo") {
+
+      if (stereo_settings.refraction_index <= 1.0)
+        vw_throw(ArgumentErr() << "The water index of refraction to be used in "
+                  << "bathymetry correction must be bigger than 1.\n");
+
+      if (stereo_settings.bathy_plane == "")
+        vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
+
+      // Sanity check reading the bathy plane
+      std::vector<BathyPlaneSettings> bathy_plane_set;
+      readBathyPlanes(stereo_settings.bathy_plane, num_images, bathy_plane_set);
+    }
+
+    if (session_name.find("isis") != std::string::npos)
+      vw_throw(ArgumentErr() << "Bathymetry correction does not work with ISIS cameras.\n");
+
+    if (stereo_settings.alignment_method != "homography"     &&
+        stereo_settings.alignment_method != "affineepipolar" &&
+        stereo_settings.alignment_method != "local_epipolar" &&
+        stereo_settings.alignment_method != "none")
+      vw_throw(ArgumentErr() << "Bathymetry correction only works with alignment methods "
+                << "homography, affineepipolar, local_epipolar, and none.\n");
+
+    if (stereo_settings.propagate_errors)
+      vw::vw_throw(ArgumentErr() << "Error propagation is not implemented when "
+                << "bathymetry is modeled.\n");
+  }
+
+  // Ensure that either both or none of these settings are specified
+  if ((stereo_settings.refraction_index > 1.0 || 
+       stereo_settings.bathy_plane != "") &&
+      !doBathy(stereo_settings))
+    vw::vw_throw(ArgumentErr() 
+          << "When bathymetry correction is not on, it is not necessary to "
+          << "specify the water refraction index or the bathy plane.\n");
+
 }
 
 } // end namespace asp

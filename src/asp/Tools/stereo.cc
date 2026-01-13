@@ -1123,9 +1123,9 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     // This is a bit awkward but is done so for backward compatibility.
     stereo_settings().min_triangulation_angle = 0;
   }
-
-  if (asp::doBathy(asp::stereo_settings()))
-    asp::bathyChecks(opt.session->name(), asp::stereo_settings()); 
+  
+  int num_images = 2;
+  asp::bathyChecks(opt.session->name(), asp::stereo_settings(), num_images);
 
   // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].
   if (stereo_settings().outlier_removal_params[0] <= 50.0)
