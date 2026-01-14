@@ -497,7 +497,8 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                                                    opt.min_triangulation_angle*(M_PI/180.0),
                                                    opt.forced_triangulation_distance,
                                                    opt.max_pairwise_matches,
-                                                   opt.match_sigmas);
+                                                   opt.match_sigmas,
+                                                   opt.bathy_data);
       if (!success) {
         vw_out() << "Failed to build a control network.\n"
                  << " - Consider removing all .vwip and .match files and \n"
@@ -630,7 +631,8 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     // Do not triangulate the GCP or the height-from-dem points
     vw::ba::triangulate_control_network(cnet, new_cam_models,
                                         opt.min_triangulation_angle*(M_PI/180.0),
-                                        opt.forced_triangulation_distance);
+                                        opt.forced_triangulation_distance,
+                                        opt.bathy_data);
     check_gcp_dists(new_cam_models, opt.cnet, opt.forced_triangulation_distance);
     if (num_points != cnet.size()) // Must not happen
       vw_throw(ArgumentErr() << "The number of points changed after re-triangulation.\n");
