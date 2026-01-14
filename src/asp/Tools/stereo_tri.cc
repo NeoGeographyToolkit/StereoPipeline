@@ -39,6 +39,7 @@
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
+#include <vw/Stereo/BathyStereoModel.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Image/Filter.h>
 #include <vw/InterestPoint/MatcherIO.h>
@@ -64,7 +65,7 @@ class StereoTriangulation:
   std::vector<vw::TransformPtr> m_transforms; // e.g., map-projection or homography to undo
   vw::cartography::Datum        m_datum;
   vw::stereo::StereoModel       m_stereo_model;
-  asp::BathyStereoModel         m_bathy_model;
+  vw::BathyStereoModel          m_bathy_model;
   bool                          m_is_map_projected;
   bool                          m_bathy_correct;
   OUTPUT_CLOUD_TYPE             m_cloud_type;
@@ -85,7 +86,7 @@ public:
                       std::vector<vw::TransformPtr> const& transforms,
                       vw::cartography::Datum        const& datum,
                       vw::stereo::StereoModel       const& stereo_model,
-                      asp::BathyStereoModel         const& bathy_model,
+                      vw::BathyStereoModel          const& bathy_model,
                       bool is_map_projected,
                       bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
                       ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
@@ -379,7 +380,7 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
                      std::vector<vw::TransformPtr>  const& transforms,
                      vw::cartography::Datum         const& datum,
                      vw::stereo::StereoModel        const& stereo_model,
-                     asp::BathyStereoModel          const& bathy_model,
+                     vw::BathyStereoModel           const& bathy_model,
                      bool is_map_projected,
                      bool bathy_correct,
                      OUTPUT_CLOUD_TYPE cloud_type,
@@ -704,11 +705,12 @@ void stereo_triangulation(std::string const& output_prefix,
       transforms.push_back(sPtr->tx_right());
     }
 
-    // If the distance from the left camera center to a point is
-    // greater than the universe radius, we remove that pixel and
-    // replace it with a zero vector, which is the missing pixel value in the point_image.
+    // If the distance from the left camera center to a point is greater than
+    // the universe radius, we remove that pixel and replace it with a zero
+    // vector, which is the missing pixel value in the point_image.
     //
-    // We apply the universe radius here and then write the result directly to a file on disk.
+    // We apply the universe radius here and then write the result directly to a
+    // file on disk.
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(), 0, 0);
     try{
       if ( stereo_settings().universe_center == "camera" ) {
@@ -717,13 +719,15 @@ void stereo_triangulation(std::string const& output_prefix,
                               << "have the camera as the universe center.\n");
         }
 
-        universe_radius_func = stereo::UniverseRadiusFunc(cameras[0]->camera_center(Vector2()),
-                                                          stereo_settings().near_universe_radius,
-                                                          stereo_settings().far_universe_radius);
+        universe_radius_func 
+          = stereo::UniverseRadiusFunc(cameras[0]->camera_center(Vector2()),
+                                       stereo_settings().near_universe_radius,
+                                       stereo_settings().far_universe_radius);
       } else if ( stereo_settings().universe_center == "zero" ) {
-        universe_radius_func = stereo::UniverseRadiusFunc(Vector3(),
-                                                          stereo_settings().near_universe_radius,
-                                                          stereo_settings().far_universe_radius);
+        universe_radius_func 
+        = stereo::UniverseRadiusFunc(Vector3(),
+                                     stereo_settings().near_universe_radius,
+                                     stereo_settings().far_universe_radius);
       }
     } catch (std::exception &e) {
       vw_out() << e.what() << "\n";
@@ -783,7 +787,7 @@ void stereo_triangulation(std::string const& output_prefix,
     // different interfaces and the former need not know about the
     // latter. Templates are avoided too.
     vw::stereo::StereoModel stereo_model(camera_ptrs, angle_tol);
-    asp::BathyStereoModel bathy_stereo_model(camera_ptrs, angle_tol);
+    vw::BathyStereoModel bathy_stereo_model(camera_ptrs, angle_tol);
     
     // See if to return all triangulated points, the ones where bathy correction took
     // place, or the ones were it did not take place. Switch to an enum
@@ -799,7 +803,7 @@ void stereo_triangulation(std::string const& output_prefix,
       vw_throw(ArgumentErr() << "Unknown value for --output-cloud-type.\n");
 
     // Load the bathy plane and masks
-    std::vector<BathyPlaneSettings> bathy_plane_set;
+    std::vector<vw::BathyPlaneSettings> bathy_plane_set;
     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
     if (bathy_correct) {
 
@@ -818,7 +822,7 @@ void stereo_triangulation(std::string const& output_prefix,
       // The bathy plane is needed only for the underwater component
       if (asp::stereo_settings().output_cloud_type != "topo") {
         int num_images = 2;
-        readBathyPlanes(stereo_settings().bathy_plane, num_images, bathy_plane_set);
+        vw::readBathyPlanes(stereo_settings().bathy_plane, num_images, bathy_plane_set);
         bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_set);
       }
     }
