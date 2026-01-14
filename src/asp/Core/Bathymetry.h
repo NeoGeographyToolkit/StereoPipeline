@@ -24,7 +24,7 @@
 
 #include <vw/Math/Vector.h>
 #include <vw/Stereo/StereoModel.h>
-#include <vw/Stereo/BathyStereoModel.h>
+#include <vw/Cartography/BathyStereoModel.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/PixelMask.h>

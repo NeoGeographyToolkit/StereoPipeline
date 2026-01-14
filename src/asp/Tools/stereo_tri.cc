@@ -39,7 +39,7 @@
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
-#include <vw/Stereo/BathyStereoModel.h>
+#include <vw/Cartography/BathyStereoModel.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Image/Filter.h>
 #include <vw/InterestPoint/MatcherIO.h>

@@ -19,7 +19,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/FileUtils.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Stereo/BathyStereoModel.h>
+#include <vw/Cartography/BathyStereoModel.h>
 #include <vw/Core/Exception.h>
 #include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Image/ImageViewRef.h>
