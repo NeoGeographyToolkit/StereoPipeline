@@ -102,11 +102,11 @@ public:
     m_right_aligned_bathy_mask(right_aligned_bathy_mask) {
 
     // Sanity check
-    for (int p = 1; p < (int)m_disparity_maps.size(); p++){
+    for (int p = 1; p < (int)m_disparity_maps.size(); p++) {
       if (m_disparity_maps[0].cols() != m_disparity_maps[p].cols() ||
           m_disparity_maps[0].rows() != m_disparity_maps[p].rows())
-        vw_throw( ArgumentErr() << "In multi-view triangulation, all disparities "
-                  << "must have the same dimensions.\n" );
+        vw_throw(ArgumentErr() << "In multi-view triangulation, all disparities "
+                  << "must have the same dimensions.\n");
     }
   }
 
@@ -124,7 +124,7 @@ public:
     int num_disp = m_disparity_maps.size();
     std::vector<Vector2> pixVec(num_disp + 1);
     pixVec[0] = m_transforms[0]->reverse(Vector2(i,j)); // De-warp "left" pixel
-    for (int c = 0; c < num_disp; c++){
+    for (int c = 0; c < num_disp; c++) {
       Vector2 pix;
       DPixelT disp = m_disparity_maps[c](i,j,p); // Disparity value at this pixel
       if (is_valid(disp)) // De-warp the "right" pixel
@@ -134,7 +134,7 @@ public:
                       std::numeric_limits<double>::quiet_NaN());
       pixVec[c+1] = pix;
     }
-    
+
     // Compute the location of the 3D point observed by each input pixel
     // when no bathymetry correction is needed.
     Vector3 errorVec;
@@ -157,7 +157,7 @@ public:
                                        m_camera_ptrs[0], m_camera_ptrs[1],
                                        pixVec[0], pixVec[1]);
         }
-        
+
         // Filter by triangulation error, if desired
         if (stereo_settings().max_valid_triangulation_error > 0.0 &&
             errLen > stereo_settings().max_valid_triangulation_error) {
@@ -167,7 +167,7 @@ public:
       } catch(...) {
         return pixel_type(); // The zero vector, it means that there is no valid data
       }
-      
+
       return result; // Contains location and error vector
     }
 
@@ -235,16 +235,16 @@ public:
       result = pixel_type();
       errorVec = Vector3();
     }
-    
+
     return result; // Contains location and error vector
   }
-  
+
   typedef StereoTriangulation prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
     return PreRasterHelper(bbox, m_transforms);
   }
   template <class DestT>
-  inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
+  inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 
@@ -259,21 +259,21 @@ private:
       right_bbox.max() += disparity_range.size();
       return right_bbox;
   }
-  
+
   /// RPC Map Transform needs to be explicitly copied and told to cache for performance.
   template <class T>
   prerasterize_type PreRasterHelper(BBox2i const& bbox, std::vector<T> const& transforms) const {
 
     ImageViewRef<PixelMask<float>> in_memory_left_aligned_bathy_mask;
     ImageViewRef<PixelMask<float>> in_memory_right_aligned_bathy_mask;
-    
+
     // Code for NON-MAP-PROJECTED session types.
     if (m_is_map_projected == false) {
       // We explicitly bring in-memory the disparities for the current box
       // to speed up processing later, and then we pretend this is the entire
       // image by virtually enlarging it using a CropView.
       std::vector<ImageViewRef<DPixelT>> disparity_cropviews;
-      for (int p = 0; p < (int)m_disparity_maps.size(); p++){
+      for (int p = 0; p < (int)m_disparity_maps.size(); p++) {
         ImageView<DPixelT> clip = crop(m_disparity_maps[p], bbox);
         ImageViewRef<DPixelT> cropview_clip = crop(clip, -bbox.min().x(), -bbox.min().y(),
                                                    cols(), rows());
@@ -283,7 +283,7 @@ private:
           // Bring the needed parts of the bathy masks in memory as well.
           // We assume no multiview for stereo with bathy correction.
           BBox2i right_bbox = calc_right_bbox(bbox, clip);
-          
+
           // Bring the needed parts of the bathy masks in memory as well
           BBox2i cropped_right_bbox = right_bbox;
           cropped_right_bbox.expand(1); // will be needed later during triangulation
@@ -322,15 +322,15 @@ private:
     // As a side effect, this call makes transforms_copy create a local cache we
     // want later. Caching is fast for dense rasterizing purposes, but slow for
     // sparse pixels.
-    transforms_copy[0]->reverse_bbox(bbox); 
-    if (transforms_copy.size() != m_disparity_maps.size() + 1){
-      vw_throw( ArgumentErr() << "In multi-view triangulation, "
+    transforms_copy[0]->reverse_bbox(bbox);
+    if (transforms_copy.size() != m_disparity_maps.size() + 1) {
+      vw_throw(ArgumentErr() << "In multi-view triangulation, "
                 << "the number of disparities must be one less "
-                << "than the number of images." );
+                << "than the number of images.");
     }
 
     std::vector<ImageViewRef<DPixelT>> disparity_cropviews;
-    for (int p = 0; p < (int)m_disparity_maps.size(); p++){
+    for (int p = 0; p < (int)m_disparity_maps.size(); p++) {
 
       // We explicitly bring in-memory the disparities for the current
       // box to speed up processing later, and then we pretend this is
@@ -352,14 +352,14 @@ private:
         ImageView<PixelMask<float>> l_mask_clip = crop(m_left_aligned_bathy_mask, bbox);
         ImageView<PixelMask<float>> r_mask_clip = crop(m_right_aligned_bathy_mask,
                                                        cropped_right_bbox);
-        
+
         in_memory_left_aligned_bathy_mask
           = crop(l_mask_clip, -bbox.min().x(), -bbox.min().y(), cols(), rows());
         in_memory_right_aligned_bathy_mask
           = crop(r_mask_clip, -cropped_right_bbox.min().x(),
                  -cropped_right_bbox.min().y(), cols(), rows());
       }
-      
+
       // Also cache the data for subsequent transforms
       // As a side effect this call makes transforms_copy create a local cache we want later
       transforms_copy[p+1]->reverse_bbox(right_bbox);
@@ -386,7 +386,7 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
                      OUTPUT_CLOUD_TYPE cloud_type,
                      ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
                      ImageViewRef<PixelMask<float>> right_aligned_bathy_mask) {
-  
+
   typedef StereoTriangulation result_type;
   return result_type(disparities, camera_ptrs, transforms, datum, stereo_model, bathy_model,
                      is_map_projected, bathy_correct, cloud_type,
@@ -395,7 +395,7 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
 
 
 // TODO(oalexan1): Move some of these functions to a class or something!
-  
+
 // ImageView operator that takes the last three elements of a vector
 // (the error part) and replaces them with the norm of that 3-vector.
 struct PointAndErrorNorm : public ReturnFixedType<Vector4> {
@@ -406,10 +406,10 @@ struct PointAndErrorNorm : public ReturnFixedType<Vector4> {
     return result;
   }
 };
-  
+
 template <class ImageT>
 UnaryPerPixelView<ImageT, PointAndErrorNorm>
-inline point_and_error_norm( ImageViewBase<ImageT> const& image ) {
+inline point_and_error_norm(ImageViewBase<ImageT> const& image) {
   return UnaryPerPixelView<ImageT, PointAndErrorNorm>(image.impl(), PointAndErrorNorm());
 }
 
@@ -423,7 +423,7 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
   bool has_georef = true;
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
-  
+
   std::map<std::string, std::string> keywords; // will go to the geoheader
   if (stereo_settings().propagate_errors) {
     keywords["BAND1"] = "ECEF_X";
@@ -455,7 +455,7 @@ void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
 }
 
 // TODO(oalexan1): Move this to some low-level utils file  
-Vector3 find_approx_points_median(std::vector<Vector3> const& points){
+Vector3 find_approx_points_median(std::vector<Vector3> const& points) {
 
   // Find the median of the x coordinates of points, then of y, then of
   // z. Perturb the median a bit to ensure it is never exactly on top
@@ -468,7 +468,7 @@ Vector3 find_approx_points_median(std::vector<Vector3> const& points){
 
   Vector3 median;
   std::vector<double> V(points.size());
-  for (int i = 0; i < (int)median.size(); i++){
+  for (int i = 0; i < (int)median.size(); i++) {
     for (int p = 0; p < (int)points.size(); p++) V[p] = points[p][i];
     sort(V.begin(), V.end());
     median[i] = V[points.size()/2];
@@ -482,7 +482,7 @@ Vector3 find_approx_points_median(std::vector<Vector3> const& points){
 // Find the point cloud center
 // TODO(oalexan1): Move this to some low-level point cloud utils file
 Vector3 find_point_cloud_center(Vector2i const& tile_size,
-                                ImageViewRef<Vector6> const& point_cloud){
+                                ImageViewRef<Vector6> const& point_cloud) {
 
   // Estimate the cloud center with coarse sampling
   std::vector<Vector3> points;
@@ -490,9 +490,9 @@ Vector3 find_point_cloud_center(Vector2i const& tile_size,
     double numSamples = 25 * attempt;
     int dcol = round(point_cloud.cols()/numSamples);
     int drow = round(point_cloud.rows()/numSamples);
-    if (dcol < 1) 
+    if (dcol < 1)
       dcol = 1;
-    if (drow < 1) 
+    if (drow < 1)
       drow = 1;
 
     // Iterate over the cloud with this sampling rate
@@ -503,17 +503,17 @@ Vector3 find_point_cloud_center(Vector2i const& tile_size,
           continue; // skip invalid points
         points.push_back(xyz);
       }
-    } 
-    if (points.size() > 1) 
+    }
+    if (points.size() > 1)
       return find_approx_points_median(points);
-      
-    vw::vw_out() << "Failed to estimate the point cloud center in attempt: " 
+
+    vw::vw_out() << "Failed to estimate the point cloud center in attempt: "
                  << attempt << ". Will try again with denser sampling.\n";
   }
 
   // If sampling fails, do a more thorough algorithm. This can be very slow
   // if the point cloud has a big hole in the middle.
-  
+
   // Compute the point cloud in a tile around the center of the
   // cloud. Find the median of all the points in that cloud.  That
   // will be the cloud center. If the tile is too small, spiral away
@@ -526,14 +526,14 @@ Vector3 find_point_cloud_center(Vector2i const& tile_size,
   int numy = (int)ceil(point_cloud.rows()/double(tile_size[1]));
 
   // Trace an ever growing square "ring"
-  for (int r = 0; r <= std::max(numx/2, numy/2); r++){
-    
+  for (int r = 0; r <= std::max(numx/2, numy/2); r++) {
+
     // We are now on the boundary of the square of size 2*r with
     // center at (numx/2, numy/2). Iterate over that boundary.
-    for (int x = numx/2-r; x <= numx/2+r; x++){
-      for (int y = numy/2-r; y <= numy/2+r; y++){
+    for (int x = numx/2-r; x <= numx/2+r; x++) {
+      for (int y = numy/2-r; y <= numy/2+r; y++) {
 
-        if ( x != numx/2-r && x != numx/2+r &&
+        if (x != numx/2-r && x != numx/2+r &&
              y != numy/2-r && y != numy/2+r)
           continue; // Skip inner points; we must keep on the "ring" for given r.
 
@@ -550,8 +550,8 @@ Vector3 find_point_cloud_center(Vector2i const& tile_size,
         // many complicated calculations and the result will be
         // in memory in cropped_cloud.
         ImageView<Vector6> cropped_cloud = crop(point_cloud, tile);
-        for (int px = 0; px < cropped_cloud.cols(); px++){
-          for (int py = 0; py < cropped_cloud.rows(); py++){
+        for (int px = 0; px < cropped_cloud.cols(); px++) {
+          for (int py = 0; py < cropped_cloud.rows(); py++) {
             Vector3 xyz = subvector(cropped_cloud(px, py), 0, 3);
             if (xyz == Vector3())
               continue;
@@ -572,18 +572,18 @@ Vector3 find_point_cloud_center(Vector2i const& tile_size,
 }
 
 // TODO(oalexan1): Move this to some low-level new util file
-bool read_point(std::string const& file, Vector3 & point){
+bool read_point(std::string const& file, Vector3 & point) {
   point = Vector3();
-  
+
   std::ifstream fh(file.c_str());
   if (!fh.good()) return false;
-  
+
   for (int c = 0; c < (int)point.size(); c++)
-    if (! (fh >> point[c]) ) return false;
+    if (! (fh >> point[c])) return false;
 
   return true;
 }
-void write_point(std::string const& file, Vector3 const& point){
+void write_point(std::string const& file, Vector3 const& point) {
   std::ofstream fh(file.c_str());
   fh.precision(18); // precision(16) is not enough
   for (int c = 0; c < (int)point.size(); c++)
@@ -605,33 +605,33 @@ void disp_or_matches_work(std::string const& output_prefix,
   // Sanity check for some of the operations below
   VW_ASSERT(disparity_maps.size() == 1 && transforms.size() == 2,
             vw::ArgumentErr() << "Expecting two images and one disparity.\n");
-   
+
   ASPGlobalOptions opt = opt_vec[0];
   bool is_map_projected = opt.session->isMapProjected();
-    
+
   // Transforms to compensate for alignment
   vw::TransformPtr left_trans  = transforms[0];
   vw::TransformPtr right_trans = transforms[1];
-      
+
   // Create a disparity map with between the original unaligned images 
   if (stereo_settings().unalign_disparity) {
     std::string unaligned_disp_file = asp::unwarped_disp_file(output_prefix,
-                                                              opt.in_file1, 
+                                                              opt.in_file1,
                                                               opt.in_file2);
-    unalign_disparity(is_map_projected, disparity_maps[0], left_trans, right_trans,  
+    unalign_disparity(is_map_projected, disparity_maps[0], left_trans, right_trans,
                       opt, unaligned_disp_file);
   }
-  
+
   // If the images are mapprojected and we know the original image names,
   // use those for the match file. That because the matches are between
   // the original images, not the map-projected ones.
-  std::string img_file_key = "INPUT_IMAGE_FILE"; 
+  std::string img_file_key = "INPUT_IMAGE_FILE";
   std::string left_raw_image = opt.in_file1, right_raw_image = opt.in_file2;
   {
-    std::string img_file;  
+    std::string img_file;
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
     vw::cartography::read_header_string(*rsrc.get(), img_file_key, img_file);
-    if (!img_file.empty()) 
+    if (!img_file.empty())
       left_raw_image = img_file;
   }
   {
@@ -639,21 +639,21 @@ void disp_or_matches_work(std::string const& output_prefix,
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
     vw::cartography::read_header_string(*rsrc.get(), img_file_key, img_file);
     if (!img_file.empty())
-      right_raw_image = img_file; 
+      right_raw_image = img_file;
   }
   std::string match_file = ip::match_filename(output_prefix + "-disp",
                                               left_raw_image, right_raw_image);
-      
+
   // Pull matches from disparity.
-  if (stereo_settings().num_matches_from_disparity > 0 && 
+  if (stereo_settings().num_matches_from_disparity > 0 &&
       stereo_settings().num_matches_from_disp_triplets > 0) {
-    vw_throw( ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
-              << "--num-matches-from-disp-triplets.\n" );
+    vw_throw(ArgumentErr() << "Cannot have both --num-matches-from-disparity and  "
+              << "--num-matches-from-disp-triplets.\n");
   }
-      
+
   if (stereo_settings().num_matches_from_disparity > 0) {
     bool gen_triplets = false;
-    compute_matches_from_disp(opt, disparity_maps[0], 
+    compute_matches_from_disp(opt, disparity_maps[0],
                               left_raw_image, right_raw_image,
                               left_trans, right_trans, match_file,
                               stereo_settings().num_matches_from_disparity,
@@ -661,22 +661,22 @@ void disp_or_matches_work(std::string const& output_prefix,
   }
   if (stereo_settings().num_matches_from_disp_triplets > 0) {
     bool gen_triplets = true;
-    compute_matches_from_disp(opt, disparity_maps[0], 
+    compute_matches_from_disp(opt, disparity_maps[0],
                               left_raw_image, right_raw_image,
                               left_trans, right_trans, match_file,
                               stereo_settings().num_matches_from_disp_triplets,
                               gen_triplets, is_map_projected);
   }
-      
+
   return;
 }
 
 /// Main triangulation function
 void stereo_triangulation(std::string const& output_prefix,
                           std::vector<ASPGlobalOptions> const& opt_vec) {
-    
+
   try { // Outer try/catch
-    
+
     bool is_map_projected = opt_vec[0].session->isMapProjected();
 
     // Collect the images, cameras, and transforms. The left image is
@@ -685,7 +685,7 @@ void stereo_triangulation(std::string const& output_prefix,
     std::vector<std::string> image_files, camera_files;
     std::vector<boost::shared_ptr<camera::CameraModel>> cameras;
     std::vector<vw::TransformPtr> transforms;
-    for (int p = 0; p < (int)opt_vec.size(); p++){
+    for (int p = 0; p < (int)opt_vec.size(); p++) {
 
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
       opt_vec[p].session->camera_models(camera_model1, camera_model2);
@@ -713,18 +713,18 @@ void stereo_triangulation(std::string const& output_prefix,
     // file on disk.
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(), 0, 0);
     try{
-      if ( stereo_settings().universe_center == "camera" ) {
+      if (stereo_settings().universe_center == "camera") {
         if (opt_vec[0].session->name() == "rpc") {
           vw_throw(InputErr() << "Stereo with RPC cameras cannot "
                               << "have the camera as the universe center.\n");
         }
 
-        universe_radius_func 
+        universe_radius_func
           = stereo::UniverseRadiusFunc(cameras[0]->camera_center(Vector2()),
                                        stereo_settings().near_universe_radius,
                                        stereo_settings().far_universe_radius);
-      } else if ( stereo_settings().universe_center == "zero" ) {
-        universe_radius_func 
+      } else if (stereo_settings().universe_center == "zero") {
+        universe_radius_func
         = stereo::UniverseRadiusFunc(Vector3(),
                                      stereo_settings().near_universe_radius,
                                      stereo_settings().far_universe_radius);
@@ -745,8 +745,8 @@ void stereo_triangulation(std::string const& output_prefix,
          stereo_settings().num_matches_from_disparity > 0           ||
          stereo_settings().num_matches_from_disp_triplets > 0);
     if (do_disp_or_matches_work) {
-      disp_or_matches_work(output_prefix, opt_vec, transforms,  
-                           disparity_maps, image_files, camera_files,  
+      disp_or_matches_work(output_prefix, opt_vec, transforms,
+                           disparity_maps, image_files, camera_files,
                            // Cameras can change
                            cameras);
     }
@@ -756,7 +756,7 @@ void stereo_triangulation(std::string const& output_prefix,
       vw_out() << "\t--> Skipping triangulation in correlator mode.\n";
       return;
     }
-      
+
     if (is_map_projected)
       vw_out() << "\t--> Inputs are map projected." << "\n";
 
@@ -780,7 +780,7 @@ void stereo_triangulation(std::string const& output_prefix,
     bool bathy_correct = asp::doBathy(asp::stereo_settings());
     if (bathy_correct && !stereo_settings().skip_point_cloud_center_comp)
       opt_vec[0].session->align_bathy_masks(opt_vec[0]);
-    
+
     // Create both a regular stereo model and a bathy stereo
     // model. Will use the latter only if we do bathymetry. This way
     // the regular stereo model and bathy stereo model can have
@@ -788,16 +788,16 @@ void stereo_triangulation(std::string const& output_prefix,
     // latter. Templates are avoided too.
     vw::stereo::StereoModel stereo_model(camera_ptrs, angle_tol);
     vw::BathyStereoModel bathy_stereo_model(camera_ptrs, angle_tol);
-    
+
     // See if to return all triangulated points, the ones where bathy correction took
     // place, or the ones were it did not take place. Switch to an enum
     // as that is faster to check for later than a string.
     OUTPUT_CLOUD_TYPE cloud_type;
-    if (stereo_settings().output_cloud_type == "all") 
+    if (stereo_settings().output_cloud_type == "all")
       cloud_type = FULL_CLOUD;
-    else if (stereo_settings().output_cloud_type == "bathy") 
+    else if (stereo_settings().output_cloud_type == "bathy")
       cloud_type = BATHY_CLOUD;
-    else if (stereo_settings().output_cloud_type == "topo") 
+    else if (stereo_settings().output_cloud_type == "topo")
       cloud_type = TOPO_CLOUD;
     else
       vw_throw(ArgumentErr() << "Unknown value for --output-cloud-type.\n");
@@ -808,17 +808,17 @@ void stereo_triangulation(std::string const& output_prefix,
     if (bathy_correct) {
 
       if (disparity_maps.size() != 1)
-        vw_throw(ArgumentErr() 
+        vw_throw(ArgumentErr()
                  << "Bathymetry correction does not work with multiview stereo.\n");
 
       opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
-                                                   right_aligned_bathy_mask); 
-      
+                                                   right_aligned_bathy_mask);
+
       if (left_aligned_bathy_mask.cols() != disparity_maps[0].cols() ||
           left_aligned_bathy_mask.rows() != disparity_maps[0].rows())
-        vw_throw( ArgumentErr() << "The dimensions of disparity and left "
+        vw_throw(ArgumentErr() << "The dimensions of disparity and left "
                   << "aligned bathymetry mask must agree.\n");
-      
+
       // The bathy plane is needed only for the underwater component
       if (asp::stereo_settings().output_cloud_type != "topo") {
         int num_images = 2;
@@ -829,7 +829,7 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // Used to find the datum for the given planet
     vw::cartography::GeoReference georef = opt_vec[0].session->get_georef();
-    
+
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << "\n";
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
@@ -838,11 +838,11 @@ void stereo_triangulation(std::string const& output_prefix,
                             is_map_projected, bathy_correct, cloud_type,
                             left_aligned_bathy_mask, right_aligned_bathy_mask),
          universe_radius_func);
-    
+
     // In correlator mode, can go no further
     if (asp::stereo_settings().correlator_mode)
       return;
-    
+
     // If we crop the left and right images, at each run we must
     // recompute the cloud center, as the cropping windows may have changed.
     bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
@@ -852,7 +852,7 @@ void stereo_triangulation(std::string const& output_prefix,
     Vector3 cloud_center = Vector3();
     if (!stereo_settings().save_double_precision_point_cloud) {
       std::string cloud_center_file = output_prefix + "-PC-center.txt";
-      if (!read_point(cloud_center_file, cloud_center) || crop_left || crop_right){
+      if (!read_point(cloud_center_file, cloud_center) || crop_left || crop_right) {
         if (!stereo_settings().skip_point_cloud_center_comp) {
           vw::Stopwatch sw;
           sw.start();
@@ -860,7 +860,7 @@ void stereo_triangulation(std::string const& output_prefix,
           vw_out() << "Writing point cloud center: " << cloud_center_file << "\n";
           write_point(cloud_center_file, cloud_center);
           sw.stop();
-          vw::vw_out() << "Elapsed time in point cloud center estimation: " 
+          vw::vw_out() << "Elapsed time in point cloud center estimation: "
             << sw.elapsed_seconds() << " seconds.\n";
         }
       } else {
@@ -889,7 +889,7 @@ void stereo_triangulation(std::string const& output_prefix,
 
       ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
       save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt_vec[0]);
-    }else{
+    } else {
       ImageViewRef<Vector4> crop_pc = crop(point_and_error_norm(point_cloud), cbox);
       save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt_vec[0]);
     } // End if/else
@@ -907,17 +907,17 @@ void stereo_triangulation(std::string const& output_prefix,
 
 int main(int argc, char* argv[]) {
 
-  if (asp::stereo_settings().correlator_mode && 
-      asp::stereo_settings().num_matches_from_disparity <= 0 && 
+  if (asp::stereo_settings().correlator_mode &&
+      asp::stereo_settings().num_matches_from_disparity <= 0 &&
       asp::stereo_settings().num_matches_from_disp_triplets <= 0) {
     vw_out() << "The triangulation step is skipped with --correlator-mode.\n";
     return 0;
   }
-  
+
   try {
     xercesc::XMLPlatformUtils::Initialize();
 
-    vw_out() << "\n[ " << asp::current_posix_time_string() 
+    vw_out() << "\n[ " << asp::current_posix_time_string()
              << " ]: Stage 5 --> TRIANGULATION\n";
 
     asp::stereo_register_sessions();
@@ -944,7 +944,7 @@ int main(int argc, char* argv[]) {
     }
     opt_vec = opt_vec_new;
     if (opt_vec.empty())
-      vw_throw( ArgumentErr() << "No valid F.tif files found.\n" );
+      vw_throw(ArgumentErr() << "No valid F.tif files found.\n");
 
     // Triangulation uses small tiles.
     //---------------------------------------------------------
