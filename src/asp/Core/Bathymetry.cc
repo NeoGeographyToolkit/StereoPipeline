@@ -17,10 +17,16 @@
 
 #include <asp/Core/Bathymetry.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/FileUtils.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/BathyStereoModel.h>
 #include <vw/Core/Exception.h>
 #include <vw/Math/LevenbergMarquardt.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/PixelMask.h>
+#include <vw/Image/MaskViews.h>
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 // Turn this on to verify if Snell's law holds given the incoming and
 // outgoing rays to a plane. Then stereo_tri needs to be run with one
@@ -29,9 +35,44 @@
 
 namespace asp {
 
-using namespace vw;
-using namespace vw::stereo;
+vw::ImageViewRef<vw::PixelMask<float>> read_bathy_mask(std::string const& filename,
+                                                       float & nodata_val) {
+  float local_nodata = -std::numeric_limits<float>::max();
+  if (!vw::read_nodata_val(filename, local_nodata))
+    vw::vw_throw(vw::ArgumentErr() << "Unable to read the nodata value from "
+             << filename);
+  nodata_val = local_nodata;
+  return vw::create_mask(vw::DiskImageView<float>(filename), local_nodata);
+}
 
+void read_bathy_masks(std::vector<std::string> const& mask_filenames,
+                      std::vector<vw::ImageViewRef<vw::PixelMask<float>>> & bathy_masks) {
+  bathy_masks.clear();
+  for (size_t i = 0; i < mask_filenames.size(); i++) {
+    float nodata_val = -std::numeric_limits<float>::max(); // part of API
+    bathy_masks.push_back(read_bathy_mask(mask_filenames[i], nodata_val));
+  }
+}
+
+// Read all bathy data
+void read_bathy_data(int num_images,
+                     std::string const& bathy_mask_list,
+                     std::string const& bathy_plane_files,
+                     float refraction_index,
+                     BathyData & bathy_data) {
+  
+  std::vector<std::string> bathy_mask_files;
+  if (bathy_mask_list != "")
+    asp::read_list(bathy_mask_list, bathy_mask_files);
+
+  if (int(bathy_mask_files.size()) != num_images)
+    vw::vw_throw(vw::ArgumentErr() << "The number of bathy masks must agree with "
+             << "the number of images.\n");
+
+  read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
+  vw::readBathyPlanes(bathy_plane_files, num_images, bathy_data.bathy_planes);
+  bathy_data.refraction_index = refraction_index;
+}
 
 // For stereo will use left and right bathy masks. For bundle adjustment and
 // jitter_solve will use a list of masks.
@@ -52,29 +93,29 @@ void bathyChecks(std::string const& session_name,
     if (stereo_settings.output_cloud_type != "topo") {
 
       if (stereo_settings.refraction_index <= 1.0)
-        vw_throw(ArgumentErr() << "The water index of refraction to be used in "
+        vw::vw_throw(vw::ArgumentErr() << "The water index of refraction to be used in "
                   << "bathymetry correction must be bigger than 1.\n");
 
       if (stereo_settings.bathy_plane == "")
-        vw_throw(ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
+        vw::vw_throw(vw::ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
 
       // Sanity check reading the bathy plane
-      std::vector<vw::BathyPlaneSettings> bathy_plane_set;
-      vw::readBathyPlanes(stereo_settings.bathy_plane, num_images, bathy_plane_set);
+      std::vector<vw::BathyPlane> bathy_plane_vec;
+      vw::readBathyPlanes(stereo_settings.bathy_plane, num_images, bathy_plane_vec);
     }
 
     if (session_name.find("isis") != std::string::npos)
-      vw_throw(ArgumentErr() << "Bathymetry correction does not work with ISIS cameras.\n");
+      vw::vw_throw(vw::ArgumentErr() << "Bathymetry correction does not work with ISIS cameras.\n");
 
     if (stereo_settings.alignment_method != "homography"     &&
         stereo_settings.alignment_method != "affineepipolar" &&
         stereo_settings.alignment_method != "local_epipolar" &&
         stereo_settings.alignment_method != "none")
-      vw_throw(ArgumentErr() << "Bathymetry correction only works with alignment methods "
+      vw::vw_throw(vw::ArgumentErr() << "Bathymetry correction only works with alignment methods "
                 << "homography, affineepipolar, local_epipolar, and none.\n");
 
     if (stereo_settings.propagate_errors)
-      vw::vw_throw(ArgumentErr() << "Error propagation is not implemented when "
+      vw::vw_throw(vw::ArgumentErr() << "Error propagation is not implemented when "
                 << "bathymetry is modeled.\n");
   }
 
@@ -82,7 +123,7 @@ void bathyChecks(std::string const& session_name,
   if ((stereo_settings.refraction_index > 1.0 || 
        stereo_settings.bathy_plane != "") &&
       !doBathy(stereo_settings))
-    vw::vw_throw(ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr() 
           << "When bathymetry correction is not on, it is not necessary to "
           << "specify the water refraction index or the bathy plane.\n");
 

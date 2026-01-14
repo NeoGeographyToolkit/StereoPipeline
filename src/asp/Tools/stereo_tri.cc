@@ -51,7 +51,7 @@
 
 using namespace vw;
 
-namespace asp{
+namespace asp {
 
 enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD}; // all, below water, above water
 
@@ -181,16 +181,14 @@ public:
       return result;
     }
 
-    // See if both the left and right matching pixels are in the aligned
+    // See if both the left and right aligned matching pixels are in the aligned
     // bathymetry masks which means bathymetry correction should happen.
+    // Note that pixVec has the unwarped left and right pixels.
     Vector2 rpix = lpix + stereo::DispHelper(disp);
-    Vector2 irpix(round(rpix.x()), round(rpix.y())); // integer version
 
     // Do bathy only when the mask is invalid (under water)
-    bool do_bathy = (!is_valid(m_left_aligned_bathy_mask(lpix.x(), lpix.y())) &&
-                0 <= irpix.x() && irpix.x() < m_right_aligned_bathy_mask.cols() &&
-                0 <= irpix.y() && irpix.y() < m_right_aligned_bathy_mask.rows() &&
-                !is_valid(m_right_aligned_bathy_mask(irpix.x(), irpix.y())));
+    bool do_bathy = vw::areMasked(m_left_aligned_bathy_mask, m_right_aligned_bathy_mask, 
+                                  lpix, rpix);
 
     if (m_cloud_type == TOPO_CLOUD) {
       if (!do_bathy) {
@@ -803,7 +801,7 @@ void stereo_triangulation(std::string const& output_prefix,
       vw_throw(ArgumentErr() << "Unknown value for --output-cloud-type.\n");
 
     // Load the bathy plane and masks
-    std::vector<vw::BathyPlaneSettings> bathy_plane_set;
+    std::vector<vw::BathyPlane> bathy_plane_vec;
     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
     if (bathy_correct) {
 
@@ -822,8 +820,8 @@ void stereo_triangulation(std::string const& output_prefix,
       // The bathy plane is needed only for the underwater component
       if (asp::stereo_settings().output_cloud_type != "topo") {
         int num_images = 2;
-        vw::readBathyPlanes(stereo_settings().bathy_plane, num_images, bathy_plane_set);
-        bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_set);
+        vw::readBathyPlanes(stereo_settings().bathy_plane, num_images, bathy_plane_vec);
+        bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_vec);
       }
     }
 

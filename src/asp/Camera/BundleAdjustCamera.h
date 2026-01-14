@@ -32,6 +32,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/BaParams.h>
+#include <asp/Core/Bathymetry.h>
 
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/GdalWriteOptions.h>
@@ -93,6 +94,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
   double horizontal_stddev;
   vw::Vector<double> horizontal_stddev_vec; // may come from cameras or user
+  BathyData bathy_data;
 
   BaBaseOptions(): 
    forced_triangulation_distance(-1), 

@@ -893,21 +893,8 @@ void StereoSession::read_bathy_masks(float & left_bathy_nodata, float & right_ba
                                      vw::ImageViewRef<vw::PixelMask<float>> & left_bathy_mask,
                                      vw::ImageViewRef<vw::PixelMask<float>> & right_bathy_mask) {
 
-  std::string left_cropped_mask_file = left_cropped_bathy_mask();
-  left_bathy_nodata = -std::numeric_limits<float>::max();
-  if (!vw::read_nodata_val(left_cropped_mask_file, left_bathy_nodata))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from "
-             << left_cropped_mask_file);
-  left_bathy_mask = create_mask(DiskImageView<float>(left_cropped_mask_file),
-                                left_bathy_nodata);
-
-  std::string right_cropped_mask_file = right_cropped_bathy_mask();
-  right_bathy_nodata = -std::numeric_limits<float>::max();
-  if (!vw::read_nodata_val(right_cropped_mask_file, right_bathy_nodata))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from "
-             << right_cropped_mask_file);
-  right_bathy_mask = create_mask(DiskImageView<float>(right_cropped_mask_file),
-                                right_bathy_nodata);
+  left_bathy_mask = read_bathy_mask(left_cropped_bathy_mask(), left_bathy_nodata);
+  right_bathy_mask = read_bathy_mask(right_cropped_bathy_mask(), right_bathy_nodata);
 
   // The left image (after crop) better needs to have the same dims
   // as the left mask after crop, and same for the right
@@ -927,21 +914,10 @@ void StereoSession::read_aligned_bathy_masks
 (vw::ImageViewRef<vw::PixelMask<float>> & left_aligned_bathy_mask_image,
  vw::ImageViewRef<vw::PixelMask<float>> & right_aligned_bathy_mask_image) {
 
-  std::string left_aligned_mask_file = left_aligned_bathy_mask();
-  float left_bathy_nodata = -std::numeric_limits<float>::max();
-  if (!vw::read_nodata_val(left_aligned_mask_file, left_bathy_nodata))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from "
-             << left_aligned_mask_file);
-  left_aligned_bathy_mask_image = create_mask(DiskImageView<float>(left_aligned_mask_file),
-                                              left_bathy_nodata);
-
-  std::string right_aligned_mask_file = right_aligned_bathy_mask();
-  float right_bathy_nodata = -std::numeric_limits<float>::max();
-  if (!vw::read_nodata_val(right_aligned_mask_file, right_bathy_nodata))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from "
-             << right_aligned_mask_file);
-  right_aligned_bathy_mask_image 
-    = create_mask(DiskImageView<float>(right_aligned_mask_file), right_bathy_nodata);
+  float left_nodata = -std::numeric_limits<float>::max();
+  float right_nodata = -std::numeric_limits<float>::max();
+  left_aligned_bathy_mask_image = read_bathy_mask(left_aligned_bathy_mask(), left_nodata);
+  right_aligned_bathy_mask_image = read_bathy_mask(right_aligned_bathy_mask(), right_nodata);
 }
 
 // Align the bathy masks. This will be called in stereo_pprc and, if

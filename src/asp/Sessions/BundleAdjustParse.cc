@@ -43,7 +43,7 @@ namespace fs = boost::filesystem;
 namespace asp {
 
 // Validate the bundle_adjust options. This modifies the options structure.
-void validateBaOptions(po::variables_map const& vm,
+void loadValidateBaOptions(po::variables_map const& vm,
                        bool inline_adjustments,
                        asp::BaOptions &opt) {
 
@@ -658,7 +658,14 @@ void validateBaOptions(po::variables_map const& vm,
               << "Cannot use --calc-normalization-bounds or --calc-ip with "
               << "--stop-after-stats or --stop-after-matching.\n");
 
+  // Handle bathy options
   asp::bathyChecks(session->name(), asp::stereo_settings(), opt.image_files.size());
+  if (asp::doBathy(asp::stereo_settings()))
+    asp::read_bathy_data(opt.image_files.size(),
+                         asp::stereo_settings().bathy_mask_list, 
+                         asp::stereo_settings().bathy_plane,
+                         asp::stereo_settings().refraction_index,
+                         opt.bathy_data);
 
   return;
 }
@@ -1143,7 +1150,6 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("query-num-image-pairs", 
      po::bool_switch(&opt.query_num_image_pairs)->default_value(false)->implicit_value(true), 
      "Print how many image pairs need to find matches for, and exit.")
-    
     // For bathymetry correction
     ("bathy-mask-list", 
      po::value(&asp::stereo_settings().bathy_mask_list)->default_value(""),
@@ -1195,9 +1201,10 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
 
   // Validate the options. This also populates some fields in opt,
   // such as opt.intrinsics_options.share_intrinsics_per_sensor.
-  asp::validateBaOptions(vm, inline_adjustments, opt);
+  asp::loadValidateBaOptions(vm, inline_adjustments, opt);
 
   // This better happen here so that do not need to carry all these strings around.
+  // TODO(oalexan1): Merge this into loadValidateBaOptions.
   load_intrinsics_options(opt.solve_intrinsics, !vm["intrinsics-to-share"].defaulted(),
                           intrinsics_to_float_str, intrinsics_to_share_str,
                           opt.intrinsics_options);

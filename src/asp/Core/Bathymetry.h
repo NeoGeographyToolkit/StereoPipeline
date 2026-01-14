@@ -24,11 +24,22 @@
 
 #include <vw/Math/Vector.h>
 #include <vw/Stereo/StereoModel.h>
+#include <vw/Stereo/BathyStereoModel.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/PixelMask.h>
 
 namespace asp {
 
 class StereoSettings;
+
+// Read a bathy mask. Return the nodata value.
+vw::ImageViewRef<vw::PixelMask<float>> read_bathy_mask(std::string const& filename,
+                                                       float & nodata_val);
+
+// Read a set of bathy masks.
+void read_bathy_masks(std::vector<std::string> const& mask_filenames,
+                      std::vector<vw::ImageViewRef<vw::PixelMask<float>>> & bathy_masks);
 
 // Check that all settings are consistent for doing or not doing bathymetry correction
 void bathyChecks(std::string const& session_name,
@@ -37,6 +48,21 @@ void bathyChecks(std::string const& session_name,
 
 // If to apply bathy correction
 bool doBathy(asp::StereoSettings const& stereo_settings);
+
+// A struct to hold the bathymetry settings and data
+struct BathyData {
+  std::vector<vw::ImageViewRef<vw::PixelMask<float>>> bathy_masks;
+  std::vector<vw::BathyPlane> bathy_planes;
+  float refraction_index;
+  BathyData(): refraction_index(1.0) {}
+};
+
+// Read all bathy data
+void read_bathy_data(int num_images,
+                     std::string const& bathy_mask_list,
+                     std::string const& bathy_plane_files,
+                     float refraction_index,
+                     BathyData & bathy_data);
 
 } // end namespace asp
 
