@@ -893,8 +893,8 @@ void StereoSession::read_bathy_masks(float & left_bathy_nodata, float & right_ba
                                      vw::ImageViewRef<vw::PixelMask<float>> & left_bathy_mask,
                                      vw::ImageViewRef<vw::PixelMask<float>> & right_bathy_mask) {
 
-  left_bathy_mask = read_bathy_mask(left_cropped_bathy_mask(), left_bathy_nodata);
-  right_bathy_mask = read_bathy_mask(right_cropped_bathy_mask(), right_bathy_nodata);
+  left_bathy_mask = vw::read_bathy_mask(left_cropped_bathy_mask(), left_bathy_nodata);
+  right_bathy_mask = vw::read_bathy_mask(right_cropped_bathy_mask(), right_bathy_nodata);
 
   // The left image (after crop) better needs to have the same dims
   // as the left mask after crop, and same for the right
@@ -916,8 +916,8 @@ void StereoSession::read_aligned_bathy_masks
 
   float left_nodata = -std::numeric_limits<float>::max();
   float right_nodata = -std::numeric_limits<float>::max();
-  left_aligned_bathy_mask_image = read_bathy_mask(left_aligned_bathy_mask(), left_nodata);
-  right_aligned_bathy_mask_image = read_bathy_mask(right_aligned_bathy_mask(), right_nodata);
+  left_aligned_bathy_mask_image = vw::read_bathy_mask(left_aligned_bathy_mask(), left_nodata);
+  right_aligned_bathy_mask_image = vw::read_bathy_mask(right_aligned_bathy_mask(), right_nodata);
 }
 
 // Align the bathy masks. This will be called in stereo_pprc and, if

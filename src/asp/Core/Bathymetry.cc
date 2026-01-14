@@ -35,31 +35,12 @@
 
 namespace asp {
 
-vw::ImageViewRef<vw::PixelMask<float>> read_bathy_mask(std::string const& filename,
-                                                       float & nodata_val) {
-  float local_nodata = -std::numeric_limits<float>::max();
-  if (!vw::read_nodata_val(filename, local_nodata))
-    vw::vw_throw(vw::ArgumentErr() << "Unable to read the nodata value from "
-             << filename);
-  nodata_val = local_nodata;
-  return vw::create_mask(vw::DiskImageView<float>(filename), local_nodata);
-}
-
-void read_bathy_masks(std::vector<std::string> const& mask_filenames,
-                      std::vector<vw::ImageViewRef<vw::PixelMask<float>>> & bathy_masks) {
-  bathy_masks.clear();
-  for (size_t i = 0; i < mask_filenames.size(); i++) {
-    float nodata_val = -std::numeric_limits<float>::max(); // part of API
-    bathy_masks.push_back(read_bathy_mask(mask_filenames[i], nodata_val));
-  }
-}
-
 // Read all bathy data
 void read_bathy_data(int num_images,
                      std::string const& bathy_mask_list,
                      std::string const& bathy_plane_files,
                      float refraction_index,
-                     BathyData & bathy_data) {
+                     vw::BathyData & bathy_data) {
   
   std::vector<std::string> bathy_mask_files;
   if (bathy_mask_list != "")
@@ -69,7 +50,7 @@ void read_bathy_data(int num_images,
     vw::vw_throw(vw::ArgumentErr() << "The number of bathy masks must agree with "
              << "the number of images.\n");
 
-  read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
+  vw::read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
   vw::readBathyPlanes(bathy_plane_files, num_images, bathy_data.bathy_planes);
   bathy_data.refraction_index = refraction_index;
 }
