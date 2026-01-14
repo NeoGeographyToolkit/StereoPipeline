@@ -28,6 +28,10 @@ pc_align (:numref:`pc_align`):
   * Print to the terminal and the log file the following initial and final 
     error stats: Mean, StdDev, RMSE, Median, NMAD.
 
+Misc:
+  * Removed the unused and undocumented option ``--use-least-squares`` for ray
+    triangulation in stereo and bundle adjustment. 
+
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
 

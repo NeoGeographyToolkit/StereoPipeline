@@ -581,7 +581,7 @@ bool tri_ip_filtering(std::vector<ip::InterestPoint> const& matched_ip1,
   // Create the 'error' samples. Which are triangulation error and distance to sphere.
   double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
 
-  stereo::StereoModel model(cam1, cam2, stereo_settings().use_least_squares, angle_tol);
+  stereo::StereoModel model(cam1, cam2, angle_tol);
   size_t count = 0;
   const double HIGH_ERROR = 9999999;
   BOOST_FOREACH(size_t i, valid_indices) {
@@ -805,7 +805,7 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
   double angle_tolerance = vw::stereo::StereoModel::robust_1_minus_cos
     (stereo_settings().min_triangulation_angle*M_PI/180);
   vw::stereo::StereoModel model(left_camera_model, right_camera_model,
-                                stereo_settings().use_least_squares, angle_tolerance);
+                                angle_tolerance);
 
   // This function can be called with both unaligned and aligned interest points
   bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);
@@ -877,7 +877,7 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
   // Compute the triangulation errors
   double angle_tol = vw::stereo::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
-  stereo::StereoModel model(cam1, cam2, stereo_settings().use_least_squares, angle_tol);
+  stereo::StereoModel model(cam1, cam2, angle_tol);
   double HIGH_ERROR = std::numeric_limits<double>::max();
   for (size_t i = 0; i < ip1.size(); i++) {
     Vector3 xyz;
@@ -1024,7 +1024,7 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
   double angle_tol = vw::stereo::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
   stereo::StereoModel model(left_camera_model.get(), right_camera_model.get(),
-                            stereo_settings().use_least_squares, angle_tol);
+                            angle_tol);
 
   std::set<int> invalid_indices;
   for (size_t it = 0; it < left_aligned_ip.size(); it++) {

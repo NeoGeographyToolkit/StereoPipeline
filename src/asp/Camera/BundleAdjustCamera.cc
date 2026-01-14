@@ -1176,7 +1176,6 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
   double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
                         (asp::stereo_settings().min_triangulation_angle*M_PI/180);
   vw::stereo::StereoModel stereo_model(left_cam, right_cam, 
-                                       asp::stereo_settings().use_least_squares,
                                        angle_tol);
 
   // Create space for horiz and vert vectors of size num_ip

@@ -164,7 +164,7 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   double angle_tol = vw::stereo::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
   stereo::StereoModel model(left_camera_model.get(), right_camera_model.get(),
-                            stereo_settings().use_least_squares, angle_tol);
+                            angle_tol);
 
   float HIGH_ERROR = std::numeric_limits<float>::max();
   ImageView<float> tri_err(sub_disp.cols(), sub_disp.rows());

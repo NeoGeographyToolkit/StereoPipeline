@@ -782,10 +782,8 @@ void stereo_triangulation(std::string const& output_prefix,
     // the regular stereo model and bathy stereo model can have
     // different interfaces and the former need not know about the
     // latter. Templates are avoided too.
-    vw::stereo::StereoModel stereo_model(camera_ptrs, stereo_settings().use_least_squares,
-                                         angle_tol);
-    asp::BathyStereoModel bathy_stereo_model(camera_ptrs, stereo_settings().use_least_squares,
-                                             angle_tol);
+    vw::stereo::StereoModel stereo_model(camera_ptrs, angle_tol);
+    asp::BathyStereoModel bathy_stereo_model(camera_ptrs, angle_tol);
     
     // See if to return all triangulated points, the ones where bathy correction took
     // place, or the ones were it did not take place. Switch to an enum

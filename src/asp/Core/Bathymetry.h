@@ -63,16 +63,14 @@ public:
   // Constructors / Destructors
   //------------------------------------------------------------------
   BathyStereoModel(std::vector<const vw::camera::CameraModel *> const& cameras,
-                    bool least_squares_refine = false,
                     double angle_tol = 0.0):
-    vw::stereo::StereoModel(cameras, least_squares_refine, angle_tol), 
+    vw::stereo::StereoModel(cameras, angle_tol), 
     m_bathy_correct(false){}
   
   BathyStereoModel(vw::camera::CameraModel const* camera_model1,
                     vw::camera::CameraModel const* camera_model2,
-                    bool least_squares_refine = false,
                     double angle_tol = 0.0):
-    vw::stereo::StereoModel(camera_model1, camera_model2, least_squares_refine, angle_tol),
+    vw::stereo::StereoModel(camera_model1, camera_model2, angle_tol),
     m_bathy_correct(false), m_single_bathy_plane(true) {}
   
   virtual ~BathyStereoModel() {}

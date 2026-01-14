@@ -501,20 +501,11 @@ Vector3 BathyStereoModel::operator()(std::vector<Vector2> const& pixVec,
     if (camDirs.size() < 2) 
       return Vector3();
 
-    if (are_nearly_parallel(m_least_squares, m_angle_tol, camDirs)) 
+    if (are_nearly_parallel(m_angle_tol, camDirs)) 
       return Vector3();
 
     // Determine range by triangulation
     Vector3 uncorr_tri_pt = triangulate_point(camDirs, camCtrs, errorVec);
-    // TODO(oalexan1): Must wipe the least squares option from everywhere
-    // in VW, ASP, and docs. This is very old and not used.
-    if (m_least_squares) {
-      if (num_cams == 2)
-        refine_point(pixVec[0], pixVec[1], uncorr_tri_pt);
-      else
-        vw::vw_throw(vw::NoImplErr() << "Least squares refinement is not "
-                      << "implemented for multi-view stereo.");
-    }
   
     // Reflect points that fall behind one of the two cameras.  Do
     // not do this when bathymetry mode is on, as then we surely

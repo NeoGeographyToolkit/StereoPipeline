@@ -50,7 +50,6 @@ void BaOptions::copy_to_asp_settings() const {
   asp::stereo_settings().matches_per_tile        = matches_per_tile;
   asp::stereo_settings().matches_per_tile_params = matches_per_tile_params;
   asp::stereo_settings().no_datum                = no_datum;
-  asp::stereo_settings().use_least_squares       = false; // never true with ba
 
   // Note that by default rough homography and tri filtering are disabled
   // as input cameras may be too inaccurate for that.

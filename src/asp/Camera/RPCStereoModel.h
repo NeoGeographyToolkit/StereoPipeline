@@ -42,15 +42,13 @@ namespace asp {
     // Constructors / Destructors
     //------------------------------------------------------------------
     RPCStereoModel(std::vector<const vw::camera::CameraModel *> const& cameras,
-                   bool least_squares_refine = false,
                    double angle_tol = 0.0):
-      vw::stereo::StereoModel(cameras, least_squares_refine, angle_tol){}
+      vw::stereo::StereoModel(cameras, angle_tol){}
       
     RPCStereoModel(vw::camera::CameraModel const* camera_model1,
                    vw::camera::CameraModel const* camera_model2,
-                   bool least_squares_refine = false,
                    double angle_tol = 0.0):
-      vw::stereo::StereoModel(camera_model1, camera_model2, least_squares_refine, angle_tol){}
+      vw::stereo::StereoModel(camera_model1, camera_model2, angle_tol){}
     
     virtual ~RPCStereoModel() {}
     

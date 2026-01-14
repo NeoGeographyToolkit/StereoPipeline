@@ -95,8 +95,6 @@ StereoSettings::StereoSettings() {
   // and all the members of this class are initialized.
   initialized_stereo_settings = false;
 
-  use_least_squares = false;
-
   default_corr_timeout = 900; // in seconds
 
   nodata_value = g_nan_val;
@@ -500,9 +498,6 @@ TriangulationDescription::TriangulationDescription():
       po::bool_switch(&global.enable_velocity_aberration_correction)->default_value(false)->implicit_value(true),
       "Enable velocity aberration correction for Pleiades linescan cameras. By default, "
       "such a correction is enabled only for WorldView linescan cameras.")
-    // TODO(oalexan1): Wipe the least squares triangulation approach. Not used.
-    ("use-least-squares", po::bool_switch(&global.use_least_squares)->default_value(false)->implicit_value(true),
-      "Use rigorous least squares triangulation. This is slow for ISIS processes.")
     ;
 }
 

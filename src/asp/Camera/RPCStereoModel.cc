@@ -32,35 +32,6 @@ using namespace vw;
 using namespace std;
 namespace asp {
 
-  namespace detail {
-    class RPCTriangulateLMA : public math::LeastSquaresModelBase<RPCTriangulateLMA> {
-      const RPCModel *m_rpc_model1, *m_rpc_model2;
-    public:
-      typedef Vector<double, 4>    result_type;
-      typedef Vector<double, 3>    domain_type;
-      typedef Matrix<double, 4, 3> jacobian_type;
-
-      RPCTriangulateLMA( RPCModel const* rpc_model1,
-                         RPCModel const* rpc_model2 ) :
-        m_rpc_model1(rpc_model1), m_rpc_model2(rpc_model2) {}
-
-      inline result_type operator()( domain_type const& x ) const {
-        result_type output;
-        subvector(output, 0, 2) = m_rpc_model1->geodetic_to_pixel(x);
-        subvector(output, 2, 2) = m_rpc_model2->geodetic_to_pixel(x);
-        return output;
-      }
-
-      inline jacobian_type jacobian( domain_type const& x ) const {
-        jacobian_type J;
-        submatrix(J, 0, 0, 2, 3) = m_rpc_model1->geodetic_to_pixel_Jacobian(x);
-        submatrix(J, 2, 0, 2, 3) = m_rpc_model2->geodetic_to_pixel_Jacobian(x);
-        return J;
-      }
-
-    };
-  }
-
   Vector3 RPCStereoModel::operator()(vector<Vector2> const& pixVec,
                                      Vector3& errorVec) const {
 
@@ -106,34 +77,11 @@ namespace asp {
       if (camDirs.size() < 2) 
           return Vector3();
 
-      if (are_nearly_parallel(m_least_squares, m_angle_tol, camDirs)) 
+      if (are_nearly_parallel(m_angle_tol, camDirs)) 
           return Vector3();
 
       // Determine range by triangulation
       Vector3 result = triangulate_point(camDirs, camCtrs, errorVec);
-
-      if ( m_least_squares ){
-
-        // Refine triangulation
-
-        if (num_cams != 2)
-          vw::vw_throw(vw::NoImplErr() << "Least squares refinement is not "
-                       << "implemented for multi-view stereo.");
-
-        detail::RPCTriangulateLMA model(rpc_cams[0], rpc_cams[1]);
-        Vector4 objective(pixVec[0][0], pixVec[0][1], pixVec[1][0], pixVec[1][1]);
-        int status = 0;
-
-        Vector3 initialGeodetic = rpc_cams[0]->datum().cartesian_to_geodetic(result);
-
-        // To do: Find good values for the numbers controlling the convergence
-        Vector3 finalGeodetic = levenberg_marquardt( model, initialGeodetic,
-                                                     objective, status, 1e-3, 1e-6, 10 );
-
-        if ( status > 0 )
-          result = rpc_cams[0]->datum().geodetic_to_cartesian(finalGeodetic);
-      } // End least squares case
-
 
       // Reflect points that fall behind one of the two cameras
       bool reflect = false;
