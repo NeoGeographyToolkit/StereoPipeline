@@ -34,6 +34,15 @@ import asp_system_utils
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
+# Define wavelength limits (in nm). The first range is from the Parrish equation
+# documentation, the second is a hard error for sanity checking. The spectral
+# response tables from vendors usually go beyond the strict Parrish limits, but
+# have small responses outside the valid range.
+min_wl_warn = 400
+max_wl_warn = 700
+min_wl_err  = 300
+max_wl_err  = 1100
+
 def read_csv(filename):
     wavelengths = []
     responses = []
@@ -62,23 +71,22 @@ def read_csv(filename):
                 if resp <= 0:
                     continue
                     
-                # Check wavelength range (400-700 nm is the valid range for Parrish)
-                if wl < 400 or wl > 700:
+                # Check wavelength range
+                if wl < min_wl_warn or wl > max_wl_warn:
                     warn_range = True
 
                 # Hard error for extreme values (sanity check)
-                if wl < 300 or wl > 1100:
+                if wl < min_wl_err or wl > max_wl_err:
                     print(f"Error: Wavelength {wl} nm is out of supported range " + 
-                          "(300-1100 nm).")
+                          f"({min_wl_err}-{max_wl_err} nm).")
                     sys.exit(1)
                 
                 wavelengths.append(wl)
                 responses.append(resp)
                 
         if warn_range:
-            print("Warning: Some wavelengths are outside the valid range of 400-700 nm "
-                  "for the Parrish equation. Results may still be accurate if the "
-                  "response for those wavelengths is small.", file=sys.stderr)
+            print(f"Warning: Some wavelengths are outside the valid range of {min_wl_warn}-{max_wl_warn} nm "
+                  "for the Parrish equation. Results may be inaccurate.", file=sys.stderr)
 
     except Exception as e:
         print(f"Error reading spectral response file: {e}")
@@ -91,7 +99,7 @@ def read_csv(filename):
     return np.array(wavelengths), np.array(responses)
 
 def main():
-    usage = "refr_index --salinity <val> --temperature <val> --spectral-response <file>"
+    usage = "refr_index --salinity <val> --temperature <val> [--spectral-response <file> | --wavelength <val>]"
     parser = argparse.ArgumentParser(usage=usage,
                                      description="Compute effective refraction index.")
 
@@ -99,8 +107,13 @@ def main():
                         help='Salinity in parts per thousand (ppt).')
     parser.add_argument('--temperature', type=float, default=-1.0,
                         help='Temperature in degrees Celsius.')
-    parser.add_argument('--spectral-response', type=str, default="",
+    
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--spectral-response', type=str, default="",
                         help='CSV file containing the spectral response.')
+    group.add_argument('--wavelength', type=float, default=-1.0,
+                        help='Calculate the refraction index for a single wavelength (in nm).')
+
     parser.add_argument('-v', '--version', action='store_true',
                         help='Display the version of software.')
 
@@ -116,9 +129,6 @@ def main():
     if args.temperature == -1.0:
         print("Error: --temperature must be specified.")
         sys.exit(1)
-    if not args.spectral_response:
-        print("Error: --spectral-response must be specified.")
-        sys.exit(1)
 
     if args.salinity < 0:
         print("Error: Salinity must be non-negative.")
@@ -126,10 +136,6 @@ def main():
 
     if not (0 <= args.temperature <= 30):
         print("Error: Temperature must be between 0 and 30 degrees Celsius.")
-        sys.exit(1)
-
-    if not os.path.exists(args.spectral_response):
-        print(f"Error: Spectral response file not found: {args.spectral_response}")
         sys.exit(1)
 
     # Coefficients for Parrish empirical equation
@@ -159,9 +165,26 @@ def main():
     for key in params_0:
         params[key] = params_0[key] + s_factor * (params_35[key] - params_0[key])
 
-    # Read spectral response
-    wavelengths, responses = read_csv(args.spectral_response)
-    
+    if args.spectral_response:
+        if not os.path.exists(args.spectral_response):
+            print(f"Error: Spectral response file not found: {args.spectral_response}")
+            sys.exit(1)
+        # Read spectral response
+        wavelengths, responses = read_csv(args.spectral_response)
+    else:
+        # Single wavelength case
+        wl = args.wavelength
+        # Check wavelength range
+        if wl < min_wl_warn or wl > max_wl_warn:
+             print(f"Warning: Wavelength is outside the valid range of {min_wl_warn}-{max_wl_warn} nm "
+                   "for the Parrish equation. Result may be inaccurate.", file=sys.stderr)
+        if wl < min_wl_err or wl > max_wl_err:
+             print(f"Error: Wavelength {wl} nm is out of supported range " + 
+                   f"({min_wl_err}-{max_wl_err} nm).")
+             sys.exit(1)
+        wavelengths = np.array([wl])
+        responses = np.array([1.0])
+
     if np.sum(responses) == 0:
         print("Error: Sum of spectral responses is zero.")
         sys.exit(1)

@@ -7,13 +7,18 @@ The ``refr_index`` program computes the effective refraction index of water for
 a specific satellite sensor band and given temperature and salinity. This has
 applications for shallow water bathymetry (:numref:`shallow_water_bathy`).
 
-Example
-~~~~~~~
+Examples
+~~~~~~~~
 
-::
+Single wavelength refraction index::
+
+    refr_index --salinity 35 --temperature 20 \
+        --wavelength 550
+
+Provide a spectral response file::
     
-  refr_index --salinity 35 --temperature 20 \ 
-    --spectral-response WV03_NIR.csv
+  refr_index --salinity 35 --temperature 20 \
+    --spectral-response WV03_Green.csv
 
 The result is printed to standard output.
 
@@ -47,9 +52,10 @@ Example::
     525 0.80684987
 
 The wavelengths should be in the range supported by the Parrish empirical
-equation (typically 400 nm to 700 nm). A warning will be printed for values 
-outside this range, and an error will be raised for extreme values (below 300
-and above 1100 nm). Values with non-positive response will be ignored.
+equation (see below). The range is 400 nm to 700 nm. A warning will be printed
+for values outside this range, and an error will be raised for extreme values
+(below 300 and above 1100 nm). Values with non-positive response will be
+ignored.
 
 Salinity and temperature
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -78,6 +84,11 @@ Command-line options
 --spectral-response <string>
     CSV file containing the spectral response of the sensor band.
     See an example in :numref:`spectral_response`.
+    Mutually exclusive with ``--wavelength``.
+
+--wavelength <float>
+    Calculate the refraction index for a single wavelength (in nm).
+    Mutually exclusive with ``--spectral-response``.
 
 -v, --version
     Display the version of software.
