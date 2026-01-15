@@ -58,6 +58,10 @@ def read_csv(filename):
                 wl = float(parts[0])
                 resp = float(parts[1])
                 
+                # Only include positive responses
+                if resp <= 0:
+                    continue
+                    
                 # Check wavelength range (400-700 nm is the valid range for Parrish)
                 if wl < 400 or wl > 700:
                     warn_range = True
@@ -73,7 +77,8 @@ def read_csv(filename):
                 
         if warn_range:
             print("Warning: Some wavelengths are outside the valid range of 400-700 nm "
-                  "for the Parrish equation. Results may be inaccurate.", file=sys.stderr)
+                  "for the Parrish equation. Results may still be accurate if the "
+                  "response for those wavelengths is small.", file=sys.stderr)
 
     except Exception as e:
         print(f"Error reading spectral response file: {e}")

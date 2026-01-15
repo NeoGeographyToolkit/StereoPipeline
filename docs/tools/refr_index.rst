@@ -35,16 +35,21 @@ response.
 The spectral response CSV file must have two columns, with the wavelength (in
 nanometers) in the first column, the relative response for that wavelength in
 the second one. Use commas, spaces, or tabs as separators. The first line must
-be a header and will be ignored. The wavelengths should be in the range
-supported by the Parrish empirical equation (typically 400 nm to 800 nm).
+be a header and will be ignored. 
 
 Example::
 
     wavelength response
-    350 4.16E-07
-    351 3.55E-07
-    352 2.93E-07
-    353 2.27E-07
+    521 0.78240309
+    522 0.78540934
+    523 0.79221241
+    524 0.79904049
+    525 0.80684987
+
+The wavelengths should be in the range supported by the Parrish empirical
+equation (typically 400 nm to 700 nm). A warning will be printed for values 
+outside this range, and an error will be raised for extreme values (below 300
+and above 1100 nm). Values with non-positive response will be ignored.
 
 Salinity and temperature
 ^^^^^^^^^^^^^^^^^^^^^^^^
