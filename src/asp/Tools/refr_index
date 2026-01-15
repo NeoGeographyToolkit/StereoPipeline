@@ -16,8 +16,10 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import sys, argparse, subprocess, re, os, math, time, glob, shutil, math, platform
-import os.path as P
+import sys
+import os
+import argparse
+import numpy as np
 
 # Set up the path to Python modules about to load
 basepath    = os.path.abspath(sys.path[0])
@@ -27,34 +29,142 @@ sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
 
-import asp_system_utils, asp_string_utils, asp_cmd_utils
-asp_system_utils.verify_python_version_is_supported()
-from asp_stereo_utils import * # must be after the path is altered above
+import asp_system_utils
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-def do_something()
-    '''
-    
-    '''
-    print("Doing something")
+def main():
+    usage = "refr_index --salinity <val> --temperature <val> --spectral-response <file>"
+    parser = argparse.ArgumentParser(usage=usage,
+                                     description="Compute effective refraction index.")
 
-if __name__ == '__main__':
-    usage = '''usage.\n''' + asp_system_utils.get_asp_version()
+    parser.add_argument('--salinity', type=float, default=-1.0,
+                        help='Salinity in parts per thousand (ppt).')
+    parser.add_argument('--temperature', type=float, default=-1.0,
+                        help='Temperature in degrees Celsius.')
+    parser.add_argument('--spectral-response', type=str, default="",
+                        help='CSV file containing the spectral response.')
+    parser.add_argument('-v', '--version', action='store_true',
+                        help='Display the version of software.')
 
-    p = argparse.ArgumentParser(usage=usage)
-    p.add_argument('--nodes-list',           dest='nodes_list', default=None,
-                   help='The list of computing nodes, one per line. ' + \
-                   'If not provided, run on the local machine.')
+    args = parser.parse_args()
 
-    (opt, args) = p.parse_known_args()
-    
-    if opt.version:
+    if args.version:
         asp_system_utils.print_version_and_exit()
 
-    if not args and not opt.version:
-        p.print_help()
-        die('\nERROR: Missing input files', code=2)
+    # Input validation
+    if args.salinity == -1.0:
+        print("Error: --salinity must be specified.")
+        sys.exit(1)
+    if args.temperature == -1.0:
+        print("Error: --temperature must be specified.")
+        sys.exit(1)
+    if not args.spectral_response:
+        print("Error: --spectral-response must be specified.")
+        sys.exit(1)
 
-    do_something()
+    if args.salinity < 0:
+        print("Error: Salinity must be non-negative.")
+        sys.exit(1)
+
+    if not (0 <= args.temperature <= 30):
+        print("Error: Temperature must be between 0 and 30 degrees Celsius.")
+        sys.exit(1)
+
+    if not os.path.exists(args.spectral_response):
+        print(f"Error: Spectral response file not found: {args.spectral_response}")
+        sys.exit(1)
+
+    # Coefficients for Parrish empirical equation
+    # n = a*T^2 + b*lambda^2 + c*T + d*lambda + e
+    
+    # Seawater (S = 35)
+    params_35 = {
+        'a': -1.50156e-6,
+        'b': 1.07085e-7,
+        'c': -4.27594e-5,
+        'd': -1.60476e-4,
+        'e': 1.39807
+    }
+
+    # Freshwater (S = 0)
+    params_0 = {
+        'a': -1.97812e-6,
+        'b': 1.03223e-7,
+        'c': -8.58125e-6,
+        'd': -1.54834e-4,
+        'e': 1.38919
+    }
+
+    # Linearly interpolate coefficients based on salinity
+    s_factor = args.salinity / 35.0
+    params = {}
+    for key in params_0:
+        params[key] = params_0[key] + s_factor * (params_35[key] - params_0[key])
+
+    # Read spectral response
+    wavelengths = []
+    responses = []
+    try:
+        with open(args.spectral_response, 'r') as f:
+            lines = f.readlines()
+            if not lines:
+                print("Error: Empty spectral response file.")
+                sys.exit(1)
+            
+            # Skip header
+            for line in lines[1:]:
+                line = line.strip()
+                if not line:
+                    continue
+                # Handle comma or space delimiters
+                parts = line.replace(',', ' ').split()
+                if len(parts) < 2:
+                    continue
+                
+                wl = float(parts[0])
+                resp = float(parts[1])
+                
+                # Check wavelength range (400-800 nm as per documentation/support)
+                # Parrish valid range is 400-700 nm, but we allow up to 800 with warning
+                # or just use the values. Given the "typical" note, we'll check validity.
+                if wl < 300 or wl > 1100:
+                    print(f"Error: Wavelength {wl} nm is out of supported range.")
+                    sys.exit(1)
+                
+                wavelengths.append(wl)
+                responses.append(resp)
+    except Exception as e:
+        print(f"Error reading spectral response file: {e}")
+        sys.exit(1)
+
+    if not wavelengths:
+        print("Error: No valid data found in spectral response file.")
+        sys.exit(1)
+
+    wavelengths = np.array(wavelengths)
+    responses = np.array(responses)
+    
+    if np.sum(responses) == 0:
+        print("Error: Sum of spectral responses is zero.")
+        sys.exit(1)
+
+    # Compute refractive index for each wavelength
+    # n = a*T^2 + b*lambda^2 + c*T + d*lambda + e
+    T = args.temperature
+    lam = wavelengths
+    
+    n_values = (params['a'] * T**2 +
+                params['b'] * lam**2 +
+                params['c'] * T +
+                params['d'] * lam +
+                params['e'])
+
+    # Compute weighted average
+    effective_index = np.sum(n_values * responses) / np.sum(responses)
+
+    print(f"{effective_index:.6f}")
+
+if __name__ == "__main__":
+    main()

@@ -186,11 +186,14 @@ Having these in place, stereo can then happen as follows:
 
 ::
 
-    parallel_stereo -t dg left.tif right.tif left.xml right.xml \
-      --left-bathy-mask left_mask.tif                           \
-      --right-bathy-mask right_mask.tif                         \
-      --stereo-algorithm asp_mgm                                \
-      --refraction-index 1.34 --bathy-plane bathy_plane.txt     \
+    parallel_stereo -t dg               \
+      left.tif right.tif                \
+      left.xml right.xml                \
+      --left-bathy-mask left_mask.tif   \
+      --right-bathy-mask right_mask.tif \
+      --stereo-algorithm asp_mgm        \
+      --refraction-index 1.34           \
+      --bathy-plane bathy_plane.txt     \
       run_bathy/run 
  
 Here we specified the two masks, the water index of refraction, and
@@ -203,17 +206,15 @@ This is followed by creating a DEM (:numref:`point2dem`)::
 
     point2dem run_bathy/run-PC.tif --orthoimage run_bathy/run-L.tif 
 
-The water refraction index was set 1.34 :cite:`jerlov1976marine`. 
-Alternatively, one could use 1.333 
-:cite:`thormahlen1985refractive,harvey1998calibration`, or a more
-precise value that depends on wavelength, temperature, and if having
+The water refraction index was set 1.34 :cite:`jerlov1976marine`. Alternatively,
+one could use 1.333 :cite:`thormahlen1985refractive,harvey1998calibration`, or a
+more precise value that depends on wavelength, temperature, and if having
 saltwater or freshwater (`Parrish (2020)
 <http://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_,
-:cite:`austin1976index,mobley1995optical`).  For example, using the
-equation and coefficients found in Parrish (2020), and the green
-wavelength for saltwater, the water refraction index is 1.340125 when
-the water temperature is 27 |deg| C (this was applied to a Florida
-Keys test site for the month of May). 
+:cite:`austin1976index,mobley1995optical`).  For example, using the equation and
+coefficients found in Parrish (2020), and the green wavelength for saltwater,
+the water refraction index is 1.340125 when the water temperature is 27 |deg| C
+(this was applied to a Florida Keys test site for the month of May). 
 
 The refraction index can be computed with the :ref:`refr_index` program.
 
