@@ -34,8 +34,8 @@ response.
 
 The spectral response CSV file must have two columns, with the wavelength (in
 nanometers) in the first column, the relative response for that wavelength in
-the second one. Use commas or spaces as separators. The first line must be a
-header and will be ignored. The wavelengths should be in the range 
+the second one. Use commas, spaces, or tabs as separators. The first line must
+be a header and will be ignored. The wavelengths should be in the range
 supported by the Parrish empirical equation (typically 400 nm to 800 nm).
 
 Example::

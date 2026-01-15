@@ -34,6 +34,57 @@ import asp_system_utils
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
+def read_csv(filename):
+    wavelengths = []
+    responses = []
+    warn_range = False
+    try:
+        with open(filename, 'r') as f:
+            lines = f.readlines()
+            if not lines:
+                print("Error: Empty spectral response file.")
+                sys.exit(1)
+            
+            # Skip header
+            for line in lines[1:]:
+                line = line.strip()
+                if not line:
+                    continue
+                # Handle comma or space delimiters
+                parts = line.replace(',', ' ').split()
+                if len(parts) < 2:
+                    continue
+                
+                wl = float(parts[0])
+                resp = float(parts[1])
+                
+                # Check wavelength range (400-700 nm is the valid range for Parrish)
+                if wl < 400 or wl > 700:
+                    warn_range = True
+
+                # Hard error for extreme values (sanity check)
+                if wl < 300 or wl > 1100:
+                    print(f"Error: Wavelength {wl} nm is out of supported range " + 
+                          "(300-1100 nm).")
+                    sys.exit(1)
+                
+                wavelengths.append(wl)
+                responses.append(resp)
+                
+        if warn_range:
+            print("Warning: Some wavelengths are outside the valid range of 400-700 nm "
+                  "for the Parrish equation. Results may be inaccurate.", file=sys.stderr)
+
+    except Exception as e:
+        print(f"Error reading spectral response file: {e}")
+        sys.exit(1)
+
+    if not wavelengths:
+        print("Error: No valid data found in spectral response file.")
+        sys.exit(1)
+        
+    return np.array(wavelengths), np.array(responses)
+
 def main():
     usage = "refr_index --salinity <val> --temperature <val> --spectral-response <file>"
     parser = argparse.ArgumentParser(usage=usage,
@@ -104,47 +155,7 @@ def main():
         params[key] = params_0[key] + s_factor * (params_35[key] - params_0[key])
 
     # Read spectral response
-    wavelengths = []
-    responses = []
-    try:
-        with open(args.spectral_response, 'r') as f:
-            lines = f.readlines()
-            if not lines:
-                print("Error: Empty spectral response file.")
-                sys.exit(1)
-            
-            # Skip header
-            for line in lines[1:]:
-                line = line.strip()
-                if not line:
-                    continue
-                # Handle comma or space delimiters
-                parts = line.replace(',', ' ').split()
-                if len(parts) < 2:
-                    continue
-                
-                wl = float(parts[0])
-                resp = float(parts[1])
-                
-                # Check wavelength range (400-800 nm as per documentation/support)
-                # Parrish valid range is 400-700 nm, but we allow up to 800 with warning
-                # or just use the values. Given the "typical" note, we'll check validity.
-                if wl < 300 or wl > 1100:
-                    print(f"Error: Wavelength {wl} nm is out of supported range.")
-                    sys.exit(1)
-                
-                wavelengths.append(wl)
-                responses.append(resp)
-    except Exception as e:
-        print(f"Error reading spectral response file: {e}")
-        sys.exit(1)
-
-    if not wavelengths:
-        print("Error: No valid data found in spectral response file.")
-        sys.exit(1)
-
-    wavelengths = np.array(wavelengths)
-    responses = np.array(responses)
+    wavelengths, responses = read_csv(args.spectral_response)
     
     if np.sum(responses) == 0:
         print("Error: Sum of spectral responses is zero.")
@@ -164,7 +175,7 @@ def main():
     # Compute weighted average
     effective_index = np.sum(n_values * responses) / np.sum(responses)
 
-    print(f"{effective_index:.6f}")
+    print(f"Effective index: {effective_index:.6f}")
 
 if __name__ == "__main__":
     main()
