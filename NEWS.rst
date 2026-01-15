@@ -1,6 +1,10 @@
 Changes since last release
 --------------------------
 
+bathymetry (:numref:`shallow_water_bathy`):
+  * Added a program for computing the effective refraction index of water 
+    for a satellite band (:numref:`refr_index`).
+    
 image_calc (:numref:`image_calc`):
   * Added the option ``--stretch`` to stretch an image and save it with 8-bit
     pixels, for visualization purposes (:numref:`image_calc_stretch`).

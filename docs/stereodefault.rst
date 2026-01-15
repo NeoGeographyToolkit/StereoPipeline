@@ -9,15 +9,14 @@ process images. The ``stereo.default`` file is loaded from the current working
 directory, unless a different file is specified with the ``-s`` option. The file
 extension is not important. 
 
-As mentioned in :numref:`cmdline`, all the ``parallel_stereo``
-parameters can also be specified on the command line, by prepending
-them with two dashes. The command-line options take precedence
-over what is specified in this file.
+As mentioned in :numref:`cmdline`, all the ``parallel_stereo`` parameters can
+also be specified on the command line, by prepending them with two dashes. The
+command-line options take precedence over what is specified in this file.
 
-A sample ``stereo.default.example`` file is included in the top-level
-directory of the Stereo Pipeline software distribution. That
-configuration is optimized for speed. See :numref:`nextsteps` for
-various speed-vs-accuracy tradeoffs of stereo algorithms.
+A sample ``stereo.default.example`` file is included in the top-level directory
+of the Stereo Pipeline software distribution. That configuration is optimized
+for speed. See :numref:`nextsteps` for various speed-vs-accuracy tradeoffs of
+stereo algorithms.
 
 Listed below are the parameters used by ``parallel_stereo``, grouped
 by processing stage.
@@ -922,7 +921,8 @@ bathy-plane (*string*)
 
 refraction-index (*double*) (default = 0.0) 
     The index of refraction of water to be used in bathymetry correction.
-    (Must be specified and bigger than 1.)
+    Must be specified and bigger than 1. This index can be computed with
+    the :ref:`refr_index` program.
 
 output-cloud-type arg (*string*) (default = all)
     When bathymetry correction is used, return only the triangulated cloud of 

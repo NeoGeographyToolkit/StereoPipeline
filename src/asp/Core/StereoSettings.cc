@@ -237,7 +237,9 @@ PreProcessingDescription::PreProcessingDescription():
     ("bathy-plane", po::value(&global.bathy_plane),
       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
     ("refraction-index", po::value(&global.refraction_index)->default_value(0),
-      "The index of refraction of water to be used in bathymetry correction. (Must be specified and bigger than 1.)")
+      "The index of refraction of water to be used in bathymetry correction. "
+      "Must be specified and bigger than 1. This index can be computed with "
+      "the refr_index program.")
     ("output-cloud-type", po::value(&global.output_cloud_type)->default_value("all"),
       "When bathymetry correction is used, return only the triangulated cloud of points where the bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo'), or the full cloud (option: 'all'). The default is 'all'.")
     ;

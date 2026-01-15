@@ -360,7 +360,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
     ("refraction-index", 
      po::value(&asp::stereo_settings().refraction_index)->default_value(0),
-      "The index of refraction of water to be used in bathymetry correction. (Must be specified and bigger than 1.)")
+      "The index of refraction of water to be used in bathymetry correction. "
+      "Must be specified and bigger than 1. This index can be computed with "
+      "the refr_index program.")
     ;
     general_options.add(vw::GdalWriteOptionsDescription(opt));
   po::options_description positional("");

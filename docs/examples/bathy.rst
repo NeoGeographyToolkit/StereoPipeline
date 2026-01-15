@@ -213,7 +213,9 @@ saltwater or freshwater (`Parrish (2020)
 equation and coefficients found in Parrish (2020), and the green
 wavelength for saltwater, the water refraction index is 1.340125 when
 the water temperature is 27 |deg| C (this was applied to a Florida
-Keys test site for the month of May).
+Keys test site for the month of May). 
+
+The refraction index can be computed with the :ref:`refr_index` program.
 
 The obtained point cloud will have both triangulated points above water,
 so with no correction, and below water, with the correction applied.
