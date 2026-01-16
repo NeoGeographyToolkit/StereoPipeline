@@ -428,8 +428,15 @@ void run_cam_test(Options & opt) {
         // Shoot a ray from the cam1 camera, intersect it with the
         // given height above datum, and project it back into the cam2
         // camera.
-        Vector3 xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                          cam1_ctr, cam1_dir);
+        Vector3 xyz;
+        if (!have_bathy_plane)
+          xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                    cam1_ctr, cam1_dir);
+        else
+          xyz = vw::datumBathyIntersection(cam1_ctr, cam1_dir,
+                                           major_axis, minor_axis,
+                                           opt.bathy_plane_vec[0],
+                                           opt.refraction_index);
         // Skip invalid intersections
         if (xyz == Vector3(0, 0, 0))
           continue;
@@ -451,8 +458,14 @@ void run_cam_test(Options & opt) {
         // Shoot a ray from the cam2 camera, intersect it with the
         // given height above the datum, and project it back into the
         // cam1 camera.
-        xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                  cam2_ctr, cam2_dir);
+        if (!have_bathy_plane)
+          xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
+                                                    cam2_ctr, cam2_dir);
+        else
+          xyz = vw::datumBathyIntersection(cam2_ctr, cam2_dir,
+                                           major_axis, minor_axis,
+                                           opt.bathy_plane_vec[0],
+                                           opt.refraction_index);
         // Skip invalid intersections
         if (xyz == Vector3(0, 0, 0))
           continue;
