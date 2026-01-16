@@ -77,7 +77,12 @@ Running this command will produce an output as follows::
     Mean plane height above datum (meters): -22.2469
     Writing: plane.txt
 
-The file ``plane.txt`` will look like this::
+.. _bathy_plane_def:
+
+Bathy plane definition
+^^^^^^^^^^^^^^^^^^^^^^
+
+The file ``plane.txt`` having the bathy plane will look like this::
 
   -0.0090 0.0130 0.9998 22.2460
   # Latitude and longitude of the local stereographic projection with the WGS_1984 datum:
@@ -366,8 +371,7 @@ Command-line options for bathy_plane_calc
     The camera file to use with the mask.
 
 --bathy-plane arg                     
-    The output file storing the computed plane as four coefficients
-    a, b, c, d, with the plane being a*x + b*y + c*z + d = 0.
+    The output file storing the computed plane (:numref:`bathy_plane_def`).
 
 --output-inlier-shapefile <string (default: "")>
     If specified, save at this location the shape file with the inlier

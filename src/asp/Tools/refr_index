@@ -16,6 +16,13 @@
 #  limitations under the License.
 # __END_LICENSE__
 
+"""
+Compute the effective refractive index of water for a given temperature, salinity,
+and wavelength or spectral response. Uses the Parrish empirical equation.
+
+Reference: https://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature
+"""
+
 import sys
 import os
 import argparse
@@ -64,8 +71,12 @@ def read_csv(filename):
                 if len(parts) < 2:
                     continue
                 
-                wl = float(parts[0])
-                resp = float(parts[1])
+                try:
+                    wl = float(parts[0])
+                    resp = float(parts[1])
+                except ValueError:
+                    print(f"Warning: Skipping invalid line: {line}", file=sys.stderr)
+                    continue
                 
                 # Only include positive responses
                 if resp <= 0:
@@ -94,6 +105,10 @@ def read_csv(filename):
 
     if not wavelengths:
         print("Error: No valid data found in spectral response file.")
+        sys.exit(1)
+    
+    if not responses:
+        print("Error: No valid responses found in spectral response file.")
         sys.exit(1)
         
     return np.array(wavelengths), np.array(responses)
@@ -140,6 +155,7 @@ def main():
 
     # Coefficients for Parrish empirical equation
     # n = a*T^2 + b*lambda^2 + c*T + d*lambda + e
+    # Reference: https://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature
     
     # Seawater (S = 35)
     params_35 = {
@@ -171,6 +187,13 @@ def main():
             sys.exit(1)
         # Read spectral response
         wavelengths, responses = read_csv(args.spectral_response)
+        
+        if len(wavelengths) == 0:
+            print("Error: No valid wavelengths found in spectral response file.")
+            sys.exit(1)
+        if len(responses) == 0:
+            print("Error: No valid responses found in spectral response file.")
+            sys.exit(1)
     else:
         # Single wavelength case
         wl = args.wavelength

@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -41,6 +41,7 @@
 #endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/Cartography/DatumUtils.h>
+#include <vw/Cartography/BathyStereoModel.h>
 #include <vw/Core/Stopwatch.h>
 
 using namespace vw;
@@ -50,11 +51,12 @@ namespace fs = boost::filesystem;
 
 struct Options: vw::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix,
-  cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum;
+  cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum, bathy_plane;
   int sample_rate;
-  double subpixel_offset, height_above_datum;
+  double subpixel_offset, height_above_datum, refraction_index;
   bool print_per_pixel_results, aster_use_csm, aster_vs_csm, test_error_propagation;
   vw::Vector2 single_pixel;
+  std::vector<vw::BathyPlane> bathy_plane_vec;
 
   Options() {}
 };
@@ -102,6 +104,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("test-error-propagation", po::bool_switch(&opt.test_error_propagation)->default_value(false)->implicit_value(true),
      "Test computing the stddev (see --propagate-errors). This is an undocumented "
      "developer option.")
+    ("bathy-plane", po::value(&opt.bathy_plane),
+     "Read from this file a bathy plane, so a water surface which is a plane in local "
+     "projected coordinates. A ray from the camera to the ellipsoid determined by "
+     "--height-above-datum that encounters this bathy plane along the way will get bent "
+     "according to Snell's law. Same for a ray going in reverse.")
+    ("refraction-index", po::value(&opt.refraction_index)->default_value(1.0),
+     "The index of refraction of water to be used in bathymetry correction. "
+     "Must be bigger than 1. This index can be computed with refr_index.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -143,6 +153,27 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
   if (opt.test_error_propagation)
     asp::stereo_settings().propagate_errors = true;
+
+  // Validate bathymetry options
+  bool have_bathy_plane = (opt.bathy_plane != "");
+  bool have_refraction = (opt.refraction_index > 1.0);
+  
+  if (have_bathy_plane && !have_refraction)
+    vw_throw(ArgumentErr() << "When --bathy-plane is set, --refraction-index must be "
+             << "specified and bigger than 1.\n");
+  
+  if (!have_bathy_plane && have_refraction)
+    vw_throw(ArgumentErr() << "When --refraction-index is set, --bathy-plane must "
+             << "also be specified.\n");
+
+  // Load bathy plane if specified
+  if (have_bathy_plane) {
+    int num_images = 1; 
+    vw::readBathyPlanes(opt.bathy_plane, num_images, opt.bathy_plane_vec);
+    vw_out() << "Loaded bathy plane: " << opt.bathy_plane << "\n";
+    vw_out() << "Refraction index: " << opt.refraction_index << "\n";
+  }
+  
 }
 
 // Sort the diffs and print some stats

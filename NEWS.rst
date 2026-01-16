@@ -5,17 +5,6 @@ bathymetry (:numref:`shallow_water_bathy`):
   * Added a program for computing the effective refraction index of water 
     for a satellite band (:numref:`refr_index`).
     
-image_calc (:numref:`image_calc`):
-  * Added the option ``--stretch`` to stretch an image and save it with 8-bit
-    pixels, for visualization purposes (:numref:`image_calc_stretch`).
-  * For a single input image, the option ``-c`` (calculation operation) defaults
-    to ``var_0`` (identity operation).
-  * The default output data type is now ``float32`` (previously ``float64``).
-
-disparitydebug (:numref:`disparitydebug`):
-  * Added the option ``--raw`` to extract the horizontal and vertical
-    disparities without normalization (:numref:`raw_disp`).
-
 bathy_plane_calc (:numref:`bathy_plane_calc`):
   * Refined the algorithm by taking into account that given a mask of land
     pixels, the true water interface is somewhere half way between those and the
@@ -28,6 +17,21 @@ bathy_plane_calc (:numref:`bathy_plane_calc`):
   * Removed the option ``--use-ecef-water-surface``. It is now always assumed
     that the bathy plane is computed in local projected coordinates.
     
+cam_test (:numref:`cam_test`):
+  * Added the options ``--bathy-plane`` and ``--refraction-index`` to model
+    bathymetry correction with ray bending according to Snell's law.
+
+image_calc (:numref:`image_calc`):
+  * Added the option ``--stretch`` to stretch an image and save it with 8-bit
+    pixels, for visualization purposes (:numref:`image_calc_stretch`).
+  * For a single input image, the option ``-c`` (calculation operation) defaults
+    to ``var_0`` (identity operation).
+  * The default output data type is now ``float32`` (previously ``float64``).
+
+disparitydebug (:numref:`disparitydebug`):
+  * Added the option ``--raw`` to extract the horizontal and vertical
+    disparities without normalization (:numref:`raw_disp`).
+
 pc_align (:numref:`pc_align`):
   * Print to the terminal and the log file the following initial and final 
     error stats: Mean, StdDev, RMSE, Median, NMAD.

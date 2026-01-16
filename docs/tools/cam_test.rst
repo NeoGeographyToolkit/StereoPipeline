@@ -134,6 +134,17 @@ Command-line options
 --aster-vs-csm
     Compare projecting into the camera without and with using the CSM
     model for ASTER.    
+
+--bathy-plane <string>
+    Read from this file a bathy plane, so a water surface which is a plane in
+    local projected coordinates (:numref:`bathy_plane_def`). A ray from the
+    camera to the ellipsoid determined by ``--height-above-datum`` that
+    encounters this bathy plane along the way will get bent according to Snell's
+    law. Same for a ray going in reverse.
+
+--refraction-index <double (default: 1.0)>
+    The index of refraction of water to be used in bathymetry correction.
+    Must be bigger than 1. This index can be computed with :ref:`refr_index`.
     
 -h, --help
     Display the help message.

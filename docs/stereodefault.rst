@@ -914,10 +914,9 @@ Triangulation stage
 ~~~~~~~~~~~~~~~~~~~
 
 bathy-plane (*string*)
-    The file storing the water plane used for bathymetry having the coefficients 
-    a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate
-    bathy planes can be used for the left and right images, to be passed in
-    as 'left_plane.txt right_plane.txt'.
+    The file storing the water plane used for bathymetry 
+    (:numref:`bathy_plane_def`). Separate bathy planes can be used for the left 
+    and right images, to be passed in as 'left_plane.txt right_plane.txt'.
 
 refraction-index (*double*) (default = 0.0) 
     The index of refraction of water to be used in bathymetry correction.
