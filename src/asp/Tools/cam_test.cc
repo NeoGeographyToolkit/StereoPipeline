@@ -393,6 +393,8 @@ void run_cam_test(Options & opt) {
   double major_axis = datum.semi_major_axis() + opt.height_above_datum;
   double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
   
+  bool have_bathy_plane = (opt.bathy_plane != "");
+  
   // Iterate over the image
   bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
   std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff;

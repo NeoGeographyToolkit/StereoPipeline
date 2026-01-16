@@ -28,11 +28,6 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
 
-// Turn this on to verify if Snell's law holds given the incoming and
-// outgoing rays to a plane. Then stereo_tri needs to be run with one
-// thread as this will print a lot of text.
-#define DEBUG_BATHY 0
-
 namespace asp {
 
 // Read all bathy data
@@ -86,14 +81,16 @@ void bathyChecks(std::string const& session_name,
     }
 
     if (session_name.find("isis") != std::string::npos)
-      vw::vw_throw(vw::ArgumentErr() << "Bathymetry correction does not work with ISIS cameras.\n");
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Bathymetry correction does not work with ISIS cameras.\n");
 
     if (stereo_settings.alignment_method != "homography"     &&
         stereo_settings.alignment_method != "affineepipolar" &&
         stereo_settings.alignment_method != "local_epipolar" &&
         stereo_settings.alignment_method != "none")
-      vw::vw_throw(vw::ArgumentErr() << "Bathymetry correction only works with alignment methods "
-                << "homography, affineepipolar, local_epipolar, and none.\n");
+      vw::vw_throw(vw::ArgumentErr() 
+          << "Bathymetry correction only works with alignment methods "
+          << "homography, affineepipolar, local_epipolar, and none.\n");
 
     if (stereo_settings.propagate_errors)
       vw::vw_throw(vw::ArgumentErr() << "Error propagation is not implemented when "
