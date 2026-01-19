@@ -66,11 +66,11 @@ def read_csv(filename):
             if not lines:
                 print("Error: Empty spectral response file.")
                 sys.exit(1)
-            
+
             # Skip header
             if len(lines) > 0:
                 print(f"Skipping first line: {lines[0].strip()}", file=sys.stderr)
-            
+
             for line in lines[1:]:
                 line = line.strip()
                 if not line:
@@ -79,38 +79,38 @@ def read_csv(filename):
                 parts = line.replace(',', ' ').split()
                 if len(parts) < 2:
                     continue
-                
+
                 try:
                     wl = float(parts[0])
                     resp = float(parts[1])
                 except ValueError:
                     print(f"Warning: Skipping invalid line: {line}", file=sys.stderr)
                     continue
-                
+
                 # Only include positive responses
                 if resp <= 0:
                     continue
-                
+
                 # Skip wavelengths outside extreme range (don't include in computation)
                 if wl < min_wl_err or wl > max_wl_err:
                     skipped_extreme = True
                     continue
-                    
+
                 # Check wavelength range for warning
                 if wl < min_wl_warn or wl > max_wl_warn:
                     warn_range = True
-                
+
                 wavelengths.append(wl)
                 responses.append(resp)
-        
+
         if skipped_extreme:
             print(f"Warning: Wavelengths outside {min_wl_err}-{max_wl_err} nm " +
                   f"were skipped.", file=sys.stderr)
-                
+
         if warn_range:
             print(f"Warning: Some wavelengths are outside the valid range of " +
                   f"{min_wl_warn}-{max_wl_warn} nm for the Parrish equation. " +
-                  f"Results may still be accurate if the spectral response " + 
+                  f"Results may still be accurate if the spectral response " +
                   "for those is small.", file=sys.stderr)
 
     except Exception as e:
@@ -120,11 +120,11 @@ def read_csv(filename):
     if not wavelengths:
         print("Error: No valid data found in spectral response file.")
         sys.exit(1)
-    
+
     if not responses:
         print("Error: No valid responses found in spectral response file.")
         sys.exit(1)
-        
+
     return np.array(wavelengths), np.array(responses)
 
 def main():
@@ -138,9 +138,8 @@ def main():
     parser.add_argument('--temperature', type=float, default=-1.0,
                         help='Temperature in degrees Celsius.')
     parser.add_argument('--mode', type=str, default='Quan-Fry',
-                        choices=['Quan-Fry', 'Parrish'],
-                        help='Refractive index equation to use (default: Quan-Fry).')
-    
+                        help='Refractive index equation: Quan-Fry (default) or Parrish.')
+
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--spectral-response', type=str, default="",
                         help='CSV file containing the spectral response.')
@@ -154,6 +153,14 @@ def main():
 
     if args.version:
         asp_system_utils.print_version_and_exit()
+
+    # Normalize mode to lowercase
+    args.mode = args.mode.lower()
+
+    # Validate mode
+    if args.mode not in ['quan-fry', 'parrish']:
+        print(f"Error: Invalid mode '{args.mode}'. Must be 'Quan-Fry' or 'Parrish'.")
+        sys.exit(1)
 
     # Input validation
     if args.salinity == -1.0:
@@ -173,8 +180,8 @@ def main():
 
     # Coefficients for Parrish (2020) empirical equation (used only if mode is Parrish)
     # n = a*T^2 + b*lambda^2 + c*T + d*lambda + e
-    
-    if args.mode == 'Parrish':
+
+    if args.mode == 'parrish':
         # Seawater (S = 35)
         params_35 = {
             'a': -1.50156e-6,
@@ -227,13 +234,13 @@ def main():
         print(f"Error: Effective wavelength {eff_wl:.2f} nm is " +
               f"out of supported range ({min_wl_err}-{max_wl_err} nm).")
         sys.exit(1)
-    
+
     # Compute refractive index using the effective wavelength
     T = args.temperature
     S = args.salinity
     lam = eff_wl
-    
-    if args.mode == 'Quan-Fry':
+
+    if args.mode == 'quan-fry':
         # Quan and Fry (1994) equation
         effective_index = (1.31405 +
                           (0.0001779 + -0.00000105 * T + 0.000000016 * T**2) * S +
