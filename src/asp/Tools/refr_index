@@ -18,9 +18,14 @@
 
 """
 Compute the effective refractive index of water for a given temperature, salinity,
-and wavelength or spectral response. Uses the Parrish empirical equation.
+and wavelength or spectral response. Uses the Quan and Fry (1994) or Parrish (2020)
+empirical equations.
 
-Reference: https://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature
+References:
+  Quan and Fry (1994): https://github.com/geojames/global_refractive_index_532
+  Parrish (2020):
+    https://research.engr.oregonstate.edu/parrish/
+      index-refraction-seawater-and-freshwater-function-wavelength-and-temperature
 """
 
 import sys
@@ -96,8 +101,9 @@ def read_csv(filename):
                 responses.append(resp)
                 
         if warn_range:
-            print(f"Warning: Some wavelengths are outside the valid range of {min_wl_warn}-{max_wl_warn} nm "
-                  "for the Parrish equation. Results may be inaccurate.", file=sys.stderr)
+            print(f"Warning: Some wavelengths are outside the valid range of " +
+                  f"{min_wl_warn}-{max_wl_warn} nm for the Parrish equation. " +
+                  f"Results may be inaccurate.", file=sys.stderr)
 
     except Exception as e:
         print(f"Error reading spectral response file: {e}")
@@ -114,7 +120,8 @@ def read_csv(filename):
     return np.array(wavelengths), np.array(responses)
 
 def main():
-    usage = "refr_index --salinity <val> --temperature <val> [--spectral-response <file> | --wavelength <val>]"
+    usage = ("refr_index --salinity <val> --temperature <val> " +
+             "[--spectral-response <file> | --wavelength <val>]")
     parser = argparse.ArgumentParser(usage=usage,
                                      description="Compute effective refraction index.")
 
@@ -122,12 +129,15 @@ def main():
                         help='Salinity in parts per thousand (ppt).')
     parser.add_argument('--temperature', type=float, default=-1.0,
                         help='Temperature in degrees Celsius.')
+    parser.add_argument('--mode', type=str, default='Quan-Fry',
+                        choices=['Quan-Fry', 'Parrish'],
+                        help='Refractive index equation to use (default: Quan-Fry).')
     
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--spectral-response', type=str, default="",
                         help='CSV file containing the spectral response.')
     group.add_argument('--wavelength', type=float, default=-1.0,
-                        help='Calculate the refraction index for a single wavelength (in nm).')
+                        help='Calculate refraction index for single wavelength (nm).')
 
     parser.add_argument('-v', '--version', action='store_true',
                         help='Display the version of software.')
@@ -153,33 +163,33 @@ def main():
         print("Error: Temperature must be between 0 and 30 degrees Celsius.")
         sys.exit(1)
 
-    # Coefficients for Parrish empirical equation
+    # Coefficients for Parrish (2020) empirical equation (used only if mode is Parrish)
     # n = a*T^2 + b*lambda^2 + c*T + d*lambda + e
-    # Reference: https://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature
     
-    # Seawater (S = 35)
-    params_35 = {
-        'a': -1.50156e-6,
-        'b': 1.07085e-7,
-        'c': -4.27594e-5,
-        'd': -1.60476e-4,
-        'e': 1.39807
-    }
+    if args.mode == 'Parrish':
+        # Seawater (S = 35)
+        params_35 = {
+            'a': -1.50156e-6,
+            'b': 1.07085e-7,
+            'c': -4.27594e-5,
+            'd': -1.60476e-4,
+            'e': 1.39807
+        }
 
-    # Freshwater (S = 0)
-    params_0 = {
-        'a': -1.97812e-6,
-        'b': 1.03223e-7,
-        'c': -8.58125e-6,
-        'd': -1.54834e-4,
-        'e': 1.38919
-    }
+        # Freshwater (S = 0)
+        params_0 = {
+            'a': -1.97812e-6,
+            'b': 1.03223e-7,
+            'c': -8.58125e-6,
+            'd': -1.54834e-4,
+            'e': 1.38919
+        }
 
-    # Linearly interpolate coefficients based on salinity
-    s_factor = args.salinity / 35.0
-    params = {}
-    for key in params_0:
-        params[key] = params_0[key] + s_factor * (params_35[key] - params_0[key])
+        # Linearly interpolate coefficients based on salinity
+        s_factor = args.salinity / 35.0
+        params = {}
+        for key in params_0:
+            params[key] = params_0[key] + s_factor * (params_35[key] - params_0[key])
 
     if args.spectral_response:
         if not os.path.exists(args.spectral_response):
@@ -199,8 +209,9 @@ def main():
         wl = args.wavelength
         # Check wavelength range
         if wl < min_wl_warn or wl > max_wl_warn:
-             print(f"Warning: Wavelength is outside the valid range of {min_wl_warn}-{max_wl_warn} nm "
-                   "for the Parrish equation. Result may be inaccurate.", file=sys.stderr)
+             print(f"Warning: Wavelength is outside the valid range of " +
+                   f"{min_wl_warn}-{max_wl_warn} nm for the Parrish equation. " +
+                   f"Result may be inaccurate.", file=sys.stderr)
         if wl < min_wl_err or wl > max_wl_err:
              print(f"Error: Wavelength {wl} nm is out of supported range " + 
                    f"({min_wl_err}-{max_wl_err} nm).")
@@ -212,19 +223,29 @@ def main():
         print("Error: Sum of spectral responses is zero.")
         sys.exit(1)
 
-    # Compute refractive index for each wavelength
-    # n = a*T^2 + b*lambda^2 + c*T + d*lambda + e
-    T = args.temperature
-    lam = wavelengths
+    # Compute effective wavelength using spectral response weights
+    effective_wavelength = np.sum(wavelengths * responses) / np.sum(responses)
     
-    n_values = (params['a'] * T**2 +
-                params['b'] * lam**2 +
-                params['c'] * T +
-                params['d'] * lam +
-                params['e'])
-
-    # Compute weighted average
-    effective_index = np.sum(n_values * responses) / np.sum(responses)
+    # Compute refractive index using the effective wavelength
+    T = args.temperature
+    S = args.salinity
+    lam = effective_wavelength
+    
+    if args.mode == 'Quan-Fry':
+        # Quan and Fry (1994) equation
+        effective_index = (1.31405 +
+                          (0.0001779 + -0.00000105 * T + 0.000000016 * T**2) * S +
+                          -0.00000202 * T**2 +
+                          ((15.868 + 0.01155*S + -0.00423 *T)/lam) +
+                          (-4382/lam**2) + (1145500/lam**3))
+    else:
+        # Parrish (2020) empirical equation
+        # n = a*T^2 + b*lambda^2 + c*T + d*lambda + e
+        effective_index = (params['a'] * T**2 +
+                          params['b'] * lam**2 +
+                          params['c'] * T +
+                          params['d'] * lam +
+                          params['e'])
 
     print(f"Effective index: {effective_index:.6f}")
 

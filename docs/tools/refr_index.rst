@@ -32,15 +32,15 @@ Spectral response
 
 It is assumed that a satellite band, such as Green for WorldView-3, records
 light in a narrow range of wavelengths. The spectral response of the band
-contains the sensitivity of the sensor to each wavelength in that band.
-The computed effective refraction index is the weighted average of the
-refraction indices for each wavelength, with the weights given by the spectral
-response. 
+contains the sensitivity of the sensor to each wavelength in that band. An
+effective wavelength is first computed as the weighted average of the
+wavelengths, with the weights given by the spectral response. The refraction
+index is then computed with this effective wavelength (:numref:`refr_model`).
 
 The spectral response CSV file must have two columns, with the wavelength (in
 nanometers) in the first column, the relative response for that wavelength in
 the second one. Use commas, spaces, or tabs as separators. The first line must
-be a header and will be ignored. 
+be a header and will be ignored.
 
 Example::
 
@@ -51,24 +51,30 @@ Example::
     524 0.79904049
     525 0.80684987
 
-The wavelengths should be in the range supported by the Parrish empirical
-equation (see below). The range is 400 nm to 700 nm. A warning will be printed
-for values outside this range, and an error will be raised for extreme values
-(below 300 and above 1100 nm). Values with non-positive response will be
-ignored.
-
 Salinity and temperature
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 The salinity is measured in parts per thousand (ppt). Typical seawater has a
-salinity of 35 ppt and freshwater has a salinity of 0 ppt. The program assumes 
-a linear dependence on salinity.
+salinity of 35 ppt and freshwater has a salinity of 0 ppt.
 
 The temperature is measured in degrees Celsius. The model expects values
 between 0°C and 30°C.
 
-The refraction index for each wavelength is computed with the 
-`Parrish  empirical equation <https://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_.
+.. _refr_model:
+
+Modeling
+^^^^^^^^
+
+Two methods are available for computing the refractive index:
+
+* `Quan and Fry (1994)
+  <https://github.com/geojames/global_refractive_index_532>`_ (default) -
+  directly handles salinity without interpolation.
+
+* `Parrish (2020)
+  <https://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_ -
+  uses linear interpolation between freshwater (S=0) and seawater (S=35)
+  coefficients.
 
 .. _refr_options:
 
@@ -80,6 +86,10 @@ Command-line options
 
 --temperature <float>
     Temperature in degrees Celsius. Must be between 0 and 30.
+
+--mode <string>
+    Refractive index equation to use: ``Quan-Fry`` (default) or ``Parrish``.
+    See :numref:`refr_model` for details.
 
 --spectral-response <string>
     CSV file containing the spectral response of the sensor band.
