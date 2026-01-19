@@ -59,6 +59,7 @@ def read_csv(filename):
     wavelengths = []
     responses = []
     warn_range = False
+    skipped_extreme = False
     try:
         with open(filename, 'r') as f:
             lines = f.readlines()
@@ -67,6 +68,9 @@ def read_csv(filename):
                 sys.exit(1)
             
             # Skip header
+            if len(lines) > 0:
+                print(f"Skipping first line: {lines[0].strip()}", file=sys.stderr)
+            
             for line in lines[1:]:
                 line = line.strip()
                 if not line:
@@ -86,24 +90,28 @@ def read_csv(filename):
                 # Only include positive responses
                 if resp <= 0:
                     continue
+                
+                # Skip wavelengths outside extreme range (don't include in computation)
+                if wl < min_wl_err or wl > max_wl_err:
+                    skipped_extreme = True
+                    continue
                     
-                # Check wavelength range
+                # Check wavelength range for warning
                 if wl < min_wl_warn or wl > max_wl_warn:
                     warn_range = True
-
-                # Hard error for extreme values (sanity check)
-                if wl < min_wl_err or wl > max_wl_err:
-                    print(f"Error: Wavelength {wl} nm is out of supported range " + 
-                          f"({min_wl_err}-{max_wl_err} nm).")
-                    sys.exit(1)
                 
                 wavelengths.append(wl)
                 responses.append(resp)
+        
+        if skipped_extreme:
+            print(f"Warning: Wavelengths outside {min_wl_err}-{max_wl_err} nm " +
+                  f"were skipped.", file=sys.stderr)
                 
         if warn_range:
             print(f"Warning: Some wavelengths are outside the valid range of " +
                   f"{min_wl_warn}-{max_wl_warn} nm for the Parrish equation. " +
-                  f"Results may be inaccurate.", file=sys.stderr)
+                  f"Results may still be accurate if the spectral response " + 
+                  "for those is small.", file=sys.stderr)
 
     except Exception as e:
         print(f"Error reading spectral response file: {e}")
@@ -197,25 +205,9 @@ def main():
             sys.exit(1)
         # Read spectral response
         wavelengths, responses = read_csv(args.spectral_response)
-        
-        if len(wavelengths) == 0:
-            print("Error: No valid wavelengths found in spectral response file.")
-            sys.exit(1)
-        if len(responses) == 0:
-            print("Error: No valid responses found in spectral response file.")
-            sys.exit(1)
     else:
         # Single wavelength case
         wl = args.wavelength
-        # Check wavelength range
-        if wl < min_wl_warn or wl > max_wl_warn:
-             print(f"Warning: Wavelength is outside the valid range of " +
-                   f"{min_wl_warn}-{max_wl_warn} nm for the Parrish equation. " +
-                   f"Result may be inaccurate.", file=sys.stderr)
-        if wl < min_wl_err or wl > max_wl_err:
-             print(f"Error: Wavelength {wl} nm is out of supported range " + 
-                   f"({min_wl_err}-{max_wl_err} nm).")
-             sys.exit(1)
         wavelengths = np.array([wl])
         responses = np.array([1.0])
 
@@ -224,12 +216,22 @@ def main():
         sys.exit(1)
 
     # Compute effective wavelength using spectral response weights
-    effective_wavelength = np.sum(wavelengths * responses) / np.sum(responses)
+    eff_wl = np.sum(wavelengths * responses) / np.sum(responses)
+
+    # Validate effective wavelength
+    if eff_wl < min_wl_warn or eff_wl > max_wl_warn:
+        print(f"Warning: Effective wavelength {eff_wl:.2f} nm is " +
+              f"outside the valid range of {min_wl_warn}-{max_wl_warn} nm for " +
+              f"the Parrish equation. Result may be inaccurate.", file=sys.stderr)
+    if eff_wl < min_wl_err or eff_wl > max_wl_err:
+        print(f"Error: Effective wavelength {eff_wl:.2f} nm is " +
+              f"out of supported range ({min_wl_err}-{max_wl_err} nm).")
+        sys.exit(1)
     
     # Compute refractive index using the effective wavelength
     T = args.temperature
     S = args.salinity
-    lam = effective_wavelength
+    lam = eff_wl
     
     if args.mode == 'Quan-Fry':
         # Quan and Fry (1994) equation

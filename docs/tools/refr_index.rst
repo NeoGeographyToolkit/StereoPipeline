@@ -42,6 +42,10 @@ nanometers) in the first column, the relative response for that wavelength in
 the second one. Use commas, spaces, or tabs as separators. The first line must
 be a header and will be ignored.
 
+Wavelengths outside the range 300-1100 nm will be ignored (skipped). Wavelengths
+between 300-1100 nm but outside 400-700 nm will be used but a warning will be
+printed, as they are outside the validated range for the Parrish equation.
+
 Example::
 
     wavelength response
@@ -97,8 +101,10 @@ Command-line options
     Mutually exclusive with ``--wavelength``.
 
 --wavelength <float>
-    Calculate the refraction index for a single wavelength (in nm).
-    Mutually exclusive with ``--spectral-response``.
+    Calculate refraction index for single wavelength (nm). Valid range is
+    400-700 nm. A warning will be printed for wavelengths between 300-1100 nm
+    and outside the narrower range. There will be an error outside the
+    300-1100 nm range. Mutually exclusive with ``--spectral-response``.
 
 -v, --version
     Display the version of software.
