@@ -42,6 +42,7 @@
 
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Cartography/BathyStereoModel.h>
+#include <vw/Math/NewtonRaphson.h>
 #include <vw/Core/Stopwatch.h>
 
 using namespace vw;
@@ -60,6 +61,134 @@ struct Options: vw::GdalWriteOptions {
 
   Options() {}
 };
+
+// A class to manage a local tangent plane at a given ECEF point. The tangent
+// plane is tangent to datum at that point. For an ellipsoid datum, this plane
+// is perpendicular to the geodetic normal (not the geocentric radius vector).
+// The X and Y axes are East and North respectively.
+class BathyFunctor {
+public:
+  BathyFunctor(vw::Vector3 const& ecef_point,
+               vw::cartography::Datum const& datum,
+               vw::CamPtr const& cam,
+               vw::BathyPlane const& bathy_plane,
+               double refraction_index): m_cam(cam), m_origin(ecef_point),
+                                         m_bathy_plane(bathy_plane),
+                                         m_refraction_index(refraction_index) {
+    // Bathy planes require WGS_1984 datum
+    if (datum.name() != "WGS_1984")
+      vw::vw_throw(vw::ArgumentErr() << "Bathy plane processing requires WGS_1984 datum.\n");
+
+    // Convert ECEF to geodetic
+    vw::Vector3 llh = datum.cartesian_to_geodetic(ecef_point);
+
+    // Get the NED matrix at this location
+    // Columns are: [North | East | Down] in ECEF coordinates
+    vw::Matrix3x3 ned_matrix = datum.lonlat_to_ned_matrix(llh);
+
+    // X axis is East (column 1 of NED matrix)
+    m_x_axis = vw::math::select_col(ned_matrix, 1);
+
+    // Y axis is North (column 0 of NED matrix)
+    m_y_axis = vw::math::select_col(ned_matrix, 0);
+
+    // Normal is Down (column 2 of NED matrix), but we want it pointing up
+    m_normal = -vw::math::select_col(ned_matrix, 2);
+  }
+
+  // Intersect a ray with the tangent plane and return 2D coordinates in the tangent
+  // plane coordinate system.
+  vw::Vector2 rayPlaneIntersect(vw::Vector3 const& ray_pt,
+                                 vw::Vector3 const& ray_dir) const {
+    // Intersect the ray with the tangent plane at m_origin
+    // Plane equation: dot(X - m_origin, m_normal) = 0
+    // Ray equation: X = ray_pt + t * ray_dir
+    // Solve: dot(ray_pt + t * ray_dir - m_origin, m_normal) = 0
+    double denom = vw::math::dot_prod(ray_dir, m_normal);
+    if (std::abs(denom) < 1e-10)
+      vw::vw_throw(vw::ArgumentErr() << "Ray is parallel to tangent plane.\n");
+
+    double t = vw::math::dot_prod(m_origin - ray_pt, m_normal) / denom;
+    vw::Vector3 intersection = ray_pt + t * ray_dir;
+
+    // Project intersection onto tangent plane axes
+    vw::Vector3 offset = intersection - m_origin;
+    double x = vw::math::dot_prod(offset, m_x_axis);
+    double y = vw::math::dot_prod(offset, m_y_axis);
+
+    return vw::Vector2(x, y);
+  }
+
+  // Operator for use with Newton-Raphson solver
+  // Input: pix is a pixel in the camera
+  // Output: 2D coordinates in the tangent plane after ray bending
+  vw::Vector2 operator()(vw::Vector2 const& pix) const {
+    // Get ray from camera (without bathy correction)
+    vw::Vector3 cam_ctr = m_cam->camera_center(pix);
+    vw::Vector3 cam_dir = m_cam->pixel_to_vector(pix);
+
+    // Apply Snell's law to bend the ray at the water surface
+    vw::Vector3 refracted_pt, refracted_dir;
+    bool success = vw::curvedSnellLaw(cam_ctr, cam_dir,
+                                      m_bathy_plane.bathy_plane,
+                                      m_bathy_plane.plane_proj,
+                                      m_refraction_index,
+                                      refracted_pt, refracted_dir);
+
+    if (!success)
+      vw::vw_throw(vw::ArgumentErr() << "Snell's law refraction failed.\n");
+
+    // Intersect refracted ray with tangent plane and return 2D coordinates
+    return rayPlaneIntersect(refracted_pt, refracted_dir);
+  }
+
+  vw::CamPtr m_cam;                 // Camera pointer
+  vw::Vector3 m_origin;             // Origin of tangent plane (ECEF point P)
+  vw::BathyPlane m_bathy_plane;     // Bathy plane for refraction
+  double m_refraction_index;        // Index of refraction
+  vw::Vector3 m_x_axis;             // East direction (tangent plane X axis)
+  vw::Vector3 m_y_axis;             // North direction (tangent plane Y axis)
+  vw::Vector3 m_normal;             // Up direction (perpendicular to plane)
+};
+
+// Project an ECEF point to pixel, accounting for bathymetry if the point
+// is below the bathy plane (water surface).
+vw::Vector2 point_to_pixel(vw::CamPtr const& cam,
+                           vw::cartography::Datum const& datum,
+                           vw::BathyPlane const& bathy_plane,
+                           double refraction_index,
+                           vw::Vector3 const& ecef_point) {
+
+  // Get camera pixel as if there was no refraction
+  vw::Vector2 pix = cam->point_to_pixel(ecef_point);
+
+  // Convert ECEF point to projected coordinates for distance check
+  vw::Vector3 proj_pt = vw::proj_point(bathy_plane.plane_proj, ecef_point);
+
+  // Check signed distance to bathy plane
+  double dist = vw::signed_dist_to_plane(bathy_plane.bathy_plane, proj_pt);
+
+  // If point is above the water surface (positive distance), no refraction
+  if (dist >= 0)
+    return pix;
+
+  // Point is below water surface - need to account for refraction
+  // Set up the BathyFunctor for Newton-Raphson iteration
+  BathyFunctor bathy_func(ecef_point, datum, cam, bathy_plane, refraction_index);
+
+  // Set up Newton-Raphson solver with numerical Jacobian
+  vw::math::NewtonRaphson nr(bathy_func);
+
+  // Solve: find pixel such that bathy_func(pix) projects to (0, 0) in tangent plane
+  // since ecef_point is the origin of the tangent plane
+  vw::Vector2 target(0, 0);
+  double step = 0.5;    // 0.5 meter step for numerical differentiation
+  double tol = 1e-6;    // 1e-6 pixels tolerance
+
+  pix = nr.solve(pix, target, step, tol);
+
+  return pix;
+}
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
@@ -89,10 +218,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA "
      "(3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars "
      "(=D_MARS), Moon (=D_MOON).")
-    ("aster-use-csm", 
+    ("aster-use-csm",
      po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
      "Use the CSM model with ASTER cameras (-t aster).")
-    ("aster-vs-csm", 
+    ("aster-vs-csm",
      po::bool_switch(&opt.aster_vs_csm)->default_value(false)->implicit_value(true),
      "Compare projecting into the camera without and with using the CSM model for ASTER.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -150,30 +279,30 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     // before loading the cameras.
     asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
   }
-  
+
   if (opt.test_error_propagation)
     asp::stereo_settings().propagate_errors = true;
 
   // Validate bathymetry options
   bool have_bathy_plane = (opt.bathy_plane != "");
   bool have_refraction = (opt.refraction_index > 1.0);
-  
+
   if (have_bathy_plane && !have_refraction)
     vw_throw(ArgumentErr() << "When --bathy-plane is set, --refraction-index must be "
              << "specified and bigger than 1.\n");
-  
+
   if (!have_bathy_plane && have_refraction)
     vw_throw(ArgumentErr() << "When --refraction-index is set, --bathy-plane must "
              << "also be specified.\n");
 
   // Load bathy plane if specified
   if (have_bathy_plane) {
-    int num_images = 1; 
+    int num_images = 1;
     vw::readBathyPlanes(opt.bathy_plane, num_images, opt.bathy_plane_vec);
     vw_out() << "Loaded bathy plane: " << opt.bathy_plane << "\n";
     vw_out() << "Refraction index: " << opt.refraction_index << "\n";
   }
-  
+
 }
 
 // Sort the diffs and print some stats
@@ -214,7 +343,7 @@ void testErrorPropagation(Options const& opt,
     // Shoot a ray from the cam1 camera, intersect it with the
     // given height above datum
     triPt = vw::cartography::datum_intersection(major_axis, minor_axis, cam1_ctr, cam1_dir);
-    
+
     // Skip invalid intersections
     if (triPt == Vector3(0, 0, 0))
       continue;
@@ -238,42 +367,42 @@ void testErrorPropagation(Options const& opt,
 
 // This is an important sanity check for RPC cameras, which have only a limited
 // range of valid heights above datum.
-void rpc_datum_sanity_check(std::string const& cam_file, 
+void rpc_datum_sanity_check(std::string const& cam_file,
                             double height_above_datum,
                             vw::camera::CameraModel const* cam) {
   // Cast the camera to RPC
   asp::RPCModel const* rpc_cam = dynamic_cast<asp::RPCModel const*>(cam);
   if (rpc_cam == NULL)
     vw::vw_throw(vw::ArgumentErr() << "Expecting an RPC camera model.\n");
-    
+
   vw::Vector3 lonlatheight_offset = rpc_cam->lonlatheight_offset();
   vw::Vector3 lonlatheight_scale  = rpc_cam->lonlatheight_scale();
   double mid_ht = lonlatheight_offset[2];
   double min_ht = mid_ht - lonlatheight_scale[2];
   double max_ht = mid_ht + lonlatheight_scale[2];
-  
+
   if (height_above_datum < min_ht || height_above_datum > max_ht) {
     vw::vw_out() << "\n";
-    vw::vw_out(vw::WarningMessage) 
+    vw::vw_out(vw::WarningMessage)
       << "For RPC camera file: " << cam_file
       << ", the range of valid heights above datum is "
-      << min_ht << " to " << max_ht 
+      << min_ht << " to " << max_ht
       << " meters. The provided height above datum is "
-      << height_above_datum 
+      << height_above_datum
       << " meters. The results may be inaccurate. Set appropriately "
       << "the --height-above-datum option.\n\n";
   }
 }
 
 void run_cam_test(Options & opt) {
-  
-  bool indiv_adjust_prefix = (opt.cam1_bundle_adjust_prefix != "" || 
+
+  bool indiv_adjust_prefix = (opt.cam1_bundle_adjust_prefix != "" ||
                               opt.cam2_bundle_adjust_prefix != "");
-  
+
   // Load cam1
   std::string out_prefix;
   std::string default_session1 = opt.session1; // save it before it changes
-  if (indiv_adjust_prefix) 
+  if (indiv_adjust_prefix)
     asp::stereo_settings().bundle_adjust_prefix = opt.cam1_bundle_adjust_prefix;
   asp::SessionPtr cam1_session(asp::StereoSessionFactory::create
                               (opt.session1, // may change
@@ -286,7 +415,7 @@ void run_cam_test(Options & opt) {
 
   // Load cam2
   std::string default_session2 = opt.session2; // save it before it changes
-  if (indiv_adjust_prefix) 
+  if (indiv_adjust_prefix)
     asp::stereo_settings().bundle_adjust_prefix = opt.cam2_bundle_adjust_prefix;
   asp::SessionPtr cam2_session(asp::StereoSessionFactory::create
                           (opt.session2, // may change
@@ -297,9 +426,9 @@ void run_cam_test(Options & opt) {
   boost::shared_ptr<vw::camera::CameraModel> cam2_model
     = cam2_session->camera_model(opt.image_file, opt.cam2_file);
 
-  if (indiv_adjust_prefix) 
+  if (indiv_adjust_prefix)
     asp::stereo_settings().bundle_adjust_prefix = ""; // reset
-    
+
   bool found_datum = false;
   vw::cartography::Datum datum;
   if (opt.datum != "") {
@@ -316,27 +445,27 @@ void run_cam_test(Options & opt) {
                                                 opt.session1, cam1_session, cam_datum);
   if (found_datum && found_cam_datum)
     vw::checkDatumConsistency(datum, cam_datum, warn_only);
-    
+
     if (!found_datum && found_cam_datum) {
     datum = cam_datum;
     found_datum = true;
   }
-      
+
   // Same for the second camera
   found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam2_file,
                                             // Outputs
-                                            opt.session2, cam2_session, cam_datum);   
+                                            opt.session2, cam2_session, cam_datum);
   if (found_datum && found_cam_datum)
     vw::checkDatumConsistency(datum, cam_datum, warn_only);
-  
+
   if (!found_datum && found_cam_datum) {
     datum = cam_datum;
     found_datum = true;
   }
-  
+
   if (!found_datum)
     vw_throw(ArgumentErr() << "Could not find the datum. Set --datum or use "
-              << "the nadirpinhole session (for cameras relative to a planet).\n"); 
+              << "the nadirpinhole session (for cameras relative to a planet).\n");
   vw_out() << "Using datum: " << datum << std::endl;
 
   // Sanity check
@@ -345,7 +474,7 @@ void run_cam_test(Options & opt) {
   if (llh1[2] < 0 || llh2[2] < 0)
           vw::vw_out(vw::WarningMessage) << "First or second camera center is below "
           << "the zero datum surface. Check your data. Consider using "
-          << "the --datum and/or --height-above-datum options.\n"; 
+          << "the --datum and/or --height-above-datum options.\n";
 
   if (opt.session1 == opt.session2 && (default_session1 == "" || default_session2 == "") &&
      (opt.session1 == "dg"))
@@ -356,7 +485,7 @@ void run_cam_test(Options & opt) {
 
   // Sanity checks for RPC cameras
   if (opt.session1 == "rpc")
-    rpc_datum_sanity_check(opt.cam1_file, opt.height_above_datum, 
+    rpc_datum_sanity_check(opt.cam1_file, opt.height_above_datum,
                             vw::camera::unadjusted_model(cam1_model.get()));
   if (opt.session2 == "rpc")
     rpc_datum_sanity_check(opt.cam2_file, opt.height_above_datum,
@@ -392,9 +521,9 @@ void run_cam_test(Options & opt) {
 
   double major_axis = datum.semi_major_axis() + opt.height_above_datum;
   double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
-  
+
   bool have_bathy_plane = (opt.bathy_plane != "");
-  
+
   // Iterate over the image
   bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
   std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff;
@@ -430,6 +559,7 @@ void run_cam_test(Options & opt) {
         // camera.
         Vector3 xyz;
         if (!have_bathy_plane)
+
           xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
                                                     cam1_ctr, cam1_dir);
         else
@@ -440,8 +570,13 @@ void run_cam_test(Options & opt) {
         // Skip invalid intersections
         if (xyz == Vector3(0, 0, 0))
           continue;
-          
-        Vector2 cam2_pix = cam2_model->point_to_pixel(xyz);
+
+        Vector2 cam2_pix;
+        if (!have_bathy_plane)
+          cam2_pix = cam2_model->point_to_pixel(xyz);
+        else
+          cam2_pix = point_to_pixel(cam2_model, datum, opt.bathy_plane_vec[0],
+                                    opt.refraction_index, xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
 
         if (opt.print_per_pixel_results)
@@ -450,7 +585,13 @@ void run_cam_test(Options & opt) {
         // Turn CSM on and off and see the effect on the pixel
         if (opt.aster_vs_csm) {
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          Vector2 cam2_pix2 = cam2_model->point_to_pixel(xyz);
+          Vector2 cam2_pix2;
+          if (!have_bathy_plane)
+            cam2_pix2 = cam2_model->point_to_pixel(xyz);
+          else
+            cam2_pix2 = point_to_pixel(cam2_model, datum, opt.bathy_plane_vec[0],
+                                       opt.refraction_index, xyz);
+
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
         }
@@ -469,8 +610,13 @@ void run_cam_test(Options & opt) {
         // Skip invalid intersections
         if (xyz == Vector3(0, 0, 0))
           continue;
-          
-        Vector2 cam1_pix = cam1_model->point_to_pixel(xyz);
+
+        Vector2 cam1_pix;
+        if (!have_bathy_plane)
+          cam1_pix = cam1_model->point_to_pixel(xyz);
+        else
+          cam1_pix = point_to_pixel(cam1_model, datum, opt.bathy_plane_vec[0],
+                                    opt.refraction_index, xyz);
         cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
 
         if (opt.print_per_pixel_results)
@@ -478,14 +624,19 @@ void run_cam_test(Options & opt) {
 
         if (opt.aster_vs_csm) {
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          Vector2 cam1_pix2 = cam1_model->point_to_pixel(xyz);
+          Vector2 cam1_pix2;
+          if (!have_bathy_plane)
+            cam1_pix2 = cam1_model->point_to_pixel(xyz);
+          else
+            cam1_pix2 = point_to_pixel(cam1_model, datum, opt.bathy_plane_vec[0],
+                                       opt.refraction_index, xyz);
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
         }
       } catch (...) {
         // Failure to compute these operations can occur for pinhole cameras
         num_failed++;
-      }  
+      }
 
       if (single_pix)
         break;
@@ -510,11 +661,11 @@ void run_cam_test(Options & opt) {
   // If either session is rpc, warn that the camera center may not be accurate
   if (opt.session1 == "rpc" || opt.session2 == "rpc") {
     vw::vw_out() << "\n"; // separate from the diffs
-    vw::vw_out(vw::WarningMessage) 
+    vw::vw_out(vw::WarningMessage)
       << "For RPC cameras, the concept of camera center is not well-defined, "
-      << "so the result for that should be ignored.\n"; 
+      << "so the result for that should be ignored.\n";
   }
-  
+
   double elapsed_sec = sw.elapsed_seconds();
   vw_out() << "\nElapsed time per sample: " << 1e+6 * elapsed_sec/ctr_diff.size()
             << " milliseconds. (More samples will increase the accuracy.)\n";
