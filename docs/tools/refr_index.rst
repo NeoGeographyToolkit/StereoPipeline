@@ -44,7 +44,8 @@ be a header and will be ignored.
 
 Wavelengths outside the range 300-1100 nm will be ignored (skipped). Wavelengths
 between 300-1100 nm but outside 400-700 nm will be used but a warning will be
-printed, as they are outside the validated range for the Parrish equation.
+printed, as they are outside the validated range for the models
+(:numref:`refr_model`).
 
 Example::
 
