@@ -135,49 +135,8 @@ refine_disparity(Image1T const& left_image,
 
   } else if (stereo_settings().subpixel_mode == 6) {
     
-    // This no longer works. Support for .exr files will be removed anyway.
+    // This no longer works.
     vw::vw_throw(NoImplErr() << "Subpixel mode 6 support has been removed.\n");
-#if 0    
-    // Affine and Bayes subpixel refinement always use the LogPreprocessingFilter.
-    if (verbose) {
-      vw_out() << "\t--> Using EM Subpixel mode "
-               << stereo_settings().subpixel_mode << "\n";
-      vw_out() << "\t--> Mode 3 does internal preprocessing;"
-               << " settings will be ignored.\n";
-    }
-
-    typedef stereo::EMSubpixelCorrelatorView<float32> EMCorrelator;
-    EMCorrelator em_correlator(channels_to_planes(left_image),
-                               channels_to_planes(right_image),
-                               pixel_cast<PixelMask<Vector2f>>(integer_disp), -1);
-    em_correlator.set_em_iter_max   (stereo_settings().subpixel_em_iter);
-    em_correlator.set_inner_iter_max(stereo_settings().subpixel_affine_iter);
-    em_correlator.set_kernel_size   (stereo_settings().subpixel_kernel);
-    em_correlator.set_pyramid_levels(stereo_settings().subpixel_pyramid_levels);
-
-    DiskImageResourceOpenEXR em_disparity_map_rsrc(opt.out_prefix + "-F6.exr",
-                                                   em_correlator.format());
-
-    block_write_image(em_disparity_map_rsrc, em_correlator,
-                      TerminalProgressCallback("asp", "\t--> EM Refinement :"));
-
-    DiskImageResource *em_disparity_map_rsrc_2 =
-      DiskImageResourceOpenEXR::construct_open(opt.out_prefix + "-F6.exr");
-    DiskImageView<PixelMask<Vector<float, 5>>> em_disparity_disk_image(em_disparity_map_rsrc_2);
-
-    ImageViewRef<Vector<float, 3>> disparity_uncertainty =
-      per_pixel_filter(em_disparity_disk_image,
-                       EMCorrelator::ExtractUncertaintyFunctor());
-    ImageViewRef<float> spectral_uncertainty =
-      per_pixel_filter(disparity_uncertainty,
-                       EMCorrelator::SpectralRadiusUncertaintyFunctor());
-    write_image(opt.out_prefix+"-US.tif", spectral_uncertainty);
-    write_image(opt.out_prefix+"-U.tif", disparity_uncertainty);
-
-    refined_disp =
-      per_pixel_filter(em_disparity_disk_image,
-                       EMCorrelator::ExtractDisparityFunctor());
-#endif      
   } // End of subpixel mode selection
 
   if ((stereo_settings().subpixel_mode < 0) || (stereo_settings().subpixel_mode > 5)) {

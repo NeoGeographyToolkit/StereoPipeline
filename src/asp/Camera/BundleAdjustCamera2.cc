@@ -91,6 +91,7 @@ void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
 
   for (size_t icam = 0; icam < num_cameras; icam++) {
     CameraAdjustment correction(param_storage.get_camera_ptr(icam));
+    // The pointer is managed by vw::CamPtr
     out_cameras[icam] = vw::CamPtr(new camera::AdjustedCameraModel(input_cameras[icam],
                                    correction.position(), correction.pose()));
   }                              
@@ -200,9 +201,8 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
     PinholeModel* in_cam  = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
 
     // Start with a deep copy of the input camera. Then overwrite its parameters.
-    PinholeModel* out_cam = new PinholeModel(*in_cam); // deep copy
+    PinholeModel* out_cam = new PinholeModel(*in_cam); // deep copy, memory managed below
     *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
-
     new_cam_models[icam] = vw::CamPtr(out_cam);
   }
 
@@ -245,10 +245,10 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_
     vw::camera::OpticalBarModel* in_cam
       = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
 
-    // Start with a copy of the input camera, then overwrite its content
+    // Start with a copy of the input camera, then overwrite its content.
+    // The pointer is managed below.
     vw::camera::OpticalBarModel* out_cam = new vw::camera::OpticalBarModel(*in_cam); 
     *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
-
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
   }
 
@@ -878,7 +878,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
           = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-        vw::camera::PinholeModel * out_cam = new PinholeModel();
+        vw::camera::PinholeModel * out_cam = new PinholeModel(); // pointer managed below
         *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
         optimized_cams.push_back(vw::CamPtr(out_cam));
       }
@@ -889,7 +889,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
           = dynamic_cast<vw::camera::OpticalBarModel const*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
-        vw::camera::OpticalBarModel * out_cam = new OpticalBarModel();
+        vw::camera::OpticalBarModel * out_cam = new OpticalBarModel(); // pointer managed below
         *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
         optimized_cams.push_back(vw::CamPtr(out_cam)); // will manage the memory
       }
@@ -907,6 +907,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
     case BaCameraType_Other:
       {
         CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        // The pointer is managed by the smart pointer vw::CamPtr
         vw::CamPtr out_cam
           (new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
                                           cam_adjust.position(), cam_adjust.pose()));

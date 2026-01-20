@@ -330,7 +330,7 @@ void mergePolys(asp::AppData & app_data, int beg_image_id, int end_image_id, int
           OGRLinearRing R;
           vw::geometry::toOGR(xv, yv, startPos, numCurrPolyVerts, R);
 
-          OGRPolygon * P = new OGRPolygon;
+          OGRPolygon * P = new OGRPolygon; // the parent manages the allocation
           if (P->addRing(&R) != OGRERR_NONE)
             vw_throw(vw::ArgumentErr() << "Failed add ring to polygon.\n");
 

@@ -1108,7 +1108,7 @@ void readPinholeCameras(SatSimOptions const& opt,
 
   cams.resize(cam_names.size());
   for (int i = 0; i < int(cam_names.size()); i++)
-    cams[i] = vw::CamPtr(new vw::camera::PinholeModel(cam_names[i]));
+    cams[i] = vw::CamPtr(new vw::camera::PinholeModel(cam_names[i])); // managed pointer
 
   return;
 }
@@ -1192,7 +1192,7 @@ void perturbCameras(SatSimOptions const& opt,
       pin->write(camName);
     } else {
       // Save as CSM
-      asp::CsmModel * csmPtr = new asp::CsmModel;
+      asp::CsmModel * csmPtr = new asp::CsmModel; // pointer managed below
       vw::cartography::Datum d = georef.datum();
       csmPtr->createFrameModel(*pin,
                                opt.image_size[0], opt.image_size[1],
@@ -1297,7 +1297,7 @@ void genPinholeCameras(SatSimOptions          const& opt,
     vw::camera::PinholeModel *pinPtr = NULL; 
     vw::cartography::Datum d = dem_georef.datum();
     if (opt.save_as_csm) {
-      csmPtr = new asp::CsmModel;
+      csmPtr = new asp::CsmModel; // pointer managed below
       csmPtr->createFrameModel(opt.image_size[0], opt.image_size[1],
                               opt.optical_center[0], opt.optical_center[1],
                               opt.focal_length, 
