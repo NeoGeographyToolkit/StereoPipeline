@@ -100,14 +100,21 @@ double gps_seconds(std::string const& orthoimage_path){
   std::string date = orthoimage_path.substr(it, 8);
   std::string time = orthoimage_path.substr(it+9, 8);
 
-  int year  = atoi(date.substr(0, 4).c_str());
-  int month = atoi(date.substr(4, 2).c_str());
-  int day   = atoi(date.substr(6, 2).c_str());
+  std::string year_str = date.substr(0, 4);
+  std::string month_str = date.substr(4, 2);
+  std::string day_str = date.substr(6, 2);
+  int year  = atoi(year_str.c_str());
+  int month = atoi(month_str.c_str());
+  int day   = atoi(day_str.c_str());
 
-  int hour  = atoi(time.substr(0, 2).c_str());
-  int min   = atoi(time.substr(2, 2).c_str());
-  int sec   = atoi(time.substr(4, 2).c_str());
-  int fsec  = atoi(time.substr(6, 2).c_str()); // first two digit of fractional part of second
+  std::string hour_str = time.substr(0, 2);
+  std::string min_str = time.substr(2, 2);
+  std::string sec_str = time.substr(4, 2);
+  std::string fsec_str = time.substr(6, 2);
+  int hour  = atoi(hour_str.c_str());
+  int min   = atoi(min_str.c_str());
+  int sec   = atoi(sec_str.c_str());
+  int fsec  = atoi(fsec_str.c_str()); // first two digit of fractional part of second
 
   std::tm time_in = {sec, min, hour, // second, minute, hour
                      day,            // 1-based day

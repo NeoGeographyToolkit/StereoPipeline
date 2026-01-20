@@ -17,10 +17,6 @@ add_executable(orbitviz_pinhole orbitviz_pinhole.cc)
 target_link_libraries(orbitviz_pinhole AspSessions)
 install(TARGETS orbitviz_pinhole DESTINATION bin)
 
-add_executable(qi2txt qi2txt.cc)
-target_link_libraries(qi2txt AspCore AspSessions)
-install(TARGETS qi2txt DESTINATION bin)
-
 # Install all of the python files.
 set(PYTHON_TOOLS icebridge_kmz_to_csv.py extract_icebridge_ATM_points.py lvis2kml.py)
 

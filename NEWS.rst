@@ -39,6 +39,7 @@ pc_align (:numref:`pc_align`):
 Misc:
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment. 
+  * Removed the old qi2txt program for reading IceBridge QFIT binary data.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------

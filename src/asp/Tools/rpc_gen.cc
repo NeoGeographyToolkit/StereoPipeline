@@ -137,10 +137,11 @@ void load_pairs_from_file(std::string const& path,
     size_t start_pos = colon_pos + 1;
     size_t comma_pos = line.find(',');
     size_t num1_len = comma_pos - start_pos;
-    float num1 = atof(line.substr(start_pos, num1_len).c_str());
-    float num2 = atof(line.substr(comma_pos+1).c_str());    
-    //printf("Read %lf, %lf\n", num1, num2);
-  
+    std::string num1_str = line.substr(start_pos, num1_len);
+    std::string num2_str = line.substr(comma_pos+1);
+    float num1 = atof(num1_str.c_str());
+    float num2 = atof(num2_str.c_str());
+
     if (line[0] == 'u') { // = GDC
       Vector3 gdc(num1, num2, HEIGHT);
       gdc_temp.push_back(gdc);
