@@ -49,13 +49,6 @@
 #include <boost/accumulators/statistics.hpp>
 #pragma GCC diagnostic pop
 
-using namespace vw;
-using namespace vw::stereo;
-using namespace asp;
-using std::endl;
-using std::setprecision;
-using std::setw;
-
 namespace po = boost::program_options;
 
 // - Use the correlate tool to determine the mean X and Y offset
@@ -74,7 +67,7 @@ struct Parameters: vw::GdalWriteOptions {
   float log;
   int   h_corr_min, h_corr_max;
   int   v_corr_min, v_corr_max;
-  Vector2i kernel;
+  vw::Vector2i kernel;
   int   lrthresh;
   int   correlator_type;
   int   cropWidth;
@@ -97,7 +90,7 @@ bool handle_arguments(int argc, char* argv[], Parameters& opt) {
      "Minimum vertical disparity - computed automatically if not set.")
     ("v-corr-max", po::value(&opt.v_corr_max)->default_value(-1),
      "Maximum vertical disparity - computed automatically if not set.")
-    ("kernel", po::value(&opt.kernel)->default_value(Vector2i(15,15)),
+    ("kernel", po::value(&opt.kernel)->default_value(vw::Vector2i(15,15)),
      "Correlation kernel size")
     ("lrthresh", po::value(&opt.lrthresh)->default_value(2),
      "Left/right correspondence threshold")
@@ -124,8 +117,8 @@ bool handle_arguments(int argc, char* argv[], Parameters& opt) {
                             allow_unregistered, unregistered);
 
   if (!vm.count("left") || !vm.count("right"))
-    vw_throw(ArgumentErr() << "Requires <left> and <right> input in order to proceed.\n\n"
-              << usage << general_options);
+    vw::vw_throw(vw::ArgumentErr() << "Requires <left> and <right> input in order to proceed.\n\n"
+                 << usage << general_options);
 
   return true;
 }
@@ -148,8 +141,8 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   // Load both images
   vw::vw_out() << "Loading images left=" << params.leftFilePath
                << " and right=" << params.rightFilePath << ".\n";
-  DiskImageView<PixelGray<float> > left_disk_image (params.leftFilePath);
-  DiskImageView<PixelGray<float> > right_disk_image(params.rightFilePath);
+  vw::DiskImageView<vw::PixelGray<float>> left_disk_image (params.leftFilePath);
+  vw::DiskImageView<vw::PixelGray<float>> right_disk_image(params.rightFilePath);
 
   const int imageWidth      = std::min(left_disk_image.cols(), right_disk_image.cols());
   const int imageHeight     = std::min(left_disk_image.rows(), right_disk_image.rows());
@@ -159,9 +152,9 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
 
   // Restrict processing to the border of the images
   // - Since both images were nproj'd the overlap areas should be in about the same spots.
-  const BBox2i crop_roi(cropStartX, imageTopRow,
-             params.cropWidth, imageHeight);
-  vw_out() << "Expected overlap ROI = " << crop_roi << std::endl;
+  const vw::BBox2i crop_roi(cropStartX, imageTopRow,
+                            params.cropWidth, imageHeight);
+  vw::vw_out() << "Expected overlap ROI = " << crop_roi << "\n";
 
   const int SEARCH_RANGE_EXPANSION = 5;
   int  ipFindXOffset = 0;
@@ -170,57 +163,55 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
 
   // If the search box was not fully populated use ipfind to estimate a search region
   if ((params.h_corr_min > params.h_corr_max) || (params.v_corr_min > params.v_corr_max)) {
-    // Now use interest point finding/matching functions to estimate the search offset between the images
-    vw_out() << "Gathering interest points.\n";
+    vw::vw_out() << "Gathering interest points...\n";
 
     int points_per_tile = 500;
     double nodata1 = 0, nodata2 = 0;
-    ImageViewRef<PixelGray<float>> left_crop = crop(left_disk_image, crop_roi);
-    ImageViewRef<PixelGray<float>> right_crop = crop(right_disk_image, crop_roi);
+    vw::ImageViewRef<vw::PixelGray<float>> left_crop = vw::crop(left_disk_image, crop_roi);
+    vw::ImageViewRef<vw::PixelGray<float>> right_crop = vw::crop(right_disk_image, crop_roi);
 
     // Gather interest points and match them
-    std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+    std::vector<vw::ip::InterestPoint> matched_ip1, matched_ip2;
     size_t number_of_jobs = 1;
     bool use_cached_ip = false;
-    detect_match_ip(matched_ip1, matched_ip2,
-                    vw::pixel_cast<float>(left_crop),
-                    vw::pixel_cast<float>(right_crop),
-                    points_per_tile,
-                    number_of_jobs, "", "", use_cached_ip,
-                    nodata1, nodata2);
+    asp::detect_match_ip(matched_ip1, matched_ip2,
+                         vw::pixel_cast<float>(left_crop),
+                         vw::pixel_cast<float>(right_crop),
+                         points_per_tile,
+                         number_of_jobs, "", "", use_cached_ip,
+                         nodata1, nodata2);
 
     if (matched_ip1.empty() || matched_ip2.empty()) {
-     ransacSuccess = false;
-     vw::vw_out() << "Failed to find any matching interest points, defaulting to large search range.\n";
+      ransacSuccess = false;
+      vw::vw_out() << "Failed to find any matching interest points, defaulting to large search range.\n";
     } else {
       vw::vw_out() << "Found " << matched_ip1.size() << ", " << matched_ip2.size()
                    << " matched interest points.\n";
 
       // Filter interest point matches
-      math::RandomSampleConsensus<math::SimilarityFittingFunctor, math::InterestPointErrorMetric>
-        ransac(math::SimilarityFittingFunctor(), math::InterestPointErrorMetric(),
-                100, 5, 100, true);
-      std::vector<Vector3> ransac_ip1 = ip::iplist_to_vectorlist(matched_ip1);
-      std::vector<Vector3> ransac_ip2 = ip::iplist_to_vectorlist(matched_ip2);
+      vw::math::RandomSampleConsensus<vw::math::SimilarityFittingFunctor, vw::math::InterestPointErrorMetric>
+        ransac(vw::math::SimilarityFittingFunctor(), vw::math::InterestPointErrorMetric(),
+               100, 5, 100, true);
+      std::vector<vw::Vector3> ransac_ip1 = vw::ip::iplist_to_vectorlist(matched_ip1);
+      std::vector<vw::Vector3> ransac_ip2 = vw::ip::iplist_to_vectorlist(matched_ip2);
 
       // Finding offset using RANSAC.
       try {
-        Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
-        vw_out() << "ipfind based similarity: " << H << std::endl;
+        vw::math::Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
+        vw::vw_out() << "ipfind based similarity: " << H << "\n";
 
-        // Use the estimated transform between the images to determine a search offset range
         ipFindXOffset = static_cast<int>(H[0][2]);
         ipFindYOffset = static_cast<int>(H[1][2]);
         ransacSuccess = true;
-      } catch (...) { // Handle a RANSAC failure
-        vw_out() << "RANSAC solution failed, defaulting to large search range.\n";
+      } catch (...) {
+        vw::vw_out() << "RANSAC solution failed, defaulting to large search range.\n";
         ransacSuccess = false;
       }
-    } // End of successful IP matching
+    }
 
-  } // End ipfind case
+  }
 
-  BBox2i searchRegion(ipFindXOffset, ipFindYOffset, 1, 1);
+  vw::BBox2i searchRegion(ipFindXOffset, ipFindYOffset, 1, 1);
   searchRegion.expand(SEARCH_RANGE_EXPANSION);
 
   if (!ransacSuccess) { // Default to a large search radius
@@ -242,7 +233,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
 
   vw::vw_out() << "Disparity search image size = " << params.cropWidth
                << " by " << imageHeight << "\n";
-  vw_out() << "Offset search region = " << searchRegion << endl;
+  vw::vw_out() << "Offset search region = " << searchRegion << "\n";
 
   // Use correlation function to compute image disparity
   stereo::CostFunctionType corr_type = ABSOLUTE_DIFFERENCE;
@@ -254,25 +245,25 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   vw::vw_out() << "Running stereo correlation.\n";
 
   // Pyramid Correlation works best rasterizing in 1024^2 chunks
-  vw_settings().set_default_tile_size(1024);
+  vw::vw_settings().set_default_tile_size(1024);
 
   int    filter_kernel_size = 5;
   int    max_pyramid_levels = 5;
   int    corr_timeout       = 0;
   int    min_lr_level = 0;
   double seconds_per_op     = 0.0;
-  DiskCacheImageView<PixelMask<Vector2f>>
+  vw::DiskCacheImageView<vw::PixelMask<vw::Vector2f>>
     disparity_map(
-      stereo::pyramid_correlate(
-         apply_mask(create_mask_less_or_equal(crop(left_disk_image,  crop_roi),0)),
-                 apply_mask(create_mask_less_or_equal(crop(right_disk_image, crop_roi),0)),
-                 constant_view(uint8(255), left_disk_image),
-                 constant_view(uint8(255), right_disk_image),
-                 vw::stereo::PREFILTER_LOG, params.log,
-                 searchRegion,
-                 params.kernel,
-                 corr_type, corr_timeout, seconds_per_op,
-                 params.lrthresh, min_lr_level, filter_kernel_size, max_pyramid_levels));
+      vw::stereo::pyramid_correlate(
+         vw::apply_mask(vw::create_mask_less_or_equal(vw::crop(left_disk_image,  crop_roi),0)),
+         vw::apply_mask(vw::create_mask_less_or_equal(vw::crop(right_disk_image, crop_roi),0)),
+         vw::constant_view(vw::uint8(255), left_disk_image),
+         vw::constant_view(vw::uint8(255), right_disk_image),
+         vw::stereo::PREFILTER_LOG, params.log,
+         searchRegion,
+         params.kernel,
+         corr_type, corr_timeout, seconds_per_op,
+         params.lrthresh, min_lr_level, filter_kernel_size, max_pyramid_levels));
 
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts
@@ -290,34 +281,34 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
 
     vw::vw_out() << "Created output log file: " << params.rowLogFilePath << "\n";
 
-    out << "#       Lronacjitreg ISIS Application Results" << endl;
-    out << "#    Coordinates are (Sample, Line) unless indicated" << endl;
+    out << "#       Lronacjitreg ISIS Application Results" << "\n";
+    out << "#    Coordinates are (Sample, Line) unless indicated" << "\n";
     out << "#\n#    ****  Image Input Information ****\n";
-    out << "#  FROM:  " << params.leftFilePath << endl;
-    out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
-    out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
-    out << "#    SampOffset:  " << cropStartX << endl;
-    out << "#    TopLeft:     " << setw(7) << setprecision(0)
+    out << "#  FROM:  " << params.leftFilePath << "\n";
+    out << "#    Lines:       " << std::setprecision(0) << imageHeight << "\n";
+    out << "#    Samples:     " << std::setprecision(0) << imageWidth << "\n";
+    out << "#    SampOffset:  " << cropStartX << "\n";
+    out << "#    TopLeft:     " << std::setw(7) << std::setprecision(0)
         << cropStartX << " "
-        << setw(7) << setprecision(0)
-        << 0 << endl;
-    out << "#    LowerRight:  " << setw(7) << setprecision(0)
+        << std::setw(7) << std::setprecision(0)
+        << 0 << "\n";
+    out << "#    LowerRight:  " << std::setw(7) << std::setprecision(0)
         << cropStartX + params.cropWidth << " "
-        << setw(7) << setprecision(0)
-        << imageHeight << endl;
+        << std::setw(7) << std::setprecision(0)
+        << imageHeight << "\n";
     out << "\n";
-    out << "#  MATCH: " << params.rightFilePath << endl;
-    out << "#    Lines:       " << setprecision(0) << imageHeight << endl;
-    out << "#    Samples:     " << setprecision(0) << imageWidth << endl;
-    out << "#    SampOffset:  " << cropStartX << endl;
-    out << "#    TopLeft:     " << setw(7) << setprecision(0)
+    out << "#  MATCH: " << params.rightFilePath << "\n";
+    out << "#    Lines:       " << std::setprecision(0) << imageHeight << "\n";
+    out << "#    Samples:     " << std::setprecision(0) << imageWidth << "\n";
+    out << "#    SampOffset:  " << cropStartX << "\n";
+    out << "#    TopLeft:     " << std::setw(7) << std::setprecision(0)
         << cropStartX << " "
-        << setw(7) << setprecision(0)
-        << 0 << endl;
-    out << "#    LowerRight:  " << setw(7) << setprecision(0)
+        << std::setw(7) << std::setprecision(0)
+        << 0 << "\n";
+    out << "#    LowerRight:  " << std::setw(7) << std::setprecision(0)
         << cropStartX+params.cropWidth  << " "
-        << setw(7) << setprecision(0)
-        << imageHeight << endl;
+        << std::setw(7) << std::setprecision(0)
+        << imageHeight << "\n";
     out << "\n";
 
   }
@@ -341,7 +332,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     int    numValidInRow = 0;
     for (int col=0; col<disparity_map.cols(); col++) {
 
-      if (is_valid(disparity_map(col,row))) {
+      if (vw::is_valid(disparity_map(col,row))) {
         float dY = disparity_map(col,row)[1]; // Y
         float dX = disparity_map(col,row)[0]; // X
         rowSum += dY;
@@ -369,50 +360,51 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     }
 
     if (writeLogFile) {
-      out << setprecision(4)
-          << setw(5) << row             << ", "
-          << setw(6) << rowOffsets[row] << ", "
-          << setw(6) << colOffsets[row] << " Count = "
-          << setw(3) << numValidInRow   << " Std = "
-          << setw(4) << stdDevRow << std::endl;
+      out << std::setprecision(4)
+          << std::setw(5) << row             << ", "
+          << std::setw(6) << rowOffsets[row] << ", "
+          << std::setw(6) << colOffsets[row] << " Count = "
+          << std::setw(3) << numValidInRow   << " Std = "
+          << std::setw(4) << stdDevRow << "\n";
     }
 
   } // End loop through rows
 
   if (writeLogFile) {
     out << "\n#  **** Registration Data ****\n";
-    out << "#   RegFile: " << "" << endl;
-    out << "#   OverlapSize:      " << setw(7) << params.cropWidth << " "
+    out << "#   RegFile: " << "" << "\n";
+    out << "#   OverlapSize:      " << std::setw(7) << params.cropWidth << " "
+        << std::setw(7) << imageHeight << "\n";
         << setw(7) << imageHeight << "\n";
-    out << "#   Sample Spacing:   " << setprecision(1) << 1 << endl;
-    out << "#   Line Spacing:     " << setprecision(1) << 1 << endl;
-    out << "#   Columns, Rows:    " << params.kernel[0] << " " << params.kernel[1] << endl;
+    out << "#   Sample Spacing:   " << std::setprecision(1) << 1 << "\n";
+    out << "#   Line Spacing:     " << std::setprecision(1) << 1 << "\n";
+    out << "#   Columns, Rows:    " << params.kernel[0] << " " << params.kernel[1] << "\n";
     out << "#   Corr. Algorithm:  ";
     switch(params.correlator_type) {
-      case 1:  out << "SQUARED_DIFFERENCE"  << endl; break;
-      case 2:  out << "CROSS_CORRELATION"   << endl; break;
-      default: out << "ABSOLUTE_DIFFERENCE" << endl; break;
+      case 1:  out << "SQUARED_DIFFERENCE"  << "\n"; break;
+      case 2:  out << "CROSS_CORRELATION"   << "\n"; break;
+      default: out << "ABSOLUTE_DIFFERENCE" << "\n"; break;
     };
     if (numValidRows > 0) {
-      out << "#   Using IpFind result only:   0" << endl;
-      out << "#   Average Sample Offset: " << setprecision(4) << stdCalcX.mean()
-          << "  StdDev: " << setprecision(4) << stdCalcX.value() << endl;
-      out << "#   Average Line Offset:   " << setprecision(4) << stdCalcY.mean()
-          << " StdDev: " << setprecision(4) << stdCalcY.value() << endl;
-     } else { // No valid rows
-       if (ransacSuccess) {
-         vw::vw_out() << "Pixel correlation search failed, using IpFind results.\n";
-         out << "#   Using IpFind result only:   1" << endl;
-           out << "#   Average Sample Offset: " << setprecision(4) << ipFindXOffset
-             << "  StdDev: 0.0" << endl;
-         out << "#   Average Line Offset:   " << setprecision(4) << ipFindYOffset
-             << " StdDev: 0.0" << endl;
-       } else { // No information to go by
-           out << "#   Using IpFind result only:   0" << endl;
-         out << "#   Average Sample Offset: NULL StdDev: NULL\n";
-         out << "#   Average Line Offset:   NULL StdDev: NULL\n";
-       }
-     }
+      out << "#   Using IpFind result only:   0" << "\n";
+      out << "#   Average Sample Offset: " << std::setprecision(4) << stdCalcX.mean()
+          << "  StdDev: " << std::setprecision(4) << stdCalcX.value() << "\n";
+      out << "#   Average Line Offset:   " << std::setprecision(4) << stdCalcY.mean()
+          << " StdDev: " << std::setprecision(4) << stdCalcY.value() << "\n";
+    } else {
+      if (ransacSuccess) {
+        vw::vw_out() << "Pixel correlation search failed, using IpFind results.\n";
+        out << "#   Using IpFind result only:   1" << "\n";
+        out << "#   Average Sample Offset: " << std::setprecision(4) << ipFindXOffset
+            << "  StdDev: 0.0" << "\n";
+        out << "#   Average Line Offset:   " << std::setprecision(4) << ipFindYOffset
+            << " StdDev: 0.0" << "\n";
+      } else {
+        out << "#   Using IpFind result only:   0" << "\n";
+        out << "#   Average Sample Offset: NULL StdDev: NULL\n";
+        out << "#   Average Line Offset:   NULL StdDev: NULL\n";
+      }
+    }
 
     out.close();
   }

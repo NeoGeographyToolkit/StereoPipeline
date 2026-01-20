@@ -43,11 +43,11 @@ add_executable(bundle_adjust bundle_adjust.cc)
 target_link_libraries(bundle_adjust AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS bundle_adjust DESTINATION bin)
 
-add_executable(opencv_calibrate opencv_calibrate.cpp) 
+add_executable(opencv_calibrate opencv_calibrate.cc) 
 target_link_libraries(opencv_calibrate AspCore AspSessions)
 install(TARGETS opencv_calibrate DESTINATION libexec)
 
-add_executable(opencv_imagelist_creator opencv_imagelist_creator.cpp)
+add_executable(opencv_imagelist_creator opencv_imagelist_creator.cc)
 target_link_libraries(opencv_imagelist_creator AspCore AspSessions)
 install(TARGETS opencv_imagelist_creator DESTINATION libexec)
 
