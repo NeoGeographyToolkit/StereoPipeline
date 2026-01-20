@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2024, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -64,7 +64,7 @@ namespace po = boost::program_options;
 // - Output those two values.
 
 struct Parameters: vw::GdalWriteOptions {
-  
+
   // Input paths
   std::string leftFilePath;
   std::string rightFilePath;
@@ -83,25 +83,25 @@ struct Parameters: vw::GdalWriteOptions {
 bool handle_arguments(int argc, char* argv[], Parameters& opt) {
   po::options_description general_options("Options");
   general_options.add_options()
-    ("output-log", po::value(&opt.rowLogFilePath)->default_value(""), 
+    ("output-log", po::value(&opt.rowLogFilePath)->default_value(""),
      "Explicitly specify the per row output text file")
-    ("log", po::value(&opt.log)->default_value(1.4), 
+    ("log", po::value(&opt.log)->default_value(1.4),
      "Apply LOG filter with the given sigma, or 0 to disable")
-    ("crop-width", po::value(&opt.cropWidth)->default_value(200), 
+    ("crop-width", po::value(&opt.cropWidth)->default_value(200),
      "Crop images to this width before disparity search")
-    ("h-corr-min", po::value(&opt.h_corr_min)->default_value(0), 
+    ("h-corr-min", po::value(&opt.h_corr_min)->default_value(0),
      "Minimum horizontal disparity - computed automatically if not set.")
-    ("h-corr-max", po::value(&opt.h_corr_max)->default_value(-1), 
+    ("h-corr-max", po::value(&opt.h_corr_max)->default_value(-1),
      "Maximum horizontal disparity - computed automatically if not set.")
-    ("v-corr-min", po::value(&opt.v_corr_min)->default_value(0), 
+    ("v-corr-min", po::value(&opt.v_corr_min)->default_value(0),
      "Minimum vertical disparity - computed automatically if not set.")
-    ("v-corr-max", po::value(&opt.v_corr_max)->default_value(-1), 
+    ("v-corr-max", po::value(&opt.v_corr_max)->default_value(-1),
      "Maximum vertical disparity - computed automatically if not set.")
-    ("kernel", po::value(&opt.kernel)->default_value(Vector2i(15,15)), 
+    ("kernel", po::value(&opt.kernel)->default_value(Vector2i(15,15)),
      "Correlation kernel size")
-    ("lrthresh", po::value(&opt.lrthresh)->default_value(2), 
+    ("lrthresh", po::value(&opt.lrthresh)->default_value(2),
      "Left/right correspondence threshold")
-    ("correlator-type", po::value(&opt.correlator_type)->default_value(0), 
+    ("correlator-type", po::value(&opt.correlator_type)->default_value(0),
      "0 - Abs difference; 1 - Sq Difference; 2 - NormXCorr");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -160,7 +160,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   // Restrict processing to the border of the images
   // - Since both images were nproj'd the overlap areas should be in about the same spots.
   const BBox2i crop_roi(cropStartX, imageTopRow,
-			 params.cropWidth, imageHeight);
+             params.cropWidth, imageHeight);
   vw_out() << "Expected overlap ROI = " << crop_roi << std::endl;
 
   const int SEARCH_RANGE_EXPANSION = 5;
@@ -265,14 +265,14 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     disparity_map(
       stereo::pyramid_correlate(
          apply_mask(create_mask_less_or_equal(crop(left_disk_image,  crop_roi),0)),
-				 apply_mask(create_mask_less_or_equal(crop(right_disk_image, crop_roi),0)),
-				 constant_view(uint8(255), left_disk_image),
-				 constant_view(uint8(255), right_disk_image),
-				 vw::stereo::PREFILTER_LOG, params.log,
-				 searchRegion,
-				 params.kernel,
-				 corr_type, corr_timeout, seconds_per_op,
-				 params.lrthresh, min_lr_level, filter_kernel_size, max_pyramid_levels));
+                 apply_mask(create_mask_less_or_equal(crop(right_disk_image, crop_roi),0)),
+                 constant_view(uint8(255), left_disk_image),
+                 constant_view(uint8(255), right_disk_image),
+                 vw::stereo::PREFILTER_LOG, params.log,
+                 searchRegion,
+                 params.kernel,
+                 corr_type, corr_timeout, seconds_per_op,
+                 params.lrthresh, min_lr_level, filter_kernel_size, max_pyramid_levels));
 
   // Compute the mean horizontal and vertical shifts
   // - Currently disparity_map contains the per-pixel shifts
@@ -401,14 +401,14 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
           << " StdDev: " << setprecision(4) << stdCalcY.value() << endl;
      } else { // No valid rows
        if (ransacSuccess) {
-    	 vw::vw_out() << "Pixel correlation search failed, using IpFind results.\n";
-		 out << "#   Using IpFind result only:   1" << endl;
-  	     out << "#   Average Sample Offset: " << setprecision(4) << ipFindXOffset
-		     << "  StdDev: 0.0" << endl;
-	     out << "#   Average Line Offset:   " << setprecision(4) << ipFindYOffset
-		     << " StdDev: 0.0" << endl;
+         vw::vw_out() << "Pixel correlation search failed, using IpFind results.\n";
+         out << "#   Using IpFind result only:   1" << endl;
+           out << "#   Average Sample Offset: " << setprecision(4) << ipFindXOffset
+             << "  StdDev: 0.0" << endl;
+         out << "#   Average Line Offset:   " << setprecision(4) << ipFindYOffset
+             << " StdDev: 0.0" << endl;
        } else { // No information to go by
-      	 out << "#   Using IpFind result only:   0" << endl;
+           out << "#   Using IpFind result only:   0" << endl;
          out << "#   Average Sample Offset: NULL StdDev: NULL\n";
          out << "#   Average Line Offset:   NULL StdDev: NULL\n";
        }
@@ -418,7 +418,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   }
 
   if ((numValidRows == 0) && (!ransacSuccess)) {
-	  vw::vw_out() << "Error: No valid pixel matches found!\n";
+      vw::vw_out() << "Error: No valid pixel matches found!\n";
     return false;
   }
 

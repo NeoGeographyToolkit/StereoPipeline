@@ -1,3 +1,20 @@
+// __BEGIN_LICENSE__
+//  Copyright (c) 2009-2026, United States Government as represented by the
+//  Administrator of the National Aeronautics and Space Administration. All
+//  rights reserved.
+//
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+// __END_LICENSE__
+
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageIO.h>
 #include <vw/FileIO/DiskImageResource.h>
@@ -70,7 +87,7 @@ static double computeReprojectionErrors(
     const vector<Mat>& rvecs, const vector<Mat>& tvecs,
     const Mat& cameraMatrix, const Mat& distCoeffs,
     vector<float>& perViewErrors) {
-  
+
   vector<Point2f> imagePoints2;
   int i, totalPoints = 0;
   double totalErr = 0, err;
@@ -89,8 +106,8 @@ static double computeReprojectionErrors(
   return std::sqrt(totalErr/totalPoints);
 }
 
-static void calcChessboardCorners(cv::Size boardSize, float squareSize, 
-                                  vector<Point3f>& corners, 
+static void calcChessboardCorners(cv::Size boardSize, float squareSize,
+                                  vector<Point3f>& corners,
                                   BoardPattern patternType = CHESSBOARD) {
   corners.resize(0);
 
@@ -229,13 +246,13 @@ static bool readStringList(const string& filename, const string& tempFile, vecto
   FileNodeIterator it = n.begin(), it_end = n.end();
   for (; it != it_end; ++it)
     l.push_back((string)*it);
-               
+
   return true;
 }
 
 bool runAndSave(const string& outputFilename,
                 const vector<vector<Point2f> >& imagePoints,
-                cv::Size imageSize, cv::Size boardSize, BoardPattern patternType, 
+                cv::Size imageSize, cv::Size boardSize, BoardPattern patternType,
                 float squareSize, float aspectRatio, int flags, Mat& cameraMatrix,
                 Mat& distCoeffs, bool writeExtrinsics, bool writePoints) {
   vector<Mat> rvecs, tvecs;
@@ -301,14 +318,12 @@ int main(int argc, char** argv) {
         vw::vw_out() << "Invalid board width\n";
         return -1;
       }
-    }
-    else if (strcmp(s, "-h") == 0) {
+    } else if (strcmp(s, "-h") == 0) {
       if (sscanf(argv[++i], "%u", &boardSize.height) != 1 || boardSize.height <= 0) {
         vw::vw_out() << "Invalid board height\n";
         return -1;
       }
-    }
-    else if (strcmp(s, "-pt") == 0) {
+    } else if (strcmp(s, "-pt") == 0) {
       i++;
       if (!strcmp(argv[i], "circles"))
         pattern = CIRCLES_GRID;
@@ -320,45 +335,35 @@ int main(int argc, char** argv) {
         vw::vw_out() << "Invalid pattern type: must be chessboard or circles\n";
         return -1;
       }
-    }
-    else if (strcmp(s, "-s") == 0) {
+    } else if (strcmp(s, "-s") == 0) {
       if (sscanf(argv[++i], "%f", &squareSize) != 1 || squareSize <= 0) {
         vw::vw_out() << "Invalid board square width\n";
         return -1;
       }
-    }
-    else if (strcmp(s, "-n") == 0) {
+    } else if (strcmp(s, "-n") == 0) {
       if (sscanf(argv[++i], "%u", &nframes) != 1 || nframes <= 3) {
         vw::vw_out() << "Invalid number of images\n";
         return -1;
       }
-    }
-    else if (strcmp(s, "-a") == 0) {
+    } else if (strcmp(s, "-a") == 0) {
       if (sscanf(argv[++i], "%f", &aspectRatio) != 1 || aspectRatio <= 0) {
         vw::vw_out() << "Invalid aspect ratio\n";
         return -1;
       }
       flags |= cv::CALIB_FIX_ASPECT_RATIO;
-    }
-    else if (strcmp(s, "-op") == 0) {
+    } else if (strcmp(s, "-op") == 0) {
       writePoints = true;
-    }
-    else if (strcmp(s, "-oe") == 0) {
+    } else if (strcmp(s, "-oe") == 0) {
       writeExtrinsics = true;
-    }
-    else if (strcmp(s, "-zt") == 0) {
+    } else if (strcmp(s, "-zt") == 0) {
       flags |= cv::CALIB_ZERO_TANGENT_DIST;
-    }
-    else if (strcmp(s, "-p") == 0) {
+    } else if (strcmp(s, "-p") == 0) {
       flags |= cv::CALIB_FIX_PRINCIPAL_POINT;
-    }
-    else if (strcmp(s, "-o") == 0) {
+    } else if (strcmp(s, "-o") == 0) {
       outputFilename = argv[++i];
-    }
-    else if (s[0] != '-') {
+    } else if (s[0] != '-') {
       inputFilename = s;
-    }
-    else {
+    } else {
       vw::vw_out() << "Unknown option " << s << "\n";
       return -1;
     }
@@ -374,8 +379,7 @@ int main(int argc, char** argv) {
       vw::vw_out() << "Error openening file " << inputFilename << "\n";
       return -1;
     }
-  }
-  else {
+  } else {
     vw::vw_out() << "Missing input filename.\n";
     return -1;
   }
@@ -412,13 +416,13 @@ int main(int argc, char** argv) {
       cvtColor(view, viewGray, COLOR_BGR2GRAY);
     else
       view.copyTo(viewGray);
-    
+
     bool found;
     switch (pattern) {
       case CHESSBOARD:
         found = findChessboardCorners(view, boardSize, pointbuf,
-                                      cv::CALIB_CB_ADAPTIVE_THRESH | 
-                                      cv::CALIB_CB_FAST_CHECK | 
+                                      cv::CALIB_CB_ADAPTIVE_THRESH |
+                                      cv::CALIB_CB_FAST_CHECK |
                                       cv::CALIB_CB_NORMALIZE_IMAGE);
         break;
       case CIRCLES_GRID:
