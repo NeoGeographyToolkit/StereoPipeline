@@ -28,7 +28,7 @@
 namespace asp {
 
   /// Derived StereoSession class using the RPC camera model.
-  class StereoSessionRPC : public StereoSessionGdal {
+  class StereoSessionRPC: public StereoSessionGdal {
   public:
 
     StereoSessionRPC(){};
@@ -37,7 +37,7 @@ namespace asp {
     virtual std::string name() const { return "rpc"; }
 
     /// Simple factory function.
-    static StereoSession* construct() { return new StereoSessionRPC; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionRPC); }
 
     /// Returns the target datum to use for a given camera model.
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,

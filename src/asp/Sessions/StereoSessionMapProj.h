@@ -59,7 +59,7 @@ namespace asp {
 
     virtual std::string name() const { return "dgmaprpc"; }
 
-    static StereoSession* construct() { return new StereoSessionDGMapRPC; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionDGMapRPC); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -82,7 +82,7 @@ namespace asp {
 
     virtual std::string name() const { return "dgmapdg"; }
 
-    static StereoSession* construct() { return new StereoSessionDGMapDG; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionDGMapDG); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -105,7 +105,7 @@ namespace asp {
 
     virtual std::string name() const { return "rpcmaprpc"; }
 
-    static StereoSession* construct() { return new StereoSessionRPCMapRPC; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionRPCMapRPC); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -134,7 +134,7 @@ namespace asp {
       return false;
     }
 
-    static StereoSession* construct() { return new StereoSessionIsisMapIsis; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionIsisMapIsis); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -160,7 +160,7 @@ namespace asp {
 
     virtual std::string name() const { return "pinholemappinhole"; }
 
-    static StereoSession* construct() { return new StereoSessionPinholeMapPinhole; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionPinholeMapPinhole); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -185,7 +185,7 @@ namespace asp {
 
     virtual std::string name() const { return "opticalbarmapopticalbar"; }
 
-    static StereoSession* construct() { return new StereoSessionBarMapBar; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionBarMapBar); }
 
   protected:
     /// Function to load a camera model of the particular type.
@@ -208,7 +208,7 @@ namespace asp {
 
     virtual std::string name() const { return "csmmapcsm"; }
 
-    static StereoSession* construct() { return new StereoSessionCsmMapCsm; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionCsmMapCsm); }
 
   protected:
     /// Function to load a camera model of the particular type.
@@ -233,7 +233,7 @@ namespace asp {
 
     virtual std::string name() const { return "csmmaprpc"; }
 
-    static StereoSession* construct() { return new StereoSessionCsmMapRpc; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionCsmMapRpc); }
 
   protected:
     /// Function to load a camera model of the particular type, for
@@ -257,7 +257,7 @@ namespace asp {
 
     virtual std::string name() const { return "spot5maprpc"; }
 
-    static StereoSession* construct() { return new StereoSessionSpot5MapRPC; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionSpot5MapRPC); }
     
    protected:
     /// Function to load a camera model of the particular type.
@@ -281,7 +281,7 @@ namespace asp {
 
     virtual std::string name() const { return "astermaprpc"; }
 
-    static StereoSession* construct() { return new StereoSessionASTERMapRPC; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionASTERMapRPC); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -305,7 +305,7 @@ namespace asp {
 
     virtual std::string name() const { return "astermapaster"; }
 
-    static StereoSession* construct() { return new StereoSessionASTERMapASTER; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionASTERMapASTER); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -330,7 +330,7 @@ namespace asp {
 
     virtual std::string name() const { return "pleiadesmappleiades"; }
 
-    static StereoSession* construct() { return new StereoSessionPleiadesMapPleiades; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionPleiadesMapPleiades); }
  
   protected:
     /// Function to load a camera model of the particular type.

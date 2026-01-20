@@ -52,7 +52,7 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
     // so there is no datum, unless explicitly provided.
     virtual bool have_datum() const;
 
-    static StereoSession* construct() { return new StereoSessionPinhole; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionPinhole); }
 
 
     /// Override this function to make sure it properly generates the

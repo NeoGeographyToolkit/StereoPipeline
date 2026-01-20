@@ -509,12 +509,12 @@ void matchIpNoCams(std::string const& image1,
   std::string stereo_session = "pinhole", input_dem = "";
   bool allow_map_promote = false, total_quiet = true;
   vw::GdalWriteOptions gdal_opt;
-  session.reset(asp::StereoSessionFactory::create
+  session = asp::StereoSessionFactory::create
                         (stereo_session, // may change
                         gdal_opt, 
                         image1, image2,
                         image1, image2,
-                        output_prefix, input_dem, allow_map_promote, total_quiet));
+                        output_prefix, input_dem, allow_map_promote, total_quiet);
 
   vw::camera::CameraModel* cam1 = NULL, *cam2 = NULL;
   bool enable_rough_homography = false;

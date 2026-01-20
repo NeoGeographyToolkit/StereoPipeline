@@ -945,12 +945,12 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   // so don't print the session.
   bool allow_map_promote = true;
   bool total_quiet = asp::stereo_settings().correlator_mode;
-  opt.session.reset(asp::StereoSessionFactory::create(opt.stereo_session, // can change
-                                                      opt,
-                                                      opt.in_file1,   opt.in_file2,
-                                                      opt.cam_file1,  opt.cam_file2,
-                                                      opt.out_prefix, opt.input_dem,
-                                                      allow_map_promote, total_quiet));
+  opt.session = asp::StereoSessionFactory::create(opt.stereo_session, // can change
+                                                  opt,
+                                                  opt.in_file1,   opt.in_file2,
+                                                  opt.cam_file1,  opt.cam_file2,
+                                                  opt.out_prefix, opt.input_dem,
+                                                  allow_map_promote, total_quiet);
 
   // Load the cameras. They will be cached in the session.
   boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;

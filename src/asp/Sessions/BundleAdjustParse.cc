@@ -100,11 +100,11 @@ void loadValidateBaOptions(po::variables_map const& vm,
   // the cameras figured out.
   asp::SessionPtr session(NULL);
   if (opt.stereo_session.empty())
-    session.reset(asp::StereoSessionFactory::create
+    session = asp::StereoSessionFactory::create
                         (opt.stereo_session, // may change
                          opt, opt.image_files[0], opt.image_files[0],
                          opt.camera_files[0], opt.camera_files[0],
-                         opt.out_prefix));
+                         opt.out_prefix);
 
   // Reusing match files implies that we skip matching
   if (opt.clean_match_files_prefix != "" || opt.match_files_prefix != "" ||

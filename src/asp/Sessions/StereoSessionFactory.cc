@@ -84,16 +84,16 @@ void handleOrthoHeights(std::string const& left_image_file,
     opt_heights[1] = cam_ht2;
 }
 
-StereoSession* StereoSessionFactory::create(std::string      & session_type, // in-out
-                                            vw::GdalWriteOptions const& options,
-                                            std::string const& left_image_file,
-                                            std::string const& right_image_file,
-                                            std::string const& left_camera_file,
-                                            std::string const& right_camera_file,
-                                            std::string const& out_prefix,
-                                            std::string const& input_dem,
-                                            bool allow_map_promote, 
-                                            bool total_quiet) {
+SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-out
+                                        vw::GdalWriteOptions const& options,
+                                        std::string const& left_image_file,
+                                        std::string const& right_image_file,
+                                        std::string const& left_camera_file,
+                                        std::string const& right_camera_file,
+                                        std::string const& out_prefix,
+                                        std::string const& input_dem,
+                                        bool allow_map_promote, 
+                                        bool total_quiet) {
 
   // Known user session types are:
   // DG, RPC, ISIS, Pinhole, NadirPinhole, OpticalBar, etc.
@@ -325,7 +325,7 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
 
   // Compare the current session name to all recognized types
   // - Only one of these will ever get triggered
-  StereoSession* session = NULL;
+  SessionPtr session;
   if (actual_session_type == "dg")
     session = StereoSessionDG::construct();
   else if (actual_session_type == "dgmaprpc")
@@ -374,7 +374,7 @@ StereoSession* StereoSessionFactory::create(std::string      & session_type, // 
     session = StereoSessionCsmMapCsm::construct();
   else if (actual_session_type == "csmmaprpc")
     session = StereoSessionCsmMapRpc::construct();
-  if (session == 0)
+  if (!session)
     vw_throw(vw::NoImplErr() << "Unsupported stereo session type: "
               << actual_session_type);
 

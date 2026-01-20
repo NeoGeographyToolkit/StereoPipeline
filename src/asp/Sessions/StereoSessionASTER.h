@@ -28,7 +28,7 @@
 namespace asp {
 
 /// Session class for ASTER images.
-class StereoSessionASTER : public StereoSessionGdal {
+class StereoSessionASTER: public StereoSessionGdal {
   
 public:
   StereoSessionASTER(){}
@@ -37,7 +37,7 @@ public:
   virtual std::string name() const { return "aster"; }
   
   /// Simple factory function
-  static StereoSession* construct() { return new StereoSessionASTER; }
+  static SessionPtr construct() { return SessionPtr(new StereoSessionASTER); }
 
   /// Fetch the RPC models. We want to use those for ip matching, as they are faster.
   void rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,

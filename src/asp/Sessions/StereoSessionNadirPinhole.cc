@@ -52,8 +52,8 @@ std::string StereoSessionNadirPinhole::name() const {
   return "nadirpinhole"; 
 }
 
-StereoSession* StereoSessionNadirPinhole::construct() { 
-  return new StereoSessionNadirPinhole; 
+SessionPtr StereoSessionNadirPinhole::construct() { 
+  return SessionPtr(new StereoSessionNadirPinhole); 
 }
 
 // Must override the StereoSessionPinhole function

@@ -61,12 +61,12 @@ void load_camera(std::string const& image_file,
     std::string input_dem = ""; // No DEM
     bool allow_map_promote = false;
     if (session.get() == NULL) {
-      session.reset(asp::StereoSessionFactory::create
+      session = asp::StereoSessionFactory::create
                       (stereo_session, // may change
                       opt, image_file, image_file,
                       camera_file, camera_file,
                       out_prefix, input_dem,
-                      allow_map_promote, quiet));
+                      allow_map_promote, quiet);
     
       // This is necessary to avoid a crash with ISIS cameras which is single-threaded
       // TODO(oalexan1): Check this value for csm cameras embedded in ISIS images.
@@ -200,12 +200,12 @@ bool datum_from_camera(std::string const& image_file,
     // If a session was not passed in, create it here.
     std::string input_dem = ""; // No DEM
     bool allow_map_promote = false, quiet = true;
-    session.reset(asp::StereoSessionFactory::create(stereo_session, // may change
+    session = asp::StereoSessionFactory::create(stereo_session, // may change
                                                 vw::GdalWriteOptions(),
                                                 image_file, image_file,
                                                 camera_file, camera_file,
                                                 out_prefix, input_dem,
-                                                allow_map_promote, quiet));
+                                                allow_map_promote, quiet);
   }
     
   bool use_sphere_for_non_earth = true;

@@ -42,7 +42,7 @@ public:
                                             bool use_sphere_for_non_earth) const;
 
   /// Simple factory function
-  static StereoSession* construct() { return new StereoSessionIsis; }
+  static SessionPtr construct() { return SessionPtr(new StereoSessionIsis); }
 
 protected:
   // Find the masked images and stats. Reimplemented for ISIS to handle special pixels.

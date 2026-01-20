@@ -35,7 +35,7 @@ namespace asp {
   /// read/write with GDAL. This class adds a "preprocessing hook"
   /// which aligns and normalizes the images using the specified
   /// methods. Derived classes need to set up camera model loading.
-  class StereoSessionGdal : public StereoSession {
+  class StereoSessionGdal: public StereoSession {
     
   public:
     StereoSessionGdal(){}
@@ -56,7 +56,7 @@ namespace asp {
     virtual std::string name() const { return "dg"; }
 
     /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionDG;}
+    static SessionPtr construct() { return SessionPtr(new StereoSessionDG);}
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -73,7 +73,7 @@ namespace asp {
   //----------------------------------------------------------
 
   /// Stereo session for optical bar cameras such as Corona and Hexagon.
-  class StereoSessionOpticalBar : public StereoSessionGdal {
+  class StereoSessionOpticalBar: public StereoSessionGdal {
 
   public:
     StereoSessionOpticalBar(){}
@@ -82,7 +82,7 @@ namespace asp {
     virtual std::string name() const { return "opticalbar"; }
 
     /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionOpticalBar;}
+    static SessionPtr construct() { return SessionPtr(new StereoSessionOpticalBar);}
 
   protected:
     /// Function to load a camera model of the particular type.
@@ -101,7 +101,7 @@ namespace asp {
   /// Stereo session for CSM camera models that use GDAL compatible image files.
   /// - CSM files can also be used with ISIS image data, in which case
   /// they use StereoSessionIsis.
-  class StereoSessionCsm : public StereoSessionGdal {
+  class StereoSessionCsm: public StereoSessionGdal {
 
     // TODO(oalexan1): Should one deal with ISIS special pixels like for ISIS?
     
@@ -112,7 +112,7 @@ namespace asp {
     virtual std::string name() const { return "csm"; }
     
     /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionCsm;}
+    static SessionPtr construct() { return SessionPtr(new StereoSessionCsm);}
     
     /// Returns the target datum to use for a given camera model
     virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
@@ -131,7 +131,7 @@ namespace asp {
   };
   
   /// StereoSession instance for processing SPOT5 data.
-  class StereoSessionSpot : public StereoSessionGdal {
+  class StereoSessionSpot: public StereoSessionGdal {
 
   public:
     StereoSessionSpot(){}
@@ -140,7 +140,7 @@ namespace asp {
     virtual std::string name() const { return "spot5"; }
     
     /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionSpot; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionSpot); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -155,7 +155,7 @@ namespace asp {
   };
   
   /// StereoSession instance for processing PeruSat data.
-  class StereoSessionPeruSat : public StereoSessionGdal {
+  class StereoSessionPeruSat: public StereoSessionGdal {
 
   public:
     StereoSessionPeruSat(){}
@@ -164,7 +164,7 @@ namespace asp {
     virtual std::string name() const { return "perusat"; }
     
     /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionPeruSat; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionPeruSat); }
     
   protected:
     /// Function to load a camera model of the particular type.
@@ -179,7 +179,7 @@ namespace asp {
   };
 
   /// StereoSession instance for processing Pleiades data.
-  class StereoSessionPleiades : public StereoSessionGdal {
+  class StereoSessionPleiades: public StereoSessionGdal {
 
   public:
     StereoSessionPleiades(){}
@@ -188,7 +188,7 @@ namespace asp {
     virtual std::string name() const { return "pleiades"; }
     
     /// Simple factory function
-    static StereoSession* construct() { return new StereoSessionPleiades; }
+    static SessionPtr construct() { return SessionPtr(new StereoSessionPleiades); }
     
   protected:
     /// Function to load a camera model of the particular type.

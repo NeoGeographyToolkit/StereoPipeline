@@ -31,16 +31,16 @@ namespace asp {
 class StereoSessionFactory {
   public:
     /// Given the input arguments, selects the correct type of StereoSession and initializes it.
-    static StereoSession* create(std::string & session_type, // in-out variable
-                                 vw::GdalWriteOptions const& options,
-                                 std::string const& left_image_file   = "",
-                                 std::string const& right_image_file  = "",
-                                 std::string const& left_camera_file  = "",
-                                 std::string const& right_camera_file = "",
-                                 std::string const& out_prefix        = "",
-                                 std::string const& input_dem         = "",
-                                 bool allow_map_promote=true, // If true, allow isis to become isismapisis based on dem availability
-                                 bool total_quiet = false);
+    static SessionPtr create(std::string & session_type, // in-out variable
+                             vw::GdalWriteOptions const& options,
+                             std::string const& left_image_file   = "",
+                             std::string const& right_image_file  = "",
+                             std::string const& left_camera_file  = "",
+                             std::string const& right_camera_file = "",
+                             std::string const& out_prefix        = "",
+                             std::string const& input_dem         = "",
+                             bool allow_map_promote=true, // If true, allow isis to become isismapisis based on dem availability
+                             bool total_quiet = false);
 
   private:
     StereoSessionFactory() {} // Prevent construction of static-only class

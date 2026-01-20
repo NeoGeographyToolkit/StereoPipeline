@@ -454,12 +454,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     std::string input_dem = ""; // No DEM
     bool allow_map_promote = false, quiet = true;
     asp::SessionPtr session;
-      session.reset(asp::StereoSessionFactory::create
+      session = asp::StereoSessionFactory::create
                       (opt.stereo_session, // may change
                       opt, opt.image_files[0], opt.image_files[0], 
                       opt.camera_files[0], opt.camera_files[0],
                       opt.out_prefix, input_dem,
-                      allow_map_promote, quiet));
+                      allow_map_promote, quiet);
   } catch (const std::exception& e) {
     // Catch and record any error
     err_str = e.what();

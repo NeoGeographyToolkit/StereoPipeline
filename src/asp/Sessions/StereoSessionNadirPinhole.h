@@ -38,7 +38,7 @@ namespace asp {
     virtual bool have_datum() const;
     
     virtual std::string name() const;
-    static StereoSession* construct();
+    static SessionPtr construct();
   };
 }
 
