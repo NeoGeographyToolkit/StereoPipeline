@@ -29,10 +29,9 @@
 // TODO(oalexan1): See if to wipe all this code as it is no longer in use.
 
 using namespace vw;
-using namespace std;
 namespace asp {
 
-  Vector3 RPCStereoModel::operator()(vector<Vector2> const& pixVec,
+  Vector3 RPCStereoModel::operator()(std::vector<Vector2> const& pixVec,
                                      Vector3& errorVec) const {
 
     // Note: This is a re-implementation of StereoModel::operator().
@@ -45,9 +44,9 @@ namespace asp {
     errorVec = Vector3();
 
     try {
-      vector<Vector3> camDirs(num_cams), 
+      std::vector<Vector3> camDirs(num_cams), 
                       camCtrs(num_cams);
-      vector<const RPCModel*> rpc_cams(num_cams);
+      std::vector<const RPCModel*> rpc_cams(num_cams);
       camDirs.clear(); 
       camCtrs.clear(); 
       rpc_cams.clear();

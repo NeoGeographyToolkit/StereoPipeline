@@ -37,7 +37,6 @@
 #include <Portal.h>
 #include <SpecialPixel.h>
 
-using namespace std;
 using namespace boost;
 
 namespace vw {
