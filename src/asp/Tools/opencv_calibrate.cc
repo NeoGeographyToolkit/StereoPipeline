@@ -60,23 +60,32 @@ const char * usage =
 static void help() {
   vw::vw_out() << "This is a camera calibration sample.\n"
     "Usage: calibration\n"
-    "     -w <board_width>         # the number of inner corners per one of board dimension\n"
-    "     -h <board_height>        # the number of inner corners per another board dimension\n"
-    "     [-pt <pattern>]          # the type of pattern: chessboard or circles' grid\n"
-    "     [-n <number_of_frames>]  # the number of frames to use for calibration\n"
-    "                              # (if not specified, it will be set to the number\n"
-    "                              #  of board views actually available)\n"
-    "     [-s <squareSize>]       # square size in some user-defined units (1 by default)\n"
-    "     [-o <out_camera_params>] # the output filename for intrinsic [and extrinsic] parameters\n"
+    "     -w <board_width>         # the number of inner corners per one of\n"
+    "                              #   board dimension\n"
+    "     -h <board_height>        # the number of inner corners per another\n"
+    "                              #   board dimension\n"
+    "     [-pt <pattern>]          # the type of pattern: chessboard or\n"
+    "                              #   circles' grid\n"
+    "     [-n <number_of_frames>]  # the number of frames to use for\n"
+    "                              #   calibration (if not specified, it\n"
+    "                              #   will be set to the number of board\n"
+    "                              #   views actually available)\n"
+    "     [-s <squareSize>]       # square size in some user-defined units\n"
+    "                              #   (1 by default)\n"
+    "     [-o <out_camera_params>] # the output filename for intrinsic\n"
+    "                              #   [and extrinsic] parameters\n"
     "     [-op]                    # write detected feature points\n"
     "     [-oe]                    # write extrinsic parameters\n"
     "     [-zt]                    # assume zero tangential distortion\n"
     "     [-a <aspectRatio>]      # fix aspect ratio (fx/fy)\n"
     "     [-p]                     # fix the principal point at the center\n"
-    "     [-v]                     # flip the captured images around the horizontal axis\n"
+    "     [-v]                     # flip the captured images around the\n"
+    "                              #   horizontal axis\n"
     "     [input_data]             # input data, one of the following:\n"
-    "                              #  - text file with a list of the images of the board\n"
-    "                              #    the text file can be generated with imagelist_creator\n"
+    "                              #  - text file with a list of the images\n"
+    "                              #    of the board\n"
+    "                              #    the text file can be generated with\n"
+    "                              #    imagelist_creator\n"
     "\n";
   vw::vw_out() << "\n" << usage;
 }
@@ -160,8 +169,8 @@ bool runCalibration(std::vector<std::vector<cv::Point2f>> imagePoints,
 
   bool ok = cv::checkRange(cameraMatrix) && cv::checkRange(distCoeffs);
 
-  totalAvgErr = computeReprojectionErrors(objectPoints, imagePoints,
-                                          rvecs, tvecs, cameraMatrix, distCoeffs, reprojErrs);
+  totalAvgErr = computeReprojectionErrors(objectPoints, imagePoints, rvecs, tvecs,
+                                          cameraMatrix, distCoeffs, reprojErrs);
 
   return ok;
 }
@@ -169,8 +178,10 @@ bool runCalibration(std::vector<std::vector<cv::Point2f>> imagePoints,
 static void saveCameraParams(const std::string& filename,
                              cv::Size imageSize, cv::Size boardSize,
                              float squareSize, float aspectRatio, int flags,
-                             const cv::Mat& cameraMatrix, const cv::Mat& distCoeffs,
-                             const std::vector<cv::Mat>& rvecs, const std::vector<cv::Mat>& tvecs,
+                             const cv::Mat& cameraMatrix,
+                             const cv::Mat& distCoeffs,
+                             const std::vector<cv::Mat>& rvecs,
+                             const std::vector<cv::Mat>& tvecs,
                              const std::vector<float>& reprojErrs,
                              const std::vector<std::vector<cv::Point2f>>& imagePoints,
                              double totalAvgErr) {
@@ -291,7 +302,8 @@ cv::Mat vw_imread(const std::string fileName,
   size_t  step_size    = gray_buffer.cols() * pixel_size;
 
   // Create an OpenCV wrapper for the buffer image
-  cv::Mat cv_image(gray_buffer.rows(), gray_buffer.cols(), CV_8UC1, raw_data_ptr, step_size);
+  cv::Mat cv_image(gray_buffer.rows(), gray_buffer.cols(), CV_8UC1,
+                   raw_data_ptr, step_size);
   return cv_image;
 }
 
@@ -398,7 +410,8 @@ int main(int argc, char** argv) {
     if (i < (int)imageList.size()) {
       view = vw_imread(imageList[i], gray_buffer);
       if (!view.data) {
-        vw::vw_out() << "Failed to read image data from input file " << imageList[i] << "\n";
+        vw::vw_out() << "Failed to read image data from input file "
+                     << imageList[i] << "\n";
         return -1;
       }
     }
@@ -433,7 +446,8 @@ int main(int argc, char** argv) {
         found = cv::findCirclesGrid(view, boardSize, pointbuf);
         break;
       case ASYMMETRIC_CIRCLES_GRID:
-        found = cv::findCirclesGrid(view, boardSize, pointbuf, cv::CALIB_CB_ASYMMETRIC_GRID);
+        found = cv::findCirclesGrid(view, boardSize, pointbuf,
+                                    cv::CALIB_CB_ASYMMETRIC_GRID);
         break;
       default:
         vw::vw_out() << "Unknown pattern type\n";
@@ -444,7 +458,8 @@ int main(int argc, char** argv) {
     if (pattern == CHESSBOARD && found)
       cv::cornerSubPix(viewGray, pointbuf, cv::Size(winSize, winSize),
                        cv::Size(-1, -1),
-                       cv::TermCriteria(cv::TermCriteria::EPS+cv::TermCriteria::COUNT, 30, 0.0001));
+                       cv::TermCriteria(cv::TermCriteria::EPS +
+                                        cv::TermCriteria::COUNT, 30, 0.0001));
 
     if (mode == CAPTURING && found) {
       imagePoints.push_back(pointbuf);

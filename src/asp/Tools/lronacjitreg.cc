@@ -117,7 +117,8 @@ bool handle_arguments(int argc, char* argv[], Parameters& opt) {
                             allow_unregistered, unregistered);
 
   if (!vm.count("left") || !vm.count("right"))
-    vw::vw_throw(vw::ArgumentErr() << "Requires <left> and <right> input in order to proceed.\n\n"
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Requires <left> and <right> input in order to proceed.\n\n"
                  << usage << general_options);
 
   return true;
@@ -162,13 +163,16 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   bool ransacSuccess = false;
 
   // If the search box was not fully populated use ipfind to estimate a search region
-  if ((params.h_corr_min > params.h_corr_max) || (params.v_corr_min > params.v_corr_max)) {
+  if ((params.h_corr_min > params.h_corr_max) ||
+      (params.v_corr_min > params.v_corr_max)) {
     vw::vw_out() << "Gathering interest points...\n";
 
     int points_per_tile = 500;
     double nodata1 = 0, nodata2 = 0;
-    vw::ImageViewRef<vw::PixelGray<float>> left_crop = vw::crop(left_disk_image, crop_roi);
-    vw::ImageViewRef<vw::PixelGray<float>> right_crop = vw::crop(right_disk_image, crop_roi);
+    vw::ImageViewRef<vw::PixelGray<float>> left_crop =
+      vw::crop(left_disk_image, crop_roi);
+    vw::ImageViewRef<vw::PixelGray<float>> right_crop =
+      vw::crop(right_disk_image, crop_roi);
 
     // Gather interest points and match them
     std::vector<vw::ip::InterestPoint> matched_ip1, matched_ip2;
@@ -183,14 +187,17 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
 
     if (matched_ip1.empty() || matched_ip2.empty()) {
       ransacSuccess = false;
-      vw::vw_out() << "Failed to find any matching interest points, defaulting to large search range.\n";
+      vw::vw_out() << "Failed to find any matching interest points, "
+                   << "defaulting to large search range.\n";
     } else {
       vw::vw_out() << "Found " << matched_ip1.size() << ", " << matched_ip2.size()
                    << " matched interest points.\n";
 
       // Filter interest point matches
-      vw::math::RandomSampleConsensus<vw::math::SimilarityFittingFunctor, vw::math::InterestPointErrorMetric>
-        ransac(vw::math::SimilarityFittingFunctor(), vw::math::InterestPointErrorMetric(),
+      vw::math::RandomSampleConsensus<vw::math::SimilarityFittingFunctor,
+                                      vw::math::InterestPointErrorMetric>
+        ransac(vw::math::SimilarityFittingFunctor(),
+               vw::math::InterestPointErrorMetric(),
                100, 5, 100, true);
       std::vector<vw::Vector3> ransac_ip1 = vw::ip::iplist_to_vectorlist(matched_ip1);
       std::vector<vw::Vector3> ransac_ip2 = vw::ip::iplist_to_vectorlist(matched_ip2);
@@ -236,11 +243,11 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   vw::vw_out() << "Offset search region = " << searchRegion << "\n";
 
   // Use correlation function to compute image disparity
-  stereo::CostFunctionType corr_type = ABSOLUTE_DIFFERENCE;
+  vw::stereo::CostFunctionType corr_type = vw::stereo::ABSOLUTE_DIFFERENCE;
   if (params.correlator_type == 1)
-    corr_type = SQUARED_DIFFERENCE;
+    corr_type = vw::stereo::SQUARED_DIFFERENCE;
   else if (params.correlator_type == 2)
-    corr_type = CROSS_CORRELATION;
+    corr_type = vw::stereo::CROSS_CORRELATION;
 
   vw::vw_out() << "Running stereo correlation.\n";
 
@@ -255,8 +262,10 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   vw::DiskCacheImageView<vw::PixelMask<vw::Vector2f>>
     disparity_map(
       vw::stereo::pyramid_correlate(
-         vw::apply_mask(vw::create_mask_less_or_equal(vw::crop(left_disk_image,  crop_roi),0)),
-         vw::apply_mask(vw::create_mask_less_or_equal(vw::crop(right_disk_image, crop_roi),0)),
+         vw::apply_mask(vw::create_mask_less_or_equal(
+           vw::crop(left_disk_image, crop_roi), 0)),
+         vw::apply_mask(vw::create_mask_less_or_equal(
+           vw::crop(right_disk_image, crop_roi), 0)),
          vw::constant_view(vw::uint8(255), left_disk_image),
          vw::constant_view(vw::uint8(255), right_disk_image),
          vw::stereo::PREFILTER_LOG, params.log,
@@ -275,7 +284,8 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   if (writeLogFile) {
     out.open(params.rowLogFilePath.c_str());
     if (out.fail()) {
-      vw::vw_out() << "Failed to create output log file " << params.rowLogFilePath << "!\n";
+      vw::vw_out() << "Failed to create output log file "
+                   << params.rowLogFilePath << "!\n";
       return false;
     }
 
@@ -375,10 +385,10 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
     out << "#   RegFile: " << "" << "\n";
     out << "#   OverlapSize:      " << std::setw(7) << params.cropWidth << " "
         << std::setw(7) << imageHeight << "\n";
-        << setw(7) << imageHeight << "\n";
     out << "#   Sample Spacing:   " << std::setprecision(1) << 1 << "\n";
     out << "#   Line Spacing:     " << std::setprecision(1) << 1 << "\n";
-    out << "#   Columns, Rows:    " << params.kernel[0] << " " << params.kernel[1] << "\n";
+    out << "#   Columns, Rows:    " << params.kernel[0] << " "
+        << params.kernel[1] << "\n";
     out << "#   Corr. Algorithm:  ";
     switch(params.correlator_type) {
       case 1:  out << "SQUARED_DIFFERENCE"  << "\n"; break;
