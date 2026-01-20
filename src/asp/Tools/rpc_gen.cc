@@ -95,6 +95,13 @@ void compute_scale_factors(vw::BBox3   const& gdc_box,
   // Use matched axis scaling for pixels so one axis does not get higher error weighting
   llh_scale  = (max_llh_coord - min_llh_coord)/2.0; // half range
   llh_offset = (max_llh_coord + min_llh_coord)/2.0; // center point
+
+  // Prevent divide by zero for any dimension with no variation
+  for (int i = 0; i < 3; i++) {
+    if (llh_scale[i] == 0.0)
+      llh_scale[i] = 1.0;
+  }
+
   double pixel_max = vw::math::max(image_size);
   uv_scale  = Vector2(pixel_max/2.0, pixel_max/2.0); // The long axis pixel is scaled to 1.0
   uv_offset = image_size/2.0; // center point 
@@ -151,12 +158,7 @@ void load_pairs_from_file(std::string const& path,
     vw_throw( ArgumentErr() << "Error reading input file: counts\n");
   
   // Automatically compute the scale factors
-  
   compute_scale_factors(gdc_bbox, pixel_bbox.size(), llh_scale, llh_offset, uv_scale, uv_offset);
-  
-  // Currently the height is hardcoded to zero, resulting in zero scale and divide by zero!
-  llh_scale [2] = 1.0;
-  llh_offset[2] = 0.0;
   
   // Initialize normalized data storage
   normalized_geodetics.set_size(RPCModel::GEODETIC_COORD_SIZE*num_points);

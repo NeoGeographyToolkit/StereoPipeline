@@ -420,31 +420,6 @@ void calc_stats(string label, Eigen::MatrixXd const& dists) {
            << "NMAD: "   << nmad << "\n";
 }
 
-/// Write the output points as xyz values in binary, to be used by
-/// https://github.com/IntelVCL/FastGlobalRegistration
-void dump_bin(string const& file, DP const & data) {
-
-  vw_out() << "Writing: "   << data.features.cols()
-           << " points to " << file << "\n";
-
-  FILE* fid = fopen(file.c_str(), "wb");
-  int nV = data.features.cols(),
-    nDim = 3; // tmp!
-  fwrite(&nV, sizeof(int), 1, fid);
-  fwrite(&nDim, sizeof(int), 1, fid);
-  for (int c = 0; c < data.features.cols(); c++) {
-    float xyz[3];
-    for (int r = 0; r < 3; r++) xyz[r] = data.features(r, c);
-    fwrite(xyz, sizeof(float), 3, fid);
-
-    // That code needs features
-    fwrite(xyz, sizeof(float), 3, fid);
-
-  }
-  fclose(fid);
-
-}
-
 // Save a cloud to disk for debugging
 void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
                             Vector3 const& shift,
@@ -949,7 +924,6 @@ void processSourceCloud(Options                       const& opt,
 
   // Write the point cloud to disk for debugging
   //debug_save_point_cloud(ref_point_cloud, geo, shift, "ref.csv");
-  //dump_bin("ref.bin", ref_point_cloud);
 }
 
 // Convert a north-east-down vector at a given location to a vector in reference

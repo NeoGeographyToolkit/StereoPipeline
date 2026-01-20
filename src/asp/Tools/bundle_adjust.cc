@@ -665,11 +665,11 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
-
+  
+  // For nadirpinhole and pinhole cameras, save a report
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
-  if (has_datum && (opt.stereo_session == "pinhole") ||
-      (opt.stereo_session == "nadirpinhole"))
-    asp::saveCameraReport(opt, param_storage,  opt.datum, "initial");
+  if (has_datum && opt.stereo_session.find("pinhole") != std::string::npos)
+    asp::saveCameraReport(opt, param_storage, opt.datum, "initial");
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   asp::CRN crn;
