@@ -16,9 +16,9 @@ Single wavelength refraction index::
         --wavelength 550
 
 Provide a spectral response file::
-    
-  refr_index --salinity 35 --temperature 20 \
-    --spectral-response WV03_Green.csv
+
+    refr_index --salinity 35 --temperature 20 \
+      --spectral-response WV03_Green.csv
 
 The result is printed to standard output.
 
@@ -80,31 +80,32 @@ Two methods are available for computing the refractive index:
   uses linear interpolation between freshwater (S=0) and seawater (S=35)
   coefficients.
 
+Use the ``--mode`` switch to choose between these two.
+
 .. _refr_options:
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
 --salinity <float>
-    Salinity in parts per thousand (ppt). A good value is 35 ppt.
+    Salinity in parts per thousand (ppt). A good value is 35 ppt. Required.
 
 --temperature <float>
-    Temperature in degrees Celsius. Must be between 0 and 30.
+    Temperature in degrees Celsius. Must be between 0 and 30. Required.
 
---mode <string>
-    Refractive index equation to use: ``Quan-Fry`` (default) or ``Parrish``.
-    See :numref:`refr_model` for details.
+--mode <string (default: Quan-Fry)>
+    Refractive index equation to use: ``Quan-Fry`` (default) or ``Parrish``. See
+    :numref:`refr_model` for details.
 
---spectral-response <string>
-    CSV file containing the spectral response of the sensor band.
-    See an example in :numref:`spectral_response`.
-    Mutually exclusive with ``--wavelength``.
+--spectral-response <string (default: "")>
+    CSV file containing the spectral response of the sensor band. See an example
+    in :numref:`spectral_response`. Mutually exclusive with ``--wavelength``.
 
 --wavelength <float>
     Calculate refraction index for single wavelength (nm). Valid range is
     400-700 nm. A warning will be printed for wavelengths between 300-1100 nm
-    and outside the narrower range. There will be an error outside the
-    300-1100 nm range. Mutually exclusive with ``--spectral-response``.
+    and outside the narrower range. There will be an error outside the 300-1100
+    nm range. Mutually exclusive with ``--spectral-response``.
 
 -v, --version
     Display the version of software.
