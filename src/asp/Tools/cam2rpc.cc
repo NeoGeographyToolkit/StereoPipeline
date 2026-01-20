@@ -50,12 +50,11 @@ namespace po = boost::program_options;
 
 using namespace vw;
 using namespace vw::camera;
-using namespace std;
 using namespace vw::cartography;
 
 struct Options : public vw::GdalWriteOptions {
   double penalty_weight;
-  string image_file, camera_file, output_rpc, stereo_session, bundle_adjust_prefix,
+  std::string image_file, camera_file, output_rpc, stereo_session, bundle_adjust_prefix,
     datum_str, dem_file, target_srs_string;
   bool no_crop, skip_computing_rpc, save_tif, has_output_nodata;
   BBox2 lon_lat_range;
@@ -133,7 +132,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   positional_desc.add("camera-model",1);
   positional_desc.add("output-rpc", 1);
 
-  string usage("[options] <camera-image> <camera-model> <output-rpc>");
+  std::string usage("[options] <camera-image> <camera-model> <output-rpc>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -245,7 +244,7 @@ void sample_dem_perim_diag(BBox2 const& image_box,
   double height_guess = vw::cartography::demHeightGuess(dem);
   vw::Vector3 xyz_guess(0, 0, 0); // will be updated
   
-  for (size_t j = 0; j < points.size(); j++) {
+  for (std::size_t j = 0; j < points.size(); j++) {
     vw::Vector2 pix = points[j];
     
     // Intersect the ray going from the given camera pixel with a DEM
@@ -369,7 +368,7 @@ void calc_llh_bbox_from_dem(Options & opt, vw::CamPtr cam,
   opt.lon_lat_range = BBox2();
   double big = std::numeric_limits<double>::max();
   opt.height_range  = Vector2(big, -big);
-  for (size_t i = 0; i < all_llh.size(); i++) {
+  for (std::size_t i = 0; i < all_llh.size(); i++) {
     Vector3 llh = all_llh[i];
     opt.lon_lat_range.grow(Vector2(llh[0], llh[1]));
     opt.height_range[0] = std::min(opt.height_range[0], llh[2]);
@@ -479,7 +478,7 @@ int main(int argc, char *argv[]) {
 
     // The pixel box
     BBox2 pixel_box;
-    for (size_t i = 0; i < all_pixels.size(); i++) 
+    for (std::size_t i = 0; i < all_pixels.size(); i++) 
       pixel_box.grow(all_pixels[i]);
 
     // Below we assume pixel_box to be max-exclusive, so expand it by 1
@@ -487,7 +486,7 @@ int main(int argc, char *argv[]) {
     
     // Find the range of lon-lat-heights
     BBox3 llh_box;
-    for (size_t i = 0; i < all_llh.size(); i++) 
+    for (std::size_t i = 0; i < all_llh.size(); i++) 
       llh_box.grow(all_llh[i]);
 
     // If cropping, adjust the pixels
@@ -501,7 +500,7 @@ int main(int argc, char *argv[]) {
       crop_box = pixel_box; // save it before we modify pixel_box
 
       // Shift all pixels by the crop corner, including the pixel box itself
-      for (size_t i = 0; i < all_pixels.size(); i++) 
+      for (std::size_t i = 0; i < all_pixels.size(); i++) 
         all_pixels[i] -= pixel_box.min();
 
       // Need to first save the corner before subtracting it, otherwise get wrong result

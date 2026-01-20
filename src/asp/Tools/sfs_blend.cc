@@ -53,7 +53,6 @@
 #include <limits>
 #include <algorithm>
 
-using namespace std;
 using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
@@ -79,7 +78,7 @@ GeoReference read_georef(std::string const& file) {
 }
 
 struct Options: vw::GdalWriteOptions {
-  string sfs_dem, lola_dem, max_lit_image_mosaic, output_dem, output_weight;
+  std::string sfs_dem, lola_dem, max_lit_image_mosaic, output_dem, output_weight;
   double image_threshold, weight_blur_sigma, lit_blend_length,
     shadow_blend_length, min_blend_size;
   Options(): image_threshold(0.0), weight_blur_sigma(0.0), lit_blend_length(0.0),
@@ -233,11 +232,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("Options");
   general_options.add_options()
-    ("sfs-dem", po::value<string>(&opt.sfs_dem),
+    ("sfs-dem", po::value<std::string>(&opt.sfs_dem),
      "The SfS DEM to process.")
-    ("lola-dem", po::value<string>(&opt.lola_dem),
+    ("lola-dem", po::value<std::string>(&opt.lola_dem),
      "The LOLA DEM to use to fill in the regions in permanent shadow.")
-    ("max-lit-image-mosaic", po::value<string>(&opt.max_lit_image_mosaic),
+    ("max-lit-image-mosaic", po::value<std::string>(&opt.max_lit_image_mosaic),
      "The maximally lit image mosaic to use to determine the permanently shadowed regions.")
     ("image-threshold",  po::value<double>(&opt.image_threshold)->default_value(0.0),
      "The value separating permanently shadowed pixels from lit pixels in the maximally lit image mosaic.")
@@ -352,7 +351,7 @@ int main(int argc, char *argv[]) {
     // Write bigger tiles to make the processing with the extra margin
     // more efficient.
     int block_size = 256 + 2 * extra;
-    block_size = 16*ceil(block_size/16.0); // internal constraint
+    block_size = 16*std::ceil(block_size/16.0); // internal constraint
 
     vw_out() << "Writing: " << opt.output_dem << std::endl;
     bool has_georef = true, has_nodata = true;

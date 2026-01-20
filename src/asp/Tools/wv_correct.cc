@@ -51,7 +51,6 @@ using namespace vw;
 using namespace asp;
 using namespace vw::cartography;
 using namespace xercesc;
-using namespace std;
 
 
 struct Options: vw::GdalWriteOptions {
@@ -83,7 +82,7 @@ void parse_ms_correction_table(std::string const& sat_id, int band,
     vw_throw(vw::IOErr() << "Unable to open file \"" << lookup_path << "\"");
 
   std::string line;
-  while (getline(handle, line, '\n')){
+  while (std::getline(handle, line, '\n')){
 
     if (line.size() == 0 || line[0] == '#')
       continue; // skip comment and empty line
@@ -165,7 +164,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw::create_out_dir(opt.output_image);
 }
 
-void arr_to_vec(double arr[], int len, vector<double> & vec){
+void arr_to_vec(double arr[], int len, std::vector<double> & vec){
   vec.clear();
   for (int i = 0; i < len; i++) vec.push_back(arr[i]);
 }
@@ -527,7 +526,7 @@ void get_offsets(int tdi, bool is_wv01, bool is_forward,
         // offsets. Some faint CCD artifacts are still visible after
         // correction. Need to revisit this case when more data is
         // available.
-        ccdy = vector<double>(posy.size(), 0);
+        ccdy = std::vector<double>(posy.size(), 0);
       }
     }
   }
@@ -616,13 +615,13 @@ public:
       double valx = 0, valy = 0;
       if (m_ccdx.size() > 0){
         valx = 0.0;
-        for (size_t t = 0; t < m_ccdx.size(); t++){
+        for (std::size_t t = 0; t < m_ccdx.size(); t++){
           if (m_posx[t] < col){
             valx -= m_ccdx[t];
           }
         }
         valy = 0.0;
-        for (size_t t = 0; t < m_ccdy.size(); t++){
+        for (std::size_t t = 0; t < m_ccdy.size(); t++){
           if (m_posy[t] < col){
             valy -= m_ccdy[t];
           }
@@ -835,7 +834,7 @@ int main(int argc, char *argv[]) {
                 << "band using gdal_translate per the documentation.\n");
     
     bool has_nodata = false;
-    double nodata = numeric_limits<double>::quiet_NaN();
+    double nodata = std::numeric_limits<double>::quiet_NaN();
     boost::shared_ptr<DiskImageResource> img_rsrc
       ( new DiskImageResourceGDAL(opt.image_file) );
     if (img_rsrc->has_nodata_read()){
@@ -892,7 +891,7 @@ int main(int argc, char *argv[]) {
       if (opt.print_per_column_corrections) {
         vw_out() << "Printing the x and y corrections as two columns." << std::endl;
         vw_out().precision(17);
-        for (size_t it = 0; it < dx.size(); it++) {
+        for (std::size_t it = 0; it < dx.size(); it++) {
           vw_out() << dx[it] << ' ' << dy[it] << std::endl;
         }
       }

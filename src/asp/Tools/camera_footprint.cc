@@ -45,11 +45,10 @@ namespace po = boost::program_options;
 
 using namespace vw;
 using namespace vw::camera;
-using namespace std;
 using namespace vw::cartography;
 
 struct Options : public vw::GdalWriteOptions {
-  string image_file, camera_file, stereo_session, bundle_adjust_prefix,
+  std::string image_file, camera_file, stereo_session, bundle_adjust_prefix,
          datum_str, dem_file, target_srs_string, output_shp, output_kml;
   bool quick;
 };
@@ -91,7 +90,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   positional_desc.add("camera-image",1);
   positional_desc.add("camera-model",1);
 
-  string usage("[options] <camera-image> <camera-model>");
+  std::string usage("[options] <camera-image> <camera-model>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -168,7 +167,7 @@ int main(int argc, char *argv[]) {
       std::vector<Vector2> coords2;
       footprint_bbox = camera_bbox(target_georef, cam, image_size[0], image_size[1],
                                    mean_gsd, &coords2);
-      for (size_t i=0; i<coords2.size(); ++i) {
+      for (std::size_t i=0; i<coords2.size(); ++i) {
         Vector3 proj_coord(coords2[i][0], coords2[i][1], 0.0);
         llh_coords.push_back(target_georef.point_to_geodetic(proj_coord));
       }
@@ -194,7 +193,7 @@ int main(int argc, char *argv[]) {
                                    target_georef, cam,
                                    image_size[0], image_size[1],
                                    mean_gsd, opt.quick, &llh_coords, num_samples);
-      for (size_t i = 0;  i < llh_coords.size(); i++) 
+      for (std::size_t i = 0;  i < llh_coords.size(); i++) 
         llh_coords[i] = target_georef.datum().cartesian_to_geodetic(llh_coords[i]);
     }
 
@@ -205,7 +204,7 @@ int main(int argc, char *argv[]) {
     if (opt.output_shp != "") {
       // Must convert to projected coordinates
       std::vector<vw::Vector3> proj_coords(llh_coords.size());
-      for (size_t i = 0; i < llh_coords.size(); i++)
+      for (std::size_t i = 0; i < llh_coords.size(); i++)
         proj_coords[i] = target_georef.geodetic_to_point(llh_coords[i]);
       
       vw::geometry::dPoly poly;

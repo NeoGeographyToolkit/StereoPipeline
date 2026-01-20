@@ -47,7 +47,6 @@
 using namespace vw;
 using namespace vw::stereo;
 using namespace asp;
-using namespace std;
 
 typedef ImageView<double> WeightsType;
 typedef PixelMask<Vector2f> MaskedPixType;
@@ -68,11 +67,11 @@ std::string extract_process_folder_bbox_string(std::string s, std::string const&
 
   // If the filename was included, throw it out first.
   if (s.find("-" + in_file) != std::string::npos) {
-    size_t pt = s.rfind("/");
+    std::size_t pt = s.rfind("/");
     s = s.substr(0, pt);
   }
 
-  size_t num_start = s.rfind("-");
+  std::size_t num_start = s.rfind("-");
   if (num_start == std::string::npos)
     vw_throw(ArgumentErr() << "Error parsing folder string: " << s);
   return s.substr(num_start+1);
@@ -237,7 +236,7 @@ void fill_blend_options(ASPGlobalOptions const& opt, std::string const& in_file,
   BBox2i main_bbox = blend_opt.main_roi;
 
   // Figure out where each folder goes
-  for (size_t i = 0; i < folder_list.size(); i++) {
+  for (std::size_t i = 0; i < folder_list.size(); i++) {
     BBox2i bbox = bbox_from_folder(folder_list[i], in_file);
 
     std::string bbox_string = extract_process_folder_bbox_string(folder_list[i], in_file);
@@ -512,8 +511,8 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<ASPGlobalOptions> opt_vec;
-    string output_prefix;
+    std::vector<ASPGlobalOptions> opt_vec;
+    std::string output_prefix;
     asp::parse_multiview(argc, argv, SubpixelDescription(),
                          verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];
@@ -527,7 +526,7 @@ int main(int argc, char* argv[]) {
     //  renames the normal -D.tif file to -Dnosym.tif.
     std::string in_file =  "Dnosym.tif";
 
-    string out_file = "B.tif";
+    std::string out_file = "B.tif";
     if (stereo_settings().subpixel_mode > 6){
       // No further subpixel refinement, skip to the -RD output.
       out_file = "RD.tif";

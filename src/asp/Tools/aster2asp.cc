@@ -56,11 +56,10 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace std;
 using namespace vw::cartography;
 
 struct Options : public vw::GdalWriteOptions {
-  string input_dir, output_prefix; 
+  std::string input_dir, output_prefix; 
   double min_height, max_height;
   std::int64_t num_samples;
   double penalty_weight;
@@ -89,7 +88,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::positional_options_description positional_desc;
   positional_desc.add("input_dir", 1);
 
-  string usage("<input directory> -o <output prefix>");
+  std::string usage("<input directory> -o <output prefix>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -113,7 +112,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 bool match_file(std::string const& input_file, std::string const& pattern,
 		std::string & matched_file){
 
-  size_t it = input_file.find(pattern);
+  std::size_t it = input_file.find(pattern);
 
   // No match
   if (it == std::string::npos)
@@ -407,7 +406,7 @@ void generate_point_pairs(// Inputs
   // https://asterweb.jpl.nasa.gov/content/03_data/04_Documents/aster_user_guide_v2.pdf
   // Geodetic = Arctan [(tan (Latitude)) / 0.99330562]
   double deg2rad = M_PI/180.0;
-  for (size_t i = 0; i < latitude.size(); i++) {
+  for (std::size_t i = 0; i < latitude.size(); i++) {
     latitude[i] =  atan (tan (deg2rad*latitude[i]) / 0.99330562)/deg2rad;
   }
   
@@ -471,12 +470,12 @@ void generate_point_pairs(// Inputs
   
   // Find the range of lon-lat-heights
   BBox3 llh_box;
-  for (size_t i = 0; i < all_llh.size(); i++) 
+  for (std::size_t i = 0; i < all_llh.size(); i++) 
     llh_box.grow(all_llh[i]);
   
   // Find the range of pixels
   BBox2 pixel_box;
-  for (size_t i = 0; i < all_pixels.size(); i++) 
+  for (std::size_t i = 0; i < all_pixels.size(); i++) 
     pixel_box.grow(all_pixels[i]);
 
   llh_scale  = (llh_box.max() - llh_box.min())/2.0; // half range
@@ -488,7 +487,7 @@ void generate_point_pairs(// Inputs
   normalized_llh.set_size(asp::RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
   normalized_pixels.set_size(asp::RPCModel::IMAGE_COORD_SIZE*num_total_pts
                              + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
-  for (size_t i = 0; i < normalized_pixels.size(); i++) {
+  for (std::size_t i = 0; i < normalized_pixels.size(); i++) {
     // Important: The extra penalty terms are all set to zero here.
     normalized_pixels[i] = 0.0; 
   }
@@ -552,8 +551,8 @@ void save_xml(std::int64_t image_cols, std::int64_t image_rows,
 
   // Lattice points
   ofs << "    <LATTICE_POINT>\n";
-  for (size_t row = 0; row < lattice_mat.size(); row++) {
-    for (size_t col = 0; col < lattice_mat[row].size(); col++) {
+  for (std::size_t row = 0; row < lattice_mat.size(); row++) {
+    for (std::size_t col = 0; col < lattice_mat[row].size(); col++) {
       ofs << vw::vec_to_str(lattice_mat[row][col]) << std::endl;
     }
     ofs << std::endl;
@@ -562,8 +561,8 @@ void save_xml(std::int64_t image_cols, std::int64_t image_rows,
 
   // Sight vector
   ofs << "    <SIGHT_VECTOR>\n";
-  for (size_t row = 0; row < sight_mat.size(); row++) {
-    for (size_t col = 0; col < sight_mat[row].size(); col++) {
+  for (std::size_t row = 0; row < sight_mat.size(); row++) {
+    for (std::size_t col = 0; col < sight_mat[row].size(); col++) {
       ofs << vw::vec_to_str(sight_mat[row][col]) << std::endl;
     }
     ofs << std::endl;
@@ -572,8 +571,8 @@ void save_xml(std::int64_t image_cols, std::int64_t image_rows,
 
   // Sight vector in world coordinates
   ofs << "    <WORLD_SIGHT_VECTOR>\n";
-  for (size_t row = 0; row < world_sight_mat.size(); row++) {
-    for (size_t col = 0; col < world_sight_mat[row].size(); col++) {
+  for (std::size_t row = 0; row < world_sight_mat.size(); row++) {
+    for (std::size_t col = 0; col < world_sight_mat[row].size(); col++) {
       ofs << vw::vec_to_str(world_sight_mat[row][col]) << std::endl;
     }
     ofs << std::endl;
@@ -582,7 +581,7 @@ void save_xml(std::int64_t image_cols, std::int64_t image_rows,
   
   // Satellite position
   ofs << "    <SAT_POS>\n";
-  for (size_t row = 0; row < sat_pos.size(); row++) {
+  for (std::size_t row = 0; row < sat_pos.size(); row++) {
     ofs << vw::vec_to_str(sat_pos[row]) << std::endl;
   }
   ofs << "    </SAT_POS>\n";

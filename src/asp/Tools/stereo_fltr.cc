@@ -40,7 +40,6 @@
 
 using namespace vw;
 using namespace asp;
-using namespace std;
 
 
 /// Apply a set of smoothing filters to the subpixel disparity results.
@@ -172,14 +171,14 @@ public:
 
     // We look a beyond the current tile, to avoid cutting blobs
     // if possible. Skinny blobs will be cut though.
-    int bias = 2*int(ceil(sqrt(double(area))));
+    int bias = 2*int(std::ceil(sqrt(double(area))));
 
     BBox2i bbox2 = bbox;
     bbox2.expand(bias);
     bbox2.crop(bounding_box(m_img));
     ImageView<pixel_type> tile_img = crop(m_img, bbox2);
 
-    int tile_size = max(bbox2.width(), bbox2.height()); // don't subsplit
+    int tile_size = std::max(bbox2.width(), bbox2.height()); // don't subsplit
     BlobIndexThreaded smallBlobIndex(tile_img, area, tile_size);
     ImageView<pixel_type> clean_tile_img = applyErodeView(tile_img,
                                                           smallBlobIndex);
@@ -238,7 +237,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
                                    ASPGlobalOptions const& opt) {
   // Write Good Pixel Map
   // Sub-sampling so that the user can actually view it.
-  double sub_scale = double( min( inputview.impl().cols(),
+  double sub_scale = double( std::min( inputview.impl().cols(),
                                 inputview.impl().rows() ) ) / 2048.0;
   if (sub_scale < 1) // Don't use a sub_scale less than one.
     sub_scale = 1;
@@ -276,7 +275,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
 
   bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
 
-  string outF = opt.out_prefix + "-F.tif";
+  std::string outF = opt.out_prefix + "-F.tif";
 
   // Fill holes
   if(stereo_settings().enable_fill_holes) {
@@ -296,7 +295,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
 
     if (!removeSmallBlobs) { // Skip small blob removal
       // Write out the image to disk, filling in the blobs in the process
-      vw_out() << "Writing: " << outF << endl;
+      vw_out() << "Writing: " << outF << std::endl;
       vw::cartography::block_write_gdal_image( outF,
                                    inpaint(inputview.impl(), smallHoleIndex,
                                            use_grassfire, default_inpaint_val),
@@ -308,7 +307,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
     else { // Add small blob removal step
       // Write out the image to disk, filling in and removing blobs in the process
       // - Blob removal is done second to make sure inner-blob holes are removed.
-      vw_out() << "Writing: " << outF << endl;
+      vw_out() << "Writing: " << outF << std::endl;
       vw::cartography::block_write_gdal_image( outF,
                                    per_tile_erode
                                    (inpaint(inputview.impl(),
@@ -323,7 +322,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
 
   } else { // No hole filling
     if (!removeSmallBlobs) { // Skip small blob removal
-      vw_out() << "Writing: " << outF << endl;
+      vw_out() << "Writing: " << outF << std::endl;
       vw::cartography::block_write_gdal_image( outF, inputview.impl(),
                                    has_left_georef, left_georef,
                                    has_nodata, nodata, opt,
@@ -333,7 +332,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
     else { // Add small blob removal step
       vw_out() << "\t--> Removing small blobs.\n";
       // Write out the image to disk, removing the blobs in the process
-      vw_out() << "Writing: " << outF << endl;
+      vw_out() << "Writing: " << outF << std::endl;
       vw::cartography::block_write_gdal_image(outF, per_tile_erode(inputview.impl()),
                                   has_left_georef, left_georef,
                                   has_nodata, nodata, opt,
@@ -346,7 +345,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
 
 void stereo_filtering(ASPGlobalOptions& opt) {
 
-  string post_correlation_fname = opt.out_prefix+"-RD.tif";
+  std::string post_correlation_fname = opt.out_prefix+"-RD.tif";
 
   try {
 
@@ -457,7 +456,7 @@ void gotcha_disparity_refinement(ASPGlobalOptions& opt) {
   bool has_left_georef = read_georeference(left_georef, L_file);
   bool has_nodata = false;
   double nodata = -32768.0;
-  vw_out() << "Writing Gotcha-refined disparity: " << disp_file << endl;
+  vw_out() << "Writing Gotcha-refined disparity: " << disp_file << std::endl;
   block_write_gdal_image(disp_file,
                          gotcha::gotcha_refine(filtered_disparity,  
                                                left_image, right_image,
@@ -478,8 +477,8 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    vector<ASPGlobalOptions> opt_vec;
-    string output_prefix;
+    std::vector<ASPGlobalOptions> opt_vec;
+    std::string output_prefix;
     asp::parse_multiview(argc, argv, FilteringDescription(),
                          verbose, output_prefix, opt_vec);
     ASPGlobalOptions opt = opt_vec[0];

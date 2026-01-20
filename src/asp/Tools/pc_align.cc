@@ -53,7 +53,6 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace std;
 using namespace vw::cartography;
 using namespace asp;
 
@@ -62,7 +61,7 @@ const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the larg
 /// Options container for the pc_align tool
 struct Options: public vw::GdalWriteOptions {
   // Input
-  string reference, source, init_transform_file, alignment_method,
+  std::string reference, source, init_transform_file, alignment_method,
     datum, csv_format_str, csv_srs, match_file, hillshade_command, hillshade_options,
     ipfind_options, ipmatch_options, nuth_options, fgr_options, csv_proj4_str;
   Vector2 initial_transform_ransac_params;
@@ -81,7 +80,7 @@ struct Options: public vw::GdalWriteOptions {
   bool ref_copc_read_all, src_copc_read_all;
 
   // Output
-  string out_prefix;
+  std::string out_prefix;
 
   Options() : max_disp(-1.0), verbose(true) {}
 
@@ -202,7 +201,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   positional_desc.add("reference", 1);
   positional_desc.add("source",    1);
 
-  string usage("--max-displacement arg [other options] <reference cloud> <source cloud> "
+  std::string usage("--max-displacement arg [other options] <reference cloud> <source cloud> "
                "-o <output prefix>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
@@ -372,12 +371,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 }
 
 /// Compute output statistics for pc_align
-void calc_stats(string label, Eigen::MatrixXd const& dists) {
+void calc_stats(std::string label, Eigen::MatrixXd const& dists) {
 
   VW_ASSERT(dists.rows() == 1,
             LogicErr() << "Expecting only one row.");
 
-  vector<double> errs(dists.cols()*dists.rows());
+  std::vector<double> errs(dists.cols()*dists.rows());
   int count = 0;
   for (int col = 0; col < dists.cols(); col++) {
     errs[count] = dists(0, col);
@@ -423,12 +422,12 @@ void calc_stats(string label, Eigen::MatrixXd const& dists) {
 // Save a cloud to disk for debugging
 void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
                             Vector3 const& shift,
-                            string const& output_file) {
+                            std::string const& output_file) {
 
   int numPts = point_cloud.features.cols();
 
   vw_out() << "Writing: " << numPts << " to " << output_file << "\n";
-  ofstream outfile(output_file.c_str());
+  std::ofstream outfile(output_file.c_str());
   outfile.precision(18);
 
   for (int col = 0; col < numPts; col++) {
@@ -444,11 +443,11 @@ void debug_save_point_cloud(DP const& point_cloud, GeoReference const& geo,
 void write_transforms(Options const& opt,
                      Eigen::MatrixXd const& T) {
 
-  string transFile = opt.out_prefix + "-transform.txt";
+  std::string transFile = opt.out_prefix + "-transform.txt";
   vw_out() << "Writing: " << transFile << "\n";
   write_transform(T, transFile);
 
-  string iTransFile = opt.out_prefix + "-inverse-transform.txt";
+  std::string iTransFile = opt.out_prefix + "-inverse-transform.txt";
   Eigen::MatrixXd invT = T.inverse();
   vw_out() << "Writing: " << iTransFile << "\n";
   write_transform(invT, iTransFile);
@@ -458,7 +457,7 @@ void write_transforms(Options const& opt,
 /// consistent with the input CSV format.
 void save_errors(DP const& point_cloud,
                  Eigen::MatrixXd const& errors,
-                 string const& output_file,
+                 std::string const& output_file,
                  Vector3 const& shift,
                  GeoReference const& geo,
                  asp::CsvConv const& csv_conv,
@@ -470,7 +469,7 @@ void save_errors(DP const& point_cloud,
   VW_ASSERT(point_cloud.features.cols() == errors.cols(),
             ArgumentErr() << "Expecting as many errors as source points.");
 
-  ofstream outfile(output_file.c_str());
+  std::ofstream outfile(output_file.c_str());
   outfile.precision(16);
 
   // Write the header line
@@ -552,7 +551,7 @@ void calcErrorsWithDem(DP                                 const& point_cloud,
 void update_best_error(std::vector<double>         const& dem_errors,
                        Eigen::MatrixXd      & lpm_errors) {
   std::int64_t num_points = lpm_errors.cols();
-  if (dem_errors.size() != static_cast<size_t>(num_points))
+  if (dem_errors.size() != static_cast<std::size_t>(num_points))
     vw_throw(LogicErr() << "Error: error size does not match point count size!\n");
 
   // Loop through points
@@ -752,7 +751,7 @@ initial_transform_from_match_file(std::string const& ref_file,
              << "point matches only works for DEMs. Use point2dem to first create "
              << "DEMs from the input point clouds.\n");
 
-  vector<vw::ip::InterestPoint> ref_ip, source_ip;
+  std::vector<vw::ip::InterestPoint> ref_ip, source_ip;
   vw_out() << "Reading match file: " << match_file << "\n";
   vw::ip::read_binary_match_file(match_file, ref_ip, source_ip);
 
@@ -1428,14 +1427,14 @@ int main(int argc, char *argv[]) {
     write_transforms(opt, globalT);
 
     if (opt.save_trans_ref) {
-      string trans_ref_prefix = opt.out_prefix + "-trans_reference";
+      std::string trans_ref_prefix = opt.out_prefix + "-trans_reference";
       save_trans_point_cloud(opt, opt.reference, trans_ref_prefix,
                              opt.ref_copc_win, opt.ref_copc_read_all,
                              geo, csv_conv, globalT.inverse());
     }
 
     if (opt.save_trans_source) {
-      string trans_source_prefix = opt.out_prefix + "-trans_source";
+      std::string trans_source_prefix = opt.out_prefix + "-trans_source";
       save_trans_point_cloud(opt, opt.source, trans_source_prefix,
                              opt.src_copc_win, opt.src_copc_read_all,
                              geo, csv_conv, globalT);

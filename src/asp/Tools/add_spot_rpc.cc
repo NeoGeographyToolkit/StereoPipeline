@@ -47,12 +47,11 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace std;
 using namespace vw::cartography;
 using asp::RPCModel;
 
 struct Options : public vw::GdalWriteOptions {
-  string input_path, output_path; 
+  std::string input_path, output_path; 
   double min_height, max_height;
   int    num_samples;
   double penalty_weight;
@@ -81,7 +80,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   po::positional_options_description positional_desc;
   positional_desc.add("input_path", 1);
 
-  string usage("<input path>");
+  std::string usage("<input path>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
@@ -143,7 +142,7 @@ void generate_point_pairs(Options opt,
     
     // Get a bounding box of the covered region (not all of the BBox has image coverage!)
     BBox2 bounding_box;
-    for (size_t i=0; i<4; ++i)
+    for (std::size_t i=0; i<4; ++i)
       bounding_box.grow(lonlat_corners[i]);
     Vector3 min_llh_coord = Vector3(bounding_box.min()[0], bounding_box.min()[1], opt.min_height);
     Vector3 max_llh_coord = Vector3(bounding_box.max()[0], bounding_box.max()[1], opt.max_height);
@@ -170,7 +169,7 @@ void generate_point_pairs(Options opt,
     normalized_geodetics.set_size(RPCModel::GEODETIC_COORD_SIZE*num_total_pts);
     normalized_pixels.set_size(RPCModel::IMAGE_COORD_SIZE*num_total_pts
                                + asp::RpcSolveLMA::NUM_PENALTY_TERMS);
-    for (size_t i = 0; i < normalized_pixels.size(); i++) {
+    for (std::size_t i = 0; i < normalized_pixels.size(); i++) {
       // Important: The extra penalty terms are all set to zero here.
       normalized_pixels[i] = 0.0; 
     }

@@ -56,7 +56,6 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace std;
 using namespace vw::cartography;
 using namespace asp;
 
@@ -72,13 +71,13 @@ typedef flann::Index<flann::L2<double>> KDTree_double;
 /// Options container
 struct Options : public vw::GdalWriteOptions {
   // Input
-  string in_prefix, in_transforms, datum, csv_format_str, csv_srs, csv_proj4_str; 
+  std::string in_prefix, in_transforms, datum, csv_format_str, csv_srs, csv_proj4_str; 
   int    num_iter, max_num_points;
   double semi_major_axis, semi_minor_axis, rel_error_tol;
   bool   save_transformed_clouds, align_to_first_cloud, verbose;
   std::vector<std::string> cloud_files;
   // Output
-  string out_prefix;
+  std::string out_prefix;
 
   Options() {}
 };
@@ -233,7 +232,7 @@ void convert_cloud(DP const& in_cloud, std::vector<vw::Vector3> & out_cloud) {
 
 // Apply a rotation + transform to a cloud
 void apply_transform_to_cloud(std::vector<vw::Vector3> & cloud, Eigen::MatrixXd const& T) {
-  for (size_t pointIter = 0; pointIter < cloud.size(); pointIter++) {
+  for (std::size_t pointIter = 0; pointIter < cloud.size(); pointIter++) {
     Eigen::VectorXd v(4);
     v << cloud[pointIter][0], cloud[pointIter][1], cloud[pointIter][2], 1.0;
     v = T*v;
@@ -243,7 +242,7 @@ void apply_transform_to_cloud(std::vector<vw::Vector3> & cloud, Eigen::MatrixXd 
 }
 
 void print_cloud(std::vector<vw::Vector3> const& cloud) {
-  for (size_t it = 0; it < cloud.size(); it++) {
+  for (std::size_t it = 0; it < cloud.size(); it++) {
     vw_out() << cloud[it].x() << ' ' << cloud[it].y() << ' ' << cloud[it].z() << std::endl;
   }
 }
@@ -251,7 +250,7 @@ void print_cloud(std::vector<vw::Vector3> const& cloud) {
 void sort_and_make_unique(std::vector<vw::Vector3> & cloud) {
   std::sort(cloud.begin(), cloud.end(), triplet_less);
   std::vector<vw::Vector3>::iterator it = std::unique(cloud.begin(), cloud.end());
-  cloud.resize(std::distance(cloud.begin(), it));
+  cloud.resize(distance(cloud.begin(), it));
 }
 
 void BuildKDTree_double(std::vector<vw::Vector3> const& cloud, KDTree_double* tree) {
@@ -308,7 +307,7 @@ std::string transform_file(std::string const& out_prefix, int index) {
 void write_n_transforms(std::vector<Eigen::MatrixXd> const& transVec,
                         std::string const& out_prefix) {
 
-  for (size_t it = 0; it < transVec.size(); it++) {
+  for (std::size_t it = 0; it < transVec.size(); it++) {
     std::string transFile = transform_file(out_prefix, it);
     vw_out() << "Writing: " << transFile << std::endl;
     write_transform(transVec[it], transFile);
@@ -319,7 +318,7 @@ void write_n_transforms(std::vector<Eigen::MatrixXd> const& transVec,
 void read_transforms(std::vector<Eigen::MatrixXd> & transVec,
 		     std::string const& in_prefix) {
 
-  for (size_t it = 0; it < transVec.size(); it++) {
+  for (std::size_t it = 0; it < transVec.size(); it++) {
     std::string transFile = transform_file(in_prefix, it);
     read_transform(transVec[it], transFile);
   }
@@ -329,7 +328,7 @@ void read_transforms(std::vector<Eigen::MatrixXd> & transVec,
 void read_transforms_from_list(std::vector<Eigen::MatrixXd> & transVec,
                                std::string const& transform_list) {
   std::istringstream is(transform_list);
-  for (size_t it = 0; it < transVec.size(); it++) {
+  for (std::size_t it = 0; it < transVec.size(); it++) {
     std::string transFile;
     if (!(is >> transFile))
       vw_throw(ArgumentErr() << "Cannot parse enough transform files from: " << transform_list);
@@ -470,14 +469,14 @@ int main(int argc, char *argv[]) {
       // every other cloud is closest to it. This matrix will store the
       // indices of these points.
       std::vector<Eigen::VectorXd> CentroidPtsBelMod(numOfPoints);
-      for (size_t row = 0; row < CentroidPtsBelMod.size(); row++) {
+      for (std::size_t row = 0; row < CentroidPtsBelMod.size(); row++) {
         CentroidPtsBelMod[row] = Eigen::VectorXd(numClouds);
         for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
           CentroidPtsBelMod[row][cloudIter] = -1;
         }
       }
     
-      for (size_t i = 0; i < numClouds; i++) {
+      for (std::size_t i = 0; i < numClouds; i++) {
 
         //spanI = modelSpan(i)+1:modelSpan(i+1); 
         std::vector<int> spanI;
@@ -485,11 +484,11 @@ int main(int argc, char *argv[]) {
         for (int it = beg; it <= end; it++) spanI.push_back(it);
         
         //CentroidPtsBelMod(spanI,i) = 1:length(spanI);
-        for (size_t it = 0; it < spanI.size(); it++) {
+        for (std::size_t it = 0; it < spanI.size(); it++) {
           CentroidPtsBelMod[spanI[it]][i] = it;
         }
 
-        for (size_t j = i + 1; j < numClouds; j++) {
+        for (std::size_t j = i + 1; j < numClouds; j++) {
         
           //spanJ = modelSpan(j)+1:modelSpan(j+1); 
           std::vector<int> spanJ;
@@ -502,7 +501,7 @@ int main(int argc, char *argv[]) {
 
           // For each point in cloud i, find a match in cloud j
           PairType Corr1;
-          for (size_t index_i = 0; index_i < clouds[i].size(); index_i++) {
+          for (std::size_t index_i = 0; index_i < clouds[i].size(); index_i++) {
             SearchKDTree_double(Trees[j].get(), clouds[i][index_i], match, dist, 1);
             if (match.empty()) continue; // should not happen
             int index_j = match[0];
@@ -511,7 +510,7 @@ int main(int argc, char *argv[]) {
 
           // Now do it in reverse
           PairType Corr2;
-          for (size_t index_j = 0; index_j < clouds[j].size(); index_j++) {
+          for (std::size_t index_j = 0; index_j < clouds[j].size(); index_j++) {
             SearchKDTree_double(Trees[i].get(), clouds[j][index_j], match, dist, 1);
             if (match.empty()) continue; // should not happen
             int index_i = match[0];
@@ -526,7 +525,7 @@ int main(int argc, char *argv[]) {
             Corr.push_back(*it);
           }
 
-          for (size_t it = 0; it < Corr.size(); it++) {
+          for (std::size_t it = 0; it < Corr.size(); it++) {
             // CentroidPtsBelMod(spanI(Corr(:,2)),j) = Corr(:,1)';
             CentroidPtsBelMod[spanI[Corr[it].second]][j] = Corr[it].first;
 
@@ -541,7 +540,7 @@ int main(int argc, char *argv[]) {
 
       // Remove non-unique elements, and remove entries which exist only in one cloud
       int pos = 0;
-      for (size_t row = 0; row < CentroidPtsBelMod.size(); row++) {
+      for (std::size_t row = 0; row < CentroidPtsBelMod.size(); row++) {
 
         int num_good = 0;
         for (int cloudIter = 0; cloudIter < CentroidPtsBelMod[row].size(); cloudIter++) {
@@ -559,7 +558,7 @@ int main(int argc, char *argv[]) {
 
       // We connected the clouds. Find the average cloud.
       std::vector<vw::Vector3> centroid(CentroidPtsBelMod.size());
-      for (size_t row = 0; row < CentroidPtsBelMod.size(); row++) {
+      for (std::size_t row = 0; row < CentroidPtsBelMod.size(); row++) {
         vw::Vector3 pt(0, 0, 0);
         int num = 0;
         for (int cloudIter = 0; cloudIter < CentroidPtsBelMod[row].size(); cloudIter++) {
@@ -578,7 +577,7 @@ int main(int argc, char *argv[]) {
       int numErrors = 0;
       
       // Find the transform from each cloud to the centroid, and apply it to each cloud
-      for (size_t cloudIter = 0; cloudIter < numClouds; cloudIter++) {
+      for (std::size_t cloudIter = 0; cloudIter < numClouds; cloudIter++) {
 
         std::vector<Eigen::Vector3d> src, dst; 
         Eigen::Matrix3d rot;
@@ -667,7 +666,7 @@ int main(int argc, char *argv[]) {
     
     vw_out() << "Performed: " << step + 1 << " iterations.\n";
 
-    vw_out() << "\nAlignment took " << sw1.elapsed_seconds() << " [s]" << endl;
+    vw_out() << "\nAlignment took " << sw1.elapsed_seconds() << " [s]" << std::endl;
 
     if (opt.align_to_first_cloud) {
       // Make the first transform be the identity
