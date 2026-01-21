@@ -18,11 +18,11 @@
 
 """
 Compute the effective refractive index of water for a given temperature, salinity,
-and wavelength or spectral response. Uses the Quan and Fry (1994) or Parrish (2020)
+and wavelength or spectral response. Uses the Quan and Fry (1995) or Parrish (2020)
 empirical equations.
 
 References:
-  Quan and Fry (1994): https://github.com/geojames/global_refractive_index_532
+  Quan and Fry (1995): https://github.com/geojames/global_refractive_index_532
   Parrish (2020):
     https://research.engr.oregonstate.edu/parrish/
       index-refraction-seawater-and-freshwater-function-wavelength-and-temperature
@@ -241,7 +241,7 @@ def main():
     lam = eff_wl
 
     if args.mode == 'quan-fry':
-        # Quan and Fry (1994) equation
+        # Quan and Fry (1995) equation
         effective_index = (1.31405 +
                           (0.0001779 + -0.00000105 * T + 0.000000016 * T**2) * S +
                           -0.00000202 * T**2 +

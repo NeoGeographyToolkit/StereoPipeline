@@ -13,7 +13,7 @@ Examples
 Single wavelength refraction index::
 
     refr_index --salinity 35 --temperature 20 \
-        --wavelength 550
+        --wavelength 532
 
 Provide a spectral response file::
 
@@ -72,9 +72,9 @@ Modeling
 
 Two methods are available for computing the refractive index:
 
-* `Quan and Fry (1994)
-  <https://github.com/geojames/global_refractive_index_532>`_ (default) -
-  directly handles salinity without interpolation.
+* Quan and Fry (:cite:`quan1995empirical`, `source code
+  <https://github.com/geojames/global_refractive_index_532>`_) -
+  directly handles salinity without interpolation. This is the default.
 
 * `Parrish (2020)
   <https://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_ -
