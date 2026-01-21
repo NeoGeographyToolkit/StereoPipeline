@@ -696,9 +696,9 @@ understood by careful reading of your provider's documents.
 A DigitalGlobe/Maxar camera file contains both an exact (linescan) camera
 model and an approximate RPC camera model.
 
-In this example, we use the RPC model for mapprojection (``-t rpc``). In recent
-ASP the exact linescan model is almost as fast and can be used instead (``-t
-dg``). Triangulation will happen either way with the exact model. Mapprojection
+In this example, we use the exact linescan camera model for mapprojection (``-t
+dg``). In older ASP the RPC model was used instead as it was faster (``-t
+rpc``). Triangulation will happen either way with the exact model. Mapprojection
 does not need the precise model as it can be seen as a form of
 orthorectification that is undone when needed.
 
@@ -722,7 +722,7 @@ Mapprojection commands::
 
     proj='+proj=utm +zone=11 +datum=WGS84 +units=m +no_defs'
 
-    mapproject -t rpc                                  \
+    mapproject -t dg                                   \
       --t_srs "$proj"                                  \
       --tr 0.5                                         \
       ref_dem.tif                                      \
@@ -730,7 +730,7 @@ Mapprojection commands::
       12FEB12053305-P1BS_R2C1-052783824050_01_P001.XML \
       left_mapproj.tif
 
-    mapproject -t rpc                                  \
+    mapproject -t dg                                   \
       --t_srs "$proj"                                  \
       --tr 0.5                                         \
       ref_dem.tif                                      \
@@ -807,25 +807,25 @@ etc. Normally this is detected and set automatically.
 The stereo command with mapprojected images when the cameras are
 stored separately is along the lines of::
 
-    parallel_stereo              \
-      -t rpc                     \
-      --stereo-algorithm asp_mgm \
+    parallel_stereo               \
+      -t rpc                      \
+      --stereo-algorithm asp_mgm  \
       --nodes-list nodes_list.txt \
-      left.map.tif right.map.tif \
-      left.xml right.xml         \
-      run/run                    \
+      left.map.tif right.map.tif  \
+      left.xml right.xml          \
+      run/run                     \
       ref_dem.tif
 
 or::
 
-    parallel_stereo              \
-      -t pinhole                 \
-      --stereo-algorithm asp_mgm \
-      --subpixel-mode 9          \
+    parallel_stereo               \
+      -t pinhole                  \
+      --stereo-algorithm asp_mgm  \
+      --subpixel-mode 9           \
       --nodes-list nodes_list.txt \
-      left.map.tif right.map.tif \
-      left.tsai right.tsai       \
-      run/run                    \
+      left.map.tif right.map.tif  \
+      left.tsai right.tsai        \
+      run/run                     \
       ref_dem.tif
 
 When the cameras are embedded in the images, the command is::
@@ -865,10 +865,6 @@ This works best when the cameras do not change a lot after the initial run is
 made. Otherwise, it is better to redo the mapprojection and the full run from
 scratch.
 
-As an example, in the scenario in :numref:`dg-mapproj`, we mapprojected with 
-the RPC camera model, so with ``-t rpc``, and no bundle adjustment. For stereo,
-one can use ``-t dg`` or ``-t rpc``, and add or not ``--bundle-adjust-prefix``.
-
 Once such a run is done, using say the output prefix ``dg/dg``,
 ``parallel_stereo`` can be done with the option ``--prev-run-prefix dg/dg``,
 a new output prefix, and modifications to the variables above, which will
@@ -883,7 +879,7 @@ given input cameras in Maxar / DigitalGlobe .xml files or input CSM .json files
 produced cameras of the form ``adjusted_left.json``, ``adjusted_right.json``,
 the reuse of the previous run can be done as::
 
-   parallel_stereo -t csmmaprpc             \
+   parallel_stereo                          \
      left_mapproj.tif right_mapproj.tif     \
      adjusted_left.json adjusted_right.json \
      --prev-run-prefix dg/dg                \
@@ -893,8 +889,8 @@ the reuse of the previous run can be done as::
 Under the hood, this will read the metadata from the mapprojected images
 (:numref:`mapproj_metadata`), will look up the original ``left.xml`` and
 ``right.xml`` cameras, figure out what camera model was used in mapprojection
-(in this case, ``rpc``), will undo the mapprojection with this data, and then
-will do the triangulation with the new cameras.
+will undo the mapprojection with this data, and then will do the triangulation
+with the new cameras.
 
 It is very important that ``--bundle-adjust-prefix`` needs to be used or not
 depending on the circumstances. For example, jitter-solved cameras already
