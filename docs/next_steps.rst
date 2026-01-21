@@ -411,15 +411,8 @@ The Copernicus 30 m DEM heights are relative to the EGM96 geoid.
 *Any such DEM must be converted using* ``dem_geoid`` *to WGS84 ellipsoid heights,
 for any processing to be accurate.* See (:numref:`conv_to_ellipsoid`).
 
-There exist pre-made terrain models for other planets as well, for
-example the Moon LRO LOLA global DEM and the Mars MGS MOLA
-DEM. Additionally, for Mars, consider downloading HRSC DEMs from:
-
-   http://i-mars.eu/imars-datasets.php
-
-or DEMs based on HRSC, CTX, and HiRISE cameras from:
-
-    https://www.cosmos.esa.int/web/psa/ucl-mssl_meta-gsf
+There exist pre-made terrain models for other planets as well, for example the
+Moon LRO LOLA global DEM and the Mars MGS MOLA DEM.
 
 Check, as before, if your DEM is relative to the areoid rather than an
 ellipsoid (:numref:`conv_to_ellipsoid`). Some Mars DEMs may have an
