@@ -21,11 +21,10 @@ Software considerations
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 ASP supports the bathymetry mode only with the ``dg``, ``rpc``, and
-``nadirpinhole`` sessions, so with Digital Globe linescan cameras, RPC
-cameras, and pinhole cameras (:numref:`bathy_non_dg`), all for
-Earth. Both raw and mapprojected images can be used
-(:numref:`bathy_map`), with or without bundle adjustment or alignment
-(:numref:`bathy_and_align`).
+``nadirpinhole`` sessions, so with Digital Globe linescan cameras, RPC cameras,
+and pinhole cameras (:numref:`bathy_non_dg`), all for Earth, with the WGS84
+datum. Both raw and mapprojected images can be used (:numref:`bathy_map`), with
+or without bundle adjustment or alignment (:numref:`bathy_and_align`).
 
 Physics considerations
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -67,6 +66,9 @@ It was experimentally found that it is best to use band 7 (near
 infrared) for Digital Globe multispectral images to find this water
 threshold, as in them the water appears universally darker than the
 land.
+
+Other methods are available for such thresholding and masking. See 
+:numref:`bathy_water_masking`.
 
 ASP provides two tools for finding the threshold in automated way
 based on histogram analysis. One is ``bathy_threshold_calc.py``
@@ -158,6 +160,8 @@ this process for the right image.
 
 This tool sets the pixel values at or below threshold to the no-data
 value, while keeping unchanged the values above the threshold.
+It will work equally well for subsequent work to set the water pixels
+to 0 and the land pixels to 1.
 
 Later, when doing stereo, if, based on the masks, a pixel in the left
 image is under water, while the corresponding pixel in the right image
@@ -196,8 +200,9 @@ Having these in place, stereo can then happen as follows:
       --bathy-plane bathy_plane.txt     \
       run_bathy/run 
  
-Here we specified the two masks, the water index of refraction, and
-the water plane found before.
+Here we specified the two masks, the water index of refraction, and the water
+plane found before. Pixels classified as water must be either no data or have
+zero value in the mask, while land pixels must have positive value.
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices.

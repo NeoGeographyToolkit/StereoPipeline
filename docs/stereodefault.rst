@@ -903,12 +903,15 @@ These are options are used to infer the depth of shallow-water bodies
 
 Pre-processing stage
 ~~~~~~~~~~~~~~~~~~~~
+
 left-bathy-mask (*string*)
-    Mask to use for the left image when doing bathymetry.
+    Mask to use for the left image when doing bathymetry. Pixels 
+    classified as water must be either no data or have zero value
+    in the mask, while land pixels must have positive value.
 
 right-bathy-mask (*string*)
-    Mask to use for the right image when doing bathymetry.
-
+    Mask to use for the right image when doing bathymetry. See also
+    ``left-bathy-mask``.
 
 Triangulation stage
 ~~~~~~~~~~~~~~~~~~~

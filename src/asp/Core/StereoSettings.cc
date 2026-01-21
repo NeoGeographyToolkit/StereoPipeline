@@ -231,9 +231,12 @@ PreProcessingDescription::PreProcessingDescription():
 
     // For bathymetry correction
     ("left-bathy-mask", po::value(&global.left_bathy_mask),
-      "Mask to use for the left image when doing bathymetry.")
+      "Mask to use for the left image when doing bathymetry. Pixels classified as "
+      "water must be either no data or have zero value in the mask, while land pixels "
+      "must have positive value.")
     ("right-bathy-mask", po::value(&global.right_bathy_mask),
-      "Mask to use for the right image when doing bathymetry.")
+      "Mask to use for the right image when doing bathymetry. See also "
+      "left-bathy-mask.")
     ("bathy-plane", po::value(&global.bathy_plane),
       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
     ("refraction-index", po::value(&global.refraction_index)->default_value(0),

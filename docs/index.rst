@@ -22,6 +22,7 @@ Ames Stereo Pipeline documentation (version |version|)
    stereo_algorithms 
    outputfiles
    pinholemodels
+   bathy_water_masking
    papersusingasp
    news
    contributing

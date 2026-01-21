@@ -4,6 +4,8 @@ Changes since last release
 bathymetry (:numref:`shallow_water_bathy`):
   * Added a program for computing the effective refraction index of water 
     for a satellite band (:numref:`refr_index`).
+  * Added documentation on alternative spectral indices for water masking
+    (:numref:`bathy_water_masking`).
     
 bathy_plane_calc (:numref:`bathy_plane_calc`):
   * Refined the algorithm by taking into account that given a mask of land

@@ -353,8 +353,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     // For bathymetry correction
     ("bathy-mask-list", 
      po::value(&asp::stereo_settings().bathy_mask_list)->default_value(""),
-     "List of masks to use for bathymetry. Must be one per input image and 1-to-1 with the "
-     "images. This is preliminary work. This program does not yet model bathymetry.")
+     "List of masks to use for bathymetry. Must be one per input image and 1-to-1 with "
+     "the images. Pixels classified as water must be either no data or have zero value "
+     "in the mask, while land pixels must have positive value. This is preliminary work. "
+     "This program does not yet model bathymetry.")
     ("bathy-plane",
      po::value(&asp::stereo_settings().bathy_plane),
       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
