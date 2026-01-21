@@ -90,25 +90,29 @@ def stereoProgName(step):
         return 'stereo_unknown'
 
 # This is a bugfix for OpenBLAS on the Mac. It cannot handle
-# too many threads.
-def reduce_num_threads_in_pprc(cmd):
+# too many threads. Never use more than 128 threads in either
+# case, as openblas can't  handle it.
+def reduce_num_threads(cmd):
+
+    # This is only needed if the user specified --threads
+    if '--threads' not in cmd:
+        return cmd
+
+    num_threads_arr = asp_cmd_utils.get_option(cmd, '--threads', 1)
+    if len(num_threads_arr) > 1:
+        num_threads = int(num_threads_arr[1])
+    else:
+        num_threads = 1
 
     prog = cmd[0]
     if os.path.basename(prog) == 'stereo_pprc' and sys.platform == 'darwin':
-
         os.environ['OPENBLAS_NUM_THREADS'] = '1'
-
-        num_threads_arr = asp_cmd_utils.get_option(cmd, '--threads', 1)
-        if len(num_threads_arr) > 1:
-            num_threads = int(num_threads_arr[1])
-        else:
-            num_threads = 1
-
         num_threads = min(num_threads, get_num_cpus())
         num_threads = min(num_threads, 4)
-        num_threads = max(num_threads, 1)
 
-        asp_cmd_utils.set_option(cmd, '--threads', [num_threads])
+    num_threads = min(num_threads, 128)
+    num_threads = max(num_threads, 1)
+    asp_cmd_utils.set_option(cmd, '--threads', [num_threads])
 
     return cmd
 
@@ -118,7 +122,7 @@ def stereo_run(prog, args, opt, **kw):
     call = [binpath]
     call.extend(args)
 
-    call = reduce_num_threads_in_pprc(call)
+    call = reduce_num_threads(call)
 
     # On Linux estimate the memory usage and runtime
     if 'linux' in sys.platform and prog == 'stereo_corr' and \

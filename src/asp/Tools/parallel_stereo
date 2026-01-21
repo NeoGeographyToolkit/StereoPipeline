@@ -507,8 +507,7 @@ def normal_run(prog, opt, args, out_prefix, **kw):
     if opt.threads_single is not None:
         asp_cmd_utils.wipe_option(call, '--threads', 1)
         call.extend(['--threads', str(opt.threads_single)])
-
-    call = reduce_num_threads_in_pprc(call)
+    call = reduce_num_threads(call)
 
     if opt.dryrun:
         print('%s' % ' '.join(call))

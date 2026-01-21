@@ -42,6 +42,8 @@ Misc:
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment. 
   * Removed the old qi2txt program for reading IceBridge QFIT binary data.
+  * Do not use more than 128 threads in ``parallel_stereo``, as OpenBlas 
+    fails then.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
