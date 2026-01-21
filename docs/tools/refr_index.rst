@@ -103,7 +103,7 @@ Command-line options
     in :numref:`spectral_response`. Mutually exclusive with ``--wavelength``.
 
 --wavelength <float>
-    Calculate refraction index for single wavelength (nm). Valid range is
+    Calculate refraction index for single wavelength (nm). Validated range is
     400-700 nm. A warning will be printed for wavelengths between 300-1100 nm
     and outside the narrower range. There will be an error outside the 300-1100
     nm range. Mutually exclusive with ``--spectral-response``.

@@ -47,22 +47,23 @@ Apply operation and save pixels as float32
 Apply a mask to an image
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+Masking applies an existing binary mask to an image, where mask values of 1 keep
+pixels and 0 discards them::
 
     image_calc -c "var_0 * var_1" -d float32 \
         --output-nodata-value 0              \
         input.tif mask.tif -o output.tif
 
 Here it is assumed that the image and the mask have the same
-dimensions, the mask has value 1 for pixels to keep and 0 for pixels
-to discard, and that the output pixels with value 0 are invalid.
+dimensions, and that the output pixels with value 0 are invalid.
 
 .. _image_calc_create_mask:
 
-Create a mask
-^^^^^^^^^^^^^
+Create a binary mask via thresholding
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This will set values greater or equal than a threshold to 1, and the rest to 0::
+Thresholding compares pixel values against a threshold to produce binary
+decisions. This creates a mask with values of 1 and 0::
 
     thresh=0.27
     image_calc -c "gte(var_0, $thresh, 1, 0)" \
@@ -70,25 +71,29 @@ This will set values greater or equal than a threshold to 1, and the rest to 0::
       --output-nodata-value -1e+6             \
       input.tif -o output.tif
 
-It is suggested to ensure that both the input and output nodata values are
+Here, values greater or equal than the threshold become 1, and the rest become
+0. It is suggested to ensure that both the input and output nodata values are
 different than either 0 or 1, and ideally less than these.
 
-Invalidate values no more than a threshold
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Threshold and invalidate pixels below a value
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+This sets pixels below a threshold to nodata::
 
     thresh=5.2
     image_calc -c "max($thresh, var_0)" -d float32 \
         --output-nodata-value $thresh              \
         input.tif -o output.tif
 
+Pixels with values at or below the threshold become nodata (set to the threshold
+value), while pixels strictly above the threshold retain their original values.
+
 .. _image_calc_above_thresh:
 
-Invalidate values greater or equal than a threshold
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Threshold and invalidate pixels above a value
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+This sets pixels at or above a threshold to nodata::
 
     thresh=1000
     nodata=-10000
@@ -96,6 +101,9 @@ Invalidate values greater or equal than a threshold
       -d float32                                        \
       --output-nodata-value $nodata                     \
       input.tif -o output.tif
+
+Pixels at or above the threshold become nodata, while pixels below retain their
+original values.
 
 Create an image with random values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

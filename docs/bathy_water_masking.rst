@@ -142,7 +142,8 @@ This requires computing an appropriate threshold. Here's an example that invokes
 
      otsu_threshold ndwi.tif
 
-This will print the computed threshold to standard output. 
+This will print the computed threshold to standard output. This value should
+then be used in the masking command below. 
 
 Mask creation and important notes
 ----------------------------------
@@ -157,15 +158,15 @@ affects how binary masks are created from thresholds.
 The mask convention is that **land pixels have value 1** (or positive values)
 and **water pixels have value 0** (or nodata).
 
-For the NIR band, water pixels are *below* the threshold and land pixels are
-*above*, so the masking command is::
+For the NIR band, water pixels are *at or below* the threshold and land pixels are
+*strictly above*, so the masking command is::
 
      threshold=225
      image_calc -c "gt(var_0, $threshold, 1, 0)" \
       input_b7.tif -o land_mask.tif
 
-For NDWI and RNDVI, water pixels are *above* the threshold and land pixels are
-*below*::
+For NDWI and RNDVI, water pixels are *at or above* the threshold and land pixels are
+*strictly below*::
 
      threshold=0.38
      image_calc -c "lt(var_0, $threshold, 1, 0)" \

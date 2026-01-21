@@ -113,7 +113,7 @@ if num_sub_cols > num_cols:
 
 print("Number of image rows and columns: " + str(num_rows) + ", " + str(num_cols))
 print("Picking a uniform sample of dimensions " + str(num_sub_rows) + ", " + str(num_sub_cols))
-print("Please be patient. It make take several minutes to find the answer.")
+print("Please be patient. It may take several minutes to find the answer.")
 
 # Subsample uniformly the image
 sub_rows = np.round(np.array(range(num_sub_rows)) * float(num_rows - 1)/float(num_sub_rows - 1))

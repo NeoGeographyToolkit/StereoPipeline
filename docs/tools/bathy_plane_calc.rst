@@ -10,7 +10,7 @@ orientations of the cameras that were used to create the input DEM.
 
 Further context is given in :numref:`shallow_water_bathy`.
 
-The examples below show the several ways in which the inputs an be specified.
+The examples below show the several ways in which the inputs can be specified.
 
 .. _bathy_plane_raw_img:
 
@@ -36,10 +36,9 @@ of Digital Globe multispectral images. The thresholding happens as
 follows::
 
     thresh=155
-    image_calc -c "max($thresh, var_0)" --output-nodata-value $thresh \
-      image.tif -o mask.tif
+    image_calc -c "gt(var_0, $thresh, 1, 0)" image.tif -o mask.tif
 
-The larger of the nodata value and zero is used as the water value.
+The mask has values of 1 for land and 0 for water.
  
 The image must be raw, not projected, and if the image is part of a stereo pair,
 the corresponding camera for that image be used. In particular, if the image is
@@ -301,7 +300,7 @@ level heights at these points.
 Acquisition of water height data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This section descries how to acquire a set of water height measurements,
+This section describes how to acquire a set of water height measurements,
 which then could be used to create the best-fit water plane
 for the purpose of shallow-water bathymetry. An example of using
 this data is given in :numref:`bathy_plane_water_meas`.
@@ -427,6 +426,8 @@ Command-line options for bathy_plane_calc
     measurements or longitude and latitude values. The format should
     have a list of entries with syntax column_index:column_type
     (indices start from 1). Example: '2:lon 3:lat 4:height_above_datum'.
+    Note that this option must be enclosed in quotes so it is
+    parsed correctly by the shell.
 
 --mask-boundary-shapefile <string (default: "")>
     If specified, save the extracted points (before RANSAC) to this

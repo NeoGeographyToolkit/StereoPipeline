@@ -123,7 +123,7 @@ It will produce the following output:
     Number of samples is 1000000
     Number of image rows and columns: 7276, 8820
     Picking a uniform sample of dimensions 908, 1101
-    Please be patient. It make take several minutes to find the answer.
+    Please be patient. It may take several minutes to find the answer.
     Positions of the minima:  [ 155.18918919  802.7027027 ... ]
     Suggested threshold is the position of the first minimum:  155.1891891891892
     Please verify with the graph. There is a chance the second minimum may work better.
@@ -148,8 +148,7 @@ masks will be found from the corresponding images as follows:
 ::
     
     left_thresh=155.1891891891892 
-    image_calc -c "max($left_thresh, var_0)" -d float32 \
-      --output-nodata-value $left_thresh                \
+    image_calc -c "gt(var_0, $left_thresh, 1, 0)" -d float32 \
       left_b7.tif -o left_mask.tif
 
 Here, ``left_b7.tif`` is suggestive of the fact that the band 7 of
@@ -158,10 +157,13 @@ WorldView multispectral imagery was used.
 It is important to remember to use the right image threshold when repeating
 this process for the right image. 
 
-This tool sets the pixel values at or below threshold to the no-data
-value, while keeping unchanged the values above the threshold.
-It will work equally well for subsequent work to set the water pixels
-to 0 and the land pixels to 1.
+The ``image_calc`` tool (:numref:`image_calc`) produces a binary mask, with 1
+for land (values strictly larger than the threshold) and 0 for water (values at
+or below the threshold).
+
+If using a spectral index where water has higher values than land
+(like NDWI), the polarity is reversed (use the ``lt`` operator instead
+of ``gt``). See :numref:`bathy_water_masking` for details.
 
 Later, when doing stereo, if, based on the masks, a pixel in the left
 image is under water, while the corresponding pixel in the right image
