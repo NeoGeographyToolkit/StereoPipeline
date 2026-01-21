@@ -42,7 +42,6 @@
 
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Cartography/BathyStereoModel.h>
-#include <vw/Math/NewtonRaphson.h>
 #include <vw/Core/Stopwatch.h>
 
 using namespace vw;
@@ -62,133 +61,6 @@ struct Options: vw::GdalWriteOptions {
   Options() {}
 };
 
-// A class to manage a local tangent plane at a given ECEF point. The tangent
-// plane is tangent to datum at that point. For an ellipsoid datum, this plane
-// is perpendicular to the geodetic normal (not the geocentric radius vector).
-// The X and Y axes are East and North respectively.
-class BathyFunctor {
-public:
-  BathyFunctor(vw::Vector3 const& ecef_point,
-               vw::cartography::Datum const& datum,
-               vw::CamPtr const& cam,
-               vw::BathyPlane const& bathy_plane,
-               double refraction_index): m_cam(cam), m_origin(ecef_point),
-                                         m_bathy_plane(bathy_plane),
-                                         m_refraction_index(refraction_index) {
-    // Bathy planes require WGS_1984 datum
-    if (datum.name() != "WGS_1984")
-      vw::vw_throw(vw::ArgumentErr() << "Bathy plane processing requires WGS_1984 datum.\n");
-
-    // Convert ECEF to geodetic
-    vw::Vector3 llh = datum.cartesian_to_geodetic(ecef_point);
-
-    // Get the NED matrix at this location
-    // Columns are: [North | East | Down] in ECEF coordinates
-    vw::Matrix3x3 ned_matrix = datum.lonlat_to_ned_matrix(llh);
-
-    // X axis is East (column 1 of NED matrix)
-    m_x_axis = vw::math::select_col(ned_matrix, 1);
-
-    // Y axis is North (column 0 of NED matrix)
-    m_y_axis = vw::math::select_col(ned_matrix, 0);
-
-    // Normal is Down (column 2 of NED matrix), but we want it pointing up
-    m_normal = -vw::math::select_col(ned_matrix, 2);
-  }
-
-  // Intersect a ray with the tangent plane and return 2D coordinates in the tangent
-  // plane coordinate system.
-  vw::Vector2 rayPlaneIntersect(vw::Vector3 const& ray_pt,
-                                 vw::Vector3 const& ray_dir) const {
-    // Intersect the ray with the tangent plane at m_origin
-    // Plane equation: dot(X - m_origin, m_normal) = 0
-    // Ray equation: X = ray_pt + t * ray_dir
-    // Solve: dot(ray_pt + t * ray_dir - m_origin, m_normal) = 0
-    double denom = vw::math::dot_prod(ray_dir, m_normal);
-    if (std::abs(denom) < 1e-10)
-      vw::vw_throw(vw::ArgumentErr() << "Ray is parallel to tangent plane.\n");
-
-    double t = vw::math::dot_prod(m_origin - ray_pt, m_normal) / denom;
-    vw::Vector3 intersection = ray_pt + t * ray_dir;
-
-    // Project intersection onto tangent plane axes
-    vw::Vector3 offset = intersection - m_origin;
-    double x = vw::math::dot_prod(offset, m_x_axis);
-    double y = vw::math::dot_prod(offset, m_y_axis);
-
-    return vw::Vector2(x, y);
-  }
-
-  // Operator for use with Newton-Raphson solver
-  // Input: pix is a pixel in the camera
-  // Output: 2D coordinates in the tangent plane after ray bending
-  vw::Vector2 operator()(vw::Vector2 const& pix) const {
-    // Get ray from camera (without bathy correction)
-    vw::Vector3 cam_ctr = m_cam->camera_center(pix);
-    vw::Vector3 cam_dir = m_cam->pixel_to_vector(pix);
-
-    // Apply Snell's law to bend the ray at the water surface
-    vw::Vector3 refracted_pt, refracted_dir;
-    bool success = vw::curvedSnellLaw(cam_ctr, cam_dir,
-                                      m_bathy_plane.bathy_plane,
-                                      m_bathy_plane.plane_proj,
-                                      m_refraction_index,
-                                      refracted_pt, refracted_dir);
-
-    if (!success)
-      vw::vw_throw(vw::ArgumentErr() << "Snell's law refraction failed.\n");
-
-    // Intersect refracted ray with tangent plane and return 2D coordinates
-    return rayPlaneIntersect(refracted_pt, refracted_dir);
-  }
-
-  vw::CamPtr m_cam;                 // Camera pointer
-  vw::Vector3 m_origin;             // Origin of tangent plane (ECEF point P)
-  vw::BathyPlane m_bathy_plane;     // Bathy plane for refraction
-  double m_refraction_index;        // Index of refraction
-  vw::Vector3 m_x_axis;             // East direction (tangent plane X axis)
-  vw::Vector3 m_y_axis;             // North direction (tangent plane Y axis)
-  vw::Vector3 m_normal;             // Up direction (perpendicular to plane)
-};
-
-// Project an ECEF point to pixel, accounting for bathymetry if the point
-// is below the bathy plane (water surface).
-vw::Vector2 point_to_pixel(vw::CamPtr const& cam,
-                           vw::cartography::Datum const& datum,
-                           vw::BathyPlane const& bathy_plane,
-                           double refraction_index,
-                           vw::Vector3 const& ecef_point) {
-
-  // Get camera pixel as if there was no refraction
-  vw::Vector2 pix = cam->point_to_pixel(ecef_point);
-
-  // Convert ECEF point to projected coordinates for distance check
-  vw::Vector3 proj_pt = vw::proj_point(bathy_plane.plane_proj, ecef_point);
-
-  // Check signed distance to bathy plane
-  double dist = vw::signed_dist_to_plane(bathy_plane.bathy_plane, proj_pt);
-
-  // If point is above the water surface (positive distance), no refraction
-  if (dist >= 0)
-    return pix;
-
-  // Point is below water surface - need to account for refraction
-  // Set up the BathyFunctor for Newton-Raphson iteration
-  BathyFunctor bathy_func(ecef_point, datum, cam, bathy_plane, refraction_index);
-
-  // Set up Newton-Raphson solver with numerical Jacobian
-  vw::math::NewtonRaphson nr(bathy_func);
-
-  // Solve: find pixel such that bathy_func(pix) projects to (0, 0) in tangent plane
-  // since ecef_point is the origin of the tangent plane
-  vw::Vector2 target(0, 0);
-  double step = 0.5;    // 0.5 meter step for numerical differentiation
-  double tol = 1e-6;    // 1e-6 pixels tolerance
-
-  pix = nr.solve(pix, target, step, tol);
-
-  return pix;
-}
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
@@ -575,8 +447,8 @@ void run_cam_test(Options & opt) {
         if (!have_bathy_plane)
           cam2_pix = cam2_model->point_to_pixel(xyz);
         else
-          cam2_pix = point_to_pixel(cam2_model, datum, opt.bathy_plane_vec[0],
-                                    opt.refraction_index, xyz);
+          cam2_pix = vw::point_to_pixel(cam2_model, datum, opt.bathy_plane_vec[0],
+                                        opt.refraction_index, xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
 
         if (opt.print_per_pixel_results)
@@ -589,8 +461,8 @@ void run_cam_test(Options & opt) {
           if (!have_bathy_plane)
             cam2_pix2 = cam2_model->point_to_pixel(xyz);
           else
-            cam2_pix2 = point_to_pixel(cam2_model, datum, opt.bathy_plane_vec[0],
-                                       opt.refraction_index, xyz);
+            cam2_pix2 = vw::point_to_pixel(cam2_model, datum, opt.bathy_plane_vec[0],
+                                           opt.refraction_index, xyz);
 
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
