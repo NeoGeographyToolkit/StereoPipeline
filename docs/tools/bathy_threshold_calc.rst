@@ -8,7 +8,7 @@ single-channel image, for example, band 7 of a WorldView multispectral
 image, and computes the threshold separating the water and land
 pixels.
 
-See :numref:`bathy_threshold_use` for further context, and a sample
+See :numref:`bathy_thresh` for further context, and a sample
 output and graph.
 
 Example usage

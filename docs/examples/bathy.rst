@@ -49,7 +49,7 @@ The extra options, in addition to ``-b ${b}`` to extract a given band,
 are needed to create a compressed and tiled output image, which helps
 with the performance of ASP later.
 
-.. _bathy_threshold_use:
+.. _bathy_thresh:
 
 Computation of the water-land threshold
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

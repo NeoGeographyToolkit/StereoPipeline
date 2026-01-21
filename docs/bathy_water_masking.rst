@@ -9,7 +9,7 @@ underwater terrain while avoiding false depth estimates from land features.
 
 A simple and commonly used approach is to threshold the near-infrared (NIR)
 band 7, where water typically appears darker than land. This method is
-described in :numref:`bathy_threshold_use`.
+described in :numref:`bathy_thresh`.
 
 In complex coastal environments with vegetation, shadows, turbid water, or
 shallow clear water, the NIR band alone may not provide sufficient separation.
@@ -62,7 +62,7 @@ Water indices for land-water masking
 ------------------------------------
 
 The following indices provide alternatives to band 7 (NIR1), as described
-in :numref:`bathy_threshold_use`.
+in :numref:`bathy_thresh`.
 
 NDWI (Normalized Difference Water Index)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -132,11 +132,9 @@ Thresholding
 ------------
 
 The resulting index images (``ndwi.tif``, ``rndvi.tif``, ``osi.tif``) can be
-converted to binary water masks, as in :numref:`bathy_threshold_use`.
-
-This requires computing an appropriate threshold. Here's an example that invokes
-``otsu_threshold`` (:numref:`otsu_threshold`) for that purpose, with
-``ndwi.tif``:
+converted to binary water masks. This requires computing an appropriate
+threshold. Here's an example that invokes ``otsu_threshold``
+(:numref:`otsu_threshold`) for that purpose, with ``ndwi.tif``:
 
 ::
 
@@ -145,15 +143,16 @@ This requires computing an appropriate threshold. Here's an example that invokes
 This will print the computed threshold to standard output. This value should
 then be used in the masking command below. 
 
-Mask creation and important notes
-----------------------------------
+Mask creation
+-------------
 
-When creating binary masks from these indices, it is important to note the
+When creating binary masks from these indices it is important to note the
 following.
 
-**Polarity reversal:** Unlike the raw NIR band (band 7), where water is darker
-than land, the spectral indices NDWI and RNDVI make water appear brighter. This
-affects how binary masks are created from thresholds.
+**Polarity reversal:** Unlike the raw NIR band (band 7) in
+:numref:`bathy_thresh`, where water is darker than land, the spectral indices
+NDWI and RNDVI make water appear brighter. This affects how binary masks are
+created from thresholds.
 
 The mask convention is that **land pixels have value 1** (or positive values)
 and **water pixels have value 0** (or nodata).
@@ -165,8 +164,8 @@ For the NIR band, water pixels are *at or below* the threshold and land pixels a
      image_calc -c "gt(var_0, $threshold, 1, 0)" \
       input_b7.tif -o land_mask.tif
 
-For NDWI and RNDVI, water pixels are *at or above* the threshold and land pixels are
-*strictly below*::
+For NDWI and RNDVI, water pixels are *at or above* the threshold and land pixels
+are *strictly below*::
 
      threshold=0.38
      image_calc -c "lt(var_0, $threshold, 1, 0)" \
