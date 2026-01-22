@@ -740,10 +740,8 @@ void saveCsmCameras(std::string const& out_prefix,
 /// Load all of the reference disparities specified in the input text file
 /// and store them in the vectors.  Return the number loaded.
 int loadRefDisp(std::string const& disp_list_filename,
-                std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
-                   disp_vec,
-                std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
-                   interp_disp) {
+                std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> & disp_vec,
+                std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp) {
   // TODO: Disparities can be large, but if small it is better to
   // read them in memory.
   std::istringstream is(disp_list_filename);

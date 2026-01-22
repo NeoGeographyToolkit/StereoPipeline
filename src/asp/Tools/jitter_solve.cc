@@ -1122,10 +1122,10 @@ void jitterSolvePass(int                                 pass,
                          left_indices, right_indices, sessions, left_trans, right_trans,
                          disp_files);
     asp::addRefTerrainCostFun(opt, csm_models, left_indices, right_indices,
-                                         left_trans, right_trans, disp_files,
-                                         // Outputs
-                                         problem, disp_vec, mapproj_dem,
-                                         weight_per_residual, // append
+                              left_trans, right_trans, disp_files,
+                              // Outputs
+                              problem, disp_vec, mapproj_dem,
+                              weight_per_residual, // append
                                          reference_vec, ref_indices);
   }
 

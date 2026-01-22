@@ -262,7 +262,7 @@ int baOnePass(asp::BaOptions                & opt,
   std::vector<ImageViewRef<DispPixelT>> interp_disp; // must be persistent
   if (opt.reference_terrain != "")
     asp::addRefTerrainCostFun(opt, param_storage, problem,
-                                         reference_vec, interp_disp);
+                              reference_vec, interp_disp);
 
   // Add a ground constraints to keep points close to their initial positions
   int num_tri_residuals = 0;

@@ -165,10 +165,8 @@ void read_image_cam_lists(std::string const& image_list,
 /// Load all of the reference disparities specified in the input text file
 /// and store them in the vectors.  Return the number loaded.
 int loadRefDisp(std::string const& disp_list_filename,
-                std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
-                   disp_vec,
-                std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
-                   interp_disp);
+                std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> & disp_vec,
+                std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp);
 
 // Mapproject interest points onto a DEM and find the norm of their
 // disagreement in meters. It is assumed that dem_georef
