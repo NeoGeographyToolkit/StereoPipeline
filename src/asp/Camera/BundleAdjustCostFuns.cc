@@ -52,8 +52,7 @@ std::vector<int> BaCamBase::get_block_sizes() const {
 }
 
 // Read in all of the parameters and compute the residuals.
-vw::Vector2 BaAdjCam::evaluate(
-  std::vector<double const*> const param_blocks) const {
+vw::Vector2 BaAdjCam::evaluate(std::vector<double const*> const param_blocks) const {
 
   double const* raw_point = param_blocks[0];
   double const* raw_pose  = param_blocks[1];
@@ -67,16 +66,13 @@ vw::Vector2 BaAdjCam::evaluate(
         correction.position(),
         correction.pose());
   try {
-    if (asp::hasBathy(m_bathy_data)) {
-      // Use bathymetry-corrected projection with Snell's law
-      return vw::point_to_pixel(&cam,
-                                m_bathy_data.bathy_planes[m_camera_index],
-                                m_bathy_data.refraction_index,
-                                point);
-    } else {
-      // Standard projection
+    // Bathy or not
+    if (asp::hasBathy(m_bathy_data))
+      return vw::point_to_pixel(&cam, m_bathy_data.bathy_planes[m_camera_index],
+                                m_bathy_data.refraction_index, point);
+    else
       return cam.point_to_pixel(point);
-    }
+      
   } catch(std::exception const& e) {
   }
 
@@ -103,8 +99,7 @@ std::vector<int> BaPinholeCam::get_block_sizes() const {
 }
 
 // Read in all of the parameters and compute the residuals.
-vw::Vector2 BaPinholeCam::evaluate(
-  std::vector<double const*> const param_blocks) const {
+vw::Vector2 BaPinholeCam::evaluate(std::vector<double const*> const param_blocks) const {
 
   double const* raw_point  = param_blocks[0];
   double const* raw_pose   = param_blocks[1];
@@ -170,8 +165,7 @@ std::vector<int> BaOpticalBarCam::get_block_sizes() const {
 }
 
 // Read in all of the parameters and compute the residuals.
-vw::Vector2  BaOpticalBarCam::evaluate(
-  std::vector<double const*> const param_blocks) const {
+vw::Vector2  BaOpticalBarCam::evaluate(std::vector<double const*> const param_blocks) const {
 
   double const* raw_point  = param_blocks[0];
   double const* raw_pose   = param_blocks[1];
@@ -267,9 +261,8 @@ vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) co
   // Update the lens distortion parameters in the new camera.
   // - These values are also optimized as scale factors.
   std::vector<double> distortion = m_underlying_camera->distortion();
-  for (size_t i = 0; i < distortion.size(); i++) {
+  for (size_t i = 0; i < distortion.size(); i++)
     distortion[i] = raw_dist[i] * distortion[i];
-  }
 
   // Duplicate the input camera model
   boost::shared_ptr<asp::CsmModel> copy;
