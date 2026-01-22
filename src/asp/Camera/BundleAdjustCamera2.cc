@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -94,7 +94,7 @@ void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
     // The pointer is managed by vw::CamPtr
     out_cameras[icam] = vw::CamPtr(new camera::AdjustedCameraModel(input_cameras[icam],
                                    correction.position(), correction.pose()));
-  }                              
+  }
 }
 
 /// Create the param storage. Collect in it any input adjustments and initial transform.
@@ -104,7 +104,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
        std::vector<vw::CamPtr> & new_cam_models) {
 
   bool cameras_changed = false;
-  
+
   // Initialize all of the camera adjustments to zero.
   param_storage.init_cams_as_zero();
   const size_t num_cameras = param_storage.num_cameras();
@@ -116,7 +116,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
 
   // Read the adjustments from a previous run, if present. Put them in params.
   if (opt.input_prefix != "") {
-    put_adjustments_in_params(opt.input_prefix, opt.image_files, opt.camera_files, 
+    put_adjustments_in_params(opt.input_prefix, opt.image_files, opt.camera_files,
                               param_storage); // output
     cameras_changed = true;
   }
@@ -141,11 +141,11 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
     apply_transform_to_params(initial_transform, param_storage, opt.camera_models);
     cameras_changed = true;
   }
-  
+
   // Make a copy of the cameras with given corrections in param_storage, incorporating
   // any adjustments and initial transform.
   create_corrected_cameras(opt.camera_models, param_storage, new_cam_models);
-  
+
   return cameras_changed;
 }
 
@@ -155,7 +155,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
      std::vector<vw::CamPtr> & new_cam_models) {
 
   bool cameras_changed = false;
-  
+
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
 
@@ -164,7 +164,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
 
     // Make a deep copy of the camera, including of the lens distortion
     PinholeModel pin_cam = *pin_ptr;
-    
+
     // Read the adjustments from a previous run, if present
     if (opt.input_prefix != "") {
       std::string adjust_file
@@ -180,23 +180,23 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
                                   adjustment.position(), adjustment.pose());
       vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
       pin_cam.apply_transform(ecef_transform);
-    
+
       cameras_changed = true;
     }
-    
+
     // Apply any initial transform to the pinhole cameras. This may be on top
     // of any initial adjustment. 
     if (initial_transform_file != "") {
       pin_cam.apply_transform(initial_transform);
       cameras_changed = true;
     }
-    
+
     pack_pinhole_to_arrays(pin_cam, icam, param_storage);
   } // End loop through cameras
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
-  for (size_t icam = 0; icam < num_cameras; icam++){
+  for (size_t icam = 0; icam < num_cameras; icam++) {
 
     PinholeModel* in_cam  = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
 
@@ -212,7 +212,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
 bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
-                    std::string const& initial_transform_file, 
+                    std::string const& initial_transform_file,
                     vw::Matrix<double> const& initial_transform,
                     std::vector<vw::CamPtr> &new_cam_models) {
 
@@ -247,7 +247,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_
 
     // Start with a copy of the input camera, then overwrite its content.
     // The pointer is managed below.
-    vw::camera::OpticalBarModel* out_cam = new vw::camera::OpticalBarModel(*in_cam); 
+    vw::camera::OpticalBarModel* out_cam = new vw::camera::OpticalBarModel(*in_cam);
     *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
   }
@@ -258,7 +258,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM
 bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
-                   std::string const& initial_transform_file, 
+                   std::string const& initial_transform_file,
                    vw::Matrix<double> const& initial_transform,
                    std::vector<vw::CamPtr> &new_cam_models) {
 
@@ -288,12 +288,12 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
                                   adjustment.position(), adjustment.pose());
       vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
       csm_ptr->applyTransform(ecef_transform);
-    
+
       cameras_changed = true;
     }
 
     // This does not copy the camera position and orientation, only the intrinsics    
-    pack_csm_to_arrays(*csm_ptr, icam, param_storage); 
+    pack_csm_to_arrays(*csm_ptr, icam, param_storage);
   } // End loop through cameras
 
   // Apply any initial transform to the CSM cameras
@@ -306,7 +306,7 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
 
   // Fill out the new camera model vector
   new_cam_models.resize(num_cameras);
-  for (size_t icam = 0; icam < num_cameras; icam++){
+  for (size_t icam = 0; icam < num_cameras; icam++) {
 
     asp::CsmModel* in_cam
       = dynamic_cast<asp::CsmModel*>(opt.camera_models[icam].get());
@@ -328,7 +328,7 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
   // If nothing is shared, there is nothing to do
 
   // If all distortion params are shared, all sizes must agree
-  if (!intrinsics_opts.share_intrinsics_per_sensor && 
+  if (!intrinsics_opts.share_intrinsics_per_sensor &&
       intrinsics_opts.distortion_shared) {
     for (size_t it = 1; it < num_dist_params.size(); it++) {
       if (num_dist_params[it] != num_dist_params[0])
@@ -343,7 +343,7 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
     for (size_t cam_it = 0; cam_it < num_dist_params.size(); cam_it++) {
       int sensor_it = intrinsics_opts.cam2sensor[cam_it];
       dist_sizes[sensor_it].insert(num_dist_params[cam_it]); // all found sizes
-    }   
+    }
     // Now check that each dist_sizes[sensor_it] has size 1
     for (size_t sensor_it = 0; sensor_it < intrinsics_opts.num_sensors; sensor_it++) {
       if (dist_sizes[sensor_it].size() != 1)
@@ -351,7 +351,7 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
          << "they must have the same size for all cameras of the same sensor.\n");
     }
   }
-  
+
   // Intrinsics limits only can be used for now when all distortion vectors have
   // the same size. This could be fixed but it is a rarely used option
   // and would require a lot of bookkeeping.
@@ -367,7 +367,7 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
       vw_throw(ArgumentErr() << "When using --intrinsics-limits, all cameras "
                << "must have the same number of distortion coefficients.\n");
   }
-  
+
   return;
 }
 
@@ -375,7 +375,7 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
 // is a separator, in case, it used as a continuation line.
 void replace_separators_with_space(std::string & str) {
   std::string sep = "\\:;, \t\r\n";
-  for (size_t it = 0; it < sep.size(); it++) 
+  for (size_t it = 0; it < sep.size(); it++)
     std::replace(str.begin(), str.end(), sep[it], ' ');
 }
 
@@ -384,7 +384,7 @@ std::vector<std::string> split_str_with_space(std::string const& str) {
   std::istringstream is(str);
   std::vector<std::string> ret;
   std::string val;
-  while (is >> val) 
+  while (is >> val)
     ret.push_back(val);
   return ret;
 }
@@ -404,63 +404,63 @@ bool is_str_non_neg_integer(std::string const& str) {
 // The numbers are sensor indices, starting with 1.
 void fine_grained_parse(bool share_intrinsics_per_sensor,
                         int num_sensors,
-                        std::vector<std::string> const& options, 
+                        std::vector<std::string> const& options,
                         // Outputs
-                        std::vector<bool> & float_center, 
+                        std::vector<bool> & float_center,
                         std::vector<bool> & float_focus,
                         std::vector<bool> & float_distortion) {
 
   // Sanity checks
-  if (!share_intrinsics_per_sensor) 
+  if (!share_intrinsics_per_sensor)
     vw_throw(ArgumentErr() << "Intrinsics are not being optimized per sensor. Remove any "
              << "fields of the form 1:, etc., from the options for floating intrinsics.\n");
-    
+
   if (num_sensors <= 0)
     vw_throw(ArgumentErr() << "Expecting a positive number of sensors.\n");
   if (options.empty())
     vw_throw(ArgumentErr() << "Expecting at least one option.\n");
- 
+
   // Wipe the outputs
   float_center.clear();
   float_focus.clear();
   float_distortion.clear();
-  
+
   // It is convenient to initialize all to false. 0th element must always exist.
   for (int i = 0; i < std::max(num_sensors, 1); i++) {
     float_center.push_back(false);
     float_focus.push_back(false);
     float_distortion.push_back(false);
   }
-  
+
   // First entity must be an integer. That is sensor id, starting from 1.
   if (!is_str_non_neg_integer(options[0]))
     vw_throw(ArgumentErr() << "Expecting an integer as the first option.\n");
-  
+
   int sensor_id = atoi(options[0].c_str()) - 1; // subtract 1 to make it zero-based
- 
+
   // check for duplicate ids
   std::set<int> seen_ids;
   // Iterate over options
   for (size_t it = 0; it < options.size(); it++) {
-    
+
     // If it is an integer, update the sensor id, and continue.
     // Subtract 1 to make it zero-based.
     if (is_str_non_neg_integer(options[it])) {
-      sensor_id = atoi(options[it].c_str()) - 1; 
-      
+      sensor_id = atoi(options[it].c_str()) - 1;
+
       // Sensor id must be in bounds
       if (sensor_id < 0 || sensor_id >= num_sensors)
         vw_throw(ArgumentErr() << "Sensor id " << options[it] << " is out of bounds.\n");
-      
+
       // If seen, that's a problem
       if (seen_ids.find(sensor_id) != seen_ids.end())
         vw_throw(ArgumentErr() << "Sensor id " << options[it] << " is repeated.\n");
       // Record as seen
       seen_ids.insert(sensor_id);
-            
+
       continue;
     }
-   
+
     // Handle the optical center
     if (options[it] == "optical_center") {
       float_center[sensor_id] = true;
@@ -478,7 +478,7 @@ void fine_grained_parse(bool share_intrinsics_per_sensor,
       float_distortion[sensor_id] = true;
       continue;
     }
-    
+
     // For all, populate all fields
     if (options[it] == "all") {
       float_center[sensor_id]     = true;
@@ -486,24 +486,24 @@ void fine_grained_parse(bool share_intrinsics_per_sensor,
       float_distortion[sensor_id] = true;
       continue;
     }
-    
+
     // For none, just skip
     if (options[it] == "none") {
       continue;
     }
-    
+
     vw_throw(ArgumentErr() << "Found unknown option when parsing which "
               << "sensor intrinsics to float: " << options[it] << ".\n");
-  } 
-}                        
+  }
+}
 
 // Parse format:
 // "focal_length optical_center other_intrinsics"
 // Applies to all sensors and when not optimizing intrinsics per sensor.
 void coarse_grained_parse(int num_sensors,
-                          std::vector<std::string> const& options, 
+                          std::vector<std::string> const& options,
                           // Outputs
-                          std::vector<bool> & float_center, 
+                          std::vector<bool> & float_center,
                           std::vector<bool> & float_focus,
                           std::vector<bool> & float_distortion) {
 
@@ -514,7 +514,7 @@ void coarse_grained_parse(int num_sensors,
 
   if (num_sensors < 0)
     vw_throw(ArgumentErr() << "Cameras were not parsed correctly.\n");
- 
+
    // It is convenient to initialize all to false. 0th element must always exist.
   for (int i = 0; i < std::max(num_sensors, 1); i++) {
     float_center.push_back(false);
@@ -524,10 +524,10 @@ void coarse_grained_parse(int num_sensors,
 
   // For now, populate only for sensor with id 0
   int sensor_id = 0;
-  
+
   // Iterate over options
   for (size_t it = 0; it < options.size(); it++) {
-    
+
      // Must not have an integer here
      if (is_str_non_neg_integer(options[0]))
         vw_throw(ArgumentErr() << "When parsing intrinsics to float, expecting a "
@@ -538,7 +538,7 @@ void coarse_grained_parse(int num_sensors,
       float_center[sensor_id] = true;
       continue;
     }
-    
+
     // Handle the focal length
     if (options[it] == "focal_length") {
       float_focus[sensor_id] = true;
@@ -550,7 +550,7 @@ void coarse_grained_parse(int num_sensors,
       float_distortion[sensor_id] = true;
       continue;
     }
-    
+
     // For all, populate all fields
     if (options[it] == "all") {
       float_center[sensor_id]     = true;
@@ -558,30 +558,30 @@ void coarse_grained_parse(int num_sensors,
       float_distortion[sensor_id] = true;
       continue;
     }
-    
+
     // For none, just skip
     if (options[it] == "none") {
       continue;
     }
-    
+
     // We should not arrive here
     vw_throw(ArgumentErr() << "Found unknown option when parsing which "
               << "sensor intrinsics to float: " << options[it] << ".\n");
-  } 
-  
+  }
+
   // Distribute for all sensors.
   // This will happen only if we share intrinsics per sensor.
   for (int sensor_id = 0; sensor_id < num_sensors; sensor_id++) {
      float_center[sensor_id]     = float_center[0];
      float_focus[sensor_id]      = float_focus[0];
-     float_distortion[sensor_id] = float_distortion[0];  
+     float_distortion[sensor_id] = float_distortion[0];
   }
-  
+
   return;
 }
 
 void print_float(bool do_float) {
-  if (do_float) 
+  if (do_float)
     vw_out() << "floated\n";
   else
     vw_out() << "fixed\n";
@@ -599,12 +599,12 @@ void print_float_vec(std::vector<bool> const& intrinsics, std::string const& nam
 }
 
 void print_shared(bool shared) {
-  if (shared) 
+  if (shared)
     vw_out() << "shared\n";
   else
     vw_out() << "not shared\n";
 }
-         
+
 /// For each option, the string must include a subset of the entries:
 ///  "focal_length, optical_center, distortion_params"
 /// - Need the extra boolean to handle the case where --intrinsics-to-share
@@ -627,7 +627,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
   intrinsics_options.float_center.resize(1, false);
   intrinsics_options.float_focus.resize(1, false);
   intrinsics_options.float_distortion.resize(1, false);
-  
+
   if (((intrinsics_to_float_str != "" && intrinsics_to_float_str != "none") ||
       (intrinsics_to_share_str != "" && intrinsics_to_share_str != "none"))
       && !solve_intrinsics) {
@@ -637,14 +637,14 @@ void load_intrinsics_options(bool        solve_intrinsics,
 
   if (!solve_intrinsics)
     return;
-  
+
   // If the user did not specify which intrinsics to float, float all of them.
   boost::to_lower(intrinsics_to_float_str);
   if (intrinsics_to_float_str == "" || intrinsics_to_float_str == "all")
     intrinsics_to_float_str = "focal_length optical_center other_intrinsics";
   // This is the right place in which to turn 'none' to empty string,
   // which now will mean float nothing.
-  if (intrinsics_to_float_str == "none") 
+  if (intrinsics_to_float_str == "none")
     intrinsics_to_float_str = "";
 
   // If the user did not specify which intrinsics to share, share all of them.
@@ -653,13 +653,13 @@ void load_intrinsics_options(bool        solve_intrinsics,
     intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
   } else {
     // Otherwise, 'all' also means share all of them, 'none' means share none
-    if (intrinsics_to_share_str == "all") 
+    if (intrinsics_to_share_str == "all")
       intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
     if (intrinsics_to_share_str == "none")
       intrinsics_to_share_str = "";
   }
 
-  if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified) 
+  if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified)
     vw_out() << "When sharing intrinsics per sensor, option "
               << "--intrinsics-to-share is ignored. The intrinsics will "
               << "always be shared for a sensor and never across sensors.\n";
@@ -685,22 +685,22 @@ void load_intrinsics_options(bool        solve_intrinsics,
   if (!float_options.empty() && asp::is_str_non_neg_integer(float_options[0])) {
     asp::fine_grained_parse(intrinsics_options.share_intrinsics_per_sensor,
                             intrinsics_options.num_sensors,
-                            float_options, 
-                            intrinsics_options.float_center, 
+                            float_options,
+                            intrinsics_options.float_center,
                             intrinsics_options.float_focus,
                             intrinsics_options.float_distortion);
   } else {
     asp::coarse_grained_parse(intrinsics_options.num_sensors,
-                              float_options, 
-                              intrinsics_options.float_center, 
+                              float_options,
+                              intrinsics_options.float_center,
                               intrinsics_options.float_focus,
                               intrinsics_options.float_distortion);
   }
-  
+
   // Useful reporting
   std::string center_name = "Optical center";
   std::string focus_name  = "Focal length";
-  std::string dist_name   = "Other intrinsics (distortion)";  
+  std::string dist_name   = "Other intrinsics (distortion)";
   if (intrinsics_options.share_intrinsics_per_sensor) {
     vw_out() << "Intrinsics are shared for all cameras with given sensor.\n";
     vw_out() << "Number of sensors: " << intrinsics_options.num_sensors << "\n";
@@ -715,7 +715,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
   }
 
   // No parsing is done when sharing intrinsics per sensor, per above 
-  std::string val; 
+  std::string val;
   if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
     std::istringstream is(intrinsics_to_share_str);
     while (is >> val) {
@@ -726,7 +726,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
       else if (val == "other_intrinsics" || val == "distortion")
         intrinsics_options.distortion_shared = true;
       else
-        vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to share: " 
+        vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to share: "
           << val << ".\n");
     }
   }
@@ -738,7 +738,7 @@ void load_intrinsics_options(bool        solve_intrinsics,
   vw_out() << center_name << sensor_mode; print_shared(intrinsics_options.center_shared);
   vw_out() << focus_name << sensor_mode;  print_shared(intrinsics_options.focus_shared);
   vw_out() << dist_name << sensor_mode;   print_shared(intrinsics_options.distortion_shared);
-  
+
 } // End function load_intrinsics_options
 
 /// Parse the string of limits and make sure they are all valid pairs.
@@ -790,8 +790,8 @@ void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer) {
       read_success = false;
     }
     if (!read_success) {
-      vw_throw( ArgumentErr() << "Unable to get corner estimate from file: "
-                              << opt.camera_files[i] << ".\n" );
+      vw_throw(ArgumentErr() << "Unable to get corner estimate from file: "
+                              << opt.camera_files[i] << ".\n");
     }
 
     vw::BBox2 bbox_i; // Convert to BBox
@@ -809,8 +809,8 @@ void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer) {
         read_success = false;
       }
       if (!read_success) {
-        vw_throw( ArgumentErr() << "Unable to get corner estimate from file: "
-                                << opt.camera_files[j] << ".\n" );
+        vw_throw(ArgumentErr() << "Unable to get corner estimate from file: "
+                                << opt.camera_files[j] << ".\n");
       }
 
       vw::BBox2 bbox_j; // Convert to BBox
@@ -830,7 +830,7 @@ void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer) {
   } // End outer loop through cameras
 
   if (num_overlaps == 0)
-    vw_throw( ArgumentErr() << "Failed to automatically detect any overlapping images!" );
+    vw_throw(ArgumentErr() << "Failed to automatically detect any overlapping images!");
 
   vw_out() << "Will try to match at " << num_overlaps << " detected overlaps\n.";
 } // End function auto_build_overlap_list
@@ -850,10 +850,10 @@ void setup_error_propagation(std::string const& session_name,
   if (horizontal_stddev == 0.0) {
     // Read from cameras
     for (size_t icam = 0; icam < cameras.size(); icam++)
-      horizontal_stddev_vec[icam] 
+      horizontal_stddev_vec[icam]
         = asp::horizontalStDevFromCamera(cameras[icam], message_printed);
   }
-  
+
   asp::horizontalStdDevCheck(horizontal_stddev_vec, session_name);
 }
 
@@ -865,10 +865,10 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
                           std::vector<vw::CamPtr> & optimized_cams) {
 
   optimized_cams.clear();
-  
+
   int num_cameras = opt.image_files.size();
   for (int icam = 0; icam < num_cameras; icam++) {
-    
+
     // TODO(oalexan1): The logic below may need to be a function and should be called
     // in a couple other places.
     switch (opt.camera_type) {
@@ -924,10 +924,10 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
 // triangulated point.
 // TODO(oalexan1): Export points out of param_storage and crn, then use the 
 // other function further down instead.
-void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
+void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRN                const& crn,
-                            asp::BaParams            const& param_storage, 
+                            asp::BaParams            const& param_storage,
                             // Output
                             std::vector<double>     & gsds) {
 
@@ -945,30 +945,30 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
     vw::DiskImageView<float> img(images[i]);
     bboxes.push_back(bounding_box(img));
   }
-        
+
   int num_cameras = param_storage.num_cameras();
   int num_points  = param_storage.num_points();
-  
+
   // Initialize all gsd to 0
   gsds.resize(num_points, 0.0);
   std::vector<int> count(num_points, 0);
-  
+
   for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
 
       // The index of the 3D point this IP is for.
       int ipt = (**fiter).m_point_id;
-      
+
       VW_ASSERT(int(icam) < num_cameras,
                 ArgumentErr() << "Out of bounds in the number of cameras.");
       VW_ASSERT(int(ipt)  < num_points,
                 ArgumentErr() << "Out of bounds in the number of points.");
-      
+
       if (param_storage.get_point_outlier(ipt))
         continue; // skip outliers
 
       vw::Vector2 pix = (**fiter).m_location;
-      
+
       double const* point = param_storage.get_point_ptr(ipt);
       Vector3 xyz(point[0], point[1], point[2]);
 
@@ -983,24 +983,24 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       count[ipt]++;
     }
   }
-  
+
   // Find the average gsd
   for (int ipt = 0; ipt < num_points; ipt++) {
     if (count[ipt] > 0)
       gsds[ipt] /= count[ipt];
   }
-  
-  return;  
+
+  return;
 }
 
 // Find the average for the gsd for all pixels whose rays intersect at the given
 // triangulated point. This is used in jitter solving. Note that tri_points_vec
 // may have anchor points at the end, but we don't get to those.
-void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
+void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRN                const& crn,
                             std::set<int>            const& outliers,
-                            std::vector<double>      const& tri_points_vec, 
+                            std::vector<double>      const& tri_points_vec,
                             // Output
                             std::vector<double>     & gsds) {
 
@@ -1016,30 +1016,30 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
     vw::DiskImageView<float> img(images[i]);
     bboxes.push_back(bounding_box(img));
   }
-        
+
   int num_cameras = cameras.size();
   int num_points  = tri_points_vec.size()/3;
-  
+
   // Initialize all gsd to 0
   gsds.resize(num_points, 0.0);
   std::vector<int> count(num_points, 0);
-  
+
   for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
 
       // The index of the 3D point this IP is for.
       int ipt = (**fiter).m_point_id;
-      
+
       VW_ASSERT(int(icam) < num_cameras,
                 ArgumentErr() << "Out of bounds in the number of cameras.");
       VW_ASSERT(int(ipt)  < num_points,
                 ArgumentErr() << "Out of bounds in the number of points.");
-      
+
       if (outliers.find(ipt) != outliers.end())
         continue; // Skip outliers
 
       vw::Vector2 pix = (**fiter).m_location;
-      
+
       double const* point = &tri_points_vec[3*ipt];
       Vector3 xyz(point[0], point[1], point[2]);
 
@@ -1055,14 +1055,14 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       count[ipt]++;
     }
   }
-  
+
   // Find the average gsd
   for (int ipt = 0; ipt < num_points; ipt++) {
     if (count[ipt] > 0)
       gsds[ipt] /= count[ipt];
   }
-  
-  return;  
+
+  return;
 }
 
 // This function returns only one camera center per camera. See below
@@ -1080,7 +1080,7 @@ void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
 // This function returns all camera center samples for linescan cameras. These
 // cameras may have an external adjustment. Otherwise it returns only the adjusted
 // camera center at pixel (0,0).
-void calcCameraCenters(std::string const& stereo_session, 
+void calcCameraCenters(std::string const& stereo_session,
                        std::vector<vw::CamPtr> const& camera_models,
                        std::vector<std::vector<vw::Vector3>> & cam_positions) {
 
@@ -1100,30 +1100,30 @@ void calcCameraCenters(std::string const& stereo_session,
       continue;
     }
     csm::RasterGM const* gm = csm_cam->m_gm_model.get();
-    UsgsAstroLsSensorModel const* ls_model 
+    UsgsAstroLsSensorModel const* ls_model
       = dynamic_cast<UsgsAstroLsSensorModel const*>(gm);
     if (ls_model == NULL) {
       // Not a linescan camera. Return, as before the adjusted camera center
       vw::Vector3 ctr = camera_models[icam]->camera_center(vw::Vector2());
       cam_positions[icam].push_back(ctr);
-      continue; 
+      continue;
     }
-    
+
     // Handle the case when the CSM camera has an external adjustment. In that case
     // need to apply it before can find the camera positions, and update ls_model.
-    vw::camera::AdjustedCameraModel *adj_cam 
+    vw::camera::AdjustedCameraModel *adj_cam
       = dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_models[icam].get());
     asp::CsmModel local_csm; // Ensure it does not go out of scope
     if (adj_cam != NULL) {
       vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
       csm_cam->deep_copy(local_csm);
-      local_csm.applyTransform(ecef_transform); 
+      local_csm.applyTransform(ecef_transform);
       csm::RasterGM const* gm = local_csm.m_gm_model.get();
       ls_model = dynamic_cast<UsgsAstroLsSensorModel const*>(gm);
-      if (ls_model == NULL) 
+      if (ls_model == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Expecting a linescan camera.\n");
     }
-    
+
     // Get the number of positions
     int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
 
@@ -1142,143 +1142,143 @@ void calcCameraCenters(std::string const& stereo_session,
 }
 
 void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center) {
-  
+
   // Cast to pinhole model
-  vw::camera::PinholeModel const* pin_ptr 
+  vw::camera::PinholeModel const* pin_ptr
     = dynamic_cast<vw::camera::PinholeModel const*>(cam);
   if (pin_ptr != NULL) {
     center = pin_ptr->point_offset();
     return;
   }
-  
+
   // Cast to optical bar model
-  vw::camera::OpticalBarModel const* bar_ptr 
+  vw::camera::OpticalBarModel const* bar_ptr
     = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
   if (bar_ptr != NULL) {
     center = bar_ptr->get_optical_center();
     return;
-  }  
-  
+  }
+
   // Cast to CSM model
   asp::CsmModel const* csm_ptr = dynamic_cast<asp::CsmModel const*>(cam);
   if (csm_ptr != NULL) {
     center = csm_ptr->optical_center();
     return;
   }
-  
+
   // If we get here, the camera type is not recognized
   vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in get_optical_center().\n");
 }
 
 void set_optical_center(vw::camera::CameraModel* cam, vw::Vector2 const& center) {
-  
+
   // Cast to pinhole model
-  vw::camera::PinholeModel* pin_ptr 
+  vw::camera::PinholeModel* pin_ptr
     = dynamic_cast<vw::camera::PinholeModel*>(cam);
   if (pin_ptr != NULL) {
     pin_ptr->set_point_offset(center);
     return;
   }
-  
+
   // Cast to optical bar model
-  vw::camera::OpticalBarModel* bar_ptr 
+  vw::camera::OpticalBarModel* bar_ptr
     = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
   if (bar_ptr != NULL) {
     bar_ptr->set_optical_center(center);
     return;
-  }  
-  
+  }
+
   // Cast to CSM model
   asp::CsmModel* csm_ptr = dynamic_cast<asp::CsmModel*>(cam);
   if (csm_ptr != NULL) {
     csm_ptr->set_optical_center(center);
     return;
   }
-  
+
   // If we get here, the camera type is not recognized
   vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in set_optical_center().\n");
 }
 
 // Get the focal length
 void get_focal_length(vw::camera::CameraModel const* cam, double & focal) {
-  
+
   // Cast to pinhole model
-  vw::camera::PinholeModel const* pin_ptr 
+  vw::camera::PinholeModel const* pin_ptr
     = dynamic_cast<vw::camera::PinholeModel const*>(cam);
   if (pin_ptr != NULL) {
     focal = pin_ptr->focal_length()[0];
     return;
   }
-  
+
   // Cast to optical bar model
-  vw::camera::OpticalBarModel const* bar_ptr 
+  vw::camera::OpticalBarModel const* bar_ptr
     = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
   if (bar_ptr != NULL) {
     focal = bar_ptr->get_focal_length();
     return;
-  }  
-  
+  }
+
   // Cast to CSM model
   asp::CsmModel const* csm_ptr = dynamic_cast<asp::CsmModel const*>(cam);
   if (csm_ptr != NULL) {
     focal = csm_ptr->focal_length();
     return;
   }
-  
+
   // If we get here, the camera type is not recognized
   vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in get_focal_length().\n");
 }
- 
+
 // Set the focal length
 void set_focal_length(vw::camera::CameraModel* cam, double const& focal) {
-  
+
   // Cast to pinhole model
-  vw::camera::PinholeModel* pin_ptr 
+  vw::camera::PinholeModel* pin_ptr
     = dynamic_cast<vw::camera::PinholeModel*>(cam);
   if (pin_ptr != NULL) {
     pin_ptr->set_focal_length(vw::Vector2(focal, focal));
     return;
   }
-  
+
   // Cast to optical bar model
-  vw::camera::OpticalBarModel* bar_ptr 
+  vw::camera::OpticalBarModel* bar_ptr
     = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
   if (bar_ptr != NULL) {
     bar_ptr->set_focal_length(focal);
     return;
-  }  
-  
+  }
+
   // Cast to CSM model
   asp::CsmModel* csm_ptr = dynamic_cast<asp::CsmModel*>(cam);
   if (csm_ptr != NULL) {
     csm_ptr->set_focal_length(focal);
     return;
   }
-  
+
   // If we get here, the camera type is not recognized
   vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in set_focal_length().\n");
-}  
+}
 
 void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist) {
-  
+
   // Cast to pinhole model
-  vw::camera::PinholeModel const* pin_ptr 
+  vw::camera::PinholeModel const* pin_ptr
     = dynamic_cast<vw::camera::PinholeModel const*>(cam);
   if (pin_ptr != NULL) {
     dist = pin_ptr->lens_distortion()->distortion_parameters();
     return;
   }
-  
+
   // Cast to optical bar model
   // TODO(oalexan1): This must be member function and called in a couple of other places.
-  vw::camera::OpticalBarModel const* bar_ptr 
+  vw::camera::OpticalBarModel const* bar_ptr
     = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
   if (bar_ptr != NULL) {
-    dist.set_size(asp::NUM_OPTICAL_BAR_EXTRA_PARAMS); 
+    dist.set_size(asp::NUM_OPTICAL_BAR_EXTRA_PARAMS);
     dist[0] = bar_ptr->get_speed();
     dist[1] = bar_ptr->get_motion_compensation();
     dist[2] = bar_ptr->get_scan_time();
-    
+
     if (bar_ptr->get_have_velocity_vec()) {
       vw::Vector3 vel = bar_ptr->get_velocity();
       vw::Vector3 final_pose = bar_ptr->get_final_pose();
@@ -1297,10 +1297,10 @@ void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist
       dist[7] = 0.0;
       dist[8] = 0.0;
     }
-  
+
     return;
-  }  
-  
+  }
+
   // Cast to CSM model
   asp::CsmModel const* csm_ptr = dynamic_cast<asp::CsmModel const*>(cam);
   if (csm_ptr != NULL) {
@@ -1310,35 +1310,35 @@ void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist
       dist[i] = csm_dist[i];
     return;
   }
-  
+
   // If we get here, the camera type is not recognized
   vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in get_distortion().\n");
-}  
+}
 
 // Set the distortion. The underlying model must already have distortion of this size.
 void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist) {
-  
+
   // Cast to pinhole model
-  vw::camera::PinholeModel* pin_ptr 
+  vw::camera::PinholeModel* pin_ptr
     = dynamic_cast<vw::camera::PinholeModel*>(cam);
   if (pin_ptr != NULL) {
     boost::shared_ptr<LensDistortion> distortion = pin_ptr->lens_distortion()->copy();
     if (dist.size() != distortion->distortion_parameters().size())
-      vw::vw_throw(vw::ArgumentErr() << "Expecting " 
-                   << distortion->distortion_parameters().size() 
+      vw::vw_throw(vw::ArgumentErr() << "Expecting "
+                   << distortion->distortion_parameters().size()
                    << " distortion parameters for a pinhole model.\n");
     distortion->set_distortion_parameters(dist);
     pin_ptr->set_lens_distortion(distortion.get());
     return;
   }
-  
+
   // Cast to optical bar model
   // TODO(oalexan1): This must be a member function and called in a couple of other places.
-  vw::camera::OpticalBarModel* bar_ptr 
+  vw::camera::OpticalBarModel* bar_ptr
     = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
   if (bar_ptr != NULL) {
     if (dist.size() != asp::NUM_OPTICAL_BAR_EXTRA_PARAMS)
-      vw::vw_throw(vw::ArgumentErr() << "Expecting " << asp::NUM_OPTICAL_BAR_EXTRA_PARAMS 
+      vw::vw_throw(vw::ArgumentErr() << "Expecting " << asp::NUM_OPTICAL_BAR_EXTRA_PARAMS
                    << " distortion parameters for an optical bar model.\n");
     bar_ptr->set_speed(dist[0]);
     bar_ptr->set_motion_compensation(dist[1]);
@@ -1350,25 +1350,25 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
       bar_ptr->set_velocity(vel);
       bar_ptr->set_final_pose(final_pose);
     }
-    
+
     return;
   }
-  
+
   // Cast to CSM model
   asp::CsmModel* csm_ptr = dynamic_cast<asp::CsmModel*>(cam);
   if (csm_ptr != NULL) {
     std::vector<double> csm_dist = csm_ptr->distortion();
     if (dist.size() != csm_dist.size())
-      vw::vw_throw(vw::ArgumentErr() << "Expecting " << csm_dist.size() 
+      vw::vw_throw(vw::ArgumentErr() << "Expecting " << csm_dist.size()
                    << " distortion parameters for a CSM model.\n");
-    
+
     csm_dist.clear();
     for (size_t i = 0; i < dist.size(); i++)
       csm_dist.push_back(dist[i]);
     csm_ptr->set_distortion(csm_dist);
     return;
-  }  
-  
+  }
+
   // If we get here, the camera type is not recognized
   vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in set_distortion().\n");
 }
@@ -1376,16 +1376,16 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
 // If some cameras share an intrinsic parameter, that parameter must start with
 // the same value for all cameras sharing it. This is a bugfix.
 // Return true if the cameras were changed.
-bool syncUpInitialSharedParams(BACameraType camera_type, 
+bool syncUpInitialSharedParams(BACameraType camera_type,
                                asp::BaParams const& param_storage,
                                std::vector<vw::CamPtr>& camera_models) {
 
   bool cameras_changed = false;
-  
+
   if (camera_type != BaCameraType_Pinhole && camera_type != BaCameraType_OpticalBar &&
       camera_type != BaCameraType_CSM)
     return cameras_changed; // Not applicable as not optimizing intrinsics
-    
+
   // Create groups of cameras that share focal length, optical center, and distortion.
   std::map<int, std::set<int>> focal_groups, center_groups, distortion_groups;
   for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
@@ -1396,7 +1396,7 @@ bool syncUpInitialSharedParams(BACameraType camera_type,
     center_groups    [center_group].insert(icam);
     distortion_groups[distortion_group].insert(icam);
   }
-  
+
   // Iterate over focus groups. Get the focus. Apply it to all cameras in the group.
   // Print a warning if the focus is not the same for all cameras in the group.
   bool printed_focal_warning = false;
@@ -1418,7 +1418,7 @@ bool syncUpInitialSharedParams(BACameraType camera_type,
           cameras_changed = true;
         }
         set_focal_length(camera_models[icam].get(), focal_length);
-      }  
+      }
     }
   }
   // Same for optical center
@@ -1441,10 +1441,10 @@ bool syncUpInitialSharedParams(BACameraType camera_type,
           cameras_changed = true;
         }
         set_optical_center(camera_models[icam].get(), optical_center);
-      }  
+      }
     }
   }
-  
+
   // Same for distortion
   bool printed_distortion_warning = false;
   for (auto const& group: distortion_groups) {
@@ -1465,7 +1465,7 @@ bool syncUpInitialSharedParams(BACameraType camera_type,
           cameras_changed = true;
         }
         set_distortion(camera_models[icam].get(), distortion_params);
-      }  
+      }
     }
   }
 
@@ -1484,9 +1484,9 @@ int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
     if (camera_type == BaCameraType_Pinhole) {
       auto pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>
                       (camera_models[cam_it]);
-      if (!pin_ptr) 
+      if (!pin_ptr)
         vw_throw(ArgumentErr() << "Expecting a Pinhole camera.\n");
-      num_dist_params[cam_it] 
+      num_dist_params[cam_it]
         = pin_ptr->lens_distortion()->distortion_parameters().size();
     } else if (camera_type == BaCameraType_OpticalBar) {
       num_dist_params[cam_it] = asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
@@ -1508,15 +1508,14 @@ int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
     if (camera_type != BaCameraType_Other && num_dist_params[cam_it] < 1)
       num_dist_params[cam_it] = 1;
   }
-  
+
   // It is simpler to allocate the same number of distortion params per camera
   // even if some cameras have fewer. The extra ones won't be used. 
-  int max_num_dist_params = 
+  int max_num_dist_params =
     *std::max_element(num_dist_params.begin(), num_dist_params.end());
 
   asp::distortion_sanity_check(num_dist_params, intrinsics_opts,
                                intrinsics_limits);
-
 
   return max_num_dist_params;
 }
@@ -1533,42 +1532,42 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
 
   int num_cameras = camera_models.size();
   bool message_printed = false;
-  
+
   // Check that all distortion indices are between 0 and max_num_dist_params-1.
   for (size_t i = 0; i < fixed_distortion_indices.size(); i++) {
-    if (fixed_distortion_indices[i] < 0 || 
+    if (fixed_distortion_indices[i] < 0 ||
         fixed_distortion_indices[i] >= max_num_dist_params)
       vw_throw(ArgumentErr() << "The values in --fixed-distortion-indices "
                << "are out of range given the number of distortion coefficients.\n");
   }
-  
+
   // Put fixed_distortion_indices in a set for faster searching
   std::set<int> fixed_dist_set;
   for (size_t i = 0; i < fixed_distortion_indices.size(); i++)
     fixed_dist_set.insert(fixed_distortion_indices[i]);
-    
+
   for (size_t cam_it  = 0; cam_it < camera_models.size(); cam_it++) {
-    
+
     // See if this logic is needed
     if (camera_type == BaCameraType_Pinhole) {
-      
+
       auto pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>
                       (camera_models[cam_it]);
-      if (!pin_ptr) 
+      if (!pin_ptr)
         vw_throw(ArgumentErr() << "Expecting a Pinhole camera.\n");
-        
+
     } else if (camera_type == BaCameraType_CSM) {
-    
+
       auto csm_ptr = boost::dynamic_pointer_cast<asp::CsmModel>(camera_models[cam_it]);
       if (!csm_ptr)
         vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-       
+
       // Non radtan cameras have distortion that is not normalized by focal
       // length. Better not mess with it.  
       DistortionType dist_type = csm_ptr->distortion_type();
       if (dist_type != DistortionType::RADTAN)
         continue;
-        
+
     } else if (camera_type == BaCameraType_OpticalBar) {
       continue; // likely not needed for optical bar
     } else if (camera_type == BaCameraType_Other) {
@@ -1576,10 +1575,10 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
     } else {
       vw_throw(ArgumentErr() << "Unknown camera type.\n");
     }
-    
+
     if (!intrinsics_opts.float_distortion_params(cam_it))
       continue; // distortion is not being optimized for this camera
-      
+
     // Adjust the distortion parameters, unless they are fixed, via
     // --fixed-distortion-indices.
     vw::Vector<double> dist_params;
@@ -1597,45 +1596,45 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
       }
     }
     asp::set_distortion(camera_models[cam_it].get(), dist_params);
-            
+
   } // end loop through cameras
-  
+
   return;
-} 
+}
 
 // Sanity check. This does not prevent the user from setting the wrong datum,
 // but it can catch unreasonable height values for GCP.
-void checkGcpRadius(vw::cartography::Datum const& datum, 
+void checkGcpRadius(vw::cartography::Datum const& datum,
                     vw::ba::ControlNetwork const& cnet) {
-  
+
   int num_points = cnet.size();
   for (int ipt = 0; ipt < num_points; ipt++) {
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
       continue;
-      
+
     vw::Vector3 observation = cnet[ipt].position();
     double thresh = 2e+5; // 200 km
-    if (std::abs(norm_2(observation) - datum.semi_major_axis()) > thresh || 
+    if (std::abs(norm_2(observation) - datum.semi_major_axis()) > thresh ||
         std::abs(norm_2(observation) - datum.semi_minor_axis()) > thresh)
       vw_throw(ArgumentErr() << "Radius of a ground control point in ECEF differs "
               << "from the datum radii by more than " << thresh << " meters.\n"
               << "Check your GCPs and datum.\n");
   }
-  
-  return;  
+
+  return;
 }
 
 // Some logic for camera position uncertainty, used in bundle_adjust and jitter_solve
 void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) {
-  
+
   // Create map from image name to index
   std::map<std::string, int> image_name_to_index;
-  for (int i = 0; i < (int)opt.image_files.size(); i++) 
+  for (int i = 0; i < (int)opt.image_files.size(); i++)
     image_name_to_index[opt.image_files[i]] = i;
-  
+
   // Resize opt.camera_position_uncertainty to the number of images
   opt.camera_position_uncertainty.resize(opt.image_files.size(), vw::Vector2(0, 0));
-  
+
   // Handle the case when uncertainty is two values separated by a comma
   std::string sep = ",";
   std::vector<double> vals = vw::str_to_std_vec(opt.camera_position_uncertainty_str, sep);
@@ -1645,7 +1644,7 @@ void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) 
   } else {
     // Read the uncertainties per image from file
     std::string image_name;
-    double horiz = 0, vert = 0; 
+    double horiz = 0, vert = 0;
     std::ifstream ifs(opt.camera_position_uncertainty_str.c_str());
     if (!ifs.good())
       vw_throw(ArgumentErr() << "Cannot read camera position uncertainty from: "
@@ -1658,21 +1657,21 @@ void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) 
       opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
     }
   }
-  
+
   // This constraint requires the solver to work harder to converge.
   opt.parameter_tolerance = std::min(opt.parameter_tolerance, 1e-10);
-  
+
   // Ensure each horizontal and vertical uncertainty is positive
   for (int i = 0; i < (int)opt.image_files.size(); i++) {
-    if (opt.camera_position_uncertainty[i][0] <= 0 || 
+    if (opt.camera_position_uncertainty[i][0] <= 0 ||
         opt.camera_position_uncertainty[i][1] <= 0)
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                   << "The camera uncertainty for each image must be set and be positive.\n");
-  }  
+  }
 
   // The power must be positive
   if (opt.camera_position_uncertainty_power <= 0.0)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                 << "The value of --camera-position-uncertainty-power must be positive.\n");
 
   // When there is camera position uncertainty, the other camera weights must be 0.    
@@ -1681,15 +1680,15 @@ void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) 
                   << "--camera-position-uncertainty is positive.\n";
     opt.camera_position_weight = 0;
   }
-  
+
   if (opt.camera_weight > 0) {
     vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-uncertainty "
                   << "is positive.\n";
     opt.camera_weight = 0;
-  }  
-  
+  }
+
   if (!have_datum)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
             << "Cannot use camera uncertainties without a datum. Set --datum.\n");
 }
 

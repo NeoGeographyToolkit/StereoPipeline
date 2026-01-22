@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -37,7 +37,7 @@ using namespace vw;
 namespace asp {
 
 void RPCModel::initialize(DiskImageResourceGDAL* resource) {
-  
+
   // Extract the datum (by means of georeference)
   cartography::GeoReference georef;
   cartography::read_georeference(georef, *resource);
@@ -48,7 +48,7 @@ void RPCModel::initialize(DiskImageResourceGDAL* resource) {
   m_err_rand = 0.0;
 
   m_terrain_height = std::numeric_limits<double>::quiet_NaN();
-  
+
   // Extract RPC Info
   boost::shared_ptr<GDALDataset> dataset = resource->get_dataset_ptr();
   if (!dataset)
@@ -76,7 +76,7 @@ void RPCModel::initialize(DiskImageResourceGDAL* resource) {
 
   m_err_bias = gdal_rpc.dfERR_BIAS;
   m_err_rand = gdal_rpc.dfERR_RAND;
-  
+
   m_terrain_height = std::numeric_limits<double>::quiet_NaN();
 }
 
@@ -87,7 +87,7 @@ RPCModel::RPCModel(std::string const& filename) {
   m_err_rand = 0.0;
 
   m_terrain_height = std::numeric_limits<double>::quiet_NaN();
-  
+
   std::string ext = vw::get_extension(filename);
   if (ext == ".rpb") {
     load_rpb_file(filename);
@@ -103,10 +103,10 @@ RPCModel::RPCModel(std::string const& filename) {
     // only if no other approaches turn out to work later on.
     vw_throw(ArgumentErr() << "Not an image file: " << filename);
   }
-  
+
 }
 
-RPCModel::RPCModel(DiskImageResourceGDAL* resource ) {
+RPCModel::RPCModel(DiskImageResourceGDAL* resource) {
   initialize(resource);
 }
 
@@ -122,13 +122,13 @@ RPCModel::RPCModel(cartography::Datum const& datum,
                     Vector3           const& lonlatheight_scale,
                     double err_bias, double err_rand,
                     double terrain_height):
-  m_datum(datum), 
+  m_datum(datum),
   m_line_num_coeff(line_num_coeff),
-  m_line_den_coeff(line_den_coeff), 
+  m_line_den_coeff(line_den_coeff),
   m_sample_num_coeff(samp_num_coeff),
-  m_sample_den_coeff(samp_den_coeff), 
+  m_sample_den_coeff(samp_den_coeff),
   m_xy_offset(xy_offset),
-  m_xy_scale(xy_scale), 
+  m_xy_scale(xy_scale),
   m_lonlatheight_offset(lonlatheight_offset),
   m_lonlatheight_scale(lonlatheight_scale),
   m_err_bias(err_bias), m_err_rand(err_rand),
@@ -136,17 +136,17 @@ RPCModel::RPCModel(cartography::Datum const& datum,
 
 void RPCModel::load_rpb_file(std::string const& filename) {
   //vw_out() << "Reading RPC model from RPB file, defaulting to WGS84 datum.\n";
-  
+
   m_datum.set_well_known_datum("WGS84");
   std::ifstream f(filename.c_str());
 
   // Initialize to 0
   m_err_bias = 0.0;
   m_err_rand = 0.0;
-  
+
   // Initialize to NaN
   m_terrain_height = std::numeric_limits<double>::quiet_NaN();
-  
+
   std::string line;
   std::vector<std::string> tokens;
   bool lineNumCoeffs = false,
@@ -157,11 +157,11 @@ void RPCModel::load_rpb_file(std::string const& filename) {
 
   // Read through each line in the file    
   while (std::getline(f, line)) {
-    
+
     try {
       // Break up the line
       boost::split(tokens, line, boost::is_any_of("=,;"));
-      
+
       // Parse keywords
       if (line.find("lineOffset") != std::string::npos)
         m_xy_offset[1] = atof(tokens[1].c_str());
@@ -176,14 +176,14 @@ void RPCModel::load_rpb_file(std::string const& filename) {
       if (line.find("lineScale") != std::string::npos)
         m_xy_scale[1] = atof(tokens[1].c_str());
       if (line.find("sampScale") != std::string::npos)
-        m_xy_scale[0] = atof(tokens[1].c_str());        
+        m_xy_scale[0] = atof(tokens[1].c_str());
       if (line.find("latScale") != std::string::npos)
         m_lonlatheight_scale[1] = atof(tokens[1].c_str());
       if (line.find("longScale") != std::string::npos)
         m_lonlatheight_scale[0] = atof(tokens[1].c_str());
       if (line.find("heightScale") != std::string::npos)
         m_lonlatheight_scale[2] = atof(tokens[1].c_str());
-        
+
       if (line.find("errBias") != std::string::npos)
         m_err_bias = atof(tokens[1].c_str());
       if (line.find("errRand") != std::string::npos)
@@ -200,7 +200,7 @@ void RPCModel::load_rpb_file(std::string const& filename) {
         sampNumCoeffs = true;
         continue;
       } else if (line.find("sampDenCoef") != std::string::npos) {
-        sampDenCoeffs = true;        
+        sampDenCoeffs = true;
         continue;
       }
 
@@ -228,10 +228,10 @@ void RPCModel::load_rpb_file(std::string const& filename) {
         lineDenCoeffs = false;
         sampNumCoeffs = false;
         sampDenCoeffs = false;
-        
+
         if (coeff_index > max_coeff_index)
           max_coeff_index = coeff_index;
-          
+
         coeff_index = 0;
       }
 
@@ -241,7 +241,7 @@ void RPCModel::load_rpb_file(std::string const& filename) {
     }
   } // End loop through lines.
   f.close();
-  
+
   // Basic error check
   if (max_coeff_index != 20)
     vw_throw(ArgumentErr() << "Error reading file " << filename
@@ -272,7 +272,7 @@ Vector2 RPCModel::normalizedLlhToPix(Vector3 const& normalized_geodetic,
                                      RPCModel::CoeffVec const& line_num_coeff,
                                      RPCModel::CoeffVec const& line_den_coeff,
                                      RPCModel::CoeffVec const& sample_num_coeff,
-                                     RPCModel::CoeffVec const& sample_den_coeff){
+                                     RPCModel::CoeffVec const& sample_den_coeff) {
 
   CoeffVec term = calculate_terms(normalized_geodetic);
   Vector2 normalized_pixel(dot_prod(term,sample_num_coeff) /
@@ -423,10 +423,10 @@ vw::Matrix3x3 RPCModel::normalization_Jacobian(Vector3 const& q) {
   return M;
 }
 
-Matrix<double, 2, 3> 
+Matrix<double, 2, 3>
 RPCModel::geodetic_to_pixel_Jacobian(Vector3 const& geodetic) const {
 
-  Vector3 normalized_geodetic = elem_quot(geodetic - m_lonlatheight_offset, 
+  Vector3 normalized_geodetic = elem_quot(geodetic - m_lonlatheight_offset,
                                           m_lonlatheight_scale);
 
   CoeffVec term = calculate_terms(normalized_geodetic);
@@ -450,7 +450,7 @@ RPCModel::geodetic_to_pixel_Jacobian(Vector3 const& geodetic) const {
 // 2. The derivatives are taken only in respect to the first two
 //    variables (normalized lon and lat, no height).
 // 3. The output is in normalized pixels (see m_xy_scale and m_xy_offset).
-vw::Vector<double> 
+vw::Vector<double>
 RPCModel::normalizedLlhToPixJac(Vector3 const& normalized_geodetic) const {
 
     CoeffVec term = calculate_terms(normalized_geodetic);
@@ -459,10 +459,10 @@ RPCModel::normalizedLlhToPixJac(Vector3 const& normalized_geodetic) const {
     CoeffVec Ql = quotient_Jacobian(line_num_coeff(),   line_den_coeff(),   term);
 
     Matrix<double, 20, 2> Jt = terms_Jacobian2(normalized_geodetic);
-    
+
     Vector<double> J(4);
     for (int i = 0; i < 4; i++) J[i] = 0;
-    
+
     // Compute J = [Qs^T, Ql^T] * Jt
     for (int i = 0; i < 20; i++) {
       J[0] += Qs[i] * Jt[i][0];
@@ -470,22 +470,22 @@ RPCModel::normalizedLlhToPixJac(Vector3 const& normalized_geodetic) const {
       J[2] += Ql[i] * Jt[i][0];
       J[3] += Ql[i] * Jt[i][1];
     }
-    
+
     return J;
   }
 
 // Find the Jacobian of geodetic_to_pixel using numerical
 // differentiation. This is used for testing purposes.
-Matrix<double, 2, 3> 
-RPCModel::geodetic_to_pixel_numerical_Jacobian(Vector3 const& geodetic, 
+Matrix<double, 2, 3>
+RPCModel::geodetic_to_pixel_numerical_Jacobian(Vector3 const& geodetic,
                                                double tol) const {
 
   Matrix<double, 2, 3> J;
 
   Vector2 B  = geodetic_to_pixel(geodetic);
 
-  Vector2 B0 = (geodetic_to_pixel(geodetic + Vector3(tol, 0,   0 )) - B)/tol;
-  Vector2 B1 = (geodetic_to_pixel(geodetic + Vector3(0,   tol, 0 )) - B)/tol;
+  Vector2 B0 = (geodetic_to_pixel(geodetic + Vector3(tol, 0,   0)) - B)/tol;
+  Vector2 B1 = (geodetic_to_pixel(geodetic + Vector3(0,   tol, 0)) - B)/tol;
   Vector2 B2 = (geodetic_to_pixel(geodetic + Vector3(0,   0,   tol)) - B)/tol;
 
   select_col(J, 0) = B0;
@@ -501,26 +501,26 @@ struct RpcFunJac {
 
   RpcFunJac(RPCModel const& rpc, double height): m_rpc(rpc) {
 
-     m_normalized_height 
+     m_normalized_height
       = (height - m_rpc.m_lonlatheight_offset[2]) / m_rpc.m_lonlatheight_scale[2];
   }
 
   // The input is the normalized lon-lat. The output is the normalized pixel.
   vw::Vector2 operator()(vw::Vector2 const& normalized_lonlat) {
-    return m_rpc.normalizedLlhToPix(Vector3(normalized_lonlat[0], 
-                                            normalized_lonlat[1], 
+    return m_rpc.normalizedLlhToPix(Vector3(normalized_lonlat[0],
+                                            normalized_lonlat[1],
                                             m_normalized_height));
   }
-  
+
   // The input is the normalized lon-lat. The output is the Jacobian
   // of the normalized pixel in respect to the normalized lon-lat.
   vw::Vector<double> operator()(vw::Vector2 const& normalized_lonlat, double step) {
-  
-    return m_rpc.normalizedLlhToPixJac(Vector3(normalized_lonlat[0], 
-                                               normalized_lonlat[1], 
+
+    return m_rpc.normalizedLlhToPixJac(Vector3(normalized_lonlat[0],
+                                               normalized_lonlat[1],
                                                m_normalized_height));
   }
-  
+
   RPCModel const& m_rpc;
   double m_normalized_height;
 };
@@ -538,9 +538,9 @@ Vector2 RPCModel::image_to_ground(Vector2 const& pixel, double height,
   double tol = 1e-10;
 
   Vector2 normalized_pixel = elem_quot(pixel - m_xy_offset, m_xy_scale);
-  
+
   // The initial guess for the normalized lon-lat. 
-  vw::Vector2 ll_off   = subvector(m_lonlatheight_offset, 0, 2);  
+  vw::Vector2 ll_off   = subvector(m_lonlatheight_offset, 0, 2);
   vw::Vector2 ll_scale = subvector(m_lonlatheight_scale, 0, 2);
   if (lonlat_guess == Vector2(0.0, 0.0))
     lonlat_guess = ll_off; // initial guess
@@ -552,14 +552,14 @@ Vector2 RPCModel::image_to_ground(Vector2 const& pixel, double height,
   vw::math::NewtonRaphson nr(rpc_fun_jac, rpc_fun_jac);
   vw::Vector2 guess = normalized_lonlat;
   double step = 1e-6; // Not used with analytic Jacobian, but part of the API.
-  
+
   // Find with normalized_lonlat such that
   // normalized_pixel = rpc_fun_jac(normalized_lonlat).
   normalized_lonlat = nr.solve(guess, normalized_pixel, step, tol);
 
   // Undo the normalization
   Vector2 lonlat = elem_prod(normalized_lonlat, ll_scale) + ll_off;
-  
+
   return lonlat;
 }
 
@@ -591,7 +591,7 @@ void RPCModel::point_and_dir(Vector2 const& pix, Vector3 & P, Vector3 & dir) con
   Vector3 P_dn = m_datum.geodetic_to_cartesian(geo_dn);
 
   dir = normalize(P_dn - P_up);
-  
+
   // Set the origin location very far in the opposite direction of the pointing vector,
   //  to put it high above the terrain. Normally the precise position along the ray
   // should not make any difference, except perhaps in error propagation
@@ -637,7 +637,7 @@ std::ostream& operator<<(std::ostream& os, const RPCModel& rpc) {
 // Save the RPC model to an XML file. This is similar to the WorldView format.
 // GDAL can read it.
 void RPCModel::saveXML(std::string const& filename) const {
-  
+
   std::string lineoffset   = vw::num_to_str(xy_offset().y());
   std::string sampoffset   = vw::num_to_str(xy_offset().x());
   std::string latoffset    = vw::num_to_str(lonlatheight_offset().y());
@@ -656,7 +656,7 @@ void RPCModel::saveXML(std::string const& filename) const {
   std::string sampdencoef = vw::vec_to_str(sample_den_coeff());
 
   std::string datum_wkt = m_datum.get_wkt();
-  
+
   std::ofstream ofs(filename.c_str());
   ofs.precision(17);
 

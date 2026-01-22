@@ -73,7 +73,7 @@ void BaOptions::copy_to_asp_settings() const {
   asp::stereo_settings().flann_method               = flann_method;
   asp::stereo_settings().propagate_errors           = propagate_errors;
   asp::stereo_settings().ip_nodata_radius           = ip_nodata_radius;
-  
+
   // The setting below is not used, but populate it for completeness
   asp::stereo_settings().horizontal_stddev          = vw::Vector2(horizontal_stddev,
                                                                   horizontal_stddev);
@@ -89,7 +89,7 @@ void setupMapprojectedData(asp::BaOptions & opt,
   // Clear the outputs
   map_files.clear();
   mapproj_dem.clear();
-  
+
   if (!need_no_matches) {
     if (!opt.mapprojected_data_list.empty()) {
       asp::read_list(opt.mapprojected_data_list, map_files);
@@ -100,12 +100,12 @@ void setupMapprojectedData(asp::BaOptions & opt,
       while (is >> file)
         map_files.push_back(file);
     }
-    
+
     if (!opt.mapprojected_data.empty()) {
       // Read the mapproj DEM from the first image geoheader or as the last element
       // in the list.
       if (opt.image_files.size() + 1 != map_files.size() &&
-          opt.image_files.size()     != map_files.size()) 
+          opt.image_files.size()     != map_files.size())
         vw::vw_throw(vw::ArgumentErr() << "Error: Expecting as many mapprojected images as "
           << "cameras and, potentially, a DEM at the end of the mapprojected list.\n");
 
@@ -114,10 +114,10 @@ void setupMapprojectedData(asp::BaOptions & opt,
         std::string adj_key, img_file_key, cam_type_key, cam_file_key, dem_file_key;
         std::string adj_prefix_raw, image_file_raw, cam_type, cam_file_raw, dem_file;
         asp::read_mapproj_header(map_files.at(0),
-                                  adj_key, img_file_key, cam_type_key, 
+                                  adj_key, img_file_key, cam_type_key,
                                   cam_file_key, dem_file_key,
                                   adj_prefix_raw, image_file_raw, cam_type,
-                                  cam_file_raw, 
+                                  cam_file_raw,
                                   mapproj_dem); // read here
       } else if (opt.image_files.size() + 1 == map_files.size()) {
         // Pull out the dem from the list
@@ -125,7 +125,7 @@ void setupMapprojectedData(asp::BaOptions & opt,
         map_files.erase(map_files.end() - 1);
       }
     }
-    
+
     // The mapproj DEM must be non-empty
     if (!map_files.empty() && mapproj_dem.empty())
       vw::vw_throw(vw::ArgumentErr()
@@ -133,7 +133,7 @@ void setupMapprojectedData(asp::BaOptions & opt,
                 << "None found either on the command line or in a geoheader of any "
                 << "mapprojected image.\n");
   }
-  
+
   if (!map_files.empty()) {
     if (!opt.initial_transform_file.empty() || need_no_matches)
       vw::vw_throw(vw::ArgumentErr()
@@ -200,18 +200,18 @@ int loadEstimCameraPositions(asp::BaOptions &opt,
 // matching). These distinct operations use much shared logic, so are put in the
 // same function. In parallel_bundle_adjust this function is called separately
 // for different ranges.
-void computeStatsOrIp(asp::BaOptions const& opt, 
+void computeStatsOrIp(asp::BaOptions const& opt,
                       std::vector<std::string> const& files_for_stats,
-                      std::string const& dem_file_for_overlap, 
-                      std::string const& normalization_bounds_file, 
+                      std::string const& dem_file_for_overlap,
+                      std::string const& normalization_bounds_file,
                       bool calcIp) {
 
   using namespace vw;
-  
+
   int num_images = files_for_stats.size();
   if (num_images != opt.image_files.size())
     vw_throw(ArgumentErr() << "Book-keeping error in number of images.\n");
-  
+
   std::map<std::string, vw::Vector2> bounds_map;
   if (calcIp)
     asp::readNormalizationBounds(normalization_bounds_file, files_for_stats, bounds_map);
@@ -260,7 +260,7 @@ void computeStatsOrIp(asp::BaOptions const& opt,
                             opt.out_prefix,
                             footprint, footprint_bbox); // outputs
     }
-    
+
     if (calcIp) {
       // This closely resembles the logic in normalize_images() and
       // ip_matching(), but done per image.
@@ -268,7 +268,7 @@ void computeStatsOrIp(asp::BaOptions const& opt,
         vw::Vector2 bounds = bounds_map[image_path];
         masked_image = normalize(masked_image, bounds[0], bounds[1], 0.0, 1.0);
       }
-      
+
       // Detect ip and write them to file. Skip if cached ip newer than image exist.
       vw::ip::InterestPointList ip;
       std::string vwip_file = vw::ip::ip_filename(opt.out_prefix, image_path);
@@ -279,10 +279,10 @@ void computeStatsOrIp(asp::BaOptions const& opt,
                      asp::stereo_settings().ip_per_image,
                      asp::stereo_settings().ip_per_tile,
                      vwip_file, nodata, use_cached_ip);
-      
-    }  
+
+    }
   }
-  
+
   return;
 } // end function computeStatsOrIp
 

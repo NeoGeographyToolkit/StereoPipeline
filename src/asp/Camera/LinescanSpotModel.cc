@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -31,7 +31,7 @@ vw::Vector2 SPOTCameraModel::point_to_pixel(Vector3 const& point, double starty)
 
   // Use the generic solver to find the pixel 
   // - This method will be slower but works for more complicated geometries
-  vw::camera::CameraGenericLMA model( this, point );
+  vw::camera::CameraGenericLMA model(this, point);
   int status;
   vw::Vector2 start = m_image_size / 2.0; // Use the center as the initial guess
   if (starty >= 0) // If the user provided a line number guess..
@@ -48,12 +48,11 @@ vw::Vector2 SPOTCameraModel::point_to_pixel(Vector3 const& point, double starty)
                                                ABS_TOL, REL_TOL, MAX_ITERATIONS);
   // Check the error - If it is too high then the solver probably got stuck at the edge of the image.
   double  error = norm_2(model(solution));
-  VW_ASSERT( (status > 0) && (error < MAX_ERROR),
-	           vw::camera::PointToPixelErr() << "Unable to project point into LinescanSPOT model" );
+  VW_ASSERT((status > 0) && (error < MAX_ERROR),
+               vw::camera::PointToPixelErr() << "Unable to project point into LinescanSPOT model");
 
   return solution;
 }
-
 
 void SPOTCameraModel::check_time(double time, std::string const& location) const {
   if ((time < m_min_time) || (time > m_max_time))
@@ -66,30 +65,28 @@ vw::Vector3 SPOTCameraModel::get_camera_center_at_time(double time) const {
   check_time(time, "get_camera_center_at_time");
   return m_position_func(time);
 }
-vw::Vector3 SPOTCameraModel::get_camera_velocity_at_time(double time) const { 
+vw::Vector3 SPOTCameraModel::get_camera_velocity_at_time(double time) const {
   check_time(time, "get_camera_velocity_at_time");
-  return m_velocity_func(time); 
+  return m_velocity_func(time);
 }
 vw::Quat SPOTCameraModel::get_camera_pose_at_time(double time) const {
   check_time(time, "get_camera_pose_at_time");
- return m_pose_func(time); 
+ return m_pose_func(time);
 }
 double SPOTCameraModel::get_time_at_line(double line) const {
   if ((line < 0.0) || (static_cast<int>(line) >= m_image_size[1]))
     vw::vw_throw(vw::ArgumentErr() << "SPOTCameraModel::get_time_at_line"
                  << ": Requested line "<<line<<" is out of bounds (0"
                  << " <-> "<<m_image_size[1]<<")\n");
- return m_time_func(line); 
+ return m_time_func(line);
 }
 
-
-
 Vector3 SPOTCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
-  
+
   // psi_x Is the angle from nadir line in along-track direction (lines)
   // psi_y Is the angle from nadir line in across-track direction (cols)
   // psi_x is nearly constant.  psi_y starts negative and increases with column.
-  
+
   // Interpolate the pixel angle from the adjacent values in the lookup table.
   // - Probably should have a simple 2D interp function somewhere.  
   double     col    = pix[0];
@@ -99,21 +96,21 @@ Vector3 SPOTCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) const {
   size_t max_index  = static_cast<size_t>(max_col);
   double min_weight = max_col - col;
   double max_weight = col-min_col;
-  
+
   // Check bounds
   if ((col < 0) || (col > static_cast<double>(m_look_angles.size())-1.0))
     vw::vw_throw(vw::ArgumentErr() << "SPOTCameraModel:::get_local_pixel_vector: Requested pixel "
                  << col << " is out of bounds!\n");
-  
-  double psi_x = (m_look_angles[max_index].second[0]*max_weight + 
-                  m_look_angles[min_index].second[0]*min_weight  );
-  double psi_y = (m_look_angles[max_index].second[1]*max_weight + 
-                  m_look_angles[min_index].second[1]*min_weight  );
-  
+
+  double psi_x = (m_look_angles[max_index].second[0]*max_weight +
+                  m_look_angles[min_index].second[0]*min_weight);
+  double psi_y = (m_look_angles[max_index].second[1]*max_weight +
+                  m_look_angles[min_index].second[1]*min_weight);
+
   // This vector is in the SPOT5 O1 Navigation Coordinate Sytem, which 
   // differs from how we usually set up our coordinates.
   //Vector3 result = normalize(Vector3(-tan(psi_y), tan(psi_x), -1));
-  
+
   // Convert the local vector so that it follows our usual conventions:
   //  Z down, Y flight direction, X increasing sample direction. 
   Vector3 result = normalize(Vector3(tan(psi_y), tan(psi_x), 1.0));
@@ -157,7 +154,7 @@ Matrix3x3 SPOTCameraModel::get_look_rotation_matrix(double yaw, double pitch, do
 
   Matrix3x3 out = Mp*Mr*My;
   return out;
-*/  
+*/
 
   double cp = cos(pitch);
   double sp = sin(pitch);
@@ -169,10 +166,9 @@ Matrix3x3 SPOTCameraModel::get_look_rotation_matrix(double yaw, double pitch, do
   Matrix3x3 M;
   M(0,0) = (cr*cy);            M(0,1) = (-cr*sy);           M(0,2) = (-sr);
   M(1,0) = (cp*sy+sp*sr*cy);   M(1,1) = (cp*cy-sp*sr*sy);   M(1,2) = (sp*cr);
-  M(2,0) = (-sp*sy+cp*sr*cy);  M(2,1) = (-sp*cy-cp*sr*sy);  M(2,2) = cp*cr; 
+  M(2,0) = (-sp*sy+cp*sr*cy);  M(2,1) = (-sp*cy-cp*sr*sy);  M(2,2) = cp*cr;
   return M;
 }
-
 
 /*
 Notes on interpolation:
@@ -186,9 +182,7 @@ pose = linear interpolation --> The times are spaced ALMOST exactly 1.0000 secon
 time = Linear is only option.
 */
 
-
-boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string const& path)
-{
+boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string const& path) {
 
   // XYZ coordinates are in the ITRF coordinate frame which means GCC coordinates.
   // - The velocities are in the same coordinate frame, not in some local frame.
@@ -204,49 +198,49 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   vw::camera::LagrangianInterpolation velocity_func  = xml_reader.setup_velocity_func();
   vw::camera::LinearTimeInterpolation time_func      = xml_reader.setup_time_func();
   vw::camera::LinearPiecewisePositionInterpolation spot_pose_func = xml_reader.setup_pose_func(time_func);
-  
+
   // The SPOT5 camera uses a different pose convention than we do, so we create
   //  a new pose interpolation functor that will return the pose in an easy to use format.
-  
+
   // Get some information about the pose data
   double min_time      = spot_pose_func.get_t0();
   double max_time      = spot_pose_func.get_tend();
   double time_delta    = spot_pose_func.get_dt();
   size_t num_pose_vals = static_cast<size_t>(round((max_time - min_time) / time_delta));
-  
+
   // This matrix rotates the axes of the SPOT5 model so that it is oriented with
   //  our standard linescanner coordinate frame.
   Matrix3x3 R;
   R(0,0) = -1.0; R(0,1) = 0.0; R(0,2) =  0.0;
   R(1,0) =  0.0; R(1,1) = 1.0; R(1,2) =  0.0;
   R(2,0) =  0.0; R(2,1) = 0.0; R(2,2) = -1.0;
-  
+
   // Make a new vector of pose values in the GCC coordinate frame.
   // - This saves us from having to do all of the coordinate transforms
   //   each time a camera position is needed.
   std::vector<vw::Quat> gcc_pose(num_pose_vals);
   Vector3 position, velocity, yaw_pitch_roll;
-  Matrix3x3 lo_frame, look_rotation, combined_rotation;  
+  Matrix3x3 lo_frame, look_rotation, combined_rotation;
   for (size_t i = 0; i < num_pose_vals; i++) {
     // Get info at this time
     double time = min_time + time_delta * static_cast<double>(i);
     position       = position_func(time);
     velocity       = velocity_func(time);
     yaw_pitch_roll = spot_pose_func(time);
-    
+
     // TODO: There may be a small (~1 meter offset) between ITRF coordinates and WGS84 coordinates!
-    
+
     // Get the two of rotation matrices we need
     lo_frame      = SPOTCameraModel::get_local_orbital_frame(position, velocity);
-    look_rotation = SPOTCameraModel::get_look_rotation_matrix(yaw_pitch_roll[0], 
+    look_rotation = SPOTCameraModel::get_look_rotation_matrix(yaw_pitch_roll[0],
                                           yaw_pitch_roll[1], yaw_pitch_roll[2]);
     //look_rotation.set_identity(); // DEBUG assume perfect path following
     // By their powers combined these form the GCC rotation we need.
     combined_rotation = lo_frame * look_rotation*R;
 
-    gcc_pose[i] = vw::Quat(combined_rotation);    
+    gcc_pose[i] = vw::Quat(combined_rotation);
   }
-  
+
   vw::camera::SLERPPoseInterpolation pose_func(gcc_pose, min_time, time_delta);
 
   // This is where we could set the Earth radius and mean surface elevation if we have that info.
@@ -255,16 +249,15 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   bool enable_correct_velocity_aberration = false;
   bool enable_correct_atmospheric_refraction = false;
   return boost::shared_ptr<SPOTCameraModel>
-    (new SPOTCameraModel(position_func, velocity_func, 
-                         pose_func, time_func, 
+    (new SPOTCameraModel(position_func, velocity_func,
+                         pose_func, time_func,
                          xml_reader.look_angles,
                          xml_reader.image_size,
                          min_time, max_time,
                          enable_correct_velocity_aberration,
                          enable_correct_atmospheric_refraction));
-  
-} // End function load_spot_camera_model()
 
+} // End function load_spot_camera_model()
 
 } // end namespace asp
 

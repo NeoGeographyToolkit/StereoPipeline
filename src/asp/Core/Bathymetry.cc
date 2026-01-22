@@ -36,7 +36,7 @@ void readBathyData(int num_images,
                    std::string const& bathy_plane_files,
                    float refraction_index,
                    vw::BathyData & bathy_data) {
-  
+
   std::vector<std::string> bathy_mask_files;
   if (bathy_mask_list != "")
     asp::read_list(bathy_mask_list, bathy_mask_files);
@@ -48,7 +48,7 @@ void readBathyData(int num_images,
   vw::read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
   vw::readBathyPlanes(bathy_plane_files, num_images, bathy_data.bathy_planes);
   bathy_data.refraction_index = refraction_index;
-  
+
   // Validate consistency
   validateBathyData(bathy_data, num_images);
 }
@@ -74,25 +74,25 @@ void validateBathyData(vw::BathyData const& bathy_data, int num_images) {
   bool has_planes = !bathy_data.bathy_planes.empty();
   bool has_masks  = !bathy_data.bathy_masks.empty();
   bool has_refr   = (bathy_data.refraction_index > 1.0);
-  
+
   // All or nothing
   if (has_planes || has_masks || has_refr) {
     if (!has_planes)
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "Bathy masks/refraction set but no planes.\n");
     if (!has_masks)
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "Bathy planes/refraction set but no masks.\n");
     if (!has_refr)
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "Bathy planes/masks set but refraction_index <= 1.0.\n");
-    
+
     // Size checks
     if (bathy_data.bathy_planes.size() != (size_t)num_images)
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "Bathy planes count does not match number of images.\n");
     if (bathy_data.bathy_masks.size() != (size_t)num_images)
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "Bathy masks count does not match number of images.\n");
   }
 }
@@ -130,14 +130,14 @@ void bathyChecks(std::string const& session_name,
     }
 
     if (session_name.find("isis") != std::string::npos)
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "Bathymetry correction does not work with ISIS cameras.\n");
 
     if (stereo_settings.alignment_method != "homography"     &&
         stereo_settings.alignment_method != "affineepipolar" &&
         stereo_settings.alignment_method != "local_epipolar" &&
         stereo_settings.alignment_method != "none")
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
           << "Bathymetry correction only works with alignment methods "
           << "homography, affineepipolar, local_epipolar, and none.\n");
 
@@ -147,10 +147,10 @@ void bathyChecks(std::string const& session_name,
   }
 
   // Ensure that either both or none of these settings are specified
-  if ((stereo_settings.refraction_index > 1.0 || 
+  if ((stereo_settings.refraction_index > 1.0 ||
        stereo_settings.bathy_plane != "") &&
       !doBathy(stereo_settings))
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
           << "When bathymetry correction is not on, it is not necessary to "
           << "specify the water refraction index or the bathy plane.\n");
 

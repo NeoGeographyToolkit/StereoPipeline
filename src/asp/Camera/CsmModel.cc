@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -14,7 +14,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
 
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
@@ -136,7 +135,7 @@ CsmModel::CsmModel():m_semi_major_axis(0.0),
                      m_desired_precision(asp::DEFAULT_CSM_DESIRED_PRECISION),
                      m_maxApproxCamPixErr(-1.0) {
 }
-                                      
+
 // Call the default constructor to initalize the member variables, then load
 // from file.
 CsmModel::CsmModel(std::string const& isd_path): CsmModel() {
@@ -160,11 +159,11 @@ std::string CsmModel::get_csm_plugin_folder() {
   char * isis_root = getenv("ISISROOT");
   if (isis_root == NULL)
     vw_throw(vw::ArgumentErr() << "The variable ISISROOT was not set.\n");
-  
-  if (plugin_path_arr != NULL && std::string(plugin_path_arr) != ""){
+
+  if (plugin_path_arr != NULL && std::string(plugin_path_arr) != "") {
     plugin_path = std::string(plugin_path_arr);
 
-  }else{
+  } else {
     // This is for when ASP is installed without the deploy file.
     // vw_out() << "The environmental variable CSM_PLUGIN_PATH was not set.\n";
     fs::path try_path(isis_root);
@@ -173,7 +172,7 @@ std::string CsmModel::get_csm_plugin_folder() {
     //vw_out() << "Looking in " << plugin_path << ".\n";
   }
 
-  if (!fs::exists(plugin_path)){
+  if (!fs::exists(plugin_path)) {
     vw_throw(ArgumentErr() << "Could not find CSM plugin folder: " << plugin_path << ".\n"
               << "Check the value of the environmental variable CSM_PLUGIN_PATH.");
   }
@@ -196,7 +195,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
   boost::to_lower(platform);
   if (std::string(platform).find("linux") != std::string::npos)
     ext = ".so";
-  else if (std::string(platform).find("mac") != std::string::npos) 
+  else if (std::string(platform).find("mac") != std::string::npos)
     ext = ".dylib";
   else
     vw_throw(ArgumentErr() << "Unknown operating system: " << BOOST_PLATFORM << "\n");
@@ -207,7 +206,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
     if (potential_plugins[i] != "libusgscsm" + ext) {
       continue;
     }
-    
+
     fs::path p(folder);
     p /= potential_plugins[i];
     plugins.push_back(p.string());
@@ -217,7 +216,7 @@ size_t CsmModel::find_csm_plugins(std::vector<std::string> &plugins) {
   fs::path p(folder);
   p /= "libusgscsm" + ext;
   std::string plugin = p.string();
-  if (!fs::exists(plugin)) 
+  if (!fs::exists(plugin))
     vw_throw(ArgumentErr() << "Cannot find plugin: " <<plugin <<
               ". Set CSM_PLUGIN_PATH to the directory where the plugins are stored.\n");
   plugins.push_back(plugin);
@@ -240,7 +239,7 @@ void CsmModel::print_available_models() {
     }
   }
 }
-      
+
 // This function is not kept out of the header file to hide CSM dependencies.
 /// Look through all of the loaded plugins and find one that is compatible with
 ///  the provided ISD.
@@ -292,7 +291,7 @@ void CsmModel::initialize_plugins() {
   csm::PluginList plugins = csm::Plugin::getList();
   if (!plugins.empty())
     return;
-  
+
   //vw_out() << "Initializing CSM plugins...\n";
 
   // Find all of the available CSM plugin DLL files.
@@ -324,26 +323,26 @@ void CsmModel::read_ellipsoid_from_isd(std::string const& isd_path) {
   } catch(...) {
     vw::vw_throw(vw::ArgumentErr() << "Cannot open file: " << isd_path << "\n");
   }
-  
+
   // Read the semi-major axis
   m_semi_major_axis = 0.0;
   try {
     m_semi_major_axis = json_isd.at("radii").at("semimajor");
-  } catch (...){
+  } catch (...) {
   }
 
   // Read the semi-minor axis
   m_semi_minor_axis = 0.0;
   try {
     m_semi_minor_axis = json_isd.at("radii").at("semiminor");
-  } catch (...){
+  } catch (...) {
   }
 
   // Read the unit
   std::string unit;
   try {
     unit = json_isd.at("radii").at("unit");
-  } catch (...){
+  } catch (...) {
   }
   boost::to_lower(unit);
 
@@ -357,7 +356,7 @@ void CsmModel::read_ellipsoid_from_isd(std::string const& isd_path) {
   }
 
   // Sanity check
-  if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0) 
+  if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "Could not read positive semi-major "
                  << "and semi-minor axies from:  " << isd_path
                  << ". The read values are: "
@@ -377,28 +376,28 @@ void readCsmSunPosition(boost::shared_ptr<csm::RasterGM> const& gm_model,
                         vw::Vector3 & sun_position) {
 
   if (gm_model.get() == NULL)
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "CsmModel::readCsmSunPosition() failed because " 
+    vw::vw_throw(vw::ArgumentErr()
+                 << "CsmModel::readCsmSunPosition() failed because "
                  << "the model is not initialized.\n");
-    
+
   std::string modelState = gm_model->getModelState();
   nlohmann::json j = stateAsJson(modelState);
   if (j.find("m_sunPosition") == j.end())
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                  << "The Sun position was not found in the CSM model state.\n");
-    
+
   std::vector<double> sun_pos = j["m_sunPosition"].get<std::vector<double>>();
   if (sun_pos.size() < 3)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                   << "The Sun position must be a vector of size >= 3.\n");
 
-  for (size_t it = 0; it < 3; it++) 
+  for (size_t it = 0; it < 3; it++)
     sun_position[it] = sun_pos[it];
 }
 
 /// Load the camera model from an ISD file or model state.
 void CsmModel::load_model(std::string const& isd_path) {
-  
+
   std::string line;
   {
     // Peek inside the file to see if it is an isd or a model state.
@@ -406,16 +405,16 @@ void CsmModel::load_model(std::string const& isd_path) {
     std::ifstream ifs(isd_path);
     ifs >> line;
   }
-  bool is_model_state = (line == UsgsAstroFrameSensorModel::_SENSOR_MODEL_NAME     || 
+  bool is_model_state = (line == UsgsAstroFrameSensorModel::_SENSOR_MODEL_NAME     ||
                          line == UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME        ||
                          line == UsgsAstroPushFrameSensorModel::_SENSOR_MODEL_NAME ||
                          line == UsgsAstroSarSensorModel::_SENSOR_MODEL_NAME);
 
-  if (!is_model_state) 
+  if (!is_model_state)
     CsmModel::load_model_from_isd(isd_path);
   else
     CsmModel::loadModelFromStateFile(isd_path);
-  
+
   CsmModel::createApproxCam();
 }
 
@@ -432,7 +431,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   csm::Isd support_data(isd_path);
 
   CsmModel::read_ellipsoid_from_isd(isd_path);
- 
+
   // Check each available CSM plugin until we find one that can handle the ISD.
   std::string model_name, model_family;
   const csm::Plugin* csm_plugin = find_plugin_for_isd(support_data, model_name,
@@ -442,14 +441,14 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   //  messages for each plugin that fails.
   if (csm_plugin == 0) {
     find_plugin_for_isd(support_data, model_name, model_family, true);
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                  << "Unable to construct a camera model for the ISD file "
                  << isd_path << " using any of the loaded CSM plugins!");
   }
-  
+
   // Remember the plugin name. It will be needed to add a model state to a cub file.
   m_plugin_name = csm_plugin->getPluginName();
-  
+
   // This is verbose
   //vw::vw_out() << "Using plugin: " << this->plugin_name() 
   //             << " with model name " << model_name << std::endl;
@@ -469,7 +468,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   if (!csm_model)
     vw::vw_throw(vw::ArgumentErr() << "Failed to load CSM sensor model from file: "
                  << isd_path);
-  
+
   // TODO: Are all sensor models going to be this type (RasterGM)?
   //       Otherwise we can use the result of getModelFamily() to choose the class.
   // Cast the model we got to the child class with the needed functionality.
@@ -478,14 +477,14 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
    // Handle load failure
   if (!gm_model)
     vw::vw_throw(vw::ArgumentErr() << "Failed to cast CSM sensor model to raster type!");
-  
+
   m_gm_model.reset(gm_model); // The smart pointer will handle memory management
-  
+
   // This must happen after gm model is set
   readCsmSunPosition(m_gm_model, m_sun_position);
 
   // This is a bug fix.
-  normalizeLinescanQuaternions();  
+  normalizeLinescanQuaternions();
 }
 
 /// Load the camera model from a model state written to disk.
@@ -496,7 +495,7 @@ void CsmModel::loadModelFromStateFile(std::string const& state_file) {
   // Read the state as one string
   std::ifstream ifs(state_file.c_str());
   std::string model_state;
-  ifs.seekg(0, std::ios::end);   
+  ifs.seekg(0, std::ios::end);
   model_state.reserve(ifs.tellg());
   ifs.seekg(0, std::ios::beg);
   model_state.assign((std::istreambuf_iterator<char>(ifs)),
@@ -520,22 +519,22 @@ void setModelFromStateStringAux(bool recreate_model,
     ModelT * specific_model = new ModelT;
     specific_model->replaceModelState(model_state);
     new_gm_model = dynamic_cast<csm::RasterGM*>(specific_model);
-    
+
     // Handle load failure
     if (!new_gm_model)
       vw::vw_throw(vw::ArgumentErr() << "Failed to cast CSM model to raster type.");
-    
+
     // This will wipe any preexisting model. Prior gm_model pointer will become invalid.
-    gm_model.reset(new_gm_model); 
-    
+    gm_model.reset(new_gm_model);
+
   } else {
-    
+
     // Update existing model. This does not destroy gm_model.
     ModelT * specific_model = static_cast<ModelT*>(gm_model.get());
     if (specific_model == NULL)
       vw::vw_throw(vw::ArgumentErr() << "Incorrect model type passed in.\n");
     specific_model->replaceModelState(model_state);
-    
+
   }
 
   return;
@@ -550,7 +549,7 @@ void CsmModel::normalizeLinescanQuaternions() {
   if (ls_model != NULL)
     asp::normalizeQuaternions(ls_model);
 }
-  
+
 /// Load the camera model from a model state written to disk. A model state is
 /// obtained from an ISD model by pre-processing and combining its data in a
 /// form ready to be used. Use recreate_model = false if desired to just update
@@ -560,13 +559,13 @@ void CsmModel::normalizeLinescanQuaternions() {
 ///
 /// See also load_model_from_isd() for a different construction method. These
 /// must be kept in sync.
-void CsmModel::setModelFromStateString(std::string const& model_state, 
+void CsmModel::setModelFromStateString(std::string const& model_state,
                                        bool recreate_model) {
-  
+
   // TODO(oalexan1): Use the usgscsm function
   // constructModelFromState() after that package pushes a new version
   // (currently there are compile-time issues with it).
-  
+
   // See which model to load, then cast it to RasterGM. This could
   // have been simpler if the USGSCSM models shared a base class where
   // all shared functionality would be shared.
@@ -574,22 +573,22 @@ void CsmModel::setModelFromStateString(std::string const& model_state,
 
     setModelFromStateStringAux<UsgsAstroFrameSensorModel>
       (recreate_model, model_state, m_gm_model);
-    
+
   } else if (model_state.rfind(UsgsAstroLsSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
-    
+
     setModelFromStateStringAux<UsgsAstroLsSensorModel>
       (recreate_model, model_state, m_gm_model);
-    
+
   } else if (model_state.rfind(UsgsAstroPushFrameSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
-    
+
     setModelFromStateStringAux<UsgsAstroPushFrameSensorModel>
       (recreate_model, model_state, m_gm_model);
-    
+
   } else if (model_state.rfind(UsgsAstroSarSensorModel::_SENSOR_MODEL_NAME, 0) == 0) {
-    
+
     setModelFromStateStringAux<UsgsAstroSarSensorModel>
       (recreate_model, model_state, m_gm_model);
-    
+
   } else {
     vw::vw_throw(vw::ArgumentErr() << "Could not create CSM model from state string.\n");
   }
@@ -598,16 +597,16 @@ void CsmModel::setModelFromStateString(std::string const& model_state,
   csm::PluginList plugins = csm::Plugin::getList();
   if (plugins.size() == 0)
     vw::vw_throw(vw::ArgumentErr() << "Could not find CSM plugins.\n");
-    
+
   if (plugins.size() > 1)
-    vw::vw_out(vw::WarningMessage) 
+    vw::vw_out(vw::WarningMessage)
       << "Expected to find one CSM plugin, found: " << plugins.size() << ".\n";
 
   for (auto iter = plugins.begin(); iter != plugins.end(); iter++) {
     const csm::Plugin* csm_plugin = (*iter);
     m_plugin_name = csm_plugin->getPluginName();
   }
-  
+
   // Set the semi-axes from json (cannot pull it from the usgs models
   // as these figure as private in some of them).
   auto j = stateAsJson(model_state);
@@ -615,17 +614,17 @@ void CsmModel::setModelFromStateString(std::string const& model_state,
   m_semi_minor_axis = j["m_minorAxis"];
 
   // Sanity check
-  if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0) 
+  if (m_semi_major_axis <= 0.0 || m_semi_minor_axis <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "Could not read positive semi-major "
                  << "and semi-minor axies from state string.");
-    
+
   // This must happen after gm model is set
   readCsmSunPosition(m_gm_model, m_sun_position);
-  
+
   // This is a bug fix.
-  normalizeLinescanQuaternions();  
+  normalizeLinescanQuaternions();
 }
-  
+
 void CsmModel::throw_if_not_init() const {
   if (!m_gm_model)
     vw_throw(ArgumentErr() << "CsmModel: Sensor model has not been initialized.");
@@ -657,11 +656,11 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
 
   // Do not show warnings, it becomes too verbose
   bool show_warnings = false;
-  if (show_warnings) 
+  if (show_warnings)
     warnings_ptr = &warnings;
 
   csm::ImageCoord imagePt = m_gm_model->groundToImage(ecef, m_desired_precision,
-						       &achievedPrecision, warnings_ptr);
+                               &achievedPrecision, warnings_ptr);
 
   if (show_warnings) {
     csm::WarningList::const_iterator w_iter;
@@ -671,12 +670,12 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
   }
 
   vw::Vector2 pix = imageCoordToVector(imagePt) - ASP_TO_CSM_SHIFT;
-  
+
   // This is a bugfix for when points far from the field of view project
   // incorrectly into the camera.
   if (m_maxApproxCamPixErr > 0)
     return this->correctWithApproxCam(pix, point);
-    
+
   return pix;
 }
 
@@ -685,7 +684,7 @@ vw::Vector3 CsmModel::pixel_to_vector(vw::Vector2 const& pix) const {
 
   csm::ImageCoord imagePt;
   toCsmPixel(pix, imagePt);
-  
+
   double achievedPrecision = -1.0; // will be modified in the function
   csm::EcefLocus locus = m_gm_model->imageToRemoteImagingLocus(imagePt,
                                                                m_desired_precision,
@@ -693,11 +692,11 @@ vw::Vector3 CsmModel::pixel_to_vector(vw::Vector2 const& pix) const {
   Vector3 dir = ecefVectorToVector(locus.direction);
   return dir;
 
-#if 0  
+#if 0
   // This alternative approach gives the same results as above, except
   // for the SAR model, which has curved rays, and for MSL, whose 
   // location is below the zero datum. 
-  
+
   // This code is kept in case it is necessary to revisit the SAR model.
   // Camera center
   csm::EcefCoord  ctr = m_gm_model->getSensorPosition(imagePt);
@@ -749,10 +748,10 @@ void applyTransformToState(ModelT const * model,
     }
   }
   ale::Rotation r(rotation_vec);
-  
+
   // Extract the translation
   ale::Vec3d t(transform(0, 3), transform(1, 3), transform(2, 3));
-  
+
   model->applyTransformToState(r, t, modelState);
 
   return;
@@ -762,7 +761,7 @@ void applyTransformToState(csm::RasterGM const* gm_model,
                            vw::Matrix4x4 const& transform,
                            // Output
                            std::string & modelState) {
-  
+
   // Need to consider each model type separately
   bool success = false;
   UsgsAstroFrameSensorModel const* frame_model
@@ -771,7 +770,7 @@ void applyTransformToState(csm::RasterGM const* gm_model,
     applyTransformToState(frame_model, transform, modelState);
     success = true;
   }
-  
+
   UsgsAstroLsSensorModel const* ls_model
     = dynamic_cast<UsgsAstroLsSensorModel const*>(gm_model);
   if (!success && ls_model != NULL) {
@@ -800,12 +799,12 @@ void applyTransformToState(csm::RasterGM const* gm_model,
 
 // Save model state
 void CsmModel::saveState(std::string const& json_state_file) const {
-  
+
   throw_if_not_init();
 
   csm::RasterGM const* gm_model
     = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
-    
+
   std::string modelState = gm_model->getModelState();
   std::ofstream ofs(json_state_file.c_str());
   ofs << modelState << std::endl;
@@ -818,20 +817,20 @@ void CsmModel::saveState(std::string const& json_state_file) const {
 void CsmModel::applyTransform(vw::Matrix4x4 const& transform) {
 
   throw_if_not_init();
-  
+
   csm::RasterGM const* gm_model
     = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get());
-  
+
   std::string modelState = gm_model->getModelState();
-  
-  applyTransformToState(gm_model, transform,  
+
+  applyTransformToState(gm_model, transform,
                         // Output
                         modelState);
 
   bool recreate_model = false; // don't want to destroy the model
   setModelFromStateString(modelState, recreate_model);
 }
- 
+
 std::string CsmModel::plugin_name() const {
   if (m_plugin_name.empty())
     vw_throw(ArgumentErr() << "CsmModel: Plugin name has not been set yet.");
@@ -855,9 +854,9 @@ std::vector<double> stripSign(std::vector<double> const & vals) {
   for (size_t i = 0; i < vals.size(); i++)
     if (std::abs(vals[i]) < 1e-16)
       out_vals[i] = 0.0;
-      
+
   return out_vals;
-}  
+}
 
 // Create a CSM frame camera model. This requires a lot of bookkeeping. Use
 // cam_test to compare such model with ASP's Pinhole model with same data. That
@@ -876,10 +875,10 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
         std::string const& serial_number,
         std::string const& target_name,
         double pixel_pitch) {
-        
+
   // Make a copy of R as an Eigen matrix, and convert to quaternion
   Eigen::Matrix3d R_copy;
-  for (int r = 0; r < 3; r++){
+  for (int r = 0; r < 3; r++) {
     for (int c = 0; c < 3; c++)
       R_copy(r, c) = R(r, c);
   }
@@ -902,8 +901,8 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
   // coordinates to pixels, which is compatible with the ASP Pinhole model.
   j["m_iTransL"] = std::vector<double>({0.0, 0.0, 1.0 / pixel_pitch});
   j["m_iTransS"] = std::vector<double>({0.0, 1.0 / pixel_pitch, 0.0});
-  j["m_focalLength"] = focal_length; 
-  
+  j["m_focalLength"] = focal_length;
+
   // Note the order (row, col), and how we must divide by pixel pitch
   j["m_ccdCenter"] = std::vector<double>({cy / pixel_pitch, cx / pixel_pitch});
   j["m_pixelPitch"] = pixel_pitch;
@@ -918,7 +917,7 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
     j["m_opticalDistCoeffs"] = std::vector<double>(3, 0.0);
   } else if (distortionType == "radial") {
     if (distortion.size() != 3)
-      vw::vw_throw(ArgumentErr() 
+      vw::vw_throw(ArgumentErr()
                    << "Distortion coefficients for the radial distortion "
                    << "model must be of size 3, in the order k1, k2, k3. "
                    << "Got the size: " << distortion.size() << "\n");
@@ -926,7 +925,7 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
     j["m_opticalDistCoeffs"] = distortion;
   } else if (distortionType == "radtan") {
     if (distortion.size() != 5)
-      vw::vw_throw(ArgumentErr() 
+      vw::vw_throw(ArgumentErr()
                    << "Distortion coefficients for the radtan distortion "
                    << "model must be of size 5, in the order k1, k2, p1, p2, k3. "
                    << "Got the size: " << distortion.size() << "\n");
@@ -935,7 +934,7 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
   } else if (distortionType == "transverse") {
     j["m_distortionType"] = DistortionType::TRANSVERSE;
     if (distortion.size() != 20)
-      vw::vw_throw(ArgumentErr() 
+      vw::vw_throw(ArgumentErr()
                    << "Distortion coefficients for the transverse distortion "
                    << "model must be of size 20. Thse are the coefficients of a "
                    << "polynomial of degree 3 in x and y. "
@@ -950,42 +949,42 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
   j["m_startingDetectorSample"] = -0.5;
 
   // Part of the API    
-  j["m_focalLengthEpsilon"] = 1.0; 
+  j["m_focalLengthEpsilon"] = 1.0;
 
   // Copied from UsgsAstroFrameSensorModel.cpp  
-  double det = j["m_iTransL"][1].get<double>() * j["m_iTransS"][2].get<double>() 
+  double det = j["m_iTransL"][1].get<double>() * j["m_iTransS"][2].get<double>()
                 - j["m_iTransL"][2].get<double>() * j["m_iTransS"][1].get<double>();
   j["m_transX"][1] = j["m_iTransL"][1].get<double>() / det;
   j["m_transX"][2] = -j["m_iTransS"][1].get<double>() / det;
-  j["m_transX"][0] = -(j["m_transX"][1].get<double>() * j["m_iTransL"][0].get<double>() 
+  j["m_transX"][0] = -(j["m_transX"][1].get<double>() * j["m_iTransL"][0].get<double>()
                        + j["m_transX"][2].get<double>() * j["m_iTransS"][0].get<double>());
   j["m_transY"][1] = -j["m_iTransL"][2].get<double>() / det;
   j["m_transY"][2] = j["m_iTransS"][2].get<double>() / det;
-  j["m_transY"][0] = -(j["m_transY"][1].get<double>() * j["m_iTransL"][0].get<double>() 
+  j["m_transY"][0] = -(j["m_transY"][1].get<double>() * j["m_iTransL"][0].get<double>()
                        + j["m_transY"][2].get<double>() * j["m_iTransS"][0].get<double>());
-  
+
   // Fix a quirk with -0. Cannot modify in-place the json fields, hence the copy.
   j["m_transX"] = stripSign(j["m_transX"]);
   j["m_transY"] = stripSign(j["m_transY"]);
-  
+
   // Set the translation and quaternion. The quaternion is stored as x, y, z, w.
-  j["m_currentParameterValue"] = std::vector<double>({C[0], C[1], C[2], 
+  j["m_currentParameterValue"] = std::vector<double>({C[0], C[1], C[2],
                                                      q.x(), q.y(), q.z(), q.w()});
-  
+
   j["m_ephemerisTime"] = ephem_time;
   j["m_sunPosition"]   = std::vector<double>({sun_position[0],
-                                              sun_position[1], 
+                                              sun_position[1],
                                               sun_position[2]});
   j["m_imageIdentifier"] = serial_number;
-  
+
   // Set the target name in the json
   j["m_targetName"] = target_name;
-  
+
   // Update the state string and create the CSM model
   state = cam.getModelName() + "\n" + j.dump(2);
   bool recreate_model = true;
   setModelFromStateString(state, recreate_model);
-  
+
   // This is a temporary fix for the function replaceModelState()
   // in UsgsAstroFrameSensorModel forgetting the target name.
   // Pull request submitted.
@@ -996,7 +995,7 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
 void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
                                 int cols, int rows,  // in pixels
                                 double semi_major_axis, double semi_minor_axis, // in meters
-                                std::string const& distortionType, 
+                                std::string const& distortionType,
                                 std::vector<double> const& distortion,
                                 double ephem_time,
                                 vw::Vector3 const& sun_position,
@@ -1007,13 +1006,13 @@ void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
   vw::Vector2 focal_length = pin_model.focal_length();
   vw::Vector2 opt_ctr = pin_model.point_offset();
   double pixel_pitch = pin_model.pixel_pitch();
-  
+
   // Find the average focal length
   double f = (focal_length[0] + focal_length[1])/2.0;
-  
-  this->createFrameModel(cols, rows, opt_ctr[0], opt_ctr[1], f, 
+
+  this->createFrameModel(cols, rows, opt_ctr[0], opt_ctr[1], f,
                          semi_major_axis, semi_minor_axis,
-                         pin_model.camera_center(), 
+                         pin_model.camera_center(),
                          pin_model.get_rotation_matrix(),
                          distortionType, distortion,
                          ephem_time, sun_position,
@@ -1026,12 +1025,12 @@ void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
 // these with cam_test.
 // TODO(oalexan1): This code is not used and not tested.
 vw::camera::PinholeModel CsmModel::pinhole() const {
-  
+
   // Camera center
   double x = 0, y = 0, z = 0;
   this->frame_position(x, y, z);
   vw::Vector3 cam_ctr(x, y, z);
-  
+
   // Camera orientation
   double qx = 0, qy = 0, qz = 0, qw = 0;
   this->frame_quaternion(qx, qy, qz, qw);
@@ -1041,15 +1040,15 @@ vw::camera::PinholeModel CsmModel::pinhole() const {
   for (int r = 0; r < 3; r++)
     for (int c = 0; c < 3; c++)
       cam_rot(r, c) = R(r, c);
-  
+
   // Focal length, in units of pixel pitch
   double f = this->focal_length();
-  
+
   // CSM optical center is always in pixels. Have to convert to pixel pitch units.
   vw::Vector2 optical_center = this->optical_center() * this->frame_pixel_pitch();
 
   // Create a pinhole model with zero distortion
-  vw::camera::PinholeModel pin(cam_ctr, cam_rot, f, f, 
+  vw::camera::PinholeModel pin(cam_ctr, cam_rot, f, f,
                                optical_center[0], optical_center[1],
                                NULL, this->frame_pixel_pitch());
 
@@ -1067,11 +1066,11 @@ vw::camera::PinholeModel CsmModel::pinhole() const {
     coeffs.set_size(dist.size());
     for (size_t i = 0; i < dist.size(); i++)
       coeffs[i] = dist[i];
-      
+
     vw::camera::TsaiLensDistortion distModel(coeffs);
     pin.set_lens_distortion(&distModel);
   }
-  
+
   return pin;
 }
 
@@ -1145,7 +1144,7 @@ std::vector<double> CsmModel::distortion() const {
   std::vector<double> dist;
   bool success = false;
   CSM_FRAME_GET(m_opticalDistCoeffs, "distortion", dist)
-  if (success) 
+  if (success)
     return dist;
   CSM_LINESCAN_GET(m_opticalDistCoeffs, "distortion", dist)
   return dist;
@@ -1156,7 +1155,7 @@ DistortionType CsmModel::distortion_type() const {
   DistortionType dist_type;
   bool success = false;
   CSM_FRAME_GET(m_distortionType, "distortion type", dist_type)
-  if (success) 
+  if (success)
     return dist_type;
   CSM_LINESCAN_GET(m_distortionType, "distortion type", dist_type)
   return dist_type;
@@ -1166,7 +1165,7 @@ DistortionType CsmModel::distortion_type() const {
 void CsmModel::set_distortion_type(DistortionType dist_type) {
   bool success = false;
   CSM_FRAME_SET(m_distortionType, "distortion type", dist_type)
-  if (success) 
+  if (success)
     return;
   CSM_LINESCAN_SET(m_distortionType, "distortion type", dist_type)
   return;
@@ -1174,36 +1173,36 @@ void CsmModel::set_distortion_type(DistortionType dist_type) {
 
 // Set camera position in ECEF (only for frame cameras)
 void CsmModel::set_frame_position(double x, double y, double z) {
-  
+
   throw_if_not_init();
-  
+
   UsgsAstroFrameSensorModel * frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel*>(m_gm_model.get());
   if (frame_model == NULL)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "CsmModel: Cannot set camera position for non-frame camera.\n");
-  
+
   frame_model->m_currentParameterValue[0] = x;
   frame_model->m_currentParameterValue[1] = y;
   frame_model->m_currentParameterValue[2] = z;
-    
+
   return;
 }
 
 // Get the camera position in ECEF (only for frame cameras)
 void CsmModel::frame_position(double & x, double & y, double & z) const {
-  
+
   throw_if_not_init();
-  
+
   UsgsAstroFrameSensorModel const* frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
   if (frame_model == NULL)
     vw_throw(ArgumentErr() << "CsmModel: Cannot get camera position for non-frame camera.\n");
-  
+
   x = frame_model->m_currentParameterValue[0];
   y = frame_model->m_currentParameterValue[1];
   z = frame_model->m_currentParameterValue[2];
-    
+
   return;
 }
 
@@ -1211,74 +1210,74 @@ void CsmModel::frame_position(double & x, double & y, double & z) const {
 void CsmModel::set_frame_quaternion(double qx, double qy, double qz, double qw) {
 
   throw_if_not_init();
-  
+
   UsgsAstroFrameSensorModel * frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel*>(m_gm_model.get());
   if (frame_model == NULL)
     vw_throw(ArgumentErr() << "CsmModel: Cannot set camera quaternion for non-frame camera.\n");
-  
+
   frame_model->m_currentParameterValue[3] = qx;
   frame_model->m_currentParameterValue[4] = qy;
   frame_model->m_currentParameterValue[5] = qz;
   frame_model->m_currentParameterValue[6] = qw;
-  
+
   return;
 }
 
 // Get the camera quaternion (only for frame cameras)
 void CsmModel::frame_quaternion(double & qx, double & qy, double & qz, double & qw) const {
-  
+
   throw_if_not_init();
-  
+
   UsgsAstroFrameSensorModel const* frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
   if (frame_model == NULL)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "CsmModel: Cannot get camera quaternion for non-frame camera.\n");
-  
+
   qx = frame_model->m_currentParameterValue[3];
   qy = frame_model->m_currentParameterValue[4];
   qz = frame_model->m_currentParameterValue[5];
   qw = frame_model->m_currentParameterValue[6];
-  
+
   return;
 }
 
 // Get the camera position in ECEF (only for frame cameras)
 double CsmModel::frame_pixel_pitch() const {
-  
+
   throw_if_not_init();
-  
+
   UsgsAstroFrameSensorModel const* frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
   if (frame_model == NULL)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "CsmModel: Cannot get pixel pitch for non-frame camera.\n");
 
   // Check that m_iTransL and m_iTransS are set as in createFrameModel()
   if (frame_model->m_iTransL[0] != 0.0 || frame_model->m_iTransL[1] != 0.0)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "CsmModel: m_iTransL must have first two elements equal to zero.\n");
   if (frame_model->m_iTransS[0] != 0.0 || frame_model->m_iTransS[2] != 0.0)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "CsmModel: m_iTransS must have first and third elements equal to zero.\n");
-  if (frame_model->m_iTransL[2] <= 0.0 || 
+  if (frame_model->m_iTransL[2] <= 0.0 ||
       frame_model->m_iTransS[1] <= 0.0 ||
       frame_model->m_iTransL[2] != frame_model->m_iTransS[1]) {
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "CsmModel: m_iTransL[2] and m_iTransS[1] must be positive and equal.\n");
   }
-  
-  return (1.0/frame_model->m_iTransL[2] + 1.0/frame_model->m_iTransS[1]) / 2.0; 
+
+  return (1.0/frame_model->m_iTransL[2] + 1.0/frame_model->m_iTransS[1]) / 2.0;
 }
-  
+
 // Set quaternions (only for linescan cameras)
 void CsmModel::set_linescan_quaternions(std::vector<double> const& quaternions) {
-  
+
   throw_if_not_init();
-  
+
   csm::RasterGM * gm_model = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get());
-  
+
   int num_quaternions = quaternions.size(); // total number of coefficients
   bool success = false;
   CSM_LINESCAN_SET(m_numQuaternions, "num quaternions", num_quaternions)
@@ -1289,7 +1288,7 @@ void CsmModel::set_linescan_quaternions(std::vector<double> const& quaternions) 
 void CsmModel::set_distortion(std::vector<double> const& dist) {
   bool success = false;
   CSM_FRAME_SET(m_opticalDistCoeffs, "distortion", dist)
-  if (success) 
+  if (success)
     return;
   CSM_LINESCAN_SET(m_opticalDistCoeffs, "distortion", dist)
   return;
@@ -1300,7 +1299,7 @@ double CsmModel::focal_length() const {
   double focal_length = 0.0;
   bool success = false;
   CSM_FRAME_GET(m_focalLength, "focal length", focal_length)
-  if (success) 
+  if (success)
     return focal_length;
   CSM_LINESCAN_GET(m_focalLength, "focal length", focal_length)
   return focal_length;
@@ -1310,7 +1309,7 @@ double CsmModel::focal_length() const {
 void CsmModel::set_focal_length(double focal_length) {
   bool success = false;
   CSM_FRAME_SET(m_focalLength, "focal length", focal_length)
-  if (success) 
+  if (success)
     return;
   CSM_LINESCAN_SET(m_focalLength, "focal length", focal_length)
   return;
@@ -1326,12 +1325,12 @@ vw::Vector2 CsmModel::optical_center() const {
   std::vector<double> ccd_center;
   bool success = false;
   CSM_FRAME_GET(m_ccdCenter, "optical center", ccd_center)
-  if (success) 
+  if (success)
     return vw::Vector2(ccd_center[1], ccd_center[0]); // note the order (sample, line)
 
   CSM_LINESCAN_GET(m_detectorSampleOrigin, "detector sample", optical_center[0])
   CSM_LINESCAN_GET(m_detectorLineOrigin,   "detector line",   optical_center[1])
-  
+
   return optical_center;
 }
 
@@ -1341,21 +1340,21 @@ void CsmModel::set_optical_center(vw::Vector2 const& optical_center) {
   bool success = false;
   auto ccd_center = std::vector<double>({optical_center[1], optical_center[0]});
   CSM_FRAME_SET(m_ccdCenter, "optical center", ccd_center)
-  if (success) 
+  if (success)
     return;
 
   CSM_LINESCAN_SET(m_detectorSampleOrigin, "detector sample", optical_center[0])
   CSM_LINESCAN_SET(m_detectorLineOrigin,   "detector line",   optical_center[1])
 
-  return; 
+  return;
 }
 
 // Get quaternions (only for linescan cameras)
 std::vector<double> CsmModel::linescan_quaternions() const {
-  
+
   throw_if_not_init();
   csm::RasterGM * gm_model = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get());
-  
+
   std::vector<double> quaternions;
   bool success = false;
   CSM_LINESCAN_GET(m_quaternions, "quaternions", quaternions)
@@ -1364,22 +1363,22 @@ std::vector<double> CsmModel::linescan_quaternions() const {
 
 // Set target name (only for frame cameras)
 void CsmModel::set_target_name(std::string const& target_name) {
-  
+
   throw_if_not_init();
-  
+
   UsgsAstroFrameSensorModel * frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel*>(m_gm_model.get());
   if (frame_model != NULL)
     frame_model->m_targetName = target_name;
-  
+
   return;
 }
-  
+
 // Get target name (only for frame cameras)
 std::string CsmModel::target_name() const {
-  
+
   throw_if_not_init();
-  
+
   UsgsAstroFrameSensorModel const* frame_model
       = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
   if (frame_model != NULL)
@@ -1400,22 +1399,22 @@ void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
 void CsmModel::deep_copy(CsmModel & copy) const {
 
   throw_if_not_init();
-  
+
   // Start with a shallow copy. Then make a deep copy of m_gm_model.
   copy = *this;
 
   // Frame case
-  UsgsAstroFrameSensorModel const* frame_model 
+  UsgsAstroFrameSensorModel const* frame_model
     = dynamic_cast<UsgsAstroFrameSensorModel const*>(m_gm_model.get());
   if (frame_model != NULL) {
-    UsgsAstroFrameSensorModel * new_frame_model 
+    UsgsAstroFrameSensorModel * new_frame_model
       = new UsgsAstroFrameSensorModel(*frame_model);
     copy.m_gm_model.reset(new_frame_model);
     return;
   }
 
   // Linescan case
-  UsgsAstroLsSensorModel const* ls_model 
+  UsgsAstroLsSensorModel const* ls_model
     = dynamic_cast<UsgsAstroLsSensorModel const*>(m_gm_model.get());
   if (ls_model != NULL) {
     UsgsAstroLsSensorModel * new_ls_model = new UsgsAstroLsSensorModel(*ls_model);
@@ -1424,17 +1423,17 @@ void CsmModel::deep_copy(CsmModel & copy) const {
   }
 
   // Pushframe case
-  UsgsAstroPushFrameSensorModel const* pf_model 
+  UsgsAstroPushFrameSensorModel const* pf_model
     = dynamic_cast<UsgsAstroPushFrameSensorModel const*>(m_gm_model.get());
   if (pf_model != NULL) {
-    UsgsAstroPushFrameSensorModel * new_pf_model 
+    UsgsAstroPushFrameSensorModel * new_pf_model
       = new UsgsAstroPushFrameSensorModel(*pf_model);
     copy.m_gm_model.reset(new_pf_model);
     return;
   }
 
   // SAR case
-  UsgsAstroSarSensorModel const* sar_model 
+  UsgsAstroSarSensorModel const* sar_model
     = dynamic_cast<UsgsAstroSarSensorModel const*>(m_gm_model.get());
   if (sar_model != NULL) {
     UsgsAstroSarSensorModel * new_sar_model = new UsgsAstroSarSensorModel(*sar_model);
@@ -1448,7 +1447,7 @@ void CsmModel::deep_copy(CsmModel & copy) const {
 
 vw::Vector3 CsmModel::sun_position() const {
   if (m_sun_position == vw::Vector3())
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
                  << "CsmModel::sun_position() returns the Sun position as being "
                  << "at the planet center. This is a programmer error.\n");
   return m_sun_position;
@@ -1464,7 +1463,7 @@ bool CsmModel::isFrameCam() const {
     = dynamic_cast<UsgsAstroFrameSensorModel const*>(gm_model);
   if (frame_model == NULL)
     return false;
-    
+
   return true;
 }
 
@@ -1472,7 +1471,7 @@ bool CsmModel::isFrameCam() const {
 // the function StereoSessionCsm::get_datum() which calls this one, as
 // that one also knows about the image and can find the datum name.
 // If the spheroid name is not known, use "unknown".
-vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name, 
+vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name,
                                                bool use_sphere_for_non_earth) const {
 
   std::string datum_name = "D_" + spheroid_name; // may be refined later
@@ -1492,7 +1491,7 @@ vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name,
                    std::abs(moon.semi_minor_axis()  - radii[2]) < 1e-7);
   bool is_mars =  (std::abs(mars.semi_major_axis()  - radius1)  < 1e-7 &&
                    std::abs(mars.semi_minor_axis()  - radii[2]) < 1e-7);
-  
+
   if (boost::to_lower_copy(spheroid_name).find("unknown") != std::string::npos ||
       spheroid_name.empty()) {
     // Unknown datum. Try to fill in the name from above.
@@ -1503,17 +1502,17 @@ vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name,
     if (is_mars)
       return mars;
   }
-  
+
   // For Earth always use two radii. The logic below should distinguish Venus.
   bool has_earth_radius = (std::abs(radius1/wgs84.semi_major_axis() - 1.0) < 0.05);
   if (!use_sphere_for_non_earth || has_earth_radius)
     radius2 = radii[2]; // let the semi-minor axis be distinct from the semi-major axis
-  
+
   vw::cartography::Datum datum(datum_name, spheroid_name,
                                "Reference Meridian", radius1, radius2, 0);
-  
+
   return datum;
-  
+
 }
 
 // Create a projective approximation of the camera, if linescan and having
@@ -1534,7 +1533,7 @@ void CsmModel::createApproxCam() {
 
   csm::EcefCoord refPt = m_gm_model->getReferencePoint();
   double desired_precision = 1e-3;
-  double height = computeEllipsoidElevation(refPt.x, refPt.y, refPt.z, 
+  double height = computeEllipsoidElevation(refPt.x, refPt.y, refPt.z,
                                             m_semi_major_axis, m_semi_minor_axis,
                                             desired_precision);
   if (std::isnan(height))
@@ -1546,29 +1545,29 @@ void CsmModel::createApproxCam() {
 
   // Use 10 samples along each row and column
   int numSamples = 10.0;
-  
+
   // Sample at two heights (these get added to the ellipsoid height from above).
   std::vector<double> height_delta = {-100.0, 100.0};
   std::vector<vw::Vector2> imagePixels;
   std::vector<vw::Vector3> groundPts;
-  
+
   // Iterate over height_delta 
   for (size_t ht_iter = 0; ht_iter < height_delta.size(); ht_iter++) {
-    
+
     double curr_height = height + height_delta[ht_iter];
-    
+
     // Iterate over the samples for given height  
     for (int col_samp = 0; col_samp < numSamples; col_samp++) {
       for (int row_samp = 0; row_samp < numSamples; row_samp++) {
-  
+
         vw::Vector2 pix((numCols - 1.0) * (double(col_samp) / (numSamples - 1.0)),
                         (numRows - 1.0) * (double(row_samp) / (numSamples - 1.0)));
-        vw::Vector3 xyz = 
+        vw::Vector3 xyz =
           vw::cartography::datum_intersection(m_semi_major_axis + curr_height,
                                               m_semi_minor_axis + curr_height,
                                               this->camera_center(pix),
                                               this->pixel_to_vector(pix));
-        
+
         // Print a warning and quit
         if (xyz == vw::Vector3()) {
           vw::vw_out(vw::WarningMessage)
@@ -1576,22 +1575,22 @@ void CsmModel::createApproxCam() {
             << "with projecting into the camera pixels far from the field of view.";
             return;
         }
-      
+
         imagePixels.push_back(pix);
         groundPts.push_back(xyz);
       } // end iterate over rows
     } // end iterate over columns
   } // end iterate over height deltas
-  
+
   asp::calcProjTrans(imagePixels, groundPts, m_approxCamCoeffs);
-  
+
   // Test. Iterate over xyz, find pixel, compare.
   m_maxApproxCamPixErr = 0.0;
   for (size_t i = 0; i < imagePixels.size(); i++) {
     vw::Vector2 pix = imagePixels[i];
     vw::Vector3 xyz = groundPts[i];
     vw::Vector2 pix2 = asp::applyProjTrans(xyz, m_approxCamCoeffs);
-    
+
     double err = vw::math::norm_2(pix - pix2);
     m_maxApproxCamPixErr = std::max(m_maxApproxCamPixErr, err);
   }
@@ -1600,7 +1599,7 @@ void CsmModel::createApproxCam() {
 
 // This is a bugfix for when points far from the field of view project
 // incorrectly into the camera.
-vw::Vector2 CsmModel::correctWithApproxCam(vw::Vector2 const& pix, 
+vw::Vector2 CsmModel::correctWithApproxCam(vw::Vector2 const& pix,
                                            vw::Vector3 const& xyz) const {
 
   // Find the approximate projection based on a projective transform
@@ -1613,26 +1612,26 @@ vw::Vector2 CsmModel::correctWithApproxCam(vw::Vector2 const& pix,
                 0 <= pix[1] && pix[1] < imageSize[1]);
   bool apixIn = (0 <= apix[0] && apix[0] < imageSize[0] &&
                  0 <= apix[1] && apix[1] < imageSize[1]);
-  
+
   if (pixIn && !apixIn) {
-    
+
     // Likely the exact projection is not accurate
-    double dist = vw::math::norm_2(pix - apix);  
+    double dist = vw::math::norm_2(pix - apix);
     if (m_maxApproxCamPixErr > 0 && dist > 1.5 * m_maxApproxCamPixErr) {
-      
+
       double gsd = 0.0;
       UsgsAstroLsSensorModel * ls_model
           = dynamic_cast<UsgsAstroLsSensorModel*>(m_gm_model.get());
       if (ls_model != NULL)
         gsd = ls_model->m_gsd;
-      
+
       if (gsd > 0) {
         // Do a geometric check. Project from the camera to the ground and see
         // if we get close enough to the input xyz.
-        double dist_to_ground = vw::math::norm_2(xyz - this->camera_center(pix)); 
-        vw::Vector3 xyz2 = this->camera_center(pix) 
+        double dist_to_ground = vw::math::norm_2(xyz - this->camera_center(pix));
+        vw::Vector3 xyz2 = this->camera_center(pix)
           + this->pixel_to_vector(pix) * dist_to_ground;
-        if (vw::math::norm_2(xyz - xyz2) > 10 * gsd) 
+        if (vw::math::norm_2(xyz - xyz2) > 10 * gsd)
           return apix; // Return the approximate pixel
       }
     }

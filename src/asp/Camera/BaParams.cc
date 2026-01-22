@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -37,7 +37,7 @@ namespace {
 
 namespace asp {
 
-IntrinsicOptions::IntrinsicOptions(): 
+IntrinsicOptions::IntrinsicOptions():
   center_shared(true), focus_shared(true), distortion_shared(true),
   share_intrinsics_per_sensor(false), num_sensors(0) {}
 
@@ -46,7 +46,7 @@ IntrinsicOptions::IntrinsicOptions():
 bool IntrinsicOptions::float_optical_center(int cam_index) const {
   // When sharing intrinsics per sensor, each sensor's float behavior is independent
   int sensor_id = 0;
-  if (share_intrinsics_per_sensor) 
+  if (share_intrinsics_per_sensor)
     sensor_id = cam2sensor.at(cam_index);
 
   return float_center[sensor_id];
@@ -55,7 +55,7 @@ bool IntrinsicOptions::float_optical_center(int cam_index) const {
 bool IntrinsicOptions::float_focal_length(int cam_index) const {
   // When sharing intrinsics per sensor, each sensor's float behavior is independent
   int sensor_id = 0;
-  if (share_intrinsics_per_sensor) 
+  if (share_intrinsics_per_sensor)
     sensor_id = cam2sensor.at(cam_index);
 
   return float_focus[sensor_id];
@@ -64,7 +64,7 @@ bool IntrinsicOptions::float_focal_length(int cam_index) const {
 bool IntrinsicOptions::float_distortion_params(int cam_index) const {
   // When sharing intrinsics per sensor, each sensor's float behavior is independent
   int sensor_id = 0;
-  if (share_intrinsics_per_sensor) 
+  if (share_intrinsics_per_sensor)
     sensor_id = cam2sensor.at(cam_index);
 
   return float_distortion[sensor_id];
@@ -75,7 +75,7 @@ BaParams::BaParams(int num_points, int num_cameras,
           // Parameters below here only apply to pinhole models.
           bool using_intrinsics,
           int max_num_dist_params,
-          IntrinsicOptions intrinsics_opts): 
+          IntrinsicOptions intrinsics_opts):
     m_num_points        (num_points),
     m_num_cameras       (num_cameras),
     m_params_per_point  (PARAMS_PER_POINT),
@@ -205,7 +205,7 @@ size_t BaParams::get_focus_offset(int cam_index) const {
       return m_focus_offset;
     else
       return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_focus_offset;
-  } 
+  }
 
   // Share intrinsics per sensor
   int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
@@ -218,7 +218,7 @@ size_t BaParams::get_distortion_offset(int cam_index) const {
     if (m_intrinsics_opts.distortion_shared)
       return m_distortion_offset;
     else
-      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + 
+      return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera +
               m_distortion_offset;
   }
 
@@ -277,13 +277,13 @@ void BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits)
       }
     } // End focus case
     intrinsics_index = NUM_FOCUS_PARAMS; // In case we did not go through the loop
-    if (m_intrinsics_opts.float_optical_center(c) && 
+    if (m_intrinsics_opts.float_optical_center(c) &&
         !(m_intrinsics_opts.center_shared && (c>0))) {
       double* ptr = get_intrinsic_center_ptr(c);
       for (int i = 0; i < NUM_CENTER_PARAMS; i++) {
         percent = static_cast<double>(dist(g_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
-          range = intrinsic_limits[2*intrinsics_index+1] 
+          range = intrinsic_limits[2*intrinsics_index+1]
             - intrinsic_limits[2*intrinsics_index];
           scale = percent*range + intrinsic_limits[2*intrinsics_index];
         } else
@@ -293,7 +293,7 @@ void BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits)
       }
     } // End center case
     intrinsics_index = NUM_FOCUS_PARAMS+NUM_CENTER_PARAMS; // In case we did not go through the loops
-    if (m_intrinsics_opts.float_distortion_params(c) && 
+    if (m_intrinsics_opts.float_distortion_params(c) &&
         !(m_intrinsics_opts.distortion_shared && (c > 0))) {
       double* ptr = get_intrinsic_distortion_ptr(c);
       for (int i = 0; i < m_max_num_dist_params; i++) {
@@ -311,32 +311,32 @@ void BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits)
 }
 
 /// Print stats for optimized ground control points.
-void BaParams::print_gcp_stats(std::string const& out_prefix, 
+void BaParams::print_gcp_stats(std::string const& out_prefix,
                        vw::ba::ControlNetwork const& cnet,
                        vw::cartography::Datum const& d) const {
 
   std::string gcp_report = out_prefix + "-gcp-report.txt";
   vw::vw_out() << "Writing: " << gcp_report << std::endl;
-  
+
   std::ofstream gfs(gcp_report.c_str());
-  gfs.precision(17); 
+  gfs.precision(17);
 
   gfs << "# Ground control point report\n";
   // TODO(oalexan1): Print this to report file! Compare with existing report!
   gfs << "# input_gcp optimized_gcp diff\n";
-  
+
   int gcp_count = 0;
   for (int ipt = 0; ipt < num_points(); ipt++) {
-  
+
     if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
       continue;
-  
+
     if (get_point_outlier(ipt))
       continue; // skip outliers
 
     vw::Vector3 input_gcp = cnet[ipt].position();
     vw::Vector3 opt_gcp   = get_point(ipt);
-  
+
     gfs << "GCP count: " << gcp_count << std::endl;
     gfs << "ECEF: " << input_gcp << ' ' << opt_gcp << ' '
         << input_gcp - opt_gcp << std::endl;
@@ -362,27 +362,27 @@ void BaParams::record_points_to_kml(const std::string &kml_path,
                                    << kml_path << std::endl;
     return;
   }
-  
+
   // Open the file
   vw::vw_out() << "Writing: " << kml_path << std::endl;
   vw::KMLFile kml(kml_path, name);
-  
+
   // Set up a simple point icon with no labels
-  const std::string icon 
+  const std::string icon
     = "http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png";
   const bool hide_labels = true;
-  kml.append_style( "point", "", 1.0, icon, hide_labels);
-  kml.append_style( "point_highlight", "", 1.1, icon, hide_labels);
-  kml.append_stylemap( "point_placemark", "point",
+  kml.append_style("point", "", 1.0, icon, hide_labels);
+  kml.append_style("point_highlight", "", 1.1, icon, hide_labels);
+  kml.append_stylemap("point_placemark", "point",
                        "point_highlight");
-  
+
   // Loop through the points
   const bool extrude = true;
   for (size_t i = 0; i < num_points(); i += skip) {
-    
+
     if (get_point_outlier(i))
       continue; // skip outliers
-    
+
     // Convert the point to GDC coords
     vw::Vector3 xyz         = get_point(i);
     vw::Vector3 lon_lat_alt = datum.cartesian_to_geodetic(xyz);

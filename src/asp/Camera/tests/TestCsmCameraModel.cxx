@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -23,7 +23,6 @@
 using namespace vw;
 using namespace asp;
 
-
 TEST(CSM_camera, basic_check) {
 
   // TODO: Add a sample file to the repo for ASP to load!
@@ -32,7 +31,7 @@ TEST(CSM_camera, basic_check) {
 
   CsmModel csm;
   csm.load_model(sample_isd);
-  
+
   std::cout << "Size = " << csm.get_image_size() << std::endl;
 
   // Do some simple model tests
@@ -55,10 +54,7 @@ TEST(CSM_camera, basic_check) {
     EXPECT_VECTOR_NEAR(pix, pixel, eps);
     std::cout << std::endl;
   }
-  
-  
+
   EXPECT_TRUE(false);
 }
-
-
 

@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -33,7 +33,7 @@ using namespace vw::test;
 void xml_reading_test() {
   SpotXML xml_reader;
   xml_reader.read_xml("spot_example1.xml");
-  
+
   EXPECT_EQ(300,   xml_reader.image_size[0]); // Cols, a real file is much larger.
   EXPECT_EQ(96168, xml_reader.image_size[1]); // Rows
 
@@ -186,6 +186,4 @@ TEST(SPOT_camera, SensorTest) {
 }
 
 */
-
-
 

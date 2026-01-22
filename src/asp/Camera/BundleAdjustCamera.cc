@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -55,7 +55,7 @@ namespace asp {
 // Constructors
 CameraAdjustment::CameraAdjustment() {}
 CameraAdjustment::CameraAdjustment(double const* array) {
-  this->read_from_array(array); 
+  this->read_from_array(array);
 }
 
 // Data access
@@ -99,11 +99,11 @@ void CameraAdjustment::copy_from_csm(asp::CsmModel const& cam) {
 
 /// Populate from an adjustment file on disk.
 void CameraAdjustment::read_from_adjust_file(std::string const& filename) {
-  
+
   // Not used, just for the api
   vw::Vector2 pixel_offset = vw::Vector2();
   double scale = 1.0;
-  
+
   vw::vw_out() << "Reading camera adjustment: " << filename << std::endl;
   asp::read_adjustments(filename, m_position_data, m_pose_data,
                         pixel_offset, scale);
@@ -193,7 +193,7 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
   for (size_t i = 0; i < camera.distortion().size(); i++)
     distortion_ptr[i] = 1.0;
 }
-  
+
 /// Given a transform with origin at the planet center, like output by pc_align,
 /// read the adjustments from param storage, apply this transform on top of
 /// them, and write the adjustments back to the param storage. Cameras
@@ -208,7 +208,7 @@ void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaParams &param_stor
     CameraAdjustment cam_adjust(cam_ptr);
 
     // Create the adjusted camera model
-    vw::camera::AdjustedCameraModel cam(cam_ptrs[i], cam_adjust.position(), 
+    vw::camera::AdjustedCameraModel cam(cam_ptrs[i], cam_adjust.position(),
                                         cam_adjust.pose());
     // Apply the transform
     cam.apply_transform(M);
@@ -224,16 +224,16 @@ void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaParams &param_stor
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
                                         asp::BaParams & param_storage,
                                         std::vector<vw::CamPtr>
-                                        const& cam_ptrs){
+                                        const& cam_ptrs) {
 
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
     // Apply the transform
-    boost::shared_ptr<camera::PinholeModel> pin_ptr = 
+    boost::shared_ptr<camera::PinholeModel> pin_ptr =
       boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cam_ptrs[i]);
     pin_ptr->apply_transform(M);
 
     // Write out to param_storage
-    pack_pinhole_to_arrays(*pin_ptr, i, param_storage);    
+    pack_pinhole_to_arrays(*pin_ptr, i, param_storage);
   }
 
 } // end function apply_transform_to_cameras_pinhole
@@ -243,14 +243,14 @@ void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
                                             asp::BaParams & param_storage,
                                             std::vector<vw::CamPtr>
-                                            const& cam_ptrs){
+                                            const& cam_ptrs) {
 
   // Convert the transform format
   vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
   vw::Vector3   T;
-  for (int r = 0; r < 3; r++) 
+  for (int r = 0; r < 3; r++)
     T[r] = M(r, 3);
-  
+
   double scale = pow(det(R), 1.0/3.0);
   for (size_t r = 0; r < R.rows(); r++)
     for (size_t c = 0; c < R.cols(); c++)
@@ -258,12 +258,12 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
 
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
     // Apply the transform
-    boost::shared_ptr<vw::camera::OpticalBarModel> bar_ptr = 
+    boost::shared_ptr<vw::camera::OpticalBarModel> bar_ptr =
       boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam_ptrs[i]);
     bar_ptr->apply_transform(R, T, scale);
 
     // Write out to param_storage
-    pack_optical_bar_to_arrays(*bar_ptr, i, param_storage);    
+    pack_optical_bar_to_arrays(*bar_ptr, i, param_storage);
   }
 
 } // end function apply_transform_to_cameras_optical_bar
@@ -278,15 +278,15 @@ void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
                                     const& cam_ptrs) {
   for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
     // Apply the transform
-    boost::shared_ptr<asp::CsmModel> csm_ptr = 
+    boost::shared_ptr<asp::CsmModel> csm_ptr =
       boost::dynamic_pointer_cast<asp::CsmModel>(cam_ptrs[i]);
     if (csm_ptr == NULL)
-        vw_throw( ArgumentErr() << "Expecting a CSM camera.\n" );
+        vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
     csm_ptr->applyTransform(M);
     // Write out to param_storage. This does not copy camera position 
     // and orientation. The adjustment stays as 0 pose and identity rotation.
     // That is why the transform M does not get applied twice.
-    pack_csm_to_arrays(*csm_ptr, i, param_storage);    
+    pack_csm_to_arrays(*csm_ptr, i, param_storage);
   }
 
 } // end function apply_transform_to_cameras_csm
@@ -299,7 +299,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            boost::shared_ptr<vw::ba::ControlNetwork> const& cnet) {
 
   // Apply the transform to the cameras
-  for (size_t icam = 0; icam < camera_models.size(); icam++){
+  for (size_t icam = 0; icam < camera_models.size(); icam++) {
     vw::camera::PinholeModel * pincam
       = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
     VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
@@ -319,7 +319,6 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
   }
 } // End function ApplyRigidTransform
 
-
 /// Generate a warning if the GCP's are really far from the IP points
 /// - This is intended to help catch the common lat/lon swap in GCP files.
 void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
@@ -336,7 +335,7 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
 
     if (cnet[ipt].position() == Vector3() || cnet[ipt].size() <= 1)
       continue;
-    
+
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
       gcp_count += 1.0;
       mean_gcp += cnet[ipt].position();
@@ -346,7 +345,7 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
       ControlPoint cp_new = cnet[ipt];
       double minimum_angle = 0;
       double ans = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
-						     forced_triangulation_distance);
+                             forced_triangulation_distance);
       if (ans < 0 || cp_new.position() == Vector3())
         continue; // Skip points that fail to triangulate
 
@@ -367,11 +366,10 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
     vw_out() << "WARNING: GCPs are over 100 km from the other points. Are your lat/lon GCP coordinates swapped?\n";
 }
 
-
 // Initialize the position and orientation of each pinhole camera model using
 // a least squares error transform to match the provided camera positions.
 // This function overwrites the camera parameters in-place
-bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet, 
+bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet,
  std::vector<vw::CamPtr> & camera_models,
  std::vector<std::string> const& image_files,
  std::vector<vw::Vector3> const & estimated_camera_gcc) {
@@ -381,7 +379,7 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlN
   // Count the number of matches and check for problems
   const int num_cameras = image_files.size();
   if (int(estimated_camera_gcc.size()) != num_cameras)
-    vw_throw( ArgumentErr() << "No camera matches provided to init function!\n" );
+    vw_throw(ArgumentErr() << "No camera matches provided to init function!\n");
 
   vw_out() << "Num cameras: " << num_cameras << std::endl;
 
@@ -394,9 +392,9 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlN
 
   const int MIN_NUM_MATCHES = 3;
   if (num_matches_found < MIN_NUM_MATCHES)
-    vw_throw(ArgumentErr() << "At least " << MIN_NUM_MATCHES 
+    vw_throw(ArgumentErr() << "At least " << MIN_NUM_MATCHES
               << " camera position matches are required to initialize cameras "
-              << "based on camera positions only.\n" );
+              << "based on camera positions only.\n");
 
   // Populate matrices containing the current and known camera positions.
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
@@ -412,7 +410,7 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlN
     Vector3 gcc_out = estimated_camera_gcc[i];
 
     // Store in matrices
-    ColView colIn (points_in,  index); 
+    ColView colIn (points_in,  index);
     ColView colOut(points_out, index);
     colIn  = gcc_in;
     colOut = gcc_out;
@@ -436,7 +434,7 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlN
 void transform_cameras_with_indiv_image_gcp
 (boost::shared_ptr<ControlNetwork> const& cnet_ptr,
  std::vector<vw::CamPtr> & camera_models) {
-  
+
   vw_out() << "Applying transform to cameras given several GCP not shared "
            << "among the images.\n";
 
@@ -444,14 +442,14 @@ void transform_cameras_with_indiv_image_gcp
 
   // Create pinhole cameras
   std::vector<PinholeModel> pinhole_cams;
-  for (int icam = 0; icam < num_cams; icam++){
+  for (int icam = 0; icam < num_cams; icam++) {
     vw::camera::PinholeModel * pincam
       = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
     VW_ASSERT(pincam != NULL,
-	      vw::ArgumentErr() << "A pinhole camera expected.\n");
+          vw::ArgumentErr() << "A pinhole camera expected.\n");
     pinhole_cams.push_back(*pincam);
   }
-  
+
   // Extract from the control network each pixel for each camera together
   // with its xyz.
   std::vector<std::vector<Vector3>> xyz;
@@ -461,11 +459,11 @@ void transform_cameras_with_indiv_image_gcp
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
 
   for (int ipt = 0; ipt < cnet.size(); ipt++) {
-    
+
     // Keep only gcp
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
       continue;
-            
+
     for (auto measure = cnet[ipt].begin(); measure != cnet[ipt].end(); measure++) {
       int cam_it = measure->image_id();
       if (cam_it < 0 || cam_it >= num_cams)
@@ -475,7 +473,7 @@ void transform_cameras_with_indiv_image_gcp
       pix[cam_it].push_back(pixel);
       xyz[cam_it].push_back(cnet[ipt].position());
     }
-  }  
+  }
 
   Matrix3x3 rotation;
   Vector3   translation;
@@ -497,40 +495,40 @@ void transform_cameras_with_indiv_image_gcp
 void transform_cameras_with_shared_gcp(
             boost::shared_ptr<ControlNetwork> const& cnet_ptr,
             std::vector<vw::CamPtr> & camera_models) {
-  
+
   vw_out() << "Applying transform to cameras given several GCP shared among the images.\n";
 
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
-  
+
   // Verify that all cameras are pinhole
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
     vw::camera::PinholeModel * pincam
       = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
     VW_ASSERT(pincam != NULL,
-	      vw::ArgumentErr() << "A pinhole camera expected.\n");
+          vw::ArgumentErr() << "A pinhole camera expected.\n");
   }
-  
+
   // Put the good ground control points in a vector.
   int num_cnet_points = cnet.size();
-  std::vector<vw::Vector3> in_xyz, out_xyz; 
+  std::vector<vw::Vector3> in_xyz, out_xyz;
   int num_gcp      = 0;
   int num_good_gcp = 0;
   for (int ipt = 0; ipt < num_cnet_points; ipt++) {
-    
+
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
       continue;
 
     num_gcp++;
-    
+
     // Use triangulation to estimate the position of this control point using
     //   the current set of camera models.
     ControlPoint untrans_cp = cnet[ipt];
     double minimum_angle = 1.0e-3; // Likely this is too small for a good GCP, but better than 0.
     double forced_triangulation_distance = -1.0;
     double err = vw::ba::triangulate_control_point(untrans_cp, camera_models,
-						   minimum_angle, forced_triangulation_distance);
-    
-    if (untrans_cp.position() != Vector3() && cnet[ipt].position()  != Vector3() && 
+                           minimum_angle, forced_triangulation_distance);
+
+    if (untrans_cp.position() != Vector3() && cnet[ipt].position()  != Vector3() &&
         err >= 0) {
       // Store the computed and correct position of this point
       in_xyz.push_back(untrans_cp.position());
@@ -546,27 +544,27 @@ void transform_cameras_with_shared_gcp(
   if (num_good_gcp < MIN_GCP_COUNT) {
     vw_out() << "Num GCP       = " << num_gcp      << std::endl;
     vw_out() << "Num valid GCP = " << num_good_gcp << std::endl;
-    vw_throw( ArgumentErr()
-	      << "Not enough valid GCPs to apply a transform to the cameras. "
-	      << "You may need to use --transform-cameras-using-gcp.\n" );
+    vw_throw(ArgumentErr()
+          << "Not enough valid GCPs to apply a transform to the cameras. "
+          << "You may need to use --transform-cameras-using-gcp.\n");
   }
 
   // Copy these points to a matrix as required by the API about to be used. 
   vw::Matrix<double> points_in(3, num_good_gcp), points_out(3, num_good_gcp);
   typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
   for (size_t ipt = 0; ipt < in_xyz.size(); ipt++) {
-    ColView colIn (points_in,  ipt); 
+    ColView colIn (points_in,  ipt);
     ColView colOut(points_out, ipt);
     colIn  = in_xyz[ipt];
     colOut = out_xyz[ipt];
   } // End loop through control network points
-  
+
   // Call function to compute a 3D affine transform between the two point sets
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
   vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
-  
+
   // Update the camera and point information with the new transform
   vw_out() << "Applying transform based on GCP:\n";
   vw_out() << "Rotation:    " << rotation    << "\n";
@@ -582,44 +580,44 @@ void transform_cameras_with_shared_gcp(
 /// GCP. It invokes OpenCV's PnP functionality.
 void init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
                            std::vector<vw::CamPtr> & camera_models) {
-  
+
   // Sanity check
-  if (camera_models.size() != 1) 
-    vw::vw_throw(vw::ArgumentErr() 
+  if (camera_models.size() != 1)
+    vw::vw_throw(vw::ArgumentErr()
                  << "Cannot initialize more than a camera at a time using GCP. "
                  << "Consider using --transform-cameras-with-shared-gcp or "
                  << "--transform-cameras-using-gcp.\n");
-  
+
   vw_out() << "Initializing a Pinhole camera using GCP.\n";
 
   int icam = 0;
   vw::camera::PinholeModel * pincam
     = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
   VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
-  
+
   std::vector<vw::Vector2> pixel_observations;
   std::vector<vw::Vector3> ground_points;
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
-  for (int ipt = 0; ipt < cnet.size(); ipt++){
+  for (int ipt = 0; ipt < cnet.size(); ipt++) {
 
     // Loop through all the ground control points only
     if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
       continue;
     ground_points.push_back(cnet[ipt].position());
-    
+
     int num_meas = 0;
     for (ControlPoint::const_iterator measure = cnet[ipt].begin();
          measure != cnet[ipt].end(); measure++) {
-      
+
       int cam_it = measure->image_id();
-      if (cam_it != 0) 
+      if (cam_it != 0)
         vw_throw(ArgumentErr() << "Error: Expecting GCP for a single camera.\n");
-      
+
       Vector2 pixel(measure->position()[0], measure->position()[1]);
       num_meas++;
       if (num_meas > 1)
         vw::vw_throw(vw::ArgumentErr() << "Expecting a single camera pixel per gcp.\n");
-      
+
       pixel_observations.push_back(pixel);
     }
   }
@@ -628,7 +626,7 @@ void init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet
   asp::findCameraPose(ground_points, pixel_observations, *pincam);
 
   return;
-  
+
 } // End function init_camera_using_gcp
 
 // Given an input pinhole camera and param changes, apply those, returning
@@ -665,18 +663,18 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
   Vector2 old_center = out_cam.point_offset();
   Vector2 old_focus  = out_cam.focal_length();
   out_cam.set_point_offset(Vector2(center_ptr[0]*old_center[0],
-                                  center_ptr[1]*old_center[1]), 
+                                  center_ptr[1]*old_center[1]),
                            false); // do not update the internals yet
   double new_focus = old_focus[0]*focus_ptr[0];
   // At the last step, recompute the internals given the new values
   out_cam.set_focal_length(Vector2(new_focus,new_focus), true);
-  
+
   return out_cam;
 }
 
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.
-vw::camera::OpticalBarModel 
+vw::camera::OpticalBarModel
 transformedOpticalBarCamera(int camera_index,
                             asp::BaParams const& param_storage,
                             vw::camera::OpticalBarModel const& in_cam) {
@@ -713,7 +711,7 @@ transformedOpticalBarCamera(int camera_index,
     out_cam.set_velocity(vel);
     out_cam.set_final_pose(final_pose);
   }
-  
+
   // Update the center and focus
   Vector2 old_center = out_cam.get_optical_center();
   float   old_focus  = out_cam.get_focal_length();
@@ -785,8 +783,6 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
   return copy;
 }
 
-
-
 // Mapproject interest points onto a DEM and find the norm of their
 // disagreement in meters. It is assumed that dem_georef
 // was created by bilinear interpolation. The cameras must be with
@@ -800,14 +796,14 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
                             // Will append below
                             std::vector<vw::Vector<float, 4>>       & mapprojPoints,
                             std::vector<float>                      & mapprojOffsets) {
-  
+
   // Wipe mapprojOffsets
   mapprojOffsets.clear();
-  
+
   // Will append to mapprojPoints, so don't wipe it
-  
+
   for (size_t ip_it = 0; ip_it < left_ip.size(); ip_it++) {
-    
+
     bool treat_nodata_as_zero = false;
     bool has_intersection = false;
     double height_error_tol = 0.001; // 1 mm should be enough
@@ -815,27 +811,27 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     double max_rel_tol      = 1e-14;
     int num_max_iter        = 50;   // Using many iterations can be very slow
     Vector3 xyz_guess;
-    
+
     Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
     Vector3 left_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
       (optimized_cams[left_cam_index]->camera_center(left_pix),
        optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
-       vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef, 
+       vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef,
        treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-    if (!has_intersection) 
+    if (!has_intersection)
       continue;
-    
+
     // Do the same for right. Use left pixel as initial guess
     xyz_guess = left_dem_xyz;
     Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
     Vector3 right_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
       (optimized_cams[right_cam_index]->camera_center(right_pix),
        optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
-       vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef, 
+       vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef,
        treat_nodata_as_zero, has_intersection,
        height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
-    if (!has_intersection) 
+    if (!has_intersection)
       continue;
 
     Vector3 mid_pt = (left_dem_xyz + right_dem_xyz)/2.0;
@@ -848,15 +844,13 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     Vector<float, 4> point;
     subvector(point, 0, 3) = dem_georef.datum().cartesian_to_geodetic(mid_pt);
     point[3] = dist;
-    
+
     mapprojPoints.push_back(point);
     mapprojOffsets.push_back(dist);
   }
-  
+
   return;
 }
-
-
 
 // This is called either with original or inlier ip
 void processMatchPair(size_t left_index, size_t right_index,
@@ -888,7 +882,7 @@ void processMatchPair(size_t left_index, size_t right_index,
     asp::calcPairMapprojOffsets(left_index, right_index,
                                 optimized_cams,
                                 left_ip, right_ip,
-                                mapproj_dem_georef, interp_mapproj_dem,  
+                                mapproj_dem_georef, interp_mapproj_dem,
                                 mapprojPoints, // will append here
                                 localMapprojOffsets);
     mapprojOffsets.push_back(asp::MatchPairStats()); // add an elem, then populate it
@@ -903,13 +897,13 @@ void processMatchPair(size_t left_index, size_t right_index,
     // Ensure her that proper values are passed for the input std devs
     horizVertErrors.push_back(asp::HorizVertErrorStats()); // add an elem, then populate it
     asp::propagatedErrorStats(left_index, right_index,
-                              optimized_cams[left_index].get(), 
+                              optimized_cams[left_index].get(),
                               optimized_cams[right_index].get(),
-                              left_ip, right_ip, 
+                              left_ip, right_ip,
                               horizontal_stddev_vec[left_index],
                               horizontal_stddev_vec[right_index],
-                              datum, 
-                              horizVertErrors.back());      
+                              datum,
+                              horizVertErrors.back());
   }
 
   return;
@@ -926,18 +920,18 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           bool                                remove_outliers,
                           std::set<int>                const& outliers,
                           std::string                  const& mapproj_dem,
-                          bool                                propagate_errors, 
+                          bool                                propagate_errors,
                           vw::Vector<double>           const& horizontal_stddev_vec,
                           bool                                save_clean_matches,
                           std::map<std::pair<int, int>, std::string> const& match_files) {
 
   vw_out() << "Creating reports.\n";
-  
+
   std::vector<vw::Vector<float, 4>> mapprojPoints; // all points, not just stats
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
   std::vector<std::vector<float>> mapprojOffsetsPerCam;
   std::vector<asp::HorizVertErrorStats> horizVertErrors;
-  
+
   // Wipe the outputs
   mapprojPoints.clear();
   convAngles.clear();
@@ -970,13 +964,13 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       // Skip gcp
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
         continue;
-      
+
       for (auto m1 = cnet[ipt].begin(); m1 != cnet[ipt].end(); m1++) {
         for (auto m2 = cnet[ipt].begin(); m2 != cnet[ipt].end(); m2++) {
           int left_index = m1->image_id();
           int right_index = m2->image_id();
           // Can have left_index > right_index
-          if (left_index == right_index) 
+          if (left_index == right_index)
             continue;
           match_map[std::make_pair(left_index, right_index)].insert
             (Quadruplet(m1->position()[0], m1->position()[1],
@@ -984,8 +978,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         }
       }
     }
-  } 
-  
+  }
+
   // If we read the matches from an ISIS cnet or nvm, there are no match files.
   // Then create them. 
   std::map<std::pair<int, int>, std::string> local_match_files = match_files;
@@ -997,27 +991,27 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       int right_index = match_pair.first.second;
       // When creating match files from scratch, let the first index
       // be less than the second.
-      if (left_index > right_index) 
+      if (left_index > right_index)
         continue;
-      std::string match_file 
+      std::string match_file
         = vw::ip::match_filename(opt.out_prefix,
                                  opt.image_files[left_index],
                                  opt.image_files[right_index]);
       local_match_files[std::make_pair(left_index, right_index)] = match_file;
     }
   }
-  
+
   // Work on individual image pairs
   for (const auto& match_it: local_match_files) {
-   
+
     std::pair<int, int> cam_pair   = match_it.first;
     std::string         match_file = match_it.second;
     size_t left_index  = cam_pair.first;
     size_t right_index = cam_pair.second;
-    if (left_index == right_index) 
+    if (left_index == right_index)
       vw::vw_throw(vw::ArgumentErr() << "Bookkeeping failure. Cannot have interest point "
                    << "matches between an image and itself.\n");
-                   
+
     std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
     if (opt.isis_cnet != "" || opt.nvm != "") {
       // Must create the matches from the cnet.
@@ -1028,13 +1022,13 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(q), std::get<1>(q), s));
         orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(q), std::get<3>(q), s));
       }
-      
+
       // Write the matches formed from the cnet to disk
       if (opt.output_cnet_type == "match-files") {
         vw::vw_out() << "Writing: " << match_file << std::endl;
         vw::ip::write_binary_match_file(match_file, orig_left_ip, orig_right_ip);
       }
-      
+
     } else {
       // Read existing matches. Skip over match files that don't exist.
       if (!boost::filesystem::exists(match_file)) {
@@ -1071,18 +1065,18 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       Quadruplet q(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y,
                    orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);
       auto & match_pair = match_map[std::make_pair(left_index, right_index)]; // alias
-      if (match_pair.find(q) == match_pair.end()) 
+      if (match_pair.find(q) == match_pair.end())
         continue;
 
       // We do not copy descriptors, those take storage
-      left_ip.push_back(ip::InterestPoint(orig_left_ip[ip_iter].x, 
+      left_ip.push_back(ip::InterestPoint(orig_left_ip[ip_iter].x,
                                           orig_left_ip[ip_iter].y,
                                           orig_left_ip[ip_iter].scale));
-      right_ip.push_back(ip::InterestPoint(orig_right_ip[ip_iter].x, 
+      right_ip.push_back(ip::InterestPoint(orig_right_ip[ip_iter].x,
                                            orig_right_ip[ip_iter].y,
                                            orig_right_ip[ip_iter].scale));
     }
-    
+
     // Filter by disparity
     // TODO(oalexan1): Note that this does not update the outliers set. Likely this
     // processing needs to move where other outlier filtering logic is.
@@ -1096,7 +1090,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       asp::filter_ip_by_disparity(pct, opt.remove_outliers_params[1],
                                   quiet, left_ip, right_ip);
     }
-    
+
     if (num_cameras == 2) {
       // Compute the coverage fraction
       Vector2i right_image_size = file_image_size(opt.image_files[1]);
@@ -1112,7 +1106,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     processMatchPair(left_index, right_index, left_ip, right_ip,
                      optimized_cams, mapproj_dem_georef, interp_mapproj_dem,
                      opt.datum,
-                     save_mapproj_match_points_offsets, 
+                     save_mapproj_match_points_offsets,
                      propagate_errors, horizontal_stddev_vec,
                      // Will append to entities below
                      convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
@@ -1128,12 +1122,11 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       clean_match_file = match_file;
       // Write the clean match file in the current dir, not where it was read from
       clean_match_file.replace(0, opt.clean_match_files_prefix.size(), opt.out_prefix);
-    }
-    else if (opt.match_files_prefix != "") {
+    } else if (opt.match_files_prefix != "") {
       // Write the clean match file in the current dir, not where it was read from
       clean_match_file.replace(0, opt.match_files_prefix.size(), opt.out_prefix);
     }
-    
+
     vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
     vw_out() << "Writing: " << clean_match_file << std::endl;
     vw::ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
@@ -1141,7 +1134,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   } // End loop through the match files
 
   // Save the produced files  
-  
+
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
@@ -1149,7 +1142,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     asp::saveMapprojOffsets(opt.out_prefix,
                             mapproj_dem_georef,
                             mapprojPoints,
-                            mapprojOffsets, 
+                            mapprojOffsets,
                             mapprojOffsetsPerCam, // will change
                             opt.image_files);
 
@@ -1157,7 +1150,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     std::string horiz_vert_errors_file = opt.out_prefix + "-triangulation_uncertainty.txt";
     asp::saveHorizVertErrors(horiz_vert_errors_file, horizVertErrors, opt.image_files);
   }
-  
+
   return;
 }
 
@@ -1175,7 +1168,7 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
   // Create a stereo model, to be used for triangulation
   double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
                         (asp::stereo_settings().min_triangulation_angle*M_PI/180);
-  vw::stereo::StereoModel stereo_model(left_cam, right_cam, 
+  vw::stereo::StereoModel stereo_model(left_cam, right_cam,
                                        angle_tol);
 
   // Create space for horiz and vert vectors of size num_ip
@@ -1187,26 +1180,26 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
     // Compute the error in the horizontal and vertical directions
     vw::Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
     vw::Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
-    
+
     Vector3 triVec(0, 0, 0), errorVec(0, 0, 0);
     vw::Vector2 outStdev;
     try {
       triVec = stereo_model(left_pix, right_pix, errorVec);
-      outStdev = asp::propagateCovariance(triVec, datum, 
-                                          stddev1, stddev2, 
-                                          left_cam, right_cam, 
+      outStdev = asp::propagateCovariance(triVec, datum,
+                                          stddev1, stddev2,
+                                          left_cam, right_cam,
                                           left_pix, right_pix);
     } catch (std::exception const& e) {
       errorVec = Vector3(0, 0, 0);
     }
-    
+
     if (errorVec == Vector3(0, 0, 0))
       continue; // this can happen either because triangulation failed or an exception
-    
+
     horiz_errors.push_back(outStdev[0]);
     vert_errors.push_back(outStdev[1]);
   }
-  
+
   // Initialize the output
   stats = asp::HorizVertErrorStats();
   stats.left_cam_index  = left_cam_index;
@@ -1216,21 +1209,21 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
     stats.num_errors = horiz_errors.size();
     stats.horiz_error_mean = vw::math::mean(horiz_errors);
     stats.vert_error_mean = vw::math::mean(vert_errors);
-    
+
     if (horiz_errors.size() > 1) {
       // This divides by num - 1
-      stats.horiz_error_stddev 
+      stats.horiz_error_stddev
         = vw::math::standard_deviation(horiz_errors, stats.horiz_error_mean);
       stats.vert_error_stddev
         = vw::math::standard_deviation(vert_errors, stats.vert_error_mean);
     }
-    
+
     // Leave this for the last
     stats.horiz_error_median = vw::math::destructive_median(horiz_errors);
     stats.vert_error_median = vw::math::destructive_median(vert_errors);
   }
 
-  return;                 
+  return;
 } // End function propagatedErrorStats
 
 } // end namespace asp

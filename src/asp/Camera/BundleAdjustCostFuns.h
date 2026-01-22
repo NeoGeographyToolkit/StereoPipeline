@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -46,7 +46,7 @@ namespace asp {
 }
 
 namespace asp {
-  
+
 /// Simple base class for unpacking Ceres parameter blocks into
 ///  a camera model which can do point projections.
 class BaCamBase {
@@ -76,7 +76,7 @@ public:
   /// Read in all of the parameters and generate an output pixel observation.
   /// - Throws if the point does not project in to the camera.
   virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const = 0;
-  
+
 }; // End class BaCamBase
 
 /// Simple wrapper for the vw::camera::AdjustedCameraModel class with a 
@@ -116,13 +116,13 @@ class BaPinholeCam: public BaCamBase {
 public:
 
   BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam);
-  
+
   /// The number of lens distortion parameters.
   int num_dist_params() const;
 
  // Center, focus, and lens distortion
   virtual int num_intrinsic_params() const {
-    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + num_dist_params(); 
+    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + num_dist_params();
   }
 
   /// Return the number of Ceres input parameter blocks.
@@ -154,7 +154,7 @@ public:
 
   // Center, focus, and extra optical bar parameters
   virtual int num_intrinsic_params() const;
-  
+
   /// Return the number of Ceres input parameter blocks.
   /// - (camera), (point), (center), (focus), (other intrinsic parameters)
   virtual int num_parameter_blocks() const {return 5;}
@@ -163,7 +163,7 @@ public:
 
   /// Read in all of the parameters and compute the residuals.
   virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const;
-  
+
 private:
 
   // TODO: Cache the constructed camera to save time when just the point changes!
@@ -201,7 +201,7 @@ public:
 
   /// Read in all of the parameters and compute the residuals.
   virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const;
-  
+
 private:
 
   // TODO: Cache the constructed camera to save time when just the point changes!
@@ -224,8 +224,7 @@ struct BaReprojectionError {
     m_observation(observation),
     m_pixel_sigma(pixel_sigma),
     m_num_param_blocks(camera_wrapper->num_parameter_blocks()),
-    m_camera_wrapper(camera_wrapper)
-    {}
+    m_camera_wrapper(camera_wrapper) {}
 
   // Call to work with ceres::DynamicCostFunctions.
   // - Takes array of arrays.
@@ -235,7 +234,7 @@ struct BaReprojectionError {
   static ceres::CostFunction* Create(vw::Vector2 const& observation,
                                      vw::Vector2 const& pixel_sigma,
                                      boost::shared_ptr<BaCamBase> camera_wrapper);
-  
+
 private:
   vw::Vector2 m_observation; ///< The pixel observation for this camera/point pair.
   vw::Vector2 m_pixel_sigma;
@@ -267,7 +266,7 @@ struct BaDispXyzError {
   m_interp_disp (interp_disp),
   m_num_left_param_blocks (left_camera_wrapper->num_parameter_blocks ()),
   m_num_right_param_blocks(right_camera_wrapper->num_parameter_blocks()),
-  m_left_camera_wrapper(left_camera_wrapper ),
+  m_left_camera_wrapper(left_camera_wrapper),
   m_right_camera_wrapper(right_camera_wrapper),
   m_solve_intrinsics(solve_intrinsics),
   m_intrinsics_opt(intrinsics_opt) {}
@@ -283,11 +282,11 @@ struct BaDispXyzError {
                                     bool solve_intrinsics,
                                     asp::IntrinsicOptions const& intrinsics_opt,
                                     std::vector<double*> &residual_ptrs);
-  
+
   void unpack_residual_pointers(double const* const* parameters,
                                 std::vector<double const*> & left_param_blocks,
                                 std::vector<double const*> & right_param_blocks) const;
-  
+
   // Factory to hide the construction of the CostFunction object from
   // the client code.
   static ceres::CostFunction* Create(
@@ -296,7 +295,7 @@ struct BaDispXyzError {
       boost::shared_ptr<BaCamBase> left_camera_wrapper,
       boost::shared_ptr<BaCamBase> right_camera_wrapper,
       bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt);
-  
+
   double m_max_disp_error, m_reference_terrain_weight;
   vw::Vector3 m_reference_xyz;
   vw::ImageViewRef<DispPixelT> const& m_interp_disp;
@@ -326,7 +325,7 @@ struct CamError {
   bool operator()(const T* cam_vec, T* residuals) const {
 
     // Position units are meters. Don't lock the camera down too tightly.
-    const double POSITION_WEIGHT = 1e-2; 
+    const double POSITION_WEIGHT = 1e-2;
     // Rotation units are in radians. 
     const double ROTATION_WEIGHT = 5e1;
 
@@ -413,7 +412,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            vw::ImageViewRef<vw::PixelMask<float>> const& weight_image,
                            vw::cartography::GeoReference          const& weight_image_georef,
                            std::vector<vw::Vector3>               const& dem_xyz_vec,
-                           bool have_weight_image, 
+                           bool have_weight_image,
                            bool have_dem,
                            // Outputs
                            vw::ba::ControlNetwork                  & cnet,
@@ -443,14 +442,14 @@ void addTriConstraint(asp::BaOptions           const& opt,
 
 // Add a ground constraint (GCP or height from DEM)
 void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
-                           std::string       const& cost_function_str, 
+                           std::string       const& cost_function_str,
                            bool                     use_llh_error,
                            bool                     fix_gcp_xyz,
                            // Outputs
                            vw::ba::ControlNetwork & cnet,
                            int                    & num_gcp,
                            int                    & num_gcp_or_dem_residuals,
-                           asp::BaParams          & param_storage, 
+                           asp::BaParams          & param_storage,
                            ceres::Problem         & problem);
 
 // Add a cost function meant to tie up to known disparity form left to right
@@ -460,7 +459,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
 // be n-1 disparities, from each image to the next.
 void addReferenceTerrainCostFunction(
          asp::BaOptions           & opt,
-         asp::BaParams            & param_storage, 
+         asp::BaParams            & param_storage,
          ceres::Problem           & problem,
          std::vector<vw::Vector3> & reference_vec,
          std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp);

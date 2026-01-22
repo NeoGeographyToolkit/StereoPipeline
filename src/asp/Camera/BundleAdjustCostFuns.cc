@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -33,7 +33,7 @@ using namespace vw;
 using namespace vw::camera;
 
 namespace asp {
-  
+
 double g_big_pixel_value = 1000.0;  // don't make this too big
 
 /// Used to accumulate the number of reprojection errors in bundle adjustment.
@@ -126,7 +126,7 @@ vw::Vector2 BaPinholeCam::evaluate(
   // Update the lens distortion parameters in the new camera.
   // - These values are also optimized as scale factors.
   // TODO: This approach FAILS when the input value is zero!!
-  boost::shared_ptr<LensDistortion> distortion 
+  boost::shared_ptr<LensDistortion> distortion
     = m_underlying_camera->lens_distortion()->copy();
   vw::Vector<double> lens = distortion->distortion_parameters();
   for (size_t i = 0; i < lens.size(); i++)
@@ -197,7 +197,7 @@ vw::Vector2  BaOpticalBarCam::evaluate(
   bool have_velocity_vec = m_underlying_camera->get_have_velocity_vec();
   vw::Vector3 vel(0, 0, 0);
   vw::Vector3 final_pose(std::numeric_limits<double>::quiet_NaN(), 0, 0);
-  
+
   if (have_velocity_vec) {
     vel = m_underlying_camera->get_velocity();
     final_pose = m_underlying_camera->get_final_pose();
@@ -220,13 +220,13 @@ vw::Vector2  BaOpticalBarCam::evaluate(
                                   correction.position(),
                                   correction.pose().axis_angle(),
                                   speed, mcf, have_velocity_vec, vel, final_pose);
-  
+
   // Project the point into the camera.
   try {
     return cam.point_to_pixel(point);
-  } catch(std::exception const& e){
+  } catch(std::exception const& e) {
   }
-  
+
   // We must not allow one bad point to ruin the optimization
   return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
 }
@@ -274,7 +274,7 @@ vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) co
   // Duplicate the input camera model
   boost::shared_ptr<asp::CsmModel> copy;
   m_underlying_camera->deep_copy(copy);
-  
+
   // Update the intrinsics of the copied model
   copy->set_optical_center(optical_center);
   copy->set_focal_length(focal_length);
@@ -300,7 +300,7 @@ vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) co
 
 // Call to work with ceres::DynamicCostFunctions.
 // - Takes array of arrays.
-bool BaReprojectionError::operator()(double const * const * parameters, 
+bool BaReprojectionError::operator()(double const * const * parameters,
                                      double * residuals) const {
 
   try {
@@ -325,7 +325,7 @@ bool BaReprojectionError::operator()(double const * const * parameters,
     g_ba_num_errors++;
     if (g_ba_num_errors < 100) {
       vw_out(ErrorMessage) << e.what() << std::endl;
-    }else if (g_ba_num_errors == 100) {
+    } else if (g_ba_num_errors == 100) {
       vw_out() << "Will print no more error messages about "
                 << "failing to compute residuals.\n";
     }
@@ -338,7 +338,7 @@ bool BaReprojectionError::operator()(double const * const * parameters,
 }
 
 // Factory to hide the construction of the CostFunction object from the client code.
-ceres::CostFunction*  
+ceres::CostFunction*
 BaReprojectionError::Create(Vector2 const& observation,
                             Vector2 const& pixel_sigma,
                             boost::shared_ptr<BaCamBase> camera_wrapper) {
@@ -368,22 +368,22 @@ bool BaDispXyzError::operator()(double const* const* parameters, double* residua
     unpack_residual_pointers(parameters, left_param_blocks, right_param_blocks);
 
     // Get pixel projection in both cameras.
-    Vector2 left_prediction  = m_left_camera_wrapper->evaluate (left_param_blocks );
+    Vector2 left_prediction  = m_left_camera_wrapper->evaluate (left_param_blocks);
     Vector2 right_prediction = m_right_camera_wrapper->evaluate(right_param_blocks);
 
     // See how consistent that is with the observed disparity.
     bool good_ans = true;
     if (!m_interp_disp.pixel_in_bounds(left_prediction)) {
       good_ans = false;
-    }else{
+    } else {
       DispPixelT dispPix = m_interp_disp(left_prediction[0], left_prediction[1]);
       if (!is_valid(dispPix)) {
         good_ans = false;
-      }else{
+      } else {
         Vector2 right_prediction_from_disp = left_prediction + dispPix.child();
         residuals[0] = right_prediction_from_disp[0] - right_prediction[0];
         residuals[1] = right_prediction_from_disp[1] - right_prediction[1];
-        for (size_t it = 0; it < 2; it++) 
+        for (size_t it = 0; it < 2; it++)
           residuals[it] *= m_reference_terrain_weight;
       }
     }
@@ -392,14 +392,14 @@ bool BaDispXyzError::operator()(double const* const* parameters, double* residua
     // function will take care of big residuals graciously.
     if (!good_ans) {
       // Failed to find the residuals
-      for (size_t it = 0; it < 2; it++) 
+      for (size_t it = 0; it < 2; it++)
         residuals[it] = m_max_disp_error * m_reference_terrain_weight;
       return true;
     }
 
   } catch (const camera::PointToPixelErr& e) {
     // Failed to project into the camera
-    for (size_t it = 0; it < 2; it++) 
+    for (size_t it = 0; it < 2; it++)
       residuals[it] = m_max_disp_error * m_reference_terrain_weight;
     return true;
   }
@@ -419,24 +419,23 @@ void BaDispXyzError::get_residual_pointers(asp::BaParams &param_storage,
   double* right_camera = param_storage.get_camera_ptr(right_cam_index);
   residual_ptrs.clear();
   if (solve_intrinsics) {
-    double* left_center      = param_storage.get_intrinsic_center_ptr    (left_cam_index );
-    double* left_focus       = param_storage.get_intrinsic_focus_ptr     (left_cam_index );
-    double* left_distortion  = param_storage.get_intrinsic_distortion_ptr(left_cam_index );
+    double* left_center      = param_storage.get_intrinsic_center_ptr    (left_cam_index);
+    double* left_focus       = param_storage.get_intrinsic_focus_ptr     (left_cam_index);
+    double* left_distortion  = param_storage.get_intrinsic_distortion_ptr(left_cam_index);
     double* right_center     = param_storage.get_intrinsic_center_ptr    (right_cam_index);
     double* right_focus      = param_storage.get_intrinsic_focus_ptr     (right_cam_index);
     double* right_distortion = param_storage.get_intrinsic_distortion_ptr(right_cam_index);
 
-    residual_ptrs.push_back(left_camera    );
-    residual_ptrs.push_back(left_center    );
-    residual_ptrs.push_back(left_focus     );
+    residual_ptrs.push_back(left_camera);
+    residual_ptrs.push_back(left_center);
+    residual_ptrs.push_back(left_focus);
     residual_ptrs.push_back(left_distortion);
-    residual_ptrs.push_back(right_camera   );
-    if (!intrinsics_opt.center_shared    ) residual_ptrs.push_back(right_center    );
-    if (!intrinsics_opt.focus_shared     ) residual_ptrs.push_back(right_focus     );
+    residual_ptrs.push_back(right_camera);
+    if (!intrinsics_opt.center_shared) residual_ptrs.push_back(right_center);
+    if (!intrinsics_opt.focus_shared) residual_ptrs.push_back(right_focus);
     if (!intrinsics_opt.distortion_shared) residual_ptrs.push_back(right_distortion);
-  }
-  else { // This handles the generic camera case.
-    residual_ptrs.push_back(left_camera );
+  } else { // This handles the generic camera case.
+    residual_ptrs.push_back(left_camera);
     residual_ptrs.push_back(right_camera);
   }
   return;
@@ -445,8 +444,8 @@ void BaDispXyzError::get_residual_pointers(asp::BaParams &param_storage,
 void BaDispXyzError::unpack_residual_pointers(double const* const* parameters,
                               std::vector<double const*> & left_param_blocks,
                               std::vector<double const*> & right_param_blocks) const {
-  
-  left_param_blocks.resize (m_num_left_param_blocks );
+
+  left_param_blocks.resize (m_num_left_param_blocks);
   right_param_blocks.resize(m_num_right_param_blocks);
 
   double const* raw_point = &(m_reference_xyz[0]);
@@ -498,11 +497,11 @@ ceres::CostFunction* BaDispXyzError::Create(
     bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt) {
 
   const int NUM_RESIDUALS = 2;
-  
+
   ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
       new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
           new BaDispXyzError(max_disp_error, reference_terrain_weight,
-                              reference_xyz, interp_disp, 
+                              reference_xyz, interp_disp,
                               left_camera_wrapper, right_camera_wrapper,
                               solve_intrinsics, intrinsics_opt));
 
@@ -545,16 +544,16 @@ ceres::LossFunction* get_loss_function(std::string const& cost_function, double 
     loss_function = new ceres::CauchyLoss(th);
   else if (cost_function == "l1")
     loss_function = new ceres::SoftLOneLoss(th);
-  else{
+  else {
     vw::vw_throw(vw::ArgumentErr() << "Unknown cost function: " << cost_function << ".\n");
   }
   return loss_function;
 }
 
 /// Add error source for projecting a 3D point into the camera.
-void add_reprojection_residual_block(vw::Vector2 const& observation, 
+void add_reprojection_residual_block(vw::Vector2 const& observation,
                                      vw::Vector2 const& pixel_sigma,
-                                     int point_index, int camera_index, 
+                                     int point_index, int camera_index,
                                      asp::BaParams & param_storage,
                                      asp::BaOptions const& opt,
                                      ceres::SubsetManifold * dist_opts,
@@ -586,16 +585,16 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
     boost::shared_ptr<BaCamBase> wrapper;
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
 
-      boost::shared_ptr<PinholeModel> pinhole_model = 
+      boost::shared_ptr<PinholeModel> pinhole_model =
         boost::dynamic_pointer_cast<PinholeModel>(camera_model);
       if (pinhole_model.get() == NULL)
-        vw::vw_throw(vw::ArgumentErr() 
+        vw::vw_throw(vw::ArgumentErr()
                       << "Tried to add pinhole block with non-pinhole camera.");
       wrapper.reset(new BaPinholeCam(pinhole_model));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
 
-      boost::shared_ptr<vw::camera::OpticalBarModel> bar_model = 
+      boost::shared_ptr<vw::camera::OpticalBarModel> bar_model =
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(camera_model);
       if (bar_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add optical bar block with "
@@ -603,7 +602,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       wrapper.reset(new BaOpticalBarCam(bar_model));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
-      boost::shared_ptr<asp::CsmModel> csm_model = 
+      boost::shared_ptr<asp::CsmModel> csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(camera_model);
       if (csm_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add CSM block with "
@@ -626,7 +625,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
     }
     size_t intrinsics_index = 0;
     // Focal length
-    if (num_limits > 0) { 
+    if (num_limits > 0) {
       problem.SetParameterLowerBound(focus, 0, opt.intrinsics_limits[0]);
       problem.SetParameterUpperBound(focus, 0, opt.intrinsics_limits[1]);
       intrinsics_index++;
@@ -640,7 +639,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       intrinsics_index++;
     }
     // Distortion
-    while (intrinsics_index < num_limits) { 
+    while (intrinsics_index < num_limits) {
       problem.SetParameterLowerBound(distortion, intrinsics_index-3,
                                      opt.intrinsics_limits[2*intrinsics_index]);
       problem.SetParameterUpperBound(distortion, intrinsics_index-3,
@@ -662,19 +661,19 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
   } // End non-generic camera case.
 
   // Fix this camera if requested
-  if (opt.fixed_cameras_indices.find(camera_index) != opt.fixed_cameras_indices.end()) 
+  if (opt.fixed_cameras_indices.find(camera_index) != opt.fixed_cameras_indices.end())
     problem.SetParameterBlockConstant(param_storage.get_camera_ptr(camera_index));
 }
 
 /// Add residual block for the error using reference xyz.
 void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
-                                  vw::ImageViewRef<DispPixelT> const& interp_disp, 
+                                  vw::ImageViewRef<DispPixelT> const& interp_disp,
                                   int left_cam_index, int right_cam_index,
                                   asp::BaParams & param_storage,
                                   asp::BaOptions const& opt,
                                   ceres::Problem & problem) {
 
-  ceres::LossFunction* loss_function 
+  ceres::LossFunction* loss_function
    = get_loss_function(opt.cost_function, opt.robust_threshold);
 
   boost::shared_ptr<CameraModel> left_camera_model  = opt.camera_models[left_cam_index ];
@@ -710,23 +709,23 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
     boost::shared_ptr<BaCamBase> left_wrapper, right_wrapper;
 
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
-      boost::shared_ptr<PinholeModel> left_pinhole_model = 
+      boost::shared_ptr<PinholeModel> left_pinhole_model =
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
-      boost::shared_ptr<PinholeModel> right_pinhole_model = 
+      boost::shared_ptr<PinholeModel> right_pinhole_model =
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
-      left_wrapper.reset (new BaPinholeCam(left_pinhole_model ));
+      left_wrapper.reset (new BaPinholeCam(left_pinhole_model));
       right_wrapper.reset(new BaPinholeCam(right_pinhole_model));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
-      boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model = 
+      boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model =
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_camera_model);
-      boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model = 
+      boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model =
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_camera_model);
-      left_wrapper.reset (new BaOpticalBarCam(left_bar_model ));
+      left_wrapper.reset (new BaOpticalBarCam(left_bar_model));
       right_wrapper.reset(new BaOpticalBarCam(right_bar_model));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
-      boost::shared_ptr<asp::CsmModel> left_csm_model = 
+      boost::shared_ptr<asp::CsmModel> left_csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(left_camera_model);
       boost::shared_ptr<asp::CsmModel> right_csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(right_camera_model);
@@ -744,7 +743,7 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
   }
-  
+
 } // End function add_disparity_residual_block
 
 // Pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
@@ -755,7 +754,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            vw::ImageViewRef<vw::PixelMask<float>> const& weight_image,
                            vw::cartography::GeoReference          const& weight_image_georef,
                            std::vector<vw::Vector3>               const& dem_xyz_vec,
-                           bool have_weight_image, 
+                           bool have_weight_image,
                            bool have_dem,
                            // Outputs
                            vw::ba::ControlNetwork                  & cnet,
@@ -770,16 +769,16 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
 
   int num_cameras = param_storage.num_cameras();
   int num_points  = param_storage.num_points();
-  if ((int)crn.size() != num_cameras) 
+  if ((int)crn.size() != num_cameras)
     vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
              << "must equal the number of images.\n");
- 
+
   cam_residual_counts.resize(num_cameras);
   num_pixels_per_cam.resize(num_cameras);
   pixels_per_cam.resize(num_cameras);
   tri_points_per_cam.resize(num_cameras);
   pixel_sigmas.resize(num_cameras);
-    
+
   for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
     cam_residual_counts[icam] = 0;
     num_pixels_per_cam[icam] = 0;
@@ -801,37 +800,37 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
         param_storage.set_point_outlier(ipt, true);
         continue;
       }
-      
+
       // Weight from image, if provided
       vw::PixelMask<float> img_wt = 1.0;
       if (have_weight_image) {
         Vector3 ecef(point[0], point[1], point[2]);
         img_wt = vw::cartography::closestPixelVal(weight_image, weight_image_georef, ecef);
-        
+
         // Flag bad weights as outliers
         if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) {
           param_storage.set_point_outlier(ipt, true);
           continue;
         }
       }
-        
+
       // Adjust non-GCP triangulated points based on the DEM, if
       // provided.
       bool is_gcp = (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
       if (have_dem && !is_gcp && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
         // Update the tri point in param_storage based on the DEM.
-        for (int p = 0; p < 3; p++) 
-          point[p] = dem_xyz_vec.at(ipt)[p]; 
+        for (int p = 0; p < 3; p++)
+          point[p] = dem_xyz_vec.at(ipt)[p];
         // Set the point type, so we can track it later
-        cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem); 
+        cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem);
         // Update the cnet as well. This will be used later.
-        cnet[ipt].set_position(Vector3(point[0], point[1], point[2])); 
-       
+        cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
+
         // Set the uncertainty to the uncertainty of the DEM 
         double s = opt.heights_from_dem_uncertainty;
         cnet[ipt].set_sigma(Vector3(s, s, s));
       }
-      
+
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
       Vector2 observation = (**fiter).m_location;
@@ -840,13 +839,13 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
       // This is a bugfix
       if (pixel_sigma != pixel_sigma) // nan check
         pixel_sigma = Vector2(1, 1);
-      
+
       if (pixel_sigma[0] <= 0.0 || pixel_sigma[1] <= 0.0) {
         // Cannot add a cost function term with non-positive pixel sigma
         param_storage.set_point_outlier(ipt, true);
         continue;
       }
-      
+
       double p = opt.overlap_exponent;
       if (p > 0 && count_map[ipt] > 2) {
         // Give more weight to points that are seen in more images.
@@ -854,11 +853,11 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
         double delta = pow(count_map[ipt] - 1.0, p);
         pixel_sigma /= delta;
       }
-      
+
       // Apply the weight image
       if (have_weight_image)
         pixel_sigma /= img_wt.child();
-        
+
       // Need this for --camera-position-weight 
       if (opt.camera_position_weight > 0) {
         pixels_per_cam[icam].push_back(observation);
@@ -872,7 +871,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                                       param_storage, opt, dist_opts, problem);
       cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
       num_pixels_per_cam[icam] += 1;  // Track the number of pixels for each camera
-      
+
     } // end iterating over points
   } // end iterating over cameras
 
@@ -893,12 +892,12 @@ void addTriConstraint(asp::BaOptions           const& opt,
                       asp::BaParams  & param_storage,
                       ceres::Problem & problem,
                       int            & num_tri_residuals) {
-  
+
   // Initialize the output
   num_tri_residuals = 0;
 
   // Tri weight must be positive
-  if (tri_weight <= 0) 
+  if (tri_weight <= 0)
     vw::vw_throw(vw::ArgumentErr() << "The triangulation weight must be positive.\n");
 
   int num_points = param_storage.num_points();
@@ -928,12 +927,12 @@ void addTriConstraint(asp::BaOptions           const& opt,
     double gsd = gsds[ipt];
     if (gsd <= 0 || std::isnan(gsd))
       continue; // GSD calculation failed. Do not use a constraint.
-      
+
     double s = gsd/tri_weight;
     Vector3 xyz_sigma(s, s, s);
 
     ceres::CostFunction* cost_function = XYZError::Create(observation, xyz_sigma);
-    ceres::LossFunction* loss_function 
+    ceres::LossFunction* loss_function
       = get_loss_function(cost_function_str, tri_robust_threshold);
     problem.AddResidualBlock(cost_function, loss_function, point);
 
@@ -949,7 +948,7 @@ void addTriConstraint(asp::BaOptions           const& opt,
 // be n-1 disparities, from each image to the next.
 void addReferenceTerrainCostFunction(
          asp::BaOptions  & opt,
-         asp::BaParams       & param_storage, 
+         asp::BaParams       & param_storage,
          ceres::Problem      & problem,
          std::vector<vw::Vector3> & reference_vec,
          std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp) {
@@ -963,17 +962,17 @@ void addReferenceTerrainCostFunction(
   // Load the reference data
   std::vector<vw::Vector3> input_reference_vec;
   std::vector<ImageView<DispPixelT>> disp_vec;
-  asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,  
-                        opt.max_num_reference_points,  
+  asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,
+                        opt.max_num_reference_points,
                         geo,       // may change
                         input_reference_vec); // output
 
   if (load_reference_disparities(opt.disparity_list, disp_vec, interp_disp) != num_cameras-1)
     vw_throw(ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
-  
+
   // Read the image boxes. They are needed to find the GSD per camera.
   std::vector<vw::BBox2i> image_boxes;
-  for (int icam = 0; icam < num_cameras; icam++){
+  for (int icam = 0; icam < num_cameras; icam++) {
     vw::DiskImageView<float> img(opt.image_files[icam]);
     vw::BBox2i bbox = vw::bounding_box(img);
     image_boxes.push_back(bbox);
@@ -1016,7 +1015,7 @@ void addReferenceTerrainCostFunction(
         continue; // Skip point if there is a projection issue.
       }
 
-      if ( (left_pred != left_pred) || (right_pred != right_pred) )
+      if ((left_pred != left_pred) || (right_pred != right_pred))
         continue; // nan check
 
       if (!interp_disp[icam].pixel_in_bounds(left_pred))
@@ -1027,13 +1026,13 @@ void addReferenceTerrainCostFunction(
         continue;
 
       // Check if the current point projects in the cameras
-      if (!image_boxes[icam  ].contains(left_pred ) || 
+      if (!image_boxes[icam  ].contains(left_pred) ||
           !image_boxes[icam+1].contains(right_pred)) {
         continue;
       }
 
       Vector2 right_pix = left_pred + dispPix.child();
-      if (!image_boxes[icam+1].contains(right_pix)) 
+      if (!image_boxes[icam+1].contains(right_pix))
         continue; // Check offset location too
 
       if (right_pix != right_pix || norm_2(right_pix - right_pred) > opt.max_disp_error) {
@@ -1051,7 +1050,7 @@ void addReferenceTerrainCostFunction(
     }
     tpc.report_incremental_progress(inc_amount);
   }
-  
+
   tpc.report_finished();
   vw_out() << "Found " << reference_vec.size() << " reference points in range.\n";
 }
@@ -1070,7 +1069,7 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
                       int                                        & num_cam_pos_residuals) {
 
   num_cam_pos_residuals = 0;
-  
+
   // Image bboxes
   std::vector<vw::BBox2> bboxes;
   for (size_t i = 0; i < opt.image_files.size(); i++) {
@@ -1080,40 +1079,40 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
 
   int num_cameras = param_storage.num_cameras();
   for (int icam = 0; icam < num_cameras; icam++) {
-    
+
     // There must be as many pixels_per_cam as pixel_sigmas per cam
-    if (pixels_per_cam[icam].size() != pixel_sigmas[icam].size()) 
+    if (pixels_per_cam[icam].size() != pixel_sigmas[icam].size())
       vw_throw(ArgumentErr() << "Expecting as many pixels as pixel sigmas per camera.\n");
-      
+
     // Adjustments to initial and current cameras
     double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
     double * cam_ptr  = param_storage.get_camera_ptr(icam);
-    
+
     double sum = 0.0;
     int count = 0;
     std::vector<double> pos_wts;
     auto pix_sigma_it = pixel_sigmas[icam].begin();
     for (size_t ipix = 0; ipix < pixels_per_cam[icam].size(); ipix++) {
-      
+
       vw::Vector2 pixel_obs = pixels_per_cam[icam][ipix];
       vw::Vector3 xyz_obs = tri_points_per_cam[icam][ipix];
       double pixel_sigma = norm_2(pix_sigma_it->second);
-      if (pix_sigma_it == pixel_sigmas[icam].end()) 
+      if (pix_sigma_it == pixel_sigmas[icam].end())
         vw::vw_throw(vw::ArgumentErr() << "Out of bounds for pixel sigmas.\n");
       pix_sigma_it++; // Update for the next iteration
-      if (pixel_sigma <= 0.0 || std::isnan(pixel_sigma)) 
-        continue; 
-      
+      if (pixel_sigma <= 0.0 || std::isnan(pixel_sigma))
+        continue;
+
       double gsd = 0.0;
       try {
-        gsd = vw::camera::estimatedGSD(orig_cams[icam].get(), bboxes[icam], 
+        gsd = vw::camera::estimatedGSD(orig_cams[icam].get(), bboxes[icam],
                                        pixel_obs, xyz_obs);
       } catch (...) {
         continue;
       }
-      if (gsd <= 0) 
-        continue; 
-      
+      if (gsd <= 0)
+        continue;
+
       // Care with computing the weight
       double position_wt = opt.camera_position_weight / (gsd * pixel_sigma);
       sum += position_wt;
@@ -1122,13 +1121,13 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
     }
 
     // Skip for zero count
-    if (count == 0) 
+    if (count == 0)
       continue;
-    
+
     // The median weight was shown to be more robust to outliers 
     // than the mean weight.
     double median_wt = vw::math::destructive_median(pos_wts);
-    
+
     // Based on the CERES loss function formula, adding N loss functions each 
     // with weight w and robust threshold t is equivalent to adding one loss 
     // function with weight sqrt(N)*w and robust threshold sqrt(N)*t.
@@ -1137,7 +1136,7 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
     double rotation_wt = 0.0; // This will be handled separately
     ceres::CostFunction* cost_function
         = RotTransError::Create(orig_cam_ptr, rotation_wt, combined_wt);
-    ceres::LossFunction* loss_function 
+    ceres::LossFunction* loss_function
        = get_loss_function(opt.cost_function, combined_th);
     problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
     num_cam_pos_residuals++;
@@ -1146,21 +1145,21 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
 
 // Add a ground constraint (GCP or height from DEM)
 void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
-                           std::string        const& cost_function_str, 
+                           std::string        const& cost_function_str,
                            bool                      use_llh_error,
                            bool                      fix_gcp_xyz,
                            // Outputs
                            vw::ba::ControlNetwork & cnet,
                            int                    & num_gcp,
                            int                    & num_gcp_or_dem_residuals,
-                           asp::BaParams          & param_storage, 
+                           asp::BaParams          & param_storage,
                            ceres::Problem         & problem) {
 
   int num_tri_points  = param_storage.num_points();
-  if (num_tri_points != (int)cnet.size()) 
+  if (num_tri_points != (int)cnet.size())
     vw::vw_throw(vw::ArgumentErr() << "Book-keeping error, the size of the control network "
              << "must equal the number of points.\n");
-  
+
   num_gcp = 0;
   num_gcp_or_dem_residuals = 0;
 
@@ -1171,10 +1170,10 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
 
     if (param_storage.get_point_outlier(ipt))
       continue; // skip outliers
-      
+
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
       num_gcp++;
-      
+
     vw::Vector3 observation = cnet[ipt].position();
     vw::Vector3 xyz_sigma   = cnet[ipt].sigma();
 
@@ -1196,7 +1195,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
     if (opt.heights_from_dem != ""           &&
         opt.heights_from_dem_uncertainty > 0 &&
         opt.heights_from_dem_robust_threshold > 0) {
-      loss_function 
+      loss_function
       = get_loss_function(cost_function_str, opt.heights_from_dem_robust_threshold);
     } else {
       loss_function = new ceres::TrivialLoss();
@@ -1205,17 +1204,17 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
     problem.AddResidualBlock(cost_function, loss_function, tri_point);
 
     num_gcp_or_dem_residuals++;
-    
+
     // Ground xyz whose sigma is asp::FIXED_GCP_SIGMA (a tiny positive value) are set to fixed
     double s = asp::FIXED_GCP_SIGMA;
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint && 
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint &&
         (fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s))) {
       cnet[ipt].set_sigma(Vector3(s, s, s)); // will be saved in the ISIS cnet
       problem.SetParameterBlockConstant(tri_point);
     }
-      
+
   } // End loop through triangulated points
-  
+
 }
 
 } // end namespace asp

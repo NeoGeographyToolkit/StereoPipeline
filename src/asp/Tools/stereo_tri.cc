@@ -187,7 +187,7 @@ public:
     Vector2 rpix = lpix + stereo::DispHelper(disp);
 
     // Do bathy only when the mask is invalid (under water)
-    bool do_bathy = vw::areMasked(m_left_aligned_bathy_mask, m_right_aligned_bathy_mask, 
+    bool do_bathy = vw::areMasked(m_left_aligned_bathy_mask, m_right_aligned_bathy_mask,
                                   lpix, rpix);
 
     if (m_cloud_type == TOPO_CLOUD) {
@@ -390,7 +390,6 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
                      is_map_projected, bathy_correct, cloud_type,
                      left_aligned_bathy_mask, right_aligned_bathy_mask);
 }
-
 
 // TODO(oalexan1): Move some of these functions to a class or something!
 
