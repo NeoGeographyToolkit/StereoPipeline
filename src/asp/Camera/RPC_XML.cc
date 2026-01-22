@@ -191,7 +191,7 @@ void asp::GeometricXML::parse_optical_distortion(xercesc::DOMElement* node) {
     DOMNodeList* children = list_list->getChildNodes();
     if (children == NULL) return;
 
-    for (XMLSize_t i = 0; i < children->getLength(); ++i) {
+    for (XMLSize_t i = 0; i < children->getLength(); i++) {
 
       DOMNode* current = children->item(i);
       if (current->getNodeType() != DOMNode::ELEMENT_NODE) continue;
@@ -279,7 +279,7 @@ void asp::GeometricXML::parse(xercesc::DOMElement* node) {
   DOMNodeList* children = node->getChildNodes();
   const XMLSize_t nodeCount = children->getLength();
 
-  for (XMLSize_t i = 0; i < nodeCount; ++i) {
+  for (XMLSize_t i = 0; i < nodeCount; i++) {
     DOMNode* current = children->item(i);
     if (current->getNodeType() == DOMNode::ELEMENT_NODE) {
       DOMElement* element =
@@ -922,7 +922,7 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
 
   // Look through its children for a band name
   DOMNodeList* children = imd_node->getChildNodes();
-  for (XMLSize_t i = 0; i < children->getLength(); ++i) {
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
     if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
@@ -964,7 +964,7 @@ bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
   const size_t NUM_CORNERS = 4;
   std::vector<Vector3> pixel_corners3 (NUM_CORNERS),
     lonlat_corners3(NUM_CORNERS);
-  for (size_t i=0; i<NUM_CORNERS; ++i) {
+  for (size_t i = 0; i < NUM_CORNERS; i++) {
     pixel_corners3[i].x() = pixel_corners[i].x();
     pixel_corners3[i].y() = pixel_corners[i].y();
     pixel_corners3[i].z() = 1.0;

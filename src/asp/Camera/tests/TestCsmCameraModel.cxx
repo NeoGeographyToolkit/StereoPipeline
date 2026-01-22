@@ -37,7 +37,7 @@ TEST(CSM_camera, basic_check) {
 
   // Do some simple model tests
   const double eps = 0.005;
-  for (int i=0; i<4; ++i) {
+  for (int i = 0; i < 4; i++) {
     std::cout << "i = " << i << std::endl;
     Vector2 pix(i*100,i*100);
     std::cout << "pix = " << pix << std::endl;

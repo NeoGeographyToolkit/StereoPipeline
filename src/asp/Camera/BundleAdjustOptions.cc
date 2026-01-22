@@ -169,12 +169,12 @@ int loadEstimCameraPositions(asp::BaOptions &opt,
 
   const RecordIter no_match = pos_records.end();
   int num_matches_found = 0;
-  for (int i=0; i<num_cameras; i++) {
+  for (int i = 0; i < num_cameras; i++) {
 
     // Search for this image file in the records
     std::string file_name = opt.image_files[i];
     RecordIter iter;
-    for (iter=pos_records.begin(); iter!=pos_records.end(); iter++) {
+    for (iter = pos_records.begin(); iter != pos_records.end(); iter++) {
       // Match if the string in the file is contained in the input image string.
       // - May need to play around with this in the future!
       std::string field = iter->file;

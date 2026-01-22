@@ -160,7 +160,7 @@ BaParams::BaParams(BaParams const& other):
 
 // Set all camera position and pose values to zero.
 void BaParams::init_cams_as_zero() {
-  for (int i=0; i < m_cameras_vec.size(); i++)
+  for (int i = 0; i < m_cameras_vec.size(); i++)
     m_cameras_vec[i] = 0.0;
 }
 
@@ -265,7 +265,7 @@ void BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits)
     if (m_intrinsics_opts.float_focal_length(c) &&
         !(m_intrinsics_opts.focus_shared && (c>0))) {
       double* ptr = get_intrinsic_focus_ptr(c);
-      for (int i=0; i<NUM_FOCUS_PARAMS; i++) {
+      for (int i = 0; i < NUM_FOCUS_PARAMS; i++) {
         percent = static_cast<double>(dist(g_rand_gen))/DENOM;
         if (intrinsics_index < num_intrinsics) {
           range = intrinsic_limits[2*intrinsics_index+1] - intrinsic_limits[2*intrinsics_index];
@@ -378,7 +378,7 @@ void BaParams::record_points_to_kml(const std::string &kml_path,
   
   // Loop through the points
   const bool extrude = true;
-  for (size_t i=0; i<num_points(); i+=skip) {
+  for (size_t i = 0; i < num_points(); i += skip) {
     
     if (get_point_outlier(i))
       continue; // skip outliers

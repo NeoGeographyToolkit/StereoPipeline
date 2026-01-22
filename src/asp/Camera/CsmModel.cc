@@ -271,7 +271,7 @@ const csm::Plugin* find_plugin_for_isd(csm::Isd const& support_data,
       }
       // Optionally print the reasons why we could not load it.
       if (show_warnings)
-        for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
+        for (w_iter = warnings.begin(); w_iter != warnings.end(); w_iter++) {
           vw_out() << "CSM warning: " << w_iter->getMessage() << std::endl;
         }
     } // End loop through models
@@ -461,7 +461,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
 
   // Error checking
   csm::WarningList::const_iterator w_iter;
-  for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
+  for (w_iter = warnings.begin(); w_iter != warnings.end(); w_iter++) {
     vw_out() << "CSM warning: " << w_iter->getMessage() << std::endl;
   }
 
@@ -665,7 +665,7 @@ Vector2 CsmModel::point_to_pixel(Vector3 const& point) const {
 
   if (show_warnings) {
     csm::WarningList::const_iterator w_iter;
-    for (w_iter = warnings.begin(); w_iter!=warnings.end(); ++w_iter) {
+    for (w_iter = warnings.begin(); w_iter != warnings.end(); w_iter++) {
       vw_out() << "CSM warning: " << w_iter->getMessage() << std::endl;
     }
   }

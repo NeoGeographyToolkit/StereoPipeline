@@ -159,7 +159,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
 
-  for (int icam=0; icam < num_cameras; icam++) {
+  for (int icam = 0; icam < num_cameras; icam++) {
     PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
 
     // Make a deep copy of the camera, including of the lens distortion
@@ -226,7 +226,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_
 
   // Copy the camera parameters from the models to param_storage
   const size_t num_cameras = param_storage.num_cameras();
-  for (int icam=0; icam < num_cameras; icam++) {
+  for (int icam = 0; icam < num_cameras; icam++) {
     vw::camera::OpticalBarModel* bar_ptr
       = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
     pack_optical_bar_to_arrays(*bar_ptr, icam, param_storage);

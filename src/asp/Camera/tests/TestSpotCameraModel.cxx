@@ -160,7 +160,7 @@ TEST(SPOT_camera, SensorTest) {
   // Project all of these coordinates into the camera and see what pixel we get.
   vw::cartography::Datum datum; // Use wgs84 default
   const size_t num_points = gdc_coords.size();
-  for (size_t i=0; i<num_points; ++i) {
+  for (size_t i = 0; i < num_points; i++) {
 
     Vector3 gcc   = datum.geodetic_to_cartesian(gdc_coords[i]);
     std::cout << "Projecting point: " << gcc << std::endl;

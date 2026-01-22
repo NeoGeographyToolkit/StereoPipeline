@@ -309,7 +309,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
 
   // Apply the transform to all of the world points in the ControlNetwork
   ControlNetwork::iterator iter;
-  for (iter=cnet->begin(); iter!=cnet->end(); ++iter) {
+  for (iter = cnet->begin(); iter != cnet->end(); iter++) {
     if (iter->type() == ControlPoint::GroundControlPoint)
       continue; // Don't convert the ground control points!
 
@@ -386,7 +386,7 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlN
   vw_out() << "Num cameras: " << num_cameras << std::endl;
 
   int num_matches_found = 0;
-  for (int i=0; i<num_cameras; i++)
+  for (int i = 0; i < num_cameras; i++)
     if (estimated_camera_gcc[i] != Vector3(0,0,0))
       ++num_matches_found;
 
@@ -402,7 +402,7 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlN
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
   typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
   int index = 0;
-  for (int i=0; i<num_cameras; i++) {
+  for (int i = 0; i < num_cameras; i++) {
     // Skip cameras with no matching record
     if (estimated_camera_gcc[i] == Vector3(0,0,0))
       continue;

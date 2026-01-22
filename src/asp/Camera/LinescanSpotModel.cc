@@ -131,7 +131,7 @@ Matrix3x3 SPOTCameraModel::get_local_orbital_frame(Vector3 const& position, Vect
   Vector3 X2 = vw::math::normalize(vw::math::cross_prod(velocity, Z2));
   Vector3 Y2 = vw::math::cross_prod(Z2, X2);
   Matrix3x3 out;
-  for (int r=0; r<3; ++r) {
+  for (int r = 0; r < 3; r++) {
     out(r,0) = X2[r];
     out(r,1) = Y2[r];
     out(r,2) = Z2[r];
@@ -227,7 +227,7 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   std::vector<vw::Quat> gcc_pose(num_pose_vals);
   Vector3 position, velocity, yaw_pitch_roll;
   Matrix3x3 lo_frame, look_rotation, combined_rotation;  
-  for (size_t i=0; i<num_pose_vals; ++i) {
+  for (size_t i = 0; i < num_pose_vals; i++) {
     // Get info at this time
     double time = min_time + time_delta * static_cast<double>(i);
     position       = position_func(time);

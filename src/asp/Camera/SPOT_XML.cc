@@ -149,7 +149,7 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   //   time there should be a good reference time.
   boost::posix_time::ptime earliest_time = boost::posix_time::time_from_string("2016-05-04 00:00:00.00");
   std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
-  for (iter=position_logs.begin(); iter!=position_logs.end(); ++iter) {
+  for (iter = position_logs.begin(); iter != position_logs.end(); iter++) {
     std::string s = iter->first;
     boost::replace_all(s, "T", " ");
     boost::posix_time::ptime this_time = boost::posix_time::time_from_string(s);
@@ -181,7 +181,7 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
 
   size_t index = 0;
   const XMLSize_t num_children = children->getLength();
-  for (XMLSize_t i = 0; i < num_children; ++i) {
+  for (XMLSize_t i = 0; i < num_children; i++) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
     if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
@@ -196,7 +196,7 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
     // Look through the three nodes and assign each of them
     // - In this function we do this a little more by hand to try and speed things up
     DOMNodeList* sub_children = curr_element->getChildNodes();
-    for (XMLSize_t j = 0; j < sub_children->getLength(); ++j) {
+    for (XMLSize_t j = 0; j < sub_children->getLength(); j++) {
 
       DOMNode* child_node = sub_children->item(j);
       if (child_node->getNodeType() != DOMNode::ELEMENT_NODE)
@@ -230,7 +230,7 @@ void SpotXML::read_ephemeris(xercesc::DOMElement* ephemeris_node) {
 
   // Pick out the "Point" nodes
   DOMNodeList* children = points_node->getChildNodes();
-  for (XMLSize_t i = 0; i < children->getLength(); ++i) {
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
     if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
@@ -274,7 +274,7 @@ void SpotXML::read_attitude(xercesc::DOMElement* corrected_attitudes_node) {
 
   // Pick out the "Angles" nodes
   DOMNodeList* children = corrected_attitude_node->getChildNodes();
-  for (XMLSize_t i = 0; i < children->getLength(); ++i) {
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
     if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
@@ -307,7 +307,7 @@ void SpotXML::read_corners(xercesc::DOMElement* dataset_frame_node) {
   // - Currently we assume they are always in the same order!
   DOMNodeList* children = dataset_frame_node->getChildNodes();
   size_t count = 0;
-  for (XMLSize_t i = 0; i < children->getLength(); ++i) {
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
     if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
@@ -383,7 +383,7 @@ vw::camera::LagrangianInterpolation SpotXML::setup_velocity_func() const {
 
   // Loop through the velocity logs and extract values
   std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
-  for (iter=velocity_logs.begin(); iter!=velocity_logs.end(); ++iter) {
+  for (iter = velocity_logs.begin(); iter != velocity_logs.end(); iter++) {
     time.push_back(convert_time(iter->first));
     velocity.push_back(iter->second);
     //std::cout << "Adding velocity point: " << iter->first 
@@ -410,7 +410,7 @@ vw::camera::LagrangianInterpolation SpotXML::setup_position_func() const {
 
   // Loop through the velocity logs and extract values
   std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
-  for (iter=position_logs.begin(); iter!=position_logs.end(); ++iter) {
+  for (iter = position_logs.begin(); iter != position_logs.end(); iter++) {
     time.push_back(convert_time(iter->first));
     position.push_back(iter->second);
     //std::cout << "Adding position point: " << convert_time(iter->first)
@@ -469,7 +469,7 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
 
   // Fill in the pre-padding poses
   size_t index = 0;
-  for (int i=0; i<num_prefill_poses; ++i) {
+  for (int i = 0; i < num_prefill_poses; i++) {
     double time_offset = pose_delta_t*static_cast<double>(num_prefill_poses-i);
     time[index] = convert_time(pose_logs.front().first) - time_offset;
     pose[index] = pose_logs.front().second;
@@ -479,14 +479,14 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
 
   // Now fill in the real poses
   std::list<std::pair<std::string, vw::Vector3> >::const_iterator iter;
-  for (iter=pose_logs.begin(); iter!=pose_logs.end(); ++iter) {
+  for (iter = pose_logs.begin(); iter != pose_logs.end(); iter++) {
     time[index] = convert_time(iter->first);
     pose[index] = iter->second;
     ++index;
   }
 
   // Fill in the post-padding poses
-  for (int i=0; i<num_postfill_poses; ++i) {
+  for (int i = 0; i < num_postfill_poses; i++) {
     double time_offset = pose_delta_t*(i+1);
     time[index] = convert_time(pose_logs.back().first) + time_offset;
     pose[index] = pose_logs.back().second;

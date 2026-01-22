@@ -129,7 +129,7 @@ vw::Vector2 BaPinholeCam::evaluate(
   boost::shared_ptr<LensDistortion> distortion 
     = m_underlying_camera->lens_distortion()->copy();
   vw::Vector<double> lens = distortion->distortion_parameters();
-  for (size_t i=0; i<lens.size(); ++i)
+  for (size_t i = 0; i < lens.size(); i++)
     lens[i] *= raw_lens[i];
   distortion->set_distortion_parameters(lens);
 
@@ -306,7 +306,7 @@ bool BaReprojectionError::operator()(double const * const * parameters,
   try {
     // Unpack the parameter blocks
     std::vector<double const*> param_blocks(m_num_param_blocks);
-    for (size_t i=0; i<m_num_param_blocks; ++i) {
+    for (size_t i = 0; i < m_num_param_blocks; i++) {
       param_blocks[i] = parameters[i];
     }
 
@@ -353,7 +353,7 @@ BaReprojectionError::Create(Vector2 const& observation,
 
   // The camera wrapper knows all of the block sizes to add.
   std::vector<int> block_sizes = camera_wrapper->get_block_sizes();
-  for (size_t i=0; i<block_sizes.size(); ++i) {
+  for (size_t i = 0; i < block_sizes.size(); i++) {
     cost_function->AddParameterBlock(block_sizes[i]);
   }
   return cost_function;
@@ -454,13 +454,13 @@ void BaDispXyzError::unpack_residual_pointers(double const* const* parameters,
   right_param_blocks[0] = raw_point;
 
   int index = 0;
-  for (size_t i=1; i<m_num_left_param_blocks; ++i) {
+  for (size_t i = 1; i < m_num_left_param_blocks; i++) {
     left_param_blocks[i] = parameters[index];
     index++;
   }
   if (!m_solve_intrinsics) {
     // Unpack everything from the right block in order.
-    for (size_t i=1; i<m_num_right_param_blocks; ++i) {
+    for (size_t i = 1; i < m_num_right_param_blocks; i++) {
       right_param_blocks[i] = parameters[index];
       index++;
     }
@@ -512,12 +512,12 @@ ceres::CostFunction* BaDispXyzError::Create(
   // Add all of the blocks for each camera, except for the first (point)
   // block which is provided at creation time.
   std::vector<int> block_sizes = left_camera_wrapper->get_block_sizes();
-  for (size_t i=1; i<block_sizes.size(); ++i) {
+  for (size_t i = 1; i < block_sizes.size(); i++) {
     cost_function->AddParameterBlock(block_sizes[i]);
   }
   block_sizes = right_camera_wrapper->get_block_sizes();
   if (!solve_intrinsics) {
-    for (size_t i=1; i<block_sizes.size(); ++i) {
+    for (size_t i = 1; i < block_sizes.size(); i++) {
       cost_function->AddParameterBlock(block_sizes[i]);
     }
   } else { // Pinhole handling

@@ -318,7 +318,7 @@ struct CamError {
 
   CamError(double const* orig_cam, double weight):
     m_orig_cam(DATA_SIZE), m_weight(weight) {
-      for (int i=0; i<DATA_SIZE; ++i)
+      for (int i = 0; i < DATA_SIZE; i++)
         m_orig_cam[i] = orig_cam[i];
     }
 

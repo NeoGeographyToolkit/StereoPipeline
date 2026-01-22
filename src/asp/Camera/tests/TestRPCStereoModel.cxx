@@ -76,14 +76,14 @@ void test_stereo_models(const std::string &path1, const std::string &path2) {
   const int NUM_PIXELS = 10;
   Vector2 pixelBase(10000, 10000);
   std::vector<Vector2> pixels1(NUM_PIXELS), pixels2(NUM_PIXELS);
-  for (int i=0; i<NUM_PIXELS; ++i) {
+  for (int i = 0; i < NUM_PIXELS; i++) {
     pixels1[i] = pixelBase + Vector2(i, 0);
     pixels2[i] = pixelBase;
   }
 
   // Try out a bunch of pixel pairs
   double errorPlain, errorRpc;
-  for (int i=0; i<NUM_PIXELS; ++i) {
+  for (int i = 0; i < NUM_PIXELS; i++) {
     // Use both stereo models to find the ray intersection
     Vector3 xyzPlain = plainStereoModel(pixels1[i], pixels2[i], errorPlain);
     Vector3 xyzRpc   = rpcStereoModel  (pixels1[i], pixels2[i], errorRpc  );

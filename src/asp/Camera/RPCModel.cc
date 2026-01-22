@@ -321,9 +321,9 @@ RPCModel::CoeffVec RPCModel::calculate_terms(vw::Vector3 const& normalized_geode
 
 vw::Vector<int,20> RPCModel::get_coeff_order() {
   vw::Vector<int,20> result;
-  for (int i= 0; i< 3; ++i) result[i] = 1;
-  for (int i= 3; i<10; ++i) result[i] = 2;
-  for (int i=10; i<20; ++i) result[i] = 3;
+  for (int i = 0; i < 3; i++) result[i] = 1;
+  for (int i = 3; i < 10; i++) result[i] = 2;
+  for (int i = 10; i < 20; i++) result[i] = 3;
   return result;
 }
 
