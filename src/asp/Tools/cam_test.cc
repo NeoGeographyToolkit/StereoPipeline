@@ -446,7 +446,7 @@ void run_cam_test(Options & opt) {
         if (!have_bathy_plane)
           cam2_pix = cam2_model->point_to_pixel(xyz);
         else
-          cam2_pix = vw::point_to_pixel(cam2_model, datum, opt.bathy_plane_vec[0],
+          cam2_pix = vw::point_to_pixel(cam2_model, opt.bathy_plane_vec[0],
                                         opt.refraction_index, xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
 
@@ -460,7 +460,7 @@ void run_cam_test(Options & opt) {
           if (!have_bathy_plane)
             cam2_pix2 = cam2_model->point_to_pixel(xyz);
           else
-            cam2_pix2 = vw::point_to_pixel(cam2_model, datum, opt.bathy_plane_vec[0],
+            cam2_pix2 = vw::point_to_pixel(cam2_model, opt.bathy_plane_vec[0],
                                            opt.refraction_index, xyz);
 
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
@@ -486,7 +486,7 @@ void run_cam_test(Options & opt) {
         if (!have_bathy_plane)
           cam1_pix = cam1_model->point_to_pixel(xyz);
         else
-          cam1_pix = point_to_pixel(cam1_model, datum, opt.bathy_plane_vec[0],
+          cam1_pix = point_to_pixel(cam1_model, opt.bathy_plane_vec[0],
                                     opt.refraction_index, xyz);
         cam2_to_cam1_diff.push_back(norm_2(image_pix - cam1_pix));
 
@@ -499,7 +499,7 @@ void run_cam_test(Options & opt) {
           if (!have_bathy_plane)
             cam1_pix2 = cam1_model->point_to_pixel(xyz);
           else
-            cam1_pix2 = point_to_pixel(cam1_model, datum, opt.bathy_plane_vec[0],
+            cam1_pix2 = point_to_pixel(cam1_model, opt.bathy_plane_vec[0],
                                        opt.refraction_index, xyz);
           asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
           nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
