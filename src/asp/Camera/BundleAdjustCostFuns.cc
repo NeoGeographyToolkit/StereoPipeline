@@ -308,7 +308,7 @@ vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) co
 
 // Call to work with ceres::DynamicCostFunctions.
 // - Takes array of arrays.
-bool BaReprojectionError::operator()(double const * const * parameters,
+bool BaReprojErr::operator()(double const * const * parameters,
                                      double * residuals) const {
 
   try {
@@ -318,8 +318,8 @@ bool BaReprojectionError::operator()(double const * const * parameters,
       param_blocks[i] = parameters[i];
     }
 
-    // Use the camera model wrapper to handle all of the parameter blocks.
-    Vector2 prediction = m_camera_wrapper->evaluate(param_blocks);
+    // Use the adapted camera model to handle all of the parameter blocks.
+    Vector2 prediction = m_ba_cam->evaluate(param_blocks);
 
     // The error is the difference between the predicted and observed pixel
     // position, normalized by sigma.
@@ -347,20 +347,20 @@ bool BaReprojectionError::operator()(double const * const * parameters,
 
 // Factory to hide the construction of the CostFunction object from the client code.
 ceres::CostFunction*
-BaReprojectionError::Create(Vector2 const& observation,
+BaReprojErr::Create(Vector2 const& observation,
                             Vector2 const& pixel_sigma,
-                            boost::shared_ptr<BaCamBase> camera_wrapper) {
+                            boost::shared_ptr<BaCamBase> ba_cam) {
   const int NUM_RESIDUALS = 2;
 
-  ceres::DynamicNumericDiffCostFunction<BaReprojectionError>* cost_function =
-      new ceres::DynamicNumericDiffCostFunction<BaReprojectionError>(
-          new BaReprojectionError(observation, pixel_sigma, camera_wrapper));
+  ceres::DynamicNumericDiffCostFunction<BaReprojErr>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<BaReprojErr>(
+          new BaReprojErr(observation, pixel_sigma, ba_cam));
 
   // The residual size is always the same.
   cost_function->SetNumResiduals(NUM_RESIDUALS);
 
-  // The camera wrapper knows all of the block sizes to add.
-  std::vector<int> block_sizes = camera_wrapper->get_block_sizes();
+  // The adapted camera model knows all of the block sizes to add.
+  std::vector<int> block_sizes = ba_cam->get_block_sizes();
   for (size_t i = 0; i < block_sizes.size(); i++) {
     cost_function->AddParameterBlock(block_sizes[i]);
   }
@@ -368,7 +368,7 @@ BaReprojectionError::Create(Vector2 const& observation,
 }
 
 // Adaptor to work with ceres::DynamicCostFunctions.
-bool BaDispXyzError::operator()(double const* const* parameters, double* residuals) const {
+bool BaDispXyzErr::operator()(double const* const* parameters, double* residuals) const {
 
   try{
     // Split apart the input parameter blocks and hand them to the camera wrappers.
@@ -376,8 +376,8 @@ bool BaDispXyzError::operator()(double const* const* parameters, double* residua
     unpack_residual_pointers(parameters, left_param_blocks, right_param_blocks);
 
     // Get pixel projection in both cameras.
-    Vector2 left_prediction  = m_left_camera_wrapper->evaluate (left_param_blocks);
-    Vector2 right_prediction = m_right_camera_wrapper->evaluate(right_param_blocks);
+    Vector2 left_prediction  = m_left_ba_cam->evaluate (left_param_blocks);
+    Vector2 right_prediction = m_right_ba_cam->evaluate(right_param_blocks);
 
     // See how consistent that is with the observed disparity.
     bool good_ans = true;
@@ -417,14 +417,14 @@ bool BaDispXyzError::operator()(double const* const* parameters, double* residua
 // TODO: Should this logic live somewhere else?
 /// Create the list of residual pointers when solving for intrinsics.
 /// - Extra logic is needed to avoid duplicate pointers.
-void BaDispXyzError::get_residual_pointers(asp::BaParams &param_storage,
+void BaDispXyzErr::get_residual_pointers(asp::BaParams &param_storage,
                                   int left_cam_index, int right_cam_index,
                                   bool solve_intrinsics,
                                   asp::IntrinsicOptions const& intrinsics_opt,
                                   std::vector<double*> &residual_ptrs) {
 
-  double* left_camera  = param_storage.get_camera_ptr(left_cam_index);
-  double* right_camera = param_storage.get_camera_ptr(right_cam_index);
+  double* left_cam  = param_storage.get_camera_ptr(left_cam_index);
+  double* right_cam = param_storage.get_camera_ptr(right_cam_index);
   residual_ptrs.clear();
   if (solve_intrinsics) {
     double* left_center      = param_storage.get_intrinsic_center_ptr    (left_cam_index);
@@ -434,22 +434,22 @@ void BaDispXyzError::get_residual_pointers(asp::BaParams &param_storage,
     double* right_focus      = param_storage.get_intrinsic_focus_ptr     (right_cam_index);
     double* right_distortion = param_storage.get_intrinsic_distortion_ptr(right_cam_index);
 
-    residual_ptrs.push_back(left_camera);
+    residual_ptrs.push_back(left_cam);
     residual_ptrs.push_back(left_center);
     residual_ptrs.push_back(left_focus);
     residual_ptrs.push_back(left_distortion);
-    residual_ptrs.push_back(right_camera);
+    residual_ptrs.push_back(right_cam);
     if (!intrinsics_opt.center_shared) residual_ptrs.push_back(right_center);
     if (!intrinsics_opt.focus_shared) residual_ptrs.push_back(right_focus);
     if (!intrinsics_opt.distortion_shared) residual_ptrs.push_back(right_distortion);
   } else { // This handles the generic camera case.
-    residual_ptrs.push_back(left_camera);
-    residual_ptrs.push_back(right_camera);
+    residual_ptrs.push_back(left_cam);
+    residual_ptrs.push_back(right_cam);
   }
   return;
 }
 
-void BaDispXyzError::unpack_residual_pointers(double const* const* parameters,
+void BaDispXyzErr::unpack_residual_pointers(double const* const* parameters,
                               std::vector<double const*> & left_param_blocks,
                               std::vector<double const*> & right_param_blocks) const {
 
@@ -497,20 +497,20 @@ void BaDispXyzError::unpack_residual_pointers(double const* const* parameters,
 
 // Factory to hide the construction of the CostFunction object from
 // the client code.
-ceres::CostFunction* BaDispXyzError::Create(
+ceres::CostFunction* BaDispXyzErr::Create(
     double max_disp_error, double reference_terrain_weight,
     Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
-    boost::shared_ptr<BaCamBase> left_camera_wrapper,
-    boost::shared_ptr<BaCamBase> right_camera_wrapper,
+    boost::shared_ptr<BaCamBase> left_ba_cam,
+    boost::shared_ptr<BaCamBase> right_ba_cam,
     bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt) {
 
   const int NUM_RESIDUALS = 2;
 
-  ceres::DynamicNumericDiffCostFunction<BaDispXyzError>* cost_function =
-      new ceres::DynamicNumericDiffCostFunction<BaDispXyzError>(
-          new BaDispXyzError(max_disp_error, reference_terrain_weight,
+  ceres::DynamicNumericDiffCostFunction<BaDispXyzErr>* cost_function =
+      new ceres::DynamicNumericDiffCostFunction<BaDispXyzErr>(
+          new BaDispXyzErr(max_disp_error, reference_terrain_weight,
                               reference_xyz, interp_disp,
-                              left_camera_wrapper, right_camera_wrapper,
+                              left_ba_cam, right_ba_cam,
                               solve_intrinsics, intrinsics_opt));
 
   // The residual size is always the same.
@@ -518,11 +518,11 @@ ceres::CostFunction* BaDispXyzError::Create(
 
   // Add all of the blocks for each camera, except for the first (point)
   // block which is provided at creation time.
-  std::vector<int> block_sizes = left_camera_wrapper->get_block_sizes();
+  std::vector<int> block_sizes = left_ba_cam->get_block_sizes();
   for (size_t i = 1; i < block_sizes.size(); i++) {
     cost_function->AddParameterBlock(block_sizes[i]);
   }
-  block_sizes = right_camera_wrapper->get_block_sizes();
+  block_sizes = right_ba_cam->get_block_sizes();
   if (!solve_intrinsics) {
     for (size_t i = 1; i < block_sizes.size(); i++) {
       cost_function->AddParameterBlock(block_sizes[i]);
@@ -570,7 +570,7 @@ void addReprojResidual(vw::Vector2 const& observation,
   ceres::LossFunction* loss_function;
   loss_function = get_loss_function(opt.cost_function, opt.robust_threshold);
 
-  boost::shared_ptr<CameraModel> camera_model = opt.camera_models[camera_index];
+  boost::shared_ptr<CameraModel> cam = opt.camera_models[camera_index];
 
   double* camera = param_storage.get_camera_ptr(camera_index);
   double* point  = param_storage.get_point_ptr(point_index);
@@ -578,11 +578,11 @@ void addReprojResidual(vw::Vector2 const& observation,
   if (opt.camera_type == asp::BaCameraType_Other) {
     // The generic camera case. This includes pinhole and CSM too, when
     // the adjustments are external and intrinsics are not solved for.
-    boost::shared_ptr<BaCamBase> wrapper(new BaAdjCam(camera_model,
+    boost::shared_ptr<BaCamBase> ba_cam(new BaAdjCam(cam,
                                                       opt.bathy_data,
                                                       camera_index));
       ceres::CostFunction* cost_function =
-        BaReprojectionError::Create(observation, pixel_sigma, wrapper);
+        BaReprojErr::Create(observation, pixel_sigma, ba_cam);
       problem.AddResidualBlock(cost_function, loss_function, point, camera);
 
   } else { // Solve for intrinsics for Pinhole, optical bar, or CSM camera
@@ -590,47 +590,47 @@ void addReprojResidual(vw::Vector2 const& observation,
     double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
     double* distortion = param_storage.get_intrinsic_distortion_ptr(camera_index);
 
-    boost::shared_ptr<BaCamBase> wrapper;
+    boost::shared_ptr<BaCamBase> ba_cam;
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
 
       boost::shared_ptr<PinholeModel> pinhole_model =
-        boost::dynamic_pointer_cast<PinholeModel>(camera_model);
+        boost::dynamic_pointer_cast<PinholeModel>(cam);
       if (pinhole_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr()
                       << "Tried to add pinhole block with non-pinhole camera.");
-      wrapper.reset(new BaPinholeCam(pinhole_model, opt.bathy_data, camera_index));
+      ba_cam.reset(new BaPinholeCam(pinhole_model, opt.bathy_data, camera_index));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
 
       boost::shared_ptr<vw::camera::OpticalBarModel> bar_model =
-        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(camera_model);
+        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam);
       if (bar_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
-      wrapper.reset(new BaOpticalBarCam(bar_model, opt.bathy_data, camera_index));
+      ba_cam.reset(new BaOpticalBarCam(bar_model, opt.bathy_data, camera_index));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> csm_model =
-        boost::dynamic_pointer_cast<asp::CsmModel>(camera_model);
+        boost::dynamic_pointer_cast<asp::CsmModel>(cam);
       if (csm_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add CSM block with "
                       << "non-CSM camera.");
-      wrapper.reset(new BaCsmCam(csm_model, opt.bathy_data, camera_index));
+      ba_cam.reset(new BaCsmCam(csm_model, opt.bathy_data, camera_index));
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
     }
 
     ceres::CostFunction* cost_function =
-      BaReprojectionError::Create(observation, pixel_sigma, wrapper);
+      BaReprojErr::Create(observation, pixel_sigma, ba_cam);
     problem.AddResidualBlock(cost_function, loss_function, point, camera,
                              center, focus, distortion);
 
     // Apply the residual limits
     size_t num_limits = opt.intrinsics_limits.size() / 2;
-    if ((num_limits > 0) && (num_limits > wrapper->num_intrinsic_params()))
+    if ((num_limits > 0) && (num_limits > ba_cam->num_intrinsic_params()))
       vw::vw_throw(vw::ArgumentErr()
                    << "Error: Too many intrinsic limits provided."
-                   << " This model has " << wrapper->num_intrinsic_params()
+                   << " This model has " << ba_cam->num_intrinsic_params()
                    << " intrinsic parameters.");
 
     size_t intrinsics_index = 0;
@@ -686,69 +686,69 @@ void addDispResidual(vw::Vector3 const& reference_xyz,
   ceres::LossFunction* loss_function
    = get_loss_function(opt.cost_function, opt.robust_threshold);
 
-  boost::shared_ptr<CameraModel> left_camera_model  = opt.camera_models[left_cam_index ];
-  boost::shared_ptr<CameraModel> right_camera_model = opt.camera_models[right_cam_index];
+  boost::shared_ptr<CameraModel> left_cam  = opt.camera_models[left_cam_index ];
+  boost::shared_ptr<CameraModel> right_cam = opt.camera_models[right_cam_index];
 
   const bool inline_adjustments = (opt.camera_type != asp::BaCameraType_Other);
 
   // Get the list of residual pointers that will be passed to ceres.
   std::vector<double*> residual_ptrs;
-  BaDispXyzError::get_residual_pointers(param_storage,
+  BaDispXyzErr::get_residual_pointers(param_storage,
                                         left_cam_index, right_cam_index,
                                         inline_adjustments, opt.intrinsics_options,
                                         residual_ptrs);
  if (opt.camera_type == asp::BaCameraType_Other) {
 
     boost::shared_ptr<BaCamBase>
-      left_wrapper (new BaAdjCam(left_camera_model,
+      left_ba_cam (new BaAdjCam(left_cam,
                                  opt.bathy_data,
                                  left_cam_index));
     boost::shared_ptr<BaCamBase>
-      right_wrapper(new BaAdjCam(right_camera_model,
+      right_ba_cam(new BaAdjCam(right_cam,
                                  opt.bathy_data,
                                  right_cam_index));
     ceres::CostFunction* cost_function =
-      BaDispXyzError::Create(opt.max_disp_error, opt.reference_terrain_weight,
-        reference_xyz, interp_disp, left_wrapper, right_wrapper,
+      BaDispXyzErr::Create(opt.max_disp_error, opt.reference_terrain_weight,
+        reference_xyz, interp_disp, left_ba_cam, right_ba_cam,
         inline_adjustments, opt.intrinsics_options);
 
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
   } else { // Inline adjustments
 
-    boost::shared_ptr<BaCamBase> left_wrapper, right_wrapper;
+    boost::shared_ptr<BaCamBase> left_ba_cam, right_ba_cam;
 
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
       boost::shared_ptr<PinholeModel> left_pinhole_model =
-        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
+        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_cam);
       boost::shared_ptr<PinholeModel> right_pinhole_model =
-        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
-      left_wrapper.reset(new BaPinholeCam(left_pinhole_model, opt.bathy_data, left_cam_index));
-      right_wrapper.reset(new BaPinholeCam(right_pinhole_model, opt.bathy_data, right_cam_index));
+        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_cam);
+      left_ba_cam.reset(new BaPinholeCam(left_pinhole_model, opt.bathy_data, left_cam_index));
+      right_ba_cam.reset(new BaPinholeCam(right_pinhole_model, opt.bathy_data, right_cam_index));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
       boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model =
-        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_camera_model);
+        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_cam);
       boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model =
-        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_camera_model);
-      left_wrapper.reset(new BaOpticalBarCam(left_bar_model, opt.bathy_data, left_cam_index));
-      right_wrapper.reset(new BaOpticalBarCam(right_bar_model, opt.bathy_data, right_cam_index));
+        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_cam);
+      left_ba_cam.reset(new BaOpticalBarCam(left_bar_model, opt.bathy_data, left_cam_index));
+      right_ba_cam.reset(new BaOpticalBarCam(right_bar_model, opt.bathy_data, right_cam_index));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> left_csm_model =
-        boost::dynamic_pointer_cast<asp::CsmModel>(left_camera_model);
+        boost::dynamic_pointer_cast<asp::CsmModel>(left_cam);
       boost::shared_ptr<asp::CsmModel> right_csm_model =
-        boost::dynamic_pointer_cast<asp::CsmModel>(right_camera_model);
-      left_wrapper.reset(new BaCsmCam(left_csm_model, opt.bathy_data, left_cam_index));
-      right_wrapper.reset(new BaCsmCam(right_csm_model, opt.bathy_data, right_cam_index));
+        boost::dynamic_pointer_cast<asp::CsmModel>(right_cam);
+      left_ba_cam.reset(new BaCsmCam(left_csm_model, opt.bathy_data, left_cam_index));
+      right_ba_cam.reset(new BaCsmCam(right_csm_model, opt.bathy_data, right_cam_index));
 
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
     }
 
     ceres::CostFunction* cost_function =
-      BaDispXyzError::Create(opt.max_disp_error, opt.reference_terrain_weight,
-                             reference_xyz, interp_disp, left_wrapper, right_wrapper,
+      BaDispXyzErr::Create(opt.max_disp_error, opt.reference_terrain_weight,
+                             reference_xyz, interp_disp, left_ba_cam, right_ba_cam,
                              inline_adjustments, opt.intrinsics_options);
     problem.AddResidualBlock(cost_function, loss_function, residual_ptrs);
 
@@ -1013,12 +1013,12 @@ void addRefTerrainCostFun(asp::BaOptions                            & opt,
     // Iterate over the cameras, add a residual for each point and each camera pair.
     for (int icam = 0; icam < num_cameras - 1; icam++) {
 
-      boost::shared_ptr<CameraModel> left_camera  = opt.camera_models[icam];
-      boost::shared_ptr<CameraModel> right_camera = opt.camera_models[icam+1];
+      boost::shared_ptr<CameraModel> left_cam  = opt.camera_models[icam];
+      boost::shared_ptr<CameraModel> right_cam = opt.camera_models[icam+1];
 
       try {
-        left_pred  = left_camera->point_to_pixel (reference_xyz);
-        right_pred = right_camera->point_to_pixel(reference_xyz);
+        left_pred  = left_cam->point_to_pixel (reference_xyz);
+        right_pred = right_cam->point_to_pixel(reference_xyz);
       } catch (const camera::PointToPixelErr& e) {
         continue; // Skip point if there is a projection issue.
       }

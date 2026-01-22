@@ -230,13 +230,13 @@ private:
 /// A Ceres cost function. We pass in the observation and the model.
 ///  The result is the residual, the difference in the observation 
 ///  and the projection of the point into the camera, normalized by pixel_sigma.
-struct BaReprojectionError {
-  BaReprojectionError(vw::Vector2 const& observation, vw::Vector2 const& pixel_sigma,
-                      boost::shared_ptr<BaCamBase> camera_wrapper):
+struct BaReprojErr {
+  BaReprojErr(vw::Vector2 const& observation, vw::Vector2 const& pixel_sigma,
+                      boost::shared_ptr<BaCamBase> ba_cam):
     m_observation(observation),
     m_pixel_sigma(pixel_sigma),
-    m_num_param_blocks(camera_wrapper->num_parameter_blocks()),
-    m_camera_wrapper(camera_wrapper) {}
+    m_num_param_blocks(ba_cam->num_parameter_blocks()),
+    m_ba_cam(ba_cam) {}
 
   // Call to work with ceres::DynamicCostFunctions.
   // - Takes array of arrays.
@@ -245,15 +245,15 @@ struct BaReprojectionError {
   // Factory to hide the construction of the CostFunction object from the client code.
   static ceres::CostFunction* Create(vw::Vector2 const& observation,
                                      vw::Vector2 const& pixel_sigma,
-                                     boost::shared_ptr<BaCamBase> camera_wrapper);
+                                     boost::shared_ptr<BaCamBase> ba_cam);
 
 private:
   vw::Vector2 m_observation; ///< The pixel observation for this camera/point pair.
   vw::Vector2 m_pixel_sigma;
   size_t  m_num_param_blocks;
-  boost::shared_ptr<BaCamBase> m_camera_wrapper; ///< Pointer to the camera model object.
+  boost::shared_ptr<BaCamBase> m_ba_cam; ///< Pointer to the camera model object.
 
-}; // End class BaReprojectionError
+}; // End class BaReprojErr
 
 /// A ceres cost function. Here we float two pinhole camera's
 /// intrinsic and extrinsic parameters. We take as input a reference
@@ -263,23 +263,23 @@ private:
 /// image. There, the residual error is the difference between that
 /// pixel and the pixel obtained by projecting the xyz point
 /// straight into the right image.
-struct BaDispXyzError {
-  BaDispXyzError(double max_disp_error,
+struct BaDispXyzErr {
+  BaDispXyzErr(double max_disp_error,
                  double reference_terrain_weight,
                  vw::Vector3 const& reference_xyz,
                  vw::ImageViewRef<DispPixelT> const& interp_disp,
-                 boost::shared_ptr<BaCamBase> left_camera_wrapper,
-                 boost::shared_ptr<BaCamBase> right_camera_wrapper,
+                 boost::shared_ptr<BaCamBase> left_ba_cam,
+                 boost::shared_ptr<BaCamBase> right_ba_cam,
                  bool solve_intrinsics, // Would like to remove these!
                  asp::IntrinsicOptions intrinsics_opt):
   m_max_disp_error(max_disp_error),
   m_reference_terrain_weight(reference_terrain_weight),
   m_reference_xyz(reference_xyz),
   m_interp_disp (interp_disp),
-  m_num_left_param_blocks (left_camera_wrapper->num_parameter_blocks ()),
-  m_num_right_param_blocks(right_camera_wrapper->num_parameter_blocks()),
-  m_left_camera_wrapper(left_camera_wrapper),
-  m_right_camera_wrapper(right_camera_wrapper),
+  m_num_left_param_blocks (left_ba_cam->num_parameter_blocks ()),
+  m_num_right_param_blocks(right_ba_cam->num_parameter_blocks()),
+  m_left_ba_cam(left_ba_cam),
+  m_right_ba_cam(right_ba_cam),
   m_solve_intrinsics(solve_intrinsics),
   m_intrinsics_opt(intrinsics_opt) {}
 
@@ -304,8 +304,8 @@ struct BaDispXyzError {
   static ceres::CostFunction* Create(
       double max_disp_error, double reference_terrain_weight,
       vw::Vector3 const& reference_xyz, vw::ImageViewRef<DispPixelT> const& interp_disp,
-      boost::shared_ptr<BaCamBase> left_camera_wrapper,
-      boost::shared_ptr<BaCamBase> right_camera_wrapper,
+      boost::shared_ptr<BaCamBase> left_ba_cam,
+      boost::shared_ptr<BaCamBase> right_ba_cam,
       bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt);
 
   double m_max_disp_error, m_reference_terrain_weight;
@@ -313,8 +313,8 @@ struct BaDispXyzError {
   vw::ImageViewRef<DispPixelT> const& m_interp_disp;
   size_t m_num_left_param_blocks, m_num_right_param_blocks;
   // TODO: Make constant!
-  boost::shared_ptr<BaCamBase> m_left_camera_wrapper;
-  boost::shared_ptr<BaCamBase> m_right_camera_wrapper;
+  boost::shared_ptr<BaCamBase> m_left_ba_cam;
+  boost::shared_ptr<BaCamBase> m_right_ba_cam;
 
   // Would like to not have these two!
   bool m_solve_intrinsics;
