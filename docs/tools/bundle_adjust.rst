@@ -137,12 +137,14 @@ CSM cameras
 
 ::
 
-     bundle_adjust file1.cub file2.cub              \
-        file1.json file2.json                       \
-        -t csm                                      \
-        --camera-weight 0                           \
-        --tri-weight 0.1 --tri-robust-threshold 0.1 \
-        -o run_ba/run
+     bundle_adjust                \
+       file1.cub file2.cub        \
+       file1.json file2.json      \
+       -t csm                     \
+       --camera-weight 0          \
+       --tri-weight 0.1           \
+       --tri-robust-threshold 0.1 \
+       -o run_ba/run
 
 CSM cameras (:numref:`csm`) can be stored in .json files or in .cub files. After
 bundle adjustment, updated .json camera files will be written to disk, in
@@ -152,6 +154,35 @@ Later, use either the original cameras with the computed adjustments
 (:numref:`ba_use`), or the updated cameras without the adjustments.
 
 The datum will be read from the camera files.
+
+.. _ba_bathy:
+
+Bathymetry correction
+^^^^^^^^^^^^^^^^^^^^^
+
+When working with underwater terrain, bundle adjustment can model light
+refraction through water for triangulation of ground points and ground-to-image
+operations.
+
+Example::
+
+    echo left_bathy_mask.tif right_bathy_mask.tif > mask_list.txt
+    bundle_adjust                      \
+      left_image.tif right_image.tif   \
+      left_camera.xml right_camera.xml \
+      --bathy-mask-list mask_list.txt  \
+      --refraction-index 1.333         \
+      --bathy-plane bathy_plane.txt    \
+      -o run/run
+
+The mask files must be in a list to distinguish them from the image files. Each
+input image has a corresponding bathy mask, and these entities must be in the
+same order (and also with the cameras). Lists can also be used for the input
+images and cameras, via ``--image-list`` and ``--camera-list``.
+
+The preparation of bathy masks, the bathy plane (or more than one), and the
+refraction index are as for stereo processing (:numref:`bathy_intro`). The
+options invoked above are described in :numref:`ba_options`.
 
 Other cameras
 ^^^^^^^^^^^^^
@@ -1612,6 +1643,27 @@ Command-line options
     transported by disparity to the right image differ by the
     projection of xyz in the right image by more than this value
     in pixels.
+
+--bathy-plane <string (default: "")>
+    Path to file containing a plane approximating the water surface, for
+    bathymetry correction with underwater terrain (:numref:`bathy_intro`).
+    If multiple images are used and they have different water surfaces, specify
+    one file per image as a list in quotes separated by spaces. This corrects
+    camera rays passing through water using Snell's law. Must be used together
+    with ``--refraction-index``. See also ``--bathy-mask``.
+
+--bathy-mask <string (default: "")>
+    Path to water mask image for bathymetry correction. Specify one mask per
+    input image as a list in quotes separated by spaces. Pixels classified as
+    water must be either no-data or have zero value, while land pixels must have
+    positive values. Must be used with ``--bathy-plane`` and
+    ``--refraction-index``.
+
+--refraction-index <double (default: 0.0)>
+    Index of refraction of water for bathymetry correction. Typical values:
+    1.333 to 1.341 depending on wavelength and temperature. Must be used with
+    ``--bathy-plane``. See :numref:`refr_index` to compute the effective
+    refraction index for a specific satellite band and water conditions.
 
 --max-triangulation-angle <double (default: -1.0)>
     Filter as outlier any triangulation points for which the maximum angle of

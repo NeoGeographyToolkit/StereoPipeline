@@ -1,7 +1,7 @@
 Changes since last release
 --------------------------
 
-bathymetry (:numref:`shallow_water_bathy`):
+bathymetry (:numref:`bathy_intro`):
   * Added a program for computing the effective refraction index of water 
     for a satellite band (:numref:`refr_index`).
   * Added documentation on alternative spectral indices for water masking
@@ -22,6 +22,9 @@ bathy_plane_calc (:numref:`bathy_plane_calc`):
 cam_test (:numref:`cam_test`):
   * Added the options ``--bathy-plane`` and ``--refraction-index`` to model
     bathymetry correction with ray bending according to Snell's law.
+
+bundle_adjust (:numref:`bundle_adjust`):
+  * Added bathymetry support (:numref:`ba_bathy`).
 
 image_calc (:numref:`image_calc`):
   * Added the option ``--stretch`` to stretch an image and save it with 8-bit
@@ -1115,7 +1118,7 @@ point2dem (:numref:`point2dem`):
     25th_pct)). Also print out these percentages even for the regular
     outlier removal.
 
-bathymetry (:numref:`shallow_water_bathy`):
+bathymetry (:numref:`bathy_intro`):
   * Added ``scale_bathy_mask.py``, for creating a PAN-sized image
     or mask from an multispectral-sized image or mask, both for
     WorldView data.

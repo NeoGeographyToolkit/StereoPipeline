@@ -899,7 +899,7 @@ Bathymetry correction options
 -----------------------------
 
 These are options are used to infer the depth of shallow-water bodies
-(see :numref:`shallow_water_bathy`).
+(see :numref:`bathy_intro`).
 
 Pre-processing stage
 ~~~~~~~~~~~~~~~~~~~~

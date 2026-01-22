@@ -5,7 +5,7 @@ refr_index
 
 The ``refr_index`` program computes the effective refraction index of water for
 a specific satellite sensor band and given temperature and salinity. This has
-applications for shallow water bathymetry (:numref:`shallow_water_bathy`).
+applications for shallow water bathymetry (:numref:`bathy_intro`).
 
 Examples
 ~~~~~~~~

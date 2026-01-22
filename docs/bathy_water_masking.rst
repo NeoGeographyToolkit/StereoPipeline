@@ -3,7 +3,7 @@
 Bathy water masking
 ===================
 
-For shallow water bathymetry (:numref:`shallow_water_bathy`) it is important to
+For shallow water bathymetry (:numref:`bathy_intro`) it is important to
 distinguish land pixels from water pixels. This allows the algorithm to focus on
 underwater terrain while avoiding false depth estimates from land features.
 

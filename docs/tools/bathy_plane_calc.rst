@@ -8,7 +8,7 @@ water as a plane in a local stereographic projection. This plane can be
 slightly non-horizontal due to imperfections in the positions and
 orientations of the cameras that were used to create the input DEM.
 
-Further context is given in :numref:`shallow_water_bathy`.
+Further context is given in :numref:`bathy_intro`.
 
 The examples below show the several ways in which the inputs can be specified.
 
@@ -270,7 +270,7 @@ columns will be ignored, such as the ID in column 1.
 
 Care must be taken to ensure all the measurements, resulting bathy
 plane, and any DEMs are in the same coordinate system. This is
-discussed further in :numref:`bathy_and_align`.
+discussed further in :numref:`bathy_ba_align`.
 
 .. _bathy_plane_mask_samples:
 

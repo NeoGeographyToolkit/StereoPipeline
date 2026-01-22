@@ -78,7 +78,7 @@ Files created in preprocessing
     removed in the future. 
 
 \*bathy_mask\*.tif - data related to water-land masks, for stereo with
-    shallow water (:numref:`shallow_water_bathy`).
+    shallow water (:numref:`bathy_intro`).
 
 \*-L_sub.tif, \*-R_sub.tif, \*-lMask_sub.tif, \*-rMask_sub.tif are
     low-resolution versions of the aligned left and right input images

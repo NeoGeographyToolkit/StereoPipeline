@@ -21,7 +21,7 @@ at the NASA Ames Research Center in Moffett Field, CA.
   and the early version of Shape-from-Shading)
 - Mike Lundy (NASA/Stinger-Ghaffarian Technologies)
 - Dr. Laurence Edwards (NASA, former IRG Terrain Reconstruction Lead)
-- Monica Palaseanu-Lovejoy (USGS, lead the research on the bathymetry module, :numref:`shallow_water_bathy`)
+- Monica Palaseanu-Lovejoy (USGS, lead the research on the bathymetry module, :numref:`bathy_intro`)
 - Dr. Randolph Kirk (USGS, contributed many insights to the shape-from-shading functionality, :numref:`sfs_usage`)
 - Yu Tao and Jan-Peter Muller (University College London, contributed the CASP-GO stereo processing system, :numref:`casp_go`)
 - Vinh To (NASA/Stinger-Ghaffarian Technologies)

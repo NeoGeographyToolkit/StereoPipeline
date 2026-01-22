@@ -1,6 +1,6 @@
 .. include:: <isonum.txt>
 
-.. _shallow_water_bathy:
+.. _bathy_intro:
 
 Shallow-water bathymetry
 ------------------------
@@ -24,7 +24,7 @@ ASP supports the bathymetry mode only with the ``dg``, ``rpc``, and
 ``nadirpinhole`` sessions, so with Digital Globe linescan cameras, RPC cameras,
 and pinhole cameras (:numref:`bathy_non_dg`), all for Earth, with the WGS84
 datum. Both raw and mapprojected images can be used (:numref:`bathy_map`), with
-or without bundle adjustment or alignment (:numref:`bathy_and_align`).
+or without bundle adjustment or alignment (:numref:`bathy_ba_align`).
 
 Physics considerations
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -311,7 +311,7 @@ bathymetry correction. It is hoped that no changes will be seen on
 land, and that the inliers bound well the region where change of depth
 happened.
 
-.. _bathy_and_align:
+.. _bathy_ba_align:
 
 Bundle adjustment and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -334,6 +334,9 @@ convergence of bundle adjustment.
 
 It is suggested to use these tools only if a trusted reference dataset
 exists, and then the produced DEMs should be aligned to that dataset.
+
+ASP build 2026-01 or newer (:numref:`release`) supports modeling bathymetry
+during bundle adjustment (:numref:`ba_bathy`).
 
 Only the "topo" component of a DEM obtained with ASP should be used
 for alignment (see ``--output-cloud-type``), that is, the part above
