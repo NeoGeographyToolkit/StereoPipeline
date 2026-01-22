@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 // These are objects that relate directly to block in XML that we need
 // to read. They only read and then store the raw values. Other
 // objects will interpret the results.
@@ -108,7 +107,6 @@ namespace asp {
     SecondsFromRef m_time_ref_functor;
 
   }; // End class SpotXML
-
 
 } //end namespace asp
 

@@ -61,7 +61,6 @@ struct Options: vw::GdalWriteOptions {
   Options() {}
 };
 
-
 void handle_arguments(int argc, char *argv[], Options& opt) {
 
   double nan = std::numeric_limits<double>::quiet_NaN();

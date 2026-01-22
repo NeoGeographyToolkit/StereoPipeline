@@ -168,7 +168,6 @@ void asp::ImageXML::parse(xercesc::DOMElement* node) {
 //========================================================================
 // GeometricXML class
 
-
 void asp::GeometricXML::parse_principal_distance(xercesc::DOMElement* node) {
   cast_xmlch(get_node<DOMElement>(node, "PD")->getTextContent(), principal_distance);
 }
@@ -306,7 +305,6 @@ void asp::GeometricXML::parse(xercesc::DOMElement* node) {
     }
   }
 }
-
 
 void asp::GeometricXML::printDebugInfo() const {
 
@@ -451,7 +449,6 @@ void asp::AttitudeXML::parse(xercesc::DOMElement* node) {
   parse_att_list(get_node<DOMElement>(node, "ATTLISTList"));
   check_argument(1);
 }
-
 
 //========================================================================
 // RPCXML class
@@ -954,7 +951,6 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
   // Only make it here if we failed to find the corner information!  
   return false;
 }
-
 
 bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
                                       GeoReference      & approx_georef) {

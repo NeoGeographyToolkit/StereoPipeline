@@ -15,7 +15,6 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 // These are objects that relate directly to block in XML that we need
 // to read. They only read and then store the raw values. Other
 // objects will interpret the results.
@@ -77,7 +76,6 @@ namespace asp {
     std::string image_descriptor;     // e.g., "Stereo1B"
   };
 
-
   ///
   class GeometricXML : public BitChecker {
 
@@ -103,7 +101,6 @@ namespace asp {
 
     void printDebugInfo() const; ///< Debug string
   };
-
 
   ///
   class EphemerisXML : public BitChecker {
@@ -133,7 +130,6 @@ namespace asp {
 
     std::vector<vw::Vector3> velocity_vec; // ECEF
   };
-
 
   /// 
   class AttitudeXML : public BitChecker {
@@ -201,7 +197,6 @@ namespace asp {
                  ImageXML    & img,
                  RPCXML      & rpc);
   vw::Vector2i xml_image_size(std::string const& filename);
-
 
   /// Function to extract the four corners from the first band
   ///  of a Worldview XML file.

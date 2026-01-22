@@ -129,7 +129,6 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   xercesc::DOMElement* look_angles_node         = get_node<DOMElement>(node, "Instrument_Look_Angles_List");
   xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
 
-
   //std::cout << "Parse dataset\n";
   read_corners(dataset_frame_node);
   //read_datum(crs_node);
@@ -162,7 +161,6 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   m_time_ref_functor.set_base_time(earliest_time);
   //std::cout << "Done parsing XML.\n";
 }
-
 
 void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
 
@@ -373,7 +371,6 @@ vw::camera::LinearTimeInterpolation SpotXML::setup_time_func() const {
   return vw::camera::LinearTimeInterpolation(min_line_time, this->line_period);
 }
 
-
 // Velocities are the sum of inertial velocities and the instantaneous
 //  Earth rotation.
 
@@ -435,7 +432,6 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
 
   // This function returns a functor that returns just the yaw/pitch/roll angles.
   // - The time interval between lines is not constant but it is extremely close.
-
 
   // For some reason the corrected pose angles do not start early enough to cover
   // the time span for all of the input lines!
@@ -508,7 +504,5 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
 
 }
 
-
 } // end namespace asp
-
 
