@@ -49,7 +49,7 @@ namespace asp {
   
 /// Simple base class for unpacking Ceres parameter blocks into
 ///  a camera model which can do point projections.
-class CeresBundleModelBase {
+class BaCamBase {
 public:
 
   // These are the same for every camera.
@@ -77,18 +77,18 @@ public:
   /// - Throws if the point does not project in to the camera.
   virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const = 0;
   
-}; // End class CeresBundleModelBase
+}; // End class BaCamBase
 
 /// Simple wrapper for the vw::camera::AdjustedCameraModel class with a 
 /// preconfigured underlying camera.  Only uses translation and rotation.
 /// - Just vary the six camera adjustment parameters which are all in 
 ///   a single parameter block.
-class AdjustedCameraBundleModel: public CeresBundleModelBase {
+class BaAdjCam: public BaCamBase {
 public:
 
-  AdjustedCameraBundleModel(boost::shared_ptr<vw::camera::CameraModel> cam,
-                            vw::BathyData const& bathy_data,
-                            int camera_index):
+  BaAdjCam(boost::shared_ptr<vw::camera::CameraModel> cam,
+           vw::BathyData const& bathy_data,
+           int camera_index):
     m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
 
   virtual int num_intrinsic_params() const {return 0;}
@@ -107,15 +107,15 @@ private:
   vw::BathyData const& m_bathy_data;
   int m_camera_index;
 
-}; // End class CeresBundleModelBase
+}; // End class BaAdjCam
 
 /// "Full service" pinhole model which solves for all desired camera parameters.
 /// - If the current run does not want to solve for everything, those parameter
 ///   blocks should be set as constant so that Ceres does not change them.
-class PinholeBundleModel: public CeresBundleModelBase {
+class BaPinholeCam: public BaCamBase {
 public:
 
-  PinholeBundleModel(boost::shared_ptr<vw::camera::PinholeModel> cam);
+  BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam);
   
   /// The number of lens distortion parameters.
   int num_dist_params() const;
@@ -142,15 +142,15 @@ private:
   /// This camera is used for all of the intrinsic values.
   boost::shared_ptr<vw::camera::PinholeModel> m_underlying_camera;
 
-}; // End class PinholeBundleModel
+}; // End class BaPinholeCam
 
 /// "Full service" optical bar model which solves for all desired camera parameters.
 /// - If the current run does not want to solve for everything, those parameter
 ///   blocks should be set as constant so that Ceres does not change them.
-class OpticalBarBundleModel: public CeresBundleModelBase {
+class BaOpticalBarCam: public BaCamBase {
 public:
 
-  OpticalBarBundleModel(boost::shared_ptr<vw::camera::OpticalBarModel> cam);
+  BaOpticalBarCam(boost::shared_ptr<vw::camera::OpticalBarModel> cam);
 
   // Center, focus, and extra optical bar parameters
   virtual int num_intrinsic_params() const;
@@ -172,15 +172,15 @@ private:
   /// This camera is used for all of the intrinsic values.
   boost::shared_ptr<vw::camera::OpticalBarModel> m_underlying_camera;
 
-}; // End class OpticalBarBundleModel
+}; // End class BaOpticalBarCam
 
 /// "Full service" CSM model which solves for all desired camera parameters.
 /// - If the current run does not want to solve for everything, those parameter
 ///   blocks should be set as constant so that Ceres does not change them.
-class CsmBundleModel: public CeresBundleModelBase {
+class BaCsmCam: public BaCamBase {
 public:
 
-  CsmBundleModel(boost::shared_ptr<asp::CsmModel> cam):
+  BaCsmCam(boost::shared_ptr<asp::CsmModel> cam):
    m_underlying_camera(cam) {}
 
   /// The number of lens distortion parameters.
@@ -210,7 +210,7 @@ private:
   /// This camera is used for all of the intrinsic values.
   boost::shared_ptr<asp::CsmModel> m_underlying_camera;
 
-}; // End class CsmBundleModel
+}; // End class BaCsmCam
 
 //=========================================================================
 // Cost functions for Ceres
@@ -220,7 +220,7 @@ private:
 ///  and the projection of the point into the camera, normalized by pixel_sigma.
 struct BaReprojectionError {
   BaReprojectionError(vw::Vector2 const& observation, vw::Vector2 const& pixel_sigma,
-                      boost::shared_ptr<CeresBundleModelBase> camera_wrapper):
+                      boost::shared_ptr<BaCamBase> camera_wrapper):
     m_observation(observation),
     m_pixel_sigma(pixel_sigma),
     m_num_param_blocks(camera_wrapper->num_parameter_blocks()),
@@ -234,13 +234,13 @@ struct BaReprojectionError {
   // Factory to hide the construction of the CostFunction object from the client code.
   static ceres::CostFunction* Create(vw::Vector2 const& observation,
                                      vw::Vector2 const& pixel_sigma,
-                                     boost::shared_ptr<CeresBundleModelBase> camera_wrapper);
+                                     boost::shared_ptr<BaCamBase> camera_wrapper);
   
 private:
   vw::Vector2 m_observation; ///< The pixel observation for this camera/point pair.
   vw::Vector2 m_pixel_sigma;
   size_t  m_num_param_blocks;
-  boost::shared_ptr<CeresBundleModelBase> m_camera_wrapper; ///< Pointer to the camera model object.
+  boost::shared_ptr<BaCamBase> m_camera_wrapper; ///< Pointer to the camera model object.
 
 }; // End class BaReprojectionError
 
@@ -257,8 +257,8 @@ struct BaDispXyzError {
                  double reference_terrain_weight,
                  vw::Vector3 const& reference_xyz,
                  vw::ImageViewRef<DispPixelT> const& interp_disp,
-                 boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
-                 boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
+                 boost::shared_ptr<BaCamBase> left_camera_wrapper,
+                 boost::shared_ptr<BaCamBase> right_camera_wrapper,
                  bool solve_intrinsics, // Would like to remove these!
                  asp::IntrinsicOptions intrinsics_opt):
   m_max_disp_error(max_disp_error),
@@ -293,8 +293,8 @@ struct BaDispXyzError {
   static ceres::CostFunction* Create(
       double max_disp_error, double reference_terrain_weight,
       vw::Vector3 const& reference_xyz, vw::ImageViewRef<DispPixelT> const& interp_disp,
-      boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
-      boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
+      boost::shared_ptr<BaCamBase> left_camera_wrapper,
+      boost::shared_ptr<BaCamBase> right_camera_wrapper,
       bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt);
   
   double m_max_disp_error, m_reference_terrain_weight;
@@ -302,8 +302,8 @@ struct BaDispXyzError {
   vw::ImageViewRef<DispPixelT> const& m_interp_disp;
   size_t m_num_left_param_blocks, m_num_right_param_blocks;
   // TODO: Make constant!
-  boost::shared_ptr<CeresBundleModelBase> m_left_camera_wrapper;
-  boost::shared_ptr<CeresBundleModelBase> m_right_camera_wrapper;
+  boost::shared_ptr<BaCamBase> m_left_camera_wrapper;
+  boost::shared_ptr<BaCamBase> m_right_camera_wrapper;
 
   // Would like to not have these two!
   bool m_solve_intrinsics;

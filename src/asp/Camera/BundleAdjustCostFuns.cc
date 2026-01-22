@@ -44,7 +44,7 @@ vw::Mutex g_ba_mutex;
 // These should sum up to equal num_params.
 // The first block is always the point block (3) and
 // the second block is always the pose block (6).
-std::vector<int> CeresBundleModelBase::get_block_sizes() const {
+std::vector<int> BaCamBase::get_block_sizes() const {
   std::vector<int> result(2);
   result[0] = num_point_params();
   result[1] = num_pose_params();
@@ -52,7 +52,7 @@ std::vector<int> CeresBundleModelBase::get_block_sizes() const {
 }
 
 // Read in all of the parameters and compute the residuals.
-vw::Vector2 AdjustedCameraBundleModel::evaluate(
+vw::Vector2 BaAdjCam::evaluate(
   std::vector<double const*> const param_blocks) const {
 
   double const* raw_point = param_blocks[0];
@@ -84,18 +84,18 @@ vw::Vector2 AdjustedCameraBundleModel::evaluate(
   return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
 }
 
-PinholeBundleModel::PinholeBundleModel(boost::shared_ptr<vw::camera::PinholeModel> cam):
+BaPinholeCam::BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam):
   m_underlying_camera(cam) {}
 
 // The number of lens distortion parameters.
-int PinholeBundleModel::num_dist_params() const {
+int BaPinholeCam::num_dist_params() const {
   vw::Vector<double> lens_params
     = m_underlying_camera->lens_distortion()->distortion_parameters();
   return lens_params.size();
 }
 
-std::vector<int> PinholeBundleModel::get_block_sizes() const {
-  std::vector<int> result = CeresBundleModelBase::get_block_sizes();
+std::vector<int> BaPinholeCam::get_block_sizes() const {
+  std::vector<int> result = BaCamBase::get_block_sizes();
   result.push_back(asp::NUM_CENTER_PARAMS);
   result.push_back(asp::NUM_FOCUS_PARAMS);
   result.push_back(num_dist_params());
@@ -103,7 +103,7 @@ std::vector<int> PinholeBundleModel::get_block_sizes() const {
 }
 
 // Read in all of the parameters and compute the residuals.
-vw::Vector2 PinholeBundleModel::evaluate(
+vw::Vector2 BaPinholeCam::evaluate(
   std::vector<double const*> const param_blocks) const {
 
   double const* raw_point  = param_blocks[0];
@@ -153,16 +153,16 @@ vw::Vector2 PinholeBundleModel::evaluate(
   return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
 }
 
-OpticalBarBundleModel::OpticalBarBundleModel(
+BaOpticalBarCam::BaOpticalBarCam(
     boost::shared_ptr<vw::camera::OpticalBarModel> cam):
     m_underlying_camera(cam) {}
 
-int OpticalBarBundleModel::num_intrinsic_params() const {
+int BaOpticalBarCam::num_intrinsic_params() const {
    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
 }
 
-std::vector<int> OpticalBarBundleModel::get_block_sizes() const {
-  std::vector<int> result = CeresBundleModelBase::get_block_sizes();
+std::vector<int> BaOpticalBarCam::get_block_sizes() const {
+  std::vector<int> result = BaCamBase::get_block_sizes();
   result.push_back(asp::NUM_CENTER_PARAMS);
   result.push_back(asp::NUM_FOCUS_PARAMS);
   result.push_back(asp::NUM_OPTICAL_BAR_EXTRA_PARAMS);
@@ -170,7 +170,7 @@ std::vector<int> OpticalBarBundleModel::get_block_sizes() const {
 }
 
 // Read in all of the parameters and compute the residuals.
-vw::Vector2  OpticalBarBundleModel::evaluate(
+vw::Vector2  BaOpticalBarCam::evaluate(
   std::vector<double const*> const param_blocks) const {
 
   double const* raw_point  = param_blocks[0];
@@ -231,8 +231,8 @@ vw::Vector2  OpticalBarBundleModel::evaluate(
   return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
 }
 
-std::vector<int> CsmBundleModel::get_block_sizes() const {
-  std::vector<int> result = CeresBundleModelBase::get_block_sizes();
+std::vector<int> BaCsmCam::get_block_sizes() const {
+  std::vector<int> result = BaCamBase::get_block_sizes();
   result.push_back(asp::NUM_CENTER_PARAMS);
   result.push_back(asp::NUM_FOCUS_PARAMS);
   result.push_back(num_dist_params());
@@ -240,7 +240,7 @@ std::vector<int> CsmBundleModel::get_block_sizes() const {
 }
 
 // Read in all of the parameters and compute the residuals.
-vw::Vector2 CsmBundleModel::evaluate(std::vector<double const*> const param_blocks) const {
+vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) const {
 
   // TODO(oalexan1): Use here transformedCsmCamera() to avoid code repetition. 
   // But note that that one may set zero distortion to 1e-16 which likely here
@@ -341,7 +341,7 @@ bool BaReprojectionError::operator()(double const * const * parameters,
 ceres::CostFunction*  
 BaReprojectionError::Create(Vector2 const& observation,
                             Vector2 const& pixel_sigma,
-                            boost::shared_ptr<CeresBundleModelBase> camera_wrapper) {
+                            boost::shared_ptr<BaCamBase> camera_wrapper) {
   const int NUM_RESIDUALS = 2;
 
   ceres::DynamicNumericDiffCostFunction<BaReprojectionError>* cost_function =
@@ -493,8 +493,8 @@ void BaDispXyzError::unpack_residual_pointers(double const* const* parameters,
 ceres::CostFunction* BaDispXyzError::Create(
     double max_disp_error, double reference_terrain_weight,
     Vector3 const& reference_xyz, ImageViewRef<DispPixelT> const& interp_disp,
-    boost::shared_ptr<CeresBundleModelBase> left_camera_wrapper,
-    boost::shared_ptr<CeresBundleModelBase> right_camera_wrapper,
+    boost::shared_ptr<BaCamBase> left_camera_wrapper,
+    boost::shared_ptr<BaCamBase> right_camera_wrapper,
     bool solve_intrinsics, asp::IntrinsicOptions intrinsics_opt) {
 
   const int NUM_RESIDUALS = 2;
@@ -571,9 +571,9 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
   if (opt.camera_type == asp::BaCameraType_Other) {
     // The generic camera case. This includes pinhole and CSM too, when
     // the adjustments are external and intrinsics are not solved for.
-    boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model,
-                                                                                   opt.bathy_data,
-                                                                                   camera_index));
+    boost::shared_ptr<BaCamBase> wrapper(new BaAdjCam(camera_model,
+                                                       opt.bathy_data,
+                                                       camera_index));
       ceres::CostFunction* cost_function =
         BaReprojectionError::Create(observation, pixel_sigma, wrapper);
       problem.AddResidualBlock(cost_function, loss_function, point, camera);
@@ -583,7 +583,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
     double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
     double* distortion = param_storage.get_intrinsic_distortion_ptr(camera_index);
 
-    boost::shared_ptr<CeresBundleModelBase> wrapper;
+    boost::shared_ptr<BaCamBase> wrapper;
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
 
       boost::shared_ptr<PinholeModel> pinhole_model = 
@@ -591,7 +591,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       if (pinhole_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() 
                       << "Tried to add pinhole block with non-pinhole camera.");
-      wrapper.reset(new PinholeBundleModel(pinhole_model));
+      wrapper.reset(new BaPinholeCam(pinhole_model));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
 
@@ -600,7 +600,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       if (bar_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
-      wrapper.reset(new OpticalBarBundleModel(bar_model));
+      wrapper.reset(new BaOpticalBarCam(bar_model));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> csm_model = 
@@ -608,7 +608,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       if (csm_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add CSM block with "
                       << "non-CSM camera.");
-      wrapper.reset(new CsmBundleModel(csm_model));
+      wrapper.reset(new BaCsmCam(csm_model));
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
     }
@@ -690,14 +690,14 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
                                         residual_ptrs);
  if (opt.camera_type == asp::BaCameraType_Other) {
 
-    boost::shared_ptr<CeresBundleModelBase> 
-      left_wrapper (new AdjustedCameraBundleModel(left_camera_model,
-                                                   opt.bathy_data,
-                                                   left_cam_index));
-    boost::shared_ptr<CeresBundleModelBase> 
-      right_wrapper(new AdjustedCameraBundleModel(right_camera_model,
-                                                   opt.bathy_data,
-                                                   right_cam_index));
+    boost::shared_ptr<BaCamBase>
+      left_wrapper (new BaAdjCam(left_camera_model,
+                                 opt.bathy_data,
+                                 left_cam_index));
+    boost::shared_ptr<BaCamBase>
+      right_wrapper(new BaAdjCam(right_camera_model,
+                                 opt.bathy_data,
+                                 right_cam_index));
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(opt.max_disp_error, opt.reference_terrain_weight,
         reference_xyz, interp_disp, left_wrapper, right_wrapper,
@@ -707,31 +707,31 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
 
   } else { // Inline adjustments
 
-    boost::shared_ptr<CeresBundleModelBase> left_wrapper, right_wrapper;
+    boost::shared_ptr<BaCamBase> left_wrapper, right_wrapper;
 
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
       boost::shared_ptr<PinholeModel> left_pinhole_model = 
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
       boost::shared_ptr<PinholeModel> right_pinhole_model = 
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
-      left_wrapper.reset (new PinholeBundleModel(left_pinhole_model ));
-      right_wrapper.reset(new PinholeBundleModel(right_pinhole_model));
+      left_wrapper.reset (new BaPinholeCam(left_pinhole_model ));
+      right_wrapper.reset(new BaPinholeCam(right_pinhole_model));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
       boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model = 
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_camera_model);
       boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model = 
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_camera_model);
-      left_wrapper.reset (new OpticalBarBundleModel(left_bar_model ));
-      right_wrapper.reset(new OpticalBarBundleModel(right_bar_model));
+      left_wrapper.reset (new BaOpticalBarCam(left_bar_model ));
+      right_wrapper.reset(new BaOpticalBarCam(right_bar_model));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> left_csm_model = 
         boost::dynamic_pointer_cast<asp::CsmModel>(left_camera_model);
       boost::shared_ptr<asp::CsmModel> right_csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(right_camera_model);
-      left_wrapper.reset (new CsmBundleModel(left_csm_model));
-      right_wrapper.reset(new CsmBundleModel(right_csm_model));
+      left_wrapper.reset (new BaCsmCam(left_csm_model));
+      right_wrapper.reset(new BaCsmCam(right_csm_model));
 
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
