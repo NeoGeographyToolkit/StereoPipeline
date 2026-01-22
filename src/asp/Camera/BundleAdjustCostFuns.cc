@@ -559,13 +559,13 @@ ceres::LossFunction* get_loss_function(std::string const& cost_function, double 
 }
 
 /// Add error source for projecting a 3D point into the camera.
-void add_reprojection_residual_block(vw::Vector2 const& observation,
-                                     vw::Vector2 const& pixel_sigma,
-                                     int point_index, int camera_index,
-                                     asp::BaParams & param_storage,
-                                     asp::BaOptions const& opt,
-                                     ceres::SubsetManifold * dist_opts,
-                                     ceres::Problem & problem) {
+void addReprojResidual(vw::Vector2 const& observation,
+                       vw::Vector2 const& pixel_sigma,
+                       int point_index, int camera_index,
+                       asp::BaParams & param_storage,
+                       asp::BaOptions const& opt,
+                       ceres::SubsetManifold * dist_opts,
+                       ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function;
   loss_function = get_loss_function(opt.cost_function, opt.robust_threshold);
@@ -579,8 +579,8 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
     // The generic camera case. This includes pinhole and CSM too, when
     // the adjustments are external and intrinsics are not solved for.
     boost::shared_ptr<BaCamBase> wrapper(new BaAdjCam(camera_model,
-                                                       opt.bathy_data,
-                                                       camera_index));
+                                                      opt.bathy_data,
+                                                      camera_index));
       ceres::CostFunction* cost_function =
         BaReprojectionError::Create(observation, pixel_sigma, wrapper);
       problem.AddResidualBlock(cost_function, loss_function, point, camera);
@@ -627,10 +627,12 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
 
     // Apply the residual limits
     size_t num_limits = opt.intrinsics_limits.size() / 2;
-    if ((num_limits > 0) && (num_limits > wrapper->num_intrinsic_params())) {
-      vw::vw_throw(vw::ArgumentErr() << "Error: Too many intrinsic limits provided!"
-        << " This model has " << wrapper->num_intrinsic_params() << " intrinsic parameters.");
-    }
+    if ((num_limits > 0) && (num_limits > wrapper->num_intrinsic_params()))
+      vw::vw_throw(vw::ArgumentErr()
+                   << "Error: Too many intrinsic limits provided."
+                   << " This model has " << wrapper->num_intrinsic_params()
+                   << " intrinsic parameters.");
+
     size_t intrinsics_index = 0;
     // Focal length
     if (num_limits > 0) {
@@ -674,12 +676,12 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
 }
 
 /// Add residual block for the error using reference xyz.
-void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
-                                  vw::ImageViewRef<DispPixelT> const& interp_disp,
-                                  int left_cam_index, int right_cam_index,
-                                  asp::BaParams & param_storage,
-                                  asp::BaOptions const& opt,
-                                  ceres::Problem & problem) {
+void addDispResidual(vw::Vector3 const& reference_xyz,
+                     vw::ImageViewRef<DispPixelT> const& interp_disp,
+                     int left_cam_index, int right_cam_index,
+                     asp::BaParams & param_storage,
+                     asp::BaOptions const& opt,
+                     ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function
    = get_loss_function(opt.cost_function, opt.robust_threshold);
@@ -721,7 +723,7 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
       boost::shared_ptr<PinholeModel> right_pinhole_model =
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
-      left_wrapper.reset (new BaPinholeCam(left_pinhole_model, opt.bathy_data, left_cam_index));
+      left_wrapper.reset(new BaPinholeCam(left_pinhole_model, opt.bathy_data, left_cam_index));
       right_wrapper.reset(new BaPinholeCam(right_pinhole_model, opt.bathy_data, right_cam_index));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
@@ -729,7 +731,7 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_camera_model);
       boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model =
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_camera_model);
-      left_wrapper.reset (new BaOpticalBarCam(left_bar_model, opt.bathy_data, left_cam_index));
+      left_wrapper.reset(new BaOpticalBarCam(left_bar_model, opt.bathy_data, left_cam_index));
       right_wrapper.reset(new BaOpticalBarCam(right_bar_model, opt.bathy_data, right_cam_index));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
@@ -737,7 +739,7 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
         boost::dynamic_pointer_cast<asp::CsmModel>(left_camera_model);
       boost::shared_ptr<asp::CsmModel> right_csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(right_camera_model);
-      left_wrapper.reset (new BaCsmCam(left_csm_model, opt.bathy_data, left_cam_index));
+      left_wrapper.reset(new BaCsmCam(left_csm_model, opt.bathy_data, left_cam_index));
       right_wrapper.reset(new BaCsmCam(right_csm_model, opt.bathy_data, right_cam_index));
 
     } else {
@@ -752,7 +754,7 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
 
   }
 
-} // End function add_disparity_residual_block
+} // End function addDispResidual
 
 // Pixel reprojection error. Note: cam_residual_counts and num_pixels_per_cam
 // serve different purposes. 
@@ -875,10 +877,10 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
       pixel_sigmas[icam][ipt] = pixel_sigma;
 
       // Call function to add the appropriate Ceres residual block.
-      add_reprojection_residual_block(observation, pixel_sigma, ipt, icam,
+      addReprojResidual(observation, pixel_sigma, ipt, icam,
                                       param_storage, opt, dist_opts, problem);
-      cam_residual_counts[icam] += 1; // Track the number of residual blocks for each camera
-      num_pixels_per_cam[icam] += 1;  // Track the number of pixels for each camera
+      cam_residual_counts[icam]++; // Track the number of residual blocks for each camera
+      num_pixels_per_cam[icam]++;  // Track the number of pixels for each camera
 
     } // end iterating over points
   } // end iterating over cameras
@@ -890,7 +892,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
 // This is adjusted for GSD.
 void addTriConstraint(asp::BaOptions           const& opt,
                       vw::ba::ControlNetwork   const& cnet,
-                      asp::CRN                const& crn,
+                      asp::CRN                 const& crn,
                       std::vector<std::string> const& image_files,
                       std::vector<vw::CamPtr>  const& orig_cams,
                       double tri_weight,
@@ -954,12 +956,11 @@ void addTriConstraint(asp::BaOptions           const& opt,
 // This was only tested for pinhole cameras. Disparity must be created with
 // stereo with the option --unalign-disparity. If there are n images, there must
 // be n-1 disparities, from each image to the next.
-void addReferenceTerrainCostFunction(
-         asp::BaOptions  & opt,
-         asp::BaParams       & param_storage,
-         ceres::Problem      & problem,
-         std::vector<vw::Vector3> & reference_vec,
-         std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp) {
+void addRefTerrainCostFun(asp::BaOptions                            & opt,
+                          asp::BaParams                             & param_storage,
+                          ceres::Problem                            & problem,
+                          std::vector<vw::Vector3>                  & reference_vec,
+                          std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp) {
 
   size_t num_cameras = param_storage.num_cameras();
 
@@ -972,10 +973,9 @@ void addReferenceTerrainCostFunction(
   std::vector<ImageView<DispPixelT>> disp_vec;
   asp::load_csv_or_dem(opt.csv_format_str, opt.csv_srs, opt.reference_terrain,
                         opt.max_num_reference_points,
-                        geo,       // may change
-                        input_reference_vec); // output
+                        geo, input_reference_vec); // outputs
 
-  if (load_reference_disparities(opt.disparity_list, disp_vec, interp_disp) != num_cameras-1)
+  if (loadRefDisp(opt.disparity_list, disp_vec, interp_disp) != num_cameras-1)
     vw_throw(ArgumentErr() << "Expecting one less disparity than there are cameras.\n");
 
   // Read the image boxes. They are needed to find the GSD per camera.
@@ -1052,7 +1052,7 @@ void addReferenceTerrainCostFunction(
       reference_vec.push_back(reference_xyz);
 
       // Call function to select the appropriate Ceres residual block to add.
-      add_disparity_residual_block(reference_xyz, interp_disp[icam],
+      addDispResidual(reference_xyz, interp_disp[icam],
                                     icam, icam + 1, // left icam and right icam
                                     param_storage, opt, problem);
     }

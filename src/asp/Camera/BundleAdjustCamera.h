@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -72,47 +72,47 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string overlap_list_file, auto_overlap_params, datum_str, proj_str,
     csv_format_str, csv_srs, csv_proj4_str, disparity_list, stereo_prefix_list,
     match_pair_sigma;
-  bool have_overlap_list, propagate_errors, match_first_to_last, single_threaded_cameras, 
+  bool have_overlap_list, propagate_errors, match_first_to_last, single_threaded_cameras,
     update_isis_cubes_with_csm_state, save_adjusted_rpc, fix_gcp_xyz, use_llh_error;
   double forced_triangulation_distance, min_triangulation_angle, max_triangulation_angle,
     max_init_reproj_error, robust_threshold, parameter_tolerance;
-  double heights_from_dem_uncertainty, reference_terrain_weight, 
+  double heights_from_dem_uncertainty, reference_terrain_weight,
     reference_terrain_uncertainty, reference_terrain_robust_threshold,
-    heights_from_dem_robust_threshold, camera_weight, rotation_weight, 
+    heights_from_dem_robust_threshold, camera_weight, rotation_weight,
     camera_position_weight, camera_position_robust_threshold,
     tri_weight, tri_robust_threshold, camera_position_uncertainty_power,
     max_disp_error;
-  std::vector<vw::Vector2> camera_position_uncertainty;    
+  std::vector<vw::Vector2> camera_position_uncertainty;
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::vector<vw::CamPtr> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
   std::map<std::pair<int, int>, double> match_sigmas;
-  
+
   vw::cartography::Datum datum;
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
   double horizontal_stddev;
   vw::Vector<double> horizontal_stddev_vec; // may come from cameras or user
   vw::BathyData bathy_data;
 
-  BaBaseOptions(): 
-   forced_triangulation_distance(-1), 
+  BaBaseOptions():
+   forced_triangulation_distance(-1),
    min_triangulation_angle(0.0), camera_position_weight(0.0),
    camera_position_robust_threshold(0.0), camera_weight(-1.0),
    rotation_weight(0.0), tri_weight(0.0),
    robust_threshold(0.0), min_matches(0),
-   num_iterations(0), num_passes(0), 
+   num_iterations(0), num_passes(0),
    overlap_limit(0), have_overlap_list(false), propagate_errors(false),
-   match_first_to_last(false), single_threaded_cameras(false), 
+   match_first_to_last(false), single_threaded_cameras(false),
    update_isis_cubes_with_csm_state(false),
    fix_gcp_xyz(false), use_llh_error(false),
    camera_type(BaCameraType_Other), max_num_reference_points(-1),
-   datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM, 
+   datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM,
                                 "User Specified Spheroid",
                                 "Reference Meridian", 1, 1, 0)) {}
 };
-  
+
 // A structure to hold percentiles of given sorted values. This sorts the inputs.
 // The input can be float or double. We will keep the result as double.
 struct MatchPairStats {
@@ -142,13 +142,12 @@ struct HorizVertErrorStats {
   float horiz_error_mean, vert_error_mean;
   float horiz_error_stddev, vert_error_stddev;
   int num_errors;
-  HorizVertErrorStats(): left_cam_index(0), right_cam_index(0), 
+  HorizVertErrorStats(): left_cam_index(0), right_cam_index(0),
                          horiz_error_median(0), vert_error_median(0),
                          horiz_error_mean(0), vert_error_mean(0),
                          horiz_error_stddev(0), vert_error_stddev(0),
                          num_errors(0) {}
 };
-
 
 // When distortion params are shared, their number must agree
 void distortion_sanity_check(std::vector<int> const& num_dist_params,
@@ -157,19 +156,19 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
 
 // Read image and camera lists. Can have several comma-separated lists
 // in image_list and camera_list, when sharing intrinsics per sensor.
-void read_image_cam_lists(std::string const& image_list, 
+void read_image_cam_lists(std::string const& image_list,
                 std::string const& camera_list,
                 std::vector<std::string> & images,
                 std::vector<std::string> & cameras,
-                asp::IntrinsicOptions & intrinsics_opts); 
+                asp::IntrinsicOptions & intrinsics_opts);
 
 /// Load all of the reference disparities specified in the input text file
 /// and store them in the vectors.  Return the number loaded.
-int load_reference_disparities(std::string const& disp_list_filename,
-                               std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
-                                  disp_vec,
-                               std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
-                                  interp_disp);
+int loadRefDisp(std::string const& disp_list_filename,
+                std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
+                   disp_vec,
+                std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
+                   interp_disp);
 
 // Mapproject interest points onto a DEM and find the norm of their
 // disagreement in meters. It is assumed that dem_georef
@@ -198,10 +197,10 @@ public:
   // Data access
   vw::Vector3 position() const;
   vw::Quat    pose    () const;
-  
+
   /// Populate from a six element array.
   void read_from_array(double const* array);
-   
+
   /// Populate from an AdjustedCameraModel
   void copy_from_adjusted_camera(vw::camera::AdjustedCameraModel const& cam);
 
@@ -217,10 +216,10 @@ public:
 
   /// Populate from an adjustment file on disk.
   void read_from_adjust_file(std::string const& filename);
-  
+
   /// Pack the data to a six element array.
   void pack_to_array(double* array) const;
-  
+
 private:
   vw::Vector3 m_position_data;
   vw::Quat    m_pose_data;
@@ -302,7 +301,7 @@ void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
 ///  a least squares error transform to match the provided camera positions.
 /// - This function overwrites the camera parameters in-place
 bool init_pinhole_model_with_camera_positions
-(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet, 
+(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet,
  std::vector<vw::CamPtr> & camera_models,
  std::vector<std::string> const& image_files,
  std::vector<vw::Vector3> const & estimated_camera_gcc);
@@ -311,14 +310,14 @@ bool init_pinhole_model_with_camera_positions
 /// GCP. It invokes OpenCV's PnP functionality.
 void init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
                            std::vector<vw::CamPtr> & camera_models);
-  
+
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
 /// if at least three GCP are seen in no less than two images.
 void transform_cameras_with_shared_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-				       std::vector<vw::CamPtr> & camera_models);
-  
+                       std::vector<vw::CamPtr> & camera_models);
+
 // Given at least two images, each having at least 3 GCP that are not seen in other
 // images, find and apply a transform to the camera system based on them.
 void transform_cameras_with_indiv_image_gcp
@@ -367,12 +366,12 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
                             asp::BaParams const& param_storage);
 
 // Write updated camera models to disk
-void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
+void saveUpdatedCameras(asp::BaBaseOptions const& opt,
                         asp::BaParams const& param_storage);
 
 // Save CSM cameras
 void saveCsmCameras(std::string const& out_prefix,
-                    std::string const& stereo_session, 
+                    std::string const& stereo_session,
                     std::vector<std::string> const& image_files,
                     std::vector<std::string> const& camera_files,
                     std::vector<vw::CamPtr>  const& camera_models,
@@ -390,7 +389,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           bool                                remove_outliers,
                           std::set<int>                const& outliers,
                           std::string                  const& mapproj_dem,
-                          bool                                propagate_errors, 
+                          bool                                propagate_errors,
                           vw::Vector<double>           const& horizontal_stddev_vec,
                           bool                                save_clean_matches,
                           std::map<std::pair<int, int>, std::string> const& match_files);
@@ -411,21 +410,21 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
 bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
-                    std::string const& initial_transform_file, 
+                    std::string const& initial_transform_file,
                     vw::Matrix<double> const& initial_transform,
                     std::vector<vw::CamPtr> &new_cam_models);
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM cameras.
 bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
-                   std::string const& initial_transform_file, 
+                   std::string const& initial_transform_file,
                    vw::Matrix<double> const& initial_transform,
                    std::vector<vw::CamPtr> &new_cam_models);
 
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
 void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_storage,
-                      vw::cartography::Datum const& datum, 
+                      vw::cartography::Datum const& datum,
                       std::string const& prefix);
 
 /// For each option, the string must include a subset of the entries:
@@ -467,23 +466,21 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
                           asp::BaParams const& param_storage,
                           std::vector<vw::CamPtr> & optimized_cams);
 
-
-
 // Find the average for the gsd for all pixels whose rays intersect at the given
 // triangulated point. This is used in jitter solving.
-void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
+void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRN                const& crn,
-                            asp::BaParams            const& param_storage, 
+                            asp::BaParams            const& param_storage,
                             // Output
                             std::vector<double>     & gsds);
 
 // This is a version of the above used in jitter solving.
-void estimateGsdPerTriPoint(std::vector<std::string> const& images, 
+void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRN                const& crn,
                             std::set<int>            const& outliers,
-                            std::vector<double>      const& tri_points_vec, 
+                            std::vector<double>      const& tri_points_vec,
                             // Output
                             std::vector<double>     & gsds);
 
@@ -500,7 +497,6 @@ void calcCameraCenters(std::string const& stereo_session,
                        std::vector<vw::CamPtr>  const& cams,
                        std::vector<std::vector<vw::Vector3>> & cam_positions);
 
-
 // Interface for setting/getting intrinsics for all supported camera models
 void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center);
 void set_optical_center(vw::camera::CameraModel* cam, vw::Vector2 const& center);
@@ -512,7 +508,7 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
 // If some cameras share an intrinsic parameter, that parameter must start with
 // the same value for all cameras sharing it. This is a bugfix. Return
 // true if the cameras were modified.
-bool syncUpInitialSharedParams(BACameraType camera_type, 
+bool syncUpInitialSharedParams(BACameraType camera_type,
                                asp::BaParams const& param_storage,
                                std::vector<vw::CamPtr>& camera_models);
 
@@ -533,7 +529,7 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
 
 // Sanity check. This does not prevent the user from setting the wrong datum,
 // but it can catch unreasonable height values for GCP.
-void checkGcpRadius(vw::cartography::Datum const& datum, 
+void checkGcpRadius(vw::cartography::Datum const& datum,
                     vw::ba::ControlNetwork const& cnet);
 
 // Some logic for camera position uncertainty, used in bundle_adjust and jitter_solve

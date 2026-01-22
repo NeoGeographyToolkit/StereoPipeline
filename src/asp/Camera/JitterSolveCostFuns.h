@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -58,7 +58,7 @@ void calcIndexBounds(double time1, double time2, double t0, double dt, int numVa
 
 // Update the linescan model with the latest optimized values of the position
 // and quaternion parameters. Also update the triangulated point.
-void updateLsModelTriPt(double const * const * parameters, 
+void updateLsModelTriPt(double const * const * parameters,
                         int begQuatIndex, int endQuatIndex,
                         int begPosIndex, int endPosIndex,
                         int & param_shift,
@@ -134,7 +134,7 @@ void addHardCamPositionConstraint(asp::BaBaseOptions               const& opt,
                                   std::vector<asp::RigCamInfo>     const& rig_cam_info,
                                   // Outputs
                                   std::vector<double>                & frame_params,
-                                  std::vector<double>                & weight_per_residual, 
+                                  std::vector<double>                & weight_per_residual,
                                   ceres::Problem                     & problem);
 
 // Add soft camera constraints that are proportional to the number of reprojection errors.
@@ -151,7 +151,7 @@ void addSoftCamPositionConstraint(asp::BaBaseOptions           const& opt,
                               std::vector<asp::RigCamInfo>     const& rig_cam_info,
                               // Outputs
                               std::vector<double>                & frame_params,
-                              std::vector<double>                & weight_per_residual, 
+                              std::vector<double>                & weight_per_residual,
                               ceres::Problem                     & problem);
 
 void addQuatNormRotationConstraints(
@@ -162,7 +162,7 @@ void addQuatNormRotationConstraints(
                         bool                               have_rig,
                         rig::RigSet                 const& rig,
                         std::vector<RigCamInfo>     const& rig_cam_info,
-                        double                             quat_norm_weight, 
+                        double                             quat_norm_weight,
                         // Outputs
                         std::vector<double>              & frame_params,
                         std::vector<double>              & weight_per_residual,
@@ -170,7 +170,7 @@ void addQuatNormRotationConstraints(
 
 // Option --reference-terrain 
 typedef boost::shared_ptr<vw::DiskImageView<vw::PixelMask<vw::Vector2f>>> DispPtr;
-void addReferenceTerrainCostFunction(asp::BaBaseOptions            const& opt,
+void addRefTerrainCostFun(asp::BaBaseOptions            const& opt,
                                      std::vector<asp::CsmModel*>   const& csm_models,
                                      std::vector<int>              const& left_indices,
                                      std::vector<int>              const& right_indices,

@@ -469,12 +469,11 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
 // This was only tested for pinhole cameras. Disparity must be created with
 // stereo with the option --unalign-disparity. If there are n images, there must
 // be n-1 disparities, from each image to the next.
-void addReferenceTerrainCostFunction(
-         asp::BaOptions           & opt,
-         asp::BaParams            & param_storage,
-         ceres::Problem           & problem,
-         std::vector<vw::Vector3> & reference_vec,
-         std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp);
+void addRefTerrainCostFun(asp::BaOptions                            & opt,
+                          asp::BaParams                             & param_storage,
+                          ceres::Problem                            & problem,
+                          std::vector<vw::Vector3>                  & reference_vec,
+                          std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp);
 
 // Add a soft constraint to keep the cameras near the original position. 
 // Add a combined constraint for all reprojection errors in given camera.

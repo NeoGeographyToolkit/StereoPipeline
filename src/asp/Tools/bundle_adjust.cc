@@ -97,16 +97,16 @@ private:
 };
 
 // One pass of bundle adjustment
-int do_ba_ceres_one_pass(asp::BaOptions                & opt,
-                         asp::CRN               const & crn,
-                         bool                           first_pass,
-                         bool                           remove_outliers,
-                         asp::BaParams                 & param_storage, // output
-                         asp::BaParams const           & orig_parameters,
-                         std::vector<vw::CamPtr>  const& orig_cams,
-                         std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
-                         bool                          & convergence_reached,
-                         double                        & final_cost) {
+int baOnePass(asp::BaOptions                & opt,
+              asp::CRN                const & crn,
+              bool                            first_pass,
+              bool                            remove_outliers,
+              asp::BaParams                 & param_storage, // output
+              asp::BaParams const           & orig_parameters,
+              std::vector<vw::CamPtr>  const& orig_cams,
+              std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
+              bool                          & convergence_reached,
+              double                        & final_cost) {
 
   ControlNetwork & cnet = *opt.cnet;
   int num_cameras = param_storage.num_cameras();
@@ -173,9 +173,9 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
   // end results in a crash.
   ceres::SubsetManifold *dist_opts = NULL;
   if (!opt.fixed_distortion_indices.empty())
-    dist_opts = new ceres::SubsetManifold(param_storage.m_max_num_dist_params, 
+    dist_opts = new ceres::SubsetManifold(param_storage.m_max_num_dist_params,
                                           opt.fixed_distortion_indices);
-  
+
   // Pixel reprojection error
   std::vector<size_t> cam_residual_counts, num_pixels_per_cam;
   std::vector<std::vector<vw::Vector2>> pixels_per_cam;
@@ -261,7 +261,7 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
   std::vector<vw::Vector3> reference_vec; // must be persistent
   std::vector<ImageViewRef<DispPixelT>> interp_disp; // must be persistent
   if (opt.reference_terrain != "")
-    asp::addReferenceTerrainCostFunction(opt, param_storage, problem,
+    asp::addRefTerrainCostFun(opt, param_storage, problem,
                                          reference_vec, interp_disp);
 
   // Add a ground constraints to keep points close to their initial positions
@@ -378,7 +378,7 @@ int do_ba_ceres_one_pass(asp::BaOptions                & opt,
                       num_cam_pos_residuals, reference_vec, problem);
 
   return 0;
-} // End function do_ba_ceres_one_pass
+} // End function baOnePass
 
 // Run several more passes with random initial parameter offsets. This flow is
 // only kicked in if opt.num_random_passes is positive, which is not the
@@ -397,7 +397,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
   // may need to go away.
   std::vector<vw::CamPtr> orig_cams;
   asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
-  
+
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
 
@@ -421,10 +421,10 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
     bool first_pass = true; // this needs more thinking
     bool convergence_reached = true;
     double curr_cost = 0.0; // will be set
-    do_ba_ceres_one_pass(opt, crn, first_pass, remove_outliers,
-                         param_storage, orig_parameters,
-                         orig_cams, orig_cam_positions,
-                         convergence_reached, curr_cost);
+    baOnePass(opt, crn, first_pass, remove_outliers,
+              param_storage, orig_parameters,
+              orig_cams, orig_cam_positions,
+              convergence_reached, curr_cost);
 
     // Record the parameters of the best result.
     if (curr_cost < best_cost) {
@@ -578,7 +578,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   // param_storage is populated.
   if (opt.solve_intrinsics && !opt.apply_initial_transform_only)
     asp::ensureMinDistortion(opt.camera_models, opt.camera_type,
-                             opt.intrinsics_options, 
+                             opt.intrinsics_options,
                              opt.fixed_distortion_indices,
                              max_num_dist_params,
                              opt.min_distortion);
@@ -665,7 +665,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
-  
+
   // For nadirpinhole and pinhole cameras, save a report
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum && opt.stereo_session.find("pinhole") != std::string::npos)
@@ -689,10 +689,10 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
     bool first_pass = (pass == 0);
     bool convergence_reached = true; // will change
-    do_ba_ceres_one_pass(opt, crn, first_pass, remove_outliers,
-                         param_storage, orig_parameters,
-                         orig_cams, orig_cam_positions,
-                         convergence_reached, final_cost);
+    baOnePass(opt, crn, first_pass, remove_outliers,
+              param_storage, orig_parameters,
+              orig_cams, orig_cam_positions,
+              convergence_reached, final_cost);
     int num_points_remaining = num_points - param_storage.get_num_outliers();
     if (num_points_remaining < opt.min_matches && num_gcp == 0) {
       // Do not throw if there exist gcp, as maybe that's all there is, and there
@@ -728,7 +728,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   // opt.camera_models, but make copies as needed.
   std::vector<vw::CamPtr> optimized_cams;
   asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
-  
+
   // Find the camera centers. For linescan, this will return all samples.
   std::vector<std::vector<vw::Vector3>> opt_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, optimized_cams, opt_cam_positions);
@@ -800,9 +800,9 @@ int main(int argc, char* argv[]) {
                                    opt.horizontal_stddev_vec); // output
 
     bool need_no_matches = (opt.apply_initial_transform_only ||
-                            !opt.isis_cnet.empty()           || 
+                            !opt.isis_cnet.empty()           ||
                             !opt.nvm.empty());
-    
+
     // Read mapprojected images if using --mapprojected-data 
     std::vector<std::string> map_files;
     std::string mapproj_dem;
@@ -814,8 +814,8 @@ int main(int argc, char* argv[]) {
       files_for_stats = map_files;
 
     // The file having the image normalization bounds  
-    std::string boundsFile = opt.out_prefix + "-normalization-bounds.txt";  
-    
+    std::string boundsFile = opt.out_prefix + "-normalization-bounds.txt";
+
     // Compute stats in the batch of images given by opt.job_id, etc.
     // Skip this in several situations, including when we just want to accumulate
     // the stats for the images in the list.
@@ -826,7 +826,7 @@ int main(int argc, char* argv[]) {
 
     bool calcIp = false;
     if (!skip_stats)
-      computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap, 
+      computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap,
                        boundsFile, calcIp);
 
     if (opt.stop_after_stats) {
@@ -872,7 +872,7 @@ int main(int argc, char* argv[]) {
     asp::loadEstimCameraPositions(opt, estimated_camera_gcc);
 
     // Find or list matches
-    asp::findPairwiseMatches(opt, map_files, mapproj_dem, 
+    asp::findPairwiseMatches(opt, map_files, mapproj_dem,
                              estimated_camera_gcc, need_no_matches);
 
     if (opt.stop_after_matching) {

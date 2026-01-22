@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -77,7 +77,7 @@ namespace asp {
 struct Options: public asp::BaBaseOptions {
   int num_lines_per_position, num_lines_per_orientation, num_anchor_points_per_image,
     num_anchor_points_per_tile;
-  std::string anchor_weight_image;   
+  std::string anchor_weight_image;
   std::string anchor_dem, rig_config;
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint, fix_rig_translations, fix_rig_rotations,
@@ -85,7 +85,7 @@ struct Options: public asp::BaBaseOptions {
   double quat_norm_weight, anchor_weight, roll_weight, yaw_weight, smoothness_weight;
   std::map<int, int> cam2group;
 };
-    
+
 void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   po::options_description general_options("");
@@ -135,7 +135,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to "
      "accept this point as valid. It must be a positive value.")
-    ("max-initial-reprojection-error", 
+    ("max-initial-reprojection-error",
      po::value(&opt.max_init_reproj_error)->default_value(20),
      "Filter as outliers any triangulated points that have a reprojection error "
      "(in pixels) of more than this value, with the initial cameras. Since jitter "
@@ -175,7 +175,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Assuming the cameras have already been bundle-adjusted and aligned to a "
      "known DEM, constrain the triangulated points to be close to this DEM. See also "
      "--heights-from-dem-uncertainty.")
-    ("heights-from-dem-uncertainty", 
+    ("heights-from-dem-uncertainty",
      po::value(&opt.heights_from_dem_uncertainty)->default_value(-1.0),
      "The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value "
      "constrains more the triangulated points to the DEM specified via --heights-from-dem.")
@@ -188,7 +188,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       "--heights-from-dem-uncertainty.")
     ("num-anchor-points", po::value(&opt.num_anchor_points_per_image)->default_value(0),
      "How many anchor points to create per image. They will be uniformly distributed.")
-    ("num-anchor-points-per-tile", 
+    ("num-anchor-points-per-tile",
      po::value(&opt.num_anchor_points_per_tile)->default_value(0),
      "How many anchor points to create per 1024 x 1024 image tile. They will be uniformly "
      "distributed. Useful when images of vastly different sizes (such as frame and "
@@ -205,14 +205,14 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      po::value(&opt.num_anchor_points_extra_lines)->default_value(0),
      "Start placing anchor points this many lines before first image line "
      "and after last image line. Applies only to linescan cameras.")
-    ("camera-position-uncertainty",  
+    ("camera-position-uncertainty",
      po::value(&opt.camera_position_uncertainty_str)->default_value(""),
      "A file having on each line the image name and the horizontal and vertical camera "
      "position uncertainty (1 sigma, in meters). This strongly constrains the movement of "
      "cameras, potentially at the expense of accuracy. To have the same uncertainties for "
      "all cameras, pass instead of a file name two values separated by a comma (no "
      "spaces).")
-    ("camera-position-uncertainty-power",  
+    ("camera-position-uncertainty-power",
      po::value(&opt.camera_position_uncertainty_power)->default_value(2.0),
      "A higher value makes the cost function rise more steeply when "
      "--camera-position-uncertainty is close to being violated. This is an advanced "
@@ -223,7 +223,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "the reduction in reprojection errors. It adjusts to the ground sample distance "
      "and the number of interest points in the images. The computed "
      "discrepancy is attenuated with --camera-position-robust-threshold.")
-    ("camera-position-robust-threshold", 
+    ("camera-position-robust-threshold",
      po::value(&opt.camera_position_robust_threshold)->default_value(0.1),
      "The robust threshold to attenuate large discrepancies between initial and "
      "optimized camera positions with the option --camera-position-weight. "
@@ -235,13 +235,13 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "An externally provided trustworthy reference terrain to use as a constraint. It can "
      "be either a DEM or a point cloud in CSV format. It must be well-aligned with the "
      "input cameras.")
-    ("max-num-reference-points", 
+    ("max-num-reference-points",
      po::value(&opt.max_num_reference_points)->default_value(50000),
      "Maximum number of (randomly picked) points from the --reference-terrain dataset.")
     ("stereo-prefix-list", po::value(&opt.stereo_prefix_list)->default_value(""),
      "List of stereo prefixes (one per line) having disparities for the "
      "--reference-terrain option.")
-    ("reference-terrain-uncertainty", 
+    ("reference-terrain-uncertainty",
      po::value(&opt.reference_terrain_uncertainty)->default_value(1.0),
      "The uncertainty (1 sigma, in meters), for the dataset in --reference-terrain. "
      "A smaller value will result in a stronger constraint. It is suggested to not "
@@ -250,9 +250,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      po::value(&opt.reference_terrain_robust_threshold)->default_value(0.1),
      "The robust threshold, in pixels, for the option --reference-terrain. It is suggested "
      "to not modify this value, and adjust instead --reference-terrain-uncertainty.")
-    ("csv-format", 
+    ("csv-format",
      po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
-    ("csv-srs", 
+    ("csv-srs",
      po::value(&opt.csv_srs)->default_value(""),
      "The PROJ or WKT string for interpreting the entries in input CSV files.")
     ("rotation-weight", po::value(&opt.rotation_weight)->default_value(0.0),
@@ -266,12 +266,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "and outlier removal. Measured in meters.")
     ("ip-side-filter-percent",  po::value(&opt.ip_edge_buffer_percent)->default_value(-1.0),
      "Remove matched IPs this percentage from the image left/right sides.")
-    ("forced-triangulation-distance", 
+    ("forced-triangulation-distance",
      po::value(&opt.forced_triangulation_distance)->default_value(-1),
      "When triangulation fails, for example, when input cameras are inaccurate, "
      "artificially create a triangulation point this far ahead of the camera, in units "
      "of meter.")
-    ("update-isis-cubes-with-csm-state", 
+    ("update-isis-cubes-with-csm-state",
      po::bool_switch(&opt.update_isis_cubes_with_csm_state)->default_value(false)->implicit_value(true),
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "
      "version and any SPICE data will be deleted. Mapprojected images obtained with prior "
@@ -285,15 +285,15 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "file. The intrinsics will be read, but not the transforms between sensors, as those "
      "will be auto-computed (unless --use-initial-rig-transforms is set). The optimized "
      "rig, including the sensor transforms, will be saved.")
-    ("fix-rig-translations", 
+    ("fix-rig-translations",
      po::bool_switch(&opt.fix_rig_translations)->default_value(false)->implicit_value(true),
      "Fix the translation component of the transforms between the sensors on a "
      "rig.")
-     ("fix-rig-rotations", 
+     ("fix-rig-rotations",
       po::bool_switch(&opt.fix_rig_rotations)->default_value(false)->implicit_value(true),
      "Fix the rotation component of the transforms between the sensors on a "
      "rig.")
-    ("use-initial-rig-transforms", 
+    ("use-initial-rig-transforms",
      po::bool_switch(&opt.use_initial_rig_transforms)->default_value(false)->implicit_value(true),
      "Use the transforms between the sensors (ref_to_sensor_transform) of the rig "
      "given by --rig-config, instead of computing them from the poses of individual "
@@ -329,7 +329,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       "on the initial curvature of the sequence of orientations. A value of 0.01 "
       "to 0.1 is recommended. This may impede convergence if high. Use with "
       "--camera-position-weight 1e+6 or so, to tightly constrain the camera positions.")
-    ("initial-camera-constraint", 
+    ("initial-camera-constraint",
      po::bool_switch(&opt.initial_camera_constraint)->default_value(false),
      "When constraining roll and yaw, measure these not in the satellite along-track/ "
      "across-track/down coordinate system, but relative to the initial camera poses. This "
@@ -338,7 +338,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "system is rotated by 90 degrees in the sensor plane relative to the satellite "
      "coordinate system. The goal is the same, to penalize deviations that are not "
      "aligned with satellite pitch.")
-    ("fix-gcp-xyz", 
+    ("fix-gcp-xyz",
      po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
      "If the GCP are highly accurate, use this option to not float them during the optimization.")
     ("use-lon-lat-height-gcp-error",
@@ -346,12 +346,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "Constrain the triangulated points tied to GCP in the longitude, latitude, and height "
      "space, instead of ECEF. The standard deviations in the GCP file are applied "
      "accordingly.")
-    ("accept-provided-mapproj-dem", 
+    ("accept-provided-mapproj-dem",
      po::bool_switch(&asp::stereo_settings().accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
      "Accept the DEM provided on the command line as the one mapprojection was done with, "
      "even if it disagrees with the DEM recorded in the geoheaders of input images.")
     // For bathymetry correction
-    ("bathy-mask-list", 
+    ("bathy-mask-list",
      po::value(&asp::stereo_settings().bathy_mask_list)->default_value(""),
      "List of masks to use for bathymetry. Must be one per input image and 1-to-1 with "
      "the images. Pixels classified as water must be either no data or have zero value "
@@ -360,7 +360,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("bathy-plane",
      po::value(&asp::stereo_settings().bathy_plane),
       "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
-    ("refraction-index", 
+    ("refraction-index",
      po::value(&asp::stereo_settings().refraction_index)->default_value(0),
       "The index of refraction of water to be used in bathymetry correction. "
       "Must be specified and bigger than 1. This index can be computed with "
@@ -370,7 +370,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   po::options_description positional("");
   positional.add_options()
     ("input-files", po::value(&opt.image_files));
-  
+
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
 
@@ -383,7 +383,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
                             allow_unregistered, unregistered);
 
   // Stereo settings must be set after the command line arguments are parsed.
-  
+
   // Set this before loading cameras, as jitter can be modeled only with CSM
   // cameras.
   asp::stereo_settings().aster_use_csm = true;
@@ -394,8 +394,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   // Do this check first, as the output prefix is needed to log to file. This
   // will be triggered when called with no arguments, so print the general
   // options, which functions as the help message.
-  if (opt.out_prefix == "") 
-    vw_throw(ArgumentErr() << "Missing the output prefix.\n" << usage 
+  if (opt.out_prefix == "")
+    vw_throw(ArgumentErr() << "Missing the output prefix.\n" << usage
              << general_options);
 
   // Create the output directory
@@ -423,42 +423,42 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       vw_throw(ArgumentErr() << "The option --image-list was specified, but also "
                << "images or cameras on the command line.\n");
     asp::IntrinsicOptions intr_opts;
-    read_image_cam_lists(opt.image_list, opt.camera_list, 
+    read_image_cam_lists(opt.image_list, opt.camera_list,
       opt.image_files, opt.camera_files, intr_opts); // outputs
-    if (intr_opts.num_sensors != 0 || !intr_opts.cam2sensor.empty()) 
+    if (intr_opts.num_sensors != 0 || !intr_opts.cam2sensor.empty())
       vw::vw_throw(vw::ArgumentErr() << "Cannot handle intrinsics with jitter_solve.\n");
   } else {
     std::vector<std::string> images_or_cams = opt.image_files;
     bool ensure_equal_sizes = true;
     asp::separate_images_from_cameras(images_or_cams,
                                       opt.image_files, opt.camera_files, // outputs
-                                      ensure_equal_sizes); 
+                                      ensure_equal_sizes);
 
     // This is needed when several frame camera images are acquired in quick succession
     asp::readGroupStructure(images_or_cams, opt.cam2group);
   }
-  
+
   // Throw if there are duplicate camera file names.
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
-  
+
   // Sanity check
   const int num_images = opt.image_files.size();
   if (opt.image_files.size() != opt.camera_files.size())
     vw_throw(ArgumentErr() << "Must have as many cameras as  have images.\n");
-  
+
   if (opt.image_files.empty())
     vw_throw(ArgumentErr() << "Missing input image files.\n");
-  
+
   // Must have this early check to print a clear message about unsupported
   // camera before any error thrown by StereoSessionFactory.
-  std::string err_str; 
+  std::string err_str;
   try {
     std::string input_dem = ""; // No DEM
     bool allow_map_promote = false, quiet = true;
     asp::SessionPtr session;
       session = asp::StereoSessionFactory::create
                       (opt.stereo_session, // may change
-                      opt, opt.image_files[0], opt.image_files[0], 
+                      opt, opt.image_files[0], opt.image_files[0],
                       opt.camera_files[0], opt.camera_files[0],
                       opt.out_prefix, input_dem,
                       allow_map_promote, quiet);
@@ -469,22 +469,22 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   // First check for unexpected sessions. Only dg, pleiades, aster, csm are allowed.
   if (opt.stereo_session != "dg" && opt.stereo_session != "pleiades" &&
       opt.stereo_session != "aster" && opt.stereo_session != "csm")
-    vw_throw(ArgumentErr() << "Session " << opt.stereo_session 
+    vw_throw(ArgumentErr() << "Session " << opt.stereo_session
              << " is not supported in jitter_solve. Check your camera files and/or "
              << "specify the -t (--session-type) option.\n");
   // Throw any other errors
   if (err_str != "")
     vw_throw(ArgumentErr() << err_str << "\n");
-  
+
   if (opt.overlap_limit < 0)
     vw_throw(ArgumentErr() << "Must allow search for matches between "
              << "at least each image and its subsequent one.\n");
-  
+
   // By default, try to match all of the images
   if (opt.overlap_limit == 0)
     opt.overlap_limit = opt.image_files.size();
-  
-  int num_pref = int(!opt.match_files_prefix.empty()) 
+
+  int num_pref = int(!opt.match_files_prefix.empty())
       + int(!opt.clean_match_files_prefix.empty())
       + int(!opt.isis_cnet.empty()) + int(!opt.nvm.empty());
   if (num_pref > 1)
@@ -492,97 +492,97 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
              << "--clean-match-files-prefix, --isis-cnet, --nvm.\n");
  if (num_pref == 0 && opt.gcp_files.empty())
     vw_throw(ArgumentErr() << "Neither interest point matches nor GCP were passed in.\n");
-       
+
   if (opt.max_init_reproj_error <= 0.0)
     vw_throw(ArgumentErr() << "Must have a positive --max-initial-reprojection-error.\n");
 
-  if (opt.tri_weight < 0.0) 
+  if (opt.tri_weight < 0.0)
     vw_throw(ArgumentErr() << "The value of --tri-weight must be non-negative.\n");
 
-  if (opt.robust_threshold <= 0.0) 
+  if (opt.robust_threshold <= 0.0)
     vw_throw(ArgumentErr() << "The value of --robust-threshold must be positive.\n");
 
-  if (opt.tri_robust_threshold <= 0.0) 
+  if (opt.tri_robust_threshold <= 0.0)
     vw_throw(ArgumentErr() << "The value of --tri-robust-threshold must be positive.\n");
-  
+
   // This is a bug fix. The user by mistake passed in an empty height-from-dem string.
   if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem.empty())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --heights-from-dem is empty. "
              << "Then it must not be set at all.\n");
-   
+
    // Same for opt.anchor_dem
    if (!vm["anchor-dem"].defaulted() && opt.anchor_dem.empty())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --anchor-dem is empty. Then it must not be set at all.\n");
-     
+
   if (!vm["heights-from-dem-uncertainty"].defaulted() &&
       vm["heights-from-dem"].defaulted())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --heights-from-dem-uncertainty is set, "
              << "but --heights-from-dem is not set.\n");
 
-  if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem_uncertainty <= 0.0) 
-    vw_throw(ArgumentErr() 
+  if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem_uncertainty <= 0.0)
+    vw_throw(ArgumentErr()
              << "The value of --heights-from-dem-uncertainty must be positive.\n");
-  
-  if (opt.heights_from_dem_robust_threshold <= 0.0) 
-    vw_throw(ArgumentErr() 
+
+  if (opt.heights_from_dem_robust_threshold <= 0.0)
+    vw_throw(ArgumentErr()
              << "The value of --heights-from-robust-threshold must be positive.\n");
 
   // Options for reference terrain
   if (!vm["reference-terrain"].defaulted() && opt.reference_terrain.empty())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --reference-terrain is set and empty. "
              << "Then it must not be set at all.\n");
   if (!vm["reference-terrain-uncertainty"].defaulted() &&
       vm["reference-terrain"].defaulted())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --reference-terrain-uncertainty is set, "
              << "but --reference-terrain is not set.\n");
-  if (opt.reference_terrain_uncertainty <= 0.0) 
+  if (opt.reference_terrain_uncertainty <= 0.0)
     vw_throw(ArgumentErr() << "The value of --reference-terrain-uncertainty must be "
               << "positive.\n");
-  if (opt.reference_terrain_robust_threshold <= 0.0) 
+  if (opt.reference_terrain_robust_threshold <= 0.0)
     vw_throw(ArgumentErr() << "The value of --heights-from-robust-threshold must be "
               << "positive.\n");
   if (!opt.reference_terrain.empty()) {
-    
+
     if (opt.stereo_prefix_list.empty())
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
                << "Must set --stereo-prefix-list when --reference-terrain is set.\n");
     if (!opt.rig_config.empty())
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
                << "Cannot use --rig-config with --reference-terrain.\n");
-    
+
     // Must have --csv-format unless the reference terrain is a DEM
     if (opt.csv_format_str.empty()) {
       vw::cartography::GeoReference georef;
       bool has_georef = vw::has_image_extension(opt.reference_terrain) &&
                         vw::cartography::read_georeference(georef, opt.reference_terrain);
       if (!has_georef)
-        vw_throw(ArgumentErr() 
+        vw_throw(ArgumentErr()
                  << "Must set --csv-format when --reference-terrain is set "
                  << "the terrain is not a DEM.\n");
     }
   }
-  
+
   bool have_camera_position_uncertainty = !opt.camera_position_uncertainty_str.empty();
   bool have_datum = true; // Jitter solving always expects a datum
   if (have_camera_position_uncertainty)
-   asp::handleCameraPositionUncertainty(opt, have_datum); 
+   asp::handleCameraPositionUncertainty(opt, have_datum);
 
   if (opt.rotation_weight < 0)
     vw_throw(ArgumentErr() << "The rotation weight must be non-negative.\n");
-  
-  if (opt.camera_position_weight < 0) 
+
+  if (opt.camera_position_weight < 0)
     vw_throw(ArgumentErr() << "The value of --camera-position-weight must be n"
                            << "non-negative.\n");
-    
+
   if (opt.camera_position_robust_threshold <= 0.0)
     vw_throw(ArgumentErr() << "The value of --camera-position-robust-threshold "
                             << "must be positive.\n");
-      
+
   if (opt.quat_norm_weight <= 0)
     vw_throw(ArgumentErr() << "The quaternion norm weight must be positive.\n");
 
@@ -595,7 +595,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   // The smoothness weight must be non-negative
   if (opt.smoothness_weight < 0.0)
     vw_throw(ArgumentErr() << "The smoothness weight must be non-negative.\n");
-    
+
   // Handle the roll/yaw constraint DEM
   if ((opt.roll_weight > 0 || opt.yaw_weight > 0) &&
      opt.heights_from_dem == "" && opt.anchor_dem == "")
@@ -610,50 +610,50 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   // Cannot have anchor points both per image and per tile
   if (opt.num_anchor_points_per_image > 0 && opt.num_anchor_points_per_tile > 0)
     vw_throw(ArgumentErr() << "Cannot have anchor points both per image and per tile.\n");
-    
+
   if (opt.anchor_weight < 0)
     vw_throw(ArgumentErr() << "The anchor weight must be non-negative.\n");
 
-  if ((opt.anchor_weight > 0  || opt.num_anchor_points_per_image > 0 || 
+  if ((opt.anchor_weight > 0  || opt.num_anchor_points_per_image > 0 ||
        opt.num_anchor_points_per_tile > 0 || opt.num_anchor_points_extra_lines > 0) &&
-      opt.anchor_dem.empty()) 
+      opt.anchor_dem.empty())
     vw::vw_throw(vw::ArgumentErr() << "Anchor points parameters have been specified. "
                  << "Must set  --anchor-dem.\n");
-  
+
   // Must have at least one pass
   if (opt.num_passes < 1)
     vw_throw(ArgumentErr() << "Must have at least one pass.\n");
-    
+
   bool have_rig = !opt.rig_config.empty();
   if (have_rig) {
     bool have_rig_transforms = opt.use_initial_rig_transforms;
     rig::readRigConfig(opt.rig_config, have_rig_transforms, rig);
-    
+
     for (size_t i = 0; i < rig.cam_params.size(); i++) {
       auto const& params = rig.cam_params[i];
       if (params.GetDistortion().size() != 0)
         vw::vw_throw(vw::ArgumentErr() << "Distortion is not supported in jitter_solve.\n");
     }
-    
+
     if (opt.roll_weight > 0 || opt.yaw_weight > 0)
       vw::vw_throw(vw::ArgumentErr() << "Cannot use the roll/yaw constraint with a rig.\n");
   }
-  
-  if (!have_rig && 
+
+  if (!have_rig &&
       (opt.use_initial_rig_transforms || opt.fix_rig_translations || opt.fix_rig_rotations))
     vw::vw_throw(vw::ArgumentErr() << "Cannot use --use-initial-rig-transforms, "
                  << "--fix-rig-translations, or --fix-rig-rotations without a rig.\n");
-  
+
   // If have both anchor DEM and height-from-dem, and these are difrerent, print
   // a warming that the user should check for their agreement.
   if (!opt.anchor_dem.empty() && !opt.heights_from_dem.empty() &&
       opt.anchor_dem != opt.heights_from_dem)
-    vw::vw_out(vw::WarningMessage) 
+    vw::vw_out(vw::WarningMessage)
       << "The values of --anchor-dem and --heights-from-dem are different. "
       << "Check (with geodiff) that these are in agreement.\n";
 
   asp::bathyChecks(opt.stereo_session, asp::stereo_settings(), opt.image_files.size());
-      
+
   return;
 }
 
@@ -675,12 +675,12 @@ void calcAnchorPoints(Options                         const & opt,
   vw::vw_out() << "Calculating anchor points.\n";
   vw::Stopwatch sw;
   sw.start();
-  
+
   if (opt.num_anchor_points_per_image <= 0 && opt.num_anchor_points_per_tile <= 0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
 
   bool warning_printed = false;
-  
+
   // If to use an anchor weight image
   bool have_anchor_weight_image = (!opt.anchor_weight_image.empty());
   vw::ImageViewRef<vw::PixelMask<float>> anchor_weight_image;
@@ -692,7 +692,7 @@ void calcAnchorPoints(Options                         const & opt,
 
   int num_cams = opt.camera_models.size();
   for (int icam = 0; icam < num_cams; icam++) {
-    
+
     vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
     int numLines   = dims[1];
     int numSamples = dims[0];
@@ -724,30 +724,30 @@ void calcAnchorPoints(Options                         const & opt,
 
     int numAnchorPoints = 0;
     for (int binx = 0; binx <= lenx; binx++) {
-      
+
       tpc.report_incremental_progress(inc_amount);
       double posx = binx * bin_len;
-      
+
       for (int biny = 0; biny <= leny; biny++) {
         double posy = biny * bin_len - extra;
-        
-        if (posx > numSamples - 1 || posy < -extra || posy > numLines - 1 + extra) 
+
+        if (posx > numSamples - 1 || posy < -extra || posy > numLines - 1 + extra)
           continue;
-        
+
         Vector2 pix(posx, posy);
         Vector3 xyz_guess(0, 0, 0);
-        
+
         bool treat_nodata_as_zero = false;
         bool has_intersection = false;
         double height_error_tol = 0.001; // 1 mm should be enough
         double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
         double max_rel_tol      = 1e-14;
         int num_max_iter        = 50;   // Using many iterations can be very slow
-          
+
         Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
           (opt.camera_models[icam]->camera_center(pix),
            opt.camera_models[icam]->pixel_to_vector(pix),
-           vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem), anchor_georef, 
+           vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem), anchor_georef,
            treat_nodata_as_zero, has_intersection,
            height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
 
@@ -760,25 +760,25 @@ void calcAnchorPoints(Options                         const & opt,
         } catch (...) {
           continue;
         }
-        
+
         if (norm_2(pix - pix_out) > 10 * height_error_tol)
           continue; // this is likely a bad point
 
         // If we have a weight image, use it to multiply the weight
         double anchor_weight_from_image = 1.0;
         if (have_anchor_weight_image) {
-          vw::PixelMask<float> img_wt 
-            = vw::cartography::closestPixelVal(anchor_weight_image, 
-                                               anchor_weight_image_georef, 
+          vw::PixelMask<float> img_wt
+            = vw::cartography::closestPixelVal(anchor_weight_image,
+                                               anchor_weight_image_georef,
                                                dem_xyz);
-          
+
           // Skip bad weights
-          if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) 
+          if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0)
             continue;
-          
+
           anchor_weight_from_image = img_wt.child();
         }
-        
+
         if (ls_model != NULL) {
           // Anchor points must not be outside the range of tabulated positions and orientations
           csm::ImageCoord imagePt;
@@ -792,21 +792,21 @@ void calcAnchorPoints(Options                         const & opt,
           double quatT0  = ls_model->m_t0Quat;
           double quatDt  = ls_model->m_dtQuat;
           int quat_index = static_cast<int>((time - quatT0) / quatDt);
-          if (pos_index < 0  || pos_index >= numPos || 
+          if (pos_index < 0  || pos_index >= numPos ||
               quat_index < 0 || quat_index >= numQuat) {
             if (!warning_printed) {
               vw::vw_out(vw::WarningMessage) << "Not placing anchor points outside "
                 << "the range of tabulated positions and orientations.\n";
               warning_printed = true;
             }
-            continue; 
+            continue;
           }
         }
 
         pixel_vec[icam].push_back(pix);
         weight_vec[icam].push_back(opt.anchor_weight * anchor_weight_from_image);
         isAnchor_vec[icam].push_back(1);
-        
+
         // The current number of points in tri_points_vec is the index of the next point
         pix2xyz_index[icam].push_back(tri_points_vec.size() / 3);
 
@@ -815,16 +815,16 @@ void calcAnchorPoints(Options                         const & opt,
           orig_tri_points_vec.push_back(dem_xyz[it]);
           tri_points_vec.push_back(dem_xyz[it]);
         }
-          
+
         numAnchorPoints++;
-      }   
+      }
     }
 
     tpc.report_finished();
     vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
     vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
-  }   
-  
+  }
+
   sw.stop();
   vw::vw_out() << "Elapsed time in calculating anchor points: " << sw.elapsed_seconds()
                << " seconds.\n";
@@ -839,14 +839,14 @@ void initResampleCsmCams(Options                     const& opt,
 
   // Wipe the output
   csm_models.clear();
-  
+
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
     asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], opt.stereo_session);
 
     // Sanity check
     if (csm_cam == NULL)
       vw::vw_throw(vw::ArgumentErr() << "Expecting CSM cameras.\n");
-      
+
     if (!opt.input_prefix.empty())
       asp::applyAdjustmentToCsmCamera(opt.image_files[icam],
                                       opt.camera_files[icam],
@@ -861,7 +861,7 @@ void initResampleCsmCams(Options                     const& opt,
       = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_cam->m_gm_model).get());
 
     if (ls_model == NULL && frame_model == NULL)
-      vw_throw(ArgumentErr() 
+      vw_throw(ArgumentErr()
                << "Expecting the cameras to be of CSM linescan or frame type.\n");
 
     // Normalize quaternions. Later, the quaternions being optimized will
@@ -877,7 +877,7 @@ void initResampleCsmCams(Options                     const& opt,
     } else if (frame_model != NULL) {
       normalizeQuaternions(frame_model);
     } else {
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
         << "Expecting the cameras to be of CSM linescan or frame type.\n");
     }
 
@@ -890,7 +890,7 @@ void initResampleCsmCams(Options                     const& opt,
 // Here more points may be flagged as outliers.
 void createProblemStructure(Options                      const& opt,
                             asp::CRN                    const& crn,
-                            vw::ba::ControlNetwork       const& cnet, 
+                            vw::ba::ControlNetwork       const& cnet,
                             std::vector<double>          const& tri_points_vec,
                             // Outputs
                             std::set<int>                     & outliers,
@@ -923,13 +923,13 @@ void createProblemStructure(Options                      const& opt,
 
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-      
+
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
-      
+
       if (outliers.find(ipt) != outliers.end())
         continue; // Skip outliers
-      
+
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
       Vector2 observation = (**fiter).m_location;
@@ -937,23 +937,23 @@ void createProblemStructure(Options                      const& opt,
       // Unlike in bundle adjustment, the weight of a pixel is 1.0, rather
       // than 1.0 / pixel_sigma.
       double weight = 1.0;
-      
+
       // If we have a weight image, use it to set the weight
       if (have_weight_image) {
         const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
         Vector3 ecef(tri_point[0], tri_point[1], tri_point[2]);
-        vw::PixelMask<float> img_wt 
+        vw::PixelMask<float> img_wt
           = vw::cartography::closestPixelVal(weight_image, weight_image_georef, ecef);
-        
+
         // Flag bad weights as outliers
         if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) {
           outliers.insert(ipt);
           continue;
         }
-        
+
         weight = img_wt.child();
       }
-      
+
       pixel_vec[icam].push_back(observation);
       weight_vec[icam].push_back(weight);
       isAnchor_vec[icam].push_back(0);
@@ -985,14 +985,14 @@ void jitterSolvePass(int                                 pass,
                      std::vector<double>               & ref_to_curr_sensor_vec) {
 
   vw::vw_out() << "\nJitter solving pass: " << pass << "\n";
-  
+
   // If some of the input cameras are frame, need to store position and
   // quaternion variables for them outside the camera model.
   // TODO(oalexan1): Revisit this decision now that frame camera
   // params are no longer private.
   std::vector<double> frame_params;
   initFrameCameraParams(csm_models, frame_params);
-  
+
   // Update tri points from DEM and create anchor xyz from DEM.
   bool have_dem = (!opt.heights_from_dem.empty());
   std::vector<Vector3> dem_xyz_vec;
@@ -1024,7 +1024,7 @@ void jitterSolvePass(int                                 pass,
       roll_yaw_georef = anchor_georef;
       vw::vw_out() << "Using the DEM from --anchor-dem for the roll/yaw constraint.\n";
     }
-  } 
+  }
 
   int num_cameras = opt.camera_models.size();
   if (num_cameras < 1)
@@ -1035,7 +1035,7 @@ void jitterSolvePass(int                                 pass,
   std::vector<double> local_orig_tri_points_vec, tri_points_vec;
   asp::formTriVec(dem_xyz_vec, have_dem,
     cnet, local_orig_tri_points_vec, tri_points_vec); // outputs
-  
+
   // Create structures for pixels, xyz, and weights, to be used in optimization
   std::vector<std::vector<Vector2>> pixel_vec;
   std::vector<std::vector<double>> weight_vec;
@@ -1043,23 +1043,23 @@ void jitterSolvePass(int                                 pass,
   std::vector<std::vector<int>> pix2xyz_index;
   createProblemStructure(opt, crn, cnet, tri_points_vec,
                          // Outputs
-                         outliers, pixel_vec, 
+                         outliers, pixel_vec,
                          weight_vec, isAnchor_vec, pix2xyz_index);
 
   // Find anchor points and append to pixel_vec, weight_vec, xyz_vec, etc.
   if ((opt.num_anchor_points_per_image > 0 || opt.num_anchor_points_per_tile > 0) &&
        opt.anchor_weight > 0)
-    calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,  
+    calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,
                      // Append to these
                      pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
                      local_orig_tri_points_vec, tri_points_vec);
-  
+
   // Save the original camera positions and triangulated points for the initial pass
   if (pass == 0) {
     orig_tri_points_vec = local_orig_tri_points_vec;
     asp::calcCameraCenters(opt.stereo_session, opt.camera_models, orig_cam_positions);
   }
-      
+
   // The above structures must not be resized anymore, as we will get pointers
   // to individual blocks within them.
 
@@ -1068,29 +1068,29 @@ void jitterSolvePass(int                                 pass,
 
   // The problem to solve
   ceres::Problem problem;
-  
+
   // In order to add a proportional camera constraint, we need to know the
   // median weight per camera and their count. These are different for anchor
   // and non-anchor points.  
   std::vector<std::vector<double>> weight_per_cam(2);
   std::vector<std::vector<double>> count_per_cam(2);
-  
+
   // Add reprojection errors. Get back weights_per_cam, count_per_cam.
   addReprojCamErrs(opt, crn, pixel_vec, weight_vec,
                    isAnchor_vec, pix2xyz_index, csm_models,
                    have_rig, rig, rig_cam_info, opt.cam2group, timestamp_map,
                    opt.fix_rig_translations, opt.fix_rig_rotations,
                    // Outputs
-                   tri_points_vec, frame_params, weight_per_residual, 
-                   weight_per_cam, count_per_cam, ref_to_curr_sensor_vec, 
+                   tri_points_vec, frame_params, weight_per_residual,
+                   weight_per_cam, count_per_cam, ref_to_curr_sensor_vec,
                    problem);
- 
+
   // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
   if (have_dem)
-    addDemConstraint(opt, dem_xyz_vec, outliers, cnet,  
+    addDemConstraint(opt, dem_xyz_vec, outliers, cnet,
                      // Outputs
-                     tri_points_vec, 
+                     tri_points_vec,
                      weight_per_residual,  // append
                      problem);
 
@@ -1099,13 +1099,13 @@ void jitterSolvePass(int                                 pass,
   // This must happen after any DEM-based constraint is set, and won't
   // apply to tri points already constrained by the DEM (so it will
   // work only where the DEM is missing).
-  if (opt.tri_weight > 0) 
+  if (opt.tri_weight > 0)
     addTriConstraint(opt, outliers, cnet, crn,
                      // Outputs
-                     tri_points_vec,  
+                     tri_points_vec,
                      weight_per_residual,  // append
                      problem);
-    
+
   // Add a cost function meant to tie up to known disparities (option
   // --reference-terrain). The structures below must persist until the end.
   std::vector<int> left_indices, right_indices;
@@ -1113,7 +1113,7 @@ void jitterSolvePass(int                                 pass,
   std::vector<vw::TransformPtr> left_trans, right_trans;
   std::vector<std::string> disp_files;
   std::vector<DispPtr> disp_vec;
-  std::vector<vw::Vector3> reference_vec; 
+  std::vector<vw::Vector3> reference_vec;
   std::vector<std::vector<int>> ref_indices;
   vw::ImageView<float> mapproj_dem;
   if (opt.reference_terrain != "") {
@@ -1121,7 +1121,7 @@ void jitterSolvePass(int                                 pass,
                          // Outputs
                          left_indices, right_indices, sessions, left_trans, right_trans,
                          disp_files);
-    asp::addReferenceTerrainCostFunction(opt, csm_models, left_indices, right_indices,
+    asp::addRefTerrainCostFun(opt, csm_models, left_indices, right_indices,
                                          left_trans, right_trans, disp_files,
                                          // Outputs
                                          problem, disp_vec, mapproj_dem,
@@ -1138,7 +1138,7 @@ void jitterSolvePass(int                                 pass,
   // the first pass. 
   // TODO(oalexan1): It is not clear how to best handle this. Also revisit
   // for bundle adjustment.
-  if (opt.camera_position_uncertainty.size() > 0) 
+  if (opt.camera_position_uncertainty.size() > 0)
     addHardCamPositionConstraint(opt, outliers, crn, csm_models, count_per_cam,
                                  opt.anchor_weight,
                                  have_rig, rig, rig_cam_info,
@@ -1148,28 +1148,28 @@ void jitterSolvePass(int                                 pass,
   // Add another type of constraint to keep the camera positions close to initial values.
   // The earlier one is recommended as this one was not fully sorted out.
   // TODO(oalexan1): Need to wipe this option. The above does better.
-  if (opt.camera_position_weight > 0) 
-    addSoftCamPositionConstraint(opt, outliers, crn, csm_models, 
+  if (opt.camera_position_weight > 0)
+    addSoftCamPositionConstraint(opt, outliers, crn, csm_models,
                                  weight_per_cam, count_per_cam,
                                  have_rig, rig, rig_cam_info,
                                  // Outputs
                                  frame_params, weight_per_residual, problem);
-    
+
   // Add constraints to keep quat norm close to 1, and make rotations 
   // not change too much.
   // TODO(oalexan1): Need to parameterize the rotations with axis angle, then
   // convert from / to quaternions.
-  addQuatNormRotationConstraints(opt, outliers, crn, csm_models,  
+  addQuatNormRotationConstraints(opt, outliers, crn, csm_models,
                                  have_rig, rig, rig_cam_info,
-                                 opt.quat_norm_weight, 
+                                 opt.quat_norm_weight,
                                  // Outputs
                                  frame_params,
                                  weight_per_residual,  // append
                                  problem);
 
   if (opt.roll_weight > 0 || opt.yaw_weight > 0)
-    addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef, 
-                         opt.cam2group, 
+    addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef,
+                         opt.cam2group,
                          opt.initial_camera_constraint,
                          opt.roll_weight, opt.yaw_weight,
                          // Outputs
@@ -1181,9 +1181,9 @@ void jitterSolvePass(int                                 pass,
     asp::addSmoothnessConstraint(opt, csm_models, opt.smoothness_weight,
                                  have_rig, rig, rig_cam_info,
                                  // Outputs
-                                 weight_per_residual, orig_curvatures, 
+                                 weight_per_residual, orig_curvatures,
                                  problem);
-     
+
   // Save residuals before optimization
   if (pass == 0) {
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
@@ -1192,7 +1192,7 @@ void jitterSolvePass(int                                 pass,
                    pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
                    reference_vec, ref_indices);
   }
-  
+
   // Set up the problem
   ceres::Solver::Options options;
   options.gradient_tolerance  = 1e-16;
@@ -1207,25 +1207,25 @@ void jitterSolvePass(int                                 pass,
     options.num_threads = opt.num_threads;
   // This is supposed to help with speed in a certain size range
   options.linear_solver_type = ceres::SPARSE_SCHUR;
-  options.use_explicit_schur_complement = true; 
+  options.use_explicit_schur_complement = true;
   options.linear_solver_type  = ceres::ITERATIVE_SCHUR;
   options.preconditioner_type = ceres::SCHUR_JACOBI;
   options.use_explicit_schur_complement = false; // Only matters with ITERATIVE_SCHUR
-  
+
   // Solve the problem
   vw_out() << "Starting the Ceres optimizer.\n";
-  
+
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
   vw_out() << summary.FullReport() << "\n";
-  if (summary.termination_type == ceres::NO_CONVERGENCE) 
+  if (summary.termination_type == ceres::NO_CONVERGENCE)
     vw_out() << "Found a valid solution, but did not reach the actual minimum. "
              << "This is expected, and likely the produced solution is good enough.\n";
 
   // Update the cameras given the optimized parameters
-  updateCameras(have_rig, rig, rig_cam_info, 
-                opt.cam2group, timestamp_map, ref_to_curr_sensor_vec, 
-                csm_models, frame_params);  
+  updateCameras(have_rig, rig, rig_cam_info,
+                opt.cam2group, timestamp_map, ref_to_curr_sensor_vec,
+                csm_models, frame_params);
 
   // By now camera_models has been updated in-place. Compute the optimized
   // camera centers.
@@ -1243,11 +1243,11 @@ void jitterSolvePass(int                                 pass,
   saveCsmCameras(opt.out_prefix, opt.stereo_session,
                  opt.image_files, opt.camera_files,
                  opt.camera_models, opt.update_isis_cubes_with_csm_state);
-  
+
   if (have_rig) {
     // Update the rig with the optimized transforms and save it
     asp::updateRig(ref_to_curr_sensor_vec, rig);
-    std::string rig_config = opt.out_prefix + "-rig_config.txt"; 
+    std::string rig_config = opt.out_prefix + "-rig_config.txt";
     rig::writeRigConfig(rig_config, have_rig, rig);
   }
 
@@ -1259,13 +1259,13 @@ void jitterSolvePass(int                                 pass,
                             asp::BaBaseOptions(opt), // note the slicing
                             opt.camera_models, // these have been updated
                             remove_outliers, outliers, opt.mapproj_dem,
-                            propagate_errors, horizontal_stddev_vec, 
+                            propagate_errors, horizontal_stddev_vec,
                             save_clean_matches, opt.match_files);
 
   // Compute the change in camera centers
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
-  if (opt.datum.name() != asp::UNSPECIFIED_DATUM) 
-    asp::saveCameraOffsets(opt.datum, opt.image_files, 
+  if (opt.datum.name() != asp::UNSPECIFIED_DATUM)
+    asp::saveCameraOffsets(opt.datum, opt.image_files,
                            orig_cam_positions, opt_cam_positions,
                            cam_offsets_file);
 
@@ -1278,7 +1278,7 @@ void jitterSolvePass(int                                 pass,
     vw_throw(ArgumentErr() << "Expecting more triangulated points.\n");
   orig_tri_points_vec.resize(tri_len);
   tri_points_vec.resize(tri_len);
-  std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";     
+  std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";
   asp::saveTriOffsetsPerCamera(opt.image_files, outliers,
                                orig_tri_points_vec, tri_points_vec,
                                crn, tri_offsets_file);
@@ -1294,11 +1294,11 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Load the cameras  
   bool approximate_pinhole_intrinsics = false;
-  asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,  
-                    approximate_pinhole_intrinsics,  
+  asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,
+                    approximate_pinhole_intrinsics,
                     // Outputs
                     opt.stereo_session,  // may change
-                    opt.single_threaded_cameras,  
+                    opt.single_threaded_cameras,
                     opt.camera_models);
 
   // Find the datum.
@@ -1310,7 +1310,7 @@ void run_jitter_solve(int argc, char* argv[]) {
                                              opt.stereo_session, session, opt.datum);
   if (!found_datum)
     vw_throw(ArgumentErr() << "No datum was found in the input cameras.\n");
-  
+
   // Apply the input adjustments to the cameras. Resample linescan models.
   // Get pointers to the underlying CSM cameras, as need to manipulate
   // those directly. These will result in changes to the input cameras.
@@ -1325,11 +1325,11 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<double> ref_to_curr_sensor_vec;
   TimestampMap timestamp_map;
   if (have_rig)
-    populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models, 
+    populateRigCamInfo(rig, opt.image_files, opt.camera_files, csm_models,
                        opt.cam2group, opt.use_initial_rig_transforms,
                        // Outputs
                        rig_cam_info, ref_to_curr_sensor_vec, timestamp_map);
-  
+
   // Make a list of all the image pairs to find matches for. Some quantities
   // below are not needed but are part of the API.
   if (opt.isis_cnet.empty() && opt.nvm.empty())
@@ -1351,7 +1351,7 @@ void run_jitter_solve(int argc, char* argv[]) {
       bool nvm_no_shift = false;
       std::vector<Eigen::Affine3d> world_to_cam; // poses will not be used
       std::map<std::string, Eigen::Vector2d> optical_offsets;
-      asp::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift, 
+      asp::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift,
                          cnet, world_to_cam, optical_offsets); // outputs
   } else {
     bool triangulate_control_points = true;
@@ -1363,13 +1363,13 @@ void run_jitter_solve(int argc, char* argv[]) {
                                   opt.forced_triangulation_distance,
                                   opt.max_pairwise_matches);
   }
-  
+
   if (!opt.gcp_files.empty()) {
     int num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
     checkGcpRadius(opt.datum, cnet);
     vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
   }
-  
+
   if (cnet.empty())
       vw::vw_throw(vw::ArgumentErr()
               << "Failed to build a control network. Check the bundle adjustment directory "
@@ -1380,20 +1380,20 @@ void run_jitter_solve(int argc, char* argv[]) {
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   asp::CRN crn;
   crn.from_cnet(cnet);
-  
-  if ((int)crn.size() != opt.camera_models.size()) 
+
+  if ((int)crn.size() != opt.camera_models.size())
     vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
              << "must equal the number of images.\n");
 
   // Flag as outliers points with initial reprojection error bigger than
   // a certain amount. This assumes that the input cameras are very accurate.
   std::set<int> outliers;
-  flag_initial_outliers(cnet, crn, opt.camera_models, opt.max_init_reproj_error,  
+  flag_initial_outliers(cnet, crn, opt.camera_models, opt.max_init_reproj_error,
                         // Output
                         outliers);
-  vw_out() << "Removed " << outliers.size() 
+  vw_out() << "Removed " << outliers.size()
     << " outliers based on initial reprojection error.\n";
-  
+
   // It is convenient to compute these inside the first pass rather than outside.
   // They should not go out of scope until the end of the program.
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
@@ -1402,26 +1402,26 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Do this many passes
   for (int pass = 0; pass < opt.num_passes; pass++)
-    jitterSolvePass(pass, have_rig, opt, crn, rig_cam_info, 
+    jitterSolvePass(pass, have_rig, opt, crn, rig_cam_info,
                     timestamp_map,
                     // Outputs
                     cnet, outliers, csm_models,
                     orig_cam_positions,
                     orig_tri_points_vec, orig_curvatures,
                     rig, ref_to_curr_sensor_vec);
-  
+
   return;
 }
 
 } // end namespace asp
-  
+
 int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
-    
+
     asp::run_jitter_solve(argc, argv);
-    
+
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 

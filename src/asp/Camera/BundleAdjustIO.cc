@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -64,7 +64,6 @@ using namespace vw::ba;
 
 namespace asp {
 
-
 // Save mapprojected matches offsets for each image pair having matches
 void saveMapprojOffsets(
      std::string                       const& out_prefix,
@@ -73,8 +72,8 @@ void saveMapprojOffsets(
      std::vector<asp::MatchPairStats>  const& mapprojOffsets,
      std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
      std::vector<std::string>          const& imageFiles) {
-  
-  std::string mapproj_offsets_stats_file 
+
+  std::string mapproj_offsets_stats_file
     = out_prefix + "-mapproj_match_offset_stats.txt";
   vw_out() << "Writing: " << mapproj_offsets_stats_file << "\n";
   std::ofstream ofs (mapproj_offsets_stats_file.c_str());
@@ -103,7 +102,7 @@ void saveMapprojOffsets(
   }
   ofs.close();
 
-  std::string mapproj_offsets_pair_stats_file 
+  std::string mapproj_offsets_pair_stats_file
     = out_prefix + "-mapproj_match_offset_pair_stats.txt";
   vw::vw_out() << "Writing: " << mapproj_offsets_pair_stats_file << "\n";
   ofs = std::ofstream(mapproj_offsets_pair_stats_file.c_str());
@@ -125,7 +124,7 @@ void saveMapprojOffsets(
   ofs = std::ofstream(mapproj_offsets_file.c_str());
   // 12 digits of precision for errors is enough. 
   // That is 9 digits after decimal period for lon and lat.
-  ofs.precision(12); 
+  ofs.precision(12);
   ofs << "# lon, lat, height_above_datum, mapproj_ip_dist_meters\n";
   ofs << "# " << mapproj_dem_georef.datum() << std::endl;
 
@@ -135,17 +134,16 @@ void saveMapprojOffsets(
     ofs << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
          << mapprojPoints[it][3] << std::endl;
   }
-  
+
   ofs.close();
-  
+
   return;
 }
-
 
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
 void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_storage,
-                      vw::cartography::Datum const& datum, 
+                      vw::cartography::Datum const& datum,
                       std::string const& prefix) {
 
   std::string output_path = opt.out_prefix + "-" + prefix + "-cameras.csv";
@@ -154,7 +152,7 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_
   fh.precision(17);
   fh << "# input_cam_file, cam_ctr_x, cam_ctr_y, cam_ctr_z (ecef meters), "
      << "cam2ned rotation rows\n";
-  
+
   int num_cameras = opt.image_files.size();
 
   // TODO(oalexan1): Create here a report file. Write camera name,
@@ -174,7 +172,7 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
         // Apply current intrinsics and extrinsics to the camera
-        vw::camera::PinholeModel out_cam 
+        vw::camera::PinholeModel out_cam
           = transformedPinholeCamera(icam, param_storage, *in_cam);
         cam_ctr = out_cam.camera_center(vw::Vector2());
         cam2ecef = out_cam.get_rotation_matrix();
@@ -196,7 +194,7 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_
         PinholeModel* in_cam = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-        
+
         // Make a copy of the camera, and apply the adjustments to the copy. Need to go back
         // to the original camera to get the adjustments needed to apply.
         // TODO(oalexan1): This is a little awkward.
@@ -223,7 +221,7 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_
     for (int row = 0; row < cam2ned.rows(); row++) {
       for (int col = 0; col < cam2ned.cols(); col++) {
         fh << ", " << cam2ned(row, col);
-      } 
+      }
     }
     fh << "\n";
   }
@@ -231,7 +229,6 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_
   fh.close();
   return;
 }
-
 
 // Save stats of horizontal and vertical errors propagated from cameras
 // to triangulation
@@ -255,8 +252,7 @@ void saveHorizVertErrors(std::string const& horiz_vert_errors_file,
   ofs.close();
 
   return;
-} 
-
+}
 
 /// Write a pinhole camera file to disk after updating the intrinsics and
 /// extrinsics. Return the path to the saved file.
@@ -290,12 +286,11 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
                    << datum.cartesian_to_geodetic(out_cam.camera_center())
                    << " (longitude, latitude, height above datum(m))\n\n";
   }
-    
+
   out_cam.write(cam_file);
-  
+
   return cam_file;
 }
-
 
 /// Write an optical bar camera file to disk after updating the intrinsics and
 // extrinsics. Return the path to the saved file.
@@ -316,9 +311,9 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
     = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
-  vw::camera::OpticalBarModel out_cam 
+  vw::camera::OpticalBarModel out_cam
     = transformedOpticalBarCamera(icam, param_storage, *in_cam);
-  
+
   #pragma omp critical
   {
     // Ensure this text is not messed up when writing in parallel
@@ -330,12 +325,11 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
                    << datum.cartesian_to_geodetic(out_cam.camera_center())
                    << " (longitude, latitude, height above datum(m))\n\n";
   }
-  
+
   out_cam.write(cam_file);
-  
+
   return cam_file;
 }
-
 
 // Write a CSM camera file to disk. Assumes that the intrinsics are optimized.
 // Return the path to the saved file.
@@ -353,12 +347,12 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
   // parameters applied to it. Note that we do not modify the original
   // camera.
   asp::CsmModel const* in_cam
-    = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get()); 
+    = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get());
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
   boost::shared_ptr<asp::CsmModel> out_cam
     = transformedCsmCamera(icam, param_storage, *in_cam);
-     
+
   #pragma omp critical
   {
     // Ensure this text is not messed up when writing in parallel
@@ -370,13 +364,13 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
                    << " (longitude, latitude, height above datum(m))\n";
     vw::vw_out() << "Writing: " << cam_file << "\n";
   }
-  
+
   // Save the updated state
   out_cam->saveState(cam_file);
 
   if (opt.update_isis_cubes_with_csm_state) {
     // Save the CSM state to the image file. Wipe any spice info.
-    std::string image_name = opt.image_files[icam]; 
+    std::string image_name = opt.image_files[icam];
     std::string plugin_name = out_cam->plugin_name();
     std::string model_name  = out_cam->model_name();
     std::string model_state = out_cam->model_state();
@@ -389,7 +383,7 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
     asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
 #endif // ASP_HAVE_PKG_ISIS
   }
-  
+
   return cam_file;
 }
 
@@ -413,10 +407,9 @@ void saveConvergenceAngles(std::string const& conv_angles_file,
   return;
 }
 
-
 // Read image and camera lists. Can have several comma-separated lists
 // in image_list and camera_list, when sharing intrinsics per sensor.
-void read_image_cam_lists(std::string const& image_list, 
+void read_image_cam_lists(std::string const& image_list,
                 std::string const& camera_list,
                 std::vector<std::string> & images,
                 std::vector<std::string> & cameras,
@@ -430,7 +423,7 @@ void read_image_cam_lists(std::string const& image_list,
   intrinsics_opts.num_sensors = 0; // must be initialized to zero
 
   // See if we have a single list or multiple lists
-  if (image_list.find(",") == std::string::npos && 
+  if (image_list.find(",") == std::string::npos &&
       camera_list.find(",") == std::string::npos) {
     // Single list, so just read the lists as usual, and return
     asp::read_list(image_list, images);
@@ -441,17 +434,17 @@ void read_image_cam_lists(std::string const& image_list,
       asp::read_list(camera_list, cameras);
     if (cameras.empty())
       cameras = images;
-    
+
     // There must be as many images as cameras
     if (images.size() != cameras.size())
       vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
-      
+
     return;
   }
-  
+
   // This when we have multiple image lists and camera lists, for when
   // we solve for intrinsics per sensor.
-  vw_out() << "Multiple image lists and camera lists were passed in. " 
+  vw_out() << "Multiple image lists and camera lists were passed in. "
            << "Solving for intrinsics per sensor.\n";
 
   // This is a very important bit
@@ -472,7 +465,7 @@ void read_image_cam_lists(std::string const& image_list,
     asp::read_list(camera_lists[sensor_it], local_cameras);
     if (local_images.size() != local_cameras.size() || local_images.empty())
       vw_throw(ArgumentErr() << "Expecting the same positive number of images and cameras "
-      << "in lists: '" << image_lists[sensor_it] << "' and '" 
+      << "in lists: '" << image_lists[sensor_it] << "' and '"
       << camera_lists[sensor_it] << "'.\n");
 
     // Append to the global lists
@@ -490,14 +483,13 @@ void read_image_cam_lists(std::string const& image_list,
   // Must have the same number of cameras as images
   if (images.size() != cameras.size())
     vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
-    
-  return;
-} 
 
+  return;
+}
 
 // Write an updated csm camera state file to disk. Assumes no intrinsics are optimized.
 std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
-                           std::string const& adjustFile, 
+                           std::string const& adjustFile,
                            asp::BaParams const& param_storage) {
 
   // Get the unadjusted CSM model and the adjustment as a transform
@@ -506,7 +498,7 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
                               cam_adjust.position(), cam_adjust.pose());
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   std::string csmFile          = asp::csmStateFile(adjustFile);
-  asp::CsmModel * csm_model    
+  asp::CsmModel * csm_model
     = asp::csm_model(vw::camera::unadjusted_model(opt.camera_models[icam]),
                                                 opt.stereo_session);
 
@@ -523,7 +515,7 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
 
   if (opt.update_isis_cubes_with_csm_state) {
     // Save the CSM state to the image file. Wipe any spice info.
-    std::string image_name = opt.image_files[icam]; 
+    std::string image_name = opt.image_files[icam];
     std::string plugin_name = out_cam->plugin_name();
     std::string model_name  = out_cam->model_name();
     std::string model_state = out_cam->model_state();
@@ -532,38 +524,37 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
       // Ensure this text is not messed up when writing in parallel
       vw::vw_out() << "Adding updated CSM state to image file: " << image_name << "\n";
     }
-    
+
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
 #endif // ASP_HAVE_PKG_ISIS
   }
-  
+
   return csmFile;
 }
 
-
 // Write an updated RPC camera file to disk. Assumes no intrinsics are optimized.
 std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
-                           std::string const& adjustFile, 
+                           std::string const& adjustFile,
                            asp::BaParams const& param_storage) {
-  
+
   std::string imageFile = opt.image_files[icam];
   vw::DiskImageView<float> image(imageFile);
   BBox2 image_box = vw::bounding_box(image);
-  
+
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
   AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
                               cam_adjust.position(), cam_adjust.pose());
-  
+
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   std::string rpcFile = asp::rpcAdjustedFile(adjustFile);
-  
+
   // Get the underlying RPC model
   vw::CamPtr unadjCam = vw::camera::unadjusted_model(opt.camera_models[icam]);
   asp::RPCModel * rpc = dynamic_cast<asp::RPCModel*>(unadjCam.get());
   if (rpc == NULL)
     vw_throw(ArgumentErr() << "Expecting an RPC camera.\n");
-  
+
   #pragma omp critical
   {
     // Ensure this text is not messed up when writing in parallel
@@ -577,7 +568,7 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
   #pragma omp critical
   {
     vw::vw_out() << "Discrepancy between the initial RPC model with the external adjustment "
-      << "and the refit model incorporating the adjustment for image: " 
+      << "and the refit model incorporating the adjustment for image: "
       << imageFile << " is " << pixel_err  << " pixels.\n";
     if (pixel_err > 1.0)
        vw::vw_out(vw::WarningMessage) << "The adjusted RPC model is not accurate enough. "
@@ -587,10 +578,9 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
   }
 
   trans_rpc.saveXML(rpcFile);
-  
+
   return rpcFile;
 }
-
 
 // Write a camera adjustment file to disk, and potentially a camera file with
 // the adjustments applied to it. Return the path to the saved file.
@@ -609,11 +599,11 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
 
   // The cam_file will be overwritten below for CSM cameras
   CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
-  asp::write_adjustments(adjust_file, cam_adjust.position(), 
+  asp::write_adjustments(adjust_file, cam_adjust.position(),
                                     cam_adjust.pose());
 
   std::string cam_file = adjust_file;
-    
+
   // For CSM camera models export, in addition, the JSON state with the
   // adjustment applied to it. This applies when not solving for intrinsics and
   // using CSM. Do something analogous for RPC.
@@ -623,19 +613,18 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
     cam_file = saveUpdatedCsm(opt, icam, adjust_file, param_storage);
   else if (opt.stereo_session == "rpc" && opt.save_adjusted_rpc)
     cam_file = saveUpdatedRpc(opt, icam, adjust_file, param_storage);
-  
+
   return cam_file;
 }
 
-
 // Save the updated camera model to disk. Return the name of the file written.
-std::string saveUpdatedCamera(asp::BaBaseOptions const& opt, 
+std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
                               asp::BaParams const& param_storage,
                               int icam) {
 
   // Must have a try block, as otherwise OpenMP crashes the program
   // as the caller seems unable to catch the exception from threads.
-  std::string cam_file; 
+  std::string cam_file;
   try {
 
     switch (opt.camera_type) {
@@ -659,26 +648,25 @@ std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
   } catch (const std::exception& e) {
     vw::vw_out() << e.what() << "\n";
   }
-  
+
   return cam_file;
 }
 
-
 // Write updated camera models to disk
-void saveUpdatedCameras(asp::BaBaseOptions const& opt, 
+void saveUpdatedCameras(asp::BaBaseOptions const& opt,
                         asp::BaParams const& param_storage) {
-  
+
   int num_cameras = opt.image_files.size();
   std::vector<std::string> cam_files(num_cameras);
   vw::Stopwatch sw;
   sw.start();
-  
+
   // For pinhole and nadirpinhole sessions, save the cameras sequentially, as
   // some info is printed along the way and can get messed up if done in
   // parallel.
   if (!opt.single_threaded_cameras && !opt.update_isis_cubes_with_csm_state &&
       opt.stereo_session.find("pinhole") == std::string::npos) {
-    #pragma omp parallel for 
+    #pragma omp parallel for
     for (int icam = 0; icam < num_cameras; icam++)
       cam_files[icam] = saveUpdatedCamera(opt, param_storage, icam);
   } else {
@@ -693,20 +681,19 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt,
   std::string img_list_file = opt.out_prefix + "-image_list.txt";
   vw::vw_out() << "Writing: " << img_list_file << "\n";
   asp::write_list(img_list_file, opt.image_files);
-  
+
   // Write the camera lists
   std::string cam_list_file = opt.out_prefix + "-camera_list.txt";
   vw::vw_out() << "Writing: " << cam_list_file << "\n";
   asp::write_list(cam_list_file, cam_files);
-  
+
   return;
 }
-
 
 // Save the CSM cameras. It is assumed there are no external adjustments
 // applied to them.
 void saveCsmCameras(std::string const& out_prefix,
-                    std::string const& stereo_session, 
+                    std::string const& stereo_session,
                     std::vector<std::string> const& image_files,
                     std::vector<std::string> const& camera_files,
                     std::vector<vw::CamPtr>  const& camera_models,
@@ -719,7 +706,7 @@ void saveCsmCameras(std::string const& out_prefix,
                                                           image_files[icam],
                                                           camera_files[icam]);
     std::string csmFile = asp::csmStateFile(adjustFile);
-    asp::CsmModel * csm_cam 
+    asp::CsmModel * csm_cam
       = asp::csm_model(camera_models[icam], stereo_session);
     vw::vw_out() << "Writing: " << csmFile << "\n";
     csm_cam->saveState(csmFile);
@@ -727,7 +714,7 @@ void saveCsmCameras(std::string const& out_prefix,
 
     if (update_isis_cubes_with_csm_state) {
       // Save the CSM state to the image file. Wipe any spice info.
-      std::string image_name = image_files[icam]; 
+      std::string image_name = image_files[icam];
       std::string plugin_name = csm_cam->plugin_name();
       std::string model_name  = csm_cam->model_name();
       std::string model_state = csm_cam->model_state();
@@ -737,27 +724,26 @@ void saveCsmCameras(std::string const& out_prefix,
 #endif // ASP_HAVE_PKG_ISIS
     }
   }
-  
+
   // Write the image lists
   std::string img_list_file = out_prefix + "-image_list.txt";
   vw::vw_out() << "Writing: " << img_list_file << std::endl;
   asp::write_list(img_list_file, image_files);
-  
+
   // Write the camera lists
   std::string cam_list_file = out_prefix + "-camera_list.txt";
   vw::vw_out() << "Writing: " << cam_list_file << std::endl;
   asp::write_list(cam_list_file, cam_files);
-  
-}
 
+}
 
 /// Load all of the reference disparities specified in the input text file
 /// and store them in the vectors.  Return the number loaded.
-int load_reference_disparities(std::string const& disp_list_filename,
-                               std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
-                                  disp_vec,
-                               std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
-                                  interp_disp) {
+int loadRefDisp(std::string const& disp_list_filename,
+                std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> &
+                   disp_vec,
+                std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> &
+                   interp_disp) {
   // TODO: Disparities can be large, but if small it is better to
   // read them in memory.
   std::istringstream is(disp_list_filename);
@@ -766,12 +752,12 @@ int load_reference_disparities(std::string const& disp_list_filename,
     if (disp_file != "none") {
       vw::vw_out() << "Reading: " << disp_file << std::endl;
       disp_vec.push_back(copy(vw::DiskImageView<vw::PixelMask<vw::Vector2f>>(disp_file)));
-    }else{
+    } else {
       // Read in an empty disparity
       disp_vec.push_back(vw::ImageView<vw::PixelMask<vw::Vector2f>>());
     }
     interp_disp.push_back(interpolate(disp_vec.back(),
-                                      vw::BilinearInterpolation(), 
+                                      vw::BilinearInterpolation(),
                                       vw::ConstantEdgeExtension()));
   }
   return static_cast<int>(disp_vec.size());
