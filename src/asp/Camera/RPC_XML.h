@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -49,20 +49,20 @@ namespace asp {
 
   // Forward declaration so we don't need to include this class's header
   class RPCModel;
-  
+
   /// Objects that represent read data from XML. These also provide a
   /// storage structure for modification later on.
   class ImageXML : public BitChecker {
 
-    void parse_meta      ( xercesc::DOMElement* node );
-    void parse_band_tdi  ( xercesc::DOMElement* node, int & out_tdi);
-    void parse_tlc_list  ( xercesc::DOMElement* node );
-    void parse_image_size( xercesc::DOMElement* node );
+    void parse_meta      (xercesc::DOMElement* node);
+    void parse_band_tdi  (xercesc::DOMElement* node, int & out_tdi);
+    void parse_tlc_list  (xercesc::DOMElement* node);
+    void parse_image_size(xercesc::DOMElement* node);
 
   public:
     ImageXML();
 
-    void parse( xercesc::DOMElement* node );
+    void parse(xercesc::DOMElement* node);
 
     std::string  tlc_start_time;
     std::string  first_line_start_time;
@@ -81,16 +81,16 @@ namespace asp {
   ///
   class GeometricXML : public BitChecker {
 
-    void parse_principal_distance( xercesc::DOMElement* node );
-    void parse_optical_distortion( xercesc::DOMElement* node );
-    void parse_perspective_center( xercesc::DOMElement* node );
-    void parse_camera_attitude   ( xercesc::DOMElement* node );
-    void parse_detector_mounting ( xercesc::DOMElement* node );
+    void parse_principal_distance(xercesc::DOMElement* node);
+    void parse_optical_distortion(xercesc::DOMElement* node);
+    void parse_perspective_center(xercesc::DOMElement* node);
+    void parse_camera_attitude   (xercesc::DOMElement* node);
+    void parse_detector_mounting (xercesc::DOMElement* node);
 
   public:
     GeometricXML();
 
-    void parse( xercesc::DOMElement* node );
+    void parse(xercesc::DOMElement* node);
 
     double      principal_distance;   // mm
     vw::int32   optical_polyorder;
@@ -100,7 +100,7 @@ namespace asp {
     vw::Vector2 detector_origin;     // mm
     double      detector_rotation;    // degrees about Z+ in camera frame
     double      detector_pixel_pitch; // mm
-    
+
     void printDebugInfo() const; ///< Debug string
   };
 
@@ -108,13 +108,13 @@ namespace asp {
   ///
   class EphemerisXML : public BitChecker {
 
-    void parse_meta    ( xercesc::DOMElement* node );
-    void parse_eph_list( xercesc::DOMElement* node );
+    void parse_meta    (xercesc::DOMElement* node);
+    void parse_eph_list(xercesc::DOMElement* node);
 
   public:
     EphemerisXML();
 
-    void parse( xercesc::DOMElement* node );
+    void parse(xercesc::DOMElement* node);
 
     std::string start_time;      // UTC
     double time_interval;        // seconds
@@ -138,13 +138,13 @@ namespace asp {
   /// 
   class AttitudeXML : public BitChecker {
 
-    void parse_meta( xercesc::DOMElement* node );
-    void parse_att_list( xercesc::DOMElement* node );
+    void parse_meta(xercesc::DOMElement* node);
+    void parse_att_list(xercesc::DOMElement* node);
 
   public:
     AttitudeXML();
 
-    void parse( xercesc::DOMElement* node );
+    void parse(xercesc::DOMElement* node);
 
     std::string start_time;
     double time_interval;
@@ -168,24 +168,24 @@ namespace asp {
     boost::shared_ptr<RPCModel> m_rpc;
     vw::BBox3 m_lat_lon_height_box;
 
-    void parse_vector( xercesc::DOMElement* node,
-                       vw::Vector<double,20> & vec );
+    void parse_vector(xercesc::DOMElement* node,
+                       vw::Vector<double,20> & vec);
 
     void parse_rpb(xercesc::DOMElement* root); ///< Digital Globe XML
-    void parse_rational_function_model( xercesc::DOMElement* node ); ///< Pleiades / Astrium
-    void parse_perusat_model( xercesc::DOMElement* node ); ///< PeruSat-1
+    void parse_rational_function_model(xercesc::DOMElement* node); ///< Pleiades / Astrium
+    void parse_perusat_model(xercesc::DOMElement* node); ///< PeruSat-1
 
   public:
     RPCXML();
-    void read_from_file( std::string const& name );
-    void parse( xercesc::DOMElement* node ) { parse_rpb( node ); }
+    void read_from_file(std::string const& name);
+    void parse(xercesc::DOMElement* node) { parse_rpb(node); }
 
     // TODO: Why is this function in this class?
-    void parse_bbox( xercesc::DOMElement* node ); ///< Read the valid sensor model bounds
+    void parse_bbox(xercesc::DOMElement* node); ///< Read the valid sensor model bounds
 
     // Parse the terrain height (only for ortho-ready images)
     double parse_terrain_height(xercesc::DOMElement* node);
-    
+
     /// Return a pointer to the loaded RPC model.
     RPCModel* rpc_ptr() const;
     /// Get the GDC bounding box that the RPC model is valid for.
@@ -194,13 +194,13 @@ namespace asp {
 
   // Helper functions to allow us to fill the objects. This doesn't
   // really help with code reuse but I think it makes it easer to read.
-  void read_xml( std::string const& filename,
+  void read_xml(std::string const& filename,
                  GeometricXML& geo,
                  AttitudeXML & att,
                  EphemerisXML& eph,
                  ImageXML    & img,
-                 RPCXML      & rpc );
-  vw::Vector2i xml_image_size( std::string const& filename );
+                 RPCXML      & rpc);
+  vw::Vector2i xml_image_size(std::string const& filename);
 
 
   /// Function to extract the four corners from the first band

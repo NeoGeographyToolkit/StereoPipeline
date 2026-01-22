@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -51,10 +51,10 @@ namespace asp {
 
   class SpotXML {
   public:
-  
+
     /// Constructor
     /// - Sets the fixed reference time.
-    SpotXML(): 
+    SpotXML():
       m_time_ref_functor(boost::posix_time::time_from_string("2002-05-04 00:00:00.00")) {}
 
     // The reader will populate these fields
@@ -72,14 +72,14 @@ namespace asp {
 
     /// Parse an XML file to populate the data
     void read_xml(std::string const& xml_path);
-    
+
     /// Parse an XML tree to populate the data
     void parse_xml(xercesc::DOMElement* node);
 
     /// Load the estimated image lonlat corners from the XML file
     /// - Corners are returned in clockwise order.
     static std::vector<vw::Vector2> get_lonlat_corners(std::string const& xml_path);
-    
+
     // Functions to setup functors which manage the raw input data.
     vw::camera::LagrangianInterpolation setup_position_func() const;
     vw::camera::LagrangianInterpolation setup_velocity_func() const;
@@ -88,10 +88,10 @@ namespace asp {
         vw::camera::LinearTimeInterpolation const& time_func) const; // (yaw/pitch/roll)        
 
   private: // The various XML data reading sections
-  
+
     /// Just opens the XML file for reading and returns the root node.
     xercesc::DOMElement* open_xml_file(std::string const& xml_path);
-  
+
     void read_look_angles(xercesc::DOMElement* look_angles_node);
     void read_ephemeris  (xercesc::DOMElement* ephemeris_node);
     void read_attitude   (xercesc::DOMElement* corrected_attitudes_node);

@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -51,28 +51,28 @@ namespace asp {
 DOMElement* SpotXML::open_xml_file(std::string const& xml_path) {
 
   // Check if the file actually exists and throw a user helpful file.
-  if ( !boost::filesystem::exists( xml_path ) )
-    vw_throw( ArgumentErr() << "XML file \"" << xml_path << "\" does not exist." );
+  if (!boost::filesystem::exists(xml_path))
+    vw_throw(ArgumentErr() << "XML file \"" << xml_path << "\" does not exist.");
 
   std::string error_prefix = "XML file \"" + xml_path + "\" is invalid.\nException message is: \n";
   std::string err_message  = ""; // Filled in later on error
 
   try{
     //std::cout << "Set XML parser\n";
-  
+
     // Set up the XML parser if we have not already done so
     if (!m_parser.get()) {
       m_parser.reset(new XercesDOMParser());
       m_errHandler.reset(new HandlerBase());
       m_parser->setValidationScheme(XercesDOMParser::Val_Always);
-      m_parser->setDoNamespaces(true);   
+      m_parser->setDoNamespaces(true);
       m_parser->setErrorHandler(m_errHandler.get());
     }
 
     //std::cout << "Load XML\n";
 
     // Load the XML file
-    m_parser->parse( xml_path.c_str() );
+    m_parser->parse(xml_path.c_str());
     DOMDocument* xmlDoc      = m_parser->getDocument();
     DOMElement * elementRoot = xmlDoc->getDocumentElement();
     return elementRoot;
@@ -89,12 +89,12 @@ DOMElement* SpotXML::open_xml_file(std::string const& xml_path) {
     char* message = XMLString::transcode(toCatch.getMessage());
     err_message = error_prefix + message;
     XMLString::release(&message);
-  } catch ( const std::exception& e ) {
+  } catch (const std::exception& e) {
     err_message = error_prefix + e.what();
   } catch (...) {
     err_message = "Unrecognized error in XML file \"" + xml_path + "\"\n";
   }
-  vw_throw( ArgumentErr() << err_message); // Only get here on error
+  vw_throw(ArgumentErr() << err_message); // Only get here on error
   return 0;
 }
 
@@ -116,7 +116,7 @@ std::vector<vw::Vector2> SpotXML::get_lonlat_corners(std::string const& xml_path
 void SpotXML::parse_xml(xercesc::DOMElement* node) {
 
   //std::cout << "Find dataset\n";
-  xercesc::DOMElement* dataset_frame_node       = get_node<DOMElement>(node, "Dataset_Frame"); 
+  xercesc::DOMElement* dataset_frame_node       = get_node<DOMElement>(node, "Dataset_Frame");
   //xercesc::DOMElement* crs_node                 get_node<DOMElement>(node, "Coordinate_Reference_System");
   //xercesc::DOMElement* image_display_node       get_node<DOMElement>(node, "Image_Display");
   //xercesc::DOMElement* scene_source_node        get_node<DOMElement>(node, "Scene_Source");
@@ -128,7 +128,7 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   //std::cout << "Find angles\n";
   xercesc::DOMElement* look_angles_node         = get_node<DOMElement>(node, "Instrument_Look_Angles_List");
   xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
-  
+
 
   //std::cout << "Parse dataset\n";
   read_corners(dataset_frame_node);
@@ -144,7 +144,7 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   read_look_angles(look_angles_node);
   //std::cout << "Parse line times\n";
   read_line_times(sensor_config_node);
-  
+
   // Set up the base time
   // - The position log starts before the image does, so the first
   //   time there should be a good reference time.
@@ -154,7 +154,7 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
     std::string s = iter->first;
     boost::replace_all(s, "T", " ");
     boost::posix_time::ptime this_time = boost::posix_time::time_from_string(s);
-    if (this_time < earliest_time){
+    if (this_time < earliest_time) {
       earliest_time = this_time;
       //std::cout << "Using reference time " << iter->first << std::endl;
     }
@@ -183,14 +183,14 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
 
   size_t index = 0;
   const XMLSize_t num_children = children->getLength();
-  for ( XMLSize_t i = 0; i < num_children; ++i ) {
+  for (XMLSize_t i = 0; i < num_children; ++i) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+    if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
       continue;
 
     // Check the node name
-    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
+    DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
 
     if (index >= num_cols)
       vw_throw(ArgumentErr() << "More look angles than rows in SPOT XML file!\n");
@@ -198,14 +198,14 @@ void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
     // Look through the three nodes and assign each of them
     // - In this function we do this a little more by hand to try and speed things up
     DOMNodeList* sub_children = curr_element->getChildNodes();
-    for ( XMLSize_t j = 0; j < sub_children->getLength(); ++j ) {
+    for (XMLSize_t j = 0; j < sub_children->getLength(); ++j) {
 
       DOMNode* child_node = sub_children->item(j);
-      if ( child_node->getNodeType() != DOMNode::ELEMENT_NODE )
+      if (child_node->getNodeType() != DOMNode::ELEMENT_NODE)
         continue;
-      DOMElement* child_element = dynamic_cast<DOMElement*>( child_node );
-      std::string tag2( XMLString::transcode(child_element->getTagName()) );
-      std::string text( XMLString::transcode(child_element->getTextContent()) );
+      DOMElement* child_element = dynamic_cast<DOMElement*>(child_node);
+      std::string tag2(XMLString::transcode(child_element->getTagName()));
+      std::string text(XMLString::transcode(child_element->getTextContent()));
 
       if (tag2 == "DETECTOR_ID")
         look_angles[index].first = atoi(text.c_str());
@@ -232,34 +232,34 @@ void SpotXML::read_ephemeris(xercesc::DOMElement* ephemeris_node) {
 
   // Pick out the "Point" nodes
   DOMNodeList* children = points_node->getChildNodes();
-  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+  for (XMLSize_t i = 0; i < children->getLength(); ++i) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+    if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
       continue;
 
     // Check the node name
-    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
-    std::string tag( XMLString::transcode(curr_element->getTagName()) );
+    DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
+    std::string tag(XMLString::transcode(curr_element->getTagName()));
     if (tag.find("Point") == std::string::npos)
       continue;
 
     // Get the three sub-nodes
     xercesc::DOMElement* location_node = get_node<DOMElement>(curr_element, "Location");
     xercesc::DOMElement* velocity_node = get_node<DOMElement>(curr_element, "Velocity");
-  
+
     // Read in both sets of values
     std::string time;
     Vector3 position, velocity;
-    
-    cast_xmlch( get_node<DOMElement>(curr_element, "TIME" )->getTextContent(), time );
-    cast_xmlch( get_node<DOMElement>(location_node, "X")->getTextContent(), position.x() );
-    cast_xmlch( get_node<DOMElement>(location_node, "Y")->getTextContent(), position.y() );
-    cast_xmlch( get_node<DOMElement>(location_node, "Z")->getTextContent(), position.z() );
-    cast_xmlch( get_node<DOMElement>(velocity_node, "X")->getTextContent(), velocity.x() );
-    cast_xmlch( get_node<DOMElement>(velocity_node, "Y")->getTextContent(), velocity.y() );
-    cast_xmlch( get_node<DOMElement>(velocity_node, "Z")->getTextContent(), velocity.z() );
-    
+
+    cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), time);
+    cast_xmlch(get_node<DOMElement>(location_node, "X")->getTextContent(), position.x());
+    cast_xmlch(get_node<DOMElement>(location_node, "Y")->getTextContent(), position.y());
+    cast_xmlch(get_node<DOMElement>(location_node, "Z")->getTextContent(), position.z());
+    cast_xmlch(get_node<DOMElement>(velocity_node, "X")->getTextContent(), velocity.x());
+    cast_xmlch(get_node<DOMElement>(velocity_node, "Y")->getTextContent(), velocity.y());
+    cast_xmlch(get_node<DOMElement>(velocity_node, "Z")->getTextContent(), velocity.z());
+
     position_logs.push_back(std::pair<std::string, Vector3>(time, position));
     velocity_logs.push_back(std::pair<std::string, Vector3>(time, velocity));
 
@@ -276,23 +276,23 @@ void SpotXML::read_attitude(xercesc::DOMElement* corrected_attitudes_node) {
 
   // Pick out the "Angles" nodes
   DOMNodeList* children = corrected_attitude_node->getChildNodes();
-  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+  for (XMLSize_t i = 0; i < children->getLength(); ++i) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+    if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
       continue;
 
     // Check the node time
-    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
-    std::string tag( XMLString::transcode(curr_element->getTagName()) );
+    DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
+    std::string tag(XMLString::transcode(curr_element->getTagName()));
     if (tag.find("Angles") == std::string::npos)
       continue;
-  
+
     std::pair<std::string, Vector3> data;
-    cast_xmlch( get_node<DOMElement>(curr_element, "YAW"  )->getTextContent(), data.second.x() );
-    cast_xmlch( get_node<DOMElement>(curr_element, "PITCH")->getTextContent(), data.second.y() );
-    cast_xmlch( get_node<DOMElement>(curr_element, "ROLL" )->getTextContent(), data.second.z() );
-    cast_xmlch( get_node<DOMElement>(curr_element, "TIME" )->getTextContent(), data.first );
+    cast_xmlch(get_node<DOMElement>(curr_element, "YAW")->getTextContent(), data.second.x());
+    cast_xmlch(get_node<DOMElement>(curr_element, "PITCH")->getTextContent(), data.second.y());
+    cast_xmlch(get_node<DOMElement>(curr_element, "ROLL")->getTextContent(), data.second.z());
+    cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(), data.first);
     pose_logs.push_back(data);
 
   } // End loop through corrected attitudes
@@ -309,14 +309,14 @@ void SpotXML::read_corners(xercesc::DOMElement* dataset_frame_node) {
   // - Currently we assume they are always in the same order!
   DOMNodeList* children = dataset_frame_node->getChildNodes();
   size_t count = 0;
-  for ( XMLSize_t i = 0; i < children->getLength(); ++i ) {
+  for (XMLSize_t i = 0; i < children->getLength(); ++i) {
     // Check child node type
     DOMNode* curr_node = children->item(i);
-    if ( curr_node->getNodeType() != DOMNode::ELEMENT_NODE )
+    if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
       continue;
 
     // Check the node time
-    DOMElement* curr_element = dynamic_cast<DOMElement*>( curr_node );
+    DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
 
     // There should only be four vertex nodes here.
     // Parse the values.
@@ -332,15 +332,15 @@ void SpotXML::read_corners(xercesc::DOMElement* dataset_frame_node) {
 }
 
 void SpotXML::read_image_size(xercesc::DOMElement* raster_dims_node) {
-  cast_xmlch( get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), image_size[1] );
-  cast_xmlch( get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), image_size[0] );
+  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), image_size[1]);
+  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), image_size[0]);
 }
 
 void SpotXML::read_line_times(xercesc::DOMElement* sensor_config_node) {
-  cast_xmlch( get_node<DOMElement>(sensor_config_node, "LINE_PERIOD"      )->getTextContent(), line_period);
-  cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_TIME")->getTextContent(), center_time);
-  cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_LINE")->getTextContent(), center_line);
-  cast_xmlch( get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_COL" )->getTextContent(), center_col);
+  cast_xmlch(get_node<DOMElement>(sensor_config_node, "LINE_PERIOD")->getTextContent(), line_period);
+  cast_xmlch(get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_TIME")->getTextContent(), center_time);
+  cast_xmlch(get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_LINE")->getTextContent(), center_line);
+  cast_xmlch(get_node<DOMElement>(sensor_config_node, "SCENE_CENTER_COL")->getTextContent(), center_col);
   center_line -= 1;
   center_col  -= 1; // Convert from 1-based to 0-based indices.
 }
@@ -355,7 +355,7 @@ double SpotXML::convert_time(std::string const& s) const {
     boost::replace_all(s2, "T", " ");
     boost::posix_time::ptime time = boost::posix_time::time_from_string(s2);
     return this->m_time_ref_functor(time);
-  }catch(...){
+  } catch(...) {
     vw::vw_throw(vw::ArgumentErr() << "Failed to parse time from string: " << s << "\n");
   }
   return -1; // Never reached!
@@ -392,10 +392,10 @@ vw::camera::LagrangianInterpolation SpotXML::setup_velocity_func() const {
     //std::cout << "Adding velocity point: " << iter->first 
     //          << " --> " << iter->second << std::endl;
   }
-  
+
   // More generic method for variable time intervals
   //return vw::camera::LagrangianInterpolationVarTime(velocity, time, INTERP_RADII);
-  
+
   // A faster method for when we know the time delta is constant
   double min_time   = time[0];
   double max_time   = time[time.size()-1];
@@ -419,10 +419,10 @@ vw::camera::LagrangianInterpolation SpotXML::setup_position_func() const {
     //std::cout << "Adding position point: " << convert_time(iter->first)
     //          << " --> " << iter->second << std::endl;
   }
-  
+
   // More generic method for variable time intervals
   //return vw::camera::LagrangianInterpolationVarTime(position, time, INTERP_RADII);
-  
+
   // A faster method for when we know the time delta is constant
   double min_time   = time[0];
   double max_time   = time[time.size()-1];
@@ -443,7 +443,7 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
   //   before the first line.
   // - The raw pose angles do start before the lines, but their values differ noticably
   //   from the corrected values.
-  
+
   // Compute how many padded pose entries are needed to cover all of the lines.
   size_t num_lines           = this->image_size[1];
   double num_corrected_poses = static_cast<double>(pose_logs.size());
@@ -453,7 +453,7 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
   double pose_stop_time      = convert_time(pose_logs.back().first);
   double pose_delta_t        = (pose_stop_time - pose_start_time) / (num_corrected_poses - 1.0);
   int    num_prefill_poses   = static_cast<int>(ceil((pose_start_time - first_line_time) / pose_delta_t));
-  int    num_postfill_poses  = static_cast<int>(ceil((last_line_time  - pose_stop_time ) / pose_delta_t));
+  int    num_postfill_poses  = static_cast<int>(ceil((last_line_time  - pose_stop_time) / pose_delta_t));
   //std::cout << "First line time: " << first_line_time << std::endl;
   //std::cout << "Last line time:  " << last_line_time  << std::endl;
   //std::cout << "Pose start: " << pose_start_time << std::endl;
@@ -464,13 +464,13 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
     num_prefill_poses = 0;
   if (num_postfill_poses < 1)
     num_postfill_poses = 0;
-    
-  size_t num_total_poses = pose_logs.size() + static_cast<size_t>(num_prefill_poses )
+
+  size_t num_total_poses = pose_logs.size() + static_cast<size_t>(num_prefill_poses)
                                             + static_cast<size_t>(num_postfill_poses);
 
   std::vector<Vector3> pose(num_total_poses);
   std::vector<double>  time(num_total_poses);
-  
+
   // Fill in the pre-padding poses
   size_t index = 0;
   for (int i=0; i<num_prefill_poses; ++i) {
@@ -497,13 +497,13 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
     //std::cout << "POSTFILL: " << time[index] << std::endl;
     ++index;
   }
-  
+
   //double max_time = time.back();
   double min_time = time.front();
-  
+
   //std::cout << std::setprecision(12) << "Adding pose info: " << min_time << ", " 
   //          << max_time << " -> " << pose_delta_t << std::endl;
-  
+
   return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, pose_delta_t);
 
 }
