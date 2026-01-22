@@ -48,7 +48,6 @@ using asp::XmlUtils::cast_xmlch;
 
 namespace asp {
 
-
 DOMElement* SpotXML::open_xml_file(std::string const& xml_path) {
 
   // Check if the file actually exists and throw a user helpful file.
@@ -267,8 +266,6 @@ void SpotXML::read_ephemeris(xercesc::DOMElement* ephemeris_node) {
   } // End loop through corrected attitudes
 }
 
-
-
 void SpotXML::read_attitude(xercesc::DOMElement* corrected_attitudes_node) {
 
   pose_logs.clear(); // Reset data storage
@@ -333,7 +330,6 @@ void SpotXML::read_corners(xercesc::DOMElement* dataset_frame_node) {
 
   } // End loop through the vertex nodes
 }
-
 
 void SpotXML::read_image_size(xercesc::DOMElement* raster_dims_node) {
   cast_xmlch( get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), image_size[1] );

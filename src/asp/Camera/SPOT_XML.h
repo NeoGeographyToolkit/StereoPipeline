@@ -28,7 +28,6 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
-#include <vw/Math/Geometry.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/Extrinsics.h>
@@ -55,7 +54,8 @@ namespace asp {
   
     /// Constructor
     /// - Sets the fixed reference time.
-    SpotXML() : m_time_ref_functor(boost::posix_time::time_from_string("2002-05-04 00:00:00.00")) {}
+    SpotXML(): 
+      m_time_ref_functor(boost::posix_time::time_from_string("2002-05-04 00:00:00.00")) {}
 
     // The reader will populate these fields
     std::vector<vw::Vector2> lonlat_corners;
