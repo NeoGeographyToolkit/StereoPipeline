@@ -72,7 +72,7 @@ vw::Vector2 BaAdjCam::evaluate(std::vector<double const*> const param_blocks) co
                                 m_bathy_data.refraction_index, point);
     else
       return cam.point_to_pixel(point);
-      
+
   } catch(std::exception const& e) {
   }
 
@@ -80,8 +80,10 @@ vw::Vector2 BaAdjCam::evaluate(std::vector<double const*> const param_blocks) co
   return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
 }
 
-BaPinholeCam::BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam):
-  m_underlying_camera(cam) {}
+BaPinholeCam::BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam,
+                           vw::BathyData const& bathy_data,
+                           int camera_index):
+  m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
 
 // The number of lens distortion parameters.
 int BaPinholeCam::num_dist_params() const {
@@ -138,9 +140,12 @@ vw::Vector2 BaPinholeCam::evaluate(std::vector<double const*> const param_blocks
   cam.set_lens_distortion(distortion.get());
   cam.set_pixel_pitch(m_underlying_camera->pixel_pitch());
   try {
-    // Project the point into the camera.
-    Vector2 pixel = cam.point_to_pixel_no_check(point);
-    return pixel;
+    // Bathy or not
+    if (asp::hasBathy(m_bathy_data))
+      return vw::point_to_pixel(&cam, m_bathy_data.bathy_planes[m_camera_index],
+                                m_bathy_data.refraction_index, point);
+    else
+      return cam.point_to_pixel_no_check(point);
   } catch(...) {
   }
 
@@ -149,8 +154,10 @@ vw::Vector2 BaPinholeCam::evaluate(std::vector<double const*> const param_blocks
 }
 
 BaOpticalBarCam::BaOpticalBarCam(
-    boost::shared_ptr<vw::camera::OpticalBarModel> cam):
-    m_underlying_camera(cam) {}
+    boost::shared_ptr<vw::camera::OpticalBarModel> cam,
+    vw::BathyData const& bathy_data,
+    int camera_index):
+    m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
 
 int BaOpticalBarCam::num_intrinsic_params() const {
    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
@@ -217,7 +224,12 @@ vw::Vector2  BaOpticalBarCam::evaluate(std::vector<double const*> const param_bl
 
   // Project the point into the camera.
   try {
-    return cam.point_to_pixel(point);
+    // Bathy or not
+    if (asp::hasBathy(m_bathy_data))
+      return vw::point_to_pixel(&cam, m_bathy_data.bathy_planes[m_camera_index],
+                                m_bathy_data.refraction_index, point);
+    else
+      return cam.point_to_pixel(point);
   } catch(std::exception const& e) {
   }
 
@@ -277,13 +289,16 @@ vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) co
   // bar, the parameters being optimized adjust the initial CSM camera,
   // rather than replacing it altogether. The CSM camera can in fact
   // be even linescan, when there would be many pose samples, in fact,
-  // so it makes sense to work this way. 
+  // so it makes sense to work this way.
   AdjustedCameraModel adj_cam(copy, correction.position(), correction.pose());
 
   try {
-    // Project the point into the camera.
-    Vector2 pixel = adj_cam.point_to_pixel(point);
-    return pixel;
+    // Bathy or not
+    if (asp::hasBathy(m_bathy_data))
+      return vw::point_to_pixel(&adj_cam, m_bathy_data.bathy_planes[m_camera_index],
+                                m_bathy_data.refraction_index, point);
+    else
+      return adj_cam.point_to_pixel(point);
   } catch(...) {
   }
 
@@ -583,7 +598,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       if (pinhole_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr()
                       << "Tried to add pinhole block with non-pinhole camera.");
-      wrapper.reset(new BaPinholeCam(pinhole_model));
+      wrapper.reset(new BaPinholeCam(pinhole_model, opt.bathy_data, camera_index));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
 
@@ -592,7 +607,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       if (bar_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
-      wrapper.reset(new BaOpticalBarCam(bar_model));
+      wrapper.reset(new BaOpticalBarCam(bar_model, opt.bathy_data, camera_index));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> csm_model =
@@ -600,7 +615,7 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
       if (csm_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add CSM block with "
                       << "non-CSM camera.");
-      wrapper.reset(new BaCsmCam(csm_model));
+      wrapper.reset(new BaCsmCam(csm_model, opt.bathy_data, camera_index));
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
     }
@@ -706,24 +721,24 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_camera_model);
       boost::shared_ptr<PinholeModel> right_pinhole_model =
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_camera_model);
-      left_wrapper.reset (new BaPinholeCam(left_pinhole_model));
-      right_wrapper.reset(new BaPinholeCam(right_pinhole_model));
+      left_wrapper.reset (new BaPinholeCam(left_pinhole_model, opt.bathy_data, left_cam_index));
+      right_wrapper.reset(new BaPinholeCam(right_pinhole_model, opt.bathy_data, right_cam_index));
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
       boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model =
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_camera_model);
       boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model =
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_camera_model);
-      left_wrapper.reset (new BaOpticalBarCam(left_bar_model));
-      right_wrapper.reset(new BaOpticalBarCam(right_bar_model));
+      left_wrapper.reset (new BaOpticalBarCam(left_bar_model, opt.bathy_data, left_cam_index));
+      right_wrapper.reset(new BaOpticalBarCam(right_bar_model, opt.bathy_data, right_cam_index));
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> left_csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(left_camera_model);
       boost::shared_ptr<asp::CsmModel> right_csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(right_camera_model);
-      left_wrapper.reset (new BaCsmCam(left_csm_model));
-      right_wrapper.reset(new BaCsmCam(right_csm_model));
+      left_wrapper.reset (new BaCsmCam(left_csm_model, opt.bathy_data, left_cam_index));
+      right_wrapper.reset(new BaCsmCam(right_csm_model, opt.bathy_data, right_cam_index));
 
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");

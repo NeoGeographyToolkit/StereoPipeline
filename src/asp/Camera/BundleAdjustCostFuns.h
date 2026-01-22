@@ -115,7 +115,9 @@ private:
 class BaPinholeCam: public BaCamBase {
 public:
 
-  BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam);
+  BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam,
+               vw::BathyData const& bathy_data,
+               int camera_index);
 
   /// The number of lens distortion parameters.
   int num_dist_params() const;
@@ -141,6 +143,8 @@ private:
   // TODO: Make const
   /// This camera is used for all of the intrinsic values.
   boost::shared_ptr<vw::camera::PinholeModel> m_underlying_camera;
+  vw::BathyData const& m_bathy_data;
+  int m_camera_index;
 
 }; // End class BaPinholeCam
 
@@ -150,7 +154,9 @@ private:
 class BaOpticalBarCam: public BaCamBase {
 public:
 
-  BaOpticalBarCam(boost::shared_ptr<vw::camera::OpticalBarModel> cam);
+  BaOpticalBarCam(boost::shared_ptr<vw::camera::OpticalBarModel> cam,
+                  vw::BathyData const& bathy_data,
+                  int camera_index);
 
   // Center, focus, and extra optical bar parameters
   virtual int num_intrinsic_params() const;
@@ -171,6 +177,8 @@ private:
   // TODO: Make const
   /// This camera is used for all of the intrinsic values.
   boost::shared_ptr<vw::camera::OpticalBarModel> m_underlying_camera;
+  vw::BathyData const& m_bathy_data;
+  int m_camera_index;
 
 }; // End class BaOpticalBarCam
 
@@ -180,8 +188,10 @@ private:
 class BaCsmCam: public BaCamBase {
 public:
 
-  BaCsmCam(boost::shared_ptr<asp::CsmModel> cam):
-   m_underlying_camera(cam) {}
+  BaCsmCam(boost::shared_ptr<asp::CsmModel> cam,
+           vw::BathyData const& bathy_data,
+           int camera_index):
+   m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
 
   /// The number of lens distortion parameters.
   int num_dist_params() const {
@@ -209,6 +219,8 @@ private:
   // TODO: Make const
   /// This camera is used for all of the intrinsic values.
   boost::shared_ptr<asp::CsmModel> m_underlying_camera;
+  vw::BathyData const& m_bathy_data;
+  int m_camera_index;
 
 }; // End class BaCsmCam
 
