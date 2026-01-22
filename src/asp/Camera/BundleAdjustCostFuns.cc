@@ -62,11 +62,21 @@ vw::Vector2 AdjustedCameraBundleModel::evaluate(
   Vector3          point(raw_point[0], raw_point[1], raw_point[2]);
   CameraAdjustment correction(raw_pose);
 
+  // Create adjusted camera that applies corrections to the underlying camera
   vw::camera::AdjustedCameraModel cam(m_underlying_camera,
         correction.position(),
         correction.pose());
   try {
-    return cam.point_to_pixel(point);
+    if (asp::hasBathy(m_bathy_data)) {
+      // Use bathymetry-corrected projection with Snell's law
+      return vw::point_to_pixel(&cam,
+                                m_bathy_data.bathy_planes[m_camera_index],
+                                m_bathy_data.refraction_index,
+                                point);
+    } else {
+      // Standard projection
+      return cam.point_to_pixel(point);
+    }
   } catch(std::exception const& e) {
   }
 
@@ -561,7 +571,9 @@ void add_reprojection_residual_block(vw::Vector2 const& observation,
   if (opt.camera_type == asp::BaCameraType_Other) {
     // The generic camera case. This includes pinhole and CSM too, when
     // the adjustments are external and intrinsics are not solved for.
-    boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model));
+    boost::shared_ptr<CeresBundleModelBase> wrapper(new AdjustedCameraBundleModel(camera_model,
+                                                                                   opt.bathy_data,
+                                                                                   camera_index));
       ceres::CostFunction* cost_function =
         BaReprojectionError::Create(observation, pixel_sigma, wrapper);
       problem.AddResidualBlock(cost_function, loss_function, point, camera);
@@ -679,9 +691,13 @@ void add_disparity_residual_block(vw::Vector3 const& reference_xyz,
  if (opt.camera_type == asp::BaCameraType_Other) {
 
     boost::shared_ptr<CeresBundleModelBase> 
-      left_wrapper (new AdjustedCameraBundleModel(left_camera_model));
+      left_wrapper (new AdjustedCameraBundleModel(left_camera_model,
+                                                   opt.bathy_data,
+                                                   left_cam_index));
     boost::shared_ptr<CeresBundleModelBase> 
-      right_wrapper(new AdjustedCameraBundleModel(right_camera_model));
+      right_wrapper(new AdjustedCameraBundleModel(right_camera_model,
+                                                   opt.bathy_data,
+                                                   right_cam_index));
     ceres::CostFunction* cost_function =
       BaDispXyzError::Create(opt.max_disp_error, opt.reference_terrain_weight,
         reference_xyz, interp_disp, left_wrapper, right_wrapper,

@@ -661,11 +661,11 @@ void loadValidateBaOptions(po::variables_map const& vm,
   // Handle bathy options
   asp::bathyChecks(session->name(), asp::stereo_settings(), opt.image_files.size());
   if (asp::doBathy(asp::stereo_settings()))
-    asp::read_bathy_data(opt.image_files.size(),
-                         asp::stereo_settings().bathy_mask_list, 
-                         asp::stereo_settings().bathy_plane,
-                         asp::stereo_settings().refraction_index,
-                         opt.bathy_data);
+    asp::readBathyData(opt.image_files.size(),
+                       asp::stereo_settings().bathy_mask_list,
+                       asp::stereo_settings().bathy_plane,
+                       asp::stereo_settings().refraction_index,
+                       opt.bathy_data);
 
   return;
 }

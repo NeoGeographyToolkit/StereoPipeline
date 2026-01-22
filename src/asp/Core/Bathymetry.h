@@ -42,11 +42,21 @@ void bathyChecks(std::string const& session_name,
 bool doBathy(asp::StereoSettings const& stereo_settings);
 
 // Read all bathy data
-void read_bathy_data(int num_images,
-                     std::string const& bathy_mask_list,
-                     std::string const& bathy_plane_files,
-                     float refraction_index,
-                     vw::BathyData & bathy_data);
+void readBathyData(int num_images,
+                   std::string const& bathy_mask_list,
+                   std::string const& bathy_plane_files,
+                   float refraction_index,
+                   vw::BathyData & bathy_data);
+
+// Validate loaded bathy data for internal consistency. Checks that either all
+// bathy components are present or none are, and that sizes match num_images.
+// Call after readBathyData().
+void validateBathyData(vw::BathyData const& bathy_data, int num_images);
+
+// Check if bathymetry correction should be applied. Returns true if bathy data
+// is loaded and valid. Note: Full validation is done at load time by
+// validateBathyData().
+bool hasBathy(vw::BathyData const& bathy_data);
 
 } // end namespace asp
 

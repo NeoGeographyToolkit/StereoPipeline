@@ -86,8 +86,10 @@ public:
 class AdjustedCameraBundleModel: public CeresBundleModelBase {
 public:
 
-  AdjustedCameraBundleModel(boost::shared_ptr<vw::camera::CameraModel> cam):
-    m_underlying_camera(cam) {}
+  AdjustedCameraBundleModel(boost::shared_ptr<vw::camera::CameraModel> cam,
+                            vw::BathyData const& bathy_data,
+                            int camera_index):
+    m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
 
   virtual int num_intrinsic_params() const {return 0;}
 
@@ -102,6 +104,8 @@ private:
 
   /// This camera will be adjusted by the input parameters.
   boost::shared_ptr<vw::camera::CameraModel> m_underlying_camera;
+  vw::BathyData const& m_bathy_data;
+  int m_camera_index;
 
 }; // End class CeresBundleModelBase
 

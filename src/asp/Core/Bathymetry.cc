@@ -31,11 +31,11 @@
 namespace asp {
 
 // Read all bathy data
-void read_bathy_data(int num_images,
-                     std::string const& bathy_mask_list,
-                     std::string const& bathy_plane_files,
-                     float refraction_index,
-                     vw::BathyData & bathy_data) {
+void readBathyData(int num_images,
+                   std::string const& bathy_mask_list,
+                   std::string const& bathy_plane_files,
+                   float refraction_index,
+                   vw::BathyData & bathy_data) {
   
   std::vector<std::string> bathy_mask_files;
   if (bathy_mask_list != "")
@@ -48,16 +48,65 @@ void read_bathy_data(int num_images,
   vw::read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
   vw::readBathyPlanes(bathy_plane_files, num_images, bathy_data.bathy_planes);
   bathy_data.refraction_index = refraction_index;
+  
+  // Validate consistency
+  validateBathyData(bathy_data, num_images);
 }
 
 // For stereo will use left and right bathy masks. For bundle adjustment and
-// jitter_solve will use a list of masks.
+// jitter_solve will use a list of masks. Only checks if bathy settings strings
+// are non-empty. Full consistency validation (all-or-nothing, sizes,
+// refraction_index) is done by validateBathyData() which is called
+// automatically in readBathyData().
 bool doBathy(asp::StereoSettings const& stereo_settings) {
   return (stereo_settings.left_bathy_mask  != "" ||
           stereo_settings.right_bathy_mask != "" ||
           stereo_settings.bathy_mask_list  != "");
 }
 
+// Validate loaded bathymetry data for internal consistency.
+// This is a data consistency validator that checks the loaded BathyData structure
+// for all-or-nothing configuration and size consistency.
+// Called after readBathyData() loads masks and planes into BathyData.
+// Used by: bundle_adjust, jitter_solve.
+void validateBathyData(vw::BathyData const& bathy_data, int num_images) {
+
+  bool has_planes = !bathy_data.bathy_planes.empty();
+  bool has_masks  = !bathy_data.bathy_masks.empty();
+  bool has_refr   = (bathy_data.refraction_index > 1.0);
+  
+  // All or nothing
+  if (has_planes || has_masks || has_refr) {
+    if (!has_planes)
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Bathy masks/refraction set but no planes.\n");
+    if (!has_masks)
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Bathy planes/refraction set but no masks.\n");
+    if (!has_refr)
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Bathy planes/masks set but refraction_index <= 1.0.\n");
+    
+    // Size checks
+    if (bathy_data.bathy_planes.size() != (size_t)num_images)
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Bathy planes count does not match number of images.\n");
+    if (bathy_data.bathy_masks.size() != (size_t)num_images)
+      vw::vw_throw(vw::ArgumentErr() 
+                   << "Bathy masks count does not match number of images.\n");
+  }
+}
+
+// Lightweight check. The fully checking is done on loading.
+bool hasBathy(vw::BathyData const& bathy_data) {
+  return !bathy_data.bathy_planes.empty();
+}
+
+// Validate bathymetry policy and tool compatibility.
+// This is a policy/compatibility validator that checks command-line options
+// against tool-specific constraints before loading any data.
+// Checks: tool compatibility (ISIS, alignment methods), option presence, and basic values.
+// Called early by: stereo, bundle_adjust, jitter_solve.
 void bathyChecks(std::string const& session_name,
                  asp::StereoSettings const& stereo_settings,
                  int num_images) {
