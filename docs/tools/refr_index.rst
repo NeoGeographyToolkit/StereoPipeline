@@ -39,11 +39,11 @@ index is then computed with this effective wavelength (:numref:`refr_model`).
 
 The spectral response CSV file must have two columns, with the wavelength (in
 nanometers) in the first column, the relative response for that wavelength in
-the second one. Use commas, spaces, or tabs as separators. The first line must
+the second column. Use commas, spaces, or tabs as separators. The first line must
 be a header and will be ignored.
 
 Wavelengths outside the range 300-1100 nm will be ignored (skipped). Wavelengths
-between 300-1100 nm but outside 400-700 nm will be used but a warning will be
+in the range 300-1100 nm but outside 400-700 nm will be used but a warning will be
 printed, as they are outside the validated range for the models
 (:numref:`refr_model`).
 
@@ -70,7 +70,7 @@ between 0°C and 30°C.
 Modeling
 ^^^^^^^^
 
-Two methods are available for computing the refractive index:
+Two methods are available for computing the refraction index:
 
 * Quan and Fry (:cite:`quan1995empirical`, `source code
   <https://github.com/geojames/global_refractive_index_532>`_) -
@@ -95,7 +95,7 @@ Command-line options
     Temperature in degrees Celsius. Must be between 0 and 30. Required.
 
 --mode <string (default: Quan-Fry)>
-    Refractive index equation to use: ``Quan-Fry`` (default) or ``Parrish``. See
+    Refraction index equation to use: ``Quan-Fry`` (default) or ``Parrish``. See
     :numref:`refr_model` for details.
 
 --spectral-response <string (default: "")>

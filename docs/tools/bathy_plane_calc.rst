@@ -41,7 +41,7 @@ follows::
 The mask has values of 1 for land and 0 for water.
  
 The image must be raw, not projected, and if the image is part of a stereo pair,
-the corresponding camera for that image be used. In particular, if the image is
+the corresponding camera for that image must be used. In particular, if the image is
 multispectral, the camera must be for this dataset, not for the PAN one.
 
 For the DEM, it is suggested to use the one obtained from PAN images,
@@ -212,7 +212,7 @@ having longitude and latitude values::
        --bathy-plane plane.txt
 
 The heights will be looked up in the DEM with bilinear interpolation. The
-longitude and latitude will be interpreted relative the DEM georeference.
+longitude and latitude will be interpreted relative to the DEM georeference.
 
 The ``--csv-format`` option must be set correctly to identify the columns
 having the longitude and latitude. The CSV file can have other columns
@@ -346,7 +346,7 @@ transformation in ellipsoid heights with VDATUM will result in
 different ellipsoid heights since VDATUM uses the position of the
 point in latitude/longitude besides the height of the point.
 
-Export your data in a CSV file with a header having ID, longitude, latitude, and
+Export your data to a CSV file with a header containing ID, longitude, latitude, and
 WGS_1984 height measurements.
 
 Command-line options for bathy_plane_calc
@@ -438,7 +438,7 @@ Command-line options for bathy_plane_calc
 
 --save-shapefiles-as-polygons
     Save the inlier and outlier shapefiles as polygons, rather than
-    made of of discrete vertices. May be more convenient for processing
+    made of discrete vertices. May be more convenient for processing
     in a GIS tool.
 
 --dem-minus-plane <string (default: "")>

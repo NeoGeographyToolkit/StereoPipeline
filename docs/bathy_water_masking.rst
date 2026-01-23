@@ -181,7 +181,7 @@ shoreline vegetation.
 In testing, NDWI and NIR band 7 showed the most consistent thresholds across
 images. RNDVI might be effective for vegetated shorelines but could require
 site-specific threshold adjustment. The results with OSI were not as promising
-in our experiments (for KeyWest, FL).
+in our experiments (for Key West, FL).
 
 It is recommended to compute all indices and visually inspect the produced masks in
 ``stereo_gui`` (:numref:`stereo_gui`) before selecting the most appropriate one

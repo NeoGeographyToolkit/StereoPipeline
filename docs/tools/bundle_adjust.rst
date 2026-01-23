@@ -127,7 +127,7 @@ set, some functionality will not be available. It will be auto-guessed, either
 based on camera files, input DEM, or camera center (the latter only for Earth,
 Mars, Moon).
 
-The option ``--inline-adjustments`` will save save to disk the optimized cameras
+The option ``--inline-adjustments`` will save to disk the optimized cameras
 with adjustments already applied to them. These can be passed directly to
 ``parallel_stereo``, without using the original cameras and the adjustments as in
 :numref:`ba_use`.
