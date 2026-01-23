@@ -184,6 +184,13 @@ The preparation of bathy masks, the bathy plane (or more than one), and the
 refraction index are as for stereo processing (:numref:`bathy_intro`). The
 options invoked above are described in :numref:`ba_options`.
 
+Inspect carefully the produced report files (:numref:`ba_out_files`).
+
+Consider using the option ``--camera-position-uncertainty`` for finer control.
+Also, the bathy plane needs to be recreated with the bundle-adjusted cameras, if
+using those new cameras for stereo (:numref:`bathy_plane_calc`). Otherwise a tilt
+may be present with the old plane.
+
 Other cameras
 ^^^^^^^^^^^^^
 
