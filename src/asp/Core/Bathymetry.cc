@@ -78,9 +78,7 @@ void readBathyData(int num_images,
 
   std::string planes_to_load = readBathyPlanesStrOrList(bathy_plane_files, 
                                                         bathy_plane_list);
-  vw::read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
   vw::readBathyPlanes(planes_to_load, num_images, bathy_data.bathy_planes);
-
   vw::read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
   bathy_data.refraction_index = refraction_index;
 

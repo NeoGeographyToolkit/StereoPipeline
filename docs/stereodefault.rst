@@ -921,7 +921,7 @@ bathy-plane (*string*)
     bathymetry correction with underwater terrain (:numref:`bathy_plane_def`).
     This corrects camera rays passing through water using Snell's law. If there
     is one plane per image, use ``bathy-plane-list``. Use together with
-    ``refraction-index``. See also ``bathy-mask-list``.
+    ``refraction-index``.
 
 bathy-plane-list (*string*)
     Path to a file containing a list of bathy plane files for bathymetry
