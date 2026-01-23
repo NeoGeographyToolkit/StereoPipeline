@@ -351,7 +351,7 @@ void populateCsmLinescan(double first_line_time, double dt_line,
   model.m_semi_minor_axis = datum.semi_minor_axis();
 
   // Create the linescan model. Memory is managed by m_gm_model.
-  model.m_gm_model.reset(new UsgsAstroLsSensorModel);
+  model.m_gm_model = boost::make_shared<UsgsAstroLsSensorModel>();
   UsgsAstroLsSensorModel* ls_model
     = dynamic_cast<UsgsAstroLsSensorModel*>(model.m_gm_model.get());
   if (ls_model == NULL)

@@ -1391,7 +1391,7 @@ std::string CsmModel::target_name() const {
 // Create a deep copy of the model, so don't just copy the shared pointer.
 void CsmModel::deep_copy(boost::shared_ptr<CsmModel> & copy) const {
   // Initialize the output
-  copy.reset(new CsmModel);
+  copy = boost::make_shared<CsmModel>();
   // Then make a deep copy
   this->deep_copy(*copy.get());
 }

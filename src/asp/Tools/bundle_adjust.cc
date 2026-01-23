@@ -430,7 +430,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
     if (curr_cost < best_cost) {
       vw_out() << "  --> Found a better solution using random passes.\n";
       best_cost = curr_cost;
-      best_params_ptr.reset(new asp::BaParams(param_storage));
+      best_params_ptr = boost::make_shared<asp::BaParams>(param_storage);
 
       // Get a list of all the files that were generated in the random step.
       std::vector<std::string> rand_files;
@@ -465,7 +465,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   // Try to set up the control network, ie the list of point coordinates.
   // - This triangulates from the camera models to determine the initial
   //   world coordinate estimate for each matched IP.
-  opt.cnet.reset(new ControlNetwork("BundleAdjust"));
+  opt.cnet = boost::make_shared<ControlNetwork>("BundleAdjust");
   int num_gcp = 0;
   ControlNetwork & cnet = *(opt.cnet.get()); // alias to ASP cnet
   asp::IsisCnetData isisCnetData; // isis cnet (if loaded)

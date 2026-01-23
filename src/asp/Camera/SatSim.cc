@@ -1192,12 +1192,12 @@ void perturbCameras(SatSimOptions const& opt,
       pin->write(camName);
     } else {
       // Save as CSM
-      asp::CsmModel * csmPtr = new asp::CsmModel; // pointer managed below
-      vw::cartography::Datum d = georef.datum();
+      cams[i] = boost::make_shared<asp::CsmModel>();
+      auto const& d = georef.datum(); // alias
+      auto csmPtr = boost::dynamic_pointer_cast<asp::CsmModel>(cams[i]);
       csmPtr->createFrameModel(*pin,
                                opt.image_size[0], opt.image_size[1],
                                d.semi_major_axis(), d.semi_minor_axis());
-      cams[i] = vw::CamPtr(csmPtr); // will own this pointer
       
       // Replace extension with .json
       camName = fs::path(camName).replace_extension(".json").string();
@@ -1293,22 +1293,19 @@ void genPinholeCameras(SatSimOptions          const& opt,
     }
     
     // Always create the cameras, but only save them if we are not skipping
-    asp::CsmModel * csmPtr = NULL;
-    vw::camera::PinholeModel *pinPtr = NULL; 
     vw::cartography::Datum d = dem_georef.datum();
     if (opt.save_as_csm) {
-      csmPtr = new asp::CsmModel; // pointer managed below
+      cams[i] = boost::make_shared<asp::CsmModel>();
+      auto csmPtr = boost::dynamic_pointer_cast<asp::CsmModel>(cams[i]);
       csmPtr->createFrameModel(opt.image_size[0], opt.image_size[1],
                               opt.optical_center[0], opt.optical_center[1],
                               opt.focal_length, 
                               d.semi_major_axis(), d.semi_minor_axis(),
                               P, R);
-      cams[i] = vw::CamPtr(csmPtr); // will own this pointer
     } else {
-      pinPtr = new vw::camera::PinholeModel(P, R,
-                                            opt.focal_length, opt.focal_length,
-                                            opt.optical_center[0], opt.optical_center[1]);
-      cams[i] = vw::CamPtr(pinPtr); // will own this pointer
+      cams[i] = boost::make_shared<vw::camera::PinholeModel>
+                  (P, R, opt.focal_length, opt.focal_length,
+                   opt.optical_center[0], opt.optical_center[1]);
     }
 
     // This is useful for understanding things in the satellite frame
@@ -1342,10 +1339,13 @@ void genPinholeCameras(SatSimOptions          const& opt,
     if (skipCamera(i, opt)) continue;
 
     vw::vw_out() << "Writing: " << camName << "\n";
-    if (opt.save_as_csm) 
+    if (opt.save_as_csm) {
+      auto csmPtr = boost::dynamic_pointer_cast<asp::CsmModel>(cams[i]);
       csmPtr->saveState(camName);
-    else
+    } else {
+      auto pinPtr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cams[i]);
       pinPtr->write(camName);
+    }
 
     if (opt.save_ref_cams) {
       bool isRef = true;

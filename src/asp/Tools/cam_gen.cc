@@ -737,8 +737,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // Form a camera based on info the user provided
 void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
   if (opt.camera_type == "opticalbar") {
-    boost::shared_ptr<vw::camera::OpticalBarModel> opticalbar_cam;
-    opticalbar_cam.reset(new vw::camera::OpticalBarModel(opt.sample_file));
+    boost::shared_ptr<vw::camera::OpticalBarModel> opticalbar_cam =
+      boost::make_shared<vw::camera::OpticalBarModel>(opt.sample_file);
     // Make sure the image size matches the input image file.
     // TODO(oalexan1): This looks fishy if the pitch is not 1.
     opticalbar_cam->set_image_size(Vector2i(wid, hgt));
@@ -769,7 +769,7 @@ void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
     boost::shared_ptr<PinholeModel> pinhole_cam;
     if (opt.sample_file != "" &&  sample_ext != ".json") {
       // Use the initial guess from file
-      pinhole_cam.reset(new PinholeModel(opt.sample_file));
+      pinhole_cam = boost::make_shared<PinholeModel>(opt.sample_file);
     } else {
       // Use the intrinsics from the command line or read from the CSM sample
       // file. Use trivial rotation and translation.
@@ -782,9 +782,10 @@ void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
         opt_ctr = Vector2(opt.pixel_pitch * wid/2.0, opt.pixel_pitch * hgt/2.0);
 
       vw::camera::LensDistortion const* distortion = NULL; // no distortion info yet
-      pinhole_cam.reset(new PinholeModel(ctr, rotation, opt.focal_length, opt.focal_length,
-                                         opt_ctr[0], opt_ctr[1], distortion, 
-                                         opt.pixel_pitch));
+      pinhole_cam = boost::make_shared<PinholeModel>
+                      (ctr, rotation, opt.focal_length, opt.focal_length,
+                       opt_ctr[0], opt_ctr[1], distortion, 
+                       opt.pixel_pitch);
     }
     out_cam = pinhole_cam;
   }
@@ -1227,7 +1228,7 @@ void read_pinhole_from_json(Options & opt, vw::cartography::GeoReference & geo,
   flip(1, 1) = -1;
 
   // Create a blank pinhole model and get an alias to it
-  out_cam.reset(new vw::camera::PinholeModel());
+  out_cam = boost::make_shared<vw::camera::PinholeModel>();
   PinholeModel & pin = *((PinholeModel*)out_cam.get());
 
   // Populate the model
@@ -1412,11 +1413,11 @@ void save_pinhole(Options const& opt,
   std::string out_ext = vw::get_extension(opt.out_camera);
   if (opt.exact_tsai_to_csm_conv) {
     // Get the input pinhole model, to be converted below exactly to CSM
-    input_pin.reset(new vw::camera::PinholeModel(opt.input_camera));
+    input_pin = boost::make_shared<vw::camera::PinholeModel>(opt.input_camera);
     pin = input_pin.get();
     // Must make another copy to satisfy another path in the logic below
     // TODO(oalexan1): This looks like a hack.
-    input_camera_ptr.reset(new vw::camera::PinholeModel(opt.input_camera));
+    input_camera_ptr = boost::make_shared<vw::camera::PinholeModel>(opt.input_camera);
   } else {
     // Use the manufactured camera
     pin = (vw::camera::PinholeModel*)out_cam.get();

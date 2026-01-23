@@ -22,7 +22,12 @@
 #ifndef __ASP_CORE_SATSIM_BASE_H__
 #define __ASP_CORE_SATSIM_BASE_H__
 
-#include <vw/Cartography/GeoReference.h>
+#include <vw/Math/Vector.h>
+#include <vw/Math/Matrix.h>
+
+namespace vw { namespace cartography {
+  class GeoReference;
+}}
 
 namespace asp {
 

@@ -281,7 +281,7 @@ void DGCameraModel::populateCsmModel() {
   // csm::RasterGM, which is a base class. UsgsAstroLsSensorModel is
   // derived from it. A smart pointer to m_gm_model is held by
   // this model.
-  this->m_gm_model.reset(new UsgsAstroLsSensorModel);
+  this->m_gm_model = boost::make_shared<UsgsAstroLsSensorModel>();
   m_ls_model = boost::dynamic_pointer_cast<UsgsAstroLsSensorModel>
     (this->m_gm_model);
   if (m_ls_model == NULL)

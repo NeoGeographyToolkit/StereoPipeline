@@ -598,7 +598,7 @@ void addReprojResidual(vw::Vector2 const& observation,
       if (pinhole_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr()
                       << "Tried to add pinhole block with non-pinhole camera.");
-      ba_cam.reset(new BaPinholeCam(pinhole_model, opt.bathy_data, camera_index));
+      ba_cam = boost::make_shared<BaPinholeCam>(pinhole_model, opt.bathy_data, camera_index);
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
 
@@ -607,7 +607,7 @@ void addReprojResidual(vw::Vector2 const& observation,
       if (bar_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
-      ba_cam.reset(new BaOpticalBarCam(bar_model, opt.bathy_data, camera_index));
+      ba_cam = boost::make_shared<BaOpticalBarCam>(bar_model, opt.bathy_data, camera_index);
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> csm_model =
@@ -615,7 +615,7 @@ void addReprojResidual(vw::Vector2 const& observation,
       if (csm_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add CSM block with "
                       << "non-CSM camera.");
-      ba_cam.reset(new BaCsmCam(csm_model, opt.bathy_data, camera_index));
+      ba_cam = boost::make_shared<BaCsmCam>(csm_model, opt.bathy_data, camera_index);
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
     }
@@ -723,24 +723,30 @@ void addDispResidual(vw::Vector3 const& reference_xyz,
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_cam);
       boost::shared_ptr<PinholeModel> right_pinhole_model =
         boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_cam);
-      left_ba_cam.reset(new BaPinholeCam(left_pinhole_model, opt.bathy_data, left_cam_index));
-      right_ba_cam.reset(new BaPinholeCam(right_pinhole_model, opt.bathy_data, right_cam_index));
+      left_ba_cam = boost::make_shared<BaPinholeCam>(left_pinhole_model, opt.bathy_data, 
+                                                     left_cam_index);
+      right_ba_cam = boost::make_shared<BaPinholeCam>(right_pinhole_model, opt.bathy_data, 
+                                                      right_cam_index);
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
       boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model =
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_cam);
       boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model =
         boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_cam);
-      left_ba_cam.reset(new BaOpticalBarCam(left_bar_model, opt.bathy_data, left_cam_index));
-      right_ba_cam.reset(new BaOpticalBarCam(right_bar_model, opt.bathy_data, right_cam_index));
+      left_ba_cam = boost::make_shared<BaOpticalBarCam>(left_bar_model, opt.bathy_data,
+                                                        left_cam_index);
+      right_ba_cam = boost::make_shared<BaOpticalBarCam>(right_bar_model, opt.bathy_data, 
+                                                         right_cam_index);
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> left_csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(left_cam);
       boost::shared_ptr<asp::CsmModel> right_csm_model =
         boost::dynamic_pointer_cast<asp::CsmModel>(right_cam);
-      left_ba_cam.reset(new BaCsmCam(left_csm_model, opt.bathy_data, left_cam_index));
-      right_ba_cam.reset(new BaCsmCam(right_csm_model, opt.bathy_data, right_cam_index));
+      left_ba_cam = boost::make_shared<BaCsmCam>(left_csm_model, opt.bathy_data, 
+                                                 left_cam_index);
+      right_ba_cam = boost::make_shared<BaCsmCam>(right_csm_model, opt.bathy_data, 
+                                                  right_cam_index);
 
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");

@@ -64,7 +64,7 @@ void PleiadesCameraModel::populateCsmModel() {
   m_semi_minor_axis = datum.semi_minor_axis();
   
   // Create the linescan model
-  m_gm_model.reset(new UsgsAstroLsSensorModel); // m_gm_model will manage the deallocation
+  m_gm_model = boost::make_shared<UsgsAstroLsSensorModel>(); // m_gm_model will manage the deallocation
   m_ls_model = dynamic_cast<UsgsAstroLsSensorModel*>(m_gm_model.get()); // pointer to ls model
   if (m_ls_model == NULL)
     vw::vw_throw(vw::ArgumentErr() << "Invalid initialization of the linescan model.\n");
