@@ -1650,14 +1650,14 @@ Command-line options
     If multiple images are used and they have different water surfaces, specify
     one file per image as a list in quotes separated by spaces. This corrects
     camera rays passing through water using Snell's law. Must be used together
-    with ``--refraction-index``. See also ``--bathy-mask``.
+    with ``--refraction-index``. See also ``--bathy-mask-list``.
 
---bathy-mask <string (default: "")>
-    Path to water mask image for bathymetry correction. Specify one mask per
-    input image as a list in quotes separated by spaces. Pixels classified as
-    water must be either no-data or have zero value, while land pixels must have
-    positive values. Must be used with ``--bathy-plane`` and
-    ``--refraction-index``.
+--bathy-mask-list <string (default: "")>
+    Path to file containing a list of water mask images for bathymetry correction,
+    one mask per line. Must specify one mask per input image in the same order.
+    Pixels classified as water must be either no-data or have zero value, while
+    land pixels must have positive values. Must be used with ``--bathy-plane`` and
+    ``--refraction-index``. An example is in :numref:`ba_bathy`.
 
 --refraction-index <double (default: 0.0)>
     Index of refraction of water for bathymetry correction. Typical values:
