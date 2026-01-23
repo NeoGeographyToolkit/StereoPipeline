@@ -19,7 +19,7 @@
 #ifndef __VW_TESTS_CONFIG_TEST_H__
 #define __VW_TESTS_CONFIG_TEST_H__
 
-#include <vw/config.h>
+#include <vw/vw_config.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>

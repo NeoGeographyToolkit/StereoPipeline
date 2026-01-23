@@ -23,7 +23,7 @@
 
 // These header files must be here as they define a lot of macros
 // used in many tools, such as ASP_HAVE_PKG_ISIS.
-#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
+#include <vw/vw_config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
 #include <asp/asp_config.h>
 
 #include <vw/Core/StringUtils.h>

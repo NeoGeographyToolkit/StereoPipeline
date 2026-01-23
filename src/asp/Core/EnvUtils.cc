@@ -18,7 +18,7 @@
 #include <asp/Core/EnvUtils.h>
 #include <vw/Core/Exception.h>
 
-#include <vw/config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
+#include <vw/vw_config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
 #include <asp/asp_config.h>
 
 #include <boost/filesystem.hpp>

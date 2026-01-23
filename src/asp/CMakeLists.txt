@@ -367,6 +367,10 @@ foreach(f ${MAIN_HEADER_FILES})
   INSTALL(FILES ${f} DESTINATION include/asp)
 endforeach()
 
+# Install the generated config headers from build directory
+install(FILES ${CMAKE_BINARY_DIR}/src/asp/asp_config.h DESTINATION include/asp)
+install(FILES ${CMAKE_BINARY_DIR}/src/asp/asp_date_config.h DESTINATION include/asp)
+
 # CERES and its dependencies
 set(SOLVER_LIBRARIES ${CERES_LIBRARIES} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
     

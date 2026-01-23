@@ -33,7 +33,7 @@
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Camera/BundleAdjustIsis.h>
 
-#include <vw/config.h>
+#include <vw/vw_config.h>
 #include <vw/Core/CmdUtils.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/FileIO/DiskImageView.h>
