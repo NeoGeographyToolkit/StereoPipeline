@@ -17,7 +17,7 @@
 
 // Very low-level functions used in sat_sim.cc and jitter_solve.cc. 
 
-#include <asp/Core/SatSimBase.h>
+#include <asp/Core/CamPoseUtils.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>

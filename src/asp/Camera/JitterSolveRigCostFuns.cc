@@ -20,7 +20,7 @@
 
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Core/CameraTransforms.h>
-#include <asp/Core/SatSimBase.h>
+#include <asp/Core/CamPoseUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/rig_config.h>

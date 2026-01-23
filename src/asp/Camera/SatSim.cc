@@ -18,7 +18,7 @@
 // Functions used for the sat_sim.cc tool that are not general enough to put
 // somewhere else.
 
-#include <asp/Core/SatSimBase.h>
+#include <asp/Core/CamPoseUtils.h>
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/DemUtils.h>
 #include <asp/Camera/SatSim.h>

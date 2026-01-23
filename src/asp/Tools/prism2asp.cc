@@ -30,7 +30,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/SatSimBase.h>
+#include <asp/Core/CamPoseUtils.h>
 #include <asp/Core/CameraTransforms.h>
 
 #include <vw/FileIO/DiskImageView.h>

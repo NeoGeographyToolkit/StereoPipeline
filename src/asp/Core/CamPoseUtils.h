@@ -15,12 +15,12 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file SatSimBase.h
+/// \file CamPoseUtils.h
 
 // Very low-level functions used in sat_sim.cc and jitter_solve.cc. 
 
-#ifndef __ASP_CORE_SATSIM_BASE_H__
-#define __ASP_CORE_SATSIM_BASE_H__
+#ifndef __ASP_CORE_CAM_POSE_UTILS_H__
+#define __ASP_CORE_CAM_POSE_UTILS_H__
 
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
@@ -70,4 +70,4 @@ void calcEcefAlongAcross(vw::cartography::GeoReference const& dem_georef,
 
 } // end namespace asp
 
-#endif//__ASP_CORE_SATSIM_BASE_H__
+#endif//__ASP_CORE_CAM_POSE_UTILS_H__
