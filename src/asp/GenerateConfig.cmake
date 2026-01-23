@@ -75,9 +75,9 @@ set(ASP_HAVE_PKG_TOOLS 1)
 # Each value like "@VAR@ is replaced by the CMake variable of the same name
 # The generated file modification time is not updated unless its content actually changed,
 # which prevents needless compilation.
-message("Generating config file: ${CMAKE_SOURCE_DIR}/src/asp/asp_config.h")
-configure_file(${CMAKE_SOURCE_DIR}/src/asp/asp_config.h.in ${CMAKE_SOURCE_DIR}/src/asp/asp_config.h)
+message("Generating config file: ${CMAKE_BINARY_DIR}/src/asp/asp_config.h")
+configure_file(${CMAKE_SOURCE_DIR}/src/asp/asp_config.h.in ${CMAKE_BINARY_DIR}/src/asp/asp_config.h)
 
 # This file's data changes often so keep it separate to avoid recompilation.
-message("Generating config file: ${CMAKE_SOURCE_DIR}/src/asp/asp_date_config.h")
-configure_file(${CMAKE_SOURCE_DIR}/src/asp/asp_date_config.h.in ${CMAKE_SOURCE_DIR}/src/asp/asp_date_config.h)
+message("Generating config file: ${CMAKE_BINARY_DIR}/src/asp/asp_date_config.h")
+configure_file(${CMAKE_SOURCE_DIR}/src/asp/asp_date_config.h.in ${CMAKE_BINARY_DIR}/src/asp/asp_date_config.h)

@@ -94,6 +94,7 @@ else()
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_BINARY_DIR}/src)  # For generated config headers
 
 set(ASP_HAVE_PKG_ICEBRIDGE 1)
 
