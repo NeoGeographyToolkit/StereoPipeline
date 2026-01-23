@@ -664,6 +664,7 @@ void loadValidateBaOptions(po::variables_map const& vm,
     asp::readBathyData(opt.image_files.size(),
                        asp::stereo_settings().bathy_mask_list,
                        asp::stereo_settings().bathy_plane,
+                       asp::stereo_settings().bathy_plane_list,
                        asp::stereo_settings().refraction_index,
                        opt.bathy_data);
 
@@ -1160,7 +1161,16 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "model bathymetry.")
     ("bathy-plane",
      po::value(&asp::stereo_settings().bathy_plane),
-      "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
+      "Path to a file containing a plane approximating the water surface, for "
+      "bathymetry correction with underwater terrain. This corrects camera rays passing "
+      "through water using Snell's law. If multiple images are used and they have "
+      "different water surfaces use --bathy-plane-list. Use together with "
+      "--refraction-index. See also --bathy-mask-list.")
+    ("bathy-plane-list", 
+     po::value(&asp::stereo_settings().bathy_plane_list)->default_value(""),
+     "Path to a file containing a list of bathy plane files for bathymetry correction, "
+     "if more than one. Set one plane file per line. Must specify one plane per input "
+     "image, in the same order. Use with --bathy-mask-list and --refraction-index.")
     ("refraction-index", 
      po::value(&asp::stereo_settings().refraction_index)->default_value(0),
       "The index of refraction of water to be used in bathymetry correction. "

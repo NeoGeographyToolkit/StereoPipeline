@@ -238,7 +238,14 @@ PreProcessingDescription::PreProcessingDescription():
       "Mask to use for the right image when doing bathymetry. See also "
       "left-bathy-mask.")
     ("bathy-plane", po::value(&global.bathy_plane),
-      "The file storing the water plane used for bathymetry having the coefficients a, b, c, d with the plane being a*x + b*y + c*z + d = 0. Separate bathy planes can be used for the left and right images, to be passed in as 'left_plane.txt right_plane.txt'.")
+      "Path to a file containing a plane approximating the water surface, for "
+      "bathymetry correction with underwater terrain. This corrects camera rays passing "
+      "through water using Snell's law. If there is one plane per image, use "
+      "--bathy-plane-list. Use together with --refraction-index.")
+    ("bathy-plane-list", po::value(&global.bathy_plane_list)->default_value(""),
+      "Path to a file containing a list of bathy plane files for bathymetry correction, "
+      "if more than one. Set one plane file per line. Must specify one plane per input "
+      "image, in the same order. Use with --refraction-index.")
     ("refraction-index", po::value(&global.refraction_index)->default_value(0),
       "The index of refraction of water to be used in bathymetry correction. "
       "Must be specified and bigger than 1. This index can be computed with "

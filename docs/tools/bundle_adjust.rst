@@ -1645,16 +1645,22 @@ Command-line options
     in pixels.
 
 --bathy-plane <string (default: "")>
-    Path to file containing a plane approximating the water surface, for
-    bathymetry correction with underwater terrain (:numref:`bathy_intro`).
-    If multiple images are used and they have different water surfaces, specify
-    one file per image as a list in quotes separated by spaces. This corrects
-    camera rays passing through water using Snell's law. Must be used together
-    with ``--refraction-index``. See also ``--bathy-mask-list``.
+    Path to a file containing a plane approximating the water surface, for
+    bathymetry correction with underwater terrain (:numref:`bathy_intro`). This
+    corrects camera rays passing through water using Snell's law. If multiple
+    images are used and they have different water surfaces use
+    ``--bathy-plane-list``. Use together with ``--refraction-index``. See also
+    ``--bathy-mask-list``.
+
+--bathy-plane-list <string (default: "")>
+    Path to a file containing a list of bathy plane files for bathymetry
+    correction, if more than one. Set one plane file per line. Must specify one
+    plane per input image, in the same order. Use with ``--bathy-mask-list`` and
+    ``--refraction-index``.
 
 --bathy-mask-list <string (default: "")>
-    Path to file containing a list of water mask images for bathymetry correction,
-    one mask per line. Must specify one mask per input image in the same order.
+    Path to a file containing a list of water mask images for bathymetry correction,
+    one mask per line. Must specify one mask per input image, in the same order.
     Pixels classified as water must be either no-data or have zero value, while
     land pixels must have positive values. Must be used with ``--bathy-plane`` and
     ``--refraction-index``. An example is in :numref:`ba_bathy`.

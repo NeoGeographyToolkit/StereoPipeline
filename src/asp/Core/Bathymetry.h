@@ -41,10 +41,16 @@ void bathyChecks(std::string const& session_name,
 // If to apply bathy correction
 bool doBathy(asp::StereoSettings const& stereo_settings);
 
+// Helper function to read bathy planes from either a direct string or a list file.
+// Returns space-separated string of plane files suitable for vw::readBathyPlanes().
+std::string readBathyPlanesStrOrList(std::string const& bathy_plane_files,
+                                     std::string const& bathy_plane_list);
+
 // Read all bathy data
 void readBathyData(int num_images,
                    std::string const& bathy_mask_list,
                    std::string const& bathy_plane_files,
+                   std::string const& bathy_plane_list,
                    float refraction_index,
                    vw::BathyData & bathy_data);
 

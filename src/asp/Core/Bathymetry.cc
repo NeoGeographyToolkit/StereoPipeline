@@ -30,10 +30,41 @@
 
 namespace asp {
 
+// Helper function to read bathy planes from either a direct string or a list file.
+// Returns space-separated string of plane files suitable for vw::readBathyPlanes().
+std::string readBathyPlanesStrOrList(std::string const& bathy_plane_files,
+                                     std::string const& bathy_plane_list) {
+
+  bool have_plane_files = (bathy_plane_files != "");
+  bool have_plane_list = (bathy_plane_list != "");
+  
+  if (have_plane_files && have_plane_list)
+    vw::vw_throw(vw::ArgumentErr() 
+             << "Cannot specify both --bathy-plane and --bathy-plane-list.\n");
+
+  std::string planes_to_load;
+  if (have_plane_list) {
+    std::vector<std::string> plane_files;
+    asp::read_list(bathy_plane_list, plane_files);
+    
+    // Join vector into space-separated string
+    for (size_t i = 0; i < plane_files.size(); i++) {
+      if (i > 0)
+        planes_to_load += " ";
+      planes_to_load += plane_files[i];
+    }
+  } else {
+    planes_to_load = bathy_plane_files;
+  }
+  
+  return planes_to_load;
+}
+
 // Read all bathy data
 void readBathyData(int num_images,
                    std::string const& bathy_mask_list,
                    std::string const& bathy_plane_files,
+                   std::string const& bathy_plane_list,
                    float refraction_index,
                    vw::BathyData & bathy_data) {
 
@@ -45,8 +76,12 @@ void readBathyData(int num_images,
     vw::vw_throw(vw::ArgumentErr() << "The number of bathy masks must agree with "
              << "the number of images.\n");
 
+  std::string planes_to_load = readBathyPlanesStrOrList(bathy_plane_files, 
+                                                        bathy_plane_list);
   vw::read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
-  vw::readBathyPlanes(bathy_plane_files, num_images, bathy_data.bathy_planes);
+  vw::readBathyPlanes(planes_to_load, num_images, bathy_data.bathy_planes);
+
+  vw::read_bathy_masks(bathy_mask_files, bathy_data.bathy_masks);
   bathy_data.refraction_index = refraction_index;
 
   // Validate consistency
@@ -121,12 +156,20 @@ void bathyChecks(std::string const& session_name,
         vw::vw_throw(vw::ArgumentErr() << "The water index of refraction to be used in "
                   << "bathymetry correction must be bigger than 1.\n");
 
-      if (stereo_settings.bathy_plane == "")
-        vw::vw_throw(vw::ArgumentErr() << "The value of --bathy-plane was unspecified.\n");
+      if (stereo_settings.bathy_plane == "" && stereo_settings.bathy_plane_list == "")
+        vw::vw_throw(vw::ArgumentErr() 
+                  << "Either --bathy-plane or --bathy-plane-list must be specified.\n");
+
+      // Check mutual exclusion
+      if (stereo_settings.bathy_plane != "" && stereo_settings.bathy_plane_list != "")
+        vw::vw_throw(vw::ArgumentErr() 
+                  << "Cannot specify both --bathy-plane and --bathy-plane-list.\n");
 
       // Sanity check reading the bathy plane
+      std::string planes_to_check = readBathyPlanesStrOrList(stereo_settings.bathy_plane,
+                                                             stereo_settings.bathy_plane_list);
       std::vector<vw::BathyPlane> bathy_plane_vec;
-      vw::readBathyPlanes(stereo_settings.bathy_plane, num_images, bathy_plane_vec);
+      vw::readBathyPlanes(planes_to_check, num_images, bathy_plane_vec);
     }
 
     if (session_name.find("isis") != std::string::npos)
@@ -148,7 +191,8 @@ void bathyChecks(std::string const& session_name,
 
   // Ensure that either both or none of these settings are specified
   if ((stereo_settings.refraction_index > 1.0 ||
-       stereo_settings.bathy_plane != "") &&
+       stereo_settings.bathy_plane != "" ||
+       stereo_settings.bathy_plane_list != "") &&
       !doBathy(stereo_settings))
     vw::vw_throw(vw::ArgumentErr()
           << "When bathymetry correction is not on, it is not necessary to "

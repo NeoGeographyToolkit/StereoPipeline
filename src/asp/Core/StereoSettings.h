@@ -71,7 +71,7 @@ namespace asp {
 
     // Data for use with bathymetry
     std::string left_bathy_mask, right_bathy_mask, bathy_mask_list;
-    std::string bathy_plane, output_cloud_type;
+    std::string bathy_plane, bathy_plane_list, output_cloud_type;
     double refraction_index;
 
     bool   force_use_entire_range;          /// Use entire dynamic range of image

@@ -44,6 +44,8 @@ pc_align (:numref:`pc_align`):
 Misc:
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment. 
+  * Added the option ``--bathy-plane-list`` to supplement ``--bathy-plane``
+    to various programs.
   * Removed the old qi2txt program for reading IceBridge QFIT binary data.
   * Do not use more than 128 threads in ``parallel_stereo``, as OpenBlas 
     fails then.

@@ -819,7 +819,10 @@ void stereo_triangulation(std::string const& output_prefix,
       // The bathy plane is needed only for the underwater component
       if (asp::stereo_settings().output_cloud_type != "topo") {
         int num_images = 2;
-        vw::readBathyPlanes(stereo_settings().bathy_plane, num_images, bathy_plane_vec);
+        std::string planes_to_load 
+          = asp::readBathyPlanesStrOrList(stereo_settings().bathy_plane, 
+                                          stereo_settings().bathy_plane_list);
+        vw::readBathyPlanes(planes_to_load, num_images, bathy_plane_vec);
         bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_vec);
       }
     }
