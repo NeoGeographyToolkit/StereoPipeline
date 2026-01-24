@@ -27,6 +27,14 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Math/Vector.h>
+#include <vw/Math/BBox.h>
+
+// Forward declarations
+namespace vw {
+  namespace cartography {
+    class GeoReference;
+  }
+}
 
 namespace asp {
 
@@ -50,6 +58,12 @@ void centerlineWeightsWithHoles(vw::ImageView<vw::PixelMask<double>> const& img,
                                 double hole_fill_value);
 
 double erfSmoothStep(double x, double M, double L);
+
+// Convert a projected-space bounding box to pixel coordinates with snapping.
+// Transforms all 4 corners, rounds near-integer values (within tol) to integers,
+// then floors/ceils to ensure integer pixel boundaries.
+vw::BBox2 pointToPixelBboxSnapped(vw::cartography::GeoReference const& georef,
+                                  vw::BBox2 const& point_bbox, double tol);
 
 typedef vw::PixelGrayA<double> DoubleGrayA;
 DoubleGrayA interpDem(double x, double y,

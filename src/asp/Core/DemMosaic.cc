@@ -20,6 +20,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Image/Filter.h>
+#include <vw/Cartography/GeoReference.h>
 #include <boost/math/special_functions/erf.hpp>
 
 namespace asp {
@@ -138,9 +139,9 @@ void applyExternalWeights(std::string const& weight_file,
 // TODO(oalexan1): Move this to VW, and see about overwriting 
 // the other weight functions. The other one uses normalization, which is bad.
 double computePlateauedWeights(Vector2 const& pix, bool horizontal,
-                                std::vector<double> const& centers,
-                                std::vector<double> const& widths,
-                                double max_weight_val) {
+                               std::vector<double> const& centers,
+                               std::vector<double> const& widths,
+                               double max_weight_val) {
 
   int primary_axis = 0, secondary_axis = 1; // Vertical
   if (horizontal) {
@@ -278,7 +279,33 @@ double erfSmoothStep(double x, double M, double L) {
   return 0.5*M*(1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L)));
 }
 
-// A helper function to do interpolation. Will not interpolate when 
+// Convert a projected-space bounding box to pixel coordinates with snapping.
+// Transforms all 4 corners, rounds near-integer values (within tol) to integers,
+// then floors/ceils to ensure integer pixel boundaries.
+vw::BBox2 pointToPixelBboxSnapped(vw::cartography::GeoReference const& georef,
+                                  vw::BBox2 const& point_bbox, double tol) {
+
+  vw::BBox2 pix_box;
+  vw::Vector2 corners[] = {point_bbox.min(), point_bbox.max(),
+                           vw::Vector2(point_bbox.min().x(), point_bbox.max().y()),
+                           vw::Vector2(point_bbox.max().x(), point_bbox.min().y())};
+  for (int i = 0; i < 4; i++)
+    pix_box.grow(georef.point_to_pixel(corners[i]));
+
+  // Round values that are likely due to numerical error
+  if (norm_2(pix_box.min() - round(pix_box.min())) < tol)
+    pix_box.min() = round(pix_box.min());
+  if (norm_2(pix_box.max() - round(pix_box.max())) < tol)
+    pix_box.max() = round(pix_box.max());
+
+  // Grow the box until the corners are integer
+  pix_box.min() = floor(pix_box.min());
+  pix_box.max() = ceil (pix_box.max());
+
+  return pix_box;
+}
+
+// A helper function to do interpolation. Will not interpolate when
 // exactly on the grid.
 DoubleGrayA interpDem(double x, double y,
                       ImageView<DoubleGrayA> const& dem,

@@ -54,31 +54,6 @@ using namespace vw::cartography;
 // This is used for various tolerances
 double g_tol = 1e-6;
 
-// Given the corners in the projected space, find the pixel corners. Here needed
-// some custom logic, so BBox2 GeoReference::point_to_pixel_bbox() could not be
-// used.
-BBox2 custom_point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox) {
-
-  vw::BBox2 pix_box;
-  vw::Vector2 cr[] = {ptbox.min(), ptbox.max(),
-                      vw::Vector2(ptbox.min().x(), ptbox.max().y()),
-                      vw::Vector2(ptbox.max().x(), ptbox.min().y())};
-  for (int icr = 0; icr < (int)(sizeof(cr)/sizeof(Vector2)); icr++)
-    pix_box.grow(georef.point_to_pixel(cr[icr]));
-
-  // Round values that are likely due to numerical error
-  if (norm_2(pix_box.min() - round(pix_box.min())) < g_tol)
-    pix_box.min() = round(pix_box.min());
-  if (norm_2(pix_box.max() - round(pix_box.max())) < g_tol)
-    pix_box.max() = round(pix_box.max());
-
-  // Grow the box until the corners are integer. This is a bugfix.
-  pix_box.min() = floor(pix_box.min());
-  pix_box.max() = ceil (pix_box.max());
-
-  return pix_box;
-}
-
 GeoReference read_georef(std::string const& file) {
   // Read a georef, and check for success
   GeoReference geo;
@@ -1199,7 +1174,7 @@ int main(int argc, char *argv[]) {
     }
 
     // First-guess pixel box
-    BBox2 pixel_box = custom_point_to_pixel_bbox(mosaic_georef, mosaic_bbox);
+    BBox2 pixel_box = asp::pointToPixelBboxSnapped(mosaic_georef, mosaic_bbox, g_tol);
 
     // Take care of numerical artifacts
     vw::Vector2 beg_pix = pixel_box.min();
@@ -1208,7 +1183,7 @@ int main(int argc, char *argv[]) {
     mosaic_georef = crop(mosaic_georef, beg_pix[0], beg_pix[1]);
 
     // Image size
-    pixel_box = custom_point_to_pixel_bbox(mosaic_georef, mosaic_bbox);
+    pixel_box = asp::pointToPixelBboxSnapped(mosaic_georef, mosaic_bbox, g_tol);
     vw::Vector2 end_pix = pixel_box.max();
     int cols = (int)round(end_pix[0]); // end_pix is the last pix in the image
     int rows = (int)round(end_pix[1]);
