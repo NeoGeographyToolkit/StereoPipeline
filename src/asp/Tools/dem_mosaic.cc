@@ -55,171 +55,11 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+// Bring in the typedef from asp namespace for convenience
+typedef asp::DoubleGrayA DoubleGrayA;
+
 // This is used for various tolerances
 double g_tol = 1e-6;
-
-// Compute a weight that is zero, then rises, plateaus, and then falls.
-// - hCenterLine contains the center column at each row/col
-// - hMaxDistArray contains the width of the column at each row/col
-// TODO(oalexan1): Move this to VW, and see about overwriting 
-// the other weight functions. The other one uses normalization, which is bad.
-double compute_plateaued_weights(Vector2 const& pix, bool horizontal,
-                                 std::vector<double> const& centers,
-                                 std::vector<double> const& widths,
-                                 double max_weight_val) {
-  
-  int primary_axis = 0, secondary_axis = 1; // Vertical
-  if (horizontal) {
-    primary_axis   = 1;
-    secondary_axis = 0;
-  }
-  
-  // We round below, to avoid issues when we are within numerical value
-  // to an integer value for row/col.
-  // To do: Need to do interpolation here.
-
-  int pos = (int)round(pix[primary_axis]); // The row or column
-  if (pos < 0 || pos >= (int)widths.size() || pos >= (int)centers.size())
-    return 0;
-  
-  double max_dist = widths[pos]/2.0; // Half column width
-  double center   = centers[pos];
-  double dist     = fabs(pix[secondary_axis]-center); // Pixel distance from center column
-
-  if (max_dist <= 0 || dist < 0)
-    return 0;
-
-  // We want to make sure the weight is positive (even if small) at
-  // the first/last valid pixel.
-  double tol = 1e-8*max_dist;
-  
-  // The weight is not normalized. This is a bugfix. Normalized weights result
-  // in higher weights in narrow regions, which is not what we want.
-  double weight = std::max(0.0, max_dist - dist + tol);
-  weight = std::min(max_weight_val, weight);
-
-  return weight;
-}
-
-// TODO(oalexan1): Fold modifications into VW.
-template<class ImageT>
-void centerline_weights2(ImageT const& img, ImageView<double> & weights,
-                         double max_weight_val, double hole_fill_value=0, 
-                         double border_fill_value=-1, BBox2i roi=BBox2i()) {
-
-  int numRows = img.rows();
-  int numCols = img.cols();
-
-  // Arrays to be returned out of this function
-  std::vector<double> hCenterLine  (numRows, 0);
-  std::vector<double> hMaxDistArray(numRows, 0);
-  std::vector<double> vCenterLine  (numCols, 0);
-  std::vector<double> vMaxDistArray(numCols, 0);
-
-  std::vector<int> minValInRow(numRows, 0);
-  std::vector<int> maxValInRow(numRows, 0);
-  std::vector<int> minValInCol(numCols, 0);
-  std::vector<int> maxValInCol(numCols, 0);
-
-  for (int k = 0; k < numRows; k++) {
-    minValInRow[k] = numCols;
-    maxValInRow[k] = 0;
-  }
-  for (int col = 0; col < numCols; col++) {
-    minValInCol[col] = numRows;
-    maxValInCol[col] = 0;
-  }
-
-  // Note that we do just a single pass through the image to compute
-  // both the horizontal and vertical min/max values.
-  for (int row = 0 ; row < numRows; row++) {
-    for (int col = 0; col < numCols; col++) {
-
-      if (!is_valid(img(col,row))) continue;
-      
-      // Record the first and last valid column in each row
-      if (col < minValInRow[row]) minValInRow[row] = col;
-      if (col > maxValInRow[row]) maxValInRow[row] = col;
-      
-      // Record the first and last valid row in each column
-      if (row < minValInCol[col]) minValInCol[col] = row;
-      if (row > maxValInCol[col]) maxValInCol[col] = row;   
-    }
-  }
-  
-  // For each row, record central column and the column width
-  for (int row = 0; row < numRows; row++) {
-    hCenterLine   [row] = (minValInRow[row] + maxValInRow[row])/2.0;
-    hMaxDistArray [row] =  maxValInRow[row] - minValInRow[row];
-    if (hMaxDistArray[row] < 0) {
-      hMaxDistArray[row]=0;
-    }
-  }
-
-  // For each row, record central column and the column width
-  for (int col = 0 ; col < numCols; col++) {
-    vCenterLine   [col] = (minValInCol[col] + maxValInCol[col])/2.0;
-    vMaxDistArray [col] =  maxValInCol[col] - minValInCol[col];
-    if (vMaxDistArray[col] < 0) {
-      vMaxDistArray[col]=0;
-    }
-  }
-
-  BBox2i output_bbox = roi;
-  if (roi.empty())
-    output_bbox = bounding_box(img);
-
-  // Compute the weighting for each pixel in the image
-  weights.set_size(output_bbox.width(), output_bbox.height());
-  fill(weights, 0);
-  
-  for (int row = output_bbox.min().y(); row < output_bbox.max().y(); row++) {
-    for (int col = output_bbox.min().x(); col < output_bbox.max().x(); col++) {
-      bool inner_row = ((row >= minValInCol[col]) && (row <= maxValInCol[col]));
-      bool inner_col = ((col >= minValInRow[row]) && (col <= maxValInRow[row]));
-      bool inner_pixel = inner_row && inner_col;
-      vw::Vector2 pix(col, row);
-      double new_weight = 0; // Invalid pixels usually get zero weight
-      if (is_valid(img(col,row))) {
-        double weight_h = compute_plateaued_weights(pix, true,  hCenterLine, hMaxDistArray,
-                                                    max_weight_val);
-        double weight_v = compute_plateaued_weights(pix, false, vCenterLine, vMaxDistArray,
-                                                    max_weight_val);
-        new_weight = weight_h*weight_v;
-      }
-      else { // Invalid pixel
-        if (inner_pixel)
-          new_weight = hole_fill_value;
-        else // Border pixel
-          new_weight = border_fill_value;
-      }
-      weights(col-output_bbox.min().x(), row-output_bbox.min().y()) = new_weight;
-      
-    }
-  }
-
-} // End function centerline_weights2
-
-// An S-shaped function. Value at 0 is 0. Value at M is M.
-// Flat before 0 and after M. Higher value of L means
-// more flatness at the ends, but higher growth
-// in the middle.
-double S_shape(double x, double M, double L) {
-  if (x <= 0) return 0;
-  if (x >= M) return M;
-  return 0.5*M*(1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L)));
-}
-
-// Set nodata pixels to 0 and valid data pixels to something big.
-template<class PixelT>
-struct BigOrZero: public ReturnFixedType<PixelT> {
-  PixelT m_nodata;
-  BigOrZero(PixelT nodata):m_nodata(nodata) {}
-  double operator() (PixelT const& pix) const {
-    if (pix != m_nodata && !std::isnan(pix)) return 1e+8;
-    return 0;
-  }
-};
 
 // Given the corners in the projected space, find the pixel corners. Here needed
 // some custom logic, so BBox2 GeoReference::point_to_pixel_bbox() could not be
@@ -338,64 +178,6 @@ void initializeTileVector(int num_images,
   }
   
   return;
-}
-
-// A helper function to do interpolation. Will not interpolate when 
-// exactly on the grid.
-typedef PixelGrayA<double> DoubleGrayA;
-DoubleGrayA interpDem(double x, double y, 
-                     ImageView<DoubleGrayA> const& dem,
-                     ImageViewRef<DoubleGrayA> const& interp_dem,
-                     double tol,
-                     const Options& opt) {
-
-  DoubleGrayA pval;
-
-  // Round to nearest integer location
-  int i0 = round(x), j0 = round(y);
-  if ((fabs(x-i0) < tol) && (fabs(y-j0) < tol) &&
-      ((i0 >= 0) && (i0 <= dem.cols()-1) &&
-        (j0 >= 0) && (j0 <= dem.rows()-1))) {
-
-    // A lot of care is needed here. We are at an integer
-    // pixel, save for numerical error. Just borrow pixel's
-    // value, and don't interpolate. Interpolation can result
-    // in invalid pixels if the current pixel is valid but its
-    // neighbors are not. It can also make it appear is if the
-    // current indices are out of bounds while in fact they
-    // are barely so.
-    pval = dem(i0, j0);
-
-  } else { // We are not right on an integer pixel and we need to interpolate
-
-    // Below must use x <= cols()-1 as x is double
-    bool is_good = ((x >= 0) && (x <= dem.cols()-1) && 
-        (y >= 0) && (y <= dem.rows()-1));
-    if (!is_good) {
-      pval.a() = 0; // Flag as nodata
-      return pval; // Outside the loaded DEM bounds, skip to the next pixel
-    }
-    
-    // If we have weights of 0, that means there are invalid pixels, so skip this point.
-    int i0 = (int)floor(x), j0 = (int)floor(y);
-    int i1 = (int)ceil(x),  j1 = (int)ceil(y);
-    bool nodata = ((dem(i0, j0).a() == 0) || (dem(i1, j0).a() == 0) ||
-                   (dem(i0, j1).a() == 0) || (dem(i1, j1).a() == 0));
-    bool border = ((dem(i0, j0).a() <  0) || (dem(i1, j0).a() <  0) ||
-                   (dem(i0, j1).a() <  0) || (dem(i1, j1).a() <  0));
-
-    if (nodata || border) {
-      pval.v() = 0;
-      pval.a() = -1; // Flag as border
-
-      if (opt.propagate_nodata && !border)
-        pval.a() = 0; // Flag as nodata
-
-    } else
-      pval = interp_dem(x, y); // Things checked out, do the interpolation.
-  }
-  
-  return pval;
 }
 
 // Use the weights created so far only to burn holes in
@@ -555,7 +337,7 @@ void processDemTile(Options const& opt,
       double y = in_pix[1] - in_box_min.y();
       
       // Interpolate
-      DoubleGrayA pval = interpDem(x, y, dem, interp_dem, tol, opt);
+      asp::DoubleGrayA pval = asp::interpDem(x, y, dem, interp_dem, tol, opt.propagate_nodata);
 
       // Separate the value and alpha for this pixel.
       double val = pval.v();
@@ -995,7 +777,7 @@ public:
           }
         }
         // TODO(oalexan1): Generalize this modification and move it to VW.
-        centerline_weights2(create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
+        asp::centerline_weights2(create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
           local_wts, m_bias, -1.0);
         
       } // End centerline weights case

@@ -20,6 +20,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Image/Filter.h>
+#include <boost/math/special_functions/erf.hpp>
 
 namespace asp {
 
@@ -129,6 +130,116 @@ void applyExternalWeights(std::string const& weight_file,
   }
 
   return;
+}
+
+// Compute a weight that is zero, then rises, plateaus, and then falls.
+// - hCenterLine contains the center column at each row/col
+// - hMaxDistArray contains the width of the column at each row/col
+// TODO(oalexan1): Move this to VW, and see about overwriting 
+// the other weight functions. The other one uses normalization, which is bad.
+double compute_plateaued_weights(Vector2 const& pix, bool horizontal,
+                                 std::vector<double> const& centers,
+                                 std::vector<double> const& widths,
+                                 double max_weight_val) {
+  
+  int primary_axis = 0, secondary_axis = 1; // Vertical
+  if (horizontal) {
+    primary_axis   = 1;
+    secondary_axis = 0;
+  }
+  
+  // We round below, to avoid issues when we are within numerical value
+  // to an integer value for row/col.
+  // To do: Need to do interpolation here.
+
+  int pos = (int)round(pix[primary_axis]); // The row or column
+  if (pos < 0 || pos >= (int)widths.size() || pos >= (int)centers.size())
+    return 0;
+  
+  double max_dist = widths[pos]/2.0; // Half column width
+  double center   = centers[pos];
+  double dist     = fabs(pix[secondary_axis]-center); // Pixel distance from center column
+
+  if (max_dist <= 0 || dist < 0)
+    return 0;
+
+  // We want to make sure the weight is positive (even if small) at
+  // the first/last valid pixel.
+  double tol = 1e-8*max_dist;
+  
+  // The weight is not normalized. This is a bugfix. Normalized weights result
+  // in higher weights in narrow regions, which is not what we want.
+  double weight = std::max(0.0, max_dist - dist + tol);
+  weight = std::min(max_weight_val, weight);
+
+  return weight;
+}
+
+// An S-shaped function. Value at 0 is 0. Value at M is M.
+// Flat before 0 and after M. Higher value of L means
+// more flatness at the ends, but higher growth
+// in the middle.
+double S_shape(double x, double M, double L) {
+  if (x <= 0) return 0;
+  if (x >= M) return M;
+  return 0.5*M*(1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L)));
+}
+
+// A helper function to do interpolation. Will not interpolate when 
+// exactly on the grid.
+DoubleGrayA interpDem(double x, double y, 
+                     ImageView<DoubleGrayA> const& dem,
+                     ImageViewRef<DoubleGrayA> const& interp_dem,
+                     double tol,
+                     bool propagate_nodata) {
+
+  DoubleGrayA pval;
+
+  // Round to nearest integer location
+  int i0 = round(x), j0 = round(y);
+  if ((fabs(x-i0) < tol) && (fabs(y-j0) < tol) &&
+      ((i0 >= 0) && (i0 <= dem.cols()-1) &&
+        (j0 >= 0) && (j0 <= dem.rows()-1))) {
+
+    // A lot of care is needed here. We are at an integer
+    // pixel, save for numerical error. Just borrow pixel's
+    // value, and don't interpolate. Interpolation can result
+    // in invalid pixels if the current pixel is valid but its
+    // neighbors are not. It can also make it appear is if the
+    // current indices are out of bounds while in fact they
+    // are barely so.
+    pval = dem(i0, j0);
+
+  } else { // We are not right on an integer pixel and we need to interpolate
+
+    // Below must use x <= cols()-1 as x is double
+    bool is_good = ((x >= 0) && (x <= dem.cols()-1) && 
+        (y >= 0) && (y <= dem.rows()-1));
+    if (!is_good) {
+      pval.a() = 0; // Flag as nodata
+      return pval; // Outside the loaded DEM bounds, skip to the next pixel
+    }
+    
+    // If we have weights of 0, that means there are invalid pixels, so skip this point.
+    int i0 = (int)floor(x), j0 = (int)floor(y);
+    int i1 = (int)ceil(x),  j1 = (int)ceil(y);
+    bool nodata = ((dem(i0, j0).a() == 0) || (dem(i1, j0).a() == 0) ||
+                   (dem(i0, j1).a() == 0) || (dem(i1, j1).a() == 0));
+    bool border = ((dem(i0, j0).a() <  0) || (dem(i1, j0).a() <  0) ||
+                   (dem(i0, j1).a() <  0) || (dem(i1, j1).a() <  0));
+
+    if (nodata || border) {
+      pval.v() = 0;
+      pval.a() = -1; // Flag as border
+
+      if (propagate_nodata && !border)
+        pval.a() = 0; // Flag as nodata
+
+    } else
+      pval = interp_dem(x, y); // Things checked out, do the interpolation.
+  }
+  
+  return pval;
 }
 
 } // end namespace asp
