@@ -25,6 +25,7 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/GdalUtils.h>
 #include <asp/Core/DemMosaic.h>
+#include <asp/Core/DemMosaicOptions.h>
 #include <asp/Core/FileUtils.h>
 
 #include <vw/FileIO/DiskImageManager.h>
@@ -92,44 +93,14 @@ GeoReference read_georef(std::string const& file) {
   return geo;
 }
 
-struct Options: vw::GdalWriteOptions {
-  std::string dem_list, out_prefix, target_srs_string,
-    output_type, tile_list_str, this_dem_as_reference, weight_list, dem_list_file;
-  std::vector<std::string> dem_files, weight_files;
-  double tr, geo_tile_size;
-  bool   has_out_nodata, force_projwin;
-  double out_nodata_value;
-  int    tile_size, tile_index, erode_len, priority_blending_len,
-         extra_crop_len, hole_fill_len, block_size, save_dem_weight,
-         fill_num_passes;
-  double weights_exp, weights_blur_sigma, dem_blur_sigma;
-  double nodata_threshold, fill_search_radius, fill_power, fill_percent, min_weight;
-  bool   first, last, min, max, block_max, mean, stddev, median, nmad,
-    count, tap, gdal_tap, save_index_map, use_centerline_weights, first_dem_as_reference, 
-    propagate_nodata, no_border_blend, invert_weights;
-  std::set<int> tile_list;
-  BBox2 projwin;
-  Options(): tr(0), geo_tile_size(0), has_out_nodata(false), force_projwin(false), 
-             tile_index(-1), erode_len(0), priority_blending_len(0), extra_crop_len(0),
-             hole_fill_len(0), block_size(0), save_dem_weight(-1), 
-             fill_search_radius(0), fill_power(0), fill_percent(0), fill_num_passes(0),
-             weights_exp(0), weights_blur_sigma(0.0), dem_blur_sigma(0.0),
-             nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
-             first(false), last(false), min(false), max(false), block_max(false),
-             mean(false), stddev(false), median(false), nmad(false),
-             count(false), save_index_map(false), tap(false), gdal_tap(false),
-             use_centerline_weights(false), first_dem_as_reference(false), projwin(BBox2()),
-             invert_weights(false) {}
-};
-
 /// Return the number of no-blending options selected.
-int no_blend(Options const& opt) {
+int no_blend(asp::DemMosaicOptions const& opt) {
   return int(opt.first) + int(opt.last) + int(opt.min) + int(opt.max)
     + int(opt.mean) + int(opt.stddev) + int(opt.median)
     + int(opt.nmad) + int(opt.count) + int(opt.block_max);
 }
 
-std::string tile_suffix(Options const& opt) {
+std::string tile_suffix(asp::DemMosaicOptions const& opt) {
   std::string ans;
   if (opt.first) ans     = "-first";
   if (opt.last) ans      = "-last";
@@ -149,7 +120,7 @@ std::string tile_suffix(Options const& opt) {
 
 // Initializations needed for various modes
 void initializeTileVector(int num_images, 
-                          BBox2i const& bbox, Options const& opt,
+                          BBox2i const& bbox, asp::DemMosaicOptions const& opt,
                           // Outputs
                           ImageView<double> & tile,
                           std::vector<ImageView<double>>& tile_vec, 
@@ -302,7 +273,7 @@ void priorityBlend(double out_nodata_value,
 
 // Process a DEM tile pixel by pixel. Take into account the various
 // blending options. 
-void processDemTile(Options const& opt,
+void processDemTile(asp::DemMosaicOptions const& opt,
                     BBox2i const& bbox, 
                     Vector2 const& in_box_min,
                     ImageView<asp::DoubleGrayA> const& dem,
@@ -493,7 +464,7 @@ void processMedianOrNmad(BBox2i const& bbox,
 /// Class that does the actual image processing work
 class DemMosaicView: public ImageViewBase<DemMosaicView>{
   int m_cols, m_rows, m_bias;
-  Options                   const& m_opt;              // alias
+  asp::DemMosaicOptions                   const& m_opt;              // alias
   DiskImageManager<float>        & m_imgMgr;           // alias
   std::vector<GeoReference> const& m_georefs;          // alias
   GeoReference                     m_out_georef;
@@ -504,7 +475,7 @@ class DemMosaicView: public ImageViewBase<DemMosaicView>{
 
 public:
   DemMosaicView(int cols, int rows, int bias,
-                Options                   const& opt,
+                asp::DemMosaicOptions                   const& opt,
                 DiskImageManager<float>        & imgMgr,
                 std::vector<GeoReference> const& georefs,
                 GeoReference              const& out_georef,
@@ -1009,7 +980,7 @@ public:
 /// - mosaic_bbox is the output bounding box in projected space
 /// - dem_proj_bboxes and dem_pixel_bboxes are the locations of
 ///   each input DEM in the output DEM in projected and pixel coordinates.
-void load_dem_bounding_boxes(Options       const& opt,
+void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
                              GeoReference  const& mosaic_georef,
                              BBox2              & mosaic_bbox, // Projected coordinates
                              std::vector<BBox2> & dem_proj_bboxes,
@@ -1089,7 +1060,7 @@ void load_dem_bounding_boxes(Options       const& opt,
   
 } // End function load_dem_bounding_boxes
 
-void handle_arguments(int argc, char *argv[], Options& opt) {
+void handle_arguments(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
   po::options_description general_options("Options");
   general_options.add_options()
@@ -1528,7 +1499,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 int main(int argc, char *argv[]) {
 
-  Options opt;
+  asp::DemMosaicOptions opt;
   
   try {
 
