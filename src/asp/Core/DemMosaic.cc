@@ -137,10 +137,10 @@ void applyExternalWeights(std::string const& weight_file,
 // - hMaxDistArray contains the width of the column at each row/col
 // TODO(oalexan1): Move this to VW, and see about overwriting 
 // the other weight functions. The other one uses normalization, which is bad.
-double compute_plateaued_weights(Vector2 const& pix, bool horizontal,
-                                 std::vector<double> const& centers,
-                                 std::vector<double> const& widths,
-                                 double max_weight_val) {
+double computePlateauedWeights(Vector2 const& pix, bool horizontal,
+                                std::vector<double> const& centers,
+                                std::vector<double> const& widths,
+                                double max_weight_val) {
   
   int primary_axis = 0, secondary_axis = 1; // Vertical
   if (horizontal) {
@@ -175,11 +175,105 @@ double compute_plateaued_weights(Vector2 const& pix, bool horizontal,
   return weight;
 }
 
-// An S-shaped function. Value at 0 is 0. Value at M is M.
-// Flat before 0 and after M. Higher value of L means
-// more flatness at the ends, but higher growth
-// in the middle.
-double S_shape(double x, double M, double L) {
+// Compute centerline weights using plateaued weight function (not normalized,
+// unlike VW's version). Distinguishes interior holes from border pixels and
+// assigns them different values for DEM mosaicking.
+void centerlineWeightsWithHoles(ImageView<PixelMask<double>> const& img, 
+                                ImageView<double> & weights,
+                                double max_weight_val, 
+                                double hole_fill_value) {
+
+  int numRows = img.rows();
+  int numCols = img.cols();
+
+  // Arrays to be returned out of this function
+  std::vector<double> hCenterLine  (numRows, 0);
+  std::vector<double> hMaxDistArray(numRows, 0);
+  std::vector<double> vCenterLine  (numCols, 0);
+  std::vector<double> vMaxDistArray(numCols, 0);
+
+  std::vector<int> minValInRow(numRows, 0);
+  std::vector<int> maxValInRow(numRows, 0);
+  std::vector<int> minValInCol(numCols, 0);
+  std::vector<int> maxValInCol(numCols, 0);
+
+  for (int k = 0; k < numRows; k++) {
+    minValInRow[k] = numCols;
+    maxValInRow[k] = 0;
+  }
+  for (int col = 0; col < numCols; col++) {
+    minValInCol[col] = numRows;
+    maxValInCol[col] = 0;
+  }
+
+  // Note that we do just a single pass through the image to compute
+  // both the horizontal and vertical min/max values.
+  for (int row = 0 ; row < numRows; row++) {
+    for (int col = 0; col < numCols; col++) {
+
+      if (!is_valid(img(col,row))) continue;
+      
+      // Record the first and last valid column in each row
+      if (col < minValInRow[row]) minValInRow[row] = col;
+      if (col > maxValInRow[row]) maxValInRow[row] = col;
+      
+      // Record the first and last valid row in each column
+      if (row < minValInCol[col]) minValInCol[col] = row;
+      if (row > maxValInCol[col]) maxValInCol[col] = row;   
+    }
+  }
+  
+  // For each row, record central column and the column width
+  for (int row = 0; row < numRows; row++) {
+    hCenterLine   [row] = (minValInRow[row] + maxValInRow[row])/2.0;
+    hMaxDistArray [row] =  maxValInRow[row] - minValInRow[row];
+    if (hMaxDistArray[row] < 0)
+      hMaxDistArray[row]=0;
+  }
+
+  // For each row, record central column and the column width
+  for (int col = 0 ; col < numCols; col++) {
+    vCenterLine   [col] = (minValInCol[col] + maxValInCol[col])/2.0;
+    vMaxDistArray [col] =  maxValInCol[col] - minValInCol[col];
+    if (vMaxDistArray[col] < 0)
+      vMaxDistArray[col]=0;
+  }
+
+  // Process the entire image
+  BBox2i output_bbox = bounding_box(img);
+
+  // Compute the weighting for each pixel in the image
+  weights.set_size(output_bbox.width(), output_bbox.height());
+  fill(weights, 0);
+  
+  for (int row = output_bbox.min().y(); row < output_bbox.max().y(); row++) {
+    for (int col = output_bbox.min().x(); col < output_bbox.max().x(); col++) {
+      bool inner_row = ((row >= minValInCol[col]) && (row <= maxValInCol[col]));
+      bool inner_col = ((col >= minValInRow[row]) && (col <= maxValInRow[row]));
+      bool inner_pixel = inner_row && inner_col;
+      Vector2 pix(col, row);
+      double new_weight = 0; // Invalid pixels usually get zero weight
+      if (is_valid(img(col,row))) {
+        double weight_h = computePlateauedWeights(pix, true,  hCenterLine, hMaxDistArray,
+                                                   max_weight_val);
+        double weight_v = computePlateauedWeights(pix, false, vCenterLine, vMaxDistArray,
+                                                   max_weight_val);
+        new_weight = weight_h*weight_v;
+      }
+      else { // Invalid pixel
+        if (inner_pixel)
+          new_weight = hole_fill_value;
+        else // Border pixel
+          new_weight = -1; // Border fill value
+      }
+      weights(col-output_bbox.min().x(), row-output_bbox.min().y()) = new_weight;
+    }
+  }
+}
+
+// Smooth step function using error function. Returns 0 at x=0, M at x=M,
+// with smooth S-curve transition. Higher L gives flatter ends and steeper middle.
+double erfSmoothStep(double x, double M, double L) {
   if (x <= 0) return 0;
   if (x >= M) return M;
   return 0.5*M*(1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L)));

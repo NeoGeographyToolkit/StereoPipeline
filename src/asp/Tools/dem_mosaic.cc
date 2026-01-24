@@ -55,9 +55,6 @@ using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-// Bring in the typedef from asp namespace for convenience
-typedef asp::DoubleGrayA DoubleGrayA;
-
 // This is used for various tolerances
 double g_tol = 1e-6;
 
@@ -308,8 +305,8 @@ void priorityBlend(double out_nodata_value,
 void processDemTile(Options const& opt,
                     BBox2i const& bbox, 
                     Vector2 const& in_box_min,
-                    ImageView<DoubleGrayA> const& dem,
-                    ImageViewRef<DoubleGrayA> const& interp_dem,
+                    ImageView<asp::DoubleGrayA> const& dem,
+                    ImageViewRef<asp::DoubleGrayA> const& interp_dem,
                     GeoTransform const& geotrans,
                     std::vector<ImageView<double>>& tile_vec,
                     bool noblend,
@@ -675,7 +672,7 @@ public:
       // Crop the disk dem to a 2-channel in-memory image. First
       // channel is the image pixels, second will be the weights.
       ImageViewRef<double> disk_dem = pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
-      ImageView<DoubleGrayA> dem    = crop(disk_dem, in_box);
+      ImageView<asp::DoubleGrayA> dem    = crop(disk_dem, in_box);
 
       if (m_opt.first_dem_as_reference && dem_iter == 0) {
         // We need to keep the first DEM, to use it as ref
@@ -768,17 +765,17 @@ public:
       if (m_opt.use_centerline_weights) {
         // Erode based on grassfire weights, and then overwrite the grassfire
         // weights with centerline weights
-        ImageView<DoubleGrayA> dem2 = copy(dem);
+        ImageView<asp::DoubleGrayA> dem2 = copy(dem);
         for (int col = 0; col < dem2.cols(); col++) {
           for (int row = 0; row < dem2.rows(); row++) {
             if (local_wts(col, row) <= m_opt.erode_len) {
-              dem2(col, row) = DoubleGrayA(nodata_value);
+              dem2(col, row) = asp::DoubleGrayA(nodata_value);
             }
           }
         }
-        // TODO(oalexan1): Generalize this modification and move it to VW.
-        asp::centerline_weights2(create_mask_less_or_equal(select_channel(dem2, 0), nodata_value),
-          local_wts, m_bias, -1.0);
+        ImageView<PixelMask<double>> mask_img = 
+          create_mask_less_or_equal(select_channel(dem2, 0), nodata_value);
+        asp::centerlineWeightsWithHoles(mask_img, local_wts, m_bias, -1.0);
         
       } // End centerline weights case
 
@@ -850,7 +847,7 @@ public:
       }
 
       // Prepare the DEM for interpolation
-      ImageViewRef<DoubleGrayA> interp_dem
+      ImageViewRef<asp::DoubleGrayA> interp_dem
         = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
         
       // Process the DEM tile pixel by pixel
@@ -981,7 +978,7 @@ public:
       // Wipe from the tile all values outside the perimeter of
       // first_dem. So we don't wipe values that happen to be
       // in the holes of first_dem.
-      // TODO(oalexan1): How about using here the function centerline_weights2()?
+      // TODO(oalexan1): How about using here the function centerlineWeightsWithHoles()?
       vw::ImageView<double> local_wts;
       bool fill_holes = true;
       centerline_weights(create_mask(first_dem, m_opt.out_nodata_value), local_wts,
