@@ -31,8 +31,6 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-using namespace vw;
-
 namespace asp {
 
 void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
@@ -213,42 +211,42 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
   // Error checking
   if (opt.out_prefix == "")
-    vw_throw(ArgumentErr() << "No output prefix was specified.\n"
+    vw::vw_throw(vw::ArgumentErr() << "No output prefix was specified.\n"
                            << usage << general_options);
   if (opt.num_threads == 0)
-    vw_throw(ArgumentErr() << "The number of threads must be set and positive.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The number of threads must be set and positive.\n"
                            << usage << general_options);
   if (opt.erode_len < 0)
-    vw_throw(ArgumentErr() << "The erode length must not be negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The erode length must not be negative.\n"
                            << usage << general_options);
   if (opt.extra_crop_len < 0)
-    vw_throw(ArgumentErr() << "The blending length must not be negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The blending length must not be negative.\n"
                            << usage << general_options);
   if (opt.hole_fill_len < 0)
-    vw_throw(ArgumentErr() << "The hole fill length must not be negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The hole fill length must not be negative.\n"
                            << usage << general_options);
   if (opt.fill_search_radius < 0.0)
-    vw_throw(ArgumentErr() << "The fill search radius must be non-negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The fill search radius must be non-negative.\n"
                            << usage << general_options);
   if (opt.fill_power < 0.0)
-    vw_throw(ArgumentErr() << "The fill factor must be non-negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The fill factor must be non-negative.\n"
                            << usage << general_options);
     if (opt.fill_percent <= 0.0 || opt.fill_percent > 100.0)
-    vw_throw(ArgumentErr() << "The fill percent must be in the range (0, 100].\n"
+    vw::vw_throw(vw::ArgumentErr() << "The fill percent must be in the range (0, 100].\n"
                            << usage << general_options);
   if (opt.fill_num_passes < 0)
-    vw_throw(ArgumentErr() << "The number of fill passes must not be negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The number of fill passes must not be negative.\n"
                            << usage << general_options);
   if (opt.tile_size <= 0)
-    vw_throw(ArgumentErr() << "The size of a tile in pixels must be positive.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The size of a tile in pixels must be positive.\n"
                            << usage << general_options);
   if (opt.priority_blending_len < 0)
-    vw_throw(ArgumentErr() << "The priority blending length must not be negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The priority blending length must not be negative.\n"
                            << usage << general_options);
 
   // This is a bug fix. The user by mistake passed in an empty projection string.
   if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
              << "The value of --t_srs is empty. Then it must not be set at all.\n");
 
   // If priority blending is used, need to adjust extra_crop_len accordingly
@@ -257,46 +255,46 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   // Make sure no more than one of these options is enabled.
   int noblend = numNoBlendOptions(opt);
   if (noblend > 1)
-    vw_throw(ArgumentErr() << "At most one of the options --first, --last, "
+    vw::vw_throw(vw::ArgumentErr() << "At most one of the options --first, --last, "
          << "--min, --max, -mean, --stddev, --median, --nmad, --count can be specified.\n"
          << usage << general_options);
 
   if (opt.geo_tile_size < 0)
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
              << "The size of a tile in georeferenced units must not be negative.\n"
              << usage << general_options);
 
   if (noblend && opt.priority_blending_len > 0) {
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
        << "Priority blending cannot happen if any of the statistics DEMs are computed.\n"
        << usage << general_options);
   }
 
   if (opt.priority_blending_len > 0 && opt.weights_exp == 2) {
-    vw_out() << "Increasing --weights-exponent to 3 for smoother blending.\n";
+    vw::vw_out() << "Increasing --weights-exponent to 3 for smoother blending.\n";
     opt.weights_exp = 3;
   }
 
   if (noblend && !opt.first && !opt.last && !opt.min && !opt.max && !opt.mean
       && opt.save_dem_weight >= 0) {
-    vw_throw(ArgumentErr() << "Cannot save the weights unless blending is on or one of "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot save the weights unless blending is on or one of "
                            << "--first, --last, --min, --max, --mean is invoked.\n"
                            << usage << general_options);
   }
 
   if (opt.save_index_map && !opt.first && !opt.last &&
                             !opt.min && !opt.max && !opt.median && !opt.nmad)
-    vw_throw(ArgumentErr() << "Cannot save an index map unless one of "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot save an index map unless one of "
                            << "--first, --last, --min, --max, --median, --nmad is invoked.\n"
                            << usage << general_options);
 
   if (opt.save_dem_weight >= 0 && opt.save_index_map)
-    vw_throw(ArgumentErr()
+    vw::vw_throw(vw::ArgumentErr()
        << "Cannot save both the index map and the DEM weights at the same time.\n"
        << usage << general_options);
 
   // For compatibility with the GDAL tools, allow the min and max to be reversed.
-  if (opt.projwin != BBox2()) {
+  if (opt.projwin != vw::BBox2()) {
     if (opt.projwin.min().x() > opt.projwin.max().x())
       std::swap(opt.projwin.min().x(), opt.projwin.max().x());
     if (opt.projwin.min().y() > opt.projwin.max().y())
@@ -304,15 +302,15 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   }
 
   if (opt.weights_blur_sigma < 0.0)
-    vw_throw(ArgumentErr() << "The value --weights-blur-sigma must be non-negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The value --weights-blur-sigma must be non-negative.\n"
              << usage << general_options);
 
   if (opt.dem_blur_sigma < 0.0)
-    vw_throw(ArgumentErr() << "The value --dem-blur-sigma must be non-negative.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The value --dem-blur-sigma must be non-negative.\n"
              << usage << general_options);
 
   if (opt.weights_exp <= 0)
-    vw_throw(ArgumentErr() << "The weights exponent must be positive.\n"
+    vw::vw_throw(vw::ArgumentErr() << "The weights exponent must be positive.\n"
              << usage << general_options);
 
   if (opt.priority_blending_len > 0 && opt.use_centerline_weights)
@@ -325,7 +323,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   // Cannot have both --dem-list and --dem-list-file. The latter is for backward
   // compatibility.
   if (opt.dem_list != "" && opt.dem_list_file != "")
-    vw_throw(ArgumentErr() << "Cannot have both --dem-list and --dem-list-file.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Cannot have both --dem-list and --dem-list-file.\n");
   if (opt.dem_list_file != "") {
     opt.dem_list = opt.dem_list_file;
     opt.dem_list_file = "";
@@ -346,11 +344,11 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
     asp::read_list(opt.dem_list, opt.dem_files);
     if (opt.dem_files.empty())
-      vw_throw(ArgumentErr() << "No DEM files to mosaic.\n");
+      vw::vw_throw(vw::ArgumentErr() << "No DEM files to mosaic.\n");
 
   } else {  // Get them from the command line
     if (opt.dem_files.empty())
-      vw_throw(ArgumentErr() << "No input DEMs were specified.\n");
+      vw::vw_throw(vw::ArgumentErr() << "No input DEMs were specified.\n");
   }
 
   if (opt.this_dem_as_reference != "" && opt.first_dem_as_reference) {
@@ -375,7 +373,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   int num_ops = (opt.dem_blur_sigma > 0) + (opt.hole_fill_len > 0) +
                 (opt.fill_search_radius > 0) + (opt.erode_len > 0);
   if (num_ops > 1)
-    vw_throw(ArgumentErr() << "Cannot fill holes (based on size or search radius), blur, "
+    vw::vw_throw(vw::ArgumentErr() << "Cannot fill holes (based on size or search radius), blur, "
                            << "and erode the input DEM at the same time.\n");
 
   if (num_ops > 0 &&
@@ -402,7 +400,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
   // print warning usign vw warning message
   if (opt.fill_search_radius > 30)
-    vw_out(vw::WarningMessage) << "The fill search radius is large. "
+    vw::vw_out(vw::WarningMessage) << "The fill search radius is large. "
                                << "This may result in slow execution time.\n";
 
   // Create the output directory
@@ -439,15 +437,15 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
   // Sanity checks for --first-dem-as-reference
   if (opt.first_dem_as_reference) {
-    if (opt.target_srs_string != "" || opt.tr > 0 || opt.projwin != BBox2())
-      vw_throw(ArgumentErr()
+    if (opt.target_srs_string != "" || opt.tr > 0 || opt.projwin != vw::BBox2())
+      vw::vw_throw(vw::ArgumentErr()
                 << "Cannot change the projection, spacing, or output box, if the first DEM "
                 << "is to be used as reference.\n");
     if (opt.first  || opt.last || opt.min    || opt.max || opt.mean ||
         opt.median || opt.nmad || opt.stddev ||
         opt.priority_blending_len > 0 || //opt.save_dem_weight >= 0 ||
         !boost::math::isnan(opt.nodata_threshold)) {
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                 << "Cannot do anything except regular blending if the first DEM "
                 << "is to be used as reference.\n");
     }
@@ -462,7 +460,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
     if (noblend || opt.priority_blending_len > 0 ||
         !boost::math::isnan(opt.nodata_threshold))
-      vw_throw(ArgumentErr()
+      vw::vw_throw(vw::ArgumentErr()
                 << "Cannot do anything except regular blending with the option "
                 << "--weight-list.\n");
 
@@ -470,18 +468,18 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
     // Must have the same number of weights as DEMs
     if (opt.weight_files.size() != opt.dem_files.size())
-      vw_throw(ArgumentErr() << "The number of weights in the file " << opt.weight_list
+      vw::vw_throw(vw::ArgumentErr() << "The number of weights in the file " << opt.weight_list
                              << " must match the number of DEMs.\n");
 
     // Read each DEM temporarily and each weight to get their sizes and georefs. Those
     // must agree.
     for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
-      DiskImageView<double> dem(opt.dem_files[dem_iter]);
-      DiskImageView<double> weight(opt.weight_files[dem_iter]);
+      vw::DiskImageView<double> dem(opt.dem_files[dem_iter]);
+      vw::DiskImageView<double> weight(opt.weight_files[dem_iter]);
 
       // Check cols and rows
       if (dem.cols() != weight.cols() || dem.rows() != weight.rows())
-        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] << " and its weight "
+        vw::vw_throw(vw::ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] << " and its weight "
                  << opt.weight_files[dem_iter] << " have different dimensions.\n");
 
       vw::cartography::GeoReference dem_georef, weight_georef;
@@ -490,15 +488,15 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
       bool has_weight_georef
       = vw::cartography::read_georeference(weight_georef, opt.weight_files[dem_iter]);
       if (!has_dem_georef)
-        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter]
+        vw::vw_throw(vw::ArgumentErr() << "The DEM " << opt.dem_files[dem_iter]
                  << " has no georeference.\n");
       if (!has_weight_georef)
-        vw_throw(ArgumentErr() << "The weight " << opt.weight_files[dem_iter]
+        vw::vw_throw(vw::ArgumentErr() << "The weight " << opt.weight_files[dem_iter]
                  << " has no georeference.\n");
 
       // Must have the same wkt string
       if (dem_georef.get_wkt() != weight_georef.get_wkt())
-        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter]
+        vw::vw_throw(vw::ArgumentErr() << "The DEM " << opt.dem_files[dem_iter]
                  << " and its weight " << opt.weight_files[dem_iter]
                  << " have different georeferences.\n");
     } // end for each DEM

@@ -25,9 +25,7 @@
 
 namespace asp {
 
-using namespace vw;
-
-void blurWeights(ImageView<double> & weights, double sigma) {
+void blurWeights(vw::ImageView<double> & weights, double sigma) {
 
   if (sigma <= 0)
     return;
@@ -48,8 +46,8 @@ void blurWeights(ImageView<double> & weights, double sigma) {
 
   int cols = weights.cols(), rows = weights.rows();
 
-  ImageView<double> extra_wts(cols + 2*extra, rows + 2*extra);
-  fill(extra_wts, 0);
+  vw::ImageView<double> extra_wts(cols + 2*extra, rows + 2*extra);
+  vw::fill(extra_wts, 0);
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
       if (weights(col,row) > 0)
@@ -59,7 +57,7 @@ void blurWeights(ImageView<double> & weights, double sigma) {
     }
   }
 
-  ImageView<double> blurred_wts = gaussian_filter(extra_wts, sigma);
+  vw::ImageView<double> blurred_wts = vw::gaussian_filter(extra_wts, sigma);
 
   // Copy back.  The weights must not grow. In particular, where the
   // original weights were zero, the new weights must also be zero, as
@@ -80,14 +78,14 @@ void applyExternalWeights(std::string const& weight_file,
                           vw::BBox2i const& in_box,
                           vw::ImageView<double>& local_wts) {
 
-  DiskImageResourceGDAL rsrc(weight_file);
-  DiskImageView<double> disk_weight(rsrc);
-  ImageView<double> external_weight = crop(disk_weight, in_box);
+  vw::DiskImageResourceGDAL rsrc(weight_file);
+  vw::DiskImageView<double> disk_weight(rsrc);
+  vw::ImageView<double> external_weight = vw::crop(disk_weight, in_box);
 
   // Must have the same size as the local weights
   if (local_wts.cols() != external_weight.cols() ||
       local_wts.rows() != external_weight.rows())
-    vw_throw(ArgumentErr() << "The external weights must have the same size as the DEM.\n");
+    vw::vw_throw(vw::ArgumentErr() << "The external weights must have the same size as the DEM.\n");
 
   // Read the no-data value. Any no-data weights will be ignored.
   double weight_nodata = -std::numeric_limits<double>::max();
@@ -138,7 +136,7 @@ void applyExternalWeights(std::string const& weight_file,
 // - hMaxDistArray contains the width of the column at each row/col
 // TODO(oalexan1): Move this to VW, and see about overwriting 
 // the other weight functions. The other one uses normalization, which is bad.
-double computePlateauedWeights(Vector2 const& pix, bool horizontal,
+double computePlateauedWeights(vw::Vector2 const& pix, bool horizontal,
                                std::vector<double> const& centers,
                                std::vector<double> const& widths,
                                double max_weight_val) {
@@ -179,8 +177,8 @@ double computePlateauedWeights(Vector2 const& pix, bool horizontal,
 // Compute centerline weights using plateaued weight function (not normalized,
 // unlike VW's version). Distinguishes interior holes from border pixels and
 // assigns them different values for DEM mosaicking.
-void centerlineWeightsWithHoles(ImageView<PixelMask<double>> const& img,
-                                ImageView<double> & weights,
+void centerlineWeightsWithHoles(vw::ImageView<vw::PixelMask<double>> const& img,
+                                vw::ImageView<double> & weights,
                                 double max_weight_val,
                                 double hole_fill_value) {
 
@@ -241,18 +239,18 @@ void centerlineWeightsWithHoles(ImageView<PixelMask<double>> const& img,
   }
 
   // Process the entire image
-  BBox2i output_bbox = bounding_box(img);
+  vw::BBox2i output_bbox = vw::bounding_box(img);
 
   // Compute the weighting for each pixel in the image
   weights.set_size(output_bbox.width(), output_bbox.height());
-  fill(weights, 0);
+  vw::fill(weights, 0);
 
   for (int row = output_bbox.min().y(); row < output_bbox.max().y(); row++) {
     for (int col = output_bbox.min().x(); col < output_bbox.max().x(); col++) {
       bool inner_row = ((row >= minValInCol[col]) && (row <= maxValInCol[col]));
       bool inner_col = ((col >= minValInRow[row]) && (col <= maxValInRow[row]));
       bool inner_pixel = inner_row && inner_col;
-      Vector2 pix(col, row);
+      vw::Vector2 pix(col, row);
       double new_weight = 0; // Invalid pixels usually get zero weight
       if (is_valid(img(col,row))) {
         double weight_h = computePlateauedWeights(pix, true,  hCenterLine, hMaxDistArray,
@@ -306,19 +304,19 @@ vw::BBox2 pointToPixelBboxSnapped(vw::cartography::GeoReference const& georef,
 }
 
 // Read a georeference from a file and throw if not found.
-cartography::GeoReference readGeorefOrThrow(std::string const& file) {
-  cartography::GeoReference geo;
-  bool is_good = cartography::read_georeference(geo, file);
+vw::cartography::GeoReference readGeorefOrThrow(std::string const& file) {
+  vw::cartography::GeoReference geo;
+  bool is_good = vw::cartography::read_georeference(geo, file);
   if (!is_good)
-    vw_throw(ArgumentErr() << "No georeference found in " << file << ".\n");
+    vw::vw_throw(vw::ArgumentErr() << "No georeference found in " << file << ".\n");
   return geo;
 }
 
 // A helper function to do interpolation. Will not interpolate when
 // exactly on the grid.
 DoubleGrayA interpDem(double x, double y,
-                      ImageView<DoubleGrayA> const& dem,
-                      ImageViewRef<DoubleGrayA> const& interp_dem,
+                      vw::ImageView<DoubleGrayA> const& dem,
+                      vw::ImageViewRef<DoubleGrayA> const& interp_dem,
                       double tol,
                       bool propagate_nodata) {
 
