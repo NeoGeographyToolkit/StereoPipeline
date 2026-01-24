@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2024, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -87,7 +87,7 @@ void applyExternalWeights(std::string const& weight_file,
   if (local_wts.cols() != external_weight.cols() ||
       local_wts.rows() != external_weight.rows())
     vw_throw(ArgumentErr() << "The external weights must have the same size as the DEM.\n");
-      
+
   // Read the no-data value. Any no-data weights will be ignored.
   double weight_nodata = -std::numeric_limits<double>::max();
   if (rsrc.has_nodata_read())
@@ -98,9 +98,9 @@ void applyExternalWeights(std::string const& weight_file,
     for (int col = 0; col < external_weight.cols(); col++) {
       for (int row = 0; row < external_weight.rows(); row++) {
         bool good = (external_weight(col, row) != weight_nodata);
-        if (!good) 
+        if (!good)
           continue;
-        external_weight(col, row) 
+        external_weight(col, row)
         = std::max(external_weight(col, row), min_weight);
       }
     }
@@ -111,7 +111,7 @@ void applyExternalWeights(std::string const& weight_file,
     for (int col = 0; col < external_weight.cols(); col++) {
       for (int row = 0; row < external_weight.rows(); row++) {
         bool good = (external_weight(col, row) != weight_nodata);
-        if (!good) 
+        if (!good)
           continue;
         if (external_weight(col, row) > 0)
         external_weight(col, row) = 1.0 / external_weight(col, row);
@@ -123,7 +123,7 @@ void applyExternalWeights(std::string const& weight_file,
   for (int col = 0; col < local_wts.cols(); col++) {
     for (int row = 0; row < local_wts.rows(); row++) {
         bool good = (external_weight(col, row) != weight_nodata);
-        if (!good) 
+        if (!good)
           continue;
       local_wts(col, row) *= external_weight(col, row);
     }
@@ -141,13 +141,13 @@ double computePlateauedWeights(Vector2 const& pix, bool horizontal,
                                 std::vector<double> const& centers,
                                 std::vector<double> const& widths,
                                 double max_weight_val) {
-  
+
   int primary_axis = 0, secondary_axis = 1; // Vertical
   if (horizontal) {
     primary_axis   = 1;
     secondary_axis = 0;
   }
-  
+
   // We round below, to avoid issues when we are within numerical value
   // to an integer value for row/col.
   // To do: Need to do interpolation here.
@@ -155,7 +155,7 @@ double computePlateauedWeights(Vector2 const& pix, bool horizontal,
   int pos = (int)round(pix[primary_axis]); // The row or column
   if (pos < 0 || pos >= (int)widths.size() || pos >= (int)centers.size())
     return 0;
-  
+
   double max_dist = widths[pos]/2.0; // Half column width
   double center   = centers[pos];
   double dist     = fabs(pix[secondary_axis]-center); // Pixel distance from center column
@@ -166,7 +166,7 @@ double computePlateauedWeights(Vector2 const& pix, bool horizontal,
   // We want to make sure the weight is positive (even if small) at
   // the first/last valid pixel.
   double tol = 1e-8*max_dist;
-  
+
   // The weight is not normalized. This is a bugfix. Normalized weights result
   // in higher weights in narrow regions, which is not what we want.
   double weight = std::max(0.0, max_dist - dist + tol);
@@ -178,9 +178,9 @@ double computePlateauedWeights(Vector2 const& pix, bool horizontal,
 // Compute centerline weights using plateaued weight function (not normalized,
 // unlike VW's version). Distinguishes interior holes from border pixels and
 // assigns them different values for DEM mosaicking.
-void centerlineWeightsWithHoles(ImageView<PixelMask<double>> const& img, 
+void centerlineWeightsWithHoles(ImageView<PixelMask<double>> const& img,
                                 ImageView<double> & weights,
-                                double max_weight_val, 
+                                double max_weight_val,
                                 double hole_fill_value) {
 
   int numRows = img.rows();
@@ -212,17 +212,17 @@ void centerlineWeightsWithHoles(ImageView<PixelMask<double>> const& img,
     for (int col = 0; col < numCols; col++) {
 
       if (!is_valid(img(col,row))) continue;
-      
+
       // Record the first and last valid column in each row
       if (col < minValInRow[row]) minValInRow[row] = col;
       if (col > maxValInRow[row]) maxValInRow[row] = col;
-      
+
       // Record the first and last valid row in each column
       if (row < minValInCol[col]) minValInCol[col] = row;
-      if (row > maxValInCol[col]) maxValInCol[col] = row;   
+      if (row > maxValInCol[col]) maxValInCol[col] = row;
     }
   }
-  
+
   // For each row, record central column and the column width
   for (int row = 0; row < numRows; row++) {
     hCenterLine   [row] = (minValInRow[row] + maxValInRow[row])/2.0;
@@ -245,7 +245,7 @@ void centerlineWeightsWithHoles(ImageView<PixelMask<double>> const& img,
   // Compute the weighting for each pixel in the image
   weights.set_size(output_bbox.width(), output_bbox.height());
   fill(weights, 0);
-  
+
   for (int row = output_bbox.min().y(); row < output_bbox.max().y(); row++) {
     for (int col = output_bbox.min().x(); col < output_bbox.max().x(); col++) {
       bool inner_row = ((row >= minValInCol[col]) && (row <= maxValInCol[col]));
@@ -259,8 +259,7 @@ void centerlineWeightsWithHoles(ImageView<PixelMask<double>> const& img,
         double weight_v = computePlateauedWeights(pix, false, vCenterLine, vMaxDistArray,
                                                    max_weight_val);
         new_weight = weight_h*weight_v;
-      }
-      else { // Invalid pixel
+      } else { // Invalid pixel
         if (inner_pixel)
           new_weight = hole_fill_value;
         else // Border pixel
@@ -281,7 +280,7 @@ double erfSmoothStep(double x, double M, double L) {
 
 // A helper function to do interpolation. Will not interpolate when 
 // exactly on the grid.
-DoubleGrayA interpDem(double x, double y, 
+DoubleGrayA interpDem(double x, double y,
                       ImageView<DoubleGrayA> const& dem,
                       ImageViewRef<DoubleGrayA> const& interp_dem,
                       double tol,
@@ -307,13 +306,13 @@ DoubleGrayA interpDem(double x, double y,
   } else { // We are not right on an integer pixel and we need to interpolate
 
     // Below must use x <= cols()-1 as x is double
-    bool is_good = ((x >= 0) && (x <= dem.cols()-1) && 
+    bool is_good = ((x >= 0) && (x <= dem.cols()-1) &&
         (y >= 0) && (y <= dem.rows()-1));
     if (!is_good) {
       pval.a() = 0; // Flag as nodata
       return pval; // Outside the loaded DEM bounds, skip to the next pixel
     }
-    
+
     // If we have weights of 0, that means there are invalid pixels, so skip this point.
     int i0 = (int)floor(x), j0 = (int)floor(y);
     int i1 = (int)ceil(x),  j1 = (int)ceil(y);
@@ -332,7 +331,7 @@ DoubleGrayA interpDem(double x, double y,
     } else
       pval = interp_dem(x, y); // Things checked out, do the interpolation.
   }
-  
+
   return pval;
 }
 

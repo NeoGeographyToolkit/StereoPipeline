@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2024, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -44,15 +44,15 @@ double computePlateauedWeights(vw::Vector2 const& pix, bool horizontal,
 
 // Compute centerline weights using plateaued weight function. Distinguishes
 // between interior holes (assigned hole_fill_value) and border pixels (-1).
-void centerlineWeightsWithHoles(vw::ImageView<vw::PixelMask<double>> const& img, 
+void centerlineWeightsWithHoles(vw::ImageView<vw::PixelMask<double>> const& img,
                                 vw::ImageView<double> & weights,
-                                double max_weight_val, 
+                                double max_weight_val,
                                 double hole_fill_value);
 
 double erfSmoothStep(double x, double M, double L);
 
 typedef vw::PixelGrayA<double> DoubleGrayA;
-DoubleGrayA interpDem(double x, double y, 
+DoubleGrayA interpDem(double x, double y,
                       vw::ImageView<DoubleGrayA> const& dem,
                       vw::ImageViewRef<DoubleGrayA> const& interp_dem,
                       double tol,

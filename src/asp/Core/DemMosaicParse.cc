@@ -92,7 +92,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
      "A text file having a list of external weight files to use in blending, one per line. "
      "These are multiplied by the internal weights to ensure seamless blending. The weights "
      "must be in one-to-one correspondence with the DEMs to be mosaicked.")
-    ("invert-weights", po::bool_switch(&opt.invert_weights)->default_value(false),    
+    ("invert-weights", po::bool_switch(&opt.invert_weights)->default_value(false),
      "Use 1/weight instead of weight in blending, with --weight-list.")
     ("min-weight", po::value<double>(&opt.min_weight)->default_value(0.0),
      "Limit from below with this value the weights provided with --weight-list.")
@@ -116,7 +116,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
      "No-data value to use on output. Default: use the one from the first DEM to be "
      "mosaicked.")
-    ("ot",  po::value(&opt.output_type)->default_value("Float32"), 
+    ("ot",  po::value(&opt.output_type)->default_value("Float32"),
      "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If "
      "the output type is a kind of integer, values are rounded and then clamped to the "
      "limits of that type.")
@@ -135,7 +135,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts). This value also helps determine how to "
      "plateau the blending weights inwards, away from the DEM boundary.")
-    ("block-size",      po::value<int>(&opt.block_size)->default_value(0), 
+    ("block-size",      po::value<int>(&opt.block_size)->default_value(0),
      "Process the mosaic with this value of the block size. A large value can result in "
      "increased memory usage. Later, the mosaic will be saved with blocks given by "
      "--tif-tile-size. This is an advanced internal parameter.")
@@ -155,7 +155,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
   // Use in GdalWriteOptions '--tif-tile-size' rather than '--tile-size', to not conflict
   // with the '--tile-size' definition used by this tool.
-  bool adjust_tile_size_opt = true; 
+  bool adjust_tile_size_opt = true;
   general_options.add(vw::GdalWriteOptionsDescription(opt, adjust_tile_size_opt));
 
   // The input DEM files are either specified as positional arguments or in a list,
@@ -215,7 +215,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
   // This is a bug fix. The user by mistake passed in an empty projection string.
   if (!vm["t_srs"].defaulted() && opt.target_srs_string.empty())
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The value of --t_srs is empty. Then it must not be set at all.\n");
 
   // If priority blending is used, need to adjust extra_crop_len accordingly
@@ -229,7 +229,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
          << usage << general_options);
 
   if (opt.geo_tile_size < 0)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The size of a tile in georeferenced units must not be negative.\n"
              << usage << general_options);
 
@@ -243,7 +243,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     vw_out() << "Increasing --weights-exponent to 3 for smoother blending.\n";
     opt.weights_exp = 3;
   }
-  
+
   if (noblend && !opt.first && !opt.last && !opt.min && !opt.max && !opt.mean
       && opt.save_dem_weight >= 0) {
     vw_throw(ArgumentErr() << "Cannot save the weights unless blending is on or one of "
@@ -269,11 +269,11 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     if (opt.projwin.min().y() > opt.projwin.max().y())
       std::swap(opt.projwin.min().y(), opt.projwin.max().y());
   }
-  
+
   if (opt.weights_blur_sigma < 0.0)
     vw_throw(ArgumentErr() << "The value --weights-blur-sigma must be non-negative.\n"
              << usage << general_options);
-  
+
   if (opt.dem_blur_sigma < 0.0)
     vw_throw(ArgumentErr() << "The value --dem-blur-sigma must be non-negative.\n"
              << usage << general_options);
@@ -283,7 +283,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
              << usage << general_options);
 
   if (opt.priority_blending_len > 0 && opt.use_centerline_weights)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
              << "The --priority-blending-length and --use-centerline-weights options "
              << "cannot be used together, as the latter expects no holes in the DEM, "
              << "but the priority blending length works by internally hollowing out "
@@ -297,16 +297,16 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     opt.dem_list = opt.dem_list_file;
     opt.dem_list_file = "";
   }
-  
+
   // Read the DEMs
   if (opt.dem_list != "") { // Get them from a list
 
     if (!opt.dem_files.empty()) {
       // Concatenate all the options into a single string
-      std::string extra_list = ""; 
+      std::string extra_list = "";
       for (size_t s = 0; s < opt.dem_files.size(); s++)
         extra_list += opt.dem_files[s];
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
                    << "The DEMs were specified via a list. There were however "
                    << "extraneous files or options passed in: " << extra_list << ".\n");
     }
@@ -321,7 +321,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   }
 
   if (opt.this_dem_as_reference != "" && opt.first_dem_as_reference) {
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
              << "Cannot have both options --first-dem-as-reference "
              << "and --this-dem-as-reference.\n");
   }
@@ -331,9 +331,9 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     opt.first_dem_as_reference = true;
     opt.dem_files.insert(opt.dem_files.begin(), opt.this_dem_as_reference);
   }
-  
+
   if (int(opt.dem_files.size()) <= opt.save_dem_weight)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
              << "Cannot save weights for given index as it is out of bounds.\n");
 
   // When too many things should be done at the same time it is tricky
@@ -341,11 +341,11 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   // one operation at a time.
   int num_ops = (opt.dem_blur_sigma > 0) + (opt.hole_fill_len > 0) +
                 (opt.fill_search_radius > 0) + (opt.erode_len > 0);
-  if (num_ops > 1) 
+  if (num_ops > 1)
     vw_throw(ArgumentErr() << "Cannot fill holes (based on size or search radius), blur, "
                            << "and erode the input DEM at the same time.\n");
-  
-  if (num_ops > 0 && 
+
+  if (num_ops > 0 &&
       (opt.target_srs_string != "" || opt.tr > 0 || opt.dem_files.size() > 1 ||
        opt.priority_blending_len > 0))
     vw::vw_throw(vw::ArgumentErr() << "Cannot fill holes (based on size or search radius), "
@@ -355,18 +355,18 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
        << "its own grid size and also the order of operations.\n");
 
   if (opt.priority_blending_len > 0 &&
-      (opt.tap || opt.gdal_tap ||  opt.force_projwin || !opt.projwin.empty() || 
-       !opt.weight_list.empty() || opt.invert_weights || opt.min_weight > 0 || 
-       opt.propagate_nodata ||  opt.first_dem_as_reference || 
+      (opt.tap || opt.gdal_tap ||  opt.force_projwin || !opt.projwin.empty() ||
+       !opt.weight_list.empty() || opt.invert_weights || opt.min_weight > 0 ||
+       opt.propagate_nodata ||  opt.first_dem_as_reference ||
        !opt.this_dem_as_reference.empty()))
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
              << "The option --priority-blending-length should not be mixed with other "
              << "options. Do each operation individually.\n");
-  
+
   if (opt.tap && opt.gdal_tap)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
            << "The options --tap and --gdal-tap cannot be used together.\n");
-    
+
   // print warning usign vw warning message
   if (opt.fill_search_radius > 30)
     vw_out(vw::WarningMessage) << "The fill search radius is large. "
@@ -391,9 +391,9 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   opt.nodata_threshold = float(opt.nodata_threshold);
 
   if (!boost::math::isnan(opt.nodata_threshold) && noblend)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
       << "The option --nodata-threshold cannot be used together with "
-      << "some other invoked options.\n");  
+      << "some other invoked options.\n");
 
   // Parse the list of tiles to save. First replace commas and semicolons by a space.
   std::replace(opt.tile_list_str.begin(), opt.tile_list_str.end(), ',', ' ');
@@ -406,11 +406,11 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
   // Sanity checks for --first-dem-as-reference
   if (opt.first_dem_as_reference) {
-    if (opt.target_srs_string != "" || opt.tr > 0 || opt.projwin != BBox2()) 
+    if (opt.target_srs_string != "" || opt.tr > 0 || opt.projwin != BBox2())
       vw_throw(ArgumentErr()
                 << "Cannot change the projection, spacing, or output box, if the first DEM "
                 << "is to be used as reference.\n");
-    if (opt.first  || opt.last || opt.min    || opt.max || opt.mean || 
+    if (opt.first  || opt.last || opt.min    || opt.max || opt.mean ||
         opt.median || opt.nmad || opt.stddev ||
         opt.priority_blending_len > 0 || //opt.save_dem_weight >= 0 ||
         !boost::math::isnan(opt.nodata_threshold)) {
@@ -419,56 +419,56 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
                 << "is to be used as reference.\n");
     }
   }
-  
+
   // The block size must be a multiple of 16. Handle this early.
   if (opt.block_size % 16 != 0)
     vw::vw_throw(vw::ArgumentErr() << "The block size must be a multiple of 16.\n");
 
   // Handle the option --weight-list.
   if (opt.weight_list != "") {
-    
+
     if (noblend || opt.priority_blending_len > 0 ||
         !boost::math::isnan(opt.nodata_threshold))
       vw_throw(ArgumentErr()
                 << "Cannot do anything except regular blending with the option "
                 << "--weight-list.\n");
-    
+
     asp::read_list(opt.weight_list, opt.weight_files);
-    
+
     // Must have the same number of weights as DEMs
     if (opt.weight_files.size() != opt.dem_files.size())
       vw_throw(ArgumentErr() << "The number of weights in the file " << opt.weight_list
                              << " must match the number of DEMs.\n");
-      
+
     // Read each DEM temporarily and each weight to get their sizes and georefs. Those
     // must agree.
     for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
       DiskImageView<double> dem(opt.dem_files[dem_iter]);
       DiskImageView<double> weight(opt.weight_files[dem_iter]);
-      
+
       // Check cols and rows
       if (dem.cols() != weight.cols() || dem.rows() != weight.rows())
         vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] << " and its weight "
                  << opt.weight_files[dem_iter] << " have different dimensions.\n");
 
       vw::cartography::GeoReference dem_georef, weight_georef;
-      bool has_dem_georef = vw::cartography::read_georeference(dem_georef, 
+      bool has_dem_georef = vw::cartography::read_georeference(dem_georef,
                                                                opt.dem_files[dem_iter]);
-      bool has_weight_georef = vw::cartography::read_georeference(weight_georef, 
+      bool has_weight_georef = vw::cartography::read_georeference(weight_georef,
                                                                   opt.weight_files[dem_iter]);
       if (!has_dem_georef)
-        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] 
+        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter]
                  << " has no georeference.\n");
       if (!has_weight_georef)
-        vw_throw(ArgumentErr() << "The weight " << opt.weight_files[dem_iter] 
+        vw_throw(ArgumentErr() << "The weight " << opt.weight_files[dem_iter]
                  << " has no georeference.\n");
-      
+
       // Must have the same wkt string
       if (dem_georef.get_wkt() != weight_georef.get_wkt())
-        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] 
-                 << " and its weight " << opt.weight_files[dem_iter] 
-                 << " have different georeferences.\n");  
-    }  
+        vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter]
+                 << " and its weight " << opt.weight_files[dem_iter]
+                 << " have different georeferences.\n");
+    }
    }
 } // End function handleDemMosaicArgs
 

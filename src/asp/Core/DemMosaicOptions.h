@@ -44,21 +44,21 @@ struct DemMosaicOptions: vw::GdalWriteOptions {
   double weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold, fill_search_radius, fill_power, fill_percent, min_weight;
   bool   first, last, min, max, block_max, mean, stddev, median, nmad,
-    count, tap, gdal_tap, save_index_map, use_centerline_weights, first_dem_as_reference, 
+    count, tap, gdal_tap, save_index_map, use_centerline_weights, first_dem_as_reference,
     propagate_nodata, no_border_blend, invert_weights;
   std::set<int> tile_list;
   vw::BBox2 projwin;
 
-  DemMosaicOptions(): tr(0), geo_tile_size(0), has_out_nodata(false), force_projwin(false), 
+  DemMosaicOptions(): tr(0), geo_tile_size(0), has_out_nodata(false), force_projwin(false),
              tile_index(-1), erode_len(0), priority_blending_len(0), extra_crop_len(0),
-             hole_fill_len(0), block_size(0), save_dem_weight(-1), 
+             hole_fill_len(0), block_size(0), save_dem_weight(-1),
              fill_search_radius(0), fill_power(0), fill_percent(0), fill_num_passes(0),
              weights_exp(0), weights_blur_sigma(0.0), dem_blur_sigma(0.0),
              nodata_threshold(std::numeric_limits<double>::quiet_NaN()),
              first(false), last(false), min(false), max(false), block_max(false),
              mean(false), stddev(false), median(false), nmad(false),
              count(false), save_index_map(false), tap(false), gdal_tap(false),
-             use_centerline_weights(false), first_dem_as_reference(false), 
+             use_centerline_weights(false), first_dem_as_reference(false),
              projwin(vw::BBox2()),
              invert_weights(false) {}
 };

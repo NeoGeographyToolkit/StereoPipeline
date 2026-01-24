@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -22,7 +22,6 @@
 // processing happens in double precision.
 
 #include <asp/Core/Macros.h>
-#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/GdalUtils.h>
 #include <asp/Core/DemMosaic.h>
 #include <asp/Core/DemMosaicOptions.h>
@@ -37,10 +36,7 @@
 #include <vw/Image/NoDataAlg.h>
 #include <vw/FileIO/FileUtils.h>
 
-#include <boost/math/special_functions/fpclassify.hpp>
-#include <boost/math/special_functions/erf.hpp>
-#include <boost/program_options.hpp>
-
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
@@ -54,8 +50,6 @@
 
 using namespace vw; // TODO(oalexan1): Remove this namespace
 using namespace vw::cartography;
-namespace po = boost::program_options;
-namespace fs = boost::filesystem;
 
 // This is used for various tolerances
 double g_tol = 1e-6;
@@ -71,11 +65,11 @@ BBox2 custom_point_to_pixel_bbox(GeoReference const& georef, BBox2 const& ptbox)
                       vw::Vector2(ptbox.max().x(), ptbox.min().y())};
   for (int icr = 0; icr < (int)(sizeof(cr)/sizeof(Vector2)); icr++)
     pix_box.grow(georef.point_to_pixel(cr[icr]));
-  
+
   // Round values that are likely due to numerical error
-  if (norm_2(pix_box.min() - round(pix_box.min())) < g_tol) 
+  if (norm_2(pix_box.min() - round(pix_box.min())) < g_tol)
     pix_box.min() = round(pix_box.min());
-  if (norm_2(pix_box.max() - round(pix_box.max())) < g_tol) 
+  if (norm_2(pix_box.max() - round(pix_box.max())) < g_tol)
     pix_box.max() = round(pix_box.max());
 
   // Grow the box until the corners are integer. This is a bugfix.
@@ -113,32 +107,32 @@ std::string tile_suffix(asp::DemMosaicOptions const& opt) {
 }
 
 // Initializations needed for various modes
-void initializeTileVector(int num_images, 
+void initializeTileVector(int num_images,
                           BBox2i const& bbox, asp::DemMosaicOptions const& opt,
                           // Outputs
                           ImageView<double> & tile,
-                          std::vector<ImageView<double>>& tile_vec, 
+                          std::vector<ImageView<double>>& tile_vec,
                           std::vector<ImageView<double>>& weight_vec) {
 
   // Wipe the output vectors
   tile_vec.clear();
   weight_vec.clear();
-  
+
   if (opt.median || opt.nmad) // Store each input separately
     tile_vec.reserve(num_images);
-    
+
   if (opt.stddev) { // Need one working image
     tile_vec.push_back(ImageView<double>(bbox.width(), bbox.height()));
     // Each pixel starts at zero, nodata is handled later
     fill(tile_vec[0], 0.0);
     fill(tile,        0.0);
   }
-  
+
   if (opt.priority_blending_len > 0) { // Store each weight separately
     tile_vec.reserve  (num_images);
     weight_vec.reserve(num_images);
   }
-  
+
   return;
 }
 
@@ -246,7 +240,7 @@ void priorityBlend(double out_nodata_value,
   }
 
   // Dump the weights. Useful for debugging.
-  bool save_weights = false; 
+  bool save_weights = false;
   if (save_weights) {
     for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
       GeoReference crop_georef = crop(out_georef, bbox);
@@ -268,7 +262,7 @@ void priorityBlend(double out_nodata_value,
 // Process a DEM tile pixel by pixel. Take into account the various
 // blending options. 
 void processDemTile(asp::DemMosaicOptions const& opt,
-                    BBox2i const& bbox, 
+                    BBox2i const& bbox,
                     Vector2 const& in_box_min,
                     ImageView<asp::DoubleGrayA> const& dem,
                     ImageViewRef<asp::DoubleGrayA> const& interp_dem,
@@ -284,7 +278,7 @@ void processDemTile(asp::DemMosaicOptions const& opt,
                     ImageView<double>& weight_modifier,
                     ImageView<double>& saved_weight,
                     ImageView<double>& index_map) {
-  
+
   // Loop through each output pixel
   for (int c = 0; c < bbox.width(); c++) {
     for (int r = 0; r < bbox.height(); r++) {
@@ -297,7 +291,7 @@ void processDemTile(asp::DemMosaicOptions const& opt,
       // Input DEM pixel relative to loaded bbox
       double x = in_pix[0] - in_box_min.x();
       double y = in_pix[1] - in_box_min.y();
-      
+
       // Interpolate
       asp::DoubleGrayA pval = asp::interpDem(x, y, dem, interp_dem, tol, opt.propagate_nodata);
 
@@ -347,7 +341,7 @@ void processDemTile(asp::DemMosaicOptions const& opt,
            opt.last                                     ||
            (opt.min && (val < tile(c, r) || is_nodata)) ||
            (opt.max && (val > tile(c, r) || is_nodata)) ||
-           opt.median || opt.nmad || 
+           opt.median || opt.nmad ||
            use_priority_blend || opt.block_max) {
         // --> Conditions where we replace the current value
         tile(c, r) = val;
@@ -392,15 +386,15 @@ void processDemTile(asp::DemMosaicOptions const& opt,
 
     } // End col loop
   } // End row loop
-  
+
   return;
 }
 
-void processMedianOrNmad(BBox2i const& bbox, 
+void processMedianOrNmad(BBox2i const& bbox,
                          double out_nodata_value,
                          bool is_median,
                          bool save_index_map,
-                         std::vector<int> const& clip2dem_index,                        
+                         std::vector<int> const& clip2dem_index,
                          std::vector<ImageView<double>> const& tile_vec,
                          ImageView<double> & tile,
                          ImageView<double> & index_map) {
@@ -485,7 +479,7 @@ public:
 
     // How many valid pixels we will have
     m_num_valid_pixels = 0;
-    
+
     if (imgMgr.size() != georefs.size()       ||
         imgMgr.size() != nodata_values.size() ||
         imgMgr.size() != dem_pixel_bboxes.size())
@@ -497,7 +491,7 @@ public:
     for (int i = 0; i < (int)m_georefs.size(); i++) {
       double this_major_axis = m_georefs[i].datum().semi_major_axis();
       double this_minor_axis = m_georefs[i].datum().semi_minor_axis();
-      if (std::abs(this_major_axis - out_major_axis) > 0.1 || 
+      if (std::abs(this_major_axis - out_major_axis) > 0.1 ||
           std::abs(this_minor_axis - out_minor_axis) > 0.1 ||
           m_georefs[i].datum().meridian_offset()
           != m_out_georef.datum().meridian_offset()) {
@@ -539,7 +533,7 @@ public:
 
     // Get a shorthand for this
     const bool use_priority_blend = (m_opt.priority_blending_len > 0);
-    
+
     // When doing priority blending, we will do all the work in the
     // output pixels domain. Hence we need to take into account the
     // bias here rather than later.
@@ -563,7 +557,7 @@ public:
     std::vector<ImageView<double>> tile_vec, weight_vec;
     std::vector<std::string> dem_vec;
     initializeTileVector(num_images, bbox, m_opt, tile, tile_vec, weight_vec);
-    
+
     // This will ensure that pixels from earlier images are
     // mostly used unmodified except being blended at the boundary.
     vw::ImageView<double> weight_modifier;
@@ -590,7 +584,7 @@ public:
       // any of the indices in the map, as then the two cannot be
       // distinguished.
       for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++) {
-        if (dem_iter == m_opt.out_nodata_value) 
+        if (dem_iter == m_opt.out_nodata_value)
           vw_throw(ArgumentErr() << "Cannot have the output no-data value equal to "
                    << m_opt.out_nodata_value
                    << " as this is one of the indices being saved in the index map.\n");
@@ -617,9 +611,9 @@ public:
       // priority blending length was positive, we've already expanded 'bbox'.
       if (!use_priority_blend)
         in_box.expand(m_bias + BilinearInterpolation::pixel_buffer + 1);
-        
+
       in_box.crop(dem_pixel_box);
-      
+
       if (in_box.width() == 1 || in_box.height() == 1) {
         // Grassfire likes to have width of at least 2
         in_box.expand(1);
@@ -651,7 +645,7 @@ public:
       // will be invalidated.
       // TODO(oalexan1): This must be a function
       double nodata_value = m_nodata_values[dem_iter];
-      if (!boost::math::isnan(m_opt.nodata_threshold)) {
+      if (!std::isnan(m_opt.nodata_threshold)) {
         nodata_value = m_opt.nodata_threshold;
         for (int col = 0; col < dem.cols(); col++) {
           for (int row = 0; row < dem.rows(); row++) {
@@ -661,7 +655,7 @@ public:
           }
         }
       }
-      
+
       // NaN values get set to no-data. This is a bugfix.
       for (int col = 0; col < dem.cols(); col++) {
         for (int row = 0; row < dem.rows(); row++) {
@@ -676,7 +670,7 @@ public:
         // Convert to the output nodata value
         for (int col = 0; col < first_dem.cols(); col++) {
           for (int row = 0; row < first_dem.rows(); row++) {
-            if (first_dem(col, row) == nodata_value || std::isnan(first_dem(col, row))) 
+            if (first_dem(col, row) == nodata_value || std::isnan(first_dem(col, row)))
               first_dem(col, row) = m_opt.out_nodata_value;
           }
         }
@@ -696,7 +690,7 @@ public:
       if (m_opt.fill_search_radius > 0.0) {
         dem = apply_mask(fillNodataWithSearchRadius
         (create_mask(select_channel(dem, 0), nodata_value),
-          m_opt.fill_search_radius, m_opt.fill_power, m_opt.fill_percent, 
+          m_opt.fill_search_radius, m_opt.fill_power, m_opt.fill_percent,
           m_opt.fill_num_passes),
           nodata_value);
       }
@@ -711,7 +705,7 @@ public:
                                           kernel_size),
                                          m_opt.dem_blur_sigma), nodata_value);
       }
-      
+
       // Mark the handle to the image as not in use, though we still
       // keep that image file open, for increased performance, unless
       // their number becomes too large.
@@ -738,10 +732,10 @@ public:
             }
           }
         }
-        ImageView<PixelMask<double>> mask_img = 
+        ImageView<PixelMask<double>> mask_img =
           create_mask_less_or_equal(select_channel(dem2, 0), nodata_value);
         asp::centerlineWeightsWithHoles(mask_img, local_wts, m_bias, -1.0);
-        
+
       } // End centerline weights case
 
       // If we don't limit the weights from above, we will have tiling artifacts,
@@ -766,7 +760,7 @@ public:
           max_cutoff = min_cutoff + 1; // precaution
         local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
       }
-      
+
       // Blur the weights. If priority blending length is on, we'll do the blur later,
       // after weights from different DEMs are combined.
       if (m_opt.weights_blur_sigma > 0 && !use_priority_blend)
@@ -788,7 +782,7 @@ public:
       // Save the weights with georeference. Very useful for debugging
       // non-uniqueness issues across tiles.
       std::ostringstream os;
-      os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y() 
+      os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y()
          << ".tif";
       vw_out() << "Writing: " << os.str() << "\n";
       bool has_georef = true, has_nodata = true;
@@ -800,7 +794,7 @@ public:
 #endif
 
       // Apply external weights
-      if (!m_opt.weight_files.empty()) 
+      if (!m_opt.weight_files.empty())
         asp::applyExternalWeights(m_opt.weight_files[dem_iter], m_opt.min_weight,
                                   m_opt.invert_weights, in_box, local_wts);
 
@@ -814,7 +808,7 @@ public:
       // Prepare the DEM for interpolation
       ImageViewRef<asp::DoubleGrayA> interp_dem
         = interpolate(dem, BilinearInterpolation(), ConstantEdgeExtension());
-        
+
       // Process the DEM tile pixel by pixel
       processDemTile(m_opt, bbox, in_box.min(), dem, interp_dem, geotrans,
                      tile_vec, noblend, use_priority_blend, dem_iter, g_tol,
@@ -827,16 +821,16 @@ public:
         tile_vec.push_back(copy(tile));
         dem_vec.push_back(dem_name);
       }
-      
+
       // For priority blending, need also to keep all tiles, but also the weights
       if (use_priority_blend) {
         tile_vec.push_back(copy(tile));
         weight_vec.push_back(copy(weights));
       }
-      
+
       if (use_priority_blend || m_opt.save_index_map)
         clip2dem_index.push_back(dem_iter);
-      
+
     } // End iterating over DEMs
 
     // Divide by the weights in blend, mean
@@ -866,7 +860,7 @@ public:
     // Median and nmad operations
     if (m_opt.median || m_opt.nmad)
       processMedianOrNmad(bbox, m_opt.out_nodata_value, m_opt.median, m_opt.save_index_map,
-                          clip2dem_index, tile_vec, 
+                          clip2dem_index, tile_vec,
                           // Outputs
                           tile, index_map);
 
@@ -875,7 +869,7 @@ public:
     if (m_opt.block_max) {
       fill(tile, m_opt.out_nodata_value);
       int num_tiles = tile_vec.size();
-      if (tile_vec.size() != dem_vec.size()) 
+      if (tile_vec.size() != dem_vec.size())
         vw_throw(ArgumentErr() << "Book-keeping error.\n");
       std::vector<double> tile_sum(num_tiles, 0);
       for (int i = 0; i < num_tiles; i++) {
@@ -894,7 +888,7 @@ public:
       }
       int max_index = std::distance(tile_sum.begin(),
                                     std::max_element(tile_sum.begin(), tile_sum.end()));
-      if (max_index >= 0 && max_index < num_tiles) 
+      if (max_index >= 0 && max_index < num_tiles)
         tile = copy(tile_vec[max_index]);
     }
 
@@ -986,15 +980,15 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
   mosaic_bbox = BBox2();
   dem_proj_bboxes.clear();
   dem_pixel_bboxes.clear();
-  
+
   TerminalProgressCallback tpc("", "\t--> ");
   tpc.report_progress(0);
   double inc_amount = 1.0 / double(opt.dem_files.size());
 
   BBox2 first_dem_proj_box;
-  
+
   // Loop through all DEMs
-  for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) { 
+  for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
 
     // Open a handle to this DEM file
     DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
@@ -1004,12 +998,12 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
 
     dem_pixel_bboxes.push_back(pixel_box);
 
-    if (dem_iter == 0) 
+    if (dem_iter == 0)
       first_dem_proj_box = georef.bounding_box(img);
-    
+
     bool has_lonat = (georef.proj4_str().find("+proj=longlat") != std::string::npos ||
                       mosaic_georef.proj4_str().find("+proj=longlat") != std::string::npos);
-    
+
     // Compute bounding box of this DEM. The simple case is when all DEMs have
     // the same projection, and it is not longlat, as then we need to worry about
     // a 360 degree shift.
@@ -1025,7 +1019,7 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
       BBox2 proj_box;
       BBox2 imgbox = bounding_box(img);
       BBox2 mosaic_pixel_box;
-      
+
       // Get the bbox of current mosaic in pixels.
       if (dem_iter == 0) {
         // TODO: Not robust. How to estimate the pixel extent of the
@@ -1036,7 +1030,7 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
       } else {
         mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
       }
-      
+
       GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
       proj_box = geotrans.pixel_to_point_bbox(imgbox);
 
@@ -1049,29 +1043,29 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
   tpc.report_finished();
 
   // If the first dem is used as reference, no matter what use its own box
-  if (opt.first_dem_as_reference) 
+  if (opt.first_dem_as_reference)
     mosaic_bbox = first_dem_proj_box;
-  
+
 } // End function load_dem_bounding_boxes
 
 int main(int argc, char *argv[]) {
 
   asp::DemMosaicOptions opt;
-  
+
   try {
 
     asp::handleDemMosaicArgs(argc, argv, opt);
 
     // TODO: Fix here. If the DEM is double, read the nodata as double,
     // without casting to float. If it is float, cast to float.
-    
+
     // Read nodata from first DEM, unless the user chooses to specify it.
     if (!opt.has_out_nodata) {
       DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
       // Since the DEMs have float pixels, we must read the no-data as
       // float as well. (this is a bug fix). Yet we store it in a
       // double, as we will cast the DEM pixels to double as well.
-      if (in_rsrc.has_nodata_read()) 
+      if (in_rsrc.has_nodata_read())
         opt.out_nodata_value = float(in_rsrc.nodata_read());
     }
 
@@ -1103,7 +1097,7 @@ int main(int argc, char *argv[]) {
       // Set the srs string into georef.
       bool have_user_datum = false;
       Datum user_datum;
-      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, 
+      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum,
                                       user_datum, mosaic_georef);
     }
 
@@ -1112,7 +1106,7 @@ int main(int argc, char *argv[]) {
       // Get lonlat bounding box of the first DEM.
       DiskImageView<float> dem0(opt.dem_files[0]);
       BBox2 llbox0 = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
-      
+
       // Reset transform with user provided spacing.
       Matrix<double,3,3> transform = mosaic_georef.transform();
       transform.set_identity();
@@ -1124,7 +1118,7 @@ int main(int argc, char *argv[]) {
       // maps to the lonlat box corner. This is still not fully
       // reliable, but better than nothing. We will adjust
       // mosaic_georef later on.
-      vw::Vector2 ul = mosaic_georef.lonlat_to_pixel(Vector2(llbox0.min().x(), 
+      vw::Vector2 ul = mosaic_georef.lonlat_to_pixel(Vector2(llbox0.min().x(),
                                                              llbox0.max().y()));
       mosaic_georef = crop(mosaic_georef, ul.x(), ul.y());
     } else {
@@ -1141,7 +1135,7 @@ int main(int argc, char *argv[]) {
       T(1, 2) = spacing * round(T(1, 2)/spacing);
       mosaic_georef.set_transform(T);
     }
-    
+
     // if the user specified the tile size in georeferenced units.
     if (opt.geo_tile_size > 0) {
       opt.tile_size = (int)round(opt.geo_tile_size/spacing);
@@ -1156,7 +1150,6 @@ int main(int argc, char *argv[]) {
     load_dem_bounding_boxes(opt, mosaic_georef, mosaic_bbox,
                             dem_proj_bboxes, dem_pixel_bboxes);
 
-
     if (opt.tap) {
       // Ensure that the grid is at integer multiples of grid size
       mosaic_bbox.min() = spacing * floor(mosaic_bbox.min() / spacing);
@@ -1166,7 +1159,7 @@ int main(int argc, char *argv[]) {
         opt.projwin.max() = spacing * ceil(opt.projwin.max()  / spacing);
       }
     }
-    
+
     if (opt.gdal_tap) {
       // Conform to GDAL -tap. Ensure that the output bounds are at integer
       // multiples of grid size.
@@ -1177,18 +1170,18 @@ int main(int argc, char *argv[]) {
         opt.projwin.max() = spacing * round(opt.projwin.max()  / spacing);
       }
     }
-    
+
     if (opt.projwin != BBox2()) {
       // If to create the mosaic only in a given region
       if (!opt.gdal_tap)
         mosaic_bbox.crop(opt.projwin);
-      else 
+      else
         mosaic_bbox = opt.projwin; // GDAL --tap overrides the mosaic box
-      
+
       // Crop the proj boxes as well
       for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++)
         dem_proj_bboxes[dem_iter].crop(opt.projwin);
-      if (opt.force_projwin) 
+      if (opt.force_projwin)
         mosaic_bbox = opt.projwin;
     }
 
@@ -1201,10 +1194,10 @@ int main(int argc, char *argv[]) {
        if (T(1, 1) >= 0)
          vw::vw_throw(vw::ArgumentErr() << "The output grid size in y must be negative.\n");
        T(0, 2) = mosaic_bbox.min().x();
-       T(1, 2) = mosaic_bbox.max().y();  
+       T(1, 2) = mosaic_bbox.max().y();
        mosaic_georef.set_transform(T);
     }
-    
+
     // First-guess pixel box
     BBox2 pixel_box = custom_point_to_pixel_bbox(mosaic_georef, mosaic_bbox);
 
@@ -1231,12 +1224,12 @@ int main(int argc, char *argv[]) {
       + 2*std::max(vw::compute_kernel_size(opt.weights_blur_sigma),
                    vw::compute_kernel_size(opt.dem_blur_sigma))
                    + 1;
-                   
+
     // If we just fill holes based on search radius, we do not need a large bias.
     // Filling with large search radius is slow as it is.
     if (opt.fill_search_radius > 0)
       bias = opt.fill_search_radius + 10;
-    
+
     // The next power of 2 >= 4*bias. We want to make the blocks big,
     // to reduce overhead from this bias, but not so big that it may
     // not fit in memory.
@@ -1248,11 +1241,11 @@ int main(int argc, char *argv[]) {
     // The block size must be a multiple of 16
     if (block_size % 16 != 0)
       vw::vw_throw(vw::ArgumentErr() << "The block size must be a multiple of 16.\n");
-      
+
     // See if to lump all mosaic in just a given file, rather than creating tiles.
     bool write_to_precise_file = (opt.out_prefix.size() >= 4 &&
                    opt.out_prefix.substr(opt.out_prefix.size()-4, 4) == ".tif");
-      
+
     int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
     int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
     if (num_tiles_x <= 0) num_tiles_x = 1;
@@ -1260,20 +1253,20 @@ int main(int argc, char *argv[]) {
     int num_tiles = num_tiles_x*num_tiles_y;
     vw_out() << "Number of tiles: " << num_tiles_x << " x "
              << num_tiles_y << " = " << num_tiles << ".\n";
-    
+
     if (opt.tile_index >= num_tiles) {
       vw_out() << "Tile with index: " << opt.tile_index
                  << " is out of bounds." << "\n";
       return 0;
     }
 
-    if (num_tiles > 1 && write_to_precise_file) 
+    if (num_tiles > 1 && write_to_precise_file)
       vw_throw(ArgumentErr() << "Cannot fit all mosaic in the given output file name. "
            << "Hence specify an output prefix instead, and then multiple "
            << "tiles will be created.\n");
-    
+
     // If to use a range
-    if (!opt.tile_list.empty() && opt.tile_index >= 0) 
+    if (!opt.tile_list.empty() && opt.tile_index >= 0)
       vw_throw(ArgumentErr() << "Cannot specify both tile index and tile range.\n");
 
     // See if to save all tiles, or an individual tile.
@@ -1307,7 +1300,7 @@ int main(int argc, char *argv[]) {
     DiskImageManager<float>   imgMgr;
 
     BBox2i output_dem_box = BBox2i(0, 0, cols, rows); // output DEM box
-    
+
     // Loop through all DEMs
     for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
 
@@ -1318,9 +1311,9 @@ int main(int argc, char *argv[]) {
       bool use_this_dem = false;
       for (int tile_id = start_tile; tile_id < end_tile; tile_id++) {
 
-        if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end()) 
+        if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end())
           continue;
-        
+
         // Get tile bbox in pixels, then convert it to projected coords.
         BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
         BBox2  tile_proj_box  = mosaic_georef.pixel_to_point_bbox(tile_pixel_box);
@@ -1347,7 +1340,7 @@ int main(int argc, char *argv[]) {
       // file handles. In such situation, just selectively close the
       // handles furthest from the current location.
       imgMgr.add_file_handle_not_thread_safe(opt.dem_files[dem_iter], curr_box);
-      
+
       double curr_nodata_value = opt.out_nodata_value;
       try {
         // Get the nodata-value. Need a try block, in case we can't
@@ -1362,12 +1355,12 @@ int main(int argc, char *argv[]) {
         if (in_rsrc.has_nodata_read())
           curr_nodata_value = float(in_rsrc.nodata_read());
       }
-      
+
       loaded_dems.push_back(opt.dem_files[dem_iter]);
 
-      if (!boost::math::isnan(opt.nodata_threshold)) 
+      if (!std::isnan(opt.nodata_threshold))
         curr_nodata_value = opt.nodata_threshold;
-      
+
       // Add the info for this DEM to the appropriate vectors
       nodata_values.push_back(curr_nodata_value);
       georefs.push_back(georef);
@@ -1381,13 +1374,13 @@ int main(int argc, char *argv[]) {
       num_digits++;
       tens *= 10;
     }
-    
+
     // Time to generate each of the output tiles
     for (int tile_id = start_tile; tile_id < end_tile; tile_id++) {
 
-      if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end()) 
+      if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end())
         continue;
-      
+
       // Get the bounding box we previously computed
       vw::BBox2i tile_box = tile_pixel_bboxes[tile_id - start_tile];
 
@@ -1401,7 +1394,7 @@ int main(int argc, char *argv[]) {
       } else {
         dem_tile = opt.out_prefix; // the file name was set by user
       }
-      
+
       // Set up tile image and metadata
       long long int num_valid_pixels; // Will be populated when saving to disk
       vw::Mutex count_mutex; // to lock when updating num_valid_pixels
@@ -1417,41 +1410,41 @@ int main(int argc, char *argv[]) {
                       tile_box.min().y());
       // Update the lon-lat box given that we know the final georef and image size
       crop_georef.ll_box_from_pix_box(BBox2i(0, 0, cols, rows));
-      
+
       // Raster the tile to disk. Optionally cast to int (may be
       // useful for mosaicking ortho images).
       vw_out() << "Writing: " << dem_tile << "\n";
       bool has_georef = true, has_nodata = true;
       TerminalProgressCallback tpc("asp", "\t--> ");
-      if (opt.output_type == "Float32") 
+      if (opt.output_type == "Float32")
         asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem,
                                        has_georef, crop_georef,
                                        has_nodata, opt.out_nodata_value, opt, tpc);
-      else if (opt.output_type == "Byte") 
+      else if (opt.output_type == "Byte")
         asp::save_with_temp_big_blocks(block_size, dem_tile,
                        per_pixel_filter(out_dem, RoundAndClamp<uint8, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint8>(opt.out_nodata_value),
                                        opt, tpc);
-      else if (opt.output_type == "UInt16") 
+      else if (opt.output_type == "UInt16")
         asp::save_with_temp_big_blocks(block_size, dem_tile,
                        per_pixel_filter(out_dem, RoundAndClamp<uint16, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint16>(opt.out_nodata_value),
                                        opt, tpc);
-      else if (opt.output_type == "Int16") 
+      else if (opt.output_type == "Int16")
         asp::save_with_temp_big_blocks(block_size, dem_tile,
                        per_pixel_filter(out_dem, RoundAndClamp<int16, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<int16>(opt.out_nodata_value),
                                        opt, tpc);
-      else if (opt.output_type == "UInt32") 
+      else if (opt.output_type == "UInt32")
         asp::save_with_temp_big_blocks(block_size, dem_tile,
                        per_pixel_filter(out_dem, RoundAndClamp<uint32, float>()),
                                        has_georef, crop_georef,
                                        has_nodata, vw::round_and_clamp<uint32>(opt.out_nodata_value),
                                        opt, tpc);
-      else if (opt.output_type == "Int32") 
+      else if (opt.output_type == "Int32")
         asp::save_with_temp_big_blocks(block_size, dem_tile,
                        per_pixel_filter(out_dem, RoundAndClamp<int32, float>()),
                                        has_georef, crop_georef,
@@ -1466,7 +1459,7 @@ int main(int argc, char *argv[]) {
         vw_out() << "Removing tile with no valid pixels: " << dem_tile << "\n";
         boost::filesystem::remove(dem_tile);
       }
-      
+
     } // End loop through tiles
 
     // Write the name of each DEM file that was used together with its index
