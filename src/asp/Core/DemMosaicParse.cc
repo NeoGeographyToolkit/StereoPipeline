@@ -37,6 +37,8 @@ namespace asp {
 
 void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
 
+  double nan = std::numeric_limits<double>::quiet_NaN();
+
   po::options_description general_options("Options");
   general_options.add_options()
   ("dem-list,l", po::value<std::string>(&opt.dem_list),
@@ -51,7 +53,8 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     "it will print out how many tiles are there. Default: save all tiles.")
   ("tile-list", po::value(&opt.tile_list_str)->default_value(""),
     "List of tile indices (in quotes) to save. A tile index starts from 0.")
-  ("priority-blending-length", po::value<int>(&opt.priority_blending_len)->default_value(0),
+  ("priority-blending-length",
+    po::value<int>(&opt.priority_blending_len)->default_value(0),
     "If positive, keep unmodified values from the earliest available DEM except a band "
     "this wide measured in pixels inward of its boundary where blending with subsequent "
     "DEMs will happen.")
@@ -142,13 +145,15 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     "The weights used to blend the DEMs should increase away from the boundary as a "
     "power with this exponent. Higher values will result in smoother but faster-growing "
     "weights.")
-  ("use-centerline-weights", po::bool_switch(&opt.use_centerline_weights)->default_value(false),
+  ("use-centerline-weights",
+    po::bool_switch(&opt.use_centerline_weights)->default_value(false),
     "Compute weights based on a DEM centerline algorithm. Produces smoother weights if "
     "the input DEMs don't have holes or complicated boundary.")
   ("dem-blur-sigma", po::value<double>(&opt.dem_blur_sigma)->default_value(0.0),
     "Blur the DEM using a Gaussian with this value of sigma. A larger value will blur "
     "more. Default: No blur.")
-  ("nodata-threshold", po::value(&opt.nodata_threshold)->default_value(std::numeric_limits<double>::quiet_NaN()),
+  ("nodata-threshold",
+    po::value(&opt.nodata_threshold)->default_value(nan),
     "Values no larger than this number will be interpreted as no-data.")
   ("propagate-nodata", po::bool_switch(&opt.propagate_nodata)->default_value(false),
     "Set a pixel to nodata if any input DEM is also nodata at that location.")
@@ -163,7 +168,8 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   ("save-dem-weight", po::value<int>(&opt.save_dem_weight),
     "Save the weight image that tracks how much the input DEM with given index "
     "contributed to the output mosaic at each pixel (smallest index is 0).")
-  ("first-dem-as-reference", po::bool_switch(&opt.first_dem_as_reference)->default_value(false),
+  ("first-dem-as-reference",
+    po::bool_switch(&opt.first_dem_as_reference)->default_value(false),
     "The output DEM will have the same size, grid, and georeference as the first one, "
     "with the other DEMs blended within its perimeter.")
   ("this-dem-as-reference", po::value(&opt.this_dem_as_reference)->default_value(""),
@@ -479,9 +485,9 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
                  << opt.weight_files[dem_iter] << " have different dimensions.\n");
 
       vw::cartography::GeoReference dem_georef, weight_georef;
-      bool has_dem_georef 
+      bool has_dem_georef
         = vw::cartography::read_georeference(dem_georef, opt.dem_files[dem_iter]);
-      bool has_weight_georef 
+      bool has_weight_georef
       = vw::cartography::read_georeference(weight_georef, opt.weight_files[dem_iter]);
       if (!has_dem_georef)
         vw_throw(ArgumentErr() << "The DEM " << opt.dem_files[dem_iter]
