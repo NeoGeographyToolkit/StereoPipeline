@@ -65,6 +65,9 @@ double erfSmoothStep(double x, double M, double L);
 vw::BBox2 pointToPixelBboxSnapped(vw::cartography::GeoReference const& georef,
                                   vw::BBox2 const& point_bbox, double tol);
 
+// Read a georeference from a file and throw if not found.
+vw::cartography::GeoReference readGeorefOrThrow(std::string const& file);
+
 typedef vw::PixelGrayA<double> DoubleGrayA;
 DoubleGrayA interpDem(double x, double y,
                       vw::ImageView<DoubleGrayA> const& dem,

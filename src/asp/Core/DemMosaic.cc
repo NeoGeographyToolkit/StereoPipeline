@@ -305,6 +305,15 @@ vw::BBox2 pointToPixelBboxSnapped(vw::cartography::GeoReference const& georef,
   return pix_box;
 }
 
+// Read a georeference from a file and throw if not found.
+cartography::GeoReference readGeorefOrThrow(std::string const& file) {
+  cartography::GeoReference geo;
+  bool is_good = cartography::read_georeference(geo, file);
+  if (!is_good)
+    vw_throw(ArgumentErr() << "No georeference found in " << file << ".\n");
+  return geo;
+}
+
 // A helper function to do interpolation. Will not interpolate when
 // exactly on the grid.
 DoubleGrayA interpDem(double x, double y,

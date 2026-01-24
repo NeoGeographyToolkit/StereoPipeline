@@ -49,19 +49,9 @@
 #include <algorithm>
 
 using namespace vw; // TODO(oalexan1): Remove this namespace
-using namespace vw::cartography;
 
 // This is used for various tolerances
 double g_tol = 1e-6;
-
-GeoReference read_georef(std::string const& file) {
-  // Read a georef, and check for success
-  GeoReference geo;
-  bool is_good = read_georeference(geo, file);
-  if (!is_good)
-    vw_throw(ArgumentErr() << "No georeference found in " << file << ".\n");
-  return geo;
-}
 
 std::string tile_suffix(asp::DemMosaicOptions const& opt) {
   std::string ans;
@@ -123,7 +113,7 @@ void priorityBlend(double out_nodata_value,
                    bool no_border_blend,
                    int save_dem_weight,
                    std::vector<int> const& clip2dem_index,
-                   GeoReference const& out_georef,
+                   vw::cartography::GeoReference const& out_georef,
                    BBox2i const& bbox,
                    // Outputs
                    std::vector<ImageView<double>> & tile_vec,
@@ -218,12 +208,12 @@ void priorityBlend(double out_nodata_value,
   bool save_weights = false;
   if (save_weights) {
     for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-      GeoReference crop_georef = crop(out_georef, bbox);
+      vw::cartography::GeoReference crop_georef = crop(out_georef, bbox);
       std::ostringstream os;
       os << "tile_weight_" << clip_iter << ".tif";
       vw_out() << "\nWriting: " << os.str() << "\n";
       bool has_georef = true, has_nodata = true;
-      block_write_gdal_image(os.str(), weight_vec[clip_iter],
+      vw::cartography::block_write_gdal_image(os.str(), weight_vec[clip_iter],
                   has_georef, crop_georef,
                   has_nodata, -100,
                   vw::GdalWriteOptions(),
@@ -241,7 +231,7 @@ void processDemTile(asp::DemMosaicOptions const& opt,
                     Vector2 const& in_box_min,
                     ImageView<asp::DoubleGrayA> const& dem,
                     ImageViewRef<asp::DoubleGrayA> const& interp_dem,
-                    GeoTransform const& geotrans,
+                    vw::cartography::GeoTransform const& geotrans,
                     std::vector<ImageView<double>>& tile_vec,
                     bool noblend,
                     bool use_priority_blend,
@@ -427,21 +417,21 @@ void processMedianOrNmad(BBox2i const& bbox,
 /// Class that does the actual image processing work
 class DemMosaicView: public ImageViewBase<DemMosaicView> {
   int m_cols, m_rows, m_bias;
-  asp::DemMosaicOptions                   const& m_opt;              // alias
-  DiskImageManager<float>        & m_imgMgr;           // alias
-  std::vector<GeoReference> const& m_georefs;          // alias
-  GeoReference                     m_out_georef;
-  std::vector<double>       const& m_nodata_values;    // alias
-  std::vector<vw::BBox2i>          const& m_dem_pixel_bboxes; // alias
-  long long int                  & m_num_valid_pixels; // alias, to populate on output
-  vw::Mutex                      & m_count_mutex;      // alias, a lock for m_num_valid_pixels
+  asp::DemMosaicOptions  const& m_opt; // alias
+  DiskImageManager<float> & m_imgMgr; // alias
+  std::vector<vw::cartography::GeoReference> const& m_georefs; // alias
+  vw::cartography::GeoReference m_out_georef;
+  std::vector<double> const& m_nodata_values; // alias
+  std::vector<vw::BBox2i> const& m_dem_pixel_bboxes; // alias
+  long long int & m_num_valid_pixels; // alias, to populate on output
+  vw::Mutex & m_count_mutex; // alias, a lock for m_num_valid_pixels
 
 public:
   DemMosaicView(int cols, int rows, int bias,
                 asp::DemMosaicOptions     const& opt,
                 DiskImageManager<float>        & imgMgr,
-                std::vector<GeoReference> const& georefs,
-                GeoReference              const& out_georef,
+                std::vector<vw::cartography::GeoReference> const& georefs,
+                vw::cartography::GeoReference              const& out_georef,
                 std::vector<double>       const& nodata_values,
                 std::vector<BBox2i>       const& dem_pixel_bboxes,
                 long long int                  & num_valid_pixels,
@@ -572,12 +562,12 @@ public:
     for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++) {
 
       // Load the information for this DEM
-      GeoReference georef        = m_georefs         [dem_iter];
+      vw::cartography::GeoReference georef        = m_georefs         [dem_iter];
       BBox2i       dem_pixel_box = m_dem_pixel_bboxes[dem_iter];
 
-      // The GeoTransform will hide the messy details of conversions
+      // The vw::cartography::GeoTransform will hide the messy details of conversions
       // from pixels to points and lon-lat.
-      GeoTransform geotrans(georef, m_out_georef, dem_pixel_box, bbox);
+      vw::cartography::GeoTransform geotrans(georef, m_out_georef, dem_pixel_box, bbox);
 
       // Get the tile bbox in the frame of the current input DEM
       BBox2 in_box = geotrans.reverse_bbox(bbox);
@@ -761,7 +751,7 @@ public:
          << ".tif";
       vw_out() << "Writing: " << os.str() << "\n";
       bool has_georef = true, has_nodata = true;
-      block_write_gdal_image(os.str(), local_wts,
+      vw::cartography::block_write_gdal_image(os.str(), local_wts,
                  has_georef, georef,
                  has_nodata, -100,
                  vw::GdalWriteOptions(),
@@ -944,7 +934,7 @@ public:
 /// - dem_proj_bboxes and dem_pixel_bboxes are the locations of
 ///   each input DEM in the output DEM in projected and pixel coordinates.
 void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
-                             GeoReference  const& mosaic_georef,
+                             vw::cartography::GeoReference  const& mosaic_georef,
                              BBox2              & mosaic_bbox, // Projected coordinates
                              std::vector<BBox2> & dem_proj_bboxes,
                              std::vector<BBox2i> & dem_pixel_bboxes) {
@@ -968,7 +958,7 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
     // Open a handle to this DEM file
     DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
     DiskImageView<float>  img(opt.dem_files[dem_iter]);
-    GeoReference          georef = read_georef(opt.dem_files[dem_iter]);
+    vw::cartography::GeoReference          georef = asp::readGeorefOrThrow(opt.dem_files[dem_iter]);
     BBox2i                pixel_box = bounding_box(img);
 
     dem_pixel_bboxes.push_back(pixel_box);
@@ -1006,7 +996,7 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
         mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
       }
 
-      GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
+      vw::cartography::GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
       proj_box = geotrans.pixel_to_point_bbox(imgbox);
 
       mosaic_bbox.grow(proj_box);
@@ -1059,7 +1049,7 @@ int main(int argc, char *argv[]) {
     // initial guess unless user wants to change the resolution and projection.
 
     // By default the output georef is equal to the first input georef
-    GeoReference mosaic_georef = read_georef(opt.dem_files[0]);
+    vw::cartography::GeoReference mosaic_georef = asp::readGeorefOrThrow(opt.dem_files[0]);
 
     double spacing = opt.tr;
     if (opt.target_srs_string != "" && spacing <= 0) {
@@ -1071,7 +1061,7 @@ int main(int argc, char *argv[]) {
     if (opt.target_srs_string != "") {
       // Set the srs string into georef.
       bool have_user_datum = false;
-      Datum user_datum;
+      vw::cartography::Datum user_datum;
       vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum,
                                       user_datum, mosaic_georef);
     }
@@ -1270,7 +1260,7 @@ int main(int argc, char *argv[]) {
     // Store the no-data values, pointers to images, and georeferences (for speed).
     vw_out() << "Reading the input DEMs.\n";
     std::vector<double>       nodata_values;
-    std::vector<GeoReference> georefs;
+    std::vector<vw::cartography::GeoReference> georefs;
     std::vector<std::string>  loaded_dems;
     DiskImageManager<float>   imgMgr;
 
@@ -1301,11 +1291,11 @@ int main(int argc, char *argv[]) {
       if (use_this_dem == false)
         continue; // Skip to the next DEM if we don't need this one.
 
-      // The GeoTransform will hide the messy details of conversions
+      // The vw::cartography::GeoTransform will hide the messy details of conversions
       // from pixels to points and lon-lat.
-      GeoReference georef  = read_georef(opt.dem_files[dem_iter]);
+      vw::cartography::GeoReference georef  = asp::readGeorefOrThrow(opt.dem_files[dem_iter]);
       BBox2i dem_pixel_box = dem_pixel_bboxes[dem_iter];
-      GeoTransform geotrans(georef, mosaic_georef, dem_pixel_box, output_dem_box);
+      vw::cartography::GeoTransform geotrans(georef, mosaic_georef, dem_pixel_box, output_dem_box);
 
       // Get the current DEM bounding box in pixel units of the output mosaicked DEM
       BBox2 curr_box = geotrans.forward_bbox(dem_pixel_box);
@@ -1381,7 +1371,7 @@ int main(int argc, char *argv[]) {
                              loaded_dem_pixel_bboxes,
                              num_valid_pixels, count_mutex),
                tile_box);
-      GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
+      vw::cartography::GeoReference crop_georef = crop(mosaic_georef, tile_box.min().x(),
                       tile_box.min().y());
       // Update the lon-lat box given that we know the final georef and image size
       crop_georef.ll_box_from_pix_box(BBox2i(0, 0, cols, rows));
