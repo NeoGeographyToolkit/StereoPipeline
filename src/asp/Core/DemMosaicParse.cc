@@ -42,21 +42,21 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     ("dem-list,l", po::value<std::string>(&opt.dem_list),
      "A text file listing the DEM files to mosaic, one per line.")
     ("output-prefix,o", po::value(&opt.out_prefix), "Specify the output prefix. One or more tiles will be written with this prefix. Alternatively, an exact output file can be specified, with a .tif extension.")
-    ("tile-size",       po::value<int>(&opt.tile_size)->default_value(1000000),
+    ("tile-size", po::value<int>(&opt.tile_size)->default_value(1000000),
      "The maximum size of output DEM tile files to write, in pixels.")
-    ("tile-index",      po::value<int>(&opt.tile_index),
+    ("tile-index", po::value<int>(&opt.tile_index),
      "The index of the tile to save (starting from zero). When this program is invoked, it will print out how many tiles are there. Default: save all tiles.")
-    ("tile-list",      po::value(&opt.tile_list_str)->default_value(""),
+    ("tile-list", po::value(&opt.tile_list_str)->default_value(""),
      "List of tile indices (in quotes) to save. A tile index starts from 0.")
     ("priority-blending-length", po::value<int>(&opt.priority_blending_len)->default_value(0),
      "If positive, keep unmodified values from the earliest available DEM except a band this wide measured in pixels inward of its boundary where blending with subsequent DEMs will happen.")
     ("no-border-blend", po::bool_switch(&opt.no_border_blend)->default_value(false),
      "Only apply blending around holes, don't blend at image borders.  Not compatible with centerline weights.")
-    ("tr",              po::value(&opt.tr),
+    ("tr", po::value(&opt.tr),
      "Output grid size, that is, the DEM resolution in target georeferenced units per pixel. Default: use the same resolution as the first DEM to be mosaicked.")
-    ("t_srs",           po::value(&opt.target_srs_string)->default_value(""),
+    ("t_srs", po::value(&opt.target_srs_string)->default_value(""),
      "Specify the output projection as a GDAL projection string (WKT, GeoJSON, or PROJ). If not provided, use the one from the first DEM to be mosaicked.")
-    ("t_projwin",       po::value(&opt.projwin),
+    ("t_projwin", po::value(&opt.projwin),
      "Limit the mosaic to this region, with the corners given in georeferenced coordinates "
      "(xmin ymin xmax ymax). Max is exclusive. See the --gdal-tap and --tap "
      "options if desired to apply addition adjustments to this extent.")
@@ -65,28 +65,28 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
      "multiples of the grid size (as set with --tr). When --t_projwin is set and its "
      "entries are integer multiples of the grid size, that precise extent will be produced "
      "on output. This functions as the GDAL -tap option.")
-    ("tap",  po::bool_switch(&opt.tap)->default_value(false),
+    ("tap", po::bool_switch(&opt.tap)->default_value(false),
      "Let the output grid be at integer multiples of the grid size (like the default "
      "behavior of point2dem and mapproject. Then the mosaic extent is biased by an "
      "additional half a pixel. If this option is not set, the input grids determine the "
      "output grid. See also --gdal-tap.")
-    ("first",   po::bool_switch(&opt.first)->default_value(false),
+    ("first", po::bool_switch(&opt.first)->default_value(false),
      "Keep the first encountered DEM value (in the input order).")
-    ("last",    po::bool_switch(&opt.last)->default_value(false),
+    ("last", po::bool_switch(&opt.last)->default_value(false),
      "Keep the last encountered DEM value (in the input order).")
-    ("min",     po::bool_switch(&opt.min)->default_value(false),
+    ("min", po::bool_switch(&opt.min)->default_value(false),
      "Keep the smallest encountered DEM value.")
-    ("max",     po::bool_switch(&opt.max)->default_value(false),
+    ("max", po::bool_switch(&opt.max)->default_value(false),
      "Keep the largest encountered DEM value.")
-    ("mean",    po::bool_switch(&opt.mean)->default_value(false),
+    ("mean", po::bool_switch(&opt.mean)->default_value(false),
      "Find the mean DEM value.")
-    ("stddev",    po::bool_switch(&opt.stddev)->default_value(false),
+    ("stddev", po::bool_switch(&opt.stddev)->default_value(false),
      "Find the standard deviation of the DEM values.")
-    ("median",  po::bool_switch(&opt.median)->default_value(false),
+    ("median", po::bool_switch(&opt.median)->default_value(false),
      "Find the median DEM value (this can be memory-intensive, fewer threads are suggested).")
-    ("nmad",  po::bool_switch(&opt.nmad)->default_value(false),
+    ("nmad", po::bool_switch(&opt.nmad)->default_value(false),
       "Find the normalized median absolute deviation DEM value (this can be memory-intensive, fewer threads are suggested).")
-    ("count",   po::bool_switch(&opt.count)->default_value(false),
+    ("count", po::bool_switch(&opt.count)->default_value(false),
      "Each pixel is set to the number of valid DEM heights at that pixel.")
     ("weight-list", po::value<std::string>(&opt.weight_list),
      "A text file having a list of external weight files to use in blending, one per line. "
@@ -99,7 +99,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     ("hole-fill-length", po::value(&opt.hole_fill_len)->default_value(0),
      "Maximum dimensions of a hole in the DEM to fill, in pixels. See also "
      "--fill-search-radius.")
-    ("fill-search-radius",   po::value(&opt.fill_search_radius)->default_value(0.0),
+    ("fill-search-radius", po::value(&opt.fill_search_radius)->default_value(0.0),
      "Fill an invalid pixel with a weighted average of pixel values within this radius in pixels. The weight is 1/(factor * dist^power + 1), where the distance is measured in pixels. See an example in the doc. See also --fill-power, --fill-percent and --fill-num-passes.")
     ("fill-power", po::value(&opt.fill_power)->default_value(8.0),
      "Power exponent to use when filling nodata values with --fill-search-radius.")
@@ -111,20 +111,20 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
      "Erode the DEM by this many pixels at boundary.")
     ("block-max", po::bool_switch(&opt.block_max)->default_value(false),
      "For each block of size --block-size, keep the DEM with the largest sum of values in the block.")
-    ("georef-tile-size",    po::value<double>(&opt.geo_tile_size),
+    ("georef-tile-size", po::value<double>(&opt.geo_tile_size),
      "Set the tile size in georeferenced (projected) units (e.g., degrees or meters).")
     ("output-nodata-value", po::value<double>(&opt.out_nodata_value),
      "No-data value to use on output. Default: use the one from the first DEM to be "
      "mosaicked.")
-    ("ot",  po::value(&opt.output_type)->default_value("Float32"),
+    ("ot", po::value(&opt.output_type)->default_value("Float32"),
      "Output data type. Supported types: Byte, UInt16, Int16, UInt32, Int32, Float32. If "
      "the output type is a kind of integer, values are rounded and then clamped to the "
      "limits of that type.")
     ("weights-blur-sigma", po::value<double>(&opt.weights_blur_sigma)->default_value(5.0),
      "The standard deviation of the Gaussian used to blur the weights. Higher value results in smoother weights and blending. Set to 0 to not use blurring.")
-    ("weights-exponent",   po::value<double>(&opt.weights_exp)->default_value(2.0),
+    ("weights-exponent", po::value<double>(&opt.weights_exp)->default_value(2.0),
      "The weights used to blend the DEMs should increase away from the boundary as a power with this exponent. Higher values will result in smoother but faster-growing weights.")
-    ("use-centerline-weights",   po::bool_switch(&opt.use_centerline_weights)->default_value(false),
+    ("use-centerline-weights", po::bool_switch(&opt.use_centerline_weights)->default_value(false),
      "Compute weights based on a DEM centerline algorithm. Produces smoother weights if the input DEMs don't have holes or complicated boundary.")
     ("dem-blur-sigma", po::value<double>(&opt.dem_blur_sigma)->default_value(0.0),
      "Blur the DEM using a Gaussian with this value of sigma. A larger value will blur more. Default: No blur.")
@@ -135,11 +135,11 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     ("extra-crop-length", po::value<int>(&opt.extra_crop_len)->default_value(200),
      "Crop the DEMs this far from the current tile (measured in pixels) before blending them (a small value may result in artifacts). This value also helps determine how to "
      "plateau the blending weights inwards, away from the DEM boundary.")
-    ("block-size",      po::value<int>(&opt.block_size)->default_value(0),
+    ("block-size", po::value<int>(&opt.block_size)->default_value(0),
      "Process the mosaic with this value of the block size. A large value can result in "
      "increased memory usage. Later, the mosaic will be saved with blocks given by "
      "--tif-tile-size. This is an advanced internal parameter.")
-    ("save-dem-weight",      po::value<int>(&opt.save_dem_weight),
+    ("save-dem-weight", po::value<int>(&opt.save_dem_weight),
      "Save the weight image that tracks how much the input DEM with given index contributed to the output mosaic at each pixel (smallest index is 0).")
     ("first-dem-as-reference", po::bool_switch(&opt.first_dem_as_reference)->default_value(false),
      "The output DEM will have the same size, grid, and georeference as the first one, with the other DEMs blended within its perimeter.")
@@ -147,7 +147,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
      "The output DEM will have the same size, grid, and georeference as this one, but it will not be used in the mosaic.")
     ("force-projwin", po::bool_switch(&opt.force_projwin)->default_value(false),
      "Make the output mosaic fill precisely the specified projwin, by padding it if necessary and aligning the output grid to the region.")
-    ("save-index-map",   po::bool_switch(&opt.save_index_map)->default_value(false),
+    ("save-index-map", po::bool_switch(&opt.save_index_map)->default_value(false),
      "For each output pixel, save the index of the input DEM it came from (applicable only for --first, --last, --min, --max, --median, and --nmad). A text file with the index assigned to each input DEM is saved as well.")
     ("dem-list-file", po::value<std::string>(&opt.dem_list_file),
      "Alias for --dem-list, kept for backward compatibility.")
@@ -470,6 +470,6 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
                  << " have different georeferences.\n");
     }
    }
-} // End function handleDemMosaicArgs
+} // End function handle_arguments
 
 } // end namespace asp
