@@ -282,10 +282,10 @@ double erfSmoothStep(double x, double M, double L) {
 // A helper function to do interpolation. Will not interpolate when 
 // exactly on the grid.
 DoubleGrayA interpDem(double x, double y, 
-                     ImageView<DoubleGrayA> const& dem,
-                     ImageViewRef<DoubleGrayA> const& interp_dem,
-                     double tol,
-                     bool propagate_nodata) {
+                      ImageView<DoubleGrayA> const& dem,
+                      ImageViewRef<DoubleGrayA> const& interp_dem,
+                      double tol,
+                      bool propagate_nodata) {
 
   DoubleGrayA pval;
 

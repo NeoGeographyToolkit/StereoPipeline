@@ -53,10 +53,10 @@ double erfSmoothStep(double x, double M, double L);
 
 typedef vw::PixelGrayA<double> DoubleGrayA;
 DoubleGrayA interpDem(double x, double y, 
-                     vw::ImageView<DoubleGrayA> const& dem,
-                     vw::ImageViewRef<DoubleGrayA> const& interp_dem,
-                     double tol,
-                     bool propagate_nodata);
+                      vw::ImageView<DoubleGrayA> const& dem,
+                      vw::ImageViewRef<DoubleGrayA> const& interp_dem,
+                      double tol,
+                      bool propagate_nodata);
 
 } // end namespace asp
 
