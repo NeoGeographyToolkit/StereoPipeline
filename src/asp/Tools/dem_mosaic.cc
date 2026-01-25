@@ -103,7 +103,7 @@ void initializeTileVector(int num_images,
 void setNoDataByWeight(double out_nodata_value,
                        vw::ImageView<double> & tile,
                        vw::ImageView<double> & weight) {
-  
+
   for (int col = 0; col < weight.cols(); col++) {
     for (int row = 0; row < weight.rows(); row++) {
       if (weight(col, row) <= 0)
@@ -114,7 +114,7 @@ void setNoDataByWeight(double out_nodata_value,
 
 // Clamp weights to a maximum value (per clip)
 void clampWeights(double bias, vw::ImageView<double> & weight) {
-  
+
   for (int col = 0; col < weight.cols(); col++) {
     for (int row = 0; row < weight.rows(); row++) {
       weight(col, row) = std::min(weight(col, row), double(bias));
@@ -124,7 +124,7 @@ void clampWeights(double bias, vw::ImageView<double> & weight) {
 
 // Raise weight values to a power (per clip)
 void raiseToPower(double exponent, vw::ImageView<double> & weight) {
-  
+
   for (int col = 0; col < weight.cols(); col++) {
     for (int row = 0; row < weight.rows(); row++) {
       weight(col, row) = pow(weight(col, row), exponent);
@@ -141,7 +141,7 @@ void accumWeightedTiles(double out_nodata_value,
                         vw::ImageView<double> & tile,
                         vw::ImageView<double> & weights,
                         vw::ImageView<double> & saved_weight) {
-  
+
   for (int col = 0; col < weight_clip.cols(); col++) {
     for (int row = 0; row < weight_clip.rows(); row++) {
 
@@ -167,7 +167,7 @@ void computeWeightedAverage(int save_dem_weight,
                             vw::ImageView<double> & tile,
                             vw::ImageView<double> & weights,
                             vw::ImageView<double> & saved_weight) {
-  
+
   for (int col = 0; col < tile.cols(); col++) {
     for (int row = 0; row < weights.rows(); row++) {
       if (weights(col, row) > 0)
@@ -184,7 +184,7 @@ void saveWeight(size_t clip_iter,
                 vw::ImageView<double> const& weight,
                 vw::cartography::GeoReference const& out_georef,
                 vw::BBox2i const& bbox) {
-  
+
   vw::cartography::GeoReference crop_georef = vw::cartography::crop(out_georef, bbox);
   std::ostringstream os;
   os << "tile_weight_" << clip_iter << ".tif";
@@ -220,11 +220,11 @@ void priorityBlend(double out_nodata_value,
 
   if (tile_vec.size() != weight_vec.size() || tile_vec.size() != clip2dem_index.size())
     vw::vw_throw(vw::ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
-  
+
   // Set image values to nodata where weight is <= 0
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
     setNoDataByWeight(out_nodata_value, tile_vec[clip_iter], weight_vec[clip_iter]);
-  
+
   // Update the weights given the created nodata regions
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
     weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter], out_nodata_value),
@@ -515,7 +515,7 @@ public:
           this_major_axis == out_major_axis &&
           this_minor_axis == out_minor_axis &&
           m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset()) {
-        vw::vw_out(vw::WarningMessage) 
+        vw::vw_out(vw::WarningMessage)
           << "Found DEMs with the same radii and meridian offsets, "
           << "but different names: "
           << m_georefs[i].datum().name() << " and "
@@ -1462,7 +1462,7 @@ int main(int argc, char *argv[]) {
                                        has_nodata, vw::round_and_clamp<vw::int32>(opt.out_nodata_value),
                                        opt, tpc);
       else
-        vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " 
+        vw::vw_throw(vw::NoImplErr() << "Unsupported output type: "
                      << opt.output_type << ".\n");
 
       vw::vw_out() << "Number of valid (not no-data) pixels written: " << num_valid_pixels
