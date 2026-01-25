@@ -170,7 +170,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (have_bathy_plane) {
     int num_images = 1;
     vw::readBathyPlanes(opt.bathy_plane, num_images, opt.bathy_plane_vec);
-    vw_out() << "Loaded bathy plane: " << opt.bathy_plane << "\n";
     vw_out() << "Refraction index: " << opt.refraction_index << "\n";
   }
 

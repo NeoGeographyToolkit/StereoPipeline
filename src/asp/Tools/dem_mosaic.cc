@@ -99,6 +99,104 @@ void initializeTileVector(int num_images,
   return;
 }
 
+// Set image values to nodata where weight is <= 0 (per clip)
+void setNoDataByWeight(double out_nodata_value,
+                       vw::ImageView<double> & tile,
+                       vw::ImageView<double> & weight) {
+  
+  for (int col = 0; col < weight.cols(); col++) {
+    for (int row = 0; row < weight.rows(); row++) {
+      if (weight(col, row) <= 0)
+        tile(col, row) = out_nodata_value;
+    }
+  }
+}
+
+// Clamp weights to a maximum value (per clip)
+void clampWeights(double bias, vw::ImageView<double> & weight) {
+  
+  for (int col = 0; col < weight.cols(); col++) {
+    for (int row = 0; row < weight.rows(); row++) {
+      weight(col, row) = std::min(weight(col, row), double(bias));
+    }
+  }
+}
+
+// Raise weight values to a power (per clip)
+void raiseToPower(double exponent, vw::ImageView<double> & weight) {
+  
+  for (int col = 0; col < weight.cols(); col++) {
+    for (int row = 0; row < weight.rows(); row++) {
+      weight(col, row) = pow(weight(col, row), exponent);
+    }
+  }
+}
+
+// Accumulate weighted tile values for a single clip
+void accumWeightedTiles(double out_nodata_value,
+                        int save_dem_weight,
+                        int dem_index,
+                        vw::ImageView<double> const& tile_clip,
+                        vw::ImageView<double> const& weight_clip,
+                        vw::ImageView<double> & tile,
+                        vw::ImageView<double> & weights,
+                        vw::ImageView<double> & saved_weight) {
+  
+  for (int col = 0; col < weight_clip.cols(); col++) {
+    for (int row = 0; row < weight_clip.rows(); row++) {
+
+      double wt = weight_clip(col, row);
+      if (wt <= 0)
+        continue; // nothing to do
+
+      // Initialize the tile
+      if (tile(col, row) == out_nodata_value)
+        tile(col, row) = 0;
+
+      tile(col, row)    += wt*tile_clip(col, row);
+      weights(col, row) += wt;
+
+      if (dem_index == save_dem_weight)
+        saved_weight(col, row) = wt;
+    }
+  }
+}
+
+// Compute the weighted average by normalizing accumulated values
+void computeWeightedAverage(int save_dem_weight,
+                            vw::ImageView<double> & tile,
+                            vw::ImageView<double> & weights,
+                            vw::ImageView<double> & saved_weight) {
+  
+  for (int col = 0; col < tile.cols(); col++) {
+    for (int row = 0; row < weights.rows(); row++) {
+      if (weights(col, row) > 0)
+        tile(col, row) /= weights(col, row);
+
+      if (save_dem_weight >= 0 && weights(col, row) > 0)
+        saved_weight(col, row) /= weights(col, row);
+    }
+  }
+}
+
+// Save a weight image for debugging purposes
+void saveWeight(size_t clip_iter,
+                vw::ImageView<double> const& weight,
+                vw::cartography::GeoReference const& out_georef,
+                vw::BBox2i const& bbox) {
+  
+  vw::cartography::GeoReference crop_georef = vw::cartography::crop(out_georef, bbox);
+  std::ostringstream os;
+  os << "tile_weight_" << clip_iter << ".tif";
+  vw::vw_out() << "\nWriting: " << os.str() << "\n";
+  bool has_georef = true, has_nodata = true;
+  vw::cartography::block_write_gdal_image(os.str(), weight,
+              has_georef, crop_georef,
+              has_nodata, -100,
+              vw::GdalWriteOptions(),
+              vw::TerminalProgressCallback("asp", ""));
+}
+
 // Use the weights created so far only to burn holes in
 // the DEMs where we don't want blending. Then we will have to
 // recreate the weights. That because the current weights have
@@ -122,29 +220,19 @@ void priorityBlend(double out_nodata_value,
 
   if (tile_vec.size() != weight_vec.size() || tile_vec.size() != clip2dem_index.size())
     vw::vw_throw(vw::ArgumentErr() << "There must be as many dem tiles as weight tiles.\n");
-
-  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-    for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-      for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-        if (weight_vec[clip_iter](col, row) <= 0)
-          tile_vec[clip_iter](col, row) = out_nodata_value;
-      }
-    }
-
-    weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter],
-                                                out_nodata_value),
+  
+  // Set image values to nodata where weight is <= 0
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
+    setNoDataByWeight(out_nodata_value, tile_vec[clip_iter], weight_vec[clip_iter]);
+  
+  // Update the weights given the created nodata regions
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
+    weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter], out_nodata_value),
                                       no_border_blend);
-  }
 
-  // Don't allow the weights to grow too fast, for uniqueness.
-  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-    for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-      for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-        weight_vec[clip_iter](col, row)
-          = std::min(weight_vec[clip_iter](col, row), double(bias));
-      }
-    }
-  }
+  // Don't allow the weights to become big, for uniqueness across tiles
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
+    clampWeights(bias, weight_vec[clip_iter]);
 
   // Blur the weights
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
@@ -152,14 +240,8 @@ void priorityBlend(double out_nodata_value,
 
   // Raise to power
   if (weights_exp != 1) {
-    for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-      for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-        for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-          weight_vec[clip_iter](col, row)
-            = pow(weight_vec[clip_iter](col, row), weights_exp);
-        }
-      }
-    }
+    for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
+      raiseToPower(weights_exp, weight_vec[clip_iter]);
   }
 
   // Now we are ready for blending
@@ -169,54 +251,20 @@ void priorityBlend(double out_nodata_value,
   if (save_dem_weight >= 0)
     vw::fill(saved_weight, 0.0);
 
-  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-    for (int col = 0; col < weight_vec[clip_iter].cols(); col++) {
-      for (int row = 0; row < weight_vec[clip_iter].rows(); row++) {
-
-        double wt = weight_vec[clip_iter](col, row);
-        if (wt <= 0)
-          continue; // nothing to do
-
-        // Initialize the tile
-        if (tile(col, row) == out_nodata_value)
-          tile(col, row) = 0;
-
-        tile(col, row)    += wt*tile_vec[clip_iter](col, row);
-        weights(col, row) += wt;
-
-        if (clip2dem_index[clip_iter] == save_dem_weight)
-          saved_weight(col, row) = wt;
-      }
-    }
-  }
+  // Accumulate weighted contributions from each DEM clip
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
+    accumWeightedTiles(out_nodata_value, save_dem_weight, clip2dem_index[clip_iter],
+                       tile_vec[clip_iter], weight_vec[clip_iter],
+                       tile, weights, saved_weight);
 
   // Compute the weighted average
-  for (int col = 0; col < tile.cols(); col++) {
-    for (int row = 0; row < weights.rows(); row++) {
-      if (weights(col, row) > 0)
-        tile(col, row) /= weights(col, row);
+  computeWeightedAverage(save_dem_weight, tile, weights, saved_weight);
 
-      if (save_dem_weight >= 0 && weights(col, row) > 0)
-        saved_weight(col, row) /= weights(col, row);
-
-    }
-  }
-
-  // Dump the weights. Useful for debugging.
+  // Save the weights if on. Useful when debugging.
   bool save_weights = false;
   if (save_weights) {
-    for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
-      vw::cartography::GeoReference crop_georef = vw::cartography::crop(out_georef, bbox);
-      std::ostringstream os;
-      os << "tile_weight_" << clip_iter << ".tif";
-      vw::vw_out() << "\nWriting: " << os.str() << "\n";
-      bool has_georef = true, has_nodata = true;
-      vw::cartography::block_write_gdal_image(os.str(), weight_vec[clip_iter],
-                  has_georef, crop_georef,
-                  has_nodata, -100,
-                  vw::GdalWriteOptions(),
-                  vw::TerminalProgressCallback("asp", ""));
-    }
+    for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
+      saveWeight(clip_iter, weight_vec[clip_iter], out_georef, bbox);
   }
 
   return;
@@ -467,10 +515,11 @@ public:
           this_major_axis == out_major_axis &&
           this_minor_axis == out_minor_axis &&
           m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset()) {
-        vw::vw_out(vw::WarningMessage) << "Found DEMs with the same radii and meridian offsets, "
-                               << "but different names: "
-                               << m_georefs[i].datum().name() << " and "
-                               << m_out_georef.datum().name() << "\n";
+        vw::vw_out(vw::WarningMessage) 
+          << "Found DEMs with the same radii and meridian offsets, "
+          << "but different names: "
+          << m_georefs[i].datum().name() << " and "
+          << m_out_georef.datum().name() << "\n";
       }
     }
   }
@@ -521,8 +570,8 @@ public:
     std::vector<std::string> dem_vec;
     initializeTileVector(num_images, bbox, m_opt, tile, tile_vec, weight_vec);
 
-    // This will ensure that pixels from earlier images are
-    // mostly used unmodified except being blended at the boundary.
+    // This will ensure that pixels from earlier images are mostly used
+    // unmodified except being blended at the boundary.
     vw::ImageView<double> weight_modifier;
     if (use_priority_blend) {
       weight_modifier = vw::ImageView<double>(bbox.width(), bbox.height());
@@ -701,12 +750,12 @@ public:
 
       } // End centerline weights case
 
-      // If we don't limit the weights from above, we will have tiling artifacts,
-      // as in different tiles the weights grow to different heights since
-      // they are cropped to different regions. For priority blending length,
-      // we'll do this process later, as the bbox is obtained differently in that case.
-      // With centerline weights, that is handled before 1D weights are multiplied
-      // to get the 2D weights.
+      // If we don't limit the weights from above, we will have tiling
+      // artifacts, as in different tiles the weights grow to different heights
+      // since they are cropped to different regions. For priority blending
+      // length, we'll do this process later, as the bbox is obtained
+      // differently in that case. With centerline weights, that is handled
+      // before 1D weights are multiplied to get the 2D weights.
       if (!use_priority_blend && !m_opt.use_centerline_weights) {
         for (int col = 0; col < local_wts.cols(); col++) {
           for (int row = 0; row < local_wts.rows(); row++) {
@@ -931,10 +980,10 @@ public:
 /// - mosaic_bbox is the output bounding box in projected space
 /// - dem_proj_bboxes and dem_pixel_bboxes are the locations of
 ///   each input DEM in the output DEM in projected and pixel coordinates.
-void load_dem_bounding_boxes(asp::DemMosaicOptions       const& opt,
-                             vw::cartography::GeoReference  const& mosaic_georef,
-                             vw::BBox2              & mosaic_bbox, // Projected coordinates
-                             std::vector<vw::BBox2> & dem_proj_bboxes,
+void load_dem_bounding_boxes(asp::DemMosaicOptions         const& opt,
+                             vw::cartography::GeoReference const& mosaic_georef,
+                             vw::BBox2               & mosaic_bbox, // Projected coordinates
+                             std::vector<vw::BBox2>  & dem_proj_bboxes,
                              std::vector<vw::BBox2i> & dem_pixel_bboxes) {
 
   vw::vw_out() << "Determining the bounding boxes of the inputs.\n";
@@ -1251,7 +1300,6 @@ int main(int argc, char *argv[]) {
 
       // Bounding box of this tile in pixels in the output image
       tile_box.crop(vw::BBox2i(0, 0, cols, rows));
-
       tile_pixel_bboxes.push_back(tile_box);
     }
 
@@ -1414,7 +1462,8 @@ int main(int argc, char *argv[]) {
                                        has_nodata, vw::round_and_clamp<vw::int32>(opt.out_nodata_value),
                                        opt, tpc);
       else
-        vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
+        vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " 
+                     << opt.output_type << ".\n");
 
       vw::vw_out() << "Number of valid (not no-data) pixels written: " << num_valid_pixels
                << ".\n";
