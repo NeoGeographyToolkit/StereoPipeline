@@ -49,6 +49,8 @@ Misc:
   * Removed the old qi2txt program for reading IceBridge QFIT binary data.
   * Do not use more than 128 threads in ``parallel_stereo``, as OpenBlas 
     fails then.
+  * Removed the undocumented ``dem_mosaic`` options ``--first-dem-as-reference``
+    and ``--this-dem-as-reference``.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------

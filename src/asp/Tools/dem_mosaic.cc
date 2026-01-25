@@ -645,12 +645,6 @@ public:
       vw::ImageViewRef<double> disk_dem = vw::pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
       vw::ImageView<asp::DoubleGrayA> dem    = vw::crop(disk_dem, in_box);
 
-      if (m_opt.first_dem_as_reference && dem_iter == 0) {
-        // We need to keep the first DEM, to use it as ref
-        // when merging in the blended DEM
-        first_dem = vw::crop(disk_dem, bbox);
-      }
-
       std::string dem_name = m_imgMgr.get_file_name(dem_iter);
 
       // If the nodata_threshold is specified, all values no more than this
@@ -671,20 +665,8 @@ public:
       // NaN values get set to no-data. This is a bugfix.
       for (int col = 0; col < dem.cols(); col++) {
         for (int row = 0; row < dem.rows(); row++) {
-          if (std::isnan(dem(col, row)[0])) {
+          if (std::isnan(dem(col, row)[0]))
             dem(col, row)[0] = nodata_value;
-          }
-        }
-      }
-
-      if (m_opt.first_dem_as_reference && dem_iter == 0) {
-        //TODO: Should be a function!
-        // Convert to the output nodata value
-        for (int col = 0; col < first_dem.cols(); col++) {
-          for (int row = 0; row < first_dem.rows(); row++) {
-            if (first_dem(col, row) == nodata_value || std::isnan(first_dem(col, row)))
-              first_dem(col, row) = m_opt.out_nodata_value;
-          }
         }
       }
 
@@ -722,11 +704,6 @@ public:
       // keep that image file open, for increased performance, unless
       // their number becomes too large.
       m_imgMgr.release(dem_iter);
-
-      if (dem_iter == 0 && m_opt.this_dem_as_reference != "") {
-        // We won't actually use this DEM, we just do all in reference to it.
-        continue;
-      }
 
       // Compute linear weights
       vw::ImageView<double> local_wts
@@ -940,28 +917,6 @@ public:
       m_num_valid_pixels += num_valid_in_tile;
     }
 
-    if (m_opt.first_dem_as_reference) {
-
-      // TODO(oalexan1): This must be a function
-      if (first_dem.cols() != tile.cols() || first_dem.rows() != tile.rows())
-        vw::vw_throw(vw::ArgumentErr() << "Book-keeping error when blending into first DEM.\n");
-
-      // Wipe from the tile all values outside the perimeter of
-      // first_dem. So we don't wipe values that happen to be
-      // in the holes of first_dem.
-      // TODO(oalexan1): How about using here the function centerlineWeightsWithHoles()?
-      vw::ImageView<double> local_wts;
-      bool fill_holes = true;
-      centerline_weights(vw::create_mask(first_dem, m_opt.out_nodata_value), local_wts,
-                         vw::BBox2(), fill_holes);
-      for (int col = 0; col < tile.cols(); col++) {
-        for (int row = 0; row < tile.rows(); row++) {
-          if (local_wts(col, row) == 0)
-            tile(col, row) = m_opt.out_nodata_value;
-        }
-      }
-    }
-
     // Return the tile we created with fake borders to make it look
     // the size of the entire output image. So far we operated
     // on doubles, here we cast to float.
@@ -997,8 +952,6 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions         const& opt,
   tpc.report_progress(0);
   double inc_amount = 1.0 / double(opt.dem_files.size());
 
-  vw::BBox2 first_dem_proj_box;
-
   // Loop through all DEMs
   for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
 
@@ -1009,9 +962,6 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions         const& opt,
     vw::BBox2i                pixel_box = bounding_box(img);
 
     dem_pixel_bboxes.push_back(pixel_box);
-
-    if (dem_iter == 0)
-      first_dem_proj_box = georef.bounding_box(img);
 
     bool has_lonat = (georef.proj4_str().find("+proj=longlat") != std::string::npos ||
                       mosaic_georef.proj4_str().find("+proj=longlat") != std::string::npos);
@@ -1053,10 +1003,6 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions         const& opt,
     tpc.report_incremental_progress(inc_amount);
   } // End loop through DEM files
   tpc.report_finished();
-
-  // If the first dem is used as reference, no matter what use its own box
-  if (opt.first_dem_as_reference)
-    mosaic_bbox = first_dem_proj_box;
 
 } // End function load_dem_bounding_boxes
 

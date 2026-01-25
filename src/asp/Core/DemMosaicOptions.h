@@ -33,7 +33,7 @@ namespace asp {
 
 struct DemMosaicOptions: vw::GdalWriteOptions {
   std::string dem_list, out_prefix, target_srs_string,
-    output_type, tile_list_str, this_dem_as_reference, weight_list, dem_list_file;
+    output_type, tile_list_str, weight_list, dem_list_file;
   std::vector<std::string> dem_files, weight_files;
   double tr, geo_tile_size;
   bool   has_out_nodata, force_projwin;
@@ -44,7 +44,7 @@ struct DemMosaicOptions: vw::GdalWriteOptions {
   double weights_exp, weights_blur_sigma, dem_blur_sigma;
   double nodata_threshold, fill_search_radius, fill_power, fill_percent, min_weight;
   bool   first, last, min, max, block_max, mean, stddev, median, nmad,
-    count, tap, gdal_tap, save_index_map, use_centerline_weights, first_dem_as_reference,
+    count, tap, gdal_tap, save_index_map, use_centerline_weights,
     propagate_nodata, no_border_blend, invert_weights;
   std::set<int> tile_list;
   vw::BBox2 projwin;
@@ -58,7 +58,7 @@ struct DemMosaicOptions: vw::GdalWriteOptions {
              first(false), last(false), min(false), max(false), block_max(false),
              mean(false), stddev(false), median(false), nmad(false),
              count(false), save_index_map(false), tap(false), gdal_tap(false),
-             use_centerline_weights(false), first_dem_as_reference(false),
+             use_centerline_weights(false),
              projwin(vw::BBox2()),
              invert_weights(false) {}
 };

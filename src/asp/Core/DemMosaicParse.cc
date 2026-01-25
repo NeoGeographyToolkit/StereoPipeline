@@ -166,13 +166,6 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   ("save-dem-weight", po::value<int>(&opt.save_dem_weight),
     "Save the weight image that tracks how much the input DEM with given index "
     "contributed to the output mosaic at each pixel (smallest index is 0).")
-  ("first-dem-as-reference",
-    po::bool_switch(&opt.first_dem_as_reference)->default_value(false),
-    "The output DEM will have the same size, grid, and georeference as the first one, "
-    "with the other DEMs blended within its perimeter.")
-  ("this-dem-as-reference", po::value(&opt.this_dem_as_reference)->default_value(""),
-    "The output DEM will have the same size, grid, and georeference as this one, but it "
-    "will not be used in the mosaic.")
   ("force-projwin", po::bool_switch(&opt.force_projwin)->default_value(false),
     "Make the output mosaic fill precisely the specified projwin, by padding it if "
     "necessary and aligning the output grid to the region.")
@@ -351,18 +344,6 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
       vw::vw_throw(vw::ArgumentErr() << "No input DEMs were specified.\n");
   }
 
-  if (opt.this_dem_as_reference != "" && opt.first_dem_as_reference) {
-    vw::vw_throw(vw::ArgumentErr()
-             << "Cannot have both options --first-dem-as-reference "
-             << "and --this-dem-as-reference.\n");
-  }
-
-  // We will co-opt the logic of first_dem_as_reference but won't blend the reference DEM
-  if (opt.this_dem_as_reference != "") {
-    opt.first_dem_as_reference = true;
-    opt.dem_files.insert(opt.dem_files.begin(), opt.this_dem_as_reference);
-  }
-
   if (int(opt.dem_files.size()) <= opt.save_dem_weight)
     vw::vw_throw(vw::ArgumentErr()
              << "Cannot save weights for given index as it is out of bounds.\n");
@@ -388,8 +369,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   if (opt.priority_blending_len > 0 &&
       (opt.tap || opt.gdal_tap ||  opt.force_projwin || !opt.projwin.empty() ||
        !opt.weight_list.empty() || opt.invert_weights || opt.min_weight > 0 ||
-       opt.propagate_nodata ||  opt.first_dem_as_reference ||
-       !opt.this_dem_as_reference.empty()))
+       opt.propagate_nodata))
     vw::vw_throw(vw::ArgumentErr()
              << "The option --priority-blending-length should not be mixed with other "
              << "options. Do each operation individually.\n");
@@ -434,22 +414,6 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   int val;
   while (os >> val)
     opt.tile_list.insert(val);
-
-  // Sanity checks for --first-dem-as-reference
-  if (opt.first_dem_as_reference) {
-    if (opt.target_srs_string != "" || opt.tr > 0 || opt.projwin != vw::BBox2())
-      vw::vw_throw(vw::ArgumentErr()
-                << "Cannot change the projection, spacing, or output box, if the first DEM "
-                << "is to be used as reference.\n");
-    if (opt.first  || opt.last || opt.min    || opt.max || opt.mean ||
-        opt.median || opt.nmad || opt.stddev ||
-        opt.priority_blending_len > 0 || //opt.save_dem_weight >= 0 ||
-        !boost::math::isnan(opt.nodata_threshold)) {
-      vw::vw_throw(vw::ArgumentErr()
-                << "Cannot do anything except regular blending if the first DEM "
-                << "is to be used as reference.\n");
-    }
-  }
 
   // The block size must be a multiple of 16. Handle this early.
   if (opt.block_size % 16 != 0)

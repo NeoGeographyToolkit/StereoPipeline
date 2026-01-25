@@ -203,15 +203,10 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, options,
             demString    = " ".join(dems)
             outputPrefix = os.path.join(batchFolder, 'out-blend-' + str(index))
 
-            # See if we have a pre-existing DEM to use as footprint
-            footprintDEM = os.path.join(batchFolder, 'out-trans-footprint-DEM.tif')
-            blendOutput  = outputPrefix + '-tile-0.tif'
-            if os.path.exists(footprintDEM):
-                cmd = ('dem_mosaic  --weights-exponent %f --this-dem-as-reference %s %s %s -o %s' 
-                       % (WEIGHT_EXP, footprintDEM, demString, threadText, outputPrefix))
-            else:
-                cmd = ('dem_mosaic --weights-exponent %f --first-dem-as-reference %s %s -o %s' 
-                       % (WEIGHT_EXP, demString, threadText, outputPrefix))
+            # Blend DEMs together using dem_mosaic
+            demString = " ".join(demFiles)
+            cmd = ('dem_mosaic --weights-exponent %f %s %s -o %s' 
+                   % (WEIGHT_EXP, demString, threadText, outputPrefix))
             if meanDiff > MEAN_DIFF_BLEND_THRESHOLD:
                 cmd += ' --propagate-nodata  --use-centerline-weights '
             print(cmd)
@@ -286,8 +281,8 @@ def runBlend(frame, processFolder, lidarFile, fireballDEM, options,
                 dems.append(currDemFile)
                 
             demString = " ".join(dems)
-            cmd = ('dem_mosaic --weights-exponent %f --this-dem-as-reference %s %s %s -o %s' 
-                   % (WEIGHT_EXP, fireballDEM, demString, threadText, fireballOutputPrefix))
+            cmd = ('dem_mosaic --weights-exponent %f %s %s -o %s' 
+                   % (WEIGHT_EXP, demString, threadText, fireballOutputPrefix))
             
             #filesToWipe.append(fireballBlendOutput)
 
