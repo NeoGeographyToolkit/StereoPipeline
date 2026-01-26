@@ -662,59 +662,6 @@ void preprocessDem(int dem_iter,
   imgMgr.release(dem_iter);
 }
 
-// Helper template to save DEM tile with type conversion
-template<typename T>
-void saveDemTileAsType(int block_size, std::string const& dem_tile,
-                       vw::ImageViewRef<float> const& out_dem,
-                       vw::cartography::GeoReference const& crop_georef,
-                       asp::DemMosaicOptions& opt) {
-  bool has_georef = true, has_nodata = true;
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  vw::GdalWriteOptions& gdal_opt = opt;  // upcast to base class
-  asp::save_with_temp_big_blocks(block_size, dem_tile,
-                                 per_pixel_filter(out_dem, vw::RoundAndClamp<T, float>()),
-                                 has_georef, crop_georef,
-                                 has_nodata, vw::round_and_clamp<T>(opt.out_nodata_value),
-                                 gdal_opt, tpc);
-}
-
-// Specialization for Float32 (no conversion needed)
-template<>
-void saveDemTileAsType<float>(int block_size, std::string const& dem_tile,
-                              vw::ImageViewRef<float> const& out_dem,
-                              vw::cartography::GeoReference const& crop_georef,
-                              asp::DemMosaicOptions& opt) {
-  bool has_georef = true, has_nodata = true;
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  vw::GdalWriteOptions& gdal_opt = opt;  // upcast to base class
-  asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem,
-                                 has_georef, crop_georef,
-                                 has_nodata, opt.out_nodata_value, gdal_opt, tpc);
-}
-
-// Save DEM tile to disk with appropriate type conversion based on output_type option.
-void saveDemTile(int block_size, std::string const& dem_tile,
-                 vw::ImageViewRef<float> const& out_dem,
-                 vw::cartography::GeoReference const& crop_georef,
-                 asp::DemMosaicOptions& opt) {
-  vw::vw_out() << "Writing: " << dem_tile << "\n";
-  
-  if (opt.output_type == "Float32")
-    saveDemTileAsType<float>(block_size, dem_tile, out_dem, crop_georef, opt);
-  else if (opt.output_type == "Byte")
-    saveDemTileAsType<vw::uint8>(block_size, dem_tile, out_dem, crop_georef, opt);
-  else if (opt.output_type == "UInt16")
-    saveDemTileAsType<vw::uint16>(block_size, dem_tile, out_dem, crop_georef, opt);
-  else if (opt.output_type == "Int16")
-    saveDemTileAsType<vw::int16>(block_size, dem_tile, out_dem, crop_georef, opt);
-  else if (opt.output_type == "UInt32")
-    saveDemTileAsType<vw::uint32>(block_size, dem_tile, out_dem, crop_georef, opt);
-  else if (opt.output_type == "Int32")
-    saveDemTileAsType<vw::int32>(block_size, dem_tile, out_dem, crop_georef, opt);
-  else
-    vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
-}
-
 // Erode the DEM based on grassfire weights and recompute weights using centerline algorithm.
 // This is used for priority blending where weights follow the DEM centerline.
 void erodeCenterlineWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
@@ -1119,6 +1066,57 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions         const& opt,
 
 } // End function load_dem_bounding_boxes
 
+// Helper template to save DEM tile with type conversion
+template<typename T>
+void saveDemTileAsType(int blockSize, std::string const& demTile,
+                       vw::ImageViewRef<float> const& outDem,
+                       vw::cartography::GeoReference const& cropGeoref,
+                       asp::DemMosaicOptions const& opt) {
+  bool hasGeoref = true, hasNodata = true;
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  asp::saveWithTempBigBlocks(blockSize, demTile,
+                             per_pixel_filter(outDem, vw::RoundAndClamp<T, float>()),
+                             hasGeoref, cropGeoref,
+                             hasNodata, vw::round_and_clamp<T>(opt.out_nodata_value),
+                             opt, tpc);
+}
+
+// Specialization for Float32 (no conversion needed)
+template<>
+void saveDemTileAsType<float>(int blockSize, std::string const& demTile,
+                              vw::ImageViewRef<float> const& outDem,
+                              vw::cartography::GeoReference const& cropGeoref,
+                              asp::DemMosaicOptions const& opt) {
+  bool hasGeoref = true, hasNodata = true;
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  asp::saveWithTempBigBlocks(blockSize, demTile, outDem,
+                             hasGeoref, cropGeoref,
+                             hasNodata, opt.out_nodata_value, opt, tpc);
+}
+
+// Save DEM tile to disk with appropriate type conversion based on output_type option.
+void saveDemTile(int blockSize, std::string const& demTile,
+                 vw::ImageViewRef<float> const& outDem,
+                 vw::cartography::GeoReference const& cropGeoref,
+                 asp::DemMosaicOptions const& opt) {
+  vw::vw_out() << "Writing: " << demTile << "\n";
+
+  if (opt.output_type == "Float32")
+    saveDemTileAsType<float>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "Byte")
+    saveDemTileAsType<vw::uint8>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "UInt16")
+    saveDemTileAsType<vw::uint16>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "Int16")
+    saveDemTileAsType<vw::int16>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "UInt32")
+    saveDemTileAsType<vw::uint32>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "Int32")
+    saveDemTileAsType<vw::int32>(blockSize, demTile, outDem, cropGeoref, opt);
+  else
+    vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
+}
+
 int main(int argc, char *argv[]) {
 
   asp::DemMosaicOptions opt;
@@ -1475,7 +1473,7 @@ int main(int argc, char *argv[]) {
                              mosaic_georef, nodata_values,
                              loaded_dem_pixel_bboxes,
                              num_valid_pixels, count_mutex), tile_box);
-      vw::cartography::GeoReference crop_georef 
+      vw::cartography::GeoReference crop_georef
         = vw::cartography::crop(mosaic_georef, tile_box.min().x(), tile_box.min().y());
       // Update the lon-lat box given that we know the final georef and image size
       crop_georef.ll_box_from_pix_box(vw::BBox2i(0, 0, cols, rows));

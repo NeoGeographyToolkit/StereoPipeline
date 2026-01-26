@@ -358,7 +358,7 @@ int main(int argc, char *argv[]) {
     TerminalProgressCallback tpc("asp", ": ");
     float weight_nodata = -1.0;
     bool save_weight = false;
-    asp::save_with_temp_big_blocks(block_size,
+    asp::saveWithTempBigBlocks(block_size,
                                    opt.output_dem,
                                    SfsBlendView(sfs_dem, lola_dem, image_mosaic,
                                                 sfs_nodata, lola_nodata, weight_nodata,
@@ -371,7 +371,7 @@ int main(int argc, char *argv[]) {
     vw_out() << "Writing the blending weight: "
              << opt.output_weight << std::endl;
     save_weight = true;
-    asp::save_with_temp_big_blocks(block_size,
+    asp::saveWithTempBigBlocks(block_size,
                                    opt.output_weight,
                                    SfsBlendView(sfs_dem, lola_dem, image_mosaic,
                                                 sfs_nodata, lola_nodata, weight_nodata,

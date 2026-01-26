@@ -61,9 +61,9 @@ void save_image(DemOptions & opt, ImageT img, vw::cartography::GeoReference cons
   TerminalProgressCallback tpc("asp", imgName + ": ");
   bool has_georef = true, has_nodata = true;
   if (opt.output_file_type == "tif")
-    asp::save_with_temp_big_blocks(block_size, output_file, img,
-                                    has_georef, georef,
-                                    has_nodata, opt.nodata_value, opt, tpc);
+    asp::saveWithTempBigBlocks(block_size, output_file, img,
+                               has_georef, georef,
+                               has_nodata, opt.nodata_value, opt, tpc);
   else
     vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
 } // End function save_image
