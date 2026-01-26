@@ -99,6 +99,30 @@ void initializeTileVector(int num_images,
   return;
 }
 
+// Invalidate pixels with values at or below threshold
+void invalidateByThreshold(double threshold, double nodata_value,
+                           vw::ImageView<asp::DoubleGrayA> & dem) {
+
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row)[0] <= threshold)
+        dem(col, row)[0] = nodata_value;
+    }
+  }
+}
+
+// Invalidate NaN pixels
+void invalidateNaN(double nodata_value,
+                   vw::ImageView<asp::DoubleGrayA> & dem) {
+
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (std::isnan(dem(col, row)[0]))
+        dem(col, row)[0] = nodata_value;
+    }
+  }
+}
+
 // Set image values to nodata where weight is <= 0 (per clip)
 void setNoDataByWeight(double out_nodata_value,
                        vw::ImageView<double> & tile,
@@ -179,22 +203,22 @@ void computeWeightedAverage(int save_dem_weight,
   }
 }
 
-// Save a weight image for debugging purposes
-void saveWeight(size_t clip_iter,
-                vw::ImageView<double> const& weight,
-                vw::cartography::GeoReference const& out_georef,
-                vw::BBox2i const& bbox) {
+// Save tile weights for debugging. The file name records the tile.
+// These can be later overlaid.
+void saveTileWeight(int dem_iter, vw::BBox2i const& bbox,
+                    vw::ImageView<double> const& local_wts,
+                    vw::cartography::GeoReference const& georef) {
 
-  vw::cartography::GeoReference crop_georef = vw::cartography::crop(out_georef, bbox);
   std::ostringstream os;
-  os << "tile_weight_" << clip_iter << ".tif";
-  vw::vw_out() << "\nWriting: " << os.str() << "\n";
+  os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y()
+     << ".tif";
+  vw::vw_out() << "Writing: " << os.str() << "\n";
   bool has_georef = true, has_nodata = true;
-  vw::cartography::block_write_gdal_image(os.str(), weight,
-              has_georef, crop_georef,
-              has_nodata, -100,
-              vw::GdalWriteOptions(),
-              vw::TerminalProgressCallback("asp", ""));
+  vw::cartography::block_write_gdal_image(os.str(), local_wts,
+             has_georef, georef,
+             has_nodata, -100,
+             vw::GdalWriteOptions(),
+             vw::TerminalProgressCallback("asp", ""));
 }
 
 // Use the weights created so far only to burn holes in
@@ -259,13 +283,6 @@ void priorityBlend(double out_nodata_value,
 
   // Compute the weighted average
   computeWeightedAverage(save_dem_weight, tile, weights, saved_weight);
-
-  // Save the weights if on. Useful when debugging.
-  bool save_weights = false;
-  if (save_weights) {
-    for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
-      saveWeight(clip_iter, weight_vec[clip_iter], out_georef, bbox);
-  }
 
   return;
 }
@@ -460,6 +477,36 @@ void processMedianOrNmad(vw::BBox2i const& bbox,
   return;
 }
 
+// Check that all input DEMs have compatible datums with the output
+void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& georefs,
+                         vw::cartography::GeoReference const& out_georef) {
+
+  double out_major_axis = out_georef.datum().semi_major_axis();
+  double out_minor_axis = out_georef.datum().semi_minor_axis();
+  for (int i = 0; i < (int)georefs.size(); i++) {
+    double this_major_axis = georefs[i].datum().semi_major_axis();
+    double this_minor_axis = georefs[i].datum().semi_minor_axis();
+    if (std::abs(this_major_axis - out_major_axis) > 0.1 ||
+        std::abs(this_minor_axis - out_minor_axis) > 0.1 ||
+        georefs[i].datum().meridian_offset() != out_georef.datum().meridian_offset()) {
+      vw::vw_throw(vw::NoImplErr() << "Mosaicking of DEMs with differing datum radii "
+               << " or meridian offsets is not implemented. Datums encountered:\n"
+               << georefs[i].datum() << "\n"
+               <<  out_georef.datum() << "\n");
+    }
+    if (georefs[i].datum().name() != out_georef.datum().name() &&
+        this_major_axis == out_major_axis &&
+        this_minor_axis == out_minor_axis &&
+        georefs[i].datum().meridian_offset() == out_georef.datum().meridian_offset()) {
+      vw::vw_out(vw::WarningMessage)
+        << "Found DEMs with the same radii and meridian offsets, "
+        << "but different names: "
+        << georefs[i].datum().name() << " and "
+        << out_georef.datum().name() << "\n";
+    }
+  }
+}
+
 /// Class that does the actual image processing work
 class DemMosaicView: public vw::ImageViewBase<DemMosaicView> {
   int m_cols, m_rows, m_bias;
@@ -497,34 +544,10 @@ public:
       vw::vw_throw(vw::ArgumentErr() << "Inputs expected to have the same size do not.\n");
 
     // Sanity check, see if datums differ, then the tool won't work
-    const double out_major_axis = m_out_georef.datum().semi_major_axis();
-    const double out_minor_axis = m_out_georef.datum().semi_minor_axis();
-    for (int i = 0; i < (int)m_georefs.size(); i++) {
-      double this_major_axis = m_georefs[i].datum().semi_major_axis();
-      double this_minor_axis = m_georefs[i].datum().semi_minor_axis();
-      if (std::abs(this_major_axis - out_major_axis) > 0.1 ||
-          std::abs(this_minor_axis - out_minor_axis) > 0.1 ||
-          m_georefs[i].datum().meridian_offset()
-          != m_out_georef.datum().meridian_offset()) {
-        vw::vw_throw(vw::NoImplErr() << "Mosaicking of DEMs with differing datum radii "
-                 << " or meridian offsets is not implemented. Datums encountered:\n"
-                 << m_georefs[i].datum() << "\n"
-                 <<  m_out_georef.datum() << "\n");
-      }
-      if (m_georefs[i].datum().name() != m_out_georef.datum().name() &&
-          this_major_axis == out_major_axis &&
-          this_minor_axis == out_minor_axis &&
-          m_georefs[i].datum().meridian_offset() == m_out_georef.datum().meridian_offset()) {
-        vw::vw_out(vw::WarningMessage)
-          << "Found DEMs with the same radii and meridian offsets, "
-          << "but different names: "
-          << m_georefs[i].datum().name() << " and "
-          << m_out_georef.datum().name() << "\n";
-      }
-    }
+    demMosaicDatumCheck(m_georefs, m_out_georef);
   }
 
-  // Boilerplate
+  // Output image properties
   typedef float      pixel_type;
   typedef pixel_type result_type;
   typedef vw::ProceduralPixelAccessor<DemMosaicView> pixel_accessor;
@@ -552,11 +575,11 @@ public:
     if (use_priority_blend)
       bbox.expand(m_bias + vw::BilinearInterpolation::pixel_buffer + 1);
 
-    // We will do all computations in double precision, regardless
-    // of the precision of the inputs, for increased accuracy.
-    // - The image data buffers are initialized here
-    vw::ImageView<double> tile   (bbox.width(), bbox.height()); // the output tile (in most cases)
-    vw::ImageView<double> weights(bbox.width(), bbox.height()); // weights (in most cases)
+    // We will do all computations in double precision, regardless of the
+    // precision of the inputs, for increased accuracy. The image data buffers
+    // are initialized here.
+    vw::ImageView<double> tile(bbox.width(), bbox.height()); // the output tile (most cases)
+    vw::ImageView<double> weights(bbox.width(), bbox.height()); // weights (most cases)
     vw::fill(tile, m_opt.out_nodata_value);
     vw::fill(weights, 0.0);
 
@@ -603,14 +626,12 @@ public:
       }
     }
 
-    vw::ImageView<double> first_dem;
-
     // Loop through all input DEMs
     for (int dem_iter = 0; dem_iter < (int)m_imgMgr.size(); dem_iter++) {
 
       // Load the information for this DEM
-      vw::cartography::GeoReference georef        = m_georefs         [dem_iter];
-      vw::BBox2i       dem_pixel_box = m_dem_pixel_bboxes[dem_iter];
+      vw::cartography::GeoReference georef= m_georefs[dem_iter];
+      vw::BBox2i dem_pixel_box = m_dem_pixel_bboxes[dem_iter];
 
       // The vw::cartography::GeoTransform will hide the messy details of conversions
       // from pixels to points and lon-lat.
@@ -645,30 +666,16 @@ public:
       vw::ImageViewRef<double> disk_dem = vw::pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
       vw::ImageView<asp::DoubleGrayA> dem    = vw::crop(disk_dem, in_box);
 
-      std::string dem_name = m_imgMgr.get_file_name(dem_iter);
-
       // If the nodata_threshold is specified, all values no more than this
       // will be invalidated.
-      // TODO(oalexan1): This must be a function
       double nodata_value = m_nodata_values[dem_iter];
       if (!std::isnan(m_opt.nodata_threshold)) {
         nodata_value = m_opt.nodata_threshold;
-        for (int col = 0; col < dem.cols(); col++) {
-          for (int row = 0; row < dem.rows(); row++) {
-            if (dem(col, row)[0] <= nodata_value) {
-              dem(col, row)[0] = nodata_value;
-            }
-          }
-        }
+        invalidateByThreshold(nodata_value, nodata_value, dem);
       }
 
       // NaN values get set to no-data. This is a bugfix.
-      for (int col = 0; col < dem.cols(); col++) {
-        for (int row = 0; row < dem.rows(); row++) {
-          if (std::isnan(dem(col, row)[0]))
-            dem(col, row)[0] = nodata_value;
-        }
-      }
+      invalidateNaN(nodata_value, dem);
 
       // Fill holes. This happens here, in the expanded tile, to
       // ensure we catch holes which are partially outside the tile
@@ -681,13 +688,11 @@ public:
 
       // Fill nodata based on radius. There is a sanity check that ensures we don't
       // do both this and the hole filling above.
-      if (m_opt.fill_search_radius > 0.0) {
+      if (m_opt.fill_search_radius > 0.0)
         dem = vw::apply_mask(fillNodataWithSearchRadius
-        (vw::create_mask(select_channel(dem, 0), nodata_value),
-          m_opt.fill_search_radius, m_opt.fill_power, m_opt.fill_percent,
-          m_opt.fill_num_passes),
-          nodata_value);
-      }
+                (vw::create_mask(select_channel(dem, 0), nodata_value),
+                 m_opt.fill_search_radius, m_opt.fill_power, m_opt.fill_percent,
+                 m_opt.fill_num_passes), nodata_value);
 
       // Fill-in no-data values a bit and blur. If just the blurring is used,
       // it will choke on no-data values, leaving large holes around each,
@@ -707,8 +712,7 @@ public:
 
       // Compute linear weights
       vw::ImageView<double> local_wts
-       = grassfire(notnodata(select_channel(dem, 0), nodata_value),
-                   m_opt.no_border_blend);
+        = grassfire(notnodata(select_channel(dem, 0), nodata_value), m_opt.no_border_blend);
 
       if (m_opt.use_centerline_weights) {
         // Erode based on grassfire weights, and then overwrite the grassfire
@@ -767,20 +771,10 @@ public:
         }
       }
 
-#if 0
       // Save the weights with georeference. Very useful for debugging
       // non-uniqueness issues across tiles.
-      std::ostringstream os;
-      os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y()
-         << ".tif";
-      vw::vw_out() << "Writing: " << os.str() << "\n";
-      bool has_georef = true, has_nodata = true;
-      vw::cartography::block_write_gdal_image(os.str(), local_wts,
-                 has_georef, georef,
-                 has_nodata, -100,
-                 vw::GdalWriteOptions(),
-                 vw::TerminalProgressCallback("asp", ""));
-#endif
+      if (false)
+        saveTileWeight(dem_iter, bbox, local_wts, georef);
 
       // Apply external weights
       if (!m_opt.weight_files.empty())
@@ -807,6 +801,7 @@ public:
       // For the median option, keep a copy of the output tile for each input DEM.
       // Also do it for max per block. This will be memory intensive. 
       if (m_opt.median || m_opt.nmad || m_opt.block_max) {
+        std::string dem_name = m_imgMgr.get_file_name(dem_iter);
         tile_vec.push_back(copy(tile));
         dem_vec.push_back(dem_name);
       }
@@ -957,9 +952,9 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions         const& opt,
 
     // Open a handle to this DEM file
     vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-    vw::DiskImageView<float>  img(opt.dem_files[dem_iter]);
-    vw::cartography::GeoReference          georef = asp::readGeorefOrThrow(opt.dem_files[dem_iter]);
-    vw::BBox2i                pixel_box = bounding_box(img);
+    vw::DiskImageView<float> img(opt.dem_files[dem_iter]);
+    vw::cartography::GeoReference georef = asp::readGeorefOrThrow(opt.dem_files[dem_iter]);
+    vw::BBox2i pixel_box = bounding_box(img);
 
     dem_pixel_bboxes.push_back(pixel_box);
 
