@@ -685,6 +685,65 @@ void erodeCenterlineWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
   asp::centerlineWeightsWithHoles(mask_img, weights, bias, -1.0);
 }
 
+// Compute weights for a DEM in the mosaic. This applies a pipeline of operations:
+// grassfire distance, erosion/centerline, clamping, blurring, power function.
+// Different steps are skipped depending on options (priority blend, centerline weights).
+void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
+                       double nodata_value,
+                       asp::DemMosaicOptions const& opt,
+                       int bias,
+                       bool use_priority_blend,
+                       int dem_iter,
+                       vw::BBox2i const& in_box,
+                       vw::ImageView<double>& weights) {  // output
+
+  // Compute linear weights using grassfire distance transform
+  weights = grassfire(notnodata(select_channel(dem, 0), nodata_value),
+                      opt.no_border_blend);
+
+  // Erode based on grassfire weights, and then overwrite the grassfire
+  // weights with centerline weights
+  if (opt.use_centerline_weights)
+    erodeCenterlineWeights(dem, nodata_value, opt.erode_len, bias,
+                           weights);  // output
+
+  // Clamp the weights to ensure the results agree across tiles. For
+  // priority blending length, we'll do this process later, as the bbox is
+  // obtained differently in that case. With centerline weights, that is
+  // handled before 1D weights are multiplied to get the 2D weights.
+  if (!use_priority_blend && !opt.use_centerline_weights) {
+    for (int col = 0; col < weights.cols(); col++) {
+      for (int row = 0; row < weights.rows(); row++) {
+        weights(col, row) = std::min(weights(col, row), double(bias));
+      }
+    }
+  }
+
+  // Erode. We already did that if centerline weights are used.
+  if (!opt.use_centerline_weights) {
+    int max_cutoff = max_pixel_value(weights);
+    int min_cutoff = opt.erode_len;
+    if (max_cutoff <= min_cutoff)
+      max_cutoff = min_cutoff + 1; // precaution
+    weights = clamp(weights - min_cutoff, 0.0, max_cutoff - min_cutoff);
+  }
+
+  // Blur the weights. If priority blending length is on, we'll do the blur later,
+  // after weights from different DEMs are combined.
+  if (opt.weights_blur_sigma > 0 && !use_priority_blend)
+    asp::blurWeights(weights, opt.weights_blur_sigma);
+
+  // Raise to the power. Note that when priority blending length is positive, we
+  // delay this process.
+  if (opt.weights_exp != 1 && !use_priority_blend)
+    raiseToPower(opt.weights_exp, weights);
+
+  // Apply external weights
+  if (!opt.weight_files.empty())
+    asp::applyExternalWeights(opt.weight_files[dem_iter], opt.min_weight,
+                              opt.invert_weights, in_box, weights);
+}
+
 // Copy weights from separate weight image into the alpha channel of the DEM.
 void setWeightsAsAlphaChannel(vw::ImageView<double> const& weights,
                               vw::ImageView<asp::DoubleGrayA>& dem) {  // output
@@ -709,14 +768,15 @@ class DemMosaicView: public vw::ImageViewBase<DemMosaicView> {
 
 public:
   DemMosaicView(int cols, int rows, int bias,
-                asp::DemMosaicOptions const& opt,
-                vw::DiskImageManager<float> & imgMgr,
+                asp::DemMosaicOptions                      const& opt,
                 std::vector<vw::cartography::GeoReference> const& georefs,
                 vw::cartography::GeoReference              const& out_georef,
-                std::vector<double>       const& nodata_values,
-                std::vector<vw::BBox2i>       const& dem_pixel_bboxes,
-                std::int64_t                   & num_valid_pixels,
-                vw::Mutex                      & count_mutex):
+                std::vector<double>                        const& nodata_values,
+                std::vector<vw::BBox2i>                    const& dem_pixel_bboxes,
+                // Outputs
+                vw::DiskImageManager<float> & imgMgr,
+                std::int64_t                & num_valid_pixels,
+                vw::Mutex                   & count_mutex):
     m_cols(cols), m_rows(rows), m_bias(bias), m_opt(opt),
     m_imgMgr(imgMgr), m_georefs(georefs),
     m_out_georef(out_georef), m_nodata_values(nodata_values),
@@ -855,57 +915,15 @@ public:
       preprocessDem(dem_iter, bbox, in_box, m_opt, m_imgMgr, m_nodata_values,
                     dem, nodata_value);  // output
 
-      // Compute linear weights
-      vw::ImageView<double> local_wts
-        = grassfire(notnodata(select_channel(dem, 0), nodata_value),
-                    m_opt.no_border_blend);
-
-      // Erode based on grassfire weights, and then overwrite the grassfire
-      // weights with centerline weights
-      if (m_opt.use_centerline_weights)
-        erodeCenterlineWeights(dem, nodata_value, m_opt.erode_len, m_bias,
-                               local_wts);  // output
-
-      // Clamp the weights to ensure the results agree across tiles. For
-      // priority blending length, we'll do this process later, as the bbox is
-      // obtained differently in that case. With centerline weights, that is
-      // handled before 1D weights are multiplied to get the 2D weights.
-      if (!use_priority_blend && !m_opt.use_centerline_weights) {
-        for (int col = 0; col < local_wts.cols(); col++) {
-          for (int row = 0; row < local_wts.rows(); row++) {
-            local_wts(col, row) = std::min(local_wts(col, row), double(m_bias));
-          }
-        }
-      }
-
-      // Erode. We already did that if centerline weights are used.
-      if (!m_opt.use_centerline_weights) {
-        int max_cutoff = max_pixel_value(local_wts);
-        int min_cutoff = m_opt.erode_len;
-        if (max_cutoff <= min_cutoff)
-          max_cutoff = min_cutoff + 1; // precaution
-        local_wts = clamp(local_wts - min_cutoff, 0.0, max_cutoff - min_cutoff);
-      }
-
-      // Blur the weights. If priority blending length is on, we'll do the blur later,
-      // after weights from different DEMs are combined.
-      if (m_opt.weights_blur_sigma > 0 && !use_priority_blend)
-        asp::blurWeights(local_wts, m_opt.weights_blur_sigma);
-
-      // Raise to the power. Note that when priority blending length is positive, we
-      // delay this process.
-      if (m_opt.weights_exp != 1 && !use_priority_blend)
-        raiseToPower(m_opt.weights_exp, local_wts);
+      // Compute weights for this DEM
+      vw::ImageView<double> local_wts;
+      computeDemWeights(dem, nodata_value, m_opt, m_bias, use_priority_blend,
+                        dem_iter, in_box, local_wts);  // output
 
       // Save the weights with georeference. Very useful for debugging
       // non-uniqueness issues across tiles.
       if (false)
         saveTileWeight(dem_iter, bbox, local_wts, georef);
-
-      // Apply external weights
-      if (!m_opt.weight_files.empty())
-        asp::applyExternalWeights(m_opt.weight_files[dem_iter], m_opt.min_weight,
-                                  m_opt.invert_weights, in_box, local_wts);
 
       // Set the weights in the alpha channel
       setWeightsAsAlphaChannel(local_wts, dem);  // output
@@ -1500,10 +1518,9 @@ int main(int argc, char *argv[]) {
 
       vw::ImageViewRef<float> out_dem
         = vw::crop(DemMosaicView(cols, rows, bias, opt,
-                                 imgMgr, georefs,
-                                 mosaic_georef, nodata_values,
-                                 loaded_dem_pixel_bboxes,
-                                 num_valid_pixels, count_mutex), tile_box);
+                                 georefs, mosaic_georef,
+                                 nodata_values, loaded_dem_pixel_bboxes,
+                                 imgMgr, num_valid_pixels, count_mutex), tile_box);  // output
       vw::cartography::GeoReference crop_georef
         = vw::cartography::crop(mosaic_georef, tile_box.min().x(),
                                 tile_box.min().y());
