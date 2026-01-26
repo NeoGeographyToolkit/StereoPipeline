@@ -418,14 +418,14 @@ void processDemTile(asp::DemMosaicOptions const& opt,
                                    opt.min   || opt.max))
           index_map(c, r) = dem_iter;
 
-      } else if (opt.mean) { 
+      } else if (opt.mean) {
         // For the mean, accumulate the value
         tile(c, r) += val;
         weights(c, r)++;
         if (opt.save_dem_weight == dem_iter)
           saved_weight(c, r) = 1;
 
-      } else if (opt.count) { 
+      } else if (opt.count) {
         // Increment the count
         tile(c, r)++;
         weights(c, r) += wt;
@@ -441,7 +441,7 @@ void processDemTile(asp::DemMosaicOptions const& opt,
         double sumSqDev = tile(c, r) + delta*(val - currMean);
         tile(c, r) = sumSqDev;
         tile_vec[0](c,r) = currMean;
-      } else if (!noblend) { 
+      } else if (!noblend) {
         // For blending do the weighted average
         tile(c, r) += wt*val;
         weights(c, r) += wt;
@@ -552,7 +552,7 @@ void updateNumValidPixels(vw::ImageView<double> const& tile,
                           std::int64_t & num_valid_pixels,
                           vw::Mutex & count_mutex) {
 
-  std::int64_t num_valid_in_tile = 0; 
+  std::int64_t num_valid_in_tile = 0;
   for (int col = 0; col < tile.cols(); col++) {
     for (int row = 0; row < tile.rows(); row++) {
       vw::Vector2 pix = vw::Vector2(col, row) + bbox.min();
@@ -614,7 +614,7 @@ void preprocessDem(int dem_iter,
 
   // Load the DEM from disk and crop to region of interest. The DEM is 2-channel:
   // first channel is elevation, second is alpha (used for weights later).
-  vw::ImageViewRef<double> disk_dem = 
+  vw::ImageViewRef<double> disk_dem =
     vw::pixel_cast<double>(imgMgr.get_handle(dem_iter, bbox));
   dem = vw::crop(disk_dem, in_box);
 
@@ -642,7 +642,7 @@ void preprocessDem(int dem_iter,
   if (opt.fill_search_radius > 0.0)
     dem = vw::apply_mask(
       fillNodataWithSearchRadius(vw::create_mask(select_channel(dem, 0), nodata_value),
-                                 opt.fill_search_radius, opt.fill_power, 
+                                 opt.fill_search_radius, opt.fill_power,
                                  opt.fill_percent, opt.fill_num_passes),
       nodata_value);
 
@@ -660,6 +660,59 @@ void preprocessDem(int dem_iter,
 
   // Mark the image as not in use in the manager (but keep file open for performance)
   imgMgr.release(dem_iter);
+}
+
+// Helper template to save DEM tile with type conversion
+template<typename T>
+void saveDemTileAsType(int block_size, std::string const& dem_tile,
+                       vw::ImageViewRef<float> const& out_dem,
+                       vw::cartography::GeoReference const& crop_georef,
+                       asp::DemMosaicOptions& opt) {
+  bool has_georef = true, has_nodata = true;
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  vw::GdalWriteOptions& gdal_opt = opt;  // upcast to base class
+  asp::save_with_temp_big_blocks(block_size, dem_tile,
+                                 per_pixel_filter(out_dem, vw::RoundAndClamp<T, float>()),
+                                 has_georef, crop_georef,
+                                 has_nodata, vw::round_and_clamp<T>(opt.out_nodata_value),
+                                 gdal_opt, tpc);
+}
+
+// Specialization for Float32 (no conversion needed)
+template<>
+void saveDemTileAsType<float>(int block_size, std::string const& dem_tile,
+                              vw::ImageViewRef<float> const& out_dem,
+                              vw::cartography::GeoReference const& crop_georef,
+                              asp::DemMosaicOptions& opt) {
+  bool has_georef = true, has_nodata = true;
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  vw::GdalWriteOptions& gdal_opt = opt;  // upcast to base class
+  asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem,
+                                 has_georef, crop_georef,
+                                 has_nodata, opt.out_nodata_value, gdal_opt, tpc);
+}
+
+// Save DEM tile to disk with appropriate type conversion based on output_type option.
+void saveDemTile(int block_size, std::string const& dem_tile,
+                 vw::ImageViewRef<float> const& out_dem,
+                 vw::cartography::GeoReference const& crop_georef,
+                 asp::DemMosaicOptions& opt) {
+  vw::vw_out() << "Writing: " << dem_tile << "\n";
+  
+  if (opt.output_type == "Float32")
+    saveDemTileAsType<float>(block_size, dem_tile, out_dem, crop_georef, opt);
+  else if (opt.output_type == "Byte")
+    saveDemTileAsType<vw::uint8>(block_size, dem_tile, out_dem, crop_georef, opt);
+  else if (opt.output_type == "UInt16")
+    saveDemTileAsType<vw::uint16>(block_size, dem_tile, out_dem, crop_georef, opt);
+  else if (opt.output_type == "Int16")
+    saveDemTileAsType<vw::int16>(block_size, dem_tile, out_dem, crop_georef, opt);
+  else if (opt.output_type == "UInt32")
+    saveDemTileAsType<vw::uint32>(block_size, dem_tile, out_dem, crop_georef, opt);
+  else if (opt.output_type == "Int32")
+    saveDemTileAsType<vw::int32>(block_size, dem_tile, out_dem, crop_georef, opt);
+  else
+    vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
 }
 
 // Erode the DEM based on grassfire weights and recompute weights using centerline algorithm.
@@ -858,12 +911,11 @@ public:
       vw::ImageView<double> local_wts
         = grassfire(notnodata(select_channel(dem, 0), nodata_value), m_opt.no_border_blend);
 
-      if (m_opt.use_centerline_weights) {
-        // Erode based on grassfire weights, and then overwrite the grassfire
-        // weights with centerline weights
+      // Erode based on grassfire weights, and then overwrite the grassfire
+      // weights with centerline weights
+      if (m_opt.use_centerline_weights)
         erodeCenterlineWeights(dem, nodata_value, m_opt.erode_len, m_bias,
                                local_wts);  // output
-      } // End centerline weights case
 
       // Clamp the weights to ensure the results agree across tiles. For
       // priority blending length, we'll do this process later, as the bbox is
@@ -1422,55 +1474,15 @@ int main(int argc, char *argv[]) {
                              imgMgr, georefs,
                              mosaic_georef, nodata_values,
                              loaded_dem_pixel_bboxes,
-                             num_valid_pixels, count_mutex),
-               tile_box);
-      vw::cartography::GeoReference crop_georef = vw::cartography::crop(mosaic_georef, tile_box.min().x(),
-                      tile_box.min().y());
+                             num_valid_pixels, count_mutex), tile_box);
+      vw::cartography::GeoReference crop_georef 
+        = vw::cartography::crop(mosaic_georef, tile_box.min().x(), tile_box.min().y());
       // Update the lon-lat box given that we know the final georef and image size
       crop_georef.ll_box_from_pix_box(vw::BBox2i(0, 0, cols, rows));
 
-      // Raster the tile to disk. Optionally cast to int (may be
-      // useful for mosaicking ortho images).
-      vw::vw_out() << "Writing: " << dem_tile << "\n";
-      bool has_georef = true, has_nodata = true;
-      vw::TerminalProgressCallback tpc("asp", "\t--> ");
-      if (opt.output_type == "Float32")
-        asp::save_with_temp_big_blocks(block_size, dem_tile, out_dem,
-                                       has_georef, crop_georef,
-                                       has_nodata, opt.out_nodata_value, opt, tpc);
-      else if (opt.output_type == "Byte")
-        asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, vw::RoundAndClamp<vw::uint8, float>()),
-                                       has_georef, crop_georef,
-                                       has_nodata, vw::round_and_clamp<vw::uint8>(opt.out_nodata_value),
-                                       opt, tpc);
-      else if (opt.output_type == "UInt16")
-        asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, vw::RoundAndClamp<vw::uint16, float>()),
-                                       has_georef, crop_georef,
-                                       has_nodata, vw::round_and_clamp<vw::uint16>(opt.out_nodata_value),
-                                       opt, tpc);
-      else if (opt.output_type == "Int16")
-        asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, vw::RoundAndClamp<vw::int16, float>()),
-                                       has_georef, crop_georef,
-                                       has_nodata, vw::round_and_clamp<vw::int16>(opt.out_nodata_value),
-                                       opt, tpc);
-      else if (opt.output_type == "UInt32")
-        asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, vw::RoundAndClamp<vw::uint32, float>()),
-                                       has_georef, crop_georef,
-                                       has_nodata, vw::round_and_clamp<vw::uint32>(opt.out_nodata_value),
-                                       opt, tpc);
-      else if (opt.output_type == "Int32")
-        asp::save_with_temp_big_blocks(block_size, dem_tile,
-                       per_pixel_filter(out_dem, vw::RoundAndClamp<vw::int32, float>()),
-                                       has_georef, crop_georef,
-                                       has_nodata, vw::round_and_clamp<vw::int32>(opt.out_nodata_value),
-                                       opt, tpc);
-      else
-        vw::vw_throw(vw::NoImplErr() << "Unsupported output type: "
-                     << opt.output_type << ".\n");
+      // Raster the tile to disk. Optionally cast to int (may be useful for
+      // mosaicking ortho images).
+      saveDemTile(block_size, dem_tile, out_dem, crop_georef, opt);
 
       vw::vw_out() << "Number of valid (not no-data) pixels written: "
                    << num_valid_pixels << ".\n";
