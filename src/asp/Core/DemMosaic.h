@@ -75,6 +75,31 @@ DoubleGrayA interpDem(double x, double y,
                       double tol,
                       bool propagate_nodata);
 
+// Pixel and weight manipulation utilities
+void invalidateByThreshold(double threshold, double nodata_value,
+                           vw::ImageView<DoubleGrayA> & dem);
+
+void invalidateNaN(double nodata_value,
+                   vw::ImageView<DoubleGrayA> & dem);
+
+void setNoDataByWeight(double out_nodata_value,
+                       vw::ImageView<double> & tile,
+                       vw::ImageView<double> & weight);
+
+void clampWeights(double bias, vw::ImageView<double> & weight);
+
+void raiseToPower(double exponent, vw::ImageView<double> & weight);
+
+void setWeightsAsAlphaChannel(vw::ImageView<double> const& weights,
+                              vw::ImageView<DoubleGrayA>& dem);
+
+// Tile processing utilities
+void divideByWeight(vw::ImageView<double> & tile,
+                    vw::ImageView<double> const& weights);
+
+void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& georefs,
+                         vw::cartography::GeoReference const& out_georef);
+
 } // end namespace asp
 
 #endif //__ASP_CORE_DEM_MOSAIC_H__

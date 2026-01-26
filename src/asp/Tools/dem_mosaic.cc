@@ -100,61 +100,6 @@ void initializeTileVector(int num_images,
 }
 
 // Invalidate pixels with values at or below threshold
-void invalidateByThreshold(double threshold, double nodata_value,
-                           vw::ImageView<asp::DoubleGrayA> & dem) {
-
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      if (dem(col, row)[0] <= threshold)
-        dem(col, row)[0] = nodata_value;
-    }
-  }
-}
-
-// Invalidate NaN pixels
-void invalidateNaN(double nodata_value,
-                   vw::ImageView<asp::DoubleGrayA> & dem) {
-
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      if (std::isnan(dem(col, row)[0]))
-        dem(col, row)[0] = nodata_value;
-    }
-  }
-}
-
-// Set image values to nodata where weight is <= 0 (per clip)
-void setNoDataByWeight(double out_nodata_value,
-                       vw::ImageView<double> & tile,
-                       vw::ImageView<double> & weight) {
-
-  for (int col = 0; col < weight.cols(); col++) {
-    for (int row = 0; row < weight.rows(); row++) {
-      if (weight(col, row) <= 0)
-        tile(col, row) = out_nodata_value;
-    }
-  }
-}
-
-// Clamp weights to a maximum value (per clip)
-void clampWeights(double bias, vw::ImageView<double> & weight) {
-
-  for (int col = 0; col < weight.cols(); col++) {
-    for (int row = 0; row < weight.rows(); row++) {
-      weight(col, row) = std::min(weight(col, row), double(bias));
-    }
-  }
-}
-
-// Raise weight values to a power (per clip)
-void raiseToPower(double exponent, vw::ImageView<double> & weight) {
-
-  for (int col = 0; col < weight.cols(); col++) {
-    for (int row = 0; row < weight.rows(); row++) {
-      weight(col, row) = pow(weight(col, row), exponent);
-    }
-  }
-}
 
 // Accumulate weighted tile values for a single clip
 void accumWeightedTiles(double out_nodata_value,
@@ -278,7 +223,7 @@ void priorityBlend(double out_nodata_value,
 
   // Set image values to nodata where weight is <= 0
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
-    setNoDataByWeight(out_nodata_value, tile_vec[clip_iter], weight_vec[clip_iter]);
+    asp::setNoDataByWeight(out_nodata_value, tile_vec[clip_iter], weight_vec[clip_iter]);
 
   // Update the weights given the created nodata regions
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
@@ -287,7 +232,7 @@ void priorityBlend(double out_nodata_value,
 
   // Don't allow the weights to become big, for uniqueness across tiles
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
-    clampWeights(bias, weight_vec[clip_iter]);
+    asp::clampWeights(bias, weight_vec[clip_iter]);
 
   // Blur the weights
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
@@ -296,7 +241,7 @@ void priorityBlend(double out_nodata_value,
   // Raise to power
   if (weights_exp != 1) {
     for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
-      raiseToPower(weights_exp, weight_vec[clip_iter]);
+      asp::raiseToPower(weights_exp, weight_vec[clip_iter]);
   }
 
   // Now we are ready for blending
@@ -531,17 +476,6 @@ void finishStdDevCalc(double out_nodata_value,
   }
 }
 
-// Divide tile values by weights for blending or averaging
-void divideByWeight(vw::ImageView<double> & tile,
-                    vw::ImageView<double> const& weights) {
-
-  for (int c = 0; c < tile.cols(); c++) {
-    for (int r = 0; r < tile.rows(); r++) {
-      if (weights(c, r) > 0)
-        tile(c, r) /= weights(c, r);
-    }
-  }
-}
 
 // Count valid pixels in tile and update global counter. Care to use a lock when
 // updating the global counter. Use int64 to not overflow for large images.
@@ -571,35 +505,6 @@ void updateNumValidPixels(vw::ImageView<double> const& tile,
 }
 
 // Check that all input DEMs have compatible datums with the output
-void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& georefs,
-                         vw::cartography::GeoReference const& out_georef) {
-
-  double out_major_axis = out_georef.datum().semi_major_axis();
-  double out_minor_axis = out_georef.datum().semi_minor_axis();
-  for (int i = 0; i < (int)georefs.size(); i++) {
-    double this_major_axis = georefs[i].datum().semi_major_axis();
-    double this_minor_axis = georefs[i].datum().semi_minor_axis();
-    if (std::abs(this_major_axis - out_major_axis) > 0.1 ||
-        std::abs(this_minor_axis - out_minor_axis) > 0.1 ||
-        georefs[i].datum().meridian_offset() != out_georef.datum().meridian_offset()) {
-      vw::vw_throw(vw::NoImplErr() << "Mosaicking of DEMs with differing datum radii "
-               << " or meridian offsets is not implemented. Datums encountered:\n"
-               << georefs[i].datum() << "\n"
-               <<  out_georef.datum() << "\n");
-    }
-    if (georefs[i].datum().name() != out_georef.datum().name() &&
-        this_major_axis == out_major_axis &&
-        this_minor_axis == out_minor_axis &&
-        georefs[i].datum().meridian_offset() == out_georef.datum().meridian_offset()) {
-      vw::vw_out(vw::WarningMessage)
-        << "Found DEMs with the same radii and meridian offsets, "
-        << "but different names: "
-        << georefs[i].datum().name() << " and "
-        << out_georef.datum().name() << "\n";
-    }
-  }
-}
-
 // Load and preprocess a single DEM for mosaicking. This includes cropping to the
 // region of interest, invalidating pixels by threshold, handling NaN values, filling
 // holes, and blurring if requested.
@@ -624,11 +529,11 @@ void preprocessDem(int dem_iter,
   nodata_value = nodata_values[dem_iter];
   if (!std::isnan(opt.nodata_threshold)) {
     nodata_value = opt.nodata_threshold;
-    invalidateByThreshold(nodata_value, nodata_value, dem);
+    asp::invalidateByThreshold(nodata_value, nodata_value, dem);
   }
 
   // NaN values get set to nodata. This is a bugfix for datasets with NaN.
-  invalidateNaN(nodata_value, dem);
+  asp::invalidateNaN(nodata_value, dem);
 
   // Fill holes using grassfire algorithm. This happens on the expanded tile to
   // ensure we catch holes partially outside the processing region.
@@ -714,13 +619,8 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
   // priority blending length, we'll do this process later, as the bbox is
   // obtained differently in that case. With centerline weights, that is
   // handled before 1D weights are multiplied to get the 2D weights.
-  if (!use_priority_blend && !opt.use_centerline_weights) {
-    for (int col = 0; col < weights.cols(); col++) {
-      for (int row = 0; row < weights.rows(); row++) {
-        weights(col, row) = std::min(weights(col, row), double(bias));
-      }
-    }
-  }
+  if (!use_priority_blend && !opt.use_centerline_weights)
+    asp::clampWeights(bias, weights);
 
   // Erode. We already did that if centerline weights are used.
   if (!opt.use_centerline_weights) {
@@ -739,7 +639,7 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
   // Raise to the power. Note that when priority blending length is positive, we
   // delay this process.
   if (opt.weights_exp != 1 && !use_priority_blend)
-    raiseToPower(opt.weights_exp, weights);
+    asp::raiseToPower(opt.weights_exp, weights);
 
   // Apply external weights
   if (!opt.weight_files.empty())
@@ -796,7 +696,7 @@ public:
       vw::vw_throw(vw::ArgumentErr() << "Inputs expected to have the same size do not.\n");
 
     // Sanity check, see if datums differ, then the tool won't work
-    demMosaicDatumCheck(m_georefs, m_out_georef);
+    asp::demMosaicDatumCheck(m_georefs, m_out_georef);
   }
 
   // Output image properties
@@ -930,7 +830,7 @@ public:
         saveTileWeight(dem_iter, bbox, local_wts, georef);
 
       // Set the weights in the alpha channel
-      setWeightsAsAlphaChannel(local_wts, dem);
+      asp::setWeightsAsAlphaChannel(local_wts, dem);
 
       // Prepare the DEM for interpolation
       vw::ImageViewRef<asp::DoubleGrayA> interp_dem
@@ -963,7 +863,7 @@ public:
 
     // Divide by the weights in blend, mean
     if (!noblend || m_opt.mean)
-      divideByWeight(tile, weights);
+      asp::divideByWeight(tile, weights);
 
     // Finish stddev calculations
     if (m_opt.stddev)
@@ -1585,9 +1485,8 @@ int main(int argc, char *argv[]) {
     std::vector<std::string>  loaded_dems;
     vw::DiskImageManager<float>   imgMgr;
 
+    // Load DEMs that intersect with this tile batch. Also calc the output DEM box.
     vw::BBox2i output_dem_box = vw::BBox2i(0, 0, cols, rows); // output DEM box
-
-    // Load DEMs that intersect with this tile batch
     vw::vw_out() << "Reading the input DEMs.\n";
     loadDemsForTiles(opt, dem_proj_bboxes, dem_pixel_bboxes, tile_pixel_bboxes,
                      start_tile, end_tile, mosaic_georef, output_dem_box,

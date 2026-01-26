@@ -23,6 +23,8 @@
 #include <vw/Cartography/GeoReference.h>
 #include <boost/math/special_functions/erf.hpp>
 
+// Low-level functions for DEM mosaicking
+
 namespace asp {
 
 void blurWeights(vw::ImageView<double> & weights, double sigma) {
@@ -367,6 +369,102 @@ DoubleGrayA interpDem(double x, double y,
   }
 
   return pval;
+}
+
+// Pixel and weight manipulation utilities
+
+void invalidateByThreshold(double threshold, double nodata_value,
+                           vw::ImageView<DoubleGrayA> & dem) {
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (dem(col, row)[0] <= threshold)
+        dem(col, row)[0] = nodata_value;
+    }
+  }
+}
+
+void invalidateNaN(double nodata_value,
+                   vw::ImageView<DoubleGrayA> & dem) {
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      if (std::isnan(dem(col, row)[0]))
+        dem(col, row)[0] = nodata_value;
+    }
+  }
+}
+
+void setNoDataByWeight(double out_nodata_value,
+                       vw::ImageView<double> & tile,
+                       vw::ImageView<double> & weight) {
+  for (int col = 0; col < weight.cols(); col++) {
+    for (int row = 0; row < weight.rows(); row++) {
+      if (weight(col, row) <= 0)
+        tile(col, row) = out_nodata_value;
+    }
+  }
+}
+
+void clampWeights(double bias, vw::ImageView<double> & weight) {
+  for (int col = 0; col < weight.cols(); col++) {
+    for (int row = 0; row < weight.rows(); row++) {
+      weight(col, row) = std::min(weight(col, row), double(bias));
+    }
+  }
+}
+
+void raiseToPower(double exponent, vw::ImageView<double> & weight) {
+  for (int col = 0; col < weight.cols(); col++) {
+    for (int row = 0; row < weight.rows(); row++) {
+      weight(col, row) = pow(weight(col, row), exponent);
+    }
+  }
+}
+
+void setWeightsAsAlphaChannel(vw::ImageView<double> const& weights,
+                              vw::ImageView<DoubleGrayA>& dem) {
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      dem(col, row).a() = weights(col, row);
+    }
+  }
+}
+
+void divideByWeight(vw::ImageView<double> & tile,
+                    vw::ImageView<double> const& weights) {
+  for (int c = 0; c < tile.cols(); c++) {
+    for (int r = 0; r < tile.rows(); r++) {
+      if (weights(c, r) > 0)
+        tile(c, r) /= weights(c, r);
+    }
+  }
+}
+
+void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& georefs,
+                         vw::cartography::GeoReference const& out_georef) {
+  double out_major_axis = out_georef.datum().semi_major_axis();
+  double out_minor_axis = out_georef.datum().semi_minor_axis();
+  for (int i = 0; i < (int)georefs.size(); i++) {
+    double this_major_axis = georefs[i].datum().semi_major_axis();
+    double this_minor_axis = georefs[i].datum().semi_minor_axis();
+    if (std::abs(this_major_axis - out_major_axis) > 0.1 ||
+        std::abs(this_minor_axis - out_minor_axis) > 0.1 ||
+        georefs[i].datum().meridian_offset() != out_georef.datum().meridian_offset()) {
+      vw::vw_throw(vw::NoImplErr() << "Mosaicking of DEMs with differing datum radii "
+               << " or meridian offsets is not implemented. Datums encountered:\n"
+               << georefs[i].datum() << "\n"
+               <<  out_georef.datum() << "\n");
+    }
+    if (georefs[i].datum().name() != out_georef.datum().name() &&
+        this_major_axis == out_major_axis &&
+        this_minor_axis == out_minor_axis &&
+        georefs[i].datum().meridian_offset() == out_georef.datum().meridian_offset()) {
+      vw::vw_out(vw::WarningMessage)
+        << "Found DEMs with the same radii and meridian offsets, "
+        << "but different names: "
+        << georefs[i].datum().name() << " and "
+        << out_georef.datum().name() << "\n";
+    }
+  }
 }
 
 } // end namespace asp
