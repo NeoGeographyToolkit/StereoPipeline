@@ -203,6 +203,37 @@ void computeWeightedAverage(int save_dem_weight,
   }
 }
 
+// Process block max: find DEM with max pixel sum and use it. Print the sum of
+// pixels per block.
+void processBlockMax(double out_nodata_value, vw::BBox2i const& bbox,
+                     std::vector<vw::ImageView<double>> const& tile_vec,
+                     std::vector<std::string> const& dem_vec,
+                     vw::ImageView<double> & tile) {
+
+  vw::fill(tile, out_nodata_value);
+  int num_tiles = tile_vec.size();
+  if (tile_vec.size() != dem_vec.size())
+    vw::vw_throw(vw::ArgumentErr() << "Book-keeping error.\n");
+  std::vector<double> tile_sum(num_tiles, 0);
+  for (int i = 0; i < num_tiles; i++) {
+    for (int c = 0; c < tile_vec[i].cols(); c++) {
+      for (int r = 0; r < tile_vec[i].rows(); r++) {
+        if (tile_vec[i](c, r) != out_nodata_value)
+          tile_sum[i] += tile_vec[i](c, r);
+      }
+    }
+    // The whole purpose of --block-max is to print the sum of
+    // pixels for each mapprojected image/DEM when doing SfS.
+    // The documentation has a longer explanation.
+    vw::vw_out() << "\n" << bbox << " " << dem_vec[i]
+             << " pixel sum: " << tile_sum[i] << "\n";
+  }
+  int max_index = std::distance(tile_sum.begin(),
+                                std::max_element(tile_sum.begin(), tile_sum.end()));
+  if (max_index >= 0 && max_index < num_tiles)
+    tile = copy(tile_vec[max_index]);
+}
+
 // Save tile weights for debugging. The file name records the tile.
 // These can be later overlaid.
 void saveTileWeight(int dem_iter, vw::BBox2i const& bbox,
@@ -475,6 +506,33 @@ void processMedianOrNmad(vw::BBox2i const& bbox,
   } // End col loop
 
   return;
+}
+
+// Count valid pixels in tile and update global counter. Care to use a lock
+// when updating the global counter.
+void updateNumValidPixels(vw::ImageView<double> const& tile,
+                                double out_nodata_value,
+                                vw::BBox2i const& bbox,
+                                vw::BBox2i const& orig_box,
+                                long long int & num_valid_pixels,
+                                vw::Mutex & count_mutex) {
+
+  long long int num_valid_in_tile = 0; // use int64 to not overflow for large images
+  for (int col = 0; col < tile.cols(); col++) {
+    for (int row = 0; row < tile.rows(); row++) {
+      vw::Vector2 pix = vw::Vector2(col, row) + bbox.min();
+      if (!orig_box.contains(pix))
+        continue; // in case the box got expanded, ignore the padding
+      if (tile(col, row) == out_nodata_value)
+        continue;
+      num_valid_in_tile++;
+    }
+  }
+  {
+    // Lock and update the total number of valid pixels
+    vw::Mutex::Lock lock(count_mutex);
+    num_valid_pixels += num_valid_in_tile;
+  }
 }
 
 // Check that all input DEMs have compatible datums with the output
@@ -849,32 +907,8 @@ public:
                           tile, index_map);
 
     // For max per block, find the sum of values in each DEM
-    // TODO(oalexan1): This must be a function
-    if (m_opt.block_max) {
-      vw::fill(tile, m_opt.out_nodata_value);
-      int num_tiles = tile_vec.size();
-      if (tile_vec.size() != dem_vec.size())
-        vw::vw_throw(vw::ArgumentErr() << "Book-keeping error.\n");
-      std::vector<double> tile_sum(num_tiles, 0);
-      for (int i = 0; i < num_tiles; i++) {
-        for (int c = 0; c < tile_vec[i].cols(); c++) {
-          for (int r = 0; r < tile_vec[i].rows(); r++) {
-            if (tile_vec[i](c, r) != m_opt.out_nodata_value) {
-              tile_sum[i] += tile_vec[i](c, r);
-            }
-          }
-        }
-        // The whole purpose of --block-max is to print the sum of
-        // pixels for each mapprojected image/DEM when doing SfS.
-        // The documentation has a longer explanation.
-        vw::vw_out() << "\n" << bbox << " " << dem_vec[i]
-                 << " pixel sum: " << tile_sum[i] << "\n";
-      }
-      int max_index = std::distance(tile_sum.begin(),
-                                    std::max_element(tile_sum.begin(), tile_sum.end()));
-      if (max_index >= 0 && max_index < num_tiles)
-        tile = copy(tile_vec[max_index]);
-    }
+    if (m_opt.block_max)
+      processBlockMax(m_opt.out_nodata_value, bbox, tile_vec, dem_vec, tile);
 
     // For priority blending length, use the weights created so far only to burn holes in
     // the DEMs where we don't want blending, then recreate the weights
@@ -894,23 +928,8 @@ public:
       tile = index_map;
 
     // How many valid pixels are there in the tile
-    // TODO(oalexan1): This must be a function
-    long long int num_valid_in_tile = 0; // use int64 to not overflow for large images
-    for (int col = 0; col < tile.cols(); col++) {
-      for (int row = 0; row < tile.rows(); row++) {
-        vw::Vector2 pix = vw::Vector2(col, row) + bbox.min();
-        if (!orig_box.contains(pix))
-          continue; // in case the box got expanded, ignore the padding
-        if (tile(col, row) == m_opt.out_nodata_value)
-          continue;
-        num_valid_in_tile++;
-      }
-    }
-    {
-      // Lock and update the total number of valid pixels
-      vw::Mutex::Lock lock(m_count_mutex);
-      m_num_valid_pixels += num_valid_in_tile;
-    }
+    updateNumValidPixels(tile, m_opt.out_nodata_value, bbox, orig_box,
+                         m_num_valid_pixels, m_count_mutex);
 
     // Return the tile we created with fake borders to make it look
     // the size of the entire output image. So far we operated
@@ -1406,8 +1425,8 @@ int main(int argc, char *argv[]) {
         vw::vw_throw(vw::NoImplErr() << "Unsupported output type: "
                      << opt.output_type << ".\n");
 
-      vw::vw_out() << "Number of valid (not no-data) pixels written: " << num_valid_pixels
-               << ".\n";
+      vw::vw_out() << "Number of valid (not no-data) pixels written: " 
+                   << num_valid_pixels << ".\n";
       if (num_valid_pixels == 0) {
         vw::vw_out() << "Removing tile with no valid pixels: " << dem_tile << "\n";
         boost::filesystem::remove(dem_tile);
