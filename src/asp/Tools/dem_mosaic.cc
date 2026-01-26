@@ -641,7 +641,8 @@ void preprocessDem(int dem_iter,
   // valid pixels. Note: validation ensures this and hole_fill_len aren't both used.
   if (opt.fill_search_radius > 0.0)
     dem = vw::apply_mask(
-      fillNodataWithSearchRadius(vw::create_mask(select_channel(dem, 0), nodata_value),
+      fillNodataWithSearchRadius(vw::create_mask(select_channel(dem, 0),
+                                                  nodata_value),
                                  opt.fill_search_radius, opt.fill_power,
                                  opt.fill_percent, opt.fill_num_passes),
       nodata_value);
@@ -856,7 +857,8 @@ public:
 
       // Compute linear weights
       vw::ImageView<double> local_wts
-        = grassfire(notnodata(select_channel(dem, 0), nodata_value), m_opt.no_border_blend);
+        = grassfire(notnodata(select_channel(dem, 0), nodata_value),
+                    m_opt.no_border_blend);
 
       // Erode based on grassfire weights, and then overwrite the grassfire
       // weights with centerline weights
@@ -995,11 +997,11 @@ public:
 /// - mosaic_bbox is the output bounding box in projected space
 /// - dem_proj_bboxes and dem_pixel_bboxes are the locations of
 ///   each input DEM in the output DEM in projected and pixel coordinates.
-void loadDemBdBoxes(asp::DemMosaicOptions         const& opt,
-                             vw::cartography::GeoReference const& mosaic_georef,
-                             vw::BBox2               & mosaic_bbox, // Projected coordinates
-                             std::vector<vw::BBox2>  & dem_proj_bboxes,
-                             std::vector<vw::BBox2i> & dem_pixel_bboxes) {
+void loadDemBdBoxes(asp::DemMosaicOptions const& opt,
+                    vw::cartography::GeoReference const& mosaic_georef,
+                    vw::BBox2& mosaic_bbox, // Projected coordinates
+                    std::vector<vw::BBox2>& dem_proj_bboxes,
+                    std::vector<vw::BBox2i>& dem_pixel_bboxes) {
 
   vw::vw_out() << "Determining the bounding boxes of the inputs.\n";
 
@@ -1018,13 +1020,15 @@ void loadDemBdBoxes(asp::DemMosaicOptions         const& opt,
     // Open a handle to this DEM file
     vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
     vw::DiskImageView<float> img(opt.dem_files[dem_iter]);
-    vw::cartography::GeoReference georef = asp::readGeorefOrThrow(opt.dem_files[dem_iter]);
+    vw::cartography::GeoReference georef
+      = asp::readGeorefOrThrow(opt.dem_files[dem_iter]);
     vw::BBox2i pixel_box = bounding_box(img);
 
     dem_pixel_bboxes.push_back(pixel_box);
 
-    bool has_lonat = (georef.proj4_str().find("+proj=longlat") != std::string::npos ||
-                      mosaic_georef.proj4_str().find("+proj=longlat") != std::string::npos);
+    bool has_lonat
+      = (georef.proj4_str().find("+proj=longlat") != std::string::npos ||
+         mosaic_georef.proj4_str().find("+proj=longlat") != std::string::npos);
 
     // Compute bounding box of this DEM. The simple case is when all DEMs have
     // the same projection, and it is not longlat, as then we need to worry about
@@ -1053,7 +1057,8 @@ void loadDemBdBoxes(asp::DemMosaicOptions         const& opt,
         mosaic_pixel_box = mosaic_georef.point_to_pixel_bbox(mosaic_bbox);
       }
 
-      vw::cartography::GeoTransform geotrans(georef, mosaic_georef, imgbox, mosaic_pixel_box);
+      vw::cartography::GeoTransform geotrans(georef, mosaic_georef,
+                                             imgbox, mosaic_pixel_box);
       proj_box = geotrans.pixel_to_point_bbox(imgbox);
 
       mosaic_bbox.grow(proj_box);
@@ -1065,6 +1070,90 @@ void loadDemBdBoxes(asp::DemMosaicOptions         const& opt,
   tpc.report_finished();
 
 } // End function loadDemBdBoxes
+
+// Load DEMs that intersect with the current tile batch. This filters the input DEMs
+// to only those needed for the tiles being processed, and prepares them for mosaicking.
+void loadDemsForTiles(asp::DemMosaicOptions const& opt,
+                      std::vector<vw::BBox2> const& demProjBboxes,
+                      std::vector<vw::BBox2i> const& demPixelBboxes,
+                      std::vector<vw::BBox2i> const& tilePixelBboxes,
+                      int startTile, int endTile,
+                      vw::cartography::GeoReference const& mosaicGeoref,
+                      vw::BBox2i const& outputDemBox,
+                      // Outputs
+                      vw::DiskImageManager<float>& imgMgr,
+                      std::vector<std::string>& loadedDems,
+                      std::vector<double>& nodataValues,
+                      std::vector<vw::cartography::GeoReference>& georefs,
+                      std::vector<vw::BBox2i>& loadedDemPixelBboxes) {
+
+  // Loop through all DEMs
+  for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
+
+    // Get the DEM bounding box that we previously computed (output projected coords)
+    vw::BBox2 dem_bbox = demProjBboxes[dem_iter];
+
+    // Go through each of the tile bounding boxes and see they intersect this DEM
+    bool use_this_dem = false;
+    for (int tile_id = startTile; tile_id < endTile; tile_id++) {
+
+      if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end())
+        continue;
+
+      // Get tile bbox in pixels, then convert it to projected coords.
+      vw::BBox2i tile_pixel_box = tilePixelBboxes[tile_id - startTile];
+      vw::BBox2  tile_proj_box  = mosaicGeoref.pixel_to_point_bbox(tile_pixel_box);
+
+      if (tile_proj_box.intersects(dem_bbox)) {
+        use_this_dem = true;
+        break;
+      }
+    }
+    if (use_this_dem == false)
+      continue; // Skip to the next DEM if we don't need this one.
+
+    // The vw::cartography::GeoTransform will hide the messy details of conversions
+    // from pixels to points and lon-lat.
+    vw::cartography::GeoReference georef = asp::readGeorefOrThrow(opt.dem_files[dem_iter]);
+    vw::BBox2i dem_pixel_box = demPixelBboxes[dem_iter];
+    vw::cartography::GeoTransform geotrans(georef, mosaicGeoref,
+                                           dem_pixel_box, outputDemBox);
+
+    // Get the current DEM bounding box in pixel units of the output mosaicked DEM
+    vw::BBox2 curr_box = geotrans.forward_bbox(dem_pixel_box);
+    curr_box.crop(outputDemBox);
+
+    // This is a fix for GDAL crashing when there are too many open
+    // file handles. In such situation, just selectively close the
+    // handles furthest from the current location.
+    imgMgr.add_file_handle_not_thread_safe(opt.dem_files[dem_iter], curr_box);
+
+    double curr_nodata_value = opt.out_nodata_value;
+    try {
+      // Get the nodata-value. Need a try block, in case we can't
+      // open more handles.
+      vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+      if (in_rsrc.has_nodata_read())
+        curr_nodata_value = float(in_rsrc.nodata_read());
+    } catch(std::exception const& e) {
+      // Try again
+      imgMgr.freeup_handles_not_thread_safe();
+      vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
+      if (in_rsrc.has_nodata_read())
+        curr_nodata_value = float(in_rsrc.nodata_read());
+    }
+
+    loadedDems.push_back(opt.dem_files[dem_iter]);
+
+    if (!std::isnan(opt.nodata_threshold))
+      curr_nodata_value = opt.nodata_threshold;
+
+    // Add the info for this DEM to the appropriate vectors
+    nodataValues.push_back(curr_nodata_value);
+    georefs.push_back(georef);
+    loadedDemPixelBboxes.push_back(dem_pixel_box);
+  } // End loop through DEM files
+}
 
 // Helper template to save DEM tile with type conversion
 template<typename T>
@@ -1369,71 +1458,13 @@ int main(int argc, char *argv[]) {
 
     vw::BBox2i output_dem_box = vw::BBox2i(0, 0, cols, rows); // output DEM box
 
-    // Loop through all DEMs
-    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++) {
-
-      // Get the DEM bounding box that we previously computed (output projected coords)
-      vw::BBox2 dem_bbox = dem_proj_bboxes[dem_iter];
-
-      // Go through each of the tile bounding boxes and see they intersect this DEM
-      bool use_this_dem = false;
-      for (int tile_id = start_tile; tile_id < end_tile; tile_id++) {
-
-        if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end())
-          continue;
-
-        // Get tile bbox in pixels, then convert it to projected coords.
-        vw::BBox2i tile_pixel_box = tile_pixel_bboxes[tile_id - start_tile];
-        vw::BBox2  tile_proj_box  = mosaic_georef.pixel_to_point_bbox(tile_pixel_box);
-
-        if (tile_proj_box.intersects(dem_bbox)) {
-          use_this_dem = true;
-          break;
-        }
-      }
-      if (use_this_dem == false)
-        continue; // Skip to the next DEM if we don't need this one.
-
-      // The vw::cartography::GeoTransform will hide the messy details of conversions
-      // from pixels to points and lon-lat.
-      vw::cartography::GeoReference georef  = asp::readGeorefOrThrow(opt.dem_files[dem_iter]);
-      vw::BBox2i dem_pixel_box = dem_pixel_bboxes[dem_iter];
-      vw::cartography::GeoTransform geotrans(georef, mosaic_georef, dem_pixel_box, output_dem_box);
-
-      // Get the current DEM bounding box in pixel units of the output mosaicked DEM
-      vw::BBox2 curr_box = geotrans.forward_bbox(dem_pixel_box);
-      curr_box.crop(output_dem_box);
-
-      // This is a fix for GDAL crashing when there are too many open
-      // file handles. In such situation, just selectively close the
-      // handles furthest from the current location.
-      imgMgr.add_file_handle_not_thread_safe(opt.dem_files[dem_iter], curr_box);
-
-      double curr_nodata_value = opt.out_nodata_value;
-      try {
-        // Get the nodata-value. Need a try block, in case we can't
-        // open more handles.
-        vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-        if (in_rsrc.has_nodata_read())
-          curr_nodata_value = float(in_rsrc.nodata_read());
-      } catch(std::exception const& e) {
-        // Try again
-        imgMgr.freeup_handles_not_thread_safe();
-        vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[dem_iter]);
-        if (in_rsrc.has_nodata_read())
-          curr_nodata_value = float(in_rsrc.nodata_read());
-      }
-
-      loaded_dems.push_back(opt.dem_files[dem_iter]);
-
-      if (!std::isnan(opt.nodata_threshold))
-        curr_nodata_value = opt.nodata_threshold;
-
-      // Add the info for this DEM to the appropriate vectors
-      nodata_values.push_back(curr_nodata_value);
-      georefs.push_back(georef);
-      loaded_dem_pixel_bboxes.push_back(dem_pixel_box);
-    } // End loop through DEM files
+    // Load DEMs that intersect with this tile batch
+    vw::vw_out() << "Reading the input DEMs.\n";
+    loadDemsForTiles(opt, dem_proj_bboxes, dem_pixel_bboxes, tile_pixel_bboxes,
+                     start_tile, end_tile, mosaic_georef, output_dem_box,
+                     // Outputs
+                     imgMgr, loaded_dems, nodata_values, georefs,
+                     loaded_dem_pixel_bboxes);
 
     // If there are 17 tiles, let them be tile-00, ..., tile-16.
     int num_digits = 1;
@@ -1469,12 +1500,13 @@ int main(int argc, char *argv[]) {
 
       vw::ImageViewRef<float> out_dem
         = vw::crop(DemMosaicView(cols, rows, bias, opt,
-                             imgMgr, georefs,
-                             mosaic_georef, nodata_values,
-                             loaded_dem_pixel_bboxes,
-                             num_valid_pixels, count_mutex), tile_box);
+                                 imgMgr, georefs,
+                                 mosaic_georef, nodata_values,
+                                 loaded_dem_pixel_bboxes,
+                                 num_valid_pixels, count_mutex), tile_box);
       vw::cartography::GeoReference crop_georef
-        = vw::cartography::crop(mosaic_georef, tile_box.min().x(), tile_box.min().y());
+        = vw::cartography::crop(mosaic_georef, tile_box.min().x(),
+                                tile_box.min().y());
       // Update the lon-lat box given that we know the final georef and image size
       crop_georef.ll_box_from_pix_box(vw::BBox2i(0, 0, cols, rows));
 
