@@ -1513,7 +1513,7 @@ int main(int argc, char *argv[]) {
       }
 
       // Set up tile image and metadata
-      std::int64_t num_valid_pixels; // Will be populated when saving to disk
+      std::int64_t num_valid_pixels = 0; // Will be populated when saving to disk
       vw::Mutex count_mutex; // to lock when updating num_valid_pixels
 
       vw::ImageViewRef<float> out_dem
