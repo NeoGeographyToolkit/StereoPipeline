@@ -609,8 +609,9 @@ void preprocessDem(int dem_iter,
                    asp::DemMosaicOptions const& opt,
                    vw::DiskImageManager<float> & imgMgr,
                    std::vector<double> const& nodata_values,
-                   vw::ImageView<asp::DoubleGrayA>& dem,  // output
-                   double& nodata_value) {                // output
+                   // Outputs
+                   vw::ImageView<asp::DoubleGrayA>& dem,
+                   double& nodata_value) {
 
   // Load the DEM from disk and crop to region of interest. The DEM is 2-channel:
   // first channel is elevation, second is alpha (used for weights later).
@@ -669,7 +670,8 @@ void erodeCenterlineWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
                             double nodata_value,
                             int erode_len,
                             int bias,
-                            vw::ImageView<double>& weights) {  // output
+                            // Outputs
+                            vw::ImageView<double>& weights) {
   // Create eroded DEM by invalidating pixels where grassfire weight <= erode_len
   vw::ImageView<asp::DoubleGrayA> eroded_dem = copy(dem);
   for (int col = 0; col < eroded_dem.cols(); col++) {
@@ -695,7 +697,8 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
                        bool use_priority_blend,
                        int dem_iter,
                        vw::BBox2i const& in_box,
-                       vw::ImageView<double>& weights) {  // output
+                       // Outputs
+                       vw::ImageView<double>& weights) {
 
   // Compute linear weights using grassfire distance transform
   weights = grassfire(notnodata(select_channel(dem, 0), nodata_value),
@@ -705,7 +708,7 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
   // weights with centerline weights
   if (opt.use_centerline_weights)
     erodeCenterlineWeights(dem, nodata_value, opt.erode_len, bias,
-                           weights);  // output
+                           weights);
 
   // Clamp the weights to ensure the results agree across tiles. For
   // priority blending length, we'll do this process later, as the bbox is
@@ -746,7 +749,8 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
 
 // Copy weights from separate weight image into the alpha channel of the DEM.
 void setWeightsAsAlphaChannel(vw::ImageView<double> const& weights,
-                              vw::ImageView<asp::DoubleGrayA>& dem) {  // output
+                              // Outputs
+                              vw::ImageView<asp::DoubleGrayA>& dem) {
   for (int col = 0; col < dem.cols(); col++) {
     for (int row = 0; row < dem.rows(); row++) {
       dem(col, row).a() = weights(col, row);
@@ -913,12 +917,12 @@ public:
       vw::ImageView<asp::DoubleGrayA> dem;
       double nodata_value = -std::numeric_limits<double>::max(); // will change
       preprocessDem(dem_iter, bbox, in_box, m_opt, m_imgMgr, m_nodata_values,
-                    dem, nodata_value);  // output
+                    dem, nodata_value);
 
       // Compute weights for this DEM
       vw::ImageView<double> local_wts;
       computeDemWeights(dem, nodata_value, m_opt, m_bias, use_priority_blend,
-                        dem_iter, in_box, local_wts);  // output
+                        dem_iter, in_box, local_wts);
 
       // Save the weights with georeference. Very useful for debugging
       // non-uniqueness issues across tiles.
@@ -926,7 +930,7 @@ public:
         saveTileWeight(dem_iter, bbox, local_wts, georef);
 
       // Set the weights in the alpha channel
-      setWeightsAsAlphaChannel(local_wts, dem);  // output
+      setWeightsAsAlphaChannel(local_wts, dem);
 
       // Prepare the DEM for interpolation
       vw::ImageViewRef<asp::DoubleGrayA> interp_dem
@@ -1173,6 +1177,148 @@ void loadDemsForTiles(asp::DemMosaicOptions const& opt,
   } // End loop through DEM files
 }
 
+// Set up output mosaic geometry: georef, dimensions (cols/rows), spacing.
+// Handles projection changes, resolution, alignment (tap/gdal-tap), and projwin cropping.
+// Arguments below get modified.
+void setupMosaicGeom(asp::DemMosaicOptions& opt,
+                     vw::cartography::GeoReference& mosaic_georef,
+                     vw::BBox2& mosaic_bbox,
+                     std::vector<vw::BBox2>& dem_proj_bboxes,
+                     std::vector<vw::BBox2i>& dem_pixel_bboxes,
+                     double& spacing,
+                     int& cols,
+                     int& rows) {
+
+  // By default the output georef is equal to the first input georef
+  mosaic_georef = asp::readGeorefOrThrow(opt.dem_files[0]);
+
+  spacing = opt.tr;
+  if (opt.target_srs_string != "" && spacing <= 0)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Changing the projection was requested. The output DEM "
+                 << "resolution must be specified via the --tr option.\n");
+
+  if (opt.target_srs_string != "") {
+    // Set the srs string into georef.
+    bool have_user_datum = false;
+    vw::cartography::Datum user_datum;
+    vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum,
+                                    user_datum, mosaic_georef);
+  }
+
+  // Use desired spacing if user-specified
+  if (spacing > 0.0) {
+    // Get lonlat bounding box of the first DEM.
+    vw::DiskImageView<float> dem0(opt.dem_files[0]);
+    vw::BBox2 llbox = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
+
+    // Reset transform with user provided spacing.
+    vw::math::Matrix<double,3,3> transform = mosaic_georef.transform();
+    transform.set_identity();
+    transform(0, 0) =  spacing;
+    transform(1, 1) = -spacing;
+    mosaic_georef.set_transform(transform);
+
+    // Set the translation part of the transform so that the origin
+    // maps to the lonlat box corner. This is still not fully
+    // reliable, but better than nothing. We will adjust mosaic_georef later on.
+    vw::Vector2 ul = mosaic_georef.lonlat_to_pixel(vw::Vector2(llbox.min().x(),
+                                                                llbox.max().y()));
+    mosaic_georef = vw::cartography::crop(mosaic_georef, ul.x(), ul.y());
+  } else {
+    // Update spacing variable from the current transform
+    spacing = mosaic_georef.transform()(0, 0);
+    if (spacing <= 0)
+      vw::vw_throw(vw::ArgumentErr() << "The output grid size must be positive.\n");
+  }
+
+  if (opt.gdal_tap) {
+    // A first adjustment, will refine later
+    auto T = mosaic_georef.transform();
+    T(0, 2) = spacing * round(T(0, 2)/spacing);
+    T(1, 2) = spacing * round(T(1, 2)/spacing);
+    mosaic_georef.set_transform(T);
+  }
+
+  // If the user specified the tile size in georeferenced units
+  if (opt.geo_tile_size > 0) {
+    opt.tile_size = (int)round(opt.geo_tile_size/spacing);
+    vw::vw_out() << "Tile size in pixels: " << opt.tile_size << "\n";
+  }
+  opt.tile_size = std::max(opt.tile_size, 1);
+
+  // Load the bounding boxes from all of the DEMs
+  loadDemBdBoxes(opt, mosaic_georef, mosaic_bbox,
+                 dem_proj_bboxes, dem_pixel_bboxes);
+
+  if (opt.tap) {
+    // Ensure that the grid is at integer multiples of grid size
+    mosaic_bbox.min() = spacing * floor(mosaic_bbox.min() / spacing);
+    mosaic_bbox.max() = spacing * ceil(mosaic_bbox.max()  / spacing);
+    if (opt.projwin != vw::BBox2()) {
+      opt.projwin.min() = spacing * floor(opt.projwin.min() / spacing);
+      opt.projwin.max() = spacing * ceil(opt.projwin.max()  / spacing);
+    }
+  }
+
+  if (opt.gdal_tap) {
+    // Conform to GDAL -tap. Ensure that the output bounds are at integer
+    // multiples of grid size.
+    mosaic_bbox.min() = spacing * round(mosaic_bbox.min() / spacing);
+    mosaic_bbox.max() = spacing * round(mosaic_bbox.max()  / spacing);
+    if (opt.projwin != vw::BBox2()) {
+      opt.projwin.min() = spacing * round(opt.projwin.min() / spacing);
+      opt.projwin.max() = spacing * round(opt.projwin.max()  / spacing);
+    }
+  }
+
+  if (opt.projwin != vw::BBox2()) {
+    // If to create the mosaic only in a given region
+    if (!opt.gdal_tap)
+      mosaic_bbox.crop(opt.projwin);
+    else
+      mosaic_bbox = opt.projwin; // GDAL --tap overrides the mosaic box
+
+    // Crop the proj boxes as well
+    for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++)
+      dem_proj_bboxes[dem_iter].crop(opt.projwin);
+    if (opt.force_projwin)
+      mosaic_bbox = opt.projwin;
+  }
+
+  if (opt.gdal_tap) {
+    // Further adjustment of the georef. By now mosaic_bbox incorporates
+    // --projwin if given. The corners of mosaic_bbox are multiples of spacing.
+    auto T = mosaic_georef.transform();
+    if (T(0, 0) <= 0)
+      vw::vw_throw(vw::ArgumentErr()
+                   << "The output grid size in x must be positive.\n");
+    if (T(1, 1) >= 0)
+      vw::vw_throw(vw::ArgumentErr()
+                   << "The output grid size in y must be negative.\n");
+    T(0, 2) = mosaic_bbox.min().x();
+    T(1, 2) = mosaic_bbox.max().y();
+    mosaic_georef.set_transform(T);
+  }
+
+  // First-guess pixel box
+  vw::BBox2 pixel_box = asp::pointToPixelBboxSnapped(mosaic_georef, mosaic_bbox, g_tol);
+
+  // Take care of numerical artifacts
+  vw::Vector2 beg_pix = pixel_box.min();
+  if (norm_2(beg_pix - round(beg_pix)) < g_tol)
+    beg_pix = round(beg_pix);
+  mosaic_georef = vw::cartography::crop(mosaic_georef, beg_pix[0], beg_pix[1]);
+
+  // Image size
+  pixel_box = asp::pointToPixelBboxSnapped(mosaic_georef, mosaic_bbox, g_tol);
+  vw::Vector2 end_pix = pixel_box.max();
+  cols = (int)round(end_pix[0]); // end_pix is the last pix in the image
+  rows = (int)round(end_pix[1]);
+
+  vw::vw_out() << "Mosaic size: " << cols << " x " << rows << " pixels.\n";
+}
+
 // Helper template to save DEM tile with type conversion
 template<typename T>
 void saveDemTileAsType(int blockSize, std::string const& demTile,
@@ -1256,141 +1402,15 @@ int main(int argc, char *argv[]) {
 
     vw::vw_out() << "Using output no-data value: " << opt.out_nodata_value << "\n";
 
-    // Form the mosaic georef. The georef of the first DEM is used as
-    // initial guess unless user wants to change the resolution and projection.
-
-    // By default the output georef is equal to the first input georef
-    vw::cartography::GeoReference mosaic_georef = asp::readGeorefOrThrow(opt.dem_files[0]);
-
-    double spacing = opt.tr;
-    if (opt.target_srs_string != "" && spacing <= 0) {
-        vw::vw_throw(vw::ArgumentErr()
-           << "Changing the projection was requested. The output DEM "
-           << "resolution must be specified via the --tr option.\n");
-    }
-
-    if (opt.target_srs_string != "") {
-      // Set the srs string into georef.
-      bool have_user_datum = false;
-      vw::cartography::Datum user_datum;
-      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum,
-                                      user_datum, mosaic_georef);
-    }
-
-    // Use desired spacing if user-specified
-    if (spacing > 0.0) {
-      // Get lonlat bounding box of the first DEM.
-      vw::DiskImageView<float> dem0(opt.dem_files[0]);
-      vw::BBox2 llbox0 = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
-
-      // Reset transform with user provided spacing.
-      vw::math::Matrix<double,3,3> transform = mosaic_georef.transform();
-      transform.set_identity();
-      transform(0, 0) =  spacing;
-      transform(1, 1) = -spacing;
-      mosaic_georef.set_transform(transform);
-
-      // Set the translation part of the transform so that the origin
-      // maps to the lonlat box corner. This is still not fully
-      // reliable, but better than nothing. We will adjust
-      // mosaic_georef later on.
-      vw::Vector2 ul = mosaic_georef.lonlat_to_pixel(vw::Vector2(llbox0.min().x(),
-                                                             llbox0.max().y()));
-      mosaic_georef = vw::cartography::crop(mosaic_georef, ul.x(), ul.y());
-    } else {
-      // Update spacing variable from the current transform
-      spacing = mosaic_georef.transform()(0, 0);
-    if (spacing <= 0)
-      vw::vw_throw(vw::ArgumentErr() << "The output grid size must be positive.\n");
-    }
-
-    if (opt.gdal_tap) {
-      // A first adjustment, will refine later
-      auto T = mosaic_georef.transform();
-      T(0, 2) = spacing * round(T(0, 2)/spacing);
-      T(1, 2) = spacing * round(T(1, 2)/spacing);
-      mosaic_georef.set_transform(T);
-    }
-
-    // if the user specified the tile size in georeferenced units.
-    if (opt.geo_tile_size > 0) {
-      opt.tile_size = (int)round(opt.geo_tile_size/spacing);
-      vw::vw_out() << "Tile size in pixels: " << opt.tile_size << "\n";
-    }
-    opt.tile_size = std::max(opt.tile_size, 1);
-
-    // Load the bounding boxes from all of the DEMs
+    // Set up output mosaic geometry
+    vw::cartography::GeoReference mosaic_georef;
     vw::BBox2 mosaic_bbox;
     std::vector<vw::BBox2> dem_proj_bboxes;
     std::vector<vw::BBox2i> dem_pixel_bboxes, loaded_dem_pixel_bboxes;
-    loadDemBdBoxes(opt, mosaic_georef, mosaic_bbox,
-                            dem_proj_bboxes, dem_pixel_bboxes);
-
-    if (opt.tap) {
-      // Ensure that the grid is at integer multiples of grid size
-      mosaic_bbox.min() = spacing * floor(mosaic_bbox.min() / spacing);
-      mosaic_bbox.max() = spacing * ceil(mosaic_bbox.max()  / spacing);
-      if (opt.projwin != vw::BBox2()) {
-        opt.projwin.min() = spacing * floor(opt.projwin.min() / spacing);
-        opt.projwin.max() = spacing * ceil(opt.projwin.max()  / spacing);
-      }
-    }
-
-    if (opt.gdal_tap) {
-      // Conform to GDAL -tap. Ensure that the output bounds are at integer
-      // multiples of grid size.
-      mosaic_bbox.min() = spacing * round(mosaic_bbox.min() / spacing);
-      mosaic_bbox.max() = spacing * round(mosaic_bbox.max()  / spacing);
-      if (opt.projwin != vw::BBox2()) {
-        opt.projwin.min() = spacing * round(opt.projwin.min() / spacing);
-        opt.projwin.max() = spacing * round(opt.projwin.max()  / spacing);
-      }
-    }
-
-    if (opt.projwin != vw::BBox2()) {
-      // If to create the mosaic only in a given region
-      if (!opt.gdal_tap)
-        mosaic_bbox.crop(opt.projwin);
-      else
-        mosaic_bbox = opt.projwin; // GDAL --tap overrides the mosaic box
-
-      // Crop the proj boxes as well
-      for (int dem_iter = 0; dem_iter < (int)opt.dem_files.size(); dem_iter++)
-        dem_proj_bboxes[dem_iter].crop(opt.projwin);
-      if (opt.force_projwin)
-        mosaic_bbox = opt.projwin;
-    }
-
-    if (opt.gdal_tap) {
-       // Further adjustment of the georef. By now mosaic_bbox incorporates
-       // --projwin if given. The corners of mosaic_bbox are multiples of spacing.
-       auto T = mosaic_georef.transform();
-       if (T(0, 0) <= 0)
-         vw::vw_throw(vw::ArgumentErr() << "The output grid size in x must be positive.\n");
-       if (T(1, 1) >= 0)
-         vw::vw_throw(vw::ArgumentErr() << "The output grid size in y must be negative.\n");
-       T(0, 2) = mosaic_bbox.min().x();
-       T(1, 2) = mosaic_bbox.max().y();
-       mosaic_georef.set_transform(T);
-    }
-
-    // First-guess pixel box
-    vw::BBox2 pixel_box = asp::pointToPixelBboxSnapped(mosaic_georef, mosaic_bbox, g_tol);
-
-    // Take care of numerical artifacts
-    vw::Vector2 beg_pix = pixel_box.min();
-    if (norm_2(beg_pix - round(beg_pix)) < g_tol)
-      beg_pix = round(beg_pix);
-    mosaic_georef = vw::cartography::crop(mosaic_georef, beg_pix[0], beg_pix[1]);
-
-    // Image size
-    pixel_box = asp::pointToPixelBboxSnapped(mosaic_georef, mosaic_bbox, g_tol);
-    vw::Vector2 end_pix = pixel_box.max();
-    int cols = (int)round(end_pix[0]); // end_pix is the last pix in the image
-    int rows = (int)round(end_pix[1]);
-
-    // Form the mosaic and write it to disk
-    vw::vw_out() << "Mosaic size: " << cols << " x " << rows << " pixels.\n";
+    double spacing = 0.0; // will be updated
+    int cols = 0, rows = 0; // will be updated
+    setupMosaicGeom(opt, mosaic_georef, mosaic_bbox, dem_proj_bboxes,
+                    dem_pixel_bboxes, spacing, cols, rows);
 
     // This bias is very important. This is how much we should read from
     // the images beyond the current boundary to avoid tiling artifacts.
@@ -1398,8 +1418,7 @@ int main(int argc, char *argv[]) {
     int bias = opt.erode_len + opt.extra_crop_len + opt.hole_fill_len
       + opt.fill_search_radius
       + 2*std::max(vw::compute_kernel_size(opt.weights_blur_sigma),
-                   vw::compute_kernel_size(opt.dem_blur_sigma))
-                   + 1;
+                   vw::compute_kernel_size(opt.dem_blur_sigma)) + 1;
 
     // If we just fill holes based on search radius, we do not need a large bias.
     // Filling with large search radius is slow as it is.
@@ -1520,7 +1539,7 @@ int main(int argc, char *argv[]) {
         = vw::crop(DemMosaicView(cols, rows, bias, opt,
                                  georefs, mosaic_georef,
                                  nodata_values, loaded_dem_pixel_bboxes,
-                                 imgMgr, num_valid_pixels, count_mutex), tile_box);  // output
+                                 imgMgr, num_valid_pixels, count_mutex), tile_box);
       vw::cartography::GeoReference crop_georef
         = vw::cartography::crop(mosaic_georef, tile_box.min().x(),
                                 tile_box.min().y());
