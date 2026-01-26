@@ -600,6 +600,68 @@ void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& geore
   }
 }
 
+// Load and preprocess a single DEM for mosaicking. This includes cropping to the
+// region of interest, invalidating pixels by threshold, handling NaN values, filling
+// holes, and blurring if requested.
+void preprocessDem(int dem_iter,
+                   vw::BBox2i const& bbox,
+                   vw::BBox2i const& in_box,
+                   asp::DemMosaicOptions const& opt,
+                   vw::DiskImageManager<float> & imgMgr,
+                   std::vector<double> const& nodata_values,
+                   vw::ImageView<asp::DoubleGrayA>& dem,  // output
+                   double& nodata_value) {                // output
+
+  // Load the DEM from disk and crop to region of interest. The DEM is 2-channel:
+  // first channel is elevation, second is alpha (used for weights later).
+  vw::ImageViewRef<double> disk_dem = 
+    vw::pixel_cast<double>(imgMgr.get_handle(dem_iter, bbox));
+  dem = vw::crop(disk_dem, in_box);
+
+  // Determine the effective nodata value. If nodata_threshold is specified,
+  // all values <= threshold are invalidated and threshold becomes the nodata value.
+  nodata_value = nodata_values[dem_iter];
+  if (!std::isnan(opt.nodata_threshold)) {
+    nodata_value = opt.nodata_threshold;
+    invalidateByThreshold(nodata_value, nodata_value, dem);
+  }
+
+  // NaN values get set to nodata. This is a bugfix for datasets with NaN.
+  invalidateNaN(nodata_value, dem);
+
+  // Fill holes using grassfire algorithm. This happens on the expanded tile to
+  // ensure we catch holes partially outside the processing region.
+  if (opt.hole_fill_len > 0)
+    dem = vw::apply_mask(
+      vw::fill_holes_grass(vw::create_mask(select_channel(dem, 0), nodata_value),
+                           opt.hole_fill_len),
+      nodata_value);
+
+  // Fill nodata based on search radius. Uses weighted interpolation from nearby
+  // valid pixels. Note: validation ensures this and hole_fill_len aren't both used.
+  if (opt.fill_search_radius > 0.0)
+    dem = vw::apply_mask(
+      fillNodataWithSearchRadius(vw::create_mask(select_channel(dem, 0), nodata_value),
+                                 opt.fill_search_radius, opt.fill_power, 
+                                 opt.fill_percent, opt.fill_num_passes),
+      nodata_value);
+
+  // Blur the DEM if requested. First fill nodata slightly to avoid large holes
+  // around nodata regions when blurring (blurring can't handle nodata directly).
+  if (opt.dem_blur_sigma > 0.0) {
+    int kernel_size = vw::compute_kernel_size(opt.dem_blur_sigma);
+    dem = vw::apply_mask(
+      gaussian_filter(fill_nodata_with_avg(
+                        vw::create_mask(select_channel(dem, 0), nodata_value),
+                        kernel_size),
+                      opt.dem_blur_sigma),
+      nodata_value);
+  }
+
+  // Mark the image as not in use in the manager (but keep file open for performance)
+  imgMgr.release(dem_iter);
+}
+
 /// Class that does the actual image processing work
 class DemMosaicView: public vw::ImageViewBase<DemMosaicView> {
   int m_cols, m_rows, m_bias;
@@ -754,55 +816,11 @@ public:
         vw::fill(weights, 0.0);
       }
 
-      // Crop the disk dem to a 2-channel in-memory image. First
-      // channel is the image pixels, second will be the weights.
-      vw::ImageViewRef<double> disk_dem =
-         vw::pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
-      vw::ImageView<asp::DoubleGrayA> dem = vw::crop(disk_dem, in_box);
-
-      // If the nodata_threshold is specified, all values no more than this
-      // will be invalidated.
-      double nodata_value = m_nodata_values[dem_iter];
-      if (!std::isnan(m_opt.nodata_threshold)) {
-        nodata_value = m_opt.nodata_threshold;
-        invalidateByThreshold(nodata_value, nodata_value, dem);
-      }
-
-      // NaN values get set to no-data. This is a bugfix.
-      invalidateNaN(nodata_value, dem);
-
-      // Fill holes. This happens here, in the expanded tile, to
-      // ensure we catch holes which are partially outside the tile
-      // being processed.
-      if (m_opt.hole_fill_len > 0)
-        dem = vw::apply_mask(vw::fill_holes_grass
-                         (vw::create_mask(select_channel(dem, 0), nodata_value),
-                          m_opt.hole_fill_len),
-                         nodata_value);
-
-      // Fill nodata based on radius. There is a sanity check that ensures we don't
-      // do both this and the hole filling above.
-      if (m_opt.fill_search_radius > 0.0)
-        dem = vw::apply_mask(fillNodataWithSearchRadius
-                (vw::create_mask(select_channel(dem, 0), nodata_value),
-                 m_opt.fill_search_radius, m_opt.fill_power, m_opt.fill_percent,
-                 m_opt.fill_num_passes), nodata_value);
-
-      // Fill-in no-data values a bit and blur. If just the blurring is used,
-      // it will choke on no-data values, leaving large holes around each,
-      // hence the need to fill a little.
-      if (m_opt.dem_blur_sigma > 0.0) {
-        int kernel_size = vw::compute_kernel_size(m_opt.dem_blur_sigma);
-        dem = vw::apply_mask(gaussian_filter(fill_nodata_with_avg
-                                         (vw::create_mask(select_channel(dem, 0), nodata_value),
-                                          kernel_size),
-                                         m_opt.dem_blur_sigma), nodata_value);
-      }
-
-      // Mark the handle to the image as not in use, though we still
-      // keep that image file open, for increased performance, unless
-      // their number becomes too large.
-      m_imgMgr.release(dem_iter);
+      // Load and preprocess this DEM (crop, threshold, fill, blur)
+      vw::ImageView<asp::DoubleGrayA> dem;
+      double nodata_value = -std::numeric_limits<double>::max(); // will change
+      preprocessDem(dem_iter, bbox, in_box, m_opt, m_imgMgr, m_nodata_values,
+                    dem, nodata_value);  // output
 
       // Compute linear weights
       vw::ImageView<double> local_wts
