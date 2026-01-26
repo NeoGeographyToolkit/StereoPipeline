@@ -359,12 +359,13 @@ int main(int argc, char *argv[]) {
     float weight_nodata = -1.0;
     bool save_weight = false;
     asp::saveWithTempBigBlocks(block_size,
-                                   opt.output_dem,
-                                   SfsBlendView(sfs_dem, lola_dem, image_mosaic,
-                                                sfs_nodata, lola_nodata, weight_nodata,
-                                                extra, save_weight, opt),
-                                   has_georef, sfs_georef,
-                                   has_nodata, sfs_nodata, opt, tpc);
+                               opt.output_dem,
+                               SfsBlendView(sfs_dem, lola_dem, image_mosaic,
+                                            sfs_nodata, lola_nodata,
+                                            weight_nodata, extra,
+                                            save_weight, opt),
+                               has_georef, sfs_georef,
+                               has_nodata, sfs_nodata, opt, tpc);
 
     // Write the weight. Have to rerun the same logic due to ASP's limitations,
     // it cannot write two large files at the same time.
@@ -372,12 +373,13 @@ int main(int argc, char *argv[]) {
              << opt.output_weight << std::endl;
     save_weight = true;
     asp::saveWithTempBigBlocks(block_size,
-                                   opt.output_weight,
-                                   SfsBlendView(sfs_dem, lola_dem, image_mosaic,
-                                                sfs_nodata, lola_nodata, weight_nodata,
-                                                extra, save_weight, opt),
-                                   has_georef, sfs_georef,
-                                   has_nodata, weight_nodata, opt, tpc);
+                               opt.output_weight,
+                               SfsBlendView(sfs_dem, lola_dem, image_mosaic,
+                                            sfs_nodata, lola_nodata,
+                                            weight_nodata, extra,
+                                            save_weight, opt),
+                               has_georef, sfs_georef,
+                               has_nodata, weight_nodata, opt, tpc);
 
 
   } ASP_STANDARD_CATCHES;

@@ -576,43 +576,44 @@ void write_selected_image_type(ImageViewRef<float> const& out_img,
   // Write to disk using the specified output data type.
   if (opt.output_type == "float32") 
     asp::saveWithTempBigBlocks(min_tile_size, opt.output_image, out_img,
-                                   has_georef, georef, has_nodata, output_nodata_value, opt, tpc);
+                               has_georef, georef, has_nodata,
+                               output_nodata_value, opt, tpc);
   else if (opt.output_type == "byte") 
     asp::saveWithTempBigBlocks(min_tile_size, opt.output_image,
-                                   per_pixel_filter(out_img,
-                                                    RoundAndClamp<uint8, float>()),
-                                   has_georef, georef, has_nodata, 
-                                   vw::round_and_clamp<uint8>(output_nodata_value),
-                                   opt, tpc);
+                               per_pixel_filter(out_img,
+                                                RoundAndClamp<uint8, float>()),
+                               has_georef, georef, has_nodata, 
+                               vw::round_and_clamp<uint8>(output_nodata_value),
+                               opt, tpc);
   else if (opt.output_type == "uint16") 
     asp::saveWithTempBigBlocks(min_tile_size, opt.output_image,
-                                   per_pixel_filter(out_img,
-                                                    RoundAndClamp<uint16, float>()),
-                                   has_georef, georef, has_nodata, 
-                                   vw::round_and_clamp<uint16>(output_nodata_value),
-                                   opt, tpc);
+                               per_pixel_filter(out_img,
+                                                RoundAndClamp<uint16, float>()),
+                               has_georef, georef, has_nodata, 
+                               vw::round_and_clamp<uint16>(output_nodata_value),
+                               opt, tpc);
   else if (opt.output_type == "int16") 
     asp::saveWithTempBigBlocks(min_tile_size, opt.output_image,
-                                   per_pixel_filter(out_img,
-                                                    RoundAndClamp<int16, float>()),
-                                   has_georef, georef, has_nodata, 
-                                   vw::round_and_clamp<int16>(output_nodata_value),
-                                   opt, tpc);
+                               per_pixel_filter(out_img,
+                                                RoundAndClamp<int16, float>()),
+                               has_georef, georef, has_nodata, 
+                               vw::round_and_clamp<int16>(output_nodata_value),
+                               opt, tpc);
   
   else if (opt.output_type == "uint32") 
     asp::saveWithTempBigBlocks(min_tile_size, opt.output_image,
-                                   per_pixel_filter(out_img,
-                                                    RoundAndClamp<uint32, float>()),
-                                   has_georef, georef, has_nodata, 
-                                   vw::round_and_clamp<uint32>(output_nodata_value),
-                                   opt, tpc);
+                               per_pixel_filter(out_img,
+                                                RoundAndClamp<uint32, float>()),
+                               has_georef, georef, has_nodata, 
+                               vw::round_and_clamp<uint32>(output_nodata_value),
+                               opt, tpc);
   else if (opt.output_type == "int32") 
     asp::saveWithTempBigBlocks(min_tile_size, opt.output_image,
-                                   per_pixel_filter(out_img,
-                                                    RoundAndClamp<int32, float>()),
-                                   has_georef, georef, has_nodata, 
-                                   vw::round_and_clamp<int32>(output_nodata_value),
-                                   opt, tpc);
+                               per_pixel_filter(out_img,
+                                                RoundAndClamp<int32, float>()),
+                               has_georef, georef, has_nodata, 
+                               vw::round_and_clamp<int32>(output_nodata_value),
+                               opt, tpc);
   else
     vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
   

@@ -129,7 +129,8 @@ void saveWithTempBigBlocks(int bigBlockSize,
   vw::GdalWriteOptions localOpt = opt;
   vw::Vector2 origBlockSize = localOpt.raster_tile_size;
   localOpt.raster_tile_size = vw::Vector2(bigBlockSize, bigBlockSize);
-  block_write_gdal_image(filename, img, hasGeoref, georef, hasNodata, nodata, localOpt, tpc);
+  block_write_gdal_image(filename, img, hasGeoref, georef, hasNodata, nodata,
+                         localOpt, tpc);
 
   if (localOpt.raster_tile_size != origBlockSize) {
     std::string tmpFile
@@ -138,9 +139,10 @@ void saveWithTempBigBlocks(int bigBlockSize,
     vw::DiskImageView<typename ImageT::pixel_type> tmpImg(tmpFile);
     localOpt.raster_tile_size = origBlockSize;
     vw::vw_out() << "Re-writing with blocks of size: "
-                  << localOpt.raster_tile_size[0] << " x " << localOpt.raster_tile_size[1] << ".\n";
+                 << localOpt.raster_tile_size[0] << " x "
+                 << localOpt.raster_tile_size[1] << ".\n";
     vw::cartography::block_write_gdal_image(filename, tmpImg, hasGeoref, georef,
-                                hasNodata, nodata, localOpt, tpc);
+                                            hasNodata, nodata, localOpt, tpc);
     boost::filesystem::remove(tmpFile);
   }
   return;

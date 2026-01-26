@@ -995,7 +995,7 @@ public:
 /// - mosaic_bbox is the output bounding box in projected space
 /// - dem_proj_bboxes and dem_pixel_bboxes are the locations of
 ///   each input DEM in the output DEM in projected and pixel coordinates.
-void load_dem_bounding_boxes(asp::DemMosaicOptions         const& opt,
+void loadDemBdBoxes(asp::DemMosaicOptions         const& opt,
                              vw::cartography::GeoReference const& mosaic_georef,
                              vw::BBox2               & mosaic_bbox, // Projected coordinates
                              std::vector<vw::BBox2>  & dem_proj_bboxes,
@@ -1064,7 +1064,7 @@ void load_dem_bounding_boxes(asp::DemMosaicOptions         const& opt,
   } // End loop through DEM files
   tpc.report_finished();
 
-} // End function load_dem_bounding_boxes
+} // End function loadDemBdBoxes
 
 // Helper template to save DEM tile with type conversion
 template<typename T>
@@ -1216,7 +1216,7 @@ int main(int argc, char *argv[]) {
     vw::BBox2 mosaic_bbox;
     std::vector<vw::BBox2> dem_proj_bboxes;
     std::vector<vw::BBox2i> dem_pixel_bboxes, loaded_dem_pixel_bboxes;
-    load_dem_bounding_boxes(opt, mosaic_georef, mosaic_bbox,
+    loadDemBdBoxes(opt, mosaic_georef, mosaic_bbox,
                             dem_proj_bboxes, dem_pixel_bboxes);
 
     if (opt.tap) {
