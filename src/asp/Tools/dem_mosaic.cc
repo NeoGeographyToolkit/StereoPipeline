@@ -662,6 +662,38 @@ void preprocessDem(int dem_iter,
   imgMgr.release(dem_iter);
 }
 
+// Erode the DEM based on grassfire weights and recompute weights using centerline algorithm.
+// This is used for priority blending where weights follow the DEM centerline.
+void erodeCenterlineWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
+                            double nodata_value,
+                            int erode_len,
+                            int bias,
+                            vw::ImageView<double>& weights) {  // output
+  // Create eroded DEM by invalidating pixels where grassfire weight <= erode_len
+  vw::ImageView<asp::DoubleGrayA> eroded_dem = copy(dem);
+  for (int col = 0; col < eroded_dem.cols(); col++) {
+    for (int row = 0; row < eroded_dem.rows(); row++) {
+      if (weights(col, row) <= erode_len)
+        eroded_dem(col, row) = asp::DoubleGrayA(nodata_value);
+    }
+  }
+
+  // Compute centerline weights on the eroded DEM
+  vw::ImageView<vw::PixelMask<double>> mask_img =
+    create_mask_less_or_equal(select_channel(eroded_dem, 0), nodata_value);
+  asp::centerlineWeightsWithHoles(mask_img, weights, bias, -1.0);
+}
+
+// Copy weights from separate weight image into the alpha channel of the DEM.
+void setWeightsAsAlphaChannel(vw::ImageView<double> const& weights,
+                              vw::ImageView<asp::DoubleGrayA>& dem) {  // output
+  for (int col = 0; col < dem.cols(); col++) {
+    for (int row = 0; row < dem.rows(); row++) {
+      dem(col, row).a() = weights(col, row);
+    }
+  }
+}
+
 /// Class that does the actual image processing work
 class DemMosaicView: public vw::ImageViewBase<DemMosaicView> {
   int m_cols, m_rows, m_bias;
@@ -829,18 +861,8 @@ public:
       if (m_opt.use_centerline_weights) {
         // Erode based on grassfire weights, and then overwrite the grassfire
         // weights with centerline weights
-        vw::ImageView<asp::DoubleGrayA> dem2 = copy(dem);
-        for (int col = 0; col < dem2.cols(); col++) {
-          for (int row = 0; row < dem2.rows(); row++) {
-            if (local_wts(col, row) <= m_opt.erode_len) {
-              dem2(col, row) = asp::DoubleGrayA(nodata_value);
-            }
-          }
-        }
-        vw::ImageView<vw::PixelMask<double>> mask_img =
-          create_mask_less_or_equal(select_channel(dem2, 0), nodata_value);
-        asp::centerlineWeightsWithHoles(mask_img, local_wts, m_bias, -1.0);
-
+        erodeCenterlineWeights(dem, nodata_value, m_opt.erode_len, m_bias,
+                               local_wts);  // output
       } // End centerline weights case
 
       // Clamp the weights to ensure the results agree across tiles. For
@@ -871,15 +893,8 @@ public:
 
       // Raise to the power. Note that when priority blending length is positive, we
       // delay this process.
-      // TODO(oalexan1): This must be a function
-      if (m_opt.weights_exp != 1 && !use_priority_blend) {
-        for (int col = 0; col < dem.cols(); col++) {
-          for (int row = 0; row < dem.rows(); row++) {
-            if (local_wts(col, row) > 0)
-              local_wts(col, row) = pow(local_wts(col, row), m_opt.weights_exp);
-          }
-        }
-      }
+      if (m_opt.weights_exp != 1 && !use_priority_blend)
+        raiseToPower(m_opt.weights_exp, local_wts);
 
       // Save the weights with georeference. Very useful for debugging
       // non-uniqueness issues across tiles.
@@ -892,11 +907,7 @@ public:
                                   m_opt.invert_weights, in_box, local_wts);
 
       // Set the weights in the alpha channel
-      for (int col = 0; col < dem.cols(); col++) {
-        for (int row = 0; row < dem.rows(); row++) {
-          dem(col, row).a() = local_wts(col, row);
-        }
-      }
+      setWeightsAsAlphaChannel(local_wts, dem);  // output
 
       // Prepare the DEM for interpolation
       vw::ImageViewRef<asp::DoubleGrayA> interp_dem
