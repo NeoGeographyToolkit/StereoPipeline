@@ -101,12 +101,14 @@ void initializeTileVector(int num_images,
 
 // Invalidate pixels with values at or below threshold
 
-// Accumulate weighted tile values for a single clip
+// Accumulate a weighted average and the sum of weights. This adds to existing
+// values, unless those are no-data.
 void accumWeightedTiles(double out_nodata_value,
                         int save_dem_weight,
                         int dem_index,
                         vw::ImageView<double> const& tile_clip,
                         vw::ImageView<double> const& weight_clip,
+                        // Outputs
                         vw::ImageView<double> & tile,
                         vw::ImageView<double> & weights,
                         vw::ImageView<double> & saved_weight) {
@@ -1220,14 +1222,8 @@ void setupTileGrid(int cols, int rows, asp::DemMosaicOptions const& opt,
 
 // Generate a single output tile. This creates a DemMosaicView, rasters it to disk,
 // and removes the tile if it contains no valid pixels.
-void generateTile(int tile_id,
-                  int start_tile,
-                  int cols,
-                  int rows,
-                  int bias,
-                  int block_size,
-                  int num_digits,
-                  bool write_to_precise_file,
+void generateTile(int tile_id, int start_tile, int cols, int rows, int bias,
+                  int block_size, int num_digits, bool write_to_precise_file,
                   asp::DemMosaicOptions const& opt,
                   std::vector<vw::BBox2i> const& tile_pixel_bboxes,
                   std::vector<vw::cartography::GeoReference> const& georefs,

@@ -16,32 +16,34 @@
 // __END_LICENSE__
 
 #include <asp/Core/DemMosaic.h>
+#include <asp/Core/GdalUtils.h>
 
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Image/Filter.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Core/ProgressCallback.h>
 #include <boost/math/special_functions/erf.hpp>
+
+#include <sstream>
 
 // Low-level functions for DEM mosaicking
 
 namespace asp {
 
+// Blur the weights. To try to make the weights not drop much at the
+// boundary, expand the weights with zero, blur, crop back to the
+// original region.
+// It is highly important to note that blurring can increase the weights
+// at the boundary, even with the extension done above. Erosion before
+// blurring does not help with that, as for weights with complicated
+// boundary erosion can wipe things in a non-uniform way leaving
+// huge holes. To get smooth weights, if really desired one should
+// use the weights-exponent option.
 void blurWeights(vw::ImageView<double> & weights, double sigma) {
 
   if (sigma <= 0)
     return;
-
-  // Blur the weights. To try to make the weights not drop much at the
-  // boundary, expand the weights with zero, blur, crop back to the
-  // original region.
-
-  // It is highly important to note that blurring can increase the weights
-  // at the boundary, even with the extension done above. Erosion before
-  // blurring does not help with that, as for weights with complicated
-  // boundary erosion can wipe things in a non-uniform way leaving
-  // huge holes. To get smooth weights, if really desired one should
-  // use the weights-exponent option.
 
   int half_kernel = vw::compute_kernel_size(sigma)/2;
   int extra = half_kernel + 1; // to guarantee we stay zero at boundary
@@ -61,7 +63,7 @@ void blurWeights(vw::ImageView<double> & weights, double sigma) {
 
   vw::ImageView<double> blurred_wts = vw::gaussian_filter(extra_wts, sigma);
 
-  // Copy back.  The weights must not grow. In particular, where the
+  // Copy back. The weights must not grow. In particular, where the
   // original weights were zero, the new weights must also be zero, as
   // at those points there is no DEM data.
   for (int col = 0; col < cols; col++) {
@@ -134,8 +136,8 @@ void applyExternalWeights(std::string const& weight_file,
 }
 
 // Compute a weight that is zero, then rises, plateaus, and then falls.
-// - hCenterLine contains the center column at each row/col
-// - hMaxDistArray contains the width of the column at each row/col
+// hCenterLine contains the center column at each row/col
+// hMaxDistArray contains the width of the column at each row/col
 // TODO(oalexan1): Move this to VW, and see about overwriting 
 // the other weight functions. The other one uses normalization, which is bad.
 double computePlateauedWeights(vw::Vector2 const& pix, bool horizontal,
@@ -465,6 +467,68 @@ void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& geore
         << out_georef.datum().name() << "\n";
     }
   }
+}
+
+void accumWeightedTiles(double out_nodata_value,
+                        int save_dem_weight,
+                        int dem_index,
+                        vw::ImageView<double> const& tile_clip,
+                        vw::ImageView<double> const& weight_clip,
+                        // Outputs
+                        vw::ImageView<double> & tile,
+                        vw::ImageView<double> & weights,
+                        vw::ImageView<double> & saved_weight) {
+
+  for (int col = 0; col < weight_clip.cols(); col++) {
+    for (int row = 0; row < weight_clip.rows(); row++) {
+
+      double wt = weight_clip(col, row);
+      if (wt <= 0)
+        continue; // nothing to do
+
+      // Initialize the tile
+      if (tile(col, row) == out_nodata_value)
+        tile(col, row) = 0;
+
+      tile(col, row)    += wt*tile_clip(col, row);
+      weights(col, row) += wt;
+
+      if (dem_index == save_dem_weight)
+        saved_weight(col, row) = wt;
+    }
+  }
+}
+
+void computeWeightedAverage(int save_dem_weight,
+                            vw::ImageView<double> & tile,
+                            vw::ImageView<double> & weights,
+                            vw::ImageView<double> & saved_weight) {
+
+  for (int col = 0; col < tile.cols(); col++) {
+    for (int row = 0; row < weights.rows(); row++) {
+      if (weights(col, row) > 0)
+        tile(col, row) /= weights(col, row);
+
+      if (save_dem_weight >= 0 && weights(col, row) > 0)
+        saved_weight(col, row) /= weights(col, row);
+    }
+  }
+}
+
+void saveTileWeight(int dem_iter, vw::BBox2i const& bbox,
+                    vw::ImageView<double> const& local_wts,
+                    vw::cartography::GeoReference const& georef) {
+
+  std::ostringstream os;
+  os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y()
+     << ".tif";
+  vw::vw_out() << "Writing: " << os.str() << "\n";
+  bool has_georef = true, has_nodata = true;
+  vw::cartography::block_write_gdal_image(os.str(), local_wts,
+             has_georef, georef,
+             has_nodata, -100,
+             vw::GdalWriteOptions(),
+             vw::TerminalProgressCallback("asp", ""));
 }
 
 } // end namespace asp

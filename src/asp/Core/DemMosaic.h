@@ -100,6 +100,25 @@ void divideByWeight(vw::ImageView<double> & tile,
 void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& georefs,
                          vw::cartography::GeoReference const& out_georef);
 
+void accumWeightedTiles(double out_nodata_value,
+                        int save_dem_weight,
+                        int dem_index,
+                        vw::ImageView<double> const& tile_clip,
+                        vw::ImageView<double> const& weight_clip,
+                        // Outputs
+                        vw::ImageView<double> & tile,
+                        vw::ImageView<double> & weights,
+                        vw::ImageView<double> & saved_weight);
+
+void computeWeightedAverage(int save_dem_weight,
+                            vw::ImageView<double> & tile,
+                            vw::ImageView<double> & weights,
+                            vw::ImageView<double> & saved_weight);
+
+void saveTileWeight(int dem_iter, vw::BBox2i const& bbox,
+                    vw::ImageView<double> const& local_wts,
+                    vw::cartography::GeoReference const& georef);
+
 } // end namespace asp
 
 #endif //__ASP_CORE_DEM_MOSAIC_H__
