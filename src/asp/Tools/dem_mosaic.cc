@@ -402,7 +402,7 @@ void processDemTile(asp::DemMosaicOptions const& opt,
            (opt.max && (val > tile(c, r) || is_nodata)) ||
            opt.median || opt.nmad ||
            use_priority_blend || opt.block_max) {
-        // --> Conditions where we replace the current value
+        // Conditions where we replace the current value
         tile(c, r) = val;
         weights(c, r) = wt;
 
@@ -418,25 +418,31 @@ void processDemTile(asp::DemMosaicOptions const& opt,
                                    opt.min   || opt.max))
           index_map(c, r) = dem_iter;
 
-      } else if (opt.mean) { // Mean --> Accumulate the value
+      } else if (opt.mean) { 
+        // For the mean, accumulate the value
         tile(c, r) += val;
         weights(c, r)++;
-
         if (opt.save_dem_weight == dem_iter)
           saved_weight(c, r) = 1;
 
-      } else if (opt.count) { // Increment the count
+      } else if (opt.count) { 
+        // Increment the count
         tile(c, r)++;
         weights(c, r) += wt;
-      } else if (opt.stddev) { // Standard deviation --> Keep running calculation
+      } else if (opt.stddev) {
+        // Standard deviation: use Welford's online algorithm for numerical
+        // stability. Accumulate: count in weights, running mean in tile_vec[0],
+        // sum of squared deviations in tile. Final stddev computed later by
+        // finishStdDevCalc().
         weights(c, r) += 1.0;
-        double curr_mean = tile_vec[0](c,r);
-        double delta = val - curr_mean;
-        curr_mean += delta / weights(c, r);
-        double newVal = tile(c, r) + delta*(val - curr_mean);
-        tile(c, r) = newVal;
-        tile_vec[0](c,r) = curr_mean;
-      } else if (!noblend) { // Blending --> Weighted average
+        double currMean = tile_vec[0](c,r);
+        double delta = val - currMean;
+        currMean += delta / weights(c, r);
+        double sumSqDev = tile(c, r) + delta*(val - currMean);
+        tile(c, r) = sumSqDev;
+        tile_vec[0](c,r) = currMean;
+      } else if (!noblend) { 
+        // For blending do the weighted average
         tile(c, r) += wt*val;
         weights(c, r) += wt;
         if (opt.save_dem_weight == dem_iter)
@@ -508,16 +514,45 @@ void processMedianOrNmad(vw::BBox2i const& bbox,
   return;
 }
 
-// Count valid pixels in tile and update global counter. Care to use a lock
-// when updating the global counter.
-void updateNumValidPixels(vw::ImageView<double> const& tile,
-                                double out_nodata_value,
-                                vw::BBox2i const& bbox,
-                                vw::BBox2i const& orig_box,
-                                long long int & num_valid_pixels,
-                                vw::Mutex & count_mutex) {
+// Finish standard deviation calculation. At this point, tile contains sum of
+// squared deviations from mean, and weights contains the count of valid pixels
+// at each location.
+void finishStdDevCalc(double out_nodata_value,
+                      vw::ImageView<double> & tile,
+                      vw::ImageView<double> const& weights) {
 
-  long long int num_valid_in_tile = 0; // use int64 to not overflow for large images
+  for (int c = 0; c < tile.cols(); c++) {
+    for (int r = 0; r < tile.rows(); r++) {
+      if (weights(c, r) > 1.0)
+        tile(c, r) = sqrt(tile(c, r) / (weights(c, r) - 1.0));
+      else // Invalid pixel
+        tile(c, r) = out_nodata_value;
+    }
+  }
+}
+
+// Divide tile values by weights for blending or averaging
+void divideByWeight(vw::ImageView<double> & tile,
+                    vw::ImageView<double> const& weights) {
+
+  for (int c = 0; c < tile.cols(); c++) {
+    for (int r = 0; r < tile.rows(); r++) {
+      if (weights(c, r) > 0)
+        tile(c, r) /= weights(c, r);
+    }
+  }
+}
+
+// Count valid pixels in tile and update global counter. Care to use a lock when
+// updating the global counter. Use int64 to not overflow for large images.
+void updateNumValidPixels(vw::ImageView<double> const& tile,
+                          double out_nodata_value,
+                          vw::BBox2i const& bbox,
+                          vw::BBox2i const& orig_box,
+                          std::int64_t & num_valid_pixels,
+                          vw::Mutex & count_mutex) {
+
+  std::int64_t num_valid_in_tile = 0; 
   for (int col = 0; col < tile.cols(); col++) {
     for (int row = 0; row < tile.rows(); row++) {
       vw::Vector2 pix = vw::Vector2(col, row) + bbox.min();
@@ -574,7 +609,7 @@ class DemMosaicView: public vw::ImageViewBase<DemMosaicView> {
   vw::cartography::GeoReference m_out_georef;
   std::vector<double> const& m_nodata_values; // alias
   std::vector<vw::BBox2i> const& m_dem_pixel_bboxes; // alias
-  long long int & m_num_valid_pixels; // alias, to populate on output
+  std::int64_t & m_num_valid_pixels; // alias, to populate on output
   vw::Mutex & m_count_mutex; // alias, a lock for m_num_valid_pixels
 
 public:
@@ -585,7 +620,7 @@ public:
                 vw::cartography::GeoReference              const& out_georef,
                 std::vector<double>       const& nodata_values,
                 std::vector<vw::BBox2i>       const& dem_pixel_bboxes,
-                long long int                  & num_valid_pixels,
+                std::int64_t                   & num_valid_pixels,
                 vw::Mutex                      & count_mutex):
     m_cols(cols), m_rows(rows), m_bias(bias), m_opt(opt),
     m_imgMgr(imgMgr), m_georefs(georefs),
@@ -721,8 +756,9 @@ public:
 
       // Crop the disk dem to a 2-channel in-memory image. First
       // channel is the image pixels, second will be the weights.
-      vw::ImageViewRef<double> disk_dem = vw::pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
-      vw::ImageView<asp::DoubleGrayA> dem    = vw::crop(disk_dem, in_box);
+      vw::ImageViewRef<double> disk_dem =
+         vw::pixel_cast<double>(m_imgMgr.get_handle(dem_iter, bbox));
+      vw::ImageView<asp::DoubleGrayA> dem = vw::crop(disk_dem, in_box);
 
       // If the nodata_threshold is specified, all values no more than this
       // will be invalidated.
@@ -789,12 +825,10 @@ public:
 
       } // End centerline weights case
 
-      // If we don't limit the weights from above, we will have tiling
-      // artifacts, as in different tiles the weights grow to different heights
-      // since they are cropped to different regions. For priority blending
-      // length, we'll do this process later, as the bbox is obtained
-      // differently in that case. With centerline weights, that is handled
-      // before 1D weights are multiplied to get the 2D weights.
+      // Clamp the weights to ensure the results agree across tiles. For
+      // priority blending length, we'll do this process later, as the bbox is
+      // obtained differently in that case. With centerline weights, that is
+      // handled before 1D weights are multiplied to get the 2D weights.
       if (!use_priority_blend && !m_opt.use_centerline_weights) {
         for (int col = 0; col < local_wts.cols(); col++) {
           for (int row = 0; row < local_wts.rows(); row++) {
@@ -876,28 +910,12 @@ public:
     } // End iterating over DEMs
 
     // Divide by the weights in blend, mean
-    if (!noblend || m_opt.mean) {
-      for (int c = 0; c < bbox.width(); c++) { // Iterate over all pixels!
-        for (int r = 0; r < bbox.height(); r++) {
-          if (weights(c, r) > 0)
-            tile(c, r) /= weights(c, r);
-        } // End row loop
-      } // End col loop
-    } // End dividing case
+    if (!noblend || m_opt.mean)
+      divideByWeight(tile, weights);
 
     // Finish stddev calculations
-    if (m_opt.stddev) {
-      for (int c = 0; c < bbox.width(); c++) { // Iterate over all pixels!
-        for (int r = 0; r < bbox.height(); r++) {
-
-          if (weights(c, r) > 1.0) {
-            tile(c, r) = sqrt(tile(c, r) / (weights(c, r) - 1.0));
-          } else { // Invalid pixel
-            tile(c, r) = m_opt.out_nodata_value;
-          }
-        } // End row loop
-      } // End col loop
-    } // End stddev case
+    if (m_opt.stddev)
+      finishStdDevCalc(m_opt.out_nodata_value, tile, weights);
 
     // Median and nmad operations
     if (m_opt.median || m_opt.nmad)
@@ -1367,7 +1385,7 @@ int main(int argc, char *argv[]) {
       }
 
       // Set up tile image and metadata
-      long long int num_valid_pixels; // Will be populated when saving to disk
+      std::int64_t num_valid_pixels; // Will be populated when saving to disk
       vw::Mutex count_mutex; // to lock when updating num_valid_pixels
 
       vw::ImageViewRef<float> out_dem
@@ -1425,7 +1443,7 @@ int main(int argc, char *argv[]) {
         vw::vw_throw(vw::NoImplErr() << "Unsupported output type: "
                      << opt.output_type << ".\n");
 
-      vw::vw_out() << "Number of valid (not no-data) pixels written: " 
+      vw::vw_out() << "Number of valid (not no-data) pixels written: "
                    << num_valid_pixels << ".\n";
       if (num_valid_pixels == 0) {
         vw::vw_out() << "Removing tile with no valid pixels: " << dem_tile << "\n";
