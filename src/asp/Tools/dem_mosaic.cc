@@ -48,6 +48,8 @@
 #include <limits>
 #include <algorithm>
 
+namespace asp {
+  
 // This is used for various tolerances
 double g_tol = 1e-6;
 
@@ -99,57 +101,6 @@ void initializeTileVector(int num_images,
   return;
 }
 
-// Invalidate pixels with values at or below threshold
-
-// Accumulate a weighted average and the sum of weights. This adds to existing
-// values, unless those are no-data.
-void accumWeightedTiles(double out_nodata_value,
-                        int save_dem_weight,
-                        int dem_index,
-                        vw::ImageView<double> const& tile_clip,
-                        vw::ImageView<double> const& weight_clip,
-                        // Outputs
-                        vw::ImageView<double> & tile,
-                        vw::ImageView<double> & weights,
-                        vw::ImageView<double> & saved_weight) {
-
-  for (int col = 0; col < weight_clip.cols(); col++) {
-    for (int row = 0; row < weight_clip.rows(); row++) {
-
-      double wt = weight_clip(col, row);
-      if (wt <= 0)
-        continue; // nothing to do
-
-      // Initialize the tile
-      if (tile(col, row) == out_nodata_value)
-        tile(col, row) = 0;
-
-      tile(col, row)    += wt*tile_clip(col, row);
-      weights(col, row) += wt;
-
-      if (dem_index == save_dem_weight)
-        saved_weight(col, row) = wt;
-    }
-  }
-}
-
-// Compute the weighted average by normalizing accumulated values
-void computeWeightedAverage(int save_dem_weight,
-                            vw::ImageView<double> & tile,
-                            vw::ImageView<double> & weights,
-                            vw::ImageView<double> & saved_weight) {
-
-  for (int col = 0; col < tile.cols(); col++) {
-    for (int row = 0; row < weights.rows(); row++) {
-      if (weights(col, row) > 0)
-        tile(col, row) /= weights(col, row);
-
-      if (save_dem_weight >= 0 && weights(col, row) > 0)
-        saved_weight(col, row) /= weights(col, row);
-    }
-  }
-}
-
 // Process block max: find DEM with max pixel sum and use it. Print the sum of
 // pixels per block.
 void processBlockMax(double out_nodata_value, vw::BBox2i const& bbox,
@@ -179,24 +130,6 @@ void processBlockMax(double out_nodata_value, vw::BBox2i const& bbox,
                                 std::max_element(tile_sum.begin(), tile_sum.end()));
   if (max_index >= 0 && max_index < num_tiles)
     tile = copy(tile_vec[max_index]);
-}
-
-// Save tile weights for debugging. The file name records the tile.
-// These can be later overlaid.
-void saveTileWeight(int dem_iter, vw::BBox2i const& bbox,
-                    vw::ImageView<double> const& local_wts,
-                    vw::cartography::GeoReference const& georef) {
-
-  std::ostringstream os;
-  os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y()
-     << ".tif";
-  vw::vw_out() << "Writing: " << os.str() << "\n";
-  bool has_georef = true, has_nodata = true;
-  vw::cartography::block_write_gdal_image(os.str(), local_wts,
-             has_georef, georef,
-             has_nodata, -100,
-             vw::GdalWriteOptions(),
-             vw::TerminalProgressCallback("asp", ""));
 }
 
 // Use the weights created so far only to burn holes in
@@ -1415,6 +1348,8 @@ void setupMosaicGeom(asp::DemMosaicOptions& opt,
   vw::vw_out() << "Mosaic size: " << cols << " x " << rows << " pixels.\n";
 }
 
+} // end namespace asp
+
 int main(int argc, char *argv[]) {
 
   asp::DemMosaicOptions opt;
@@ -1424,7 +1359,7 @@ int main(int argc, char *argv[]) {
     asp::handleDemMosaicArgs(argc, argv, opt);
 
     // Determine and validate output nodata value
-    determineNodataValue(opt);
+    asp::determineNodataValue(opt);
 
     // Set up output mosaic geometry
     vw::cartography::GeoReference mosaic_georef;
@@ -1433,20 +1368,20 @@ int main(int argc, char *argv[]) {
     std::vector<vw::BBox2i> dem_pixel_bboxes, loaded_dem_pixel_bboxes;
     double spacing = 0.0; // will be updated
     int cols = 0, rows = 0; // will be updated
-    setupMosaicGeom(opt, mosaic_georef, mosaic_bbox, dem_proj_bboxes,
-                    dem_pixel_bboxes, spacing, cols, rows);
+    asp::setupMosaicGeom(opt, mosaic_georef, mosaic_bbox, dem_proj_bboxes,
+                         dem_pixel_bboxes, spacing, cols, rows);
 
     // Compute tile processing bias
-    int bias = computeTileBias(opt);
+    int bias = asp::computeTileBias(opt);
 
     // Compute block size for rasterization
-    int block_size = computeBlockSize(bias, opt);
+    int block_size = asp::computeBlockSize(bias, opt);
 
     // Setup tile grid and validate configuration
     int num_tiles_x = 0, num_tiles_y = 0, num_tiles = 0; // will be set
     bool write_to_precise_file = false; // will be set
-    setupTileGrid(cols, rows, opt, num_tiles_x, num_tiles_y,
-                  num_tiles, write_to_precise_file);
+    asp::setupTileGrid(cols, rows, opt, num_tiles_x, num_tiles_y,
+                       num_tiles, write_to_precise_file);
 
     // If to use a range
     if (!opt.tile_list.empty() && opt.tile_index >= 0)
@@ -1484,11 +1419,11 @@ int main(int argc, char *argv[]) {
     // Load DEMs that intersect with this tile batch. Also calc the output DEM box.
     vw::BBox2i output_dem_box = vw::BBox2i(0, 0, cols, rows); // output DEM box
     vw::vw_out() << "Reading the input DEMs.\n";
-    loadDemsForTiles(opt, dem_proj_bboxes, dem_pixel_bboxes, tile_pixel_bboxes,
-                     start_tile, end_tile, mosaic_georef, output_dem_box,
-                     // Outputs
-                     imgMgr, loaded_dems, nodata_values, georefs,
-                     loaded_dem_pixel_bboxes);
+    asp::loadDemsForTiles(opt, dem_proj_bboxes, dem_pixel_bboxes, tile_pixel_bboxes,
+                          start_tile, end_tile, mosaic_georef, output_dem_box,
+                          // Outputs
+                          imgMgr, loaded_dems, nodata_values, georefs,
+                          loaded_dem_pixel_bboxes);
 
     // If there are 17 tiles, let them be tile-00, ..., tile-16.
     int num_digits = 1;
@@ -1504,9 +1439,9 @@ int main(int argc, char *argv[]) {
       if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end())
         continue;
 
-      generateTile(tile_id, start_tile, cols, rows, bias, block_size, num_digits,
-                   write_to_precise_file, opt, tile_pixel_bboxes, georefs,
-                   mosaic_georef, nodata_values, loaded_dem_pixel_bboxes, imgMgr);
+      asp::generateTile(tile_id, start_tile, cols, rows, bias, block_size, num_digits,
+                        write_to_precise_file, opt, tile_pixel_bboxes, georefs,
+                        mosaic_georef, nodata_values, loaded_dem_pixel_bboxes, imgMgr);
 
     } // End loop through tiles
 
