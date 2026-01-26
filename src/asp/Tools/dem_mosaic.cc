@@ -1177,6 +1177,53 @@ void loadDemsForTiles(asp::DemMosaicOptions const& opt,
   } // End loop through DEM files
 }
 
+// Determine the output nodata value. Read from first DEM if not user-specified,
+// and validate that it can be represented exactly as a float.
+void determineNodataValue(asp::DemMosaicOptions& opt) {
+  // TODO: Fix here. If the DEM is double, read the nodata as double,
+  // without casting to float. If it is float, cast to float.
+
+  // Read nodata from first DEM, unless the user chooses to specify it.
+  if (!opt.has_out_nodata) {
+    vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
+    // Since the DEMs have float pixels, we must read the no-data as
+    // float as well. (this is a bug fix). Yet we store it in a
+    // double, as we will cast the DEM pixels to double as well.
+    if (in_rsrc.has_nodata_read())
+      opt.out_nodata_value = float(in_rsrc.nodata_read());
+  }
+
+  // Watch for underflow, if mixing doubles and float. Particularly problematic
+  // is when the nodata_value cannot be represented exactly as a float.
+  if (opt.out_nodata_value < static_cast<double>(-std::numeric_limits<float>::max()) ||
+      float(opt.out_nodata_value)  != double(opt.out_nodata_value)) {
+    vw::vw_out() << "The no-data value cannot be represented exactly as a float. "
+         << "Changing it to the smallest float.\n";
+    opt.out_nodata_value = static_cast<double>(-std::numeric_limits<float>::max());
+  }
+
+  vw::vw_out() << "Using output no-data value: " << opt.out_nodata_value << "\n";
+}
+
+// Compute the bias for reading from images beyond tile boundaries to avoid
+// tiling artifacts. This accounts for erosion, blurring, hole filling, etc.
+int computeTileBias(asp::DemMosaicOptions const& opt) {
+  // This bias is very important. This is how much we should read from
+  // the images beyond the current boundary to avoid tiling artifacts.
+  // The +1 is to ensure extra pixels beyond the hole fill length.
+  int bias = opt.erode_len + opt.extra_crop_len + opt.hole_fill_len
+    + opt.fill_search_radius
+    + 2*std::max(vw::compute_kernel_size(opt.weights_blur_sigma),
+                 vw::compute_kernel_size(opt.dem_blur_sigma)) + 1;
+
+  // If we just fill holes based on search radius, we do not need a large bias.
+  // Filling with large search radius is slow as it is.
+  if (opt.fill_search_radius > 0)
+    bias = opt.fill_search_radius + 10;
+
+  return bias;
+}
+
 // Set up output mosaic geometry: georef, dimensions (cols/rows), spacing.
 // Handles projection changes, resolution, alignment (tap/gdal-tap), and projwin cropping.
 // Arguments below get modified.
@@ -1378,29 +1425,8 @@ int main(int argc, char *argv[]) {
 
     asp::handleDemMosaicArgs(argc, argv, opt);
 
-    // TODO: Fix here. If the DEM is double, read the nodata as double,
-    // without casting to float. If it is float, cast to float.
-
-    // Read nodata from first DEM, unless the user chooses to specify it.
-    if (!opt.has_out_nodata) {
-      vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
-      // Since the DEMs have float pixels, we must read the no-data as
-      // float as well. (this is a bug fix). Yet we store it in a
-      // double, as we will cast the DEM pixels to double as well.
-      if (in_rsrc.has_nodata_read())
-        opt.out_nodata_value = float(in_rsrc.nodata_read());
-    }
-
-    // Watch for underflow, if mixing doubles and float. Particularly problematic
-    // is when the nodata_value cannot be represented exactly as a float.
-    if (opt.out_nodata_value < static_cast<double>(-std::numeric_limits<float>::max()) ||
-        float(opt.out_nodata_value)  != double(opt.out_nodata_value)) {
-      vw::vw_out() << "The no-data value cannot be represented exactly as a float. "
-           << "Changing it to the smallest float.\n";
-      opt.out_nodata_value = static_cast<double>(-std::numeric_limits<float>::max());
-    }
-
-    vw::vw_out() << "Using output no-data value: " << opt.out_nodata_value << "\n";
+    // Determine and validate output nodata value
+    determineNodataValue(opt);
 
     // Set up output mosaic geometry
     vw::cartography::GeoReference mosaic_georef;
@@ -1412,18 +1438,8 @@ int main(int argc, char *argv[]) {
     setupMosaicGeom(opt, mosaic_georef, mosaic_bbox, dem_proj_bboxes,
                     dem_pixel_bboxes, spacing, cols, rows);
 
-    // This bias is very important. This is how much we should read from
-    // the images beyond the current boundary to avoid tiling artifacts.
-    // The +1 is to ensure extra pixels beyond the hole fill length.
-    int bias = opt.erode_len + opt.extra_crop_len + opt.hole_fill_len
-      + opt.fill_search_radius
-      + 2*std::max(vw::compute_kernel_size(opt.weights_blur_sigma),
-                   vw::compute_kernel_size(opt.dem_blur_sigma)) + 1;
-
-    // If we just fill holes based on search radius, we do not need a large bias.
-    // Filling with large search radius is slow as it is.
-    if (opt.fill_search_radius > 0)
-      bias = opt.fill_search_radius + 10;
+    // Compute tile processing bias
+    int bias = computeTileBias(opt);
 
     // The next power of 2 >= 4*bias. We want to make the blocks big,
     // to reduce overhead from this bias, but not so big that it may
