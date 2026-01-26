@@ -1270,6 +1270,54 @@ void saveDemTile(int blockSize, std::string const& demTile,
     vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
 }
 
+// Compute block size for rasterization based on bias and user options.
+// Block size is set to next power of 2 >= 4*bias, with minimum of 256.
+int computeBlockSize(int bias, asp::DemMosaicOptions const& opt) {
+  // The next power of 2 >= 4*bias. We want to make the blocks big,
+  // to reduce overhead from this bias, but not so big that it may
+  // not fit in memory.
+  int block_size = vw::nextpow2(4.0*bias);
+  block_size = std::max(block_size, 256); // don't make them too small though
+  if (opt.block_size > 0)
+    block_size = opt.block_size;
+
+  // The block size must be a multiple of 16
+  if (block_size % 16 != 0)
+    vw::vw_throw(vw::ArgumentErr() << "The block size must be a multiple of 16.\n");
+
+  return block_size;
+}
+
+// Setup tile grid parameters and validate configuration.
+// Determines number of tiles, checks for single-file output mode, validates tile index.
+void setupTileGrid(int cols, int rows, asp::DemMosaicOptions const& opt,
+                   // Outputs
+                   int& num_tiles_x,
+                   int& num_tiles_y,
+                   int& num_tiles,
+                   bool& write_to_precise_file) {
+  // See if to lump all mosaic in just a given file, rather than creating tiles.
+  write_to_precise_file = (opt.out_prefix.size() >= 4 &&
+                           opt.out_prefix.substr(opt.out_prefix.size()-4, 4) == ".tif");
+
+  num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
+  num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
+  if (num_tiles_x <= 0) num_tiles_x = 1;
+  if (num_tiles_y <= 0) num_tiles_y = 1;
+  num_tiles = num_tiles_x*num_tiles_y;
+  vw::vw_out() << "Number of tiles: " << num_tiles_x << " x "
+           << num_tiles_y << " = " << num_tiles << ".\n";
+
+  if (opt.tile_index >= num_tiles)
+    vw::vw_throw(vw::ArgumentErr() << "Tile with index " << opt.tile_index
+                 << " is out of bounds (valid range: 0-" << num_tiles-1 << ").\n");
+
+  if (num_tiles > 1 && write_to_precise_file)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot fit all mosaic in the given output file name. "
+         << "Hence specify an output prefix instead, and then multiple "
+         << "tiles will be created.\n");
+}
+
 // Generate a single output tile. This creates a DemMosaicView, rasters it to disk,
 // and removes the tile if it contains no valid pixels.
 void generateTile(int tile_id,
@@ -1495,40 +1543,14 @@ int main(int argc, char *argv[]) {
     // Compute tile processing bias
     int bias = computeTileBias(opt);
 
-    // The next power of 2 >= 4*bias. We want to make the blocks big,
-    // to reduce overhead from this bias, but not so big that it may
-    // not fit in memory.
-    int block_size = vw::nextpow2(4.0*bias);
-    block_size = std::max(block_size, 256); // don't make them too small though
-    if (opt.block_size > 0)
-      block_size = opt.block_size;
+    // Compute block size for rasterization
+    int block_size = computeBlockSize(bias, opt);
 
-    // The block size must be a multiple of 16
-    if (block_size % 16 != 0)
-      vw::vw_throw(vw::ArgumentErr() << "The block size must be a multiple of 16.\n");
-
-    // See if to lump all mosaic in just a given file, rather than creating tiles.
-    bool write_to_precise_file = (opt.out_prefix.size() >= 4 &&
-                   opt.out_prefix.substr(opt.out_prefix.size()-4, 4) == ".tif");
-
-    int num_tiles_x = (int)ceil((double)cols/double(opt.tile_size));
-    int num_tiles_y = (int)ceil((double)rows/double(opt.tile_size));
-    if (num_tiles_x <= 0) num_tiles_x = 1;
-    if (num_tiles_y <= 0) num_tiles_y = 1;
-    int num_tiles = num_tiles_x*num_tiles_y;
-    vw::vw_out() << "Number of tiles: " << num_tiles_x << " x "
-             << num_tiles_y << " = " << num_tiles << ".\n";
-
-    if (opt.tile_index >= num_tiles) {
-      vw::vw_out() << "Tile with index: " << opt.tile_index
-                 << " is out of bounds." << "\n";
-      return 0;
-    }
-
-    if (num_tiles > 1 && write_to_precise_file)
-      vw::vw_throw(vw::ArgumentErr() << "Cannot fit all mosaic in the given output file name. "
-           << "Hence specify an output prefix instead, and then multiple "
-           << "tiles will be created.\n");
+    // Setup tile grid and validate configuration
+    int num_tiles_x = 0, num_tiles_y = 0, num_tiles = 0; // will be set
+    bool write_to_precise_file = false; // will be set
+    setupTileGrid(cols, rows, opt, num_tiles_x, num_tiles_y,
+                  num_tiles, write_to_precise_file);
 
     // If to use a range
     if (!opt.tile_list.empty() && opt.tile_index >= 0)
