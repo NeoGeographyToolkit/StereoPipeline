@@ -268,6 +268,15 @@ bilinear interpolation. This is analogous to ``gdalwarp`` (:numref:`gdal_tools`)
 with the options ``-tap -tr 1 1 -r bilinear -te``. Here, a projection in units
 of meter is assumed.
 
+Processing
+~~~~~~~~~~
+
+The tool reads input DEMs as single precision (float32), performs all 
+processing in double precision (float64) for numerical accuracy, and 
+writes output mosaics as single precision (float32) by default. The output
+type can be changed via the ``--ot`` option to Byte, UInt16, Int16, UInt32, 
+Int32, or Float32.
+
 Usage
 ~~~~~
 

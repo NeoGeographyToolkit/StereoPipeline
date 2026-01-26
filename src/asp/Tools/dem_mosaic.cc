@@ -18,8 +18,8 @@
 /// \file dem_mosaic.cc
 ///
 
-// A program to merge several DEMs into one. The inputs are usually float. The
-// processing happens in double precision.
+// A program to merge several DEMs into one. The inputs are always read as float.
+// The processing happens in double precision.
 
 #include <asp/Core/Macros.h>
 #include <asp/Core/GdalUtils.h>
@@ -1131,7 +1131,7 @@ void loadDemsForTiles(asp::DemMosaicOptions const& opt,
         break;
       }
     }
-    if (use_this_dem == false)
+    if (!use_this_dem)
       continue; // Skip to the next DEM if we don't need this one.
 
     // The vw::cartography::GeoTransform will hide the messy details of conversions
@@ -1180,15 +1180,10 @@ void loadDemsForTiles(asp::DemMosaicOptions const& opt,
 // Determine the output nodata value. Read from first DEM if not user-specified,
 // and validate that it can be represented exactly as a float.
 void determineNodataValue(asp::DemMosaicOptions& opt) {
-  // TODO: Fix here. If the DEM is double, read the nodata as double,
-  // without casting to float. If it is float, cast to float.
-
   // Read nodata from first DEM, unless the user chooses to specify it.
+  // Cast nodata to float since DEMs are read as float.
   if (!opt.has_out_nodata) {
     vw::DiskImageResourceGDAL in_rsrc(opt.dem_files[0]);
-    // Since the DEMs have float pixels, we must read the no-data as
-    // float as well. (this is a bug fix). Yet we store it in a
-    // double, as we will cast the DEM pixels to double as well.
     if (in_rsrc.has_nodata_read())
       opt.out_nodata_value = float(in_rsrc.nodata_read());
   }
@@ -1222,6 +1217,116 @@ int computeTileBias(asp::DemMosaicOptions const& opt) {
     bias = opt.fill_search_radius + 10;
 
   return bias;
+}
+
+// Save DEM tile with type conversion (template)
+template<typename T>
+void saveDemTileAsType(int blockSize, std::string const& demTile,
+                       vw::ImageViewRef<float> const& outDem,
+                       vw::cartography::GeoReference const& cropGeoref,
+                       asp::DemMosaicOptions const& opt) {
+  bool hasGeoref = true, hasNodata = true;
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  asp::saveWithTempBigBlocks(blockSize, demTile,
+                             per_pixel_filter(outDem, vw::RoundAndClamp<T, float>()),
+                             hasGeoref, cropGeoref,
+                             hasNodata, vw::round_and_clamp<T>(opt.out_nodata_value),
+                             opt, tpc);
+}
+
+// Specialization for Float32 (no conversion needed)
+template<>
+void saveDemTileAsType<float>(int blockSize, std::string const& demTile,
+                              vw::ImageViewRef<float> const& outDem,
+                              vw::cartography::GeoReference const& cropGeoref,
+                              asp::DemMosaicOptions const& opt) {
+  bool hasGeoref = true, hasNodata = true;
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  asp::saveWithTempBigBlocks(blockSize, demTile, outDem,
+                             hasGeoref, cropGeoref,
+                             hasNodata, opt.out_nodata_value, opt, tpc);
+}
+
+// Save DEM tile to disk with appropriate type conversion based on output_type option.
+void saveDemTile(int blockSize, std::string const& demTile,
+                 vw::ImageViewRef<float> const& outDem,
+                 vw::cartography::GeoReference const& cropGeoref,
+                 asp::DemMosaicOptions const& opt) {
+  vw::vw_out() << "Writing: " << demTile << "\n";
+
+  if (opt.output_type == "Float32")
+    saveDemTileAsType<float>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "Byte")
+    saveDemTileAsType<vw::uint8>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "UInt16")
+    saveDemTileAsType<vw::uint16>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "Int16")
+    saveDemTileAsType<vw::int16>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "UInt32")
+    saveDemTileAsType<vw::uint32>(blockSize, demTile, outDem, cropGeoref, opt);
+  else if (opt.output_type == "Int32")
+    saveDemTileAsType<vw::int32>(blockSize, demTile, outDem, cropGeoref, opt);
+  else
+    vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
+}
+
+// Generate a single output tile. This creates a DemMosaicView, rasters it to disk,
+// and removes the tile if it contains no valid pixels.
+void generateTile(int tile_id,
+                  int start_tile,
+                  int cols,
+                  int rows,
+                  int bias,
+                  int block_size,
+                  int num_digits,
+                  bool write_to_precise_file,
+                  asp::DemMosaicOptions const& opt,
+                  std::vector<vw::BBox2i> const& tile_pixel_bboxes,
+                  std::vector<vw::cartography::GeoReference> const& georefs,
+                  vw::cartography::GeoReference const& mosaic_georef,
+                  std::vector<double> const& nodata_values,
+                  std::vector<vw::BBox2i> const& loaded_dem_pixel_bboxes,
+                  vw::DiskImageManager<float>& imgMgr) {
+
+  // Get the bounding box we previously computed
+  vw::BBox2i tile_box = tile_pixel_bboxes[tile_id - start_tile];
+
+  std::string dem_tile;
+  if (!write_to_precise_file) {
+    std::ostringstream os;
+    os << opt.out_prefix << "-tile-"
+        << std::setfill('0') << std::setw(num_digits) << tile_id
+        << tile_suffix(opt) << ".tif";
+    dem_tile = os.str();
+  } else {
+    dem_tile = opt.out_prefix; // the file name was set by user
+  }
+
+  // Set up tile image and metadata
+  std::int64_t num_valid_pixels = 0; // Will be populated when saving to disk
+  vw::Mutex count_mutex; // to lock when updating num_valid_pixels
+
+  vw::ImageViewRef<float> out_dem
+    = vw::crop(DemMosaicView(cols, rows, bias, opt,
+                             georefs, mosaic_georef,
+                             nodata_values, loaded_dem_pixel_bboxes,
+                             imgMgr, num_valid_pixels, count_mutex), tile_box);
+  vw::cartography::GeoReference crop_georef
+    = vw::cartography::crop(mosaic_georef, tile_box.min().x(),
+                            tile_box.min().y());
+  // Update the lon-lat box given that we know the final georef and image size
+  crop_georef.ll_box_from_pix_box(vw::BBox2i(0, 0, cols, rows));
+
+  // Raster the tile to disk. Optionally cast to int (may be useful for
+  // mosaicking ortho images).
+  saveDemTile(block_size, dem_tile, out_dem, crop_georef, opt);
+
+  vw::vw_out() << "Number of valid (not no-data) pixels written: "
+               << num_valid_pixels << ".\n";
+  if (num_valid_pixels == 0) {
+    vw::vw_out() << "Removing tile with no valid pixels: " << dem_tile << "\n";
+    boost::filesystem::remove(dem_tile);
+  }
 }
 
 // Set up output mosaic geometry: georef, dimensions (cols/rows), spacing.
@@ -1366,57 +1471,6 @@ void setupMosaicGeom(asp::DemMosaicOptions& opt,
   vw::vw_out() << "Mosaic size: " << cols << " x " << rows << " pixels.\n";
 }
 
-// Helper template to save DEM tile with type conversion
-template<typename T>
-void saveDemTileAsType(int blockSize, std::string const& demTile,
-                       vw::ImageViewRef<float> const& outDem,
-                       vw::cartography::GeoReference const& cropGeoref,
-                       asp::DemMosaicOptions const& opt) {
-  bool hasGeoref = true, hasNodata = true;
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  asp::saveWithTempBigBlocks(blockSize, demTile,
-                             per_pixel_filter(outDem, vw::RoundAndClamp<T, float>()),
-                             hasGeoref, cropGeoref,
-                             hasNodata, vw::round_and_clamp<T>(opt.out_nodata_value),
-                             opt, tpc);
-}
-
-// Specialization for Float32 (no conversion needed)
-template<>
-void saveDemTileAsType<float>(int blockSize, std::string const& demTile,
-                              vw::ImageViewRef<float> const& outDem,
-                              vw::cartography::GeoReference const& cropGeoref,
-                              asp::DemMosaicOptions const& opt) {
-  bool hasGeoref = true, hasNodata = true;
-  vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  asp::saveWithTempBigBlocks(blockSize, demTile, outDem,
-                             hasGeoref, cropGeoref,
-                             hasNodata, opt.out_nodata_value, opt, tpc);
-}
-
-// Save DEM tile to disk with appropriate type conversion based on output_type option.
-void saveDemTile(int blockSize, std::string const& demTile,
-                 vw::ImageViewRef<float> const& outDem,
-                 vw::cartography::GeoReference const& cropGeoref,
-                 asp::DemMosaicOptions const& opt) {
-  vw::vw_out() << "Writing: " << demTile << "\n";
-
-  if (opt.output_type == "Float32")
-    saveDemTileAsType<float>(blockSize, demTile, outDem, cropGeoref, opt);
-  else if (opt.output_type == "Byte")
-    saveDemTileAsType<vw::uint8>(blockSize, demTile, outDem, cropGeoref, opt);
-  else if (opt.output_type == "UInt16")
-    saveDemTileAsType<vw::uint16>(blockSize, demTile, outDem, cropGeoref, opt);
-  else if (opt.output_type == "Int16")
-    saveDemTileAsType<vw::int16>(blockSize, demTile, outDem, cropGeoref, opt);
-  else if (opt.output_type == "UInt32")
-    saveDemTileAsType<vw::uint32>(blockSize, demTile, outDem, cropGeoref, opt);
-  else if (opt.output_type == "Int32")
-    saveDemTileAsType<vw::int32>(blockSize, demTile, outDem, cropGeoref, opt);
-  else
-    vw::vw_throw(vw::NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
-}
-
 int main(int argc, char *argv[]) {
 
   asp::DemMosaicOptions opt;
@@ -1533,45 +1587,9 @@ int main(int argc, char *argv[]) {
       if (!opt.tile_list.empty() && opt.tile_list.find(tile_id) == opt.tile_list.end())
         continue;
 
-      // Get the bounding box we previously computed
-      vw::BBox2i tile_box = tile_pixel_bboxes[tile_id - start_tile];
-
-      std::string dem_tile;
-      if (!write_to_precise_file) {
-        std::ostringstream os;
-        os << opt.out_prefix << "-tile-"
-            << std::setfill('0') << std::setw(num_digits) << tile_id
-            << tile_suffix(opt) << ".tif";
-        dem_tile = os.str();
-      } else {
-        dem_tile = opt.out_prefix; // the file name was set by user
-      }
-
-      // Set up tile image and metadata
-      std::int64_t num_valid_pixels = 0; // Will be populated when saving to disk
-      vw::Mutex count_mutex; // to lock when updating num_valid_pixels
-
-      vw::ImageViewRef<float> out_dem
-        = vw::crop(DemMosaicView(cols, rows, bias, opt,
-                                 georefs, mosaic_georef,
-                                 nodata_values, loaded_dem_pixel_bboxes,
-                                 imgMgr, num_valid_pixels, count_mutex), tile_box);
-      vw::cartography::GeoReference crop_georef
-        = vw::cartography::crop(mosaic_georef, tile_box.min().x(),
-                                tile_box.min().y());
-      // Update the lon-lat box given that we know the final georef and image size
-      crop_georef.ll_box_from_pix_box(vw::BBox2i(0, 0, cols, rows));
-
-      // Raster the tile to disk. Optionally cast to int (may be useful for
-      // mosaicking ortho images).
-      saveDemTile(block_size, dem_tile, out_dem, crop_georef, opt);
-
-      vw::vw_out() << "Number of valid (not no-data) pixels written: "
-                   << num_valid_pixels << ".\n";
-      if (num_valid_pixels == 0) {
-        vw::vw_out() << "Removing tile with no valid pixels: " << dem_tile << "\n";
-        boost::filesystem::remove(dem_tile);
-      }
+      generateTile(tile_id, start_tile, cols, rows, bias, block_size, num_digits,
+                   write_to_precise_file, opt, tile_pixel_bboxes, georefs,
+                   mosaic_georef, nodata_values, loaded_dem_pixel_bboxes, imgMgr);
 
     } // End loop through tiles
 
