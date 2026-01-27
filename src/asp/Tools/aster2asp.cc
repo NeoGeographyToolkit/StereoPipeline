@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -79,7 +79,7 @@ struct Options: public vw::GdalWriteOptions {
 };
 
 void handle_arguments(int argc, char *argv[], Options &opt) {
-  
+
   po::options_description general_options("");
   general_options.add_options()
   ("output-prefix,o", po::value(&opt.output_prefix), "Specify the output prefix.")
@@ -110,9 +110,8 @@ void handle_arguments(int argc, char *argv[], Options &opt) {
   std::string usage("<input hdf or directory> -o <output prefix>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
-  po::variables_map vm = asp::check_command_line(
-      argc, argv, opt, general_options, general_options, positional,
-      positional_desc, usage, allow_unregistered, unregistered);
+  po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options, general_options, positional,
+                                                 positional_desc, usage, allow_unregistered, unregistered);
 
   if (opt.input.empty())
     vw_throw(ArgumentErr() << "Missing input.\n"
@@ -258,7 +257,7 @@ void locate_inputs(Options const &opt, std::string &nadir_image,
 
 // Apply the radiometric corrections
 template <class ImageT>
-class RadioCorrectView : public ImageViewBase<RadioCorrectView<ImageT>> {
+class RadioCorrectView: public ImageViewBase<RadioCorrectView<ImageT>> {
   ImageT m_img;
   std::vector<Vector3> const &m_corr; // alias
   bool m_has_nodata;
@@ -266,7 +265,7 @@ class RadioCorrectView : public ImageViewBase<RadioCorrectView<ImageT>> {
 
 public:
   RadioCorrectView(ImageT const &img, std::vector<Vector3> const &corr,
-                   bool has_nodata, double nodata): 
+                   bool has_nodata, double nodata):
   m_img(img), m_corr(corr), m_has_nodata(has_nodata), m_nodata(nodata) {}
 
   typedef typename ImageT::pixel_type input_type;
@@ -280,10 +279,8 @@ public:
 
   inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()(double /*i*/, double /*j*/,
-                               int32 /*p*/ = 0) const {
-    vw_throw(
-        NoImplErr() << "RadioCorrectView::operator()(...) is not implemented");
+  inline pixel_type operator()(double /*i*/, double /*j*/, int32 /*p*/ = 0) const {
+    vw_throw(NoImplErr() << "RadioCorrectView::operator()(...) is not implemented");
     return pixel_type();
   }
 
@@ -358,16 +355,14 @@ void apply_radiometric_corrections(Options const &opt,
              << "ASTER L1A images are not supposed to be georeferenced.\n");
 
   vw_out() << "Writing: " << out_image << std::endl;
-  vw::cartography::block_write_gdal_image(
-      out_image, radio_correct(input_img, corr, has_nodata, nodata), has_georef,
-      georef, has_nodata, nodata, opt,
-      TerminalProgressCallback("asp", "\t-->: "));
+  vw::cartography::block_write_gdal_image(out_image, radio_correct(input_img, corr, has_nodata, nodata), has_georef,
+                                          georef, has_nodata, nodata, opt,
+                                          TerminalProgressCallback("asp", "\t-->: "));
 }
 
 // Generate lon-lat-height to image pixel correspondences that we will
 // use to create the RPC model.
-void generate_point_pairs(// Inputs
-                          double min_height, double max_height, std::int64_t num_samples,
+void generate_point_pairs(double min_height, double max_height, std::int64_t num_samples,
                           double penalty_weight, std::string const &sat_pos_file,
                           std::string const &sight_vec_file, std::string const &longitude_file,
                           std::string const &latitude_file, std::string const &lattice_file,
@@ -681,8 +676,7 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   Vector<double> normalized_pixels;
   std::vector<std::vector<vw::Vector3>>
       world_sight_mat;  // sight dir in world coords
-  generate_point_pairs(// inputs
-                       min_height, max_height, num_samples, penalty_weight, sat_pos_file,
+  generate_point_pairs(min_height, max_height, num_samples, penalty_weight, sat_pos_file,
                        sight_vec_file, longitude_file, latitude_file, lattice_file,
                        // Outputs
                        world_sight_mat, llh_scale, llh_offset, pixel_scale, pixel_offset,
@@ -691,8 +685,7 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   // Find the RPC coefficients
   asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
   bool refine_only = false;
-  asp::gen_rpc(// Inputs
-               penalty_weight, normalized_llh, normalized_pixels, refine_only,
+  asp::gen_rpc(penalty_weight, normalized_llh, normalized_pixels, refine_only,
                // Outputs
                line_num, line_den, samp_num, samp_den);
 
@@ -713,7 +706,7 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
 std::string genTmpDir(std::string const &output_prefix) {
   fs::path prefix_path(output_prefix);
   std::string tmp_dir;
-  
+
   if (prefix_path.has_parent_path()) {
     // output_prefix is like "run/out", make tmp dir "run/tmp"
     tmp_dir = prefix_path.parent_path().string() + "/tmp";
@@ -722,7 +715,7 @@ std::string genTmpDir(std::string const &output_prefix) {
     // Use process ID to ensure uniqueness
     tmp_dir = "tmp_aster_" + vw::num_to_str(getpid());
   }
-  
+
   fs::create_directories(tmp_dir);
   return tmp_dir;
 }
@@ -731,7 +724,7 @@ std::string genTmpDir(std::string const &output_prefix) {
 std::string findSubdataset(char** subdatasets, std::string const& pattern) {
   for (int i = 0; subdatasets[i] != NULL; i++) {
     std::string line(subdatasets[i]);
-    if (line.find("_NAME=") != std::string::npos && 
+    if (line.find("_NAME=") != std::string::npos &&
         line.find(pattern) != std::string::npos) {
       // Extract the subdataset path after the "="
       std::size_t pos = line.find("=");
@@ -742,33 +735,31 @@ std::string findSubdataset(char** subdatasets, std::string const& pattern) {
 }
 
 // Extract a single ASTER band image from HDF subdatasets to a TIF file.
-void extractBandImage(char** subdatasets, std::string const& band_name, 
+void extractBandImage(char** subdatasets, std::string const& band_name,
                       std::string const& tmp_dir) {
-  
+
   // Find the ImageData subdataset for this band
   std::string search_pattern = band_name + ":ImageData";
   std::string band_subdataset = findSubdataset(subdatasets, search_pattern);
-  
+
   if (band_subdataset.empty())
     vw_throw(ArgumentErr() << "Could not find " << band_name << " in the HDF file.\n");
-  
-  vw_out() << "Found " << band_name << " subdataset: " << band_subdataset << "\n";
-  
+
   // Open the subdataset
   GDALDataset* band_ds = (GDALDataset*)GDALOpen(band_subdataset.c_str(), GA_ReadOnly);
   if (!band_ds)
     vw_throw(ArgumentErr() << "Failed to open " << band_name << " subdataset.\n");
-  
+
   // Write to output TIF
   std::string out_file = tmp_dir + "/AST_L1A_" + band_name + ".ImageData.tif";
   vw_out() << "Extracting " << band_name << " to: " << out_file << "\n";
-  
+
   GDALDriver* gtiff_driver = GetGDALDriverManager()->GetDriverByName("GTiff");
-  GDALDataset* out_ds = gtiff_driver->CreateCopy(out_file.c_str(), band_ds, 
+  GDALDataset* out_ds = gtiff_driver->CreateCopy(out_file.c_str(), band_ds,
                                                   FALSE, NULL, NULL, NULL);
   if (!out_ds)
     vw_throw(ArgumentErr() << "Failed to write " << band_name << " to TIF.\n");
-  
+
   GDALClose(out_ds);
   GDALClose(band_ds);
 }
@@ -778,54 +769,49 @@ void extractBandImage(char** subdatasets, std::string const& band_name,
 void extractMetadataArray(char** subdatasets, std::string const& band_name,
                           std::string const& metadata_type,
                           std::string const& tmp_dir) {
-  
+
   // Find the metadata subdataset
   std::string search_pattern = band_name + ":" + metadata_type;
   std::string subdataset_path = findSubdataset(subdatasets, search_pattern);
-  
+
   if (subdataset_path.empty())
-    vw_throw(ArgumentErr() << "Could not find " << search_pattern 
+    vw_throw(ArgumentErr() << "Could not find " << search_pattern
                            << " in the HDF file.\n");
-  
-  vw_out() << "Found " << search_pattern << " subdataset\n";
-  
+
   // Open the subdataset
   GDALDataset* ds = (GDALDataset*)GDALOpen(subdataset_path.c_str(), GA_ReadOnly);
   if (!ds)
     vw_throw(ArgumentErr() << "Failed to open " << search_pattern << " subdataset.\n");
-  
+
   // Get dimensions
   int cols = ds->GetRasterXSize();
   int rows = ds->GetRasterYSize();
   int bands = ds->GetRasterCount();
-  
-  vw_out() << "Reading " << rows << "x" << cols << "x" << bands << " array\n";
-  
+
   // Read data from all bands
   std::vector<double> data(rows * cols * bands);
   for (int band = 1; band <= bands; band++) {
     GDALRasterBand* raster_band = ds->GetRasterBand(band);
-    
+
     CPLErr err = raster_band->RasterIO(GF_Read, 0, 0, cols, rows,
-                                       data.data() + (band - 1) * rows * cols, 
+                                       data.data() + (band - 1) * rows * cols,
                                        cols, rows, GDT_Float64, 0, 0);
     if (err != CE_None)
       vw_throw(ArgumentErr() << "Failed to read " << search_pattern << " data.\n");
   }
-  
+
   GDALClose(ds);
-  
+
   // Write to text file
   std::string out_file = tmp_dir + "/AST_L1A_" + band_name + "." + metadata_type + ".txt";
-  vw_out() << "Writing to: " << out_file << "\n";
-  
+
   std::ofstream ofs(out_file);
   if (!ofs)
     vw_throw(ArgumentErr() << "Failed to open output file: " << out_file << "\n");
-  
+
   // Set high precision for output
   ofs << std::setprecision(17);
-  
+
   // Handle different array structures:
   // - If bands == 1 (like SatellitePosition [12x3x1]): rows=time, cols=XYZ
   //   Write: time1: X Y Z \n time2: X Y Z \n ...
@@ -859,7 +845,7 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
       ofs << "\n"; // Blank line between time blocks
     }
   }
-  
+
   ofs.close();
 }
 
@@ -868,54 +854,54 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
 // Based on orbital mechanics described in ASTER User Guide V4.
 void computeLatLonLattice(char** subdatasets, std::string const& band_name,
                           std::string const& tmp_dir) {
-  
+
   vw_out() << "Computing Latitude/Longitude for " << band_name << " lattice points\n";
-  
+
   // WGS84 ellipsoid parameters
   const double a = 6378137.0;           // semi-major axis (m)
   const double b = 6356752.314245;      // semi-minor axis (m)
-  
+
   // Find required subdatasets
   std::string sat_pos_path = findSubdataset(subdatasets, band_name + ":SatellitePosition");
   std::string sat_vel_path = findSubdataset(subdatasets, band_name + ":SatelliteVelocity");
   std::string sight_vec_path = findSubdataset(subdatasets, band_name + ":SightVector");
-  
+
   if (sat_pos_path.empty() || sat_vel_path.empty() || sight_vec_path.empty())
     vw_throw(ArgumentErr() << "Missing required subdatasets for " << band_name << "\n");
-  
+
   // Open and read geometry data
   GDALDataset* pos_ds = (GDALDataset*)GDALOpen(sat_pos_path.c_str(), GA_ReadOnly);
   GDALDataset* vel_ds = (GDALDataset*)GDALOpen(sat_vel_path.c_str(), GA_ReadOnly);
   GDALDataset* sight_ds = (GDALDataset*)GDALOpen(sight_vec_path.c_str(), GA_ReadOnly);
-  
+
   if (!pos_ds || !vel_ds || !sight_ds)
     vw_throw(ArgumentErr() << "Failed to open geometry subdatasets for " << band_name << "\n");
-  
+
   // Get dimensions
   // SightVector has shape: RasterCount=time_steps, YSize=lattice_cols, XSize=3 (XYZ)
   int num_time_steps = sight_ds->GetRasterCount();
   int num_lattice_cols = sight_ds->GetRasterYSize();
-  
+
   // Read all data
   std::vector<double> sat_pos_data(pos_ds->GetRasterXSize() * pos_ds->GetRasterYSize());
   std::vector<double> sat_vel_data(vel_ds->GetRasterXSize() * vel_ds->GetRasterYSize());
-  std::vector<double> sight_vec_data(sight_ds->GetRasterXSize() * 
-                                      sight_ds->GetRasterYSize() * 
+  std::vector<double> sight_vec_data(sight_ds->GetRasterXSize() *
+                                      sight_ds->GetRasterYSize() *
                                       sight_ds->GetRasterCount());
-  
+
   CPLErr err = pos_ds->GetRasterBand(1)->RasterIO(GF_Read, 0, 0,
-                                                    pos_ds->GetRasterXSize(), pos_ds->GetRasterYSize(),
-                                                    sat_pos_data.data(),
-                                                    pos_ds->GetRasterXSize(), pos_ds->GetRasterYSize(),
-                                                    GDT_Float64, 0, 0);
+                                                   pos_ds->GetRasterXSize(), pos_ds->GetRasterYSize(),
+                                                   sat_pos_data.data(),
+                                                   pos_ds->GetRasterXSize(), pos_ds->GetRasterYSize(),
+                                                   GDT_Float64, 0, 0);
   if (err != CE_None)
     vw::vw_throw(vw::IOErr() << "Failed to read satellite position data.\n");
 
   err = vel_ds->GetRasterBand(1)->RasterIO(GF_Read, 0, 0,
-                                            vel_ds->GetRasterXSize(), vel_ds->GetRasterYSize(),
-                                            sat_vel_data.data(),
-                                            vel_ds->GetRasterXSize(), vel_ds->GetRasterYSize(),
-                                            GDT_Float64, 0, 0);
+                                           vel_ds->GetRasterXSize(), vel_ds->GetRasterYSize(),
+                                           sat_vel_data.data(),
+                                           vel_ds->GetRasterXSize(), vel_ds->GetRasterYSize(),
+                                           GDT_Float64, 0, 0);
   if (err != CE_None)
     vw::vw_throw(vw::IOErr() << "Failed to read satellite velocity data.\n");
 
@@ -928,15 +914,15 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     if (err != CE_None)
       vw::vw_throw(vw::IOErr() << "Failed to read sight vector data for band " << band << ".\n");
   }
-  
+
   GDALClose(pos_ds);
   GDALClose(vel_ds);
   GDALClose(sight_ds);
-  
+
   // Compute lat/lon for each lattice point
   std::vector<double> lat_lattice(num_time_steps * num_lattice_cols);
   std::vector<double> lon_lattice(num_time_steps * num_lattice_cols);
-  
+
   for (int t = 0; t < num_time_steps; t++) {
     // Get satellite position and velocity for this time step (rows=time, cols=XYZ)
     double sat_pos[3] = {sat_pos_data[t * 3 + 0],
@@ -945,28 +931,28 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     double sat_vel[3] = {sat_vel_data[t * 3 + 0],
                          sat_vel_data[t * 3 + 1],
                          sat_vel_data[t * 3 + 2]};
-    
+
     // Build orbital frame rotation matrix
     // z_orb points from Earth center to satellite (negative of sat_pos direction)
     double pos_norm = std::sqrt(sat_pos[0]*sat_pos[0] + sat_pos[1]*sat_pos[1] + sat_pos[2]*sat_pos[2]);
     double z_orb[3] = {-sat_pos[0]/pos_norm, -sat_pos[1]/pos_norm, -sat_pos[2]/pos_norm};
-    
+
     // Orbit normal = sat_pos cross sat_vel
     double orbit_normal[3] = {sat_pos[1]*sat_vel[2] - sat_pos[2]*sat_vel[1],
                               sat_pos[2]*sat_vel[0] - sat_pos[0]*sat_vel[2],
                               sat_pos[0]*sat_vel[1] - sat_pos[1]*sat_vel[0]};
-    double normal_norm = std::sqrt(orbit_normal[0]*orbit_normal[0] + 
-                                    orbit_normal[1]*orbit_normal[1] + 
+    double normal_norm = std::sqrt(orbit_normal[0]*orbit_normal[0] +
+                                    orbit_normal[1]*orbit_normal[1] +
                                     orbit_normal[2]*orbit_normal[2]);
     double y_orb[3] = {-orbit_normal[0]/normal_norm,
                        -orbit_normal[1]/normal_norm,
                        -orbit_normal[2]/normal_norm};
-    
+
     // x_orb = y_orb cross z_orb
     double x_orb[3] = {y_orb[1]*z_orb[2] - y_orb[2]*z_orb[1],
                        y_orb[2]*z_orb[0] - y_orb[0]*z_orb[2],
                        y_orb[0]*z_orb[1] - y_orb[1]*z_orb[0]};
-    
+
     // Process each lattice column
     for (int c = 0; c < num_lattice_cols; c++) {
       // Get sight vector in orbital frame (data is [time][col][xyz])
@@ -974,55 +960,55 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
       double sv_orb[3] = {sight_vec_data[idx + 0],
                           sight_vec_data[idx + 1],
                           sight_vec_data[idx + 2]};
-      
+
       double sv_norm = std::sqrt(sv_orb[0]*sv_orb[0] + sv_orb[1]*sv_orb[1] + sv_orb[2]*sv_orb[2]);
       if (sv_norm < 1e-10)
         continue;
-      
+
       // Transform sight vector from orbital frame to ECEF
       double sv_ecef[3] = {x_orb[0]*sv_orb[0] + y_orb[0]*sv_orb[1] + z_orb[0]*sv_orb[2],
                            x_orb[1]*sv_orb[0] + y_orb[1]*sv_orb[1] + z_orb[1]*sv_orb[2],
                            x_orb[2]*sv_orb[0] + y_orb[2]*sv_orb[1] + z_orb[2]*sv_orb[2]};
-      
+
       // Normalize
       double sv_ecef_norm = std::sqrt(sv_ecef[0]*sv_ecef[0] + sv_ecef[1]*sv_ecef[1] + sv_ecef[2]*sv_ecef[2]);
       sv_ecef[0] /= sv_ecef_norm;
       sv_ecef[1] /= sv_ecef_norm;
       sv_ecef[2] /= sv_ecef_norm;
-      
+
       // Ray-ellipsoid intersection: find t where ray hits WGS84 ellipsoid
       // Ray: P = sat_pos + t * sv_ecef
       // Ellipsoid: (x/a)^2 + (y/a)^2 + (z/b)^2 = 1
       double A = (sv_ecef[0]/a)*(sv_ecef[0]/a) + (sv_ecef[1]/a)*(sv_ecef[1]/a) + (sv_ecef[2]/b)*(sv_ecef[2]/b);
       double B = 2*((sat_pos[0]*sv_ecef[0]/(a*a)) + (sat_pos[1]*sv_ecef[1]/(a*a)) + (sat_pos[2]*sv_ecef[2]/(b*b)));
       double C = (sat_pos[0]/a)*(sat_pos[0]/a) + (sat_pos[1]/a)*(sat_pos[1]/a) + (sat_pos[2]/b)*(sat_pos[2]/b) - 1;
-      
+
       double disc = B*B - 4*A*C;
       if (disc < 0)
         continue;
-      
+
       double t_param = (-B - std::sqrt(disc)) / (2*A);
       if (t_param <= 0)
         continue;
-      
+
       // Ground intersection point
       double gx = sat_pos[0] + t_param * sv_ecef[0];
       double gy = sat_pos[1] + t_param * sv_ecef[1];
       double gz = sat_pos[2] + t_param * sv_ecef[2];
-      
+
       // Convert to geocentric lat/lon
       double p = std::sqrt(gx*gx + gy*gy);
       lon_lattice[t * num_lattice_cols + c] = std::atan2(gy, gx) * 180.0 / M_PI;
       lat_lattice[t * num_lattice_cols + c] = std::atan2(gz, p) * 180.0 / M_PI;
     }
   }
-  
+
   // Write latitude file
   std::string lat_file = tmp_dir + "/AST_L1A_" + band_name + ".Latitude.txt";
   std::ofstream lat_ofs(lat_file);
   if (!lat_ofs)
     vw_throw(ArgumentErr() << "Failed to open output file: " << lat_file << "\n");
-  
+
   lat_ofs << std::setprecision(17);
   for (int t = 0; t < num_time_steps; t++) {
     for (int c = 0; c < num_lattice_cols; c++) {
@@ -1033,14 +1019,14 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     lat_ofs << "\n";
   }
   lat_ofs.close();
-  vw_out() << "Wrote: " << lat_file << "\n";
-  
+  vw_out() << "Writing: " << lat_file << "\n";
+
   // Write longitude file
   std::string lon_file = tmp_dir + "/AST_L1A_" + band_name + ".Longitude.txt";
   std::ofstream lon_ofs(lon_file);
   if (!lon_ofs)
     vw_throw(ArgumentErr() << "Failed to open output file: " << lon_file << "\n");
-  
+
   lon_ofs << std::setprecision(17);
   for (int t = 0; t < num_time_steps; t++) {
     for (int c = 0; c < num_lattice_cols; c++) {
@@ -1051,64 +1037,53 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     lon_ofs << "\n";
   }
   lon_ofs.close();
-  vw_out() << "Wrote: " << lon_file << "\n";
+  vw_out() << "Writing: " << lon_file << "\n";
 }
 
-// Extract data from HDF file to temporary directory. Updates opt.input to point
-// to the temp directory and sets tmp_dir, which we will wipe when not needed.
-void extractHdfData(Options& opt, std::string& tmp_dir) {
-  vw_out() << "Reading HDF file: " << opt.input << "\n";
-  tmp_dir = genTmpDir(opt.output_prefix);
-  vw_out() << "Creating directory " << tmp_dir 
-           << " for extracting data from HDF.\n";
-  
+// Extract data from HDF file to temporary directory.
+void extractHdfData(std::string const& hdf_file, std::string const& hdfOutDir) {
   // Open HDF file with GDAL
   GDALAllRegister();
-  GDALDataset* hdf_ds = (GDALDataset*)GDALOpen(opt.input.c_str(), GA_ReadOnly);
+  GDALDataset* hdf_ds = (GDALDataset*)GDALOpen(hdf_file.c_str(), GA_ReadOnly);
   if (!hdf_ds)
-    vw_throw(ArgumentErr() << "Failed to open HDF file: " << opt.input << "\n");
-  
+    vw_throw(ArgumentErr() << "Failed to open HDF file: " << hdf_file << "\n");
+
   // Get subdatasets
   char** subdatasets = hdf_ds->GetMetadata("SUBDATASETS");
   if (!subdatasets)
     vw_throw(ArgumentErr() << "No subdatasets found in HDF file.\n");
-  
+
   // In the HDF4_EOS format, each VNIR band has its own subdatasets:
   // VNIR_Band3N:ImageData, VNIR_Band3N:SatellitePosition, etc.
   // VNIR_Band3B:ImageData, VNIR_Band3B:SatellitePosition, etc.
-  
+
   // Extract both band images
-  extractBandImage(subdatasets, "VNIR_Band3N", tmp_dir);
-  extractBandImage(subdatasets, "VNIR_Band3B", tmp_dir);
-  
+  extractBandImage(subdatasets, "VNIR_Band3N", hdfOutDir);
+  extractBandImage(subdatasets, "VNIR_Band3B", hdfOutDir);
+
   // Extract satellite position metadata for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "SatellitePosition", tmp_dir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "SatellitePosition", tmp_dir);
-  
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "SatellitePosition", hdfOutDir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "SatellitePosition", hdfOutDir);
+
   // Extract sight vector metadata for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "SightVector", tmp_dir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "SightVector", tmp_dir);
-  
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "SightVector", hdfOutDir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "SightVector", hdfOutDir);
+
   // Extract lattice point metadata for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "LatticePoint", tmp_dir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "LatticePoint", tmp_dir);
-  
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "LatticePoint", hdfOutDir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "LatticePoint", hdfOutDir);
+
   // Extract radiometric correction table for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "RadiometricCorrTable", tmp_dir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "RadiometricCorrTable", tmp_dir);
-  
-  // Compute latitude/longitude from orbital geometry
-  // V004 HDF does not include these as subdatasets - they must be computed from
-  // SatellitePosition, SatelliteVelocity, and SightVector
-  computeLatLonLattice(subdatasets, "VNIR_Band3N", tmp_dir);
-  computeLatLonLattice(subdatasets, "VNIR_Band3B", tmp_dir);
-  
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "RadiometricCorrTable", hdfOutDir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "RadiometricCorrTable", hdfOutDir);
+
+  // Compute latitude/longitude from orbital geometry V004 HDF does not include
+  // these as subdatasets. These must be computed from SatellitePosition,
+  // SatelliteVelocity, and SightVector.
+  computeLatLonLattice(subdatasets, "VNIR_Band3N", hdfOutDir);
+  computeLatLonLattice(subdatasets, "VNIR_Band3B", hdfOutDir);
+
   GDALClose(hdf_ds);
-  
-  vw_out() << "HDF extraction complete.\n";
-  
-  // Point the input to the temp directory so the rest of the code can find the files
-  opt.input = tmp_dir;
 }
 
 int main(int argc, char *argv[]) {
@@ -1118,11 +1093,19 @@ int main(int argc, char *argv[]) {
     handle_arguments(argc, argv, opt);
 
     // Track if we created a temp directory (for cleanup later)
-    std::string tmp_dir = "";
+    std::string hdfOutDir = "";
 
     // Check if input is an HDF file and extract data if so
-    if (boost::iends_with(opt.input, ".hdf"))
-      extractHdfData(opt, tmp_dir);
+    if (boost::iends_with(opt.input, ".hdf")) {
+      vw_out() << "Reading HDF file: " << opt.input << "\n";
+      hdfOutDir = genTmpDir(opt.output_prefix);
+      vw_out() << "Creating directory " << hdfOutDir
+               << " for extracting data from HDF.\n";
+      extractHdfData(opt.input, hdfOutDir);
+      vw_out() << "HDF extraction complete.\n";
+      // Point the input to the temp directory so the rest of the code can find the files
+      opt.input = hdfOutDir;
+    }
 
     std::string nadir_image, back_image, nadir_sat_pos, back_sat_pos;
     std::string nadir_sight_vec, back_sight_vec;
@@ -1152,22 +1135,20 @@ int main(int argc, char *argv[]) {
                                   out_back_image);
 
     vw_out() << "Computing the camera models.\n";
-
     gen_xml(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
             nadir_image, nadir_sat_pos, nadir_sight_vec, nadir_longitude,
             nadir_latitude, nadir_lattice_point, out_nadir_cam);
-
     gen_xml(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
             back_image, back_sat_pos, back_sight_vec, back_longitude,
             back_latitude, back_lattice_point, out_back_cam);
-    
+
     // Clean up temporary directory if we created one
-    if (!tmp_dir.empty()) {
+    if (!hdfOutDir.empty()) {
       if (opt.keep_tmp_dir) {
-        vw_out() << "Keeping temporary directory for debugging: " << tmp_dir << "\n";
+        vw_out() << "Keeping temporary directory: " << hdfOutDir << "\n";
       } else {
-        vw_out() << "Removing temporary directory: " << tmp_dir << "\n";
-        fs::remove_all(tmp_dir);
+        vw_out() << "Removing temporary directory: " << hdfOutDir << "\n";
+        fs::remove_all(hdfOutDir);
       }
     }
   }
