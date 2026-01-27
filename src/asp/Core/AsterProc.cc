@@ -19,6 +19,7 @@
 #include <asp/Core/FileUtils.h>
 
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/Datum.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
@@ -32,32 +33,6 @@
 #include <cmath>
 
 namespace fs = boost::filesystem;
-
-namespace asp {
-
-// Generate a temporary directory for HDF extraction. If the output_prefix has a parent
-// path (e.g., "run/out"), create "run/tmp". Otherwise, create a unique directory.
-// Otherwise, if it has no parent path (e.g., just "out"), we must create a
-// unique directory in the current directory to avoid conflicts when multiple
-// instances run.
-std::string genTmpDir(std::string const &output_prefix) {
-  fs::path prefix_path(output_prefix);
-  std::string tmp_dir;
-
-  if (prefix_path.has_parent_path()) {
-    // output_prefix is like "run/out", make tmp dir "run/tmp"
-    tmp_dir = prefix_path.parent_path().string() + "/tmp";
-  } else {
-    // output_prefix is just "out", make tmp dir unique like "tmp_aster_12345"
-    // Use process ID to ensure uniqueness
-    tmp_dir = "tmp_aster_" + vw::num_to_str(getpid());
-  }
-
-  fs::create_directories(tmp_dir);
-  return tmp_dir;
-}
-
-} // namespace asp
 
 namespace {
 
@@ -198,9 +173,10 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
   ofs.close();
 }
 
-// Compute latitude and longitude for lattice points from orbital geometry.
-// V004 HDF format does not include Lat/Lon datasets - they must be computed from
-// SatellitePosition, SatelliteVelocity, and SightVector using ray-ellipsoid intersection.
+// Compute latitude and longitude for lattice points from orbital geometry. V004
+// HDF format does not include Lat/Lon datasets - they must be computed from
+// SatellitePosition, SatelliteVelocity, and SightVector using ray-ellipsoid
+// intersection.
 void computeLatLonLattice(char** subdatasets, std::string const& band_name,
                           std::string const& tmp_dir) {
 
@@ -270,10 +246,9 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
   GDALClose(vel_ds);
   GDALClose(sight_ds);
 
-  // Compute lat/lon for each lattice point
-  // WGS84 ellipsoid parameters
-  const double a = 6378137.0;           // semi-major axis
-  const double b = 6356752.314245;      // semi-minor axis
+  // Compute lat/lon for each lattice point using WGS84 datum
+  vw::cartography::Datum wgs84;
+  wgs84.set_well_known_datum("WGS84");
 
   std::vector<double> lat_lattice(num_time_steps * num_lattice_cols);
   std::vector<double> lon_lattice(num_time_steps * num_lattice_cols);
@@ -334,58 +309,31 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
         continue;
       }
 
-      // Transform sight vector from orbital frame to ECI
-      // sv_eci = R * sv_orb where R = [x_orb | y_orb | z_orb]
-      double sv_eci_x = x_orb_x * sv_orb_x + y_orb_x * sv_orb_y + z_orb_x * sv_orb_z;
-      double sv_eci_y = x_orb_y * sv_orb_x + y_orb_y * sv_orb_y + z_orb_y * sv_orb_z;
-      double sv_eci_z = x_orb_z * sv_orb_x + y_orb_z * sv_orb_y + z_orb_z * sv_orb_z;
+      // Transform sight vector from orbital frame to ECEF
+      // sv_ecef = R * sv_orb where R = [x_orb | y_orb | z_orb]
+      double sv_ecef_x = x_orb_x * sv_orb_x + y_orb_x * sv_orb_y + z_orb_x * sv_orb_z;
+      double sv_ecef_y = x_orb_y * sv_orb_x + y_orb_y * sv_orb_y + z_orb_y * sv_orb_z;
+      double sv_ecef_z = x_orb_z * sv_orb_x + y_orb_z * sv_orb_y + z_orb_z * sv_orb_z;
 
-      // Normalize sight vector
-      double sv_eci_norm = std::sqrt(sv_eci_x * sv_eci_x +
-                                      sv_eci_y * sv_eci_y +
-                                      sv_eci_z * sv_eci_z);
-      sv_eci_x /= sv_eci_norm;
-      sv_eci_y /= sv_eci_norm;
-      sv_eci_z /= sv_eci_norm;
+      // Ray-datum intersection using VW's proven implementation
+      vw::Vector3 camera_ctr(sat_pos_x, sat_pos_y, sat_pos_z);
+      vw::Vector3 camera_vec(sv_ecef_x, sv_ecef_y, sv_ecef_z);
+      vw::Vector3 ground_pt = vw::cartography::datum_intersection(wgs84, camera_ctr,
+                                                                   camera_vec);
 
-      // Ray-ellipsoid intersection
-      // Ray: P = sat_pos + t * sv_eci
-      // Ellipsoid: (x/a)^2 + (y/a)^2 + (z/b)^2 = 1
-      double A = (sv_eci_x / a) * (sv_eci_x / a) +
-                 (sv_eci_y / a) * (sv_eci_y / a) +
-                 (sv_eci_z / b) * (sv_eci_z / b);
-
-      double B = 2.0 * ((sat_pos_x * sv_eci_x / (a * a)) +
-                        (sat_pos_y * sv_eci_y / (a * a)) +
-                        (sat_pos_z * sv_eci_z / (b * b)));
-
-      double C = (sat_pos_x / a) * (sat_pos_x / a) +
-                 (sat_pos_y / a) * (sat_pos_y / a) +
-                 (sat_pos_z / b) * (sat_pos_z / b) - 1.0;
-
-      double disc = B * B - 4.0 * A * C;
-      if (disc < 0) {
+      // Check for failed intersection (returns zero vector)
+      if (ground_pt == vw::Vector3()) {
         lat_lattice[t * num_lattice_cols + c] = 0.0;
         lon_lattice[t * num_lattice_cols + c] = 0.0;
         continue;
       }
 
-      double t_param = (-B - std::sqrt(disc)) / (2.0 * A);
-      if (t_param <= 0) {
-        lat_lattice[t * num_lattice_cols + c] = 0.0;
-        lon_lattice[t * num_lattice_cols + c] = 0.0;
-        continue;
-      }
-
-      // Ground point
-      double gx = sat_pos_x + t_param * sv_eci_x;
-      double gy = sat_pos_y + t_param * sv_eci_y;
-      double gz = sat_pos_z + t_param * sv_eci_z;
-
-      // Convert to geocentric lat/lon
-      double p = std::sqrt(gx * gx + gy * gy);
-      lon_lattice[t * num_lattice_cols + c] = std::atan2(gy, gx) * 180.0 / M_PI;
-      lat_lattice[t * num_lattice_cols + c] = std::atan2(gz, p) * 180.0 / M_PI;
+      // Convert ground point to geocentric lat/lon
+      double p = std::sqrt(ground_pt.x() * ground_pt.x() +
+                          ground_pt.y() * ground_pt.y());
+      lon_lattice[t * num_lattice_cols + c] = std::atan2(ground_pt.y(),
+                                                          ground_pt.x()) * 180.0 / M_PI;
+      lat_lattice[t * num_lattice_cols + c] = std::atan2(ground_pt.z(), p) * 180.0 / M_PI;
     }
   }
 
@@ -425,58 +373,6 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
   lon_ofs.close();
   vw::vw_out() << "Writing: " << lon_file << "\n";
 }
-
-} // anonymous namespace
-
-namespace asp {
-
-// Extract data from HDF file to temporary directory.
-void extractHdfData(std::string const& hdf_file, std::string const& hdfOutDir) {
-  // Open HDF file with GDAL
-  GDALAllRegister();
-  GDALDataset* hdf_ds = (GDALDataset*)GDALOpen(hdf_file.c_str(), GA_ReadOnly);
-  if (!hdf_ds)
-    vw::vw_throw(vw::ArgumentErr() << "Failed to open HDF file: " << hdf_file << "\n");
-
-  // Get subdatasets
-  char** subdatasets = hdf_ds->GetMetadata("SUBDATASETS");
-  if (!subdatasets)
-    vw::vw_throw(vw::ArgumentErr() << "No subdatasets found in HDF file.\n");
-
-  // In the HDF4_EOS format, each VNIR band has its own subdatasets:
-  // VNIR_Band3N:ImageData, VNIR_Band3N:SatellitePosition, etc.
-  // VNIR_Band3B:ImageData, VNIR_Band3B:SatellitePosition, etc.
-
-  // Extract both band images
-  extractBandImage(subdatasets, "VNIR_Band3N", hdfOutDir);
-  extractBandImage(subdatasets, "VNIR_Band3B", hdfOutDir);
-
-  // Extract satellite position metadata for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "SatellitePosition", hdfOutDir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "SatellitePosition", hdfOutDir);
-
-  // Extract sight vector metadata for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "SightVector", hdfOutDir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "SightVector", hdfOutDir);
-
-  // Extract lattice point metadata for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "LatticePoint", hdfOutDir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "LatticePoint", hdfOutDir);
-
-  // Extract radiometric correction table for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "RadiometricCorrTable", hdfOutDir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "RadiometricCorrTable", hdfOutDir);
-
-  // Compute latitude/longitude from orbital geometry
-  // V004 HDF does not include these as subdatasets - they must be computed from
-  // SatellitePosition, SatelliteVelocity, and SightVector
-  computeLatLonLattice(subdatasets, "VNIR_Band3N", hdfOutDir);
-  computeLatLonLattice(subdatasets, "VNIR_Band3B", hdfOutDir);
-
-  GDALClose(hdf_ds);
-}
-
-namespace {
 
 // Internal implementation detail for radiometric corrections
 template <class ImageT>
@@ -542,6 +438,76 @@ RadioCorrectView<ImageT> radioCorrect(ImageT const &img,
 
 } // anonymous namespace
 
+namespace asp {
+
+// Generate a temporary directory for HDF extraction. If the output_prefix has a parent
+// path (e.g., "run/out"), create "run/tmp". Otherwise, create a unique directory.
+// Otherwise, if it has no parent path (e.g., just "out"), we must create a
+// unique directory in the current directory to avoid conflicts when multiple
+// instances run.
+std::string genTmpDir(std::string const &output_prefix) {
+  fs::path prefix_path(output_prefix);
+  std::string tmp_dir;
+
+  if (prefix_path.has_parent_path()) {
+    // output_prefix is like "run/out", make tmp dir "run/tmp"
+    tmp_dir = prefix_path.parent_path().string() + "/tmp";
+  } else {
+    // output_prefix is just "out", make tmp dir unique like "tmp_aster_12345"
+    // Use process ID to ensure uniqueness
+    tmp_dir = "tmp_aster_" + vw::num_to_str(getpid());
+  }
+
+  fs::create_directories(tmp_dir);
+  return tmp_dir;
+}
+
+// Extract data from HDF file to temporary directory.
+void extractHdfData(std::string const& hdf_file, std::string const& hdfOutDir) {
+  // Open HDF file with GDAL
+  GDALAllRegister();
+  GDALDataset* hdf_ds = (GDALDataset*)GDALOpen(hdf_file.c_str(), GA_ReadOnly);
+  if (!hdf_ds)
+    vw::vw_throw(vw::ArgumentErr() << "Failed to open HDF file: " << hdf_file << "\n");
+
+  // Get subdatasets
+  char** subdatasets = hdf_ds->GetMetadata("SUBDATASETS");
+  if (!subdatasets)
+    vw::vw_throw(vw::ArgumentErr() << "No subdatasets found in HDF file.\n");
+
+  // In the HDF4_EOS format, each VNIR band has its own subdatasets:
+  // VNIR_Band3N:ImageData, VNIR_Band3N:SatellitePosition, etc.
+  // VNIR_Band3B:ImageData, VNIR_Band3B:SatellitePosition, etc.
+
+  // Extract both band images
+  extractBandImage(subdatasets, "VNIR_Band3N", hdfOutDir);
+  extractBandImage(subdatasets, "VNIR_Band3B", hdfOutDir);
+
+  // Extract satellite position metadata for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "SatellitePosition", hdfOutDir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "SatellitePosition", hdfOutDir);
+
+  // Extract sight vector metadata for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "SightVector", hdfOutDir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "SightVector", hdfOutDir);
+
+  // Extract lattice point metadata for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "LatticePoint", hdfOutDir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "LatticePoint", hdfOutDir);
+
+  // Extract radiometric correction table for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "RadiometricCorrTable", hdfOutDir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "RadiometricCorrTable", hdfOutDir);
+
+  // Compute latitude/longitude from orbital geometry
+  // V004 HDF does not include these as subdatasets - they must be computed from
+  // SatellitePosition, SatelliteVelocity, and SightVector
+  computeLatLonLattice(subdatasets, "VNIR_Band3N", hdfOutDir);
+  computeLatLonLattice(subdatasets, "VNIR_Band3B", hdfOutDir);
+
+  GDALClose(hdf_ds);
+}
+
 // ASTER L1A images come with radiometric corrections appended, but not applied.
 // There is one correction per image column.
 void applyRadiometricCorrections(std::string const& input_image,
@@ -560,17 +526,12 @@ void applyRadiometricCorrections(std::string const& input_image,
     vw::vw_throw(vw::ArgumentErr() << "Expecting as many corrections in " << corr_table
                            << " as image columns in " << input_image << "\n");
 
-  bool has_nodata = false;
-  double nodata = -std::numeric_limits<float>::max();
-  // See if there is a no-data value
-  {
-    boost::shared_ptr<vw::DiskImageResource> img_rsrc(
-        new vw::DiskImageResourceGDAL(input_image));
-    if (img_rsrc->has_nodata_read()) {
-      has_nodata = true;
-      nodata = img_rsrc->nodata_read();
-    }
-  }
+  // Read nodata value from the image
+  boost::shared_ptr<vw::DiskImageResource> img_rsrc(
+      new vw::DiskImageResourceGDAL(input_image));
+  bool has_nodata = img_rsrc->has_nodata_read();
+  double nodata = has_nodata ? img_rsrc->nodata_read() :
+                  -std::numeric_limits<float>::max();
 
   // No georef, this being L1A imagery
   vw::cartography::GeoReference georef;
@@ -580,13 +541,12 @@ void applyRadiometricCorrections(std::string const& input_image,
              << "ASTER L1A images are not supposed to be georeferenced.\n");
 
   vw::vw_out() << "Writing: " << out_image << std::endl;
+  vw::TerminalProgressCallback tpc("asp", "\t-->: ");
   vw::cartography::block_write_gdal_image(out_image,
                                           radioCorrect(input_img, corr,
                                                        has_nodata, nodata),
                                           has_georef,
-                                          georef, has_nodata, nodata, opt,
-                                          vw::TerminalProgressCallback("asp",
-                                                                       "\t-->: "));
+                                          georef, has_nodata, nodata, opt, tpc);
 }
 
 } // namespace asp
