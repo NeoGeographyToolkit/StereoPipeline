@@ -51,6 +51,7 @@
 
 #include <cstring>
 #include <limits>
+#include <iomanip>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -358,15 +359,15 @@ void apply_radiometric_corrections(Options const &opt,
 
 // Generate lon-lat-height to image pixel correspondences that we will
 // use to create the RPC model.
-void generate_point_pairs( // Inputs
-    double min_height, double max_height, std::int64_t num_samples,
-    double penalty_weight, std::string const &sat_pos_file,
-    std::string const &sight_vec_file, std::string const &longitude_file,
-    std::string const &latitude_file, std::string const &lattice_file,
-    // Outputs
-    std::vector<std::vector<vw::Vector3>> &world_sight_mat, Vector3 &llh_scale,
-    Vector3 &llh_offset, Vector2 &pixel_scale, Vector2 &pixel_offset,
-    Vector<double> &normalized_llh, Vector<double> &normalized_pixels) {
+void generate_point_pairs(// Inputs
+                          double min_height, double max_height, std::int64_t num_samples,
+                          double penalty_weight, std::string const &sat_pos_file,
+                          std::string const &sight_vec_file, std::string const &longitude_file,
+                          std::string const &latitude_file, std::string const &lattice_file,
+                          // Outputs
+                          std::vector<std::vector<vw::Vector3>> &world_sight_mat, Vector3 &llh_scale,
+                          Vector3 &llh_offset, Vector2 &pixel_scale, Vector2 &pixel_offset,
+                          Vector<double> &normalized_llh, Vector<double> &normalized_pixels) {
 
   // Read the sight vectors
   std::vector<Vector3> sight_vec;
@@ -673,20 +674,20 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
   Vector<double> normalized_pixels;
   std::vector<std::vector<vw::Vector3>>
       world_sight_mat;  // sight dir in world coords
-  generate_point_pairs( // inputs
-      min_height, max_height, num_samples, penalty_weight, sat_pos_file,
-      sight_vec_file, longitude_file, latitude_file, lattice_file,
-      // Outputs
-      world_sight_mat, llh_scale, llh_offset, pixel_scale, pixel_offset,
-      normalized_llh, normalized_pixels);
+  generate_point_pairs(// inputs
+                       min_height, max_height, num_samples, penalty_weight, sat_pos_file,
+                       sight_vec_file, longitude_file, latitude_file, lattice_file,
+                       // Outputs
+                       world_sight_mat, llh_scale, llh_offset, pixel_scale, pixel_offset,
+                       normalized_llh, normalized_pixels);
 
   // Find the RPC coefficients
   asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
   bool refine_only = false;
-  asp::gen_rpc( // Inputs
-      penalty_weight, normalized_llh, normalized_pixels, refine_only,
-      // Outputs
-      line_num, line_den, samp_num, samp_den);
+  asp::gen_rpc(// Inputs
+               penalty_weight, normalized_llh, normalized_pixels, refine_only,
+               // Outputs
+               line_num, line_den, samp_num, samp_den);
 
   DiskImageView<float> input_img(image_file);
   std::int64_t image_cols = input_img.cols();
@@ -719,28 +720,32 @@ std::string genTmpDir(std::string const &output_prefix) {
   return tmp_dir;
 }
 
+// Find a subdataset by pattern matching in the HDF metadata.
+std::string findSubdataset(char** subdatasets, std::string const& pattern) {
+  for (int i = 0; subdatasets[i] != NULL; i++) {
+    std::string line(subdatasets[i]);
+    if (line.find("_NAME=") != std::string::npos && 
+        line.find(pattern) != std::string::npos) {
+      // Extract the subdataset path after the "="
+      std::size_t pos = line.find("=");
+      return line.substr(pos + 1);
+    }
+  }
+  return "";  // Not found
+}
+
 // Extract a single ASTER band image from HDF subdatasets to a TIF file.
 void extractBandImage(char** subdatasets, std::string const& band_name, 
                       std::string const& tmp_dir) {
   
   // Find the ImageData subdataset for this band
   std::string search_pattern = band_name + ":ImageData";
-  std::string band_subdataset;
-  
-  for (int i = 0; subdatasets[i] != NULL; i++) {
-    std::string line(subdatasets[i]);
-    if (line.find("_NAME=") != std::string::npos && 
-        line.find(search_pattern) != std::string::npos) {
-      // Extract the subdataset path after the "="
-      std::size_t pos = line.find("=");
-      band_subdataset = line.substr(pos + 1);
-      vw_out() << "Found " << band_name << " subdataset: " << band_subdataset << "\n";
-      break;
-    }
-  }
+  std::string band_subdataset = findSubdataset(subdatasets, search_pattern);
   
   if (band_subdataset.empty())
     vw_throw(ArgumentErr() << "Could not find " << band_name << " in the HDF file.\n");
+  
+  vw_out() << "Found " << band_name << " subdataset: " << band_subdataset << "\n";
   
   // Open the subdataset
   GDALDataset* band_ds = (GDALDataset*)GDALOpen(band_subdataset.c_str(), GA_ReadOnly);
@@ -759,6 +764,75 @@ void extractBandImage(char** subdatasets, std::string const& band_name,
   
   GDALClose(out_ds);
   GDALClose(band_ds);
+}
+
+// Extract metadata array from HDF subdataset to text file.
+// Writes 3D arrays as space-separated values per line.
+void extractMetadataArray(char** subdatasets, std::string const& band_name,
+                          std::string const& metadata_type,
+                          std::string const& tmp_dir) {
+  
+  // Find the metadata subdataset
+  std::string search_pattern = band_name + ":" + metadata_type;
+  std::string subdataset_path = findSubdataset(subdatasets, search_pattern);
+  
+  if (subdataset_path.empty())
+    vw_throw(ArgumentErr() << "Could not find " << search_pattern 
+                           << " in the HDF file.\n");
+  
+  vw_out() << "Found " << search_pattern << " subdataset\n";
+  
+  // Open the subdataset
+  GDALDataset* ds = (GDALDataset*)GDALOpen(subdataset_path.c_str(), GA_ReadOnly);
+  if (!ds)
+    vw_throw(ArgumentErr() << "Failed to open " << search_pattern << " subdataset.\n");
+  
+  // Get dimensions
+  int cols = ds->GetRasterXSize();
+  int rows = ds->GetRasterYSize();
+  int bands = ds->GetRasterCount();
+  
+  vw_out() << "Reading " << rows << "x" << cols << "x" << bands << " array\n";
+  
+  // Read data from all bands
+  std::vector<double> data(rows * cols * bands);
+  for (int band = 1; band <= bands; band++) {
+    GDALRasterBand* raster_band = ds->GetRasterBand(band);
+    
+    CPLErr err = raster_band->RasterIO(GF_Read, 0, 0, cols, rows,
+                                       data.data() + (band - 1) * rows * cols, 
+                                       cols, rows, GDT_Float64, 0, 0);
+    if (err != CE_None)
+      vw_throw(ArgumentErr() << "Failed to read " << search_pattern << " data.\n");
+  }
+  
+  GDALClose(ds);
+  
+  // Write to text file
+  std::string out_file = tmp_dir + "/AST_L1A_" + band_name + "." + metadata_type + ".txt";
+  vw_out() << "Writing to: " << out_file << "\n";
+  
+  std::ofstream ofs(out_file);
+  if (!ofs)
+    vw_throw(ArgumentErr() << "Failed to open output file: " << out_file << "\n");
+  
+  // Set high precision for output
+  ofs << std::setprecision(17);
+  
+  // Write row by row, with all columns and bands on each line
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+      for (int band = 0; band < bands; band++) {
+        int idx = band * rows * cols + row * cols + col;
+        ofs << data[idx];
+        if (col < cols - 1 || band < bands - 1)
+          ofs << " ";
+      }
+    }
+    ofs << "\n";
+  }
+  
+  ofs.close();
 }
 
 int main(int argc, char *argv[]) {
@@ -793,9 +867,13 @@ int main(int argc, char *argv[]) {
       extractBandImage(subdatasets, "VNIR_Band3N", tmp_dir);
       extractBandImage(subdatasets, "VNIR_Band3B", tmp_dir);
       
+      // Extract satellite position metadata for both bands
+      extractMetadataArray(subdatasets, "VNIR_Band3N", "SatellitePosition", tmp_dir);
+      extractMetadataArray(subdatasets, "VNIR_Band3B", "SatellitePosition", tmp_dir);
+      
       GDALClose(hdf_ds);
       
-      vw_out() << "HDF extraction complete (Band3N and Band3B). Exiting.\n";
+      vw_out() << "HDF extraction complete. Exiting.\n";
       
       // TODO(oalexan1): Must wipe the temp directory after use.
       return 0;
