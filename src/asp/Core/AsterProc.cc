@@ -34,6 +34,8 @@
 
 namespace fs = boost::filesystem;
 
+namespace asp {
+
 namespace {
 
 // Internal helper functions for HDF extraction
@@ -231,12 +233,10 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     vw::vw_throw(vw::IOErr() << "Failed to read satellite velocity data.\n");
 
   for (int band = 1; band <= num_time_steps; band++) {
-    err = sight_ds->GetRasterBand(band)->RasterIO(GF_Read, 0, 0,
-                                                   3, num_lattice_cols,
-                                                   sight_vec_data.data() +
-                                                     (band - 1) * num_lattice_cols * 3,
-                                                   3, num_lattice_cols,
-                                                   GDT_Float64, 0, 0);
+    err = sight_ds->GetRasterBand(band)->
+      RasterIO(GF_Read, 0, 0, 3, num_lattice_cols,
+               sight_vec_data.data() + (band - 1) * num_lattice_cols * 3,
+               3, num_lattice_cols, GDT_Float64, 0, 0);
     if (err != CE_None)
       vw::vw_throw(vw::IOErr() << "Failed to read sight vector data for band "
                                << band << ".\n");
@@ -375,19 +375,18 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
 }
 
 // Internal implementation detail for radiometric corrections
-template <class ImageT>
-class RadioCorrectView: public vw::ImageViewBase<RadioCorrectView<ImageT>> {
-  ImageT m_img;
+class RadioCorrectView: public vw::ImageViewBase<RadioCorrectView> {
+  vw::DiskImageView<float> m_img;
   std::vector<vw::Vector3> const &m_corr;
   bool m_has_nodata;
   double m_nodata;
 
 public:
-  RadioCorrectView(ImageT const &img, std::vector<vw::Vector3> const &corr,
+  RadioCorrectView(vw::DiskImageView<float> const &img,
+                   std::vector<vw::Vector3> const &corr,
                    bool has_nodata, double nodata):
   m_img(img), m_corr(corr), m_has_nodata(has_nodata), m_nodata(nodata) {}
 
-  typedef typename ImageT::pixel_type input_type;
   typedef float pixel_type;
   typedef float result_type;
   typedef vw::ProceduralPixelAccessor<RadioCorrectView> pixel_accessor;
@@ -406,12 +405,12 @@ public:
 
   typedef vw::CropView<vw::ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(vw::BBox2i const &bbox) const {
-    vw::ImageView<input_type> input_tile = vw::crop(m_img, bbox);
-    vw::ImageView<result_type> tile(bbox.width(), bbox.height());
+    vw::ImageView<float> input_tile = vw::crop(m_img, bbox);
+    vw::ImageView<float> tile(bbox.width(), bbox.height());
     for (std::int64_t col = bbox.min().x(); col < bbox.max().x(); col++) {
       vw::Vector3 C = m_corr[col];
       for (std::int64_t row = bbox.min().y(); row < bbox.max().y(); row++) {
-        input_type val = input_tile(col - bbox.min().x(), row - bbox.min().y());
+        float val = input_tile(col - bbox.min().x(), row - bbox.min().y());
         if (m_has_nodata && val == m_nodata)
           tile(col - bbox.min().x(), row - bbox.min().y()) = val;
         else
@@ -429,16 +428,15 @@ public:
 };
 
 // Helper function to create RadioCorrectView
-template <class ImageT>
-RadioCorrectView<ImageT> radioCorrect(ImageT const &img,
-                                      std::vector<vw::Vector3> const &corr,
-                                      bool has_nodata, double nodata) {
-  return RadioCorrectView<ImageT>(img, corr, has_nodata, nodata);
+RadioCorrectView radioCorrect(vw::DiskImageView<float> const &img,
+                               std::vector<vw::Vector3> const &corr,
+                               bool has_nodata, double nodata) {
+  return RadioCorrectView(img, corr, has_nodata, nodata);
 }
 
 } // anonymous namespace
 
-namespace asp {
+// Public API functions
 
 // Generate a temporary directory for HDF extraction. If the output_prefix has a parent
 // path (e.g., "run/out"), create "run/tmp". Otherwise, create a unique directory.
@@ -540,12 +538,11 @@ void applyRadiometricCorrections(std::string const& input_image,
     vw::vw_throw(vw::ArgumentErr()
              << "ASTER L1A images are not supposed to be georeferenced.\n");
 
+  // Apply radiometric corrections and write output
   vw::vw_out() << "Writing: " << out_image << std::endl;
   vw::TerminalProgressCallback tpc("asp", "\t-->: ");
-  vw::cartography::block_write_gdal_image(out_image,
-                                          radioCorrect(input_img, corr,
-                                                       has_nodata, nodata),
-                                          has_georef,
+  vw::ImageViewRef<float> corrected_img = radioCorrect(input_img, corr, has_nodata, nodata);
+  vw::cartography::block_write_gdal_image(out_image, corrected_img, has_georef,
                                           georef, has_nodata, nodata, opt, tpc);
 }
 
