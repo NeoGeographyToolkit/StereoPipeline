@@ -30,6 +30,9 @@
 // ASTER User Handbook Version 2
 // https://asterweb.jpl.nasa.gov/content/03_data/04_Documents/aster_user_guide_v2.pdf
 //
+// ASTER User Guide Version 4 (for V004 HDF format)
+// https://lpdaac.usgs.gov/documents/2265/ASTER_User_Guide_V4_pcP80n5.pdf
+//
 // https://lpdaac.usgs.gov/documents/175/ASTER_L1_Product_Specifications.pdf
 
 // IMPROVEMENT OF DEM GENERATION FROM ASTER IMAGES USING SATELLITE
@@ -263,8 +266,8 @@ class RadioCorrectView : public ImageViewBase<RadioCorrectView<ImageT>> {
 
 public:
   RadioCorrectView(ImageT const &img, std::vector<Vector3> const &corr,
-                   bool has_nodata, double nodata)
-      : m_img(img), m_corr(corr), m_has_nodata(has_nodata), m_nodata(nodata) {}
+                   bool has_nodata, double nodata): 
+  m_img(img), m_corr(corr), m_has_nodata(has_nodata), m_nodata(nodata) {}
 
   typedef typename ImageT::pixel_type input_type;
   typedef float pixel_type;
@@ -861,6 +864,196 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
   ofs.close();
 }
 
+// Compute latitude/longitude for lattice points from orbital geometry.
+// Transforms sight vectors from local orbital frame to ECEF and ray-traces to ellipsoid.
+// Based on orbital mechanics described in ASTER User Guide V4.
+void computeLatLonLattice(char** subdatasets, std::string const& band_name,
+                          std::string const& tmp_dir) {
+  
+  vw_out() << "Computing Latitude/Longitude for " << band_name << " lattice points\n";
+  
+  // WGS84 ellipsoid parameters
+  const double a = 6378137.0;           // semi-major axis (m)
+  const double b = 6356752.314245;      // semi-minor axis (m)
+  
+  // Find required subdatasets
+  std::string sat_pos_path = findSubdataset(subdatasets, band_name + ":SatellitePosition");
+  std::string sat_vel_path = findSubdataset(subdatasets, band_name + ":SatelliteVelocity");
+  std::string sight_vec_path = findSubdataset(subdatasets, band_name + ":SightVector");
+  
+  if (sat_pos_path.empty() || sat_vel_path.empty() || sight_vec_path.empty())
+    vw_throw(ArgumentErr() << "Missing required subdatasets for " << band_name << "\n");
+  
+  // Open and read geometry data
+  GDALDataset* pos_ds = (GDALDataset*)GDALOpen(sat_pos_path.c_str(), GA_ReadOnly);
+  GDALDataset* vel_ds = (GDALDataset*)GDALOpen(sat_vel_path.c_str(), GA_ReadOnly);
+  GDALDataset* sight_ds = (GDALDataset*)GDALOpen(sight_vec_path.c_str(), GA_ReadOnly);
+  
+  if (!pos_ds || !vel_ds || !sight_ds)
+    vw_throw(ArgumentErr() << "Failed to open geometry subdatasets for " << band_name << "\n");
+  
+  // Get dimensions
+  int num_time_steps = sight_ds->GetRasterCount();
+  int num_lattice_cols = sight_ds->GetRasterXSize();
+  
+  // Read all data
+  std::vector<double> sat_pos_data(pos_ds->GetRasterXSize() * pos_ds->GetRasterYSize());
+  std::vector<double> sat_vel_data(vel_ds->GetRasterXSize() * vel_ds->GetRasterYSize());
+  std::vector<double> sight_vec_data(sight_ds->GetRasterXSize() * 
+                                      sight_ds->GetRasterYSize() * 
+                                      sight_ds->GetRasterCount());
+  
+  CPLErr err = pos_ds->GetRasterBand(1)->RasterIO(GF_Read, 0, 0,
+                                                    pos_ds->GetRasterXSize(), pos_ds->GetRasterYSize(),
+                                                    sat_pos_data.data(),
+                                                    pos_ds->GetRasterXSize(), pos_ds->GetRasterYSize(),
+                                                    GDT_Float64, 0, 0);
+  if (err != CE_None)
+    vw::vw_throw(vw::IOErr() << "Failed to read satellite position data.\n");
+
+  err = vel_ds->GetRasterBand(1)->RasterIO(GF_Read, 0, 0,
+                                            vel_ds->GetRasterXSize(), vel_ds->GetRasterYSize(),
+                                            sat_vel_data.data(),
+                                            vel_ds->GetRasterXSize(), vel_ds->GetRasterYSize(),
+                                            GDT_Float64, 0, 0);
+  if (err != CE_None)
+    vw::vw_throw(vw::IOErr() << "Failed to read satellite velocity data.\n");
+
+  for (int band = 1; band <= num_time_steps; band++) {
+    err = sight_ds->GetRasterBand(band)->RasterIO(GF_Read, 0, 0,
+                                                   num_lattice_cols, 3,
+                                                   sight_vec_data.data() + (band - 1) * num_lattice_cols * 3,
+                                                   num_lattice_cols, 3,
+                                                   GDT_Float64, 0, 0);
+    if (err != CE_None)
+      vw::vw_throw(vw::IOErr() << "Failed to read sight vector data for band " << band << ".\n");
+  }
+  
+  GDALClose(pos_ds);
+  GDALClose(vel_ds);
+  GDALClose(sight_ds);
+  
+  // Compute lat/lon for each lattice point
+  std::vector<double> lat_lattice(num_time_steps * num_lattice_cols);
+  std::vector<double> lon_lattice(num_time_steps * num_lattice_cols);
+  
+  for (int t = 0; t < num_time_steps; t++) {
+    // Get satellite position and velocity for this time step (rows=time, cols=XYZ)
+    double sat_pos[3] = {sat_pos_data[t * 3 + 0],
+                         sat_pos_data[t * 3 + 1],
+                         sat_pos_data[t * 3 + 2]};
+    double sat_vel[3] = {sat_vel_data[t * 3 + 0],
+                         sat_vel_data[t * 3 + 1],
+                         sat_vel_data[t * 3 + 2]};
+    
+    // Build orbital frame rotation matrix
+    // z_orb points from Earth center to satellite (negative of sat_pos direction)
+    double pos_norm = std::sqrt(sat_pos[0]*sat_pos[0] + sat_pos[1]*sat_pos[1] + sat_pos[2]*sat_pos[2]);
+    double z_orb[3] = {-sat_pos[0]/pos_norm, -sat_pos[1]/pos_norm, -sat_pos[2]/pos_norm};
+    
+    // Orbit normal = sat_pos cross sat_vel
+    double orbit_normal[3] = {sat_pos[1]*sat_vel[2] - sat_pos[2]*sat_vel[1],
+                              sat_pos[2]*sat_vel[0] - sat_pos[0]*sat_vel[2],
+                              sat_pos[0]*sat_vel[1] - sat_pos[1]*sat_vel[0]};
+    double normal_norm = std::sqrt(orbit_normal[0]*orbit_normal[0] + 
+                                    orbit_normal[1]*orbit_normal[1] + 
+                                    orbit_normal[2]*orbit_normal[2]);
+    double y_orb[3] = {-orbit_normal[0]/normal_norm,
+                       -orbit_normal[1]/normal_norm,
+                       -orbit_normal[2]/normal_norm};
+    
+    // x_orb = y_orb cross z_orb
+    double x_orb[3] = {y_orb[1]*z_orb[2] - y_orb[2]*z_orb[1],
+                       y_orb[2]*z_orb[0] - y_orb[0]*z_orb[2],
+                       y_orb[0]*z_orb[1] - y_orb[1]*z_orb[0]};
+    
+    // Process each lattice column
+    for (int c = 0; c < num_lattice_cols; c++) {
+      // Get sight vector in orbital frame (data is [time][col][xyz])
+      int idx = t * num_lattice_cols * 3 + c * 3;
+      double sv_orb[3] = {sight_vec_data[idx + 0],
+                          sight_vec_data[idx + 1],
+                          sight_vec_data[idx + 2]};
+      
+      double sv_norm = std::sqrt(sv_orb[0]*sv_orb[0] + sv_orb[1]*sv_orb[1] + sv_orb[2]*sv_orb[2]);
+      if (sv_norm < 1e-10)
+        continue;
+      
+      // Transform sight vector from orbital frame to ECEF
+      double sv_ecef[3] = {x_orb[0]*sv_orb[0] + y_orb[0]*sv_orb[1] + z_orb[0]*sv_orb[2],
+                           x_orb[1]*sv_orb[0] + y_orb[1]*sv_orb[1] + z_orb[1]*sv_orb[2],
+                           x_orb[2]*sv_orb[0] + y_orb[2]*sv_orb[1] + z_orb[2]*sv_orb[2]};
+      
+      // Normalize
+      double sv_ecef_norm = std::sqrt(sv_ecef[0]*sv_ecef[0] + sv_ecef[1]*sv_ecef[1] + sv_ecef[2]*sv_ecef[2]);
+      sv_ecef[0] /= sv_ecef_norm;
+      sv_ecef[1] /= sv_ecef_norm;
+      sv_ecef[2] /= sv_ecef_norm;
+      
+      // Ray-ellipsoid intersection: find t where ray hits WGS84 ellipsoid
+      // Ray: P = sat_pos + t * sv_ecef
+      // Ellipsoid: (x/a)^2 + (y/a)^2 + (z/b)^2 = 1
+      double A = (sv_ecef[0]/a)*(sv_ecef[0]/a) + (sv_ecef[1]/a)*(sv_ecef[1]/a) + (sv_ecef[2]/b)*(sv_ecef[2]/b);
+      double B = 2*((sat_pos[0]*sv_ecef[0]/(a*a)) + (sat_pos[1]*sv_ecef[1]/(a*a)) + (sat_pos[2]*sv_ecef[2]/(b*b)));
+      double C = (sat_pos[0]/a)*(sat_pos[0]/a) + (sat_pos[1]/a)*(sat_pos[1]/a) + (sat_pos[2]/b)*(sat_pos[2]/b) - 1;
+      
+      double disc = B*B - 4*A*C;
+      if (disc < 0)
+        continue;
+      
+      double t_param = (-B - std::sqrt(disc)) / (2*A);
+      if (t_param <= 0)
+        continue;
+      
+      // Ground intersection point
+      double gx = sat_pos[0] + t_param * sv_ecef[0];
+      double gy = sat_pos[1] + t_param * sv_ecef[1];
+      double gz = sat_pos[2] + t_param * sv_ecef[2];
+      
+      // Convert to geocentric lat/lon
+      double p = std::sqrt(gx*gx + gy*gy);
+      lon_lattice[t * num_lattice_cols + c] = std::atan2(gy, gx) * 180.0 / M_PI;
+      lat_lattice[t * num_lattice_cols + c] = std::atan2(gz, p) * 180.0 / M_PI;
+    }
+  }
+  
+  // Write latitude file
+  std::string lat_file = tmp_dir + "/AST_L1A_" + band_name + ".Latitude.txt";
+  std::ofstream lat_ofs(lat_file);
+  if (!lat_ofs)
+    vw_throw(ArgumentErr() << "Failed to open output file: " << lat_file << "\n");
+  
+  lat_ofs << std::setprecision(17);
+  for (int t = 0; t < num_time_steps; t++) {
+    for (int c = 0; c < num_lattice_cols; c++) {
+      lat_ofs << lat_lattice[t * num_lattice_cols + c];
+      if (c < num_lattice_cols - 1)
+        lat_ofs << " ";
+    }
+    lat_ofs << "\n";
+  }
+  lat_ofs.close();
+  vw_out() << "Wrote: " << lat_file << "\n";
+  
+  // Write longitude file
+  std::string lon_file = tmp_dir + "/AST_L1A_" + band_name + ".Longitude.txt";
+  std::ofstream lon_ofs(lon_file);
+  if (!lon_ofs)
+    vw_throw(ArgumentErr() << "Failed to open output file: " << lon_file << "\n");
+  
+  lon_ofs << std::setprecision(17);
+  for (int t = 0; t < num_time_steps; t++) {
+    for (int c = 0; c < num_lattice_cols; c++) {
+      lon_ofs << lon_lattice[t * num_lattice_cols + c];
+      if (c < num_lattice_cols - 1)
+        lon_ofs << " ";
+    }
+    lon_ofs << "\n";
+  }
+  lon_ofs.close();
+  vw_out() << "Wrote: " << lon_file << "\n";
+}
+
 // Extract data from HDF file to temporary directory. Updates opt.input to point
 // to the temp directory and sets tmp_dir, which we will wipe when not needed.
 void extractHdfData(Options& opt, std::string& tmp_dir) {
@@ -904,13 +1097,11 @@ void extractHdfData(Options& opt, std::string& tmp_dir) {
   extractMetadataArray(subdatasets, "VNIR_Band3N", "RadiometricCorrTable", tmp_dir);
   extractMetadataArray(subdatasets, "VNIR_Band3B", "RadiometricCorrTable", tmp_dir);
   
-  // Extract latitude for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "Latitude", tmp_dir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "Latitude", tmp_dir);
-  
-  // Extract longitude for both bands
-  extractMetadataArray(subdatasets, "VNIR_Band3N", "Longitude", tmp_dir);
-  extractMetadataArray(subdatasets, "VNIR_Band3B", "Longitude", tmp_dir);
+  // Compute latitude/longitude from orbital geometry
+  // V004 HDF does not include these as subdatasets - they must be computed from
+  // SatellitePosition, SatelliteVelocity, and SightVector
+  computeLatLonLattice(subdatasets, "VNIR_Band3N", tmp_dir);
+  computeLatLonLattice(subdatasets, "VNIR_Band3B", tmp_dir);
   
   GDALClose(hdf_ds);
   
