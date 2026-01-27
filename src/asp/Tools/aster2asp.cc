@@ -831,8 +831,7 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
   //   Write: time1: X Y Z \n time2: X Y Z \n ...
   // - If bands > 1 (like SightVector [11x3x16]): rows=spatial, cols=XYZ, bands=time
   //   Write in time blocks, each with spatial rows of XYZ values
-  std::cout << "--rows = " << rows << ", cols = " << cols << ", bands = " << bands << std::endl;
-  
+
   if (bands == 1) {
     // Simple format: each row (time) has all columns (XYZ) on one line
     for (int row = 0; row < rows; row++) {
@@ -893,8 +892,9 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     vw_throw(ArgumentErr() << "Failed to open geometry subdatasets for " << band_name << "\n");
   
   // Get dimensions
+  // SightVector has shape: RasterCount=time_steps, YSize=lattice_cols, XSize=3 (XYZ)
   int num_time_steps = sight_ds->GetRasterCount();
-  int num_lattice_cols = sight_ds->GetRasterXSize();
+  int num_lattice_cols = sight_ds->GetRasterYSize();
   
   // Read all data
   std::vector<double> sat_pos_data(pos_ds->GetRasterXSize() * pos_ds->GetRasterYSize());
@@ -921,9 +921,9 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
 
   for (int band = 1; band <= num_time_steps; band++) {
     err = sight_ds->GetRasterBand(band)->RasterIO(GF_Read, 0, 0,
-                                                   num_lattice_cols, 3,
+                                                   3, num_lattice_cols,
                                                    sight_vec_data.data() + (band - 1) * num_lattice_cols * 3,
-                                                   num_lattice_cols, 3,
+                                                   3, num_lattice_cols,
                                                    GDT_Float64, 0, 0);
     if (err != CE_None)
       vw::vw_throw(vw::IOErr() << "Failed to read sight vector data for band " << band << ".\n");
