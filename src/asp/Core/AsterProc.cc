@@ -86,7 +86,8 @@ void extractBandImage(char** subdatasets, std::string const& band_name,
   std::string band_subdataset = findSubdataset(subdatasets, search_pattern);
 
   if (band_subdataset.empty())
-    vw::vw_throw(vw::ArgumentErr() << "Could not find " << band_name << " in the HDF file.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Could not find " << band_name
+                                   << " in the HDF file.\n");
 
   // Open the subdataset
   GDALDataset* band_ds = (GDALDataset*)GDALOpen(band_subdataset.c_str(), GA_ReadOnly);
@@ -124,7 +125,8 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
   // Open the subdataset
   GDALDataset* ds = (GDALDataset*)GDALOpen(subdataset_path.c_str(), GA_ReadOnly);
   if (!ds)
-    vw::vw_throw(vw::ArgumentErr() << "Failed to open " << search_pattern << " subdataset.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Failed to open " << search_pattern
+                                   << " subdataset.\n");
 
   // Get dimensions
   int cols = ds->GetRasterXSize();
@@ -140,7 +142,8 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
                                        data.data() + (band - 1) * rows * cols,
                                        cols, rows, GDT_Float64, 0, 0);
     if (err != CE_None)
-      vw::vw_throw(vw::ArgumentErr() << "Failed to read " << search_pattern << " data.\n");
+      vw::vw_throw(vw::ArgumentErr() << "Failed to read " << search_pattern
+                                     << " data.\n");
   }
 
   GDALClose(ds);
@@ -207,7 +210,8 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
   std::string sight_vec_path = findSubdataset(subdatasets, band_name + ":SightVector");
 
   if (pos_path.empty() || vel_path.empty() || sight_vec_path.empty())
-    vw::vw_throw(vw::ArgumentErr() << "Missing required geometry datasets for " << band_name << "\n");
+    vw::vw_throw(vw::ArgumentErr() << "Missing required geometry datasets for "
+                                   << band_name << "\n");
 
   // Open datasets
   GDALDataset* pos_ds = (GDALDataset*)GDALOpen(pos_path.c_str(), GA_ReadOnly);
@@ -215,7 +219,8 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
   GDALDataset* sight_ds = (GDALDataset*)GDALOpen(sight_vec_path.c_str(), GA_ReadOnly);
 
   if (!pos_ds || !vel_ds || !sight_ds)
-    vw::vw_throw(vw::ArgumentErr() << "Failed to open geometry subdatasets for " << band_name << "\n");
+    vw::vw_throw(vw::ArgumentErr() << "Failed to open geometry subdatasets for "
+                                   << band_name << "\n");
 
   // Get dimensions
   // SightVector has shape: RasterCount=time_steps, YSize=lattice_cols, XSize=3 (XYZ)
@@ -230,17 +235,21 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
                                       sight_ds->GetRasterCount());
 
   CPLErr err = pos_ds->GetRasterBand(1)->RasterIO(GF_Read, 0, 0,
-                                                   pos_ds->GetRasterXSize(), pos_ds->GetRasterYSize(),
+                                                   pos_ds->GetRasterXSize(),
+                                                   pos_ds->GetRasterYSize(),
                                                    sat_pos_data.data(),
-                                                   pos_ds->GetRasterXSize(), pos_ds->GetRasterYSize(),
+                                                   pos_ds->GetRasterXSize(),
+                                                   pos_ds->GetRasterYSize(),
                                                    GDT_Float64, 0, 0);
   if (err != CE_None)
     vw::vw_throw(vw::IOErr() << "Failed to read satellite position data.\n");
 
   err = vel_ds->GetRasterBand(1)->RasterIO(GF_Read, 0, 0,
-                                           vel_ds->GetRasterXSize(), vel_ds->GetRasterYSize(),
+                                           vel_ds->GetRasterXSize(),
+                                           vel_ds->GetRasterYSize(),
                                            sat_vel_data.data(),
-                                           vel_ds->GetRasterXSize(), vel_ds->GetRasterYSize(),
+                                           vel_ds->GetRasterXSize(),
+                                           vel_ds->GetRasterYSize(),
                                            GDT_Float64, 0, 0);
   if (err != CE_None)
     vw::vw_throw(vw::IOErr() << "Failed to read satellite velocity data.\n");
@@ -248,11 +257,13 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
   for (int band = 1; band <= num_time_steps; band++) {
     err = sight_ds->GetRasterBand(band)->RasterIO(GF_Read, 0, 0,
                                                    3, num_lattice_cols,
-                                                   sight_vec_data.data() + (band - 1) * num_lattice_cols * 3,
+                                                   sight_vec_data.data() +
+                                                     (band - 1) * num_lattice_cols * 3,
                                                    3, num_lattice_cols,
                                                    GDT_Float64, 0, 0);
     if (err != CE_None)
-      vw::vw_throw(vw::IOErr() << "Failed to read sight vector data for band " << band << ".\n");
+      vw::vw_throw(vw::IOErr() << "Failed to read sight vector data for band "
+                               << band << ".\n");
   }
 
   GDALClose(pos_ds);
@@ -492,7 +503,8 @@ public:
   inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
   inline pixel_type operator()(double /*i*/, double /*j*/, vw::int32 /*p*/ = 0) const {
-    vw::vw_throw(vw::NoImplErr() << "RadioCorrectView::operator()(...) is not implemented");
+    vw::vw_throw(vw::NoImplErr()
+             << "RadioCorrectView::operator()(...) is not implemented");
     return pixel_type();
   }
 
@@ -568,9 +580,13 @@ void applyRadiometricCorrections(std::string const& input_image,
              << "ASTER L1A images are not supposed to be georeferenced.\n");
 
   vw::vw_out() << "Writing: " << out_image << std::endl;
-  vw::cartography::block_write_gdal_image(out_image, radioCorrect(input_img, corr, has_nodata, nodata), has_georef,
+  vw::cartography::block_write_gdal_image(out_image,
+                                          radioCorrect(input_img, corr,
+                                                       has_nodata, nodata),
+                                          has_georef,
                                           georef, has_nodata, nodata, opt,
-                                          vw::TerminalProgressCallback("asp", "\t-->: "));
+                                          vw::TerminalProgressCallback("asp",
+                                                                       "\t-->: "));
 }
 
 } // namespace asp

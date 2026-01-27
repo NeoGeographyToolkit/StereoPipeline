@@ -104,8 +104,10 @@ void handle_arguments(int argc, char *argv[], Options &opt) {
   std::string usage("<input hdf or directory> -o <output prefix>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
-  po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options, general_options, positional,
-                                                 positional_desc, usage, allow_unregistered, unregistered);
+  po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,
+                                                 general_options, positional,
+                                                 positional_desc, usage,
+                                                 allow_unregistered, unregistered);
 
   if (opt.input.empty())
     vw_throw(ArgumentErr() << "Missing input.\n"
@@ -249,17 +251,23 @@ void locate_inputs(Options const &opt, std::string &nadir_image,
                       << "(VNIR_Band3B.LatticePoint.txt).\n");
 }
 
-
 // Generate lon-lat-height to image pixel correspondences that we will
 // use to create the RPC model.
-void generate_point_pairs(double min_height, double max_height, std::int64_t num_samples,
-                          double penalty_weight, std::string const &sat_pos_file,
-                          std::string const &sight_vec_file, std::string const &longitude_file,
-                          std::string const &latitude_file, std::string const &lattice_file,
+void generate_point_pairs(double min_height, double max_height,
+                          std::int64_t num_samples,
+                          double penalty_weight,
+                          std::string const &sat_pos_file,
+                          std::string const &sight_vec_file,
+                          std::string const &longitude_file,
+                          std::string const &latitude_file,
+                          std::string const &lattice_file,
                           // Outputs
-                          std::vector<std::vector<vw::Vector3>> &world_sight_mat, Vector3 &llh_scale,
-                          Vector3 &llh_offset, Vector2 &pixel_scale, Vector2 &pixel_offset,
-                          Vector<double> &normalized_llh, Vector<double> &normalized_pixels) {
+                          std::vector<std::vector<vw::Vector3>> &world_sight_mat,
+                          Vector3 &llh_scale,
+                          Vector3 &llh_offset, Vector2 &pixel_scale,
+                          Vector2 &pixel_offset,
+                          Vector<double> &normalized_llh,
+                          Vector<double> &normalized_pixels) {
 
   // Read the sight vectors
   std::vector<Vector3> sight_vec;
@@ -587,7 +595,6 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
            sat_pos, llh_scale, llh_offset, pixel_scale, pixel_offset, line_num,
            line_den, samp_num, samp_den, out_cam_file);
 }
-
 
 int main(int argc, char *argv[]) {
 
