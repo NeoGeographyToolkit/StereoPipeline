@@ -24,42 +24,42 @@ ASTER satellite images are freely available from:
 
   https://search.earthdata.nasa.gov/search
 
-When visiting that page, select a region on the map, search for
-AST_L1A, and choose ``ASTER L1A Reconstructed Unprocessed Instrument
-Data V003``. (The same interface can be used to obtain pre-existing
-ASTER DEMs.) If too many results are shown, narrow down the choices by
-using a range in time or deselecting unwanted items
-manually. Examining the data thumbnails is helpful, to exclude those
-with clouds, etc. Then click to download.
+When visiting that page, select a region on the map, search for ``AST_L1A,`` and
+choose ``ASTER L1A Reconstructed Unprocessed Instrument Data V004``. 
 
-It is very important that, at the very last step, when finalizing the order
-options, choose GeoTIFF as the data format, rather than HDF-EOS. This way the
-images and metadata will come already extracted from the HDF file.
+If too many results are shown, narrow down the choices by using a range in time
+or deselecting unwanted items manually. Examining the data thumbnails is
+helpful, to exclude those with clouds, etc. Then click to download.
 
-ASTER L1B images are also available. These are produced by projecting L1A images
-onto the WGS84 ellipsoid at zero elevation. ASTER L1B images can be processed
-with ASP by using the mapprojection workflow (:numref:`mapproj-example`). The
-user should invoke ``parallel_stereo`` with the L1B images (already
-mapprojected), L1A cameras, output prefix, and a DEM with zero height above the
-WGS84 datum. The results are nearly the same as obtained with L1A images. 
+As of end of 2025, the products can only be downloaded in the HDF-EOS format,
+which requires an ASP build from 2026-01 or later (:numref:`release`).
+
+Note that some datasets may not contain the bands 3B and 3N needed for stereo. 
+
+The EarthData web site also offers pre-existing ASTER Global DEM (GDEM)
+products. 
 
 Data preparation
 ^^^^^^^^^^^^^^^^
 
-In this example will use the dataset
-``AST_L1A_00307182000191236_20160404141337_21031`` near San Luis
-Reservoir in Northern California. This dataset will contain TIFF
-images and meta-information as text files. We use the tool
-:ref:`aster2asp` to parse it::
+In this example we will use the dataset::
+
+  AST_L1A_00404012022185436_20250920182851.hdf
+  
+around the San Luis Reservoir in Northern California. 
+
+This dataset contains all image data and metadata in single .hdf file. It can be
+extracted with ``aster2asp`` (:numref:`aster2asp`) as::
+
+ aster2asp input.hdf -o out
+ 
+Older V003 datasets were provided as zipped files containing data directories
+with TIFF images and metadata as text files. In that case, after the data is
+extracted, the preparation command is::
 
      aster2asp dataDir -o out
 
-Here, ``dataDir`` is the directory containing the ``*VNIR*tif`` files
-produced by unzipping the ASTER dataset (sometimes this creates a new 
-directory, and sometimes the files are extracted in the current
-one).
-
-This command will create 4 files, named::
+In either case, four files would be produced, named::
 
      out-Band3N.tif out-Band3B.tif out-Band3N.xml out-Band3B.xml
 
@@ -85,12 +85,12 @@ Run ``parallel_stereo`` (:numref:`parallel_stereo`)::
         out-Band3N.xml out-Band3B.xml \
         out_stereo/run
 
-This used the ``asp_mgm`` algorithm, which is the most accurate algorithm ASP
+This uses the ``asp_mgm`` algorithm, which is the most accurate algorithm ASP
 has. One can also try the option ``--subpixel-mode 2`` which will be much slower
 but produce better results.
 
-The option ``--aster-use-csm`` is used to fit a CSM model to the ASTER cameras
-(:numref:`aster_csm`). This makes the processing a lot faster and will be the 
+The option ``--aster-use-csm`` fits a CSM model to the ASTER cameras
+(:numref:`aster_csm`). This makes the processing a lot faster and will be the
 default in the future.
 
 See :numref:`nextsteps` for a discussion about various stereo algorithms and
@@ -171,6 +171,17 @@ the cameras should be bundle-adjusted first (:numref:`bundle_adjust`).
 
 See :numref:`aster_dem_ortho_error` for an illustration.
 
+Stereo with ortho-ready L1B images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ASTER L1B images are also available. These are produced by projecting L1A images
+onto the WGS84 ellipsoid at zero elevation. ASTER L1B images can be processed
+with ASP using the workflow for ortho-ready images (:numref:`mapproj_ortho`).
+
+Invoke ``parallel_stereo`` with the L1B images (already mapprojected), L1A
+cameras, output prefix, and the option ``--ortho-heights 0 0``. The results are
+nearly the same as obtained with L1A images.
+
 .. _aster_csm:
 
 Using the CSM model
@@ -180,13 +191,13 @@ An ASTER camera model consists of a sequence of satellite position samples and a
 set of camera directions (sight vectors, in world coordinates), sampled at about
 a dozen image rows and columns. Interpolation is used in-between.
 
-ASP can, in addition, fit a CSM linescan model (:numref:`csm`) on-the-fly to the
+ASP can also fit a CSM linescan model (:numref:`csm`) on-the-fly to the
 ASTER model. This has the advantage that instead of a set of directions on a grid,
 there is one camera orientation at each satellite position sample. These will 
 be used to solve for jitter in ASTER cameras (:numref:`jitter_aster`).
 
 This functionality can be turned on with the option ``--aster-use-csm`` in
-stereo, bundle adjustment, mapprojection, and ``cam_test`` (:numref:`cam_test`).
+``parallel_stereo``, ``bundle_adjust``, ``mapproject``, and ``cam_test``.
 This option is implicitly assumed when solving for jitter, as that tool only
 works with CSM cameras.
 

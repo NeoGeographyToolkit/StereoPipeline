@@ -1,6 +1,9 @@
 Changes since last release
 --------------------------
 
+aster2asp (:numref:`aster2asp`):
+  * Added support for ASTER Level 1A V004 HDF format.
+
 bathymetry (:numref:`bathy_intro`):
   * Added a program for computing the effective refraction index of water 
     for a satellite band (:numref:`refr_index`).
