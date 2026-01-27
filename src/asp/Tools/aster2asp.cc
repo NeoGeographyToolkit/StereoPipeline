@@ -320,7 +320,11 @@ void generate_point_pairs(double min_height, double max_height,
                            << latitude_file << " but got instead "
                            << latitude.size() << ".\n");
 
-  // Covert geocentric latitude to geodetic latitude. Pages 60 and 79 of
+  // Convert geocentric latitude to geodetic latitude.
+  // This applies to BOTH V003 (directory format) and V004 (HDF format) data:
+  //  - V003: ASTER provided geocentric lat/lon in text files
+  //  - V004: We compute geocentric lat/lon to match V003 convention
+  // Formula from pages 60 and 79 of ASTER V2 User Guide:
   // https://asterweb.jpl.nasa.gov/content/03_data/04_Documents/aster_user_guide_v2.pdf
   // Geodetic = Arctan [(tan (Latitude)) / 0.99330562]
   double deg2rad = M_PI / 180.0;

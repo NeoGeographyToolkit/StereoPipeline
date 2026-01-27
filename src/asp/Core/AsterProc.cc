@@ -20,6 +20,8 @@
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/Datum.h>
+#include <vw/Math/Vector.h>
+#include <vw/Math/Matrix.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
@@ -55,7 +57,8 @@ std::string findSubdataset(char** subdatasets, std::string const& pattern) {
 }
 
 // Extract a single ASTER band image from HDF subdatasets to a TIF file.
-void extractBandImage(char** subdatasets, std::string const& band_name,
+void extractBandImage(char** subdatasets,
+                      std::string const& band_name,
                       std::string const& tmp_dir) {
 
   // Find the ImageData subdataset for this band
@@ -87,7 +90,8 @@ void extractBandImage(char** subdatasets, std::string const& band_name,
 
 // Extract metadata array from HDF subdataset to text file.
 // Writes 3D arrays as space-separated values per line.
-void extractMetadataArray(char** subdatasets, std::string const& band_name,
+void extractMetadataArray(char** subdatasets,
+                          std::string const& band_name,
                           std::string const& metadata_type,
                           std::string const& tmp_dir) {
 
@@ -179,7 +183,8 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
 // HDF format does not include Lat/Lon datasets - they must be computed from
 // SatellitePosition, SatelliteVelocity, and SightVector using ray-ellipsoid
 // intersection.
-void computeLatLonLattice(char** subdatasets, std::string const& band_name,
+void computeLatLonLattice(char** subdatasets,
+                          std::string const& band_name,
                           std::string const& tmp_dir) {
 
   // Find required subdatasets
@@ -233,10 +238,11 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     vw::vw_throw(vw::IOErr() << "Failed to read satellite velocity data.\n");
 
   for (int band = 1; band <= num_time_steps; band++) {
-    err = sight_ds->GetRasterBand(band)->
-      RasterIO(GF_Read, 0, 0, 3, num_lattice_cols,
-               sight_vec_data.data() + (band - 1) * num_lattice_cols * 3,
-               3, num_lattice_cols, GDT_Float64, 0, 0);
+    err = sight_ds->GetRasterBand(band)->RasterIO(GF_Read, 0, 0, 3, num_lattice_cols,
+                                                   sight_vec_data.data() +
+                                                     (band - 1) * num_lattice_cols * 3,
+                                                   3, num_lattice_cols,
+                                                   GDT_Float64, 0, 0);
     if (err != CE_None)
       vw::vw_throw(vw::IOErr() << "Failed to read sight vector data for band "
                                << band << ".\n");
@@ -255,71 +261,53 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
 
   // For each time step
   for (int t = 0; t < num_time_steps; t++) {
-    // Get satellite position and velocity for this time step
-    double sat_pos_x = sat_pos_data[t * 3 + 0];
-    double sat_pos_y = sat_pos_data[t * 3 + 1];
-    double sat_pos_z = sat_pos_data[t * 3 + 2];
+    // Get satellite position and velocity for this time step as vectors
+    vw::Vector3 sat_pos(sat_pos_data[t * 3 + 0],
+                        sat_pos_data[t * 3 + 1],
+                        sat_pos_data[t * 3 + 2]);
+    vw::Vector3 sat_vel(sat_vel_data[t * 3 + 0],
+                        sat_vel_data[t * 3 + 1],
+                        sat_vel_data[t * 3 + 2]);
 
-    double sat_vel_x = sat_vel_data[t * 3 + 0];
-    double sat_vel_y = sat_vel_data[t * 3 + 1];
-    double sat_vel_z = sat_vel_data[t * 3 + 2];
-
-    // Build orbital frame rotation matrix
-    // z_orb = -normalized(sat_pos)
-    double sat_pos_norm = std::sqrt(sat_pos_x * sat_pos_x +
-                                     sat_pos_y * sat_pos_y +
-                                     sat_pos_z * sat_pos_z);
-    double z_orb_x = -sat_pos_x / sat_pos_norm;
-    double z_orb_y = -sat_pos_y / sat_pos_norm;
-    double z_orb_z = -sat_pos_z / sat_pos_norm;
+    // Build orbital frame rotation matrix using VW vector utilities
+    // z_orb = -normalized(sat_pos) [geocentric nadir direction]
+    vw::Vector3 z_orb = -normalize(sat_pos);
 
     // orbit_normal = sat_pos x sat_vel
-    double orbit_normal_x = sat_pos_y * sat_vel_z - sat_pos_z * sat_vel_y;
-    double orbit_normal_y = sat_pos_z * sat_vel_x - sat_pos_x * sat_vel_z;
-    double orbit_normal_z = sat_pos_x * sat_vel_y - sat_pos_y * sat_vel_x;
+    vw::Vector3 orbit_normal = cross_prod(sat_pos, sat_vel);
 
-    // y_orb = -normalized(orbit_normal)
-    double orbit_normal_norm = std::sqrt(orbit_normal_x * orbit_normal_x +
-                                          orbit_normal_y * orbit_normal_y +
-                                          orbit_normal_z * orbit_normal_z);
-    double y_orb_x = -orbit_normal_x / orbit_normal_norm;
-    double y_orb_y = -orbit_normal_y / orbit_normal_norm;
-    double y_orb_z = -orbit_normal_z / orbit_normal_norm;
+    // y_orb = -normalized(orbit_normal) [cross-track direction]
+    vw::Vector3 y_orb = -normalize(orbit_normal);
 
-    // x_orb = y_orb x z_orb
-    double x_orb_x = y_orb_y * z_orb_z - y_orb_z * z_orb_y;
-    double x_orb_y = y_orb_z * z_orb_x - y_orb_x * z_orb_z;
-    double x_orb_z = y_orb_x * z_orb_y - y_orb_y * z_orb_x;
+    // x_orb = y_orb x z_orb [along-track direction]
+    vw::Vector3 x_orb = cross_prod(y_orb, z_orb);
+
+    // Build rotation matrix R = [x_orb | y_orb | z_orb]
+    vw::Matrix<double,3,3> R_orb_to_ecef;
+    select_col(R_orb_to_ecef, 0) = x_orb;
+    select_col(R_orb_to_ecef, 1) = y_orb;
+    select_col(R_orb_to_ecef, 2) = z_orb;
 
     // For each lattice column
     for (int c = 0; c < num_lattice_cols; c++) {
       // Get sight vector in orbital frame
       int idx = t * num_lattice_cols * 3 + c * 3;
-      double sv_orb_x = sight_vec_data[idx + 0];
-      double sv_orb_y = sight_vec_data[idx + 1];
-      double sv_orb_z = sight_vec_data[idx + 2];
+      vw::Vector3 sv_orb(sight_vec_data[idx + 0],
+                         sight_vec_data[idx + 1],
+                         sight_vec_data[idx + 2]);
 
       // Check for zero vector
-      double sv_norm = std::sqrt(sv_orb_x * sv_orb_x +
-                                  sv_orb_y * sv_orb_y +
-                                  sv_orb_z * sv_orb_z);
-      if (sv_norm < 1e-10) {
+      if (norm_2(sv_orb) < 1e-10) {
         lat_lattice[t * num_lattice_cols + c] = 0.0;
         lon_lattice[t * num_lattice_cols + c] = 0.0;
         continue;
       }
 
       // Transform sight vector from orbital frame to ECEF
-      // sv_ecef = R * sv_orb where R = [x_orb | y_orb | z_orb]
-      double sv_ecef_x = x_orb_x * sv_orb_x + y_orb_x * sv_orb_y + z_orb_x * sv_orb_z;
-      double sv_ecef_y = x_orb_y * sv_orb_x + y_orb_y * sv_orb_y + z_orb_y * sv_orb_z;
-      double sv_ecef_z = x_orb_z * sv_orb_x + y_orb_z * sv_orb_y + z_orb_z * sv_orb_z;
+      vw::Vector3 sv_ecef = R_orb_to_ecef * sv_orb;
 
       // Ray-datum intersection using VW's proven implementation
-      vw::Vector3 camera_ctr(sat_pos_x, sat_pos_y, sat_pos_z);
-      vw::Vector3 camera_vec(sv_ecef_x, sv_ecef_y, sv_ecef_z);
-      vw::Vector3 ground_pt = vw::cartography::datum_intersection(wgs84, camera_ctr,
-                                                                   camera_vec);
+      vw::Vector3 ground_pt = vw::cartography::datum_intersection(wgs84, sat_pos, sv_ecef);
 
       // Check for failed intersection (returns zero vector)
       if (ground_pt == vw::Vector3()) {
@@ -328,17 +316,22 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
         continue;
       }
 
-      // Convert ground point to geocentric lat/lon
+      // Convert ECEF ground point to geocentric lat/lon
+      // NOTE: We intentionally use geocentric (not geodetic) coordinates here
+      // to match the V003 format convention. The conversion from geocentric to
+      // geodetic happens later in aster2asp.cc for both V003 and V004 data,
+      // ensuring consistent downstream processing.
       double p = std::sqrt(ground_pt.x() * ground_pt.x() +
                           ground_pt.y() * ground_pt.y());
-      lon_lattice[t * num_lattice_cols + c] = std::atan2(ground_pt.y(),
-                                                          ground_pt.x()) * 180.0 / M_PI;
+      lon_lattice[t * num_lattice_cols + c] 
+        = std::atan2(ground_pt.y(), ground_pt.x()) * 180.0 / M_PI;
       lat_lattice[t * num_lattice_cols + c] = std::atan2(ground_pt.z(), p) * 180.0 / M_PI;
     }
   }
 
   // Write latitude file
   std::string lat_file = tmp_dir + "/AST_L1A_" + band_name + ".Latitude.txt";
+  vw::vw_out() << "Writing: " << lat_file << "\n";
   std::ofstream lat_ofs(lat_file);
   if (!lat_ofs)
     vw::vw_throw(vw::ArgumentErr() << "Failed to open output file: " << lat_file << "\n");
@@ -353,10 +346,10 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     lat_ofs << "\n";
   }
   lat_ofs.close();
-  vw::vw_out() << "Writing: " << lat_file << "\n";
 
   // Write longitude file
   std::string lon_file = tmp_dir + "/AST_L1A_" + band_name + ".Longitude.txt";
+  vw::vw_out() << "Writing: " << lon_file << "\n";
   std::ofstream lon_ofs(lon_file);
   if (!lon_ofs)
     vw::vw_throw(vw::ArgumentErr() << "Failed to open output file: " << lon_file << "\n");
@@ -371,7 +364,6 @@ void computeLatLonLattice(char** subdatasets, std::string const& band_name,
     lon_ofs << "\n";
   }
   lon_ofs.close();
-  vw::vw_out() << "Writing: " << lon_file << "\n";
 }
 
 // Internal implementation detail for radiometric corrections
@@ -522,7 +514,7 @@ void applyRadiometricCorrections(std::string const& input_image,
   // Sanity check
   if (input_img.cols() != int(corr.size()))
     vw::vw_throw(vw::ArgumentErr() << "Expecting as many corrections in " << corr_table
-                           << " as image columns in " << input_image << "\n");
+                                   << " as image columns in " << input_image << "\n");
 
   // Read nodata value from the image
   boost::shared_ptr<vw::DiskImageResource> img_rsrc(
@@ -536,7 +528,7 @@ void applyRadiometricCorrections(std::string const& input_image,
   bool has_georef = vw::cartography::read_georeference(georef, input_image);
   if (has_georef)
     vw::vw_throw(vw::ArgumentErr()
-             << "ASTER L1A images are not supposed to be georeferenced.\n");
+                 << "ASTER L1A images are not supposed to be georeferenced.\n");
 
   // Apply radiometric corrections and write output
   vw::vw_out() << "Writing: " << out_image << std::endl;
