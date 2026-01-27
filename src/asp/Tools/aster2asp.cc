@@ -47,6 +47,7 @@
 #include <vw/Core/StringUtils.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/FileIO/DiskImageResourceGDAL.h>
 
 #include <cstring>
 #include <limits>
@@ -54,6 +55,8 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
+
+#include <gdal_priv.h>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
@@ -694,6 +697,70 @@ void gen_xml(double min_height, double max_height, std::int64_t num_samples,
            line_den, samp_num, samp_den, out_cam_file);
 }
 
+// Generate a temporary directory for extracting HDF subdatasets. If the
+// output_prefix has a parent directory (e.g., "run/out"), create "run/tmp".
+// Otherwise, if it has no parent path (e.g., just "out"), we must create a
+// unique directory in the current directory to avoid conflicts when multiple
+// instances run.
+std::string genTmpDir(std::string const &output_prefix) {
+  fs::path prefix_path(output_prefix);
+  std::string tmp_dir;
+  
+  if (prefix_path.has_parent_path()) {
+    // output_prefix is like "run/out", make tmp dir "run/tmp"
+    tmp_dir = prefix_path.parent_path().string() + "/tmp";
+  } else {
+    // output_prefix is just "out", make tmp dir unique like "tmp_aster_12345"
+    // Use process ID to ensure uniqueness
+    tmp_dir = "tmp_aster_" + vw::num_to_str(getpid());
+  }
+  
+  fs::create_directories(tmp_dir);
+  return tmp_dir;
+}
+
+// Extract a single ASTER band image from HDF subdatasets to a TIF file.
+void extractBandImage(char** subdatasets, std::string const& band_name, 
+                      std::string const& tmp_dir) {
+  
+  // Find the ImageData subdataset for this band
+  std::string search_pattern = band_name + ":ImageData";
+  std::string band_subdataset;
+  
+  for (int i = 0; subdatasets[i] != NULL; i++) {
+    std::string line(subdatasets[i]);
+    if (line.find("_NAME=") != std::string::npos && 
+        line.find(search_pattern) != std::string::npos) {
+      // Extract the subdataset path after the "="
+      std::size_t pos = line.find("=");
+      band_subdataset = line.substr(pos + 1);
+      vw_out() << "Found " << band_name << " subdataset: " << band_subdataset << "\n";
+      break;
+    }
+  }
+  
+  if (band_subdataset.empty())
+    vw_throw(ArgumentErr() << "Could not find " << band_name << " in the HDF file.\n");
+  
+  // Open the subdataset
+  GDALDataset* band_ds = (GDALDataset*)GDALOpen(band_subdataset.c_str(), GA_ReadOnly);
+  if (!band_ds)
+    vw_throw(ArgumentErr() << "Failed to open " << band_name << " subdataset.\n");
+  
+  // Write to output TIF
+  std::string out_file = tmp_dir + "/AST_L1A_" + band_name + ".ImageData.tif";
+  vw_out() << "Extracting " << band_name << " to: " << out_file << "\n";
+  
+  GDALDriver* gtiff_driver = GetGDALDriverManager()->GetDriverByName("GTiff");
+  GDALDataset* out_ds = gtiff_driver->CreateCopy(out_file.c_str(), band_ds, 
+                                                  FALSE, NULL, NULL, NULL);
+  if (!out_ds)
+    vw_throw(ArgumentErr() << "Failed to write " << band_name << " to TIF.\n");
+  
+  GDALClose(out_ds);
+  GDALClose(band_ds);
+}
+
 int main(int argc, char *argv[]) {
 
   Options opt;
@@ -702,8 +769,35 @@ int main(int argc, char *argv[]) {
 
     // Check if input is an HDF file
     if (boost::iends_with(opt.input, ".hdf")) {
-      vw_out() << "Detected HDF file: " << opt.input << "\n";
-      vw_out() << "HDF processing not yet implemented. Exiting.\n";
+      vw_out() << "Reading HDF file: " << opt.input << "\n";
+      std::string tmp_dir = genTmpDir(opt.output_prefix);
+      vw_out() << "Creating directory " << tmp_dir 
+               << " for extracting data from HDF.\n";
+      
+      // Open HDF file with GDAL
+      GDALAllRegister();
+      GDALDataset* hdf_ds = (GDALDataset*)GDALOpen(opt.input.c_str(), GA_ReadOnly);
+      if (!hdf_ds)
+        vw_throw(ArgumentErr() << "Failed to open HDF file: " << opt.input << "\n");
+      
+      // Get subdatasets
+      char** subdatasets = hdf_ds->GetMetadata("SUBDATASETS");
+      if (!subdatasets)
+        vw_throw(ArgumentErr() << "No subdatasets found in HDF file.\n");
+      
+      // In the HDF4_EOS format, each VNIR band has its own subdatasets:
+      // VNIR_Band3N:ImageData, VNIR_Band3N:SatellitePosition, etc.
+      // VNIR_Band3B:ImageData, VNIR_Band3B:SatellitePosition, etc.
+      
+      // Extract both band images
+      extractBandImage(subdatasets, "VNIR_Band3N", tmp_dir);
+      extractBandImage(subdatasets, "VNIR_Band3B", tmp_dir);
+      
+      GDALClose(hdf_ds);
+      
+      vw_out() << "HDF extraction complete (Band3N and Band3B). Exiting.\n";
+      
+      // TODO(oalexan1): Must wipe the temp directory after use.
       return 0;
     }
 
