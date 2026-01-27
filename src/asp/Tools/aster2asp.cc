@@ -70,7 +70,9 @@ struct Options: public vw::GdalWriteOptions {
   double min_height, max_height;
   std::int64_t num_samples;
   double penalty_weight;
-  Options(): min_height(-1), max_height(-1), num_samples(-1), penalty_weight(-1) {}
+  bool keep_tmp_dir;
+  Options(): min_height(-1), max_height(-1), num_samples(-1), penalty_weight(-1),
+             keep_tmp_dir(false) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options &opt) {
@@ -89,18 +91,20 @@ void handle_arguments(int argc, char *argv[], Options &opt) {
   ("penalty-weight", po::value(&opt.penalty_weight)->default_value(0.1),
    "Penalty weight to use to keep the higher-order RPC coefficients small. "
    "Higher penalty weight results in smaller such coefficients.")
+  ("keep-tmp-dir", po::bool_switch(&opt.keep_tmp_dir)->default_value(false),
+   "Keep the temporary directory where HDF data is extracted (for debugging).")
   ;
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
-  ("input", po::value(&opt.input), "An ASTER data directory.");
+  ("input", po::value(&opt.input), "An ASTER HDF file or input data directory.");
 
   po::positional_options_description positional_desc;
   positional_desc.add("input", 1);
 
-  std::string usage("<input directory> -o <output prefix>");
+  std::string usage("<input hdf or directory> -o <output prefix>");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm = asp::check_command_line(
@@ -108,7 +112,7 @@ void handle_arguments(int argc, char *argv[], Options &opt) {
       positional_desc, usage, allow_unregistered, unregistered);
 
   if (opt.input.empty())
-    vw_throw(ArgumentErr() << "Missing input directory.\n"
+    vw_throw(ArgumentErr() << "Missing input.\n"
                            << usage << general_options);
 
   if (opt.output_prefix.empty())
@@ -819,20 +823,101 @@ void extractMetadataArray(char** subdatasets, std::string const& band_name,
   // Set high precision for output
   ofs << std::setprecision(17);
   
-  // Write row by row, with all columns and bands on each line
-  for (int row = 0; row < rows; row++) {
-    for (int col = 0; col < cols; col++) {
-      for (int band = 0; band < bands; band++) {
-        int idx = band * rows * cols + row * cols + col;
+  // Handle different array structures:
+  // - If bands == 1 (like SatellitePosition [12x3x1]): rows=time, cols=XYZ
+  //   Write: time1: X Y Z \n time2: X Y Z \n ...
+  // - If bands > 1 (like SightVector [11x3x16]): rows=spatial, cols=XYZ, bands=time
+  //   Write in time blocks, each with spatial rows of XYZ values
+  std::cout << "--rows = " << rows << ", cols = " << cols << ", bands = " << bands << std::endl;
+  
+  if (bands == 1) {
+    // Simple format: each row (time) has all columns (XYZ) on one line
+    for (int row = 0; row < rows; row++) {
+      for (int col = 0; col < cols; col++) {
+        int idx = row * cols + col;
         ofs << data[idx];
-        if (col < cols - 1 || band < bands - 1)
+        if (col < cols - 1)
           ofs << " ";
       }
+      ofs << "\n";
     }
-    ofs << "\n";
+  } else {
+    // Block format: each band (time point) is a block containing rows (spatial) lines
+    // Each line has all col values (XYZ)
+    for (int band = 0; band < bands; band++) {
+      for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
+          int idx = band * rows * cols + row * cols + col;
+          ofs << data[idx];
+          if (col < cols - 1)
+            ofs << " ";
+        }
+        ofs << "\n";
+      }
+      ofs << "\n"; // Blank line between time blocks
+    }
   }
   
   ofs.close();
+}
+
+// Extract data from HDF file to temporary directory. Updates opt.input to point
+// to the temp directory and sets tmp_dir, which we will wipe when not needed.
+void extractHdfData(Options& opt, std::string& tmp_dir) {
+  vw_out() << "Reading HDF file: " << opt.input << "\n";
+  tmp_dir = genTmpDir(opt.output_prefix);
+  vw_out() << "Creating directory " << tmp_dir 
+           << " for extracting data from HDF.\n";
+  
+  // Open HDF file with GDAL
+  GDALAllRegister();
+  GDALDataset* hdf_ds = (GDALDataset*)GDALOpen(opt.input.c_str(), GA_ReadOnly);
+  if (!hdf_ds)
+    vw_throw(ArgumentErr() << "Failed to open HDF file: " << opt.input << "\n");
+  
+  // Get subdatasets
+  char** subdatasets = hdf_ds->GetMetadata("SUBDATASETS");
+  if (!subdatasets)
+    vw_throw(ArgumentErr() << "No subdatasets found in HDF file.\n");
+  
+  // In the HDF4_EOS format, each VNIR band has its own subdatasets:
+  // VNIR_Band3N:ImageData, VNIR_Band3N:SatellitePosition, etc.
+  // VNIR_Band3B:ImageData, VNIR_Band3B:SatellitePosition, etc.
+  
+  // Extract both band images
+  extractBandImage(subdatasets, "VNIR_Band3N", tmp_dir);
+  extractBandImage(subdatasets, "VNIR_Band3B", tmp_dir);
+  
+  // Extract satellite position metadata for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "SatellitePosition", tmp_dir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "SatellitePosition", tmp_dir);
+  
+  // Extract sight vector metadata for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "SightVector", tmp_dir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "SightVector", tmp_dir);
+  
+  // Extract lattice point metadata for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "LatticePoint", tmp_dir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "LatticePoint", tmp_dir);
+  
+  // Extract radiometric correction table for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "RadiometricCorrTable", tmp_dir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "RadiometricCorrTable", tmp_dir);
+  
+  // Extract latitude for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "Latitude", tmp_dir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "Latitude", tmp_dir);
+  
+  // Extract longitude for both bands
+  extractMetadataArray(subdatasets, "VNIR_Band3N", "Longitude", tmp_dir);
+  extractMetadataArray(subdatasets, "VNIR_Band3B", "Longitude", tmp_dir);
+  
+  GDALClose(hdf_ds);
+  
+  vw_out() << "HDF extraction complete.\n";
+  
+  // Point the input to the temp directory so the rest of the code can find the files
+  opt.input = tmp_dir;
 }
 
 int main(int argc, char *argv[]) {
@@ -841,43 +926,12 @@ int main(int argc, char *argv[]) {
   try {
     handle_arguments(argc, argv, opt);
 
-    // Check if input is an HDF file
-    if (boost::iends_with(opt.input, ".hdf")) {
-      vw_out() << "Reading HDF file: " << opt.input << "\n";
-      std::string tmp_dir = genTmpDir(opt.output_prefix);
-      vw_out() << "Creating directory " << tmp_dir 
-               << " for extracting data from HDF.\n";
-      
-      // Open HDF file with GDAL
-      GDALAllRegister();
-      GDALDataset* hdf_ds = (GDALDataset*)GDALOpen(opt.input.c_str(), GA_ReadOnly);
-      if (!hdf_ds)
-        vw_throw(ArgumentErr() << "Failed to open HDF file: " << opt.input << "\n");
-      
-      // Get subdatasets
-      char** subdatasets = hdf_ds->GetMetadata("SUBDATASETS");
-      if (!subdatasets)
-        vw_throw(ArgumentErr() << "No subdatasets found in HDF file.\n");
-      
-      // In the HDF4_EOS format, each VNIR band has its own subdatasets:
-      // VNIR_Band3N:ImageData, VNIR_Band3N:SatellitePosition, etc.
-      // VNIR_Band3B:ImageData, VNIR_Band3B:SatellitePosition, etc.
-      
-      // Extract both band images
-      extractBandImage(subdatasets, "VNIR_Band3N", tmp_dir);
-      extractBandImage(subdatasets, "VNIR_Band3B", tmp_dir);
-      
-      // Extract satellite position metadata for both bands
-      extractMetadataArray(subdatasets, "VNIR_Band3N", "SatellitePosition", tmp_dir);
-      extractMetadataArray(subdatasets, "VNIR_Band3B", "SatellitePosition", tmp_dir);
-      
-      GDALClose(hdf_ds);
-      
-      vw_out() << "HDF extraction complete. Exiting.\n";
-      
-      // TODO(oalexan1): Must wipe the temp directory after use.
-      return 0;
-    }
+    // Track if we created a temp directory (for cleanup later)
+    std::string tmp_dir = "";
+
+    // Check if input is an HDF file and extract data if so
+    if (boost::iends_with(opt.input, ".hdf"))
+      extractHdfData(opt, tmp_dir);
 
     std::string nadir_image, back_image, nadir_sat_pos, back_sat_pos;
     std::string nadir_sight_vec, back_sight_vec;
@@ -915,6 +969,16 @@ int main(int argc, char *argv[]) {
     gen_xml(opt.min_height, opt.max_height, opt.num_samples, opt.penalty_weight,
             back_image, back_sat_pos, back_sight_vec, back_longitude,
             back_latitude, back_lattice_point, out_back_cam);
+    
+    // Clean up temporary directory if we created one
+    if (!tmp_dir.empty()) {
+      if (opt.keep_tmp_dir) {
+        vw_out() << "Keeping temporary directory for debugging: " << tmp_dir << "\n";
+      } else {
+        vw_out() << "Removing temporary directory: " << tmp_dir << "\n";
+        fs::remove_all(tmp_dir);
+      }
+    }
   }
   ASP_STANDARD_CATCHES;
 
