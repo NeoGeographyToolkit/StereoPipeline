@@ -1,6 +1,10 @@
 Changes since last release
 --------------------------
 
+stereo_sweep (:numref:`stereo_sweep`):
+  * Added a new program to facilitate parameter sensitivity investigations by
+    running stereo on small patches with different parameter combinations.
+
 aster2asp (:numref:`aster2asp`):
   * Added support for ASTER Level 1A V004 HDF format.
 

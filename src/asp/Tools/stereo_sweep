@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2025, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+import sys, argparse, os
+
+# Set up the path to Python modules about to load
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_system_utils
+
+def main():
+  parser = argparse.ArgumentParser(
+    description='Run parallel_stereo on small patches with different ' + \
+                'parameter combinations.')
+
+  parser.add_argument('--proj-win-sweep', default='',
+    help='Projection window sweep: "site1 xoff yoff width height ...". ' + \
+    'If not set, the runs are over the full extent of input images.')
+  parser.add_argument('--param-sweep', action='append', default=[],
+    help='Parameter sweep (can be specified multiple times for different ' + \
+    'combinations).')
+  parser.add_argument('--dem', default='', help='Input DEM for mapprojection.')
+  parser.add_argument('--output-dir', default='', help='Output directory.')
+  parser.add_argument('--point2dem-params', default='',
+    help='Parameters to pass to point2dem.')
+
+  if len(sys.argv) == 1:
+    parser.print_help()
+    return 0
+
+  args = parser.parse_args()
+
+  if args.proj_win_sweep:
+    print(f"Projection window sweep: {args.proj_win_sweep}")
+  if args.param_sweep:
+    print(f"Parameter sweeps: {args.param_sweep}")
+
+  return 0
+
+if __name__ == '__main__':
+  sys.exit(main())

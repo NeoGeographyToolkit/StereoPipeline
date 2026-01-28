@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # __BEGIN_LICENSE__
-#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Copyright (c) 2009-2025, United States Government as represented by the
 #  Administrator of the National Aeronautics and Space Administration. All
 #  rights reserved.
 #
@@ -728,69 +728,61 @@ if __name__ == '__main__':
     # actual jobs on those nodes. For the other steps, the script does the work
     # itself.
 
-    # Python does not know how to disambiguate between two
-    # options which start with a similar prefix.
+    # Python does not know how to disambiguate between two options which start
+    # with a similar prefix.
     if '--threads' in sys.argv:
         print("Ignoring the option --threads. Use --threads-multiprocess " + \
               "and --threads-singleprocess.")
         asp_cmd_utils.wipe_option(sys.argv, '--threads', 1)
 
     p = argparse.ArgumentParser(usage=usage)
-    p.add_argument('--nodes-list',           dest='nodes_list', default=None,
+    p.add_argument('--nodes-list', dest='nodes_list', default=None,
                    help='The list of computing nodes, one per line. ' + \
-                   'If not provided, run on the local machine.')
-    p.add_argument('--ssh',                  dest='ssh', default=None,
+                        'If not provided, run on the local machine.')
+    p.add_argument('--ssh', dest='ssh', default=None,
                    help='The path to the ssh program to use to connect to other nodes')
-    p.add_argument('--processes',            dest='processes', default=None,
-                   type=int, help='The number of processes to use per node.')
-    p.add_argument('--threads-multiprocess', dest='threads_multi', default=None,
-                   type=int, help='The number of threads to use per process when running multiple processes.')
-    p.add_argument('--threads-singleprocess',dest='threads_single', default=None,
-                   type=int,
+    p.add_argument('--processes', dest='processes', default=None, type=int,
+                   help='The number of processes to use per node.')
+    p.add_argument('--threads-multiprocess', dest='threads_multi', default=None, type=int,
+                   help='The number of threads to use per process when running multiple processes.')
+    p.add_argument('--threads-singleprocess', dest='threads_single', default=None, type=int,
                    help='The number of threads to use when running a single process (PPRC and FLTR).')
-    p.add_argument('--corr-seed-mode',       dest='seed_mode', default=None,
-                   help='Correlation seed strategy. See stereo_corr for options.',
-                   type=int)
-    p.add_argument('-e', '--entry-point',    dest='entry_point', default=0,
-                   help='Stereo Pipeline entry point (an integer from 0-5).',
-                   type=int)
-    p.add_argument('--stop-point',           dest='stop_point',  default=6,
+    p.add_argument('--corr-seed-mode', dest='seed_mode', default=None, type=int,
+                   help='Correlation seed strategy. See stereo_corr for options.')
+    p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
+                   help='Stereo Pipeline entry point (an integer from 0-5).')
+    p.add_argument('--stop-point', dest='stop_point', default=6, type=int,
                    help='Stereo Pipeline stop point (an integer from 1-6). Stop ' + 
-                   'before this step.',
-                   type=int)
-    p.add_argument('--job-size-w',           dest='job_size_w',  default=-1,
+                        'before this step.')
+    p.add_argument('--job-size-w', dest='job_size_w', default=-1, type=int,
                    help='Pixel width of input image tile for a single process. ' + \
-                   'Set automatically.',
-                   type=int)
-    p.add_argument('--job-size-h',           dest='job_size_h',  default=-1,
+                        'Set automatically.')
+    p.add_argument('--job-size-h', dest='job_size_h', default=-1, type=int,
                    help='Pixel height of input image tile for a single process. ' + \
-                     'Set automatically.',
-                   type=int)
-    p.add_argument('--sgm-collar-size',      dest='sgm_collar_size', default=-1,
-                   help='The padding around each tile to process. Set automatically.',
-                   type=int)
-    p.add_argument('--resume-at-corr', dest='resume_at_corr', default=False, 
-                   action='store_true',
+                        'Set automatically.')
+    p.add_argument('--sgm-collar-size', dest='sgm_collar_size', default=-1, type=int,
+                   help='The padding around each tile to process. Set automatically.')
+    p.add_argument('--resume-at-corr', dest='resume_at_corr', default=False, action='store_true',
                    help='Start at the correlation stage and skip recomputing the valid ' + \
-                   'low and full-res disparities for that stage. Do not change ' + \
-                   '--left-image-crop-win, etc., when running this.')
+                        'low and full-res disparities for that stage. Do not change ' + \
+                        '--left-image-crop-win, etc., when running this.')
     p.add_argument('--prev-run-prefix', dest='prev_run_prefix', default=None,
                    help='Start at the triangulation stage while reusing the data from this prefix. The new run can use different cameras, bundle adjustment prefix, or bathy planes (if applicable). Do not change crop windows, as that would invalidate the run.')
     p.add_argument('--keep-only', dest='keep_only', default="all_combined",
-     help='If set to "all_combined", which is the default, at the end of a ' + \
-     'successful run combine the results from subdirectories into .tif ' + \
-     'files with the given output prefix, and delete the ' + \
-     'subdirectories. If set to "essential", keep only PC.tif and the ' + \
-     'files needed to recreate it (those ending with L.txt, R.txt, .exr, ' + \
-     'L.tif, -F.tif). If set to "unchanged", keep the run directory as it ' + \
-     'is. For fine-grained control, specify a quoted list of suffixes of ' + \
-     'files to keep, such as "L.txt R.txt .exr .match -L.tif -PC.tif".')
+                   help='If set to "all_combined", which is the default, at the end of a ' + \
+                        'successful run combine the results from subdirectories into .tif ' + \
+                        'files with the given output prefix, and delete the ' + \
+                        'subdirectories. If set to "essential", keep only PC.tif and the ' + \
+                        'files needed to recreate it (those ending with L.txt, R.txt, .exr, ' + \
+                        'L.tif, -F.tif). If set to "unchanged", keep the run directory as it ' + \
+                        'is. For fine-grained control, specify a quoted list of suffixes of ' + \
+                        'files to keep, such as "L.txt R.txt .exr .match -L.tif -PC.tif".')
     p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
                    help='Options to pass directly to sparse_disp. Use quotes around ' + \
-                   'this string.')
-    p.add_argument('-v', '--version',        dest='version', default=False,
-                   action='store_true', help='Display the version of software.')
-    p.add_argument('-s', '--stereo-file',    dest='stereo_file', default='./stereo.default',
+                        'this string.')
+    p.add_argument('-v', '--version', dest='version', default=False, action='store_true',
+                   help='Display the version of software.')
+    p.add_argument('-s', '--stereo-file', dest='stereo_file', default='./stereo.default',
                    help='Explicitly specify the stereo.default file to use. [default: ./stereo.default]')
     p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
                    help='Display the commands being executed.')
