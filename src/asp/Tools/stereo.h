@@ -62,7 +62,7 @@ namespace asp {
   vw::BBox2i transformed_crop_win(ASPGlobalOptions const& opt);
 
   /// Parse the command line options for multi-view stereo
-  void parse_multiview(int argc, char* argv[],
+  void parseStereoArgs(int argc, char* argv[],
                        boost::program_options::options_description const&
                        additional_options,
                        bool verbose,
@@ -71,19 +71,19 @@ namespace asp {
                        bool exit_early = false);
 
   /// Parse input command line arguments
-  void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
-                        boost::program_options::options_description const&
-                        additional_options,
-                        bool is_multiview, bool override_out_prefix,
-                        std::vector<std::string> & unregistered,
-                        std::string & usage, bool exit_early = false);
+  void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
+                         boost::program_options::options_description const&
+                         additional_options,
+                         bool is_multiview, bool override_out_prefix,
+                         std::vector<std::string> & unregistered,
+                         std::string & usage, bool exit_early = false);
 
   /// Register DiskImageResource types that are not included in Vision Workbench.
   void stereo_register_sessions();
 
   /// Checks for obvious user mistakes
   /// - Throws if any incompatible settings are found.
-  void user_safety_checks(ASPGlobalOptions const& opt);
+  void validateStereoOptions(ASPGlobalOptions const& opt);
 
   bool skip_image_normalization(ASPGlobalOptions const& opt);
 

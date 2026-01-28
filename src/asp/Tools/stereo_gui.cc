@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -60,8 +60,8 @@ namespace asp {
 // only when we failed to parse the arguments under the assumption
 // that the tool was being invoked with the stereo interface. Hence
 // we'll fallback to this when the tool is used as an image viewer.
-void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
-    std::vector<std::string> & input_files){
+void parseStereoGuiArgs(int argc, char *argv[], ASPGlobalOptions& opt,
+                        std::vector<std::string> & input_files) {
 
   // Options for which we will print the help message
   po::options_description general_options("");
@@ -96,11 +96,11 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   usage = os.str();
 
   // Store the files
-  if (vm.count("input-files") > 0) 
+  if (vm.count("input-files") > 0)
     input_files = vm["input-files"].as<std::vector<std::string>>();
   else
     input_files.clear(); // no input files, will be read from nvm later
-  
+
   // Interpret the the last two coordinates of the crop win boxes as
   // width and height rather than max_x and max_y. 
   BBox2i bl = stereo_settings().left_image_crop_win;
@@ -116,7 +116,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     std::swap(zoom_win.min().x(), zoom_win.max().x());
   if (zoom_win.min().y() > zoom_win.max().y())
     std::swap(zoom_win.min().y(), zoom_win.max().y());
-    
+
   // Option --zoom-proj-win implies --zoom-all-to-same-region
   if (!asp::stereo_settings().zoom_proj_win.empty())
     asp::stereo_settings().zoom_all_to_same_region = true;
@@ -128,19 +128,16 @@ class StereoApplication: public QApplication {
 public:
   StereoApplication(int& argc, char** argv): QApplication(argc, argv) {}
   virtual bool notify(QObject *receiver, QEvent *e) {
-    
+
     try {
       return QApplication::notify(receiver, e);
     } catch (std::exception& ex) {
       asp::popUp(ex.what());
       return false;
     }
-    
+
   }
 };
-
-
-
 
 void readImageNames(std::vector<std::string> const& all_files,
                     std::vector<std::string> & images,
@@ -156,7 +153,7 @@ void readImageNames(std::vector<std::string> const& all_files,
     try {
       DiskImageView<float> tmp(file);
       is_image = true;
-    } catch(std::exception & e){
+    } catch(std::exception & e) {
       if (file.empty() || file[0] == '-') continue;
       if (vw::get_extension(file) == ".match") {
         // Found a match file
@@ -196,7 +193,7 @@ void readImageNames(std::vector<std::string> const& all_files,
         }
       }
     }
-  
+
     if (is_image)
       images.push_back(file);
   }
@@ -223,7 +220,7 @@ int main(int argc, char** argv) {
 
     std::vector<std::string> all_files;
     asp::stereo_settings().vwip_files.clear();
-    asp::handle_arguments(argc, argv, opt, all_files);
+    asp::parseStereoGuiArgs(argc, argv, opt, all_files);
 
     asp::readImageNames(all_files, images, output_prefix);
 
@@ -257,7 +254,7 @@ int main(int argc, char** argv) {
     QFont f = app.font();
     f.setPointSize(asp::stereo_settings().font_size);
     app.setFont(f);
-    
+
     vw::create_out_dir(output_prefix);
 
     // Use OpenMP to speed things up.
@@ -265,7 +262,7 @@ int main(int argc, char** argv) {
     int processor_count = std::thread::hardware_concurrency();
     omp_set_dynamic(0);
     omp_set_num_threads(processor_count);
-    
+
     // Start up the Qt GUI
     asp::MainWindow main_window(opt, images, output_prefix,
                                 stereo_settings().grid_cols,
@@ -274,12 +271,12 @@ int main(int argc, char** argv) {
                                 stereo_settings().use_georef,
                                 properties,
                                 argc, argv);
-    
+
     main_window.show();
     app.exec();
-    
+
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
-  
+
   return 0;
 }

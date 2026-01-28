@@ -267,7 +267,7 @@ int main(int argc, char* argv[]) {
     bool verbose = true;
     std::vector<ASPGlobalOptions> opt_vec;
     std::string output_prefix;
-    asp::parse_multiview(argc, argv, ParseDescription(),
+    asp::parseStereoArgs(argc, argv, ParseDescription(),
                          verbose, output_prefix, opt_vec);
     if (opt_vec.empty())
       return 1;

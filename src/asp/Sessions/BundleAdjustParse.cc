@@ -44,8 +44,8 @@ namespace asp {
 
 // Validate the bundle_adjust options. This modifies the options structure.
 void loadValidateBaOptions(po::variables_map const& vm,
-                       bool inline_adjustments,
-                       asp::BaOptions &opt) {
+                           bool inline_adjustments,
+                           asp::BaOptions &opt) {
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);

@@ -677,7 +677,7 @@ po::options_description generate_config_file_options(vw::GdalWriteOptions& opt) 
   return cfg_options;
 }
 
-// TODO(oalexan1): More settings from user_safety_checks() that only need
+// TODO(oalexan1): More settings from validateStereoOptions() that only need
 // stereo_settings() should be validated here.
 void StereoSettings::validate() {
   using namespace boost::algorithm;

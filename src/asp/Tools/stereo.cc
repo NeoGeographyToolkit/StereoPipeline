@@ -46,13 +46,6 @@
 #include <vw/FileIO/FileUtils.h>
 #include <vw/InterestPoint/MatcherIO.h>
 
-// Can't do much about warnings in boost except to hide them
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics.hpp>
-#pragma GCC diagnostic pop
-
 using namespace vw;
 using namespace vw::cartography;
 
@@ -72,7 +65,7 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
           vw::DiskImageResourcePtr(opt.in_file1);
   DiskImageView<PixelGray<float>> left_image(rsrc);
   BBox2i full_box = bounding_box(left_image);
-  
+
   if (fs::exists(opt.out_prefix+"-L.tif")) {
     DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
     b = bounding_box(L_img);
@@ -107,7 +100,7 @@ void configStereoOpts(ASPGlobalOptions& opt,
   // Populate positional options
   positional_options.add_options()
     ("input-files", po::value<std::vector<std::string>>(), "Input files");
-  
+
   positional_desc.add("input-files", -1);
 }
 
@@ -120,7 +113,7 @@ void configStereoOpts(ASPGlobalOptions& opt,
 void parseStereoOptsVals(int argc, char *argv[],
                          po::options_description const& additional_options,
                          std::vector<std::string> & opts_and_vals) {
-  
+
   // Wipe the output
   opts_and_vals.clear();
 
@@ -130,10 +123,10 @@ void parseStereoOptsVals(int argc, char *argv[],
   po::options_description all_general_options("");
   po::options_description positional_options("");
   po::positional_options_description positional_desc;
-  ASPGlobalOptions local_opt; 
+  ASPGlobalOptions local_opt;
 
   // Configure the descriptions using your helper function
-  configStereoOpts(local_opt, additional_options, general_options, all_general_options, 
+  configStereoOpts(local_opt, additional_options, general_options, all_general_options,
                    positional_options, positional_desc);
 
   // Parse the command line
@@ -142,17 +135,17 @@ void parseStereoOptsVals(int argc, char *argv[],
     all_options.add(all_general_options).add(positional_options);
 
     // Pass positional_desc to the parser so it knows which args are positional
-    po::parsed_options parsed = 
+    po::parsed_options parsed =
       po::command_line_parser(argc, argv)
         .options(all_options)
         .positional(positional_desc)
         .style(po::command_line_style::unix_style)
         .run();
-    
+
     // Populate opts_and_vals
     for (auto const& opt: parsed.options) {
       // Position_key is -1 for named options, >= 0 for positional args (files)
-      if (opt.position_key == -1) { 
+      if (opt.position_key == -1) {
         opts_and_vals.insert(opts_and_vals.end(),
                              opt.original_tokens.begin(),
                              opt.original_tokens.end());
@@ -166,24 +159,24 @@ void parseStereoOptsVals(int argc, char *argv[],
 
 // Handle the arguments for the multiview case. It creates multiple pairwise
 // invocations of stereo.
-void handle_multiview(int argc, char* argv[],
-                      int num_pairs,
-                      std::vector<std::string> const& files,
-                      std::vector<std::string> const& images,
-                      std::vector<std::string> const& cameras,
-                      std::string const& output_prefix,
-                      std::string const& input_dem,
-                      po::options_description const& additional_options,
-                      bool verbose, bool exit_early,
-                      // Outputs
-                      std::string & usage,
-                      std::vector<ASPGlobalOptions> & opt_vec) {
+void parseMultiviewHelper(int argc, char* argv[],
+                          int num_pairs,
+                          std::vector<std::string> const& files,
+                          std::vector<std::string> const& images,
+                          std::vector<std::string> const& cameras,
+                          std::string const& output_prefix,
+                          std::string const& input_dem,
+                          po::options_description const& additional_options,
+                          bool verbose, bool exit_early,
+                          // Outputs
+                          std::string & usage,
+                          std::vector<ASPGlobalOptions> & opt_vec) {
 
   //  Parse all the options and their values, stored in a vector, to be 
   // used later for pairwise stereo. It skips the standalone input files.
-  std::vector<std::string> opts_vals; 
+  std::vector<std::string> opts_vals;
   parseStereoOptsVals(argc, argv, additional_options, opts_vals);
-  
+
   // Must signal to the children runs that they are part of a multiview run
   std::string opt_str = "--part-of-multiview-run";
   auto it = find(opts_vals.begin(), opts_vals.end(), opt_str);
@@ -260,7 +253,7 @@ void handle_multiview(int argc, char* argv[],
     bool is_multiview = false; // single image and camera pair
     std::vector<std::string> local_files;
     bool override_out_prefix = false;
-    handle_arguments(largc, &largv[0], opt_vec[p-1], additional_options,
+    parseStereoHelper(largc, &largv[0], opt_vec[p-1], additional_options,
                      is_multiview, override_out_prefix, local_files, usage, exit_early);
 
     if (verbose) {
@@ -296,20 +289,21 @@ void handle_multiview(int argc, char* argv[],
   return;
 }
 
-/// Parse the list of files specified as positional arguments on the command line
+/// Parse the list of files and output prefix specified as positional arguments
+/// on the command line. Hence, parse the arguments that are not passed to options.
 // The format is:  <N image paths> [N camera model paths] <output prefix> [input DEM path]
-bool parse_multiview_cmd_files(bool override_out_prefix, 
-                               std::vector<std::string> const &filesIn,
-                               std::vector<std::string>       &image_paths,
-                               std::vector<std::string>       &camera_paths,
-                               std::string                    &prefix,
-                               std::string                    &dem_path) {
+bool parseStereoFiles(bool override_out_prefix,
+                      std::vector<std::string> const &filesIn,
+                      std::vector<std::string>       &imageFiles,
+                      std::vector<std::string>       &camFiles,
+                      std::string                    &outPrefix,
+                      std::string                    &inputDem) {
 
   // Init outputs
-  image_paths.clear();
-  camera_paths.clear();
-  prefix   = "";
-  dem_path = "";
+  imageFiles.clear();
+  camFiles.clear();
+  outPrefix = "";
+  inputDem = "";
 
   // Find the input DEM, if any
   std::vector<std::string> files = filesIn; // Make a local copy to work with
@@ -318,13 +312,13 @@ bool parse_multiview_cmd_files(bool override_out_prefix,
   try{ // Just try to load the last file path as a dem
     cartography::GeoReference georef;
     has_georef = read_georeference(georef, files.back());
-  } catch(...) {}
+  } catch (...) {}
 
   if (has_georef) { // I guess it worked
-    dem_path = files.back();
+    inputDem = files.back();
     files.pop_back();
   } else { // We tried to load the prefix, there is no dem.
-    dem_path = "";
+    inputDem = "";
   }
   if (files.size() < 3) {
     vw_throw(ArgumentErr() << "Expecting at least three inputs to stereo.\n");
@@ -332,7 +326,7 @@ bool parse_multiview_cmd_files(bool override_out_prefix,
   }
 
   // Find the output prefix
-  prefix = files.back(); // the dem, if present, was already popped off the back.
+  outPrefix = files.back(); // the dem, if present, was already popped off the back.
   files.pop_back();
 
   // parallel_stereo must be able to run with a tile output prefix. That program
@@ -341,21 +335,22 @@ bool parse_multiview_cmd_files(bool override_out_prefix,
   // if is_multiview is true, to do the replacement of the prefix just once.
   // Do not do it later again, when the processing is per each stereo pair.
   if (asp::stereo_settings().output_prefix_override != "" && override_out_prefix)
-    prefix = asp::stereo_settings().output_prefix_override;
-  
+    outPrefix = asp::stereo_settings().output_prefix_override;
+
   // An output prefix cannot be an image or a camera
-  if (vw::has_image_extension(prefix) || vw::has_cam_extension(prefix) || prefix == "")
-    vw_throw(ArgumentErr() << "Invalid output prefix: " << prefix << ".\n");
+  if (vw::has_image_extension(outPrefix) || vw::has_cam_extension(outPrefix) ||
+      outPrefix == "")
+    vw_throw(ArgumentErr() << "Invalid output prefix: " << outPrefix << ".\n");
 
   // The output prefix must not exist as a file
-  if (fs::exists(prefix))
+  if (fs::exists(outPrefix))
       vw_out(WarningMessage)
         << "It appears that the output prefix exists as a file: "
-        << prefix << ". Perhaps this was not intended.\n";
+        << outPrefix << ". Perhaps this was not intended.\n";
 
   // Now there are N images and possibly N camera paths
   bool ensure_equal_sizes = false;
-  asp::separate_images_from_cameras(files, image_paths, camera_paths, ensure_equal_sizes);
+  asp::separate_images_from_cameras(files, imageFiles, camFiles, ensure_equal_sizes);
 
   return true;
 }
@@ -372,10 +367,10 @@ bool is_tile_run(int argc, char* argv[]) {
 }
 
 // Save some info that will be useful for peeking at a run
-void save_run_info(ASPGlobalOptions const& opt,
-                   std::vector<std::string> const& images,
-                   std::vector<std::string> const& cameras,
-                   std::string const& input_dem) {
+void saveRunInfo(ASPGlobalOptions const& opt,
+                 std::vector<std::string> const& images,
+                 std::vector<std::string> const& cameras,
+                 std::string const& input_dem) {
 
   std::string info_file = opt.out_prefix + "-info.txt";
   std::ofstream ostr(info_file.c_str());
@@ -422,15 +417,17 @@ void save_run_info(ASPGlobalOptions const& opt,
 // with the number of images n >= 2, create n-1 individual
 // ASPGlobalOptions entries, corresponding to n-1 stereo pairs between the
 // first image and each of the subsequent images.
-// TODO(oalexan1): The logic here is horrendous. The handle_arguments() function
-// better be called just once, rather than four times, as below.
-void parse_multiview(int argc, char* argv[],
-                      boost::program_options::options_description const&
-                      additional_options,
-                      bool verbose,
-                      std::string & output_prefix,
-                      std::vector<ASPGlobalOptions> & opt_vec,
-                      bool exit_early) {
+// TODO(oalexan1): The logic here is convoluted. parseStereoHelper() is called
+// multiple times: once initially to extract files, then again for each stereo
+// pair (1 time for single stereo, or n-1 times for multiview with n images).
+// This redundant parsing and argv reconstruction should be refactored.
+void parseStereoArgs(int argc, char* argv[],
+                     boost::program_options::options_description const&
+                     additional_options,
+                     bool verbose,
+                     std::string & output_prefix,
+                     std::vector<ASPGlobalOptions> & opt_vec,
+                     bool exit_early) {
 
   // First reset the outputs
   output_prefix.clear();
@@ -442,8 +439,8 @@ void parse_multiview(int argc, char* argv[],
   ASPGlobalOptions opt;
   std::string usage;
   bool override_out_prefix = true;
-  handle_arguments(argc, argv, opt, additional_options,
-                   is_multiview, override_out_prefix, files, usage, exit_early);
+  parseStereoHelper(argc, argv, opt, additional_options,
+                    is_multiview, override_out_prefix, files, usage, exit_early);
 
   // Need this for the GUI, ensure that opt_vec is never empty, even on failures
   opt_vec.push_back(opt);
@@ -451,17 +448,17 @@ void parse_multiview(int argc, char* argv[],
   if (files.size() < 3)
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
 
-  // Add note on the alignment method. If done in handle_arguments, it will be
+  // Add note on the alignment method. If done in parseStereoHelper, it will be
   // printed twice.
   if (stereo_settings().correlator_mode)
     vw_out() << "Running in correlator mode. The alignment method is: "
-              << stereo_settings().alignment_method << ".\n";
+             << stereo_settings().alignment_method << ".\n";
 
   // Extract all the positional elements
   std::vector<std::string> images, cameras;
   std::string input_dem;
-  if (!parse_multiview_cmd_files(override_out_prefix, files, images, cameras, 
-                                 output_prefix, input_dem))
+  if (!parseStereoFiles(override_out_prefix, files, images, cameras,
+                        output_prefix, input_dem))
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
 
   int num_pairs = (int)images.size() - 1;
@@ -474,17 +471,17 @@ void parse_multiview(int argc, char* argv[],
 
   if (num_pairs == 1) {
     bool is_multiview = false, override_out_prefix = true;
-    handle_arguments(argc, argv, opt_vec[0], additional_options,
-                    is_multiview, override_out_prefix, files, usage, exit_early);
+    parseStereoHelper(argc, argv, opt_vec[0], additional_options,
+                      is_multiview, override_out_prefix, files, usage, exit_early);
   } else {
-    handle_multiview(argc, argv, num_pairs, files, images, cameras, output_prefix, input_dem,
-                     additional_options, verbose, exit_early, usage,
-                     opt_vec); // output
+    parseMultiviewHelper(argc, argv, num_pairs, files, images, cameras, output_prefix, 
+                         input_dem, additional_options, verbose, exit_early, usage,
+                         opt_vec); // output
   }
 
   // For each stereo command not in a tile, print the run info
   if (!is_tile_run(argc, argv))
-    save_run_info(opt_vec[0], images, cameras, input_dem);
+    saveRunInfo(opt_vec[0], images, cameras, input_dem);
 
   return;
 }
@@ -521,21 +518,21 @@ void setup_error_propagation(ASPGlobalOptions const& opt) {
 }
 
 // Parse input command line arguments
-void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
-                      boost::program_options::options_description const&
-                      additional_options,
-                      bool is_multiview, bool override_out_prefix, 
-                      std::vector<std::string> & input_files,
-                      std::string & usage, bool exit_early) {
+void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
+                       boost::program_options::options_description const&
+                       additional_options,
+                       bool is_multiview, bool override_out_prefix,
+                       std::vector<std::string> & input_files,
+                       std::string & usage, bool exit_early) {
 
   // Configure the stereo options
   po::options_description general_options("");
   po::options_description all_general_options("");
   po::options_description positional_options("");
   po::positional_options_description positional_desc;
-  configStereoOpts(opt, additional_options, general_options, all_general_options, 
+  configStereoOpts(opt, additional_options, general_options, all_general_options,
                    positional_options, positional_desc);
-  
+
   usage =
    "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n"
    "  Extensions are automatically added to the output files.\n"
@@ -604,17 +601,17 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     vw_throw(ArgumentErr() << "Missing input arguments.\n"
       << usage << general_options);
   input_files = vm["input-files"].as<std::vector<std::string>>();
-  
+
   // For multiview, just store the files and return. Must happen after logging
   // starts, as logging for multiview is done in subdirectories. In multiview
   // mode, the logic further down will be later called for each pair.
   if (is_multiview)
     return;
 
-  // Re-use the logic in parse_multiview_cmd_files, but just for two images/cameras.
+  // Re-use the logic in parseStereoFiles, but just for two images/cameras.
   std::vector<std::string> images, cameras;
-  if (!parse_multiview_cmd_files(override_out_prefix, input_files, // inputs
-                                 images, cameras, opt.out_prefix, opt.input_dem)) // outputs
+  if (!parseStereoFiles(override_out_prefix, input_files, // inputs
+                        images, cameras, opt.out_prefix, opt.input_dem)) // outputs
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
   if (images.size() >= 1)
     opt.in_file1 = images[0];
@@ -686,7 +683,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
     // affine epipolar or homography alignment.
     if (stereo_settings().trans_crop_win == BBox2i(0, 0, 0, 0))
       stereo_settings().trans_crop_win = transformed_crop_win(opt);
-      
+
     // Intersect with L.tif which is the transformed and processed left image.
     if (fs::exists(opt.out_prefix+"-L.tif")) {
       DiskImageView<PixelGray<float>> L_img(opt.out_prefix+"-L.tif");
@@ -957,7 +954,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
   opt.session->camera_models(camera_model1, camera_model2);
 
   // Run a set of checks to make sure the settings are compatible.
-  user_safety_checks(opt);
+  validateStereoOptions(opt);
 
   // This logic must happen after the cameras are loaded.
   if (stereo_settings().propagate_errors)
@@ -972,7 +969,7 @@ void handle_arguments(int argc, char *argv[], ASPGlobalOptions& opt,
                                     opt.out_prefix + "-stereo.default");
 }
 
-// Register Session types
+// Register session types
 void stereo_register_sessions() {
   // Register the Isis file handler with the Vision Workbench DiskImageResource system.
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
@@ -983,9 +980,8 @@ void stereo_register_sessions() {
 #endif
 }
 
-void user_safety_checks(ASPGlobalOptions const& opt) {
-
-  // Error checking
+// Error checking for stereo
+void validateStereoOptions(ASPGlobalOptions const& opt) {
 
   bool dem_provided = !opt.input_dem.empty();
 
@@ -1123,13 +1119,13 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     // This is a bit awkward but is done so for backward compatibility.
     stereo_settings().min_triangulation_angle = 0;
   }
-  
+
   int num_images = 2;
   asp::bathyChecks(opt.session->name(), asp::stereo_settings(), num_images);
 
   // Need the percentage to be more than 50 as we look at the range [100 - pct, pct].
   if (stereo_settings().outlier_removal_params[0] <= 50.0)
-    vw_throw(ArgumentErr() 
+    vw_throw(ArgumentErr()
              << "The --outlier-removal-params percentage must be more than 50.\n");
   if (stereo_settings().outlier_removal_params[1] <= 0.0)
     vw_throw(ArgumentErr() << "The --outlier-removal-params factor must be positive.\n");
@@ -1216,7 +1212,7 @@ void user_safety_checks(ASPGlobalOptions const& opt) {
     }
   } // end camera checks
 
-} // End user_safety_checks
+} // End validateStereoOptions
 
 // See if user's request to skip image normalization can be
 // satisfied.  This option is a speedup switch which is only meant
@@ -1310,7 +1306,7 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
 
   std::vector<ip::InterestPoint> left_ip, right_ip;
   ip::read_binary_match_file(match_filename, left_ip, right_ip);
-  
+
   if (have_aligned_matches) {
     // Create the transforms ahead of time for clarity. When these are created
     // as part of unalign_ip() arguments, the creation order seems in reverse.

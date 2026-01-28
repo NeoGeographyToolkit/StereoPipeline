@@ -79,7 +79,7 @@ TEST( Common, StereoMultiCmdCheck ) {
 
   std::vector<std::string> image_paths, camera_paths;
   std::string prefix, dem_path;
-  parse_multiview_cmd_files(files, image_paths, camera_paths, prefix, dem_path);
+  parseStereoFiles(files, image_paths, camera_paths, prefix, dem_path);
   EXPECT_EQ(2, image_paths.size ());
   EXPECT_EQ(2, camera_paths.size());
   EXPECT_EQ("img1.tif", image_paths [0]);
@@ -96,7 +96,7 @@ TEST( Common, StereoMultiCmdCheck ) {
   files.push_back("img2.cub");
   files.push_back("run/run");
 
-  parse_multiview_cmd_files(files, image_paths, camera_paths, prefix, dem_path);
+  parseStereoFiles(files, image_paths, camera_paths, prefix, dem_path);
   EXPECT_EQ(2, image_paths.size ());
   EXPECT_EQ(0, camera_paths.size());
   EXPECT_EQ("img1.cub", image_paths [0]);
@@ -113,7 +113,7 @@ TEST( Common, StereoMultiCmdCheck ) {
   files.push_back("run/run");
   files.push_back("dem.tif");
 
-  parse_multiview_cmd_files(files, image_paths, camera_paths, prefix, dem_path);
+  parseStereoFiles(files, image_paths, camera_paths, prefix, dem_path);
   EXPECT_EQ(2, image_paths.size ());
   EXPECT_EQ(2, camera_paths.size());
   EXPECT_EQ("img1.tif", image_paths [0]);
@@ -132,7 +132,7 @@ TEST( Common, StereoMultiCmdCheck ) {
   files.push_back("run/run");
   files.push_back("dem.tif");
 
-  parse_multiview_cmd_files(files, image_paths, camera_paths, prefix, dem_path);
+  parseStereoFiles(files, image_paths, camera_paths, prefix, dem_path);
   EXPECT_EQ(4, image_paths.size());
   EXPECT_EQ(0, camera_paths.size());
   EXPECT_EQ("img1.tif", image_paths [0]);
