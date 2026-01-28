@@ -39,8 +39,10 @@ def main():
   parser.add_argument('--param-sweep', action='append', default=[],
     help='Parameter sweep (can be specified multiple times for different ' + \
     'combinations).')
-  parser.add_argument('--dem', default='', help='Input DEM for mapprojection.')
-  parser.add_argument('--output-dir', default='', help='Output directory.')
+  parser.add_argument('--dem', default='', 
+    help='Input DEM for mapprojection.')
+  parser.add_argument('--output-dir', default='', 
+    help='Output directory.')
   parser.add_argument('--point2dem-params', default='',
     help='Parameters to pass to point2dem.')
 
