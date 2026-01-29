@@ -30,44 +30,36 @@ import asp_system_utils
 
 def main():
   parser = argparse.ArgumentParser(
-      description='Run parallel_stereo on small patches with different ' + \
-                  'parameter combinations.')
+    description='Run parallel_stereo on small patches with different ' + \
+                'parameter combinations.')
 
-  parser.add_argument('--proj-win-sweep', default='',
-      help='Projection window sweep: "site1 xoff yoff width height ...". ' + \
-      'If not set, the runs are over the full extent of input images.')
   parser.add_argument('--param-sweep', action='append', default=[],
-      help='Parameter sweep (can be specified multiple times for different ' + \
-      'combinations).')
+      help='Parameter sweep. Must be in quotes. Multiple such options can be ' + \
+      'specified. Each defines a different set of parameter combinations to test.')
+  parser.add_argument('--proj-win-sweep', default='',
+    help='Projection window sweep: "site1 xoff yoff width height ...". ' + \
+    'If not set, the runs are over the full extent of input images.')
   parser.add_argument('--dem', required=True,
-      help='Input DEM for mapprojection.')
+    help='Input DEM for mapprojection.')
   parser.add_argument('--output-dir', default='', 
-      help='Output directory.')
+    help='Output directory.')
   parser.add_argument('--point2dem-params', default='',
-      help='Parameters to pass to point2dem. If --orthoimage (with no ' + \
-      'argument) is passed in, the needed L.tif will be passed to each ' + \
-      'created point2dem command.')
+    help='Parameters to pass to point2dem. If --orthoimage (with no ' + \
+    'argument) is passed in, the needed L.tif will be passed to each ' + \
+    'created point2dem command.')
   parser.add_argument('--dry-run', dest='dry_run', action='store_true',
-      help='Print commands without executing them.')
+    help='Print commands without executing them.')
 
   if len(sys.argv) == 1:
     parser.print_help()
     return 0
 
   (opt, args) = parser.parse_known_args()
-
-  print(f"Parsed stereo_sweep options:")
-  print(f"  --dem: {opt.dem}")
-  print(f"  --output-dir: {opt.output_dir}")
-  print(f"  --point2dem-params: {opt.point2dem_params}")
-  print(f"  --proj-win-sweep: {opt.proj_win_sweep}")
-  print(f"  --param-sweep: {opt.param_sweep}")
-  print(f"Pass-through args (images/cameras/stereo options): {args}")
   
   # Create internal output prefix
   out_prefix = opt.output_dir + "/run"
   
-  # Assemble parallel_stereo command. Note how we need an output prefix for for
+  # Assemble parallel_stereo command. Note how we need an output prefix for
   # the dem we pass it without '--dem'.
   stereo_cmd = ['parallel_stereo'] + args + [out_prefix, opt.dem]
   
