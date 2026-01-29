@@ -7,17 +7,19 @@ This program facilitates parameter sensitivity investigations by running
 :ref:`parallel_stereo` on small patches of mapprojected images with different
 parameter combinations.
 
+.. _stereo_sweep_example:
+
 Example
 ~~~~~~~
 ::
 
     stereo_sweep                             \
       --param-sweep                          \
-        "--corr-kernel 7 9 
+        "--corr-kernel 7,7 9,9
         --stereo-algorithm asp_sgm asp_mgm
         --subpixel-mode 1 9"                 \
       --param-sweep                          \
-        "--corr-kernel 19 21 
+        "--corr-kernel 19,19 21,21
         --stereo-algorithm asp_bm
         --subpixel-mode 1 3"                 \
       left_map_image.tif right_map_image.tif \
@@ -28,10 +30,15 @@ Example
 
 Note that the option ``--param-sweep`` is specified twice, with each resulting
 in a set of runs. For the first one, there are two possible values for the
-correlation kernel size (each will be expanded to a square kernel), two stereo
-algorithms, and two subpixel modes. This results in a total of 8 different runs
-of ``parallel_stereo``. For the second ``--param-sweep``, there are two kernel
-sizes, one stereo algorithm, and two subpixel modes, resulting in 4 runs.
+correlation kernel, two stereo algorithms, and two subpixel modes. This
+results in a total of 8 different runs of ``parallel_stereo``. For the second
+``--param-sweep``, there are two kernel sizes, one stereo algorithm, and two
+subpixel modes, resulting in 4 runs.
+
+Parameters with multiple values (like ``--corr-kernel 7,7``) use commas to
+separate them, with no spaces. This is necessary so ``--param-sweep`` can be
+parsed correctly. The commas are replaced with spaces when passing the
+arguments to ``parallel_stereo``.
 
 The images are supposed to be mapprojected already (:numref:`mapproj-example`),
 with the ``--dem`` option having the mapprojection DEM.
@@ -49,7 +56,8 @@ Command-line options
 --param-sweep <string>
     Parameter sweep. Must be in quotes. Multiple such options can be specified.
     Each defines a different set of parameter combinations to test.
-
+    See :numref:`stereo_sweep_example` for an example.
+    
 --proj-win-sweep <string>
     Projection window sweep: "site1 xoff yoff width height ...". If not set,
     the runs are over the full extent of input images.

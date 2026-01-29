@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import sys, argparse, os, subprocess, shlex
+import sys, argparse, os, subprocess, shlex, itertools
 
 # Set up the path to Python modules about to load
 basepath    = os.path.abspath(sys.path[0])
@@ -28,40 +28,86 @@ sys.path.insert(0, libexecpath)
 
 import asp_system_utils
 
-def main():
-  parser = argparse.ArgumentParser(
-    description='Run parallel_stereo on small patches with different ' + \
-                'parameter combinations.')
-
-  parser.add_argument('--param-sweep', action='append', default=[],
-      help='Parameter sweep. Must be in quotes. Multiple such options can be ' + \
-      'specified. Each defines a different set of parameter combinations to test.')
-  parser.add_argument('--proj-win-sweep', default='',
-    help='Projection window sweep: "site1 xoff yoff width height ...". ' + \
-    'If not set, the runs are over the full extent of input images.')
-  parser.add_argument('--dem', required=True,
-    help='Input DEM for mapprojection.')
-  parser.add_argument('--output-dir', default='', 
-    help='Output directory.')
-  parser.add_argument('--point2dem-params', default='',
-    help='Parameters to pass to point2dem. If --orthoimage (with no ' + \
-    'argument) is passed in, the needed L.tif will be passed to each ' + \
-    'created point2dem command.')
-  parser.add_argument('--dry-run', dest='dry_run', action='store_true',
-    help='Print commands without executing them.')
-
-  if len(sys.argv) == 1:
-    parser.print_help()
-    return 0
-
-  (opt, args) = parser.parse_known_args()
+def parseParamSweep(sweep_str):
+  """Parse a --param-sweep string into a dict of {param_name: [values]}.
   
-  # Create internal output prefix
-  out_prefix = opt.output_dir + "/run"
+  Input format: "--param1 val1 val2 --param2 val3 val4"
+  Returns: {"--param1": ["val1", "val2"], "--param2": ["val3", "val4"]}
   
-  # Assemble parallel_stereo command. Note how we need an output prefix for
-  # the dem we pass it without '--dem'.
-  stereo_cmd = ['parallel_stereo'] + args + [out_prefix, opt.dem]
+  Supports multiple separators: spaces, colons, semicolons, newlines.
+  A comma is used if a value itself has multiple parts (e.g., "7,7").
+  """
+  
+  # Normalize all separators to spaces
+  normalized = sweep_str.replace(':', ' ').replace(';', ' ')
+  normalized = normalized.replace('\n', ' ')
+  
+  # Split into tokens
+  tokens = normalized.split()
+  
+  params = {}
+  current_param = None
+  
+  for token in tokens:
+    if token.startswith('--'):
+      # Start of a new parameter
+      current_param = token
+      params[current_param] = []
+    elif current_param is not None:
+      # Value for current parameter
+      params[current_param].append(token)
+  
+  return params
+
+def generateCombinations(parsed_params):
+  """Generate all combinations from parsed parameters using Cartesian product.
+  
+  Args:
+    parsed_params: dict like {"--param1": ["val1", "val2"], "--param2": ["val3"]}
+  
+  Returns:
+    List of dicts, one for each combination:
+    [{"--param1": "val1", "--param2": "val3"}, {"--param1": "val2", "--param2": "val3"}]
+  """
+  if not parsed_params:
+    return [{}]
+  
+  param_names = list(parsed_params.keys())
+  param_values = [parsed_params[name] for name in param_names]
+  
+  # Generate Cartesian product
+  combinations = []
+  for combo in itertools.product(*param_values):
+    combo_dict = {param_names[i]: combo[i] for i in range(len(param_names))}
+    combinations.append(combo_dict)
+  
+  return combinations
+
+def runCombination(combo_dict, args, opt, out_prefix):
+  """Run parallel_stereo and point2dem for a single parameter combination.
+  
+  Args:
+    combo_dict: Dict of parameters like {"--stereo-algorithm": "asp_mgm", ...}
+    args: Pass-through arguments (images, cameras, etc.)
+    opt: Parsed options object
+    out_prefix: Output prefix for this run
+  
+  Returns:
+    0 on success, non-zero on failure
+  """
+  
+  # Build the parameter list from combo_dict
+  combo_args = []
+  for param, value in combo_dict.items():
+    # Handle multi-value parameters separated by commas (e.g., "7,7" -> "7 7")
+    if ',' in value:
+      combo_args.append(param)
+      combo_args.extend(value.replace(',', ' ').split())
+    else:
+      combo_args.extend([param, value])
+  
+  # Assemble parallel_stereo command with combination parameters
+  stereo_cmd = ['parallel_stereo'] + args + combo_args + [out_prefix, opt.dem]
   
   print(f"\nCommand to pass to parallel_stereo:")
   print(' '.join(stereo_cmd))
@@ -110,6 +156,96 @@ def main():
     print(f"\npoint2dem completed successfully.")
 
   return 0
+
+def main():
+  parser = argparse.ArgumentParser(
+    description='Run parallel_stereo on small patches with different ' + \
+                'parameter combinations.')
+
+  parser.add_argument('--param-sweep', action='append', default=[],
+      help='Parameter sweep. Must be in quotes. Multiple such options can be ' + \
+      'specified. Each defines a different set of parameter combinations to test.')
+  parser.add_argument('--proj-win-sweep', default='',
+    help='Projection window sweep: "site1 xoff yoff width height ...". ' + \
+    'If not set, the runs are over the full extent of input images.')
+  parser.add_argument('--dem', required=True,
+    help='Input DEM for mapprojection.')
+  parser.add_argument('--output-dir', default='', 
+    help='Output directory.')
+  parser.add_argument('--point2dem-params', default='',
+    help='Parameters to pass to point2dem. If --orthoimage (with no ' + \
+    'argument) is passed in, the needed L.tif will be passed to each ' + \
+    'created point2dem command.')
+  parser.add_argument('--dry-run', dest='dry_run', action='store_true',
+    help='Print commands without executing them.')
+
+  if len(sys.argv) == 1:
+    parser.print_help()
+    return 0
+
+  (opt, args) = parser.parse_known_args()
+  
+  # Parse parameter sweeps - each --param-sweep creates a separate experiment
+  parsed_sweeps = []
+  run_count = 0  # Running total of runs across all sweeps
+  if opt.param_sweep:
+    print("Parsed parameter sweeps:")
+    for sweep_num, sweep_str in enumerate(opt.param_sweep, start=1):
+      parsed = parseParamSweep(sweep_str)
+      combinations = generateCombinations(parsed)
+      parsed_sweeps.append({
+          'sweep_num': sweep_num,
+          'run_start': run_count,
+          'combinations': combinations
+      })
+      print(f"  Sweep {sweep_num}: {len(combinations)} combinations from {parsed}")
+      for i, combo in enumerate(combinations):
+        print(f"    Combination {run_count + i}: {combo}")
+      run_count += len(combinations)
+  
+  # If no sweeps specified, run once with no extra parameters
+  if not parsed_sweeps:
+    print("No parameter sweeps specified, running single instance")
+    out_prefix = opt.output_dir + "/run"
+    os.makedirs(opt.output_dir, exist_ok=True)
+    status = runCombination({}, args, opt, out_prefix)
+    return status
+  
+  # Iterate over all sweeps and combinations
+  run_num = 0
+  failed_runs = []
+  
+  for sweep in parsed_sweeps:
+    print(f"\n{'='*60}")
+    print(f"Processing Sweep {sweep['sweep_num']}")
+    print(f"{'='*60}")
+    
+    for combo in sweep['combinations']:
+      # Create run directory with zero-padded number
+      run_dir = f"{opt.output_dir}/run_{run_num:04d}"
+      os.makedirs(run_dir, exist_ok=True)
+      out_prefix = f"{run_dir}/run"
+      
+      print(f"\n--- Run {run_num:04d} ---")
+      print(f"Parameters: {combo}")
+      
+      status = runCombination(combo, args, opt, out_prefix)
+      if status != 0:
+        print(f"ERROR: Run {run_num:04d} failed, continuing with next run")
+        failed_runs.append(run_num)
+      
+      run_num += 1
+  
+  print(f"\n{'='*60}")
+  if failed_runs:
+    print(f"Completed {run_num} runs with {len(failed_runs)} failures")
+    print(f"Failed runs: {', '.join(f'run_{n:04d}' for n in failed_runs)}")
+    print(f"{'='*60}")
+    return 1
+  else:
+    print(f"All {run_num} runs completed successfully")
+    print(f"{'='*60}")
+    return 0
 
 if __name__ == '__main__':
   sys.exit(main())
