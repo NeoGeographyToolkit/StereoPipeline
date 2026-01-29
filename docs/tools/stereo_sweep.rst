@@ -40,6 +40,9 @@ separate them, with no spaces. This is necessary so ``--param-sweep`` can be
 parsed correctly. The commas are replaced with spaces when passing the
 arguments to ``parallel_stereo``.
 
+This program generates a file named ``lookup.csv`` in the output directory that
+enumerates the run directories and corresponding parameter values.
+
 The images are supposed to be mapprojected already (:numref:`mapproj-example`),
 with the ``--dem`` option having the mapprojection DEM.
 
@@ -58,10 +61,6 @@ Command-line options
     Each defines a different set of parameter combinations to test.
     See :numref:`stereo_sweep_example` for an example.
     
---proj-win-sweep <string>
-    Projection window sweep: "site1 xoff yoff width height ...". If not set,
-    the runs are over the full extent of input images.
-
 --dem <string>
     Input DEM for mapprojection.
 

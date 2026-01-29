@@ -157,6 +157,58 @@ def runCombination(combo_dict, args, opt, out_prefix):
 
   return 0
 
+def generateLookupCSV(parsed_sweeps, output_dir):
+  """Generate lookup.csv mapping run directories to parameter values.
+  
+  Args:
+    parsed_sweeps: List of sweep dicts with combinations
+    output_dir: Output directory for the CSV file
+  """
+  
+  # Collect all unique parameter names across all sweeps
+  all_params = set()
+  for sweep in parsed_sweeps:
+    for combo in sweep['combinations']:
+      all_params.update(combo.keys())
+  
+  # Sort parameter names for consistent column ordering
+  param_names = sorted(all_params)
+  
+  # Build CSV content
+  csv_lines = []
+  
+  # Header row
+  header = ['run_dir'] + param_names
+  csv_lines.append(', '.join(header))
+  
+  # Data rows
+  run_num = 0
+  for sweep in parsed_sweeps:
+    for combo in sweep['combinations']:
+      run_dir = f"{output_dir}/run_{run_num:04d}"
+      row = [run_dir]
+      
+      # Add parameter values, handling commas in values (convert to spaces)
+      for param in param_names:
+        if param in combo:
+          value = combo[param]
+          # Replace commas with spaces (multi-value parameters)
+          if ',' in value:
+            value = value.replace(',', ' ')
+          row.append(value)
+        else:
+          row.append('')  # Empty if parameter not in this combination
+      
+      csv_lines.append(', '.join(row))
+      run_num += 1
+  
+  # Write to file
+  csv_path = os.path.join(output_dir, 'lookup.csv')
+  with open(csv_path, 'w') as f:
+    f.write('\n'.join(csv_lines) + '\n')
+  
+  print(f"\nGenerated lookup table: {csv_path}")
+
 def main():
   parser = argparse.ArgumentParser(
     description='Run parallel_stereo on small patches with different ' + \
@@ -210,6 +262,10 @@ def main():
     os.makedirs(opt.output_dir, exist_ok=True)
     status = runCombination({}, args, opt, out_prefix)
     return status
+  
+  # Create output directory and generate lookup table before starting runs
+  os.makedirs(opt.output_dir, exist_ok=True)
+  generateLookupCSV(parsed_sweeps, opt.output_dir)
   
   # Iterate over all sweeps and combinations
   run_num = 0
