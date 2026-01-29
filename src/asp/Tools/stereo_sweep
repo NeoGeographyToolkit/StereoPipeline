@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import sys, argparse, os
+import sys, argparse, os, subprocess, shlex
 
 # Set up the path to Python modules about to load
 basepath    = os.path.abspath(sys.path[0])
@@ -30,32 +30,92 @@ import asp_system_utils
 
 def main():
   parser = argparse.ArgumentParser(
-    description='Run parallel_stereo on small patches with different ' + \
-                'parameter combinations.')
+      description='Run parallel_stereo on small patches with different ' + \
+                  'parameter combinations.')
 
   parser.add_argument('--proj-win-sweep', default='',
-    help='Projection window sweep: "site1 xoff yoff width height ...". ' + \
-    'If not set, the runs are over the full extent of input images.')
+      help='Projection window sweep: "site1 xoff yoff width height ...". ' + \
+      'If not set, the runs are over the full extent of input images.')
   parser.add_argument('--param-sweep', action='append', default=[],
-    help='Parameter sweep (can be specified multiple times for different ' + \
-    'combinations).')
-  parser.add_argument('--dem', default='', 
-    help='Input DEM for mapprojection.')
+      help='Parameter sweep (can be specified multiple times for different ' + \
+      'combinations).')
+  parser.add_argument('--dem', required=True,
+      help='Input DEM for mapprojection.')
   parser.add_argument('--output-dir', default='', 
-    help='Output directory.')
+      help='Output directory.')
   parser.add_argument('--point2dem-params', default='',
-    help='Parameters to pass to point2dem.')
+      help='Parameters to pass to point2dem. If --orthoimage (with no ' + \
+      'argument) is passed in, the needed L.tif will be passed to each ' + \
+      'created point2dem command.')
+  parser.add_argument('--dry-run', dest='dry_run', action='store_true',
+      help='Print commands without executing them.')
 
   if len(sys.argv) == 1:
     parser.print_help()
     return 0
 
-  args = parser.parse_args()
+  (opt, args) = parser.parse_known_args()
 
-  if args.proj_win_sweep:
-    print(f"Projection window sweep: {args.proj_win_sweep}")
-  if args.param_sweep:
-    print(f"Parameter sweeps: {args.param_sweep}")
+  print(f"Parsed stereo_sweep options:")
+  print(f"  --dem: {opt.dem}")
+  print(f"  --output-dir: {opt.output_dir}")
+  print(f"  --point2dem-params: {opt.point2dem_params}")
+  print(f"  --proj-win-sweep: {opt.proj_win_sweep}")
+  print(f"  --param-sweep: {opt.param_sweep}")
+  print(f"Pass-through args (images/cameras/stereo options): {args}")
+  
+  # Create internal output prefix
+  out_prefix = opt.output_dir + "/run"
+  
+  # Assemble parallel_stereo command. Note how we need an output prefix for for
+  # the dem we pass it without '--dem'.
+  stereo_cmd = ['parallel_stereo'] + args + [out_prefix, opt.dem]
+  
+  print(f"\nCommand to pass to parallel_stereo:")
+  print(' '.join(stereo_cmd))
+  
+  # Run the command using ASP utilities
+  if not opt.dry_run:
+    print(f"\nRunning parallel_stereo")
+    (out, err, status) = asp_system_utils.executeCommand(stereo_cmd, 
+                                                         realTimeOutput = True)
+    if status != 0:
+      print(f"ERROR: parallel_stereo failed with status {status}")
+      return status
+    
+    print(f"\nparallel_stereo completed successfully.")
+  
+  # Now run point2dem on the output point cloud
+  pc_file = out_prefix + "-PC.tif"
+  point2dem_cmd = ['point2dem', pc_file]
+  
+  # Add user-specified point2dem parameters
+  if opt.point2dem_params:
+    # Split the string into individual arguments
+    point2dem_cmd.extend(shlex.split(opt.point2dem_params))
+  
+  # If --orthoimage is requested, insert L.tif right after it
+  if opt.point2dem_params and '--orthoimage' in opt.point2dem_params:
+    l_file = out_prefix + "-L.tif"
+    # Find --orthoimage in the command and insert L.tif after it
+    try:
+      ortho_idx = point2dem_cmd.index('--orthoimage')
+      point2dem_cmd.insert(ortho_idx + 1, l_file)
+    except ValueError:
+      pass  # Should not happen since we checked for it
+  
+  print(f"\nCommand to pass to point2dem:")
+  print(' '.join(point2dem_cmd))
+  
+  if not opt.dry_run:
+    print(f"\nRunning point2dem...")
+    (out, err, status) = asp_system_utils.executeCommand(point2dem_cmd,
+                                                         realTimeOutput = True)
+    if status != 0:
+      print(f"ERROR: point2dem failed with status {status}")
+      return status
+    
+    print(f"\npoint2dem completed successfully.")
 
   return 0
 
