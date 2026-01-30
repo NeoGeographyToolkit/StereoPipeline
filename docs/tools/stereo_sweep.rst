@@ -3,14 +3,14 @@
 stereo_sweep
 ------------
 
-This program facilitates parameter sensitivity investigations by running
-:ref:`parallel_stereo` on small patches of mapprojected images with different
-parameter combinations.
+This program runs :ref:`parallel_stereo` on small patches of mapprojected images
+with different parameter combinations.
 
 .. _stereo_sweep_example:
 
 Example
 ~~~~~~~
+
 ::
 
     stereo_sweep                             \
@@ -39,6 +39,9 @@ Parameters with multiple values (like ``--corr-kernel 7,7``) use commas to
 separate them, with no spaces. This is necessary so ``--param-sweep`` can be
 parsed correctly. The commas are replaced with spaces when passing the
 arguments to ``parallel_stereo``.
+
+Workflow
+~~~~~~~~
 
 This program generates a file named ``lookup.csv`` in the output directory that
 enumerates the run directories and corresponding parameter values.

@@ -68,6 +68,7 @@ namespace asp {
     // Do stereo in given regions only.
     vw::BBox2 left_image_crop_win;
     vw::BBox2 right_image_crop_win;
+    vw::BBox2 proj_win;  // Limit stereo to this projwin (for mapprojected images only)
 
     // Data for use with bathymetry
     std::string left_bathy_mask, right_bathy_mask, bathy_mask_list;

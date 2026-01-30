@@ -76,6 +76,214 @@ BBox2i transformed_crop_win(ASPGlobalOptions const& opt) {
   return b;
 }
 
+// Parse data needed for error propagation
+void setup_error_propagation(ASPGlobalOptions const& opt) {
+
+  // A bugfix for the propagated errors not being saved with enough digits
+  if (stereo_settings().point_cloud_rounding_error > 0) {
+    vw_out(WarningMessage) << "Option --point-cloud-rounding-error is set to " <<
+      stereo_settings().point_cloud_rounding_error << " meters. If too coarse, "
+      "it may create artifacts in the propagated horizontal and vertical errors.\n";
+  } else {
+      stereo_settings().point_cloud_rounding_error = 1.0e-8;
+      vw_out() << "Round triangulated points to "
+                << stereo_settings().point_cloud_rounding_error << " meters. "
+                << "(Option: --point-cloud-rounding-error.) "
+                << "This is much finer rounding than usual, motivated by the "
+                << "fact that the propagated errors vary slowly and will be "
+                << "saved with step artifacts otherwise.\n";
+  }
+
+  vw::Vector2 & v = asp::stereo_settings().horizontal_stddev; // alias, will modify
+  bool message_printed = false; // will print the message only once
+  if (v[0] == 0 && v[1] == 0) {
+    // This will not reload the cameras
+    boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+    opt.session->camera_models(camera_model1, camera_model2);
+    v[0] = asp::horizontalStDevFromCamera(camera_model1, message_printed);
+    v[1] = asp::horizontalStDevFromCamera(camera_model2, message_printed);
+  }
+
+  asp::horizontalStdDevCheck(v, opt.session->name());
+}
+
+// Save some info that will be useful for peeking at a run
+void saveRunInfo(ASPGlobalOptions const& opt,
+                 std::vector<std::string> const& images,
+                 std::vector<std::string> const& cameras,
+                 std::string const& input_dem) {
+
+  std::string info_file = opt.out_prefix + "-info.txt";
+  std::ofstream ostr(info_file.c_str());
+  if (!ostr.good())
+    vw_throw(ArgumentErr() << "Failed to open: " << info_file << "\n");
+
+  // Print the images
+  ostr << "images: ";
+  for (int i = 0; i < (int)images.size(); i++)
+    ostr << images[i] << " ";
+  ostr << "\n";
+
+  // Print the cameras
+  ostr << "cameras: ";
+  for (int i = 0; i < (int)cameras.size(); i++)
+    ostr << cameras[i] << " ";
+  ostr << "\n";
+
+  // Print the DEM
+  ostr << "input_dem: " << input_dem << "\n";
+
+  // Print the output prefix
+  ostr << "output_prefix: " << opt.out_prefix << "\n";
+
+  // Print the alignment method
+  ostr << "alignment_method: " << stereo_settings().alignment_method << "\n";
+
+  // Print the stereo session
+  ostr << "stereo_session: " << opt.stereo_session << "\n";
+
+  // Print left-image-crop-win
+  auto l = stereo_settings().left_image_crop_win;
+  ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " "
+      << l.width() << " " << l.height() << "\n";
+
+  // Print right-image-crop-win
+  auto r = stereo_settings().right_image_crop_win;
+  ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " "
+      << r.width() << " " << r.height() << "\n";
+}
+
+// See if user's request to skip image normalization can be
+// satisfied.  This option is a speedup switch which is only meant
+// to work with with mapprojected images. It is also not documented.
+bool skip_image_normalization(ASPGlobalOptions const& opt) {
+
+  if (!stereo_settings().skip_image_normalization)
+    return false;
+
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+
+  // Respect user's choice for skipping the normalization of the input
+  // images, if feasible.
+  bool is_good = (!crop_left && !crop_right                    &&
+                  stereo_settings().alignment_method == "none" &&
+                  stereo_settings().cost_mode == 2             &&
+                  vw::has_tif_or_ntf_extension(opt.in_file1)   &&
+                  vw::has_tif_or_ntf_extension(opt.in_file2));
+
+  if (!is_good)
+    vw_throw(ArgumentErr()
+              << "Cannot skip image normalization unless there is no alignment, "
+              << "no use of --left-image-crop-win and --right-image-crop-win, "
+              << "the option --cost-mode is set to 2, and the input images have "
+              << ".tif or .ntf extension.");
+
+  return is_good;
+} // End function skip_image_normalization
+
+// Convert, for example, 'asp_mgm' to '2'. For ASP algorithms we
+// use the numbers 0 (BM), 1 (SGM), 2 (MGM), 3 (Final MGM).  For
+// external algorithms will have to examine closer the algorithm
+// string. This function has a Python analog in parallel_stereo.
+vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
+
+  // Make it lowercase first
+  boost::to_lower(alg);
+
+  // Sanity check
+  if (alg == "")
+    vw_throw(ArgumentErr() << "No stereo algorithm was specified.\n");
+
+  if (alg.rfind("0", 0) == 0 || alg.rfind("asp_bm", 0) == 0)
+    return vw::stereo::VW_CORRELATION_BM;
+
+  if (alg.rfind("1", 0) == 0 || alg.rfind("asp_sgm", 0) == 0)
+    return vw::stereo::VW_CORRELATION_SGM;
+
+  if (alg.rfind("2", 0) == 0 || alg.rfind("asp_mgm", 0) == 0)
+    return vw::stereo::VW_CORRELATION_MGM;
+
+  if (alg.rfind("3", 0) == 0 || alg.rfind("asp_final_mgm", 0) == 0)
+    return vw::stereo::VW_CORRELATION_FINAL_MGM;
+
+  // Sanity check. Any numerical values except 0, 1, 2, 3 are not accepted.
+  int num = atof(alg.c_str());
+  if (num < 0 || num > 3)
+    vw_throw(ArgumentErr() << "Unknown algorithm: " << alg << ".\n");
+
+  // An external stereo algorithm
+  return vw::stereo::VW_CORRELATION_OTHER;
+}
+
+// Find the median angle in degrees at which rays emanating from
+// matching points meet
+void estimate_convergence_angle(ASPGlobalOptions const& opt) {
+
+  if (stereo_settings().correlator_mode)
+    return; // No camera can be assumed, hence no convergence angle.
+
+  // When having matches between L and R, need to do things a bit differently.
+  bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
+                               stereo_settings().alignment_method == "epipolar");
+
+  std::string match_filename;
+  if (have_aligned_matches)
+    match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
+  else
+    match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
+                                                opt.session->right_cropped_image(),
+                                                opt.out_prefix);
+  // The interest points must exist by now. But be tolerant of failure, as
+  // this functionality is not critical.
+  if (!fs::exists(match_filename)) {
+    vw::vw_out(vw::WarningMessage)
+      << "Cannot estimate the convergence angle, as cannot find the match file: "
+      << match_filename << ".\n";
+    return;
+  }
+
+  std::vector<ip::InterestPoint> left_ip, right_ip;
+  ip::read_binary_match_file(match_filename, left_ip, right_ip);
+
+  if (have_aligned_matches) {
+    // Create the transforms ahead of time for clarity. When these are created
+    // as part of unalign_ip() arguments, the creation order seems in reverse.
+    auto left_tx = opt.session->tx_left();
+    auto right_tx = opt.session->tx_right();
+
+    // Unalign the interest point matches
+    std::vector<vw::ip::InterestPoint> unaligned_left_ip, unaligned_right_ip;
+    asp::unalign_ip(left_tx, right_tx, left_ip, right_ip,
+                    unaligned_left_ip, unaligned_right_ip);
+    left_ip  = unaligned_left_ip;
+    right_ip = unaligned_right_ip;
+  }
+
+  std::vector<double> sorted_angles;
+  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+  opt.session->camera_models(left_cam, right_cam);
+  asp::convergence_angles(left_cam.get(), right_cam.get(), left_ip, right_ip, sorted_angles);
+
+  if (sorted_angles.empty()) {
+    vw_out(vw::WarningMessage) << "Could not compute the stereo convergence angle.\n";
+    return;
+  }
+
+  int len = sorted_angles.size();
+  vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches:\n";
+  vw_out() << "\t"
+           << "25% " << sorted_angles[0.25*len] << ", "
+           << "50% " << sorted_angles[0.50*len] << ", "
+           << "75% " << sorted_angles[0.75*len] << ".\n";
+
+   if (sorted_angles[0.50*len] < 5.0)
+      vw_out(vw::WarningMessage)
+        << "The stereo convergence angle is: " << sorted_angles[0.50*len] << " degrees. "
+        << "This is quite low and may result in an empty or unreliable point cloud. "
+        << "Reduce --min-triangulation-angle to triangulate with very small angles.\n";
+}
+
 // Set up options for stereo. This will be used in a couple of places.
 void configStereoOpts(ASPGlobalOptions& opt,
                       po::options_description const& additional_options,
@@ -366,52 +574,6 @@ bool is_tile_run(int argc, char* argv[]) {
   return false;
 }
 
-// Save some info that will be useful for peeking at a run
-void saveRunInfo(ASPGlobalOptions const& opt,
-                 std::vector<std::string> const& images,
-                 std::vector<std::string> const& cameras,
-                 std::string const& input_dem) {
-
-  std::string info_file = opt.out_prefix + "-info.txt";
-  std::ofstream ostr(info_file.c_str());
-  if (!ostr.good())
-    vw_throw(ArgumentErr() << "Failed to open: " << info_file << "\n");
-
-  // Print the images
-  ostr << "images: ";
-  for (int i = 0; i < (int)images.size(); i++)
-    ostr << images[i] << " ";
-  ostr << "\n";
-
-  // Print the cameras
-  ostr << "cameras: ";
-  for (int i = 0; i < (int)cameras.size(); i++)
-    ostr << cameras[i] << " ";
-  ostr << "\n";
-
-  // Print the DEM
-  ostr << "input_dem: " << input_dem << "\n";
-
-  // Print the output prefix
-  ostr << "output_prefix: " << opt.out_prefix << "\n";
-
-  // Print the alignment method
-  ostr << "alignment_method: " << stereo_settings().alignment_method << "\n";
-
-  // Print the stereo session
-  ostr << "stereo_session: " << opt.stereo_session << "\n";
-
-  // Print left-image-crop-win
-  auto l = stereo_settings().left_image_crop_win;
-  ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " "
-      << l.width() << " " << l.height() << "\n";
-
-  // Print right-image-crop-win
-  auto r = stereo_settings().right_image_crop_win;
-  ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " "
-      << r.width() << " " << r.height() << "\n";
-}
-
 // If a stereo program is invoked as:
 // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
 // with the number of images n >= 2, create n-1 individual
@@ -484,37 +646,6 @@ void parseStereoArgs(int argc, char* argv[],
     saveRunInfo(opt_vec[0], images, cameras, input_dem);
 
   return;
-}
-
-// Parse data needed for error propagation
-void setup_error_propagation(ASPGlobalOptions const& opt) {
-
-  // A bugfix for the propagated errors not being saved with enough digits
-  if (stereo_settings().point_cloud_rounding_error > 0) {
-    vw_out(WarningMessage) << "Option --point-cloud-rounding-error is set to " <<
-      stereo_settings().point_cloud_rounding_error << " meters. If too coarse, "
-      "it may create artifacts in the propagated horizontal and vertical errors.\n";
-  } else {
-      stereo_settings().point_cloud_rounding_error = 1.0e-8;
-      vw_out() << "Round triangulated points to "
-                << stereo_settings().point_cloud_rounding_error << " meters. "
-                << "(Option: --point-cloud-rounding-error.) "
-                << "This is much finer rounding than usual, motivated by the "
-                << "fact that the propagated errors vary slowly and will be "
-                << "saved with step artifacts otherwise.\n";
-  }
-
-  vw::Vector2 & v = asp::stereo_settings().horizontal_stddev; // alias, will modify
-  bool message_printed = false; // will print the message only once
-  if (v[0] == 0 && v[1] == 0) {
-    // This will not reload the cameras
-    boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-    opt.session->camera_models(camera_model1, camera_model2);
-    v[0] = asp::horizontalStDevFromCamera(camera_model1, message_printed);
-    v[1] = asp::horizontalStDevFromCamera(camera_model2, message_printed);
-  }
-
-  asp::horizontalStdDevCheck(v, opt.session->name());
 }
 
 // Parse input command line arguments
@@ -1073,6 +1204,13 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
                             << opt.session->name() << ".\n");
   }
 
+  // Validate proj_win option
+  bool use_proj_win = (stereo_settings().proj_win != BBox2i(0, 0, 0, 0));
+  if (use_proj_win && !dem_provided)
+    vw_throw(ArgumentErr() 
+              << "The option --proj-win can only be used with mapprojected images. "
+              << "Provide an input DEM.\n");
+
   // No alignment must be set for map-projected images.
   if (stereo_settings().alignment_method != "none" && dem_provided) {
       stereo_settings().alignment_method  = "none";
@@ -1213,137 +1351,6 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
   } // end camera checks
 
 } // End validateStereoOptions
-
-// See if user's request to skip image normalization can be
-// satisfied.  This option is a speedup switch which is only meant
-// to work with with mapprojected images. It is also not documented.
-bool skip_image_normalization(ASPGlobalOptions const& opt) {
-
-  if (!stereo_settings().skip_image_normalization)
-    return false;
-
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-
-  // Respect user's choice for skipping the normalization of the input
-  // images, if feasible.
-  bool is_good = (!crop_left && !crop_right                    &&
-                  stereo_settings().alignment_method == "none" &&
-                  stereo_settings().cost_mode == 2             &&
-                  vw::has_tif_or_ntf_extension(opt.in_file1)   &&
-                  vw::has_tif_or_ntf_extension(opt.in_file2));
-
-  if (!is_good)
-    vw_throw(ArgumentErr()
-              << "Cannot skip image normalization unless there is no alignment, "
-              << "no use of --left-image-crop-win and --right-image-crop-win, "
-              << "the option --cost-mode is set to 2, and the input images have "
-              << ".tif or .ntf extension.");
-
-  return is_good;
-} // End function skip_image_normalization
-
-// Convert, for example, 'asp_mgm' to '2'. For ASP algorithms we
-// use the numbers 0 (BM), 1 (SGM), 2 (MGM), 3 (Final MGM).  For
-// external algorithms will have to examine closer the algorithm
-// string. This function has a Python analog in parallel_stereo.
-vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
-
-  // Make it lowercase first
-  boost::to_lower(alg);
-
-  // Sanity check
-  if (alg == "")
-    vw_throw(ArgumentErr() << "No stereo algorithm was specified.\n");
-
-  if (alg.rfind("0", 0) == 0 || alg.rfind("asp_bm", 0) == 0)
-    return vw::stereo::VW_CORRELATION_BM;
-
-  if (alg.rfind("1", 0) == 0 || alg.rfind("asp_sgm", 0) == 0)
-    return vw::stereo::VW_CORRELATION_SGM;
-
-  if (alg.rfind("2", 0) == 0 || alg.rfind("asp_mgm", 0) == 0)
-    return vw::stereo::VW_CORRELATION_MGM;
-
-  if (alg.rfind("3", 0) == 0 || alg.rfind("asp_final_mgm", 0) == 0)
-    return vw::stereo::VW_CORRELATION_FINAL_MGM;
-
-  // Sanity check. Any numerical values except 0, 1, 2, 3 are not accepted.
-  int num = atof(alg.c_str());
-  if (num < 0 || num > 3)
-    vw_throw(ArgumentErr() << "Unknown algorithm: " << alg << ".\n");
-
-  // An external stereo algorithm
-  return vw::stereo::VW_CORRELATION_OTHER;
-}
-
-// Find the median angle in degrees at which rays emanating from
-// matching points meet
-void estimate_convergence_angle(ASPGlobalOptions const& opt) {
-
-  if (stereo_settings().correlator_mode)
-    return; // No camera can be assumed, hence no convergence angle.
-
-  // When having matches between L and R, need to do things a bit differently.
-  bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
-                               stereo_settings().alignment_method == "epipolar");
-
-  std::string match_filename;
-  if (have_aligned_matches)
-    match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
-  else
-    match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
-                                                opt.session->right_cropped_image(),
-                                                opt.out_prefix);
-  // The interest points must exist by now. But be tolerant of failure, as
-  // this functionality is not critical.
-  if (!fs::exists(match_filename)) {
-    vw::vw_out(vw::WarningMessage)
-      << "Cannot estimate the convergence angle, as cannot find the match file: "
-      << match_filename << ".\n";
-    return;
-  }
-
-  std::vector<ip::InterestPoint> left_ip, right_ip;
-  ip::read_binary_match_file(match_filename, left_ip, right_ip);
-
-  if (have_aligned_matches) {
-    // Create the transforms ahead of time for clarity. When these are created
-    // as part of unalign_ip() arguments, the creation order seems in reverse.
-    auto left_tx = opt.session->tx_left();
-    auto right_tx = opt.session->tx_right();
-
-    // Unalign the interest point matches
-    std::vector<vw::ip::InterestPoint> unaligned_left_ip, unaligned_right_ip;
-    asp::unalign_ip(left_tx, right_tx, left_ip, right_ip,
-                    unaligned_left_ip, unaligned_right_ip);
-    left_ip  = unaligned_left_ip;
-    right_ip = unaligned_right_ip;
-  }
-
-  std::vector<double> sorted_angles;
-  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-  opt.session->camera_models(left_cam, right_cam);
-  asp::convergence_angles(left_cam.get(), right_cam.get(), left_ip, right_ip, sorted_angles);
-
-  if (sorted_angles.empty()) {
-    vw_out(vw::WarningMessage) << "Could not compute the stereo convergence angle.\n";
-    return;
-  }
-
-  int len = sorted_angles.size();
-  vw_out() << "Convergence angle percentiles (in degrees) based on interest point matches:\n";
-  vw_out() << "\t"
-           << "25% " << sorted_angles[0.25*len] << ", "
-           << "50% " << sorted_angles[0.50*len] << ", "
-           << "75% " << sorted_angles[0.75*len] << ".\n";
-
-   if (sorted_angles[0.50*len] < 5.0)
-      vw_out(vw::WarningMessage)
-        << "The stereo convergence angle is: " << sorted_angles[0.50*len] << " degrees. "
-        << "This is quite low and may result in an empty or unreliable point cloud. "
-        << "Reduce --min-triangulation-angle to triangulate with very small angles.\n";
-}
 
 } // end namespace asp
 
