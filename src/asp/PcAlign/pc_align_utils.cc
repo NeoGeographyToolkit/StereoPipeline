@@ -23,6 +23,8 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PdalUtils.h>
 
+#include <vw/Cartography/PointImageManipulation.h>
+
 #include <pdal/PDALUtils.hpp>
 #include <pointmatcher/PointMatcher.h>
 
