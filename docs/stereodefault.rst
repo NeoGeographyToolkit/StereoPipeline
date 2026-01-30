@@ -267,14 +267,22 @@ skip-rough-homography
     fails.
 
 left-image-crop-win xoff yoff xsize ysize
-    Do stereo in a region of the left image. Default: use the
-    entire image. This option forces redoing all the pre-processing steps.
-    The region be created by ``stereo_gui`` (:numref:`stereo_gui`).
+    Do stereo in a region of the left image. Default: use the entire image. This
+    option forces redoing all the pre-processing steps if a run is resumed. The
+    region be created by ``stereo_gui`` (:numref:`stereo_gui`). See also
+    ``right-image-crop-win`` and ``proj-win``.
 
 right-image-crop-win xoff yoff xsize ysize
     When combined with ``left-image-crop-win``, do stereo in given subregions of
     left and right images. The crop windows can be determined using
-    ``stereo_gui``. This option forces redoing all the pre-processing steps.
+    ``stereo_gui``. See also ``proj-win``.
+
+proj-win minx miny maxx maxy
+    Limit stereo to this projection window for input mapprojected images
+    (:numref:`mapproj-example`). This option forces redoing all the
+    pre-processing steps in a resumed run. Available in build 2026-01 or later
+    (:numref:`release`). See also ``left-image-crop-win`` and
+    ``right-image-crop-win``.
 
 left-image-clip: (*string*) (default = "")
     If ``--left-image-crop-win`` is used, replaced the left image

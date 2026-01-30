@@ -48,6 +48,10 @@ pc_align (:numref:`pc_align`):
   * Print to the terminal and the log file the following initial and final 
     error stats: Mean, StdDev, RMSE, Median, NMAD.
 
+parallel_stereo (:numref:`parallel_stereo`):
+  * Added the option ``--proj-win`` to limit stereo to a projection window for
+    mapprojected images (:numref:`stereodefault`).
+
 Misc:
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment. 

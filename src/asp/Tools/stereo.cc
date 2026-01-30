@@ -142,15 +142,24 @@ void saveRunInfo(ASPGlobalOptions const& opt,
   // Print the stereo session
   ostr << "stereo_session: " << opt.stereo_session << "\n";
 
-  // Print left-image-crop-win
-  auto l = stereo_settings().left_image_crop_win;
-  ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " "
-      << l.width() << " " << l.height() << "\n";
+  // Print proj-win if set, otherwise print left/right crop windows
+  auto p = stereo_settings().proj_win;
+  bool has_proj_win = (p != BBox2(0, 0, 0, 0));
+  if (has_proj_win) {
+    // For proj-win, interpret as: minx miny maxx maxy (not width/height)
+    ostr << "proj_win: " << p.min().x() << " " << p.min().y() << " "
+         << p.max().x() << " " << p.max().y() << "\n";
+  } else {
+    // Print left-image-crop-win
+    auto l = stereo_settings().left_image_crop_win;
+    ostr << "left_image_crop_win: " << l.min().x() << " " << l.min().y() << " "
+        << l.width() << " " << l.height() << "\n";
 
-  // Print right-image-crop-win
-  auto r = stereo_settings().right_image_crop_win;
-  ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " "
-      << r.width() << " " << r.height() << "\n";
+    // Print right-image-crop-win
+    auto r = stereo_settings().right_image_crop_win;
+    ostr << "right_image_crop_win: " << r.min().x() << " " << r.min().y() << " "
+        << r.width() << " " << r.height() << "\n";
+  }
 }
 
 // See if user's request to skip image normalization can be
@@ -574,6 +583,71 @@ bool is_tile_run(int argc, char* argv[]) {
   return false;
 }
 
+// Handle proj_win conversion to crop windows for mapprojected images. Also
+// convert the crop windows from (minx, miny, width, height) to (minx, miny,
+// maxx, maxy) format. This works for all types of images.
+void handleCropWins(ASPGlobalOptions & opt) {
+  
+  // Handle proj_win for mapprojected images
+  BBox2 proj_win = stereo_settings().proj_win; // local copy
+  bool use_proj_win = (proj_win != BBox2(0, 0, 0, 0));
+  if (use_proj_win) {
+    
+    // Check that input_dem is set
+    if (opt.input_dem.empty())
+      vw_throw(ArgumentErr() << "The option --proj-win requires mapprojected images and "
+                << "an input DEM.\n");
+    
+    // Check that left or right crop win are not set
+    if (stereo_settings().left_image_crop_win != BBox2(0, 0, 0, 0) ||
+        stereo_settings().right_image_crop_win != BBox2(0, 0, 0, 0))
+      vw_throw(ArgumentErr() << "Cannot use --proj-win together with "
+                << "--left-image-crop-win or --right-image-crop-win.\n");
+    
+    // Swap min and max if need be as some tools use (minx, maxy, maxx, miny)
+    if (proj_win.min().y() > proj_win.max().y())
+      std::swap(proj_win.min().y(), proj_win.max().y());
+    if (proj_win.min().x() > proj_win.max().x())
+      std::swap(proj_win.min().x(), proj_win.max().x());
+    
+    // Read georef from left and right images
+    GeoReference left_georef, right_georef;
+    bool has_left_georef = vw::cartography::read_georeference(left_georef, opt.in_file1);
+    bool has_right_georef = vw::cartography::read_georeference(right_georef, opt.in_file2);
+    if (!has_left_georef || !has_right_georef)
+      vw_throw(ArgumentErr() 
+               << "Cannot use --proj-win: input images must be georeferenced.\n");
+    
+    // Convert projection window to pixel coordinates for left and right images
+    stereo_settings().left_image_crop_win = left_georef.point_to_pixel_bbox(proj_win);
+    stereo_settings().right_image_crop_win = right_georef.point_to_pixel_bbox(proj_win);
+    
+  } else {
+
+    // There are two crop win boxes, in respect to original left image, named
+    // left_image_crop_win, and in respect to the transformed left image
+    // (L.tif), named trans_crop_win. We use the second if available, otherwise
+    // we transform and use the first. The box trans_crop_win is for internal
+    // use, invoked from parallel_stereo.
+
+    // Interpret the last two coordinates of the crop win boxes as
+    // width and height rather than max_x and max_y. This is needed because
+    // boost reads them as max_x and max_y but stores them in BBox2 constructor
+    // which expects width and height.
+    BBox2i bl = stereo_settings().left_image_crop_win;
+    BBox2i br = stereo_settings().right_image_crop_win;
+    stereo_settings().left_image_crop_win
+      = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
+    stereo_settings().right_image_crop_win
+      = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
+  }
+  
+  // This needs handling in either case. See the else block above for more info.
+  BBox2i bt = stereo_settings().trans_crop_win;
+  stereo_settings().trans_crop_win
+    = BBox2i(bt.min().x(), bt.min().y(), bt.max().x(), bt.max().y());
+}
+
 // If a stereo program is invoked as:
 // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
 // with the number of images n >= 2, create n-1 individual
@@ -764,28 +838,9 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
   if (prog_name.find("stereo_parse") == std::string::npos)
     asp::log_to_file(argc, argv, opt.stereo_default_filename, opt.out_prefix);
 
-  // There are two crop win boxes, in respect to original left
-  // image, named left_image_crop_win, and in respect to the
-  // transformed left image (L.tif), named trans_crop_win. We use
-  // the second if available, otherwise we transform and use the
-  // first. The box trans_crop_win is for internal use, invoked
-  // from parallel_stereo.
-
-  // Interpret the the last two coordinates of the crop win boxes as
-  // width and height rather than max_x and max_y.
-  BBox2i bl = stereo_settings().left_image_crop_win;
-  BBox2i br = stereo_settings().right_image_crop_win;
-  BBox2i bt = stereo_settings().trans_crop_win;
-  stereo_settings().left_image_crop_win
-    = BBox2i(bl.min().x(), bl.min().y(), bl.max().x(), bl.max().y());
-  stereo_settings().right_image_crop_win
-    = BBox2i(br.min().x(), br.min().y(), br.max().x(), br.max().y());
-  stereo_settings().trans_crop_win
-    = BBox2i(bt.min().x(), bt.min().y(), bt.max().x(), bt.max().y());
-
-  int num_left_bands = vw::get_num_channels(opt.in_file1);
-  int num_right_bands = vw::get_num_channels(opt.in_file2);
-
+  // Handle crop wins and proj_win conversion
+  handleCropWins(opt);
+  
   // Ensure the crop windows are always contained in the images.
   boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
   left_resource  = vw::DiskImageResourcePtr(opt.in_file1);
@@ -910,6 +965,10 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
   if (!stereo_settings().corr_search_limit.empty() && stereo_settings().max_disp_spread > 0)
     vw_throw(ArgumentErr() << "Cannot specify both --corr-search-limit and "
               << "--max-disp-spread.\n");
+
+  // Get number of bands in input images
+  int num_left_bands = vw::get_num_channels(opt.in_file1);
+  int num_right_bands = vw::get_num_channels(opt.in_file2);
 
   // Verify that there is only one channel per input image
   if (asp::skip_image_normalization(opt) &&

@@ -110,13 +110,23 @@ PreProcessingDescription::PreProcessingDescription():
   (*this).add_options()
     ("alignment-method", po::value(&global.alignment_method)->default_value("affineepipolar"),
       "Alignment for input images. [affineepipolar, local_epipolar, homography, epipolar, none]")
-    ("left-image-crop-win", po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
-      "Do stereo in a subregion of the left image [default: use the entire image].")
-    ("right-image-crop-win", po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
-      "Do stereo in a subregion of the right image if specified together with left-image-crop-win [default: use the entire image].")
-    ("proj-win", po::value(&global.proj_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
-     "Limit stereo to this projection window for mapprojected images (in projected "
-     "coordinates of the input images).")
+    ("left-image-crop-win", 
+     po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
+      "Do stereo in a region of the left image. Default: use the entire image. "
+      "This option forces redoing all the pre-processing steps if a run is resumed. "
+      "The region be created by stereo_gui. See also right-image-crop-win and "
+      "proj-win.")
+    ("right-image-crop-win", 
+     po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
+      "When combined with left-image-crop-win, do stereo in given subregions of "
+      "left and right images. The crop windows can be determined using stereo_gui. "
+      "See also proj-win.")
+    ("proj-win", 
+     po::value(&global.proj_win)->default_value(BBox2i(0, 0, 0, 0), "minx miny maxx maxy"),
+     "Limit stereo to this projection window for input mapprojected images. This "
+     "option forces redoing all the pre-processing steps in a resumed run. "
+     "Available in build 2026-01 or later. See also left-image-crop-win and "
+     "right-image-crop-win.")
     ("force-use-entire-range", po::bool_switch(&global.force_use_entire_range)->default_value(false)->implicit_value(true),
       "Normalize images based on the global min and max values from both images. Don't use this option if you are using normalized cross correlation.")
     ("individually-normalize", po::bool_switch(&global.individually_normalize)->default_value(false)->implicit_value(true),
