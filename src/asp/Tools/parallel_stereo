@@ -746,8 +746,7 @@ if __name__ == '__main__':
     p.add_argument('--threads-multiprocess', dest='threads_multi', default=None, type=int,
         help='The number of threads to use per process when running multiple ' + \
         'processes.')
-    p.add_argument('--threads-singleprocess', dest='threads_single', default=None,
-        type=int,
+    p.add_argument('--threads-singleprocess', dest='threads_single', default=None, type=int,
         help='The number of threads to use when running a single process (PPRC ' + \
         'and FLTR).')
     p.add_argument('--corr-seed-mode', dest='seed_mode', default=None, type=int,
