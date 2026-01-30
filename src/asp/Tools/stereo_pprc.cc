@@ -44,6 +44,7 @@
 #include <vw/FileIO/FileUtils.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
+#include <vw/Image/Manipulation.h>
 
 using namespace vw;
 using namespace asp;

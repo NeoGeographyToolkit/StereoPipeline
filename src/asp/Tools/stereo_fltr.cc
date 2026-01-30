@@ -37,6 +37,7 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 #include <boost/dll.hpp>
+#include <vw/Image/Manipulation.h>
 
 using namespace vw;
 using namespace asp;
