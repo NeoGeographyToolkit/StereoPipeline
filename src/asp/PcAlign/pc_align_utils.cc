@@ -19,6 +19,7 @@
 // https://github.com/ethz-asl/libpointmatcher
 
 #include <asp/PcAlign/pc_align_utils.h>
+#include <asp/Core/EigenUtils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PdalUtils.h>
 
@@ -28,6 +29,25 @@
 namespace asp {
 
 using namespace vw;
+
+/// Apply a transform to the first three coordinates of the cloud
+struct TransformPC: public vw::UnaryReturnSameType {
+  Eigen::MatrixXd m_T;
+  TransformPC(Eigen::MatrixXd const& T): m_T(T){}
+  inline vw::Vector<double> operator()(vw::Vector<double> const& pt) const {
+
+    vw::Vector<double> P = pt; // local copy
+    vw::Vector3 xyz = subvector(P, 0, 3);
+
+    if (xyz == vw::Vector3())
+      return P; // invalid point
+
+    vw::Vector3 Q = apply_transform_to_vec(m_T, xyz);
+    subvector(P, 0, 3) = Q;
+
+    return P;
+  }
+};
 
 // Generate labels compatible with libpointmatcher
 PLabels form_labels(int dim) {

@@ -24,6 +24,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PdalUtils.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/EigenUtils.h>
 #include <asp/PcAlign/pc_align_utils.h>
 #include <asp/PcAlign/pc_align_ceres.h>
 #include <asp/PcAlign/pc_align_fgr.h>

@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2024, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -18,7 +18,8 @@
 #ifndef __ASP_CORE_INTEREST_POINT_MATCHING_H__
 #define __ASP_CORE_INTEREST_POINT_MATCHING_H__
 
-#include <vw/Image/ImageViewBase.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/ImageViewRef.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/InterestPoint/InterestData.h>
 #include <vw/Cartography/Datum.h>

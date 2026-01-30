@@ -24,8 +24,6 @@
 
 #include <vw/Math/Vector.h>
 
-#include <Eigen/Dense>
-
 namespace asp {
 
 // Compute the best-fitting projective transform that maps a set of 3D ground points

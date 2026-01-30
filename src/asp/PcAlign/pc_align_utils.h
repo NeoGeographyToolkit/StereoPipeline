@@ -25,7 +25,7 @@
 #ifndef __PC_ALIGN_UTILS_H__
 #define __PC_ALIGN_UTILS_H__
 
-#include <asp/Core/EigenUtils.h>
+#include <Eigen/Dense>
 
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/Datum.h>
@@ -42,6 +42,9 @@
 #include <pointmatcher/PointMatcher.h>
 
 namespace asp {
+
+// Forward declaration - full definition in EigenUtils.h
+class CsvConv;
 
 // This file contains helper functions for the pc_align tool.
 
@@ -129,25 +132,6 @@ double calc_max_displacement(DP const& source, DP const& trans_source);
 
 /// Apply a transformation matrix to a Vector3 in homogenous coordinates
 vw::Vector3 apply_transform(Eigen::MatrixXd const& T, vw::Vector3 const& P);
-
-/// Apply a transform to the first three coordinates of the cloud
-struct TransformPC: public vw::UnaryReturnSameType {
-  Eigen::MatrixXd m_T;
-  TransformPC(Eigen::MatrixXd const& T): m_T(T){}
-  inline vw::Vector<double> operator()(vw::Vector<double> const& pt) const {
-
-    vw::Vector<double> P = pt; // local copy
-    vw::Vector3 xyz = subvector(P, 0, 3);
-
-    if (xyz == vw::Vector3())
-      return P; // invalid point
-
-    vw::Vector3 Q = apply_transform_to_vec(m_T, xyz);
-    subvector(P, 0, 3) = Q;
-
-    return P;
-  }
-};
 
 /// Apply a given transform to the point cloud in input file, and save it.
 /// - Note: We transform the entire point cloud, not just the resampled
