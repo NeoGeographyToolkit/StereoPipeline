@@ -1,7 +1,7 @@
 /*this creates a yaml or xml list of files from the command line args
  */
 
-#include "opencv2/core/core.hpp"
+#include <opencv2/core/core.hpp>
 #include <string>
 #include <iostream>
 

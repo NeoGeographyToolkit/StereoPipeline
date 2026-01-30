@@ -30,7 +30,6 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReference.h>
-#include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/Quaternion.h>
 #include <vw/FileIO/GdalWriteOptions.h>
