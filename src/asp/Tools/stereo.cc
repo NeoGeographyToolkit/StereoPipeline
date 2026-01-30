@@ -896,9 +896,9 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
       (fs::exists(opt.out_prefix+"-L-cropped.tif") ||
         fs::exists(opt.out_prefix+"-R-cropped.tif")))
     vw_throw(ArgumentErr() << "The current output prefix '" << opt.out_prefix
-              << "' has an old run which used --left-image-crop-win, "
-              << "but the current run does not. Results will be incorrect. "
-              << "Use a new output prefix.");
+              << "' has an old run which used --left-image-crop-win or "
+              << "--proj-win, but the current run does not. Results will be "
+              << "incorrect. Use a new output prefix.");
 
   // TODO: May need to update this check for individual crop cases.
   // Sanity check. Don't run it if we have L-cropped.tif or R-cropped.tif,
@@ -918,10 +918,10 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
       (stereo_settings().num_matches_from_disparity > 0 ||
        stereo_settings().num_matches_from_disp_triplets > 0))
     vw_throw(ArgumentErr() << "Cannot use --num-matches-from-disparity or "
-              << "--num-matches-from-disp-triplets with --left-image-crop-win or "
-              << "--right-image-crop-win. The alternative is to manually crop "
-              << "the left and right images while keeping the upper-left corner. "
-              << "Otherwise the results would be incorrect.\n");
+              << "--num-matches-from-disp-triplets with --left-image-crop-win, "
+              << "--right-image-crop-win, or --proj-win. The alternative is to "
+              << "manually crop the left and right images while keeping the "
+              << "upper-left corner. Otherwise the results would be incorrect.\n");
 
   // This does not work because tx_left() and tx_right() return the identity for
   // this alignment method. See StereoSessionPinhole::tx_left() for more
