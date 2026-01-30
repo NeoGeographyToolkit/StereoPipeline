@@ -24,7 +24,6 @@
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/PixelTypes.h>
-#include <vw/Image/Manipulation.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>

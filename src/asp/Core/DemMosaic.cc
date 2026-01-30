@@ -21,6 +21,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Image/Filter.h>
+#include <vw/Image/Manipulation.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Core/ProgressCallback.h>
 #include <boost/math/special_functions/erf.hpp>
