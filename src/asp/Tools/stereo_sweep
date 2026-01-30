@@ -87,7 +87,7 @@ def runCombination(combo_dict, args, opt, out_prefix):
   """Run parallel_stereo and point2dem for a single parameter combination.
   
   Args:
-    combo_dict: Dict of parameters like {"--stereo-algorithm": "asp_mgm", ...}
+    combo_dict: Dict of parameters like {"--stereo-algorithm": "asp_mgm", etc}
     args: Pass-through arguments (images, cameras, etc.)
     opt: Parsed options object
     out_prefix: Output prefix for this run
@@ -107,14 +107,16 @@ def runCombination(combo_dict, args, opt, out_prefix):
       combo_args.extend([param, value])
   
   # Assemble parallel_stereo command with combination parameters
-  stereo_cmd = ['parallel_stereo'] + args + combo_args + [out_prefix, opt.dem]
+  stereo_cmd = ['parallel_stereo'] + args + combo_args + [out_prefix]
   
-  print(f"\nCommand to pass to parallel_stereo:")
-  print(' '.join(stereo_cmd))
+  # Add DEM if provided
+  if opt.dem:
+    stereo_cmd.append(opt.dem)
   
   # Run the command using ASP utilities
-  if not opt.dry_run:
-    print(f"\nRunning parallel_stereo")
+  if opt.dry_run:
+    print(' '.join(stereo_cmd))
+  else:
     (out, err, status) = asp_system_utils.executeCommand(stereo_cmd, 
                                                          realTimeOutput = True)
     if status != 0:
@@ -142,11 +144,9 @@ def runCombination(combo_dict, args, opt, out_prefix):
     except ValueError:
       pass  # Should not happen since we checked for it
   
-  print(f"\nCommand to pass to point2dem:")
-  print(' '.join(point2dem_cmd))
-  
-  if not opt.dry_run:
-    print(f"\nRunning point2dem...")
+  if opt.dry_run:
+    print(' '.join(point2dem_cmd))
+  else:
     (out, err, status) = asp_system_utils.executeCommand(point2dem_cmd,
                                                          realTimeOutput = True)
     if status != 0:
@@ -157,8 +157,8 @@ def runCombination(combo_dict, args, opt, out_prefix):
 
   return 0
 
-def generateLookupCSV(parsed_sweeps, output_dir):
-  """Generate lookup.csv mapping run directories to parameter values.
+def generateRunIndex(parsed_sweeps, output_dir):
+  """Generate run_index.csv mapping run directories to parameter values.
   
   Args:
     parsed_sweeps: List of sweep dicts with combinations
@@ -203,11 +203,11 @@ def generateLookupCSV(parsed_sweeps, output_dir):
       run_num += 1
   
   # Write to file
-  csv_path = os.path.join(output_dir, 'lookup.csv')
+  csv_path = os.path.join(output_dir, 'run_index.csv')
   with open(csv_path, 'w') as f:
     f.write('\n'.join(csv_lines) + '\n')
   
-  print(f"\nGenerated lookup table: {csv_path}")
+  print(f"Writing run index: {csv_path}")
 
 def main():
   parser = argparse.ArgumentParser(
@@ -217,8 +217,8 @@ def main():
   parser.add_argument('--param-sweep', action='append', default=[],
       help='Parameter sweep. Must be in quotes. Multiple such options can be ' + \
       'specified. Each defines a different set of parameter combinations to test.')
-  parser.add_argument('--dem', required=True,
-    help='Input DEM for mapprojection.')
+  parser.add_argument('--dem', default='',
+    help='Input DEM for mapprojection. Required if using --proj-win.')
   parser.add_argument('--output-dir', default='', 
     help='Output directory.')
   parser.add_argument('--point2dem-params', default='',
@@ -234,11 +234,27 @@ def main():
 
   (opt, args) = parser.parse_known_args()
   
+  # Check that output directory is provided
+  if not opt.output_dir:
+    print("ERROR: --output-dir is required")
+    return 1
+  
+  # Check if --proj-win is used in any sweep, and if so, require --dem
+  has_proj_win = False
+  if opt.param_sweep:
+    for sweep_str in opt.param_sweep:
+      if '--proj-win' in sweep_str:
+        has_proj_win = True
+        break
+  
+  if has_proj_win and not opt.dem:
+    print("ERROR: --dem is required when using --proj-win in parameter sweeps")
+    return 1
+  
   # Parse parameter sweeps - each --param-sweep creates a separate experiment
   parsed_sweeps = []
   run_count = 0  # Running total of runs across all sweeps
   if opt.param_sweep:
-    print("Parsed parameter sweeps:")
     for sweep_num, sweep_str in enumerate(opt.param_sweep, start=1):
       parsed = parseParamSweep(sweep_str)
       combinations = generateCombinations(parsed)
@@ -247,9 +263,6 @@ def main():
           'run_start': run_count,
           'combinations': combinations
       })
-      print(f"  Sweep {sweep_num}: {len(combinations)} combinations from {parsed}")
-      for i, combo in enumerate(combinations):
-        print(f"    Combination {run_count + i}: {combo}")
       run_count += len(combinations)
   
   # If no sweeps specified, run once with no extra parameters
@@ -260,16 +273,15 @@ def main():
     status = runCombination({}, args, opt, out_prefix)
     return status
   
-  # Create output directory and generate lookup table before starting runs
+  # Create output directory and generate run index before starting runs
   os.makedirs(opt.output_dir, exist_ok=True)
-  generateLookupCSV(parsed_sweeps, opt.output_dir)
+  generateRunIndex(parsed_sweeps, opt.output_dir)
   
   # Iterate over all sweeps and combinations
   run_num = 0
-  failed_runs = []
   
   for sweep in parsed_sweeps:
-    print(f"\nProcessing Sweep {sweep['sweep_num']}")
+    print(f"\nProcessing sweep {sweep['sweep_num']}")
     
     for combo in sweep['combinations']:
       # Create run directory with zero-padded number
@@ -282,18 +294,13 @@ def main():
       
       status = runCombination(combo, args, opt, out_prefix)
       if status != 0:
-        print(f"ERROR: Run {run_num:04d} failed, continuing with next run")
-        failed_runs.append(run_num)
+        print(f"ERROR: Run {run_num:04d} failed, stopping")
+        return 1
       
       run_num += 1
   
-  if failed_runs:
-    print(f"\nCompleted {run_num} runs with {len(failed_runs)} failures")
-    print(f"Failed runs: {', '.join(f'run_{n:04d}' for n in failed_runs)}")
-    return 1
-  else:
-    print(f"\nAll {run_num} runs completed successfully")
-    return 0
+  print(f"\nAll {run_num} runs completed successfully")
+  return 0
 
 if __name__ == '__main__':
   sys.exit(main())

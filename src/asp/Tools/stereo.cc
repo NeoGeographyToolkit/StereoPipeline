@@ -1248,8 +1248,8 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
       r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
     vw::cartography::read_header_string(*r_rsrc.get(), dem_file_key, r_dem_file);
     if (l_dem_file != "" || r_dem_file != "")
-      vw_throw(ArgumentErr() << "The input images appear to be map-projected, "
-                << "but no DEM was provided. Please provide a DEM.\n");
+      vw_throw(ArgumentErr() << "The input images appear to be mapprojected. "
+                << "Please provide a DEM.\n");
 
     // Otherwise, just print a warning. Maybe the user got these from somewhere else.
     vw_out(WarningMessage) << "It appears that the input images are "

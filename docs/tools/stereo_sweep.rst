@@ -53,11 +53,14 @@ Arguments to it can be passed via the ``--point2dem-params`` option. See :numref
 Workflow
 ~~~~~~~~
 
-This program generates a file named ``lookup.csv`` in the output directory that
+This program generates a file named ``run_index.csv`` in the output directory that
 enumerates the run directories and corresponding parameter values.
 
-The images are supposed to be mapprojected already (:numref:`mapproj-example`),
-with the ``--dem`` option having the mapprojection DEM.
+When the images are mapprojected already (:numref:`mapproj-example`),
+pass the mapprojection DEM to ``--dem``. This allows sweeping over different
+clips with ``--proj-win``. Otherwise, an individual clip can be passed in 
+to ``parallel_stereo``, if desired, via ``--left-image-crop-win`` and
+``--right-image-crop-win``.
 
 Any other options will be passed directly to ``parallel_stereo``.
 
@@ -71,11 +74,12 @@ Command-line options
     Each defines a different set of parameter combinations to test. See
     :numref:`stereo_sweep_example` for an example.
     
---dem <string>
-    Input DEM for mapprojection (:numref:`mapproj-example`).
-
 --output-dir <string>
     Output directory.
+
+--dem <string>
+    Input DEM for mapprojection. Required if using ``--proj-win`` in parameter
+    sweeps.
 
 --point2dem-params <string>
     Parameters to pass to point2dem. If ``--orthoimage`` (with no argument) is
