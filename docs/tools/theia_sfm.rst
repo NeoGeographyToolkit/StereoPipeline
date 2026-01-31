@@ -63,7 +63,7 @@ Flags file
 
 This program  will use the Theia flags file from ``share/theia_flags.txt`` in
 the software distribution, which can be copied to a new name, edited, and passed
-to ``theia_sfm`` via ``--theia_fags``.
+to ``theia_sfm`` via ``--theia_flags``.
 
 As an example, for tricky configurations, setting::
 

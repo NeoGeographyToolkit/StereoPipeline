@@ -55,6 +55,10 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Added the option ``--proj-win`` to limit stereo to a projection window for
     mapprojected images (:numref:`stereodefault`).
 
+rig_calibrator (:numref:`rig_calibrator`):
+  * All command-line options now use dashes instead of 
+    underscores. For example, ``--out_dir`` is now ``--out-dir``.
+
 Misc:
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment. 

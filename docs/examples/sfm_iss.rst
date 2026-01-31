@@ -318,35 +318,35 @@ Insert these in the small map, and optimize all poses together as::
     float="bumble_nav bumble_haz queen_nav queen_haz"
     rig_calibrator                                  \
       --registration                                \
-      --hugin_file jem_map.pto                      \
-      --xyz_file jem_map.txt                        \
-      --use_initial_rig_transforms                  \
-      --extra_list small_haz_list.txt               \
+      --hugin-file jem_map.pto                      \
+      --xyz-file jem_map.txt                        \
+      --use-initial-rig-transforms                  \
+      --extra-list small_haz_list.txt               \
       --rig_config initial_rig.txt                  \
       --nvm small_theia_nav_rig/cameras.nvm         \
       --out_dir small_rig                           \
-      --camera_poses_to_float "$float"              \
-      --depth_to_image_transforms_to_float "$float" \
-      --float_scale                                 \
-      --intrinsics_to_float ""                      \
-      --num_iterations 100                          \
-      --export_to_voxblox                           \
-      --num_overlaps 5                              \
-      --min_triangulation_angle 0.5
+      --camera_poses-to-float "$float"              \
+      --depth-to-image-transforms-to-float "$float" \
+      --float-scale                                 \
+      --intrinsics-to-float ""                      \
+      --num-iterations 100                          \
+      --export-to-voxblox                           \
+      --num-overlaps 5                              \
+      --min-triangulation-angle 0.5
 
 The depth files will the same names but with the .pc extension will
 will be picked up automatically.
 
-The value of ``--min_triangulation_angle`` filters out rays with a
+The value of ``--min-triangulation-angle`` filters out rays with a
 very small angle of convergence. That usually makes the geometry more
 stable, but if the surface is far from the sensor, and there is not
 enough perspective difference between images, it may eliminate too many
-features. The ``--max_reprojection_error`` option may eliminate
+features. The ``--max-reprojection-error`` option may eliminate
 features as well.
 
-Consider adding the option ``--bracket_len 1.0`` that decides the length of
+Consider adding the option ``--bracket-len 1.0`` that decides the length of
 time, in seconds, between reference images used to bracket the other sensor. The
-option ``--bracket_single_image`` will allow only one image of any non-reference
+option ``--bracket-single-image`` will allow only one image of any non-reference
 sensor to be bracketed.
 
 It is suggested to carefully examine the text printed on screen by this
@@ -361,7 +361,7 @@ configuration. The scales of the matrices in the
 quite similar to each other, while different perhaps from their
 initial values in the earlier file, otherwise the results later will
 be incorrect.  If encountering difficulties here, consider not
-floating the scales at all, so omitting the ``--float_scale`` option
+floating the scales at all, so omitting the ``--float-scale`` option
 above. The scales will still be adjusted, but not as part of the
 optimization but when the registration with control points
 happens. Then they will be multiplied by the same factor.
@@ -471,30 +471,30 @@ already solved for fixed. This goes as follows::
 
     float="bumble_sci queen_sci"
     rig_calibrator                                  \
-      --use_initial_rig_transforms                  \
-      --nearest_neighbor_interp                     \
-      --no_rig                                      \
-      --bracket_len 1.0                             \
-      --extra_list small_sci_list.txt               \
+      --use-initial-rig-transforms                  \
+      --nearest-neighbor-interp                     \
+      --no-rig                                      \
+      --bracket-len 1.0                             \
+      --extra-list small_sci_list.txt               \
       --rig_config small_rig/rig_config.txt         \
       --nvm small_rig/cameras.nvm                   \
       --out_dir small_sci_rig                       \
-      --camera_poses_to_float "$float"              \
-      --depth_to_image_transforms_to_float "$float" \
-      --intrinsics_to_float ""                      \
-      --num_iterations 100                          \
-      --export_to_voxblox                           \
-      --num_overlaps 5                              \
-      --min_triangulation_angle 0.5
+      --camera_poses-to-float "$float"              \
+      --depth-to-image-transforms-to-float "$float" \
+      --intrinsics-to-float ""                      \
+      --num-iterations 100                          \
+      --export-to-voxblox                           \
+      --num-overlaps 5                              \
+      --min-triangulation-angle 0.5
 
 The notable differences with the earlier invocation is that this time
 only the ``sci_cam`` images are optimized (floated), the option
-``--nearest_neighbor_interp`` is used, which is needed since the
+``--nearest-neighbor-interp`` is used, which is needed since the
 ``sci_cam`` images will not have the same timestamps as for the
-earlier sensor, and the option ``--no_rig`` was added, which decouples
+earlier sensor, and the option ``--no-rig`` was added, which decouples
 the ``sci_cam`` images from the rig, while still optimizing them with
 the rest of the data, which is fixed and used as a constraint.  The
-option ``--bracket_len`` helps with checking how far in time newly
+option ``--bracket-len`` helps with checking how far in time newly
 added images are from existing ones.
 
 The texturing command is::
@@ -609,7 +609,7 @@ Theia map will conform to it.
 Depth clouds for the additional images can be extracted. The combined
 small map can be refined with ``rig_calibrator``, and depth clouds
 corresponding to the new data can be inserted, as earlier. The option
-``--fixed_image_list`` can be used to keep some images (from the
+``--fixed-image-list`` can be used to keep some images (from the
 original small map) fixed to not change the scale or position of the
 optimized combined small map.
 

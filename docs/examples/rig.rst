@@ -61,18 +61,18 @@ Next, we run ``rig_calibrator``::
     rig_calibrator                                        \
         --rig_config rig_input/rig_config.txt             \
         --nvm rig_theia/cameras.nvm                       \
-        --camera_poses_to_float "nav_cam sci_cam haz_cam" \
-        --intrinsics_to_float "$float_intr"               \
-        --depth_to_image_transforms_to_float "haz_cam"    \
-        --float_scale                                     \
-        --bracket_len 1.0                                 \
-        --bracket_single_image                            \
-        --num_iterations 100                              \
-        --calibrator_num_passes 2                         \
+        --camera_poses-to-float "nav_cam sci_cam haz_cam" \
+        --intrinsics-to-float "$float_intr"               \
+        --depth-to-image-transforms-to-float "haz_cam"    \
+        --float-scale                                     \
+        --bracket-len 1.0                                 \
+        --bracket-single-image                            \
+        --num-iterations 100                              \
+        --calibrator-num-passes 2                         \
         --registration                                    \
-        --hugin_file control_points.pto                   \
-        --xyz_file xyz.txt                                \
-        --export_to_voxblox                               \
+        --hugin-file control_points.pto                   \
+        --xyz-file xyz.txt                                \
+        --export-to-voxblox                               \
         --out_dir rig_out
 
 The previously found camera poses are read in. They are registered to world
@@ -84,10 +84,10 @@ and the corresponding measurements of their coordinates were saved in
 
 The ``nav_cam`` camera is chosen to be the reference sensor in the rig
 configuration. Its poses are allowed to float, that is, to be
-optimized (``--camera_poses_to_float``), and the rig transforms from
+optimized (``--camera_poses-to-float``), and the rig transforms from
 this one to the other ones are floated as well, when passed in via the 
 same option. The scale of depth clouds is floated as well
-(``--float_scale``).
+(``--float-scale``).
 
 Here we chose to optimize the rig while keeping the intrinsics
 fixed. Floating the intrinsics, especially the distortion parameters,
@@ -98,7 +98,7 @@ one can replace ``float_intr=""`` with::
     intr="focal_length,optical_center,distortion"
     float_intr="nav_cam:${intr} haz_cam:${intr} sci_cam:${intr}"
 
-which will be passed above to the option ``--intrinsics_to_float``.
+which will be passed above to the option ``--intrinsics-to-float``.
 
 In this particular case, the real-world scale (but not orientation) would
 have been solved for correctly even without registration, as it would
@@ -109,19 +109,19 @@ in ``distorted_crop_size`` in the rig configuration are smaller than
 actual image dimensions to reduce the worst effects of peripheral
 distortion.
 
-One could pass in ``--num_overlaps 10`` to get more interest point 
+One could pass in ``--num-overlaps 10`` to get more interest point 
 matches than what Theia finds, but this is usually not necessary.
 This number better be kept small, especially if the features
 are poor, as it may result in many outliers among images that
 do not match well.
 
-The value of ``--bracket_len`` should be a little larger than the differences
+The value of ``--bracket-len`` should be a little larger than the differences
 (in seconds) between the image times for which it is desired to do pose
-interpolation in time. The option ``--bracket_single_image`` is used to ensure
+interpolation in time. The option ``--bracket-single-image`` is used to ensure
 that just a single non-reference image is used for each time bracket
 (useful if there are too many images).
 
-The options ``--save_pinhole_cameras`` and ``--save_matches`` 
+The options ``--save-pinhole-cameras`` and ``--save-matches`` 
 can be employed to save the pinhole cameras and the interest point matches
 in formats understood by ``bundle_adjust`` (:numref:`bundle_adjust`) and
 ``stereo_gui`` (:numref:`stereo_gui_nvm`), respectively.

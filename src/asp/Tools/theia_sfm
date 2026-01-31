@@ -17,8 +17,7 @@
 # under the License.
 
 """
-    Documentation:
-    https://stereopipeline.readthedocs.io/en/latest/tools/theia_sfm.html
+A wrapper around TheiaSfm.
 """
 
 import argparse, glob, os, re, shutil, subprocess, sys, platform
