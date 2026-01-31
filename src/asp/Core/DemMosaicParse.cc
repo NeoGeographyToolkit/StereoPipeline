@@ -20,6 +20,7 @@
 
 #include <asp/Core/DemMosaicParse.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Core/FileUtils.h>
 
 #include <vw/FileIO/GdalWriteOptionsDesc.h>

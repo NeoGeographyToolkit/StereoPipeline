@@ -19,6 +19,7 @@
 // subset with almost the same coverage. This is used in SfS.
 
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 

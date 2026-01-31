@@ -29,7 +29,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/EnvUtils.h>
 #include <asp/Core/FileUtils.h>
-#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
@@ -38,6 +38,8 @@
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Stereo/Correlation.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 

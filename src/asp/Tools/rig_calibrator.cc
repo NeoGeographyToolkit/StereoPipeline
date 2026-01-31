@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/nvm.h>
 #include <asp/Camera/BundleAdjustCamera.h>

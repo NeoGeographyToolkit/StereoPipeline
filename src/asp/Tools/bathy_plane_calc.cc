@@ -20,6 +20,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/BathyPlaneCalc.h>

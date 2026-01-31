@@ -51,20 +51,6 @@ namespace vw {
 namespace asp {
 
   class ASPGlobalOptions; // forward declaration
-  
-  /// Print time function
-  std::string current_posix_time_string();
-
-  /// Run a system command and append the output to a given file
-  void run_cmd_app_to_file(std::string cmd, std::string file);
-
-  /// Get program name without path and leading 'lt-'.
-  std::string extract_prog_name(std::string const& prog_str);
-
-  /// Write logs to a file
-  void log_to_file(int argc, char *argv[],
-                   std::string stereo_default_filename,
-                   std::string output_prefix);
 
   boost::program_options::variables_map
   check_command_line(int argc, char *argv[], vw::GdalWriteOptions& opt,

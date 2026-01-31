@@ -22,13 +22,14 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/ThreadedEdgeMask.h>
-#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Gotcha/CBatchProc.h>
 #include <asp/Tools/stereo.h>
 
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Stereo/Algorithms.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/FileIO/DiskImageView.h>
 #include <vw/Image/BlobIndex.h>
 #include <vw/Image/ErodeView.h>
 #include <vw/Image/InpaintView.h>

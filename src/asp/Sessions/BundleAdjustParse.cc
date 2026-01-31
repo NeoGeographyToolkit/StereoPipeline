@@ -24,6 +24,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/Bathymetry.h>
 #include <asp/Core/FileUtils.h>

@@ -22,7 +22,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/ImageNormalization.h>
-#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Tools/stereo.h>
 
 #include <vw/Stereo/PreFilter.h>
@@ -34,6 +34,7 @@
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/Image/InpaintView.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 

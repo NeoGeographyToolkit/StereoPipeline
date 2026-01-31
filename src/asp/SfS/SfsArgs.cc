@@ -17,6 +17,7 @@
 
 #include <asp/SfS/SfsArgs.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/SfS/SfsUtils.h>
 #include <asp/Core/FileUtils.h>

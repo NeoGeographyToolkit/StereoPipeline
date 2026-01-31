@@ -35,12 +35,13 @@
 
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Macros.h>
-#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Tools/stereo.h>
 
 #include <vw/Image/ImageMath.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <boost/filesystem.hpp>
 

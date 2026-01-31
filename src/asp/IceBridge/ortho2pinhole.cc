@@ -32,6 +32,7 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Core/ImageUtils.h>
 
 #include <vw/InterestPoint/MatcherIO.h>

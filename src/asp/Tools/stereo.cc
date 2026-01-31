@@ -24,6 +24,7 @@
 #include <asp/Core/Bathymetry.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/AspLog.h>
 #include <asp/Core/StereoSettingsParse.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Tools/stereo.h>
