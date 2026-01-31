@@ -34,7 +34,7 @@ The first step is solving for the camera poses, for which we use
 
 This tool will use the Theia flags file from ``share/theia_flags.txt``
 in the software distribution, which can be copied to a new name,
-edited, and passed to this program via ``--theia_fags``.
+edited, and passed to this program via ``--theia_flags``.
 
 For this example, it is suggested to edit that flags file and set 
 ``--feature_density=DENSE``, as the default number of features found

@@ -19,6 +19,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/nvm.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Rig/RigOptions.h>
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/triangulation.h> 
 #include <asp/Rig/thread.h> 
@@ -66,43 +67,6 @@
 #include <fstream>
 
 namespace fs = boost::filesystem;
-
-// Options for rig_calibrator, inheriting common options from BaBaseOptions
-struct RigOptions: public asp::BaBaseOptions {
-  std::string rig_config, image_sensor_list, intrinsics_to_float,
-    camera_poses_to_float, depth_to_image_transforms_to_float, mesh,
-    hugin_file, xyz_file, camera_poses, extra_list,
-    out_texture_dir;
-  double bracket_len, depth_tri_weight, mesh_tri_weight, depth_mesh_weight,
-    timestamp_offsets_max_change,
-    initial_max_reprojection_error, max_reprojection_error,
-    min_ray_dist, max_ray_dist;
-  int num_overlaps, num_match_threads, calibrator_num_passes;
-  bool fix_rig_translations, fix_rig_rotations, float_scale,
-    float_timestamp_offsets, use_initial_triangulated_points,
-    affine_depth_to_image, registration, skip_post_registration, no_rig,
-    no_nvm_matches, use_initial_rig_transforms, bracket_single_image,
-    nearest_neighbor_interp, read_nvm_no_shift, save_nvm_no_shift,
-    save_matches, export_to_voxblox, save_pinhole_cameras,
-    save_transformed_depth_clouds, verbose;
-
-  RigOptions(): BaBaseOptions(),
-    bracket_len(0.6), depth_tri_weight(1000.0),
-    mesh_tri_weight(0.0), depth_mesh_weight(0.0),
-    timestamp_offsets_max_change(1.0),
-    initial_max_reprojection_error(300.0), max_reprojection_error(25.0),
-    min_ray_dist(0.0), max_ray_dist(100.0),
-    num_overlaps(0), num_match_threads(8), calibrator_num_passes(2),
-    fix_rig_translations(false), fix_rig_rotations(false), float_scale(false),
-    float_timestamp_offsets(false), use_initial_triangulated_points(false),
-    affine_depth_to_image(false), registration(false), skip_post_registration(false),
-    no_rig(false), no_nvm_matches(false), use_initial_rig_transforms(false),
-    bracket_single_image(false), nearest_neighbor_interp(false),
-    read_nvm_no_shift(false), save_nvm_no_shift(false), save_matches(false),
-    export_to_voxblox(false), save_pinhole_cameras(false),
-    save_transformed_depth_clouds(false), verbose(false) {}
-};
-
 namespace po = boost::program_options;
 
 namespace rig {
@@ -403,10 +367,12 @@ void parameterValidation(RigOptions const& opt) {
            
 int main(int argc, char** argv) {
 
+  // Some dependencies may still use google logging
   google::InitGoogleLogging(argv[0]);
-  tbb::task_arena schedule(tbb::task_arena::automatic); // to force linking to tbb
+  // Force linking to tbb for some dependencies
+  tbb::task_arena schedule(tbb::task_arena::automatic); 
 
-  RigOptions opt;
+  rig::RigOptions opt;
   rig::handleRigArgs(argc, argv, opt);
 
   // Create the output directory, turn on logging, do validation
