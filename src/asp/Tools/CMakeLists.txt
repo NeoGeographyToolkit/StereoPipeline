@@ -250,7 +250,7 @@ install(TARGETS undistort_image_texrecon DESTINATION bin)
 
 if (NOT CORE_ASP_ONLY)
   add_executable(rig_calibrator rig_calibrator.cc)
-  target_link_libraries(rig_calibrator AspRig AspPclIO AspSessions)
+  target_link_libraries(rig_calibrator AspCore AspRig AspPclIO AspSessions)
   install(TARGETS rig_calibrator DESTINATION bin)
 
   add_executable(dem_geoid dem_geoid.cc)

@@ -15,8 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#ifndef ASP_RIG_RIG_PARSE_H
-#define ASP_RIG_RIG_PARSE_H
+#ifndef ASP_RIG_RIG_PARSE_UTILS_H
+#define ASP_RIG_RIG_PARSE_UTILS_H
 
 #include <Eigen/Core>
 
@@ -113,4 +113,4 @@ void ParseXYZ(std::string const& xyz_file,
 
 }  // namespace rig
 
-#endif  // ASP_RIG_RIG_PARSE_H
+#endif  // ASP_RIG_RIG_PARSE_UTILS_H

@@ -22,7 +22,7 @@
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/image_lookup.h>
 #include <asp/Rig/rig_io.h>
-#include <asp/Rig/RigParse.h>
+#include <asp/Rig/RigParseUtils.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>

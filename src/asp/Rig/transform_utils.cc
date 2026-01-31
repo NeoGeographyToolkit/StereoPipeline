@@ -22,7 +22,7 @@
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/triangulation.h>
-#include <asp/Rig/RigParse.h>
+#include <asp/Rig/RigParseUtils.h>
 
 #include <glog/logging.h>
 

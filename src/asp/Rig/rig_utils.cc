@@ -19,7 +19,7 @@
 
 #include <asp/Rig/system_utils.h>
 #include <asp/Rig/rig_utils.h>
-#include <asp/Rig/RigParse.h>
+#include <asp/Rig/RigParseUtils.h>
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/interpolation_utils.h>

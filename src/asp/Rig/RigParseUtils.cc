@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Rig/RigParse.h>
+#include <asp/Rig/RigParseUtils.h>
 #include <asp/Rig/system_utils.h>
 
 #include <vw/Core/Log.h>
