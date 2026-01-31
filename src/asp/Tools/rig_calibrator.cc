@@ -15,53 +15,40 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// TODO(oalexan1): Modularize this code! 
-
-// See the ASP documentation for how this tool works.
-
-#include <asp/Rig/RigTypeDefs.h>
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/nvm.h>
+#include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/triangulation.h> 
 #include <asp/Rig/thread.h> 
 #include <asp/Rig/RigParse.h>
+#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/rig_utils.h>
+#include <asp/Rig/image_lookup.h>
+#include <asp/Rig/system_utils.h>
+#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/interpolation_utils.h>
+#include <asp/Rig/interest_point.h>
+#include <asp/Rig/RigOutlier.h>
+#include <asp/Rig/texture_processing.h>
+#include <asp/Rig/camera_image.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/RigCameraUtils.h>
+#include <asp/Rig/RigCostFunction.h>
+#include <asp/Rig/rig_io.h>
+#include <asp/Rig/RigImageIO.h>
 
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>
-#include <asp/Core/nvm.h>
 
-// TODO(oalexan1): Move these to cost_function.cc, together will
-// all logic for the cost function. 
 #include <ceres/ceres.h>
-#include <ceres/rotation.h>
 #include <ceres/problem.h>
 #include <ceres/solver.h>
-#include <ceres/cost_function.h>
-#include <ceres/loss_function.h>
-#include <ceres/dynamic_numeric_diff_cost_function.h>
-#include <ceres/numeric_diff_cost_function.h>
-#include <ceres/autodiff_cost_function.h>
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/utility.hpp>
-
-#include <Rig/basic_algs.h>
-#include <Rig/rig_utils.h>
-#include <Rig/image_lookup.h>
-#include <Rig/system_utils.h>
-#include <Rig/transform_utils.h>
-#include <Rig/interpolation_utils.h>
-#include <Rig/interest_point.h>
-#include <asp/Rig/RigOutlier.h>
-#include <Rig/texture_processing.h>
-#include <Rig/camera_image.h>
-#include <Rig/rig_config.h>
-#include <Rig/RigCameraUtils.h>
-#include <asp/Rig/RigCostFunction.h>
-#include <asp/Rig/rig_io.h>
-#include <asp/Rig/RigImageIO.h>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -76,7 +63,6 @@
 #include <map>
 #include <iostream>
 #include <fstream>
-#include <tuple>
 
 namespace fs = boost::filesystem;
 
@@ -588,13 +574,11 @@ int main(int argc, char** argv) {
   std::vector<double> depth_to_image_vec(num_cam_types * num_depth_params);
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
     if (FLAGS_affine_depth_to_image)
-      rig::affine_transform_to_array
-        (R.depth_to_image[cam_type],
-         &depth_to_image_vec[num_depth_params * cam_type]);
+      rig::affine_transform_to_array(R.depth_to_image[cam_type],
+                                     &depth_to_image_vec[num_depth_params * cam_type]);
     else
-      rig::rigid_transform_to_array
-        (R.depth_to_image[cam_type],
-         &depth_to_image_vec[num_depth_params * cam_type]);
+      rig::rigid_transform_to_array(R.depth_to_image[cam_type],
+                                    &depth_to_image_vec[num_depth_params * cam_type]);
   }
 
   // Put the intrinsics in arrays
@@ -875,10 +859,9 @@ int main(int argc, char** argv) {
                                         pid_cid_fid_inlier, xyz_vec);
   }
   
-  // TODO(oalexan1): Why the call below works without rig:: prepended to it?
   if (FLAGS_out_texture_dir != "")
     rig::meshProjectCameras(R.cam_names, R.cam_params, cams, world_to_cam, 
-                                  mesh, bvh_tree, FLAGS_out_texture_dir);
+                            mesh, bvh_tree, FLAGS_out_texture_dir);
 
   rig::saveCameraPoses(FLAGS_out_dir, cams, world_to_cam);
   
@@ -901,11 +884,11 @@ int main(int argc, char** argv) {
 
   if (FLAGS_export_to_voxblox)
     rig::exportToVoxblox(R.cam_names, cams, R.depth_to_image,
-                               world_to_cam, FLAGS_out_dir);
+                         world_to_cam, FLAGS_out_dir);
 
   if (FLAGS_save_transformed_depth_clouds)
     rig::saveTransformedDepthClouds(R.cam_names, cams, R.depth_to_image,
-                                          world_to_cam, FLAGS_out_dir);
+                                    world_to_cam, FLAGS_out_dir);
 
   // Save the list of images (useful for bundle_adjust)
   std::string image_list = FLAGS_out_dir + "/image_list.txt";
@@ -913,7 +896,7 @@ int main(int argc, char** argv) {
 
   if (FLAGS_save_pinhole_cameras)
     rig::writePinholeCameras(R.cam_names, R.cam_params, cams, 
-                                   world_to_cam, FLAGS_out_dir);
+                             world_to_cam, FLAGS_out_dir);
   
   std::string conv_angles_file = FLAGS_out_dir + "/convergence_angles.txt";
   rig::savePairwiseConvergenceAngles(pid_to_cid_fid, keypoint_vec,
