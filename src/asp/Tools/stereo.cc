@@ -1345,6 +1345,11 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
                   << "from cameras, as those are stored instead in "
                   << "bands 5 and 6.\n");
 
+  // No cog
+  if (opt.cog)
+    vw_throw(ArgumentErr() << "The --cog option is not supported for stereo programs, "
+             << "as these create only intermediate processing files.\n");
+
   // Camera checks
   if (!stereo_settings().correlator_mode) {
     try {
@@ -1412,4 +1417,3 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
 } // End validateStereoOptions
 
 } // end namespace asp
-

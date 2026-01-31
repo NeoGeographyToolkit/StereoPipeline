@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # __BEGIN_LICENSE__
 #  Copyright (c) 2009-2013, United States Government as represented by the
 #  Administrator of the National Aeronautics and Space Administration. All
@@ -250,62 +249,63 @@ def main(argsIn):
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument("--processes",  dest="numProcesses", type=int, default=None,
-                        help="Number of processes to use on each node (the default is for the " + \
-                        "program to choose).")
+      help="Number of processes to use on each node (the default is for the " + \
+      "program to choose).")
 
     parser.add_argument("--num-processes",  dest="numProcesses2", type=int, default=None,
-                        help="Same as --processes. Used for backwards compatibility.")
+      help="Same as --processes. Used for backwards compatibility.")
 
     parser.add_argument('--nodes-list',  dest='nodesListPath', default=None,
-                        help='The list of computing nodes, one per line. ' + \
-                        'If not provided, run on the local machine.')
+      help='The list of computing nodes, one per line. ' + \
+      'If not provided, run on the local machine.')
     
     parser.add_argument('--parallel-options', dest='parallel_options', 
-                        default='--sshdelay 0.2',
-                        help='Options to pass directly to GNU Parallel.')
+      default='--sshdelay 0.2',
+      help='Options to pass directly to GNU Parallel.')
     
     parser.add_argument('--tile-size',  dest='tileSize', default=None, type=int,
-                        help = 'Size of square tiles to break up processing up '   + \
-                        'into. Each tile is run by an individual process. The '    + \
-                        'default is 1024 pixels for ISIS cameras, as then each '   + \
-                        'process is single-threaded, and 5120 for other cameras, ' + \
-                        'as such a process is multi-threaded, and disk I/O '       + \
-                        'becomes a bigger consideration.')
+      help = 'Size of square tiles to break up processing up '   + \
+      'into. Each tile is run by an individual process. The '    + \
+      'default is 1024 pixels for ISIS cameras, as then each '   + \
+      'process is single-threaded, and 5120 for other cameras, ' + \
+      'as such a process is multi-threaded, and disk I/O '       + \
+      'becomes a bigger consideration.')
     
     # Directory where the job is running
     parser.add_argument('--work-dir',  dest='workDir', default=None,
-                        help='Working directory to assemble the tiles in.')
+      help='Working directory to assemble the tiles in.')
 
     parser.add_argument('--run-dir', dest='runDir', default=None,
-                        help='Directory in which the script is running.')
+      help='Directory in which the script is running.')
 
     parser.add_argument("--suppress-output", action="store_true", default=False,
-                        dest="suppressOutput",  help="Suppress output of sub-calls.")
+      dest="suppressOutput",  help="Suppress output of sub-calls.")
 
     parser.add_argument("--no-geoheader-info", action="store_true", default=False,
-                      dest="noGeoHeaderInfo",
-                      help="Suppress writing some auxialliary information in geoheaders.")
+      dest="noGeoHeaderInfo",
+      help="Suppress writing some auxiliary information in geoheaders.")
 
     # DEBUG options
     parser.add_argument("--keep", action="store_true", dest="keep", default=False,
-                                  help="Do not delete the temporary files.")
+      help="Do not delete the temporary files.")
     parser.add_argument("--convert-tiles",  action="store_true", dest="convertTiles",
-                                            help="Generate a uint8 version of each tile")
-
+      help="Generate a uint8 version of each tile")
+    parser.add_argument("--cog", action="store_true", dest="cog", default=False,
+      help="Write a cloud-optimized GeoTIFF (COG).")
+    parser.add_argument('-v', '--version', dest='version',  default=False, action='store_true',
+      help='Display the version of software.')
+    
     # PRIVATE options
     # These specify the tile location to request, bypassing the need to query mapproject.
     parser.add_argument('--pixelStartX', dest='pixelStartX', default=None, type=int,
-                                         help=argparse.SUPPRESS)
+      help=argparse.SUPPRESS)
     parser.add_argument('--pixelStartY', dest='pixelStartY', default=None, type=int,
-                                         help=argparse.SUPPRESS)
+      help=argparse.SUPPRESS)
     parser.add_argument('--pixelStopX',  dest='pixelStopX', default=None, type=int,
-                                         help=argparse.SUPPRESS)
+      help=argparse.SUPPRESS)
     parser.add_argument('--pixelStopY',  dest='pixelStopY', default=None, type=int,
-                                         help=argparse.SUPPRESS)
+      help=argparse.SUPPRESS)
 
-    parser.add_argument('-v', '--version', dest='version',  default=False, action='store_true',
-                        help='Display the version of software.')
-    
     # This call handles all the parallel_mapproject specific options.
     (options, args) = parser.parse_known_args(argsIn)
 
@@ -571,8 +571,15 @@ def main(argsIn):
         f.close()
 
     # Convert VRT file to final output file
-    cmd = ("gdal_translate -co compress=lzw -co bigtiff=yes -co TILED=yes -co INTERLEAVE=BAND -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 "
-           + vrtPath + " " + options.outputPath)
+    cmd = "gdal_translate -co BIGTIFF=IF_SAFER "
+    if options.cog:
+        # Use GDAL COG driver for cloud-optimized output. This ignores the
+        # INTERLEAVE, TILED options.
+        cmd += "-of COG -co COMPRESS=DEFLATE -co BLOCKSIZE=512 "
+    else:
+        # Standard tiled GeoTIFF
+        cmd += "-co INTERLEAVE=BAND -co TILED=yes -co compress=lzw -co BLOCKXSIZE=256 -co BLOCKYSIZE=256 "
+    cmd += vrtPath + " " + options.outputPath
     print(cmd)
     ans = os.system(cmd)
 
