@@ -142,7 +142,7 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
       if (will_write) {
         vw_out() << "Writing: " << output_file << "\n";
         vw::cartography::do_multitype_hillshade(input_file, output_file, azimuth, elevation, scale,
-                                                nodata_val, blur_sigma, align_light_to_georef);
+                                                nodata_val, blur_sigma, align_light_to_georef, opt);
       }
     } catch(...) {
       // Failed to write, presumably because we have no write access.
@@ -156,7 +156,7 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
         vw::cartography::do_multitype_hillshade(input_file,  output_file,
                                                 azimuth, elevation, scale,
                                                 nodata_val, blur_sigma,
-                                                align_light_to_georef);
+                                                align_light_to_georef, opt);
       }
     }
   } catch (const Exception& e) {

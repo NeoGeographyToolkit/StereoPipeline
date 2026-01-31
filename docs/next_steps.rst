@@ -1444,7 +1444,7 @@ Cloud-Optimized GeoTIFF
 
 ASP supports writing cloud-optimized GeoTIFFs (COG) with the ``--cog`` option
 for :ref:`point2dem`, :ref:`mapproject`, :ref:`image_mosaic`, :ref:`dem_mosaic`,
-:ref:`geodiff`, and :ref:`image_calc`.
+:ref:`geodiff`, :ref:`image_calc`, :ref:`hillshade`, and :ref:`colormap`.
 
 This creates files with 512 x 512 tiles, internal overviews (pyramids), and
 optimized compression for efficient streaming from cloud storage.
