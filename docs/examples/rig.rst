@@ -61,7 +61,7 @@ Next, we run ``rig_calibrator``::
     rig_calibrator                                        \
         --rig_config rig_input/rig_config.txt             \
         --nvm rig_theia/cameras.nvm                       \
-        --camera_poses-to-float "nav_cam sci_cam haz_cam" \
+        --camera-poses-to-float "nav_cam sci_cam haz_cam" \
         --intrinsics-to-float "$float_intr"               \
         --depth-to-image-transforms-to-float "haz_cam"    \
         --float-scale                                     \
@@ -84,7 +84,7 @@ and the corresponding measurements of their coordinates were saved in
 
 The ``nav_cam`` camera is chosen to be the reference sensor in the rig
 configuration. Its poses are allowed to float, that is, to be
-optimized (``--camera_poses-to-float``), and the rig transforms from
+optimized (``--camera-poses-to-float``), and the rig transforms from
 this one to the other ones are floated as well, when passed in via the 
 same option. The scale of depth clouds is floated as well
 (``--float-scale``).

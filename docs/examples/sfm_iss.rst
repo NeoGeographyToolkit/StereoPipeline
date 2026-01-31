@@ -325,7 +325,7 @@ Insert these in the small map, and optimize all poses together as::
       --rig_config initial_rig.txt                  \
       --nvm small_theia_nav_rig/cameras.nvm         \
       --out_dir small_rig                           \
-      --camera_poses-to-float "$float"              \
+      --camera-poses-to-float "$float"              \
       --depth-to-image-transforms-to-float "$float" \
       --float-scale                                 \
       --intrinsics-to-float ""                      \
@@ -479,7 +479,7 @@ already solved for fixed. This goes as follows::
       --rig_config small_rig/rig_config.txt         \
       --nvm small_rig/cameras.nvm                   \
       --out_dir small_sci_rig                       \
-      --camera_poses-to-float "$float"              \
+      --camera-poses-to-float "$float"              \
       --depth-to-image-transforms-to-float "$float" \
       --intrinsics-to-float ""                      \
       --num-iterations 100                          \
