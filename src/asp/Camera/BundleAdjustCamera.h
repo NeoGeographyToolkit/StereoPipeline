@@ -89,7 +89,6 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::vector<vw::CamPtr> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
   std::map<std::pair<int, int>, double> match_sigmas;
-
   vw::cartography::Datum datum;
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
   double horizontal_stddev;
@@ -98,10 +97,10 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
 
   BaBaseOptions():
    forced_triangulation_distance(-1),
-   min_triangulation_angle(0.0), camera_position_weight(0.0),
+   min_triangulation_angle(0.01), camera_position_weight(0.0),
    camera_position_robust_threshold(0.0), camera_weight(-1.0),
-   rotation_weight(0.0), tri_weight(0.0),
-   robust_threshold(0.0), min_matches(0),
+   rotation_weight(0.0), tri_weight(0.1), tri_robust_threshold(0.1),
+   robust_threshold(0.5), min_matches(0),
    num_iterations(0), num_passes(0),
    overlap_limit(0), have_overlap_list(false), propagate_errors(false),
    match_first_to_last(false), single_threaded_cameras(false),
