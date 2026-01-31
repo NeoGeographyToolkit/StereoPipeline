@@ -484,6 +484,9 @@ Command-line options
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.
 
+--cog
+    Write a cloud-optimized GeoTIFF (COG). See :numref:`cog_output`.
+
 -v, --version
     Display the version of software.
 

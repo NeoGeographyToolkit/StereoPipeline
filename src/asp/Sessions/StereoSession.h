@@ -23,12 +23,13 @@
 
 #include <asp/Sessions/CameraModelLoader.h>
 
+#include <vw/Cartography/GeoReference.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Image/ImageViewBase.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/Image/Transform.h>
-#include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/FileIO/GdalWriteOptions.h>
 
 #include <boost/shared_ptr.hpp>
 
@@ -78,14 +79,12 @@ public:
   }
 
   /// Helper function that retrieves both cameras.
-  virtual void camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                              boost::shared_ptr<vw::camera::CameraModel> &cam2);
+  virtual void camera_models(vw::CamPtr &cam1, vw::CamPtr &cam2);
 
   /// Method that produces a Camera Model from input files.
-  virtual boost::shared_ptr<vw::camera::CameraModel>
-  camera_model(std::string const& image_file,
-                std::string const& camera_file = "",
-                bool quiet = false);
+  virtual vw::CamPtr camera_model(std::string const& image_file,
+                                  std::string const& camera_file = "",
+                                  bool quiet = false);
 
   /// Method to help determine what session we actually have
   virtual std::string name() const = 0;
@@ -172,11 +171,10 @@ public:
                           vw::CamPtr & right_map_proj_cam);
 
   /// Function to load a specific type of camera model with a pixel offset.
-  virtual boost::shared_ptr<vw::camera::CameraModel>
-  load_camera_model(std::string const& image_file,
-                    std::string const& camera_file,
-                    std::string const& ba_prefix,
-                    vw::Vector2 pixel_offset) const = 0;
+  virtual vw::CamPtr load_camera_model(std::string const& image_file,
+                                       std::string const& camera_file,
+                                       std::string const& ba_prefix,
+                                       vw::Vector2 pixel_offset) const = 0;
 
 protected: // Variables
 
@@ -190,28 +188,28 @@ protected: // Variables
 
   /// Storage for the camera models used to map project the input images.
   /// - Not used in non map-projected sessions.
-  boost::shared_ptr<vw::camera::CameraModel> m_left_map_proj_model, m_right_map_proj_model;
+  vw::CamPtr m_left_map_proj_model, m_right_map_proj_model;
 
 protected:
 
   // Factor out here all functionality shared among the preprocessing hooks
   // for various sessions. Return 'true' if we encounter cached images
   // and don't need to go through the motions again.
-  bool shared_preprocessing_hook(vw::GdalWriteOptions & options,
-                                  std::string const                 & left_input_file,
-                                  std::string const                 & right_input_file,
-                                  std::string                       & left_output_file,
-                                  std::string                       & right_output_file,
-                                  std::string                       & left_cropped_file,
-                                  std::string                       & right_cropped_file,
-                                  vw::ImageViewRef<float>           & left_cropped_image,
-                                  vw::ImageViewRef<float>           & right_cropped_image,
-                                  float                             & left_nodata_value,
-                                  float                             & right_nodata_value,
-                                  bool                              & has_left_georef,
-                                  bool                              & has_right_georef,
-                                  vw::cartography::GeoReference     & left_georef,
-                                  vw::cartography::GeoReference     & right_georef);
+  bool shared_preprocessing_hook(vw::GdalWriteOptions           & options,
+                                  std::string const             & left_input_file,
+                                  std::string const             & right_input_file,
+                                  std::string                   & left_output_file,
+                                  std::string                   & right_output_file,
+                                  std::string                   & left_cropped_file,
+                                  std::string                   & right_cropped_file,
+                                  vw::ImageViewRef<float>       & left_cropped_image,
+                                  vw::ImageViewRef<float>       & right_cropped_image,
+                                  float                         & left_nodata_value,
+                                  float                         & right_nodata_value,
+                                  bool                          & has_left_georef,
+                                  bool                          & has_right_georef,
+                                  vw::cartography::GeoReference & left_georef,
+                                  vw::cartography::GeoReference & right_georef);
 
   // These are all the currently supported transformation types
   vw::TransformPtr tx_identity        () const; // Not left or right specific
@@ -223,11 +221,10 @@ protected:
   /// Load an RPC camera model with a pixel offset
   /// - We define it here so it can be used for reading RPC map projection models and also
   ///   so it does not get duplicated in derived RPC sessions.
-  boost::shared_ptr<vw::camera::CameraModel>
-  load_rpc_camera_model(std::string const& image_file,
-                        std::string const& camera_file,
-                        std::string const& ba_prefix,
-                        vw::Vector2 pixel_offset) const;
+  vw::CamPtr load_rpc_camera_model(std::string const& image_file,
+                                   std::string const& camera_file,
+                                   std::string const& ba_prefix,
+                                   vw::Vector2 pixel_offset) const;
 
   void read_bathy_masks(float & left_bathy_nodata,
                         float & right_bathy_nodata,

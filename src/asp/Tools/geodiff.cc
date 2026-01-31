@@ -23,9 +23,6 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/FileUtils.h>
 
-using std::endl;
-using std::string;
-
 using namespace vw;
 using namespace vw::cartography;
 
@@ -35,7 +32,7 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 struct Options: vw::GdalWriteOptions {
-  string dem1_file, dem2_file, output_prefix, csv_format_str, csv_srs, csv_proj4_str;
+  std::string dem1_file, dem2_file, output_prefix, csv_format_str, csv_srs, csv_proj4_str;
   double nodata_value;
 
   bool use_float, use_absolute;
@@ -130,12 +127,12 @@ void dem2dem_diff(Options& opt) {
   if (dem1_rsrc.has_nodata_read()) {
     dem1_nodata = dem1_rsrc.nodata_read();
     opt.nodata_value = dem1_nodata;
-    vw_out() << "\tFound input nodata value for DEM 1: " << dem1_nodata << endl;
+    vw_out() << "\tFound input nodata value for DEM 1: " << dem1_nodata << "\n";
     vw_out() << "Using this nodata value on output.\n";
   }
   if (dem2_rsrc.has_nodata_read()) {
     dem2_nodata = dem2_rsrc.nodata_read();
-    vw_out() << "\tFound input nodata value for DEM 2: " << dem2_nodata << endl;
+    vw_out() << "\tFound input nodata value for DEM 2: " << dem2_nodata << "\n";
   }
 
   if (dem1_rsrc.channels() != 1 || dem2_rsrc.channels() != 1)
@@ -179,24 +176,22 @@ void dem2dem_diff(Options& opt) {
     
   std::string output_file = opt.output_prefix + "-diff.tif";
   vw_out() << "Writing difference file: " << output_file << "\n";
+  
+  bool has_georef = true;
+  bool has_nodata = true;
+  auto tpc = TerminalProgressCallback("asp", "\t--> Differencing: ");
     
   if (opt.use_float) {
     ImageViewRef<float> difference_float = channel_cast<float>(difference);
-    boost::shared_ptr<DiskImageResourceGDAL>
-      rsrc(vw::cartography::build_gdal_rsrc(output_file,
-                                            difference_float, opt));
-    rsrc->set_nodata_write(opt.nodata_value);
-    write_georeference(*rsrc, crop_georef);
-    block_write_image(*rsrc, difference_float,
-                      TerminalProgressCallback("asp", "\t--> Differencing: "));
+    vw::cartography::block_write_gdal_image(output_file, difference_float,
+                                            has_georef, crop_georef,
+                                            has_nodata, opt.nodata_value,
+                                            opt, tpc);
   } else {
-    boost::shared_ptr<DiskImageResourceGDAL>
-      rsrc(vw::cartography::build_gdal_rsrc(output_file,
-                                            difference, opt));
-    rsrc->set_nodata_write(opt.nodata_value);
-    write_georeference(*rsrc, crop_georef);
-    block_write_image(*rsrc, difference,
-                      TerminalProgressCallback("asp", "\t--> Differencing: "));
+    vw::cartography::block_write_gdal_image(output_file, difference,
+                                            has_georef, crop_georef,
+                                            has_nodata, opt.nodata_value,
+                                            opt, tpc);
   }
 }
 
@@ -219,7 +214,7 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
     if (dem_rsrc.has_nodata_read()) {
       dem_nodata = dem_rsrc.nodata_read();
       opt.nodata_value = dem_nodata;
-      vw_out() << "\tFound input nodata value for DEM: " << dem_nodata << endl;
+      vw_out() << "\tFound input nodata value for DEM: " << dem_nodata << "\n";
     }
     
     if (dem_rsrc.channels() != 1)
@@ -329,26 +324,26 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   if (csv_errs.size() > 0) 
     diff_median = csv_errs[csv_errs.size()/2];
 
-  vw_out() << "Max difference:       " << diff_max    << " meters" << std::endl;
-  vw_out() << "Min difference:       " << diff_min    << " meters" << std::endl;
-  vw_out() << "Mean difference:      " << diff_mean   << " meters" << std::endl;
-  vw_out() << "StdDev of difference: " << diff_std    << " meters" << std::endl;
-  vw_out() << "Median difference:    " << diff_median << " meters" << std::endl;
+  vw_out() << "Max difference:       " << diff_max    << " meters" << "\n";
+  vw_out() << "Min difference:       " << diff_min    << " meters" << "\n";
+  vw_out() << "Mean difference:      " << diff_mean   << " meters" << "\n";
+  vw_out() << "StdDev of difference: " << diff_std    << " meters" << "\n";
+  vw_out() << "Median difference:    " << diff_median << " meters" << "\n";
 
   std::string output_file = opt.output_prefix + "-diff.csv";
   vw_out() << "Writing difference file: " << output_file << "\n";
   std::ofstream outfile( output_file.c_str() );
   outfile.precision(16);
-  outfile << "# longitude,latitude, height diff (m)" << std::endl;
-  outfile << "# " << dem_georef.datum() << std::endl; // dem's datum
-  outfile << "# Max difference:       " << diff_max    << " meters" << std::endl;
-  outfile << "# Min difference:       " << diff_min    << " meters" << std::endl;
-  outfile << "# Mean difference:      " << diff_mean   << " meters" << std::endl;
-  outfile << "# StdDev of difference: " << diff_std    << " meters" << std::endl;
-  outfile << "# Median difference:    " << diff_median << " meters" << std::endl;
+  outfile << "# longitude,latitude, height diff (m)" << "\n";
+  outfile << "# " << dem_georef.datum() << "\n"; // dem's datum
+  outfile << "# Max difference:       " << diff_max    << " meters" << "\n";
+  outfile << "# Min difference:       " << diff_min    << " meters" << "\n";
+  outfile << "# Mean difference:      " << diff_mean   << " meters" << "\n";
+  outfile << "# StdDev of difference: " << diff_std    << " meters" << "\n";
+  outfile << "# Median difference:    " << diff_median << " meters" << "\n";
   for (size_t it = 0; it < csv_diff.size(); it++) {
     Vector3 diff = csv_diff[it];
-    outfile << diff[0] << "," << diff[1] << "," << diff[2] << std::endl;
+    outfile << diff[0] << "," << diff[1] << "," << diff[2] << "\n";
   }
 }
 

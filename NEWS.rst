@@ -1,6 +1,9 @@
 Changes since last release
 --------------------------
 
+Added cloud-optimized GeoTIFF (COG) support via the ``--cog`` option to 
+  ``point2dem``, ``mapproject``, etc. (:numref:`cog_output`).
+
 stereo_sweep (:numref:`stereo_sweep`):
   * Added a new program to study parameter sensitivity by running stereo on
     small patches with different parameter combinations.

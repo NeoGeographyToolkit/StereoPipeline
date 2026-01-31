@@ -110,8 +110,10 @@ private:
     bool has_nodata = false;
     double nodata = -std::numeric_limits<double>::max();
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
+    vw::GdalWriteOptions local_opt = m_opt;
+    local_opt.cog = false;  // Do not use COG with temporary files
     vw::cartography::block_write_gdal_image(out_file, Img, m_has_georef, m_georef,
-                                            has_nodata, nodata, m_opt, tpc);
+                                            has_nodata, nodata, local_opt, tpc);
 
     // Wipe the buf when done and increment the tile count
     m_buf.clear();
@@ -658,7 +660,9 @@ void las_or_csv_to_tif(std::string const& in_file,
     std::string out_file = out_prefix + ".tif";
     vw::vw_out() << "Writing spatially ordered data: " << out_file << "\n";
     auto tpc = vw::TerminalProgressCallback("asp", "\t--> ");
-    vw::cartography::write_gdal_image(out_file, Img, opt, tpc);
+    vw::GdalWriteOptions local_opt = opt;
+    local_opt.cog = false;  // Do not use COG with temporary files
+    vw::cartography::write_gdal_image(out_file, Img, local_opt, tpc);
     out_files.push_back(out_file);
   }
 

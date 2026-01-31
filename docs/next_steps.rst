@@ -1437,6 +1437,22 @@ commands.
    The colorized DEM, the shaded relief image, and the
    colorized hillshade.
 
+.. _cog_output:
+
+Cloud-Optimized GeoTIFF
+~~~~~~~~~~~~~~~~~~~~~~~
+
+ASP supports writing cloud-optimized GeoTIFFs (COG) with the ``--cog`` option
+for :ref:`point2dem`, :ref:`mapproject`, :ref:`image_mosaic`, :ref:`dem_mosaic`,
+:ref:`geodiff`, and :ref:`image_calc`.
+
+This creates files with 512 x 512 tiles, internal overviews (pyramids), and
+optimized compression for efficient streaming from cloud storage.
+
+Use ``gdalinfo`` (:numref:`gdal_tools`) to check if an output file is a COG.
+
+.. _google_earth_overlays:
+
 Building overlays for Moon and Mars mode in Google Earth
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

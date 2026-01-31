@@ -400,8 +400,7 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
   auto tpc1 = TerminalProgressCallback("asp", "\t--> Low-resolution disparity:");
   if (session_name.find("isis") != std::string::npos) {
     // ISIS does not support multi-threading
-    boost::shared_ptr<DiskImageResource> 
-      drsrc(vw::cartography::build_gdal_rsrc(disparity_file, lowres_disparity, opt));
+    auto drsrc = vw::cartography::build_gdal_rsrc(disparity_file, lowres_disparity, opt);
     vw::write_image(*drsrc, lowres_disparity, tpc1);
   } else {
     vw::cartography::block_write_gdal_image(disparity_file, lowres_disparity, opt, tpc1);

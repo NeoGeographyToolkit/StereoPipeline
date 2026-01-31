@@ -112,9 +112,8 @@ inline round_image_pixels(vw::ImageViewBase<ImageT> const& image,
     (image.impl(), RoundImagePixels<typename ImageT::pixel_type>(rounding_error));
 }
 
-// Often times, we'd like to save an image to disk by using big
-// blocks, for performance reasons, then re-write it with desired blocks.
-// TODO(oalexan1): Move this somewhere else.
+// Save with temporarily big blocks if this helps with efficiency, such as if 
+// the blocks need internal padding taken into account.
 template <class ImageT>
 void saveWithTempBigBlocks(int bigBlockSize,
                            const std::string &filename,
@@ -125,26 +124,36 @@ void saveWithTempBigBlocks(int bigBlockSize,
                            vw::GdalWriteOptions const& opt,
                            vw::ProgressCallback const& tpc) {
 
-  // Make local copy to avoid mutating caller's options
+  // Check if block size needs changing
+  vw::Vector2 origBlockSize = opt.raster_tile_size;
+  vw::Vector2 newBlockSize = vw::Vector2(bigBlockSize, bigBlockSize);
+  
+  // If block size matches, just write once with original options
+  if (newBlockSize == origBlockSize) {
+    block_write_gdal_image(filename, img, hasGeoref, georef, hasNodata, nodata,
+                           opt, tpc);
+    return;
+  }
+  
+  // Block size differs - write temp with big blocks, then rewrite with correct blocks
   vw::GdalWriteOptions localOpt = opt;
-  vw::Vector2 origBlockSize = localOpt.raster_tile_size;
-  localOpt.raster_tile_size = vw::Vector2(bigBlockSize, bigBlockSize);
+  localOpt.raster_tile_size = newBlockSize;
+  localOpt.cog = false;  // Disable COG for temporary write
   block_write_gdal_image(filename, img, hasGeoref, georef, hasNodata, nodata,
                          localOpt, tpc);
 
-  if (localOpt.raster_tile_size != origBlockSize) {
-    std::string tmpFile
-      = boost::filesystem::path(filename).replace_extension(".tmp.tif").string();
-    boost::filesystem::rename(filename, tmpFile);
-    vw::DiskImageView<typename ImageT::pixel_type> tmpImg(tmpFile);
-    localOpt.raster_tile_size = origBlockSize;
-    vw::vw_out() << "Re-writing with blocks of size: "
-                 << localOpt.raster_tile_size[0] << " x "
-                 << localOpt.raster_tile_size[1] << ".\n";
-    vw::cartography::block_write_gdal_image(filename, tmpImg, hasGeoref, georef,
-                                            hasNodata, nodata, localOpt, tpc);
-    boost::filesystem::remove(tmpFile);
-  }
+  std::string tmpFile
+    = boost::filesystem::path(filename).replace_extension(".tmp.tif").string();
+  boost::filesystem::rename(filename, tmpFile);
+  vw::DiskImageView<typename ImageT::pixel_type> tmpImg(tmpFile);
+  localOpt.raster_tile_size = origBlockSize;
+  localOpt.cog = opt.cog;  // Restore COG setting for final write
+  vw::vw_out() << "Re-writing with blocks of size: "
+               << localOpt.raster_tile_size[0] << " x "
+               << localOpt.raster_tile_size[1] << ".\n";
+  vw::cartography::block_write_gdal_image(filename, tmpImg, hasGeoref, georef,
+                                          hasNodata, nodata, localOpt, tpc);
+  boost::filesystem::remove(tmpFile);
   return;
 }
 

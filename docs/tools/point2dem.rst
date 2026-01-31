@@ -713,5 +713,8 @@ Command-line options for point2dem
 --tif-compress <None|LZW|Deflate|Packbits (default: LZW)>
     TIFF compression method.
 
+--cog
+    Write a cloud-optimized GeoTIFF (COG). See :numref:`cog_output`.
+
 -h, --help
     Display the help message.

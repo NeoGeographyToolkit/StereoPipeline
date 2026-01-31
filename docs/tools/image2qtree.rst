@@ -4,8 +4,8 @@ image2qtree
 -----------
 
 ``image2qtree`` turns a georeferenced image (or images) into a quadtree
-with geographical metadata. For example, it can output a kml file for
-viewing in Google Earth.
+with geographical metadata for viewing in Google Earth. See 
+:numref:`google_earth_overlays` for usage examples.
 
 Command-line options for image2qtree:
 
