@@ -200,31 +200,9 @@ int main(int argc, char** argv) {
                       registration_trans, world_to_ref, world_to_cam, R);
   }
 
-  // Put the rig transforms in arrays, so we can optimize them
-  std::vector<double> ref_to_cam_vec(num_cam_types * rig::NUM_RIGID_PARAMS, 0.0);
-  for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
-    rig::rigid_transform_to_array
-      (R.ref_to_cam_trans[cam_type],
-       &ref_to_cam_vec[rig::NUM_RIGID_PARAMS * cam_type]);
-
-  // Put transforms of the reference cameras in a vector so we can optimize them.
-  // world_to_ref_vec is the primary storage for reference camera transforms.
   int num_ref_cams = world_to_ref.size();
   if (world_to_ref.size() != ref_timestamps.size())
     LOG(FATAL) << "Must have as many ref cam timestamps as ref cameras.\n";
-  std::vector<double> world_to_ref_vec(num_ref_cams * rig::NUM_RIGID_PARAMS);
-  for (int cid = 0; cid < num_ref_cams; cid++)
-    rig::rigid_transform_to_array(world_to_ref[cid],
-                                  &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
-  
-  // Need the identity transform for when the cam is the ref cam, and
-  // have to have a placeholder for the right bracketing cam which won't be used.
-  // These need to have different pointers because CERES wants it that way.
-  Eigen::Affine3d identity = Eigen::Affine3d::Identity();
-  std::vector<double> ref_identity_vec(rig::NUM_RIGID_PARAMS),
-    right_identity_vec(rig::NUM_RIGID_PARAMS);
-  rig::rigid_transform_to_array(identity, &ref_identity_vec[0]);
-  rig::rigid_transform_to_array(identity, &right_identity_vec[0]);
 
   // Which intrinsics from which cameras to float. Indexed by cam_type.
   std::vector<std::set<std::string>> intrinsics_to_float;
@@ -260,17 +238,6 @@ int main(int argc, char** argv) {
     depth_to_image_scales.push_back(depth_to_image_scale);
   }
 
-  // Put depth_to_image arrays, so we can optimize them
-  std::vector<double> depth_to_image_vec(num_cam_types * num_depth_params);
-  for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
-    if (opt.affine_depth_to_image)
-      rig::affine_transform_to_array(R.depth_to_image[cam_type],
-                                     &depth_to_image_vec[num_depth_params * cam_type]);
-    else
-      rig::rigid_transform_to_array(R.depth_to_image[cam_type],
-                                    &depth_to_image_vec[num_depth_params * cam_type]);
-  }
-
   // Put the intrinsics in arrays
   std::vector<double> focal_lengths(num_cam_types);
   std::vector<Eigen::Vector2d> optical_centers(num_cam_types);
@@ -279,18 +246,6 @@ int main(int argc, char** argv) {
     focal_lengths[it] = R.cam_params[it].GetFocalLength();  // average the two focal lengths
     optical_centers[it] = R.cam_params[it].GetOpticalOffset();
     distortions[it] = R.cam_params[it].GetDistortion();
-  }
-
-  // TODO(oalexan1): Eliminate world_to_cam, use only world_to_cam_vec
-  // If using no extrinsics, each camera will float separately, using
-  // world_to_cam as initial guesses. Use world_to_cam_vec as storage
-  // for the camera poses to optimize.
-  std::vector<double> world_to_cam_vec;
-  if (opt.no_rig) {
-    world_to_cam_vec.resize(cams.size() * rig::NUM_RIGID_PARAMS);
-    for (size_t cid = 0; cid < cams.size(); cid++)
-      rig::rigid_transform_to_array(world_to_cam[cid],
-                                    &world_to_cam_vec[rig::NUM_RIGID_PARAMS * cid]);
   }
 
   // Detect and match features if --num_overlaps > 0. Append the features
@@ -355,10 +310,50 @@ int main(int argc, char** argv) {
     std::cout << "\nOptimization pass "
               << pass + 1 << " / " << opt.calibrator_num_passes << "\n";
 
-    // The transforms from the world to all cameras must be updated
-    // given the current state of optimization
-    // TODO(oalexan1): The call below is likely not necessary since this function
-    // is already called earlier, and also whenever a pass finishes, see below.
+    // Create _vec forms from current Affine3d state for optimization
+    // Put the rig transforms in arrays, so we can optimize them
+    std::vector<double> ref_to_cam_vec(num_cam_types * rig::NUM_RIGID_PARAMS, 0.0);
+    for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
+      rig::rigid_transform_to_array(R.ref_to_cam_trans[cam_type],
+                                    &ref_to_cam_vec[rig::NUM_RIGID_PARAMS * cam_type]);
+
+    // Put transforms of the reference cameras in a vector so we can optimize them.
+    std::vector<double> world_to_ref_vec(num_ref_cams * rig::NUM_RIGID_PARAMS);
+    for (int cid = 0; cid < num_ref_cams; cid++)
+      rig::rigid_transform_to_array(world_to_ref[cid],
+                                    &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
+    
+    // Need the identity transform for when the cam is the ref cam, and
+    // have to have a placeholder for the right bracketing cam which won't be used.
+    // These need to have different pointers because CERES wants it that way.
+    Eigen::Affine3d identity = Eigen::Affine3d::Identity();
+    std::vector<double> ref_identity_vec(rig::NUM_RIGID_PARAMS),
+      right_identity_vec(rig::NUM_RIGID_PARAMS);
+    rig::rigid_transform_to_array(identity, &ref_identity_vec[0]);
+    rig::rigid_transform_to_array(identity, &right_identity_vec[0]);
+
+    // Put depth_to_image arrays, so we can optimize them
+    std::vector<double> depth_to_image_vec(num_cam_types * num_depth_params);
+    for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
+      if (opt.affine_depth_to_image)
+        rig::affine_transform_to_array(R.depth_to_image[cam_type],
+                                       &depth_to_image_vec[num_depth_params * cam_type]);
+      else
+        rig::rigid_transform_to_array(R.depth_to_image[cam_type],
+                                      &depth_to_image_vec[num_depth_params * cam_type]);
+    }
+
+    // If using no extrinsics, each camera will float separately, using
+    // world_to_cam as initial guesses.
+    std::vector<double> world_to_cam_vec;
+    if (opt.no_rig) {
+      world_to_cam_vec.resize(cams.size() * rig::NUM_RIGID_PARAMS);
+      for (size_t cid = 0; cid < cams.size(); cid++)
+        rig::rigid_transform_to_array(world_to_cam[cid],
+                                      &world_to_cam_vec[rig::NUM_RIGID_PARAMS * cid]);
+    }
+
+    // Update world_to_cam from current _vec state before triangulation
     rig::calcWorldToCam(// Inputs
                         opt.no_rig, cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec,
                         world_to_cam_vec, R.ref_to_cam_timestamp_offsets,
@@ -457,15 +452,30 @@ int main(int argc, char** argv) {
       // Copy back the reference transforms from primary storage (world_to_ref_vec)
       // to Affine3d form (world_to_ref) for later use by applyRegistration.
       for (int cid = 0; cid < num_ref_cams; cid++)
-        rig::array_to_rigid_transform
-          (world_to_ref[cid], &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
+        rig::array_to_rigid_transform(world_to_ref[cid], // output
+                                      &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
     } else {
       // Each camera floats individually. Update world_to_cam from
       // optimized world_to_cam_vec.
       for (size_t cid = 0; cid < cams.size(); cid++) {
-        rig::array_to_rigid_transform
-          (world_to_cam[cid], &world_to_cam_vec[rig::NUM_RIGID_PARAMS * cid]);
+        rig::array_to_rigid_transform(world_to_cam[cid], // output
+                                      &world_to_cam_vec[rig::NUM_RIGID_PARAMS * cid]);
       }
+    }
+
+    // Copy back the optimized extrinsics, whether they were optimized or fixed
+    for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
+      rig::array_to_rigid_transform(R.ref_to_cam_trans[cam_type], // output
+                                    &ref_to_cam_vec[rig::NUM_RIGID_PARAMS * cam_type]);
+
+    // Copy back the depth to image transforms without scales
+    for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
+      if (opt.affine_depth_to_image)
+        rig::array_to_affine_transform(R.depth_to_image[cam_type], // output
+                                       &depth_to_image_vec[num_depth_params * cam_type]);
+      else
+        rig::array_to_rigid_transform(R.depth_to_image[cam_type], // output
+                                      &depth_to_image_vec[num_depth_params * cam_type]);
     }
 
     // Copy back the optimized intrinsics
@@ -476,34 +486,16 @@ int main(int argc, char** argv) {
       R.cam_params[cam_type].SetDistortion(distortions[cam_type]);
     }
 
-    // Copy back the optimized extrinsics, whether they were optimized or fixed
-    for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
-      rig::array_to_rigid_transform
-        (R.ref_to_cam_trans[cam_type],
-         &ref_to_cam_vec[rig::NUM_RIGID_PARAMS * cam_type]);
-
-    // Copy back the depth to image transforms without scales
-    for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
-      if (opt.affine_depth_to_image)
-        rig::array_to_affine_transform
-          (R.depth_to_image[cam_type],
-           &depth_to_image_vec[num_depth_params * cam_type]);
-      else
-        rig::array_to_rigid_transform(
-          R.depth_to_image[cam_type],
-          &depth_to_image_vec[num_depth_params * cam_type]);
-    }
-
-    // Evaluate the residuals after optimization
-    rig::evalResiduals("after opt", residual_names, residual_scales, problem,
-                             residuals);
-
     // Must have up-to-date world_to_cam and residuals to flag the outliers
     rig::calcWorldToCam(// Inputs
                         opt.no_rig, cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec,
                         world_to_cam_vec, R.ref_to_cam_timestamp_offsets,
                         // Output
                         world_to_cam);
+
+    // Evaluate the residuals after optimization
+    rig::evalResiduals("after opt", residual_names, residual_scales, problem,
+                             residuals);
 
     // Flag outliers after this pass
     rig::flagOutliersByTriAngleAndReprojErr(// Inputs
@@ -519,6 +511,15 @@ int main(int argc, char** argv) {
     
   }  // End optimization passes
 
+  // Update the transforms from the world to every camera
+  if (!opt.no_rig) {
+    rig::calcWorldToCamWithRig(// Inputs
+                               !opt.no_rig, cams, world_to_ref, ref_timestamps,
+                               R.ref_to_cam_trans, R.ref_to_cam_timestamp_offsets,
+                               // Output
+                               world_to_cam);
+  }
+
   // Put back the scale in R.depth_to_image
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
     R.depth_to_image[cam_type].linear() *= depth_to_image_scales[cam_type];
@@ -526,13 +527,6 @@ int main(int argc, char** argv) {
   if (opt.save_matches)
     rig::saveInlierMatchPairs(cams, opt.num_overlaps, pid_to_cid_fid,
                               keypoint_vec, pid_cid_fid_inlier, opt.out_prefix);
-
-  // Update the transforms from the world to every camera
-  rig::calcWorldToCam(  // Inputs
-    opt.no_rig, cams, world_to_ref_vec, ref_timestamps, ref_to_cam_vec, world_to_cam_vec,
-    R.ref_to_cam_timestamp_offsets,
-    // Output
-    world_to_cam);
 
   // Redo the registration unless told not to.
   // Note: applyRegistration modifies world_to_ref (Affine3d form), which was updated
