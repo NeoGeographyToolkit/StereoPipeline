@@ -109,10 +109,10 @@ int main(int argc, char** argv) {
   if (!opt.fixed_image_list.empty()) 
     rig::readList(opt.fixed_image_list, fixed_images);
 
-  // world_to_ref has the transforms from the ref cameras to the world,
-  // while world_to_cam has the transforms from the world to all cameras,
-  // including world_to_ref. Both of these are needed in certain circumstances,
-  // and it is very important to always keep these in sync.
+  // Storage for camera transforms. These are stored in two forms:
+  // - world_to_ref_vec / world_to_cam_vec - flat double arrays (primary, used by optimizer)
+  // - world_to_ref / world_to_cam - Affine3d (only for specific functions)
+  // The vec versions are the authoritative storage.
   std::vector<Eigen::Affine3d> world_to_ref, world_to_cam;
 
   // Read camera poses from nvm file or a list.
@@ -183,7 +183,9 @@ int main(int argc, char** argv) {
       has_depth[cam_type] = true;
   }
 
-  // Transform to world coordinates if control points were provided
+  // Transform to world coordinates if control points were provided.
+  // Note: applyRegistration modifies world_to_ref (Affine3d), which will then be
+  // converted to world_to_ref_vec (primary storage) below.
   Eigen::Affine3d registration_trans;
   registration_trans.matrix() = Eigen::Matrix4d::Identity(); // default
   bool registration_applied = false;
@@ -206,7 +208,7 @@ int main(int argc, char** argv) {
        &ref_to_cam_vec[rig::NUM_RIGID_PARAMS * cam_type]);
 
   // Put transforms of the reference cameras in a vector so we can optimize them.
-  // TODO(oalexan1): Eliminate world_to_ref. Use only world_to_ref_vec.
+  // world_to_ref_vec is the primary storage for reference camera transforms.
   int num_ref_cams = world_to_ref.size();
   if (world_to_ref.size() != ref_timestamps.size())
     LOG(FATAL) << "Must have as many ref cam timestamps as ref cameras.\n";
@@ -300,16 +302,16 @@ int main(int argc, char** argv) {
   // Do not save these matches. Only inlier matches will be saved later.
   bool local_save_matches = false;
   std::vector<Eigen::Vector3d> xyz_vec; // triangulated points go here
-  rig::detectMatchAppendFeatures(// Inputs
-                           cams, R.cam_params, opt.out_prefix, local_save_matches,
-                           filter_matches_using_cams, world_to_cam,
-                           opt.num_overlaps, input_image_pairs,
-                           opt.initial_max_reprojection_error,
-                           opt.num_match_threads,
-                           opt.read_nvm_no_shift, opt.no_nvm_matches,
-                           opt.verbose,
-                           // Outputs
-                           keypoint_vec, pid_to_cid_fid, xyz_vec, nvm);
+  rig::detectAddFeatures(// Inputs
+                         cams, R.cam_params, opt.out_prefix, local_save_matches,
+                         filter_matches_using_cams, world_to_cam,
+                         opt.num_overlaps, input_image_pairs,
+                         opt.initial_max_reprojection_error,
+                         opt.num_match_threads,
+                         opt.read_nvm_no_shift, opt.no_nvm_matches,
+                         opt.verbose,
+                         // Outputs
+                         keypoint_vec, pid_to_cid_fid, xyz_vec, nvm);
   if (pid_to_cid_fid.empty())
     LOG(FATAL) << "No interest points were found. Must specify either "
                << "--nvm or positive --num_overlaps.\n";
@@ -452,7 +454,8 @@ int main(int argc, char** argv) {
     // The optimization is done. Right away copy the optimized states
     // to where they belong to keep all data in sync.
     if (!opt.no_rig) {
-      // Copy back the reference transforms
+      // Copy back the reference transforms from primary storage (world_to_ref_vec)
+      // to Affine3d form (world_to_ref) for later use by applyRegistration.
       for (int cid = 0; cid < num_ref_cams; cid++)
         rig::array_to_rigid_transform
           (world_to_ref[cid], &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
@@ -532,6 +535,8 @@ int main(int argc, char** argv) {
     world_to_cam);
 
   // Redo the registration unless told not to.
+  // Note: applyRegistration modifies world_to_ref (Affine3d form), which was updated
+  // from world_to_ref_vec after the optimization loop above.
   if (!opt.skip_post_registration && opt.registration &&
       opt.hugin_file != "" && opt.xyz_file != "") {
     // This time adjust the depth-to-image scale to be consistent with optimized cameras

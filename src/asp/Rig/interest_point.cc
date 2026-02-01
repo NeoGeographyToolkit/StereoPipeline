@@ -737,21 +737,21 @@ void detectMatchFeatures(// Inputs
   match_map = aspOpenMVG::matching::PairWiseMatches();  // wipe this, no longer needed
 }
          
-void detectMatchAppendFeatures(// Inputs
-                         std::vector<rig::cameraImage>      const& cams,
-                         std::vector<rig::CameraParameters> const& cam_params,
-                         std::string                        const& out_dir, bool save_matches,
-                         bool filter_matches_using_cams,
-                         std::vector<Eigen::Affine3d>       const& world_to_cam,
-                         int num_overlaps,
-                         std::vector<std::pair<int, int>>   const& input_image_pairs, 
-                         int initial_max_reprojection_error, int num_match_threads,
-                         bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
-                         // Outputs
-                         rig::KeypointVec                        & keypoint_vec,
-                         rig::PidCidFid                          & pid_to_cid_fid,
-                         std::vector<Eigen::Vector3d>            & xyz_vec,
-                         asp::nvmData                            & nvm) {
+void detectAddFeatures(// Inputs
+                       std::vector<rig::cameraImage>      const& cams,
+                       std::vector<rig::CameraParameters> const& cam_params,
+                       std::string                        const& out_dir, bool save_matches,
+                       bool filter_matches_using_cams,
+                       std::vector<Eigen::Affine3d>       const& world_to_cam,
+                       int num_overlaps,
+                       std::vector<std::pair<int, int>>   const& input_image_pairs, 
+                       int initial_max_reprojection_error, int num_match_threads,
+                       bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
+                       // Outputs
+                       rig::KeypointVec                        & keypoint_vec,
+                       rig::PidCidFid                          & pid_to_cid_fid,
+                       std::vector<Eigen::Vector3d>            & xyz_vec,
+                       asp::nvmData                            & nvm) {
 
   // Wipe the outputs
   keypoint_vec.clear();

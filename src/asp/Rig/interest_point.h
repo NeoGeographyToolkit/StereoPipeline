@@ -77,22 +77,22 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
 void keypointMapToVec(KeyPointMap const& keypoint_map,
                       KeypointVec & keypoint_vec);
 
-void detectMatchAppendFeatures(// Inputs
-                         std::vector<rig::cameraImage>      const& cams,
-                         std::vector<rig::CameraParameters> const& cam_params,
-                         std::string                        const& out_dir, 
-                         bool save_matches,
-                         bool filter_matches_using_cams,
-                         std::vector<Eigen::Affine3d>       const& world_to_cam,
-                         int num_overlaps,
-                         std::vector<std::pair<int, int>>   const& input_image_pairs, 
-                         int initial_max_reprojection_error, int num_match_threads,
-                         bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
-                         // Outputs
-                         rig::KeypointVec                        & keypoint_vec,
-                         rig::PidCidFid                          & pid_to_cid_fid,
-                         std::vector<Eigen::Vector3d>            & xyz_vec,
-                         asp::nvmData                            & nvm);
+void detectAddFeatures(// Inputs
+                       std::vector<rig::cameraImage>      const& cams,
+                       std::vector<rig::CameraParameters> const& cam_params,
+                       std::string                        const& out_dir, 
+                       bool save_matches,
+                       bool filter_matches_using_cams,
+                       std::vector<Eigen::Affine3d>       const& world_to_cam,
+                       int num_overlaps,
+                       std::vector<std::pair<int, int>>   const& input_image_pairs, 
+                       int initial_max_reprojection_error, int num_match_threads,
+                       bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
+                       // Outputs
+                       rig::KeypointVec                        & keypoint_vec,
+                       rig::PidCidFid                          & pid_to_cid_fid,
+                       std::vector<Eigen::Vector3d>            & xyz_vec,
+                       asp::nvmData                            & nvm);
 
 // For nvm data that has the keypoints shifted relative to the optical
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.

@@ -559,16 +559,16 @@ void MergeMaps(asp::nvmData const& A,
     C.world_to_cam.resize(C.cid_to_filename.size()); // won't be used
     std::cout << "Number of image pairs to match: " << image_pairs.size() << std::endl;
     std::vector<Eigen::Vector3d> local_xyz_vec; // not used
-    rig::detectMatchAppendFeatures(// Inputs
-                                   C_cams, R.cam_params, out_dir, save_matches,  
-                                   filter_matches_using_cams,  
-                                   C.world_to_cam,
-                                   num_overlaps, image_pairs,
-                                   initial_max_reprojection_error, num_threads,  
-                                   read_nvm_no_shift, no_nvm_matches, verbose,  
-                                   // Outputs
-                                   C_keypoint_vec, C.pid_to_cid_fid, local_xyz_vec,
-                                   empty_nvm);
+    rig::detectAddFeatures(// Inputs
+                           C_cams, R.cam_params, out_dir, save_matches,  
+                           filter_matches_using_cams,  
+                           C.world_to_cam,
+                           num_overlaps, image_pairs,
+                           initial_max_reprojection_error, num_threads,  
+                           read_nvm_no_shift, no_nvm_matches, verbose,  
+                           // Outputs
+                           C_keypoint_vec, C.pid_to_cid_fid, local_xyz_vec,
+                           empty_nvm);
 
     // Split intro corresponding tracks in the two maps
     rig::PidCidFid A_pid_to_cid_fid, B_pid_to_cid_fid;
