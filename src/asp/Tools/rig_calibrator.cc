@@ -280,10 +280,8 @@ int main(int argc, char** argv) {
                           bracketed_cam_block_sizes, bracketed_depth_block_sizes,
                           bracketed_depth_mesh_block_sizes, xyz_block_sizes);
 
-  // For a given fid = pid_to_cid_fid[pid][cid], the value
-  // pid_cid_fid_inlier[pid][cid][fid] will be non-zero only if this
-  // pixel is an inlier. Originally all pixels are inliers. Once an
-  // inlier becomes an outlier, it never becomes an inlier again.
+  // Inlier flag. Once an inlier becomes an outlier, it never becomes an inlier
+  // again.
   rig::PidCidFidMap pid_cid_fid_inlier;
   
   // TODO(oalexan1): Must initialize all points as inliers outside this function,
@@ -497,7 +495,7 @@ int main(int argc, char** argv) {
     rig::evalResiduals("after opt", residual_names, residual_scales, problem,
                        residuals);
 
-    // Flag outliers after this pass using the computed resi
+    // Flag outliers after this pass using the computed residuals
     rig::flagOutliers(// Inputs
                       opt.min_triangulation_angle, opt.max_reprojection_error,
                       pid_to_cid_fid, keypoint_vec,
@@ -510,15 +508,6 @@ int main(int argc, char** argv) {
                         pid_cid_fid_to_residual_index, residuals);
     
   }  // End optimization passes
-
-  // Update the transforms from the world to every camera
-  if (!opt.no_rig) {
-    rig::calcWorldToCamWithRig(// Inputs
-                               !opt.no_rig, cams, world_to_ref, ref_timestamps,
-                               R.ref_to_cam_trans, R.ref_to_cam_timestamp_offsets,
-                               // Output
-                               world_to_cam);
-  }
 
   // Put back the scale in R.depth_to_image
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
