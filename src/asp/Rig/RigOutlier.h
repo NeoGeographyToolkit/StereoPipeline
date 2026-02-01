@@ -36,17 +36,16 @@ void flagOutlierByExclusionDist(// Inputs
                                 // Outputs
                                 PidCidFidMap                            & pid_cid_fid_inlier);
 
-void flagOutliersByTriAngleAndReprojErr
-(// Inputs
- double min_triangulation_angle, double max_reprojection_error,
- rig::PidCidFid               const& pid_to_cid_fid,
- rig::KeypointVec             const& keypoint_vec,
- std::vector<Eigen::Affine3d> const& world_to_cam, 
- std::vector<Eigen::Vector3d> const& xyz_vec,
- PidCidFidMap                 const& pid_cid_fid_to_residual_index,
- std::vector<double>          const& residuals,
- // Outputs
- PidCidFidMap                      & pid_cid_fid_inlier);
+void flagOutliers(// Inputs
+                  double min_triangulation_angle, double max_reprojection_error,
+                  rig::PidCidFid               const& pid_to_cid_fid,
+                  rig::KeypointVec             const& keypoint_vec,
+                  std::vector<Eigen::Affine3d> const& world_to_cam, 
+                  std::vector<Eigen::Vector3d> const& xyz_vec,
+                  PidCidFidMap                 const& pid_cid_fid_to_residual_index,
+                  std::vector<double>          const& residuals,
+                  // Outputs
+                  PidCidFidMap                      & pid_cid_fid_inlier);
 
 }  // namespace rig
 

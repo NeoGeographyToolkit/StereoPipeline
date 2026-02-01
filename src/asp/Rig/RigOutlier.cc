@@ -72,16 +72,16 @@ void flagOutlierByExclusionDist(// Inputs
 // assumed that the cameras in world_to_cam are up-to-date given the
 // current state of optimization, and that the residuals (including
 // the reprojection errors) have also been updated beforehand.
-void flagOutliersByTriAngleAndReprojErr(// Inputs
-  double min_triangulation_angle, double max_reprojection_error,
-  rig::PidCidFid               const& pid_to_cid_fid,
-  rig::KeypointVec             const& keypoint_vec,
-  std::vector<Eigen::Affine3d> const& world_to_cam, 
-  std::vector<Eigen::Vector3d> const& xyz_vec,
-  PidCidFidMap                 const& pid_cid_fid_to_residual_index,
-  std::vector<double>          const& residuals,
-  // Outputs
-  PidCidFidMap                      & pid_cid_fid_inlier) {
+void flagOutliers(// Inputs
+                  double min_triangulation_angle, double max_reprojection_error,
+                  rig::PidCidFid               const& pid_to_cid_fid,
+                  rig::KeypointVec             const& keypoint_vec,
+                  std::vector<Eigen::Affine3d> const& world_to_cam, 
+                  std::vector<Eigen::Vector3d> const& xyz_vec,
+                  PidCidFidMap                 const& pid_cid_fid_to_residual_index,
+                  std::vector<double>          const& residuals,
+                  // Outputs
+                  PidCidFidMap                      & pid_cid_fid_inlier) {
 
   // Must deal with outliers by triangulation angle before
   // removing outliers by reprojection error, as the latter will

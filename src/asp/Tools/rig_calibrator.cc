@@ -495,15 +495,15 @@ int main(int argc, char** argv) {
 
     // Evaluate the residuals after optimization
     rig::evalResiduals("after opt", residual_names, residual_scales, problem,
-                             residuals);
+                       residuals);
 
-    // Flag outliers after this pass
-    rig::flagOutliersByTriAngleAndReprojErr(// Inputs
-       opt.min_triangulation_angle, opt.max_reprojection_error,
-       pid_to_cid_fid, keypoint_vec,
-       world_to_cam, xyz_vec, pid_cid_fid_to_residual_index, residuals,
-       // Outputs
-       pid_cid_fid_inlier);
+    // Flag outliers after this pass using the computed resi
+    rig::flagOutliers(// Inputs
+                      opt.min_triangulation_angle, opt.max_reprojection_error,
+                      pid_to_cid_fid, keypoint_vec,
+                      world_to_cam, xyz_vec, pid_cid_fid_to_residual_index, residuals,
+                      // Outputs
+                      pid_cid_fid_inlier);
     
     rig::writeResiduals(opt.out_prefix, "final", R.cam_names, cams, keypoint_vec,  
                         pid_to_cid_fid, pid_cid_fid_inlier,
