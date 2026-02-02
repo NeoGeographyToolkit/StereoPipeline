@@ -56,6 +56,17 @@ void toOptState(const Extrinsics& extrinsics, const RigSet& R, OptState& state,
                                     &state.depth_to_image_vec[num_depth_params * cam_type]);
   }
   
+  // Copy intrinsics from R to state
+  int num_cam_types = R.cam_names.size();
+  state.focal_lengths.resize(num_cam_types);
+  state.optical_centers.resize(num_cam_types);
+  state.distortions.resize(num_cam_types);
+  for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
+    state.focal_lengths[cam_type] = R.cam_params[cam_type].GetFocalLength();
+    state.optical_centers[cam_type] = R.cam_params[cam_type].GetOpticalOffset();
+    state.distortions[cam_type] = R.cam_params[cam_type].GetDistortion();
+  }
+  
   // Setup identity transforms for ref cam and right bracketing cam placeholders.
   // These need to have different pointers because CERES wants it that way.
   Eigen::Affine3d identity = Eigen::Affine3d::Identity();
@@ -101,6 +112,15 @@ void fromOptState(const OptState& state, Extrinsics& extrinsics, RigSet& R,
     else
       rig::array_to_rigid_transform(R.depth_to_image[cam_type],
                                     &state.depth_to_image_vec[num_depth_params * cam_type]);
+  }
+  
+  // Copy optimized intrinsics from state back to R
+  int num_cam_types = R.cam_names.size();
+  for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
+    R.cam_params[cam_type].SetFocalLength(Eigen::Vector2d(state.focal_lengths[cam_type],
+                                                           state.focal_lengths[cam_type]));
+    R.cam_params[cam_type].SetOpticalOffset(state.optical_centers[cam_type]);
+    R.cam_params[cam_type].SetDistortion(state.distortions[cam_type]);
   }
 }
 

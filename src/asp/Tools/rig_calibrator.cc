@@ -210,14 +210,11 @@ int main(int argc, char** argv) {
   if (opt.affine_depth_to_image)
     num_depth_params = rig::NUM_AFFINE_PARAMS;
 
-  // Separate the initial scale. This is convenient if
-  // cam_depth_to_image is scale * rotation + translation and if
-  // it is desired to keep the scale fixed. In either case, the scale
-  // will be multiplied back when needed.
-  // Extract and normalize depth-to-image scales. This is done before the optimization
-  // loop and the scales are applied back after optimization.
-  std::vector<double> depth_to_image_scales;
+  // Separate the initial scale. This is convenient if cam_depth_to_image is
+  // scale * rotation + translation and if it is desired to keep the scale
+  // fixed. In either case, the scale will be multiplied back when needed.
   // TODO(oalexan1): affine_depth_to_image must allow fixing the scale. 
+  std::vector<double> depth_to_image_scales;
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
     double depth_to_image_scale
       = pow(R.depth_to_image[cam_type].matrix().determinant(), 1.0 / 3.0);
@@ -288,17 +285,7 @@ int main(int argc, char** argv) {
     // extrinsics, run the optimization, then update back the extrinsics.
     rig::OptState state;
 
-    // Put the intrinsics in arrays
-    state.focal_lengths.resize(num_cam_types);
-    state.optical_centers.resize(num_cam_types);
-    state.distortions.resize(num_cam_types);
-    for (int it = 0; it < num_cam_types; it++) {
-      state.focal_lengths[it] = R.cam_params[it].GetFocalLength();  // average focal length
-      state.optical_centers[it] = R.cam_params[it].GetOpticalOffset();
-      state.distortions[it] = R.cam_params[it].GetDistortion();
-    }
-
-    // Convert extrinsics to optimization state
+    // Convert extrinsics and rig config to optimization state (includes intrinsics)
     rig::toOptState(cams, R, state, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
 
     // Update cams.world_to_cam from current _vec state before triangulation
@@ -395,16 +382,8 @@ int main(int argc, char** argv) {
     options.parameter_tolerance = opt.parameter_tolerance;
     ceres::Solve(options, &problem, &summary);
 
-    // The optimization is done. Convert state back to extrinsics and R.
+    // The optimization is done. Convert state back to extrinsics and R (includes intrinsics).
     rig::fromOptState(state, cams, R, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
-
-    // Copy back the optimized intrinsics
-    for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
-      R.cam_params[cam_type].SetFocalLength(Eigen::Vector2d(state.focal_lengths[cam_type],
-                                                          state.focal_lengths[cam_type]));
-      R.cam_params[cam_type].SetOpticalOffset(state.optical_centers[cam_type]);
-      R.cam_params[cam_type].SetDistortion(state.distortions[cam_type]);
-    }
 
     // Must have up-to-date cams.world_to_cam and residuals to flag the outliers
     rig::calcWorldToCam(// Inputs
