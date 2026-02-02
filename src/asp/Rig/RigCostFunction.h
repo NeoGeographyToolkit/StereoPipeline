@@ -43,9 +43,9 @@ class RigSet;
 
 // A struct to hold the block sizes for the various cost functions
 struct RigBlockSizes {
-  std::vector<int> bracketed_cam_block_sizes;
-  std::vector<int> bracketed_depth_block_sizes;
-  std::vector<int> bracketed_depth_mesh_block_sizes;
+  std::vector<int> image_block_sizes;
+  std::vector<int> depth_block_sizes;
+  std::vector<int> depth_mesh_block_sizes;
   std::vector<int> xyz_block_sizes;
 };
 
@@ -194,37 +194,35 @@ void evalResiduals(// Inputs
                    std::vector<double>& residuals);
 
 // Set up the optimization problem for rig calibration
-void setupRigOptProblem(
-    // Inputs
-    std::vector<cameraImage> const& cams,
-    RigSet& R,
-    std::vector<double> const& ref_timestamps,
-    OptState& state,
-    std::vector<double>& depth_to_image_scales,
-    KeypointVec const& keypoint_vec,
-    rig::PidCidFid const& pid_to_cid_fid,
-    rig::PidCidFidMap const& pid_cid_fid_inlier,
-    rig::PidCidFidToMeshXyz const& pid_cid_fid_mesh_xyz,
-    std::vector<Eigen::Vector3d> const& pid_mesh_xyz,
-    std::vector<Eigen::Vector3d>& xyz_vec,
-    std::vector<Eigen::Vector3d> const& xyz_vec_orig,
-    // Block sizes
-    rig::RigBlockSizes const& block_sizes,
-    int num_depth_params,
-    // Configuration
-    std::vector<std::set<std::string>> const& intrinsics_to_float,
-    std::set<std::string> const& camera_poses_to_float,
-    std::set<std::string> const& depth_to_image_transforms_to_float,
-    std::set<std::string> const& fixed_images,
-    std::vector<double> const& min_timestamp_offset,
-    std::vector<double> const& max_timestamp_offset,
-    // Options
-    RigOptions const& opt,
-    // Outputs
-    rig::PidCidFidMap& pid_cid_fid_to_residual_index,
-    ceres::Problem& problem,
-    std::vector<std::string>& residual_names,
-    std::vector<double>& residual_scales);
+void setupRigOptProblem(// Inputs
+                        std::vector<cameraImage> const& cams,
+                        RigSet& R,
+                        std::vector<double> const& ref_timestamps,
+                        OptState& state,
+                        std::vector<double>& depth_to_image_scales,
+                        KeypointVec const& keypoint_vec,
+                        rig::PidCidFid const& pid_to_cid_fid,
+                        rig::PidCidFidMap const& pid_cid_fid_inlier,
+                        rig::PidCidFidToMeshXyz const& pid_cid_fid_mesh_xyz,
+                        std::vector<Eigen::Vector3d> const& pid_mesh_xyz,
+                        std::vector<Eigen::Vector3d>& xyz_vec,
+                        std::vector<Eigen::Vector3d> const& xyz_vec_orig,
+                        rig::RigBlockSizes const& block_sizes,
+                        int num_depth_params,
+                        // Configuration
+                        std::vector<std::set<std::string>> const& intrinsics_to_float,
+                        std::set<std::string> const& camera_poses_to_float,
+                        std::set<std::string> const& depth_to_image_transforms_to_float,
+                        std::set<std::string> const& fixed_images,
+                        std::vector<double> const& min_timestamp_offset,
+                        std::vector<double> const& max_timestamp_offset,
+                        // Options
+                        RigOptions const& opt,
+                        // Outputs
+                        rig::PidCidFidMap& pid_cid_fid_to_residual_index,
+                        ceres::Problem& problem,
+                        std::vector<std::string>& residual_names,
+                        std::vector<double>& residual_scales);
 
 }  // namespace rig
 

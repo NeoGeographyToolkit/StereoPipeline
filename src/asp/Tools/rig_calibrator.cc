@@ -195,13 +195,10 @@ int main(int argc, char** argv) {
 
   // Which intrinsics from which cameras to float. Indexed by cam_type.
   std::vector<std::set<std::string>> intrinsics_to_float;
-  rig::parse_intrinsics_to_float(opt.intrinsics_to_float, R.cam_names,
-                                       intrinsics_to_float);
-
   std::set<std::string> camera_poses_to_float;
-  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float, camera_poses_to_float);
-
   std::set<std::string> depth_to_image_transforms_to_float;
+  rig::parse_intrinsics_to_float(opt.intrinsics_to_float, R.cam_names, intrinsics_to_float);
+  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float, camera_poses_to_float);
   rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float,
                           depth_to_image_transforms_to_float);
 
@@ -332,18 +329,16 @@ int main(int argc, char** argv) {
     ceres::Problem problem;
     std::vector<std::string> residual_names;
     std::vector<double> residual_scales;
-    rig::setupRigOptProblem(
-        imgData, R, ref_timestamps, state, depth_to_image_scales,
-        keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_mesh_xyz,
-        pid_mesh_xyz, xyz_vec, xyz_vec_orig,
-        // Block sizes
-        block_sizes, num_depth_params,
-        intrinsics_to_float, camera_poses_to_float,
-        depth_to_image_transforms_to_float, fixed_images, min_timestamp_offset,
-        max_timestamp_offset,
-        opt,
-        // Outputs
-        pid_cid_fid_to_residual_index, problem, residual_names, residual_scales);
+    rig::setupRigOptProblem(imgData, R, ref_timestamps, state, depth_to_image_scales,
+                            keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, 
+                            pid_cid_fid_mesh_xyz, pid_mesh_xyz, xyz_vec, xyz_vec_orig,
+                            block_sizes, num_depth_params, 
+                            intrinsics_to_float, camera_poses_to_float,
+                            depth_to_image_transforms_to_float, fixed_images, 
+                            min_timestamp_offset, max_timestamp_offset, opt,
+                            // Outputs
+                            pid_cid_fid_to_residual_index, problem, residual_names, 
+                            residual_scales);
 
     // Evaluate the residuals before optimization
     std::vector<double> residuals;
