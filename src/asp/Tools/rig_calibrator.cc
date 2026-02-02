@@ -339,9 +339,7 @@ int main(int argc, char** argv) {
     std::vector<double> residual_scales;
     rig::setupRigOptProblem(
         // Inputs
-        imgData, R, ref_timestamps, state.world_to_cam_vec, state.world_to_ref_vec,
-        state.ref_to_cam_vec, state.ref_identity_vec, state.right_identity_vec, state.focal_lengths,
-        state.optical_centers, state.distortions, state.depth_to_image_vec, depth_to_image_scales,
+        imgData, R, ref_timestamps, state, depth_to_image_scales,
         keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_mesh_xyz,
         pid_mesh_xyz, xyz_vec, xyz_vec_orig,
         // Block sizes
@@ -351,13 +349,8 @@ int main(int argc, char** argv) {
         intrinsics_to_float, camera_poses_to_float,
         depth_to_image_transforms_to_float, fixed_images, min_timestamp_offset,
         max_timestamp_offset,
-        // Flags
-        opt.no_rig, opt.fix_rig_translations, opt.fix_rig_rotations,
-        opt.float_timestamp_offsets, opt.float_scale,
-        opt.affine_depth_to_image, (opt.mesh != ""),
-        opt.robust_threshold, opt.tri_robust_threshold, opt.tri_weight,
-        opt.depth_tri_weight, opt.depth_mesh_weight, opt.mesh_tri_weight,
-        opt.camera_position_weight,
+        // Options
+        opt, (opt.mesh != ""),
         // Outputs
         pid_cid_fid_to_residual_index, problem, residual_names, residual_scales);
 

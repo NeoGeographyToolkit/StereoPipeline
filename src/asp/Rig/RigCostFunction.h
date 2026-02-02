@@ -21,6 +21,9 @@
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/transform_utils.h>
+#include <asp/Rig/RigTypeDefs.h>
+#include <asp/Rig/RigData.h>
+#include <asp/Rig/RigOptions.h>
 
 #include <ceres/ceres.h>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
@@ -185,22 +188,13 @@ void evalResiduals(// Inputs
                    ceres::Problem     & problem, 
                    std::vector<double>& residuals);
 
-// TODO(oalexan1): Must have a struct for all options Must have structs for 
-// groups of other related data, e.g., camera params, etc.
+// Set up the optimization problem for rig calibration
 void setupRigOptProblem(
     // Inputs
     std::vector<cameraImage> const& cams,
     RigSet& R,
     std::vector<double> const& ref_timestamps,
-    std::vector<double>& world_to_cam_vec,
-    std::vector<double>& world_to_ref_vec,
-    std::vector<double>& ref_to_cam_vec,
-    std::vector<double>& ref_identity_vec,
-    std::vector<double>& right_identity_vec,
-    std::vector<double>& focal_lengths,
-    std::vector<Eigen::Vector2d>& optical_centers,
-    std::vector<Eigen::VectorXd>& distortions,
-    std::vector<double>& depth_to_image_vec,
+    OptState& state,
     std::vector<double>& depth_to_image_scales,
     KeypointVec const& keypoint_vec,
     rig::PidCidFid const& pid_to_cid_fid,
@@ -222,21 +216,9 @@ void setupRigOptProblem(
     std::set<std::string> const& fixed_images,
     std::vector<double> const& min_timestamp_offset,
     std::vector<double> const& max_timestamp_offset,
-    // Logic flags
-    bool no_rig,
-    bool fix_rig_translations,
-    bool fix_rig_rotations,
-    bool float_timestamp_offsets,
-    bool float_scale,
-    bool affine_depth_to_image,
+    // Options
+    RigOptions const& opt,
     bool has_mesh,
-    double robust_threshold,
-    double tri_robust_threshold,
-    double tri_weight,
-    double depth_tri_weight,
-    double depth_mesh_weight,
-    double mesh_tri_weight,
-    double camera_position_weight,
     // Outputs
     rig::PidCidFidMap& pid_cid_fid_to_residual_index,
     ceres::Problem& problem,
