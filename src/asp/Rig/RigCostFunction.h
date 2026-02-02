@@ -41,12 +41,17 @@ namespace rig {
 class cameraImage;
 class RigSet;
 
+// A struct to hold the block sizes for the various cost functions
+struct RigBlockSizes {
+  std::vector<int> bracketed_cam_block_sizes;
+  std::vector<int> bracketed_depth_block_sizes;
+  std::vector<int> bracketed_depth_mesh_block_sizes;
+  std::vector<int> xyz_block_sizes;
+};
+
 // Set up block sizes for various cost functions
 void set_up_block_sizes(int num_depth_params,
-                        std::vector<int> & bracketed_cam_block_sizes,
-                        std::vector<int> & bracketed_depth_block_sizes,
-                        std::vector<int> & bracketed_depth_mesh_block_sizes,
-                        std::vector<int> & xyz_block_sizes);
+                        RigBlockSizes& block_sizes);
 
 // If applicable, set up the parameters block to fix the rig translations and/or rotations
 void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rotations,
@@ -204,10 +209,7 @@ void setupRigOptProblem(
     std::vector<Eigen::Vector3d>& xyz_vec,
     std::vector<Eigen::Vector3d> const& xyz_vec_orig,
     // Block sizes
-    std::vector<int> const& bracketed_cam_block_sizes,
-    std::vector<int> const& bracketed_depth_block_sizes,
-    std::vector<int> const& bracketed_depth_mesh_block_sizes,
-    std::vector<int> const& xyz_block_sizes,
+    rig::RigBlockSizes const& block_sizes,
     int num_depth_params,
     // Configuration
     std::vector<std::set<std::string>> const& intrinsics_to_float,

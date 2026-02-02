@@ -246,13 +246,8 @@ int main(int argc, char** argv) {
                << "--nvm or positive --num_overlaps.\n";
 
   // Set up the block sizes
-  std::vector<int> bracketed_cam_block_sizes;
-  std::vector<int> bracketed_depth_block_sizes;
-  std::vector<int> bracketed_depth_mesh_block_sizes;
-  std::vector<int> xyz_block_sizes;
-  rig::set_up_block_sizes(num_depth_params,
-                          bracketed_cam_block_sizes, bracketed_depth_block_sizes,
-                          bracketed_depth_mesh_block_sizes, xyz_block_sizes);
+  rig::RigBlockSizes block_sizes;
+  rig::set_up_block_sizes(num_depth_params, block_sizes);
 
   // Inlier flag. Once an inlier becomes an outlier, it stays that way
   rig::PidCidFidMap pid_cid_fid_inlier;
@@ -338,18 +333,14 @@ int main(int argc, char** argv) {
     std::vector<std::string> residual_names;
     std::vector<double> residual_scales;
     rig::setupRigOptProblem(
-        // Inputs
         imgData, R, ref_timestamps, state, depth_to_image_scales,
         keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_mesh_xyz,
         pid_mesh_xyz, xyz_vec, xyz_vec_orig,
         // Block sizes
-        bracketed_cam_block_sizes, bracketed_depth_block_sizes,
-        bracketed_depth_mesh_block_sizes, xyz_block_sizes, num_depth_params,
-        // Configuration
+        block_sizes, num_depth_params,
         intrinsics_to_float, camera_poses_to_float,
         depth_to_image_transforms_to_float, fixed_images, min_timestamp_offset,
         max_timestamp_offset,
-        // Options
         opt,
         // Outputs
         pid_cid_fid_to_residual_index, problem, residual_names, residual_scales);

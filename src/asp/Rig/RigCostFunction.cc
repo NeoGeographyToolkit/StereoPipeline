@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -30,76 +30,73 @@ namespace rig {
 
 // Set up block sizes for various cost functions
 void set_up_block_sizes(int num_depth_params,
-                        std::vector<int> & bracketed_cam_block_sizes,
-                        std::vector<int> & bracketed_depth_block_sizes,
-                        std::vector<int> & bracketed_depth_mesh_block_sizes,
-                        std::vector<int> & xyz_block_sizes) {
+                        RigBlockSizes& block_sizes) {
   // Wipe the outputs
-  bracketed_cam_block_sizes.clear();
-  bracketed_depth_block_sizes.clear();
-  bracketed_depth_mesh_block_sizes.clear();
-  xyz_block_sizes.clear();
+  block_sizes.bracketed_cam_block_sizes.clear();
+  block_sizes.bracketed_depth_block_sizes.clear();
+  block_sizes.bracketed_depth_mesh_block_sizes.clear();
+  block_sizes.xyz_block_sizes.clear();
 
   int num_focal_lengths = 1;      // The x and y focal length are assumed to be the same
   int num_distortion_params = 1;  // will be overwritten later
 
   // Set up the variable blocks to optimize for BracketedCamError
 
-  bracketed_cam_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_cam_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_cam_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_cam_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
-  bracketed_cam_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
-  bracketed_cam_block_sizes.push_back(num_focal_lengths);
-  bracketed_cam_block_sizes.push_back(rig::NUM_OPT_CTR_PARAMS);
-  bracketed_cam_block_sizes.push_back(num_distortion_params);
+  block_sizes.bracketed_cam_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_cam_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_cam_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_cam_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
+  block_sizes.bracketed_cam_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+  block_sizes.bracketed_cam_block_sizes.push_back(num_focal_lengths);
+  block_sizes.bracketed_cam_block_sizes.push_back(rig::NUM_OPT_CTR_PARAMS);
+  block_sizes.bracketed_cam_block_sizes.push_back(num_distortion_params);
 
   // Set up variable blocks to optimize for BracketedDepthError
-  bracketed_depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_depth_block_sizes.push_back(num_depth_params);
-  bracketed_depth_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
-  bracketed_depth_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
-  bracketed_depth_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+  block_sizes.bracketed_depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_depth_block_sizes.push_back(num_depth_params);
+  block_sizes.bracketed_depth_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+  block_sizes.bracketed_depth_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
+  block_sizes.bracketed_depth_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
 
   // Set up the variable blocks to optimize for BracketedDepthMeshError
-  bracketed_depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  bracketed_depth_mesh_block_sizes.push_back(num_depth_params);
-  bracketed_depth_mesh_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
-  bracketed_depth_mesh_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+  block_sizes.bracketed_depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.bracketed_depth_mesh_block_sizes.push_back(num_depth_params);
+  block_sizes.bracketed_depth_mesh_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+  block_sizes.bracketed_depth_mesh_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
 
   // Set up the variable blocks to optimize for the mesh xyz
-  xyz_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
+  block_sizes.xyz_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
 }
 
 // If applicable, set up the parameters block to fix the rig translations and/or rotations
 void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rotations,
                         ceres::SubsetManifold*& constant_transform_manifold) {
-  
+
   constant_transform_manifold = NULL;
-  
+
   int beg = 0, end = 0;
   if (!no_rig && fix_rig_translations) {
-    beg = 0; 
+    beg = 0;
     end = 3;
   }
-  
+
   if (!no_rig && fix_rig_rotations) {
     if (!fix_rig_translations)
       beg = 3; // only fix rotation
     end = rig::NUM_RIGID_PARAMS;
   }
-  
+
   // Make a vector that goes from beg to end with increment 1
   std::vector<int> fixed_indices;
   for (int it = beg; it < end; it++)
     fixed_indices.push_back(it);
-  
+
   if (!fixed_indices.empty())
-    constant_transform_manifold 
+    constant_transform_manifold
       = new ceres::SubsetManifold(rig::NUM_RIGID_PARAMS, fixed_indices);
 }
 
@@ -121,7 +118,7 @@ ceres::LossFunction* GetLossFunction(std::string cost_fun, double th) {
 
   return loss_function;
 }
-  
+
 BracketedCamError::BracketedCamError(Eigen::Vector2d const& meas_dist_pix,
                   double left_ref_stamp, double right_ref_stamp, double cam_stamp,
                   std::vector<int> const& block_sizes,
@@ -139,8 +136,7 @@ BracketedCamError::BracketedCamError(Eigen::Vector2d const& meas_dist_pix,
       m_block_sizes[3] != NUM_XYZ_PARAMS || m_block_sizes[4] != NUM_SCALAR_PARAMS ||
       m_block_sizes[5] != m_num_focal_lengths ||
       m_block_sizes[6] != NUM_OPT_CTR_PARAMS ||
-      m_block_sizes[7] != 1  // This will be overwritten shortly
-  ) {
+      m_block_sizes[7] != 1) { // This will be overwritten shortly
     LOG(FATAL) << "BracketedCamError: The block sizes were not set up properly.\n";
   }
 
@@ -190,8 +186,8 @@ bool BracketedCamError::operator()(double const* const* parameters, double* resi
 
 // Factory to hide the construction of the CostFunction object from the client code.
 ceres::CostFunction*
-BracketedCamError::Create(Eigen::Vector2d const& meas_dist_pix, double left_ref_stamp, 
-                          double right_ref_stamp, double cam_stamp, 
+BracketedCamError::Create(Eigen::Vector2d const& meas_dist_pix, double left_ref_stamp,
+                          double right_ref_stamp, double cam_stamp,
                           std::vector<int> const& block_sizes,
                           rig::CameraParameters const& cam_params) {
 
@@ -212,7 +208,7 @@ BracketedCamError::Create(Eigen::Vector2d const& meas_dist_pix, double left_ref_
 
   return cost_function;
 }
-  
+
 BracketedDepthError::BracketedDepthError(double weight, Eigen::Vector3d const& meas_depth_xyz,
                     double left_ref_stamp, double right_ref_stamp, double cam_stamp,
                     std::vector<int> const& block_sizes):
@@ -236,7 +232,7 @@ BracketedDepthError::BracketedDepthError(double weight, Eigen::Vector3d const& m
 }
 
 // Call to work with ceres::DynamicNumericDiffCostFunction.
-bool BracketedDepthError::operator()(double const* const* parameters, 
+bool BracketedDepthError::operator()(double const* const* parameters,
                                      double* residuals) const {
   // Current world to camera transform
   Eigen::Affine3d world_to_cam_trans =
@@ -276,11 +272,11 @@ bool BracketedDepthError::operator()(double const* const* parameters,
 }
 
 // Factory to hide the construction of the CostFunction object from the client code.
-ceres::CostFunction* BracketedDepthError::Create(double weight, 
+ceres::CostFunction* BracketedDepthError::Create(double weight,
                                                  Eigen::Vector3d const& meas_depth_xyz,
-                                                 double left_ref_stamp, 
+                                                 double left_ref_stamp,
                                                  double right_ref_stamp,
-                                                 double cam_stamp, 
+                                                 double cam_stamp,
                                                  std::vector<int> const& block_sizes) {
   ceres::DynamicNumericDiffCostFunction<BracketedDepthError>* cost_function =
     new ceres::DynamicNumericDiffCostFunction<BracketedDepthError>
@@ -441,18 +437,18 @@ ceres::CostFunction* CamPositionErr::Create(const double * init_world_to_cam, do
 
   // The camera wrapper knows all of the block sizes to add.
   // The full parameter has the rotation too.
-  cost_function->AddParameterBlock(rig::NUM_RIGID_PARAMS); 
+  cost_function->AddParameterBlock(rig::NUM_RIGID_PARAMS);
 
   return cost_function;
 }
 
 // Evaluate the residuals before and after optimization
 void evalResiduals(// Inputs
-                   std::string              const& tag, 
+                   std::string              const& tag,
                    std::vector<std::string> const& residual_names,
                    std::vector<double>      const& residual_scales,
                    // Outputs
-                   ceres::Problem     & problem, 
+                   ceres::Problem     & problem,
                    std::vector<double>& residuals) {
 
   double total_cost = 0.0;
@@ -521,11 +517,11 @@ void addRigReprojCostFun(// Observation
 
   // Handle the case of no distortion
   double * distortion_ptr = NULL;
-  if (distortion_vec.size() > 0) 
+  if (distortion_vec.size() > 0)
     distortion_ptr = &distortion_vec[0];
   else
     distortion_ptr = distortion_placeholder_ptr;
-        
+
   residual_names.push_back(R.cam_names[cam_type] + "_pix_x");
   residual_names.push_back(R.cam_names[cam_type] + "_pix_y");
   residual_scales.push_back(1.0);
@@ -557,7 +553,7 @@ void addRigReprojCostFun(// Observation
     // for cams[cid], and not to its ref bracketing cam.
     // See if the user wants it floated.
     if (camera_poses_to_float.find(R.cam_names[cam_type])
-        == camera_poses_to_float.end()) 
+        == camera_poses_to_float.end())
       problem.SetParameterBlockConstant(beg_cam_ptr);
   }
 
@@ -565,9 +561,9 @@ void addRigReprojCostFun(// Observation
   // a non-ref cam and we have a rig. 
   if (camera_poses_to_float.find(R.refSensor(cam_type))
       == camera_poses_to_float.end() ||
-      R.isRefSensor(R.cam_names[cam_type]) || no_rig) 
+      R.isRefSensor(R.cam_names[cam_type]) || no_rig)
     problem.SetParameterBlockConstant(end_cam_ptr);
-        
+
   // ref_to_cam is kept fixed at the identity if the cam is the ref type or
   // no rig
   if (camera_poses_to_float.find(R.cam_names[cam_type])
@@ -581,14 +577,14 @@ void addRigReprojCostFun(// Observation
   if ((fix_rig_translations || fix_rig_rotations) &&
       fixed_parameters.find(ref_to_cam_ptr) == fixed_parameters.end())
     problem.SetManifold(ref_to_cam_ptr, constant_transform_manifold);
-        
+
   // See if to fix some images. For that, an image must be in the list,
   // and its camera must be either of ref type or there must be no rig.
   if (!fixed_images.empty() &&
       (fixed_images.find(image_name) != fixed_images.end()) &&
       (R.isRefSensor(R.cam_names[cam_type]) || no_rig))
     problem.SetParameterBlockConstant(beg_cam_ptr);
-        
+
   if (!float_timestamp_offsets || R.isRefSensor(R.cam_names[cam_type]) ||
       no_rig) {
     // Either we don't float timestamp offsets at all, or the cam is the ref type,
@@ -806,18 +802,18 @@ void addRigCamPosCostFun(// Observation
   for (size_t cid = 0; cid < cams.size(); cid++) {
     int cam_type = cams[cid].camera_type;
     auto const& sensor_name = R.cam_names[cam_type];
-    
+
     if (camera_poses_to_float.find(sensor_name)
         == camera_poses_to_float.end()) continue; // sensor not floated
-    
+
     if (!no_rig && !R.isRefSensor(sensor_name))
       continue; // only ref sensors are floated in a rig
-    
+
     // Find timestamps and pointers to bracketing cameras ref_to_cam transform.
     // This strongly depends on whether we are using a rig or not.
     double beg_ref_timestamp = -1.0, end_ref_timestamp = -1.0, cam_timestamp = -1.0;
     double *beg_cam_ptr = NULL, *end_cam_ptr = NULL, *ref_to_cam_ptr = NULL;
-    
+
     rig::calcBracketing(// Inputs
                   no_rig, cid, cam_type, cams, ref_timestamps, R,
                   world_to_cam_vec, world_to_ref_vec, ref_to_cam_vec,
@@ -826,14 +822,14 @@ void addRigCamPosCostFun(// Observation
                   beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
                   beg_ref_timestamp, end_ref_timestamp,
                   cam_timestamp);
-                  
+
     ceres::CostFunction* cam_pos_cost_function =
        rig::CamPositionErr::Create(beg_cam_ptr, camera_position_weight);
     ceres::LossFunction* cam_pos_loss_function = NULL; // no robust threshold
-    
+
     problem.AddResidualBlock(cam_pos_cost_function, cam_pos_loss_function,
                              beg_cam_ptr);
-    
+
     residual_names.push_back(sensor_name + "_pos_x");
     residual_names.push_back(sensor_name + "_pos_y");
     residual_names.push_back(sensor_name + "_pos_z");
@@ -867,10 +863,7 @@ void setupRigOptProblem(
     std::vector<Eigen::Vector3d>& xyz_vec,
     std::vector<Eigen::Vector3d> const& xyz_vec_orig,
     // Block sizes
-    std::vector<int> const& bracketed_cam_block_sizes,
-    std::vector<int> const& bracketed_depth_block_sizes,
-    std::vector<int> const& bracketed_depth_mesh_block_sizes,
-    std::vector<int> const& xyz_block_sizes,
+    rig::RigBlockSizes const& block_sizes,
     int num_depth_params,
     // Configuration
     std::vector<std::set<std::string>> const& intrinsics_to_float,
@@ -934,12 +927,14 @@ void setupRigOptProblem(
       // Add pixel reprojection error cost function
       rig::addRigReprojCostFun(dist_ip, beg_ref_timestamp, end_ref_timestamp,
                                cam_timestamp,
-                               bracketed_cam_block_sizes, R.cam_params[cam_type],
+                               block_sizes.bracketed_cam_block_sizes,
+                               R.cam_params[cam_type],
                                state.distortions[cam_type], &distortion_placeholder,
                                beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
                                &xyz_vec[pid][0],
                                &R.ref_to_cam_timestamp_offsets[cam_type],
-                               &state.focal_lengths[cam_type], &state.optical_centers[cam_type][0],
+                               &state.focal_lengths[cam_type],
+                               &state.optical_centers[cam_type][0],
                                R, cam_type, cams[cid].image_name,
                                intrinsics_to_float[cam_type],
                                camera_poses_to_float, fixed_images, fixed_parameters,
@@ -960,7 +955,8 @@ void setupRigOptProblem(
       if (have_depth_tri_constraint)
         rig::addRigDepthTriCostFun(depth_xyz, beg_ref_timestamp, end_ref_timestamp,
                                    cam_timestamp,
-                                   bracketed_depth_block_sizes, num_depth_params,
+                                   block_sizes.bracketed_depth_block_sizes,
+                                   num_depth_params,
                                    beg_cam_ptr, end_cam_ptr, ref_to_cam_ptr,
                                    &state.depth_to_image_vec[num_depth_params * cam_type],
                                    &depth_to_image_scales[cam_type],
@@ -989,7 +985,7 @@ void setupRigOptProblem(
       if (have_depth_mesh_constraint)
         rig::addRigDepthMeshCostFun(depth_xyz, mesh_xyz, beg_ref_timestamp,
                                     end_ref_timestamp, cam_timestamp,
-                                    bracketed_depth_mesh_block_sizes,
+                                    block_sizes.bracketed_depth_mesh_block_sizes,
                                     num_depth_params, beg_cam_ptr, end_cam_ptr,
                                     ref_to_cam_ptr,
                                     &state.depth_to_image_vec[num_depth_params * cam_type],
@@ -1023,7 +1019,7 @@ void setupRigOptProblem(
         have_mesh_tri_constraint = true;
     }
     if (have_mesh_tri_constraint)
-      rig::addRigMeshTriCostFun(avg_mesh_xyz, xyz_block_sizes,
+      rig::addRigMeshTriCostFun(avg_mesh_xyz, block_sizes.xyz_block_sizes,
                                 opt.mesh_tri_weight,
                                 opt.robust_threshold,
                                 &xyz_vec[pid][0], problem, residual_names,
@@ -1031,8 +1027,9 @@ void setupRigOptProblem(
 
     // Add the constraint that the triangulated point does not go too far
     if (opt.tri_weight > 0.0 && isTriInlier)
-      rig::addRigTriCostFun(xyz_vec_orig[pid], xyz_block_sizes, opt.tri_weight,
-                            opt.tri_robust_threshold, &xyz_vec[pid][0], problem,
+      rig::addRigTriCostFun(xyz_vec_orig[pid], block_sizes.xyz_block_sizes,
+                            opt.tri_weight, opt.tri_robust_threshold,
+                            &xyz_vec[pid][0], problem,
                             residual_names, residual_scales);
 
   }  // end iterating over pid
