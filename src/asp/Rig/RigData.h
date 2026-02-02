@@ -51,7 +51,6 @@ struct OptState {
   
   // Depth-to-image transforms (flattened)
   std::vector<double> depth_to_image_vec;
-  std::vector<double> depth_to_image_scales;
 };
 
 // Convert from structured extrinsics to optimization state

@@ -87,11 +87,6 @@ int main(int argc, char** argv) {
   rig::RigSet R;
   rig::readRigConfig(opt.rig_config, opt.use_initial_rig_transforms, R);
   
-  // Camera extrinsics and optimization state. Must update the state from
-  // extrinsics, run the optimization, then update back the extrinsics.
-  rig::Extrinsics cams;
-  rig::OptState state;
-  
   // Sanity check
   size_t max_num_sensors_per_rig = 0;
   for (size_t rig_it = 0; rig_it < R.cam_set.size(); rig_it++) 
@@ -125,6 +120,8 @@ int main(int argc, char** argv) {
                      opt.read_nvm_no_shift, R,
                      nvm, image_maps, depth_maps); // out
   
+  // Poses for all the cameras (extrinsics)
+  rig::Extrinsics cams;
   // Keep here the images, timestamps, and bracketing information
   std::vector<rig::cameraImage> imgData;
   //  The range of R.ref_to_cam_timestamp_offsets[cam_type] before
@@ -217,22 +214,15 @@ int main(int argc, char** argv) {
   // cam_depth_to_image is scale * rotation + translation and if
   // it is desired to keep the scale fixed. In either case, the scale
   // will be multiplied back when needed.
+  // Extract and normalize depth-to-image scales. This is done before the optimization
+  // loop and the scales are applied back after optimization.
+  std::vector<double> depth_to_image_scales;
   // TODO(oalexan1): affine_depth_to_image must allow fixing the scale. 
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
     double depth_to_image_scale
       = pow(R.depth_to_image[cam_type].matrix().determinant(), 1.0 / 3.0);
     R.depth_to_image[cam_type].linear() /= depth_to_image_scale;
-    state.depth_to_image_scales.push_back(depth_to_image_scale);
-  }
-
-  // Put the intrinsics in arrays
-  state.focal_lengths.resize(num_cam_types);
-  state.optical_centers.resize(num_cam_types);
-  state.distortions.resize(num_cam_types);
-  for (int it = 0; it < num_cam_types; it++) {
-    state.focal_lengths[it] = R.cam_params[it].GetFocalLength();  // average focal length
-    state.optical_centers[it] = R.cam_params[it].GetOpticalOffset();
-    state.distortions[it] = R.cam_params[it].GetDistortion();
+    depth_to_image_scales.push_back(depth_to_image_scale);
   }
 
   // Detect and match features if --num_overlaps > 0. Append the features
@@ -294,7 +284,21 @@ int main(int argc, char** argv) {
     std::cout << "\nOptimization pass "
               << pass + 1 << " / " << opt.calibrator_num_passes << "\n";
 
-    // Convert extrinsics to optimization state (includes identity vectors)
+    // Optimization state local to this pass. Must update the state from
+    // extrinsics, run the optimization, then update back the extrinsics.
+    rig::OptState state;
+
+    // Put the intrinsics in arrays
+    state.focal_lengths.resize(num_cam_types);
+    state.optical_centers.resize(num_cam_types);
+    state.distortions.resize(num_cam_types);
+    for (int it = 0; it < num_cam_types; it++) {
+      state.focal_lengths[it] = R.cam_params[it].GetFocalLength();  // average focal length
+      state.optical_centers[it] = R.cam_params[it].GetOpticalOffset();
+      state.distortions[it] = R.cam_params[it].GetDistortion();
+    }
+
+    // Convert extrinsics to optimization state
     rig::toOptState(cams, R, state, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
 
     // Update cams.world_to_cam from current _vec state before triangulation
@@ -350,7 +354,7 @@ int main(int argc, char** argv) {
         // Inputs
         imgData, R, ref_timestamps, state.world_to_cam_vec, state.world_to_ref_vec,
         state.ref_to_cam_vec, state.ref_identity_vec, state.right_identity_vec, state.focal_lengths,
-        state.optical_centers, state.distortions, state.depth_to_image_vec, state.depth_to_image_scales,
+        state.optical_centers, state.distortions, state.depth_to_image_vec, depth_to_image_scales,
         keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_mesh_xyz,
         pid_mesh_xyz, xyz_vec, xyz_vec_orig,
         // Block sizes
@@ -429,7 +433,7 @@ int main(int argc, char** argv) {
 
   // Put back the scale in R.depth_to_image
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
-    R.depth_to_image[cam_type].linear() *= state.depth_to_image_scales[cam_type];
+    R.depth_to_image[cam_type].linear() *= depth_to_image_scales[cam_type];
 
   if (opt.save_matches)
     rig::saveInlierMatchPairs(imgData, opt.num_overlaps, pid_to_cid_fid,
