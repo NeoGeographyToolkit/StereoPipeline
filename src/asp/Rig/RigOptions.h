@@ -28,9 +28,9 @@
 namespace rig {
 
 struct RigOptions: public asp::BaBaseOptions {
-  std::string rig_config, image_sensor_list, intrinsics_to_float,
-    camera_poses_to_float, depth_to_image_transforms_to_float, mesh,
-    hugin_file, xyz_file, camera_poses, extra_list,
+  std::string rig_config, image_sensor_list, intrinsics_to_float_str,
+    camera_poses_to_float_str, depth_to_image_transforms_to_float_str,
+    mesh, hugin_file, xyz_file, camera_poses, extra_list,
     out_texture_dir;
   double bracket_len, depth_tri_weight, mesh_tri_weight, depth_mesh_weight,
     timestamp_offsets_max_change,
@@ -44,6 +44,14 @@ struct RigOptions: public asp::BaBaseOptions {
     nearest_neighbor_interp, read_nvm_no_shift, save_nvm_no_shift,
     save_matches, export_to_voxblox, save_pinhole_cameras,
     save_transformed_depth_clouds, verbose;
+
+  // Parsed options
+  std::vector<std::set<std::string>> intrinsics_to_float;
+  std::set<std::string> camera_poses_to_float;
+  std::set<std::string> depth_to_image_transforms_to_float;
+  std::set<std::string> fixed_images;
+  std::vector<double> min_timestamp_offset;
+  std::vector<double> max_timestamp_offset;
 
   RigOptions(): asp::BaBaseOptions(),
     bracket_len(0.6), depth_tri_weight(1000.0),

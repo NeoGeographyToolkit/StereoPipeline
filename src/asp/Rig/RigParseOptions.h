@@ -26,11 +26,16 @@
 
 namespace rig {
   
+struct RigSet;
+  
 // Process the rig_calibrator options using boost::program_options
 void handleRigArgs(int argc, char *argv[], RigOptions& opt);
 
 // Validate rig_calibrator options
 void parameterValidation(RigOptions const& opt);
+
+// Parse auxiliary rig options
+void parseAuxRigOptions(RigOptions& opt, RigSet const& R);
   
 } // namespace rig
 

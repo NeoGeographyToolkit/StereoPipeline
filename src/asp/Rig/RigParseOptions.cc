@@ -21,6 +21,9 @@
 
 #include <asp/Rig/RigParseOptions.h>
 #include <asp/Rig/thread.h>
+#include <asp/Rig/RigParseUtils.h>
+#include <asp/Rig/rig_config.h>
+#include <asp/Rig/basic_algs.h>
 
 #include <vw/Core/Exception.h>
 
@@ -56,14 +59,14 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
      "uniformly during this time. A large value here will make the calibrator compute "
      "a poor solution but a small value may prevent enough images being bracketed. See "
      "also --bracket-single-image.")
-    ("intrinsics-to-float", po::value(&opt.intrinsics_to_float)->default_value(""),
+    ("intrinsics-to-float", po::value(&opt.intrinsics_to_float_str)->default_value(""),
      "Specify which intrinsics to float for each sensor. Example: "
      "'cam1:focal_length,optical_center,distortion cam2:focal_length'.")
-    ("camera-poses-to-float", po::value(&opt.camera_poses_to_float)->default_value(""),
+    ("camera-poses-to-float", po::value(&opt.camera_poses_to_float_str)->default_value(""),
      "Specify the cameras for which sensors can have their poses floated. Example: "
      "'cam1 cam3'. The documentation has more details.")
     ("depth-to-image-transforms-to-float",
-     po::value(&opt.depth_to_image_transforms_to_float)->default_value(""),
+     po::value(&opt.depth_to_image_transforms_to_float_str)->default_value(""),
      "Specify for which sensors to float the depth-to-image transform (if depth data "
      "exists). Example: 'cam1 cam3'.")
     ("fix-rig-translations", po::bool_switch(&opt.fix_rig_translations)->default_value(false),
@@ -201,7 +204,7 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
      "(will be followed by bundle adjustment refinement). This can give incorrect results "
      "if the new images are not very similar or not close in time to the existing ones. "
      "This list can contain entries for the data already present.")
-    ("fixed-image-list", po::value(&opt.fixed_image_list)->default_value(""),
+    ("fixed-image-list", po::value(&opt.fixed_image_list_str)->default_value(""),
      "A file having a list of images, one per line, whose cameras will be fixed during "
      "optimization.")
     ("nearest-neighbor-interp",
@@ -324,4 +327,19 @@ void parameterValidation(RigOptions const& opt) {
   return;
 }
 
-} // namespace rig
+void parseAuxRigOptions(RigOptions& opt, RigSet const& R) {
+  rig::parse_intrinsics_to_float(opt.intrinsics_to_float_str, R.cam_names,
+                                 opt.intrinsics_to_float);
+
+  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float_str, 
+                        opt.camera_poses_to_float);
+
+  rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float_str,
+                        opt.depth_to_image_transforms_to_float);
+
+  if (!opt.fixed_image_list_str.empty()) 
+    rig::readList(opt.fixed_image_list_str, opt.fixed_images);
+}
+
+} // end namespace rig
+

@@ -106,8 +106,8 @@ int main(int argc, char** argv) {
 
   // Read a list of images to keep fixed, if provided
   std::set<std::string> fixed_images;
-  if (!opt.fixed_image_list.empty())
-    rig::readList(opt.fixed_image_list, fixed_images);
+  if (!opt.fixed_image_list_str.empty())
+    rig::readList(opt.fixed_image_list_str, fixed_images);
 
   // Read camera poses from nvm file or a list.
   std::vector<rig::MsgMap> image_maps;
@@ -197,9 +197,9 @@ int main(int argc, char** argv) {
   std::vector<std::set<std::string>> intrinsics_to_float;
   std::set<std::string> camera_poses_to_float;
   std::set<std::string> depth_to_image_transforms_to_float;
-  rig::parse_intrinsics_to_float(opt.intrinsics_to_float, R.cam_names, intrinsics_to_float);
-  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float, camera_poses_to_float);
-  rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float,
+  rig::parse_intrinsics_to_float(opt.intrinsics_to_float_str, R.cam_names, intrinsics_to_float);
+  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float_str, camera_poses_to_float);
+  rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float_str,
                           depth_to_image_transforms_to_float);
 
   // Set up the variable blocks to optimize for BracketedDepthError

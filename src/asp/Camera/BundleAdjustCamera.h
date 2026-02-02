@@ -65,7 +65,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     clean_match_files_prefix, heights_from_dem, reference_terrain, mapproj_dem, weight_image,
     isis_cnet, nvm, nvm_no_shift, output_cnet_type,
     image_list, camera_list, mapprojected_data_list,
-    fixed_image_list, camera_position_uncertainty_str;
+    fixed_image_list_str, camera_position_uncertainty_str;
   int overlap_limit, min_matches, max_pairwise_matches, num_iterations,
     ip_edge_buffer_percent, max_num_reference_points, num_passes;
   std::set<std::pair<std::string, std::string>> overlap_list;

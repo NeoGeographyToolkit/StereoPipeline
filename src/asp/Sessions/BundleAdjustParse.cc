@@ -511,15 +511,15 @@ void loadValidateBaOptions(po::variables_map const& vm,
     }
   }
 
-  if (!opt.fixed_cameras_indices.empty() && !opt.fixed_image_list.empty())
+  if (!opt.fixed_cameras_indices.empty() && !opt.fixed_image_list_str.empty())
     vw::vw_throw(vw::ArgumentErr() << "Cannot specify both --fixed-camera-indices and "
              << "--fixed-image-list.\n");
-  if (!opt.fixed_image_list.empty()) {
+  if (!opt.fixed_image_list_str.empty()) {
 
     opt.fixed_cameras_indices.clear();
 
     std::vector<std::string> fixed_images;
-    asp::read_list(opt.fixed_image_list, fixed_images);
+    asp::read_list(opt.fixed_image_list_str, fixed_images);
 
     // Find the indices of all images
     std::map<std::string, int> all_indices;
@@ -761,7 +761,7 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "specified, the transform gets applied after the adjustments are read.")
     ("fixed-camera-indices",    po::value(&opt.fixed_cameras_indices_str)->default_value(""),
      "A list of indices, in quotes and starting from 0, with space as separator, corresponding to cameras to keep fixed during the optimization process.")
-    ("fixed-image-list",    po::value(&opt.fixed_image_list)->default_value(""),
+    ("fixed-image-list",    po::value(&opt.fixed_image_list_str)->default_value(""),
      "A file having a list of images (separated by spaces or newlines) whose cameras should be fixed during optimization.")
     ("fix-gcp-xyz", 
      po::bool_switch(&opt.fix_gcp_xyz)->default_value(false)->implicit_value(true),
