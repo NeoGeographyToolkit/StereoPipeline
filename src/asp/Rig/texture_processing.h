@@ -110,7 +110,7 @@ void meshTriangulations(// Inputs
   rig::PidCidFid                     const& pid_to_cid_fid,
   PidCidFidMap                       const& pid_cid_fid_inlier,
   rig::KeypointVec                   const& keypoint_vec,
-  Eigen::Vector3d                    const& bad_xyz, double min_ray_dist, double max_ray_dist,
+  double min_ray_dist, double max_ray_dist,
   mve::TriangleMesh::Ptr             const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,
   // Outputs
   rig::PidCidFidToMeshXyz                 & pid_cid_fid_mesh_xyz,

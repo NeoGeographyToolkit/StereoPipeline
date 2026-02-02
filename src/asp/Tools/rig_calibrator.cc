@@ -254,7 +254,6 @@ int main(int argc, char** argv) {
   // Structures needed to intersect rays with the mesh
   rig::PidCidFidToMeshXyz pid_cid_fid_mesh_xyz;
   std::vector<Eigen::Vector3d> pid_mesh_xyz;
-  Eigen::Vector3d bad_xyz(1.0e+100, 1.0e+100, 1.0e+100);  // use this to flag invalid xyz
 
   // TODO(oalexan1): All the logic for one pass should be its own function,
   // as the block below is too big.
@@ -298,13 +297,14 @@ int main(int argc, char** argv) {
     }
 
     // Compute where each ray intersects the mesh
-    if (opt.mesh != "")
+    if (opt.mesh != "") {
       rig::meshTriangulations(// Inputs
                               R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid,
-                              pid_cid_fid_inlier, keypoint_vec, bad_xyz,
+                              pid_cid_fid_inlier, keypoint_vec,
                               opt.min_ray_dist, opt.max_ray_dist, mesh, bvh_tree,
                               // Outputs
                               pid_cid_fid_mesh_xyz, pid_mesh_xyz);
+    }
 
     // For a given fid = pid_to_cid_fid[pid][cid], the value
     // pid_cid_fid_to_residual_index[pid][cid][fid] will be the index
