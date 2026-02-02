@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
   if (opt.no_rig && opt.use_initial_rig_transforms)
     LOG(FATAL) << "Cannot use initial rig transforms without a rig.\n";
   
-  // If we can use the initial rig transform, compute and overwrite overwrite
+  // If we can use the initial rig transform, compute and overwrite
   // cams.world_to_cam, the transforms from the world to each non-reference camera.
   // TODO(oalexan1): Test if this works with --no_rig. For now this combination
   // is not allowed.
@@ -282,17 +282,17 @@ int main(int argc, char** argv) {
               << pass + 1 << " / " << opt.calibrator_num_passes << "\n";
 
     // Optimization state local to this pass. Must update the state from
-    // extrinsics, run the optimization, then update back the extrinsics.
+    // extrinsics and rig config, run the optimization, then update back the extrinsics.
     rig::OptState state;
-
-    // Convert extrinsics and rig config to optimization state (includes intrinsics)
     rig::toOptState(cams, R, state, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
 
-    // Update cams.world_to_cam from current _vec state before triangulation
-    // TODO(oalexan1): Not clear if this is needed with the current code structure.
+    // Update cams.world_to_cam from current state. This is strictly necessary
+    // only when the rig is on, as then this data must be derived from the rig
+    // and the transforms for the reference sensor.
     rig::calcWorldToCam(// Inputs
-                        opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps, state.ref_to_cam_vec,
-                        state.world_to_cam_vec, R.ref_to_cam_timestamp_offsets,
+                        opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps, 
+                        state.ref_to_cam_vec, state.world_to_cam_vec, 
+                        R.ref_to_cam_timestamp_offsets,
                         // Output
                         cams.world_to_cam);
 
@@ -385,10 +385,13 @@ int main(int argc, char** argv) {
     // The optimization is done. Convert state back to extrinsics and R (includes intrinsics).
     rig::fromOptState(state, cams, R, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
 
-    // Must have up-to-date cams.world_to_cam and residuals to flag the outliers
+    // Update cams.world_to_cam from optimized state. This is strictly necessary
+    // only when the rig is on, as then this data must be derived from the rig
+    // and the transforms for the reference sensor.
     rig::calcWorldToCam(// Inputs
-                        opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps, state.ref_to_cam_vec,
-                        state.world_to_cam_vec, R.ref_to_cam_timestamp_offsets,
+                        opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps, 
+                        state.ref_to_cam_vec, state.world_to_cam_vec, 
+                        R.ref_to_cam_timestamp_offsets,
                         // Output
                         cams.world_to_cam);
 
