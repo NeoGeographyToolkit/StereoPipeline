@@ -86,6 +86,9 @@ int main(int argc, char** argv) {
   // Rig configuration. The rig transforms may not exist yet.
   rig::RigSet R;
   rig::readRigConfig(opt.rig_config, opt.use_initial_rig_transforms, R);
+  
+  // Parse auxiliary rig options that depend on R
+  rig::parseAuxRigOptions(opt, R);
 
   // Sanity check
   size_t max_num_sensors_per_rig = 0;
@@ -187,15 +190,6 @@ int main(int argc, char** argv) {
   int num_ref_cams = cams.world_to_ref.size();
   if (cams.world_to_ref.size() != ref_timestamps.size())
     LOG(FATAL) << "Must have as many ref cam timestamps as ref cameras.\n";
-
-  // Parse which intrinsics from which cameras to float. Indexed by cam_type.
-  rig::parse_intrinsics_to_float(opt.intrinsics_to_float_str, R.cam_names, opt.intrinsics_to_float);
-  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float_str, opt.camera_poses_to_float);
-  rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float_str,
-                          opt.depth_to_image_transforms_to_float);
-  // Read a list of images to keep fixed, if provided
-  if (!opt.fixed_image_list_str.empty())
-    rig::readList(opt.fixed_image_list_str, opt.fixed_images);
 
   // Set up the variable blocks to optimize for BracketedDepthError
   int num_depth_params = rig::NUM_RIGID_PARAMS;
