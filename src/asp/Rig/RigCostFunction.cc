@@ -881,12 +881,13 @@ void setupRigOptProblem(
     std::vector<double> const& max_timestamp_offset,
     // Options
     RigOptions const& opt,
-    bool has_mesh,
     // Outputs
     rig::PidCidFidMap& pid_cid_fid_to_residual_index,
     ceres::Problem& problem,
     std::vector<std::string>& residual_names,
     std::vector<double>& residual_scales) {
+
+  bool has_mesh = (opt.mesh != "");
 
   // For when we don't have distortion but must get a pointer to
   // distortion for the interface

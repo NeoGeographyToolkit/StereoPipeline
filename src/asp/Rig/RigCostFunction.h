@@ -218,7 +218,6 @@ void setupRigOptProblem(
     std::vector<double> const& max_timestamp_offset,
     // Options
     RigOptions const& opt,
-    bool has_mesh,
     // Outputs
     rig::PidCidFidMap& pid_cid_fid_to_residual_index,
     ceres::Problem& problem,

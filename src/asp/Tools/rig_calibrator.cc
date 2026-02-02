@@ -22,8 +22,8 @@
 #include <asp/Rig/RigOptions.h>
 #include <asp/Rig/RigParseOptions.h>
 #include <asp/Rig/RigTypeDefs.h>
-#include <asp/Rig/triangulation.h> 
-#include <asp/Rig/thread.h> 
+#include <asp/Rig/triangulation.h>
+#include <asp/Rig/thread.h>
 #include <asp/Rig/RigParseUtils.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/rig_utils.h>
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
   // Some dependencies may still use google logging
   google::InitGoogleLogging(argv[0]);
   // Force linking to tbb for some dependencies
-  tbb::task_arena schedule(tbb::task_arena::automatic); 
+  tbb::task_arena schedule(tbb::task_arena::automatic);
 
   rig::RigOptions opt;
   rig::handleRigArgs(argc, argv, opt);
@@ -86,16 +86,16 @@ int main(int argc, char** argv) {
   // Rig configuration. The rig transforms may not exist yet.
   rig::RigSet R;
   rig::readRigConfig(opt.rig_config, opt.use_initial_rig_transforms, R);
-  
+
   // Sanity check
   size_t max_num_sensors_per_rig = 0;
-  for (size_t rig_it = 0; rig_it < R.cam_set.size(); rig_it++) 
-    max_num_sensors_per_rig = std::max(max_num_sensors_per_rig, R.cam_set[rig_it].size()); 
+  for (size_t rig_it = 0; rig_it < R.cam_set.size(); rig_it++)
+    max_num_sensors_per_rig = std::max(max_num_sensors_per_rig, R.cam_set[rig_it].size());
   if (opt.extra_list != "" && opt.num_overlaps < max_num_sensors_per_rig)
     LOG(FATAL) << "If inserting extra images, must have --num_overlaps be at least "
                 << "the number of sensors in the rig, and ideally more, to be able "
                 << "to tie well the new images with the existing ones.\n";
-                 
+
   // Optionally load the mesh
   mve::TriangleMesh::Ptr mesh;
   std::shared_ptr<mve::MeshInfo> mesh_info;
@@ -106,20 +106,20 @@ int main(int argc, char** argv) {
 
   // Read a list of images to keep fixed, if provided
   std::set<std::string> fixed_images;
-  if (!opt.fixed_image_list.empty()) 
+  if (!opt.fixed_image_list.empty())
     rig::readList(opt.fixed_image_list, fixed_images);
 
   // Read camera poses from nvm file or a list.
   std::vector<rig::MsgMap> image_maps;
   std::vector<rig::MsgMap> depth_maps;
   asp::nvmData nvm;
-  rig::readListOrNvm(opt.camera_poses, opt.nvm, 
+  rig::readListOrNvm(opt.camera_poses, opt.nvm,
                      opt.image_sensor_list, opt.extra_list,
                      opt.use_initial_rig_transforms,
-                     opt.bracket_len, opt.nearest_neighbor_interp, 
+                     opt.bracket_len, opt.nearest_neighbor_interp,
                      opt.read_nvm_no_shift, R,
                      nvm, image_maps, depth_maps); // out
-  
+
   // Poses for all the cameras (extrinsics)
   rig::Extrinsics cams;
   // Keep here the images, timestamps, and bracketing information
@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
   rig::lookupImages(// Inputs
                     opt.no_rig, opt.bracket_len,
                     opt.timestamp_offsets_max_change,
-                    opt.bracket_single_image, 
+                    opt.bracket_single_image,
                     R, image_maps, depth_maps,
                     // Outputs
                     ref_timestamps, cams.world_to_ref,
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
 
   if (opt.no_rig && opt.use_initial_rig_transforms)
     LOG(FATAL) << "Cannot use initial rig transforms without a rig.\n";
-  
+
   // If we can use the initial rig transform, compute and overwrite
   // cams.world_to_cam, the transforms from the world to each non-reference camera.
   // TODO(oalexan1): Test if this works with --no_rig. For now this combination
@@ -157,12 +157,12 @@ int main(int argc, char** argv) {
                                R.ref_to_cam_timestamp_offsets,
                                // Output
                                cams.world_to_cam);
-  
+
   // If desired, initalize the rig based on median of transforms for the sensors
   if (!opt.no_rig && !opt.use_initial_rig_transforms)
     rig::calc_rig_trans(imgData, cams.world_to_ref, cams.world_to_cam, ref_timestamps,
                         R); // out
-  
+
   // Determine if a given camera type has any depth information
   int num_cam_types = R.cam_names.size();
   std::vector<bool> has_depth(num_cam_types, false);
@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
   std::set<std::string> depth_to_image_transforms_to_float;
   rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float,
                           depth_to_image_transforms_to_float);
-  
+
   // Set up the variable blocks to optimize for BracketedDepthError
   int num_depth_params = rig::NUM_RIGID_PARAMS;
   if (opt.affine_depth_to_image)
@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
   if (pid_to_cid_fid.empty())
     LOG(FATAL) << "No interest points were found. Must specify either "
                << "--nvm or positive --num_overlaps.\n";
-  
+
   // Set up the block sizes
   std::vector<int> bracketed_cam_block_sizes;
   std::vector<int> bracketed_depth_block_sizes;
@@ -256,7 +256,7 @@ int main(int argc, char** argv) {
 
   // Inlier flag. Once an inlier becomes an outlier, it stays that way
   rig::PidCidFidMap pid_cid_fid_inlier;
-  
+
   // TODO(oalexan1): Must initialize all points as inliers outside this function,
   // as now this function resets those.
   rig::flagOutlierByExclusionDist(// Inputs
@@ -267,9 +267,9 @@ int main(int argc, char** argv) {
 
   // Ensure that the triangulated points are kept in sync with the cameras
   if (opt.use_initial_triangulated_points && registration_applied)
-    rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid, 
+    rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid,
                                   pid_cid_fid_inlier, xyz_vec);
-  
+
   // Structures needed to intersect rays with the mesh
   rig::PidCidFidToMeshXyz pid_cid_fid_mesh_xyz;
   std::vector<Eigen::Vector3d> pid_mesh_xyz;
@@ -290,8 +290,8 @@ int main(int argc, char** argv) {
     // only when the rig is on, as then this data must be derived from the rig
     // and the transforms for the reference sensor.
     rig::calcWorldToCam(// Inputs
-                        opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps, 
-                        state.ref_to_cam_vec, state.world_to_cam_vec, 
+                        opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps,
+                        state.ref_to_cam_vec, state.world_to_cam_vec,
                         R.ref_to_cam_timestamp_offsets,
                         // Output
                         cams.world_to_cam);
@@ -313,9 +313,9 @@ int main(int argc, char** argv) {
         for (int coord_it = 0; coord_it < 3; coord_it++) {
           xyz_vec_orig[pt_it][coord_it] = xyz_vec[pt_it][coord_it];
         }
-      } 
+      }
     }
-    
+
     // Compute where each ray intersects the mesh
     if (opt.mesh != "")
       rig::meshTriangulations(// Inputs
@@ -350,7 +350,7 @@ int main(int argc, char** argv) {
         depth_to_image_transforms_to_float, fixed_images, min_timestamp_offset,
         max_timestamp_offset,
         // Options
-        opt, (opt.mesh != ""),
+        opt,
         // Outputs
         pid_cid_fid_to_residual_index, problem, residual_names, residual_scales);
 
@@ -359,15 +359,15 @@ int main(int argc, char** argv) {
     rig::evalResiduals("before opt", residual_names, residual_scales, problem, residuals);
 
     if (pass == 0)
-      rig::writeResiduals(opt.out_prefix, "initial", R.cam_names, imgData, keypoint_vec,  
-                          pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_to_residual_index,  
+      rig::writeResiduals(opt.out_prefix, "initial", R.cam_names, imgData, keypoint_vec,
+                          pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_to_residual_index,
                           residuals);
-    
+
     // Solve the problem
     ceres::Solver::Options options;
     ceres::Solver::Summary summary;
     options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    options.num_threads = opt.num_threads; 
+    options.num_threads = opt.num_threads;
     options.max_num_iterations = opt.num_iterations;
     options.minimizer_progress_to_stdout = true;
     options.gradient_tolerance = 1e-16;
@@ -382,8 +382,8 @@ int main(int argc, char** argv) {
     // only when the rig is on, as then this data must be derived from the rig
     // and the transforms for the reference sensor.
     rig::calcWorldToCam(// Inputs
-                        opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps, 
-                        state.ref_to_cam_vec, state.world_to_cam_vec, 
+                        opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps,
+                        state.ref_to_cam_vec, state.world_to_cam_vec,
                         R.ref_to_cam_timestamp_offsets,
                         // Output
                         cams.world_to_cam);
@@ -399,11 +399,11 @@ int main(int argc, char** argv) {
                       cams.world_to_cam, xyz_vec, pid_cid_fid_to_residual_index, residuals,
                       // Outputs
                       pid_cid_fid_inlier);
-    
-    rig::writeResiduals(opt.out_prefix, "final", R.cam_names, imgData, keypoint_vec,  
+
+    rig::writeResiduals(opt.out_prefix, "final", R.cam_names, imgData, keypoint_vec,
                         pid_to_cid_fid, pid_cid_fid_inlier,
                         pid_cid_fid_to_residual_index, residuals);
-    
+
   }  // End optimization passes
 
   // Put back the scale in R.depth_to_image
@@ -428,16 +428,16 @@ int main(int argc, char** argv) {
                       registration_trans, cams.world_to_ref, cams.world_to_cam, R);
 
     // Transform accordingly the triangulated points
-    rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid, 
+    rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid,
                                         pid_cid_fid_inlier, xyz_vec);
   }
-  
+
   if (opt.out_texture_dir != "")
-    rig::meshProjectCameras(R.cam_names, R.cam_params, imgData, cams.world_to_cam, 
+    rig::meshProjectCameras(R.cam_names, R.cam_params, imgData, cams.world_to_cam,
                             mesh, bvh_tree, opt.out_texture_dir);
 
   rig::saveCameraPoses(opt.out_prefix, imgData, cams.world_to_cam);
-  
+
   bool model_rig = (!opt.no_rig);
   rig::writeRigConfig(opt.out_prefix + "/rig_config.txt", model_rig, R);
 
@@ -446,7 +446,7 @@ int main(int argc, char** argv) {
   rig::writeInliersToNvm(nvm_file, shift_keypoints, R.cam_params, imgData,
                          cams.world_to_cam, keypoint_vec,
                          pid_to_cid_fid, pid_cid_fid_inlier, xyz_vec);
-  
+
   if (opt.save_nvm_no_shift) {
     std::string nvm_file = opt.out_prefix + "/cameras_no_shift.nvm";
     bool shift_keypoints = false;
@@ -465,16 +465,16 @@ int main(int argc, char** argv) {
 
   // Save the list of images (useful for bundle_adjust)
   std::string image_list = opt.out_prefix + "/image_list.txt";
-  rig::saveImageList(imgData, image_list); 
+  rig::saveImageList(imgData, image_list);
 
   if (opt.save_pinhole_cameras)
-    rig::writePinholeCameras(R.cam_names, R.cam_params, imgData, 
+    rig::writePinholeCameras(R.cam_names, R.cam_params, imgData,
                              cams.world_to_cam, opt.out_prefix);
-  
+
   std::string conv_angles_file = opt.out_prefix + "/convergence_angles.txt";
   rig::savePairwiseConvergenceAngles(pid_to_cid_fid, keypoint_vec,
-                                     imgData, cams.world_to_cam,  
-                                     xyz_vec,  pid_cid_fid_inlier,  
+                                     imgData, cams.world_to_cam,
+                                     xyz_vec,  pid_cid_fid_inlier,
                                      conv_angles_file);
   return 0;
 }
