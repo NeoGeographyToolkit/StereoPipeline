@@ -67,8 +67,6 @@
 #include <iostream>
 #include <fstream>
 
-namespace fs = boost::filesystem;
-
 int main(int argc, char** argv) {
 
   // Some dependencies may still use google logging
@@ -85,7 +83,7 @@ int main(int argc, char** argv) {
   vw::create_out_dir(out_prefix);
   asp::log_to_file(argc, argv, "", out_prefix);
 
-  // Rig configuration
+  // Rig configuration. The rig transforms may not exist yet.
   rig::RigSet R;
   rig::readRigConfig(opt.rig_config, opt.use_initial_rig_transforms, R);
   
@@ -116,13 +114,7 @@ int main(int argc, char** argv) {
   if (!opt.fixed_image_list.empty()) 
     rig::readList(opt.fixed_image_list, fixed_images);
 
-  // Storage for camera transforms. These are now stored in rigExtrinsics
-  // (Affine3d form) and converted to state (_vec form for optimizer) as needed.
-
   // Read camera poses from nvm file or a list.
-  // image_data is on purpose stored in vectors of vectors, with each
-  // image_data[i] having data in increasing order of timestamps. This
-  // way it is fast to find next timestamps after a given one.
   std::vector<rig::MsgMap> image_maps;
   std::vector<rig::MsgMap> depth_maps;
   asp::nvmData nvm;
@@ -131,7 +123,6 @@ int main(int argc, char** argv) {
                      opt.use_initial_rig_transforms,
                      opt.bracket_len, opt.nearest_neighbor_interp, 
                      opt.read_nvm_no_shift, R,
-                     // outputs
                      nvm, image_maps, depth_maps); // out
   
   // Keep here the images, timestamps, and bracketing information
@@ -170,13 +161,10 @@ int main(int argc, char** argv) {
                                // Output
                                cams.world_to_cam);
   
-  if (!opt.no_rig && !opt.use_initial_rig_transforms) {
-    // If we want a rig, and cannot use the initial rig, use the
-    // transforms from the world to each camera, compute the rig
-    // transforms.
+  // If desired, initalize the rig based on median of transforms for the sensors
+  if (!opt.no_rig && !opt.use_initial_rig_transforms)
     rig::calc_rig_trans(imgData, cams.world_to_ref, cams.world_to_cam, ref_timestamps,
-                              R); // update this
-  }
+                        R); // out
   
   // Determine if a given camera type has any depth information
   int num_cam_types = R.cam_names.size();
@@ -187,8 +175,8 @@ int main(int argc, char** argv) {
       has_depth[cam_type] = true;
   }
 
-  // Transform to world coordinates if control points were provided.
-  // Note: applyRegistration modifies cams.world_to_ref (Affine3d), which will then be
+  // Transform to world coordinates if control points were provided. Note:
+  // applyRegistration modifies cams.world_to_ref (Affine3d), which will then be
   // converted to state.world_to_ref_vec (primary storage) below.
   Eigen::Affine3d registration_trans;
   registration_trans.matrix() = Eigen::Matrix4d::Identity(); // default
@@ -214,13 +202,10 @@ int main(int argc, char** argv) {
                                        intrinsics_to_float);
 
   std::set<std::string> camera_poses_to_float;
-  rig::parse_camera_names(R.cam_names, 
-                                opt.camera_poses_to_float,
-                                camera_poses_to_float);
+  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float, camera_poses_to_float);
 
   std::set<std::string> depth_to_image_transforms_to_float;
-  rig::parse_camera_names(R.cam_names, 
-                          opt.depth_to_image_transforms_to_float,
+  rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float,
                           depth_to_image_transforms_to_float);
   
   // Set up the variable blocks to optimize for BracketedDepthError
@@ -228,12 +213,11 @@ int main(int argc, char** argv) {
   if (opt.affine_depth_to_image)
     num_depth_params = rig::NUM_AFFINE_PARAMS;
 
-  // TODO(oalexan1): affine_depth_to_image must allow
-  // fixing the scale. 
   // Separate the initial scale. This is convenient if
   // cam_depth_to_image is scale * rotation + translation and if
   // it is desired to keep the scale fixed. In either case, the scale
   // will be multiplied back when needed.
+  // TODO(oalexan1): affine_depth_to_image must allow fixing the scale. 
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
     double depth_to_image_scale
       = pow(R.depth_to_image[cam_type].matrix().determinant(), 1.0 / 3.0);
@@ -246,19 +230,20 @@ int main(int argc, char** argv) {
   state.optical_centers.resize(num_cam_types);
   state.distortions.resize(num_cam_types);
   for (int it = 0; it < num_cam_types; it++) {
-    state.focal_lengths[it] = R.cam_params[it].GetFocalLength();  // average the two focal lengths
+    state.focal_lengths[it] = R.cam_params[it].GetFocalLength();  // average focal length
     state.optical_centers[it] = R.cam_params[it].GetOpticalOffset();
     state.distortions[it] = R.cam_params[it].GetDistortion();
   }
 
   // Detect and match features if --num_overlaps > 0. Append the features
-  // read from the nvm.
+  // read from the nvm. Triangulate all points.
   rig::KeypointVec keypoint_vec;
   rig::PidCidFid pid_to_cid_fid;
   bool filter_matches_using_cams = true;
   std::vector<std::pair<int, int>> input_image_pairs; // will use num_overlaps instead
   // Do not save these matches. Only inlier matches will be saved later.
   bool local_save_matches = false;
+  std::vector<Eigen::Vector3d> xyz_vec;
   rig::detectAddFeatures(// Inputs
                          imgData, R.cam_params, opt.out_prefix, local_save_matches,
                          filter_matches_using_cams, cams.world_to_cam,
@@ -268,7 +253,7 @@ int main(int argc, char** argv) {
                          opt.read_nvm_no_shift, opt.no_nvm_matches,
                          opt.verbose,
                          // Outputs
-                         keypoint_vec, pid_to_cid_fid, state.xyz_vec, nvm);
+                         keypoint_vec, pid_to_cid_fid, xyz_vec, nvm);
   if (pid_to_cid_fid.empty())
     LOG(FATAL) << "No interest points were found. Must specify either "
                << "--nvm or positive --num_overlaps.\n";
@@ -282,8 +267,7 @@ int main(int argc, char** argv) {
                           bracketed_cam_block_sizes, bracketed_depth_block_sizes,
                           bracketed_depth_mesh_block_sizes, xyz_block_sizes);
 
-  // Inlier flag. Once an inlier becomes an outlier, it never becomes an inlier
-  // again.
+  // Inlier flag. Once an inlier becomes an outlier, it stays that way
   rig::PidCidFidMap pid_cid_fid_inlier;
   
   // TODO(oalexan1): Must initialize all points as inliers outside this function,
@@ -297,17 +281,12 @@ int main(int argc, char** argv) {
   // Ensure that the triangulated points are kept in sync with the cameras
   if (opt.use_initial_triangulated_points && registration_applied)
     rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid, 
-                                  pid_cid_fid_inlier, state.xyz_vec);
+                                  pid_cid_fid_inlier, xyz_vec);
   
   // Structures needed to intersect rays with the mesh
   rig::PidCidFidToMeshXyz pid_cid_fid_mesh_xyz;
   std::vector<Eigen::Vector3d> pid_mesh_xyz;
   Eigen::Vector3d bad_xyz(1.0e+100, 1.0e+100, 1.0e+100);  // use this to flag invalid xyz
-
-  // Populate cams with R's transforms for optimization
-  // TODO(oalexan1): Must have updated from R to state and back done in functions.
-  cams.ref_to_cam = R.ref_to_cam_trans;
-  cams.depth_to_image = R.depth_to_image;
 
   // TODO(oalexan1): All the logic for one pass should be its own function,
   // as the block below is too big.
@@ -316,7 +295,7 @@ int main(int argc, char** argv) {
               << pass + 1 << " / " << opt.calibrator_num_passes << "\n";
 
     // Convert extrinsics to optimization state (includes identity vectors)
-    rig::toOptState(cams, state, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
+    rig::toOptState(cams, R, state, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
 
     // Update cams.world_to_cam from current _vec state before triangulation
     // TODO(oalexan1): Not clear if this is needed with the current code structure.
@@ -332,16 +311,16 @@ int main(int argc, char** argv) {
                                   R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid,
                                   keypoint_vec,
                                   // Outputs
-                                  pid_cid_fid_inlier, state.xyz_vec);
+                                  pid_cid_fid_inlier, xyz_vec);
 
     // This is a copy which won't change
     std::vector<Eigen::Vector3d> xyz_vec_orig;
     if (opt.tri_weight > 0.0) {
       // Better copy manually to ensure no shallow copy
-      xyz_vec_orig.resize(state.xyz_vec.size());
-      for (size_t pt_it = 0; pt_it < state.xyz_vec.size(); pt_it++) {
+      xyz_vec_orig.resize(xyz_vec.size());
+      for (size_t pt_it = 0; pt_it < xyz_vec.size(); pt_it++) {
         for (int coord_it = 0; coord_it < 3; coord_it++) {
-          xyz_vec_orig[pt_it][coord_it] = state.xyz_vec[pt_it][coord_it];
+          xyz_vec_orig[pt_it][coord_it] = xyz_vec[pt_it][coord_it];
         }
       } 
     }
@@ -373,7 +352,7 @@ int main(int argc, char** argv) {
         state.ref_to_cam_vec, state.ref_identity_vec, state.right_identity_vec, state.focal_lengths,
         state.optical_centers, state.distortions, state.depth_to_image_vec, state.depth_to_image_scales,
         keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_mesh_xyz,
-        pid_mesh_xyz, state.xyz_vec, xyz_vec_orig,
+        pid_mesh_xyz, xyz_vec, xyz_vec_orig,
         // Block sizes
         bracketed_cam_block_sizes, bracketed_depth_block_sizes,
         bracketed_depth_mesh_block_sizes, xyz_block_sizes, num_depth_params,
@@ -412,12 +391,8 @@ int main(int argc, char** argv) {
     options.parameter_tolerance = opt.parameter_tolerance;
     ceres::Solve(options, &problem, &summary);
 
-    // The optimization is done. Convert state back to extrinsics.
-    rig::fromOptState(state, cams, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
-    
-    // Copy back to RigSet
-    R.ref_to_cam_trans = cams.ref_to_cam;
-    R.depth_to_image = cams.depth_to_image;
+    // The optimization is done. Convert state back to extrinsics and R.
+    rig::fromOptState(state, cams, R, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
 
     // Copy back the optimized intrinsics
     for (int cam_type = 0; cam_type < num_cam_types; cam_type++) {
@@ -442,7 +417,7 @@ int main(int argc, char** argv) {
     rig::flagOutliers(// Inputs
                       opt.min_triangulation_angle, opt.max_reprojection_error,
                       pid_to_cid_fid, keypoint_vec,
-                      cams.world_to_cam, state.xyz_vec, pid_cid_fid_to_residual_index, residuals,
+                      cams.world_to_cam, xyz_vec, pid_cid_fid_to_residual_index, residuals,
                       // Outputs
                       pid_cid_fid_inlier);
     
@@ -475,7 +450,7 @@ int main(int argc, char** argv) {
 
     // Transform accordingly the triangulated points
     rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid, 
-                                        pid_cid_fid_inlier, state.xyz_vec);
+                                        pid_cid_fid_inlier, xyz_vec);
   }
   
   if (opt.out_texture_dir != "")
@@ -491,14 +466,14 @@ int main(int argc, char** argv) {
   bool shift_keypoints = true;
   rig::writeInliersToNvm(nvm_file, shift_keypoints, R.cam_params, imgData,
                          cams.world_to_cam, keypoint_vec,
-                         pid_to_cid_fid, pid_cid_fid_inlier, state.xyz_vec);
+                         pid_to_cid_fid, pid_cid_fid_inlier, xyz_vec);
   
   if (opt.save_nvm_no_shift) {
     std::string nvm_file = opt.out_prefix + "/cameras_no_shift.nvm";
     bool shift_keypoints = false;
     rig::writeInliersToNvm(nvm_file, shift_keypoints, R.cam_params, imgData,
                                  cams.world_to_cam, keypoint_vec,
-                                 pid_to_cid_fid, pid_cid_fid_inlier, state.xyz_vec);
+                                 pid_to_cid_fid, pid_cid_fid_inlier, xyz_vec);
   }
 
   if (opt.export_to_voxblox)
@@ -520,7 +495,7 @@ int main(int argc, char** argv) {
   std::string conv_angles_file = opt.out_prefix + "/convergence_angles.txt";
   rig::savePairwiseConvergenceAngles(pid_to_cid_fid, keypoint_vec,
                                      imgData, cams.world_to_cam,  
-                                     state.xyz_vec,  pid_cid_fid_inlier,  
+                                     xyz_vec,  pid_cid_fid_inlier,  
                                      conv_angles_file);
   return 0;
 }

@@ -18,6 +18,7 @@
 #ifndef __ASP_RIG_RIG_DATA_H__
 #define __ASP_RIG_RIG_DATA_H__
 
+#include <asp/Rig/rig_config.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <vector>
@@ -31,10 +32,6 @@ struct Extrinsics {
   // Camera extrinsics as Affine3d transforms
   std::vector<Eigen::Affine3d> world_to_ref;
   std::vector<Eigen::Affine3d> world_to_cam;
-  std::vector<Eigen::Affine3d> ref_to_cam;
-  
-  // Depth-to-image transforms
-  std::vector<Eigen::Affine3d> depth_to_image;
 };
 
 // Optimization state (flattened data for Ceres parameter blocks). Must be populated
@@ -55,17 +52,14 @@ struct OptState {
   // Depth-to-image transforms (flattened)
   std::vector<double> depth_to_image_vec;
   std::vector<double> depth_to_image_scales;
-  
-  // 3D points (triangulated)
-  std::vector<Eigen::Vector3d> xyz_vec;
 };
 
 // Convert from structured extrinsics to optimization state
-void toOptState(const Extrinsics& extrinsics, OptState& state, 
+void toOptState(const Extrinsics& extrinsics, const RigSet& R, OptState& state, 
                 bool no_rig, bool affine_depth_to_image, int num_depth_params);
 
 // Convert from optimization state back to structured extrinsics
-void fromOptState(const OptState& state, Extrinsics& extrinsics,
+void fromOptState(const OptState& state, Extrinsics& extrinsics, RigSet& R,
                   bool no_rig, bool affine_depth_to_image, int num_depth_params);
 
 } // namespace rig

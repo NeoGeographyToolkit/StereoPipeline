@@ -23,7 +23,7 @@
 namespace rig {
 
 // Must call this before running the optimization to populate the OptState structure
-void toOptState(const Extrinsics& extrinsics, OptState& state,
+void toOptState(const Extrinsics& extrinsics, const RigSet& R, OptState& state,
                 bool no_rig, bool affine_depth_to_image, int num_depth_params) {
   // Convert world_to_ref transforms
   state.world_to_ref_vec.resize(extrinsics.world_to_ref.size() * rig::NUM_RIGID_PARAMS);
@@ -39,20 +39,20 @@ void toOptState(const Extrinsics& extrinsics, OptState& state,
                                     &state.world_to_cam_vec[rig::NUM_RIGID_PARAMS * cid]);
   }
   
-  // Convert ref_to_cam transforms
-  state.ref_to_cam_vec.resize(extrinsics.ref_to_cam.size() * rig::NUM_RIGID_PARAMS);
-  for (size_t cam_type = 0; cam_type < extrinsics.ref_to_cam.size(); cam_type++)
-    rig::rigid_transform_to_array(extrinsics.ref_to_cam[cam_type],
+  // Convert ref_to_cam transforms from R
+  state.ref_to_cam_vec.resize(R.ref_to_cam_trans.size() * rig::NUM_RIGID_PARAMS);
+  for (size_t cam_type = 0; cam_type < R.ref_to_cam_trans.size(); cam_type++)
+    rig::rigid_transform_to_array(R.ref_to_cam_trans[cam_type],
                                   &state.ref_to_cam_vec[rig::NUM_RIGID_PARAMS * cam_type]);
   
-  // Convert depth_to_image transforms (affine or rigid)
-  state.depth_to_image_vec.resize(extrinsics.depth_to_image.size() * num_depth_params);
-  for (size_t cam_type = 0; cam_type < extrinsics.depth_to_image.size(); cam_type++) {
+  // Convert depth_to_image transforms from R (affine or rigid)
+  state.depth_to_image_vec.resize(R.depth_to_image.size() * num_depth_params);
+  for (size_t cam_type = 0; cam_type < R.depth_to_image.size(); cam_type++) {
     if (affine_depth_to_image)
-      rig::affine_transform_to_array(extrinsics.depth_to_image[cam_type],
+      rig::affine_transform_to_array(R.depth_to_image[cam_type],
                                      &state.depth_to_image_vec[num_depth_params * cam_type]);
     else
-      rig::rigid_transform_to_array(extrinsics.depth_to_image[cam_type],
+      rig::rigid_transform_to_array(R.depth_to_image[cam_type],
                                     &state.depth_to_image_vec[num_depth_params * cam_type]);
   }
   
@@ -66,7 +66,7 @@ void toOptState(const Extrinsics& extrinsics, OptState& state,
 }
 
 // Must all this after optimization to update the Extrinsics structure
-void fromOptState(const OptState& state, Extrinsics& extrinsics,
+void fromOptState(const OptState& state, Extrinsics& extrinsics, RigSet& R,
                   bool no_rig, bool affine_depth_to_image, int num_depth_params) {
   // Convert world_to_ref transforms
   size_t num_world_to_ref = state.world_to_ref_vec.size() / rig::NUM_RIGID_PARAMS;
@@ -84,22 +84,22 @@ void fromOptState(const OptState& state, Extrinsics& extrinsics,
                                     &state.world_to_cam_vec[rig::NUM_RIGID_PARAMS * cid]);
   }
   
-  // Convert ref_to_cam transforms
+  // Convert ref_to_cam transforms back to R
   size_t num_ref_to_cam = state.ref_to_cam_vec.size() / rig::NUM_RIGID_PARAMS;
-  extrinsics.ref_to_cam.resize(num_ref_to_cam);
+  R.ref_to_cam_trans.resize(num_ref_to_cam);
   for (size_t cam_type = 0; cam_type < num_ref_to_cam; cam_type++)
-    rig::array_to_rigid_transform(extrinsics.ref_to_cam[cam_type],
+    rig::array_to_rigid_transform(R.ref_to_cam_trans[cam_type],
                                   &state.ref_to_cam_vec[rig::NUM_RIGID_PARAMS * cam_type]);
   
-  // Convert depth_to_image transforms (affine or rigid)
+  // Convert depth_to_image transforms back to R (affine or rigid)
   size_t num_depth_to_image = state.depth_to_image_vec.size() / num_depth_params;
-  extrinsics.depth_to_image.resize(num_depth_to_image);
+  R.depth_to_image.resize(num_depth_to_image);
   for (size_t cam_type = 0; cam_type < num_depth_to_image; cam_type++) {
     if (affine_depth_to_image)
-      rig::array_to_affine_transform(extrinsics.depth_to_image[cam_type],
+      rig::array_to_affine_transform(R.depth_to_image[cam_type],
                                      &state.depth_to_image_vec[num_depth_params * cam_type]);
     else
-      rig::array_to_rigid_transform(extrinsics.depth_to_image[cam_type],
+      rig::array_to_rigid_transform(R.depth_to_image[cam_type],
                                     &state.depth_to_image_vec[num_depth_params * cam_type]);
   }
 }
