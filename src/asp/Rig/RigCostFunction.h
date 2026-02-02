@@ -209,14 +209,8 @@ void setupRigOptProblem(// Inputs
                         std::vector<Eigen::Vector3d> const& xyz_vec_orig,
                         rig::RigBlockSizes const& block_sizes,
                         int num_depth_params,
-                        // Configuration
-                        std::vector<std::set<std::string>> const& intrinsics_to_float,
-                        std::set<std::string> const& camera_poses_to_float,
-                        std::set<std::string> const& depth_to_image_transforms_to_float,
-                        std::set<std::string> const& fixed_images,
                         std::vector<double> const& min_timestamp_offset,
                         std::vector<double> const& max_timestamp_offset,
-                        // Options
                         RigOptions const& opt,
                         // Outputs
                         rig::PidCidFidMap& pid_cid_fid_to_residual_index,

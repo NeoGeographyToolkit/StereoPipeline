@@ -328,8 +328,6 @@ int main(int argc, char** argv) {
                             keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, 
                             pid_cid_fid_mesh_xyz, pid_mesh_xyz, xyz_vec, xyz_vec_orig,
                             block_sizes, num_depth_params, 
-                            opt.intrinsics_to_float, opt.camera_poses_to_float,
-                            opt.depth_to_image_transforms_to_float, opt.fixed_images, 
                             min_timestamp_offset, max_timestamp_offset, opt,
                             // Outputs
                             pid_cid_fid_to_residual_index, problem, residual_names, 

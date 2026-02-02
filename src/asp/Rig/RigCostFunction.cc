@@ -863,14 +863,8 @@ void setupRigOptProblem(// Inputs
                         std::vector<Eigen::Vector3d> const& xyz_vec_orig,
                         rig::RigBlockSizes const& block_sizes,
                         int num_depth_params,
-                        // Configuration
-                        std::vector<std::set<std::string>> const& intrinsics_to_float,
-                        std::set<std::string> const& camera_poses_to_float,
-                        std::set<std::string> const& depth_to_image_transforms_to_float,
-                        std::set<std::string> const& fixed_images,
                         std::vector<double> const& min_timestamp_offset,
                         std::vector<double> const& max_timestamp_offset,
-                        // Options
                         RigOptions const& opt,
                         // Outputs
                         rig::PidCidFidMap& pid_cid_fid_to_residual_index,
@@ -934,8 +928,8 @@ void setupRigOptProblem(// Inputs
                                &state.focal_lengths[cam_type],
                                &state.optical_centers[cam_type][0],
                                R, cam_type, cams[cid].image_name,
-                               intrinsics_to_float[cam_type],
-                               camera_poses_to_float, fixed_images, fixed_parameters,
+                               opt.intrinsics_to_float[cam_type],
+                               opt.camera_poses_to_float, opt.fixed_images, fixed_parameters,
                                constant_transform_manifold,
                                min_timestamp_offset[cam_type],
                                max_timestamp_offset[cam_type],
@@ -960,7 +954,7 @@ void setupRigOptProblem(// Inputs
                                    &depth_to_image_scales[cam_type],
                                    &xyz_vec[pid][0],
                                    &R.ref_to_cam_timestamp_offsets[cam_type],
-                                   R, cam_type, depth_to_image_transforms_to_float,
+                                   R, cam_type, opt.depth_to_image_transforms_to_float,
                                    opt.float_scale,
                                    opt.affine_depth_to_image,
                                    opt.depth_tri_weight,
@@ -989,7 +983,7 @@ void setupRigOptProblem(// Inputs
                                     &state.depth_to_image_vec[num_depth_params * cam_type],
                                     &depth_to_image_scales[cam_type],
                                     &R.ref_to_cam_timestamp_offsets[cam_type],
-                                    R, cam_type, depth_to_image_transforms_to_float,
+                                    R, cam_type, opt.depth_to_image_transforms_to_float,
                                     opt.float_scale, opt.affine_depth_to_image,
                                     opt.depth_mesh_weight, opt.robust_threshold,
                                     problem, residual_names, residual_scales);
@@ -1034,7 +1028,7 @@ void setupRigOptProblem(// Inputs
 
   // Add the camera position constraints for the ref cams
   if (opt.camera_position_weight > 0.0)
-    rig::addRigCamPosCostFun(cams, R, camera_poses_to_float, ref_timestamps,
+    rig::addRigCamPosCostFun(cams, R, opt.camera_poses_to_float, ref_timestamps,
                              state.world_to_cam_vec, state.world_to_ref_vec, state.ref_to_cam_vec,
                              state.ref_identity_vec, state.right_identity_vec,
                              opt.no_rig, opt.camera_position_weight,
