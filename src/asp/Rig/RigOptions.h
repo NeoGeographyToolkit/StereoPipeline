@@ -50,8 +50,6 @@ struct RigOptions: public asp::BaBaseOptions {
   std::set<std::string> camera_poses_to_float;
   std::set<std::string> depth_to_image_transforms_to_float;
   std::set<std::string> fixed_images;
-  std::vector<double> min_timestamp_offset;
-  std::vector<double> max_timestamp_offset;
 
   RigOptions(): asp::BaBaseOptions(),
     bracket_len(0.6), depth_tri_weight(1000.0),

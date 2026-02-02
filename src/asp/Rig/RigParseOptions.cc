@@ -337,6 +337,7 @@ void parseAuxRigOptions(RigOptions& opt, RigSet const& R) {
   rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float_str,
                         opt.depth_to_image_transforms_to_float);
 
+  // Read a list of images to keep fixed, if provided
   if (!opt.fixed_image_list_str.empty()) 
     rig::readList(opt.fixed_image_list_str, opt.fixed_images);
 }

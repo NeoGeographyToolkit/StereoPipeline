@@ -104,11 +104,6 @@ int main(int argc, char** argv) {
   if (opt.mesh != "")
     rig::loadMeshBuildTree(opt.mesh, mesh, mesh_info, graph, bvh_tree);
 
-  // Read a list of images to keep fixed, if provided
-  std::set<std::string> fixed_images;
-  if (!opt.fixed_image_list_str.empty())
-    rig::readList(opt.fixed_image_list_str, fixed_images);
-
   // Read camera poses from nvm file or a list.
   std::vector<rig::MsgMap> image_maps;
   std::vector<rig::MsgMap> depth_maps;
@@ -193,14 +188,14 @@ int main(int argc, char** argv) {
   if (cams.world_to_ref.size() != ref_timestamps.size())
     LOG(FATAL) << "Must have as many ref cam timestamps as ref cameras.\n";
 
-  // Which intrinsics from which cameras to float. Indexed by cam_type.
-  std::vector<std::set<std::string>> intrinsics_to_float;
-  std::set<std::string> camera_poses_to_float;
-  std::set<std::string> depth_to_image_transforms_to_float;
-  rig::parse_intrinsics_to_float(opt.intrinsics_to_float_str, R.cam_names, intrinsics_to_float);
-  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float_str, camera_poses_to_float);
+  // Parse which intrinsics from which cameras to float. Indexed by cam_type.
+  rig::parse_intrinsics_to_float(opt.intrinsics_to_float_str, R.cam_names, opt.intrinsics_to_float);
+  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float_str, opt.camera_poses_to_float);
   rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float_str,
-                          depth_to_image_transforms_to_float);
+                          opt.depth_to_image_transforms_to_float);
+  // Read a list of images to keep fixed, if provided
+  if (!opt.fixed_image_list_str.empty())
+    rig::readList(opt.fixed_image_list_str, opt.fixed_images);
 
   // Set up the variable blocks to optimize for BracketedDepthError
   int num_depth_params = rig::NUM_RIGID_PARAMS;
@@ -333,8 +328,8 @@ int main(int argc, char** argv) {
                             keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, 
                             pid_cid_fid_mesh_xyz, pid_mesh_xyz, xyz_vec, xyz_vec_orig,
                             block_sizes, num_depth_params, 
-                            intrinsics_to_float, camera_poses_to_float,
-                            depth_to_image_transforms_to_float, fixed_images, 
+                            opt.intrinsics_to_float, opt.camera_poses_to_float,
+                            opt.depth_to_image_transforms_to_float, opt.fixed_images, 
                             min_timestamp_offset, max_timestamp_offset, opt,
                             // Outputs
                             pid_cid_fid_to_residual_index, problem, residual_names, 
