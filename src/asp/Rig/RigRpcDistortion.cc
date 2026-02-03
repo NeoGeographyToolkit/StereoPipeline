@@ -330,9 +330,11 @@ struct RpcFitError {
 
 // Evaluate the residuals before and after optimization
 void evalRpcResiduals(// Inputs
-                   std::string const& tag, std::vector<std::string> const& residual_names,
-                   // Outputs
-                   ceres::Problem& problem, std::vector<double>& residuals) {
+                       std::string const& tag, 
+                       std::vector<std::string> const& residual_names,
+                       // Outputs
+                       ceres::Problem& problem, 
+                       std::vector<double>& residuals) {
 
   double total_cost = 0.0;
   ceres::Problem::EvaluateOptions eval_options;

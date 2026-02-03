@@ -37,10 +37,11 @@
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/RigCameraUtils.h>
-#include <asp/Rig/RigCostFunction.h>
 #include <asp/Rig/RigData.h>
 #include <asp/Rig/rig_io.h>
 #include <asp/Rig/RigImageIO.h>
+#include <asp/Rig/RigCostFunction.h>
+#include <asp/Rig/RigOpt.h>
 
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>
