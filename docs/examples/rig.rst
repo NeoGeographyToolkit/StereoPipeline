@@ -26,11 +26,11 @@ can be optimized later). Those are set in the rig configuration
 The first step is solving for the camera poses, for which we use 
 ``theia_sfm`` (:numref:`theia_sfm`)::
 
-    theia_sfm --rig_config rig_input/rig_config.txt \
+    theia_sfm --rig-config rig_input/rig_config.txt \
       --images 'rig_input/nav_cam/*.tif
                 rig_input/haz_cam/*.tif 
                 rig_input/sci_cam/*.tif'            \
-      --out_dir rig_theia
+      --out-dir rig_theia
 
 This tool will use the Theia flags file from ``share/theia_flags.txt``
 in the software distribution, which can be copied to a new name,

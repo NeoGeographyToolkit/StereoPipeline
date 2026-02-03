@@ -274,9 +274,9 @@ Run ``theia_sfm`` (:numref:`theia_sfm`) with the initial rig
 configuration (:numref:`sfm_iss_sample_rig_config`), which we will
 keep in a file called ``initial_rig.txt``::
 
-    theia_sfm --rig_config initial_rig.txt \
-      --image_list small_nav_list.txt      \
-      --out_dir small_theia_nav_rig
+    theia_sfm --rig-config initial_rig.txt \
+      --image-list small_nav_list.txt      \
+      --out-dir small_theia_nav_rig
 
 The images and interest points can be examined in ``stereo_gui``
 (:numref:`stereo_gui_nvm`) as::

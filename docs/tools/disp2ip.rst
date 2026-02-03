@@ -57,10 +57,10 @@ SfM between the left raw images
 Structure-from-Motion (SfM) finds the interest point matches between the left
 raw images and the relative poses of the cameras::
 
-  theia_sfm --rig_config rig_config.txt \
-    --theia_flags theia_flags.txt       \
+  theia_sfm --rig-config rig_config.txt \
+    --theia-flags theia_flags.txt       \
     --images 'raw/left/left_raw*.png'   \
-    --out_dir theia_left
+    --out-dir theia_left
 
 This will produce the NVM file named ``theia_left/cameras.nvm``.
 

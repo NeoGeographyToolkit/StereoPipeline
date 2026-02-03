@@ -81,27 +81,27 @@ Usage
 
 ::
 
-    theia_sfm --rig_config <rig config> [images]  \
-      [--theia_flags <flag file>] --out_dir <out dir>
+    theia_sfm --rig-config <rig config> [images]  \
+      [--theia-flags <flag file>] --out-dir <out dir>
 
 The input images can be specified as wildcards::
 
-    theia_sfm --rig_config rig_input/rig_config.txt        \
+    theia_sfm --rig-config rig_input/rig_config.txt        \
       --images 'rig_input/cam1/*.tif rig_input/cam2/*.tif' \
-      --out_dir rig_theia
+      --out-dir rig_theia
  
 in a list::
 
     ls rig_input/cam*/*.jpg > image_list.txt
-    theia_sfm --rig_config rig_input/rig_config.txt        \
-      --image_list image_list.txt                          \
-      --out_dir rig_theia
+    theia_sfm --rig-config rig_input/rig_config.txt        \
+      --image-list image_list.txt                          \
+      --out-dir rig_theia
  
 on the command line::
 
-    theia_sfm --rig_config rig_input/rig_config.txt        \
+    theia_sfm --rig-config rig_input/rig_config.txt        \
       rig_input/cam1/image1.png rig_input/cam2/image2.png  \
-      --out_dir rig_theia
+      --out-dir rig_theia
 
 
 Use ``--image_sensor_list`` instead of ``--list`` if the sensor names
@@ -144,21 +144,21 @@ Several produced solutions can be merged into a larger reconstruction with the
 Command-line options for theia_sfm
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
---rig_config <string (default: "")>
+--rig-config <string (default: "")>
     Rig configuration file.
 --images <string (default: "")>
     Images, as individual wildcards. Example: 
     ``'dir/cam1/*tif dir/cam2/*tif'``.
---image_list <string (default: "")>
+--image-list <string (default: "")>
     Use the images from this list, instead of setting ``--images``.
     Images must be separated by a newline.
---image_sensor_list <string (default: "")>
+--image-sensor-list <string (default: "")>
     An alternative way of listing the input images, when the sensor name is
     specified separately in the same file (:numref:`theia_naming_conv`).
---theia_flags <string (default: "")>
+--theia-flags <string (default: "")>
     The flags to pass to Theia. By default, the file
     ``share/theia_flags.txt`` in the software distribution is used.
---out_dir <string (default: "")>
-    The output directory. 
+--out-dir <string (default: "")>
+    The output directory.
 -h, --help
     Show this help message and exit.

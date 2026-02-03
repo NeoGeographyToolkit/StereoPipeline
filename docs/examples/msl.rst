@@ -152,9 +152,9 @@ were put in a list, with one entry per line.  The ``theia_sfm``
 program (:numref:`theia_sfm`) was run to find initial camera poses::
 
     theia_sfm                     \
-      --rig_config rig_config.txt \
-      --image_list list.txt       \
-      --out_dir theia_rig
+      --rig-config rig_config.txt \
+      --image-list list.txt       \
+      --out-dir theia_rig
 
 Next, ``rig_calibrator`` (:numref:`rig_calibrator`) is used, to
 enforce the rig constraint between the left and right navcam sensors

@@ -55,28 +55,28 @@ def processArgs(args, base_dir):
     num_input_args = len(sys.argv)
 
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument("--rig_config",  dest="rig_config", default="",
+    parser.add_argument("--rig-config",  dest="rig_config", default="",
                         help = "Rig configuration file.")
 
     parser.add_argument("--images",  dest="images", default="",
                         help = "Images, as individual wildcards. Example: " + \
                         "'dir/cam1/*tif dir/cam2/*tif.")
 
-    parser.add_argument("--image_list",  dest="image_list", default="",
+    parser.add_argument("--image-list",  dest="image_list", default="",
                         help = "Use the images from this list, instead of setting " + \
                         "--images. Images must be separated by a newline.")
    
-    parser.add_argument("--image_sensor_list",  dest="image_sensor_list", default="",
+    parser.add_argument("--image-sensor-list",  dest="image_sensor_list", default="",
                         help = "An alternative way of listing the input images, " + \
                         "when the sensor name is specified separately in the same " + \
                         "file. See the naming convention in the documentation.")
         
-    parser.add_argument("--theia_flags", dest="theia_flags",
+    parser.add_argument("--theia-flags", dest="theia_flags",
                         default="", help="The flags to pass to Theia. By default, " + \
                         "the file ``share/theia_flags.txt`` in the software "       + \
                         "distribution is used.")
 
-    parser.add_argument("--out_dir", dest="out_dir", default="",
+    parser.add_argument("--out-dir", dest="out_dir", default="",
                         help="The output directory (only the 'cameras.nvm' " + \
                         "file in it is needed afterwards).")
 

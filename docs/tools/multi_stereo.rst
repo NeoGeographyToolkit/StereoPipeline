@@ -51,9 +51,9 @@ consisting of just one camera.
 The camera intrinsics and the images are used to find the camera
 poses::
 
-    theia_sfm --rig_config camera_config.txt \
+    theia_sfm --rig-config camera_config.txt \
       --images 'images/nav_cam/*jpg'         \
-      --out_dir theia_out
+      --out-dir theia_out
 
 Note that the images are stored in the ``nav_cam`` subdirectory, and
 each image name consists of a number and an image extension, following
