@@ -377,7 +377,7 @@ Examples
  - A step-by-step-example (:numref:`rig_calibrator_example`). 
  - A larger example covering a full ISS module (:numref:`sfm_iss`).
  - An example using MSL Curiosity rover images (:numref:`rig_msl`).
- - An orbital rig with DEM constraints ():numref:`orbital_rig`).
+ - An orbital rig with DEM constraints (:numref:`orbital_rig`).
 
 Notes
 ~~~~~

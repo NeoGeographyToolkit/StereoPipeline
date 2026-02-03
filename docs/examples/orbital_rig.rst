@@ -3,40 +3,42 @@
 Orbital rig
 -----------
 
-This example shows how to produce synthetic images and cameras modeling an
-orbital rig with two frame camera sensors, and how to refine the rig parameters,
-camera intrinsics, and camera poses. A DEM constraint is to be added.
+This example shows how to produce synthetic images and cameras that model an
+orbital rig with two frame camera sensors, and how to use the :ref:`rig_calibrator`
+tool to refine the rig parameters, camera intrinsics, and camera poses, with a
+DEM as a constraint.
 
 Input DEM and orthoimage
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-We will create the synthetic data for this example with :ref:`sat_sim`. This program
-needs as input a DEM and orthoimage of a region of interest. 
+The synthetic data for this example is created with :ref:`sat_sim`, which
+requires a DEM and an orthoimage of a region of interest as input. 
 
-To prepare such data, we started with the free ASTER dataset::
+To prepare this data, we obtained the free ASTER dataset::
 
   AST_L1A_00404012022185436_20250920182851.hdf
 
-around the San Luis Reservoir in Northern California. A DEM was created with the
-workflow in :numref:`aster`. The orthoimage was produced with :ref:`mapproject`,
-at the nominal resolution of 15 m / pixel. These reflect the ground sample
-distance of the ASTER images.
+around the San Luis Reservoir in Northern California. A DEM was created following
+the workflow in :numref:`aster`. The orthoimage was produced by invoking
+:ref:`mapproject` at a nominal resolution of 15 m/pixel. This resolution
+reflects the ground sample distance (GSD) of the ASTER images.
 
 Synthetic images
 ~~~~~~~~~~~~~~~~
 
-The synthetic images and cameras were created with ``sat_sim``. This program
-can simulate an orbital rig (:numref:`sat_sim_rig`).
+The synthetic images and cameras were created with ``sat_sim``, which can
+simulate an orbital rig (:numref:`sat_sim_rig`).
 
-The rig was chosen to have one left and one right frame camera, named ``left`` and
-``right``. The initial rig configuration is created as in :numref:`msl_init_rig`.
-The sensor dimensions were set to 1000 x 1000 pixels, with the principal point at 
-the center of the image. No lens distortion was assumed.
+The rig was designed with left and right frame cameras, named ``left`` and
+``right``. The initial rig configuration was created as described in
+:numref:`msl_init_rig`. The sensor dimensions were set to 1000 x 1000
+pixels, with the principal point at the image center. No lens distortion
+was assumed.
 
-The satellite height is set to 700 km. The chosen focal length is 35000 pixels,
-which results in an estimated ground sample distance (GSD) of about 20 meters
-(GSD is the satellite height divided by the focal length). All these are in line
-with what is known about the ASTER instrument.
+The satellite height was set to 700 km, and the focal length to 35000 pixels.
+This results in an estimated GSD of about 20 meters (GSD is approximately
+the satellite height divided by the focal length). These parameters are
+consistent with the ASTER instrument.
 
 The ``sat_sim`` command for the nadir images was::
 
@@ -55,31 +57,32 @@ The ``sat_sim`` command for the nadir images was::
         --velocity 7500               \
         -o sat_sim/run-nadir
 
-The chosen value of the ``--rig-sensor-ground-offsets`` option places the left
-and right sensor centers offset by 0.01 m to the left and right from the rig
-center, and the footprints on the ground are separated by 8000 m in the
-East-West direction. The satellite itself follows a North-South orbit.
+The ``--rig-sensor-ground-offsets`` option places the left and right sensor
+centers 0.01 m to each side of the rig center, and their footprints on the
+ground are separated by 8000 m in the East-West direction. The satellite
+itself follows a North-South orbit.
 
-The rig configuration that incorporates these controls is saved as::
+The rig configuration incorporating these controls is saved to the file::
 
     sat_sim/run-nadir-rig_config.txt
     
-This has, in addition to the intrinsics as in the input rig, also the
-relationship between the rig sensors, in the ``ref_to_sensor_transform`` field.
-More details are in :numref:`sat_sim_rig_adjust`.
+This file contains the relationship between the rig sensors in the
+``ref_to_sensor_transform`` field, in addition to the intrinsics from the
+input rig. More details are in :numref:`sat_sim_rig_adjust`.
 
-A similar command is run to create forward-looking images. The value of ``--pitch``
-is set to 30 degrees. The output prefix is set to ``sat_sim/run-fwd``. 
+A similar command is run to create forward-looking images, but with the
+``--pitch`` value set to 30 degrees and the output prefix set to
+``sat_sim/run-fwd``.
 
-The produced images will have names such as::
+The produced images will have names like::
 
     sat_sim/run-nadir-0010000.418204756-left.tif
     sat_sim/run-fwd-0009939.411652856-right.tif
 
-following the naming convention in :numref:`rig_data_conv`. The components of
-these file names are the output prefix, the time stamp, and the sensor name.
-Modeling of time is described in :numref:`sat_sim_time`. The options for this
-program are documented in :ref:`sat_sim_options`.
+following the naming convention in :numref:`rig_data_conv`. The components
+of these filenames are the output prefix, the timestamp, and the sensor
+name. Time modeling is described in :numref:`sat_sim_time`, and all options
+for this program are documented in :ref:`sat_sim_options`.
 
 .. figure:: ../images/orbital_rig.png
    :name: orbital_rig_fig
@@ -92,12 +95,12 @@ program are documented in :ref:`sat_sim_options`.
 Interest point matches
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The rig calibrator program expects the camera poses and the interest point
-matches between images to be stored in an NVM file (a format for
+The ``rig_calibrator`` program expects the camera poses and the interest point
+matches between images to be stored in an NVM file (a format commonly employed in
 Structure-from-Motion applications). See :numref:`ba_nvm`.
 
-Since we have 12 input images, and each has to be matched against every other
-one, the :numref:`parallel_bundle_adjust` program is run to ensure
+Since there are 12 input images, and each must be matched against every other
+one, the :numref:`parallel_bundle_adjust` program is called to ensure
 parallelization::
 
     parallel_bundle_adjust       \
@@ -113,7 +116,7 @@ parallelization::
 Rig calibration
 ~~~~~~~~~~~~~~~
 
-Run :ref:`rig_calibrator`::
+The :ref:`rig_calibrator` program is then run::
 
     rig_calibrator                                  \
       --rig-config sat_sim/run-nadir-rig_config.txt \
@@ -127,8 +130,8 @@ Run :ref:`rig_calibrator`::
       --num-iterations 100                          \
       --out-dir rig
 
-Here the data starts perfect, so very few changes are expected. The produced
-pinhole cameras (:numref:`pinholemodels`) saved in the output ``rig`` directory
-(with the option ``--save-pinhole-cameras``) should be very similar to the
-inputs in the ``sat_sim`` directory.
+Since the input data is perfect, very few changes are expected. The produced
+pinhole cameras (:numref:`pinholemodels`), saved in the output ``rig`` directory
+(via the ``--save-pinhole-cameras`` option), should be very similar to the
+initial inputs in the ``sat_sim`` directory.
 
