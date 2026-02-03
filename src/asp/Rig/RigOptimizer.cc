@@ -15,6 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <asp/Rig/RigOptimizer.h>
 #include <asp/Rig/RigCostFunction.h>
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/rig_config.h>
@@ -34,6 +35,58 @@
 #include <iomanip>
 
 namespace rig {
+
+// A struct to hold the block sizes for the various cost functions
+struct RigBlockSizes {
+  std::vector<int> image_block_sizes;
+  std::vector<int> depth_block_sizes;
+  std::vector<int> depth_mesh_block_sizes;
+  std::vector<int> xyz_block_sizes;
+};
+
+// Set up block sizes for various cost functions
+void set_up_block_sizes(int num_depth_params,
+                        RigBlockSizes& block_sizes) {
+  // Wipe the outputs
+  block_sizes.image_block_sizes.clear();
+  block_sizes.depth_block_sizes.clear();
+  block_sizes.depth_mesh_block_sizes.clear();
+  block_sizes.xyz_block_sizes.clear();
+
+  int num_focal_lengths = 1;      // The x and y focal length are assumed to be the same
+  int num_distortion_params = 1;  // will be overwritten later
+
+  // Set up the variable blocks to optimize for BracketedCamError
+
+  block_sizes.image_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.image_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.image_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.image_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
+  block_sizes.image_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+  block_sizes.image_block_sizes.push_back(num_focal_lengths);
+  block_sizes.image_block_sizes.push_back(rig::NUM_OPT_CTR_PARAMS);
+  block_sizes.image_block_sizes.push_back(num_distortion_params);
+
+  // Set up variable blocks to optimize for BracketedDepthError
+  block_sizes.depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.depth_block_sizes.push_back(num_depth_params);
+  block_sizes.depth_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+  block_sizes.depth_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
+  block_sizes.depth_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+
+  // Set up the variable blocks to optimize for BracketedDepthMeshError
+  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
+  block_sizes.depth_mesh_block_sizes.push_back(num_depth_params);
+  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
+
+  // Set up the variable blocks to optimize for the mesh xyz
+  block_sizes.xyz_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
+}
 
 // Evaluate the residuals before and after optimization
 void evalResiduals(// Inputs
@@ -636,7 +689,6 @@ void runOptPass(int pass,
                 std::vector<double>           const& ref_timestamps,
                 rig::KeypointVec              const& keypoint_vec,
                 rig::PidCidFid                const& pid_to_cid_fid,
-                rig::RigBlockSizes            const& block_sizes,
                 std::vector<double>           const& min_timestamp_offset,
                 std::vector<double>           const& max_timestamp_offset,
                 mve::TriangleMesh::Ptr        const& mesh,
@@ -647,6 +699,10 @@ void runOptPass(int pass,
                 rig::RigSet                        & R,
                 std::vector<Eigen::Vector3d>       & xyz_vec,
                 rig::PidCidFidMap                  & pid_cid_fid_inlier) {
+
+  // Set up the block sizes
+  rig::RigBlockSizes block_sizes;
+  rig::set_up_block_sizes(num_depth_params, block_sizes);
 
   // Optimization state local to this pass. Must update the state from
   // extrinsics and rig config, run the optimization, then update back the extrinsics.

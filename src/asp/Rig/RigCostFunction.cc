@@ -28,50 +28,6 @@
 
 namespace rig {
 
-// Set up block sizes for various cost functions
-void set_up_block_sizes(int num_depth_params,
-                        RigBlockSizes& block_sizes) {
-  // Wipe the outputs
-  block_sizes.image_block_sizes.clear();
-  block_sizes.depth_block_sizes.clear();
-  block_sizes.depth_mesh_block_sizes.clear();
-  block_sizes.xyz_block_sizes.clear();
-
-  int num_focal_lengths = 1;      // The x and y focal length are assumed to be the same
-  int num_distortion_params = 1;  // will be overwritten later
-
-  // Set up the variable blocks to optimize for BracketedCamError
-
-  block_sizes.image_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.image_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.image_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.image_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
-  block_sizes.image_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
-  block_sizes.image_block_sizes.push_back(num_focal_lengths);
-  block_sizes.image_block_sizes.push_back(rig::NUM_OPT_CTR_PARAMS);
-  block_sizes.image_block_sizes.push_back(num_distortion_params);
-
-  // Set up variable blocks to optimize for BracketedDepthError
-  block_sizes.depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.depth_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.depth_block_sizes.push_back(num_depth_params);
-  block_sizes.depth_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
-  block_sizes.depth_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
-  block_sizes.depth_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
-
-  // Set up the variable blocks to optimize for BracketedDepthMeshError
-  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_RIGID_PARAMS);
-  block_sizes.depth_mesh_block_sizes.push_back(num_depth_params);
-  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
-  block_sizes.depth_mesh_block_sizes.push_back(rig::NUM_SCALAR_PARAMS);
-
-  // Set up the variable blocks to optimize for the mesh xyz
-  block_sizes.xyz_block_sizes.push_back(rig::NUM_XYZ_PARAMS);
-}
-
 // If applicable, set up the parameters block to fix the rig translations and/or rotations
 void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rotations,
                         ceres::SubsetManifold*& constant_transform_manifold) {

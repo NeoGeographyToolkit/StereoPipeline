@@ -15,15 +15,12 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#ifndef ASP_RIG_OPT_H
-#define ASP_RIG_OPT_H
+#ifndef ASP_RIG_OPTIMIZER_H
+#define ASP_RIG_OPTIMIZER_H
 
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/transform_utils.h>
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/RigData.h>
-#include <asp/Rig/RigOptions.h>
 #include <asp/Rig/texture_processing.h>
 
 #include <Eigen/Core>
@@ -37,6 +34,7 @@ namespace rig {
 // Forward declarations
 class cameraImage;
 class RigSet;
+class RigOptions;
 
 // Run an optimization pass for rig calibration
 void runOptPass(int pass,
@@ -46,7 +44,6 @@ void runOptPass(int pass,
                 std::vector<double>           const& ref_timestamps,
                 rig::KeypointVec              const& keypoint_vec,
                 rig::PidCidFid                const& pid_to_cid_fid,
-                rig::RigBlockSizes            const& block_sizes,
                 std::vector<double>           const& min_timestamp_offset,
                 std::vector<double>           const& max_timestamp_offset,
                 mve::TriangleMesh::Ptr        const& mesh,
@@ -60,4 +57,4 @@ void runOptPass(int pass,
 
 }  // namespace rig
 
-#endif  // ASP_RIG_OPT_H
+#endif  // ASP_RIG_OPTIMIZER_H

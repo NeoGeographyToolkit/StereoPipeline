@@ -41,18 +41,6 @@ namespace rig {
 class cameraImage;
 class RigSet;
 
-// A struct to hold the block sizes for the various cost functions
-struct RigBlockSizes {
-  std::vector<int> image_block_sizes;
-  std::vector<int> depth_block_sizes;
-  std::vector<int> depth_mesh_block_sizes;
-  std::vector<int> xyz_block_sizes;
-};
-
-// Set up block sizes for various cost functions
-void set_up_block_sizes(int num_depth_params,
-                        RigBlockSizes& block_sizes);
-
 // If applicable, set up the parameters block to fix the rig translations and/or rotations
 void setUpFixRigOptions(bool no_rig, bool fix_rig_translations, bool fix_rig_rotations,
                         ceres::SubsetManifold*& constant_transform_manifold);

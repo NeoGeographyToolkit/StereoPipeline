@@ -40,15 +40,10 @@
 #include <asp/Rig/RigData.h>
 #include <asp/Rig/rig_io.h>
 #include <asp/Rig/RigImageIO.h>
-#include <asp/Rig/RigCostFunction.h>
-#include <asp/Rig/RigOpt.h>
+#include <asp/Rig/RigOptimizer.h>
 
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>
-
-#include <ceres/ceres.h>
-#include <ceres/problem.h>
-#include <ceres/solver.h>
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -232,10 +227,6 @@ int main(int argc, char** argv) {
     LOG(FATAL) << "No interest points were found. Must specify either "
                << "--nvm or positive --num_overlaps.\n";
 
-  // Set up the block sizes
-  rig::RigBlockSizes block_sizes;
-  rig::set_up_block_sizes(num_depth_params, block_sizes);
-
   // Inlier flag. Once an inlier becomes an outlier, it stays that way
   rig::PidCidFidMap pid_cid_fid_inlier;
 
@@ -256,7 +247,7 @@ int main(int argc, char** argv) {
   for (int pass = 0; pass < opt.num_passes; pass++) {
     std::cout << "\nOptimization pass " << pass + 1 << " / " << opt.num_passes << "\n";
     runOptPass(pass, num_depth_params, opt, imgData, ref_timestamps,
-               keypoint_vec, pid_to_cid_fid, block_sizes, 
+               keypoint_vec, pid_to_cid_fid, 
                min_timestamp_offset, max_timestamp_offset, mesh, bvh_tree, 
                depth_to_image_scales, cams, R, xyz_vec, pid_cid_fid_inlier); // out
   }  // End optimization passes
