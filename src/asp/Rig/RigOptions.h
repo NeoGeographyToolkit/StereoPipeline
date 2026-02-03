@@ -65,12 +65,7 @@ struct RigOptions: public asp::BaBaseOptions {
     bracket_single_image(false), nearest_neighbor_interp(false),
     read_nvm_no_shift(false), save_nvm_no_shift(false), save_matches(false),
     export_to_voxblox(false), save_pinhole_cameras(false),
-    save_transformed_depth_clouds(false), verbose(false) {
-    
-    // The number of passes is 2 by default. This is because the rig calibrator
-    // does a pass to optimize the intrinsics and a pass to optimize the rig.
-    num_passes = 2;
-  }
+    save_transformed_depth_clouds(false), verbose(false) {};
 };
 
 } // namespace rig

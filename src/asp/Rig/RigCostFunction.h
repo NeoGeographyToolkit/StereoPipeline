@@ -24,6 +24,7 @@
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/RigData.h>
 #include <asp/Rig/RigOptions.h>
+#include <asp/Rig/texture_processing.h>
 
 #include <ceres/ceres.h>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
@@ -217,6 +218,26 @@ void setupRigOptProblem(// Inputs
                         ceres::Problem& problem,
                         std::vector<std::string>& residual_names,
                         std::vector<double>& residual_scales);
+
+// Run an optimization pass for rig calibration
+void runOptPass(int pass,
+                int num_depth_params,
+                rig::RigOptions               const& opt,
+                std::vector<rig::cameraImage> const& imgData,
+                std::vector<double>           const& ref_timestamps,
+                rig::KeypointVec              const& keypoint_vec,
+                rig::PidCidFid                const& pid_to_cid_fid,
+                rig::RigBlockSizes            const& block_sizes,
+                std::vector<double>           const& min_timestamp_offset,
+                std::vector<double>           const& max_timestamp_offset,
+                mve::TriangleMesh::Ptr        const& mesh,
+                std::shared_ptr<BVHTree>      const& bvh_tree,
+                // Outputs
+                std::vector<double>                & depth_to_image_scales,
+                rig::Extrinsics                    & cams,
+                rig::RigSet                        & R,
+                std::vector<Eigen::Vector3d>       & xyz_vec,
+                rig::PidCidFidMap                  & pid_cid_fid_inlier);
 
 }  // namespace rig
 

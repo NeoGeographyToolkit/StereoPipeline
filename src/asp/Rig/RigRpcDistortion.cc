@@ -329,7 +329,7 @@ struct RpcFitError {
 };  // End class RpcFitError
 
 // Evaluate the residuals before and after optimization
-void evalResiduals(// Inputs
+void evalRpcResiduals(// Inputs
                    std::string const& tag, std::vector<std::string> const& residual_names,
                    // Outputs
                    ceres::Problem& problem, std::vector<double>& residuals) {
@@ -450,7 +450,7 @@ void fitCurrDegRPC(std::vector<Eigen::Vector2d> const& undist_centered_pixels,
   }
 
   std::vector<double> residuals;
-  evalResiduals("before opt", residual_names, problem, residuals);
+  evalRpcResiduals("before opt", residual_names, problem, residuals);
 
   // Solve the problem
   ceres::Solver::Options options;
@@ -477,7 +477,7 @@ void fitCurrDegRPC(std::vector<Eigen::Vector2d> const& undist_centered_pixels,
     std::cout << "output den_y " << den_y.transpose() << std::endl;
   }
 
-  evalResiduals("after opt", residual_names, problem, residuals);
+  evalRpcResiduals("after opt", residual_names, problem, residuals);
 }
 
 void fitRpcDist(int rpc_degree, int num_samples, rig::CameraParameters const& cam_params,

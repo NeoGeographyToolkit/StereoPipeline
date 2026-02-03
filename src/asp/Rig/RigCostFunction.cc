@@ -22,6 +22,9 @@
 #include <asp/Rig/image_lookup.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/rig_utils.h>
+#include <asp/Rig/texture_processing.h>
+#include <asp/Rig/triangulation.h>
+#include <asp/Rig/RigOutlier.h>
 
 #include <iostream>
 #include <iomanip>
@@ -1033,6 +1036,145 @@ void setupRigOptProblem(// Inputs
                              state.ref_identity_vec, state.right_identity_vec,
                              opt.no_rig, opt.camera_position_weight,
                              problem, residual_names, residual_scales);
+}
+
+// Run an optimization pass for rig calibration
+void runOptPass(int pass,
+                int num_depth_params,
+                rig::RigOptions               const& opt,
+                std::vector<rig::cameraImage> const& imgData,
+                std::vector<double>           const& ref_timestamps,
+                rig::KeypointVec              const& keypoint_vec,
+                rig::PidCidFid                const& pid_to_cid_fid,
+                rig::RigBlockSizes            const& block_sizes,
+                std::vector<double>           const& min_timestamp_offset,
+                std::vector<double>           const& max_timestamp_offset,
+                mve::TriangleMesh::Ptr        const& mesh,
+                std::shared_ptr<BVHTree>      const& bvh_tree,
+                // Outputs
+                std::vector<double>                & depth_to_image_scales,
+                rig::Extrinsics                    & cams,
+                rig::RigSet                        & R,
+                std::vector<Eigen::Vector3d>       & xyz_vec,
+                rig::PidCidFidMap                  & pid_cid_fid_inlier) {
+
+  // Optimization state local to this pass. Must update the state from
+  // extrinsics and rig config, run the optimization, then update back the extrinsics.
+  rig::OptState state;
+  rig::toOptState(cams, R, state, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
+
+  // Update cams.world_to_cam from current state. This is strictly necessary
+  // only when the rig is on, as then this data must be derived from the rig
+  // and the transforms for the reference sensor.
+  rig::calcWorldToCam(// Inputs
+                      opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps,
+                      state.ref_to_cam_vec, state.world_to_cam_vec,
+                      R.ref_to_cam_timestamp_offsets,
+                      // Output
+                      cams.world_to_cam);
+
+  // Triangulate, unless desired to reuse the initial points
+  if (!opt.use_initial_triangulated_points)
+    rig::multiViewTriangulation(// Inputs
+                                R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid,
+                                keypoint_vec,
+                                // Outputs
+                                pid_cid_fid_inlier, xyz_vec);
+
+  // This is a copy which won't change
+  std::vector<Eigen::Vector3d> xyz_vec_orig;
+  if (opt.tri_weight > 0.0) {
+    // Better copy manually to ensure no shallow copy
+    xyz_vec_orig.resize(xyz_vec.size());
+    for (size_t pt_it = 0; pt_it < xyz_vec.size(); pt_it++) {
+      for (int coord_it = 0; coord_it < 3; coord_it++) {
+        xyz_vec_orig[pt_it][coord_it] = xyz_vec[pt_it][coord_it];
+      }
+    }
+  }
+
+  // Compute where each ray intersects the mesh
+  rig::PidCidFidToMeshXyz pid_cid_fid_mesh_xyz;
+  std::vector<Eigen::Vector3d> pid_mesh_xyz;
+  if (opt.mesh != "") {
+    rig::meshTriangulations(// Inputs
+                            R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid,
+                            pid_cid_fid_inlier, keypoint_vec,
+                            opt.min_ray_dist, opt.max_ray_dist, mesh, bvh_tree,
+                            // Outputs
+                            pid_cid_fid_mesh_xyz, pid_mesh_xyz);
+  }
+
+  // For a given fid = pid_to_cid_fid[pid][cid], the value
+  // pid_cid_fid_to_residual_index[pid][cid][fid] will be the index
+  // in the array of residuals (look only at pixel residuals). This
+  // structure is populated only for inliers, so its total number of
+  // elements changes at each pass.
+  rig::PidCidFidMap pid_cid_fid_to_residual_index;
+  pid_cid_fid_to_residual_index.resize(pid_to_cid_fid.size());
+
+  // Form the problem
+  ceres::Problem problem;
+  std::vector<std::string> residual_names;
+  std::vector<double> residual_scales;
+  rig::setupRigOptProblem(imgData, R, ref_timestamps, state, depth_to_image_scales,
+                          keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, 
+                          pid_cid_fid_mesh_xyz, pid_mesh_xyz, xyz_vec, xyz_vec_orig,
+                          block_sizes, num_depth_params, 
+                          min_timestamp_offset, max_timestamp_offset, opt,
+                          // Outputs
+                          pid_cid_fid_to_residual_index, problem, residual_names, 
+                          residual_scales);
+
+  // Evaluate the residuals before optimization
+  std::vector<double> residuals;
+  rig::evalResiduals("before opt", residual_names, residual_scales, problem, residuals);
+
+  if (pass == 0)
+    rig::writeResiduals(opt.out_prefix, "initial", R.cam_names, imgData, keypoint_vec,
+                        pid_to_cid_fid, pid_cid_fid_inlier, pid_cid_fid_to_residual_index,
+                        residuals);
+
+  // Solve the problem
+  ceres::Solver::Options options;
+  ceres::Solver::Summary summary;
+  options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+  options.num_threads = opt.num_threads;
+  options.max_num_iterations = opt.num_iterations;
+  options.minimizer_progress_to_stdout = true;
+  options.gradient_tolerance = 1e-16;
+  options.function_tolerance = 1e-16;
+  options.parameter_tolerance = opt.parameter_tolerance;
+  ceres::Solve(options, &problem, &summary);
+
+  // The optimization is done. Convert state back to extrinsics and R (includes intrinsics).
+  rig::fromOptState(state, cams, R, opt.no_rig, opt.affine_depth_to_image, num_depth_params);
+
+  // Update cams.world_to_cam from optimized state. This is strictly necessary
+  // only when the rig is on, as then this data must be derived from the rig
+  // and the transforms for the reference sensor.
+  rig::calcWorldToCam(// Inputs
+                      opt.no_rig, imgData, state.world_to_ref_vec, ref_timestamps,
+                      state.ref_to_cam_vec, state.world_to_cam_vec,
+                      R.ref_to_cam_timestamp_offsets,
+                      // Output
+                      cams.world_to_cam);
+
+  // Evaluate the residuals after optimization
+  rig::evalResiduals("after opt", residual_names, residual_scales, problem,
+                     residuals);
+
+  // Flag outliers after this pass using the computed residuals
+  rig::flagOutliers(// Inputs
+                    opt.min_triangulation_angle, opt.max_reprojection_error,
+                    pid_to_cid_fid, keypoint_vec,
+                    cams.world_to_cam, xyz_vec, pid_cid_fid_to_residual_index, residuals,
+                    // Outputs
+                    pid_cid_fid_inlier);
+
+  rig::writeResiduals(opt.out_prefix, "final", R.cam_names, imgData, keypoint_vec,
+                      pid_to_cid_fid, pid_cid_fid_inlier,
+                      pid_cid_fid_to_residual_index, residuals);
 }
 
 }  // end namespace rig
