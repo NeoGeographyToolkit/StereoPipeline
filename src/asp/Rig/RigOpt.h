@@ -24,7 +24,6 @@
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/RigData.h>
 #include <asp/Rig/RigOptions.h>
-#include <asp/Rig/RigCostFunction.h>
 #include <asp/Rig/texture_processing.h>
 
 #include <Eigen/Core>
