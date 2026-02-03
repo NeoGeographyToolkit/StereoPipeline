@@ -164,14 +164,14 @@ and refine the intrinsics::
     float="lnav:${params} rnav:${params}"
 
     rig_calibrator                        \
-      --rig_config rig_config.txt         \
+      --rig-config rig_config.txt         \
       --nvm theia_rig/cameras.nvm         \
-      --camera_poses_to_float "lnav rnav" \
-      --intrinsics_to_float "$float"      \
-      --num_iterations 100                \
-      --calibrator_num_passes 2           \
-      --num_overlaps 5                    \
-      --out_dir rig_out
+      --camera-poses-to-float "lnav rnav" \
+      --intrinsics-to-float "$float"      \
+      --num-iterations 100                \
+      --num-passes 2                      \
+      --num-overlaps 5                    \
+      --out-dir rig_out
 
 To optimize the distortion, one can adjust the rig configuration by setting
 initial distortion values and type::
@@ -283,16 +283,16 @@ using ground control points (GCP, :numref:`bagcp`), with the option
 
 Here is an example invocation::
 
-    bundle_adjust                            \
-    --image-list rig_out/image_list.txt      \
-    --camera-list rig_out/camera_list.txt    \
-    --nvm rig_out/cameras.nvm                \
-    --num-iterations 0                       \
-    --inline-adjustments                     \
-    --datum D_MARS                           \
-    --remove-outliers-params "75 3 50 50"    \
-    --transform-cameras-with-shared-gcp      \
-    gcp1.gcp gcp2.gcp gcp3.gcp               \
+    bundle_adjust                         \
+    --image-list rig_out/image_list.txt   \
+    --camera-list rig_out/camera_list.txt \
+    --nvm rig_out/cameras.nvm             \
+    --num-iterations 0                    \
+    --inline-adjustments                  \
+    --datum D_MARS                        \
+    --remove-outliers-params "75 3 50 50" \
+    --transform-cameras-with-shared-gcp   \
+    gcp1.gcp gcp2.gcp gcp3.gcp            \
     -o ba/run
 
 The ``--datum`` option is very important, and it should be set depending
@@ -330,14 +330,14 @@ back to ``rig_calibrator``, if needed, together with the latest optimized rig,
 which is at ``rig_out/rig_config.txt``. The command is::
 
     rig_calibrator                        \
-      --rig_config rig_out/rig_config.txt \
+      --rig-config rig_out/rig_config.txt \
       --nvm ba/run.nvm                    \
-      --camera_poses_to_float "lnav rnav" \
-      --intrinsics_to_float "$float"      \
-      --num_iterations 100                \
-      --calibrator_num_passes 2           \
-      --num_overlaps 0                    \
-      --out_dir rig_out_reg
+      --camera-poses-to-float "lnav rnav" \
+      --intrinsics-to-float "$float"      \
+      --num-iterations 100                \
+      --num-passes 2                      \
+      --num-overlaps 0                    \
+      --out-dir rig_out_reg
 
 Here we set ``--num_overlaps 0`` as we do not want to try to create interest
 point matches again.

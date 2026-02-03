@@ -59,7 +59,7 @@ Next, we run ``rig_calibrator``::
 
     float_intr="" # not floating intrinsics
     rig_calibrator                                        \
-        --rig_config rig_input/rig_config.txt             \
+        --rig-config rig_input/rig_config.txt             \
         --nvm rig_theia/cameras.nvm                       \
         --camera-poses-to-float "nav_cam sci_cam haz_cam" \
         --intrinsics-to-float "$float_intr"               \
@@ -68,12 +68,12 @@ Next, we run ``rig_calibrator``::
         --bracket-len 1.0                                 \
         --bracket-single-image                            \
         --num-iterations 100                              \
-        --calibrator-num-passes 2                         \
+        --num-passes 2                         \
         --registration                                    \
         --hugin-file control_points.pto                   \
         --xyz-file xyz.txt                                \
         --export-to-voxblox                               \
-        --out_dir rig_out
+        --out-dir rig_out
 
 The previously found camera poses are read in. They are registered to world
 coordinates (this is optional). For that, the four corners of a square with

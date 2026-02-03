@@ -388,9 +388,10 @@ int main(int argc, char** argv) {
   if (opt.use_initial_triangulated_points && registration_applied)
     rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid,
                                   pid_cid_fid_inlier, xyz_vec);
-
-  for (int pass = 0; pass < opt.calibrator_num_passes; pass++) {
-    std::cout << "\nOptimization pass " << pass + 1 << " / " << opt.calibrator_num_passes 
+  
+  // Run several optimization passes with outlier filtering
+  for (int pass = 0; pass < opt.num_passes; pass++) {
+    std::cout << "\nOptimization pass " << pass + 1 << " / " << opt.num_passes 
               << "\n";
     runOptimizationPass(pass, num_depth_params, opt, imgData, ref_timestamps,
                         keypoint_vec, pid_to_cid_fid, block_sizes, 

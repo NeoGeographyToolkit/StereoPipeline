@@ -65,18 +65,18 @@ coordinates (this requires first manually picking some features with
 known 3D positions in the images, per
 :numref:`rig_calibrator_registration`)::
 
-    rig_calibrator                                \
-      --rig_config camera_config.txt              \
-      --nvm theia_out/cameras.nvm                 \
-      --camera_poses_to_float "nav_cam"           \
-      --intrinsics_to_float ""                    \
-      --num_iterations 100                        \
-      --calibrator_num_passes 2                   \
-      --num_overlaps 10                           \
-      --registration                              \
-      --hugin_file control_points.pto             \
-      --xyz_file xyz.txt                          \
-      --out_dir rig_out
+    rig_calibrator                      \
+      --rig-config camera_config.txt    \
+      --nvm theia_out/cameras.nvm       \
+      --camera-poses-to-float "nav_cam" \
+      --intrinsics-to-float ""          \
+      --num-iterations 100              \
+      --num-passes 2                    \
+      --num-overlaps 10                 \
+      --registration                    \
+      --hugin-file control_points.pto   \
+      --xyz-file xyz.txt                \
+      --out-dir rig_out
     
 Registration to world coordinates is optional. It is still suggested
 to use at least some rough guesses for where the world positions of

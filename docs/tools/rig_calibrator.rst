@@ -719,7 +719,7 @@ Command-line options
   value may prevent enough images being bracketed. 
   The timestamp (in seconds) is part of the image name. See also 
   ``--bracket-single-image``. Type: double. Default: 0.6.
-``--calibrator-num-passes`` How many passes of optimization to do. Outliers
+``--num-passes`` How many passes of optimization to do. Outliers
   will be removed after every pass. Each pass will start with the
   previously optimized solution as an initial guess. Mesh intersections (if
   applicable) and ray triangulation will be recomputed before each pass.)

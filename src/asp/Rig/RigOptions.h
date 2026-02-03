@@ -36,7 +36,7 @@ struct RigOptions: public asp::BaBaseOptions {
     timestamp_offsets_max_change,
     initial_max_reprojection_error, max_reprojection_error,
     min_ray_dist, max_ray_dist;
-  int num_overlaps, num_match_threads, calibrator_num_passes;
+  int num_overlaps, num_match_threads;
   bool fix_rig_translations, fix_rig_rotations, float_scale,
     float_timestamp_offsets, use_initial_triangulated_points,
     affine_depth_to_image, registration, skip_post_registration, no_rig,
@@ -57,7 +57,7 @@ struct RigOptions: public asp::BaBaseOptions {
     timestamp_offsets_max_change(1.0),
     initial_max_reprojection_error(300.0), max_reprojection_error(25.0),
     min_ray_dist(0.0), max_ray_dist(100.0),
-    num_overlaps(0), num_match_threads(8), calibrator_num_passes(2),
+    num_overlaps(0), num_match_threads(8),
     fix_rig_translations(false), fix_rig_rotations(false), float_scale(false),
     float_timestamp_offsets(false), use_initial_triangulated_points(false),
     affine_depth_to_image(false), registration(false), skip_post_registration(false),
@@ -65,7 +65,12 @@ struct RigOptions: public asp::BaBaseOptions {
     bracket_single_image(false), nearest_neighbor_interp(false),
     read_nvm_no_shift(false), save_nvm_no_shift(false), save_matches(false),
     export_to_voxblox(false), save_pinhole_cameras(false),
-    save_transformed_depth_clouds(false), verbose(false) {}
+    save_transformed_depth_clouds(false), verbose(false) {
+    
+    // The number of passes is 2 by default. This is because the rig calibrator
+    // does a pass to optimize the intrinsics and a pass to optimize the rig.
+    num_passes = 2;
+  }
 };
 
 } // namespace rig

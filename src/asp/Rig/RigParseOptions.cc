@@ -118,7 +118,7 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
     ("affine-depth-to-image", po::bool_switch(&opt.affine_depth_to_image)->default_value(false),
      "Assume that the depth-to-image transform for each depth + image camera is an "
      "arbitrary affine transform rather than scale * rotation + translation.")
-    ("calibrator-num-passes", po::value(&opt.calibrator_num_passes)->default_value(2),
+    ("num-passes", po::value(&opt.num_passes)->default_value(2),
      "How many passes of optimization to do. Outliers will be removed after every pass. "
      "Each pass will start with the previously optimized solution as an initial guess. "
      "Mesh intersections (if applicable) and ray triangulation will be recomputed before "
