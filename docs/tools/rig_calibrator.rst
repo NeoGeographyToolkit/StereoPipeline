@@ -102,6 +102,8 @@ encountered string matching the sensor name will be used.
 *It is strongly suggested to not have any other digits in the image name, as
 that may confuse the parser.*
 
+An example of this naming convention is in :numref:`orbital_rig`.
+
 Directory structure
 ^^^^^^^^^^^^^^^^^^^
 
@@ -375,6 +377,7 @@ Examples
  - A step-by-step-example (:numref:`rig_calibrator_example`). 
  - A larger example covering a full ISS module (:numref:`sfm_iss`).
  - An example using MSL Curiosity rover images (:numref:`rig_msl`).
+ - An orbital rig with DEM constraints ():numref:`orbital_rig`).
 
 Notes
 ~~~~~

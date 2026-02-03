@@ -78,6 +78,7 @@ for an example using CSM cameras for the MSL rover, without employing SfM.
    examples/rig
    examples/sfm_iss
    examples/msl
+   examples/orbital_rig
    
 Shape-from-Shading
 ==================

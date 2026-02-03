@@ -459,9 +459,7 @@ The ``sat_sim`` program can simulate a rig that has a mix of frame (pinhole) and
 linescan cameras. The rig should be passed in via ``--rig-config``. Its format
 is defined in :numref:`rig_config`. The rig can be adjusted after loading (:numref:`sat_sim_rig_adjust`).
 
-As an example, consider the setup from :numref:`sat_sim_roll_pitch_yaw`. Add the
-rig option, and do not set the image size, focal length, and optical center on
-the command line, as those are set by the rig configuration. 
+An example is in :numref:`orbital_rig`. 
 
 The produced image and camera file names will include the sensor name, before
 the image/camera extension. Example::

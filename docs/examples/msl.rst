@@ -111,6 +111,8 @@ inspection. A fully automatic approach may be challenging
 This dataset is available for
 `download <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/MSL>`_.
 
+.. _msl_init_rig:
+
 Setting up the initial rig
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
