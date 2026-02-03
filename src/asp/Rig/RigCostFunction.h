@@ -25,8 +25,6 @@
 #include <asp/Rig/RigData.h>
 #include <asp/Rig/RigOptions.h>
 
-#include <asp/Rig/texture_processing.h> // temporary!
-
 #include <ceres/ceres.h>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
 #include <ceres/loss_function.h>

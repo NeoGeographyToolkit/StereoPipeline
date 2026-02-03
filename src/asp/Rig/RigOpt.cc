@@ -22,11 +22,13 @@
 #include <asp/Rig/image_lookup.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/rig_utils.h>
-
-// temporary!!!
 #include <asp/Rig/texture_processing.h>
 #include <asp/Rig/triangulation.h>
 #include <asp/Rig/RigOutlier.h>
+
+#include <ceres/ceres.h>
+#include <ceres/dynamic_numeric_diff_cost_function.h>
+#include <ceres/loss_function.h>
 
 #include <iostream>
 #include <iomanip>

@@ -56,8 +56,12 @@ parallel_stereo (:numref:`parallel_stereo`):
     mapprojected images (:numref:`stereodefault`).
 
 rig_calibrator (:numref:`rig_calibrator`):
-  * All command-line options now use dashes instead of 
-    underscores. For example, ``--out_dir`` is now ``--out-dir``.
+  * All command-line options now use dashes instead of underscores. For example,
+    ``--out_dir`` is now ``--out-dir``.
+
+theia_sfm (:numref:`theia_sfm`):
+  * All command-line options now use dashes instead of underscores. For example,
+    ``--rig_config`` is now ``--rig-config``.
 
 Misc:
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
