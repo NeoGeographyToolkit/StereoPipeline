@@ -239,13 +239,14 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
     ("verbose", po::bool_switch(&opt.verbose)->default_value(false),
      "Print a lot of verbose information about how matching goes.");
 
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
+
   po::options_description positional("");
   po::positional_options_description positional_desc;
 
   // Add ASP-specific argument handling
-  std::cout << "---now here\n";
   
-  std::string usage("rig_calibrator [options]");
+  std::string usage("[options]");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
