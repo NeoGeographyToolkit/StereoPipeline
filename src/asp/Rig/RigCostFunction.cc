@@ -375,7 +375,7 @@ CamPositionErr::CamPositionErr(const double * init_world_to_cam, double uncertai
 bool CamPositionErr::operator()(double const* const* parameters, double* residuals) const {
   Eigen::Vector3d curr_cam_position = calc_cam_position(parameters[0]);
   for (size_t p = 0; p < NUM_XYZ_PARAMS; p++)
-      residuals[p] = m_uncertainty * (curr_cam_position[p] - m_init_position[p]);
+      residuals[p] = (curr_cam_position[p] - m_init_position[p]) / m_uncertainty;
   for (size_t p = NUM_XYZ_PARAMS; p < rig::NUM_RIGID_PARAMS; p++)
     residuals[p] = 0; // for rotations
   return true;

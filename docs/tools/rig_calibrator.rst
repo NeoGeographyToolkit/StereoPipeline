@@ -420,10 +420,11 @@ the other sensors.
 Constraints on cameras
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The parameter ``--camera-position-weight`` constrains how far cameras can move.
-A large value will impede convergence. This is added to the cost function as the
-sum of the squares of weighed differences between the initial and current camera
-positions. 
+The parameter ``--camera-position-uncertainty`` constrains how far cameras can move.
+This specifies the expected uncertainty (1 sigma, in meters) for camera positions. 
+Smaller values create tighter constraints that may impede convergence. This is added
+to the cost function as the sum of squares of differences between initial and current
+camera positions, divided by the uncertainty. 
 
 Constraints on triangulated points
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -736,9 +737,9 @@ Command-line options
 ``--fix-rig-rotations`` Fix the rotation component of the transforms between the
   sensors on a rig. Works only when ``--no-rig`` is not set. Type: bool.
   Default: false.
-``--camera-position-weight`` A constraint to keep the camera positions close to
-  initial locations. A high value can impede convergence. This does not use a
-  robust threshold (soft cost function). Type: double. Default: 0.
+``--camera-position-uncertainty`` Camera position uncertainty (1 sigma, in meters).
+  This strongly constrains the movement of cameras, potentially at the expense of
+  accuracy. Specify a single value. Type: string. Default: "".
 ``--tri-weight`` The weight to give to the constraint that optimized
   triangulated points stay close to original triangulated points. A
   positive value will help ensure the cameras do not move too far, but a

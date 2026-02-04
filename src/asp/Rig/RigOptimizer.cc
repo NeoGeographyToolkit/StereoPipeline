@@ -483,7 +483,7 @@ void addRigCamPosCostFun(// Observation
     residual_names.push_back(sensor_name + "_q_y");
     residual_names.push_back(sensor_name + "_q_z");
     residual_names.push_back(sensor_name + "_q_w");
-    // The scales are weight multipliers, so need to convert uncertainty to weight
+    // Record the uncertainty scaling factor in residual scales
     residual_scales.push_back(1.0/camera_position_uncertainty);
     residual_scales.push_back(1.0/camera_position_uncertainty);
     residual_scales.push_back(1.0/camera_position_uncertainty);

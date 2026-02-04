@@ -141,12 +141,9 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
     ("depth-mesh-weight", po::value(&opt.depth_mesh_weight)->default_value(0.0),
      "A larger value will give more weight to the constraint that the depth clouds stay "
      "close to the mesh. Not suggested by default.")
-    ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
-     "A constraint to keep the camera positions close to initial locations. A high value "
-     "can impede convergence. This does not use a robust threshold (soft cost function).")
     ("camera-position-uncertainty", po::value(&opt.camera_position_uncertainty_str)->default_value(""),
      "Camera position uncertainty (1 sigma, in meters). This strongly constrains the "
-     "movement of cameras, potentially at the expense of accuracy.")
+     "movement of cameras, potentially at the expense of accuracy. Specify a single value.")
     ("affine-depth-to-image", po::bool_switch(&opt.affine_depth_to_image)->default_value(false),
      "Assume that the depth-to-image transform for each depth + image camera is an "
      "arbitrary affine transform rather than scale * rotation + translation.")
@@ -271,12 +268,8 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
      "Print a lot of verbose information about how matching goes.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
-
   po::options_description positional("");
   po::positional_options_description positional_desc;
-
-  // Add ASP-specific argument handling
-  
   std::string usage("[options]");
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
@@ -323,9 +316,6 @@ void parameterValidation(RigOptions const& opt) {
 
   if (opt.tri_weight > 0.0 && opt.tri_robust_threshold <= 0.0)
     LOG(FATAL) << "The triangulation robust threshold must be positive.\n";
-
-  if (opt.camera_position_weight < 0.0)
-    LOG(FATAL) << "The camera position weight must non-negative.\n";
 
   if (opt.registration && (opt.xyz_file.empty() || opt.hugin_file.empty()))
     LOG(FATAL) << "In order to register the map, the hugin and xyz file must be specified.";

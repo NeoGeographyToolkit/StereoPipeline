@@ -56,6 +56,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     mapprojected images (:numref:`stereodefault`).
 
 rig_calibrator (:numref:`rig_calibrator`):
+  * Replaced ``--camera-position-weight`` with ``--camera-position-uncertainty``. 
   * Added an example of an orbital rig with a DEM constraint
     (:numref:`orbital_rig`).
   * All command-line options now use dashes instead of underscores. For example,
