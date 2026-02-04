@@ -135,6 +135,7 @@ void readImageEntry(// Inputs
   if (hasByte) {
     image_map[timestamp].image = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
   } else {
+    vw::vw_out() << "Non-byte image detected. Will normalize.\n";
     vw::ImageViewRef<vw::PixelMask<float>> masked_image;
     asp::normalizeImage(image_file, masked_image);
     asp::maskedToScaledByteCvImage(masked_image, image_map[timestamp].image);

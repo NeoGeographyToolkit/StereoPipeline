@@ -24,6 +24,7 @@
 #include <asp/Rig/RigParseUtils.h>
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/basic_algs.h>
+#include <asp/Core/AspProgramOptions.h>
 
 #include <vw/Core/Exception.h>
 
@@ -241,21 +242,16 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
   po::options_description positional("");
   po::positional_options_description positional_desc;
 
-  po::options_description all_options;
-  all_options.add(general_options);
-
-  po::variables_map vm;
-  try {
-    po::store(po::command_line_parser(argc, argv).options(all_options)
-              .positional(positional_desc).run(), vm);
-    po::notify(vm);
-  } catch (po::error const& e) {
-    vw::vw_throw(vw::ArgumentErr() << "Error parsing input:\n" << e.what() << "\n\n"
-                 << general_options);
-  }
-
-  if (vm.count("help"))
-    vw::vw_throw(vw::ArgumentErr() << general_options);
+  // Add ASP-specific argument handling
+  std::cout << "---now here\n";
+  
+  std::string usage("rig_calibrator [options]");
+  bool allow_unregistered = false;
+  std::vector<std::string> unregistered;
+  po::variables_map vm =
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   // Validation will happen in parameterValidation()
 }

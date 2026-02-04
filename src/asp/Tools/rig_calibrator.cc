@@ -16,8 +16,10 @@
 // __END_LICENSE__
 
 #include <asp/Core/AspLog.h>
+#include <asp/Core/Macros.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/nvm.h>
+#include <asp/Core/Macros.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Rig/RigOptions.h>
 #include <asp/Rig/RigParseOptions.h>
@@ -63,7 +65,7 @@
 #include <iostream>
 #include <fstream>
 
-int main(int argc, char** argv) {
+void run_rig_calibrator(int argc, char** argv) {
 
   // Some dependencies may still use google logging
   google::InitGoogleLogging(argv[0]);
@@ -322,6 +324,15 @@ int main(int argc, char** argv) {
                                      imgData, cams.world_to_cam,
                                      xyz_vec,  pid_cid_fid_inlier,
                                      conv_angles_file);
-  return 0;
+  return;
 }
 
+int main(int argc, char * argv[]) {
+
+  try {
+    run_rig_calibrator(argc, argv);
+  } ASP_STANDARD_CATCHES;
+  
+  return 0;
+
+}
