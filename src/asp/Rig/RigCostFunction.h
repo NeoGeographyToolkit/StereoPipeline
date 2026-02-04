@@ -155,21 +155,21 @@ struct XYZError {
   double m_weight;
 };  // End class XYZError
 
-/// A Ceres cost function. The residual is the difference between the
-/// initial position and optimized position, multiplied by given weight.
-/// The variable has the rotations as well, but those are ignored.
+/// A Ceres cost function. The residual is the difference between the initial
+/// position and optimized position, divided by given uncertainty. The variable
+/// has the rotations as well, but those are ignored.
 struct CamPositionErr {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  CamPositionErr(const double * init_world_to_cam, double weight);
+  CamPositionErr(const double * init_world_to_cam, double uncertainty);
 
   bool operator()(double const* const* parameters, double* residuals) const;
 
   // Factory to hide the construction of the CostFunction object from the client code.
-  static ceres::CostFunction* Create(const double * init_world_to_cam, double weight);
+  static ceres::CostFunction* Create(const double * init_world_to_cam, double uncertainty);
 
   Eigen::Vector3d m_init_position;
-  double m_weight;
+  double m_uncertainty;
 };
 
 }  // namespace rig

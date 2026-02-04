@@ -365,8 +365,8 @@ ceres::CostFunction* XYZError::Create(Eigen::Vector3d const& ref_xyz,
   return cost_function;
 }
 
-CamPositionErr::CamPositionErr(const double * init_world_to_cam, double weight):
-  m_weight(weight) {
+CamPositionErr::CamPositionErr(const double * init_world_to_cam, double uncertainty):
+  m_uncertainty(uncertainty) {
 
   // Make a copy, as later the value at the pointer will change
   m_init_position = calc_cam_position(init_world_to_cam);
@@ -375,18 +375,19 @@ CamPositionErr::CamPositionErr(const double * init_world_to_cam, double weight):
 bool CamPositionErr::operator()(double const* const* parameters, double* residuals) const {
   Eigen::Vector3d curr_cam_position = calc_cam_position(parameters[0]);
   for (size_t p = 0; p < NUM_XYZ_PARAMS; p++)
-      residuals[p] = m_weight * (curr_cam_position[p] - m_init_position[p]);
+      residuals[p] = m_uncertainty * (curr_cam_position[p] - m_init_position[p]);
   for (size_t p = NUM_XYZ_PARAMS; p < rig::NUM_RIGID_PARAMS; p++)
     residuals[p] = 0; // for rotations
   return true;
 }
 
 // Factory to hide the construction of the CostFunction object from the client code.
-ceres::CostFunction* CamPositionErr::Create(const double * init_world_to_cam, double weight) {
+ceres::CostFunction* CamPositionErr::Create(const double * init_world_to_cam, 
+                                            double uncertainty) {
 
   ceres::DynamicNumericDiffCostFunction<CamPositionErr>* cost_function =
     new ceres::DynamicNumericDiffCostFunction<CamPositionErr>
-    (new CamPositionErr(init_world_to_cam, weight));
+    (new CamPositionErr(init_world_to_cam, uncertainty));
 
   // The residual size is always the same
   cost_function->SetNumResiduals(rig::NUM_RIGID_PARAMS);

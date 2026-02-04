@@ -439,7 +439,7 @@ void addRigCamPosCostFun(// Observation
                          std::vector<double>& right_identity_vec,
                          // Flags
                          bool no_rig,
-                         double camera_position_weight,
+                         double camera_position_uncertainty,
                          // Output
                          ceres::Problem& problem,
                          std::vector<std::string>& residual_names,
@@ -470,7 +470,7 @@ void addRigCamPosCostFun(// Observation
                   cam_timestamp);
 
     ceres::CostFunction* cam_pos_cost_function =
-       rig::CamPositionErr::Create(beg_cam_ptr, camera_position_weight);
+       rig::CamPositionErr::Create(beg_cam_ptr, camera_position_uncertainty);
     ceres::LossFunction* cam_pos_loss_function = NULL; // no robust threshold
 
     problem.AddResidualBlock(cam_pos_cost_function, cam_pos_loss_function,
@@ -483,9 +483,10 @@ void addRigCamPosCostFun(// Observation
     residual_names.push_back(sensor_name + "_q_y");
     residual_names.push_back(sensor_name + "_q_z");
     residual_names.push_back(sensor_name + "_q_w");
-    residual_scales.push_back(camera_position_weight);
-    residual_scales.push_back(camera_position_weight);
-    residual_scales.push_back(camera_position_weight);
+    // The scales are weight multipliers, so need to convert uncertainty to weight
+    residual_scales.push_back(1.0/camera_position_uncertainty);
+    residual_scales.push_back(1.0/camera_position_uncertainty);
+    residual_scales.push_back(1.0/camera_position_uncertainty);
     residual_scales.push_back(1.0); // Rotations will not be constrained
     residual_scales.push_back(1.0);
     residual_scales.push_back(1.0);
@@ -672,12 +673,13 @@ void setupRigOptProblem(// Inputs
 
   }  // end iterating over pid
 
-  // Add the camera position constraints for the ref cams
-  if (opt.camera_position_weight > 0.0)
+  // Add the camera position constraints for the ref cams. Need to respect
+  // the fact that opt.camera_position_uncertainty type is a vector of vectors.
+  if (opt.camera_position_uncertainty.size() > 0)
     rig::addRigCamPosCostFun(cams, R, opt.camera_poses_to_float, ref_timestamps,
                              state.world_to_cam_vec, state.world_to_ref_vec, state.ref_to_cam_vec,
                              state.ref_identity_vec, state.right_identity_vec,
-                             opt.no_rig, opt.camera_position_weight,
+                             opt.no_rig, opt.camera_position_uncertainty[0][0],
                              problem, residual_names, residual_scales);
 }
 
