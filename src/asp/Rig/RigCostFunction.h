@@ -172,6 +172,25 @@ struct CamPositionErr {
   double m_uncertainty;
 };
 
+/// A Ceres cost function for constraining triangulated points to DEM positions.
+/// The residuals are the differences between the triangulated point coordinates
+/// and the point projected vertically onto the DEM from that location, divided
+/// by the uncertainty. All three coordinates (X, Y, Z) are constrained
+/// following bundle_adjust logic.
+struct HeightsFromDemError {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+  HeightsFromDemError(Eigen::Vector3d const& dem_xyz, double uncertainty);
+
+  bool operator()(double const* const* parameters, double* residuals) const;
+
+  // Factory to hide the construction of the CostFunction object from the client code.
+  static ceres::CostFunction* Create(Eigen::Vector3d const& dem_xyz, double uncertainty);
+
+  Eigen::Vector3d m_dem_xyz;
+  double m_uncertainty;
+};
+
 }  // namespace rig
 
 #endif  // ASP_RIG_COST_FUNCTION_H

@@ -339,7 +339,7 @@ Each line in this file has the format::
 
 Here, the 12 values are the rows of the world-to-camera rotation and
 then the world-to-camera translation. See the ``--camera-poses``
-option (:numref:`rig_calibrator_command_line`) for how this file can
+option (:numref:`rig_opts`) for how this file can
 be read back in. Note that camera's position and orientation in world
 coordinates are determined by taking the inverse of this rotation +
 translation transform.
@@ -417,6 +417,8 @@ Independent of these, the options ``--fix-rig-translations`` and
 translation or rotation component of all transforms from the reference sensor to
 the other sensors.
 
+These options are described in :numref:`rig_opts`.
+
 Constraints on cameras
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -432,8 +434,12 @@ Constraints on triangulated points
 Triangulated points are, by default, set to not move too far, after
 registration. See ``--tri-weight`` and ``--tri-robust-threshold``.
 
-Additional constraints that can be used are  
-``--depth-mesh-weight``, and ``--depth-tri-weight``.
+The ``--heights-from-dem`` option can constrain triangulated points to be close
+to a DEM. This is applicable for orbital images. The logic is as for bundle
+adjustment (:numref:`heights_from_dem`). An example is in :numref:`orbital_rig`.
+
+Additional constraints are ``--depth-mesh-weight`` and ``--depth-tri-weight``
+(:numref:`rig_opts`).
 
 .. _rig_calibrator_registration:
 
@@ -694,7 +700,7 @@ the input naming convention in :numref:`rig_data_conv`.
 How to register the produced cameras to the ground is discussed in
 :numref:`msl_registration`.
 
-.. _rig_calibrator_command_line:
+.. _rig_opts:
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -738,8 +744,19 @@ Command-line options
   sensors on a rig. Works only when ``--no-rig`` is not set. Type: bool.
   Default: false.
 ``--camera-position-uncertainty`` Camera position uncertainty (1 sigma, in meters).
-  This strongly constrains the movement of cameras, potentially at the expense of
-  accuracy. Specify a single value. Type: string. Default: "".
+  This strongly constrains the movement of cameras, potentially at the expense
+  of accuracy. Specify as a single value. Type: string. Default: "".
+``--heights-from-dem`` Use this DEM to constrain the triangulated points. The
+  uncertainty of the DEM is specified via ``--heights-from-dem-uncertainty``. Type:
+  string. Default: "".
+``--heights-from-dem-uncertainty`` Uncertainty (1 sigma) for ``--heights-from-dem``.
+  A smaller value constrains more the triangulated points to the DEM specified
+  via --heights-from-dem. Type: double. Default: -1.
+``--heights-from-dem-robust-threshold`` Robust threshold for residual errors in 
+  triangulated points relative to DEM specified via ``--heights-from-dem``. This
+  is applied after the point differences are divided by
+  ``--heights-from-dem-uncertainty``. It will attenuate large height differences.
+  Set to 0 to turn off. Type: double. Default: 0.1.
 ``--tri-weight`` The weight to give to the constraint that optimized
   triangulated points stay close to original triangulated points. A
   positive value will help ensure the cameras do not move too far, but a

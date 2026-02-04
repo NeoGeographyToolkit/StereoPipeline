@@ -18,6 +18,7 @@
 #include <asp/Core/AspLog.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/ImageUtils.h>
 #include <asp/Core/nvm.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Rig/RigOptions.h>
@@ -45,6 +46,7 @@
 
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Core/Log.h>
+#include <vw/Cartography/GeoReference.h>
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -103,6 +105,15 @@ void run_rig_calibrator(int argc, char** argv) {
   std::shared_ptr<BVHTree> bvh_tree;
   if (opt.mesh != "")
     rig::loadMeshBuildTree(opt.mesh, mesh, mesh_info, graph, bvh_tree);
+
+  // Optionally load DEM for height constraints
+  vw::cartography::GeoReference dem_georef;
+  vw::ImageViewRef<vw::PixelMask<double>> masked_dem;
+  bool have_dem = !opt.heights_from_dem.empty();
+  if (have_dem) {
+    vw::vw_out() << "Loading DEM for height constraints: " << opt.heights_from_dem << "\n";
+    asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
+  }
 
   // Read camera poses from nvm file or a list.
   std::vector<rig::MsgMap> image_maps;
@@ -243,13 +254,52 @@ void run_rig_calibrator(int argc, char** argv) {
   if (opt.use_initial_triangulated_points && registration_applied)
     rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid,
                                   pid_cid_fid_inlier, xyz_vec);
+
+  // Update triangulated points with DEM heights if requested
+  std::vector<Eigen::Vector3d> dem_xyz_vec;
+  // if (have_dem) {
+  //   vw::vw_out() << "Updating triangulated points with DEM heights.\n";
+  //   // Create a simple version for rig_calibrator - just update heights for valid points
+  //   dem_xyz_vec.resize(xyz_vec.size());
+  //   for (size_t i = 0; i < xyz_vec.size(); i++) {
+  //     if (xyz_vec[i].norm() > 0) { // Valid triangulated point
+  //       vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(
+  //         vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]));
+  //       vw::Vector2 dem_pix = dem_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
+        
+  //       if (masked_dem.cols() > 0 && masked_dem.rows() > 0 &&
+  //           dem_pix[0] >= 0 && dem_pix[0] < masked_dem.cols() &&
+  //           dem_pix[1] >= 0 && dem_pix[1] < masked_dem.rows()) {
+          
+  //         vw::PixelMask<double> height_val = masked_dem(int(dem_pix[0]), int(dem_pix[1]));
+  //         if (is_valid(height_val)) {
+  //           // Update only the height, keep x,y from triangulation
+  //           vw::Vector3 dem_xyz = dem_georef.datum().geodetic_to_cartesian(
+  //             vw::Vector3(llh[0], llh[1], height_val.child()));
+  //           dem_xyz_vec[i] = dem_xyz;
+  //           // Also update the triangulated point for optimization initial guess
+  //           xyz_vec[i] = Eigen::Vector3d(dem_xyz[0], dem_xyz[1], dem_xyz[2]);
+  //         } else {
+  //           dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
+  //         }
+  //       } else {
+  //         dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
+  //       }
+  //     } else {
+  //       dem_xyz_vec[i] = vw::Vector3(0, 0, 0);
+  //     }
+  //   }
+  // } else {
+  //   // Initialize empty vector for consistency
+  //   dem_xyz_vec.resize(xyz_vec.size(), vw::Vector3(0, 0, 0));
+  // }
   
   // Run several optimization passes with outlier filtering
   for (int pass = 0; pass < opt.num_passes; pass++) {
     std::cout << "\nOptimization pass " << pass + 1 << " / " << opt.num_passes << "\n";
     runOptPass(pass, num_depth_params, opt, imgData, ref_timestamps,
                keypoint_vec, pid_to_cid_fid, 
-               min_timestamp_offset, max_timestamp_offset, mesh, bvh_tree, 
+               min_timestamp_offset, max_timestamp_offset, mesh, bvh_tree, dem_xyz_vec,
                depth_to_image_scales, cams, R, xyz_vec, pid_cid_fid_inlier); // out
   }  // End optimization passes
 

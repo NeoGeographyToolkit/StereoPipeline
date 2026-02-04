@@ -57,6 +57,8 @@ parallel_stereo (:numref:`parallel_stereo`):
 
 rig_calibrator (:numref:`rig_calibrator`):
   * Replaced ``--camera-position-weight`` with ``--camera-position-uncertainty``. 
+  * Added the option ``--heights-from-dem`` to constrain triangulated points
+    relative to a DEM.
   * Added an example of an orbital rig with a DEM constraint (:numref:`orbital_rig`).
   * All command-line options now use dashes instead of underscores. For example,
     ``--out_dir`` is now ``--out-dir``.

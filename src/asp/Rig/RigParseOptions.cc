@@ -141,10 +141,25 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
     ("depth-mesh-weight", po::value(&opt.depth_mesh_weight)->default_value(0.0),
      "A larger value will give more weight to the constraint that the depth clouds stay "
      "close to the mesh. Not suggested by default.")
-    ("camera-position-uncertainty", po::value(&opt.camera_position_uncertainty_str)->default_value(""),
+    ("camera-position-uncertainty", 
+     po::value(&opt.camera_position_uncertainty_str)->default_value(""),
      "Camera position uncertainty (1 sigma, in meters). This strongly constrains the "
      "movement of cameras, potentially at the expense of accuracy. Specify a single value.")
-    ("affine-depth-to-image", po::bool_switch(&opt.affine_depth_to_image)->default_value(false),
+    ("heights-from-dem", po::value(&opt.heights_from_dem)->default_value(""),
+     "Use this DEM to constrain the triangulated points. The uncertainty of the DEM is "
+     "specified via --heights-from-dem-uncertainty.")
+    ("heights-from-dem-uncertainty", 
+     po::value(&opt.heights_from_dem_uncertainty)->default_value(-1.0),
+     "Uncertainty (in meters, 1 sigma) for --heights-from-dem. A smaller value constrains "
+     "more the triangulated points to the DEM specified via --heights-from-dem.")
+    ("heights-from-dem-robust-threshold", 
+     po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.1),
+     "Robust threshold for residual errors in triangulated points relative to DEM "
+     "specified via --heights-from-dem. This is applied after the point differences "
+     "are divided by --heights-from-dem-uncertainty. It will attenuate large height "
+     "differences. Set to 0 to turn off.")
+    ("affine-depth-to-image", 
+     po::bool_switch(&opt.affine_depth_to_image)->default_value(false),
      "Assume that the depth-to-image transform for each depth + image camera is an "
      "arbitrary affine transform rather than scale * rotation + translation.")
     ("num-passes", po::value(&opt.num_passes)->default_value(2),
@@ -316,6 +331,17 @@ void parameterValidation(RigOptions const& opt) {
 
   if (opt.tri_weight > 0.0 && opt.tri_robust_threshold <= 0.0)
     LOG(FATAL) << "The triangulation robust threshold must be positive.\n";
+
+  // Validate heights-from-dem options  
+  if (!opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty <= 0.0)
+    LOG(FATAL) << "The value of --heights-from-dem-uncertainty must be positive.\n";
+  
+  if (opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty > 0.0)
+    LOG(FATAL) << "The value of --heights-from-dem-uncertainty is set, "
+               << "but --heights-from-dem is not set.\n";
+               
+  if (opt.heights_from_dem_robust_threshold <= 0.0)
+    LOG(FATAL) << "The value of --heights-from-dem-robust-threshold must be positive.\n";
 
   if (opt.registration && (opt.xyz_file.empty() || opt.hugin_file.empty()))
     LOG(FATAL) << "In order to register the map, the hugin and xyz file must be specified.";

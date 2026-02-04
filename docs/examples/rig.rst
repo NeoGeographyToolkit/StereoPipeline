@@ -126,7 +126,7 @@ can be employed to save the pinhole cameras and the interest point matches
 in formats understood by ``bundle_adjust`` (:numref:`bundle_adjust`) and
 ``stereo_gui`` (:numref:`stereo_gui_nvm`), respectively.
 
-See :numref:`rig_calibrator_command_line` for the full list of options.
+See :numref:`rig_opts` for the full list of options.
 
 The obtained point clouds can be fused into a mesh using ``voxblox_mesh`` 
 (:numref:`voxblox_mesh`), using the command::

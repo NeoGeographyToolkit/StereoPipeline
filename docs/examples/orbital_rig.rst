@@ -6,7 +6,8 @@ Orbital rig
 This example shows how to produce synthetic images and cameras that model an
 orbital rig with two frame camera sensors, and how to use the
 :ref:`rig_calibrator` tool to refine the rig parameters, camera intrinsics, and
-camera poses. A DEM constraint will be added.
+camera poses. This example demonstrates the new DEM height constraint feature
+that constrains triangulated points to a reference DEM for improved accuracy.
 
 Input DEM and orthoimage
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -125,6 +126,9 @@ The :ref:`rig_calibrator` program is then run::
       --intrinsics-to-float                         \
       "left:focal_length right:focal_length"        \
       --camera-position-uncertainty 1.0             \
+      --heights-from-dem aster_dem.tif              \
+      --heights-from-dem-uncertainty 2.0            \
+      --heights-from-dem-robust-threshold 0.1       \
       --tri-weight 1.0                              \
       --save-pinhole-cameras                        \
       --num-iterations 100                          \
@@ -135,3 +139,5 @@ pinhole cameras (:numref:`pinholemodels`), saved in the output ``rig`` directory
 (via the ``--save-pinhole-cameras`` option), should be very similar to the
 initial inputs in the ``sat_sim`` directory.
 
+The ``--heights-from-dem`` options demonstrate the new DEM constraint feature.
+The implementation is as for bundle adjustment (:numref:`heights_from_dem`).

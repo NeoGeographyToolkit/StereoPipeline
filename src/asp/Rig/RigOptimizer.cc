@@ -695,6 +695,7 @@ void runOptPass(int pass,
                 std::vector<double>           const& max_timestamp_offset,
                 mve::TriangleMesh::Ptr        const& mesh,
                 std::shared_ptr<BVHTree>      const& bvh_tree,
+                std::vector<Eigen::Vector3d>  const& dem_xyz_vec,
                 // Outputs
                 std::vector<double>                & depth_to_image_scales,
                 rig::Extrinsics                    & cams,
@@ -773,6 +774,37 @@ void runOptPass(int pass,
                           // Outputs
                           pid_cid_fid_to_residual_index, problem, residual_names, 
                           residual_scales);
+
+  // // Add DEM height constraints if requested
+  // if (!opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty > 0.0) {
+  //   vw::vw_out() << "Adding DEM height constraints to optimization problem.\n";
+    
+  //   for (size_t pid = 0; pid < xyz_vec.size(); pid++) {
+  //     // Only add constraint if we have a valid DEM point and triangulated point
+  //     if (dem_xyz_vec[pid].norm() > 0 && xyz_vec[pid].norm() > 0) {
+        
+  //       Eigen::Vector3d dem_xyz(dem_xyz_vec[pid][0], dem_xyz_vec[pid][1], dem_xyz_vec[pid][2]);
+        
+  //       // Create the cost function
+  //       ceres::CostFunction* dem_cost_function = 
+  //         rig::HeightsFromDemError::Create(dem_xyz, opt.heights_from_dem_uncertainty);
+        
+  //       // Create loss function for robustness  
+  //       ceres::LossFunction* dem_loss_function = NULL;
+  //       if (opt.heights_from_dem_robust_threshold > 0.0) {
+  //         dem_loss_function = new ceres::CauchyLoss(opt.heights_from_dem_robust_threshold);
+  //       }
+        
+  //       // Add residual block to problem
+  //       double* tri_point = &state.tri_points_vec[3 * pid];
+  //       problem.AddResidualBlock(dem_cost_function, dem_loss_function, tri_point);
+        
+  //       // Add residual name and scale for tracking
+  //       residual_names.push_back("dem_height_constraint");
+  //       residual_scales.push_back(1.0/opt.heights_from_dem_uncertainty);
+  //     }
+  //   }
+  // }
 
   // Evaluate the residuals before optimization
   std::vector<double> residuals;

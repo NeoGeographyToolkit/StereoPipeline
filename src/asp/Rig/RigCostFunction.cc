@@ -329,8 +329,10 @@ ceres::CostFunction* BracketedDepthMeshError::Create(double weight,
   return cost_function;
 }
 
-XYZError::XYZError(Eigen::Vector3d const& ref_xyz, std::vector<int> const& block_sizes, double weight)
-    : m_ref_xyz(ref_xyz), m_block_sizes(block_sizes), m_weight(weight) {
+XYZError::XYZError(Eigen::Vector3d const& ref_xyz, std::vector<int> const& block_sizes, 
+                   double weight): 
+  m_ref_xyz(ref_xyz), m_block_sizes(block_sizes), m_weight(weight) {
+    
   // Sanity check
   if (m_block_sizes.size() != 1 || m_block_sizes[0] != NUM_XYZ_PARAMS)
     LOG(FATAL) << "XYZError: The block sizes were not set up properly.\n";
@@ -362,6 +364,39 @@ ceres::CostFunction* XYZError::Create(Eigen::Vector3d const& ref_xyz,
   for (size_t i = 0; i < block_sizes.size(); i++) {
     cost_function->AddParameterBlock(block_sizes[i]);
   }
+  return cost_function;
+}
+
+// This cost function is for the --height-from-dem option. Unlike XYZError, it
+// uses an uncertainty, rather than a weight.
+HeightsFromDemError::HeightsFromDemError(Eigen::Vector3d const& dem_xyz, double uncertainty):
+  m_dem_xyz(dem_xyz), m_uncertainty(uncertainty) {
+}
+
+bool HeightsFromDemError::operator()(double const* const* parameters, double* residuals) const {
+  Eigen::Vector3d tri_xyz(parameters[0][0], parameters[0][1], parameters[0][2]);
+  
+  // Constrain all XYZ coordinates to the DEM position (following bundle_adjust logic)
+  for (int it = 0; it < NUM_XYZ_PARAMS; it++)
+    residuals[it] = (tri_xyz[it] - m_dem_xyz[it]) / m_uncertainty;
+  
+  return true;
+}
+
+// Factory to hide the construction of the CostFunction object from the client code.
+ceres::CostFunction* HeightsFromDemError::Create(Eigen::Vector3d const& dem_xyz, 
+                                                 double uncertainty) {
+
+  ceres::DynamicNumericDiffCostFunction<HeightsFromDemError>* cost_function =
+    new ceres::DynamicNumericDiffCostFunction<HeightsFromDemError>
+    (new HeightsFromDemError(dem_xyz, uncertainty));
+
+  // The residual size is 3 (all XYZ coordinates constrained to DEM)
+  cost_function->SetNumResiduals(NUM_XYZ_PARAMS);
+  
+  // Add the triangulated point parameter block (3 parameters: x, y, z)
+  cost_function->AddParameterBlock(NUM_XYZ_PARAMS);
+
   return cost_function;
 }
 
