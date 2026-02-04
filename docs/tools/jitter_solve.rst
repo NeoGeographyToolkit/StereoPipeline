@@ -171,6 +171,7 @@ errors.
 
 An alternative constraint, ``--camera-position-weight``, can be set to a large
 value, on the order of 1e+4, to effectively keep the camera positions in place.
+This is an older option that will be removed.
 
 Camera position and ground constraints should be sufficient. It is suggested not
 to use the experimental ``--rotation-weight`` option.
@@ -2318,6 +2319,7 @@ Command-line options for jitter_solve
     the reduction in reprojection errors. It adjusts to the ground sample
     distance and the number of interest points in the images. The computed
     discrepancy is attenuated with ``--camera-position-robust-threshold``.
+    It is suggested to use instead ``--camera-position-uncertainty``.
     See also :numref:`jitter_camera`.
 
 --camera-position-robust-threshold <double (default: 0.1)>

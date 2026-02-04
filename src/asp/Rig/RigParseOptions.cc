@@ -26,7 +26,9 @@
 #include <asp/Rig/basic_algs.h>
 #include <asp/Core/AspProgramOptions.h>
 
+
 #include <vw/Core/Exception.h>
+#include <vw/Core/StringUtils.h>
 
 #include <boost/program_options.hpp>
 
@@ -35,6 +37,32 @@
 namespace po = boost::program_options;
 
 namespace rig {
+
+// Parse camera_position_uncertainty_str if non-empty
+void handleCamPosUncertainty(RigOptions& opt) {
+  
+  if (opt.camera_position_uncertainty_str.empty())
+    return;
+    
+  std::string sep = ",";
+  std::vector<double> vals = vw::str_to_std_vec(opt.camera_position_uncertainty_str, sep);
+  
+  // Check if values were parsed
+  if (vals.empty())
+    vw::vw_throw(vw::ArgumentErr() << "Camera position uncertainty string is invalid.\n");
+  
+  // If size is 1, add a second value equal to the first. Only the first will be used,
+  // but need to respect the api.
+  if (vals.size() == 1)
+    vals.push_back(vals[0]);
+  
+  // Validate that values are positive
+  if (vals[0] <= 0.0 || vals[1] <= 0.0)
+    vw::vw_throw(vw::ArgumentErr() << "Camera position uncertainty values must be positive.\n");
+  
+  opt.camera_position_uncertainty.resize(1);
+  opt.camera_position_uncertainty[0] = vw::Vector2(vals[0], vals[1]);
+}
 
 void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
 
@@ -117,13 +145,8 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
      "A constraint to keep the camera positions close to initial locations. A high value "
      "can impede convergence. This does not use a robust threshold (soft cost function).")
     ("camera-position-uncertainty", po::value(&opt.camera_position_uncertainty_str)->default_value(""),
-     "Horizontal and vertical camera position uncertainty (1 sigma, in meters). Applies to "
-     "all cameras. This strongly constrains the movement of cameras, potentially at the "
-     "expense of accuracy. Pass two values separated by a comma (no spaces), or a single "
-     "value, when it is used for both. If the norm of camera center is no more than "
-     "100,000 meters and the --datum option is not set, it is assumed that the application "
-     "is for non-planetary data, and there will be a single uncertainty, computed as the "
-     "average of the input ones.")
+     "Camera position uncertainty (1 sigma, in meters). This strongly constrains the "
+     "movement of cameras, potentially at the expense of accuracy.")
     ("affine-depth-to-image", po::bool_switch(&opt.affine_depth_to_image)->default_value(false),
      "Assume that the depth-to-image transform for each depth + image camera is an "
      "arbitrary affine transform rather than scale * rotation + translation.")
@@ -262,6 +285,9 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
+  // Parse and validate camera position uncertainty
+  handleCamPosUncertainty(opt);
+
   // Validation will happen in parameterValidation()
 }
 
@@ -300,7 +326,7 @@ void parameterValidation(RigOptions const& opt) {
 
   if (opt.camera_position_weight < 0.0)
     LOG(FATAL) << "The camera position weight must non-negative.\n";
-  
+
   if (opt.registration && (opt.xyz_file.empty() || opt.hugin_file.empty()))
     LOG(FATAL) << "In order to register the map, the hugin and xyz file must be specified.";
 

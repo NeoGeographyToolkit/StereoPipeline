@@ -1170,7 +1170,8 @@ Command-line options
     It is meant to prevent a wholesale shift of the cameras. It can impede the
     reduction in reprojection errors. It adjusts to the ground sample distance
     and the number of interest points in the images. The computed discrepancy is
-    attenuated with ``--camera-position-robust-threshold``. See
+    attenuated with ``--camera-position-robust-threshold``. It is suggested to
+    use instead ``--camera-position-uncertainty``. See
     :numref:`ba_cam_constraints` for details.
  
 --camera-position-robust-threshold <double (default: 0.1)>

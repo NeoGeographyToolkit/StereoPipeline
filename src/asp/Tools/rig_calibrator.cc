@@ -19,7 +19,6 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/nvm.h>
-#include <asp/Core/Macros.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Rig/RigOptions.h>
 #include <asp/Rig/RigParseOptions.h>
