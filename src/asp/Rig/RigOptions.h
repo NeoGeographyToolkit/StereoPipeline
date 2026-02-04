@@ -22,7 +22,7 @@
 #ifndef __ASP_RIG_OPTIONS_H__
 #define __ASP_RIG_OPTIONS_H__
 
-#include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Core/BaBaseOptions.h>
 #include <string>
 
 namespace rig {

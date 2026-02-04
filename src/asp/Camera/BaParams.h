@@ -21,6 +21,7 @@
 #ifndef __ASP_CAMERA_BA_PARAMS_H__
 #define __ASP_CAMERA_BA_PARAMS_H__
 
+#include <asp/Core/BaBaseOptions.h>
 #include <vw/Math/Vector.h>
 
 namespace vw {
@@ -36,9 +37,6 @@ namespace vw {
 #include <vector>
 
 namespace asp {
-
-// This must be const or else there's a crash
-const std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
 // Shared constants
 const int PARAMS_PER_POINT  = 3;

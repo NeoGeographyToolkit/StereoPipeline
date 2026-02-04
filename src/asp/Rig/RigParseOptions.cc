@@ -116,6 +116,14 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
     ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
      "A constraint to keep the camera positions close to initial locations. A high value "
      "can impede convergence. This does not use a robust threshold (soft cost function).")
+    ("camera-position-uncertainty", po::value(&opt.camera_position_uncertainty_str)->default_value(""),
+     "Horizontal and vertical camera position uncertainty (1 sigma, in meters). Applies to "
+     "all cameras. This strongly constrains the movement of cameras, potentially at the "
+     "expense of accuracy. Pass two values separated by a comma (no spaces), or a single "
+     "value, when it is used for both. If the norm of camera center is no more than "
+     "100,000 meters and the --datum option is not set, it is assumed that the application "
+     "is for non-planetary data, and there will be a single uncertainty, computed as the "
+     "average of the input ones.")
     ("affine-depth-to-image", po::bool_switch(&opt.affine_depth_to_image)->default_value(false),
      "Assume that the depth-to-image transform for each depth + image camera is an "
      "arbitrary affine transform rather than scale * rotation + translation.")
