@@ -398,6 +398,33 @@ void addRigMeshTriCostFun(Eigen::Vector3d const& avg_mesh_xyz,
   residual_scales.push_back(mesh_tri_weight);
 }
 
+void addRigHeightsFromDemCostFun(Eigen::Vector3d const& dem_xyz,
+                                 double uncertainty,
+                                 double robust_threshold,
+                                 double* xyz_ptr,
+                                 ceres::Problem& problem,
+                                 std::vector<std::string>& residual_names,
+                                 std::vector<double>& residual_scales) {
+
+  // Create the DEM constraint cost function
+  ceres::CostFunction* dem_cost_function =
+    rig::HeightsFromDemError::Create(dem_xyz, uncertainty);
+
+  ceres::LossFunction* dem_loss_function = NULL;
+  if (robust_threshold > 0.0)
+    dem_loss_function = new ceres::CauchyLoss(robust_threshold);
+
+  problem.AddResidualBlock(dem_cost_function, dem_loss_function, xyz_ptr);
+
+  residual_names.push_back("dem_x_m");
+  residual_names.push_back("dem_y_m");
+  residual_names.push_back("dem_z_m");
+  double scale = 1.0/uncertainty;
+  residual_scales.push_back(scale);
+  residual_scales.push_back(scale);
+  residual_scales.push_back(scale);
+}
+
 void addRigTriCostFun(Eigen::Vector3d const& xyz_orig,
                       std::vector<int> const& xyz_block_sizes,
                       double tri_weight,
@@ -508,6 +535,7 @@ void setupRigOptProblem(// Inputs
                         std::vector<Eigen::Vector3d> const& pid_mesh_xyz,
                         std::vector<Eigen::Vector3d>& xyz_vec,
                         std::vector<Eigen::Vector3d> const& xyz_vec_orig,
+                        std::vector<Eigen::Vector3d> const& dem_xyz_vec,
                         rig::RigBlockSizes const& block_sizes,
                         int num_depth_params,
                         std::vector<double> const& min_timestamp_offset,
@@ -649,7 +677,7 @@ void setupRigOptProblem(// Inputs
       }
     }
 
-    // Add mesh-to-triangulated point constraint
+    // Add mesh-to-triangulated point constraint. Only apply for inlier points.
     bool have_mesh_tri_constraint = false;
     Eigen::Vector3d avg_mesh_xyz(0, 0, 0);
     if (has_mesh && isTriInlier) {
@@ -670,6 +698,16 @@ void setupRigOptProblem(// Inputs
                             opt.tri_weight, opt.tri_robust_threshold,
                             &xyz_vec[pid][0], problem,
                             residual_names, residual_scales);
+
+    // Add DEM constraints if requested and if we have valid DEM point and
+    // triangulated point.
+    if (!opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty > 0.0 &&
+        pid < dem_xyz_vec.size() && dem_xyz_vec[pid].norm() > 0 && xyz_vec[pid].norm() > 0 &&
+        isTriInlier)
+      rig::addRigHeightsFromDemCostFun(dem_xyz_vec[pid], opt.heights_from_dem_uncertainty,
+                                       opt.heights_from_dem_robust_threshold,
+                                       &xyz_vec[pid][0], problem,
+                                       residual_names, residual_scales);
 
   }  // end iterating over pid
 
@@ -745,20 +783,18 @@ void runOptPass(int pass,
   // Compute where each ray intersects the mesh
   rig::PidCidFidToMeshXyz pid_cid_fid_mesh_xyz;
   std::vector<Eigen::Vector3d> pid_mesh_xyz;
-  if (opt.mesh != "") {
+  if (opt.mesh != "")
     rig::meshTriangulations(// Inputs
                             R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid,
                             pid_cid_fid_inlier, keypoint_vec,
                             opt.min_ray_dist, opt.max_ray_dist, mesh, bvh_tree,
                             // Outputs
                             pid_cid_fid_mesh_xyz, pid_mesh_xyz);
-  }
 
   // For a given fid = pid_to_cid_fid[pid][cid], the value
-  // pid_cid_fid_to_residual_index[pid][cid][fid] will be the index
-  // in the array of residuals (look only at pixel residuals). This
-  // structure is populated only for inliers, so its total number of
-  // elements changes at each pass.
+  // pid_cid_fid_to_residual_index[pid][cid][fid] will be the index in the array
+  // of residuals (look only at pixel residuals). This structure is populated
+  // only for inliers, so its total number of elements changes at each pass.
   rig::PidCidFidMap pid_cid_fid_to_residual_index;
   pid_cid_fid_to_residual_index.resize(pid_to_cid_fid.size());
 
@@ -769,42 +805,11 @@ void runOptPass(int pass,
   rig::setupRigOptProblem(imgData, R, ref_timestamps, state, depth_to_image_scales,
                           keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, 
                           pid_cid_fid_mesh_xyz, pid_mesh_xyz, xyz_vec, xyz_vec_orig,
-                          block_sizes, num_depth_params, 
+                          dem_xyz_vec, block_sizes, num_depth_params, 
                           min_timestamp_offset, max_timestamp_offset, opt,
                           // Outputs
                           pid_cid_fid_to_residual_index, problem, residual_names, 
                           residual_scales);
-
-  // // Add DEM height constraints if requested
-  // if (!opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty > 0.0) {
-  //   vw::vw_out() << "Adding DEM height constraints to optimization problem.\n";
-    
-  //   for (size_t pid = 0; pid < xyz_vec.size(); pid++) {
-  //     // Only add constraint if we have a valid DEM point and triangulated point
-  //     if (dem_xyz_vec[pid].norm() > 0 && xyz_vec[pid].norm() > 0) {
-        
-  //       Eigen::Vector3d dem_xyz(dem_xyz_vec[pid][0], dem_xyz_vec[pid][1], dem_xyz_vec[pid][2]);
-        
-  //       // Create the cost function
-  //       ceres::CostFunction* dem_cost_function = 
-  //         rig::HeightsFromDemError::Create(dem_xyz, opt.heights_from_dem_uncertainty);
-        
-  //       // Create loss function for robustness  
-  //       ceres::LossFunction* dem_loss_function = NULL;
-  //       if (opt.heights_from_dem_robust_threshold > 0.0) {
-  //         dem_loss_function = new ceres::CauchyLoss(opt.heights_from_dem_robust_threshold);
-  //       }
-        
-  //       // Add residual block to problem
-  //       double* tri_point = &state.tri_points_vec[3 * pid];
-  //       problem.AddResidualBlock(dem_cost_function, dem_loss_function, tri_point);
-        
-  //       // Add residual name and scale for tracking
-  //       residual_names.push_back("dem_height_constraint");
-  //       residual_scales.push_back(1.0/opt.heights_from_dem_uncertainty);
-  //     }
-  //   }
-  // }
 
   // Evaluate the residuals before optimization
   std::vector<double> residuals;

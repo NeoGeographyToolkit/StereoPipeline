@@ -106,15 +106,6 @@ void run_rig_calibrator(int argc, char** argv) {
   if (opt.mesh != "")
     rig::loadMeshBuildTree(opt.mesh, mesh, mesh_info, graph, bvh_tree);
 
-  // Optionally load DEM for height constraints
-  vw::cartography::GeoReference dem_georef;
-  vw::ImageViewRef<vw::PixelMask<double>> masked_dem;
-  bool have_dem = !opt.heights_from_dem.empty();
-  if (have_dem) {
-    vw::vw_out() << "Loading DEM for height constraints: " << opt.heights_from_dem << "\n";
-    asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
-  }
-
   // Read camera poses from nvm file or a list.
   std::vector<rig::MsgMap> image_maps;
   std::vector<rig::MsgMap> depth_maps;
@@ -256,12 +247,15 @@ void run_rig_calibrator(int argc, char** argv) {
                                   pid_cid_fid_inlier, xyz_vec);
 
   // Update triangulated points with DEM heights if requested
+  vw::cartography::GeoReference dem_georef;
+  vw::ImageViewRef<vw::PixelMask<double>> masked_dem;
   std::vector<Eigen::Vector3d> dem_xyz_vec;
-  // if (have_dem) {
-  //   vw::vw_out() << "Updating triangulated points with DEM heights.\n";
-  //   // Create a simple version for rig_calibrator - just update heights for valid points
-  //   dem_xyz_vec.resize(xyz_vec.size());
-  //   for (size_t i = 0; i < xyz_vec.size(); i++) {
+  if (opt.heights_from_dem != "") {
+    vw::vw_out() << "Loading DEM for height constraints: " << opt.heights_from_dem << "\n";
+    asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
+    vw::vw_out() << "Updating triangulated points with DEM heights.\n";
+    dem_xyz_vec.resize(xyz_vec.size());
+    for (size_t i = 0; i < xyz_vec.size(); i++) {
   //     if (xyz_vec[i].norm() > 0) { // Valid triangulated point
   //       vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(
   //         vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]));
@@ -285,14 +279,9 @@ void run_rig_calibrator(int argc, char** argv) {
   //       } else {
   //         dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
   //       }
-  //     } else {
-  //       dem_xyz_vec[i] = vw::Vector3(0, 0, 0);
   //     }
-  //   }
-  // } else {
-  //   // Initialize empty vector for consistency
-  //   dem_xyz_vec.resize(xyz_vec.size(), vw::Vector3(0, 0, 0));
-  // }
+    }
+  }
   
   // Run several optimization passes with outlier filtering
   for (int pass = 0; pass < opt.num_passes; pass++) {

@@ -29,7 +29,7 @@
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/BundleAdjustEigen.h>
 #include <asp/Camera/BaseCostFuns.h>
-#include <asp/Camera/BundleAdjustCostFuns.h> // Ceres included in this file
+#include <asp/Camera/BundleAdjustCostFuns.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/StereoSettings.h>
