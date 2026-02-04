@@ -4,9 +4,9 @@ Orbital rig
 -----------
 
 This example shows how to produce synthetic images and cameras that model an
-orbital rig with two frame camera sensors, and how to use the :ref:`rig_calibrator`
-tool to refine the rig parameters, camera intrinsics, and camera poses, with a
-DEM as a constraint.
+orbital rig with two frame camera sensors, and how to use the
+:ref:`rig_calibrator` tool to refine the rig parameters, camera intrinsics, and
+camera poses. A DEM constraint will be added.
 
 Input DEM and orthoimage
 ~~~~~~~~~~~~~~~~~~~~~~~~

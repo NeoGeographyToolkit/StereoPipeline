@@ -83,6 +83,9 @@ void saveStats(std::string const& out_prefix,
                vw::Vector6f const& left_stats,
                vw::Vector6f const& right_stats);
 
+// Checks if the given image file has an 8-bit channels
+bool hasByteChannels(const std::string& image_path);
+
 // Expand a box by a given percentage (typically pct is between 0 and 100)
 void expand_box_by_pct(vw::BBox2 & box, double pct);
 

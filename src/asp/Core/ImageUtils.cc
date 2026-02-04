@@ -318,8 +318,9 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
 
 // Save image stats
 void saveStats(std::string const& out_prefix,
-                                   vw::Vector6f const& left_stats,
-                                   vw::Vector6f const& right_stats) {
+               vw::Vector6f const& left_stats,
+               vw::Vector6f const& right_stats) {
+
   std::string left_stats_file  = out_prefix + "-lStats.tif";
   std::string right_stats_file = out_prefix + "-rStats.tif";
   vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
@@ -327,6 +328,19 @@ void saveStats(std::string const& out_prefix,
   vw::Vector<float32> right_stats2 = right_stats; // cast
   write_vector(left_stats_file,  left_stats2);
   write_vector(right_stats_file, right_stats2);
+}
+
+// Checks if the given image file has an 8-bit channels
+bool hasByteChannels(const std::string& image_path) {
+
+  boost::shared_ptr<vw::DiskImageResource> rsrc = vw::DiskImageResourcePtr(image_path);
+  auto pixel_format = rsrc->pixel_format();
+  auto channel_type = rsrc->channel_type();
+  return (channel_type == vw::VW_CHANNEL_UINT8) && 
+         (pixel_format == vw::VW_PIXEL_GRAY   ||
+          pixel_format == vw::VW_PIXEL_RGB    ||
+          pixel_format == vw::VW_PIXEL_RGBA   ||
+          pixel_format == vw::VW_PIXEL_GRAYA);
 }
 
 // Expand a box by a given percentage (typically pct is between 0 and 100)

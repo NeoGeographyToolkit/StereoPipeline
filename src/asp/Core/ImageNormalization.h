@@ -70,6 +70,12 @@ void normalize_images(bool force_use_entire_range,
                       vw::ImageViewRef<vw::PixelMask<float>> & left_img,
                       vw::ImageViewRef<vw::PixelMask<float>> & right_img);
 
+// Normalize a single image to [0, 1] using mean and stddev-derived bounds.
+// Do not exceed the min and max values present in the image stats. This may 
+// need to be the default.
+void normalizeImage(std::string const& image_file,
+                    vw::ImageViewRef<vw::PixelMask<float>> & image);
+
 // This is called by parallel_bundle_adjust just once to accumulate all stats that
 // were done by individual processes.
 void calcNormalizationBounds(std::string const& out_prefix, 

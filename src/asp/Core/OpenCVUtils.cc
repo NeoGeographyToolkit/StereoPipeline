@@ -102,6 +102,14 @@ namespace asp {
     return;
   }
 
+  // Scale a masked image from [0, 1] to [0, 255], round, and clamp.
+  // Invalid values get set to 0 in the output. Masking likely casts NaN
+  // to invalid data so they end up being set to 0.
+  void maskedToScaledByteCvImage(vw::ImageViewRef<vw::PixelMask<float>> in, cv::Mat & out) {
+    vw::ImageViewRef<float> img = vw::apply_mask(in, 0.0f);
+    formScaledByteCVImage(img, out);
+  }
+
   // Insert an image as a block at a desired location in a bigger image
   void cvInsertBlock(cv::Mat const& input_image, int extra_x,
                      int extra_y, cv::Mat& output_image) {

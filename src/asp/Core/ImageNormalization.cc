@@ -18,6 +18,7 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/InterestPointMatching.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/Core/Log.h>
@@ -154,7 +155,8 @@ void calcImageSeqMinMax(bool force_use_entire_range,
             warning_printed = true;
           }
         }
-          
+        
+        // Use mean  +/- 2 standard deviations. This is done in a few places in ASP.
         min_vals[i] = image_stats[i][2] - 2*image_stats[i][3];
         max_vals[i] = image_stats[i][2] + 2*image_stats[i][3];
       }
@@ -222,6 +224,34 @@ void normalize_images(bool force_use_entire_range,
   return;
 }
 
+// Normalize a single image to [0, 1] using mean and stddev-derived bounds.
+// Do not exceed the min and max values present in the image stats. This may 
+// need to be the default.
+void normalizeImage(std::string const& image_file,
+                    vw::ImageViewRef<vw::PixelMask<float>> & image) {
+
+  // Read the nodata value
+  float nodata_val = -32768.0; 
+  vw::read_nodata_val(image_file, nodata_val);
+
+  // Open the file and apply the mask
+  image = vw::create_mask(vw::DiskImageView<float>(image_file), nodata_val);
+
+  // Gather stats
+  std::string tag = image_file;
+  std::string prefix = ""; 
+  bool reuse_cache = false;
+  vw::Vector6f stats = asp::gather_stats(image, tag, prefix, image_file, reuse_cache);
+  
+  // Use mean +/- 2 standard deviations. This is done in a few places in ASP.
+  float mean = stats[2];
+  float stddev = stats[3];
+  double min_val = std::max(stats[0], mean - 2*stddev);
+  double max_val = std::min(stats[1], mean + 2*stddev);
+  
+  image = normalize(image, min_val, max_val, 0.0, 1.0);
+}
+   
 // This is called by parallel_bundle_adjust just once to accumulate all stats that
 // were done by individual processes.
 void calcNormalizationBounds(std::string const& out_prefix, 

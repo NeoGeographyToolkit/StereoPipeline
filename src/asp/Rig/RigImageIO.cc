@@ -21,14 +21,9 @@
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/system_utils.h>
 #include <asp/Rig/basic_algs.h>
-
+#include <asp/Core/ImageNormalization.h>
 #include <asp/Core/ImageUtils.h>
-#include <vw/FileIO/DiskImageView.h>
-#include <vw/Image/Statistics.h>
-#include <vw/Image/MaskViews.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/FileIO/DiskImageResource.h>
-#include <vw/Core/Exception.h>
+#include <asp/Core/OpenCVUtils.h>
 
 #include <vw/Core/Log.h>
 #include <glog/logging.h>
@@ -115,26 +110,6 @@ void readXyzImage(std::string const& filename, cv::Mat & img) {
   return;
 }
 
-/// Checks if the given image file has an 8-bit channel type.
-/// Return true if the image is 8-bit, false otherwise or if an error occurs.
-bool isByteType(const std::string& image_path) {
-
-  boost::shared_ptr<vw::DiskImageResource> rsrc = vw::DiskImageResourcePtr(image_path);
-
-  auto pixel_format = rsrc->pixel_format();
-  auto channel_type = rsrc->channel_type();
-
-  vw::vw_out() << "Inspecting Image: " << image_path << std::endl;
-  vw::vw_out() << "  Pixel Format: " << pixel_format << std::endl;
-  vw::vw_out() << "  Channel Type: " << channel_type << std::endl;
-
-  return (channel_type == vw::VW_CHANNEL_UINT8) && 
-         (pixel_format == vw::VW_PIXEL_GRAY   ||
-          pixel_format == vw::VW_PIXEL_RGB    ||
-          pixel_format == vw::VW_PIXEL_RGBA   ||
-          pixel_format == vw::VW_PIXEL_GRAYA);
-}
-
 void readImageEntry(// Inputs
                     std::string const& image_file,
                     Eigen::Affine3d const& world_to_cam,
@@ -154,93 +129,26 @@ void readImageEntry(// Inputs
       << "Duplicate timestamp " << std::setprecision(17) << timestamp
       << " for sensor id " << cam_type << "\n";
   
-   bool isByte = isByteType(image_file);
-   std::cout << "---is byte is " << isByte << std::endl;
-    
-///ppppp
-// User-requested test code to check VW image reading and stats
-  vw::vw_out() << "---Reading with vw::DiskImageView: " << image_file << std::endl;
-  
-  vw::ImageViewRef<float> img_view = vw::DiskImageView<float>(image_file);
-  
-  // This is just an example. A real implementation should fetch the nodata
-  // value from the image resource if it exists.
-  float nodata_val = -32768.0; 
-  boost::shared_ptr<vw::DiskImageResource> rsrc = vw::DiskImageResourcePtr(image_file);
-  if (rsrc->has_nodata_read()) {
-    nodata_val = rsrc->nodata_read();
-    std::cout << "--read nodata value: " << nodata_val << std::endl;
+  // Read the image as grayscale, in order for feature matching to work.
+  // Non-byte images need to normalized to [0, 255] and converted to byte type.
+  bool hasByte = asp::hasByteChannels(image_file);
+  if (hasByte) {
+    image_map[timestamp].image = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
   } else {
-    std::cout << "--no nodata value found, using default: " << nodata_val << std::endl;
-  }
-  std::cout << "---now call read nodata value function: " << std::endl;
-  vw::read_nodata_val(image_file, nodata_val);
-  std::cout << "--after reading nodata value: " << nodata_val << std::endl;
-
-  vw::ImageViewRef<vw::PixelMask<float>> 
-    masked_image = vw::create_mask(img_view, nodata_val);
-  
-  std::string tag = image_file;
-  std::string prefix = ""; 
-  bool reuse_cache = false;
-  vw::Vector6f stats = asp::gather_stats(masked_image, tag, prefix, image_file, reuse_cache);
-  
-  std::cout << "--min is " << stats[0] << ", max is " << stats[1] << std::endl;
-  float mean = stats[2];
-  float stddev = stats[3];
-  std::cout << "--mean is " << mean << ", stddev is " << stddev << std::endl;
-  
-  double min_val = std::max(stats[0], mean - 2*stddev);
-  std::cout << "--computed min val is " << min_val << std::endl;
-  double max_val = std::min(stats[1], mean + 2*stddev);
-  std::cout << "--computed max val is " << max_val << std::endl;
-  
-  masked_image = normalize(masked_image, min_val, max_val, 0.0, 255.0);
-  //qqqq
-  vw::vw_out() << "VW stats for " << image_file << ": " << stats << std::endl;
-  
-  // Create an empty cv::Mat with the same dimensions as the VW image.
-  cv::Mat cv_image(masked_image.rows(), masked_image.cols(), CV_8UC1);
-  
-  // Copy the pixel data from the vw::ImageViewRef to the cv::Mat.
-  for (int r = 0; r < cv_image.rows; r++) {
-    for (int c = 0; c < cv_image.cols; c++) {
-      auto pix = masked_image(c, r);
-      double value = 0.0;
-      if (is_valid(pix))
-        value = pix.child();
-      // round
-      value = std::round(value);
-      // make non-negative
-      if (value < 0.0)
-        value = 0.0;
-      // clamp to 255
-      if (value > 255.0)
-        value = 255.0;
-      
-      // cast to uchar and assign to cv::Mat
-      cv_image.at<uchar>(r, c) = static_cast<uchar>(value);
-    }
+    vw::ImageViewRef<vw::PixelMask<float>> masked_image;
+    asp::normalizeImage(image_file, masked_image);
+    asp::maskedToScaledByteCvImage(masked_image, image_map[timestamp].image);
   }
   
-  std::string out = "tmp.tif";
-  std::cout << "---Writing normalized image to " << out << std::endl;
-  cv::imwrite(out, cv_image);
-
-  exit(0);
-
-  // Read the image as grayscale, in order for feature matching to work
-  // For texturing, texrecon should use the original color images.
-  //vw::vw_out() << "Reading: " << image_file << std::endl;
-  image_map[timestamp].image        = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
+  // Populate the other fields 
   image_map[timestamp].name         = image_file;
   image_map[timestamp].timestamp    = timestamp;
   image_map[timestamp].world_to_cam = world_to_cam;
 
   // Sanity check
   if (depth_map.find(timestamp) != depth_map.end())
-    LOG(WARNING) << "Duplicate timestamp " << std::setprecision(17) << timestamp
-                 << " for sensor id " << cam_type << "\n";
+     vw::vw_out(vw::WarningMessage) << "Duplicate timestamp " << std::setprecision(17) 
+       << timestamp << " for sensor id " << cam_type << "\n";
 
   // Read the depth data, if present
   std::string depth_file = fs::path(image_file).replace_extension(".pc").string();
@@ -255,7 +163,7 @@ void readImageEntry(// Inputs
 // Write an image with 3 floats per pixel. OpenCV's imwrite() cannot do that.
 void saveXyzImage(std::string const& filename, cv::Mat const& img) {
   if (img.depth() != CV_32F)
-    LOG(FATAL) << "Expecting an image with float values\n";
+    LOG(FATAL) << "Expecting an image with float values.\n";
   if (img.channels() != 3) LOG(FATAL) << "Expecting 3 channels.\n";
 
   std::ofstream f;
