@@ -17,7 +17,7 @@
  */
 #include <Rig/thread.h>
 #include <Rig/RigConfig.h>
-#include <Rig/basic_algs.h>
+#include <Rig/BasicAlgs.h>
 
 #include <asp/Core/Nvm.h>
 

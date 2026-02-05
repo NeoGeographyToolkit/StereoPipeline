@@ -20,7 +20,7 @@
 #include <asp/Core/Nvm.h>
 #include <Rig/RigConfig.h>
 #include <Rig/merge_maps.h>
-#include <Rig/basic_algs.h>
+#include <Rig/BasicAlgs.h>
 
 #include <opencv2/features2d/features2d.hpp>
 
