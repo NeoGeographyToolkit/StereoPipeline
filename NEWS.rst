@@ -721,7 +721,7 @@ cam_gen (:numref:`cam_gen`):
 
 rig_calibrator (:numref:`rig_calibrator`):
    * Can export the interest point matches, cameras, and the OpenCV lens
-     distortion model for use with ``bundle_adjust`` (:numref:`rc_bundle_adjust`).
+     distortion model for use with ``bundle_adjust`` (:numref:`rc_ba`).
    * Added documentation for how to register the produced cameras to the ground
      for a planet (:numref:`msl_registration`).
    * Can fix the translation and/or rotation component of a rig configuration.  

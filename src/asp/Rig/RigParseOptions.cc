@@ -230,7 +230,7 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
      "Match an image with this many images (of all camera types) following it in "
      "increasing order of timestamp value. Set to a positive value only if desired to find "
      "more interest point matches than read from the input nvm file. Not suggested by "
-     "default. For advanced controls, run: rig_calibrator --help | grep -i sift.")
+     "default.")
     ("use-initial-rig-transforms",
      po::bool_switch(&opt.use_initial_rig_transforms)->default_value(false),
      "Use the transforms between the sensors (ref_to_sensor_transform) of the rig "

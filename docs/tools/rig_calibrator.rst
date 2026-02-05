@@ -369,7 +369,7 @@ The list of images is saved (one per line) to::
   <output dir>/image_list.txt
   
 How to export the data for use in bundle adjustment is discussed in
-:numref:`rc_bundle_adjust`.
+:numref:`rc_ba`.
 
 Examples
 ~~~~~~~~
@@ -645,7 +645,7 @@ to ensure there exists one depth point for each corresponding image pixel.
 Note that the ``float32`` datatype has limited precision, but is adequate,
 unless the measurements are ground data taken from a planet's orbit.
 
-.. _rc_bundle_adjust:
+.. _rc_ba:
 
 Interfacing with bundle_adjust
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -700,213 +700,299 @@ the input naming convention in :numref:`rig_data_conv`.
 How to register the produced cameras to the ground is discussed in
 :numref:`msl_registration`.
 
+Usage
+~~~~~
+
+::
+
+    rig_calibrator --rig-config <rig_config.txt>  \
+      --nvm <input.nvm>                           \
+      --image-sensor-list <image_sensor_list.txt> \
+      -o <output_dir> [options]
+
 .. _rig_opts:
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
-``--rig-config`` Read the rig configuration from file. Type: string. 
-  Default: "".
-``--nvm`` Read images and camera poses from this nvm file, as exported by
-  Theia. Type: string. Default: "".
-``--image-sensor-list`` Read image name, sensor name, and timestamp, from each
-  line in this list. The order need not be as in the nvm file. Alternatively, a
-  directory structure can be used. See :numref:`rig_data_conv`. Type: string.
-  Default: "".
-``--robust-threshold`` Residual pixel errors and 3D point residuals (the latter
-  multiplied by corresponding weight) much larger than this will be
-  logarithmically attenuated to affect less the cost function. See also
-  ``--tri-robust-threshold``. Type: double. Default: 0.5.
-``--affine-depth-to-image`` Assume that the depth-to-image transform for each
-  depth + image camera is an arbitrary affine transform rather than 
-  scale * rotation + translation. See also ``--float-scale``. Type: bool. 
-  Default: false.
-``--bracket-len`` Lookup non-reference cam images only between consecutive ref
-  cam images whose distance in time is no more than this (in seconds),
-  after adjusting for the timestamp offset between these cameras. It is
-  assumed the rig moves slowly and uniformly during this time. A large
-  value here will make the calibrator compute a poor solution but a small
-  value may prevent enough images being bracketed. 
-  The timestamp (in seconds) is part of the image name. See also 
-  ``--bracket-single-image``. Type: double. Default: 0.6.
-``--num-passes`` How many passes of optimization to do. Outliers
-  will be removed after every pass. Each pass will start with the
-  previously optimized solution as an initial guess. Mesh intersections (if
-  applicable) and ray triangulation will be recomputed before each pass.)
-  Type: int32. Default: 2.
-``--camera-poses-to-float`` Specify the cameras for which sensors can have
-  their poses floated. Example: 'cam1 cam3'.  See more details in
-  :numref:`rig_constraints`. Type: string. Default: "".
-``--fix-rig-translations`` Fix the translation component of the transforms between
-  the sensors on a rig. Works only when ``--no-rig`` is not set. Type: bool.
-  Default: false.
-``--fix-rig-rotations`` Fix the rotation component of the transforms between the
-  sensors on a rig. Works only when ``--no-rig`` is not set. Type: bool.
-  Default: false.
-``--camera-position-uncertainty`` Camera position uncertainty (1 sigma, in meters).
-  This strongly constrains the movement of cameras, potentially at the expense
-  of accuracy. Specify as a single value. Type: string. Default: "".
-``--heights-from-dem`` Use this DEM to constrain the triangulated points. The
-  uncertainty of the DEM is specified via ``--heights-from-dem-uncertainty``. Type:
-  string. Default: "".
-``--heights-from-dem-uncertainty`` Uncertainty (1 sigma) for ``--heights-from-dem``.
-  A smaller value constrains more the triangulated points to the DEM specified
-  via --heights-from-dem. Type: double. Default: -1.
-``--heights-from-dem-robust-threshold`` Robust threshold for residual errors in 
-  triangulated points relative to DEM specified via ``--heights-from-dem``. This
-  is applied after the point differences are divided by
-  ``--heights-from-dem-uncertainty``. It will attenuate large height differences.
-  Set to 0 to turn off. Type: double. Default: 0.1.
-``--tri-weight`` The weight to give to the constraint that optimized
-  triangulated points stay close to original triangulated points. A positive
-  value will help ensure the cameras do not move too far, but a large value may
-  prevent convergence. Type: double. Default: 0.1. This does not gets set for
-  triangulated points at which ``--heights-from-dem`` or ``--mesh`` constraints
-  are applied.
-``--tri-robust-threshold`` The robust threshold to use with the
-  triangulation weight. Must be positive. See also ``--robust-threshold``.
-  Type: double. Default: 0.1. 
-``--use-initial-triangulated-points`` Use the triangulated points from the
-  input nvm file. Together with ``--tri-weight``, this ensures the cameras do not move
-  too far from the initial solution. This will fail if additional interest point matches
-  are created with ``--num-overlaps``. If registration is used, the initial triangulated
-  points are transformed appropriately. Type: bool. Default: false.
-``--depth-mesh-weight`` A larger value will give more weight to the constraint
-  that the depth clouds stay close to the mesh. Not suggested by default.)
-  Type: double. Default: 0.
-``--depth-to-image-transforms-to-float`` Specify for which sensors to float the
-  depth-to-image transform (if depth data exists). Example: 'cam1 cam3'.)
-  Type: string. Default: "".
-``--depth-tri-weight`` The weight to give to the constraint that depth
-  measurements agree with triangulated points. Use a bigger number as depth
-  errors are usually on the order of 0.01 meters while reprojection errors
-  are on the order of 1 pixel. Type: double. Default: 1000.
-``--float-scale`` If to optimize the scale of the clouds, part of
-  depth-to-image transform. If kept fixed, the configuration of cameras
-  should adjust to respect the given scale. This parameter should not be
-  used with ``--affine-depth-to-image`` when the transform is affine, rather
-  than rigid and a scale. Type: bool. Default: false.
-``--float-timestamp-offsets`` If to optimize the timestamp offsets among the
-  cameras. This is experimental. Type: bool. Default: false.
-``--camera-poses`` Read the images and world-to-camera poses from this list.
-  The same format is used as when this tool saves the updated
-  poses in the output directory. It is preferred to read the camera
-  poses with the ``--nvm`` option, as then interest point matches will
-  be read as well. Type: string. Default: "".
-``--initial-max-reprojection-error`` If filtering outliers, remove interest
-  points for which the reprojection error, in pixels, is larger than this.
-  This filtering happens when matches are created, before cameras are
-  optimized, and a big value should be used if the initial cameras are not
-  trusted. Type: double. Default: 300.
-``--intrinsics-to-float`` Specify which intrinsics to float for each sensor.
-  Example: 'cam1:focal_length,optical_center,distortion
-  cam2:focal_length'. Type: string. Default: "".
-``--max-ray-dist`` The maximum search distance from a starting point along a
-  ray when intersecting the ray with a mesh, in meters (if applicable).)
-  Type: double. Default: 100.
-``--max-reprojection-error`` If filtering outliers, remove interest points for
-  which the reprojection error, in pixels, is larger than this. This
-  filtering happens after each optimization pass finishes, unless disabled.
-  It is better to not filter too aggressively unless confident of the
-  solution. Type: double. Default: 25.
-``--mesh`` Use this mesh to help constrain the calibration (in .ply format). 
-  Must use a positive ``--mesh-tri-weight``. Type: string. Default: "".
-``--mesh-tri-weight`` A larger value will give more weight to the constraint
-  that triangulated points stay close to a preexisting mesh. Not suggested
-  by default. Type: double. Default: 0.
-``--min-ray-dist`` The minimum search distance from a starting point along a
-  ray when intersecting the ray with a mesh, in meters (if applicable).
-  Type: double. Default: 0.
-``--no-rig`` Do not assumes the cameras are on a rig. Hence, the pose of any
-  camera of any sensor type may vary on its own and not being tied to other
-  sensor types. See also ``--camera-poses-to-float``. Type: bool. Default: false.
-``--num-iterations`` How many solver iterations to perform in calibration.)
-  Type: int32. Default: 100.
-``--num-threads`` How many threads to use. Type: int32.
-  Default: Number of cores on a machine.
-``--num-match-threads`` How many threads to use in feature detection/matching.
-  A large number can use a lot of memory. Type: int32. Default: 8.
-``--out-dir`` Save in this directory the camera intrinsics and extrinsics. See
-  also ``--save-matches``, ``--verbose``. Type: string. Default: "".
-``--out-texture-dir`` If non-empty and if an input mesh was provided, project
-  the camera images using the optimized poses onto the mesh and write the
-  obtained .obj files in the given directory. Type: string. Default: "".
-``--num-overlaps`` Match an image with this many images (of all camera
-  types for the same rig) following it in increasing order of
-  timestamp value. Set to a positive value
-  only if desired to find more interest point matches than read from the input
-  nvm file. Not suggested by default. For advanced controls of interest points, run: 
-  ``rig_calibrator --help | grep -B 2 -A 1 -i sift``. Type: integer. Default: 0.
-``--no-nvm-matches`` Do not read interest point matches from the nvm file. 
-  So read only camera poses. This implies ``--num-overlaps`` is positive, 
-  to be able to find new matches.
-``--parameter-tolerance`` Stop when the optimization variables change by less
-  than this. Type: double. Default: 1e-12.
-``--min-triangulation-angle`` If filtering outliers, remove triangulated points for
-  which all rays converging to it make an angle (in degrees) less than
-  this. Note that some cameras in the rig may be very close to each other
-  relative to the triangulated points, so care is needed here.
-  Type: double. Default: 0.01.
-``--registration`` If true, and registration control points for the sparse map
-  exist and are specified by ``--hugin-file`` and ``--xyz-file``, register all
-  camera poses and the rig transforms before starting the optimization. For
-  now, the depth-to-image transforms do not change as result of this, which
-  may be a problem. To apply the registration only, use zero iterations.)
-  Type: bool. Default: false.
-``--skip-post-registration`` If true and registration to world
-  coordinates takes place, do not apply the registration again after
-  the cameras are optimized. This is usually not recommended,
-  unless one is quite confident that other constraints (such as using ``--tri-weight``
-  or ``--mesh-tri-weight``) are sufficient to keep the cameras from drifting.
-  Type: bool. Default: false.
-``--hugin-file`` The path to the hugin .pto file used for registration.)
-  Type: string. Default: "".
-``--xyz-file`` The path to the xyz file used for registration. Type:
-  string. Default: "".
-``--read-nvm-no-shift`` Read an nvm file assuming that interest point
-  matches were not shifted to the origin.
-``--save-nvm-no-shift`` Save the optimized camera poses and inlier interest point 
-  matches to <out dir>/cameras_no_shift.nvm. Interest point matches are not offset 
-  relative to the optical center, which is not standard, but which 
-  allows this file to be self-contained and for the matches to be 
-  drawn with ``stereo_gui``.
-``--save-matches`` Save the interest point matches (all matches and
-  inlier matches after filtering). ``stereo_gui`` can be used to visualize these
-  (:numref:`rc_bundle_adjust`). Type: bool. Default: false.
-``--export-to-voxblox`` Save the depth clouds and optimized transforms needed
-  to create a mesh with ``voxblox`` (if depth clouds exist). Type: bool. Default: false.
-``--save-transformed-depth-clouds`` Save the depth clouds with the
-  camera transform applied to them to make them be in world coordinates.
-``--save-pinhole-cameras``
-  Save the optimized cameras in ASP's Pinhole format (:numref:`rc_bundle_adjust`). 
-  The distortion model gets saved if it is of ``radtan`` type (OpenCV
-  radial-tangential distortion model). Type: bool. Default: false.
-``--timestamp-offsets-max-change`` If floating the timestamp offsets, do not
-  let them change by more than this (measured in seconds). Existing image
-  bracketing acts as an additional constraint. Type: double. Default: 1.
-``--use-initial-rig-transforms`` Use the transforms between the sensors
-  (``ref_to_sensor_transform``) of the rig specified via ``--rig-config`` to
-  initialize all non-reference camera poses based on the reference camera poses
-  and the rig transforms. If this option is not set, derive the rig transforms
-  from the poses of individual cameras. Type: bool. Default: false.
-``--fixed-image-list`` A file having a list of images (separated by
-  spaces or newlines) whose camera poses should be fixed during
-  optimization. These can be only reference sensor images when the rig
-  constraint is on.
-``--bracket-single-image`` If more than one image from a given sensor is acquired
-  between two consecutive reference sensor images, as measured by timestamps,
-  keep only one, choosing the image that is closest to the midpoint of the
-  interval formed by reference sensor timestamps. Only applicable without
-  ``--no-rig``. Type: bool. Default: false.
-``--extra-list`` Add to the SfM solution the camera poses for the
-  additional images/depth clouds in this list. Use bilinear
-  interpolation of poses in time and nearest neighbor extrapolation
-  (within ``--bracket-len``) and/or the rig constraint to find the new poses
-  (will be followed by bundle adjustment refinement). This can give
-  incorrect results if the new images are not very similar or not close
-  in time to the existing ones. This list can contain entries for the
-  data already present. Type: string. Default: "".
-``--nearest-neighbor-interp`` Use nearest neighbor interpolation (in
-  time) when inserting extra camera poses. Type: bool. Default: false.
-``--verbose`` Print a lot of verbose information about how matching goes.)
-  Type: bool. Default: false.
+--rig-config <string (default: "")>
+    Read the rig configuration from file.
+
+--nvm <string (default: "")>
+    Read images and camera poses from this nvm file, as exported by Theia.
+
+--image-sensor-list <string (default: "")>
+    Read image name, sensor name, and timestamp, from each line in this list.
+    The order need not be as in the nvm file. Alternatively, a directory
+    structure can be used. See :numref:`rig_data_conv`.
+
+--robust-threshold <double (default: 0.5)>
+    Residual pixel errors and 3D point residuals (the latter multiplied by
+    corresponding weight) much larger than this will be logarithmically
+    attenuated to affect less the cost function. See also
+    ``--tri-robust-threshold``.
+
+--affine-depth-to-image
+    Assume that the depth-to-image transform for each depth + image camera is an
+    arbitrary affine transform rather than scale * rotation + translation. See
+    also ``--float-scale``.
+
+--bracket-len <double (default: 0.6)>
+    Lookup non-reference cam images only between consecutive ref cam images
+    whose distance in time is no more than this (in seconds), after adjusting
+    for the timestamp offset between these cameras. It is assumed the rig moves
+    slowly and uniformly during this time. A large value here will make the
+    calibrator compute a poor solution but a small value may prevent enough
+    images being bracketed. The timestamp (in seconds) is part of the image
+    name. See also ``--bracket-single-image``.
+
+--num-passes <integer (default: 2)>
+    How many passes of optimization to do. Outliers will be removed after every
+    pass. Each pass will start with the previously optimized solution as an
+    initial guess. Mesh intersections (if applicable) and ray triangulation will
+    be recomputed before each pass.
+
+--camera-poses-to-float <string (default: "")>
+    Specify the cameras for which sensors can have their poses floated. Example:
+    'cam1 cam3'.  See more details in :numref:`rig_constraints`.
+
+--fix-rig-translations
+    Fix the translation component of the transforms between the sensors on a
+    rig. Works only when ``--no-rig`` is not set.
+
+--fix-rig-rotations
+    Fix the rotation component of the transforms between the sensors on a rig.
+    Works only when ``--no-rig`` is not set.
+
+--camera-position-uncertainty <string (default: "")>
+    Camera position uncertainty (1 sigma, in meters). This strongly constrains
+    the movement of cameras, potentially at the expense of accuracy. Specify as
+    a single value.
+
+--heights-from-dem <string (default: "")>
+    Use this DEM to constrain the triangulated points. The uncertainty of the
+    DEM is specified via ``--heights-from-dem-uncertainty``.
+
+--heights-from-dem-uncertainty <double (default: -1)>
+    Uncertainty (1 sigma) for ``--heights-from-dem``. A smaller value constrains
+    more the triangulated points to the DEM specified via ``--heights-from-dem``.
+
+--heights-from-dem-robust-threshold <double (default: 0.1)>
+    Robust threshold for residual errors in triangulated points relative to DEM
+    specified via ``--heights-from-dem``. This is applied after the point
+    differences are divided by ``--heights-from-dem-uncertainty``. It will
+    attenuate large height differences. Set to 0 to turn off.
+
+--tri-weight <double (default: 0.1)>
+    The weight to give to the constraint that optimized triangulated points stay
+    close to original triangulated points. A positive value will help ensure the
+    cameras do not move too far, but a large value may prevent convergence. This
+    does not gets set for triangulated points at which ``--heights-from-dem`` or
+    ``--mesh`` constraints are applied.
+
+--tri-robust-threshold <double (default: 0.1)>
+    The robust threshold to use with the triangulation weight. Must be positive.
+    See also ``--robust-threshold``.
+
+--use-initial-triangulated-points
+    Use the triangulated points from the input nvm file. Together with
+    ``--tri-weight``, this ensures the cameras do not move too far from the
+    initial solution. This will fail if additional interest point matches are
+    created with ``--num-overlaps``. If registration is used, the initial
+    triangulated points are transformed appropriately.
+
+--depth-mesh-weight <double (default: 0)>
+    A larger value will give more weight to the constraint that the depth clouds
+    stay close to the mesh. Not suggested by default.
+
+--depth-to-image-transforms-to-float <string (default: "")>
+    Specify for which sensors to float the depth-to-image transform (if depth
+    data exists). Example: 'cam1 cam3'.
+
+--depth-tri-weight <double (default: 1000)>
+    The weight to give to the constraint that depth measurements agree with
+    triangulated points. Use a bigger number as depth errors are usually on the
+    order of 0.01 meters while reprojection errors are on the order of 1 pixel.
+
+--float-scale
+    If to optimize the scale of the clouds, part of depth-to-image transform. If
+    kept fixed, the configuration of cameras should adjust to respect the given
+    scale. This parameter should not be used with ``--affine-depth-to-image``
+    when the transform is affine, rather than rigid and a scale.
+
+--float-timestamp-offsets
+    If to optimize the timestamp offsets among the cameras. This is
+    experimental.
+
+--camera-poses <string (default: "")>
+    Read the images and world-to-camera poses from this list. The same format is
+    used as when this tool saves the updated poses in the output directory. It
+    is preferred to read the camera poses with the ``--nvm`` option, as then
+    interest point matches will be read as well.
+
+--initial-max-reprojection-error <double (default: 300)>
+    If filtering outliers, remove interest points for which the reprojection
+    error, in pixels, is larger than this. This filtering happens when matches
+    are created, before cameras are optimized, and a big value should be used if
+    the initial cameras are not trusted.
+
+--intrinsics-to-float <string (default: "")>
+    Specify which intrinsics to float for each sensor. Example:
+    'cam1:focal_length,optical_center,distortion cam2:focal_length'.
+
+--max-ray-dist <double (default: 100)>
+    The maximum search distance from a starting point along a ray when
+    intersecting the ray with a mesh, in meters (if applicable).
+
+--max-reprojection-error <double (default: 25)>
+    If filtering outliers, remove interest points for which the reprojection
+    error, in pixels, is larger than this. This filtering happens after each
+    optimization pass finishes, unless disabled. It is better to not filter too
+    aggressively unless confident of the solution.
+
+--mesh <string (default: "")>
+    Use this mesh to help constrain the calibration (in .ply format). Must use a
+    positive ``--mesh-tri-weight``.
+
+--mesh-tri-weight <double (default: 0)>
+    A larger value will give more weight to the constraint that triangulated
+    points stay close to a preexisting mesh. Not suggested by default.
+
+--min-ray-dist <double (default: 0)>
+    The minimum search distance from a starting point along a ray when
+    intersecting the ray with a mesh, in meters (if applicable).
+
+--no-rig
+    Do not assumes the cameras are on a rig. Hence, the pose of any camera of
+    any sensor type may vary on its own and not being tied to other sensor
+    types. See also ``--camera-poses-to-float``.
+
+--num-iterations <integer (default: 100)>
+    How many solver iterations to perform in calibration.
+
+--num-threads <integer>
+    How many threads to use. (default: Number of cores on a machine).
+
+--num-match-threads <integer (default: 8)>
+    How many threads to use in feature detection/matching. A large number can
+    use a lot of memory.
+
+-o, --out-dir <string (default: "")>
+    Save in this directory the camera intrinsics and extrinsics. See also
+    ``--save-matches``, ``--verbose``.
+
+--out-texture-dir <string (default: "")>
+    If non-empty and if an input mesh was provided, project the camera images
+    using the optimized poses onto the mesh and write the obtained .obj files in
+    the given directory.
+
+--num-overlaps <integer (default: 0)>
+    Match an image with this many images (of all camera types for the same rig)
+    following it in increasing order of timestamp value. Set to a positive value
+    only if desired to find more interest point matches than read from the input
+    nvm file. Not suggested by default.
+
+--no-nvm-matches
+    Do not read interest point matches from the nvm file. So read only camera
+    poses. This implies ``--num-overlaps`` is positive, to be able to find new
+    matches.
+
+--parameter-tolerance <double (default: 1e-12)>
+    Stop when the optimization variables change by less than this.
+
+--min-triangulation-angle <double (default: 0.01)>
+    If filtering outliers, remove triangulated points for which all rays
+    converging to it make an angle (in degrees) less than this. Note that some
+    cameras in the rig may be very close to each other relative to the
+    triangulated points, so care is needed here.
+
+--registration
+    If true, and registration control points for the sparse map exist and are
+    specified by ``--hugin-file`` and ``--xyz-file``, register all camera poses
+    and the rig transforms before starting the optimization. For now, the
+    depth-to-image transforms do not change as result of this, which may be a
+    problem. To apply the registration only, use zero iterations.
+
+--skip-post-registration
+    If true and registration to world coordinates takes place, do not apply the
+    registration again after the cameras are optimized. This is usually not
+    recommended, unless one is quite confident that other constraints (such as
+    using ``--tri-weight`` or ``--mesh-tri-weight``) are sufficient to keep the
+    cameras from drifting.
+
+--hugin-file <string (default: "")>
+    The path to the hugin .pto file used for registration.
+
+--xyz-file <string (default: "")>
+    The path to the xyz file used for registration.
+
+--read-nvm-no-shift
+    Read an nvm file assuming that interest point matches were not shifted to
+    the origin.
+
+--save-nvm-no-shift
+    Save the optimized camera poses and inlier interest point matches to <out
+    dir>/cameras_no_shift.nvm. Interest point matches are not offset relative to
+    the optical center, which is not standard, but which allows this file to be
+    self-contained and for the matches to be drawn with ``stereo_gui``.
+
+--save-matches
+    Save the interest point matches (all matches and inlier matches after filtering). ``stereo_gui`` can be used to visualize these (:numref:`rc_ba`).
+
+--export-to-voxblox
+    Save the depth clouds and optimized transforms needed to create a mesh with ``voxblox`` (if depth clouds exist).
+
+--save-transformed-depth-clouds
+    Save the depth clouds with the camera transform applied to them to make them
+    be in world coordinates.
+
+--save-pinhole-cameras
+    Save the optimized cameras in ASP's Pinhole format
+    (:numref:`rc_ba`). The distortion model gets saved if it is of
+    ``radtan`` type (OpenCV radial-tangential distortion model).
+
+--timestamp-offsets-max-change <double (default: 1)>
+    If floating the timestamp offsets, do not let them change by more than this
+    (measured in seconds). Existing image bracketing acts as an additional
+    constraint.
+
+--use-initial-rig-transforms
+    Use the transforms between the sensors (``ref_to_sensor_transform``) of the
+    rig specified via ``--rig-config`` to initialize all non-reference camera
+    poses based on the reference camera poses and the rig transforms. If this
+    option is not set, derive the rig transforms from the poses of individual
+    cameras.
+
+--fixed-image-list <string>
+    A file having a list of images (separated by spaces or newlines) whose
+    camera poses should be fixed during optimization. These can be only
+    reference sensor images when the rig constraint is on.
+
+--bracket-single-image
+    If more than one image from a given sensor is acquired between two
+    consecutive reference sensor images, as measured by timestamps, keep only
+    one, choosing the image that is closest to the midpoint of the interval
+    formed by reference sensor timestamps. Only applicable without ``--no-rig``.
+   
+--extra-list <string (default: "")>
+    Add to the SfM solution the camera poses for the additional images/depth
+    clouds in this list. Use bilinear interpolation of poses in time and nearest
+    neighbor extrapolation (within ``--bracket-len``) and/or the rig constraint
+    to find the new poses (will be followed by bundle adjustment refinement).
+    This can give incorrect results if the new images are not very similar or
+    not close in time to the existing ones. This list can contain entries for
+    the data already present.
+
+--nearest-neighbor-interp
+    Use nearest neighbor interpolation (in time) when inserting extra camera
+    poses.
+
+--verbose
+    Print a lot of verbose information about how matching goes.
+
+-v, --version
+    Display the version of software.
+
+-h, --help
+    Display the help message.
+

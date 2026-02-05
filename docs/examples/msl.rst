@@ -276,7 +276,7 @@ Invocation of bundle adjustment
 
 The ``rig_calibrator`` option ``--save_pinhole_cameras`` can export the camera
 poses to Pinhole format (:numref:`pinholemodels`). It will also save the list of
-input images (:numref:`rc_bundle_adjust`).
+input images (:numref:`rc_ba`).
 
 These can be ingested by ASP's bundle adjustment program
 (:numref:`bundle_adjust`). It can transform the cameras to ground coordinates

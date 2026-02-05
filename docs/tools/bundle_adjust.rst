@@ -702,7 +702,7 @@ NVM format
 
 The ``bundle_adjust`` program can read and write the `VisualSfM NVM format
 <http://ccwu.me/vsfm/doc.html#nvm>`_ for a control network. This helps in
-interfacing with ``rig_calibrator`` (:numref:`rc_bundle_adjust`) and
+interfacing with ``rig_calibrator`` (:numref:`rc_ba`) and
 ``theia_sfm`` (:numref:`theia_sfm`). Usage::
 
     bundle_adjust --nvm input.nvm \
