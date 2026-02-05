@@ -17,12 +17,19 @@
 
 #include <asp/Rig/RigOptimizer.h>
 #include <asp/Rig/RigCostFunction.h>
+#include <asp/Rig/RigCameraUtils.h>
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/rig_config.h>
 #include <asp/Rig/transform_utils.h>
 #include <asp/Rig/image_lookup.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/rig_utils.h>
+#include <asp/Core/BundleAdjustUtils.h>
+
+#include <vw/Image/Interpolation.h>
+#include <vw/Core/Log.h>
+#include <vw/Core/Stopwatch.h>
+#include <vw/Cartography/CameraBBox.h>
 #include <asp/Rig/texture_processing.h>
 #include <asp/Rig/triangulation.h>
 #include <asp/Rig/RigOutlier.h>
@@ -579,11 +586,12 @@ void updateTriPtsFromDem(// Inputs
         continue;
         
       // Get the distorted pixel observation
-      Eigen::Vector2d dist_pix = keypoint_vec[cid][fid];
+      std::pair<float, float> kp_pair = keypoint_vec[cid][fid];
+      Eigen::Vector2d dist_pix(kp_pair.first, kp_pair.second);
       
       // Calculate camera center and ray direction using our utility function
       Eigen::Vector3d cam_ctr, world_ray;
-      calcCamCtrDir(cam_params[cid], dist_pix, world_to_cam[cid], cam_ctr, world_ray);
+      rig::calcCamCtrDir(cam_params[cid], dist_pix, world_to_cam[cid], cam_ctr, world_ray);
       
       // Intersect ray with DEM
       bool treat_nodata_as_zero = false;
@@ -619,10 +627,11 @@ void updateTriPtsFromDem(// Inputs
     if (dem_xyz_vec[pid] == vw::Vector3())
       continue; // Skip invalid points
       
-    // Project vertically onto DEM
+    // Project vertically onto DEM (the missing projection step!)
     vw::Vector3 observation = dem_xyz_vec[pid];
-    if (vw::cartography::update_point_height_from_dem(dem_georef, interp_dem, observation))
+    if (asp::update_point_height_from_dem(dem_georef, interp_dem, observation)) {
       dem_xyz_vec[pid] = observation;
+    }
 
   } // end loop over triangulated points
   
@@ -905,34 +914,22 @@ void runOptPass(int pass,
   if (opt.heights_from_dem != "") {
     vw::vw_out() << "Loading DEM for height constraints: " << opt.heights_from_dem << "\n";
     asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
-    vw::vw_out() << "Updating triangulated points with DEM heights.\n";
-  //  dem_xyz_vec.resize(xyz_vec.size(), vw::Vector3(0, 0, 0));
-     
-    for (size_t i = 0; i < xyz_vec.size(); i++) {
-  //     if (xyz_vec[i].norm() > 0) { // Valid triangulated point
-  //       vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(
-  //         vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]));
-  //       vw::Vector2 dem_pix = dem_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
-        
-  //       if (masked_dem.cols() > 0 && masked_dem.rows() > 0 &&
-  //           dem_pix[0] >= 0 && dem_pix[0] < masked_dem.cols() &&
-  //           dem_pix[1] >= 0 && dem_pix[1] < masked_dem.rows()) {
-          
-  //         vw::PixelMask<double> height_val = masked_dem(int(dem_pix[0]), int(dem_pix[1]));
-  //         if (is_valid(height_val)) {
-  //           // Update only the height, keep x,y from triangulation
-  //           vw::Vector3 dem_xyz = dem_georef.datum().geodetic_to_cartesian(
-  //             vw::Vector3(llh[0], llh[1], height_val.child()));
-  //           dem_xyz_vec[i] = dem_xyz;
-  //           // Also update the triangulated point for optimization initial guess
-  //           xyz_vec[i] = Eigen::Vector3d(dem_xyz[0], dem_xyz[1], dem_xyz[2]);
-  //         } else {
-  //           dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
-  //         }
-  //       } else {
-  //         dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
-  //       }
-  //     }
+    
+    // Convert dem_xyz_vec from Eigen to VW format for the function
+    std::vector<vw::Vector3> dem_xyz_vec_vw;
+    updateTriPtsFromDem(// Inputs
+                        R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid, 
+                        pid_cid_fid_inlier, keypoint_vec, xyz_vec,
+                        dem_georef, masked_dem, 
+                        // Outputs
+                        dem_xyz_vec_vw);
+                        
+    // Convert back to Eigen format
+    dem_xyz_vec.resize(dem_xyz_vec_vw.size());
+    for (size_t i = 0; i < dem_xyz_vec_vw.size(); i++) {
+      dem_xyz_vec[i] = Eigen::Vector3d(dem_xyz_vec_vw[i][0], 
+                                       dem_xyz_vec_vw[i][1], 
+                                       dem_xyz_vec_vw[i][2]);
     }
   }
   

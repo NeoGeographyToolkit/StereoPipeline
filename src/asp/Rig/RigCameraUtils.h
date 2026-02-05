@@ -55,6 +55,14 @@ void writePinholeCameras(std::vector<std::string>              const& cam_names,
                          std::vector<Eigen::Affine3d>          const& world_to_cam,
                          std::string                           const& out_dir);
 
+// Calculate camera center and ray direction in world coordinates from a distorted pixel
+void calcCamCtrDir(rig::CameraParameters const& cam_params,
+                   Eigen::Vector2d const& dist_pix,
+                   Eigen::Affine3d const& world_to_cam,
+                   // Output
+                   Eigen::Vector3d& cam_ctr,
+                   Eigen::Vector3d& world_ray);
+
 }  // namespace rig
 
 #endif  // ASP_RIG_CAMERA_UTILS_H

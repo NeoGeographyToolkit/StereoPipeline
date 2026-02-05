@@ -18,6 +18,7 @@
  */
 
 #include <asp/Rig/texture_processing.h>
+#include <asp/Rig/RigCameraUtils.h>
 #include <asp/Rig/system_utils.h>
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/basic_algs.h>
@@ -337,28 +338,6 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
   }  // End loop over mesh faces
 }
 
-// Calculate camera center and ray direction in world coordinates from a distorted pixel
-void calcCamCtrDir(rig::CameraParameters const& cam_params,
-                   Eigen::Vector2d const& dist_pix,
-                   Eigen::Affine3d const& world_to_cam,
-                   // Output
-                   Eigen::Vector3d& cam_ctr,
-                   Eigen::Vector3d& world_ray) {
-  
-  // Undistort the pixel
-  Eigen::Vector2d undist_centered_pix;
-  cam_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>(dist_pix, &undist_centered_pix);
-
-  // Ray from camera going through the undistorted pand centered pixel
-  Eigen::Vector3d cam_ray(undist_centered_pix.x() / cam_params.GetFocalVector()[0],
-                          undist_centered_pix.y() / cam_params.GetFocalVector()[1], 1.0);
-  cam_ray.normalize();
-
-  Eigen::Affine3d cam_to_world = world_to_cam.inverse();
-  world_ray = cam_to_world.linear() * cam_ray;
-  cam_ctr = cam_to_world.translation();
-}
-
 // Intersect ray with a mesh. Return true on success.
 bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
                         rig::CameraParameters const& cam_params,
@@ -374,7 +353,7 @@ bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
 
   // Calculate camera center and ray direction
   Eigen::Vector3d cam_ctr, world_ray;
-  calcCamCtrDir(cam_params, dist_pix, world_to_cam, cam_ctr, world_ray);
+  rig::calcCamCtrDir(cam_params, dist_pix, world_to_cam, cam_ctr, world_ray);
 
   // Set up the ray structure for the mesh
   BVHTree::Ray bvh_ray;

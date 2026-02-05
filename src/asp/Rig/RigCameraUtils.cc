@@ -247,4 +247,26 @@ void writePinholeCameras(std::vector<std::string>              const& cam_names,
   return;
 }
 
+// Calculate camera center and ray direction in world coordinates from a distorted pixel
+void calcCamCtrDir(rig::CameraParameters const& cam_params,
+                   Eigen::Vector2d const& dist_pix,
+                   Eigen::Affine3d const& world_to_cam,
+                   // Output
+                   Eigen::Vector3d& cam_ctr,
+                   Eigen::Vector3d& world_ray) {
+  
+  // Undistort the pixel
+  Eigen::Vector2d undist_centered_pix;
+  cam_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>(dist_pix, &undist_centered_pix);
+
+  // Ray from camera going through the undistorted and centered pixel
+  Eigen::Vector3d cam_ray(undist_centered_pix.x() / cam_params.GetFocalVector()[0],
+                          undist_centered_pix.y() / cam_params.GetFocalVector()[1], 1.0);
+  cam_ray.normalize();
+
+  Eigen::Affine3d cam_to_world = world_to_cam.inverse();
+  world_ray = cam_to_world.linear() * cam_ray;
+  cam_ctr = cam_to_world.translation();
+}
+
 } // end namespace rig

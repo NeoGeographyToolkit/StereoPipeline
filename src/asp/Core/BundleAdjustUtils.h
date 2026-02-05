@@ -100,6 +100,14 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
                          // Output
                          std::vector<vw::Vector3> & dem_xyz_vec);
 
+// Given an xyz point in ECEF coordinates, update its height above datum by
+// interpolating into a DEM. The input must already be prepared for
+// interpolation. The user must check the return status.
+bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_georef,
+                                  vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
+                                  // Output
+                                  vw::Vector3 & xyz);
+
 // Flag outliers by reprojection error with input cameras. This assumes that
 // the input cameras are pretty accurate.
 void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
