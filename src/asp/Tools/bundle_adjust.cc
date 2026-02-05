@@ -152,9 +152,9 @@ int baOnePass(asp::BaOptions                & opt,
   if (opt.heights_from_dem != "") {
     vw::vw_out() << "Constraining against DEM: " << opt.heights_from_dem << "\n";
     asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
-    asp::update_tri_pts_from_dem(cnet, outliers, opt.camera_models,
-                                 dem_georef, masked_dem,
-                                 dem_xyz_vec); // output
+    asp::updateTriPtsFromDem(cnet, outliers, opt.camera_models,
+                             dem_georef, masked_dem,
+                             dem_xyz_vec); // output
   }
 
   // If to use a weight image

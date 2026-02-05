@@ -292,19 +292,26 @@ bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_geore
 // it up one could break the loop over features into several parts. Each would
 // load and have its own masked_dem image. Even then there may be some global
 // cache for all images, which would slow things down.
-void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
-                             std::set<int> const& outliers,
-                             std::vector<vw::CamPtr> const& camera_models,
-                             vw::cartography::GeoReference const& dem_georef,
-                             vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
-                             // Output
-                             std::vector<vw::Vector3> & dem_xyz_vec) {
+// See the adaptation of this for rig_calibrator, with the same name.
+void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
+                         std::set<int> const& outliers,
+                         std::vector<vw::CamPtr> const& camera_models,
+                         vw::cartography::GeoReference const& dem_georef,
+                         vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
+                         // Output
+                         std::vector<vw::Vector3> & dem_xyz_vec) {
 
   // Put this note as this part can take a long time
   vw::vw_out() << "Updating triangulated points with DEM height.\n";
   
   int num_tri_points = cnet.size();
   dem_xyz_vec.resize(num_tri_points, vw::Vector3(0, 0, 0));
+
+  // Project vertically onto the DEM. This needs interpolation into the DEM
+  vw::PixelMask<double> invalid_val;
+  vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem
+   = vw::interpolate(masked_dem, vw::BilinearInterpolation(), 
+                     vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
 
   // Prepare for measuring progress and elapsed time
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
@@ -336,18 +343,18 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
     
     for (size_t m = 0; m < cnet[ipt].size(); m++) {
 
-      int icam = cnet[ipt][m].image_id();
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
       Vector2 observation = cnet[ipt][m].position();
         
+      // Intersect ray with DEM
       bool treat_nodata_as_zero = false;
       bool has_intersection = false;
       double height_error_tol = 0.001; // 1 mm should be enough
       double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
       double max_rel_tol      = 1e-14;
       int num_max_iter        = 25;   // Using many iterations can be very slow
-
+      int icam = cnet[ipt][m].image_id();
       Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
         (camera_models[icam]->camera_center(observation),
          camera_models[icam]->pixel_to_vector(observation),
@@ -362,39 +369,22 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
       num_intersections++;
     }
 
+    // Average the successful intersections.
     if (num_intersections > 0) 
       dem_xyz_vec[ipt] = accumulated_xyz / double(num_intersections);
     else
       dem_xyz_vec[ipt] = Vector3();
-  }
-  
-  tpc.report_finished();
-  
-  // Average the successful intersections. This is now done inside the loop.
 
-  // Project vertically onto the DEM. This needs interpolation into the DEM
-  vw::PixelMask<double> invalid_val;
-  vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem
-   = vw::interpolate(masked_dem, vw::BilinearInterpolation(), 
-                     vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
-  for (int ipt = 0; ipt < num_tri_points; ipt++) {
-    
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-      continue; // GCP keep their own thing
-    
-    if (outliers.find(ipt) != outliers.end())
-      continue; // Skip outliers
-    
     if (dem_xyz_vec[ipt] == Vector3())
       continue; // Skip invalid points
       
     Vector3 observation = dem_xyz_vec[ipt];
-    if (update_point_height_from_dem(dem_georef, interp_dem,  
-                                     observation)) {
+    if (update_point_height_from_dem(dem_georef, interp_dem, observation))
       dem_xyz_vec[ipt] = observation;
-    }
     
-  }
+  } // end iterating over points
+  
+  tpc.report_finished();
 
   sw.stop();
   vw::vw_out() << "Elapsed time in updating triangulated points from DEM: "

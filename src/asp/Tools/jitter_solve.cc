@@ -1013,9 +1013,9 @@ void jitterSolvePass(int                                 pass,
     vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
     asp::create_masked_dem(opt.heights_from_dem, dem_georef,  masked_dem);
     vw::checkDatumConsistency(opt.datum, dem_georef.datum(), warn_only);
-    asp::update_tri_pts_from_dem(cnet, outliers, opt.camera_models,
-                                 dem_georef,  masked_dem,
-                                 dem_xyz_vec); // output
+    asp::updateTriPtsFromDem(cnet, outliers, opt.camera_models,
+                             dem_georef,  masked_dem,
+                             dem_xyz_vec); // output
   }
   if (opt.anchor_dem != "") {
     vw::vw_out() << "Reading the DEM for the --anchor-dem constraint.\n";

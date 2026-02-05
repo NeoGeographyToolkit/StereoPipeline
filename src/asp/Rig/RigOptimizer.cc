@@ -522,6 +522,113 @@ void addRigCamPosCostFun(// Observation
   }
 }
 
+// Update triangulated points with DEM heights (rig-specific version). See the
+// other function with the same name one with ASP's camera model.
+void updateTriPtsFromDem(// Inputs
+                         std::vector<rig::CameraParameters>      const& cam_params,
+                         std::vector<rig::cameraImage>           const& cams,
+                         std::vector<Eigen::Affine3d>            const& world_to_cam,
+                         rig::PidCidFid                          const& pid_to_cid_fid,
+                         PidCidFidMap                            const& pid_cid_fid_inlier,
+                         rig::KeypointVec                        const& keypoint_vec,
+                         std::vector<Eigen::Vector3d>            const& xyz_vec_orig,
+                         vw::cartography::GeoReference           const& dem_georef,
+                         vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
+                         // Outputs
+                         std::vector<vw::Vector3>                     & dem_xyz_vec) {
+  
+  // Initialize output
+  int num_tri_points = pid_to_cid_fid.size();
+  dem_xyz_vec.resize(num_tri_points, vw::Vector3(0, 0, 0));
+  
+  vw::vw_out() << "Updating triangulated points with DEM heights.\n";
+  
+  // Create interpolated DEM for pixel lookups
+  vw::PixelMask<double> invalid_val;
+  vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem
+   = vw::interpolate(masked_dem, vw::BilinearInterpolation(), 
+                     vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
+  
+  // Progress reporting
+  vw::TerminalProgressCallback tpc("asp", "\t--> ");
+  double inc_amount = 1.0 / std::max(1, num_tri_points);
+  tpc.report_progress(0);
+  
+  for (int pid = 0; pid < num_tri_points; pid++) {
+    tpc.report_incremental_progress(inc_amount);
+    
+    // Get the initial triangulated point as guess (like xyz_guess in original)
+    vw::Vector3 xyz_guess(xyz_vec_orig[pid][0], xyz_vec_orig[pid][1], xyz_vec_orig[pid][2]);
+    
+    // Skip invalid initial points
+    if (xyz_guess == vw::Vector3(0, 0, 0))
+      continue;
+    
+    vw::Vector3 accumulated_xyz(0, 0, 0);
+    int num_intersections = 0;
+    
+    // Iterate through all camera observations for this triangulated point
+    for (auto cid_fid = pid_to_cid_fid[pid].begin(); 
+         cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
+      
+      int cid = cid_fid->first;
+      int fid = cid_fid->second;
+      
+      // Skip outliers
+      if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid))
+        continue;
+        
+      // Get the distorted pixel observation
+      Eigen::Vector2d dist_pix = keypoint_vec[cid][fid];
+      
+      // Calculate camera center and ray direction using our utility function
+      Eigen::Vector3d cam_ctr, world_ray;
+      calcCamCtrDir(cam_params[cid], dist_pix, world_to_cam[cid], cam_ctr, world_ray);
+      
+      // Intersect ray with DEM
+      bool treat_nodata_as_zero = false;
+      bool has_intersection = false;
+      double height_error_tol = 0.001; // 1 mm
+      double max_abs_tol      = 1e-14;
+      double max_rel_tol      = 1e-14;
+      int num_max_iter        = 25;
+      
+      // Convert Eigen types to VW types for DEM intersection
+      vw::Vector3 cam_center_vw(cam_ctr[0], cam_ctr[1], cam_ctr[2]);
+      vw::Vector3 ray_direction_vw(world_ray[0], world_ray[1], world_ray[2]);
+      
+      vw::Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+        (cam_center_vw, ray_direction_vw,
+         vw::pixel_cast<vw::PixelMask<float>>(masked_dem), 
+         dem_georef, treat_nodata_as_zero, has_intersection,
+         height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+      
+      if (!has_intersection) 
+        continue;
+        
+      accumulated_xyz += dem_xyz;
+      num_intersections++;
+    }
+    
+    // Average the successful intersections
+    if (num_intersections > 0) 
+      dem_xyz_vec[pid] = accumulated_xyz / double(num_intersections);
+    else
+      dem_xyz_vec[pid] = vw::Vector3();
+      
+    if (dem_xyz_vec[pid] == vw::Vector3())
+      continue; // Skip invalid points
+      
+    // Project vertically onto DEM
+    vw::Vector3 observation = dem_xyz_vec[pid];
+    if (vw::cartography::update_point_height_from_dem(dem_georef, interp_dem, observation))
+      dem_xyz_vec[pid] = observation;
+
+  } // end loop over triangulated points
+  
+  tpc.report_finished();
+}
+
 // Set up the optimization problem for rig calibration
 void setupRigOptProblem(// Inputs
                         std::vector<cameraImage> const& cams,

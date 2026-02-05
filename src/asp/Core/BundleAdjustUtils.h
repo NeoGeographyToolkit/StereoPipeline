@@ -92,13 +92,13 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
 // Shoot rays from all matching interest points. Intersect those with a DEM. Find
 // their average. Project it vertically onto the DEM. Invalid or uncomputable
 // xyz are set to the zero vector.
-void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
-                             std::set<int> const& outliers,
-                             std::vector<vw::CamPtr> const& camera_models,
-                             vw::cartography::GeoReference const& dem_georef,
-                             vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
-                             // Output
-                             std::vector<vw::Vector3> & dem_xyz_vec);
+void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
+                         std::set<int> const& outliers,
+                         std::vector<vw::CamPtr> const& camera_models,
+                         vw::cartography::GeoReference const& dem_georef,
+                         vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
+                         // Output
+                         std::vector<vw::Vector3> & dem_xyz_vec);
 
 // Flag outliers by reprojection error with input cameras. This assumes that
 // the input cameras are pretty accurate.
