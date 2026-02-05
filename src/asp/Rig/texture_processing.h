@@ -21,7 +21,7 @@
 #define ASP_RIG_TEXTURE_PROCESSING_H
 
 #include <asp/Rig/RigTypeDefs.h>
-#include <asp/Rig/RigCameraModel.h>
+
 #include <asp/Rig/rig_utils.h>
 
 #include <Eigen/Geometry>
@@ -59,25 +59,20 @@ Eigen::Vector3d vec3f_to_eigen(math::Vec3f const& v);
 math::Vec3f eigen_to_vec3f(Eigen::Vector3d const& V);
 
 // Load and prepare a mesh
-void loadMeshBuildTree(std::string const& mesh_file, mve::TriangleMesh::Ptr& mesh,
+void loadMeshBuildTree(std::string const& mesh_file, 
+                       mve::TriangleMesh::Ptr& mesh,
                        std::shared_ptr<mve::MeshInfo>& mesh_info,
                        std::shared_ptr<tex::Graph>& graph,
                        std::shared_ptr<BVHTree>& bvh_tree);
 
 // Put an textured mesh obj file in a string
-void formObjCustomUV(mve::TriangleMesh::ConstPtr mesh, std::vector<Eigen::Vector3i> const& face_vec,
+void formObjCustomUV(mve::TriangleMesh::ConstPtr mesh, 
+                     std::vector<Eigen::Vector3i> const& face_vec,
                      std::map<int, Eigen::Vector2d> const& uv_map,
-                     std::string const& out_prefix, std::string& obj_str);
+                     std::string const& out_prefix, 
+                     std::string& obj_str);
 
 void formMtl(std::string const& out_prefix, std::string& mtl_str);
-
-// Project texture and find the UV coordinates
-void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> bvh_tree,
-                    cv::Mat const& image, rig::CameraModel const& cam,
-                    // outputs
-                    std::vector<double>& smallest_cost_per_face,
-                    std::vector<Eigen::Vector3i>& face_vec,
-                    std::map<int, Eigen::Vector2d>& uv_map);
 
 // Find where ray emanating from a distorted pixel intersects a mesh. Return true
 // on success.

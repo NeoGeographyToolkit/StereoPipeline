@@ -254,7 +254,8 @@ void run_rig_calibrator(int argc, char** argv) {
     vw::vw_out() << "Loading DEM for height constraints: " << opt.heights_from_dem << "\n";
     asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
     vw::vw_out() << "Updating triangulated points with DEM heights.\n";
-    dem_xyz_vec.resize(xyz_vec.size());
+  //  dem_xyz_vec.resize(xyz_vec.size(), vw::Vector3(0, 0, 0));
+     
     for (size_t i = 0; i < xyz_vec.size(); i++) {
   //     if (xyz_vec[i].norm() > 0) { // Valid triangulated point
   //       vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(

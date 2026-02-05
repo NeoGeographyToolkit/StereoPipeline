@@ -166,14 +166,19 @@ void formObjCustomUV(mve::TriangleMesh::ConstPtr mesh,
 // Project texture and find the UV coordinates
 void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> bvh_tree,
                     cv::Mat const& image,
-                    rig::CameraModel const& cam,
+                    Eigen::Affine3d const& world_to_cam,
+                    rig::CameraParameters const& cam_params,
                     // outputs
                     std::vector<double>& smallest_cost_per_face,
                     std::vector<Eigen::Vector3i>& face_vec,
                     std::map<int, Eigen::Vector2d>& uv_map) {
+
   // Wipe the outputs
   face_vec.clear();
   uv_map.clear();
+
+  // Compute camera center from world_to_cam transform
+  Eigen::Vector3d cam_ctr = world_to_cam.inverse().translation();
 
   // Here need to take into account that for real (not simulated)
   // images the camera may have been calibrated at 1/4 the original
@@ -182,8 +187,8 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
   // camera we will the calibrated camera model.
   int64_t raw_image_cols = image.cols;
   int64_t raw_image_rows = image.rows;
-  int64_t calib_image_cols = cam.GetParameters().GetDistortedSize()[0];
-  int64_t calib_image_rows = cam.GetParameters().GetDistortedSize()[1];
+  int64_t calib_image_cols = cam_params.GetDistortedSize()[0];
+  int64_t calib_image_rows = cam_params.GetDistortedSize()[1];
 
   int64_t factor = raw_image_cols / calib_image_cols;
 
@@ -195,8 +200,6 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
                << calib_image_cols << ' ' << calib_image_rows << "\n"
                << "These must be equal up to an integer factor.\n";
   }
-
-  Eigen::Vector3d cam_ctr = cam.GetPosition();
 
   std::vector<math::Vec3f> const& vertices = mesh->get_vertices();
   std::vector<math::Vec3f> const& mesh_normals = mesh->get_vertex_normals();
@@ -266,8 +269,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
       Eigen::Vector3d world_pt = vec3f_to_eigen(*samples[vertex_it]);
 
       // Transform the vertex to camera coordinates
-      Eigen::Affine3d const& world2cam = cam.GetWorldToCam();
-      Eigen::Vector3d cam_pt = world2cam * world_pt;
+      Eigen::Vector3d cam_pt = world_to_cam * world_pt;
 
       // Skip points that project behind the camera
       if (cam_pt.z() <= 0) {
@@ -277,9 +279,9 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 
       // Get the undistorted pixel
       Eigen::Vector2d undist_centered_pix =
-        cam.GetParameters().GetFocalVector().cwiseProduct(cam_pt.hnormalized());
-      if (std::abs(undist_centered_pix[0]) > cam.GetParameters().GetUndistortedHalfSize()[0] ||
-          std::abs(undist_centered_pix[1]) > cam.GetParameters().GetUndistortedHalfSize()[1]) {
+        cam_params.GetFocalVector().cwiseProduct(cam_pt.hnormalized());
+      if (std::abs(undist_centered_pix[0]) > cam_params.GetUndistortedHalfSize()[0] ||
+          std::abs(undist_centered_pix[1]) > cam_params.GetUndistortedHalfSize()[1]) {
         // If we are out of acceptable undistorted region, there's some uncertainty whether
         // the distortion computation in the next operation will work, so quit early.
         visible = false;
@@ -288,7 +290,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
 
       // Get the distorted pixel value
       Eigen::Vector2d dist_pix;
-      cam.GetParameters().Convert<rig::UNDISTORTED_C, rig::DISTORTED>
+      cam_params.Convert<rig::UNDISTORTED_C, rig::DISTORTED>
         (undist_centered_pix, &dist_pix);
 
       // Skip pixels that don't project in the window of dimensions
@@ -297,8 +299,8 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
       // normally either the full image or something smaller if the
       // user restricts the domain of validity of the distortion
       // model.
-      Eigen::Vector2i dist_size      = cam.GetParameters().GetDistortedSize();
-      Eigen::Vector2i dist_crop_size = cam.GetParameters().GetDistortedCropSize();
+      Eigen::Vector2i dist_size      = cam_params.GetDistortedSize();
+      Eigen::Vector2i dist_crop_size = cam_params.GetDistortedCropSize();
       if (std::abs(dist_pix[0] - dist_size[0] / 2.0) > dist_crop_size[0] / 2.0  ||
           std::abs(dist_pix[1] - dist_size[1] / 2.0) > dist_crop_size[1] / 2.0) {
         visible = false;
@@ -356,7 +358,6 @@ void calcCamCtrDir(rig::CameraParameters const& cam_params,
   Eigen::Affine3d cam_to_world = world_to_cam.inverse();
   world_ray = cam_to_world.linear() * cam_ray;
   cam_ctr = cam_to_world.translation();
-  std::cout << "--now here!\n";
 }
 
 // Intersect ray with a mesh. Return true on success.
@@ -412,10 +413,9 @@ void meshProject(mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> co
   int64_t num_faces = faces.size();
   std::vector<double> smallest_cost_per_face(num_faces, 1.0e+100);
 
-  rig::CameraModel cam(world_to_cam, cam_params);
-
   // Find the UV coordinates and the faces having them
-  rig::projectTexture(mesh, bvh_tree, image, cam, smallest_cost_per_face, face_vec, uv_map);
+  rig::projectTexture(mesh, bvh_tree, image, world_to_cam, cam_params,
+                      smallest_cost_per_face, face_vec, uv_map);
 
   // Strip the directory name, according to .obj file conventions.
   std::string suffix = boost::filesystem::path(out_prefix).filename().string();
