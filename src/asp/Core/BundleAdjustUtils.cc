@@ -292,7 +292,7 @@ bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_geore
 // it up one could break the loop over features into several parts. Each would
 // load and have its own masked_dem image. Even then there may be some global
 // cache for all images, which would slow things down.
-// See the adaptation of this for rig_calibrator, with the same name.
+// There is a function with the same name and logic for rig_calibrator.
 void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
                          std::set<int> const& outliers,
                          std::vector<vw::CamPtr> const& camera_models,
