@@ -20,13 +20,13 @@
 #include <asp/Rig/InterestPoint.h>
 #include <asp/Rig/CameraImage.h>
 #include <asp/Rig/SystemUtils.h>
-#include <asp/Rig/thread.h>
+#include <asp/Rig/RigThread.h>
 #include <asp/Rig/detector.h>
 #include <asp/Rig/TransformUtils.h>
 #include <asp/Rig/InterpolationUtils.h>
 #include <asp/Rig/RigConfig.h>
 #include <asp/Rig/ImageLookup.h>
-#include <asp/Rig/tracks.h>
+#include <asp/Rig/Tracks.h>
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/nvmUtils.h>
 #include <asp/Rig/RigIo.h>

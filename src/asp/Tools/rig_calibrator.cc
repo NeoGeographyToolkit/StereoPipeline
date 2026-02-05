@@ -25,7 +25,7 @@
 #include <asp/Rig/RigParseOptions.h>
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/triangulation.h>
-#include <asp/Rig/thread.h>
+#include <asp/Rig/RigThread.h>
 #include <asp/Rig/RigParseUtils.h>
 #include <asp/Rig/BasicAlgs.h>
 #include <asp/Rig/RigUtils.h>

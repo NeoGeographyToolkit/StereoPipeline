@@ -15,7 +15,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-#include <asp/Rig/Thread.h>
+#include <asp/Rig/RigThread.h>
 #include <asp/Rig/InterestPoint.h>
 #include <asp/Rig/RigConfig.h>
 #include <asp/Rig/MergeMaps.h>

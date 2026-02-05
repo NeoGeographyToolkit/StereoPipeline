@@ -20,7 +20,7 @@
 #include <asp/Rig/RigConfig.h>
 #include <asp/Rig/CameraImage.h>
 #include <asp/Rig/ImageLookup.h>
-#include <asp/Rig/tracks.h>
+#include <asp/Rig/Tracks.h>
 #include <asp/Rig/BasicAlgs.h>
 #include <asp/Rig/ransac.h>
 #include <asp/Rig/TransformUtils.h>

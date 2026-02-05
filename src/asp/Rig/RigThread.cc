@@ -16,7 +16,7 @@
  * under the License.
  */
 
-#include <asp/Rig/thread.h>
+#include <asp/Rig/RigThread.h>
 
 #include <vw/Core/Exception.h>
 

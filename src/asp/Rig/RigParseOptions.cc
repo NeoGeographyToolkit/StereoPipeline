@@ -20,7 +20,7 @@
 /// Parse and validate rig_calibrator command-line options.
 
 #include <asp/Rig/RigParseOptions.h>
-#include <asp/Rig/thread.h>
+#include <asp/Rig/RigThread.h>
 #include <asp/Rig/RigParseUtils.h>
 #include <asp/Rig/RigConfig.h>
 #include <asp/Rig/BasicAlgs.h>
