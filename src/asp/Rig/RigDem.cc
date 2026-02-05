@@ -137,7 +137,7 @@ void updateTriPtsFromDem(std::vector<rig::CameraParameters> const& cam_params,
 
     // Project vertically onto DEM
     vw::Vector3 observation = dem_xyz;
-    if (asp::update_point_height_from_dem(dem_georef, interp_dem, observation))
+    if (asp::updatePointHeightFromDem(dem_georef, interp_dem, observation))
       dem_xyz = observation;
 
     // Convert from VW to Eigen

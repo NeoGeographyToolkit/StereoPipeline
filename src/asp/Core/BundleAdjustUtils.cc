@@ -247,10 +247,10 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
 // Given an xyz point in ECEF coordinates, update its height above datum by
 // interpolating into a DEM. The input must already be prepared for
 // interpolation. The user must check the return status.
-bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_georef,
-                                  vw::ImageViewRef<PixelMask<double>> const& interp_dem,
-                                  // Output
-                                  vw::Vector3 & xyz) {
+bool updatePointHeightFromDem(vw::cartography::GeoReference const& dem_georef,
+                              vw::ImageViewRef<PixelMask<double>> const& interp_dem,
+                              // Output
+                              vw::Vector3 & xyz) {
 
   // Points at planet center are outliers
   if (xyz == Vector3(0, 0, 0))
@@ -379,7 +379,7 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
       continue; // Skip invalid points
 
     Vector3 observation = dem_xyz_vec[ipt];
-    if (update_point_height_from_dem(dem_georef, interp_dem, observation))
+    if (updatePointHeightFromDem(dem_georef, interp_dem, observation))
       dem_xyz_vec[ipt] = observation;
 
   } // end iterating over points
