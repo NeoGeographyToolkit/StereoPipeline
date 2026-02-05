@@ -758,9 +758,11 @@ Command-line options
   ``--heights-from-dem-uncertainty``. It will attenuate large height differences.
   Set to 0 to turn off. Type: double. Default: 0.1.
 ``--tri-weight`` The weight to give to the constraint that optimized
-  triangulated points stay close to original triangulated points. A
-  positive value will help ensure the cameras do not move too far, but a
-  large value may prevent convergence. Type: double. Default: 0.1. 
+  triangulated points stay close to original triangulated points. A positive
+  value will help ensure the cameras do not move too far, but a large value may
+  prevent convergence. Type: double. Default: 0.1. This does not gets set for
+  triangulated points at which ``--heights-from-dem`` or ``--mesh`` constraints
+  are applied.
 ``--tri-robust-threshold`` The robust threshold to use with the
   triangulation weight. Must be positive. See also ``--robust-threshold``.
   Type: double. Default: 0.1. 

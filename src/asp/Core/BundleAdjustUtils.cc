@@ -309,7 +309,7 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
 
   // Project vertically onto the DEM. This needs interpolation into the DEM
   vw::PixelMask<double> invalid_val;
-  vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem
+  vw::ImageViewRef<vw::PixelMask<double>> interp_dem
    = vw::interpolate(masked_dem, vw::BilinearInterpolation(), 
                      vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
 

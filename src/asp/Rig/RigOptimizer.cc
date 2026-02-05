@@ -667,8 +667,8 @@ void setupRigOptProblem(// Inputs
                                     problem, residual_names, residual_scales);
     }  // end iterating over all cid for given pid
 
-    // The constraints below will be for each triangulated point. Skip such a point
-    // if all rays converging to it come from outliers.
+    // The constraints below will be for each triangulated point. Skip such a
+    // point if all rays converging to it come from outliers.
     bool isTriInlier = false;
     for (auto cid_fid = pid_to_cid_fid[pid].begin();
          cid_fid != pid_to_cid_fid[pid].end(); cid_fid++) {
@@ -695,8 +695,12 @@ void setupRigOptProblem(// Inputs
                                 &xyz_vec[pid][0], problem, residual_names,
                                 residual_scales);
 
-    // Add the constraint that the triangulated point does not go too far
-    if (opt.tri_weight > 0.0 && isTriInlier)
+    bool haveDem = (!opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty > 0.0 &&
+        pid < dem_xyz_vec.size() && dem_xyz_vec[pid].norm() > 0 && xyz_vec[pid].norm() > 0);
+    
+    // Add the constraint that the triangulated point does not go too far.
+    // This is exclusive with the dem and mesh constraints.
+    if (opt.tri_weight > 0.0 && isTriInlier && !haveDem && !have_mesh_tri_constraint)
       rig::addRigTriCostFun(xyz_vec_orig[pid], block_sizes.xyz_block_sizes,
                             opt.tri_weight, opt.tri_robust_threshold,
                             &xyz_vec[pid][0], problem,
@@ -704,9 +708,7 @@ void setupRigOptProblem(// Inputs
 
     // Add DEM constraints if requested and if we have valid DEM point and
     // triangulated point.
-    if (!opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty > 0.0 &&
-        pid < dem_xyz_vec.size() && dem_xyz_vec[pid].norm() > 0 && xyz_vec[pid].norm() > 0 &&
-        isTriInlier)
+    if (haveDem && isTriInlier)
       rig::addRigHeightsFromDemCostFun(dem_xyz_vec[pid], opt.heights_from_dem_uncertainty,
                                        opt.heights_from_dem_robust_threshold,
                                        &xyz_vec[pid][0], problem,
@@ -798,10 +800,10 @@ void runOptPass(int pass,
   std::vector<Eigen::Vector3d> dem_xyz_vec;
   if (opt.heights_from_dem != "")
     rig::updateTriPtsFromDem(R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid, 
-                             pid_cid_fid_inlier, keypoint_vec, xyz_vec,
+                             pid_cid_fid_inlier, keypoint_vec,
                              opt.heights_from_dem,
                              // Outputs
-                             dem_xyz_vec);
+                             xyz_vec_orig, xyz_vec, dem_xyz_vec);
   
   // For a given fid = pid_to_cid_fid[pid][cid], the value
   // pid_cid_fid_to_residual_index[pid][cid][fid] will be the index in the array

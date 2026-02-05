@@ -33,9 +33,9 @@ namespace rig {
 class CameraParameters;
 class cameraImage;
 
-// Update triangulated points with DEM heights. This function shoots rays from
-// cameras through keypoints, intersects them with a DEM, averages the results,
-// and projects them vertically onto the DEM surface.
+// Update triangulated points with DEM heights (rig-specific version). See the
+// There is a version of this with the same name for bundle adjustment. Triangulated
+// points will also be overwritten by DEM points for each successfully found DEM point.
 // There is a version of this with the same name for bundle adjustment.
 void updateTriPtsFromDem(std::vector<rig::CameraParameters> const& cam_params,
                          std::vector<rig::cameraImage>      const& cams,
@@ -43,9 +43,10 @@ void updateTriPtsFromDem(std::vector<rig::CameraParameters> const& cam_params,
                          rig::PidCidFid                     const& pid_to_cid_fid,
                          PidCidFidMap                       const& pid_cid_fid_inlier,
                          rig::KeypointVec                   const& keypoint_vec,
-                         std::vector<Eigen::Vector3d>       const& xyz_vec_orig,
                          std::string                        const& dem_filename,
                          // Outputs
+                         std::vector<Eigen::Vector3d>            & xyz_vec_orig,
+                         std::vector<Eigen::Vector3d>            & xyz_vec,
                          std::vector<Eigen::Vector3d>            & dem_xyz_vec);
 
 }  // namespace rig

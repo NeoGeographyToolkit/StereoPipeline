@@ -117,9 +117,11 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
      "If floating the timestamp offsets, do not let them change by more than this "
      "(measured in seconds). Existing image bracketing acts as an additional constraint.")
     ("tri-weight", po::value(&opt.tri_weight)->default_value(0.1),
-     "The weight to give to the constraint that optimized triangulated points stay close "
-     "to original triangulated points. A positive value will help ensure the cameras do "
-     "not move too far, but a large value may prevent convergence.")
+     "The weight to give to the constraint that optimized triangulated points stay "
+     "close to original triangulated points. A positive value will help ensure the "
+     "cameras do not move too far, but a large value may prevent convergence. This "
+     "does not get set for triangulated points at which --heights-from-dem or --mesh "
+     "constraints are applied.")
     ("tri-robust-threshold", po::value(&opt.tri_robust_threshold)->default_value(0.1),
      "The robust threshold to use with the triangulation weight. Must be positive.")
     ("use-initial-triangulated-points",
@@ -342,6 +344,12 @@ void parameterValidation(RigOptions const& opt) {
                
   if (opt.heights_from_dem_robust_threshold <= 0.0)
     LOG(FATAL) << "The value of --heights-from-dem-robust-threshold must be positive.\n";
+
+  // Validate mesh and DEM exclusivity
+  if (!opt.mesh.empty() && !opt.heights_from_dem.empty())
+    LOG(FATAL) << "Cannot use both --mesh and --heights-from-dem simultaneously. "
+               << "These constraints may conflict as they both try to constrain triangulated points "
+               << "to different external reference positions.\n";
 
   if (opt.registration && (opt.xyz_file.empty() || opt.hugin_file.empty()))
     LOG(FATAL) << "In order to register the map, the hugin and xyz file must be specified.";

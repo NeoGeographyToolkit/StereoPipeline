@@ -225,9 +225,7 @@ void calcExtraPoses(std::string const& extra_list, bool use_initial_rig_transfor
   }
 }
 
-void readCameraPoses(// Inputs
-                     std::string const& camera_poses_file,
-                     // Outputs
+void readCameraPoses(std::string const& camera_poses_file,
                      asp::nvmData & nvm) {
   
   // Clear the outputs
@@ -268,10 +266,9 @@ void readCameraPoses(// Inputs
   }
 }
 
-// TODO(oalexan1): Move this to fileio.cc.  
-// Read camera information and images from a list or from an NVM file.
-// Can interpolate/extrapolate poses for data from an extra list.
-// Only later we will consider if the features are shifted or not in the nvm.
+// Read camera information and images from a list or from an NVM file. Can
+// interpolate/extrapolate poses for data from an extra list. Only later we will
+// consider if the features are shifted or not in the nvm.
 void readListOrNvm(// Inputs
                    std::string const& camera_poses_list,
                    std::string const& nvm_file,
@@ -336,18 +333,17 @@ void readListOrNvm(// Inputs
                    // Append here
                    nvm.cid_to_filename, cam_types, timestamps, nvm.world_to_cam);
 
-  vw::vw_out() << "Reading the images.\n";
-  for (size_t it = 0; it < nvm.cid_to_filename.size(); it++) {
-    // Aliases
-    auto const& image_file = nvm.cid_to_filename[it];
-    auto const& world2cam = nvm.world_to_cam[it];
-    readImageEntry(image_file, world2cam, R.cam_names,  
-                   cam_types[it], timestamps[it],
+  if (num_overlaps > 0)
+    vw::vw_out() << "Reading the images.\n";
+  else
+    vw::vw_out() << "Not reading the images as no feature matching will be done.\n";
+    
+  for (size_t it = 0; it < nvm.cid_to_filename.size(); it++)
+    readImageEntry(nvm.cid_to_filename[it], nvm.world_to_cam[it], 
+                   R.cam_names, cam_types[it], timestamps[it],
                    num_overlaps,
                    // Outputs
                    image_maps, depth_maps);
-  }
-
   return;
 }
 
