@@ -23,7 +23,7 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/FileUtils.h>
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/DisparityProcessing.h>
 #include <asp/Sessions/StereoSessionFactory.h>

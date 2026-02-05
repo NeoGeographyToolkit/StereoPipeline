@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 #include <asp/Rig/camera_image.h> // For rig::cameraImage
 #include <asp/Rig/rig_config.h>   // For rig::RigSet
 #include <asp/Rig/RigTypeDefs.h>

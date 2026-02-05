@@ -19,7 +19,7 @@
 ///
 
 #include <asp/Core/EigenTransformUtils.h>
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 #include <asp/Camera/BundleAdjustEigen.h>
 #include <asp/Camera/BundleAdjustOutliers.h>
 

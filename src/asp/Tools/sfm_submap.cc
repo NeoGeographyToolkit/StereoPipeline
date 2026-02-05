@@ -19,7 +19,7 @@
 #include <Rig/rig_config.h>
 #include <Rig/basic_algs.h>
 
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 
 #include <opencv2/features2d/features2d.hpp>
 

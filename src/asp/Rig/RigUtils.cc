@@ -28,7 +28,7 @@
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/RigMath.h>
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 
 #include <glog/logging.h>
 #include <boost/filesystem.hpp>

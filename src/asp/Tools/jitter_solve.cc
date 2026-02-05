@@ -48,7 +48,7 @@
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/FileUtils.h>
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 #include <asp/Core/Bathymetry.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>

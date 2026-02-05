@@ -26,7 +26,7 @@
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/interpolation_utils.h>
 #include <asp/Rig/transform_utils.h>
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Core/Log.h>

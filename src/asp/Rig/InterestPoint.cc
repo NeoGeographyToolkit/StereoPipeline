@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 #include <asp/Rig/basic_algs.h>
 #include <asp/Rig/interest_point.h>
 #include <asp/Rig/camera_image.h>

@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include <asp/Core/nvm.h>
+#include <asp/Core/Nvm.h>
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
