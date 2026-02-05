@@ -16,7 +16,7 @@
  * under the License.
  */
 
-#include <asp/Rig/ransac.h>
+#include <asp/Rig/Ransac.h>
 
 #include <glog/logging.h>
 
