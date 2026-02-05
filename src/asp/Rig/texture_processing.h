@@ -20,9 +20,9 @@
 #ifndef ASP_RIG_TEXTURE_PROCESSING_H
 #define ASP_RIG_TEXTURE_PROCESSING_H
 
-#include <asp/Rig/RigTypeDefs.h>
-
+#include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/rig_utils.h>
+#include <asp/Rig/camera_image.h>
 
 #include <Eigen/Geometry>
 #include <Eigen/Core>

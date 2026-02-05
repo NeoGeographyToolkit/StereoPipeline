@@ -18,7 +18,6 @@
  */
 
 #include <asp/Rig/texture_processing.h>
-#include <asp/Rig/RigCameraModel.h>
 #include <asp/Rig/system_utils.h>
 #include <asp/Rig/camera_image.h>
 #include <asp/Rig/basic_algs.h>
