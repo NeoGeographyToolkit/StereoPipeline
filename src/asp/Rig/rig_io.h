@@ -67,6 +67,7 @@ void readListOrNvm(// Inputs
                    bool use_initial_rig_transforms,
                    double bracket_len, bool nearest_neighbor_interp,
                    bool read_nvm_no_shift,
+                   int num_overlaps,
                    rig::RigSet const& R,
                    // Outputs
                    asp::nvmData & nvm,

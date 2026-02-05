@@ -52,6 +52,7 @@ void readImageEntry(// Inputs
                     std::vector<std::string> const& cam_names,
                     int cam_type,
                     double timestamp,
+                    int num_overlaps,
                     // Outputs
                     std::vector<std::map<double, rig::ImageMessage>> & image_maps,
                     std::vector<std::map<double, rig::ImageMessage>> & depth_maps);

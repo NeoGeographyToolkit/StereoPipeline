@@ -280,6 +280,7 @@ void readListOrNvm(// Inputs
                    bool use_initial_rig_transforms,
                    double bracket_len, bool nearest_neighbor_interp,
                    bool read_nvm_no_shift,
+                   int num_overlaps,
                    rig::RigSet const& R,
                    // Outputs
                    asp::nvmData & nvm,
@@ -342,6 +343,7 @@ void readListOrNvm(// Inputs
     auto const& world2cam = nvm.world_to_cam[it];
     readImageEntry(image_file, world2cam, R.cam_names,  
                    cam_types[it], timestamps[it],
+                   num_overlaps,
                    // Outputs
                    image_maps, depth_maps);
   }

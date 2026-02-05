@@ -792,10 +792,8 @@ void detectAddFeatures(// Inputs
     
     // If we do not need to create new matches, just reorganize the ones read in
     // and quit.
-    rig::transformNvm(// Inputs
-                            cams, keypoint_offsets, nvm,  
-                            // Outputs
-                            pid_to_cid_fid, keypoint_vec, xyz_vec);
+    rig::transformNvm(cams, keypoint_offsets, nvm,  
+                      pid_to_cid_fid, keypoint_vec, xyz_vec); // outputs
     nvm = asp::nvmData(); // no longer needed
     return;
   }

@@ -116,6 +116,7 @@ void readImageEntry(// Inputs
                     std::vector<std::string> const& cam_names,
                     int cam_type,
                     double timestamp,
+                    int num_overlaps,
                     // Outputs
                     std::vector<std::map<double, rig::ImageMessage>> & image_maps,
                     std::vector<std::map<double, rig::ImageMessage>> & depth_maps) {
@@ -131,14 +132,18 @@ void readImageEntry(// Inputs
   
   // Read the image as grayscale, in order for feature matching to work.
   // Non-byte images need to normalized to [0, 255] and converted to byte type.
-  bool hasByte = asp::hasByteChannels(image_file);
-  if (hasByte) {
-    image_map[timestamp].image = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
-  } else {
-    vw::vw_out() << "Non-byte image detected. Will normalize.\n";
-    vw::ImageViewRef<vw::PixelMask<float>> masked_image;
-    asp::normalizeImage(image_file, masked_image);
-    asp::maskedToScaledByteCvImage(masked_image, image_map[timestamp].image);
+  // If num_overlaps is 0, no feature matching will happen, so no need to read
+  // the images.
+  if (num_overlaps > 0) {
+    bool hasByte = asp::hasByteChannels(image_file);
+    if (hasByte) {
+      image_map[timestamp].image = cv::imread(image_file, cv::IMREAD_GRAYSCALE);
+    } else {
+      vw::vw_out() << "Non-byte image detected. Will normalize.\n";
+      vw::ImageViewRef<vw::PixelMask<float>> masked_image;
+      asp::normalizeImage(image_file, masked_image);
+      asp::maskedToScaledByteCvImage(masked_image, image_map[timestamp].image);
+    }
   }
   
   // Populate the other fields 

@@ -114,7 +114,7 @@ void run_rig_calibrator(int argc, char** argv) {
                      opt.image_sensor_list, opt.extra_list,
                      opt.use_initial_rig_transforms,
                      opt.bracket_len, opt.nearest_neighbor_interp,
-                     opt.read_nvm_no_shift, R,
+                     opt.read_nvm_no_shift, opt.num_overlaps, R,
                      nvm, image_maps, depth_maps); // out
 
   // Poses for all the cameras (extrinsics)
