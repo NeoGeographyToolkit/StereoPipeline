@@ -293,7 +293,6 @@ bool update_point_height_from_dem(vw::cartography::GeoReference const& dem_geore
 // load and have its own masked_dem image. Even then there may be some global
 // cache for all images, which would slow things down.
 void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
-                             asp::CRN const& crn,
                              std::set<int> const& outliers,
                              std::vector<vw::CamPtr> const& camera_models,
                              vw::cartography::GeoReference const& dem_georef,
@@ -305,50 +304,43 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
   vw::vw_out() << "Updating triangulated points with DEM height.\n";
   
   int num_tri_points = cnet.size();
-  dem_xyz_vec = std::vector<vw::Vector3>(num_tri_points, vw::Vector3(0, 0, 0));
-  std::vector<int> dem_xyz_count(num_tri_points, 0);
+  dem_xyz_vec.resize(num_tri_points, vw::Vector3(0, 0, 0));
 
   // Prepare for measuring progress and elapsed time
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  int numFeatures = 0;
-  for (int icam = 0; icam < (int)crn.size(); icam++) {
-    for (auto const& feature_ptr: crn[icam]) {
-       numFeatures++;
-    }
-  }
-  double inc_amount = 1.0 / std::max(1, numFeatures);
+  double inc_amount = 1.0 / std::max(1, num_tri_points);
   tpc.report_progress(0);
   vw::Stopwatch sw;
   sw.start();
 
-  for (int icam = 0; icam < (int)crn.size(); icam++) {
+  for (int ipt = 0; ipt < num_tri_points; ipt++) {
     
-    for (auto const& feature_ptr: crn[icam]) {
-       
-      tpc.report_incremental_progress(inc_amount);
-        
-      // The index of the 3D point
-      int ipt = feature_ptr->m_point_id;
-      
-      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
-        continue; // GCP do not get modified
-      
-      if (outliers.find(ipt) != outliers.end())
-        continue; // Skip outliers
-        
+    tpc.report_incremental_progress(inc_amount);
+
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      continue; // GCP do not get modified
+    
+    if (outliers.find(ipt) != outliers.end())
+      continue; // Skip outliers
+    
+    // The initial triangulated point
+    Vector3 xyz_guess = cnet[ipt].position();
+
+    // Points at planet center are outliers. This check is likely redundant,
+    // but good to have.
+    if (xyz_guess == Vector3(0, 0, 0))
+      continue;
+
+    Vector3 accumulated_xyz(0,0,0);
+    int num_intersections = 0;
+    
+    for (size_t m = 0; m < cnet[ipt].size(); m++) {
+
+      int icam = cnet[ipt][m].image_id();
       // The observed value for the projection of point with index ipt into
       // the camera with index icam.
-      Vector2 observation = feature_ptr->m_location;
+      Vector2 observation = cnet[ipt][m].position();
         
-      // Ideally this point projects back to the pixel observation, so use the
-      // triangulated position as initial guess.
-      Vector3 xyz_guess = cnet[ipt].position();
-
-      // Points at planet center are outliers. This check is likely redundant,
-      // but good to have.
-      if (xyz_guess == Vector3(0, 0, 0))
-        continue;
-
       bool treat_nodata_as_zero = false;
       bool has_intersection = false;
       double height_error_tol = 0.001; // 1 mm should be enough
@@ -366,20 +358,19 @@ void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
       if (!has_intersection) 
         continue;
 
-      dem_xyz_vec[ipt] += dem_xyz;
-      dem_xyz_count[ipt]++;
+      accumulated_xyz += dem_xyz;
+      num_intersections++;
     }
+
+    if (num_intersections > 0) 
+      dem_xyz_vec[ipt] = accumulated_xyz / double(num_intersections);
+    else
+      dem_xyz_vec[ipt] = Vector3();
   }
   
   tpc.report_finished();
   
-  // Average the successful intersections
-  for (size_t xyz_it = 0; xyz_it < dem_xyz_vec.size(); xyz_it++) {
-    if (dem_xyz_count[xyz_it] > 0) 
-      dem_xyz_vec[xyz_it] = dem_xyz_vec[xyz_it] / double(dem_xyz_count[xyz_it]);
-    else
-      dem_xyz_vec[xyz_it] = Vector3();
-  }
+  // Average the successful intersections. This is now done inside the loop.
 
   // Project vertically onto the DEM. This needs interpolation into the DEM
   vw::PixelMask<double> invalid_val;

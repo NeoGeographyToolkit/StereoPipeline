@@ -93,7 +93,6 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
 // their average. Project it vertically onto the DEM. Invalid or uncomputable
 // xyz are set to the zero vector.
 void update_tri_pts_from_dem(vw::ba::ControlNetwork const& cnet,
-                             asp::CRN const& crn,
                              std::set<int> const& outliers,
                              std::vector<vw::CamPtr> const& camera_models,
                              vw::cartography::GeoReference const& dem_georef,
