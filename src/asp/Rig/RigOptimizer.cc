@@ -524,7 +524,6 @@ void addRigCamPosCostFun(// Observation
   }
 }
 
-
 // Set up the optimization problem for rig calibration
 void setupRigOptProblem(// Inputs
                         std::vector<cameraImage> const& cams,
@@ -697,7 +696,7 @@ void setupRigOptProblem(// Inputs
 
     bool haveDem = (!opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty > 0.0 &&
         pid < dem_xyz_vec.size() && dem_xyz_vec[pid].norm() > 0 && xyz_vec[pid].norm() > 0);
-    
+
     // Add the constraint that the triangulated point does not go too far.
     // This is exclusive with the dem and mesh constraints.
     if (opt.tri_weight > 0.0 && isTriInlier && !haveDem && !have_mesh_tri_constraint)
@@ -795,16 +794,15 @@ void runOptPass(int pass,
                             // Outputs
                             pid_cid_fid_mesh_xyz, pid_mesh_xyz);
 
-
   // Update triangulated points with DEM heights if requested
   std::vector<Eigen::Vector3d> dem_xyz_vec;
   if (opt.heights_from_dem != "")
-    rig::updateTriPtsFromDem(R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid, 
+    rig::updateTriPtsFromDem(R.cam_params, imgData, cams.world_to_cam, pid_to_cid_fid,
                              pid_cid_fid_inlier, keypoint_vec,
                              opt.heights_from_dem,
                              // Outputs
                              xyz_vec_orig, xyz_vec, dem_xyz_vec);
-  
+
   // For a given fid = pid_to_cid_fid[pid][cid], the value
   // pid_cid_fid_to_residual_index[pid][cid][fid] will be the index in the array
   // of residuals (look only at pixel residuals). This structure is populated
@@ -817,12 +815,12 @@ void runOptPass(int pass,
   std::vector<std::string> residual_names;
   std::vector<double> residual_scales;
   rig::setupRigOptProblem(imgData, R, ref_timestamps, state, depth_to_image_scales,
-                          keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier, 
+                          keypoint_vec, pid_to_cid_fid, pid_cid_fid_inlier,
                           pid_cid_fid_mesh_xyz, pid_mesh_xyz, xyz_vec, xyz_vec_orig,
-                          dem_xyz_vec, block_sizes, num_depth_params, 
+                          dem_xyz_vec, block_sizes, num_depth_params,
                           min_timestamp_offset, max_timestamp_offset, opt,
                           // Outputs
-                          pid_cid_fid_to_residual_index, problem, residual_names, 
+                          pid_cid_fid_to_residual_index, problem, residual_names,
                           residual_scales);
 
   // Evaluate the residuals before optimization

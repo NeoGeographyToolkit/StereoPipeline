@@ -26,7 +26,6 @@
 #include <asp/Rig/basic_algs.h>
 #include <asp/Core/AspProgramOptions.h>
 
-
 #include <vw/Core/Exception.h>
 #include <vw/Core/StringUtils.h>
 
@@ -40,26 +39,26 @@ namespace rig {
 
 // Parse camera_position_uncertainty_str if non-empty
 void handleCamPosUncertainty(RigOptions& opt) {
-  
+
   if (opt.camera_position_uncertainty_str.empty())
     return;
-    
+
   std::string sep = ",";
   std::vector<double> vals = vw::str_to_std_vec(opt.camera_position_uncertainty_str, sep);
-  
+
   // Check if values were parsed
   if (vals.empty())
     vw::vw_throw(vw::ArgumentErr() << "Camera position uncertainty string is invalid.\n");
-  
+
   // If size is 1, add a second value equal to the first. Only the first will be used,
   // but need to respect the api.
   if (vals.size() == 1)
     vals.push_back(vals[0]);
-  
+
   // Validate that values are positive
   if (vals[0] <= 0.0 || vals[1] <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "Camera position uncertainty values must be positive.\n");
-  
+
   opt.camera_position_uncertainty.resize(1);
   opt.camera_position_uncertainty[0] = vw::Vector2(vals[0], vals[1]);
 }
@@ -143,24 +142,24 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
     ("depth-mesh-weight", po::value(&opt.depth_mesh_weight)->default_value(0.0),
      "A larger value will give more weight to the constraint that the depth clouds stay "
      "close to the mesh. Not suggested by default.")
-    ("camera-position-uncertainty", 
+    ("camera-position-uncertainty",
      po::value(&opt.camera_position_uncertainty_str)->default_value(""),
      "Camera position uncertainty (1 sigma, in meters). This strongly constrains the "
      "movement of cameras, potentially at the expense of accuracy. Specify a single value.")
     ("heights-from-dem", po::value(&opt.heights_from_dem)->default_value(""),
      "Use this DEM to constrain the triangulated points. The uncertainty of the DEM is "
      "specified via --heights-from-dem-uncertainty.")
-    ("heights-from-dem-uncertainty", 
+    ("heights-from-dem-uncertainty",
      po::value(&opt.heights_from_dem_uncertainty)->default_value(-1.0),
      "Uncertainty (in meters, 1 sigma) for --heights-from-dem. A smaller value constrains "
      "more the triangulated points to the DEM specified via --heights-from-dem.")
-    ("heights-from-dem-robust-threshold", 
+    ("heights-from-dem-robust-threshold",
      po::value(&opt.heights_from_dem_robust_threshold)->default_value(0.1),
      "Robust threshold for residual errors in triangulated points relative to DEM "
      "specified via --heights-from-dem. This is applied after the point differences "
      "are divided by --heights-from-dem-uncertainty. It will attenuate large height "
      "differences. Set to 0 to turn off.")
-    ("affine-depth-to-image", 
+    ("affine-depth-to-image",
      po::bool_switch(&opt.affine_depth_to_image)->default_value(false),
      "Assume that the depth-to-image transform for each depth + image camera is an "
      "arbitrary affine transform rather than scale * rotation + translation.")
@@ -302,7 +301,7 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
 }
 
 void parameterValidation(RigOptions const& opt) {
-    
+
   if (opt.robust_threshold <= 0.0)
     LOG(FATAL) << "The robust threshold must be positive.\n";
 
@@ -337,11 +336,11 @@ void parameterValidation(RigOptions const& opt) {
   // Validate heights-from-dem options  
   if (!opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty <= 0.0)
     LOG(FATAL) << "The value of --heights-from-dem-uncertainty must be positive.\n";
-  
+
   if (opt.heights_from_dem.empty() && opt.heights_from_dem_uncertainty > 0.0)
     LOG(FATAL) << "The value of --heights-from-dem-uncertainty is set, "
                << "but --heights-from-dem is not set.\n";
-               
+
   if (opt.heights_from_dem_robust_threshold <= 0.0)
     LOG(FATAL) << "The value of --heights-from-dem-robust-threshold must be positive.\n";
 
@@ -378,7 +377,7 @@ void parameterValidation(RigOptions const& opt) {
 
   if (opt.num_overlaps > 0 && opt.use_initial_triangulated_points)
     LOG(FATAL) << "Cannot use the initial triangulated points if new matches are created.\n";
-    
+
   return;
 }
 
@@ -386,14 +385,14 @@ void parseAuxRigOptions(RigOptions& opt, RigSet const& R) {
   rig::parse_intrinsics_to_float(opt.intrinsics_to_float_str, R.cam_names,
                                  opt.intrinsics_to_float);
 
-  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float_str, 
+  rig::parse_camera_names(R.cam_names, opt.camera_poses_to_float_str,
                         opt.camera_poses_to_float);
 
   rig::parse_camera_names(R.cam_names, opt.depth_to_image_transforms_to_float_str,
                         opt.depth_to_image_transforms_to_float);
 
   // Read a list of images to keep fixed, if provided
-  if (!opt.fixed_image_list_str.empty()) 
+  if (!opt.fixed_image_list_str.empty())
     rig::readList(opt.fixed_image_list_str, opt.fixed_images);
 }
 
