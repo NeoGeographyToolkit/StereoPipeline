@@ -532,7 +532,8 @@ void readRigConfig(std::string const& rig_config, bool have_rig_transforms, RigS
         // is not the ref one
         if (sensor_name != ref_sensor_name && 
             R.ref_to_cam_trans.back().matrix() == Eigen::Affine3d::Identity().matrix()) 
-          LOG(WARNING) << "A non-reference sensor on the rig has the identity as the "
+          vw::vw_out(vw::WarningMessage) 
+            << "A non-reference sensor on the rig has the identity as the "
             << "sensor transform. Sensor name: " << sensor_name << "\n";
           
         // The determinant of the transform must be 1.

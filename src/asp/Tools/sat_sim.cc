@@ -32,6 +32,8 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/FileUtils.h>
 
+#include <glog/logging.h>
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,

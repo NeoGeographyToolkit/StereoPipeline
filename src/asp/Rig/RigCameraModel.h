@@ -25,9 +25,9 @@
 
 namespace rig {
 
-/**
- * A model of a camera, with transformation matrix and camera parameters.
- **/
+// A model of a camera, with transformation matrix and camera parameters. Need
+// to carefully apply distortion / undistortion as needed. It is not automatic.
+
 class CameraModel {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -38,42 +38,16 @@ class CameraModel {
   explicit CameraModel(const rig::CameraParameters & params);
   ~CameraModel();
 
-  // Takes world coordinates and output image coordinates that are
-  // undistorted and relative to the center of the undistorted image.
-  Eigen::Vector2d ImageCoordinates(const Eigen::Vector3d & p) const;
-  Eigen::Vector2d ImageCoordinates(double x, double y, double z) const;
-
-  // outputs 3D coordinates in camera frame
-  Eigen::Vector3d CameraCoordinates(const Eigen::Vector3d & p) const;
-  Eigen::Vector3d CameraCoordinates(double x, double y, double z) const;
-
-  // outputs 3D ray unit vector from image coordinates
-  Eigen::Vector3d Ray(int x, int y) const;
-
-  // TODO(oalexan1): This looks buggy. Because ImageCoordinates()
-  // returns an undistorted pixel, it must compare to GetUndistortedHalfSize().
-  bool IsInFov(const Eigen::Vector3d & p) const;
-  bool IsInFov(double x, double y, double z) const;
-
-  double GetFovX(void) const;
-  double GetFovY(void) const;
-
   const rig::CameraParameters& GetParameters() const;
   Eigen::Vector3d GetPosition() const;
-  Eigen::Matrix3d GetRotation() const;
-  const Eigen::Affine3d& GetTransform() const;
-  void SetTransform(const Eigen::Affine3d & cam_t_global);
+  const Eigen::Affine3d& GetWorldToCam() const;
 
  private:
   void InitTransform(const Eigen::Vector3d & position, const Eigen::Matrix3d & rotation);
-  // The transform cam_t_global_ goes from the world to the camera.
-  Eigen::Affine3d cam_t_global_;
-  rig::CameraParameters params_;
+  // The transform m_world_to_cam goes from the world to the camera.
+  Eigen::Affine3d m_world_to_cam;
+  rig::CameraParameters m_params;
 };
-
-// Rodrigues is a collapsed Angle Axis Representation
-void RotationToRodrigues(Eigen::Matrix3d const& rotation, Eigen::Vector3d * vector);
-void RodriguesToRotation(Eigen::Vector3d const& vector, Eigen::Matrix3d * rotation);
 
 }  // namespace rig
 

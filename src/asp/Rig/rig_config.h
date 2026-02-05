@@ -21,11 +21,12 @@
 
 // A structure to hold info about a set of rigs
 
-#include <asp/Rig/RigCameraModel.h>
+#include <asp/Rig/RigCameraParams.h>
+
+#include <Eigen/Geometry>
 
 #include <map>
 #include <vector>
-#include <glog/logging.h>
 
 namespace rig {
 

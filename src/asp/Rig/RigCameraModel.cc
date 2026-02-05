@@ -23,113 +23,40 @@
 
 namespace rig {
 
+// A model of a camera, with transformation matrix and camera parameters. Need
+// to carefully apply distortion / undistortion as needed. It is not automatic.
+
 CameraModel::CameraModel(const Eigen::Vector3d & position, const Eigen::Matrix3d & rotation,
-        const rig::CameraParameters & params) : params_(params) {
+        const rig::CameraParameters & params) : m_params(params) {
   InitTransform(position, rotation);
 }
 
-CameraModel::CameraModel(const rig::CameraParameters & params) : params_(params) {
+CameraModel::CameraModel(const rig::CameraParameters & params) : m_params(params) {
   InitTransform(Eigen::Vector3d(0, 0, 0), Eigen::Matrix3d::Identity());
 }
 
-CameraModel::CameraModel(const Eigen::Affine3d & cam_t_global,
-                         const rig::CameraParameters & params) :
-  cam_t_global_(cam_t_global), params_(params) {}
+CameraModel::CameraModel(const Eigen::Affine3d & world_to_cam,
+                         const rig::CameraParameters & params):
+  m_world_to_cam(world_to_cam), m_params(params) {}
 
 void CameraModel::InitTransform(const Eigen::Vector3d & position, const Eigen::Matrix3d & rotation) {
-  cam_t_global_.setIdentity();
-  cam_t_global_.translate(-(rotation * position));
-  cam_t_global_.rotate(rotation);
+  m_world_to_cam.setIdentity();
+  m_world_to_cam.translate(-(rotation * position));
+  m_world_to_cam.rotate(rotation);
 }
 
 CameraModel::~CameraModel() {}
 
 Eigen::Vector3d CameraModel::GetPosition() const {
-  return -cam_t_global_.rotation().inverse() * cam_t_global_.translation();
+  return -m_world_to_cam.rotation().inverse() * m_world_to_cam.translation();
 }
 
-Eigen::Matrix3d CameraModel::GetRotation() const {
-  return cam_t_global_.rotation();
-}
-
-const Eigen::Affine3d& CameraModel::GetTransform() const {
-  return cam_t_global_;
-}
-
-void CameraModel::SetTransform(const Eigen::Affine3d & cam_t_global) {
-  cam_t_global_ = cam_t_global;
-}
-
-double CameraModel::GetFovX(void) const {
-  // This is an approximation since it doesn't take in account lens distortion
-  return atan(1.0 / (params_.GetFocalVector()[0] * params_.GetDistortedHalfSize()[0])) * 2;
-}
-
-double CameraModel::GetFovY(void) const {
-  // This is an approximation since it doesn't take in account lens distortion
-  return atan(1.0 / (params_.GetFocalVector()[1] * params_.GetDistortedHalfSize()[1])) * 2;
+const Eigen::Affine3d& CameraModel::GetWorldToCam() const {
+  return m_world_to_cam;
 }
 
 const rig::CameraParameters& CameraModel::GetParameters() const {
-  return params_;
-}
-
-Eigen::Vector2d CameraModel::ImageCoordinates(double x, double y, double z) const {
-  return ImageCoordinates(Eigen::Vector3d(x, y, z));
-}
-
-Eigen::Vector2d CameraModel::ImageCoordinates(const Eigen::Vector3d & p) const {
-  // This returns undistorted pixels relative to the center of the undistorted image.
-  return params_.GetFocalVector().cwiseProduct((cam_t_global_ * p).hnormalized());
-}
-
-Eigen::Vector3d CameraModel::Ray(int x, int y) const {
-  return cam_t_global_.rotation().inverse() * Eigen::Vector3d(x / params_.GetFocalVector()[0],
-      y / params_.GetFocalVector()[1], 1.0).normalized();
-}
-
-Eigen::Vector3d CameraModel::CameraCoordinates(double x, double y, double z) const {
-  return CameraCoordinates(Eigen::Vector3d(x, y, z));
-}
-
-Eigen::Vector3d CameraModel::CameraCoordinates(const Eigen::Vector3d & p) const {
-  return cam_t_global_ * p;
-}
-
-// TODO(oalexan1): This looks buggy. Because ImageCoordinates()
-// returns an undistorted pixel, it must compare to GetUndistortedHalfSize().
-bool CameraModel::IsInFov(const Eigen::Vector3d & p) const {
-  Eigen::Vector3d t = cam_t_global_ * p;
-  if (t.z() <= 0.0)
-    return false;
-  Eigen::Vector2d camera = ImageCoordinates(p);
-  if (camera.x() < -params_.GetDistortedHalfSize()[0] ||
-      camera.x() >= params_.GetDistortedHalfSize()[0])
-    return false;
-  if (camera.y() < -params_.GetDistortedHalfSize()[1] ||
-      camera.y() >= params_.GetDistortedHalfSize()[1])
-    return false;
-  return true;
-}
-
-bool CameraModel::IsInFov(double x, double y, double z) const {
-  return IsInFov(Eigen::Vector3d(x, y, z));
-}
-
-// Rodrigues is a collapsed Angle Axis Representation
-void RotationToRodrigues(Eigen::Matrix3d const& rotation,
-                         Eigen::Vector3d * vector) {
-  Eigen::AngleAxisd aa(rotation);
-  *vector = aa.axis();
-  vector->normalize();
-  *vector *= aa.angle();
-}
-
-void RodriguesToRotation(Eigen::Vector3d const& vector,
-                         Eigen::Matrix3d * rotation) {
-  double angle = vector.norm();
-  Eigen::AngleAxisd aa(angle, vector / angle);
-  *rotation = aa.matrix();
+  return m_params;
 }
 
 }  // namespace rig

@@ -113,8 +113,10 @@ void formMtl(std::string const& out_prefix, std::string& mtl_str) {
   mtl_str = ofs.str();
 }
 
-void formObjCustomUV(mve::TriangleMesh::ConstPtr mesh, std::vector<Eigen::Vector3i> const& face_vec,
-                     std::map<int, Eigen::Vector2d> const& uv_map, std::string const& out_prefix,
+void formObjCustomUV(mve::TriangleMesh::ConstPtr mesh, 
+                     std::vector<Eigen::Vector3i> const& face_vec,
+                     std::map<int, Eigen::Vector2d> const& uv_map, 
+                     std::string const& out_prefix,
                      std::string& obj_str) {
   // Get handles to the vertices and vertex normals
   std::vector<math::Vec3f> const& vertices = mesh->get_vertices();
@@ -264,7 +266,7 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
       Eigen::Vector3d world_pt = vec3f_to_eigen(*samples[vertex_it]);
 
       // Transform the vertex to camera coordinates
-      Eigen::Affine3d const& world2cam = cam.GetTransform();
+      Eigen::Affine3d const& world2cam = cam.GetWorldToCam();
       Eigen::Vector3d cam_pt = world2cam * world_pt;
 
       // Skip points that project behind the camera
@@ -334,6 +336,29 @@ void projectTexture(mve::TriangleMesh::ConstPtr mesh, std::shared_ptr<BVHTree> b
   }  // End loop over mesh faces
 }
 
+// Calculate camera center and ray direction in world coordinates from a distorted pixel
+void calcCamCtrDir(rig::CameraParameters const& cam_params,
+                   Eigen::Vector2d const& dist_pix,
+                   Eigen::Affine3d const& world_to_cam,
+                   // Output
+                   Eigen::Vector3d& cam_ctr,
+                   Eigen::Vector3d& world_ray) {
+  
+  // Undistort the pixel
+  Eigen::Vector2d undist_centered_pix;
+  cam_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>(dist_pix, &undist_centered_pix);
+
+  // Ray from camera going through the undistorted pand centered pixel
+  Eigen::Vector3d cam_ray(undist_centered_pix.x() / cam_params.GetFocalVector()[0],
+                          undist_centered_pix.y() / cam_params.GetFocalVector()[1], 1.0);
+  cam_ray.normalize();
+
+  Eigen::Affine3d cam_to_world = world_to_cam.inverse();
+  world_ray = cam_to_world.linear() * cam_ray;
+  cam_ctr = cam_to_world.translation();
+  std::cout << "--now here!\n";
+}
+
 // Intersect ray with a mesh. Return true on success.
 bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
                         rig::CameraParameters const& cam_params,
@@ -343,29 +368,19 @@ bool ray_mesh_intersect(Eigen::Vector2d const& dist_pix,
                         double min_ray_dist, double max_ray_dist,
                         // Output
                         Eigen::Vector3d& intersection) {
+
   // Initialize the output
   intersection = Eigen::Vector3d(0.0, 0.0, 0.0);
 
-  // Undistort the pixel
-  Eigen::Vector2d undist_centered_pix;
-  cam_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>
-    (dist_pix, &undist_centered_pix);
-
-  // Ray from camera going through the undistorted and centered pixel
-  Eigen::Vector3d cam_ray(undist_centered_pix.x() / cam_params.GetFocalVector()[0],
-                          undist_centered_pix.y() / cam_params.GetFocalVector()[1], 1.0);
-  cam_ray.normalize();
-
-  Eigen::Affine3d cam_to_world = world_to_cam.inverse();
-  Eigen::Vector3d world_ray = cam_to_world.linear() * cam_ray;
-  Eigen::Vector3d cam_ctr = cam_to_world.translation();
+  // Calculate camera center and ray direction
+  Eigen::Vector3d cam_ctr, world_ray;
+  calcCamCtrDir(cam_params, dist_pix, world_to_cam, cam_ctr, world_ray);
 
   // Set up the ray structure for the mesh
   BVHTree::Ray bvh_ray;
   bvh_ray.origin = rig::eigen_to_vec3f(cam_ctr);
   bvh_ray.dir = rig::eigen_to_vec3f(world_ray);
   bvh_ray.dir.normalize();
-
   bvh_ray.tmin = min_ray_dist;
   bvh_ray.tmax = max_ray_dist;
 
@@ -506,10 +521,10 @@ void meshTriangulations(// Inputs
       Eigen::Vector3d mesh_xyz(0.0, 0.0, 0.0);
       bool have_mesh_intersection
         = rig::ray_mesh_intersect(dist_ip, cam_params[cams[cid].camera_type],
-                                        world_to_cam[cid], mesh, bvh_tree,
-                                        min_ray_dist, max_ray_dist,
-                                        // Output
-                                        mesh_xyz);
+                                  world_to_cam[cid], mesh, bvh_tree,
+                                  min_ray_dist, max_ray_dist,
+                                  // Output
+                                  mesh_xyz);
 
       if (have_mesh_intersection) {
         pid_cid_fid_mesh_xyz[pid][cid][fid] = mesh_xyz;
