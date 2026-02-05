@@ -18,7 +18,7 @@
 
 #include <Rig/RigUtils.h>
 #include <Rig/RigConfig.h>
-#include <Rig/system_utils.h>
+#include <Rig/SystemUtils.h>
 #include <asp/Rig/RigParseUtils.h>
 
 #include <gflags/gflags.h>

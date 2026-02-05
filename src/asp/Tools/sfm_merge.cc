@@ -15,12 +15,12 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-#include <Rig/thread.h>
-#include <Rig/interest_point.h>
+#include <asp/Rig/Thread.h>
+#include <asp/Rig/InterestPoint.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/MergeMaps.h>
+#include <asp/Rig/BasicAlgs.h>
 #include <asp/Core/Nvm.h>
-#include <Rig/RigConfig.h>
-#include <Rig/merge_maps.h>
-#include <Rig/BasicAlgs.h>
 
 #include <opencv2/features2d/features2d.hpp>
 
