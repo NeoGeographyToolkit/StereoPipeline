@@ -246,50 +246,12 @@ void run_rig_calibrator(int argc, char** argv) {
     rig::transformInlierTriPoints(registration_trans, pid_to_cid_fid,
                                   pid_cid_fid_inlier, xyz_vec);
 
-  // Update triangulated points with DEM heights if requested
-  vw::cartography::GeoReference dem_georef;
-  vw::ImageViewRef<vw::PixelMask<double>> masked_dem;
-  std::vector<Eigen::Vector3d> dem_xyz_vec;
-  if (opt.heights_from_dem != "") {
-    vw::vw_out() << "Loading DEM for height constraints: " << opt.heights_from_dem << "\n";
-    asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
-    vw::vw_out() << "Updating triangulated points with DEM heights.\n";
-  //  dem_xyz_vec.resize(xyz_vec.size(), vw::Vector3(0, 0, 0));
-     
-    for (size_t i = 0; i < xyz_vec.size(); i++) {
-  //     if (xyz_vec[i].norm() > 0) { // Valid triangulated point
-  //       vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(
-  //         vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]));
-  //       vw::Vector2 dem_pix = dem_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
-        
-  //       if (masked_dem.cols() > 0 && masked_dem.rows() > 0 &&
-  //           dem_pix[0] >= 0 && dem_pix[0] < masked_dem.cols() &&
-  //           dem_pix[1] >= 0 && dem_pix[1] < masked_dem.rows()) {
-          
-  //         vw::PixelMask<double> height_val = masked_dem(int(dem_pix[0]), int(dem_pix[1]));
-  //         if (is_valid(height_val)) {
-  //           // Update only the height, keep x,y from triangulation
-  //           vw::Vector3 dem_xyz = dem_georef.datum().geodetic_to_cartesian(
-  //             vw::Vector3(llh[0], llh[1], height_val.child()));
-  //           dem_xyz_vec[i] = dem_xyz;
-  //           // Also update the triangulated point for optimization initial guess
-  //           xyz_vec[i] = Eigen::Vector3d(dem_xyz[0], dem_xyz[1], dem_xyz[2]);
-  //         } else {
-  //           dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
-  //         }
-  //       } else {
-  //         dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
-  //       }
-  //     }
-    }
-  }
-  
   // Run several optimization passes with outlier filtering
   for (int pass = 0; pass < opt.num_passes; pass++) {
     std::cout << "\nOptimization pass " << pass + 1 << " / " << opt.num_passes << "\n";
     runOptPass(pass, num_depth_params, opt, imgData, ref_timestamps,
                keypoint_vec, pid_to_cid_fid, 
-               min_timestamp_offset, max_timestamp_offset, mesh, bvh_tree, dem_xyz_vec,
+               min_timestamp_offset, max_timestamp_offset, mesh, bvh_tree, 
                depth_to_image_scales, cams, R, xyz_vec, pid_cid_fid_inlier); // out
   }  // End optimization passes
 
@@ -338,8 +300,8 @@ void run_rig_calibrator(int argc, char** argv) {
     std::string nvm_file = opt.out_prefix + "/cameras_no_shift.nvm";
     bool shift_keypoints = false;
     rig::writeInliersToNvm(nvm_file, shift_keypoints, R.cam_params, imgData,
-                                 cams.world_to_cam, keypoint_vec,
-                                 pid_to_cid_fid, pid_cid_fid_inlier, xyz_vec);
+                           cams.world_to_cam, keypoint_vec,
+                           pid_to_cid_fid, pid_cid_fid_inlier, xyz_vec);
   }
 
   if (opt.export_to_voxblox)

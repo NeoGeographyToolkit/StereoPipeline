@@ -48,7 +48,6 @@ void runOptPass(int pass,
                 std::vector<double>           const& max_timestamp_offset,
                 mve::TriangleMesh::Ptr        const& mesh,
                 std::shared_ptr<BVHTree>      const& bvh_tree,
-                std::vector<Eigen::Vector3d>  const& dem_xyz_vec,
                 // Outputs
                 std::vector<double>                & depth_to_image_scales,
                 rig::Extrinsics                    & cams,

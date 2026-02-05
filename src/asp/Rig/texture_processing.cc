@@ -476,24 +476,20 @@ void meshProjectCameras(std::vector<std::string> const& cam_names,
   }
 }
 
-//  Consider several rays which are supposed to intersect at a 3D point.
 // Intersect them with a mesh instead, and average those intersections.
 // This will be used to for a mesh-to-triangulated-points constraint.
-void meshTriangulations(// Inputs
-  std::vector<rig::CameraParameters> const& cam_params,
-  std::vector<rig::cameraImage> const& cams,
-  std::vector<Eigen::Affine3d> const& world_to_cam,
-  rig::PidCidFid const& pid_to_cid_fid,
-  PidCidFidMap const& pid_cid_fid_inlier,
-  rig::KeypointVec const& keypoint_vec,
-  double min_ray_dist, double max_ray_dist,
-  mve::TriangleMesh::Ptr const& mesh, std::shared_ptr<BVHTree> const& bvh_tree,
-  // Outputs
-  rig::PidCidFidToMeshXyz& pid_cid_fid_mesh_xyz,
-  std::vector<Eigen::Vector3d>& pid_mesh_xyz) {
-  
-  // Sentinel value to flag invalid xyz
-  Eigen::Vector3d bad_xyz(1.0e+100, 1.0e+100, 1.0e+100);
+void meshTriangulations(std::vector<rig::CameraParameters> const& cam_params,
+                        std::vector<rig::cameraImage> const& cams,
+                        std::vector<Eigen::Affine3d> const& world_to_cam,
+                        rig::PidCidFid const& pid_to_cid_fid,
+                        PidCidFidMap const& pid_cid_fid_inlier,
+                        rig::KeypointVec const& keypoint_vec,
+                        double min_ray_dist, double max_ray_dist,
+                        mve::TriangleMesh::Ptr const& mesh, 
+                        std::shared_ptr<BVHTree> const& bvh_tree,
+                        // Outputs
+                        rig::PidCidFidToMeshXyz & pid_cid_fid_mesh_xyz,
+                        std::vector<Eigen::Vector3d> & pid_mesh_xyz) {
   
   // Initialize the outputs
   pid_cid_fid_mesh_xyz.resize(pid_to_cid_fid.size());
@@ -509,7 +505,7 @@ void meshTriangulations(// Inputs
       int fid = cid_fid->second;
 
       // Initialize this
-      pid_cid_fid_mesh_xyz[pid][cid][fid] = bad_xyz;
+      pid_cid_fid_mesh_xyz[pid][cid][fid] = rig::badMeshXyz();
 
       // Deal with inliers only
       if (!rig::getMapValue(pid_cid_fid_inlier, pid, cid, fid))
@@ -536,7 +532,7 @@ void meshTriangulations(// Inputs
     if (num_intersections >= 1)
       avg_mesh_xyz /= num_intersections;
     else
-      avg_mesh_xyz = bad_xyz;
+      avg_mesh_xyz = rig::badMeshXyz();
 
     pid_mesh_xyz[pid] = avg_mesh_xyz;
   }

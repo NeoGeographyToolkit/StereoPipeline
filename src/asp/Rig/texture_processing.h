@@ -55,6 +55,9 @@ typedef acc::BVHTree<unsigned int, math::Vec3f> BVHTree;
 namespace rig {
 
 // Small utilities
+inline Eigen::Vector3d badMeshXyz() {
+  return Eigen::Vector3d(1.0e+100, 1.0e+100, 1.0e+100);
+}
 Eigen::Vector3d vec3f_to_eigen(math::Vec3f const& v);
 math::Vec3f eigen_to_vec3f(Eigen::Vector3d const& V);
 

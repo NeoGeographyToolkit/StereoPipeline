@@ -26,6 +26,7 @@
 #include <asp/Rig/texture_processing.h>
 #include <asp/Rig/triangulation.h>
 #include <asp/Rig/RigOutlier.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <ceres/ceres.h>
 #include <ceres/dynamic_numeric_diff_cost_function.h>
@@ -552,7 +553,6 @@ void setupRigOptProblem(// Inputs
   // For when we don't have distortion but must get a pointer to
   // distortion for the interface
   double distortion_placeholder = 0.0;
-  Eigen::Vector3d bad_xyz(1.0e+100, 1.0e+100, 1.0e+100);
 
   // Prepare for the case of fixed rig translations and/or rotations
   std::set<double*> fixed_parameters; // to avoid double fixing
@@ -645,7 +645,7 @@ void setupRigOptProblem(// Inputs
       if (has_mesh) {
         mesh_xyz = rig::getMapValue(pid_cid_fid_mesh_xyz, pid, cid, fid);
         have_depth_mesh_constraint
-          = (opt.depth_mesh_weight > 0 && mesh_xyz != bad_xyz &&
+          = (opt.depth_mesh_weight > 0 && mesh_xyz != rig::badMeshXyz() &&
              rig::depthValue(cams[cid].depth_cloud, dist_ip, depth_xyz));
       }
 
@@ -682,7 +682,7 @@ void setupRigOptProblem(// Inputs
     Eigen::Vector3d avg_mesh_xyz(0, 0, 0);
     if (has_mesh && isTriInlier) {
       avg_mesh_xyz = pid_mesh_xyz.at(pid);
-      if (opt.mesh_tri_weight > 0 && avg_mesh_xyz != bad_xyz)
+      if (opt.mesh_tri_weight > 0 && avg_mesh_xyz != rig::badMeshXyz())
         have_mesh_tri_constraint = true;
     }
     if (have_mesh_tri_constraint)
@@ -733,7 +733,6 @@ void runOptPass(int pass,
                 std::vector<double>           const& max_timestamp_offset,
                 mve::TriangleMesh::Ptr        const& mesh,
                 std::shared_ptr<BVHTree>      const& bvh_tree,
-                std::vector<Eigen::Vector3d>  const& dem_xyz_vec,
                 // Outputs
                 std::vector<double>                & depth_to_image_scales,
                 rig::Extrinsics                    & cams,
@@ -791,6 +790,45 @@ void runOptPass(int pass,
                             // Outputs
                             pid_cid_fid_mesh_xyz, pid_mesh_xyz);
 
+
+  // Update triangulated points with DEM heights if requested
+  vw::cartography::GeoReference dem_georef;
+  vw::ImageViewRef<vw::PixelMask<double>> masked_dem;
+  std::vector<Eigen::Vector3d> dem_xyz_vec;
+  if (opt.heights_from_dem != "") {
+    vw::vw_out() << "Loading DEM for height constraints: " << opt.heights_from_dem << "\n";
+    asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
+    vw::vw_out() << "Updating triangulated points with DEM heights.\n";
+  //  dem_xyz_vec.resize(xyz_vec.size(), vw::Vector3(0, 0, 0));
+     
+    for (size_t i = 0; i < xyz_vec.size(); i++) {
+  //     if (xyz_vec[i].norm() > 0) { // Valid triangulated point
+  //       vw::Vector3 llh = dem_georef.datum().cartesian_to_geodetic(
+  //         vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]));
+  //       vw::Vector2 dem_pix = dem_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
+        
+  //       if (masked_dem.cols() > 0 && masked_dem.rows() > 0 &&
+  //           dem_pix[0] >= 0 && dem_pix[0] < masked_dem.cols() &&
+  //           dem_pix[1] >= 0 && dem_pix[1] < masked_dem.rows()) {
+          
+  //         vw::PixelMask<double> height_val = masked_dem(int(dem_pix[0]), int(dem_pix[1]));
+  //         if (is_valid(height_val)) {
+  //           // Update only the height, keep x,y from triangulation
+  //           vw::Vector3 dem_xyz = dem_georef.datum().geodetic_to_cartesian(
+  //             vw::Vector3(llh[0], llh[1], height_val.child()));
+  //           dem_xyz_vec[i] = dem_xyz;
+  //           // Also update the triangulated point for optimization initial guess
+  //           xyz_vec[i] = Eigen::Vector3d(dem_xyz[0], dem_xyz[1], dem_xyz[2]);
+  //         } else {
+  //           dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
+  //         }
+  //       } else {
+  //         dem_xyz_vec[i] = vw::Vector3(xyz_vec[i][0], xyz_vec[i][1], xyz_vec[i][2]);
+  //       }
+  //     }
+    }
+  }
+  
   // For a given fid = pid_to_cid_fid[pid][cid], the value
   // pid_cid_fid_to_residual_index[pid][cid][fid] will be the index in the array
   // of residuals (look only at pixel residuals). This structure is populated
