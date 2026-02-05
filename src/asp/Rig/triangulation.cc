@@ -16,9 +16,9 @@
 // __END_LICENSE__
 
 #include <asp/Rig/triangulation.h>
-#include <asp/Rig/basic_algs.h>
-#include <asp/Rig/system_utils.h>
-#include <asp/Rig/camera_image.h>
+#include <asp/Rig/BasicAlgs.h>
+#include <asp/Rig/SystemUtils.h>
+#include <asp/Rig/CameraImage.h>
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/OpenMVG/projection.hpp>
 #include <asp/OpenMVG/triangulation_nview.hpp>

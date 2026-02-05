@@ -18,8 +18,8 @@
 
 #include <asp/Rig/RigCameraUtils.h>
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/system_utils.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/SystemUtils.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/LensDistortion.h>

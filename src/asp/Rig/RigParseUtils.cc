@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Rig/RigParseUtils.h>
-#include <asp/Rig/system_utils.h>
+#include <asp/Rig/SystemUtils.h>
 
 #include <vw/Core/Log.h>
 #include <glog/logging.h>

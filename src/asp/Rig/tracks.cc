@@ -18,7 +18,7 @@
 
 // TODO(oalexan1): Move here track logic from interest_point.cc.
 
-#include <asp/Rig/camera_image.h>
+#include <asp/Rig/CameraImage.h>
 #include <asp/Rig/tracks.h>
 #include <asp/Rig/RigTypeDefs.h>
 

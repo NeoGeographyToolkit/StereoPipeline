@@ -17,11 +17,11 @@
 
 // Functions invoked in jitter_solve.cc that use a rig.
 
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/transform_utils.h>
-#include <asp/Rig/basic_algs.h>
-#include <asp/Rig/image_lookup.h>
-#include <asp/Rig/rig_io.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/TransformUtils.h>
+#include <asp/Rig/BasicAlgs.h>
+#include <asp/Rig/ImageLookup.h>
+#include <asp/Rig/RigIo.h>
 #include <asp/Rig/RigParseUtils.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/JitterSolveRigUtils.h>

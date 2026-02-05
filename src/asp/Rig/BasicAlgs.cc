@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/BasicAlgs.h>
 
 #include <glog/logging.h>
 #include <boost/filesystem.hpp>

@@ -16,7 +16,7 @@
  * under the License.
  */
 #include <Rig/thread.h>
-#include <Rig/rig_config.h>
+#include <Rig/RigConfig.h>
 #include <Rig/basic_algs.h>
 
 #include <asp/Core/Nvm.h>

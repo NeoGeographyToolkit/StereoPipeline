@@ -21,7 +21,7 @@
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/RigData.h>
-#include <asp/Rig/texture_processing.h>
+#include <asp/Rig/TextureProcessing.h>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>

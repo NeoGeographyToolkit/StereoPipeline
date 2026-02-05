@@ -17,13 +17,13 @@
  * under the License.
  */
 
-#include <asp/Rig/image_lookup.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/ImageLookup.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/BasicAlgs.h>
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/interpolation_utils.h>
-#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/InterpolationUtils.h>
+#include <asp/Rig/TransformUtils.h>
 #include <asp/Core/Nvm.h>
 #include <asp/Rig/RigImageIO.h>
 

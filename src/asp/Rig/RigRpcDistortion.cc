@@ -18,7 +18,7 @@
 
 #include <asp/Rig/RigRpcDistortion.h>
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/rig_utils.h>
+#include <asp/Rig/RigUtils.h>
 
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>

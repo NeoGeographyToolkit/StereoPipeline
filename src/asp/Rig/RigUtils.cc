@@ -17,16 +17,16 @@
  * under the License.
  */
 
-#include <asp/Rig/system_utils.h>
-#include <asp/Rig/rig_utils.h>
+#include <asp/Rig/SystemUtils.h>
+#include <asp/Rig/RigUtils.h>
 #include <asp/Rig/RigParseUtils.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/transform_utils.h>
-#include <asp/Rig/interpolation_utils.h>
-#include <asp/Rig/rig_config.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/TransformUtils.h>
+#include <asp/Rig/InterpolationUtils.h>
+#include <asp/Rig/RigConfig.h>
 #include <asp/Rig/happly.h> // for saving ply files as meshes
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/BasicAlgs.h>
 #include <asp/Rig/RigMath.h>
 #include <asp/Core/Nvm.h>
 

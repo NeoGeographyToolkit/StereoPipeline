@@ -16,12 +16,12 @@
 // __END_LICENSE__
 
 #include <asp/Rig/RigCostFunction.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/transform_utils.h>
-#include <asp/Rig/image_lookup.h>
-#include <asp/Rig/basic_algs.h>
-#include <asp/Rig/rig_utils.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/TransformUtils.h>
+#include <asp/Rig/ImageLookup.h>
+#include <asp/Rig/BasicAlgs.h>
+#include <asp/Rig/RigUtils.h>
 
 #include <iostream>
 #include <iomanip>

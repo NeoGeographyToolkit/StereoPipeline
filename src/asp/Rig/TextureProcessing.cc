@@ -17,11 +17,11 @@
  * under the License.
  */
 
-#include <asp/Rig/texture_processing.h>
+#include <asp/Rig/TextureProcessing.h>
 #include <asp/Rig/RigCameraUtils.h>
-#include <asp/Rig/system_utils.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/SystemUtils.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/BasicAlgs.h>
 
 // OpenCV includes
 #include <opencv2/core/core.hpp>

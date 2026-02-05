@@ -19,8 +19,8 @@
 #include <asp/Rig/RigDem.h>
 #include <asp/Rig/RigCameraUtils.h>
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/BasicAlgs.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/ImageUtils.h>
 

@@ -25,7 +25,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include <asp/Rig/camera_image.h> // For rig::cameraImage
+#include <asp/Rig/CameraImage.h> // For rig::cameraImage
 #include <asp/Rig/RigCameraParams.h> // For rig::CameraParameters
 
 namespace rig {

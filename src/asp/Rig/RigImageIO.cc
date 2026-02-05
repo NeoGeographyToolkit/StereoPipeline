@@ -18,9 +18,9 @@
 
 #include <asp/Rig/RigImageIO.h>
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/system_utils.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/SystemUtils.h>
+#include <asp/Rig/BasicAlgs.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/OpenCVUtils.h>

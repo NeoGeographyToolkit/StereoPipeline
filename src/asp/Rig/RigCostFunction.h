@@ -19,8 +19,8 @@
 #define ASP_RIG_COST_FUNCTION_H
 
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/TransformUtils.h>
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/RigData.h>
 #include <asp/Rig/RigOptions.h>

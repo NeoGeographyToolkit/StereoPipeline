@@ -22,13 +22,13 @@
 #include <asp/Core/CameraTransforms.h>
 #include <asp/Core/CamPoseUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Rig/transform_utils.h>
-#include <asp/Rig/rig_config.h>
+#include <asp/Rig/TransformUtils.h>
+#include <asp/Rig/RigConfig.h>
 #include <asp/Rig/RigCostFunction.h>
 #include <asp/Core/EigenTransformUtils.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveRigCostFuns.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/BasicAlgs.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>

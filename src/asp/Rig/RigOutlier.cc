@@ -17,8 +17,8 @@
 
 #include <asp/Rig/RigOutlier.h>
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/BasicAlgs.h>
 
 #include <iostream>
 #include <iomanip>

@@ -20,8 +20,8 @@
 #pragma once
 
 #include <asp/Core/Nvm.h>
-#include <asp/Rig/camera_image.h> // For rig::cameraImage
-#include <asp/Rig/rig_config.h>   // For rig::RigSet
+#include <asp/Rig/CameraImage.h> // For rig::cameraImage
+#include <asp/Rig/RigConfig.h>   // For rig::RigSet
 #include <asp/Rig/RigTypeDefs.h>
 
 #include <Eigen/Core>

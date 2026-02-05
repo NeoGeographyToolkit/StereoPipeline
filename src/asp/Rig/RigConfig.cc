@@ -17,9 +17,9 @@
  * under the License.
  */
 
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/transform_utils.h>
-#include <asp/Rig/system_utils.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/TransformUtils.h>
+#include <asp/Rig/SystemUtils.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Core/Exception.h>

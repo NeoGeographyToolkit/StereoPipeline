@@ -18,7 +18,7 @@
 #ifndef __ASP_RIG_RIG_DATA_H__
 #define __ASP_RIG_RIG_DATA_H__
 
-#include <asp/Rig/rig_config.h>
+#include <asp/Rig/RigConfig.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <vector>

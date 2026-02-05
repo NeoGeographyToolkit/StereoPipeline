@@ -16,8 +16,8 @@
 // __END_LICENSE__
 
 #include <asp/Rig/nvmUtils.h>
-#include <asp/Rig/system_utils.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/SystemUtils.h>
+#include <asp/Rig/BasicAlgs.h>
 #include <asp/Rig/triangulation.h>
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/OpenMVG/tracks.hpp>

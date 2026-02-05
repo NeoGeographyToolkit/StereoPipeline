@@ -22,8 +22,8 @@
 #include <asp/Rig/RigParseOptions.h>
 #include <asp/Rig/thread.h>
 #include <asp/Rig/RigParseUtils.h>
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/basic_algs.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/BasicAlgs.h>
 #include <asp/Core/AspProgramOptions.h>
 
 #include <vw/Core/Exception.h>

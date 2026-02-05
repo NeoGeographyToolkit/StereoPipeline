@@ -33,7 +33,7 @@
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
-#include <asp/Rig/rig_config.h>
+#include <asp/Rig/RigConfig.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/BundleAdjustResiduals.h>

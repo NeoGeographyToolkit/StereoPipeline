@@ -21,8 +21,8 @@
 #define ASP_RIG_TEXTURE_PROCESSING_H
 
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/rig_utils.h>
-#include <asp/Rig/camera_image.h>
+#include <asp/Rig/RigUtils.h>
+#include <asp/Rig/CameraImage.h>
 
 #include <Eigen/Geometry>
 #include <Eigen/Core>

@@ -16,20 +16,20 @@
 // __END_LICENSE__
 
 #include <asp/Core/Nvm.h>
-#include <asp/Rig/basic_algs.h>
-#include <asp/Rig/interest_point.h>
-#include <asp/Rig/camera_image.h>
-#include <asp/Rig/system_utils.h>
+#include <asp/Rig/BasicAlgs.h>
+#include <asp/Rig/InterestPoint.h>
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/SystemUtils.h>
 #include <asp/Rig/thread.h>
 #include <asp/Rig/detector.h>
-#include <asp/Rig/transform_utils.h>
-#include <asp/Rig/interpolation_utils.h>
-#include <asp/Rig/rig_config.h>
-#include <asp/Rig/image_lookup.h>
+#include <asp/Rig/TransformUtils.h>
+#include <asp/Rig/InterpolationUtils.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/ImageLookup.h>
 #include <asp/Rig/tracks.h>
 #include <asp/Rig/RigCameraParams.h>
 #include <asp/Rig/nvmUtils.h>
-#include <asp/Rig/rig_io.h>
+#include <asp/Rig/RigIo.h>
 #include <asp/Rig/triangulation.h>
 
 #include <vw/InterestPoint/MatcherIO.h>

@@ -18,7 +18,7 @@
 // __END_LICENSE__
 
 #include <asp/Rig/RigData.h>
-#include <asp/Rig/transform_utils.h>
+#include <asp/Rig/TransformUtils.h>
 
 namespace rig {
 

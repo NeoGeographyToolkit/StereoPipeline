@@ -39,8 +39,8 @@
 
 #include <Rig/RigRpcDistortion.h>
 #include <Rig/RigCameraParams.h>
-#include <Rig/rig_utils.h>
-#include <Rig/rig_config.h>
+#include <Rig/RigUtils.h>
+#include <Rig/RigConfig.h>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>
