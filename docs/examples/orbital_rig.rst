@@ -121,6 +121,8 @@ The :ref:`rig_calibrator` program is then run::
 
     rig_calibrator                                  \
       --rig-config sat_sim/run-nadir-rig_config.txt \
+      --use-initial-rig-transforms                  \
+      --fix-rig-translations                        \
       --nvm ba/run.nvm                              \
       --camera-poses-to-float "left right"          \
       --intrinsics-to-float                         \
@@ -139,5 +141,15 @@ pinhole cameras (:numref:`pinholemodels`), saved in the output ``rig`` directory
 (via the ``--save-pinhole-cameras`` option), should be very similar to the
 initial inputs in the ``sat_sim`` directory.
 
-The ``--heights-from-dem`` options demonstrate the new DEM constraint feature.
+The ``--heights-from-dem`` option demonstrates the new DEM constraint feature.
 The implementation is as for bundle adjustment (:numref:`heights_from_dem`).
+
+Here we used ``--use-initial-rig-transforms`` because we start with a known rig,
+rather than having to determine it from camera poses. 
+
+The option ``--fix-rig-translations`` is quite important for orbital rigs. The
+distance between rig sensors is very small compared to the distance from the
+satellite to the ground. Without this constraint the rig sensors could move
+notably in the sensor plane without affecting the reprojection error. 
+
+See :numref:`rig_opts` for the full list of options.
