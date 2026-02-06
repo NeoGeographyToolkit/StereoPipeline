@@ -23,6 +23,7 @@
 #include <asp/asp_date_config.h>
 #include <asp/asp_config.h>
 
+#include <vw/vw_date_config.h>
 #include <vw/Core/Log.h>
 #include <vw/Core/System.h>
 #include <vw/Math/BBox.h>
