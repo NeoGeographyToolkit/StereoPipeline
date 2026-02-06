@@ -220,13 +220,11 @@ Command-line options
     - csmmapcsm / csmmaprpc
     - pleiadesmappleiades
 
--e, --entry-point <integer (from 0 to 6)>
-    Stereo Pipeline entry point. Start at this stage. See
-    :numref:`entrypoints`.
+-e, --entry-point <integer (default: 0)>
+    Stereo Pipeline entry point. Start at this stage. See :numref:`entrypoints`.
 
 --stop-point <integer (default: 7)>
-    Stereo Pipeline stop point (stop at the stage *right before*
-    this).
+    Stereo Pipeline stop point (stop at the stage *right before* this).
 
 --corr-seed-mode <integer (from 0 to 3)>
     Correlation seed strategy (:numref:`corr_section`).
