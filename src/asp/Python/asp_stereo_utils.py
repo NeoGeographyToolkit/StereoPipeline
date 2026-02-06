@@ -69,6 +69,7 @@ class Step:
     rfne  = 3
     fltr  = 4
     tri   = 5
+    clean = 6
 
 def stereoProgName(step):
     '''
@@ -86,6 +87,9 @@ def stereoProgName(step):
         return 'stereo_fltr'
     elif step == Step.tri:
         return 'stereo_tri'
+    elif step == Step.clean:
+        # Add this for convenience, when querying the latest stage in the status file
+        return 'stereo_parse'
     else:
         return 'stereo_unknown'
 

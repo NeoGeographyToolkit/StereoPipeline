@@ -752,9 +752,9 @@ if __name__ == '__main__':
     p.add_argument('--corr-seed-mode', dest='seed_mode', default=None, type=int,
         help='Correlation seed strategy. See stereo_corr for options.')
     p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
-        help='Stereo Pipeline entry point (an integer from 0-5).')
-    p.add_argument('--stop-point', dest='stop_point', default=6, type=int,
-        help='Stereo Pipeline stop point (an integer from 1-6). Stop before this ' + \
+        help='Stereo Pipeline entry point (an integer from 0-6).')
+    p.add_argument('--stop-point', dest='stop_point', default=7, type=int,
+        help='Stereo Pipeline stop point (an integer from 1-7). Stop before this ' + \
         'step.')
     p.add_argument('--job-size-w', dest='job_size_w', default=-1, type=int,
         help='Pixel width of input image tile for a single process. Set ' + \
@@ -1109,7 +1109,7 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
 
-            # TODO(oalexan1): Must wipe the subdirs!
+            # TODO(oalexan1): Must wipe the subdirs in all cases.
             if int(settings['correlator_mode'][0]) != 0 and \
                 '--num-matches-from-disparity' not in parallel_args and \
                 '--num-matches-from-disp-triplets' not in parallel_args:
@@ -1138,7 +1138,12 @@ if __name__ == '__main__':
                   build_vrt('stereo_tri', opt, args, settings, georef, "-PC.tif", "-PC.tif")
 
         # If the run concluded successfully, merge and wipe
-        if (opt.stop_point > Step.tri):
+        step = Step.clean
+        subdirs = []
+        if (opt.entry_point <= step):
+            if (opt.stop_point <= step):
+                sys.exit()
+        if (opt.stop_point > Step.clean):
           if len(subdirs) == 0:
             # If this was not created by now, do it now
             subdirs = create_subdirs_symlink(opt, args, settings)

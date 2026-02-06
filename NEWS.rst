@@ -54,6 +54,8 @@ pc_align (:numref:`pc_align`):
 parallel_stereo (:numref:`parallel_stereo`):
   * Added the option ``--proj-win`` to limit stereo to a projection window for
     mapprojected images (:numref:`stereodefault`).
+  * The logic for consolidating the output directory has been given its own
+    stage (:numref:`entrypoints`).
 
 rig_calibrator (:numref:`rig_calibrator`):
   * Replaced ``--camera-position-weight`` with ``--camera-position-uncertainty``. 

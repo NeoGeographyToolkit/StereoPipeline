@@ -463,11 +463,12 @@ planes first, using the updated cameras. The ``bathy_plane_calc`` tool
 which is used for that can take into account the updated cameras via
 the ``--bundle-adjust-prefix`` option passed to it.
 
-If the software notices that the current run invoked with
-``--prev-run-prefix`` employs bathy masks, unlike that previous run,
-or that the modification time of the bathy masks passed in is newer
-than of files in that run, it will ingest and align the new masks
-before performing triangulation.
+If the software notices that the current run invoked with ``--prev-run-prefix``
+employs bathy masks, unlike that previous run, or that the modification time of
+the bathy masks passed in is newer than of files in that run, it will ingest and
+align the new masks before performing triangulation.
+
+If the cameras change notably, it may be suggested to redo the run from scratch.
 
 .. _bathy_map:
 

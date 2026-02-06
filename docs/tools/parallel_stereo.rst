@@ -48,6 +48,20 @@ by default, the number of threads is set to 8, and the number of processes is
 the number of cores divided by the number of threads, on each node. Otherwise,
 the default is to use as many processes as there are cores.
 
+Multiple machines
+~~~~~~~~~~~~~~~~~
+
+This program has several stages, described in :numref:`entrypoints`.
+
+When the option ``--nodes-list`` is set, only the correlation, blending,
+subpixel refinement, and triangulation stages of ``parallel_stereo`` are spread
+over multiple machines, with the preprocessing and filtering stages using just
+one node, as they require global knowledge of the data. In addition, not all
+stages of stereo benefit equally from parallelization. Most likely to gain are
+stages 1 and 3 (correlation and refinement) which are the most computationally
+expensive.
+
+
 Output files
 ~~~~~~~~~~~~
 
@@ -80,32 +94,41 @@ with local alignment.
 
 The padding can be increased if artifacts at tile boundary are noticed.
 
-.. _entrypoints:
+Resuming a run
+~~~~~~~~~~~~~~
 
-Entry points
+All the intermediate results produced by ``parallel_stereo``, up to but not
+including triangulation, can be reused if only the cameras or camera adjustments
+change (for example, if the cameras got moved, per :numref:`ba_pc_align`). 
+
+An example is given in :numref:`mapproj_reuse`. Another one is in
+:numref:`bathy_reuse_run` (in the context of stereo with shallow water).
+
+If the program failed during correlation, such as because of
+insufficient memory, it can be told to resume without recomputing the
+existing good partial results with the option ``--resume-at-corr``.
+
+Output files
 ~~~~~~~~~~~~
 
-The ``parallel_stereo`` tool is written in Python, and invokes
-separate C++ executables for various steps in processing. The
-``--entry-point`` and ``--stop-point`` options can be used to run only
-a portion of these steps. 
+The output files created by this program are described in :numref:`outputfiles`.
 
-Only the correlation, blending, subpixel refinement, and triangulation
-stages of ``parallel_stereo`` are spread over multiple machines, with
-the preprocessing and filtering stages using just one node, as they
-require global knowledge of the data. In addition, not all stages of
-stereo benefit equally from parallelization. Most likely to gain are
-stages 1 and 3 (correlation and refinement) which are the most
-computationally expensive.
+.. _entrypoints:
 
-The invoked C++ executables have their own command-line options
-(:numref:`stereodefault`). Those options can be passed to
-``parallel_stereo`` which will in turn pass them on as needed. By
-invoking each executable with no options, it will display the list of
-options it accepts.
+Processing stages
+~~~~~~~~~~~~~~~~~
 
-The steps run by ``parallel_stereo`` are as follows. The output
-files created by these steps are described in :numref:`outputfiles`.
+The ``parallel_stereo`` tool is written in Python, and invokes separate C++
+executables for various steps in processing. 
+
+These C++ executables have their own command-line options
+(:numref:`stereodefault`). Those options can be passed to ``parallel_stereo``
+which will in turn pass them on as needed. By invoking each executable with no
+options, it will display the list of options it accepts.
+
+The steps run by ``parallel_stereo`` are as follows. The ``--entry-point`` and
+``--stop-point`` options can be used to run only a portion of these steps. The
+program will stop *before* the stage indicated by ``--stop-point``. 
 
 Step 0 (Preprocessing)
     Runs ``stereo_pprc``. Normalizes the two images and aligns them by
@@ -144,18 +167,10 @@ Step 5 (Triangulation)
     Runs ``stereo_tri``. Generates a 3D triangulated point cloud from
     the disparity map by intersecting rays traced from the cameras.
     The output filename ends in ``PC.tif``.
-
-It is important to note that since ``parallel_stereo`` can use a lot
-of computational and storage resources, all the intermediate data up
-to but not including triangulation can often be reused, if only the
-cameras or camera adjustments change (for example, if the cameras got
-moved, per :numref:`ba_pc_align`). Such reuse is discussed in
-:numref:`bathy_reuse_run` (in the context of stereo with shallow
-water).
-
-If the program failed during correlation, such as because of
-insufficient memory, it can be told to resume without recomputing the
-existing good partial results with the option ``--resume-at-corr``.
+    
+Step 6 (Cleanup)
+    If the run was successful, the data from run subdirectories are combined
+    and the subdirectories are removed. See ``--keep-only``.
 
 .. _ps_options:
 
@@ -205,11 +220,11 @@ Command-line options
     - csmmapcsm / csmmaprpc
     - pleiadesmappleiades
 
--e, --entry-point <integer (from 0 to 5)>
+-e, --entry-point <integer (from 0 to 6)>
     Stereo Pipeline entry point. Start at this stage. See
     :numref:`entrypoints`.
 
---stop-point <integer (from 1 to 6)> 
+--stop-point <integer (default: 7)>
     Stereo Pipeline stop point (stop at the stage *right before*
     this).
 
