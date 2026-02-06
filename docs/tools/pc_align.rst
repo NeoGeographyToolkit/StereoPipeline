@@ -70,6 +70,14 @@ out *after* this operation. The observed maximum displacement is also
 between the source points with this transform applied and the source
 points after alignment to the reference.
 
+The :ref:`geodiff` program can find the vertical difference between two DEMs or
+a DEM and a CSV file. Likely a multiple of the standard deviation of this
+difference (for example, a factor of 5-10) can be a good value for
+``--max-displacement``, assuming that there is no large horizontal misalignment.
+
+If a large horizontal misalignment exists, consider using feature-based
+alignment first (:numref:`pc_hillshade`).
+
 .. _align-method:
 
 Alignment method
