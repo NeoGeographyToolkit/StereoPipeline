@@ -20,6 +20,7 @@
 
 #include <vw/InterestPoint/IntegralDetector.h>
 #include <vw/InterestPoint/InterestPointUtils.h>
+#include <vw/InterestPoint/OpenCvDetector.h>
 #include <vw/InterestPoint/Matcher.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Math/GaussianClustering.h>

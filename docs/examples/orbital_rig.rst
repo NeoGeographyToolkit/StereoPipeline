@@ -152,4 +152,8 @@ distance between rig sensors is very small compared to the distance from the
 satellite to the ground. Without this constraint the rig sensors could move
 notably in the sensor plane without affecting the reprojection error. 
 
+Consider using here the option ``--camera-position-uncertainty``. It is
+suggested to be generous with the uncertainty value, as this constraint can
+prevent convergence.
+
 See :numref:`rig_opts` for the full list of options.
