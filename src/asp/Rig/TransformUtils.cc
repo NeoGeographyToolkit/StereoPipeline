@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -21,7 +21,7 @@
 #include <asp/Rig/CameraImage.h>
 #include <asp/Rig/BasicAlgs.h>
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/triangulation.h>
+#include <asp/Rig/Triangulation.h>
 #include <asp/Rig/RigParseUtils.h>
 
 #include <glog/logging.h>
@@ -96,9 +96,9 @@ Eigen::Affine3d calc_interp_world_to_ref(const double* beg_world_to_ref_t,
     array_to_rigid_transform(end_world_to_ref_aff, end_world_to_ref_t);
 
     // Handle the degenerate case
-    if (end_ref_stamp == beg_ref_stamp) 
+    if (end_ref_stamp == beg_ref_stamp)
       return beg_world_to_ref_aff;
-    
+
     // Covert from cam time to ref time and normalize. It is very
     // important that below we subtract the big numbers from each
     // other first, which are the timestamps, then subtract whatever
@@ -106,7 +106,7 @@ Eigen::Affine3d calc_interp_world_to_ref(const double* beg_world_to_ref_t,
     // precision with CERES.
     double alpha = ((cam_stamp - beg_ref_stamp) - ref_to_cam_offset)
         / (end_ref_stamp - beg_ref_stamp);
-    
+
     if (alpha < 0.0 || alpha > 1.0) LOG(FATAL) << "Out of bounds in interpolation.\n";
 
     // Interpolate at desired time
@@ -116,7 +116,7 @@ Eigen::Affine3d calc_interp_world_to_ref(const double* beg_world_to_ref_t,
 
     return interp_world_to_ref_aff;
 }
-  
+
 // Calculate interpolated world to camera transform. Use the
 // convention that if beg_ref_stamp == end_ref_stamp, then only
 // beg_world_to_ref_t is used, while end_world_to_ref_t is
@@ -130,19 +130,18 @@ Eigen::Affine3d calcWorldToCamBase(const double* beg_world_to_ref_t,
                                    double end_ref_stamp,
                                    double ref_to_cam_offset,
                                    double cam_stamp) {
-  
+
   Eigen::Affine3d ref_to_cam_aff;
   array_to_rigid_transform(ref_to_cam_aff, // output
                            ref_to_cam_trans);
-  
+
   Eigen::Affine3d interp_world_to_ref_aff
-    = calc_interp_world_to_ref(beg_world_to_ref_t, end_world_to_ref_t,  
-                               beg_ref_stamp, end_ref_stamp,  ref_to_cam_offset,  
+    = calc_interp_world_to_ref(beg_world_to_ref_t, end_world_to_ref_t,
+                               beg_ref_stamp, end_ref_stamp,  ref_to_cam_offset,
                                cam_stamp);
-  
+
   return ref_to_cam_aff * interp_world_to_ref_aff;
 }
-
 
 // Compute the transforms from the world to every camera, based on the rig transforms.
 void calcWorldToCamWithRig(// Inputs
@@ -154,7 +153,7 @@ void calcWorldToCamWithRig(// Inputs
                            std::vector<double> const& ref_to_cam_timestamp_offsets,
                            // Output
                            std::vector<Eigen::Affine3d>& world_to_cam) {
-  
+
   if (ref_to_cam_vec.size() / rig::NUM_RIGID_PARAMS != ref_to_cam_timestamp_offsets.size())
     LOG(FATAL) << "Must have as many transforms to reference as timestamp offsets.\n";
   if (world_to_ref_vec.size() / rig::NUM_RIGID_PARAMS != ref_timestamps.size())
@@ -162,9 +161,9 @@ void calcWorldToCamWithRig(// Inputs
 
   // What is stored in "cams" is completely different when a rig is not used,
   // even one is available and is good, so then this code will give wrong results.
-  if (!have_rig) 
+  if (!have_rig)
     LOG(FATAL) << "calcWorldToCamWithRig: Must have a rig.\n";
-  
+
   world_to_cam.resize(cams.size());
 
   for (size_t it = 0; it < cams.size(); it++) {
@@ -192,7 +191,7 @@ void calcWorldToCamWithRig(// Inputs
                            std::vector<double> const& ref_to_cam_timestamp_offsets,
                            // Output
                            std::vector<Eigen::Affine3d>& world_to_cam) {
-  
+
   int num_cam_types = ref_to_cam.size();
   std::vector<double> ref_to_cam_vec(num_cam_types * rig::NUM_RIGID_PARAMS);
   for (int cam_type = 0; cam_type < num_cam_types; cam_type++)
@@ -209,12 +208,12 @@ void calcWorldToCamWithRig(// Inputs
 
   calcWorldToCamWithRig(// Inputs
                         have_rig, cams, world_to_ref_vec,
-                        ref_timestamps, ref_to_cam_vec,  
-                        ref_to_cam_timestamp_offsets,  
+                        ref_timestamps, ref_to_cam_vec,
+                        ref_to_cam_timestamp_offsets,
                         // Output
                         world_to_cam);
 }
-  
+
 // Calculate world_to_cam transforms from their representation in a
 // vector, rather than using reference cameras, extrinsics and
 // timestamp interpolation. Only for use with --no_rig, when
@@ -224,7 +223,7 @@ void calcWorldToCamNoRig(// Inputs
                          std::vector<double> const& world_to_cam_vec,
                          // Output
                          std::vector<Eigen::Affine3d>& world_to_cam) {
-  
+
   if (world_to_cam_vec.size() != cams.size() * rig::NUM_RIGID_PARAMS)
     LOG(FATAL) << "Incorrect size for world_to_cam_vec.\n";
 
@@ -293,29 +292,29 @@ void array_to_affine_transform(Eigen::Affine3d& aff, const double* arr) {
 Eigen::MatrixXd median_matrix(std::vector<Eigen::MatrixXd> const& transforms) {
 
   // Sanity checks
-  if (transforms.empty()) 
+  if (transforms.empty())
     LOG(FATAL) << "Cannot find the median of an empty set of matrices.\n";
 
   for (size_t cam_it = 0; cam_it < transforms.size(); cam_it++) {
-    if (transforms[cam_it].rows() != 4 || transforms[cam_it].cols() != 4) 
+    if (transforms[cam_it].rows() != 4 || transforms[cam_it].cols() != 4)
       LOG(FATAL) << "Expecting square matrices of size 4 in the median computation.\n";
   }
-  
+
   Eigen::MatrixXd median_trans = Eigen::MatrixXd::Zero(4, 4);
   for (int col = 0; col < 4; col++) {
     for (int row = 0; row < 4; row++) {
-      
+
       std::vector<double> vals;
       for (size_t cam_it = 0; cam_it < transforms.size(); cam_it++)
         vals.push_back(transforms[cam_it](col, row));
-      
+
       median_trans(col, row) = vals[vals.size()/2];
     }
   }
 
   return median_trans;
 }
-  
+
 // Given the transforms from each camera to the world and their timestamps,
 // find an initial guess for the relationship among the sensors on the rig.
 // Note that strictly speaking the transforms in world_to_ref_vec are among
@@ -327,7 +326,7 @@ void calc_rig_trans(std::vector<rig::cameraImage> const& cams,
                     std::vector<double>           const& ref_timestamps,
                     rig::RigSet                        & R) { // update this
   // Sanity check
-  if (cams.size() != world_to_cam.size()) 
+  if (cams.size() != world_to_cam.size())
     LOG(FATAL) << "There must be as many world to cam transforms as metadata sets for them.\n";
 
   int num_ref_cams = world_to_ref.size();
@@ -337,7 +336,7 @@ void calc_rig_trans(std::vector<rig::cameraImage> const& cams,
   for (int cid = 0; cid < num_ref_cams; cid++)
     rig::rigid_transform_to_array(world_to_ref[cid],
                                         &world_to_ref_vec[rig::NUM_RIGID_PARAMS * cid]);
-  
+
   // Resize the output
   int num_cam_types = R.cam_names.size();
   R.ref_to_cam_trans.resize(num_cam_types);
@@ -348,7 +347,7 @@ void calc_rig_trans(std::vector<rig::cameraImage> const& cams,
     int beg_index = cams[cam_it].beg_ref_index;
     int end_index = cams[cam_it].end_ref_index;
     int cam_type = cams[cam_it].camera_type;
-    
+
     if (R.isRefSensor(R.cam_names[cam_type])) {
       // The identity transform, from the ref sensor to itself
       transforms_map[cam_type].push_back(Eigen::MatrixXd::Identity(4, 4));
@@ -363,34 +362,34 @@ void calc_rig_trans(std::vector<rig::cameraImage> const& cams,
          ref_timestamps[beg_index], ref_timestamps[end_index],
          R.ref_to_cam_timestamp_offsets[cam_type],
          cams[cam_it].timestamp);
-      
+
       Eigen::Affine3d ref_to_cam_aff
         = world_to_cam[cam_it] * (interp_world_to_ref_aff.inverse());
       transforms_map[cam_type].push_back(ref_to_cam_aff.matrix());
     }
   }
-  
+
   // Find median, for robustness
   for (auto it = transforms_map.begin(); it != transforms_map.end(); it++) {
     int cam_type = it->first;
     auto & transforms = it->second;
-    
-    if (transforms.empty()) 
+
+    if (transforms.empty())
         LOG(FATAL) << "No poses were found for rig sensor with id: " << cam_type << "\n";
 
     Eigen::MatrixXd median_trans = median_matrix(transforms);
     R.ref_to_cam_trans[cam_type].matrix() = median_trans;
-    R.ref_to_cam_trans[cam_type].linear() /= 
+    R.ref_to_cam_trans[cam_type].linear() /=
       pow(R.ref_to_cam_trans[cam_type].linear().determinant(), 1.0 / 3.0);
   }
-  
+
   return;
 }
-  
+
 // Extract a rigid transform to an array of length NUM_RIGID_PARAMS
 void rigid_transform_to_array(Eigen::Affine3d const& aff, double* arr) {
-  
-  for (size_t it = 0; it < 3; it++) 
+
+  for (size_t it = 0; it < 3; it++)
     arr[it] = aff.translation()[it];
 
   Eigen::Quaterniond R(aff.linear());
@@ -403,8 +402,8 @@ void rigid_transform_to_array(Eigen::Affine3d const& aff, double* arr) {
 // Convert an array of length NUM_RIGID_PARAMS to a rigid
 // transform. Normalize the quaternion to make it into a rotation.
 void array_to_rigid_transform(Eigen::Affine3d& aff, const double* arr) {
-  
-  for (size_t it = 0; it < 3; it++) 
+
+  for (size_t it = 0; it < 3; it++)
     aff.translation()[it] = arr[it];
 
   Eigen::Quaterniond R(arr[6], arr[3], arr[4], arr[5]);
@@ -416,12 +415,12 @@ void array_to_rigid_transform(Eigen::Affine3d& aff, const double* arr) {
 // A function to compute the camera position in world coordinates given
 // the world_to_cam array
 Eigen::Vector3d calc_cam_position(double const* world_to_cam) {
-  
+
   Eigen::Affine3d world_to_cam_aff;
   array_to_rigid_transform(world_to_cam_aff, world_to_cam);
   Eigen::Vector3d t(world_to_cam_aff.translation());
-  Eigen::Vector3d camera_center = -world_to_cam_aff.rotation().inverse() * t;  
-  
+  Eigen::Vector3d camera_center = -world_to_cam_aff.rotation().inverse() * t;
+
   return camera_center;
 }
 
@@ -433,7 +432,7 @@ Eigen::Quaternion<double> slerp_n(std::vector<double> const& W,
                                   std::vector<Eigen::Quaternion<double>> const& Q) {
   if (W.size() != Q.size())
     LOG(FATAL) << "Expecting as many quaternions as weights.";
-  
+
   if (Q.empty())
     LOG(FATAL) << "Expecting at least one quaternion and weight.";
 
@@ -458,7 +457,7 @@ Eigen::Quaternion<double> slerp_n(std::vector<double> const& W,
   Q2[0] = q;
   return slerp_n(W2, Q2);
 }
-  
+
 // Given two sets of 3D points, find the rotation + translation + scale
 // which best maps the first set to the second.
 // Source: http://en.wikipedia.org/wiki/Kabsch_algorithm
@@ -526,7 +525,7 @@ void Find3DAffineTransform(Eigen::Matrix3Xd const & in,
 // T(x) = scale * rotation * x + translation
 void TransformCameras(Eigen::Affine3d const& T,
                       std::vector<Eigen::Affine3d> &world_to_cam) {
-  
+
   // Inverse of rotation component
   double scale = pow(T.linear().determinant(), 1.0 / 3.0);
   Eigen::MatrixXd Tinv = (T.linear()/scale).inverse();
@@ -553,13 +552,13 @@ void TransformCamerasAndPoints(Eigen::Affine3d const& A,
   TransformCameras(A, *cid_to_cam_t);
   TransformPoints(A, xyz);
 }
-  
+
 // Apply a registration transform to a rig. The only thing that
 // changes is scale, as the rig transforms are between coordinate
 // systems of various cameras.
 void TransformRig(Eigen::Affine3d const& T, std::vector<Eigen::Affine3d> & ref_to_cam_trans) {
   double scale = pow(T.linear().determinant(), 1.0 / 3.0);
-  for (size_t cam_type = 0; cam_type < ref_to_cam_trans.size(); cam_type++) 
+  for (size_t cam_type = 0; cam_type < ref_to_cam_trans.size(); cam_type++)
     ref_to_cam_trans[cam_type].translation() *= scale;
 }
 
@@ -578,42 +577,42 @@ std::string registrationCamName(std::string const& hugin_file,
   std::map<std::string, int> image_to_cam_type;
   for (size_t cid = 0; cid < cams.size(); cid++)
     image_to_cam_type[cams[cid].image_name] = cams[cid].camera_type;
-  
+
   std::set<std::string> sensors;
   for (size_t cid = 0; cid < images.size(); cid++) {
     // Find the image in the map
     auto it = image_to_cam_type.find(images[cid]);
     if (it == image_to_cam_type.end())
-      LOG(FATAL) << "Cannot find image: " << images[cid] 
+      LOG(FATAL) << "Cannot find image: " << images[cid]
         << " from the Hugin file having control points in the input SfM map.\n";
-      
+
      sensors.insert(cam_names.at(it->second));
   }
-  
-  if (sensors.size() != 1) 
+
+  if (sensors.size() != 1)
     LOG(FATAL) << "All images used in registration must be for the same sensor. "
                << "Check the registration file: " << hugin_file << ".\n";
-  
+
   return *sensors.begin();
 }
 
 // Find the 3D transform from an abstract coordinate system to the
 // world, given control points (pixel matches) and corresponding 3D
 // measurements. It is assumed all images are acquired with the same camera.
-Eigen::Affine3d 
+Eigen::Affine3d
 registrationTransform(std::string                  const& hugin_file,
                       std::string                  const& xyz_file,
                       rig::CameraParameters     const& cam_params,
                       std::vector<std::string>     const& cid_to_filename,
-                      std::vector<Eigen::Affine3d> const& world_to_cam_trans) { 
-  
+                      std::vector<Eigen::Affine3d> const& world_to_cam_trans) {
+
   // Get the interest points in the images, and their positions in
   // the world coordinate system, as supplied by a user.
   // Parse and concatenate that information from multiple files.
   std::vector<std::string> images;
   Eigen::MatrixXd user_ip;
   Eigen::MatrixXd user_xyz;
-  
+
   ParseHuginControlPoints(hugin_file, &images, &user_ip);
   ParseXYZ(xyz_file, &user_xyz);
 
@@ -622,7 +621,6 @@ registrationTransform(std::string                  const& hugin_file,
     LOG(FATAL) << "Could not parse an equal number of control "
                << "points and xyz coordinates. Their numbers are "
                << num_points << " vs " << user_xyz.cols() << ".\n";
-
 
   std::map<std::string, int> filename_to_cid;
   for (size_t cid = 0; cid < cid_to_filename.size(); cid++)
@@ -667,11 +665,10 @@ registrationTransform(std::string                  const& hugin_file,
     user_ip(1, pid) = cid2cid[id2];
   }
 
-
-  if (num_points < 3) 
+  if (num_points < 3)
     LOG(FATAL) << "Must have at least 3 points to apply registration. Got: "
                << num_points << "\n";
-  
+
   // Iterate over the control points in the hugin file. Copy the
   // control points to the list of user keypoints, and create the
   // corresponding user_pid_to_cid_fid.
@@ -687,7 +684,7 @@ registrationTransform(std::string                  const& hugin_file,
     // Sanity check
     if (id1 < 0 || id2 < 0 ||
         id1 >= static_cast<int>(images.size()) ||
-        id2 >= static_cast<int>(images.size()) )
+        id2 >= static_cast<int>(images.size()))
       LOG(FATAL) << "Invalid image indices in the hugin file: " << id1 << ' ' << id2;
 
     // Find the corresponding indices in the map where these keypoints will go to
@@ -764,7 +761,7 @@ registrationTransform(std::string                  const& hugin_file,
   for (int i = 0; i < np; i++)
     in.col(i) = unreg_pid_to_xyz[i];
 
-  Eigen::Affine3d registration_trans;  
+  Eigen::Affine3d registration_trans;
   Find3DAffineTransform(in, user_xyz, &registration_trans);
 
   mean_err = 0.0;
@@ -809,10 +806,10 @@ void transformInlierTriPoints(// Inputs
   rig::PidCidFid               const& pid_to_cid_fid,
   PidCidFidMap                 const& pid_cid_fid_inlier,
   std::vector<Eigen::Vector3d>      & xyz_vec) { // output
-  
+
   if (pid_to_cid_fid.size() != pid_cid_fid_inlier.size())
     LOG(FATAL) << "Expecting as many inlier flags as there are tracks.\n";
-  if (pid_to_cid_fid.size() != xyz_vec.size()) 
+  if (pid_to_cid_fid.size() != xyz_vec.size())
     LOG(FATAL) << "Expecting as many tracks as there are triangulated points.\n";
 
   for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
@@ -830,17 +827,17 @@ void transformInlierTriPoints(// Inputs
       break;
     }
 
-    if (isInlierXyz) 
+    if (isInlierXyz)
       xyz_vec[pid] = trans * xyz_vec[pid];
   }
-  
+
   return;
 }
 
 // TODO(oalexan1): Test this with multiple rigs. It should work.
 // TODO(oalexan1): Need to fix ref_cam_type.
 // Apply registration to each camera, rig (if present), and depth-to-image, if desired
-void applyRegistration(bool no_rig, bool scale_depth, 
+void applyRegistration(bool no_rig, bool scale_depth,
                        std::string                   const & hugin_file,
                        std::string                   const & xyz_file,
                        std::vector<bool>             const & has_depth,
@@ -850,7 +847,7 @@ void applyRegistration(bool no_rig, bool scale_depth,
                        std::vector<Eigen::Affine3d>        & world_to_ref,
                        std::vector<Eigen::Affine3d>        & world_to_cam,
                        rig::RigSet                         & R) {
-  
+
   if (R.cam_params.size() != has_depth.size())
     LOG(FATAL) << "Number of camera types must equal the number of depth flags.";
 
@@ -858,19 +855,19 @@ void applyRegistration(bool no_rig, bool scale_depth,
   // That is enforced in registrationCamName().
   std::string reg_cam_name = rig::registrationCamName(hugin_file, R.cam_names, cams);
   int reg_cam_index = R.sensorIndex(reg_cam_name);
-  
+
   // Find the image files. These are one-to-one with world_to_cam.
   std::vector<std::string> image_files;
   for (size_t cid = 0; cid < cams.size(); cid++)
     image_files.push_back(cams[cid].image_name);
-  
+
   // Find the registration transform.
   // TODO(oalexan1): Pass to this the whole set of cameras and camera
   // params, as it need not be the first rig images that are used.
   registration_trans
-    = rig::registrationTransform(hugin_file, xyz_file,  
-                                 R.cam_params[reg_cam_index],  
-                                 image_files,  
+    = rig::registrationTransform(hugin_file, xyz_file,
+                                 R.cam_params[reg_cam_index],
+                                 image_files,
                                  world_to_cam);
 
   // Apply the transform to world_to_ref and world_to_cam
@@ -892,7 +889,7 @@ void applyRegistration(bool no_rig, bool scale_depth,
       }
     }
   }
-  
+
   return;
 }
 

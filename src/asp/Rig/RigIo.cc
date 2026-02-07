@@ -18,7 +18,7 @@
 #include <asp/Rig/RigIo.h>
 #include <asp/Rig/RigImageIO.h>
 #include <asp/Rig/RigParseUtils.h>
-#include <asp/Rig/detector.h>
+#include <asp/Rig/Detector.h>
 #include <asp/Rig/CameraImage.h>
 #include <asp/Rig/SystemUtils.h>
 #include <asp/Rig/BasicAlgs.h>

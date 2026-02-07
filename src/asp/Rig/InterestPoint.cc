@@ -1,12 +1,12 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
 //  The NGT platform is licensed under the Apache License, Version 2.0 (the
 //  "License"); you may not use this file except in compliance with the
 //  License. You may obtain a copy of the License at
-//  http://www.apache.org/licenses/LICENSE-2.0
+//  https://www.apache.org/licenses/LICENSE-2.0
 //
 //  Unless required by applicable law or agreed to in writing, software
 //  distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,16 +21,16 @@
 #include <asp/Rig/CameraImage.h>
 #include <asp/Rig/SystemUtils.h>
 #include <asp/Rig/RigThread.h>
-#include <asp/Rig/detector.h>
+#include <asp/Rig/Detector.h>
 #include <asp/Rig/TransformUtils.h>
 #include <asp/Rig/InterpolationUtils.h>
 #include <asp/Rig/RigConfig.h>
 #include <asp/Rig/ImageLookup.h>
 #include <asp/Rig/Tracks.h>
 #include <asp/Rig/RigCameraParams.h>
-#include <asp/Rig/nvmUtils.h>
+#include <asp/Rig/NvmUtils.h>
 #include <asp/Rig/RigIo.h>
-#include <asp/Rig/triangulation.h>
+#include <asp/Rig/Triangulation.h>
 
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Math/RandomSet.h>
@@ -60,7 +60,7 @@ namespace fs = boost::filesystem;
 DEFINE_string(feature_detector, "SIFT", "The feature detector to use. SIFT or SURF.");
 DEFINE_int32(sift_nFeatures, 10000, "Number of SIFT features.");
 DEFINE_int32(sift_nOctaveLayers, 3, "Number of SIFT octave layers.");
-DEFINE_double(sift_contrastThreshold, 0.02, 
+DEFINE_double(sift_contrastThreshold, 0.02,
                 "SIFT contrast threshold");  // decrease for more ip
 DEFINE_double(sift_edgeThreshold, 10, "SIFT edge threshold.");
 DEFINE_double(sift_sigma, 1.6, "SIFT sigma.");
@@ -93,7 +93,7 @@ void setFromCvKeypoint(Eigen::Vector2d const& key, cv::Mat const& cv_descriptor,
     ip.descriptor[it] = cv_descriptor.at<float>(0, it);
   }
 }
- 
+
 void detectFeatures(const cv::Mat& image, bool verbose,
                     // Outputs
                     cv::Mat* descriptors, Eigen::Matrix2Xd* keypoints) {
@@ -143,16 +143,16 @@ void detectFeatures(const cv::Mat& image, bool verbose,
 
 void reduceMatches(std::vector<vw::ip::InterestPoint> & left_ip,
                    std::vector<vw::ip::InterestPoint> & right_ip) {
-  
+
   // pick a random subset
   std::vector<int> subset;
   vw::math::pick_random_indices_in_range(left_ip.size(), FLAGS_max_pairwise_matches, subset);
-  std::sort(subset.begin(), subset.end()); // sort the indices (not strictly necessary)
-  
+  std::sort(subset.begin(), subset.end());  // sort the indices (not strictly necessary)
+
   std::vector<vw::ip::InterestPoint> left_ip_full, right_ip_full;
   left_ip_full.swap(left_ip);
   right_ip_full.swap(right_ip);
-  
+
   left_ip.resize(FLAGS_max_pairwise_matches);
   right_ip.resize(FLAGS_max_pairwise_matches);
   for (size_t it = 0; it < subset.size(); it++) {
@@ -160,7 +160,7 @@ void reduceMatches(std::vector<vw::ip::InterestPoint> & left_ip,
     right_ip[it] = right_ip_full[subset[it]];
   }
 }
-  
+
 // descriptor is what opencv descriptor was used to make the descriptors
 // the descriptor maps are the features in the two images
 // matches is output to contain the matching features between the two images
@@ -194,7 +194,7 @@ void FindMatches(const cv::Mat & img1_descriptor_map,
     }
   }
 }
-  
+
 // This really likes haz cam first and nav cam second
 // Note: The function matchFeaturesWithCams() is used instead.
 void matchFeatures(std::mutex* match_mutex,
@@ -274,7 +274,7 @@ void matchFeatures(std::mutex* match_mutex,
 // Match features while assuming that the input cameras can be used to filter out
 // outliers by reprojection error.
 // TODO(oalexan1): This can be fragile. What if input cameras have poor pointing info?
-void matchFeaturesWithCams(std::mutex* match_mutex, 
+void matchFeaturesWithCams(std::mutex* match_mutex,
                            int left_image_index, int right_image_index,
                            rig::CameraParameters const& left_params,
                            rig::CameraParameters const& right_params,
@@ -311,7 +311,7 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
 
       Eigen::Vector2d undist_left_ip;
       Eigen::Vector2d undist_right_ip;
-      left_params.Convert<rig::DISTORTED,  rig::UNDISTORTED_C>
+      left_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>
         (dist_left_ip, &undist_left_ip);
       right_params.Convert<rig::DISTORTED, rig::UNDISTORTED_C>
         (dist_right_ip, &undist_right_ip);
@@ -344,7 +344,7 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
       // If any values above are Inf or NaN, is_good will be false as well
       if (!is_good) continue;
     }
-    
+
     // Get the keypoints from the good matches
     left_vec.push_back(cv::Point2f(left_keypoints.col(left_ip_index)[0],
                                    left_keypoints.col(left_ip_index)[1]));
@@ -391,7 +391,7 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
 
   if (FLAGS_max_pairwise_matches >= 0 && (int)left_ip.size() > FLAGS_max_pairwise_matches)
     reduceMatches(left_ip, right_ip);
-  
+
   // Update the shared variable using a lock
   match_mutex->lock();
 
@@ -419,36 +419,36 @@ void addKeypoints(// Append from these
                   std::vector<Eigen::Vector2d> const& keypoint_offsets,
                   int cid_shift,
                   size_t num_out_cams,
-                  // Outputs, append to these 
+                  // Outputs, append to these
                   std::vector<int>                  & keypoint_count,
                   KeyPointMap                       & merged_keypoint_map) {
 
   // Sanity checks
-  if (num_out_cams != keypoint_count.size()) 
+  if (num_out_cams != keypoint_count.size())
     LOG(FATAL) << "Keypoint count was not initialized correctly.\n";
-  if (num_out_cams != merged_keypoint_map.size()) 
+  if (num_out_cams != merged_keypoint_map.size())
     LOG(FATAL) << "Keypoint map was not initialized correctly.\n";
   if (num_out_cams != rig::maxMapVal(cid2cid) + 1)
     LOG(FATAL) << "Unexpected value for the size of the output map.\n";
 
   for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
 
-    auto const& cid_fid = pid_to_cid_fid[pid]; // alias
+    auto const& cid_fid = pid_to_cid_fid[pid];  // alias
     for (auto map_it = cid_fid.begin(); map_it != cid_fid.end(); map_it++) {
 
-      int cid = -1; // will change soon
+      int cid = -1;  // will change soon
       std::pair<float, float> K;
       bool ans = updateCidFindKeypoint(map_it, cid_to_keypoint_map, cid2cid,
-                                       keypoint_offsets, cid_shift,  
+                                       keypoint_offsets, cid_shift,
                                        cid, K);
-      if (!ans) 
+      if (!ans)
         continue;
-      
+
       // Insert K in the keypoint map and increment the count,
       // unless it already exists
-      auto & key_map = merged_keypoint_map.at(cid); // alias, will be changed
-      if (key_map.find(K) != key_map.end()) 
-        continue; // exists already
+      auto & key_map = merged_keypoint_map.at(cid);  // alias, will be changed
+      if (key_map.find(K) != key_map.end())
+        continue;  // exists already
 
       key_map[K] = keypoint_count[cid];
       keypoint_count[cid]++;
@@ -459,13 +459,13 @@ void addKeypoints(// Append from these
 }
 
 // Break up each track of keypoints of length N into N pairs, (T0,
-// T1), (T1, T2), ,,. (T(N-1), T0). Find their indices in the merged
+// T1), (T1, T2), ,, . (T(N-1), T0). Find their indices in the merged
 // set of keypoints. Repeat this for each input map to merge and
 // accumulate the pairs. Later these will be combined into new tracks
 // and any repeated data will be fused. This is very tied to the
 // addKeypoints() function.
 // Note that keypoint_offsets are applied before the cid2cid transform gets used!
-// This is very error-prone! // TODO(oalexan1): Remove that logic and the shift
+// This is very error-prone!  // TODO(oalexan1): Remove that logic and the shift
 // as well from this function to make it easier to understand.
 // TODO(oalexan1): Incorporate here the addKeypoints() logic which
 // mirrors a lot of this.
@@ -477,51 +477,51 @@ void addMatchPairs(// Append from these
                    rig::CidToKeypointMatVec              const& cid_to_keypoint_map,
                    std::map<int, int>                    const& cid2cid,
                    std::vector<Eigen::Vector2d>          const& keypoint_offsets,
-                   KeyPointMap                           const& merged_keypoint_map, 
+                   KeyPointMap                           const& merged_keypoint_map,
                    int cid_shift, size_t num_out_cams,
-                   aspOpenMVG::matching::PairWiseMatches      & match_map) { // append here
+                   aspOpenMVG::matching::PairWiseMatches      & match_map) {  // append here
 
   // Sanity checks
-  if (num_out_cams != merged_keypoint_map.size()) 
+  if (num_out_cams != merged_keypoint_map.size())
     LOG(FATAL) << "Keypoint map was not initialized correctly.\n";
   if (num_out_cams != rig::maxMapVal(cid2cid) + 1)
     LOG(FATAL) << "Unexpected value for the size of the output map.\n";
-  
+
   for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
-    
-    auto const& cid_fid = pid_to_cid_fid[pid]; // alias
+
+    auto const& cid_fid = pid_to_cid_fid[pid];  // alias
     for (auto map_it1 = cid_fid.begin(); map_it1 != cid_fid.end(); map_it1++) {
-      
+
       // First element in the pair
-      int cid1 = -1; // will change soon
+      int cid1 = -1;  // will change soon
       std::pair<float, float> K1;
       bool ans = updateCidFindKeypoint(map_it1, cid_to_keypoint_map, cid2cid,
-                                       keypoint_offsets, cid_shift,    
-                                       cid1, K1); // output
+                                       keypoint_offsets, cid_shift,
+                                       cid1, K1);  // output
       if (!ans)
         continue;
-      
+
       // Find the second element in the pair. If at the end of the track,
       // and the track length is more than 2, use the earliest element.
       auto map_it2 = map_it1;
       map_it2++;
       if (map_it2 == cid_fid.end()) {
-        
-        if (cid_fid.size() <= 2) 
-          continue; // Already added (T0, T1), no need to add (T1, T0).
-      
+
+        if (cid_fid.size() <= 2)
+          continue;  // Already added (T0, T1), no need to add (T1, T0).
+
         map_it2 = cid_fid.begin();
       }
-      int cid2 = -1; // will change soon
+      int cid2 = -1;  // will change soon
       std::pair<float, float> K2;
       ans = updateCidFindKeypoint(map_it2, cid_to_keypoint_map, cid2cid,
-                                  keypoint_offsets, cid_shift,  
-                                  cid2, K2); // output
-      if (!ans) 
+                                  keypoint_offsets, cid_shift,
+                                  cid2, K2);  // output
+      if (!ans)
         continue;
-      
+
       // No point in adding a match from an image to itself
-      if (cid1 == cid2) 
+      if (cid1 == cid2)
         continue;
 
       // Find the fid indices
@@ -532,13 +532,13 @@ void addMatchPairs(// Append from these
         LOG(FATAL) << "Could not look up a keypoint. That is unexpected.\n";
       int fid1 = it1->second;
       int fid2 = it2->second;
-      
+
       // Append the pair
       std::vector<aspOpenMVG::matching::IndMatch> & mvg_matches
-        = match_map[std::make_pair(cid1, cid2)]; // alias
+        = match_map[std::make_pair(cid1, cid2)];  // alias
       mvg_matches.push_back(aspOpenMVG::matching::IndMatch(fid1, fid2));
-    } // end iterating over the track
-  } 
+    }  // end iterating over the track
+  }
   return;
 }
 
@@ -550,9 +550,9 @@ void findFid(std::pair<float, float> const & ip,
              KeyPointMap & keypoint_map,
              std::vector<int> & fid_count,
              int & fid) {
-  
-  fid = -1; // initialize the output
-  
+
+  fid = -1;  // initialize the output
+
   auto it = keypoint_map[cid].find(ip);
   if (it != keypoint_map[cid].end()) {
     fid = it->second;
@@ -572,7 +572,7 @@ void keypointMapToVec(KeyPointMap const& keypoint_map,
   keypoint_vec.clear();
   keypoint_vec.resize(num_images);
   for (size_t cid = 0; cid < num_images; cid++) {
-    auto const& map = keypoint_map[cid]; // alias
+    auto const& map = keypoint_map[cid];  // alias
     keypoint_vec[cid].resize(map.size());
     for (auto ip_it = map.begin(); ip_it != map.end(); ip_it++) {
       auto const& ip = ip_it->first;  // alias
@@ -583,7 +583,7 @@ void keypointMapToVec(KeyPointMap const& keypoint_map,
 }
 
 // Detects features, matches them between image pairs, and builds tracks.
-// 
+//
 //  This function handles the entire feature detection and matching pipeline:
 //  1. Detects keypoints and descriptors in all images using multiple threads.
 //  2. Determines which image pairs to match (based on overlap or input pairs).
@@ -612,7 +612,7 @@ void detectMatchFeatures(// Inputs
   fid_count.clear();
   pid_to_cid_fid.clear();
   keypoint_map.resize(num_images);
-  fid_count.resize(num_images, 0); // Important: initialize count to 0
+  fid_count.resize(num_images, 0);  // Important: initialize count to 0
 
   // Detect features using multiple threads. Too many threads may result
   // in high memory usage.
@@ -629,8 +629,8 @@ void detectMatchFeatures(// Inputs
     rig::ThreadPool thread_pool(num_match_threads);
     for (size_t it = 0; it < num_images; it++) {
       thread_pool.AddTask
-        (&rig::detectFeatures,     // multi-threaded  // NOLINT
-         // rig::detectFeatures(   // single-threaded // NOLINT
+        (&rig::detectFeatures, // multi-threaded  // NOLINT
+         // rig::detectFeatures(   // single-threaded  // NOLINT
          cams[it].image, verbose, &cid_to_descriptor_map[it], &cid_to_keypoint_map[it]);
     }
     thread_pool.Join();
@@ -649,9 +649,9 @@ void detectMatchFeatures(// Inputs
       }
     }
   }
-  
+
   MATCH_MAP matches;
-  { // Deallocate local variables as soon as they are not needed
+  {  // Deallocate local variables as soon as they are not needed
     std::cout << "Matching features." << std::endl;
     rig::ThreadPool thread_pool(num_match_threads);
     std::mutex match_mutex;
@@ -659,8 +659,8 @@ void detectMatchFeatures(// Inputs
       auto pair = image_pairs[pair_it];
       int left_image_it = pair.first, right_image_it = pair.second;
       thread_pool.AddTask
-        (&rig::matchFeaturesWithCams,    // multi-threaded  // NOLINT
-         // rig::matchFeaturesWithCams( // single-threaded // NOLINT
+        (&rig::matchFeaturesWithCams, // multi-threaded  // NOLINT
+         // rig::matchFeaturesWithCams(  // single-threaded  // NOLINT
          &match_mutex, left_image_it, right_image_it,
          cam_params[cams[left_image_it].camera_type],
          cam_params[cams[right_image_it].camera_type],
@@ -673,7 +673,7 @@ void detectMatchFeatures(// Inputs
     }
     thread_pool.Join();
   }
-  cid_to_keypoint_map = rig::CidToKeypointMatVec(); // wipe, no longer needed
+  cid_to_keypoint_map = rig::CidToKeypointMatVec();  // wipe, no longer needed
   cid_to_descriptor_map = std::vector<cv::Mat>();    // Wipe, no longer needed
 
   if (save_matches) {
@@ -689,8 +689,8 @@ void detectMatchFeatures(// Inputs
 
       int left_cid = cid_pair.first;
       int right_cid = cid_pair.second;
-      std::string const& left_image = cams[left_cid].image_name; // alias
-      std::string const& right_image = cams[right_cid].image_name; // alias
+      std::string const& left_image = cams[left_cid].image_name;  // alias
+      std::string const& right_image = cams[right_cid].image_name;  // alias
 
       std::string suffix = "";
       std::string match_file = rig::matchFileName(match_dir, left_image, right_image, suffix);
@@ -699,7 +699,7 @@ void detectMatchFeatures(// Inputs
       vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
     }
   }
-  
+
   // Collect all keypoints in keypoint_map, and put the fid (indices of keypoints) in
   // match_map. It will be used to find the tracks.
   aspOpenMVG::matching::PairWiseMatches match_map;
@@ -714,20 +714,20 @@ void detectMatchFeatures(// Inputs
     std::vector<vw::ip::InterestPoint> const& right_ip_vec = match_pair.second;
 
     for (size_t ip_it = 0; ip_it < left_ip_vec.size(); ip_it++) {
-      auto left_ip  = std::make_pair(left_ip_vec[ip_it].x,  left_ip_vec[ip_it].y);
+      auto left_ip  = std::make_pair(left_ip_vec[ip_it].x, left_ip_vec[ip_it].y);
       auto right_ip = std::make_pair(right_ip_vec[ip_it].x, right_ip_vec[ip_it].y);
 
       // Add an ip to the keypoint map if not there. In either case find its fid.
       int left_fid = -1, right_fid = -1;
       findFid(left_ip, left_cid,
-              keypoint_map, fid_count, left_fid); // may change
+              keypoint_map, fid_count, left_fid);  // may change
       findFid(right_ip, right_cid,
-              keypoint_map, fid_count, right_fid); // may change
+              keypoint_map, fid_count, right_fid);  // may change
 
       match_map[cid_pair].push_back(aspOpenMVG::matching::IndMatch(left_fid, right_fid));
     }
   }
-  matches.clear(); matches = MATCH_MAP(); // mo longer needed
+  matches.clear(); matches = MATCH_MAP();  // mo longer needed
 
   // If feature A in image I matches feather B in image J, which
   // matches feature C in image K, then (A, B, C) belong together in
@@ -736,7 +736,7 @@ void detectMatchFeatures(// Inputs
   std::cout << "Tracks obtained after matching: " << pid_to_cid_fid.size() << std::endl;
   match_map = aspOpenMVG::matching::PairWiseMatches();  // wipe this, no longer needed
 }
-         
+
 void detectAddFeatures(// Inputs
                        std::vector<rig::cameraImage>      const& cams,
                        std::vector<rig::CameraParameters> const& cam_params,
@@ -744,7 +744,7 @@ void detectAddFeatures(// Inputs
                        bool filter_matches_using_cams,
                        std::vector<Eigen::Affine3d>       const& world_to_cam,
                        int num_overlaps,
-                       std::vector<std::pair<int, int>>   const& input_image_pairs, 
+                       std::vector<std::pair<int, int>>   const& input_image_pairs,
                        int initial_max_reprojection_error, int num_match_threads,
                        bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
                        // Outputs
@@ -758,9 +758,9 @@ void detectAddFeatures(// Inputs
   pid_to_cid_fid.clear();
   xyz_vec.clear();
 
-  if (!no_nvm_matches) 
+  if (!no_nvm_matches)
     std::cout << "Tracks read from disk: " << nvm.pid_to_cid_fid.size() << std::endl;
-  
+
   // Sanity check: the offsets from the nvm must agree with the optical centers
   // The offsets may be empty if the cameras were read from a list
   if (!read_nvm_no_shift && !no_nvm_matches && !nvm.optical_centers.empty()) {
@@ -768,15 +768,15 @@ void detectAddFeatures(// Inputs
       Eigen::Vector2d offset = cam_params[cams[cid].camera_type].GetOpticalOffset();
       auto it = nvm.optical_centers.find(cams[cid].image_name);
       if (it == nvm.optical_centers.end())
-        continue; // offsets may be missing when extra images are added
+        continue;  // offsets may be missing when extra images are added
       Eigen::Vector2d nvm_offset = it->second;
       if ((offset - nvm_offset).norm() > 1e-8)
         LOG(FATAL) << "Optical centers read from the nvm file do not agree with the "
-                   << "ones from the rig configuration for image:  " 
+                   << "ones from the rig configuration for image:  "
                    << cams[cid].image_name << ".\n";
     }
   }
-  
+
   size_t num_images = cams.size();
   if (num_overlaps == 0 && !no_nvm_matches) {
     // Add the optical center shift, if needed
@@ -789,19 +789,19 @@ void detectAddFeatures(// Inputs
       else
         keypoint_offsets[cid] = cam_params[cams[cid].camera_type].GetOpticalOffset();
     }
-    
+
     // If we do not need to create new matches, just reorganize the ones read in
     // and quit.
-    rig::transformNvm(cams, keypoint_offsets, nvm,  
-                      pid_to_cid_fid, keypoint_vec, xyz_vec); // outputs
-    nvm = asp::nvmData(); // no longer needed
+    rig::transformNvm(cams, keypoint_offsets, nvm,
+                      pid_to_cid_fid, keypoint_vec, xyz_vec);  // outputs
+    nvm = asp::nvmData();  // no longer needed
     return;
   }
 
   // Detect and match features
   KeyPointMap keypoint_map;
   std::vector<int> fid_count;
-  detectMatchFeatures( // Inputs
+  detectMatchFeatures(// Inputs
                       cams, cam_params, out_dir, save_matches,
                       filter_matches_using_cams,
                       world_to_cam, num_overlaps,
@@ -810,7 +810,7 @@ void detectAddFeatures(// Inputs
                       verbose,
                       // Outputs
                       keypoint_map, fid_count, pid_to_cid_fid);
-  
+
   // Append tracks being read from nvm. This turned out to work better than to try
   // to merge these tracks with the ones from the pairwise matching above, as the latter
   // would make many good tracks disappear.
@@ -818,7 +818,7 @@ void detectAddFeatures(// Inputs
     // Find how to map each cid from nvm to cid in 'cams'.
     std::map<int, int> nvm_cid_to_cams_cid;
     rig::findCidReorderMap(nvm, cams,
-                           nvm_cid_to_cams_cid); // output
+                           nvm_cid_to_cams_cid);  // output
 
     // Add the optical center shift, if needed.
     std::vector<Eigen::Vector2d> keypoint_offsets(nvm.cid_to_filename.size());
@@ -838,7 +838,7 @@ void detectAddFeatures(// Inputs
         keypoint_offsets[nvm_cid] = Eigen::Vector2d(0, 0);
         continue;
       }
-      
+
       int cams_cid = it->second;
       if (read_nvm_no_shift)
         keypoint_offsets[nvm_cid] = Eigen::Vector2d(0, 0);
@@ -850,19 +850,19 @@ void detectAddFeatures(// Inputs
     // Add the nvm matches. Unlike the transformNvm() function above,
     // the keypoints are shared with the newly created matches. Later
     // that will be used to remove duplicates.
-    int cid_shift = 0; // part of the API
-    rig::transformAppendNvm(nvm.pid_to_cid_fid, nvm.cid_to_keypoint_map,  
+    int cid_shift = 0;  // part of the API
+    rig::transformAppendNvm(nvm.pid_to_cid_fid, nvm.cid_to_keypoint_map,
                             nvm_cid_to_cams_cid,
                             keypoint_offsets, cid_shift, num_images,
-                            fid_count, keypoint_map, pid_to_cid_fid); // append
+                            fid_count, keypoint_map, pid_to_cid_fid);  // append
   }
-  
+
   // Create keypoint_vec from keypoint_map. That just reorganizes the data
   // to the format expected later.
   keypointMapToVec(keypoint_map, keypoint_vec);
-  
+
   // De-allocate data not needed anymore
-  nvm = asp::nvmData(); // no longer needed
+  nvm = asp::nvmData();  // no longer needed
   keypoint_map.clear(); keypoint_map.shrink_to_fit();
 
   // Remove duplicate tracks. Those can happen since additional tracks being
@@ -873,7 +873,5 @@ void detectAddFeatures(// Inputs
 
   return;
 }
-
-
 
 }  // end namespace rig

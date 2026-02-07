@@ -8,7 +8,7 @@
  * (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
@@ -21,7 +21,7 @@
 #define ASP_RIG_INTEREST_POINT_H
 
 #include <asp/Rig/RigTypeDefs.h>
-#include <asp/Rig/detector.h>
+#include <asp/Rig/Detector.h>
 
 #include <vw/InterestPoint/InterestData.h>
 
@@ -73,19 +73,19 @@ void matchFeatures(std::mutex* match_mutex, int left_image_index, int right_imag
                    // Output
                    MATCH_PAIR* matches);
 
-// Create keypoint_vec from keypoint_map. 
+// Create keypoint_vec from keypoint_map.
 void keypointMapToVec(KeyPointMap const& keypoint_map,
                       KeypointVec & keypoint_vec);
 
 void detectAddFeatures(// Inputs
                        std::vector<rig::cameraImage>      const& cams,
                        std::vector<rig::CameraParameters> const& cam_params,
-                       std::string                        const& out_dir, 
+                       std::string                        const& out_dir,
                        bool save_matches,
                        bool filter_matches_using_cams,
                        std::vector<Eigen::Affine3d>       const& world_to_cam,
                        int num_overlaps,
-                       std::vector<std::pair<int, int>>   const& input_image_pairs, 
+                       std::vector<std::pair<int, int>>   const& input_image_pairs,
                        int initial_max_reprojection_error, int num_match_threads,
                        bool read_nvm_no_shift, bool no_nvm_matches, bool verbose,
                        // Outputs
@@ -98,10 +98,10 @@ void detectAddFeatures(// Inputs
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.
 // When 'undo_shift' is false, subtract the optical center.
 void shiftKeypoints(bool undo_shift, rig::RigSet const& R,
-                    asp::nvmData & nvm); // output
-  
+                    asp::nvmData & nvm);  // output
+
 // Break up each track of keypoints of length N into N pairs, (T0,
-// T1), (T1, T2), ,,. (T(N-1), T0). Find their indices in the merged
+// T1), (T1, T2), ,, . (T(N-1), T0). Find their indices in the merged
 // set of keypoints. Repeat this for each input map to merge and
 // accumulate the pairs. Later these will be combined into new tracks
 // and any repeated data will be fused. This is very tied to the
@@ -113,9 +113,9 @@ void addMatchPairs(// Append from these
                    rig::CidToKeypointMatVec              const& cid_to_keypoint_map,
                    std::map<int, int>                    const& cid2cid,
                    std::vector<Eigen::Vector2d>          const& keypoint_offsets,
-                   KeyPointMap                           const& merged_keypoint_map, 
+                   KeyPointMap                           const& merged_keypoint_map,
                    int cid_shift, size_t num_out_cams,
-                   aspOpenMVG::matching::PairWiseMatches      & match_map); // append here
+                   aspOpenMVG::matching::PairWiseMatches      & match_map);  // append here
 
 // Given some tracks read from nvm from disk, append the ones from
 // nvm. Some remapping is needed.  given that 'fid' values already
@@ -131,11 +131,11 @@ void transformAppendNvm(// Append from these
                         std::vector<Eigen::Vector2d> const& keypoint_offsets,
                         int cid_shift,
                         size_t num_out_cams,
-                        // Outputs, append to these 
+                        // Outputs, append to these
                         std::vector<int>                  & fid_count,
                         KeyPointMap                       & merged_keypoint_map,
                         rig::PidCidFid                    & pid_to_cid_fid);
-  
+
 // Add keypoints from a map, appending to existing keypoints. Take into
 // account how this map's cid gets transformed to the new map cid.
 // Note that keypoint_offsets are applied before the cid2cid transform gets used!
@@ -147,11 +147,9 @@ void addKeypoints(// Append from these
                   std::vector<Eigen::Vector2d> const& keypoint_offsets,
                   int cid_shift,
                   size_t num_out_cams,
-                  // Outputs, append to these 
+                  // Outputs, append to these
                   std::vector<int>                  & keypoint_count,
                   KeyPointMap                       & merged_keypoint_map);
-
-
 
 void savePairwiseConvergenceAngles(// Inputs
   rig::PidCidFid                const& pid_to_cid_fid,

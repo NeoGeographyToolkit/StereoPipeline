@@ -79,6 +79,8 @@ Misc:
     fails then.
   * Removed the undocumented ``dem_mosaic`` options ``--first-dem-as-reference``
     and ``--this-dem-as-reference``.
+  * Much removal of templates and breaking up of functions and files into smaller
+    and better-organized components.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------

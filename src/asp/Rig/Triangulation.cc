@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/Rig/triangulation.h>
+#include <asp/Rig/Triangulation.h>
 #include <asp/Rig/BasicAlgs.h>
 #include <asp/Rig/SystemUtils.h>
 #include <asp/Rig/CameraImage.h>
@@ -52,7 +52,7 @@ void Triangulate(bool rm_invalid_xyz, double focal_length,
               cid_to_keypoint_map[cid_fid.first].col(cid_fid.second));
     }
     Eigen::Vector3d solution = tri.compute();
-    if ( rm_invalid_xyz && (std::isnan(solution[0]) || tri.minDepth() < 0) ) {
+    if (rm_invalid_xyz && (std::isnan(solution[0]) || tri.minDepth() < 0)) {
       pid_to_xyz->erase(pid_to_xyz->begin() + pid);
       pid_to_cid_fid->erase(pid_to_cid_fid->begin() + pid);
     } else {
@@ -125,14 +125,14 @@ void multiViewTriangulation(// Inputs
                             PidCidFidMap                            & pid_cid_fid_inlier,
                             std::vector<Eigen::Vector3d>            & xyz_vec) {
 
-  if (cams.size() != world_to_cam.size()) 
+  if (cams.size() != world_to_cam.size())
     LOG(FATAL) << "Expecting as many images as cameras.\n";
-  
+
   xyz_vec.clear();
   xyz_vec.resize(pid_to_cid_fid.size());
   for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++)
     xyz_vec[pid] = Eigen::Vector3d(0, 0, 0); // initialize to 0
-  
+
   for (size_t pid = 0; pid < pid_to_cid_fid.size(); pid++) {
     std::vector<double> focal_length_vec;
     std::vector<Eigen::Affine3d> world_to_cam_aff_vec;
@@ -178,7 +178,7 @@ void multiViewTriangulation(// Inputs
 
     bool bad_xyz = false;
     for (int c = 0; c < xyz_vec[pid].size(); c++) {
-      if (std::isinf(xyz_vec[pid][c]) || std::isnan(xyz_vec[pid][c])) 
+      if (std::isinf(xyz_vec[pid][c]) || std::isnan(xyz_vec[pid][c]))
         bad_xyz = true;
     }
     if (bad_xyz) {
@@ -190,12 +190,11 @@ void multiViewTriangulation(// Inputs
         rig::setMapValue(pid_cid_fid_inlier, pid, cid, fid, 0);
       }
     }
-    
+
   } // end iterating over triangulated points
-  
+
   return;
 }
-
 
 // A triangulated point that is equal to (0, 0, 0), inf, or NaN, is not good.
 bool isGoodTri(Eigen::Vector3d const& P) {
@@ -203,10 +202,10 @@ bool isGoodTri(Eigen::Vector3d const& P) {
     if (std::isinf(P[c]) || std::isnan(P[c]))
       return false;
   }
-  
-  if (P[0] == 0 && P[1] == 0 && P[2] == 0) 
+
+  if (P[0] == 0 && P[1] == 0 && P[2] == 0)
     return false;
-  
+
   return true;
 }
 

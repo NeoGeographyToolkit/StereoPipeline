@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -25,8 +25,8 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include <asp/Rig/CameraImage.h> // For rig::cameraImage
-#include <asp/Rig/RigCameraParams.h> // For rig::CameraParameters
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/RigCameraParams.h>
 
 namespace rig {
 

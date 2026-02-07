@@ -16,9 +16,9 @@
  * under the License.
  */
 
-#include <Rig/RigUtils.h>
-#include <Rig/RigConfig.h>
-#include <Rig/SystemUtils.h>
+#include <asp/Rig/RigUtils.h>
+#include <asp/Rig/RigConfig.h>
+#include <asp/Rig/SystemUtils.h>
 #include <asp/Rig/RigParseUtils.h>
 
 #include <gflags/gflags.h>
@@ -91,9 +91,9 @@ int main(int argc, char ** argv) {
   if (FLAGS_rig_config == "")
     LOG(FATAL) << "The rig configuration was not specified.\n";
 
-  if (FLAGS_rig_sensor == "") 
+  if (FLAGS_rig_sensor == "")
     LOG(FATAL) << "The rig sensor to use for undistortion was not specified.\n";
-  
+
   // Load the correct camera model
   rig::CameraParameters *cam_ptr = NULL; // use a pointer as there is no constructor
   rig::RigSet R;
@@ -111,7 +111,7 @@ int main(int argc, char ** argv) {
   }
   if (!success)
     LOG(FATAL) << "Could not find desired sensor in the rig configuration.\n";
-  
+
   // The images can either be in a list or passed in
   std::vector<std::string> images;
   {
@@ -119,11 +119,11 @@ int main(int argc, char ** argv) {
     std::string image;
     while (ifs >> image)
       images.push_back(image);
-    
+
     if (images.empty())
       LOG(FATAL) << "Expecting at least one input image.";
   }
-  
+
   std::vector<std::string> undist_images;
   {
     std::ifstream ifs(FLAGS_output_list);
@@ -131,7 +131,7 @@ int main(int argc, char ** argv) {
     while (ifs >> image)
       undist_images.push_back(image);
   }
-  
+
   if (undist_images.size() != images.size())
     LOG(FATAL) << "There must be as many output undistorted "
                  << "images as input distorted images.\n";
@@ -257,7 +257,7 @@ int main(int argc, char ** argv) {
     // A couple of sanity checks
     if (widx % 2 != 0 || widy % 2 != 0)
       LOG(FATAL) << "The cropped undistorted image dimensions must be even.";
-    if (undist_size[0] % 2 != 0 || undist_size[1] % 2 != 0 )
+    if (undist_size[0] % 2 != 0 || undist_size[1] % 2 != 0)
       LOG(FATAL) << "The undistorted image dimensions must be even.";
 
     // Ensure that the crop window is within the image bounds
@@ -327,7 +327,7 @@ int main(int argc, char ** argv) {
 #endif
       undist_image = bgr_image;
     }
-    
+
     cv::Mat gray_image;
     if (!FLAGS_save_bgr && undist_image.channels() > 1) {
 #if (CV_VERSION_MAJOR >= 4)
@@ -337,10 +337,10 @@ int main(int argc, char ** argv) {
 #endif
       undist_image = gray_image;
     }
-    
+
     cv::imwrite(undist_file, undist_image);
   } // end iterating over images
-  
+
   // Write some very useful info
   std::cout << "Distorted image size:       " << dist_size.transpose()      << "\n";
   std::cout << "Undistorted image size:     " << undist_size.transpose()    << "\n";
@@ -358,6 +358,6 @@ int main(int argc, char ** argv) {
         << optical_center.transpose() << "\n";
     ofs.close();
   }
-  
+
   return 0;
 }

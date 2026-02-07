@@ -26,7 +26,7 @@
 #include <asp/Rig/BasicAlgs.h>
 #include <asp/Rig/RigUtils.h>
 #include <asp/Rig/TextureProcessing.h>
-#include <asp/Rig/triangulation.h>
+#include <asp/Rig/Triangulation.h>
 #include <asp/Rig/RigOutlier.h>
 #include <asp/Core/ImageUtils.h>
 

@@ -37,10 +37,10 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/utility.hpp>
 
-#include <Rig/RigRpcDistortion.h>
-#include <Rig/RigCameraParams.h>
-#include <Rig/RigUtils.h>
-#include <Rig/RigConfig.h>
+#include <asp/Rig/RigRpcDistortion.h>
+#include <asp/Rig/RigCameraParams.h>
+#include <asp/Rig/RigUtils.h>
+#include <asp/Rig/RigConfig.h>
 
 #include <gflags/gflags.h>
 #include <glog/logging.h>
@@ -80,14 +80,13 @@ DEFINE_string(out_dir, "",
 DEFINE_bool(verbose, false,
             "Print more information about what the tool is doing.");
 
-
 int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
   google::ParseCommandLineFlags(&argc, &argv, true);
 
   if (FLAGS_camera_config.empty())
     LOG(FATAL) << "Camera config file was not specified.";
-  
+
   if (FLAGS_out_dir.empty())
     LOG(FATAL) << "Output camera config directory was not specified.";
 
@@ -100,7 +99,7 @@ int main(int argc, char** argv) {
   rig::RigSet R;
   bool use_initial_rig_transforms = true; // dictated by the api
   rig::readRigConfig(FLAGS_camera_config, use_initial_rig_transforms, R);
-  
+
   std::cout << "Focal length is " << R.cam_params[0].GetFocalVector().transpose() << std::endl;
 
   Eigen::VectorXd rpc_dist_coeffs;
@@ -111,7 +110,7 @@ int main(int argc, char** argv) {
                         FLAGS_verbose,
                         // Output
                         rpc_dist_coeffs);
-  
+
   rig::RPCLensDistortion rpc;
   rpc.set_distortion_parameters(rpc_dist_coeffs);
 
@@ -122,6 +121,6 @@ int main(int argc, char** argv) {
   R.cam_params[0].SetDistortion(rpc_dist_coeffs);
 
   rig::writeRigConfig(FLAGS_out_dir + "/rig_config.txt", use_initial_rig_transforms, R);
-  
+
   return 0;
 }

@@ -24,7 +24,7 @@
 #include <asp/Rig/RigOptions.h>
 #include <asp/Rig/RigParseOptions.h>
 #include <asp/Rig/RigTypeDefs.h>
-#include <asp/Rig/triangulation.h>
+#include <asp/Rig/Triangulation.h>
 #include <asp/Rig/RigThread.h>
 #include <asp/Rig/RigParseUtils.h>
 #include <asp/Rig/BasicAlgs.h>
@@ -85,7 +85,7 @@ void run_rig_calibrator(int argc, char** argv) {
   // Rig configuration. The rig transforms may not exist yet.
   rig::RigSet R;
   rig::readRigConfig(opt.rig_config, opt.use_initial_rig_transforms, R);
-  
+
   // Parse auxiliary rig options that depend on R
   rig::parseAuxRigOptions(opt, R);
 
@@ -250,8 +250,8 @@ void run_rig_calibrator(int argc, char** argv) {
   for (int pass = 0; pass < opt.num_passes; pass++) {
     std::cout << "\nOptimization pass " << pass + 1 << " / " << opt.num_passes << "\n";
     runOptPass(pass, num_depth_params, opt, imgData, ref_timestamps,
-               keypoint_vec, pid_to_cid_fid, 
-               min_timestamp_offset, max_timestamp_offset, mesh, bvh_tree, 
+               keypoint_vec, pid_to_cid_fid,
+               min_timestamp_offset, max_timestamp_offset, mesh, bvh_tree,
                depth_to_image_scales, cams, R, xyz_vec, pid_cid_fid_inlier); // out
   }  // End optimization passes
 
@@ -333,7 +333,7 @@ int main(int argc, char * argv[]) {
   try {
     run_rig_calibrator(argc, argv);
   } ASP_STANDARD_CATCHES;
-  
+
   return 0;
 
 }

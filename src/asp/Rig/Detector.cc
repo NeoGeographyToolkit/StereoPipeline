@@ -7,7 +7,7 @@
  * (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
@@ -16,7 +16,7 @@
  * under the License.
  */
 
-#include <asp/Rig/detector.h>
+#include <asp/Rig/Detector.h>
 
 #include <opencv2/xfeatures2d.hpp>
 #include <gflags/gflags.h>
@@ -49,7 +49,7 @@ DynamicDetector::DynamicDetector(int min_features, int max_features, int max_ret
   min_thresh_(min_thresh), default_thresh_(default_thresh), max_thresh_(max_thresh),
   dynamic_thresh_(default_thresh) {}
 
-void DynamicDetector::GetDetectorParams(int & min_features, int & max_features, 
+void DynamicDetector::GetDetectorParams(int & min_features, int & max_features,
                                         int & max_retries,
                                         double & min_thresh, double & default_thresh,
                                         double & max_thresh) {

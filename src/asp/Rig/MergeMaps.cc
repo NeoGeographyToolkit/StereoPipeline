@@ -7,7 +7,7 @@
  * (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
@@ -27,7 +27,7 @@
 #include <asp/Rig/RigConfig.h>
 #include <asp/Rig/InterestPoint.h>
 #include <asp/Rig/RigOutlier.h>
-#include <asp/Rig/triangulation.h> 
+#include <asp/Rig/Triangulation.h>
 #include <asp/Core/Nvm.h>
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/RigIo.h>
@@ -57,7 +57,7 @@
 #include <mutex>
 #include <fstream>
 
-DECLARE_int32(num_threads); // defined externally
+DECLARE_int32(num_threads);  // defined externally
 
 namespace rig {
 
@@ -74,7 +74,7 @@ namespace rig {
 void FindPidCorrespondences(rig::PidCidFid const& A_cid_fid_to_pid,
                             rig::PidCidFid const& B_cid_fid_to_pid,
                             rig::PidCidFid const& C_pid_to_cid_fid,
-                            int num_acid,  // How many images are in A
+                            int num_acid, // How many images are in A
                             std::map<int, int> * A2B, std::map<int, int> * B2A) {
   A2B->clear();
   B2A->clear();
@@ -151,10 +151,10 @@ void FindPidCorrespondences(rig::PidCidFid const& A_cid_fid_to_pid,
 // some show up in both maps.
 void MergePoses(std::map<int, int> & cid2cid,
                 std::vector<Eigen::Affine3d> & world_to_cam) {
-    
+
   // The total number of output cameras (last new cid value + 1)
   int num_out_cams = rig::maxMapVal(cid2cid) + 1;
-  
+
   // Each blob will be original cids that end up being a single cid
   // after identifying repeat images.
   std::vector<std::set<int>> blobs(num_out_cams);
@@ -191,7 +191,7 @@ void MergePoses(std::map<int, int> & cid2cid,
 
   // Return the updated poses
   world_to_cam = world_to_cam2;
-  
+
   return;
 }
 
@@ -199,7 +199,7 @@ void MergePoses(std::map<int, int> & cid2cid,
 // we have the images from the first and then he second maps to merge.
 void setupLoadMatchingImages(std::vector<std::string> const& image_files,
                              rig::RigSet const& R,
-                             std::string const& image_sensor_list, 
+                             std::string const& image_sensor_list,
                              int map1_len, int map2_len,
                              int num_image_overlaps_at_endpoints,
                              // Outputs
@@ -207,13 +207,13 @@ void setupLoadMatchingImages(std::vector<std::string> const& image_files,
                              std::vector<rig::cameraImage> & cams) {
 
   // sanity check
-  if (map1_len + map2_len != image_files.size()) 
+  if (map1_len + map2_len != image_files.size())
     LOG(FATAL) << "Book-keeping error, total number of images is not right.\n";
-  
+
   // Initialize the outputs
   image_pairs.clear();
   cams.resize(image_files.size());
-  
+
   std::set<int> map1_search, map2_search;  // use sets to avoid duplicates
   int num = num_image_overlaps_at_endpoints;
 
@@ -245,20 +245,20 @@ void setupLoadMatchingImages(std::vector<std::string> const& image_files,
 
   // Allocate a structure having an entry for all images, but load
   // only those for which we need to find matches.
-  if (!map1_search.empty() && !map2_search.empty()) 
+  if (!map1_search.empty() && !map2_search.empty())
     std::cout << "Loading images to match." << std::endl;
-  
+
   // Infer the sensor type (and timestamp, which is not used)
   std::vector<int> cam_types;
   std::vector<double> timestamps;
-  bool flexible_strategy = true; // can handle with and without separate attributes
-  rig::readImageSensorTimestamp(image_sensor_list, image_files, R.cam_names, 
+  bool flexible_strategy = true;  // can handle with and without separate attributes
+  rig::readImageSensorTimestamp(image_sensor_list, image_files, R.cam_names,
                                       flexible_strategy,
                                       // Outputs
                                       cam_types, timestamps);
-  
+
   for (size_t cid = 0; cid < image_files.size(); cid++) {
-    auto & c = cams[cid]; // alias
+    auto & c = cams[cid];  // alias
     // Populate most fields. All we need is the image data and camera type.
     c.image_name = image_files[cid];
     c.camera_type = cam_types[cid];
@@ -276,29 +276,29 @@ Eigen::Affine3d computeTransformFromBToA(const asp::nvmData& A,
                                          const asp::nvmData& B) {
   // Calc all transforms from B poses to A poses
   std::vector<Eigen::MatrixXd> B2A_vec;
-  
+
   // Put the B poses in a map
   std::map<std::string, Eigen::Affine3d> B_world2cam;
   for (size_t cid = 0; cid < B.world_to_cam.size(); cid++)
     B_world2cam[B.cid_to_filename[cid]] = B.world_to_cam[cid];
-  
+
   // Find the transform from B to A based on shared poses
   for (size_t cid = 0; cid < A.cid_to_filename.size(); cid++) {
     auto b_it = B_world2cam.find(A.cid_to_filename[cid]);
-    if (b_it == B_world2cam.end()) 
+    if (b_it == B_world2cam.end())
       continue;
-    
+
     auto const& A_world2cam = A.world_to_cam[cid];
     auto const& B_world2cam = b_it->second;
-    
+
     // Go from world of B to world of A
-    B2A_vec.push_back( ((A_world2cam.inverse()) * B_world2cam).matrix() );
+    B2A_vec.push_back(((A_world2cam.inverse()) * B_world2cam).matrix());
   }
 
   // Find the median transform, for robustness
   Eigen::Affine3d B2A_trans;
   B2A_trans.matrix() = rig::median_matrix(B2A_vec);
-  
+
   return B2A_trans;
 }
 
@@ -340,7 +340,7 @@ double estimateCloseDistance(std::vector<Eigen::Vector3d> const& vec) {
 struct TranslationRotationScaleFittingFunctor {
   typedef Eigen::Affine3d result_type;
 
-  /// A transformation requires 3 inputs and 3 outputs to make a fit.
+  /  // A transformation requires 3 inputs and 3 outputs to make a fit.
   size_t min_elements_needed_for_fit() const { return 3; }
 
   result_type operator() (std::vector<Eigen::Vector3d> const& in_vec,
@@ -371,7 +371,7 @@ struct TransformError {
     return (T*p1 - p2).norm();
   }
 };
-  
+
 // Estimate the transform from B_xyz_vec to A_xyz_vec using RANSAC.
 // A lot of outliers are possible.
 Eigen::Affine3d findMapToMapTransform(const std::vector<Eigen::Vector3d>& A_xyz_vec,
@@ -380,12 +380,12 @@ Eigen::Affine3d findMapToMapTransform(const std::vector<Eigen::Vector3d>& A_xyz_
 
   double inlier_threshold = estimateCloseDistance(A_xyz_vec);
   if (close_dist > 0.0)
-    inlier_threshold = close_dist; // user-set value
-  
-  std::cout << "3D points are declared to be rather close if their distance is " 
+    inlier_threshold = close_dist;  // user-set value
+
+  std::cout << "3D points are declared to be rather close if their distance is "
             << inlier_threshold << " meters (option --close_dist). "
             << "Using this as inlier threshold.\n";
-  
+
   int  num_iterations = 1000;
   int  min_num_output_inliers = A_xyz_vec.size()/2;
   bool reduce_min_num_output_inliers_if_no_fit = true;  // If too many outliers
@@ -417,16 +417,16 @@ Eigen::Affine3d findMapToMapTransform(const std::vector<Eigen::Vector3d>& A_xyz_
 // Also sort the new cid by image name.
 void findCidToCid(std::vector<std::string> const& cid_to_filename,
                   std::map<int, int> & cid2cid, int & num_out_cams) {
-  
+
   // Wipe the outputs
   cid2cid.clear();
   num_out_cams = 0;
-  
-  std::vector<std::string> sorted = cid_to_filename; // make a copy
+
+  std::vector<std::string> sorted = cid_to_filename;  // make a copy
   std::sort(sorted.begin(), sorted.end());
-  
+
   // The new index of each image after rm repetitions
-  std::map<std::string, int> image2cid;  
+  std::map<std::string, int> image2cid;
   for (size_t cid = 0; cid < sorted.size(); cid++) {
     std::string img = sorted[cid];
     if (image2cid.find(img) == image2cid.end()) {
@@ -438,14 +438,14 @@ void findCidToCid(std::vector<std::string> const& cid_to_filename,
   // The index of the cid after removing the repetitions
   for (size_t cid = 0; cid < cid_to_filename.size(); cid++)
     cid2cid[cid] = image2cid[cid_to_filename[cid]];
-  if (num_out_cams != rig::maxMapVal(cid2cid) + 1) // sanity check
+  if (num_out_cams != rig::maxMapVal(cid2cid) + 1)  // sanity check
     LOG(FATAL) << "Book-keeping error in findCidToCid().\n";
 }
 
 // Merge the camera names using cid2cid, which remaps the cid to remove repetitions
 // and sort the images by time.
 void mergeCameraNames(std::vector<std::string> & cid_to_filename,
-                      const std::map<int, int> & cid2cid, 
+                      const std::map<int, int> & cid2cid,
                       int num_out_cams) {
   std::vector<std::string> cid_to_filename2(num_out_cams);
   for (size_t cid = 0; cid < cid_to_filename.size(); cid++) {
@@ -454,7 +454,7 @@ void mergeCameraNames(std::vector<std::string> & cid_to_filename,
       LOG(FATAL) << "cid2cid does not contain cid " << cid << ".\n";
     cid_to_filename2.at(it->second) = cid_to_filename[cid];
   }
-  
+
   cid_to_filename = cid_to_filename2;
 }
 
@@ -495,9 +495,9 @@ void MergeMaps(asp::nvmData const& A,
                bool fast_merge,
                bool no_transform,
                double close_dist,
-               std::string const& image_sensor_list, 
+               std::string const& image_sensor_list,
                int num_threads,
-               asp::nvmData & C) { // output merged map
+               asp::nvmData & C) {  // output merged map
 
   // Wipe the output
   C = asp::nvmData();
@@ -507,7 +507,7 @@ void MergeMaps(asp::nvmData const& A,
               << "as fast merging is used.\n";
     num_image_overlaps_at_endpoints = 0;
   }
-  
+
   // Merge things that make sense to merge and are easy to do. Later
   // some of these will be shrunk if the input maps have shared data.
   int num_acid = A.cid_to_filename.size();
@@ -523,11 +523,11 @@ void MergeMaps(asp::nvmData const& A,
 
   std::vector<rig::cameraImage> C_cams;
   std::vector<std::pair<int, int>> image_pairs;
-  setupLoadMatchingImages(C.cid_to_filename, R, image_sensor_list, 
-                          num_acid, num_bcid,  
-                          num_image_overlaps_at_endpoints,  
-                          image_pairs, C_cams); // Outputs
-  
+  setupLoadMatchingImages(C.cid_to_filename, R, image_sensor_list,
+                          num_acid, num_bcid,
+                          num_image_overlaps_at_endpoints,
+                          image_pairs, C_cams);  // Outputs
+
   Eigen::Affine3d B2A_trans = Eigen::Affine3d::Identity();
   if (fast_merge || no_transform) {
 
@@ -538,34 +538,34 @@ void MergeMaps(asp::nvmData const& A,
 
     // Compute the transform from the B map to the A map by finding the median
     // transform based on the shared images
-    if (!no_transform) 
+    if (!no_transform)
       B2A_trans = computeTransformFromBToA(A, B);
 
   } else {
     // Find corresponding triangulated points between the maps which will
     // result in the transform between them.
-  
+
     // Find features among matching images
     std::string out_dir = "";
     bool save_matches = false;
-    int num_overlaps = 0; // will use image_pairs
+    int num_overlaps = 0;  // will use image_pairs
     rig::KeypointVec C_keypoint_vec;
-    int initial_max_reprojection_error = -1; // won't be used
+    int initial_max_reprojection_error = -1;  // won't be used
     bool verbose = false;
-    bool filter_matches_using_cams = false; // do not have a single camera set yet
-    bool read_nvm_no_shift = true; // not used, part of the api
-    bool no_nvm_matches = true; // not used, part of the api
-    asp::nvmData empty_nvm; // not used, part of the api
-    C.world_to_cam.resize(C.cid_to_filename.size()); // won't be used
+    bool filter_matches_using_cams = false;  // do not have a single camera set yet
+    bool read_nvm_no_shift = true;  // not used, part of the api
+    bool no_nvm_matches = true;  // not used, part of the api
+    asp::nvmData empty_nvm;  // not used, part of the api
+    C.world_to_cam.resize(C.cid_to_filename.size());  // won't be used
     std::cout << "Number of image pairs to match: " << image_pairs.size() << std::endl;
-    std::vector<Eigen::Vector3d> local_xyz_vec; // not used
+    std::vector<Eigen::Vector3d> local_xyz_vec;  // not used
     rig::detectAddFeatures(// Inputs
-                           C_cams, R.cam_params, out_dir, save_matches,  
-                           filter_matches_using_cams,  
+                           C_cams, R.cam_params, out_dir, save_matches,
+                           filter_matches_using_cams,
                            C.world_to_cam,
                            num_overlaps, image_pairs,
-                           initial_max_reprojection_error, num_threads,  
-                           read_nvm_no_shift, no_nvm_matches, verbose,  
+                           initial_max_reprojection_error, num_threads,
+                           read_nvm_no_shift, no_nvm_matches, verbose,
                            // Outputs
                            C_keypoint_vec, C.pid_to_cid_fid, local_xyz_vec,
                            empty_nvm);
@@ -575,12 +575,12 @@ void MergeMaps(asp::nvmData const& A,
     rig::KeypointVec A_keypoint_vec, B_keypoint_vec;
     std::vector<rig::cameraImage> A_cams, B_cams;
     rig::splitTracksOneToOne(// Inputs
-                                   num_acid, C.pid_to_cid_fid, C_keypoint_vec, C_cams,  
+                                   num_acid, C.pid_to_cid_fid, C_keypoint_vec, C_cams,
                                    // Outputs
                                    A_pid_to_cid_fid, B_pid_to_cid_fid,
-                                   A_keypoint_vec, B_keypoint_vec,  
+                                   A_keypoint_vec, B_keypoint_vec,
                                    A_cams, B_cams);
-    
+
 #if 1
     // TODO(oalexan1): This should be a function called findMatchingTriPoints().
     // Flag as outliers features outside of the distorted crop box
@@ -597,7 +597,7 @@ void MergeMaps(asp::nvmData const& A,
                                           B_pid_cid_fid_inlier);
 
     // Find triangulated points
-    std::vector<Eigen::Vector3d> A_xyz_vec, B_xyz_vec; // triangulated points go here
+    std::vector<Eigen::Vector3d> A_xyz_vec, B_xyz_vec;  // triangulated points go here
     rig::multiViewTriangulation(// Inputs
                                       R.cam_params, A_cams, A.world_to_cam,
                                       A_pid_to_cid_fid,
@@ -611,7 +611,7 @@ void MergeMaps(asp::nvmData const& A,
                                       B_keypoint_vec,
                                       // Outputs
                                       B_pid_cid_fid_inlier, B_xyz_vec);
-  
+
     // Keep only the good points
     int count = 0;
     for (size_t pid = 0; pid < A_xyz_vec.size(); pid++) {
@@ -632,15 +632,15 @@ void MergeMaps(asp::nvmData const& A,
     C.cid_to_keypoint_map.resize(C.cid_to_filename.size());
     for (size_t cid = 0; cid < C.cid_to_filename.size(); cid++)
       rig::vec2eigen(C_keypoint_vec[cid], C.cid_to_keypoint_map[cid]);
-    C_keypoint_vec = rig::KeypointVec (); // wipe this
-    
-  } // end finding the transform using matches
+    C_keypoint_vec = rig::KeypointVec ();  // wipe this
+
+  }  // end finding the transform using matches
 
   // In either case print the found transform
   std::cout << "Affine transform from second map to first map:\n";
   std::cout << "Rotation + scale:\n" << B2A_trans.linear()  << "\n";
   std::cout << "Translation: " << B2A_trans.translation().transpose() << "\n";
-  
+
   // Bring the B map cameras in the A map coordinate system. Do not modify
   // B.world_to_cam, but make a copy of it in B_trans_world2cam.
   std::vector<Eigen::Affine3d> B_trans_world2cam = B.world_to_cam;
@@ -664,7 +664,7 @@ void MergeMaps(asp::nvmData const& A,
 
   // Merge the camera names too, based on cid2cid
   mergeCameraNames(C.cid_to_filename, cid2cid, num_out_cams);
-  
+
 #if 1
   // By now we have 3 maps: A, B, and the new one in C having shared
   // tracks. Each of these has its own images and indices, and C
@@ -678,26 +678,26 @@ void MergeMaps(asp::nvmData const& A,
   std::vector<Eigen::Vector2d> keypoint_offsets(num_acid + num_bcid,
                                                 Eigen::Vector2d(0, 0));
   KeyPointMap merged_keypoint_map(num_out_cams);
-  std::vector<int> find_count(num_out_cams, 0); // how many keypoints so far
+  std::vector<int> find_count(num_out_cams, 0);  // how many keypoints so far
   rig::PidCidFid merged_pid_to_cid_fid;
   // Add A
-  int cid_shift = 0; // A and C start with same images, so no shift
-  rig::transformAppendNvm(A.pid_to_cid_fid, A.cid_to_keypoint_map,  
+  int cid_shift = 0;  // A and C start with same images, so no shift
+  rig::transformAppendNvm(A.pid_to_cid_fid, A.cid_to_keypoint_map,
                                 cid2cid, keypoint_offsets, cid_shift, num_out_cams,
                                 // Append below
                                 find_count, merged_keypoint_map,
                                 merged_pid_to_cid_fid);
   // Add B
-  cid_shift = num_acid; // the B map starts later
-  rig::transformAppendNvm(B.pid_to_cid_fid, B.cid_to_keypoint_map,  
-                                cid2cid, keypoint_offsets, cid_shift, num_out_cams,  
+  cid_shift = num_acid;  // the B map starts later
+  rig::transformAppendNvm(B.pid_to_cid_fid, B.cid_to_keypoint_map,
+                                cid2cid, keypoint_offsets, cid_shift, num_out_cams,
                                 // Append below
                                 find_count, merged_keypoint_map,
                                 merged_pid_to_cid_fid);
   // Add C
-  cid_shift = 0; // no shift, C is consistent with itself
-  rig::transformAppendNvm(C.pid_to_cid_fid, C.cid_to_keypoint_map,  
-                                cid2cid, keypoint_offsets, cid_shift, num_out_cams,  
+  cid_shift = 0;  // no shift, C is consistent with itself
+  rig::transformAppendNvm(C.pid_to_cid_fid, C.cid_to_keypoint_map,
+                                cid2cid, keypoint_offsets, cid_shift, num_out_cams,
                                 // Append below
                                 find_count, merged_keypoint_map,
                                 merged_pid_to_cid_fid);
@@ -715,19 +715,19 @@ void MergeMaps(asp::nvmData const& A,
   C.cid_to_keypoint_map.clear();
   C.cid_to_keypoint_map.resize(num_out_cams);
   for (int cid = 0; cid < num_out_cams; cid++) {
-    auto const& map = merged_keypoint_map[cid]; // alias
+    auto const& map = merged_keypoint_map[cid];  // alias
     C.cid_to_keypoint_map[cid] = Eigen::MatrixXd(2, map.size());
     for (auto map_it = map.begin(); map_it != map.end(); map_it++) {
-      std::pair<float, float> const& K = map_it->first; 
+      std::pair<float, float> const& K = map_it->first;
       int fid = map_it->second;
       C.cid_to_keypoint_map.at(cid).col(fid) = Eigen::Vector2d(K.first, K.second);
     }
   }
 #endif
-  
+
   // Merge the camera poses as well (remove duplicates)
   mergeCameraPoses(C_cams, cid2cid, num_out_cams);
-  
+
   // Create C_keypoint_vec. Same info as C.cid_to_keypoint_map but different structure.
   rig::KeypointVec C_keypoint_vec;
   C_keypoint_vec.resize(num_out_cams);
@@ -752,6 +752,6 @@ void MergeMaps(asp::nvmData const& A,
   // TODO(oalexan1): Should one remove outliers from tri points
   // and C.pid_to_cid_fid?
 }
-  
+
 }
 

@@ -8,7 +8,7 @@
  * (the "License"); you may not use this file except in compliance with the
  * License. You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
@@ -20,8 +20,8 @@
 #pragma once
 
 #include <asp/Core/Nvm.h>
-#include <asp/Rig/CameraImage.h> // For rig::cameraImage
-#include <asp/Rig/RigConfig.h>   // For rig::RigSet
+#include <asp/Rig/CameraImage.h>
+#include <asp/Rig/RigConfig.h>
 #include <asp/Rig/RigTypeDefs.h>
 
 #include <Eigen/Core>
@@ -43,7 +43,7 @@ bool updateCidFindKeypoint(std::map<int, int>::const_iterator map_it,
                            std::vector<Eigen::Vector2d>  const& keypoint_offsets,
                            int cid_shift,
                            // outputs
-                           int                                & cid, 
+                           int                                & cid,
                            std::pair<float, float>            & K);
 
 // The nvm file produced by Theia can have files in arbitrary order. Find the map
@@ -57,7 +57,7 @@ void findCidReorderMap(asp::nvmData const& nvm,
 // center, undo this shift when 'undo_shift' is true. So, add the optical center.
 // When 'undo_shift' is false, subtract the optical center.
 void shiftKeypoints(bool undo_shift, rig::RigSet const& R,
-                    asp::nvmData & nvm); // output
+                    asp::nvmData & nvm);  // output
 
 // Transform nvm matches. Account for the fact that the nvm file will
 // likely have the images in different order than in the 'cams'
@@ -95,4 +95,4 @@ void transformAppendNvm(// Append from these
                         KeyPointMap                       & merged_keypoint_map,
                         rig::PidCidFid                    & pid_to_cid_fid);
 
-} // end namespace rig
+}  // end namespace rig
