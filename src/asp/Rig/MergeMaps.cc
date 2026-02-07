@@ -340,7 +340,7 @@ double estimateCloseDistance(std::vector<Eigen::Vector3d> const& vec) {
 struct TranslationRotationScaleFittingFunctor {
   typedef Eigen::Affine3d result_type;
 
-  /  // A transformation requires 3 inputs and 3 outputs to make a fit.
+  // A transformation requires 3 inputs and 3 outputs to make a fit.
   size_t min_elements_needed_for_fit() const { return 3; }
 
   result_type operator() (std::vector<Eigen::Vector3d> const& in_vec,
@@ -653,8 +653,8 @@ void MergeMaps(asp::nvmData const& A,
   C.world_to_cam.insert(C.world_to_cam.end(),
                                B_trans_world2cam.begin(), B_trans_world2cam.end());
 
-  //  Find how to map cid to new cid which will not have
-  //  repetition. Also sort by image name.
+  // Find how to map cid to new cid which will not have
+  // repetition. Also sort by image name.
   std::map<int, int> cid2cid;
   int num_out_cams = 0;
   findCidToCid(C.cid_to_filename, cid2cid, num_out_cams);
