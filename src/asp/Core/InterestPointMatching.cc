@@ -123,9 +123,9 @@ void detect_ip(vw::ip::InterestPointList& ip,
 
     vw::vw_out() << "\t    Detecting IP\n";
     if (!has_nodata)
-      ip = detect_interest_points(image.impl(), detector, ip_per_tile);
+      ip = detect_interest_points(pixel_cast<float>(image.impl()), detector, ip_per_tile);
     else
-      ip = detect_interest_points(apply_mask(create_mask(image.impl(),nodata)), detector, ip_per_tile);
+      ip = detect_interest_points(pixel_cast<float>(apply_mask(create_mask(image.impl(),nodata))), detector, ip_per_tile);
   } else {
 
     // Initialize the OpenCV detector.  Conveniently we can just pass in the type argument.
@@ -151,9 +151,9 @@ void detect_ip(vw::ip::InterestPointList& ip,
 
     vw::vw_out() << "\t    Detecting IP\n";
     if (!has_nodata)
-      ip = detect_interest_points(image.impl(), detector, ip_per_tile);
+      ip = detect_interest_points(pixel_cast<float>(image.impl()), detector, ip_per_tile);
     else
-      ip = detect_interest_points(create_mask(image.impl(),nodata), detector, ip_per_tile);
+      ip = detect_interest_points(pixel_cast<float>(create_mask(image.impl(),nodata)), detector, ip_per_tile);
   } // End OpenCV case
 
   sw1.stop();
