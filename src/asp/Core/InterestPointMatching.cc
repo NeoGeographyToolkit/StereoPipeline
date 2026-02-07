@@ -112,8 +112,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
     // Zack's custom detector
     int num_scales = stereo_settings().num_scales;
     if (num_scales <= 0)
-      num_scales = vw::ip::IntegralInterestPointDetector
-        <vw::ip::OBALoGInterestOperator>::IP_DEFAULT_SCALES;
+      num_scales = vw::ip::IntegralAutoGainDetector::IP_DEFAULT_SCALES;
     else
       vw::vw_out() << "\t    Using " << num_scales
         << " scales in OBALoG interest point detection.\n";
