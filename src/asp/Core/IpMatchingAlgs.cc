@@ -25,6 +25,7 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/FileIO/DiskImageView.h>
+#include <vw/Math/Statistics.h>
 
 #include <boost/filesystem.hpp>
 

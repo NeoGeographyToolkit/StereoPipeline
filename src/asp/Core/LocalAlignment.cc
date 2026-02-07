@@ -34,6 +34,7 @@
 #include <vw/Image/Transform.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/Image/Interpolation.h>
+#include <vw/Image/Algorithms.h>
 #include <vw/InterestPoint/InterestPointUtils.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/MatrixIO.h>

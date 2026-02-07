@@ -57,8 +57,6 @@
 #include <mutex>
 #include <fstream>
 
-DECLARE_int32(num_threads);  // defined externally
-
 namespace rig {
 
 // TODO(oalexan1): This code is not used but may be useful one day
