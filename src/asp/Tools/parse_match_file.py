@@ -24,10 +24,11 @@ import numpy as np
 
 def read_ip_record(mf):
     """
-    Read one IP record from the binary match file.
-    Information comtained are x, y, xi, yi, orientation, scale, interest, polarity, octave, scale_lvl, desc 
-    Input: - mf, file handle to the in put binary file (in 'rb' mode)
-    Output: - iprec, array containing the IP record
+    Read one IP record from the binary match file. Information contained are x,
+    y, xi, yi, orientation, scale, interest, polarity, octave, scale_lvl, desc.
+     
+    Inputs: mf, file handle to the in put binary file (in 'rb' mode) 
+    Outputs: iprec, array containing the IP record
     """
     x, y = np.frombuffer(mf.read(8), dtype=np.float32)
     xi, yi = np.frombuffer(mf.read(8), dtype=np.int32)
@@ -40,10 +41,9 @@ def read_ip_record(mf):
     iprec.extend(desc)
     return iprec
 
-
 def write_ip_record(out, iprec):
     """
-    Just the reverse operation of read_ip_record.
+    The reverse operation of read_ip_record.
     Inputs:
     - out: file handle to the output binary file (in 'wb' mode)
     - iprec: 1D array containing one IP record
@@ -71,14 +71,14 @@ def write_ip_record(out, iprec):
         out.write(struct.pack('f',iprec[11+k]))  # desc
     return
 
-        
 def read_match_file(match_file):
     """
-    Read a full binary match file. First two 8-bits contain the number of IPs in each image. Then contains the record for each IP, image1 first, then image2.
-    Input: 
-    - match_file: str, path to the match file
-    Outputs:
-    - two arrays, containing the IP records for image1 and image2.
+    Read a full binary match file. The first two 8-bit fields contain the number
+    of IPs in each image. Next are the records for each IP, first for image1 and
+    then for image2.
+    
+    Input: match_file: str, path to the match file.
+    Outputs: two arrays, containing the IP records for image1 and image2.
     """
 
     # Open binary file in read mode
@@ -97,7 +97,6 @@ def read_match_file(match_file):
     mf.close()
     
     return im1_ip, im2_ip
-
 
 def write_match_file(outfile, im1_ip, im2_ip):
     """
@@ -133,18 +132,26 @@ def write_match_file(outfile, im1_ip, im2_ip):
         write_ip_record(out, im2_ip[k])
     return
         
-
 if __name__ == '__main__':
 
-    #Set up arguments
-    parser = argparse.ArgumentParser(description='Convert an ASP (binary) match file into a text file. Use option -rev to do the reverse operation.')
-    parser.add_argument('infile', type=str, help='Path to the input file.')
-    parser.add_argument('outfile', type=str, help='Path to the output file.')
-    parser.add_argument('-rev', dest='rev', help='Convert a text file into an ASP match file.',
-                        action='store_true')
+    #Set up the arguments
+    parser = argparse.ArgumentParser(description = \
+       'Convert an ASP binary match file to a text file. ' + \
+       'Use the -rev option to do the reverse operation.')
+    
+    parser.add_argument('infile', type=str, 
+      help='Path to the input file.')
+    parser.add_argument('outfile', type=str, 
+      help='Path to the output file.')
+    parser.add_argument('-rev', '--reverse', dest='rev', 
+      help='Convert a text file having matches into an ASP binary match file.',
+      action='store_true')
+    parser.add_argument('--save-descriptors', dest='save_descriptors', 
+      help='When converting a binary match file to text, save the ' +
+           'interest point descriptors as well.',
+      action='store_true')
     args = parser.parse_args()
 
-    
     if args.rev==False:
 
         # Read match file
@@ -166,13 +173,31 @@ if __name__ == '__main__':
             # Write IPs for image1
             for i in range(len(im1_ip)):
                 iprec = im1_ip[i]
-                iprec_str = [str(a) for a in iprec]
+                
+                if args.save_descriptors:
+                    # Save the full record, including descriptors
+                    iprec_to_write = iprec
+                else:
+                    # Keep only the first 11 fields, and set ndesc (at index 10) to 0.
+                    iprec_to_write = iprec[:11]
+                    iprec_to_write[10] = 0
+                
+                iprec_str = [str(a) for a in iprec_to_write]
                 out.write(' '.join(iprec_str) + '\n')
 
             # Write IPs for image2
             for i in range(len(im2_ip)):
                 iprec = im2_ip[i]
-                iprec_str = [str(a) for a in iprec]
+
+                if args.save_descriptors:
+                    # Save the full record, including descriptors
+                    iprec_to_write = iprec
+                else:
+                    # Keep only the first 11 fields, and set ndesc (at index 10) to 0.
+                    iprec_to_write = iprec[:11]
+                    iprec_to_write[10] = 0
+
+                iprec_str = [str(a) for a in iprec_to_write]
                 out.write(' '.join(iprec_str) + '\n')
 
     else:
@@ -184,9 +209,9 @@ if __name__ == '__main__':
         size1, size2 = np.uint64(out.strip().split(' '))
         f.close()
 
-        # Read each image IPs records. Note how we don't bother to read
-        # the descriptors, which are a handful of values on each row beyond
-        # the specified fields.
+        # Read each image IPs records. Note how we don't bother to read the
+        # descriptors, which are a handful of values on each row beyond the
+        # specified fields.
         try:
             im1_ipb = np.genfromtxt(args.infile,skip_header=1,dtype='float32, float32, int32, int32, float32, float32, float32, int8, uint32, uint32, uint64', max_rows=size1)
             im1_ipb = im1_ipb.reshape((size1,))
@@ -198,4 +223,3 @@ if __name__ == '__main__':
 
         # Save to output file
         write_match_file(args.outfile, im1_ipb, im2_ipb)
-

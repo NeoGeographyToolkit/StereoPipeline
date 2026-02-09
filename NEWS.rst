@@ -69,6 +69,10 @@ theia_sfm (:numref:`theia_sfm`):
   * All command-line options now use dashes instead of underscores. For example,
     ``--rig_config`` is now ``--rig-config``.
 
+parse_match_file.py (:numref:`parse_match_file`):
+  * When converting from binary to text, descriptors are no longer saved by
+    default. Use the ``--save-descriptors`` option to include them.
+    
 Misc:
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment. 
