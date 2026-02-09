@@ -41,11 +41,10 @@ regions (projection windows). This results in a total of 16 different runs of
 sizes, one stereo algorithm, and two subpixel modes, resulting in 4 runs
 on the full image extents.
 
-Parameters with multiple values (like ``--corr-kernel 7,7`` or ``--proj-win
--180,3873,3287,180``) use commas to separate them, with no spaces. This is
-necessary so ``--param-sweep`` can be parsed correctly. The commas are replaced
-with spaces when passing the arguments to ``parallel_stereo``
-(:numref:`stereodefault`).
+Parameters with multiple values (like ``--corr-kernel 7,7`` or ``--proj-win``)
+have commas as separator, with no spaces. This is necessary so ``--param-sweep``
+can be parsed correctly. The commas are replaced with spaces when passing the
+arguments to ``parallel_stereo`` (:numref:`stereodefault`).
 
 The :ref:`point2dem` command will be run on each output of ``parallel_stereo``.
 Arguments to it can be passed via the ``--point2dem-params`` option. See :numref:`stereo_sweep_opts` for more details.

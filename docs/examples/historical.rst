@@ -803,6 +803,9 @@ called ``fwd_sub16.tif``. The command is::
       --gcp-file fwd_sub16.gcp            \
       -o fwd_sub16.tsai
 
+This creates the camera file ``fwd_sub16.tsai`` and the GCP file
+``fwd_sub16.gcp``.
+
 The historical images are often cropped after being scanned, and the image size
 and optical center (image center) will be different for each image. The command
 above will write the correct image size in the output file, and will set the
