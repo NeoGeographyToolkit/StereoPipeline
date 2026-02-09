@@ -24,7 +24,7 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Math/LinearAlgebra.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/Transform.h>
 

@@ -40,7 +40,7 @@
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/Image/Statistics.h>
 #include <vw/Image/PixelMask.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/FileTypes.h>
 

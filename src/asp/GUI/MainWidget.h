@@ -39,7 +39,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoTransform.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/Geometry/dPoly.h>
 
 #include <boost/filesystem/path.hpp>

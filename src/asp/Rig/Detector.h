@@ -18,7 +18,7 @@
 #ifndef ASP_RIG_DETECTOR_H
 #define ASP_RIG_DETECTOR_H
 
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 
 #include <opencv2/features2d/features2d.hpp>
 #include <Eigen/Core>

@@ -23,7 +23,7 @@
 #include <asp/GUI/GuiUtilities.h>
 
 // Vision Workbench
-#include <vw/InterestPoint/InterestData.h> // For pairwiseMatchList
+#include <vw/InterestPoint/InterestPoint.h> // For pairwiseMatchList
 #include <vw/BundleAdjustment/ControlNetwork.h> // For ControlNetwork
 
 // Standard

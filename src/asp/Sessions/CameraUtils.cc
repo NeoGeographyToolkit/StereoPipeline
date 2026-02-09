@@ -30,7 +30,7 @@
 #include <vw/Core/Exception.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/CameraUtilities.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/Core/Stopwatch.h>
 
 #include <boost/filesystem.hpp>

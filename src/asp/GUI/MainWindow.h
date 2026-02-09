@@ -27,7 +27,7 @@
 #include <asp/GUI/MatchPointMgr.h>
 
 #include <vw/Math/Vector.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Cartography/GeoTransform.h>
 

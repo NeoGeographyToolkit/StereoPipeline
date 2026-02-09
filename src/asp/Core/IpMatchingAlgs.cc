@@ -20,7 +20,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/FileUtils.h>
 
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>

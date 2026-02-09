@@ -23,7 +23,7 @@
 #include <asp/Rig/RigTypeDefs.h>
 #include <asp/Rig/Detector.h>
 
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 
 #include <opencv2/imgproc.hpp>
 #include <glog/logging.h>

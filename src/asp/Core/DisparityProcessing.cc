@@ -25,7 +25,7 @@
 #include <vw/Stereo/StereoView.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/Map2CamTrans.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Math/NewtonRaphson.h>
 

@@ -22,7 +22,7 @@
 #include <vw/Image/ImageMath.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/InterestPoint/IntegralDetector.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 
 #include <boost/foreach.hpp>
 #include <boost/random/normal_distribution.hpp>

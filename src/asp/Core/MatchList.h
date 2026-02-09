@@ -26,7 +26,7 @@
 // Vision Workbench
 #include <vw/Math/BBox.h>
 #include <vw/Math/Vector.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 
 #include <string>
 #include <vector>

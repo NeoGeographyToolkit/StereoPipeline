@@ -32,7 +32,7 @@
 
 #include <vw/FileIO/KML.h>
 #include <vw/FileIO/FileUtils.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/FileTypes.h>
 #include <vw/FileIO/FileUtils.h>

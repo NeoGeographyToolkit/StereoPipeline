@@ -21,7 +21,7 @@
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/InterestPoint/InterestData.h>
+#include <vw/InterestPoint/InterestPoint.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Math/Transform.h>
 
