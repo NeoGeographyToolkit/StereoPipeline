@@ -116,9 +116,6 @@ Command-line options
     computing interest point matches. A smaller threshold will result in fewer
     inliers.
 
---save-matches-as-txt
-    Save match files as plain text instead of binary. See :numref:`txt_match`.
-
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.

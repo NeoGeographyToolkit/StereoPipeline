@@ -85,8 +85,7 @@ void saveInlierMatchPairs(// Inputs
                           rig::PidCidFid                const& pid_to_cid_fid,
                           rig::KeypointVec              const& keypoint_vec,
                           PidCidFidMap                  const& pid_cid_fid_inlier,
-                          std::string                   const& out_dir,
-                          bool save_matches_as_txt);
+                          std::string                   const& out_dir);
 
 // Find convergence angles between every pair of images and save
 // their percentiles to disk.

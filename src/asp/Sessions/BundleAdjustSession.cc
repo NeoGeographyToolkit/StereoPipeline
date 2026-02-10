@@ -38,13 +38,13 @@ using namespace vw;
 // Create matches among the mapprojected images (or use any such matches created
 // beforehand manually by the user), and undo the mapprojection. All matches are
 // saved to files.
-void matches_from_mapproj_images(int i, int j,
-                                 asp::BaOptions& opt, asp::SessionPtr session,
-                                 std::vector<std::string> const& map_files,
-                                 std::string mapproj_dem,
-                                 vw::cartography::GeoReference const& dem_georef,
-                                 vw::ImageViewRef<vw::PixelMask<double>> & interp_dem,
-                                 std::string const& match_filename) {
+void matchesFromMapprojImages(int i, int j,
+                              asp::BaOptions& opt, asp::SessionPtr session,
+                              std::vector<std::string> const& map_files,
+                              std::string mapproj_dem,
+                              vw::cartography::GeoReference const& dem_georef,
+                              vw::ImageViewRef<vw::PixelMask<double>> & interp_dem,
+                              std::string const& match_filename) {
 
   vw::cartography::GeoReference georef1, georef2;
   vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
@@ -118,7 +118,7 @@ void matches_from_mapproj_images(int i, int j,
   vw::vw_out() << "Writing: " << match_filename << std::endl;
   vw::ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
 
-} // End function matches_from_mapproj_images()
+} // End function matchesFromMapprojImages()
 
 void findPairwiseMatches(asp::BaOptions & opt, // will change
                          std::vector<std::string> const& map_files,
@@ -266,8 +266,8 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
                      opt.camera_models[j].get(),
                      match_file);
       else
-        asp::matches_from_mapproj_images(i, j, opt, session, map_files, mapproj_dem,
-                                         dem_georef, interp_dem, match_file);
+        asp::matchesFromMapprojImages(i, j, opt, session, map_files, mapproj_dem,
+                                       dem_georef, interp_dem, match_file);
 
       // Compute the coverage fraction
       std::vector<ip::InterestPoint> ip1, ip2;

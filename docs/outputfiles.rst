@@ -194,7 +194,7 @@ Files created at triangulation
 .. _stereo_diag:
 
 Diagnostics files
-~~~~~~~~~~~~~~~~~
+-----------------
 
 \*-stereo-status.txt - processing status file
 
@@ -234,62 +234,6 @@ Diagnostics files
     with the negative sign, so that the shapefile appears correctly on top of 
     ``L.tif`` and ``R.tif`` in QGIS and ``stereo_gui``.
 
-.. _txt_match:
-
-Plain text match files files
-----------------------------
-
-ASP programs store interest point matches between two images as a match file, in
-either binary format with a ``.match`` extension, or in plain text format, with a
-``.txt`` extension. The latter is supported as of build 2026/02
-(:numref:`release`). 
-
-When there are multiple images, one may use pairwise match files or a control
-network format. These options are described in :numref:`control_network`.
-
-Naming convention
-^^^^^^^^^^^^^^^^^
-
-Given two images ``input/image1.tif`` and ``input/image2.tif``, and given an
-output prefix such as ``out/run``, the plain-text match file name will be::
-
-    out/run-image1__image2.txt
-
-Binary match files will have the same format but will end in ``.match``.
-
-Individual image names (without the path and extension) will be truncated to 60
-characters to avoid excessively long file names and problems with some
-libraries. It is suggested to avoid using such long file names in the first
-place.
-
-Reading match files
-^^^^^^^^^^^^^^^^^^^
-
-An ASP program will look for the plain text match file first, and if not found,
-it will try to load the corresponding binary match file.
-
-Writing match files files
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-By default, and for backward compatibility, ASP programs will write binary match
-files. The switch ``--save-matches-as-txt`` can be used to write plain text
-match files instead. This applies to :ref:`bundle_adjust`,
-:ref:`parallel_stereo`, :ref:`ipmatch`, :ref:`rig_calibrator`,
-:ref:`image_align`, and :ref:`image_mosaic`.
-
-File format
-^^^^^^^^^^^
-
-Each line in a plain-text match file will have six numbers, in float precision,
-separated by spaces::
-
-    x1 y1 unc1 x2 y2 unc2
-
-Here, ``x1, y1`` are the coordinates of an interest point in the first image,
-``unc1`` are its uncertainty (in pixels), and ``x2, y2, unc2`` are the
-corresponding values for the second image. In bundle-adjustment each pixel is
-weighted by the inverse of its uncertainty. The uncertainties must be positive.
-
 .. _out_log_files:
 
 Other files created at all stages
@@ -310,6 +254,102 @@ Other files created at all stages
     contains the elapsed time and memory usage, as output by ``/usr/bin/time``.
     These are written to tile subdirectories, and are deleted after a successful
     run. See the ``--keep-only`` option for how to keep all files.
+
+Inspection and properties of the output files
+---------------------------------------------
+
+All the output images that are single-band can be visualized in
+``stereo_gui`` (:numref:`stereo_gui`). The disparities can be first
+split into the individual horizontal and vertical disparity files
+using ``disparitydebug`` (:numref:`disparitydebug`), then they can be
+seen in this viewer as well.
+
+If the input images are map-projected (georeferenced) and the
+alignment method is ``none``, all the output images listed above, will
+also be georeferenced, and hence can be overlaid in ``stereo_gui`` on
+top of the input images (the outputs of ``disparitydebug`` will then
+be georeferenced as well).
+
+The point cloud file saves the datum (and projection if available)
+inferred from the input images, regardless of whether these images
+are map-projected or not.
+
+The ``point2mesh`` (:numref:`point2mesh`) and ``point2dem``
+(:numref:`point2dem`) programs can be used to convert the point cloud
+to formats that are easier to visualize.
+
+.. _txt_match:
+
+Plain text match files files
+----------------------------
+
+ASP programs store interest point matches between two images as a match file, in
+either binary format with a ``.match`` extension, or in plain text format, with a
+``.txt`` extension. The latter is supported as of build 2026/02
+(:numref:`release`). 
+
+Plain text matches are provided for use with external logic for interest point
+matching.
+
+When there are multiple images, one may use pairwise match files or a control
+network format. See :numref:`control_network`.
+
+Turn on plain text matches
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, ASP programs works with binary match files. The switch
+``--matches-as-txt`` will enable reading and writing plain text match files
+instead. In that case, all existing ``.match`` files will be ignored.
+
+This applies to :ref:`bundle_adjust`, :ref:`parallel_stereo`,
+:ref:`jitter_solve`, :ref:`image_align`, and :ref:`ipmatch`.
+
+It is not possible to mix plain text and binary match files in the same run, to
+avoid confusion. 
+
+Conversions between these formats can be done with ``ipmatch``
+(:numref:`ipmatch_convert`). Do not use the ``parse_match_file.py``
+(:numref:`parse_match_file`) program as that one has a different purpose.
+
+Naming convention
+~~~~~~~~~~~~~~~~~
+
+Given two images ``input/image1.tif`` and ``input/image2.tif``, and given an
+output prefix such as ``out/run``, the plain-text match file name will be::
+
+    out/run-image1__image2.txt
+
+Binary match files will have the same format but will end in ``.match``.
+
+The ``bundle_adjust`` program needs to be invoked with::
+
+  --match-files-prefix out/run
+  
+to read the above file. The same option is available for ``parallel_stereo`` and
+``jitter_solve``.
+
+Individual image names (without the path and extension) will be truncated to 60
+characters to avoid excessively long file names and problems with some
+libraries. It is suggested to avoid using such long file names in the first
+place.
+
+.. _txt_format:
+
+File format
+~~~~~~~~~~~
+
+Each line in a plain-text match file will have six numbers, in float precision,
+separated by spaces::
+
+    x1 y1 unc1 x2 y2 unc2
+
+Here, ``x1 y1`` are the coordinates of an interest point in the first image,
+``unc1`` are its uncertainty (in pixels), and ``x2 y2 unc2`` are the
+corresponding values for the second image. In bundle adjustment each pixel is
+weighted by the inverse of its uncertainty. The uncertainties must be positive.
+
+Note that this is not the same format as in ``parse_match_file.py``
+(:numref:`parse_match_file`). 
 
 .. _poly_files:
 
@@ -335,28 +375,5 @@ different georeferences in ``stereo_gui``.
 The plain text polygon file supports text labels. They should be on lines that
 start with the text ``anno`` (annotation), followed by a space, then the x and y
 coordinates, separated by spaces, then the text label.
-
-Inspection and properties of the output files
----------------------------------------------
-
-All the output images that are single-band can be visualized in
-``stereo_gui`` (:numref:`stereo_gui`). The disparities can be first
-split into the individual horizontal and vertical disparity files
-using ``disparitydebug`` (:numref:`disparitydebug`), then they can be
-seen in this viewer as well.
-
-If the input images are map-projected (georeferenced) and the
-alignment method is ``none``, all the output images listed above, will
-also be georeferenced, and hence can be overlaid in ``stereo_gui`` on
-top of the input images (the outputs of ``disparitydebug`` will then
-be georeferenced as well).
-
-The point cloud file saves the datum (and projection if available)
-inferred from the input images, regardless of whether these images
-are map-projected or not.
-
-The ``point2mesh`` (:numref:`point2mesh`) and ``point2dem``
-(:numref:`point2dem`) programs can be used to convert the point cloud
-to formats that are easier to visualize.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

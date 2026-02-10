@@ -64,6 +64,9 @@ of the pixel in bundle adjustment (higher scale means less weight given during
 optimization). A larger value of the ``interest`` field means it may be more
 prominent (salient), though this is not employed in any way.
 
+As of of build 2026/02 (:numref:`release`), ASP supports operating on matches in
+text format. That uses however a simpler format (:numref:`txt_match`).
+
 Descriptors
 ~~~~~~~~~~~
 

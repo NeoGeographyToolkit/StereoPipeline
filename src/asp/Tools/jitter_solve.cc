@@ -120,6 +120,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("clean-match-files-prefix",  po::value(&opt.clean_match_files_prefix)->default_value(""),
      "Use as input match files the *-clean.match files from this prefix. The order of "
      "images in each interest point match file need not be the same as for input images.")
+    ("matches-as-txt",
+     po::bool_switch(&asp::stereo_settings().matches_as_txt)->default_value(false)->implicit_value(true),
+     "Read and write match files as plain text instead of binary. See the documentation "
+     "for details.")
     ("isis-cnet", po::value(&opt.isis_cnet)->default_value(""),
      "Read a control network having interest point matches from this binary file "
      "in the ISIS jigsaw format. This can be used with any images and cameras "

@@ -2249,7 +2249,11 @@ Command-line options for jitter_solve
 --clean-match-files-prefix <string (default: "")>
     Use as input match files the \*-clean.match files from this prefix. The
     order of images in each interest point match file need not be the same as
-    for input images.  
+    for input images.
+
+--matches-as-txt
+    Read and write match files as plain text instead of binary. See
+    :numref:`txt_match`.
 
 --isis-cnet <string (default: "")>
     Read a control network having interest point matches from this binary file

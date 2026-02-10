@@ -939,10 +939,6 @@ Command-line options
 --save-matches
     Save the interest point matches (all matches and inlier matches after filtering). ``stereo_gui`` can be used to visualize these (:numref:`rc_ba`).
 
---save-matches-as-txt
-    Save match files as plain text instead of binary. Requires ``--save-matches``.
-    See :numref:`txt_match`.
-
 --export-to-voxblox
     Save the depth clouds and optimized transforms needed to create a mesh with ``voxblox`` (if depth clouds exist).
 

@@ -38,6 +38,11 @@ cam_test (:numref:`cam_test`):
 bundle_adjust (:numref:`bundle_adjust`):
   * Added bathymetry support (:numref:`ba_bathy`).
 
+ipmatch (:numref:`ipmatch`):
+  * Added options for converting match files between binary and text formats
+    (:numref:`ipmatch_convert`).
+  * Added an option for merging match files (:numref:`ipmatch_merge`).
+
 image_calc (:numref:`image_calc`):
   * Added the option ``--stretch`` to stretch an image and save it with 8-bit
     pixels, for visualization purposes (:numref:`image_calc_stretch`).

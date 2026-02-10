@@ -147,9 +147,9 @@ PreProcessingDescription::PreProcessingDescription():
       "Remove IP within this percentage from the outer edges of an image pair (integer percent).")
     ("normalize-ip-tiles", po::bool_switch(&global.ip_normalize_tiles)->default_value(false)->implicit_value(true),
       "Individually normalize tiles used for IP detection.")
-    ("save-matches-as-txt", 
-     po::bool_switch(&global.save_matches_as_txt)->default_value(false)->implicit_value(true),
-      "Save match files as plain text instead of binary.")
+    ("matches-as-txt",
+     po::bool_switch(&global.matches_as_txt)->default_value(false)->implicit_value(true),
+      "Read and write match files as plain text instead of binary.")
     ("ip-inlier-factor", po::value(&global.ip_inlier_factor)->default_value(0.2),
       "A higher factor will result in more interest points, but perhaps also more outliers, "
       "and a bigger search range.")

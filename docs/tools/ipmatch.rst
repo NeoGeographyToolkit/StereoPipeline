@@ -35,6 +35,33 @@ Note that this tool does not implement many of the IP matching steps that are
 used in :ref:`parallel_stereo` and :ref:`bundle_adjust`, since it does not use
 any camera information.
 
+.. _ipmatch_convert:
+
+Match file format conversion
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Convert a binary match file to plain text::
+
+    ipmatch --binary-to-txt input.match output.txt
+
+The format of the plain text file is described in :numref:`txt_format`.
+
+Convert a plain text match file to binary::
+
+    ipmatch --txt-to-binary input.txt output.match
+
+.. _ipmatch_merge:
+
+Merging match files
+~~~~~~~~~~~~~~~~~~~
+
+Merge multiple match files for the same image pair into one::
+
+    ipmatch --merge-match-files input1.match input2.match output.match
+
+Duplicates are identified by left interest point coordinates. The output can
+be saved as plain text by adding ``--matches-as-txt``.
+
 Naming convention
 ~~~~~~~~~~~~~~~~~
 
@@ -42,7 +69,8 @@ The naming convention for the output binary files is::
 
     <output prefix>-<image1>__<image2>.match
     
-where the image names are without the directory name and extension.
+where the image names are without the directory name and extension. See
+:numref:`ba_match_files` for more details.
 
 Usage
 ~~~~~
@@ -84,8 +112,21 @@ Command-line options for ipmatch:
 --non-flann
     Use an implementation of the interest matcher that is not reliant on FLANN.
 
---save-matches-as-txt
-    Save match files as plain text instead of binary. See :numref:`txt_match`.
+--matches-as-txt
+    Read and write match files as plain text instead of binary. See
+    :numref:`txt_match`.
+
+--binary-to-txt
+    Read a binary match file and write it as plain text. The input and output
+    match files must be specified with appropriate extensions.
+
+--txt-to-binary
+    Read a plain text match file and write it as binary. The input and output
+    match files must be specified with appropriate extensions.
+
+--merge-match-files
+    Given several match files for the same image pair, merge them into one.
+    Duplicates are removed based on left interest point coordinates.
 
 -d, --debug-image
     Set to write out debug images.

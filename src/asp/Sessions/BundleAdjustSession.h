@@ -43,13 +43,13 @@ typedef boost::shared_ptr<StereoSession> SessionPtr;
 // Create matches among the mapprojected images (or use any such matches created
 // beforehand manually by the user), and undo the mapprojection. All matches are
 // saved to files.
-void matches_from_mapproj_images(int i, int j,
-                                 asp::BaOptions& opt, asp::SessionPtr session,
-                                 std::vector<std::string> const& map_files,
-                                 std::string mapproj_dem,
-                                 vw::cartography::GeoReference const& dem_georef,
-                                 vw::ImageViewRef<vw::PixelMask<double>> & interp_dem,
-                                 std::string const& match_filename);
+void matchesFromMapprojImages(int i, int j,
+                              asp::BaOptions& opt, asp::SessionPtr session,
+                              std::vector<std::string> const& map_files,
+                              std::string mapproj_dem,
+                              vw::cartography::GeoReference const& dem_georef,
+                              vw::ImageViewRef<vw::PixelMask<double>> & interp_dem,
+                              std::string const& match_filename);
 
 void findPairwiseMatches(asp::BaOptions & opt, // will change
                          std::vector<std::string> const& map_files,

@@ -81,7 +81,7 @@ void detectAddFeatures(// Inputs
                        std::vector<rig::cameraImage>      const& cams,
                        std::vector<rig::CameraParameters> const& cam_params,
                        std::string                        const& out_dir,
-                       bool save_matches, bool save_matches_as_txt,
+                       bool save_matches,
                        bool filter_matches_using_cams,
                        std::vector<Eigen::Affine3d>       const& world_to_cam,
                        int num_overlaps,

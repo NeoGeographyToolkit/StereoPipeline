@@ -228,8 +228,8 @@ individually-normalize
     utilities. This provides the best possible input to the stereo
     pipeline and yields the best stereo matching results.
 
-save-matches-as-txt
-    Save match files as plain text instead of binary. See
+matches-as-txt
+    Read and write match files as plain text instead of binary. See
     :numref:`txt_match` for more details.
 
 skip-image-normalization

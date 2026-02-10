@@ -42,7 +42,7 @@ struct RigOptions: public asp::BaBaseOptions {
     affine_depth_to_image, registration, skip_post_registration, no_rig,
     no_nvm_matches, use_initial_rig_transforms, bracket_single_image,
     nearest_neighbor_interp, read_nvm_no_shift, save_nvm_no_shift,
-    save_matches, save_matches_as_txt, export_to_voxblox, save_pinhole_cameras,
+    save_matches, export_to_voxblox, save_pinhole_cameras,
     save_transformed_depth_clouds, verbose;
 
   // Parsed options
@@ -63,7 +63,7 @@ struct RigOptions: public asp::BaBaseOptions {
     affine_depth_to_image(false), registration(false), skip_post_registration(false),
     no_rig(false), no_nvm_matches(false), use_initial_rig_transforms(false),
     bracket_single_image(false), nearest_neighbor_interp(false),
-    read_nvm_no_shift(false), save_nvm_no_shift(false), save_matches(false), save_matches_as_txt(false),
+    read_nvm_no_shift(false), save_nvm_no_shift(false), save_matches(false),
     export_to_voxblox(false), save_pinhole_cameras(false),
     save_transformed_depth_clouds(false), verbose(false) {};
 };

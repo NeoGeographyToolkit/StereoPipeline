@@ -98,7 +98,7 @@ namespace asp {
     int    ip_edge_buffer_percent;          ///< When detecting IP, throw out points within this many % of pixels
                                             ///  of the left/right edges of the images being matched.
     bool   ip_normalize_tiles;              ///< Individually normalize tiles for IP detection.
-    bool   save_matches_as_txt;             ///< Save match files as plain text instead of binary.
+    bool   matches_as_txt;                  ///< Read and write match files as plain text
     bool   ip_debug_images;                 ///< Write debug interest point images.
 
     double nodata_value;                    ///< Pixels with values less than or equal to this number are treated as no-data.

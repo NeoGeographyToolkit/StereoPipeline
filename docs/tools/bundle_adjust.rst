@@ -649,15 +649,18 @@ The naming convention for the match files is::
   
 where the image names are without the directory name and extension. Excessively
 long image names will be truncated.  For example, for two images named
-``input/image1.tif`` and ``input/image2.tif``, and given the output prefix ``out/run``,
-the match file will be::
+``input/image1.tif`` and ``input/image2.tif``, and given the output prefix
+``out/run``, the match file will be::
 
     out/run-image1__image2.match
 
-Plain-text match files are supported as well (:numref:`txt_match`).
+If such files have been already produced by a different invocation of
+``bundle_adjust`` or by other means, they can be loaded by ``bundle_adjust``,
+``parallel_stereo`` and ``jitter_solve``, with the option
+``--match-files-prefix``. In this example, the value of this option would be
+``out/run``.
 
-These files can be used later by other ``bundle_adjust`` invocations, also by
-``parallel_stereo`` and ``jitter_solve``, with the option ``--match-files-prefix``.
+Plain-text match files are supported as well (:numref:`txt_match`).
 
 Bundle adjustment also produces outlier-filtered versions of these files, that
 end with ``-clean.match``. These can be used with the option
@@ -666,7 +669,8 @@ the outlier filtering.
 
 Any such files can be inspected with ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`) and converted to text with 
-``parse_match_file.py`` (:numref:`parse_match_file`).
+``parse_match_file.py`` (:numref:`parse_match_file`) or ``ipmatch`` 
+(:numref:`ipmatch_convert`).
 
 .. _jigsaw_cnet:
 
@@ -693,7 +697,8 @@ If GCP are provided via a .gcp file (:numref:`bagcp`), these will be added to
 the optimization and to the output control network.
 
 The option  ``--output-cnet-type`` explicitly sets the output format for
-interest point matches.
+interest point matches. This allows for the input and output formats to be
+different. 
 
 The ``stereo_gui`` program (:numref:`stereo_gui_isis_cnet`) can visualize
 such a control network file. 
@@ -1490,8 +1495,9 @@ Command-line options
 --skip-matching
     Only use the match files that be loaded from disk. This implies ``--force-reuse-match-files``.
 
---save-matches-as-txt
-    Save match files as plain text instead of binary. See :numref:`txt_match`.
+--matches-as-txt
+    Read and write match files as plain text instead of binary. See
+    :numref:`txt_match`.
 
 --match-files-prefix <string (default: "")>
     Use the match files from this prefix instead of the current output prefix.

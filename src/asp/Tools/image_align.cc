@@ -293,7 +293,7 @@ calc_alignment_transform(std::string const& image_file1,
   
   if (opt.output_prefix != "") {
     // Write a match file for debugging
-    bool plain_text = asp::stereo_settings().save_matches_as_txt;
+    bool plain_text = asp::stereo_settings().matches_as_txt;
     std::string clean_match_file
       = ip::clean_match_filename(ip::match_filename(opt.output_prefix, image_file1, image_file2,
                                                     plain_text), plain_text);
@@ -358,9 +358,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("individually-normalize",
      po::bool_switch(&ip_opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")
-    ("save-matches-as-txt",
-     po::bool_switch(&ip_opt.save_matches_as_txt)->default_value(false)->implicit_value(true),
-     "Save match files as plain text instead of binary. See the documentation for details.")
+    ("matches-as-txt",
+     po::bool_switch(&ip_opt.matches_as_txt)->default_value(false)->implicit_value(true),
+     "Read and write match files as plain text instead of binary. See the documentation for details.")
     ("num-ransac-iterations",
      po::value(&ip_opt.ip_num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")

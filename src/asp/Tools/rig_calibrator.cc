@@ -218,7 +218,7 @@ void run_rig_calibrator(int argc, char** argv) {
   std::vector<Eigen::Vector3d> xyz_vec;
   rig::detectAddFeatures(// Inputs
                          imgData, R.cam_params, opt.out_prefix,
-                         local_save_matches, opt.save_matches_as_txt,
+                         local_save_matches,
                          filter_matches_using_cams, cams.world_to_cam,
                          opt.num_overlaps, input_image_pairs,
                          opt.initial_max_reprojection_error,
@@ -262,8 +262,7 @@ void run_rig_calibrator(int argc, char** argv) {
 
   if (opt.save_matches)
     rig::saveInlierMatchPairs(imgData, opt.num_overlaps, pid_to_cid_fid,
-                              keypoint_vec, pid_cid_fid_inlier, opt.out_prefix,
-                              opt.save_matches_as_txt);
+                              keypoint_vec, pid_cid_fid_inlier, opt.out_prefix);
 
   // Redo the registration unless told not to.
   // Note: applyRegistration modifies cams.world_to_ref (Affine3d form), which was updated
