@@ -1065,6 +1065,9 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "as for input images. Additional match files will be created if needed.")
     ("skip-matching",    po::bool_switch(&opt.skip_matching)->default_value(false)->implicit_value(true),
      "Only use the match files that can be loaded from disk. This implies --force-reuse-match-files.")
+    ("save-matches-as-txt",
+     po::bool_switch(&asp::stereo_settings().save_matches_as_txt)->default_value(false)->implicit_value(true),
+     "Save match files as plain text instead of binary. See the documentation for details.")
     ("save-intermediate-cameras", po::bool_switch(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
      "Save the values for the cameras at each iteration.")
     ("apply-initial-transform-only", po::bool_switch(&opt.apply_initial_transform_only)->default_value(false)->implicit_value(true),

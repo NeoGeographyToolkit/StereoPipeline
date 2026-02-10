@@ -198,7 +198,7 @@ flann-method (*string*) (default = "auto")
 Other pre-processing options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-force-use-entire-range (default = false)
+force-use-entire-range
     By default, the Stereo Pipeline will normalize ISIS images so that
     their maximum and minimum channel values are :math:`\pm`\ 2
     standard deviations from a mean value of 1.0. Use this option if
@@ -209,7 +209,7 @@ force-use-entire-range (default = false)
     normalize the images, then use this option to disable
     normalization as a (redundant) pre-processing step.
 
-individually-normalize (default = false)
+individually-normalize
     By default, the maximum and minimum valid pixel value is
     determined by looking at both images. Normalized with the same
     "global" min and max guarantees that the two images will retain
@@ -227,6 +227,10 @@ individually-normalize (default = false)
     that can and should be carried out beforehand using ISIS's own
     utilities. This provides the best possible input to the stereo
     pipeline and yields the best stereo matching results.
+
+save-matches-as-txt
+    Save match files as plain text instead of binary. See
+    :numref:`txt_match` for more details.
 
 skip-image-normalization
     Skip the step of normalizing the values of input images and removing
@@ -757,7 +761,7 @@ texture-smooth-scale (*float*) (default = 0.15)
     image. A smaller value will leave high-texture regions of the image
     unsmoothed.
 
-enable-fill-holes (default = false)
+enable-fill-holes
     Enable filling of holes in disparity using an inpainting method.
     Obsolete. It is suggested to use instead point2dem's analogous
     functionality.
@@ -835,7 +839,7 @@ point-cloud-rounding-error (*double*)
     these errors. See also ``--save-double-precision-point-cloud`` below,
     and ``--rounding-error`` in ``point2dem`` (:numref:`point2dem_options`).
 
-save-double-precision-point-cloud (default = false)
+save-double-precision-point-cloud
     Save the final point cloud in double precision rather than bringing
     the points closer to origin and saving as float (marginally more
     precision at twice the storage).

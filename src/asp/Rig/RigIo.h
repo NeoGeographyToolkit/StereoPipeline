@@ -74,15 +74,6 @@ void readListOrNvm(// Inputs
                    std::vector<std::map<double, rig::ImageMessage>> & image_maps,
                    std::vector<std::map<double, rig::ImageMessage>> & depth_maps);
 
-// Form the match file name using the ASP convention.
-//
-// Assumes the input images are of the form cam_name/image.jpg.
-// The match file will be named run/run-image1__image2.match.
-std::string matchFileName(std::string const& match_dir,
-                          std::string const& left_image,
-                          std::string const& right_image,
-                          std::string const& suffix);
-
 // Save the inlier matches for each image pair to disk.
 //
 // Given all the merged and filtered tracks, this function iterates through
@@ -94,7 +85,8 @@ void saveInlierMatchPairs(// Inputs
                           rig::PidCidFid                const& pid_to_cid_fid,
                           rig::KeypointVec              const& keypoint_vec,
                           PidCidFidMap                  const& pid_cid_fid_inlier,
-                          std::string                   const& out_dir);
+                          std::string                   const& out_dir,
+                          bool save_matches_as_txt);
 
 // Find convergence angles between every pair of images and save
 // their percentiles to disk.

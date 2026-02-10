@@ -265,6 +265,9 @@ void handleRigArgs(int argc, char *argv[], RigOptions& opt) {
      "self-contained and for the matches to be drawn with stereo_gui.")
     ("save-matches", po::bool_switch(&opt.save_matches)->default_value(false),
      "Save the inlier interest point matches. stereo_gui can be used to visualize these.")
+    ("save-matches-as-txt", po::bool_switch(&opt.save_matches_as_txt)->default_value(false),
+     "Save match files as plain text instead of binary. Requires --save-matches. "
+     "See the documentation for details.")
     ("export-to-voxblox", po::bool_switch(&opt.export_to_voxblox)->default_value(false),
      "Save the depth clouds and optimized transforms needed to create a mesh with voxblox "
      "(if depth clouds exist).")
@@ -377,6 +380,9 @@ void parameterValidation(RigOptions const& opt) {
 
   if (opt.num_overlaps > 0 && opt.use_initial_triangulated_points)
     LOG(FATAL) << "Cannot use the initial triangulated points if new matches are created.\n";
+
+  if (opt.save_matches_as_txt && !opt.save_matches)
+    LOG(FATAL) << "Option --save-matches-as-txt requires --save-matches.\n";
 
   return;
 }

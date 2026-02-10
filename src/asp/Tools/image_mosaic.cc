@@ -62,12 +62,13 @@ struct Options: vw::GdalWriteOptions {
   std::string orientation, output_image, output_type, out_prefix;
   int    overlap_width, band, blend_radius, ip_per_tile, num_ransac_iterations;
   bool   has_input_nodata_value, has_output_nodata_value, reverse, rotate,
-         use_affine_transform, rotate90, rotate90ccw;
+         use_affine_transform, rotate90, rotate90ccw, save_matches_as_txt;
   double input_nodata_value, output_nodata_value, inlier_threshold;
   Vector2 big_tile_size;
   Options(): has_input_nodata_value(false), has_output_nodata_value(false),
              input_nodata_value (std::numeric_limits<double>::quiet_NaN()),
-             output_nodata_value(std::numeric_limits<double>::quiet_NaN()){}
+             output_nodata_value(std::numeric_limits<double>::quiet_NaN()),
+             save_matches_as_txt(false){}
 };
 
 /// Load an input image, respecting the user parameters.
@@ -109,12 +110,13 @@ void match_ip_in_regions(std::string const& image_file1,
   std::string match_file;
   if (opt.out_prefix != "") {
     // Write a match file for debugging
-    match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2);
+    match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2,
+                                    opt.save_matches_as_txt);
 
     // If the match file already exists, load it instead of finding new points.
     if (fs::exists(match_file)) {
       vw_out() << "Reading matched interest points from file: " << match_file << std::endl;
-      ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
+      ip::read_match_file(match_file, matched_ip1, matched_ip2, opt.save_matches_as_txt);
       vw_out() << "Read in " << matched_ip1.size() << " matched IP.\n";
     }
   }
@@ -208,11 +210,10 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
   std::string match_file;
   if (opt.out_prefix != "") {
     // Write a match file for debugging
-    match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2);
-    match_file = fs::path(match_file).replace_extension("").string();
-    match_file += "-clean.match";
+    match_file = ip::clean_match_filename(opt.out_prefix, image_file1, image_file2,
+                                          opt.save_matches_as_txt);
     vw_out() << "Writing inlier matches after RANSAC to: " << match_file << std::endl;
-    ip::write_binary_match_file(match_file, inlier_ip1, inlier_ip2);
+    ip::write_match_file(match_file, inlier_ip1, inlier_ip2, opt.save_matches_as_txt);
   }
   
   return tf;
@@ -262,7 +263,8 @@ Matrix<double> compute_relative_transform(std::string const& image1,
     // Wipe any old match file to force it to be regenerated
     std::string match_file;
     if (opt.out_prefix != "")
-      match_file = ip::match_filename(opt.out_prefix, image1, image2);
+      match_file = ip::match_filename(opt.out_prefix, image1, image2,
+                                      opt.save_matches_as_txt);
     if (!match_file.empty() && fs::exists(match_file)) {
       vw::vw_out() << "Removing old match file: " << match_file << "\n";
       fs::remove(match_file);
@@ -658,7 +660,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("num-ransac-iterations", po::value(&opt.num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
     ("inlier-threshold", po::value(&opt.inlier_threshold)->default_value(10.0),
-     "The inlier threshold (in pixels) to separate inliers from outliers when computing interest point matches. A smaller threshold will result in fewer inliers.");
+     "The inlier threshold (in pixels) to separate inliers from outliers when computing interest point matches. A smaller threshold will result in fewer inliers.")
+    ("save-matches-as-txt", po::bool_switch(&opt.save_matches_as_txt)->default_value(false),
+     "Save match files as plain text instead of binary. See the documentation for details.");
  
   po::options_description positional("");
   positional.add_options()

@@ -111,10 +111,13 @@ Command-line options
     How many iterations to perform in RANSAC when finding interest point 
     matches.
 
---inlier-threshold <integer (default: 10)>    
-    The inlier threshold (in pixels) to separate inliers from outliers when 
-    computing interest point matches. A smaller threshold will result in fewer 
+--inlier-threshold <integer (default: 10)>
+    The inlier threshold (in pixels) to separate inliers from outliers when
+    computing interest point matches. A smaller threshold will result in fewer
     inliers.
+
+--save-matches-as-txt
+    Save match files as plain text instead of binary. See :numref:`txt_match`.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

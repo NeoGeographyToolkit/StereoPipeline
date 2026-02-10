@@ -594,7 +594,8 @@ void keypointMapToVec(KeyPointMap const& keypoint_map,
 void detectMatchFeatures(// Inputs
     std::vector<rig::cameraImage>      const& cams,
     std::vector<rig::CameraParameters> const& cam_params,
-    std::string                        const& out_dir, bool save_matches,
+    std::string                        const& out_dir,
+    bool save_matches, bool save_matches_as_txt,
     bool filter_matches_using_cams,
     std::vector<Eigen::Affine3d>       const& world_to_cam,
     int num_overlaps,
@@ -692,11 +693,13 @@ void detectMatchFeatures(// Inputs
       std::string const& left_image = cams[left_cid].image_name;  // alias
       std::string const& right_image = cams[right_cid].image_name;  // alias
 
-      std::string suffix = "";
-      std::string match_file = rig::matchFileName(match_dir, left_image, right_image, suffix);
+      std::string match_file = vw::ip::match_filename(match_dir + "/run",
+                                                      left_image, right_image,
+                                                      save_matches_as_txt);
       std::cout << "Writing: " << left_image << " " << right_image << " "
                 << match_file << std::endl;
-      vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
+      vw::ip::write_match_file(match_file, match_pair.first, match_pair.second,
+                               save_matches_as_txt);
     }
   }
 
@@ -740,7 +743,8 @@ void detectMatchFeatures(// Inputs
 void detectAddFeatures(// Inputs
                        std::vector<rig::cameraImage>      const& cams,
                        std::vector<rig::CameraParameters> const& cam_params,
-                       std::string                        const& out_dir, bool save_matches,
+                       std::string                        const& out_dir,
+                       bool save_matches, bool save_matches_as_txt,
                        bool filter_matches_using_cams,
                        std::vector<Eigen::Affine3d>       const& world_to_cam,
                        int num_overlaps,
@@ -802,7 +806,7 @@ void detectAddFeatures(// Inputs
   KeyPointMap keypoint_map;
   std::vector<int> fid_count;
   detectMatchFeatures(// Inputs
-                      cams, cam_params, out_dir, save_matches,
+                      cams, cam_params, out_dir, save_matches, save_matches_as_txt,
                       filter_matches_using_cams,
                       world_to_cam, num_overlaps,
                       input_image_pairs,

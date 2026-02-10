@@ -246,6 +246,9 @@ Command-line options for image_align
 --individually-normalize
     Individually normalize the input images instead of using common values.
 
+--save-matches-as-txt
+    Save match files as plain text instead of binary. See :numref:`txt_match`.
+
 --num-ransac-iterations <integer (default: 1000)>
     How many iterations to perform in RANSAC when finding interest point 
     matches.

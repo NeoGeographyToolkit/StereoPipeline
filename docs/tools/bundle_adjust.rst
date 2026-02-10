@@ -648,7 +648,13 @@ The naming convention for the match files is::
     <output prefix>-<image1>__<image2>.match
   
 where the image names are without the directory name and extension. Excessively
-long image names will be truncated.
+long image names will be truncated.  For example, for two images named
+``input/image1.tif`` and ``input/image2.tif``, and given the output prefix ``out/run``,
+the match file will be::
+
+    out/run-image1__image2.match
+
+Plain-text match files are supported as well (:numref:`txt_match`).
 
 These files can be used later by other ``bundle_adjust`` invocations, also by
 ``parallel_stereo`` and ``jitter_solve``, with the option ``--match-files-prefix``.
@@ -1482,7 +1488,10 @@ Command-line options
     as for input images. Additional match files will be created if needed.
 
 --skip-matching
-    Only use the match files that be loaded from disk. This implies ``--force-reuse-match-files``. 
+    Only use the match files that be loaded from disk. This implies ``--force-reuse-match-files``.
+
+--save-matches-as-txt
+    Save match files as plain text instead of binary. See :numref:`txt_match`.
 
 --match-files-prefix <string (default: "")>
     Use the match files from this prefix instead of the current output prefix.

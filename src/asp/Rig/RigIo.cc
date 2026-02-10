@@ -347,30 +347,6 @@ void readListOrNvm(// Inputs
   return;
 }
 
-// Form the match file name using the ASP convention.
-// cam_name/image.jpg. Use the ASP convention of the match file being
-// run/run-image1__image2.match. This assumes all input images are unique.
-std::string matchFileName(std::string const& match_dir,
-                          std::string const& left_image,
-                          std::string const& right_image,
-                          std::string const& suffix) {
-  std::string left_cam_name
-    = boost::filesystem::path(left_image).parent_path().stem().string();
-  std::string right_cam_name
-    = boost::filesystem::path(right_image).parent_path().stem().string();
-
-  if (left_cam_name == "" || right_cam_name == "")
-    LOG(FATAL) << "The image name must have the form cam_name/image. Got: "
-               << left_image << " and " << right_image << ".\n";
-
-  std::string left_stem = boost::filesystem::path(left_image).stem().string();
-  std::string right_stem = boost::filesystem::path(right_image).stem().string();
-  std::string match_file = match_dir + "/run-" + left_stem + "__"
-    + right_stem + suffix + ".match";
-
-  return match_file;
-}
-
 // Given all the merged and filtered tracks in pid_cid_fid, for each
 // image pair cid1 and cid2 with cid1 < cid2 < cid1 + num_overlaps + 1,
 // save the matches of this pair which occur in the set of tracks.
@@ -380,7 +356,8 @@ void saveInlierMatchPairs(// Inputs
                           rig::PidCidFid                const& pid_to_cid_fid,
                           rig::KeypointVec              const& keypoint_vec,
                           PidCidFidMap                  const& pid_cid_fid_inlier,
-                          std::string                   const& out_dir) {
+                          std::string                   const& out_dir,
+                          bool save_matches_as_txt) {
 
   MATCH_MAP matches;
 
@@ -427,14 +404,14 @@ void saveInlierMatchPairs(// Inputs
     std::string match_dir = out_dir + "/matches";
     rig::createDir(match_dir);
 
-    std::string suffix = "";
-    std::string match_file = rig::matchFileName(match_dir,
-                                                      cams[left_cid].image_name,
-                                                      cams[right_cid].image_name,
-                                                      suffix);
+    std::string match_file = vw::ip::match_filename(match_dir + "/run",
+                                                    cams[left_cid].image_name,
+                                                    cams[right_cid].image_name,
+                                                    save_matches_as_txt);
 
     std::cout << "Writing: " << match_file << std::endl;
-    vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
+    vw::ip::write_match_file(match_file, match_pair.first, match_pair.second,
+                             save_matches_as_txt);
   }
 
   // The image names (without directory) must be unique, or else bundle

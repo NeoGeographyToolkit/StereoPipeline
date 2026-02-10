@@ -234,6 +234,62 @@ Diagnostics files
     with the negative sign, so that the shapefile appears correctly on top of 
     ``L.tif`` and ``R.tif`` in QGIS and ``stereo_gui``.
 
+.. _txt_match:
+
+Plain text match files files
+----------------------------
+
+ASP programs store interest point matches between two images as a match file, in
+either binary format with a ``.match`` extension, or in plain text format, with a
+``.txt`` extension. The latter is supported as of build 2026/02
+(:numref:`release`). 
+
+When there are multiple images, one may use pairwise match files or a control
+network format. These options are described in :numref:`control_network`.
+
+Naming convention
+^^^^^^^^^^^^^^^^^
+
+Given two images ``input/image1.tif`` and ``input/image2.tif``, and given an
+output prefix such as ``out/run``, the plain-text match file name will be::
+
+    out/run-image1__image2.txt
+
+Binary match files will have the same format but will end in ``.match``.
+
+Individual image names (without the path and extension) will be truncated to 60
+characters to avoid excessively long file names and problems with some
+libraries. It is suggested to avoid using such long file names in the first
+place.
+
+Reading match files
+^^^^^^^^^^^^^^^^^^^
+
+An ASP program will look for the plain text match file first, and if not found,
+it will try to load the corresponding binary match file.
+
+Writing match files files
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, and for backward compatibility, ASP programs will write binary match
+files. The switch ``--save-matches-as-txt`` can be used to write plain text
+match files instead. This applies to :ref:`bundle_adjust`,
+:ref:`parallel_stereo`, :ref:`ipmatch`, :ref:`rig_calibrator`,
+:ref:`image_align`, and :ref:`image_mosaic`.
+
+File format
+^^^^^^^^^^^
+
+Each line in a plain-text match file will have six numbers, in float precision,
+separated by spaces::
+
+    x1 y1 unc1 x2 y2 unc2
+
+Here, ``x1, y1`` are the coordinates of an interest point in the first image,
+``unc1`` are its uncertainty (in pixels), and ``x2, y2, unc2`` are the
+corresponding values for the second image. In bundle-adjustment each pixel is
+weighted by the inverse of its uncertainty. The uncertainties must be positive.
+
 .. _out_log_files:
 
 Other files created at all stages

@@ -84,6 +84,9 @@ Command-line options for ipmatch:
 --non-flann
     Use an implementation of the interest matcher that is not reliant on FLANN.
 
+--save-matches-as-txt
+    Save match files as plain text instead of binary. See :numref:`txt_match`.
+
 -d, --debug-image
     Set to write out debug images.
 

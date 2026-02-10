@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -14,7 +14,6 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
 
 /// \file StereoSettings.cc
 ///
@@ -111,18 +110,18 @@ PreProcessingDescription::PreProcessingDescription():
   (*this).add_options()
     ("alignment-method", po::value(&global.alignment_method)->default_value("affineepipolar"),
       "Alignment for input images. [affineepipolar, local_epipolar, homography, epipolar, none]")
-    ("left-image-crop-win", 
+    ("left-image-crop-win",
      po::value(&global.left_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
       "Do stereo in a region of the left image. Default: use the entire image. "
       "This option forces redoing all the pre-processing steps if a run is resumed. "
       "The region be created by stereo_gui. See also right-image-crop-win and "
       "proj-win.")
-    ("right-image-crop-win", 
+    ("right-image-crop-win",
      po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
       "When combined with left-image-crop-win, do stereo in given subregions of "
       "left and right images. The crop windows can be determined using stereo_gui. "
       "See also proj-win.")
-    ("proj-win", 
+    ("proj-win",
      po::value(&global.proj_win)->default_value(BBox2i(0, 0, 0, 0), "minx miny maxx maxy"),
      "Limit stereo to this projection window for input mapprojected images. This "
      "option forces redoing all the pre-processing steps in a resumed run. "
@@ -148,6 +147,9 @@ PreProcessingDescription::PreProcessingDescription():
       "Remove IP within this percentage from the outer edges of an image pair (integer percent).")
     ("normalize-ip-tiles", po::bool_switch(&global.ip_normalize_tiles)->default_value(false)->implicit_value(true),
       "Individually normalize tiles used for IP detection.")
+    ("save-matches-as-txt", 
+     po::bool_switch(&global.save_matches_as_txt)->default_value(false)->implicit_value(true),
+      "Save match files as plain text instead of binary.")
     ("ip-inlier-factor", po::value(&global.ip_inlier_factor)->default_value(0.2),
       "A higher factor will result in more interest points, but perhaps also more outliers, "
       "and a bigger search range.")
@@ -202,11 +204,11 @@ PreProcessingDescription::PreProcessingDescription():
       "D_MARS (3,396,190 meters), MOLA (3,396,000 meters), NAD83, WGS72, and NAD27. "
       "Also accepted: Earth (=WGS_1984), Mars (=D_MARS), Moon (=D_MOON). If not set, "
       "will be auto-guessed based on camera centers (for Earth, Mars, and Moon).")
-    ("match-files-prefix", 
+    ("match-files-prefix",
      po::value(&global.match_files_prefix)->default_value(""),
       "Use the match file from this prefix. Normally contains match files "
       "created with bundle_adjust or parallel_stereo.")
-    ("clean-match-files-prefix", 
+    ("clean-match-files-prefix",
      po::value(&global.clean_match_files_prefix)->default_value(""),
       "Use as input the *-clean.match file from this prefix (this had the "
       "outliers filtered out).")
@@ -239,7 +241,7 @@ PreProcessingDescription::PreProcessingDescription():
       "It is assumed that the left and right input images have been mapprojected onto "
       "surfaces with the provided heights above a datum. The datum is read from the "
       "image geoheaders.")
-    ("output-prefix-override", 
+    ("output-prefix-override",
      po::value(&global.output_prefix_override)->default_value(""),
       "Override the output prefix with this value. Needed during parallel stereo.")
 
@@ -581,7 +583,7 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
       "in the ISIS jigsaw format. See also --nvm.")
     ("zoom-proj-win", po::value(&global.zoom_proj_win)->default_value(BBox2(0,0,0,0), ""),
       "Zoom to this proj win on startup. It is assumed that the images are georeferenced. Also accessible from the View menu. This implies --zoom-all-to-same-region.")
-    ("zoom-all-to-same-region", 
+    ("zoom-all-to-same-region",
      po::bool_switch(&global.zoom_all_to_same_region)->default_value(false)->implicit_value(true),
      "Zoom all images to same region. Also accessible from the View menu.")
     ("csv-format", po::value(&global.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
@@ -710,7 +712,7 @@ void StereoSettings::validate() {
               universe_center == "none",
               ArgumentErr() << "\"" << universe_center
               << "\" is not a valid option for universe_center.");
-  
+
   // Must have not have both ip per image and ip per tile set
   if (asp::stereo_settings().ip_per_image > 0 &&
       asp::stereo_settings().ip_per_tile > 0)
