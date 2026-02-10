@@ -1274,7 +1274,8 @@ void jitterSolvePass(int                                 pass,
                             opt.camera_models, // these have been updated
                             remove_outliers, outliers, opt.mapproj_dem,
                             propagate_errors, horizontal_stddev_vec,
-                            save_clean_matches, opt.match_files);
+                            save_clean_matches, opt.match_files,
+                            stereo_settings().matches_as_txt);
 
   // Compute the change in camera centers
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";

@@ -231,7 +231,7 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
 }
 
 bool MatchList::loadPointsFromVwip(std::vector<std::string> const& vwipFiles,
-                                   std::vector<std::string> const& imageNames){
+                                   std::vector<std::string> const& imageNames) {
 
   using namespace vw::ba;
 
@@ -271,6 +271,7 @@ void MatchList::setIpValid(size_t image) {
 void populateMatchFiles(std::vector<std::string> const& image_files,
                         std::string const& output_prefix,
                         std::string const& first_match_file,
+                        bool matches_as_txt,
                         // Outputs
                         std::vector<std::string> & matchFiles,
                         std::vector<size_t> & leftIndices,
@@ -301,24 +302,24 @@ void populateMatchFiles(std::vector<std::string> const& image_files,
     // Look in default location 1, match from previous file to this file.
     try {
       trial_match = vw::ip::match_filename(output_prefix, image_files[i-1],
-             image_files[i]);
+                                           image_files[i], matches_as_txt);
       leftIndex = i - 1;
-      vw::ip::read_binary_match_file(trial_match, left, right);
+      vw::ip::read_match_file(trial_match, left, right, matches_as_txt);
       vw::vw_out() << "Read " << left.size() << " matches from " << trial_match << "\n";
 
     } catch(...) {
       // Look in default location 2, match from first file to this file.
       try {
         trial_match = vw::ip::match_filename(output_prefix, image_files[0],
-               image_files[i]);
+                                             image_files[i], matches_as_txt);
         leftIndex = 0;
-        vw::ip::read_binary_match_file(trial_match, left, right);
+        vw::ip::read_match_file(trial_match, left, right, matches_as_txt);
         vw::vw_out() << "Read " << left.size() << " matches from " << trial_match << "\n";
 
       } catch(...) {
         // Default locations failed, Start with a blank match file.
         trial_match = vw::ip::match_filename(output_prefix, image_files[i-1],
-                                             image_files[i]);
+                                             image_files[i], matches_as_txt);
         matchfiles_found = false;
         leftIndex = i-1;
       }
@@ -346,7 +347,8 @@ void MatchList::populateFromIpPair(std::vector<vw::ip::InterestPoint> const& ip1
 }
 
 bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFiles,
-                                         std::vector<size_t> const& leftIndices) {
+                                         std::vector<size_t> const& leftIndices,
+                                         bool matches_as_txt) {
 
   // Count IP as in the same location if x and y are at least this close.
   const float ALLOWED_POS_DIFF = 0.5;
@@ -380,8 +382,8 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
 
     std::vector<vw::ip::InterestPoint> left, right;
     try {
-      vw_out() << "Reading binary match file: " << match_file << "\n";
-      ip::read_binary_match_file(match_file, left, right);
+      vw_out() << "Reading match file: " << match_file << "\n";
+      ip::read_match_file(match_file, left, right, matches_as_txt);
       vw::vw_out() << "Read " << left.size() << " matches.\n";
     } catch(...) {
       vw_out() << "IP load failed, leaving default invalid IP\n";
@@ -429,7 +431,8 @@ bool MatchList::loadPointsFromMatchFiles(std::vector<std::string> const& matchFi
 
 bool MatchList::savePointsToDisk(std::string const& prefix,
                                  std::vector<std::string> const& imageNames,
-                                 std::string const& match_file) const {
+                                 std::string const& match_file,
+                                 bool matches_as_txt) const {
   if (!allPointsValid() || (imageNames.size() != m_matches.size()))
     vw::vw_throw(vw::ArgumentErr()
                  << "Cannot write match files, not all points are valid.\n");
@@ -451,13 +454,14 @@ bool MatchList::savePointsToDisk(std::string const& prefix,
         continue; // don't save i <-> i matches
 
       std::string output_path = vw::ip::match_filename(prefix,
-                                                       imageNames[i], imageNames[j]);
+                                                       imageNames[i], imageNames[j],
+                                                       matches_as_txt);
       if ((num_image_files == 2) && (match_file != ""))
         output_path = match_file;
       try {
-        vw_out() << "Writing: " << output_path << std::endl;
-        ip::write_binary_match_file(output_path, m_matches[i], m_matches[j]);
-      }catch(...) {
+        vw_out() << "Writing: " << output_path << "\n";
+        ip::write_match_file(output_path, m_matches[i], m_matches[j], matches_as_txt);
+      } catch(...) {
         vw::vw_throw(vw::ArgumentErr() << "Failed to save match file: "
                      << output_path << ".\n");
       }

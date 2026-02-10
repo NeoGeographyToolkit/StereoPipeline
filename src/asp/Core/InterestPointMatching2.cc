@@ -971,6 +971,8 @@ bool match_ip_with_datum(bool single_threaded_camera,
                          double nodata1,
                          double nodata2) {
 
+  bool matches_as_txt = stereo_settings().matches_as_txt;
+
   if (use_rough_homography)
     vw_out() << "\t    Using rough homography.\n";
   else
@@ -1064,14 +1066,14 @@ bool match_ip_with_datum(bool single_threaded_camera,
 
   // Write the matches to disk
   vw_out() << "\t    * Writing match file: " << match_filename << "\n";
-  ip::write_binary_match_file(match_filename, matched_ip1, matched_ip2);
+  ip::write_match_file(match_filename, matched_ip1, matched_ip2, matches_as_txt);
 
   return inlier;
 }
 
 // Match the ip and save the match file. No datum or epipolar constraint
 // is used in this mode.
-void match_ip_no_datum(vw::ip::InterestPointList const& ip1, 
+void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
                        vw::ip::InterestPointList const& ip2,
                        vw::ImageViewRef<float> const& image1,
                        vw::ImageViewRef<float> const& image2,
@@ -1080,7 +1082,6 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
                        std::vector<vw::ip::InterestPoint>& matched_ip1,
                        std::vector<vw::ip::InterestPoint>& matched_ip2,
                        std::string const& match_file) {
-
 
   matched_ip1.clear(); 
   matched_ip2.clear();
@@ -1102,7 +1103,7 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
   vw::Stopwatch sw1;
   sw1.start();
   match_ip_no_datum(ip1_copy, ip2_copy, detect_method, uniqueness_threshold, quiet,
-    matched_ip1, matched_ip2); // outputs
+                    matched_ip1, matched_ip2); // outputs
   sw1.stop();
   vw_out() << "Elapsed time in ip matching: " << sw1.elapsed_seconds() << " s.\n";
 
@@ -1120,8 +1121,8 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
     vw::Stopwatch sw2;
     sw2.start();
     homography_rectification(adjust_left_image_size, tight_inlier_threshold,
-          image1.get_size(), image2.get_size(),
-          matched_ip1, matched_ip2, matrix1, matrix2);
+                             image1.get_size(), image2.get_size(),
+                             matched_ip1, matched_ip2, matrix1, matrix2);
     sw2.stop();
     vw_out() << "Elapsed time in homography computation: " << sw2.elapsed_seconds() << " s.\n";
 
@@ -1165,7 +1166,8 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
     // Create the output directory
     vw::create_out_dir(match_file);
     vw_out() << "Writing: " << match_file << std::endl;
-    vw::ip::write_binary_match_file(match_file, matched_ip1, matched_ip2);
+    bool matches_as_txt = stereo_settings().matches_as_txt;
+    vw::ip::write_match_file(match_file, matched_ip1, matched_ip2, matches_as_txt);
   }
 
   return;

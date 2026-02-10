@@ -114,16 +114,20 @@ namespace asp {
                                      BBox2i                  const & left_trans_crop_win,
                                      BBox2i                        & right_trans_crop_win) {
 
+    bool matches_as_txt = stereo_settings().matches_as_txt;
+
     vw_out() << "\t--> Reading unaligned interest points.\n";
     std::vector<vw::ip::InterestPoint> left_unaligned_ip, right_unaligned_ip;
     std::string match_filename = vw::ip::match_filename(opt.out_prefix,
                                                         left_unaligned_file,
-                                                        right_unaligned_file);
+                                                        right_unaligned_file,
+                                                        matches_as_txt);
     if (!fs::exists(match_filename))
       vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
 
     vw_out() << "\t    * Loading match file: " << match_filename << "\n";
-    vw::ip::read_binary_match_file(match_filename, left_unaligned_ip, right_unaligned_ip);
+    vw::ip::read_match_file(match_filename, left_unaligned_ip, right_unaligned_ip, 
+                            matches_as_txt);
 
     right_trans_crop_win = BBox2i(); // wipe the output
     size_t min_num_ip = 20;
@@ -214,9 +218,9 @@ namespace asp {
       if (stereo_settings().local_alignment_debug) {
         std::cout << "Grown right trans crop win " << right_trans_crop_win << std::endl;
         std::string out_match_filename
-          = vw::ip::match_filename(opt.out_prefix + "-tile", "L.tif", "R.tif");
+          = vw::ip::match_filename(opt.out_prefix + "-tile", "L.tif", "R.tif", matches_as_txt);
         vw_out() << "Writing match file: " << out_match_filename << "\n";
-        vw::ip::write_binary_match_file(out_match_filename, left_trans_ip, right_trans_ip);
+        vw::ip::write_match_file(out_match_filename, left_trans_ip, right_trans_ip, matches_as_txt);
       }
 
       if (left_trans_ip.size() >= min_num_ip)
@@ -247,6 +251,8 @@ namespace asp {
                                      std::vector<vw::ip::InterestPoint> & right_local_ip,
                                      std::vector<size_t>                & ip_inlier_indices) {
 
+    bool matches_as_txt = stereo_settings().matches_as_txt;
+
     // Convert ip to original unaligned and uncropped coordinates
     std::vector<vw::ip::InterestPoint> left_global_ip;
     std::vector<vw::ip::InterestPoint> right_global_ip;
@@ -270,12 +276,12 @@ namespace asp {
     }
 
     if (stereo_settings().local_alignment_debug) {
-      std::string unaligned_match_filename = vw::ip::match_filename(opt.out_prefix
-                                                                    + "-cropped-noalign-ip",
-                                                                    opt.in_file1,
-                                                                    opt.in_file2);
+      std::string unaligned_match_filename 
+        = vw::ip::match_filename(opt.out_prefix + "-cropped-noalign-ip",
+                                 opt.in_file1, opt.in_file2, matches_as_txt);
       vw_out() << "Writing match file: " << unaligned_match_filename << "\n";
-      vw::ip::write_binary_match_file(unaligned_match_filename, left_global_ip, right_global_ip);
+      vw::ip::write_match_file(unaligned_match_filename, left_global_ip, right_global_ip,
+                               matches_as_txt);
     }
 
     filter_ip_using_cameras(left_global_ip, right_global_ip,
@@ -303,8 +309,7 @@ namespace asp {
       right_local_ip.back().y = right_pt.y();
 
       ip_inlier_indices.push_back(i);
-    }
-
+    } // end loop over ip
   }
 
   // Apply transforms to ip
@@ -354,7 +359,6 @@ namespace asp {
   //    original unaligned images to find the locally aligned images
   //  - Save the locally aligned images to disk
   //  - Estimate the search range for the locally aligned images
-
   void local_alignment(// Inputs
                        ASPGlobalOptions        const & opt,
                        std::string             const & alg_name,
@@ -376,6 +380,8 @@ namespace asp {
                        std::string                   & right_aligned_file,
                        int                           & min_disp,
                        int                           & max_disp) {
+
+    bool matches_as_txt = stereo_settings().matches_as_txt;
 
     // Read the unaligned images
     std::string left_unaligned_file = opt.in_file1;
@@ -481,10 +487,11 @@ namespace asp {
                              has_nodata, right_nodata_value, opt,
                              TerminalProgressCallback("asp","\t  Right:  "));
 
-      std::string local_match_filename = vw::ip::match_filename(opt.out_prefix,
-                                                                left_crop, right_crop);
+      std::string local_match_filename 
+        = vw::ip::match_filename(opt.out_prefix, left_crop, right_crop, matches_as_txt);
       vw_out() << "Writing match file: " << local_match_filename << "\n";
-      vw::ip::write_binary_match_file(local_match_filename, left_local_ip, right_local_ip);
+      vw::ip::write_match_file(local_match_filename, left_local_ip, right_local_ip,
+                               matches_as_txt);
     }
 
     // The matrices which take care of the crop to the current tile
@@ -682,10 +689,10 @@ namespace asp {
 
     if (stereo_settings().local_alignment_debug) {
       std::string local_aligned_match_filename
-        = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile);
+        = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile, matches_as_txt);
       vw_out() << "Writing match file: " << local_aligned_match_filename << "\n";
-      vw::ip::write_binary_match_file(local_aligned_match_filename, left_trans_local_ip,
-                                      right_trans_local_ip);
+      vw::ip::write_match_file(local_aligned_match_filename, left_trans_local_ip,
+                               right_trans_local_ip, matches_as_txt);
     }
 
     // Expand the disparity search range a bit

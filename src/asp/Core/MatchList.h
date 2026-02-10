@@ -43,6 +43,7 @@ namespace asp {
   void populateMatchFiles(std::vector<std::string> const& image_files,
                           std::string const& output_prefix,
                           std::string const& first_match_file,
+                          bool matches_as_txt,
                           // Outputs
                           std::vector<std::string> & matchFiles,
                           std::vector<size_t> & leftIndices,
@@ -102,7 +103,8 @@ namespace asp {
     /// - Any points that cannot be loaded will be flagged as invalid.
     /// - Return the number of points loaded, or -1 for failure.
     bool loadPointsFromMatchFiles(std::vector<std::string> const& matchFiles,
-                                  std::vector<size_t>      const& leftIndices);
+                                  std::vector<size_t>      const& leftIndices,
+                                  bool matches_as_txt);
 
     /// Try to load the interest points from a GCP file.
     bool loadPointsFromGCPs(std::string const gcpPath,
@@ -119,7 +121,8 @@ namespace asp {
     /// Write all points out using a given prefix.
     bool savePointsToDisk(std::string const& prefix,
                           std::vector<std::string> const& imageNames,
-                          std::string const& match_file="") const;
+                          std::string const& match_file,
+                          bool matches_as_txt) const;
 
   private:
 

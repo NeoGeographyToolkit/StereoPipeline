@@ -744,7 +744,8 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                             asp::BaBaseOptions(opt), // note the slicing
                             optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
                             opt.propagate_errors, opt.horizontal_stddev_vec,
-                            save_clean_matches, opt.match_files);
+                            save_clean_matches, opt.match_files,
+                            stereo_settings().matches_as_txt);
 
   // Compute the change in camera centers. For that, we need the original cameras.
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";

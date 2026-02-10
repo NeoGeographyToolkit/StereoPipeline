@@ -923,7 +923,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           bool                                propagate_errors,
                           vw::Vector<double>           const& horizontal_stddev_vec,
                           bool                                save_clean_matches,
-                          std::map<std::pair<int, int>, std::string> const& match_files) {
+                          std::map<std::pair<int, int>, std::string> const& match_files,
+                          bool                                matches_as_txt) {
 
   vw_out() << "Creating reports.\n";
 
@@ -996,7 +997,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       std::string match_file
         = vw::ip::match_filename(opt.out_prefix,
                                  opt.image_files[left_index],
-                                 opt.image_files[right_index]);
+                                 opt.image_files[right_index],
+                                 matches_as_txt);
       local_match_files[std::make_pair(left_index, right_index)] = match_file;
     }
   }
@@ -1025,20 +1027,20 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
 
       // Write the matches formed from the cnet to disk
       if (opt.output_cnet_type == "match-files") {
-        vw::vw_out() << "Writing: " << match_file << std::endl;
-        vw::ip::write_binary_match_file(match_file, orig_left_ip, orig_right_ip);
+        vw::vw_out() << "Writing: " << match_file << "\n";
+        vw::ip::write_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
       }
 
     } else {
       // Read existing matches. Skip over match files that don't exist.
       if (!boost::filesystem::exists(match_file)) {
-        vw_out() << "Skipping non-existent match file: " << match_file << std::endl;
+        vw_out() << "Skipping non-existent match file: " << match_file << "\n";
         continue;
       }
       // Read the original IP, to ensure later we write to disk only
       // the subset of the IP from the control network which
-      // are part of these original ones. 
-      vw::ip::read_binary_match_file(match_file, orig_left_ip, orig_right_ip);
+      // are part of these original ones.
+      vw::ip::read_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
     }
 
     // Create a new convergence angle storage struct
@@ -1116,7 +1118,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       continue; // Do not write match files
 
     // Make a clean copy of the file
-    std::string clean_match_file = ip::clean_match_filename(match_file);
+    std::string clean_match_file = ip::clean_match_filename(match_file, matches_as_txt);
     if (opt.clean_match_files_prefix != "") {
       // Ensure "clean" does not show up twice
       clean_match_file = match_file;
@@ -1128,8 +1130,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     }
 
     vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
-    vw_out() << "Writing: " << clean_match_file << std::endl;
-    vw::ip::write_binary_match_file(clean_match_file, left_ip, right_ip);
+    vw_out() << "Writing: " << clean_match_file << "\n";
+    vw::ip::write_match_file(clean_match_file, left_ip, right_ip, matches_as_txt);
 
   } // End loop through the match files
 

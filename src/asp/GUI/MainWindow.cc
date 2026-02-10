@@ -1237,11 +1237,13 @@ void MainWindow::viewMatches() {
       std::vector<std::string> matchFiles;
       std::vector<size_t> leftIndices;
       bool matchfiles_found = false;
-      asp::populateMatchFiles(app_data.image_files, m_output_prefix, 
+      asp::populateMatchFiles(app_data.image_files, m_output_prefix,
                               stereo_settings().match_file,
+                              stereo_settings().matches_as_txt,
                               matchFiles, leftIndices, matchfiles_found);      
-      if (matchfiles_found) 
-        m_match_mgr.m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices);
+      if (matchfiles_found)
+        m_match_mgr.m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices,
+                                                         stereo_settings().matches_as_txt);
     }
 
   } // End case where we tried to load the matches
@@ -1365,7 +1367,8 @@ void MainWindow::saveMatches() {
 
   try {
     m_match_mgr.m_matchlist.savePointsToDisk(m_output_prefix, app_data.image_files,
-                                 stereo_settings().match_file);
+                                             stereo_settings().match_file,
+                                             stereo_settings().matches_as_txt);
   } catch (std::exception const& e) {
     popUp(e.what());
     return;

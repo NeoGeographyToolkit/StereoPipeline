@@ -331,7 +331,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           bool                                propagate_errors,
                           vw::Vector<double>           const& horizontal_stddev_vec,
                           bool                                save_clean_matches,
-                          std::map<std::pair<int, int>, std::string> const& match_files);
+                          std::map<std::pair<int, int>, std::string> const& match_files,
+                          bool                                matches_as_txt);
 
 /// This is for the BundleAdjustmentModel class where the camera parameters
 /// are a rotation/offset that is applied on top of the existing camera model.

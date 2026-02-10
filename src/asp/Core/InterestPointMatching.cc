@@ -255,8 +255,8 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 
   // Match the ip and save the match file. No epipolar constraint
   // is used in this mode.
-  match_ip_no_datum(ip1, ip2, image1, image2, number_of_jobs,
-    matched_ip1, matched_ip2, match_file); // outputs
+  match_ip_no_datum(ip1, ip2, image1, image2, number_of_jobs, 
+                    matched_ip1, matched_ip2, match_file); // outputs
 
 } // End function detect_match_ip
 
@@ -278,8 +278,8 @@ void check_homography_matrix(Matrix<double> const& H,
   double det = fabs(H(0, 0)*H(1, 1) - H(0, 1)*H(1, 0));
   if (det <= 0.1 || det >= 10.0) {
     vw_out(WarningMessage) << "InterestPointMatching: The determinant of the 2x2 submatrix "
-                           << "of the homography matrix " << H << " is " << det
-                           << ". There could be a large scale discrepancy among the input images "
+                           << "of the homography matrix " << H << " is " << det << ". "
+                           << "There could be a large scale discrepancy among the input images "
                            << "or the inputs may be an invalid stereo pair.\n";
   }
 }
@@ -1283,7 +1283,8 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
   }
 
   vw_out() << "\t    * Writing match file: " << match_filename << "\n";
-  ip::write_binary_match_file(match_filename, final_ip1, final_ip2);
+  bool matches_as_txt = stereo_settings().matches_as_txt;
+  ip::write_match_file(match_filename, final_ip1, final_ip2, matches_as_txt);
 
   return true;
 }
