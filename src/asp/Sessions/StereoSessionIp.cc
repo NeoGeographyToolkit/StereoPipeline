@@ -343,7 +343,7 @@ void StereoSession::imageAlignment(// Inputs
 
   // Define the file name containing IP match information.
   std::string match_filename
-    = asp::stereo_match_filename(left_cropped_file, right_cropped_file, out_prefix);
+    = asp::stereoMatchFile(left_cropped_file, right_cropped_file, out_prefix);
 
   std::string left_ip_filename  = ip::ip_filename(out_prefix, left_cropped_file);
   std::string right_ip_filename = ip::ip_filename(out_prefix, right_cropped_file);

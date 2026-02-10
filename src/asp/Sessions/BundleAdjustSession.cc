@@ -187,7 +187,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
                                                 opt.match_files_prefix,
                                                 opt.out_prefix);
     vw_out() << "Computing the list of existing match files.\n";
-    asp::listExistingMatchFiles(prefix, existing_files);
+    asp::listExistingMatchFiles(prefix, asp::stereo_settings().matches_as_txt, existing_files);
   }
 
   vw::cartography::GeoReference dem_georef;
@@ -212,8 +212,9 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
 
     // See if perhaps to load match files from a different source
     std::string match_file
-      = asp::match_filename(opt.clean_match_files_prefix, opt.match_files_prefix,
-                            opt.out_prefix, image1_path, image2_path);
+      = asp::matchFileMultiPrefix(opt.clean_match_files_prefix, opt.match_files_prefix,
+                                  opt.out_prefix, image1_path, image2_path,
+                                  asp::stereo_settings().matches_as_txt);
 
     // The external match file does not exist, don't try to load it
     if (external_matches && existing_files.find(match_file) == existing_files.end())

@@ -335,7 +335,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
     vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
   
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
-  ip::read_binary_match_file(match_filename, in_left_ip, in_right_ip);
+  ip::read_match_file(match_filename, in_left_ip, in_right_ip, stereo_settings().matches_as_txt);
 
   // TODO(oalexan1): Add here filter_ip_using_cameras, but take into account
   // that the datum may not exist!
@@ -548,9 +548,9 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     if (have_aligned_matches)
       match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
     else 
-      match_filename = asp::stereo_match_filename(opt.session->left_cropped_image(),
-                                                  opt.session->right_cropped_image(),
-                                                  opt.out_prefix);
+      match_filename = asp::stereoMatchFile(opt.session->left_cropped_image(),
+                                            opt.session->right_cropped_image(),
+                                            opt.out_prefix);
     // The interest points must exist by now
     if (!fs::exists(match_filename))
       vw_throw(ArgumentErr() << "Missing IP matches file: " << match_filename);

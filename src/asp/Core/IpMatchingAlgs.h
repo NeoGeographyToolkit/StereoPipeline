@@ -48,9 +48,9 @@ namespace asp {
 
 // Find the match file taking into account --match-files-prefix and
 // --clean-match-files-prefix.
-std::string stereo_match_filename(std::string const& left_cropped_file,
-                                  std::string const& right_cropped_file,
-                                  std::string const& out_prefix);
+std::string stereoMatchFile(std::string const& left_cropped_file,
+                            std::string const& right_cropped_file,
+                            std::string const& out_prefix);
 
 // Compute ip between L.tif and R.tif produced by stereo.
 void compute_ip_LR(std::string const & out_prefix);
@@ -92,12 +92,13 @@ std::string match_file_prefix(std::string const& clean_match_files_prefix,
                               std::string const& match_files_prefix,
                               std::string const& out_prefix);
   
-// Heuristics for where to load the match file from  
-std::string match_filename(std::string const& clean_match_files_prefix,
-                           std::string const& match_files_prefix,
-                           std::string const& out_prefix,
-                           std::string const& image1_path,
-                           std::string const& image2_path);
+// Heuristics for where to load the match file from
+std::string matchFileMultiPrefix(std::string const& clean_match_files_prefix,
+                                 std::string const& match_files_prefix,
+                                 std::string const& out_prefix,
+                                 std::string const& image1_path,
+                                 std::string const& image2_path,
+                                 bool matches_as_txt);
 
 /// The unwarped disparity file name.
 std::string unwarped_disp_file(std::string const& prefix, std::string const& left_image,
@@ -112,6 +113,7 @@ void convergence_angles(vw::camera::CameraModel const * left_cam,
 
 // Find all match files stored on disk having this prefix
 void listExistingMatchFiles(std::string const& prefix,
+                            bool matches_as_txt,
                             std::set<std::string> & existing_files);
 
 // Given a pair of indices, return all the matches between them.
@@ -128,6 +130,7 @@ void findMatchFiles(// Inputs
                     std::string const& clean_match_files_prefix,
                     std::string const& match_files_prefix,
                     std::string const& out_prefix,
+                    bool matches_as_txt,
                     // Outputs
                     std::map<std::pair<int, int>, std::string> & match_files);
   

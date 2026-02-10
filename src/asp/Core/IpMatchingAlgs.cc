@@ -36,9 +36,9 @@ namespace asp {
 
 // Find the match file taking into account --match-files-prefix and
 // --clean-match-files-prefix.
-std::string stereo_match_filename(std::string const& left_cropped_file,
-                                  std::string const& right_cropped_file,
-                                  std::string const& out_prefix) {
+std::string stereoMatchFile(std::string const& left_cropped_file,
+                            std::string const& right_cropped_file,
+                            std::string const& out_prefix) {
   
   // Define the file name containing IP match information.
   bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
@@ -47,10 +47,11 @@ std::string stereo_match_filename(std::string const& left_cropped_file,
   // See if can use an externally provided match file
   std::string match_filename;
   if (!crop_left && !crop_right)
-    match_filename 
-      = asp::match_filename(stereo_settings().clean_match_files_prefix,
-                            stereo_settings().match_files_prefix,  
-                            out_prefix, left_cropped_file, right_cropped_file);
+    match_filename
+      = asp::matchFileMultiPrefix(stereo_settings().clean_match_files_prefix,
+                                  stereo_settings().match_files_prefix,
+                                  out_prefix, left_cropped_file, right_cropped_file,
+                                  stereo_settings().matches_as_txt);
   
   // If the user wants to use an external match file, it better exist
   bool external_matches = (!stereo_settings().clean_match_files_prefix.empty() ||
@@ -60,7 +61,8 @@ std::string stereo_match_filename(std::string const& left_cropped_file,
   
   // Fall back to creating one if no luck
   if (match_filename == "" || !boost::filesystem::exists(match_filename))
-      match_filename = vw::ip::match_filename(out_prefix, left_cropped_file, right_cropped_file);
+      match_filename = vw::ip::match_filename(out_prefix, left_cropped_file, right_cropped_file,
+                                              stereo_settings().matches_as_txt);
   
   return match_filename;
 }
@@ -360,20 +362,21 @@ std::string match_file_prefix(std::string const& clean_match_files_prefix,
 }
   
 // Heuristics for where to load the match file from  
-std::string match_filename(std::string const& clean_match_files_prefix,
-                           std::string const& match_files_prefix,
-                           std::string const& out_prefix,
-                           std::string const& image1_path,
-                           std::string const& image2_path) {
+std::string matchFileMultiPrefix(std::string const& clean_match_files_prefix,
+                                 std::string const& match_files_prefix,
+                                 std::string const& out_prefix,
+                                 std::string const& image1_path,
+                                 std::string const& image2_path,
+                                 bool matches_as_txt) {
 
   std::string curr_prefix = asp::match_file_prefix(clean_match_files_prefix,
-                                              match_files_prefix,  
-                                              out_prefix);
+                                                   match_files_prefix,
+                                                   out_prefix);
 
   if (clean_match_files_prefix != "")
-    return vw::ip::clean_match_filename(curr_prefix, image1_path, image2_path);
+    return vw::ip::clean_match_filename(curr_prefix, image1_path, image2_path, matches_as_txt);
 
-  return vw::ip::match_filename(curr_prefix, image1_path, image2_path);
+  return vw::ip::match_filename(curr_prefix, image1_path, image2_path, matches_as_txt);
 }
 
 /// The unwarped disparity file name
@@ -419,6 +422,7 @@ void convergence_angles(vw::camera::CameraModel const * left_cam,
 // Find all match files stored on disk having this prefix. This is much faster
 // than trying to see if any combination of images results in a match file.
 void listExistingMatchFiles(std::string const& prefix,
+                            bool matches_as_txt,
                             std::set<std::string> & existing_files) {
 
   existing_files.clear();
@@ -435,13 +439,19 @@ void listExistingMatchFiles(std::string const& prefix,
     add_dot = true;
   }
   
+  std::string ext;
+  if (matches_as_txt)
+    ext = ".txt";
+  else
+    ext = ".match";
+   
   // Iterate over all files in the directory
   for (auto i = fs::directory_iterator(dirName); i != fs::directory_iterator(); i++) {
     
     if (fs::is_directory(i->path())) // skip dirs
       continue;
     std::string filename = i->path().string();
-    if (filename.find(".match") == std::string::npos) // keep only match files
+    if (filename.find(ext) == std::string::npos) // keep only match files
       continue;
       
     if (add_dot && filename.size() >= 2 && filename[0] == '.' && filename[1] == '/' &&
@@ -590,6 +600,7 @@ void findMatchFiles(// Inputs
                     std::string const& clean_match_files_prefix,
                     std::string const& match_files_prefix,
                     std::string const& out_prefix,
+                    bool matches_as_txt,
                     // Outputs
                     std::map<std::pair<int, int>, std::string> & match_files) {
 
@@ -615,7 +626,7 @@ void findMatchFiles(// Inputs
                                               match_files_prefix,  
                                               out_prefix);
   std::set<std::string> existing_files;
-  asp::listExistingMatchFiles(prefix, existing_files);
+  asp::listExistingMatchFiles(prefix, matches_as_txt, existing_files);
 
   // Load match files
   for (size_t k = 0; k < all_pairs.size(); k++) {
@@ -624,9 +635,9 @@ void findMatchFiles(// Inputs
     std::string const& image1_path  = image_files[i];  // alias
     std::string const& image2_path  = image_files[j];  // alias
     // Load match files from a different source
-    std::string match_file 
-      = asp::match_filename(clean_match_files_prefix, match_files_prefix,  
-                            out_prefix, image1_path, image2_path);
+    std::string match_file
+      = asp::matchFileMultiPrefix(clean_match_files_prefix, match_files_prefix,
+                                  out_prefix, image1_path, image2_path, matches_as_txt);
     // The external match file does not exist, don't try to load it
     if (existing_files.find(match_file) == existing_files.end())
       continue;

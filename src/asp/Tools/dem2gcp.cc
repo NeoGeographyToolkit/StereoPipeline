@@ -450,6 +450,7 @@ int run_dem2gcp(int argc, char * argv[]) {
     asp::findMatchFiles(overlap_limit, match_first_to_last,
                         image_files, opt.clean_match_files_prefix,
                         opt.match_files_prefix, out_prefix,
+                        asp::stereo_settings().matches_as_txt,
                         // Outputs
                         match_files);
   }

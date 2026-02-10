@@ -1350,6 +1350,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     asp::findMatchFiles(opt.overlap_limit, opt.match_first_to_last,
                         opt.image_files, opt.clean_match_files_prefix,
                         opt.match_files_prefix, opt.out_prefix,
+                        asp::stereo_settings().matches_as_txt,
                         // Outputs
                         opt.match_files);
 
