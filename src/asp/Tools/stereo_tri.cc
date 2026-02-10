@@ -650,19 +650,21 @@ void disp_or_matches_work(std::string const& output_prefix,
 
   if (stereo_settings().num_matches_from_disparity > 0) {
     bool gen_triplets = false;
-    compute_matches_from_disp(opt, disparity_maps[0],
-                              left_raw_image, right_raw_image,
-                              left_trans, right_trans, match_file,
-                              stereo_settings().num_matches_from_disparity,
-                              gen_triplets, is_map_projected);
+    matchesFromDisp(opt, disparity_maps[0],
+                    left_raw_image, right_raw_image,
+                    left_trans, right_trans, match_file,
+                    stereo_settings().num_matches_from_disparity,
+                    gen_triplets, is_map_projected,
+                    stereo_settings().matches_as_txt);
   }
   if (stereo_settings().num_matches_from_disp_triplets > 0) {
     bool gen_triplets = true;
-    compute_matches_from_disp(opt, disparity_maps[0],
-                              left_raw_image, right_raw_image,
-                              left_trans, right_trans, match_file,
-                              stereo_settings().num_matches_from_disp_triplets,
-                              gen_triplets, is_map_projected);
+    matchesFromDisp(opt, disparity_maps[0],
+                    left_raw_image, right_raw_image,
+                    left_trans, right_trans, match_file,
+                    stereo_settings().num_matches_from_disp_triplets,
+                    gen_triplets, is_map_projected,
+                    stereo_settings().matches_as_txt);
   }
 
   return;

@@ -350,9 +350,9 @@ void unalign_ip(vw::TransformPtr tx_left,
 }
 
 // Heuristics for match file prefix
-std::string match_file_prefix(std::string const& clean_match_files_prefix,
-                              std::string const& match_files_prefix,
-                              std::string const& out_prefix) {
+std::string matchMultiPrefix(std::string const& clean_match_files_prefix,
+                             std::string const& match_files_prefix,
+                             std::string const& out_prefix) {
   
   if (clean_match_files_prefix != "")
     return clean_match_files_prefix;
@@ -369,9 +369,9 @@ std::string matchFileMultiPrefix(std::string const& clean_match_files_prefix,
                                  std::string const& image2_path,
                                  bool matches_as_txt) {
 
-  std::string curr_prefix = asp::match_file_prefix(clean_match_files_prefix,
-                                                   match_files_prefix,
-                                                   out_prefix);
+  std::string curr_prefix = asp::matchMultiPrefix(clean_match_files_prefix,
+                                                  match_files_prefix,
+                                                  out_prefix);
 
   if (clean_match_files_prefix != "")
     return vw::ip::clean_match_filename(curr_prefix, image1_path, image2_path, matches_as_txt);
@@ -622,9 +622,9 @@ void findMatchFiles(// Inputs
 
   // List existing match files. This can take a while.
   vw_out() << "Computing the list of existing match files.\n";
-  std::string prefix = asp::match_file_prefix(clean_match_files_prefix,
-                                              match_files_prefix,  
-                                              out_prefix);
+  std::string prefix = asp::matchMultiPrefix(clean_match_files_prefix,
+                                             match_files_prefix,
+                                             out_prefix);
   std::set<std::string> existing_files;
   asp::listExistingMatchFiles(prefix, matches_as_txt, existing_files);
 

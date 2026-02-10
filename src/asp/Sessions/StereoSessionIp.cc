@@ -360,8 +360,9 @@ void StereoSession::imageAlignment(// Inputs
                     match_filename, left_ip_filename, right_ip_filename);
 
   // Load the interest points results from the file we just wrote
+  bool matches_as_txt = asp::stereo_settings().matches_as_txt;
   std::vector<ip::InterestPoint> left_ip, right_ip;
-  ip::read_binary_match_file(match_filename, left_ip, right_ip);
+  ip::read_match_file(match_filename, left_ip, right_ip, matches_as_txt);
 
   // Compute the appropriate alignment matrix based on the input points
   if (stereo_settings().alignment_method == "homography") {
@@ -501,9 +502,10 @@ void matchIpNoCams(std::string const& image1,
   // These need to be passed to the ip matching function
   ip_opt.correlator_mode  = true; // no cameras
   ip_opt.alignment_method = "none"; // no alignment; a homography transform will be used
+  bool matches_as_txt = ip_opt.matches_as_txt; // for loading matches
 
-  std::string match_file 
-    = vw::ip::match_filename(output_prefix, image1, image2);
+  std::string match_file
+    = vw::ip::match_filename(output_prefix, image1, image2, matches_as_txt);
 
   asp::SessionPtr session(NULL);
   std::string stereo_session = "pinhole", input_dem = "";
@@ -526,7 +528,7 @@ void matchIpNoCams(std::string const& image1,
                
   // Read the match files from disk
   vw::vw_out() << "Reading matches from: " << match_file << "\n";
-  vw::ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
+  vw::ip::read_match_file(match_file, matched_ip1, matched_ip2, matches_as_txt);
    
   return;
 }

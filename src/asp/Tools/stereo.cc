@@ -238,6 +238,7 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
                                stereo_settings().alignment_method == "epipolar");
 
   std::string match_filename;
+  
   if (have_aligned_matches)
     match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
   else
@@ -254,7 +255,7 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   }
 
   std::vector<ip::InterestPoint> left_ip, right_ip;
-  ip::read_binary_match_file(match_filename, left_ip, right_ip);
+  ip::read_match_file(match_filename, left_ip, right_ip, stereo_settings().matches_as_txt);
 
   if (have_aligned_matches) {
     // Create the transforms ahead of time for clarity. When these are created

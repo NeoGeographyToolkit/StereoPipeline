@@ -68,8 +68,10 @@ void matchesFromMapprojImages(int i, int j,
 
   // If the match file does not exist, create it. The user can create this manually
   // too.
+  bool matches_as_txt = asp::stereo_settings().matches_as_txt;
   std::string map_match_file = ip::match_filename(opt.out_prefix,
-                                                  map_files[i], map_files[j]);
+                                                  map_files[i], map_files[j],
+                                                  matches_as_txt);
   try {
     asp::matchIp(opt.out_prefix, opt.enable_rough_homography, opt.pct_for_overlap,
                  session, map_files[i], map_files[j],
@@ -90,7 +92,7 @@ void matchesFromMapprojImages(int i, int j,
   vw_out() << "Reading: " << map_match_file << std::endl;
   std::vector<ip::InterestPoint> ip1,     ip2;
   std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
-  ip::read_binary_match_file(map_match_file, ip1, ip2);
+  ip::read_match_file(map_match_file, ip1, ip2, matches_as_txt);
 
   // Undo the map-projection
   vw::CamPtr left_map_proj_cam, right_map_proj_cam;
@@ -116,7 +118,7 @@ void matchesFromMapprojImages(int i, int j,
   vw::vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
 
   vw::vw_out() << "Writing: " << match_filename << std::endl;
-  vw::ip::write_binary_match_file(match_filename, ip1_cam, ip2_cam);
+  vw::ip::write_match_file(match_filename, ip1_cam, ip2_cam, matches_as_txt);
 
 } // End function matchesFromMapprojImages()
 
@@ -126,6 +128,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
                          std::vector<vw::Vector3> const& estimated_camera_gcc,
                          bool need_no_matches) {
 
+  bool matches_as_txt = asp::stereo_settings().matches_as_txt;
   int num_images = opt.image_files.size();
   const bool got_est_cam_positions =
     (estimated_camera_gcc.size() == static_cast<size_t>(num_images));
@@ -178,16 +181,16 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
   for (size_t i = 0; i < curr_job_num_tasks; i++)
     curr_job_pairs.push_back(all_pairs[i+curr_job_start_index]);
 
-  // When using match-files-prefix or clean_match_files_prefix, form the list of
-  // match files, rather than searching for them exhaustively on disk, which can
-  // get very slow.
+  // When using --match-files-prefix or --clean-match-files-prefix, form the
+  // list of match files, rather than searching for them exhaustively on disk,
+  // which can get very slow.
   std::set<std::string> existing_files;
   if (external_matches && !need_no_matches) {
-    std::string prefix = asp::match_file_prefix(opt.clean_match_files_prefix,
-                                                opt.match_files_prefix,
-                                                opt.out_prefix);
+    std::string prefix = asp::matchMultiPrefix(opt.clean_match_files_prefix,
+                                               opt.match_files_prefix,
+                                               opt.out_prefix);
     vw_out() << "Computing the list of existing match files.\n";
-    asp::listExistingMatchFiles(prefix, asp::stereo_settings().matches_as_txt, existing_files);
+    asp::listExistingMatchFiles(prefix, matches_as_txt, existing_files);
   }
 
   vw::cartography::GeoReference dem_georef;
@@ -214,7 +217,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
     std::string match_file
       = asp::matchFileMultiPrefix(opt.clean_match_files_prefix, opt.match_files_prefix,
                                   opt.out_prefix, image1_path, image2_path,
-                                  asp::stereo_settings().matches_as_txt);
+                                  matches_as_txt);
 
     // The external match file does not exist, don't try to load it
     if (external_matches && existing_files.find(match_file) == existing_files.end())
@@ -272,7 +275,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
 
       // Compute the coverage fraction
       std::vector<ip::InterestPoint> ip1, ip2;
-      ip::read_binary_match_file(match_file, ip1, ip2);
+      ip::read_match_file(match_file, ip1, ip2, matches_as_txt);
       int right_ip_width = rsrc1->cols() *
                             static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
       Vector2i ip_size(right_ip_width, rsrc1->rows());

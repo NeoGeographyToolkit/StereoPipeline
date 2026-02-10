@@ -1224,15 +1224,16 @@ void tripletsMatches(ASPGlobalOptions const& opt,
 /// When gen_triplets is true, and there are many overlapping images,
 /// try hard to have many IP with the property that each such IP is seen
 /// in more than two images. This helps with bundle adjustment.
-void compute_matches_from_disp(ASPGlobalOptions const& opt,
-                               DispImageType    const& disp,
-                               std::string      const& left_raw_image,
-                               std::string      const& right_raw_image, 
-                               vw::TransformPtr const& left_trans,
-                               vw::TransformPtr const& right_trans,
-                               std::string      const& match_file,
-                               int max_num_matches,
-                               bool gen_triplets, bool is_map_projected) {
+void matchesFromDisp(ASPGlobalOptions const& opt,
+                     DispImageType    const& disp,
+                     std::string      const& left_raw_image,
+                     std::string      const& right_raw_image,
+                     vw::TransformPtr const& left_trans,
+                     vw::TransformPtr const& right_trans,
+                     std::string      const& match_file,
+                     int max_num_matches,
+                     bool gen_triplets, bool is_map_projected,
+                     bool matches_as_txt) {
 
   std::vector<vw::ip::InterestPoint> left_ip, right_ip;
   
@@ -1302,7 +1303,7 @@ void compute_matches_from_disp(ASPGlobalOptions const& opt,
   }
   
   vw_out() << "Writing: " << match_file << "\n";
-  ip::write_binary_match_file(match_file, left_ip, right_ip);
+  ip::write_match_file(match_file, left_ip, right_ip, matches_as_txt);
 }
   
 } // end namespace asp

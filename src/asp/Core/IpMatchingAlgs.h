@@ -88,9 +88,9 @@ void unalign_ip(vw::TransformPtr tx_left,
                std::vector<vw::ip::InterestPoint> & ip2_out);
 
 // Heuristics for match file prefix
-std::string match_file_prefix(std::string const& clean_match_files_prefix,
-                              std::string const& match_files_prefix,
-                              std::string const& out_prefix);
+std::string matchMultiPrefix(std::string const& clean_match_files_prefix,
+                             std::string const& match_files_prefix,
+                             std::string const& out_prefix);
   
 // Heuristics for where to load the match file from
 std::string matchFileMultiPrefix(std::string const& clean_match_files_prefix,
