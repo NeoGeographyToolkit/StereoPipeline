@@ -189,11 +189,13 @@ PreProcessingDescription::PreProcessingDescription():
       "Maximum distance from inlier interest point matches to the epipolar line when calculating the global affine epipolar alignment.")
     ("local-alignment-threshold", po::value(&global.local_alignment_threshold)->default_value(2),
       "Maximum distance from inlier interest point matches to the epipolar line when calculating the local affine epipolar alignment.")
-    ("alignment-num-ransac-iterations", po::value(&global.alignment_num_ransac_iterations)->default_value(1000),
+    ("alignment-num-ransac-iterations", 
+     po::value(&global.alignment_num_ransac_iterations)->default_value(1000),
       "How many RANSAC iterations to use for global or local epipolar alignment.")
     ("outlier-removal-params", po::value(&global.outlier_removal_params)->default_value(Vector2(95.0, 3.0), "pct factor"),
       "Outlier removal params (percentage and factor) to be used in filtering interest points and the disparity with the box-and-whisker algorithm. Set the percentage to 100 to turn this off.")
-    ("matches-per-tile-params", po::value(&global.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
+    ("matches-per-tile-params", 
+     po::value(&global.matches_per_tile_params)->default_value(Vector2(1024, 1280), "1024 1280"),
       "To be used with --matches-per-tile. The first value is the image tile "
       "size for both images. A larger second value allows each right tile to "
       "further expand to this size, resulting in the tiles overlapping. This may be "
