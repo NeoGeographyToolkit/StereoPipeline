@@ -2136,45 +2136,38 @@ and run::
 Here, the shadow threshold used during SfS should be used, separating
 lit and unlit pixels.
 
+.. _sfs_unc:
+
 SfS height uncertainty map
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. _sfs_uncertainty_map:
+The recommended approach for assessing the quality of the SfS result is to
+compute the variance for each DEM pixel (available in ASP 3.6.0 or later).
 
-The recommended approach for assessing the quality of the SfS result in ASP
-3.6.0 is to compute the variance for each DEM pixel.
+The square root of the variance is the standard deviation, a relative measure of
+DEM height uncertainty. The variance is in units of square meters.
 
-The square root of the variance is a relative measure of SfS DEM height
-uncertainty. The variance is measured in square meters.
-
-To enable this functionality, add the option ``--save-variances`` flag
-(:numref:`sfs_opt`) to the ``parallel_sfs`` command as in
-:numref:`parallel_sfs_usage`. The output variance file is described in
+Use the ``--save-variances`` option (:numref:`sfs_opt`) with ``parallel_sfs``
+(:numref:`parallel_sfs_usage`). The resulting output file is described in
 :numref:`sfs_outputs`.
 
-This computation is done with the `Ceres Covariance Estimation
+The variance is computed from the diagonal of the covariance matrix of the
+optimized parameters, using the `Ceres Covariance Estimation
 <http://ceres-solver.org/nnls_covariance.html>`_ method.
 
-As of build 2/2025 (:numref:`release`), the additional ``--save-covariances``
-option is implemented, which saves the covariance between a pixel and its
-horizontal and vertical neighbors (:numref:`sfs_opt`).
+The ``--save-covariances`` option (:numref:`sfs_opt`), available in build 2026/2
+or later (:numref:`release`), saves the covariance between each DEM pixel and
+its four immediate neighbors (left, right, top, bottom). This can be
+useful for understanding spatial correlation of errors. See
+:numref:`sfs_outputs` for the output files.
 
-An older, experimental, and now obsolete approach is to use the
- ``--estimate-height-errors`` flag. This can be run as::
+Previously, the option ``--estimate-height-errors`` was employed, with a
+different implementation. This is now obsolete. See :numref:`sfs_opt` for
+details.
 
-   parallel_sfs --estimate-height-errors -i sfs_dem.tif \
-    -o sfs_error/run <other options as above>
-
-Hence, this invokes ``parallel_sfs`` as in :numref:`parallel_sfs_usage`, but
-with the produced SfS DEM as the input DEM, and a new output directory.
-
-See :numref:`sfs` describing how this older estimation is implemented. See also
-the option ``--height-error-params``. This uncertainty may be overly optimistic
-(:cite:`jindal2024measuring_v2`, :cite:`hemmi2025lroc`).
-
-A useful exercise can be to run SfS with two sets of images, each with
-diverse-enough illumination conditions, compare the produced terrain models, and
-see how that compares with the estimated uncertainty map.
+A useful exercise is to run SfS with two independent sets of images, each with
+diverse illumination, compare the produced DEMs, and see how that compares with
+the estimated uncertainty.
 
 .. _sfs_jitter:
 

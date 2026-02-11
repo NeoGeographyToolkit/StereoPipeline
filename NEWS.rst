@@ -64,6 +64,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     stage (:numref:`entrypoints`).
 
 sfs (:numref:`sfs`):
+  * Recommend the variance-based uncertainty estimation (:numref:`sfs_unc`).
   * Added the option ``--save-covariances`` (:numref:`sfs_opt`).
 
 rig_calibrator (:numref:`rig_calibrator`):

@@ -101,15 +101,15 @@ outputs are produced.
  - ``run/run-DEM-variance.tif``
      If ``--save-variances`` was set, this file stores the variance for each
      DEM pixel. If ``--float-albedo`` is also on, the albedo variance is stored
-     in ``<output prefix>-albedo-variance.tif``. Variance values within 3 pixels
-     of the boundary are set to nodata to avoid tiling artifacts.
+     in ``<output prefix>-albedo-variance.tif``. Values within 3 pixels of the
+     boundary are set to nodata. See :numref:`sfs_unc`.
 
  - ``run/run-DEM-{left,right,top,bottom}-covariance.tif``
      If ``--save-covariances`` was set, the ``left`` file stores the covariance
-     of each DEM pixel and its left neighbor. Same for the other ones. If
-     ``--float-albedo`` is also on, the albedo covariances with analogous names
-     are saved as well. Covariance values within 3 pixels of the boundary are
-     set to nodata to avoid tiling artifacts.
+     of each DEM pixel and its left neighbor, and similarly for the other files.
+     If ``--float-albedo`` is also on, the albedo covariances with analogous
+     names are saved as well. Values within 3 pixels of the boundary are set to
+     nodata. See :numref:`sfs_unc`.
 
 In addition, SfS saves intermediate values of many of these quantities
 at each iteration, unless the flag ``--save-sparingly`` is used. SfS
@@ -213,17 +213,16 @@ Command-line options for sfs
 
 --estimate-height-errors
     Estimate the SfS DEM height uncertainty (in meters). This option is
-    obsolete. It is suggested to compute instead the variance. See
-    :numref:`sfs_uncertainty_map`. This older implementation works by finding
-    the height perturbation at each grid point which will make at least one of
-    the simulated images at that point change by more than twice the discrepancy
-    between the unperturbed simulated image and the measured image. The SfS DEM
-    must be provided via the -i option. The number of iterations, blending
-    parameters (``--blending-dist``, etc.), and smoothness weight are ignored.
-    Results are not computed at image pixels in shadow. This produces <output
-    ``prefix>-height-error.tif``. No SfS DEM is computed. See also:
-    ``--height-error-params``. This uncertainty may be somewhat optimistic
-    (:cite:`jindal2024measuring_v2`).
+    obsolete. Use ``--save-variances`` instead (:numref:`sfs_unc`). This older
+    implementation works by finding the height perturbation at each grid point
+    which will make at least one of the simulated images at that point change by
+    more than twice the discrepancy between the unperturbed simulated image and
+    the measured image. The SfS DEM must be provided via the ``-i`` option. The
+    number of iterations, blending parameters (``--blending-dist``, etc.), and
+    smoothness weight are ignored. Results are not computed at image pixels in
+    shadow. This produces ``<output prefix>-height-error.tif``. No SfS DEM is
+    computed. See also ``--height-error-params``. This uncertainty may be overly
+    optimistic (:cite:`jindal2024measuring_v2`).
 
 --height-error-params <double integer (default: 5.0 100)>
     Specify the largest height deviation to examine (in meters), and
@@ -257,14 +256,15 @@ Command-line options for sfs
     Save the variance of the DEM for each pixel. If ``--float-albedo`` is on,
     also save the variance of the albedo. Note that computing the albedo
     variance can be ill-posed if ``--float-haze`` and/or ``--float-exposure`` is
-    also on. See :numref:`sfs_outputs` for the produced output filenames.
+    also on. See :numref:`sfs_outputs` for output filenames and
+    :numref:`sfs_unc` for usage.
 
 --save-covariances
     In addition to saving the variance of the DEM (and albedo) at each pixel (as
-    for ``--save-variances``), also save the covariance between each DEM pixel and
-    its four horizontal and vertical neighbors, and the same for the albedo if
-    ``--float-albedo`` is on. See :numref:`sfs_outputs` for the produced output
-    filenames.
+    for ``--save-variances``), also save the covariance between each DEM pixel
+    and its four immediate neighbors (left, right, top, bottom), and the same
+    for the albedo if ``--float-albedo`` is on. See :numref:`sfs_outputs` for
+    output filenames and :numref:`sfs_unc` for usage.
 
 --use-approx-camera-models
     Use approximate camera models for speed. Only with ISIS .cub

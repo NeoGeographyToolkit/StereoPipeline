@@ -120,16 +120,17 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   ("compute-exposures-only",
   po::bool_switch(&opt.compute_exposures_only)->default_value(false)->implicit_value(true),
    "This older option is equivalent to --estimate-exposure-haze-albedo.")
-  ("estimate-height-errors",  
+  ("estimate-height-errors",
   po::bool_switch(&opt.estimate_height_errors)->default_value(false)->implicit_value(true),
-   "Estimate the SfS DEM height uncertainty by finding the height perturbation (in "
-   "meters) at each grid point which will make at least one of the simulated images at "
-   "that point change by more than twice the discrepancy between the unperturbed "
-   "simulated image and the measured image. The SfS DEM must be provided via the -i "
-   "option. The number of iterations, blending parameters (--blending-dist, etc.), and "
-   "smoothness weight are ignored. Results are not computed at image pixels in shadow. "
-   "This produces <output prefix>-height-error.tif. No SfS DEM is computed. See also: "
-   "--height-error-params.")
+   "Estimate the SfS DEM height uncertainty (in meters). This option is obsolete. Use "
+   "--save-variances instead. This older implementation works by finding the height "
+   "perturbation at each grid point which will make at least one of the simulated "
+   "images at that point change by more than twice the discrepancy between the "
+   "unperturbed simulated image and the measured image. The SfS DEM must be provided "
+   "via the -i option. The number of iterations, blending parameters (--blending-dist, "
+   "etc.), and smoothness weight are ignored. Results are not computed at image pixels "
+   "in shadow. This produces <output prefix>-height-error.tif. No SfS DEM is computed. "
+   "See also --height-error-params. This uncertainty may be overly optimistic.")
   ("height-error-params", 
   po::value(&opt.height_error_params)->default_value(vw::Vector2(5.0, 100.0), "5.0 100"),
    "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
