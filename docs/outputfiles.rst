@@ -323,7 +323,7 @@ output prefix such as ``out/run``, the plain-text match file name will be::
 
 Binary match files will have the same format but will end in ``.match``.
 
-The ``bundle_adjust`` program needs to be invoked with::
+The ``bundle_adjust`` program needs to be invoked with the input images and
 
   --match-files-prefix out/run
   
@@ -345,13 +345,11 @@ separated by spaces::
 
     x1 y1 unc1 x2 y2 unc2
 
-Here, ``x1 y1`` are the coordinates of an interest point in the first image,
-``unc1`` is its uncertainty (in pixels), and ``x2 y2 unc2`` are the
-corresponding values for the second image. In bundle adjustment each pixel is
-weighted by the inverse of its uncertainty. The uncertainties must be positive.
-
-It is suggested to write all float values with 9 digits of precision for lossless
-recording.
+Here, ``x1 y1`` are the coordinates of an interest point in the first image
+(column and row, starting from 0), ``unc1`` is its uncertainty (in pixels), and
+``x2 y2 unc2`` are the corresponding values for the second image. In bundle
+adjustment each pixel is weighted by the inverse of its uncertainty. The
+uncertainties must be positive.
 
 Note that this is not the same format as in ``parse_match_file.py``
 (:numref:`parse_match_file`). 

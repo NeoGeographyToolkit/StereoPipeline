@@ -212,9 +212,11 @@ Command-line options for sfs
     same fraction of the computed image exposure values.
 
 --estimate-height-errors
-    Estimate the SfS DEM height uncertainty (in meters) by finding the height
-    perturbation at each grid point which will make at least one of the
-    simulated images at that point change by more than twice the discrepancy
+    Estimate the SfS DEM height uncertainty (in meters). This option is
+    obsolete. It is suggested to compute instead the variance. See
+    :numref:`sfs_uncertainty_map`. This older implementation works by finding
+    the height perturbation at each grid point which will make at least one of
+    the simulated images at that point change by more than twice the discrepancy
     between the unperturbed simulated image and the measured image. The SfS DEM
     must be provided via the -i option. The number of iterations, blending
     parameters (``--blending-dist``, etc.), and smoothness weight are ignored.
