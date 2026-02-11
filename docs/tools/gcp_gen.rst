@@ -90,6 +90,8 @@ renamed to follow the naming convention (:numref:`ba_match_files`), it will be
 picked up by this program. Dense corelation may be more robust to lighting
 differences.
 
+This program supports plain-text match files (:numref:`txt_match`).
+
 If no luck, manual selection of interest points can be invoked
 (:numref:`creatinggcp`).
     
@@ -167,7 +169,11 @@ Command-line options
 --individually-normalize
     Individually normalize the input images instead of using common
     values.
-    
+
+--matches-as-txt
+    Read and write match files as plain text instead of binary. See
+    :numref:`txt_match`.
+
 --num-ransac-iterations <integer (default: 1000)>
     How many iterations to perform in RANSAC when finding interest point matches.
 

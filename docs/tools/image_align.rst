@@ -42,6 +42,9 @@ This tool extends the co-registration functionality of CASP-GO
 Examples
 ~~~~~~~~
 
+Interest-point-based-alignment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 ::
    
     image_align                           \
@@ -54,6 +57,11 @@ Examples
 The directory ``out_image_align`` will contain the interest point matches
 (that are cached for future runs), the computed transform, and other
 auxiliary data.
+
+This program supports plain-text match files (:numref:`txt_match`).
+
+Disparity-based-alignment
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Alternatively, instead of using interest points for alignment, use a (dense)
 disparity produced from correlation (:numref:`correlator-mode`). This method can

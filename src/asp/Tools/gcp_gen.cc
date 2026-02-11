@@ -104,6 +104,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("individually-normalize",
      po::bool_switch(&ip_opt.individually_normalize)->default_value(false)->implicit_value(true),
      "Individually normalize the input images instead of using common values.")
+    ("matches-as-txt",
+     po::bool_switch(&ip_opt.matches_as_txt)->default_value(false)->implicit_value(true),
+     "Read and write match files as plain text instead of binary. See the documentation "
+     "for details.")
     ("num-ransac-iterations", 
      po::value(&ip_opt.ip_num_ransac_iterations)->default_value(1000),
      "How many iterations to perform in RANSAC when finding interest point matches.")
@@ -256,7 +260,8 @@ void gcp_gen(Options & opt) {
     
   } else {
     vw::vw_out() << "Reading matches from: " << opt.match_file << "\n";
-    vw::ip::read_binary_match_file(opt.match_file, ip1, ip2);
+    bool matches_as_txt = asp::stereo_settings().matches_as_txt;
+    vw::ip::read_match_file(opt.match_file, ip1, ip2, matches_as_txt);
   }
 
   // If too few matches, fail, rather than give incorrect results

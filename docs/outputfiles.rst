@@ -49,6 +49,8 @@ Files created in preprocessing
     The ``.match`` files can be visualized in ``stereo_gui``
     (:numref:`stereo_gui_view_ip`), and can be converted to plain text for
     inspection with ``parse_match_file.py`` (:numref:`parse_match_file`).
+    
+    This program supports plain-text match files (:numref:`txt_match`).
 
 \*-L.tif - rectified left input image
     Left input image of the stereo pair, after the pre-processing
@@ -302,7 +304,7 @@ By default, ASP programs work with binary match files. The switch
 instead. In that case, all existing ``.match`` files will be ignored.
 
 This applies to :ref:`bundle_adjust`, :ref:`parallel_stereo`,
-:ref:`jitter_solve`, :ref:`image_align`, and :ref:`ipmatch`.
+:ref:`jitter_solve`, :ref:`image_align`, :ref:`gcp_gen`, and :ref:`ipmatch`.
 
 It is not possible to mix plain text and binary match files in the same run, to
 avoid confusion. 

@@ -450,9 +450,10 @@ size is 1024 pixels on the side) should be decreased from the above.
 If the images have very different perspectives, it is suggested to create the
 interest points based on mapprojected images (:numref:`mapip`.)
 
-Uniformly distributed interest points can be produced from stereo disparity.
+Uniformly distributed interest points can be produced from stereo disparity. See
+:numref:`custom_ip` for more details.
 
-See :numref:`custom_ip` for more details.
+This program supports plain-text match files (:numref:`txt_match`).
 
 Controlling where interest points are placed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
