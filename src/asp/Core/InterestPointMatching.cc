@@ -428,7 +428,6 @@ void filter_ip_homog(std::vector<vw::ip::InterestPoint> const& ip1_in,
                    min_inliers, reduce_num_if_no_fit);
     H = ransac(ransac_ip2, ransac_ip1); // 2 then 1 is used here for legacy reasons
     indices = ransac.inlier_indices(H, ransac_ip2, ransac_ip1);
-    std::cout << "----zzz4\n";
     vw::vw_out() << "Homography matrix:\n" << H << "\n";
     vw_out() << "Number of inliers: " << indices.size() << ".\n";
     check_homography_matrix(H, ransac_ip1.size(), ransac_ip2.size(), indices.size());
@@ -474,8 +473,7 @@ Vector2i homography_rectification(bool adjust_left_image_size,
 
   Matrix<double> H = vw::math::identity_matrix<3>();
   std::vector<size_t> indices;
-  std::cout << "--homog1\n";
-  filter_ip_homog(left_ip, right_ip, inlier_th, 
+  filter_ip_homog(left_ip, right_ip, inlier_th,
                   H, indices); // outputs
 
   // TODO(oalexan1): A percentile-based filter may help here, after finding
@@ -1262,9 +1260,8 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
   Stopwatch sw;
   sw.start();
   Matrix<double> H = vw::math::identity_matrix<3>();
-  std::cout << "--homog2\n";
   std::vector<size_t> indices;
-  filter_ip_homog(matched_ip1, matched_ip2, inlier_threshold, 
+  filter_ip_homog(matched_ip1, matched_ip2, inlier_threshold,
                   H, indices); // outputs
   sw.stop();
   vw_out() << "Filtering time: " << sw.elapsed_seconds() << " seconds.\n";

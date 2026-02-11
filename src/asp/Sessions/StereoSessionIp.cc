@@ -131,7 +131,6 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     rebuild = true;
 
   if (boost::filesystem::exists(match_filename) && !rebuild) {
-    std::cout << "---now in testxxx1\n"; 
     vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     return true;
   }
@@ -270,7 +269,6 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     vw_out() << "\t    Using epipolar threshold = " << epipolar_threshold << "\n";
     vw_out() << "\t    IP uniqueness threshold  = " << ip_uniqueness_thresh  << "\n";
     vw_out() << "\t    Datum:                     " << datum << "\n";
-    std::cout << "---will call match_ip_with_datum\n";
     inlier = match_ip_with_datum(!supports_multi_threading(),
                                  !stereo_settings().skip_rough_homography,
                                  cam1, cam2,
@@ -371,7 +369,6 @@ void StereoSession::imageAlignment(// Inputs
   // Compute the appropriate alignment matrix based on the input points
   if (stereo_settings().alignment_method == "homography") {
     bool tight_inlier_threshold = false;
-    std::cout << "---qqq1\n";
     left_size = homography_rectification(adjust_left_image_size, tight_inlier_threshold,
                                          left_size, right_size, left_ip, right_ip,
                                          align_left_matrix, align_right_matrix);
