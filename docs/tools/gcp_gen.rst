@@ -87,7 +87,7 @@ image's metadata, so these must be available.
 A match file for this program, between the mapprojected image and orthoimage,
 can be produced with dense stereo correlation (:numref:`correlator-mode`). If
 renamed to follow the naming convention (:numref:`ba_match_files`), it will be
-picked up by this program. Dense corelation may be more robust to lighting
+picked up by this program. Dense correlation may be more robust to lighting
 differences.
 
 This program supports plain-text match files (:numref:`txt_match`).

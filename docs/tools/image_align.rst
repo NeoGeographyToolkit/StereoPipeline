@@ -42,7 +42,7 @@ This tool extends the co-registration functionality of CASP-GO
 Examples
 ~~~~~~~~
 
-Interest-point-based-alignment
+Interest point based alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
@@ -60,7 +60,7 @@ auxiliary data.
 
 This program supports plain-text match files (:numref:`txt_match`).
 
-Disparity-based-alignment
+Disparity based alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Alternatively, instead of using interest points for alignment, use a (dense)

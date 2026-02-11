@@ -49,7 +49,7 @@ Files created in preprocessing
     The ``.match`` files can be visualized in ``stereo_gui``
     (:numref:`stereo_gui_view_ip`), and can be converted to plain text for
     inspection with ``parse_match_file.py`` (:numref:`parse_match_file`).
-    
+
     This program supports plain-text match files (:numref:`txt_match`).
 
 \*-L.tif - rectified left input image
