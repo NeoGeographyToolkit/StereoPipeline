@@ -128,20 +128,8 @@ double gps_seconds(std::string const& orthoimage_path){
   std::tm const *time_out = std::localtime(&time_val);
 
   uint64 weekday = time_out->tm_wday; // Sunday is 0
-/*
-  std::cout << "year = " << year << std::endl;
-  std::cout << "month = " << month << std::endl;
-  std::cout << "day = " << day << std::endl;
-  std::cout << "weekday_in = " << time_in.tm_wday << std::endl;
-  std::cout << "weekday_out = " << weekday << std::endl;
-  std::cout << "hour = " << hour << std::endl;
-  std::cout << "min = " << min << std::endl;
-  std::cout << "sec = " << sec << std::endl;
-  std::cout << "fsec = " << fsec << std::endl;
-*/
   uint64 all_seconds = weekday*24*3600 + (uint64)hour*3600 + (uint64)min*60 + (uint64)sec;
   double final_time  = static_cast<double>(all_seconds) + static_cast<double>(fsec)/100.0;
-  //std::cout << "final_time = " << final_time << std::endl;
 
   return final_time; 
 }
@@ -219,29 +207,9 @@ void parse_camera_pose(std::string const& line, Vector3 & xyz, Quat & look, Quat
   // - This is relative to the GCC coordinate frame.
   ned = Quat(datum_wgs84.lonlat_to_ned_matrix(Vector3(lon, lat, alt)));
 
-  //std::cout << "ned matrix " << Quat(ned) << std::endl;
-
   // Get the local rotation matrix at this coordinate.
   look = Quat(get_look_rotation_matrix(-heading, -pitch, -roll, rot_order));
-
-    //std::cout << "--ned " << Quat(ned) << std::endl;
-    //std::cout << "--look is " << Quat(look) << std::endl;
-    //std::cout << "--nedlook is " << Quat(ned*look) << std::endl;
-    //std::cout << "--inv_look *ned is " << inverse(Quat(look))*Quat(ned) << std::endl;
-    
-    //Matrix3x3 rot_mat = look*ned;
-    
-    //std::cout << "rot mat is " << rot_mat << std::endl;
-    
-    //std::cout << "--quat1 " << Quat(look*ned) << std::endl;
-    //std::cout << "--quat " << Quat(ned*look) << std::endl;
-    //std::cout << "--quat3 " << Quat(inverse(ned)*look) << std::endl;
-    //std::cout << "--quat3 " << Quat(inverse(look)*ned) << std::endl;
-    //std::cout << "--quat3 " << Quat(ned*inverse(look)) << std::endl;
-    //std::cout << "--quat3 " << Quat(look*inverse(ned)) << std::endl;
-  
 }
-
             
 struct Options : public vw::GdalWriteOptions {
   std::string nav_file, input_cam, output_folder;
@@ -588,8 +556,6 @@ int main(int argc, char* argv[]) {
       // Get the time boundaries of the current chunk
       interpLoader.get_time_boundaries(start, end);  
 
-      //std::cout << "Time range: " << start << " ---- " << end << std::endl;
-
       // When detecting offsets all we want to do is loop through the nav file.
       if (opt.detect_offset)
         continue;
@@ -641,9 +607,6 @@ int main(int argc, char* argv[]) {
         //vw_out() << "Pitch   = " << pitch   <<" = "<< pitch*180/3.14159<< std::endl;
         //vw_out() << "Heading = " << heading << std::endl;
 
-        //std::cout << "Ortho time  = " << ortho_time << std::endl;
-        //vw_out() << "llh = " << llh_interp << std::endl;
-      
         // Now estimate the rotation information
 
         /*
@@ -736,26 +699,10 @@ int main(int argc, char* argv[]) {
         //Vector3 north(ned_matrix(0,0), ned_matrix(1,0), ned_matrix(2,0));
         //double angle = acos(dot_prod(xDir, north) / (norm_2(north)*norm_2(xDir)));
       
-        //std::cout << "Nav, est, diff, cam: " << heading <<", "<< angle << ", "<< fabs(heading)-angle << ", " << camera_file <<  std::endl;
-
-
-        //std::cout << "gcc = " << gcc_interp << std::endl;
-        //std::cout << "xDir = " << xDir << std::endl;
-        //std::cout << "yDir = " << yDir << std::endl;
-        //std::cout << "zDir = " << zDir << std::endl;
-      
-        //std::cout << std::endl << "Estimate based matrix " << std::endl;
-        //print_matrix(rotation_matrix_gcc);
-      
         // TODO: Clean all this up once we are satisfied with it!
-      
         Matrix3x3 M_roll  = get_rotation_matrix_roll (roll);
         Matrix3x3 M_pitch = get_rotation_matrix_pitch(pitch);
 
-        //std::cout << "M_roll, M_pitch:\n";
-        //print_matrix(M_roll ); std::cout << std::endl;
-        //print_matrix(M_pitch); std::cout << std::endl;
-      
         // Without documentation it is very difficult to determine
         // which of these rotation orders is correct!
         // - Could be neither since the yaw rotation is already baked in.
@@ -764,83 +711,8 @@ int main(int argc, char* argv[]) {
         Matrix3x3 M3 = rotation_matrix_gcc*M_pitch*M_roll; // <-- Best
         //Matrix3x3 M4 = rotation_matrix_gcc*M_roll*M_pitch; // <-- Ok
       
-        //std::cout << "Modified matrices:\n";
-        //print_matrix(M1); std::cout << std::endl;
-        //print_matrix(M2); std::cout << std::endl;
-        //print_matrix(M3); std::cout << std::endl;
-        //print_matrix(M4); std::cout << std::endl;
-
-        //std::string var_path = output_camera_path.string() + "_";
-        //write_output_camera(gcc_interp, rotation_matrix_gcc, opt.input_cam, var_path + "M0.tsai");
-        //write_output_camera(gcc_interp, M1, opt.input_cam, var_path + "M1.tsai");
-        //write_output_camera(gcc_interp, M2, opt.input_cam, var_path + "M2.tsai");
-        //write_output_camera(gcc_interp, M3, opt.input_cam, var_path + "M3.tsai");
-        //write_output_camera(gcc_interp, M4, opt.input_cam, var_path + "batch_06420_06421_2M4.tsai");
-
         write_output_camera(gcc_interp, M3,
                             opt.input_cam, output_camera_path.string());
-
-        //std::cout << std::endl << "NED matrix " << std::endl;
-        //print_matrix(ned_matrix);
-
-        //std::cout << std::endl << "ENU matrix " << std::endl;
-        //std::cout << enu_matrix << std::endl << std::endl;
-        /*
-          double yaw = -3.14159 / 2;
-          Matrix3x3 My90 = get_rotation_matrix_yaw(yaw);
-      
-          for (int p=0; p<0; ++p) {
-          Matrix3x3 rotation_matrix_gcc_2 = get_look_rotation_matrix(heading, pitch, roll, p);
-
-
-          std::cout << std::endl << "Angle based matrix " << p << std::endl;
-          std::cout << ned_matrix * rotation_matrix_gcc_2 << std::endl;
-
-          //std::cout << std::endl << "Angle based matrix 90 1" << p << std::endl;
-          //std::cout << My90*(ned_matrix * rotation_matrix_gcc_2) << std::endl;
-        
-          std::cout << std::endl << "Angle based matrix 90 2 " << p << std::endl;
-          std::cout << (ned_matrix * rotation_matrix_gcc_2)*My90 << std::endl;  
-        
-        
-          std::cout << std::endl << "Angle based matrix ALT" << p << std::endl;
-          std::cout << rotation_matrix_gcc_2*ned_matrix << std::endl;
-        
-          //std::cout << std::endl << "Angle based matrix ALT 90 1" << p << std::endl;
-          //std::cout << My90*(rotation_matrix_gcc_2*ned_matrix) << std::endl;
-        
-          std::cout << std::endl << "Angle based matrix ALT 90 2 " << p << std::endl;
-          std::cout << (rotation_matrix_gcc_2*ned_matrix)*My90 << std::endl;        
-
-          std::cout << "------------\n";
-
-
-          std::cout << std::endl << "Angle based matrix " << p << std::endl;
-          std::cout << enu_matrix * rotation_matrix_gcc_2 << std::endl;
-
-          //std::cout << std::endl << "Angle based matrix 90 1" << p << std::endl;
-          //std::cout << My90*(enu_matrix * rotation_matrix_gcc_2) << std::endl;
-        
-          std::cout << std::endl << "Angle based matrix 90 2" << p << std::endl;
-          std::cout << (enu_matrix * rotation_matrix_gcc_2)*My90 << std::endl;  
-        
-        
-          std::cout << std::endl << "Angle based matrix ALT" << p << std::endl;
-          std::cout << rotation_matrix_gcc_2*enu_matrix << std::endl;
-        
-          //std::cout << std::endl << "Angle based matrix ALT 90 1" << p << std::endl;
-          //std::cout << My90*(rotation_matrix_gcc_2*enu_matrix) << std::endl;
-        
-          std::cout << std::endl << "Angle based matrix ALT 90 2" << p << std::endl;
-          std::cout << (rotation_matrix_gcc_2*enu_matrix)*My90 << std::endl;        
-
-        
-          }
-          std::cout << std::endl << std::endl;
-        */
-        //write_output_camera(gcc_interp, rotation_matrix_gcc,
-        //                    opt.input_cam, output_camera_path.string());
-
 
         // Update progress
         if (file_index % PRINT_INTERVAL == 0)

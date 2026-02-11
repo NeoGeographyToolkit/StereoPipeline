@@ -367,13 +367,7 @@ void genDistUndistPairs(int num_samples, rig::CameraParameters const& cam_params
   Eigen::Vector2d undist_half_size = cam_params.GetUndistortedHalfSize();
   Eigen::Vector2d optical_offset   = cam_params.GetOpticalOffset();
   Eigen::Vector2d focal_length     = cam_params.GetFocalVector();
-  
-  std::cout << "dist size is " << dist_size.transpose() << std::endl;
-  std::cout << "dist crop size is " << dist_crop_size.transpose() << std::endl;
-  std::cout << "undist size is " << undist_size.transpose() << std::endl;
-  std::cout << "dist half size is " << dist_half_size.transpose() << std::endl;
-  std::cout << "undist half size is " << undist_half_size.transpose() << std::endl;
-  std::cout << "--num samples is " << num_samples << std::endl;
+
   for (int ix = 0; ix < num_samples; ix++) {
     double x = (dist_size[0] - 1.0) * double(ix) / (num_samples - 1.0);
     for (int iy = 0; iy < num_samples; iy++) {
@@ -518,6 +512,7 @@ void fitRpcDist(int rpc_degree, int num_samples, rig::CameraParameters const& ca
   }
 }
 
+// TODO(oalexan1): This needs more work
 void evalRpcDistUndist(int num_samples, rig::CameraParameters const& cam_params,
                        RPCLensDistortion const& rpc) {
 
@@ -528,7 +523,6 @@ void evalRpcDistUndist(int num_samples, rig::CameraParameters const& cam_params,
 
   double max_err = 0.0;
   for (size_t it = 0; it < undist_centered_pixels.size(); it++) {
-    std::cout << "--broken!" << std::endl;
     // Eigen::Vector2d pix = rpc.distort_centered(undist_centered_pixels[it]);
     // Eigen::Vector2d pix2 = rpc.undistort_centered(pix);
     // max_err = std::max(max_err, (undist_centered_pixels[it] - pix2).norm());

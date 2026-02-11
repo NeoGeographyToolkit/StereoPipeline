@@ -804,9 +804,6 @@ void readMatchPairSigmas(std::string const& sigmaFilename,
 
       matchSigmas[key1] = sigma;
       matchSigmas[key2] = sigma;
-
-      std::cout << "--added ind1, ind2, sigma: " << ind1 << " " << ind2
-                << " " << sigma << "\n";
   }
 
   return;

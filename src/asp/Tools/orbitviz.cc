@@ -139,7 +139,6 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
   std::vector<ip::InterestPoint> ip1, ip2;
   for (size_t m=0; m<num_matches; ++m) {
     vw::ip::read_binary_match_file(solver_folder+ "/"+match_files[m], ip1, ip2);
-    //std::cout << "Read " << ip1.size() << " matches from file " << match_files[m] << std::endl;
     if (ip1.size() < MIN_MATCHES)
       match_files[m] = "";
   }
@@ -149,18 +148,15 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
   for (size_t i=0; i<num_images; ++i) {
     matched_cameras[i].clear(); // Start with empty list of matches
     f1 = strip_directory_and_extension(image_files[i]);
-    //std::cout <<"f1 = " << f1 << std::endl;
     for (size_t j=0; j<num_images; ++j) {
       if (i == j) // No self-matching!
         continue;
       f2 = strip_directory_and_extension(image_files[j]);
-      //std::cout <<"- f2 = " << f2 << std::endl;
       for (size_t m=0; m<num_matches; ++m) {
         // If both file names are contained in the match file name,
         //  make a match between image files i and j
         if ( (match_files[m].find(f1) != std::string::npos) && 
              (match_files[m].find(f2) != std::string::npos)   ) {
-          //std::cout <<"= MATCH = " << match_files[m] << std::endl;
           matched_cameras[i].push_back(j);
           match_files[m] = ""; // Clear this name so we don't use the match twice
         }

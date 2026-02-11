@@ -55,7 +55,6 @@ void matchesFromMapprojImages(int i, int j,
 
   std::string image1_path  = opt.image_files[i];
   std::string image2_path  = opt.image_files[j];
-  std::cout << "--nw in teset2\n";
   if (boost::filesystem::exists(match_filename)) {
     vw_out() << "Using cached match file: " << match_filename << "\n";
     return;
@@ -241,7 +240,6 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
         inputs_changed = false;
     }
 
-   std::cout << "--now in test3\n";
     if (!inputs_changed) {
       vw_out() << "\t--> Using cached match file: " << match_file << "\n";
       continue;
