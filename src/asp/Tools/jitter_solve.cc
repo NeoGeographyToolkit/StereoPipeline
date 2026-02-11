@@ -1377,7 +1377,8 @@ void run_jitter_solve(int argc, char* argv[]) {
                                   opt.match_files, opt.min_matches,
                                   opt.min_triangulation_angle*(M_PI/180.0),
                                   opt.forced_triangulation_distance,
-                                  opt.max_pairwise_matches);
+                                  opt.max_pairwise_matches,
+                                  stereo_settings().matches_as_txt);
   }
 
   if (!opt.gcp_files.empty()) {

@@ -734,7 +734,9 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
   vw_out() << ans << "\n";
 
   // The name of the file where the matches are written to
-  std::string match_file = vw::ip::match_filename(opt.out_prefix, ref_hillshade, source_hillshade);
+  bool matches_as_txt = false;
+  std::string match_file = vw::ip::match_filename(opt.out_prefix, ref_hillshade, source_hillshade,
+                                                  matches_as_txt);
 
   return match_file;
 }

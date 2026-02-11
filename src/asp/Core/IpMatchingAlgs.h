@@ -50,7 +50,8 @@ namespace asp {
 // --clean-match-files-prefix.
 std::string stereoMatchFile(std::string const& left_cropped_file,
                             std::string const& right_cropped_file,
-                            std::string const& out_prefix);
+                            std::string const& out_prefix,
+                            bool matches_as_txt);
 
 // Compute ip between L.tif and R.tif produced by stereo.
 void compute_ip_LR(std::string const & out_prefix);
@@ -102,7 +103,7 @@ std::string matchFileMultiPrefix(std::string const& clean_match_files_prefix,
 
 /// The unwarped disparity file name.
 std::string unwarped_disp_file(std::string const& prefix, std::string const& left_image,
-                               std::string const& right_image);
+                               std::string const& right_image, bool matches_as_txt);
 
 // Find and sort the convergence angles for given cameras and interest points
 void convergence_angles(vw::camera::CameraModel const * left_cam,

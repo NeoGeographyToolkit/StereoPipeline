@@ -497,6 +497,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                                                    opt.min_triangulation_angle*(M_PI/180.0),
                                                    opt.forced_triangulation_distance,
                                                    opt.max_pairwise_matches,
+                                                   stereo_settings().matches_as_txt,
                                                    opt.match_sigmas,
                                                    opt.bathy_data);
       if (!success) {
@@ -873,9 +874,11 @@ int main(int argc, char* argv[]) {
     asp::loadEstimCameraPositions(opt, estimated_camera_gcc);
 
     // Find or list matches
+    std::cout << "---will call findPairwiseMatches\n";
     asp::findPairwiseMatches(opt, map_files, mapproj_dem,
                              estimated_camera_gcc, need_no_matches);
-
+    std::cout << "--done calling findPairwiseMatches\n";
+    
     if (opt.stop_after_matching) {
       vw_out() << "Quitting after matches computation.\n";
       return 0;

@@ -465,7 +465,8 @@ int run_dem2gcp(int argc, char * argv[]) {
                                                min_matches,
                                                min_triangulation_angle,
                                                forced_triangulation_distance,
-                                               opt.max_pairwise_matches);
+                                               opt.max_pairwise_matches,
+                                               stereo_settings().matches_as_txt);
   if (!success)
     vw::vw_throw(vw::ArgumentErr() << "Failed to load the interest points.\n");
   

@@ -693,11 +693,13 @@ void detectMatchFeatures(// Inputs
       std::string const& left_image = cams[left_cid].image_name;  // alias
       std::string const& right_image = cams[right_cid].image_name;  // alias
 
+      bool matches_as_txt = false;
       std::string match_file = vw::ip::match_filename(match_dir + "/run",
-                                                      left_image, right_image);
+                                                      left_image, right_image,
+                                                      matches_as_txt);
       std::cout << "Writing: " << left_image << " " << right_image << " "
                 << match_file << std::endl;
-      vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
+      vw::ip::write_match_file(match_file, match_pair.first, match_pair.second, matches_as_txt);
     }
   }
 

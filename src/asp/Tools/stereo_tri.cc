@@ -610,11 +610,13 @@ void disp_or_matches_work(std::string const& output_prefix,
   vw::TransformPtr left_trans  = transforms[0];
   vw::TransformPtr right_trans = transforms[1];
 
-  // Create a disparity map with between the original unaligned images 
+  // Create a disparity map with between the original unaligned images
   if (stereo_settings().unalign_disparity) {
+    bool matches_as_txt = stereo_settings().matches_as_txt;
     std::string unaligned_disp_file = asp::unwarped_disp_file(output_prefix,
                                                               opt.in_file1,
-                                                              opt.in_file2);
+                                                              opt.in_file2,
+                                                              matches_as_txt);
     unalign_disparity(is_map_projected, disparity_maps[0], left_trans, right_trans,
                       opt, unaligned_disp_file);
   }
@@ -638,8 +640,10 @@ void disp_or_matches_work(std::string const& output_prefix,
     if (!img_file.empty())
       right_raw_image = img_file;
   }
+  bool matches_as_txt = stereo_settings().matches_as_txt;
   std::string match_file = ip::match_filename(output_prefix + "-disp",
-                                              left_raw_image, right_raw_image);
+                                              left_raw_image, right_raw_image,
+                                              matches_as_txt);
 
   // Pull matches from disparity.
   if (stereo_settings().num_matches_from_disparity > 0 &&

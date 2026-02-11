@@ -403,12 +403,14 @@ void saveInlierMatchPairs(// Inputs
     std::string match_dir = out_dir + "/matches";
     rig::createDir(match_dir);
 
+    bool matches_as_txt = false;
     std::string match_file = vw::ip::match_filename(match_dir + "/run",
                                                     cams[left_cid].image_name,
-                                                    cams[right_cid].image_name);
+                                                    cams[right_cid].image_name,
+                                                    matches_as_txt);
 
     std::cout << "Writing: " << match_file << std::endl;
-    vw::ip::write_binary_match_file(match_file, match_pair.first, match_pair.second);
+    vw::ip::write_match_file(match_file, match_pair.first, match_pair.second, matches_as_txt);
   }
 
   // The image names (without directory) must be unique, or else bundle

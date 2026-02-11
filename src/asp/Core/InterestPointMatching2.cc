@@ -1023,6 +1023,7 @@ bool match_ip_with_datum(bool single_threaded_camera,
     vw::Stopwatch sw3;
     sw3.start();
     bool tight_inlier_threshold = (asp::stereo_settings().matches_per_tile > 0);
+    std::cout << "----qqqq2\n";
     homography_rectification(adjust_left_image_size, tight_inlier_threshold,
 			   image1.get_size(), image2.get_size(),
 			   matched_ip1, matched_ip2, matrix1, matrix2);
@@ -1065,9 +1066,10 @@ bool match_ip_with_datum(bool single_threaded_camera,
   }
 
   // Write the matches to disk
+  std::cout << "---writing matches ppp7\n";
   vw_out() << "\t    * Writing match file: " << match_filename << "\n";
   ip::write_match_file(match_filename, matched_ip1, matched_ip2, matches_as_txt);
-
+  std::cout << "--done writing matches ppp7\n";
   return inlier;
 }
 
@@ -1120,6 +1122,7 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
     Matrix<double> matrix1, matrix2;
     vw::Stopwatch sw2;
     sw2.start();
+    std::cout << "---qqq3\n";
     homography_rectification(adjust_left_image_size, tight_inlier_threshold,
                              image1.get_size(), image2.get_size(),
                              matched_ip1, matched_ip2, matrix1, matrix2);
@@ -1162,6 +1165,7 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
   }
 
   // Save ip
+  std::cout << "---will save ipqwqedqqq\n";
   if (match_file != "") {
     // Create the output directory
     vw::create_out_dir(match_file);

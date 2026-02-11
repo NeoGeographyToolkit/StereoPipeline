@@ -280,8 +280,8 @@ to formats that are easier to visualize.
 
 .. _txt_match:
 
-Plain text match files files
-----------------------------
+Plain text match files
+----------------------
 
 ASP programs store interest point matches between two images as a match file, in
 either binary format with a ``.match`` extension, or in plain text format, with a
@@ -289,7 +289,7 @@ either binary format with a ``.match`` extension, or in plain text format, with 
 (:numref:`release`). 
 
 Plain text matches are provided for use with external logic for interest point
-matching.
+matching. The next sections describe how to use such files and their format.
 
 When there are multiple images, one may use pairwise match files or a control
 network format. See :numref:`control_network`.
@@ -325,8 +325,8 @@ The ``bundle_adjust`` program needs to be invoked with::
 
   --match-files-prefix out/run
   
-to read the above file. The same option is available for ``parallel_stereo`` and
-``jitter_solve``.
+to read the above file. The same option is also available for
+``parallel_stereo`` and ``jitter_solve``.
 
 Individual image names (without the path and extension) will be truncated to 60
 characters to avoid excessively long file names and problems with some
@@ -347,6 +347,9 @@ Here, ``x1 y1`` are the coordinates of an interest point in the first image,
 ``unc1`` are its uncertainty (in pixels), and ``x2 y2 unc2`` are the
 corresponding values for the second image. In bundle adjustment each pixel is
 weighted by the inverse of its uncertainty. The uncertainties must be positive.
+
+It is suggested to write all float values with 9 digits of precision for lossless
+recording.
 
 Note that this is not the same format as in ``parse_match_file.py``
 (:numref:`parse_match_file`). 

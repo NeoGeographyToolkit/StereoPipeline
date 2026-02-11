@@ -131,6 +131,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     rebuild = true;
 
   if (boost::filesystem::exists(match_filename) && !rebuild) {
+    std::cout << "---now in testxxx1\n"; 
     vw_out() << "\t--> Using cached match file: " << match_filename << "\n";
     return true;
   }
@@ -245,14 +246,14 @@ bool StereoSession::ip_matching(std::string const& input_file1,
         vw_out() << "Adjusting the datum to compensate, for the purpose of alignment.\n";
         vw_out() << "The new datum height will be at " << mid_ht
                  << " meters relative to the previous one.\n";
-        vw_out() << "Old datum: " << datum << std::endl;
+        vw_out() << "Old datum: " << datum << "\n";
         datum = vw::cartography::Datum(datum.name(),
                                        datum.spheroid_name(),
                                        datum.meridian_name(),
                                        datum.semi_major_axis() + mid_ht,
                                        datum.semi_minor_axis() + mid_ht,
                                        datum.meridian_offset());
-        vw_out() << "New datum: " << datum << std::endl;
+        vw_out() << "New datum: " << datum << "\n";
       }
     } // End RPC case
 
@@ -266,9 +267,10 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     double epipolar_threshold = norm_2(uncropped_image_size)/15;
     if (stereo_settings().epipolar_threshold > 0)
       epipolar_threshold = stereo_settings().epipolar_threshold;
-    vw_out() << "\t    Using epipolar threshold = " << epipolar_threshold << std::endl;
-    vw_out() << "\t    IP uniqueness threshold  = " << ip_uniqueness_thresh  << std::endl;
-    vw_out() << "\t    Datum:                     " << datum << std::endl;
+    vw_out() << "\t    Using epipolar threshold = " << epipolar_threshold << "\n";
+    vw_out() << "\t    IP uniqueness threshold  = " << ip_uniqueness_thresh  << "\n";
+    vw_out() << "\t    Datum:                     " << datum << "\n";
+    std::cout << "---will call match_ip_with_datum\n";
     inlier = match_ip_with_datum(!supports_multi_threading(),
                                  !stereo_settings().skip_rough_homography,
                                  cam1, cam2,
@@ -311,11 +313,11 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 
   if (!inlier || err != "") {
     boost::filesystem::remove(match_filename);
-
-    std::string msg = "Unable to find enough interest point matches in the images. Check if the images are similar enough in illumination and if they have enough overlap.\n";
+    std::string msg = "Unable to find enough interest point matches in the images. "
+      "Check if the images are similar enough in illumination and if they have "
+      "enough overlap.\n";
     if (err != "")
       msg += "A more technical error message is as follows.\n" + err;
-
     vw_throw(IOErr() << msg);
   }
 
@@ -342,8 +344,10 @@ void StereoSession::imageAlignment(// Inputs
                                    vw::Vector2i & right_size) {
 
   // Define the file name containing IP match information.
+  bool matches_as_txt = stereo_settings().matches_as_txt;
   std::string match_filename
-    = asp::stereoMatchFile(left_cropped_file, right_cropped_file, out_prefix);
+    = asp::stereoMatchFile(left_cropped_file, right_cropped_file, out_prefix,
+                           matches_as_txt);
 
   std::string left_ip_filename  = ip::ip_filename(out_prefix, left_cropped_file);
   std::string right_ip_filename = ip::ip_filename(out_prefix, right_cropped_file);
@@ -360,13 +364,14 @@ void StereoSession::imageAlignment(// Inputs
                     match_filename, left_ip_filename, right_ip_filename);
 
   // Load the interest points results from the file we just wrote
-  bool matches_as_txt = asp::stereo_settings().matches_as_txt;
   std::vector<ip::InterestPoint> left_ip, right_ip;
+  vw::vw_out() << "Reading match file: " << match_filename << "\n";
   ip::read_match_file(match_filename, left_ip, right_ip, matches_as_txt);
 
   // Compute the appropriate alignment matrix based on the input points
   if (stereo_settings().alignment_method == "homography") {
     bool tight_inlier_threshold = false;
+    std::cout << "---qqq1\n";
     left_size = homography_rectification(adjust_left_image_size, tight_inlier_threshold,
                                          left_size, right_size, left_ip, right_ip,
                                          align_left_matrix, align_right_matrix);

@@ -346,7 +346,9 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   // L.tif and R.tif. If the matches are already between L.tif and R.tif
   // then do nothing.
   // TODO(oalexan1): Having this as a special case is annoying. Do something about this.
-  std::string aligned_match_file = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
+  bool matches_as_txt = stereo_settings().matches_as_txt;
+  std::string aligned_match_file = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif",
+                                                          matches_as_txt);
   if (match_filename != aligned_match_file)
     align_ip(opt.session->tx_left(), opt.session->tx_right(), in_left_ip, in_right_ip);
   
@@ -543,14 +545,16 @@ void lowres_correlation(ASPGlobalOptions & opt) {
 
     // Load IP from disk
     std::string match_filename;
+    bool matches_as_txt = stereo_settings().matches_as_txt;
     bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
                                   stereo_settings().alignment_method == "epipolar");
     if (have_aligned_matches)
-      match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif");
-    else 
+      match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif",
+                                              matches_as_txt);
+    else
       match_filename = asp::stereoMatchFile(opt.session->left_cropped_image(),
                                             opt.session->right_cropped_image(),
-                                            opt.out_prefix);
+                                            opt.out_prefix, matches_as_txt);
     // The interest points must exist by now
     if (!fs::exists(match_filename))
       vw_throw(ArgumentErr() << "Missing IP matches file: " << match_filename);

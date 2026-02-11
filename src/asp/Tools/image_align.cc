@@ -293,12 +293,12 @@ calc_alignment_transform(std::string const& image_file1,
   
   if (opt.output_prefix != "") {
     // Write a match file for debugging
-    bool plain_text = asp::stereo_settings().matches_as_txt;
+    bool matches_as_txt = asp::stereo_settings().matches_as_txt;
     std::string clean_match_file
       = ip::clean_match_filename(ip::match_filename(opt.output_prefix, image_file1, image_file2,
-                                                    plain_text), plain_text);
+                                                    matches_as_txt), matches_as_txt);
     vw_out() << "Writing inlier matches after RANSAC to: " << clean_match_file << std::endl;
-    ip::write_match_file(clean_match_file, inlier_ip1, inlier_ip2, plain_text);
+    ip::write_match_file(clean_match_file, inlier_ip1, inlier_ip2, matches_as_txt);
   }
 
   vw_out() << "Alignment transform (in pixels):\n" << tf << std::endl;

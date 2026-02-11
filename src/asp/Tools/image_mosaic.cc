@@ -107,14 +107,15 @@ void match_ip_in_regions(std::string const& image_file1,
            << image_file2 << std::endl;
   
   std::string match_file;
+  bool matches_as_txt = false;
   if (opt.out_prefix != "") {
     // Write a match file for debugging
-    match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2);
+    match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2, matches_as_txt);
 
     // If the match file already exists, load it instead of finding new points.
     if (fs::exists(match_file)) {
       vw_out() << "Reading matched interest points from file: " << match_file << std::endl;
-      ip::read_binary_match_file(match_file, matched_ip1, matched_ip2);
+      ip::read_match_file(match_file, matched_ip1, matched_ip2, matches_as_txt);
       vw_out() << "Read in " << matched_ip1.size() << " matched IP.\n";
     }
   }
@@ -206,11 +207,13 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
   } 
 
   std::string match_file;
+  bool matches_as_txt = false;
   if (opt.out_prefix != "") {
     // Write a match file for debugging
-    match_file = ip::clean_match_filename(opt.out_prefix, image_file1, image_file2);
+    match_file = ip::clean_match_filename(opt.out_prefix, image_file1, image_file2,
+                                          matches_as_txt);
     vw_out() << "Writing inlier matches after RANSAC to: " << match_file << std::endl;
-    ip::write_binary_match_file(match_file, inlier_ip1, inlier_ip2);
+    ip::write_match_file(match_file, inlier_ip1, inlier_ip2, matches_as_txt);
   }
   
   return tf;
@@ -259,8 +262,9 @@ Matrix<double> compute_relative_transform(std::string const& image1,
 
     // Wipe any old match file to force it to be regenerated
     std::string match_file;
+    bool matches_as_txt = false;
     if (opt.out_prefix != "")
-      match_file = ip::match_filename(opt.out_prefix, image1, image2);
+      match_file = ip::match_filename(opt.out_prefix, image1, image2, matches_as_txt);
     if (!match_file.empty() && fs::exists(match_file)) {
       vw::vw_out() << "Removing old match file: " << match_file << "\n";
       fs::remove(match_file);

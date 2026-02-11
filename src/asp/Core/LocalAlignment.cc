@@ -220,7 +220,8 @@ namespace asp {
         std::string out_match_filename
           = vw::ip::match_filename(opt.out_prefix + "-tile", "L.tif", "R.tif", matches_as_txt);
         vw_out() << "Writing match file: " << out_match_filename << "\n";
-        vw::ip::write_match_file(out_match_filename, left_trans_ip, right_trans_ip, matches_as_txt);
+        vw::ip::write_match_file(out_match_filename, left_trans_ip, right_trans_ip, 
+                                 matches_as_txt);
       }
 
       if (left_trans_ip.size() >= min_num_ip)
