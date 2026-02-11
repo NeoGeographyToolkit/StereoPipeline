@@ -1475,7 +1475,7 @@ bool calcSfsCovariances(SfsOptions const& opt,
                         ceres::Problem &problem,
                         ceres::Covariance &covariance) { // output
   
-  vw::vw_out() << "Computing variances.\n";
+  vw::vw_out() << "Computing covariances.\n";
 
   std::vector<const double*> parameter_blocks;
   for (int col = 0; col < dem.cols(); col++) {

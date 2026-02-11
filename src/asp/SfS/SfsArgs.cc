@@ -331,8 +331,8 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "variance of the albedo. Note that computing the albedo variance can be ill-posed if "
    "--float-haze and/or --float-exposure is also on.")
   ("save-covariances",
-  po::bool_switch(&opt.save_covariances)->default_value(false)->implicit_value(true),
-   "In addition to saving the variance of the DEM (and albedo) at each pixel (as for "
+   po::bool_switch(&opt.save_covariances)->default_value(false)->implicit_value(true),
+   "In addition to saving the variance of the DEM (and albedo) at each pixel (as for"
    "--save-variances), also save the covariance between each DEM pixel and its four "
    "horizontal and vertical neighbors, and the same for the albedo if --float-albedo "
    "is on.")

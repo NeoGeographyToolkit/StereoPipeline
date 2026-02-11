@@ -255,7 +255,7 @@ Command-line options for sfs
 
 --save-covariances
     In addition to saving the variance of the DEM (and albedo) at each pixel (as
-    for ``--save-variances``), also save the variance between each DEM pixel and
+    for ``--save-variances``), also save the covariance between each DEM pixel and
     its four horizontal and vertical neighbors, and the same for the albedo if
     ``--float-albedo`` is on. See :numref:`sfs_outputs` for the produced output
     filenames.
