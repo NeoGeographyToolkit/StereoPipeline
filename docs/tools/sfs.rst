@@ -101,18 +101,22 @@ outputs are produced.
  - ``run/run-DEM-variance.tif``
      If ``--save-variances`` was set, this file stores the variance for each
      DEM pixel. If ``--float-albedo`` is also on, the albedo variance is stored
-     in ``<output prefix>-albedo-variance.tif``.
+     in ``<output prefix>-albedo-variance.tif``. Variance values within 3 pixels
+     of the boundary are set to nodata to avoid tiling artifacts.
 
  - ``run/run-DEM-{left,right,top,bottom}-covariance.tif``
      If ``--save-covariances`` was set, the ``left`` file stores the covariance
      of each DEM pixel and its left neighbor. Same for the other ones. If
      ``--float-albedo`` is also on, the albedo covariances with analogous names
-     are saved as well.
+     are saved as well. Covariance values within 3 pixels of the boundary are
+     set to nodata to avoid tiling artifacts.
 
 In addition, SfS saves intermediate values of many of these quantities
 at each iteration, unless the flag ``--save-sparingly`` is used. SfS
 may also save the "haze" values if this is solved for (see the
 appropriate options below and :numref:`sfs_formulation`).
+
+.. _sfs_opt:
 
 Command-line options for sfs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

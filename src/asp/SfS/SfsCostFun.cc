@@ -115,7 +115,9 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     std::string out_dem_file = opt.out_prefix + "-DEM"
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_dem_file << "\n";
-    vw::cartography::block_write_gdal_image(out_dem_file, dem, has_georef, geo,
+    vw::cartography::block_write_gdal_image(out_dem_file,
+                                            vw::pixel_cast<float>(dem),
+                                            has_georef, geo,
                                             has_nodata, dem_nodata_val,
                                             opt, tpc);
   }
@@ -132,7 +134,8 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
      out_albedo_file = opt.out_prefix + "-albedo" + iter_str + ".tif";
     
     vw::vw_out() << "Writing: " << out_albedo_file << "\n";
-    vw::cartography::block_write_gdal_image(out_albedo_file, albedo,
+    vw::cartography::block_write_gdal_image(out_albedo_file,
+                                            vw::pixel_cast<float>(albedo),
                                             has_georef, geo,
                                             has_nodata, dem_nodata_val,
                                             opt, tpc);
@@ -272,7 +275,8 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_dem_nodata_file << "\n";
     vw::TerminalProgressCallback tpc("asp", ": ");
-    vw::cartography::block_write_gdal_image(out_dem_nodata_file, dem_nodata,
+    vw::cartography::block_write_gdal_image(out_dem_nodata_file,
+                                            vw::pixel_cast<float>(dem_nodata),
                                             has_georef, geo,
                                             has_nodata, dem_nodata_val, opt, tpc);
   }
@@ -1465,6 +1469,34 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   return;
 }
 
+// Check if a parameter block is valid (exists and is not constant)
+bool isValidBlock(ceres::Problem const& problem, double const* block) {
+  return problem.HasParameterBlock(block) && !problem.IsParameterBlockConstant(block);
+}
+
+// Setup the blocks for covariance calculation. Keep on appending to
+// parameter_blocks. Need dx and dy for when doing covariances with neighbors.
+// Use a set to avoid duplicates.
+void setupCovarCalc(vw::ImageView<double> const& image,
+                    ceres::Problem const& problem,
+                    std::vector<int> const& dx,
+                    std::vector<int> const& dy,
+                    std::set<const double*> &block_set) {
+  for (int col = 0; col < image.cols(); col++) {
+    for (int row = 0; row < image.rows(); row++) {
+      for (size_t i = 0; i < dx.size(); i++) {
+        int c = col + dx[i];
+        int r = row + dy[i];
+        if (c < 0 || c >= image.cols() || r < 0 || r >= image.rows())
+          continue;
+        // Add to a set, to avoid duplicates
+        if (isValidBlock(problem, &image(c, r)))
+          block_set.insert(&image(c, r));
+      }
+    }
+  }
+}
+
 // Compute the DEM covariance for the given problem, and also the albedo covariance,
 // if --float-albedo is on. If --save-covariances is on, also save covariances
 // of each DEM pixel with the four horizontal and vertical neighbors. Same for
@@ -1473,35 +1505,29 @@ bool calcSfsCovariances(SfsOptions const& opt,
                         vw::ImageView<double> const& dem,
                         vw::ImageView<double> const& albedo,
                         ceres::Problem &problem,
+                        std::vector<int> const& dx,
+                        std::vector<int> const& dy,
                         ceres::Covariance &covariance) { // output
-  
-  vw::vw_out() << "Computing covariances.\n";
 
-  std::vector<const double*> parameter_blocks;
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      if (problem.HasParameterBlock(&dem(col, row)) && 
-          !problem.IsParameterBlockConstant(&dem(col, row))) {
-        parameter_blocks.push_back(&dem(col, row));
-      }
-    }
-  }
-  if (opt.float_albedo) {
-    for (int col = 0; col < albedo.cols(); col++) {
-      for (int row = 0; row < albedo.rows(); row++) {
-        if (problem.HasParameterBlock(&albedo(col, row)) && 
-            !problem.IsParameterBlockConstant(&albedo(col, row))) {
-          parameter_blocks.push_back(&albedo(col, row));
-        }
-      }
-    }
-  }
-  
+  if (opt.save_covariances)
+    vw::vw_out() << "Computing covariances.\n";
+  else
+    vw::vw_out() << "Computing variances.\n";
+
+  // Collect unique parameter blocks using a set
+  std::set<const double*> block_set;
+  setupCovarCalc(dem, problem, dx, dy, block_set);
+  if (opt.float_albedo)
+    setupCovarCalc(albedo, problem, dx, dy, block_set);
+
+  // Convert the set of pointers to a vector for CERES
+  std::vector<const double*> parameter_blocks(block_set.begin(), block_set.end());
+
   if (!covariance.Compute(parameter_blocks, &problem)) {
-    vw::vw_out(vw::WarningMessage) 
-      << "The CERES solver failed to compute the variances. If --float-albedo is on, "
+    vw::vw_out(vw::WarningMessage)
+      << "The CERES solver failed to compute the covariances. If --float-albedo is on, "
       << "consider disabling one or both of --float-haze and --float-exposures, "
-      << "and perhaps increasing --albedo-constraint-weight, to make the problem better " 
+      << "and perhaps increasing --albedo-constraint-weight, to make the problem better "
       << "determined.\n";
     return false;
   }
@@ -1509,35 +1535,60 @@ bool calcSfsCovariances(SfsOptions const& opt,
   return true;
 }
 
-// A function to save the variances and/or covariances of a given parameter set
+// Save the variances and/or covariances of a given parameter set. Cast to float
+// upon saving.
 void saveSfsCovariances(SfsOptions const& opt,
                         vw::ImageView<double> const& values,
-                        std::string const& variance_file,
+                        std::string const& file_prefix,
+                        std::vector<std::string> const& suffixes,
+                        std::vector<int> const& dx,
+                        std::vector<int> const& dy,
                         vw::cartography::GeoReference const& geo,
                         double nodata_val,
                         ceres::Problem &problem,
                         ceres::Covariance &covariance) {
 
-  vw::ImageView<double> variance_image(values.cols(), values.rows());
-  vw::fill(variance_image, nodata_val);
-  for (int col = 0; col < values.cols(); col++) {
-    for (int row = 0; row < values.rows(); row++) {
-      if (problem.HasParameterBlock(&values(col, row)) && 
-          !problem.IsParameterBlockConstant(&values(col, row))) {
-        double var = 0;
-        if (covariance.GetCovarianceBlock(&values(col, row), &values(col, row), &var))
-          variance_image(col, row) = var;
+  bool has_georef = true, has_nodata = true;
+
+  // Iterate over all the files we need to save
+  for (size_t i = 0; i < suffixes.size(); i++) {
+    vw::ImageView<double> cov_image(values.cols(), values.rows());
+    vw::fill(cov_image, nodata_val);
+
+    for (int col = 0; col < values.cols(); col++) {
+      for (int row = 0; row < values.rows(); row++) {
+        int c = col + dx[i];
+        int r = row + dy[i];
+        if (c < 0 || c >= values.cols() || r < 0 || r >= values.rows())
+          continue;
+        if (!isValidBlock(problem, &values(col, row)) || !isValidBlock(problem, &values(c, r)))
+          continue;
+        double cov = 0.0;
+        if (covariance.GetCovarianceBlock(&values(col, row), &values(c, r), &cov))
+          cov_image(col, row) = cov;
       }
     }
-  }
+    
+    // Set variance to nodata within 3 pixels of the boundary as it is somewhat
+    // inaccurate due to boundary conditions, and can result in tiling artifacts in
+    // parallel_sfs.
+    int margin = 3;
+    for (int col = 0; col < cov_image.cols(); col++) {
+      for (int row = 0; row < cov_image.rows(); row++) {
+        if (col < margin || col >= cov_image.cols() - margin ||
+            row < margin || row >= cov_image.rows() - margin)
+          cov_image(col, row) = nodata_val;
+      }
+    }
 
-  vw::vw_out() << "Writing: " << variance_file << "\n";
-  bool has_georef = true, has_nodata = true;
-  vw::TerminalProgressCallback tpc("asp", ": ");
-  vw::cartography::block_write_gdal_image(variance_file, variance_image,
-                                          has_georef, geo,
-                                          has_nodata, nodata_val,
-                                          opt, tpc);
+    std::string out_file = file_prefix + suffixes[i];
+    vw::vw_out() << "Writing: " << out_file << "\n";
+    vw::TerminalProgressCallback tpc("asp", ": ");
+    vw::cartography::block_write_gdal_image(out_file,
+                                            vw::pixel_cast<float>(cov_image),
+                                            has_georef, geo,
+                                            has_nodata, nodata_val, opt, tpc);
+  }
 }
 
 // Compute and save the covariances
@@ -1548,22 +1599,35 @@ void calcSaveSfsCovariances(SfsOptions const& opt,
                             vw::cartography::GeoReference const& geo,
                             double dem_nodata_val) {
 
+  // The variance is for a pixel with itself. For covariance will need the neighbors.
+  std::vector<int> dx = {0}, dy = {0};
+  if (opt.save_covariances) {
+    dx = {0, -1, 1, 0, 0}; // self, left, right, bottom, top
+    dy = {0, 0, 0, -1, 1};
+  }
+
   ceres::Covariance::Options covariance_options;
   covariance_options.num_threads = opt.num_threads;
   ceres::Covariance covariance(covariance_options);
-  if (calcSfsCovariances(opt, dem, albedo, problem, covariance)) {
-    // Save DEM variance
-    std::string dem_variance_file = opt.out_prefix + "-DEM-variance.tif";
-    saveSfsCovariances(opt, dem, dem_variance_file, geo, dem_nodata_val,
-                       problem, covariance);
 
-    // Save albedo variance
-    if (opt.float_albedo) {
-      std::string albedo_variance_file = opt.out_prefix + "-albedo-variance.tif";
-      saveSfsCovariances(opt, albedo, albedo_variance_file, geo, dem_nodata_val,
-                         problem, covariance);
-    }
-  }
+  // Set up the calculation for all covariances. But then save them individually.
+  if (!calcSfsCovariances(opt, dem, albedo, problem, dx, dy, covariance))
+    return;
+    
+  // File name suffixes for variance and covariances. Indices match dx/dy.
+  std::vector<std::string> suffixes = {"-variance.tif"};
+  if (opt.save_covariances)
+    suffixes = {"-variance.tif", "-left-covariance.tif", "-right-covariance.tif",
+                "-bottom-covariance.tif", "-top-covariance.tif"};
+
+  // Save DEM variance and covariances
+  saveSfsCovariances(opt, dem, opt.out_prefix + "-DEM", suffixes, dx, dy,
+                     geo, dem_nodata_val, problem, covariance);
+
+  // Save albedo variance and covariances
+  if (opt.float_albedo)
+    saveSfsCovariances(opt, albedo, opt.out_prefix + "-albedo", suffixes, dx, dy,
+                       geo, dem_nodata_val, problem, covariance);
 }
 
 } // end namespace asp

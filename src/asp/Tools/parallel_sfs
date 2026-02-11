@@ -313,6 +313,11 @@ def main(argsIn):
     options.extraArgs = ['-i', options.input_dem, '-o', options.output_prefix,
                          '--threads', str(options.threads) ] + options.extraArgs
 
+    # If --save-covariances is on, also turn on --save-variances
+    if '--save-covariances' in argsIn and '--save-variances' not in argsIn:
+        argsIn.append('--save-variances')
+        options.extraArgs.append('--save-variances')
+
     # See what kind of outputs to generate
     baseFileNames = []
     if '--estimate-height-errors' not in argsIn:
@@ -327,10 +332,18 @@ def main(argsIn):
         if '--save-dem-with-nodata' in argsIn:
             baseFileNames  += ['DEM-nodata-final.tif']
         
+        # Variances and covariances. Can be up to 8 of them.
         if '--save-variances' in argsIn:
-            baseFileNames  += ['DEM-variance.tif']
+            prefixes = ['DEM']
             if '--float-albedo' in argsIn:
-                baseFileNames  += ['albedo-variance.tif']
+                prefixes += ['albedo']
+            suffixes = ['-variance.tif']
+            if '--save-covariances' in argsIn:
+                suffixes += ['-left-covariance.tif', '-right-covariance.tif',
+                             '-bottom-covariance.tif', '-top-covariance.tif']
+            for prefix in prefixes:
+                for suffix in suffixes:
+                    baseFileNames += [prefix + suffix]
             
     elif '--estimate-height-errors' in argsIn:
         # Here we just mosaic the height errors

@@ -767,6 +767,12 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   if (opt.estimate_height_errors && opt.model_shadows)
     vw::vw_throw(vw::ArgumentErr() << "Cannot estimate height error when modeling shadows.");
 
+  if (opt.estimate_height_errors && opt.save_variances)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot estimate height errors with --save-variances.");
+
+  if (opt.estimate_height_errors && opt.save_covariances)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot estimate height errors with --save-covariances.");
+
   if (opt.save_sim_intensity_only || opt.save_meas_intensity_only || 
       opt.estimate_height_errors) {
 

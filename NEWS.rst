@@ -63,6 +63,9 @@ parallel_stereo (:numref:`parallel_stereo`):
   * The logic for consolidating the output directory has been given its own
     stage (:numref:`entrypoints`).
 
+sfs (:numref:`sfs`):
+  * Added the option ``--save-covariances`` (:numref:`sfs_opt`).
+
 rig_calibrator (:numref:`rig_calibrator`):
   * Replaced ``--camera-position-weight`` with ``--camera-position-uncertainty``. 
   * Added the option ``--heights-from-dem`` to constrain triangulated points
