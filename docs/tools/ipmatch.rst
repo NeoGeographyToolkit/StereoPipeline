@@ -19,21 +19,26 @@ Example
     ipmatch input/image1.tif input/image2.tif -o output/run
 
 This will read the ``input/image1.vwip`` and ``input/image2.vwip`` files created
-by ``ipfind`` and write the match file::
+by ``ipfind`` and write the binary match file::
 
     output/run-image1__image2.match
     
-If there are more images, then all combinations of matches will be written out.
-
-These binary files can be inspected with ``stereo_gui``
-(:numref:`stereo_gui_pairwise_matches`), and can be converted to plain text with
-``parse_match_file.py`` (:numref:`parse_match_file`).
-
 The ``.vwip`` files can be specified explicitly, after the image files.
+
+If there are more images, then all combinations of matches will be written out.
 
 Note that this tool does not implement many of the IP matching steps that are
 used in :ref:`parallel_stereo` and :ref:`bundle_adjust`, since it does not use
 any camera information.
+
+Plain text match files and inspections
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To write plain text match files instead of binary, add the option
+``--matches-as-txt``. See also :numref:`txt_match`.
+
+The binary and plain text match files can be inspected with ``stereo_gui``
+(:numref:`stereo_gui_view_ip`). 
 
 .. _ipmatch_convert:
 
@@ -49,6 +54,9 @@ The format of the plain text file is described in :numref:`txt_format`.
 Convert a plain text match file to binary::
 
     ipmatch --txt-to-binary input.txt output.match
+
+The program ``parse_match_file.py`` (:numref:`parse_match_file`) can do
+conversions as well.
 
 .. _ipmatch_merge:
 

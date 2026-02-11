@@ -354,6 +354,17 @@ recording.
 Note that this is not the same format as in ``parse_match_file.py``
 (:numref:`parse_match_file`). 
 
+Inspection
+~~~~~~~~~~
+
+To view plain text match files use ``stereo_gui`` (:numref:`stereo_gui_view_ip`)
+as::
+
+    stereo_gui               \
+      --matches-as-txt       \
+      image1.tif image2.tif  \
+      --match-file out/run-image1__image2.txt
+
 .. _poly_files:
 
 Format of polygon files

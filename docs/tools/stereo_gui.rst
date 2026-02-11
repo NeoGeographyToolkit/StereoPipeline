@@ -374,12 +374,15 @@ View matches for an image pair
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The match file to load can be specified via ``--match-file``, or loaded
-based on extension, if running::
+based on extension, so both of these will work::
+
+    stereo_gui left.tif right.tif            \
+      --match-file run/run-left__right.match
 
     stereo_gui left.tif right.tif run/run-left__right.match
 
-It may also be auto-detected if ``stereo_gui`` was invoked like ``parallel_stereo``,
-with an output prefix::
+The match file may also be auto-detected if ``stereo_gui`` was invoked like
+``parallel_stereo``, with an output prefix::
 
    stereo_gui left.tif right.tif run/run
 
@@ -387,6 +390,16 @@ and then the match file is loaded from the *IP matches -> View IP matches*
 menu. (Auto-detection works only when the images are not
 mapprojected, stereo was not run on image clips, and alignment method
 is not ``epipolar`` or ``none``.)
+
+Plain-text match files (:numref:`txt_match`) can be loaded as::
+
+    stereo_gui           \
+      --matches-as-txt   \
+      left.tif right.tif \
+      --match-file run/run-left__right.txt
+
+These two options must be explicitly set, as otherwise the program may mistake
+the text file for a CSV file.
 
 See also editing of interest point matches in
 :numref:`stereo_gui_edit_ip`.
