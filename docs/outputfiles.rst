@@ -297,7 +297,7 @@ network format. See :numref:`control_network`.
 Turn on plain text matches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-By default, ASP programs works with binary match files. The switch
+By default, ASP programs work with binary match files. The switch
 ``--matches-as-txt`` will enable reading and writing plain text match files
 instead. In that case, all existing ``.match`` files will be ignored.
 
@@ -344,7 +344,7 @@ separated by spaces::
     x1 y1 unc1 x2 y2 unc2
 
 Here, ``x1 y1`` are the coordinates of an interest point in the first image,
-``unc1`` are its uncertainty (in pixels), and ``x2 y2 unc2`` are the
+``unc1`` is its uncertainty (in pixels), and ``x2 y2 unc2`` are the
 corresponding values for the second image. In bundle adjustment each pixel is
 weighted by the inverse of its uncertainty. The uncertainties must be positive.
 
