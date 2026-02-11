@@ -6,9 +6,8 @@ Added cloud-optimized GeoTIFF (COG) support via the ``--cog`` option to
 
 Added support for plain-text match files (:numref:`txt_match`).
 
-stereo_sweep (:numref:`stereo_sweep`):
-  * Added a new program to study parameter sensitivity by running stereo on
-    small patches with different parameter combinations.
+Added a new program to study parameter sensitivity by running stereo on small
+patches with different parameter combinations (:numref:`stereo_sweep`).
 
 aster2asp (:numref:`aster2asp`):
   * Added support for ASTER Level 1A V004 HDF format.

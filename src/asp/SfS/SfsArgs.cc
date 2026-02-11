@@ -325,11 +325,17 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   ("save-sparingly",  
   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
    "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
-  ("save-variances",  
+  ("save-variances",
   po::bool_switch(&opt.save_variances)->default_value(false)->implicit_value(true),
    "Save the variance of the DEM for each pixel. If --float-albedo is on, also save the "
    "variance of the albedo. Note that computing the albedo variance can be ill-posed if "
    "--float-haze and/or --float-exposure is also on.")
+  ("save-covariances",
+  po::bool_switch(&opt.save_covariances)->default_value(false)->implicit_value(true),
+   "In addition to saving the variance of the DEM (and albedo) at each pixel (as for "
+   "--save-variances), also save the covariance between each DEM pixel and its four "
+   "horizontal and vertical neighbors, and the same for the albedo if --float-albedo "
+   "is on.")
   ("camera-position-step-size",
   po::value(&opt.camera_position_step_size)->default_value(1.0),
    "Larger step size will result in more aggressiveness in varying the camera position "
@@ -796,6 +802,10 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
                << "--ref-map is incompatible with --crop-win.\n");
       
   }
+
+  // If --save-covariances is on, also turn on --save-variances
+  if (opt.save_covariances)
+    opt.save_variances = true;
 
   // If --save-variances is on and --float-albedo is on, warn if either --float-haze
   // or --float-exposures is also on, as this may make the albedo variance ill-posed.

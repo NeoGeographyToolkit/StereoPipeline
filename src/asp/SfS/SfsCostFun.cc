@@ -1465,13 +1465,15 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
   return;
 }
 
-// Compute the DEM variance for the given problem, and also the albedo variance,
-// if --float-albedo is on.
-bool calcSfsVariances(SfsOptions const& opt,
-                       vw::ImageView<double> const& dem,
-                       vw::ImageView<double> const& albedo,
-                       ceres::Problem &problem,
-                       ceres::Covariance &covariance) { // output
+// Compute the DEM covariance for the given problem, and also the albedo covariance,
+// if --float-albedo is on. If --save-covariances is on, also save covariances
+// of each DEM pixel with the four horizontal and vertical neighbors. Same for
+// albedo.
+bool calcSfsCovariances(SfsOptions const& opt,
+                        vw::ImageView<double> const& dem,
+                        vw::ImageView<double> const& albedo,
+                        ceres::Problem &problem,
+                        ceres::Covariance &covariance) { // output
   
   vw::vw_out() << "Computing variances.\n";
 
@@ -1507,14 +1509,14 @@ bool calcSfsVariances(SfsOptions const& opt,
   return true;
 }
 
-// A function to save the variance of a given parameter set
-void saveSfsVariance(SfsOptions const& opt,
-                     vw::ImageView<double> const& values,
-                     std::string const& variance_file,
-                     vw::cartography::GeoReference const& geo,
-                     double nodata_val,
-                     ceres::Problem &problem,
-                     ceres::Covariance &covariance) {
+// A function to save the variances and/or covariances of a given parameter set
+void saveSfsCovariances(SfsOptions const& opt,
+                        vw::ImageView<double> const& values,
+                        std::string const& variance_file,
+                        vw::cartography::GeoReference const& geo,
+                        double nodata_val,
+                        ceres::Problem &problem,
+                        ceres::Covariance &covariance) {
 
   vw::ImageView<double> variance_image(values.cols(), values.rows());
   vw::fill(variance_image, nodata_val);
@@ -1538,28 +1540,28 @@ void saveSfsVariance(SfsOptions const& opt,
                                           opt, tpc);
 }
 
-// Compute and save the variances
-void calcSaveSfsVariances(SfsOptions const& opt,
-                          vw::ImageView<double> const& dem,
-                          vw::ImageView<double> const& albedo,
-                          ceres::Problem &problem,
-                          vw::cartography::GeoReference const& geo,
-                          double dem_nodata_val) {
+// Compute and save the covariances
+void calcSaveSfsCovariances(SfsOptions const& opt,
+                            vw::ImageView<double> const& dem,
+                            vw::ImageView<double> const& albedo,
+                            ceres::Problem &problem,
+                            vw::cartography::GeoReference const& geo,
+                            double dem_nodata_val) {
 
   ceres::Covariance::Options covariance_options;
   covariance_options.num_threads = opt.num_threads;
   ceres::Covariance covariance(covariance_options);
-  if (calcSfsVariances(opt, dem, albedo, problem, covariance)) {
+  if (calcSfsCovariances(opt, dem, albedo, problem, covariance)) {
     // Save DEM variance
     std::string dem_variance_file = opt.out_prefix + "-DEM-variance.tif";
-    saveSfsVariance(opt, dem, dem_variance_file, geo, dem_nodata_val,
-                    problem, covariance);
-    
+    saveSfsCovariances(opt, dem, dem_variance_file, geo, dem_nodata_val,
+                       problem, covariance);
+
     // Save albedo variance
     if (opt.float_albedo) {
       std::string albedo_variance_file = opt.out_prefix + "-albedo-variance.tif";
-      saveSfsVariance(opt, albedo, albedo_variance_file, geo, dem_nodata_val,
-                      problem, covariance);
+      saveSfsCovariances(opt, albedo, albedo_variance_file, geo, dem_nodata_val,
+                         problem, covariance);
     }
   }
 }

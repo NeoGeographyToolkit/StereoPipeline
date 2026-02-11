@@ -146,9 +146,9 @@ void runSfs(// Fixed quantities
 
   vw::vw_out() << summary.FullReport() << "\n\n";
 
-  // Save the variances
+  // Save the covariances
   if (opt.save_variances)
-    asp::calcSaveSfsVariances(opt, dem, albedo, problem, geo, dem_nodata_val);
+    asp::calcSaveSfsCovariances(opt, dem, albedo, problem, geo, dem_nodata_val);
 }
 
 // Load cameras and sun positions

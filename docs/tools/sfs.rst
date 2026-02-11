@@ -60,43 +60,54 @@ Outputs
 ~~~~~~~
 
 The ``sfs`` outputs are saved at the location given by the output prefix (option
-``-o``).  If that is set to ``run/run`` as in the example above, the
-outputs are:
+``-o``).  If that is set to ``run/run`` as in the example above, the following
+outputs are produced.
 
- - ``run/run-DEM-final.tif`` - The refined SfS DEM.
+ - ``run/run-DEM-final.tif``
+     The produced SfS DEM.
 
- - ``run/run-exposures.txt`` - computed exposures for the images. These can be passed
-   back to ``sfs`` via ``--image-exposures-prefix``.
+ - ``run/run-exposures.txt``
+     The computed exposures for the images. These can be passed back to ``sfs``
+     via ``--image-exposures-prefix``.
 
- - ``run/run-haze.txt`` - computed haze values for the images. These can be passed
-   back to ``sfs`` via ``--haze-prefix``. Only created if ``--num-haze-coeffs`` is
-   positive.
-   
- - ``run-albedo-estim.tif`` - The estimated initial albedo (if
-   ``--float-albedo`` is on). It is produced by sampling the DEM with option
-   ``--num-samples-for-estim``, then interpolated to all DEM pixels. Can be
-   passed to ``sfs`` via ``--input-albedo``. Normally ``parallel_sfs`` takes
-   care of the initial estimation and passing this along.
+ - ``run/run-haze.txt``
+     The computed haze values for the images. These can be passed back to
+     ``sfs`` via ``--haze-prefix``. Only created if ``--num-haze-coeffs`` is
+     positive.
 
- - ``run/run-albedo-final.tif`` - The computed albedo. All its values are 1
-   unless the option ``--float-albedo`` is used. 
+ - ``run-albedo-estim.tif``
+     The estimated initial albedo (if ``--float-albedo`` is on). It is produced
+     by sampling the DEM with option ``--num-samples-for-estim``, then
+     interpolated to all DEM pixels. Can be passed to ``sfs`` via
+     ``--input-albedo``. Normally ``parallel_sfs`` takes care of the initial
+     estimation and passing this along.
 
- - ``run/run-<image>-final-meas-intensity.tif`` - For each input image, this
-   has the actual (measured) image values at each refined DEM grid point. 
-   See also ``--save-meas-intensity-only``.
+ - ``run/run-albedo-final.tif``
+     The computed albedo. All its values are 1 unless the option
+     ``--float-albedo`` is used.
 
- - ``run/run-<image>-final-sim-intensity.tif`` - For each input image,
-   this has the simulated image values at each refined DEM grid point using
-   the reflectance model and the Sun position for the
-   current image. If the modeling is perfect, the measured input image
-   will precisely agree with the simulated (modeled) image. In reality
-   these are close but different. This was called the "computed" intensity
-   prior to build 2025/11. See also ``--save-sim-intensity-only``.
+ - ``run/run-<image>-final-meas-intensity.tif``
+     For each input image, this has the actual (measured) image values at each
+     refined DEM grid point. See also ``--save-meas-intensity-only``.
 
- - ``<output prefix>-DEM-variance.tif`` - If ``--save-variances`` was set,
-   this file stores the variance for each DEM pixel. If ``--float-albedo``
-   is also on, the albedo variance is stored in
-   ``<output prefix>-albedo-variance.tif``.
+ - ``run/run-<image>-final-sim-intensity.tif``
+     For each input image, this has the simulated image values at each refined
+     DEM grid point using the reflectance model and the Sun position for the
+     current image. If the modeling is perfect, the measured input image will
+     precisely agree with the simulated (modeled) image. In reality these are
+     close but different. This was called the "computed" intensity prior to
+     build 2025/11. See also ``--save-sim-intensity-only``.
+
+ - ``run/run-DEM-variance.tif``
+     If ``--save-variances`` was set, this file stores the variance for each
+     DEM pixel. If ``--float-albedo`` is also on, the albedo variance is stored
+     in ``<output prefix>-albedo-variance.tif``.
+
+ - ``run/run-DEM-{left,right,top,bottom}-covariance.tif``
+     If ``--save-covariances`` was set, the ``left`` file stores the covariance
+     of each DEM pixel and its left neighbor. Same for the other ones. If
+     ``--float-albedo`` is also on, the albedo covariances with analogous names
+     are saved as well.
 
 In addition, SfS saves intermediate values of many of these quantities
 at each iteration, unless the flag ``--save-sparingly`` is used. SfS
@@ -241,6 +252,13 @@ Command-line options for sfs
     also save the variance of the albedo. Note that computing the albedo
     variance can be ill-posed if ``--float-haze`` and/or ``--float-exposure`` is
     also on. See :numref:`sfs_outputs` for the produced output filenames.
+
+--save-covariances
+    In addition to saving the variance of the DEM (and albedo) at each pixel (as
+    for ``--save-variances``), also save the variance between each DEM pixel and
+    its four horizontal and vertical neighbors, and the same for the albedo if
+    ``--float-albedo`` is on. See :numref:`sfs_outputs` for the produced output
+    filenames.
 
 --use-approx-camera-models
     Use approximate camera models for speed. Only with ISIS .cub

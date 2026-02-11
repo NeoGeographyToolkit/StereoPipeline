@@ -138,13 +138,13 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
                              asp::ReflParams const& refl_params,
                              double gridx, double gridy);
 
-// Compute and save the variances
-void calcSaveSfsVariances(SfsOptions const& opt,
-                          vw::ImageView<double> const& dem,
-                          vw::ImageView<double> const& albedo,
-                          ceres::Problem &problem,
-                          vw::cartography::GeoReference const& geo,
-                          double dem_nodata_val);
+// Compute and save the covariances
+void calcSaveSfsCovariances(SfsOptions const& opt,
+                            vw::ImageView<double> const& dem,
+                            vw::ImageView<double> const& albedo,
+                            ceres::Problem &problem,
+                            vw::cartography::GeoReference const& geo,
+                            double dem_nodata_val);
 
 } // end namespace asp
 
