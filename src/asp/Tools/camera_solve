@@ -165,7 +165,7 @@ def generate_flagfile(options):
 # having to recompute all features and matches.
 --matches_file='''+options.match_wildcard+'''
 
-# The calibration file indicates possibly known calibration e.g, from EXIF or
+# The calibration file indicates possibly known calibration e.g., from EXIF or
 # explicit calibration. Theia attempts to extract EXIF focal lengths if calibration
 # is not supplied for a given image.
 --calibration_file='''+pathPrint(options.theia_camera_param_path)+'''
@@ -182,7 +182,7 @@ def generate_flagfile(options):
 ############### Matching Options ###############
 # Perform matching out-of-core. If set to true, the matching_working_directory
 # must be set to a valid, writable directory (the directory will be created if
-# it does not exits) Set to false to perform all-in-memory matching.
+# it does not exist). Set to false to perform all-in-memory matching.
 --match_out_of_core=true
 
 # During feature matching, features are saved to disk so that out-of-core
@@ -203,8 +203,8 @@ def generate_flagfile(options):
 --bundle_adjust_two_view_geometry=true
 --keep_only_symmetric_matches=true
 
-# Global descriptor extractor settings. The global image descriptors are use
-# speed up matching by selected the K most similar images for each image, an
+# Global descriptor extractor settings. The global image descriptors are used to
+# speed up matching by selecting the K most similar images for each image, and
 # only performing feature matching with these images.                       
 --num_nearest_neighbors_for_global_descriptor_matching=100
 --num_gmm_clusters_for_fisher_vector=16
@@ -246,7 +246,7 @@ def generate_flagfile(options):
 --position_estimation_min_num_tracks_per_view=0
 --position_estimation_robust_loss_width=0.1
 
-# After estimating camera poses, we perform trianguation, then BA,
+# After estimating camera poses, we perform triangulation, then BA,
 # then filter out bad points. This controls how many times we repeat
 # this process.
 --num_retriangulation_iterations=1
@@ -263,7 +263,7 @@ def generate_flagfile(options):
 # during the optimization.
 --bundle_adjustment_robust_loss_function=CAUCHY
 
-# Set this value to the determine the reprojection error in pixelst at which
+# Set this value to determine the reprojection error in pixels at which
 # robustness begins (if a robust cost function is being used).
 --bundle_adjustment_robust_loss_width=10.0
 
@@ -371,7 +371,7 @@ def guided_build_reconstruction(options):
     # Extract features for all of the input images.
     # - TODO: Can run this in parallel to use more CPUs, only hits 400% now.
     # - match_features expects these to be in the same folder as the source images
-    # - TODO: Play experiment with feature options and read these from the flagfile which
+    # - TODO: Experiment with feature options and read these from the flagfile which
     #         the user can currently pass in.
     options.feature_folder = options.output_folder
     #os.path.join(options.output_folder, 'features')
@@ -689,8 +689,8 @@ def main(argsIn):
         # Use parser that ignores unknown options
         usage = "usage: camera_solve [options] <output folder> <input images>"
         extra_info = ("Don't forget that options to ASP's bundle_adjust tool (which is the "
-                      "final solution refinement step) can"
-                      "be passed in using the '--bundle-adjust-params options'. "
+                      "final solution refinement step) can "
+                      "be passed in using the '--bundle-adjust-params' option. "
                       "Significantly, the '--camera-positions' "
                       "option is one of two ways to move the cameras to global "
                       "coordinates (the other is via gcp files.")
@@ -712,7 +712,7 @@ def main(argsIn):
         parser.add_option('--calib-file',  dest='camera_param_paths', default=None,
           help=('Path to an ASP compatible .tsai file containing camera model information.'+
                  ' See the ASP documentation for details.  The position and pose information will be ignored.'+
-                 ' If you want to use a unique file for each input image, pass a space separated list of files'+
+                 ' To use a unique file for each input image, pass a space-separated list of files'+
                  ' surrounded by quotes.'))
         parser.add_option('--gcp-file',  action="store_true", default=False,
           help='Obsolete option for specifying GCP. One or more GCP files will be ' + \

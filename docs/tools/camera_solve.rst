@@ -4,7 +4,7 @@ camera_solve
 ------------
 
 The ``camera_solve`` tool takes as input a set of images acquired with
-a camera, and finds each camera's pose (position and orientation).  If
+a camera, and finds each camera's pose (position and orientation). If
 ground control points are provided, the resulting set of cameras is
 transformed to be in a desired coordinate system. For more context and 
 examples see :numref:`sfm`.
@@ -13,7 +13,7 @@ Overview
 ~~~~~~~~
 
 This tool is a wrapper around the `Theia <http://theia-sfm.org/>`_
-structure-from-motion software, and its goal is create camera models which
+structure-from-motion software, and its goal is to create camera models which
 can later be used with ASP's bundle adjustment (:numref:`bundle_adjust`)
 and stereo (:numref:`tutorial`). 
 
@@ -27,7 +27,7 @@ models in world coordinates. This method is not as accurate as using
 ground control points but it may be easier to use. To do this, use the
 ``--camera-positions`` parameter to ``bundle_adjust`` via the
 ``--bundle-adjust-params`` option similar to the example line below. If
-you see the camera models shifting too far from their starting positions
+you see the camera models shifting too far from their starting positions,
 try using the ``--camera-weight`` option to restrain their movement.
 
 This tool will generate two .tsai camera model files in the output
@@ -38,7 +38,7 @@ appended with .final.tsai, contains the final solver results. If ground
 control points or estimated camera positions were provided, then the
 second file will be in a global coordinate system.
 
-This program produced somewhat different results each it is run.
+This program produces somewhat different results each time it is run.
 
 A related tool is ``theia_sfm`` (:numref:`theia_sfm`).
 
@@ -83,8 +83,8 @@ Command-line options
 --calib-file <filename>
     Path to an ASP compatible pinhole model file containing camera
     model information. The position and pose information will be
-    ignored. If you want to use a unique file for each input image,
-    pass a space separated list of files surrounded by quotes.
+    ignored. To use a unique file for each input image, pass a
+    space-separated list of files surrounded by quotes.
 
 --gcp-file <filename>
     Obsolete option for specifying GCP. One or more GCP files will be
