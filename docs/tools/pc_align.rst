@@ -954,9 +954,10 @@ Command-line options for pc_align
 --src-copc-read-all
     Read the full source COPC file, ignoring the ``--src-copc-win`` option.
         
---diff-rotation-error <float (default: 1e-8)>
+--diff-rotation-error <float (default: 1e-5)>
     Change in rotation amount below which the algorithm will stop
-    (if translation error is also below bound), in degrees.
+    (if translation error is also below bound), in degrees. A small
+    value can result in numerical precision issues and many iterations.
 
 --diff-translation-error <float (default: 1e-3)>
     Change in translation amount below which the algorithm will

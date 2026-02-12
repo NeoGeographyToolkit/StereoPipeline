@@ -54,8 +54,10 @@ disparitydebug (:numref:`disparitydebug`):
     disparities without normalization (:numref:`raw_disp`).
 
 pc_align (:numref:`pc_align`):
-  * Print to the terminal and the log file the following initial and final 
+  * Print to the terminal and the log file the following initial and final
     error stats: Mean, StdDev, RMSE, Median, NMAD.
+  * Changed the default for ``--diff-rotation-error`` from 1e-8 to 1e-5 degrees,
+    to avoid slow convergence in some cases due to numerical precision issues.
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added the option ``--proj-win`` to limit stereo to a projection window for

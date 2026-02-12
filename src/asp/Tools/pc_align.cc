@@ -100,8 +100,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "The file containing the transform to be used as an initial guess. It can come from a previous run of the tool.")
     ("num-iterations", po::value(&opt.num_iter)->default_value(1000),
       "Maximum number of iterations.")
-    ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-8),
-      "Change in rotation amount below which the algorithm will stop (if translation error is also below bound), in degrees.")
+    ("diff-rotation-error", po::value(&opt.diff_rotation_err)->default_value(1e-5),
+      "Change in rotation amount below which the algorithm will stop (if translation "
+      "error is also below bound), in degrees. A small value can result in numerical "
+      "precision issues and many iterations.")
     ("diff-translation-error",   po::value(&opt.diff_translation_err)->default_value(1e-3),
       "Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters.")
     ("max-displacement", po::value(&opt.max_disp)->default_value(0.0),
