@@ -537,11 +537,13 @@ and overlay them on the reference DEM in ``stereo_gui``.
 The output files from ``cam_gen`` will be roughly accurate but they may
 still be bad enough that ``bundle_adjust`` has trouble finding a
 solution. One way to improve your initial models is to use ground
-control points. For this test case I was able to match features along
-the rivers to the same rivers in a hillshaded version of the reference
-DEM. I used three sets of GCPs, one for each image individually and a
-joint set for both images. I then ran ``bundle_adjust`` individually for
-each camera using the GCPs.
+control points. 
+
+For this test case it was possible to match features along the rivers to the
+same rivers in a hillshaded version of the reference DEM. Three sets of GCPs
+(:numref:`bagcp`) were created, one for each image individually and a joint set for
+both images. Then ``bundle_adjust`` was run individually for each camera using
+the GCPs.
 
 ::
 

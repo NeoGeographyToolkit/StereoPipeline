@@ -1572,8 +1572,8 @@ to move around a perspective view of your terrain.
 Use of existing terrain data
 ----------------------------
 
-ASP's tools can incorporate prior ground data, such as DEMs, 
-lidar point clouds, or GCP files.
+ASP's tools can incorporate prior ground data, such as DEMs,
+lidar point clouds, or GCP files (:numref:`bagcp`).
 
 ASP assumes such data is well-aligned with the input images and cameras. To
 perform such alignment, one may first run bundle adjustment

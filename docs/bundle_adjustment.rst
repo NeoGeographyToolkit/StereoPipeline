@@ -129,11 +129,12 @@ and works well-enough unless the cameras change a lot.
    :numref:`ba_rpc_distortion` and :numref:`ba_frame_linescan_results`.
 
 Bundle adjustment aims to make the cameras more self-consistent but offers no
-guarantees about their absolute positions (unless GCP are used), in fact, the
-cameras can move away a lot sometimes. The options ``--tri-weight``,   
-``--rotation-weight``, and ``--camera-position-weight`` can be used to constrain
-how much the cameras can move during bundle adjustment. Note that large values
-for these may impact the ability to make the cameras self-consistent.
+guarantees about their absolute positions (unless GCP are used,
+:numref:`bagcp`), in fact, the cameras can move away a lot sometimes. The
+options ``--tri-weight``, ``--rotation-weight``, and
+``--camera-position-weight`` can be used to constrain how much the cameras can
+move during bundle adjustment. Note that large values for these may impact the
+ability to make the cameras self-consistent.
 
 This program can constrain the triangulated points, and hence the cameras,
 relative to a DEM. This option only works when the cameras are already
@@ -1354,8 +1355,8 @@ functions to bundle adjustment. First of which is
      {\bf \epsilon} = \sum_j(C_j^{initial}-C_j)^2. 
 
 This constrains camera parameters to stay relatively close to their initial
-values. Second, a small handful of 3D ground control points can be chosen by
-hand and added to the error metric as
+values. Second, a small handful of 3D ground control points (:numref:`bagcp`)
+can be chosen by hand and added to the error metric as
 
 .. math::
 

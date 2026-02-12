@@ -53,8 +53,7 @@ double computePlateauedWeights(vw::Vector2 const& pix, bool horizontal,
 // between interior holes (assigned hole_fill_value) and border pixels (-1).
 void centerlineWeightsWithHoles(vw::ImageView<vw::PixelMask<double>> const& img,
                                 vw::ImageView<double> & weights,
-                                double max_weight_val,
-                                double hole_fill_value);
+                                double max_weight_val);
 
 double erfSmoothStep(double x, double M, double L);
 

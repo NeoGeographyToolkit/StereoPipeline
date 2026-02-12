@@ -356,10 +356,6 @@ void compute_all_image_positions(Options & opt,
     Vector2 new_bot_right_corner = tf_ptr->forward(image_size);
     output_bbox.grow(new_bot_right_corner);
     
-    //std::cout << "image_size: " << image_size << std::endl;
-    //std::cout << "new_bot_right_corner: " << new_bot_right_corner << std::endl;
-    //std::cout << "Overall bbox: " << output_bbox << std::endl;
-
     // Update this image's bbox in output image
     BBox2f this_bbox = compute_transformed_bbox_fast(
                                 BBox2i(0,0,image_size[0],image_size[1]),
@@ -367,14 +363,6 @@ void compute_all_image_positions(Options & opt,
     this_bbox.expand(1);
     this_bbox.crop(output_bbox); // TODO: Should not be needed!
     bboxes[i] = this_bbox;
-    /*
-    // DEBUG Write out the entire transformed image
-    write_image( "input.tif",transform(DiskImageView<float>(opt.image_files[i]), 
-                                      AffineTransform(m, t),
-                                      output_bbox.size()[0], output_bbox.size()[1]) );
-    */
-    //std::cout << "This bbox: "    << bboxes[i]   << std::endl;
-
   } // End loop through images
   
   output_image_size = output_bbox.size();
@@ -432,13 +420,8 @@ public:
     //  to the output image.
     for (size_t i=0; i<m_images.size(); ++i) {
 
-      //std::cout << "i = " << i << std::endl;
-      //std::cout << "bbox = " << bbox << std::endl;
-      //std::cout << "m_bboxes[i] = " << m_bboxes[i] << std::endl;
-
       // Get the intersection (if any) of this image with the current bbox.
       if (!m_bboxes[i].intersects(bbox)) {
-        //std::cout << "Skipping\n";
         continue;
       }
       BBox2i intersect = m_bboxes[i];
@@ -455,11 +438,6 @@ public:
       input_bbox.crop(bounding_box(m_images[i]));
       
       BBox2i tile_bbox = intersect - bbox.min(); // ROI of this input in the output tile
-
-      //std::cout << "intersect = " << intersect << std::endl;
-      //std::cout << "intersect.max() = " << intersect.max() << std::endl;
-      //std::cout << "input_bbox = " << input_bbox << std::endl;
-      //std::cout << "tile_bbox = " << tile_bbox << std::endl;
 
       // TODO: Clean up
       AffineTransform* temp = dynamic_cast<AffineTransform*>(m_transforms[i].get());
@@ -486,19 +464,12 @@ public:
       double denom = dist + m_blend_radius;
       
       double cutoff = (m_blend_radius/denom);//*(dist/denom);
-      //std::cout << "dist = " << dist << std::endl;
-      //std::cout << "cutoff = " << cutoff << std::endl;
-      
       for (int r=0; r<input_weights.rows(); ++r) {
         for (int c=0; c<input_weights.cols(); ++c) {
           if (input_weights(c,r) > cutoff)
             input_weights(c,r) = cutoff;
         }
       }
-      //std::string fix = "_"+num2str(i)+"_"+num2str(bbox.min()[0])+"_"+num2str(bbox.min()[1])+".tif";
-      //write_image("input"+fix, apply_mask(trans_input,0));
-      //write_image("weights"+fix, input_weights);
-      //write_image("weights_crop"+fix, crop(input_weights, BBox2i(m_blend_radius,m_blend_radius, intersect.width(), intersect.height())));
 
       // Copy that piece to the output tile, applying the mask.
       for (int r=0; r<intersect.height(); ++r) {
@@ -521,8 +492,6 @@ public:
           }
         }
       } // End loop through tile intersection
-
-      //std::cout << "input finished\n";
     } // End loop through input images
 
     //std::string fix = "_"+num2str(bbox.min()[0])+"_"+num2str(bbox.min()[1])+".tif";
@@ -539,7 +508,6 @@ public:
     
     //write_image("tile_norm"+fix, tile);
     
-    //std::cout << "Tile finished\n";
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
                              cols(), rows() );
   } // End function prerasterize

@@ -473,10 +473,9 @@ void preprocessDem(int dem_iter,
   // Fill holes using grassfire algorithm. This happens on the expanded tile to
   // ensure we catch holes partially outside the processing region.
   if (opt.hole_fill_len > 0)
-    dem = vw::apply_mask(
-      vw::fill_holes_grass(vw::create_mask(select_channel(dem, 0), nodata_value),
-                           opt.hole_fill_len),
-      nodata_value);
+    dem = vw::apply_mask(vw::fill_holes_grass(vw::create_mask(select_channel(dem, 0), 
+                                                              nodata_value),
+                                              opt.hole_fill_len), nodata_value);
 
   // Fill nodata based on search radius. Uses weighted interpolation from nearby
   // valid pixels. Note: validation ensures this and hole_fill_len aren't both used.
@@ -492,12 +491,10 @@ void preprocessDem(int dem_iter,
   // around nodata regions when blurring (blurring can't handle nodata directly).
   if (opt.dem_blur_sigma > 0.0) {
     int kernel_size = vw::compute_kernel_size(opt.dem_blur_sigma);
-    dem = vw::apply_mask(
-      gaussian_filter(fill_nodata_with_avg(
-                        vw::create_mask(select_channel(dem, 0), nodata_value),
-                        kernel_size),
-                      opt.dem_blur_sigma),
-      nodata_value);
+    dem = vw::apply_mask(gaussian_filter(fill_nodata_with_avg(
+                                           vw::create_mask(select_channel(dem, 0), 
+                                                           nodata_value),
+                                           kernel_size), opt.dem_blur_sigma), nodata_value);
   }
 
   // Mark the image as not in use in the manager (but keep file open for performance)
@@ -506,12 +503,11 @@ void preprocessDem(int dem_iter,
 
 // Erode the DEM based on grassfire weights and recompute weights using centerline algorithm.
 // This is used for priority blending where weights follow the DEM centerline.
-void erodeCenterlineWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
-                            double nodata_value,
-                            int erode_len,
-                            int bias,
-                            // Outputs
-                            vw::ImageView<double>& weights) {
+void erodeCreateCenterlineWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
+                                  double nodata_value, int erode_len, int bias,
+                                  // Outputs
+                                  vw::ImageView<double>& weights) {
+
   // Create eroded DEM by invalidating pixels where grassfire weight <= erode_len
   vw::ImageView<asp::DoubleGrayA> eroded_dem = copy(dem);
   for (int col = 0; col < eroded_dem.cols(); col++) {
@@ -524,7 +520,7 @@ void erodeCenterlineWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
   // Compute centerline weights on the eroded DEM
   vw::ImageView<vw::PixelMask<double>> mask_img =
     create_mask_less_or_equal(select_channel(eroded_dem, 0), nodata_value);
-  asp::centerlineWeightsWithHoles(mask_img, weights, bias, -1.0);
+  asp::centerlineWeightsWithHoles(mask_img, weights, bias);
 }
 
 // Compute weights for a DEM in the mosaic. This applies a pipeline of operations:
@@ -547,8 +543,7 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
   // Erode based on grassfire weights, and then overwrite the grassfire
   // weights with centerline weights
   if (opt.use_centerline_weights)
-    erodeCenterlineWeights(dem, nodata_value, opt.erode_len, bias,
-                           weights);
+    erodeCreateCenterlineWeights(dem, nodata_value, opt.erode_len, bias, weights);
 
   // Clamp the weights to ensure the results agree across tiles. For
   // priority blending length, we'll do this process later, as the bbox is
@@ -580,6 +575,14 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
   if (!opt.weight_files.empty())
     asp::applyExternalWeights(opt.weight_files[dem_iter], opt.min_weight,
                               opt.invert_weights, in_box, weights);
+    
+  // The weights must be zero where the DEM is no-data. This is a bugfix.
+  for (int col = 0; col < weights.cols(); col++) {
+    for (int row = 0; row < weights.rows(); row++) {
+      if (select_channel(dem, 0)(col, row) == nodata_value)
+        weights(col, row) = 0.0;
+    }
+  }
 }
 
 // Copy weights from separate weight image into the alpha channel of the DEM.

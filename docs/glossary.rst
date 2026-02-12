@@ -19,7 +19,7 @@ Glossary
         ephemeris time
 
     GCP
-        ground control point
+        ground control point (:numref:`bagcp`)
 
     HRSC
         High Resolution Stereo Camera

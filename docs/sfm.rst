@@ -13,8 +13,8 @@ or from other sources, SfM can be avoided. That is discussed in the UAS
 example (:numref:`sfm_uas`).
 
 If preexisting orthoimages and DEMs are available, it is possible to also avoid
-SfM by first creating a GCP file and then the camera models based on that
-(:numref:`camera_solve_gcp`).
+SfM by first creating a GCP file (:numref:`bagcp`) and then the camera models
+based on that (:numref:`camera_solve_gcp`).
 
 If the longitude and latitude of the corners of all images are known, see
 :numref:`cam_gen`.
@@ -196,7 +196,7 @@ Creation of cameras in world coordinates
 
 In order to generate a useful DEM, we need to move our cameras from
 local coordinates to global coordinates. The easiest way to do this
-is to obtain known ground control points (GCPs) which can be
+is to obtain known ground control points (GCPs, :numref:`bagcp`) which can be
 identified in the frame images. This will allow an accurate positioning
 of the cameras provided that the GCPs and the camera model parameters
 are accurate. 

@@ -184,9 +184,8 @@ double computePlateauedWeights(vw::Vector2 const& pix, bool horizontal,
 // assigns them different values for DEM mosaicking.
 void centerlineWeightsWithHoles(vw::ImageView<vw::PixelMask<double>> const& img,
                                 vw::ImageView<double> & weights,
-                                double max_weight_val,
-                                double hole_fill_value) {
-
+                                double max_weight_val) {
+  
   int numRows = img.rows();
   int numCols = img.cols();
 
@@ -263,11 +262,9 @@ void centerlineWeightsWithHoles(vw::ImageView<vw::PixelMask<double>> const& img,
         double weight_v = computePlateauedWeights(pix, false, vCenterLine, vMaxDistArray,
                                                    max_weight_val);
         new_weight = weight_h*weight_v;
-      } else { // Invalid pixel
-        if (inner_pixel)
-          new_weight = hole_fill_value;
-        else // Border pixel
-          new_weight = -1; // Border fill value
+      } else { 
+        // Invalid pixel
+        new_weight = 0;
       }
       weights(col-output_bbox.min().x(), row-output_bbox.min().y()) = new_weight;
     }
@@ -318,7 +315,9 @@ vw::cartography::GeoReference readGeorefOrThrow(std::string const& file) {
 }
 
 // A helper function to do interpolation. Will not interpolate when
-// exactly on the grid.
+// exactly on the grid. This does not interpolate when the weight is 0,
+// as that suggests the DEM is no-data there. 
+// TODO(oalexan1): This is awkward. Better use a masked DEM throughout.
 DoubleGrayA interpDem(double x, double y,
                       vw::ImageView<DoubleGrayA> const& dem,
                       vw::ImageViewRef<DoubleGrayA> const& interp_dem,

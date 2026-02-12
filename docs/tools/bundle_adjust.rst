@@ -522,8 +522,8 @@ GCP can be created with ``stereo_gui`` (:numref:`creatinggcp`), ``gcp_gen``
 (:numref:`gcp_gen`),  and ``dem2gcp`` (:numref:`dem2gcp`). They can 
 be inspected with ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 
-File format
-^^^^^^^^^^^
+GCP file format
+^^^^^^^^^^^^^^^
 
 A GCP file must end with a ``.gcp`` extension, and contain one ground
 control point per line. Each line must have the following fields:
