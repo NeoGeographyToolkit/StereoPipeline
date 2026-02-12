@@ -111,7 +111,7 @@ def runCombination(combo_dict, args, opt, out_prefix):
   
   # Add DEM if provided
   if opt.dem:
-    stereo_cmd.append(opt.dem)
+    stereo_cmd.extend(['--dem', opt.dem])
   
   # Run the command using ASP utilities
   if opt.dry_run:

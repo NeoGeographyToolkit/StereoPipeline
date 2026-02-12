@@ -64,6 +64,8 @@ parallel_stereo (:numref:`parallel_stereo`):
     mapprojected images (:numref:`stereodefault`).
   * The logic for consolidating the output directory has been given its own
     stage (:numref:`entrypoints`).
+  * The DEM for mapprojected images can be set with ``--dem`` instead of as the
+    last positional argument (:numref:`mapproj-example`).
 
 sfs (:numref:`sfs`):
   * Recommend the variance-based uncertainty estimation (:numref:`sfs_unc`).

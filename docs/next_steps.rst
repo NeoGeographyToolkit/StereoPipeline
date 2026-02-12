@@ -622,6 +622,10 @@ point cloud and we want the increased accuracy.
 See :numref:`running-stereo` for more details about the various 
 speed-vs-accuracy tradeoffs for stereo.
 
+The mapprojection DEM can be set via ``--dem`` above, in any place in the
+command, rather than being the very last argument (as of build 2026/02,
+:numref:`release`).
+
 Lastly, we create a DEM at 1 meter resolution with ``point2dem``
 (:numref:`point2dem`)::
 
@@ -766,6 +770,10 @@ We have used ``alignment-method none``, since the images are mapprojected onto
 the same terrain with the same resolution, thus no additional alignment is
 necessary. More details about how to set these and other ``parallel_stereo``
 parameters can be found in :numref:`settingoptionsinstereodefault`.
+
+The mapprojection DEM can be set via ``--dem`` above, in any place in the
+command, rather than being the very last argument (as of build 2026/02,
+:numref:`release`).
 
 DEM creation (:numref:`point2dem`)::
 

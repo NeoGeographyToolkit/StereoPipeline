@@ -117,7 +117,8 @@ PreProcessingDescription::PreProcessingDescription():
       "The region be created by stereo_gui. See also right-image-crop-win and "
       "proj-win.")
     ("right-image-crop-win",
-     po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
+     po::value(&global.right_image_crop_win)->default_value(BBox2i(0, 0, 0, 0), 
+                                                            "xoff yoff xsize ysize"),
       "When combined with left-image-crop-win, do stereo in given subregions of "
       "left and right images. The crop windows can be determined using stereo_gui. "
       "See also proj-win.")
@@ -147,6 +148,9 @@ PreProcessingDescription::PreProcessingDescription():
       "Remove IP within this percentage from the outer edges of an image pair (integer percent).")
     ("normalize-ip-tiles", po::bool_switch(&global.ip_normalize_tiles)->default_value(false)->implicit_value(true),
       "Individually normalize tiles used for IP detection.")
+    ("dem", po::value(&global.dem)->default_value(""),
+      "Input DEM for processing map-projected images. Can be used instead of "
+      "specifying the DEM as the last positional argument.")
     ("matches-as-txt",
      po::bool_switch(&global.matches_as_txt)->default_value(false)->implicit_value(true),
       "Read and write match files as plain text instead of binary.")

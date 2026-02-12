@@ -98,6 +98,7 @@ namespace asp {
     int    ip_edge_buffer_percent;          ///< When detecting IP, throw out points within this many % of pixels
                                             ///  of the left/right edges of the images being matched.
     bool   ip_normalize_tiles;              ///< Individually normalize tiles for IP detection.
+    std::string dem;                        ///< Input DEM for map-projected images
     bool   matches_as_txt;                  ///< Read and write match files as plain text
     bool   ip_debug_images;                 ///< Write debug interest point images.
 

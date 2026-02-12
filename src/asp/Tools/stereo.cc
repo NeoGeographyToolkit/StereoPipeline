@@ -545,6 +545,19 @@ bool parseStereoFiles(bool override_out_prefix,
     return false;
   }
 
+  // Handle --dem option vs positional DEM. The --dem option is easier to use
+  // and will hopefully become the standard. 
+  std::string optDem = asp::stereo_settings().dem;
+  if (!inputDem.empty() && !optDem.empty()) {
+    // Both are set, check if they are the same
+    if (!fs::equivalent(fs::path(inputDem), fs::path(optDem)))
+      vw_throw(ArgumentErr() << "Cannot specify both a positional DEM and --dem "
+               << "with different values.\n");
+  } else if (inputDem.empty() && !optDem.empty()) {
+    // Only --dem is set, use it
+    inputDem = optDem;
+  }
+
   // Find the output prefix
   outPrefix = files.back(); // the dem, if present, was already popped off the back.
   files.pop_back();
