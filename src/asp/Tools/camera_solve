@@ -342,6 +342,8 @@ def build_reconstruction(options):
     if (not os.path.exists(options.theia_output_path)) or options.overwrite:
         abs_flag_path = os.path.abspath(flagfile_path)
         cmd = ['build_reconstruction', '--flagfile', abs_flag_path, '-v', '2']
+        if options.threads > 0:
+            cmd += ['--num_threads', str(options.threads)]
         verbose = False
         print (' '.join(cmd))
         asp_system_utils.generic_run(cmd, verbose)
@@ -552,6 +554,8 @@ def run_bundle_adjust(options, good_images, good_cameras):
           ba_params += ['--transform-cameras-with-shared-gcp']
     cmd += ['-o', output_prefix]
     cmd += ba_params
+    if '--threads' not in cmd:
+        cmd += ['--threads', str(options.threads)]
     verbose = False
     print (' '.join(cmd))
     asp_system_utils.generic_run(cmd, verbose)
@@ -728,6 +732,9 @@ def main(argsIn):
         
         parser.add_option('--theia-retries', type=int, dest='theia_retries', default=3,
           help='How many times to retry solving for cameras.')
+
+        parser.add_option('--threads', type=int, dest='threads', default=0,
+          help='Number of threads to use. If set to 0, will use 16 threads.')
 
         # This call handles all the parallel_mapproject specific options.
         (options, args) = parser.parse_args(argsIn)

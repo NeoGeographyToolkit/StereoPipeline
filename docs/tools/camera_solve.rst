@@ -6,11 +6,14 @@ camera_solve
 The ``camera_solve`` tool takes as input a set of images acquired with
 a camera, and finds each camera's pose (position and orientation).  If
 ground control points are provided, the resulting set of cameras is
-transformed to be in a desired coordinate system. For examples and an
-overview, see :numref:`sfm`.
+transformed to be in a desired coordinate system. For more context and 
+examples see :numref:`sfm`.
 
-This tool is a wrapper around the *Theia* structure-from-motion software
-(http://theia-sfm.org/), and its goal is create camera models which
+Overview
+~~~~~~~~
+
+This tool is a wrapper around the `Theia <http://theia-sfm.org/>`_
+structure-from-motion software, and its goal is create camera models which
 can later be used with ASP's bundle adjustment (:numref:`bundle_adjust`)
 and stereo (:numref:`tutorial`). 
 
@@ -35,6 +38,8 @@ appended with .final.tsai, contains the final solver results. If ground
 control points or estimated camera positions were provided, then the
 second file will be in a global coordinate system.
 
+This program produced somewhat different results each it is run.
+
 A related tool is ``theia_sfm`` (:numref:`theia_sfm`).
 
 Flags file
@@ -49,7 +54,7 @@ great help if there are not enough matches between images. The option
 ``--matching_strategy=CASCADE_HASHING`` can greatly speed up finding matches.
 
 Example
-^^^^^^^
+~~~~~~~
 
 ::
 
@@ -63,17 +68,14 @@ The produced Theia reconstruction can be visualized with ``view_reconstruction``
 (:numref:`view_reconstruction`).
 
 Usage
-^^^^^
+~~~~~
 
 ::
 
    camera_solve [options] <output folder> <input images>
 
 Command-line options
-^^^^^^^^^^^^^^^^^^^^
-
--h, --help
-    Display this help message.
+~~~~~~~~~~~~~~~~~~~~
 
 --datum <string>
     The datum to use when calibrating. Default is WGS84.
@@ -109,4 +111,10 @@ Command-line options
 
 --suppress-output
     Reduce the amount of program console output.
+
+--threads <integer (default: 0)>
+    Number of threads to use. If set to 0, will use 16 threads.
+
+-h, --help
+    Display this help message.
 
