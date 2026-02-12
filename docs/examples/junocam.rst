@@ -230,6 +230,22 @@ The results of this processing are shown in the figure above. Three things are n
 The latter issue is likely due to not well-modeled distortion and TDI effects,
 given the JunoCam camera design. This will be fixed in the next section.
 
+Handling gaps between DEMs
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The JunoCam images have very little overlap and sometimes that results in gaps
+between the DEMs produced from stereo. These are most notable around the first
+and last DEMs in any given sequence. So adding more DEMs at the beginning and
+end of the sequence will help cover those areas.
+
+These parameter changes in the workflow above may also help:
+
+ - ``--edge-buffer-size 1`` or ``0`` (the default is larger)
+ - ``--subpixel-kernel 5 5`` (instead of ``7 7``)
+ - ``--corr-kernel 3 3`` (the default is ``5 5`` for ``asp_mgm``)
+
+These parameters are described in :numref:`stereodefault`.
+
 Intrinsics refinement
 ~~~~~~~~~~~~~~~~~~~~~
 
