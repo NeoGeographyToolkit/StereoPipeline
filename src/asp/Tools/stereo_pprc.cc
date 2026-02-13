@@ -661,7 +661,7 @@ int main(int argc, char* argv[]) {
 
     stereo_preprocessing(adjust_left_image_size, opt);
     asp::estimate_convergence_angle(opt);
-    
+
     vw_out() << "\n[ " << current_posix_time_string() << " ]: PREPROCESSING FINISHED\n";
 
      xercesc::XMLPlatformUtils::Terminate();

@@ -274,6 +274,9 @@ PreProcessingDescription::PreProcessingDescription():
       "the refr_index program.")
     ("output-cloud-type", po::value(&global.output_cloud_type)->default_value("all"),
       "When bathymetry correction is used, return only the triangulated cloud of points where the bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo'), or the full cloud (option: 'all'). The default is 'all'.")
+    ("stop-after-stats",
+      po::bool_switch(&global.stop_after_stats)->default_value(false)->implicit_value(true),
+      "Stop after computing stereo statistics.")
     ;
 }
 

@@ -525,9 +525,9 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   ImageViewRef<PixelMask<float>> left_masked_image, right_masked_image;
   Vector6f left_stats, right_stats;
 
-  // Set up image masks. If the user provided a custom no-data value, values no
-  // more than that have been masked by now in shared_preprocessing_hook.
-  // This is reimplemented for ISIS.
+  // Set up the image masks and compute the stats. If the user provided a custom
+  // no-data value, values no more than that have been masked by now in
+  // shared_preprocessing_hook. This is reimplemented for ISIS.
   this->calcStatsMaskedImages(// Inputs
                               left_cropped_image, right_cropped_image,
                               left_nodata_value, right_nodata_value,
@@ -537,9 +537,19 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                               left_masked_image, right_masked_image,
                               left_stats, right_stats);
 
-  // These stats will be needed later on
+  // These stats will be needed later on. This call is here to not duplicate in
+  // both implementations of calcStatsMaskedImages.
+  // TODO(oalexan1): In this case the stats are written twice with different
+  // conventions. Need to figure out how to integrate these.
   if (stereo_settings().alignment_method == "local_epipolar")
     asp::saveStats(this->m_out_prefix, left_stats, right_stats);
+
+  // If the user only wanted stats, stop here. Doing exit(0) seems to be simpler
+  // than tracing back a flag. This is needed for stereo_dist.
+  if (stereo_settings().stop_after_stats) {
+    vw_out() << "Stopping after computing image statistics.\n";
+    exit(0);
+  }
   
   // Initialize the alignment matrices
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
@@ -554,15 +564,12 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   PixelMask<float>nodata_pix(0); nodata_pix.invalidate();
   ValueEdgeExtension<PixelMask<float>> ext_nodata(nodata_pix);
 
-  // Generate aligned versions of the input images according to the
-  // options.
+  // Generate aligned versions of the input images according to the options
   vw_out() << "\t--> Applying alignment method: "
            << stereo_settings().alignment_method << "\n";
   if (stereo_settings().alignment_method == "epipolar") {
-
     if (isis_session)
       vw_throw(NoImplErr() << "StereoSessionISIS does not support epipolar rectification");
-      
     epipolar_alignment(left_masked_image, right_masked_image, ext_nodata,
                        // Outputs
                        Limg, Rimg);
