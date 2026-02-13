@@ -32,8 +32,6 @@
 #include <asp/Tools/stereo.h>
 
 #include <vw/Image/AntiAliasing.h>
-#include <vw/Image/BlobIndex.h>
-#include <vw/Image/InpaintView.h>
 #include <vw/Image/WindowAlgorithms.h>
 #include <vw/Image/UtilityViews.h>
 #include <vw/Cartography/GeoTransform.h>
@@ -48,51 +46,6 @@
 
 using namespace vw;
 using namespace asp;
-
-// Invalidate pixels < threshold
-struct MaskAboveThreshold: public ReturnFixedType<PixelMask<uint8>> {
-  double m_threshold;
-  MaskAboveThreshold(double threshold): m_threshold(threshold){}
-  PixelMask<uint8> operator() (PixelGray<float> const& pix) const {
-    if (pix >= m_threshold)
-      return PixelMask<uint8>(255);
-    else
-      return PixelMask<uint8>();
-  }
-};
-template <class ImageT>
-UnaryPerPixelView<ImageT, MaskAboveThreshold>
-inline mask_above_threshold(ImageViewBase<ImageT> const& image, double threshold) {
-  return UnaryPerPixelView<ImageT, MaskAboveThreshold>(image.impl(),
-                                                        MaskAboveThreshold(threshold));
-}
-
-struct BlobHolder {
-  // This object will ensure that the current BlobIndexThreaded object
-  // is not de-allocated while still being used to fill holes in a
-  // given mask.
-  boost::shared_ptr<vw::BlobIndexThreaded> m_blobPtr;
-
-  // Member function which does the hole-filling.
-  ImageViewRef<PixelMask<uint8>> 
-  mask_and_fill_holes(ImageViewRef<PixelGray<float>> const& img, double threshold);
-};
-
-/// Create the mask of pixels above threshold. Fix any holes in it.
-ImageViewRef<PixelMask<uint8>>
-BlobHolder::mask_and_fill_holes(ImageViewRef<PixelGray<float>> const& img,
-                                 double threshold) {
-
-  ImageViewRef<PixelMask<uint8>> thresh_mask = mask_above_threshold(img, threshold);
-  int max_area = 0; // fill arbitrarily big holes
-  bool use_grassfire = false; // fill with default value
-  PixelMask<uint8> default_inpaint_val = uint8(255);
-
-  m_blobPtr = boost::shared_ptr<BlobIndexThreaded>
-    (new BlobIndexThreaded( invert_mask( thresh_mask.impl() ), max_area ));
-  return inpaint(thresh_mask.impl(), *m_blobPtr.get(), use_grassfire, default_inpaint_val);
-}
-
 
 /// Instead of writing L.tif and R.tif, just create sym links from
 /// input left and right images. Creating symbolic links can be tricky.
@@ -428,36 +381,6 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     right_mask = intersect_mask(right_mask,
                                 create_mask_less_or_equal(right_image,
                                                           right_nodata_value));
-      
-    // Invalidate pixels below (normalized) threshold. This is experimental.
-    double left_threshold  = std::numeric_limits<double>::quiet_NaN();
-    double right_threshold = std::numeric_limits<double>::quiet_NaN();
-    double nodata_fraction = stereo_settings().nodata_pixel_percentage/100.0;
-    if (skip_img_norm && !std::isnan(nodata_fraction))
-      vw::vw_throw(vw::ArgumentErr() 
-               << "Cannot skip image normalization while attempting "
-               << "to apply a normalized threshold.\n");
-
-    if (!std::isnan(nodata_fraction)) {
-      // Declare a fixed proportion of low-value pixels to be no-data.
-      math::CDFAccumulator<PixelGray<float>> left_cdf (1024, 1024),
-                                               right_cdf(1024, 1024);
-      for_each_pixel(left_image,  left_cdf );
-      for_each_pixel(right_image, right_cdf);
-      left_threshold  = left_cdf.quantile (nodata_fraction);
-      right_threshold = right_cdf.quantile(nodata_fraction);
-    }
-
-    // The blob holders must not go out of scope while masks are being written.
-    BlobHolder LB, RB;
-    if (!std::isnan(left_threshold) && !std::isnan(right_threshold)) {
-      ImageViewRef<PixelMask<uint8>> left_thresh_mask
-        = LB.mask_and_fill_holes(left_image, left_threshold);
-      ImageViewRef<PixelMask<uint8>> right_thresh_mask
-        = RB.mask_and_fill_holes(right_image, right_threshold);
-      left_mask  = intersect_mask(left_mask, left_thresh_mask);
-      right_mask = intersect_mask(right_mask, right_thresh_mask);
-    }
 
     // Mask out regions with low input pixel value standard deviations if the
     // user requested it.

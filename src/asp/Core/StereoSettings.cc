@@ -173,8 +173,6 @@ PreProcessingDescription::PreProcessingDescription():
       "How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used. More can help for images with high frequency artifacts.")
     ("nodata-value", po::value(&global.nodata_value)->default_value(g_nan_val),
       "Pixels with values less than or equal to this number are treated as no-data. This overrides the no-data values from input images.")
-    ("nodata-pixel-percentage", po::value(&global.nodata_pixel_percentage)->default_value(g_nan_val),
-      "The percentage of (low-value) pixels treated as no-data (use a number between 0 and 100).")
     ("stddev-mask-kernel", po::value(&global.nodata_stddev_kernel)->default_value(-1),
       "Size of kernel to be used in standard deviation filtering of input images. Must be > 1 and odd to be enabled. To be used with --stddev-mask-thresh.")
     ("stddev-mask-thresh", po::value(&global.nodata_stddev_thresh)->default_value(0.5),
