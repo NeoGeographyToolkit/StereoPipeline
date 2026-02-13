@@ -251,6 +251,58 @@ void createSubsampledImages(ASPGlobalOptions const& opt,
   } // End rebuild check
 } // End function createSubsampledImages
 
+// If image normalization is not done, we still need to compute the image
+// stats, to do normalization on the fly in stereo_rfne. This code is not
+// in stereo_rfne, as that one is meant to be distributed across multiple
+// machines, so we want the stats to be computed just once, hence here.
+// TODO(oalexan1): This needs to be handled better.
+void calcStatsForSkipImgNorm(boost::shared_ptr<DiskImageResource> left_rsrc,
+                             boost::shared_ptr<DiskImageResource> right_rsrc,
+                             DiskImageView<PixelGray<float>> const& left_image,
+                             DiskImageView<PixelGray<float>> const& right_image,
+                             std::string const& out_prefix,
+                             std::string const& left_image_file,
+                             std::string const& right_image_file) {
+
+  vw_out() << "Computing statistics for the un-normalized images.\n";
+  float left_no_data_value = 0, right_no_data_value = 0; // will change
+  asp::get_nodata_values(left_rsrc, right_rsrc,
+                         asp::stereo_settings().nodata_value,
+                         left_no_data_value, right_no_data_value);
+  float user_nodata = asp::stereo_settings().nodata_value;
+  if (!std::isnan(user_nodata)) {
+    left_no_data_value  = user_nodata;
+    right_no_data_value = user_nodata;
+  }
+
+  // If the user provided a custom no-data value, values no more than that are
+  // masked.
+  ImageViewRef<PixelMask<PixelGray<float>>> left_masked_image, right_masked_image;
+  if (!std::isnan(user_nodata)) {
+    left_masked_image = create_mask_less_or_equal(left_image, user_nodata);
+    right_masked_image = create_mask_less_or_equal(right_image, user_nodata);
+  } else {
+    left_masked_image = create_mask(left_image, left_no_data_value);
+    right_masked_image = create_mask(right_image, right_no_data_value);
+  }
+
+  Vector6f left_stats  = gather_stats(pixel_cast<PixelMask<float>>(left_masked_image),
+                                      "left", out_prefix, left_image_file,
+                                      asp::stereo_settings().force_reuse_match_files);
+  Vector6f right_stats = gather_stats(pixel_cast<PixelMask<float>>(right_masked_image),
+                                      "right", out_prefix, right_image_file,
+                                      asp::stereo_settings().force_reuse_match_files);
+
+  std::string left_stats_file  = out_prefix + "-lStats.tif";
+  std::string right_stats_file = out_prefix + "-rStats.tif";
+
+  vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << "\n";
+  Vector<float32> left_stats2  = left_stats;  // cast
+  Vector<float32> right_stats2 = right_stats; // cast
+  write_vector(left_stats_file,  left_stats2);
+  write_vector(right_stats_file, right_stats2);
+}
+
 /// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
@@ -343,7 +395,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
     vw_out() << "\t--> Generating image masks.\n";
 
-    Stopwatch sw;
+    vw::Stopwatch sw;
     sw.start();
     
     // Read the no-data values of L.tif and R.tif.
@@ -490,54 +542,9 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                          left_georef, right_georef,
                          output_nodata);
 
-  if (skip_img_norm && stereo_settings().subpixel_mode == 2) {
-    // If image normalization is not done, we still need to compute the image
-    // stats, to do normalization on the fly in stereo_rfne.
-    // This code is not in stereo_rfne, as that one is meant to be distributed
-    // across multiple machines, so we want the stats to be computed just once,
-    // hence they are done here.
-    // TODO(oalexan1): Must integrate this in shared_preprocessing_hook,
-    // as this repeats a lot of logic from there
-    vw_out() << "Computing statistics for the un-normalized images.\n";
-    float left_no_data_value, right_no_data_value;
-    asp::get_nodata_values(left_rsrc, right_rsrc,
-                           asp::stereo_settings().nodata_value,
-                           left_no_data_value, right_no_data_value); 
-    float user_nodata = asp::stereo_settings().nodata_value;
-    if (!std::isnan(user_nodata)) {
-      left_no_data_value  = user_nodata;
-      right_no_data_value = user_nodata;
-    }
-
-    // If the user provided a custom no-data value, values no more than that are
-    // masked.
-    ImageViewRef<PixelMask<PixelGray<float>>> left_masked_image, right_masked_image;
-    if (!std::isnan(user_nodata)) {
-      left_masked_image = create_mask_less_or_equal(left_image, user_nodata);
-      right_masked_image = create_mask_less_or_equal(right_image, user_nodata);
-    } else {
-      left_masked_image = create_mask(left_image, left_no_data_value);
-      right_masked_image = create_mask(right_image, right_no_data_value);
-    }
-
-    Vector6f left_stats  = gather_stats(pixel_cast<PixelMask<float>>(left_masked_image), 
-                                        "left",
-                                        opt.out_prefix, left_image_file,
-                                        asp::stereo_settings().force_reuse_match_files);
-    Vector6f right_stats = gather_stats(pixel_cast<PixelMask<float>>(right_masked_image), 
-                                        "right",
-                                        opt.out_prefix, right_image_file,
-                                        asp::stereo_settings().force_reuse_match_files);
-    
-    std::string left_stats_file  = opt.out_prefix + "-lStats.tif";
-    std::string right_stats_file = opt.out_prefix + "-rStats.tif";
-
-    vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << "\n";
-    Vector<float32> left_stats2  = left_stats;  // cast
-    Vector<float32> right_stats2 = right_stats; // cast
-    write_vector(left_stats_file,  left_stats2 );
-    write_vector(right_stats_file, right_stats2);
-  }
+  if (skip_img_norm && stereo_settings().subpixel_mode == 2)
+    calcStatsForSkipImgNorm(left_rsrc, right_rsrc, left_image, right_image,
+                            opt.out_prefix, left_image_file, right_image_file);
 
   // When alignment method is none or epipolar, no ip were created so far, so
   // produce them now.
@@ -597,7 +604,7 @@ int main(int argc, char* argv[]) {
 
     vw_out() << "\n[ " << current_posix_time_string() << " ]: PREPROCESSING FINISHED\n";
 
-     xercesc::XMLPlatformUtils::Terminate();
+    xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;
 
   return 0;

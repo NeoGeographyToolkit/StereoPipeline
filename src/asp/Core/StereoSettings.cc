@@ -274,7 +274,10 @@ PreProcessingDescription::PreProcessingDescription():
       "When bathymetry correction is used, return only the triangulated cloud of points where the bathymetry correction was applied (option: 'bathy'), where it was not applied (option: 'topo'), or the full cloud (option: 'all'). The default is 'all'.")
     ("stop-after-stats",
       po::bool_switch(&global.stop_after_stats)->default_value(false)->implicit_value(true),
-      "Stop after computing stereo statistics.")
+      "Stop after computing stereo statistics. Needed for stereo_dist.")
+    ("skip-calc-subimages",
+      po::bool_switch(&global.skip_calc_subimages)->default_value(false)->implicit_value(true),
+      "Skip calculation of subsampled images. These are not needed with stereo_dist.")
     ;
 }
 
