@@ -29,6 +29,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/AlignmentUtils.h>
+#include <asp/Core/FileUtils.h>
 
 #include <vw/Math/Transform.h>
 #include <vw/Image/Transform.h>
@@ -525,9 +526,9 @@ namespace asp {
     // Apply the combined transforms to the original unscaled and
     // unaligned images, then scale them too.
     Vector<float32> left_stats, right_stats;
-    std::string left_stats_file  = opt.out_prefix + "-lStats.tif";
-    std::string right_stats_file = opt.out_prefix + "-rStats.tif";
-    vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << std::endl;
+    std::string left_stats_file  = asp::leftStatsFile(opt.out_prefix);
+    std::string right_stats_file = asp::rightStatsFile(opt.out_prefix);
+    vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << "\n";
     read_vector(left_stats,  left_stats_file);
     read_vector(right_stats, right_stats_file);
 

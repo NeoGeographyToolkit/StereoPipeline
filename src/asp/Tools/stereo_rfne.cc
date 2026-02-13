@@ -23,6 +23,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/AspLog.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/Tools/stereo.h>
 
 #include <vw/Stereo/PreFilter.h>
@@ -296,8 +297,8 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
       = copy_mask(right_image, create_mask(right_mask));
 
     Vector<float32> left_stats, right_stats;
-    std::string left_stats_file  = opt.out_prefix+"-lStats.tif";
-    std::string right_stats_file = opt.out_prefix+"-rStats.tif";
+    std::string left_stats_file  = asp::leftStatsFile(opt.out_prefix);
+    std::string right_stats_file = asp::rightStatsFile(opt.out_prefix);
     vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << "\n";
     read_vector(left_stats,  left_stats_file);
     read_vector(right_stats, right_stats_file);

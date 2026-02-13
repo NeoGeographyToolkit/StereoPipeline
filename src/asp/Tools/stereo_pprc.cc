@@ -295,8 +295,8 @@ void calcStatsForSkipImgNorm(boost::shared_ptr<DiskImageResource> left_rsrc,
                                       "right", out_prefix, right_image_file,
                                       asp::stereo_settings().force_reuse_match_files);
 
-  std::string left_stats_file  = out_prefix + "-lStats.tif";
-  std::string right_stats_file = out_prefix + "-rStats.tif";
+  std::string left_stats_file  = asp::leftStatsFile(out_prefix);
+  std::string right_stats_file = asp::rightStatsFile(out_prefix);
 
   vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << "\n";
   Vector<float32> left_stats2  = left_stats;  // cast

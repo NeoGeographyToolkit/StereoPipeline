@@ -321,9 +321,9 @@ void saveStats(std::string const& out_prefix,
                vw::Vector6f const& left_stats,
                vw::Vector6f const& right_stats) {
 
-  std::string left_stats_file  = out_prefix + "-lStats.tif";
-  std::string right_stats_file = out_prefix + "-rStats.tif";
-  vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << std::endl;
+  std::string left_stats_file  = asp::leftStatsFile(out_prefix);
+  std::string right_stats_file = asp::rightStatsFile(out_prefix);
+  vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << "\n";
   vw::Vector<float32> left_stats2  = left_stats;  // cast
   vw::Vector<float32> right_stats2 = right_stats; // cast
   write_vector(left_stats_file,  left_stats2);

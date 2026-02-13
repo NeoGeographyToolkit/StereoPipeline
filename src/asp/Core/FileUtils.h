@@ -141,6 +141,10 @@ void separate_images_from_cameras(std::vector<std::string> const& inputs,
     read_matrix_from_stream(str, ifs, mat);
   }
 
+  // Return the path to the left and right stats files
+  std::string leftStatsFile(std::string const& out_prefix);
+  std::string rightStatsFile(std::string const& out_prefix);
+
 } //end namespace asp
 
 #endif//__CORE_FILE_UTILS_H__
