@@ -150,6 +150,139 @@ void check_image_sizes(std::string const& file1, std::string const& file2) {
               << " to have the same dimensions. Delete this run and start all over.\n");
 }
 
+  // Create subsampled images and masks
+  std::string lsub  = opt.out_prefix+"-L_sub.tif";
+  std::string rsub  = opt.out_prefix+"-R_sub.tif";
+  std::string lmsub = opt.out_prefix+"-lMask_sub.tif";
+  std::string rmsub = opt.out_prefix+"-rMask_sub.tif";
+
+  inputs_changed = (!first_is_newer(lsub,  in_file_list) ||
+                    !first_is_newer(rsub,  in_file_list) ||
+                    !first_is_newer(lmsub, in_file_list) ||
+                    !first_is_newer(rmsub, in_file_list));
+
+  // We must always redo the subsampling if we are allowed to crop the images
+  rebuild = crop_left || crop_right || inputs_changed;
+
+  try {
+    // First try to see if the subsampled images exist.
+    if (!fs::exists(lsub)  || !fs::exists(rsub) ||
+        !fs::exists(lmsub) || !fs::exists(rmsub)) {
+      rebuild = true;
+    } else {
+      // See if the subsampled images are valid
+      DiskImageView<PixelGray<float>> testl(lsub);
+      DiskImageView<PixelGray<float>> testr(rsub);
+      DiskImageView<uint8> testlm(lmsub);
+      DiskImageView<uint8> testrm(rmsub);
+      vw_out() << "\t--> Using cached subsampled images.\n";
+    }
+  } catch (vw::Exception const& e) {
+    rebuild = true;
+  }
+
+  if (rebuild) {
+    // Produce subsampled images, these will be used later for auto
+    // search range detection.
+    double s = 1500.0;
+    float  sub_scale = sqrt(s * s / (float(left_image.cols ()) * float(left_image.rows ())))
+                     + sqrt(s * s / (float(right_image.cols()) * float(right_image.rows())));
+    sub_scale /= 2;
+    if ( sub_scale > 0.6 ) // ???
+      sub_scale = 0.6;
+
+    // Solving for the number of threads and the tile size to use for
+    // subsampling while only using 500 MiB of memory. (The cache code
+    // is a little slow on releasing so it will probably use 1.5GiB
+    // memory during subsampling) Also tile size must be a power of 2
+    // and greater than or equal to 64 px.
+    uint32 sub_threads = vw_settings().default_num_threads() + 1;
+    uint32 tile_power  = 0;
+    while (tile_power < 6 && sub_threads > 1) {
+      sub_threads--;
+      tile_power = boost::numeric_cast<uint32>
+        (log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
+    }
+    uint32 sub_tile_size = 1u << tile_power;
+    if (sub_tile_size > vw_settings().default_tile_size())
+      sub_tile_size = vw_settings().default_tile_size();
+    Vector2 sub_tile_size_vec(sub_tile_size, sub_tile_size);
+    vw_out() << "\t--> Creating previews. Subsampling by " << sub_scale
+             << " by using a tile of size " << sub_tile_size << " and "
+             << sub_threads << " threads.\n";
+
+    // Resample the images and the masks. We must use the masks when
+    // resampling the images to interpolate correctly around invalid pixels.
+
+    DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
+    // Below we use ImageView instead of ImageViewRef as the output
+    // images are small.  Using an ImageViewRef would make the
+    // subsampling operations happen twice, once for L_sub.tif and
+    // second time for lMask_sub.tif.
+    ImageView<PixelMask<PixelGray<float>>> left_sub_image, right_sub_image;
+    if (sub_scale > 0.5) {
+      // When we are near the pixel input to output ratio, standard
+      // interpolation gives the best possible results.
+      left_sub_image  = block_rasterize(
+        resample(copy_mask(left_image, create_mask(left_mask)), sub_scale), 
+                 sub_tile_size_vec, sub_threads);
+      right_sub_image = block_rasterize(
+        resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), 
+                 sub_tile_size_vec, sub_threads);
+    } else {
+      // When we heavily reduce the image size, super sampling seems
+      // like the best approach. The method below should be equivalent.
+      left_sub_image = block_rasterize(
+          cache_tile_aware_render(resample_aa(copy_mask(left_image, create_mask(left_mask)),
+                                              sub_scale), Vector2i(256,256) * sub_scale),
+         sub_tile_size_vec, sub_threads);
+      right_sub_image = block_rasterize(
+        cache_tile_aware_render(resample_aa(copy_mask(right_image, create_mask(right_mask)),
+                                             sub_scale), Vector2i(256,256) * sub_scale),
+         sub_tile_size_vec, sub_threads);
+    }
+
+    // Enforce no predictor in compression, it works badly with sub-images
+    vw::GdalWriteOptions opt_nopred = opt;
+    opt_nopred.gdal_options["PREDICTOR"] = "1";
+    opt_nopred.cog = false;  // Do not use COG with preprocessing intermediates
+
+    vw::cartography::GeoReference left_sub_georef, right_sub_georef;
+    if (has_left_georef) {
+      // Account for scale.
+      double left_scale = 0.5 * (double(left_sub_image.cols())/left_image.cols() + 
+                                 double(left_sub_image.rows())/left_image.rows());
+      left_sub_georef = resample(left_georef, left_scale);
+    }
+    if (has_right_georef) {
+      // Account for scale.
+      double right_scale = 0.5 * (double(right_sub_image.cols())/right_image.cols() + 
+                                  double(right_sub_image.rows())/right_image.rows());
+      right_sub_georef = resample(right_georef, right_scale);
+    }
+
+    vw::cartography::block_write_gdal_image(
+      lsub, apply_mask(left_sub_image, output_nodata),
+      has_left_georef, left_sub_georef,
+      has_nodata, output_nodata,
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: ") );
+    vw::cartography::block_write_gdal_image(
+      rsub, apply_mask(right_sub_image, output_nodata),
+      has_right_georef, right_sub_georef,
+      has_nodata, output_nodata,
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: ") );
+    vw::cartography::block_write_gdal_image(
+      lmsub, channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
+      has_left_georef, left_sub_georef,
+      has_nodata, output_nodata,
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
+    vw::cartography::block_write_gdal_image(
+      rmsub, channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
+      has_right_georef, right_sub_georef,
+      has_nodata, output_nodata,
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+  } // End try/catch to see if the subsampled images have content
+
 /// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
@@ -179,9 +312,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
     right_rsrc(vw::DiskImageResourcePtr(right_image_file));
 
-  // Load the normalized images.
-  DiskImageView<PixelGray<float>> left_image (left_rsrc),
-                                  right_image(right_rsrc);
+  // Load the normalized images
+  DiskImageView<PixelGray<float>> left_image (left_rsrc), right_image(right_rsrc);
 
   // If we crop the images, we must always rebuild the masks
   // and subsample the images and masks.
@@ -425,138 +557,9 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                                << sw.elapsed_seconds() << " s." << std::endl;
   } // End creating masks
 
-  std::string lsub  = opt.out_prefix+"-L_sub.tif";
-  std::string rsub  = opt.out_prefix+"-R_sub.tif";
-  std::string lmsub = opt.out_prefix+"-lMask_sub.tif";
-  std::string rmsub = opt.out_prefix+"-rMask_sub.tif";
-
-  inputs_changed = (!first_is_newer(lsub,  in_file_list) ||
-                    !first_is_newer(rsub,  in_file_list) ||
-                    !first_is_newer(lmsub, in_file_list) ||
-                    !first_is_newer(rmsub, in_file_list));
-
-  // We must always redo the subsampling if we are allowed to crop the images
-  rebuild = crop_left || crop_right || inputs_changed;
-
-  try {
-    // First try to see if the subsampled images exist.
-    if (!fs::exists(lsub)  || !fs::exists(rsub) ||
-        !fs::exists(lmsub) || !fs::exists(rmsub)) {
-      rebuild = true;
-    } else {
-      // See if the subsampled images are valid
-      DiskImageView<PixelGray<float>> testl(lsub);
-      DiskImageView<PixelGray<float>> testr(rsub);
-      DiskImageView<uint8> testlm(lmsub);
-      DiskImageView<uint8> testrm(rmsub);
-      vw_out() << "\t--> Using cached subsampled images.\n";
-    }
-  } catch (vw::Exception const& e) {
-    rebuild = true;
-  }
-
-  if (rebuild) {
-    // Produce subsampled images, these will be used later for auto
-    // search range detection.
-    double s = 1500.0;
-    float  sub_scale = sqrt(s * s / (float(left_image.cols ()) * float(left_image.rows ())))
-                     + sqrt(s * s / (float(right_image.cols()) * float(right_image.rows())));
-    sub_scale /= 2;
-    if ( sub_scale > 0.6 ) // ???
-      sub_scale = 0.6;
-
-    // Solving for the number of threads and the tile size to use for
-    // subsampling while only using 500 MiB of memory. (The cache code
-    // is a little slow on releasing so it will probably use 1.5GiB
-    // memory during subsampling) Also tile size must be a power of 2
-    // and greater than or equal to 64 px.
-    uint32 sub_threads = vw_settings().default_num_threads() + 1;
-    uint32 tile_power  = 0;
-    while (tile_power < 6 && sub_threads > 1) {
-      sub_threads--;
-      tile_power = boost::numeric_cast<uint32>
-        (log10(500e6*sub_scale*sub_scale/(4.0*float(sub_threads)))/(2*log10(2)));
-    }
-    uint32 sub_tile_size = 1u << tile_power;
-    if (sub_tile_size > vw_settings().default_tile_size())
-      sub_tile_size = vw_settings().default_tile_size();
-    Vector2 sub_tile_size_vec(sub_tile_size, sub_tile_size);
-    vw_out() << "\t--> Creating previews. Subsampling by " << sub_scale
-             << " by using a tile of size " << sub_tile_size << " and "
-             << sub_threads << " threads.\n";
-
-    // Resample the images and the masks. We must use the masks when
-    // resampling the images to interpolate correctly around invalid pixels.
-
-    DiskImageView<uint8> left_mask(left_mask_file), right_mask(right_mask_file);
-    // Below we use ImageView instead of ImageViewRef as the output
-    // images are small.  Using an ImageViewRef would make the
-    // subsampling operations happen twice, once for L_sub.tif and
-    // second time for lMask_sub.tif.
-    ImageView<PixelMask<PixelGray<float>>> left_sub_image, right_sub_image;
-    if (sub_scale > 0.5) {
-      // When we are near the pixel input to output ratio, standard
-      // interpolation gives the best possible results.
-      left_sub_image  = block_rasterize(
-        resample(copy_mask(left_image, create_mask(left_mask)), sub_scale), 
-                 sub_tile_size_vec, sub_threads);
-      right_sub_image = block_rasterize(
-        resample(copy_mask(right_image, create_mask(right_mask)), sub_scale), 
-                 sub_tile_size_vec, sub_threads);
-    } else {
-      // When we heavily reduce the image size, super sampling seems
-      // like the best approach. The method below should be equivalent.
-      left_sub_image = block_rasterize(
-          cache_tile_aware_render(resample_aa(copy_mask(left_image, create_mask(left_mask)),
-                                              sub_scale), Vector2i(256,256) * sub_scale),
-         sub_tile_size_vec, sub_threads);
-      right_sub_image = block_rasterize(
-        cache_tile_aware_render(resample_aa(copy_mask(right_image, create_mask(right_mask)),
-                                             sub_scale), Vector2i(256,256) * sub_scale),
-         sub_tile_size_vec, sub_threads);
-    }
-
-    // Enforce no predictor in compression, it works badly with sub-images
-    vw::GdalWriteOptions opt_nopred = opt;
-    opt_nopred.gdal_options["PREDICTOR"] = "1";
-    opt_nopred.cog = false;  // Do not use COG with preprocessing intermediates
-
-    vw::cartography::GeoReference left_sub_georef, right_sub_georef;
-    if (has_left_georef) {
-      // Account for scale.
-      double left_scale = 0.5 * (double(left_sub_image.cols())/left_image.cols() + 
-                                 double(left_sub_image.rows())/left_image.rows());
-      left_sub_georef = resample(left_georef, left_scale);
-    }
-    if (has_right_georef) {
-      // Account for scale.
-      double right_scale = 0.5 * (double(right_sub_image.cols())/right_image.cols() + 
-                                  double(right_sub_image.rows())/right_image.rows());
-      right_sub_georef = resample(right_georef, right_scale);
-    }
-
-    vw::cartography::block_write_gdal_image(
-      lsub, apply_mask(left_sub_image, output_nodata),
-      has_left_georef, left_sub_georef,
-      has_nodata, output_nodata,
-      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: ") );
-    vw::cartography::block_write_gdal_image(
-      rsub, apply_mask(right_sub_image, output_nodata),
-      has_right_georef, right_sub_georef,
-      has_nodata, output_nodata,
-      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: ") );
-    vw::cartography::block_write_gdal_image(
-      lmsub, channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
-      has_left_georef, left_sub_georef,
-      has_nodata, output_nodata,
-      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
-    vw::cartography::block_write_gdal_image(
-      rmsub, channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
-      has_right_georef, right_sub_georef,
-      has_nodata, output_nodata,
-      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
-  } // End try/catch to see if the subsampled images have content
-
+  // Create subsampled images and masks
+ // end creating subsampled images and masks
+ 
   if (skip_img_norm && stereo_settings().subpixel_mode == 2) {
     // If image normalization is not done, we still need to compute the image
     // stats, to do normalization on the fly in stereo_rfne.
