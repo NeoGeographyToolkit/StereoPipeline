@@ -556,12 +556,13 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   }
 
   // Create subsampled images and masks
-  createSubsampledImages(opt, in_file_list, crop_left, crop_right,
-                         left_image, right_image,
-                         left_mask_file, right_mask_file,
-                         has_left_georef, has_right_georef,
-                         left_georef, right_georef,
-                         output_nodata);
+  if (!stereo_settings().skip_calc_subimages)
+    createSubsampledImages(opt, in_file_list, crop_left, crop_right,
+                           left_image, right_image,
+                           left_mask_file, right_mask_file,
+                           has_left_georef, has_right_georef,
+                           left_georef, right_georef,
+                           output_nodata);
 
   if (skip_img_norm && stereo_settings().subpixel_mode == 2)
     calcStatsForSkipImgNorm(left_rsrc, right_rsrc, left_image, right_image,
