@@ -20,6 +20,7 @@
 /// This program is to allow python access to stereo settings.
 
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/StereoTiling.h>
 #include <asp/Core/Macros.h>
 #include <asp/Tools/stereo.h>
 #include <asp/Sessions/StereoSession.h>
@@ -92,46 +93,6 @@ void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& op
 
   if (!success)
     vw_out() << "No tile found at location.\n"; 
-}
-
-// Append a tile to a given set of polygons
-void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
-                      bool is_map_projected,
-                      vw::cartography::GeoReference const& georef,
-                      vw::geometry::dPoly & poly,
-                      std::vector<int> & tile_id_vec,
-                      size_t tile_id) {
-
-  std::vector<double> x = {double(beg_x), double(beg_x + curr_tile_x), 
-                           double(beg_x + curr_tile_x), double(beg_x)};
-  std::vector<double> y = {double(beg_y), double(beg_y), 
-                           double(beg_y + curr_tile_y), double(beg_y + curr_tile_y)};
-          
-  if (is_map_projected) {
-    // If the images are mapprojected, overwrite x and y with projected coordinates
-    std::vector<double> proj_x, proj_y;
-    for (size_t i = 0; i < x.size(); i++) {
-      Vector2 pix_pt(x[i], y[i]);
-      Vector2 proj_pt = georef.pixel_to_point(pix_pt);
-      proj_x.push_back(proj_pt[0]);
-      proj_y.push_back(proj_pt[1]);
-    }
-    x = proj_x;
-    y = proj_y;
-  } else {
-    // Only flip in y, to have the shapefiles agree with the images
-    for (size_t i = 0; i < x.size(); i++) 
-      y[i] = -y[i];
-  }
-  
-  // Follow the dPoly API
-  bool isPolyClosed = true;
-  std::string color = "green", layer = "";
-  poly.appendPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
-                     isPolyClosed, color, layer);
-  
-  // This will be needed for QGIS
-  tile_id_vec.push_back(tile_id);
 }
 
 int main(int argc, char* argv[]) {
@@ -256,8 +217,8 @@ int main(int argc, char* argv[]) {
     vw_out() << "save_lr_disp_diff," << stereo_settings().save_lr_disp_diff << "\n";
     vw_out() << "correlator_mode," << stereo_settings().correlator_mode << "\n";
 
-    if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0)) 
-      produceTiles(opt, output_prefix, trans_left_image_size, 
+    if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0))
+      produceTiles(opt.session->isMapProjected(), output_prefix, trans_left_image_size,
                    asp::stereo_settings().parallel_tile_size, sgm_collar_size);
 
     // Attach a georeference to this disparity. 

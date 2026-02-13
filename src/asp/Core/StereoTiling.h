@@ -26,13 +26,11 @@
 
 namespace asp {
 
-struct ASPGlobalOptions;
-
 // Produce the list of tiles for parallel_stereo. If D_sub is available, write
 // only those tiles for which D_sub has valid values. Also save a shape file
 // with the tiles and the tile index for each tile, to be read in QGIS for
 // visualization.
-void produceTiles(ASPGlobalOptions const& opt,
+void produceTiles(bool is_map_projected,
                   std::string const& output_prefix,
                   vw::Vector2 const& trans_left_image_size,
                   vw::Vector2i const& parallel_tile_size,

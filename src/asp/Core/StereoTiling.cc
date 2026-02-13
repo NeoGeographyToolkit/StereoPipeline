@@ -19,32 +19,78 @@
 ///
 
 #include <asp/Core/StereoTiling.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Core/DisparityProcessing.h>
+
+#include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Cartography/shapeFile.h>
+
+#include <fstream>
 
 namespace asp {
+
+// Append a tile to a given set of polygons
+void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
+                      bool is_map_projected,
+                      vw::cartography::GeoReference const& georef,
+                      vw::geometry::dPoly & poly,
+                      std::vector<int> & tile_id_vec,
+                      size_t tile_id) {
+
+  std::vector<double> x = {double(beg_x), double(beg_x + curr_tile_x),
+                           double(beg_x + curr_tile_x), double(beg_x)};
+  std::vector<double> y = {double(beg_y), double(beg_y),
+                           double(beg_y + curr_tile_y), double(beg_y + curr_tile_y)};
+
+  if (is_map_projected) {
+    // If the images are mapprojected, overwrite x and y with projected coordinates
+    std::vector<double> proj_x, proj_y;
+    for (size_t i = 0; i < x.size(); i++) {
+      vw::Vector2 pix_pt(x[i], y[i]);
+      vw::Vector2 proj_pt = georef.pixel_to_point(pix_pt);
+      proj_x.push_back(proj_pt[0]);
+      proj_y.push_back(proj_pt[1]);
+    }
+    x = proj_x;
+    y = proj_y;
+  } else {
+    // Only flip in y, to have the shapefiles agree with the images
+    for (size_t i = 0; i < x.size(); i++)
+      y[i] = -y[i];
+  }
+
+  // Follow the dPoly API
+  bool isPolyClosed = true;
+  std::string color = "green", layer = "";
+  poly.appendPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+                     isPolyClosed, color, layer);
+
+  // This will be needed for QGIS
+  tile_id_vec.push_back(tile_id);
+}
 
 // Produce the list of tiles for parallel_stereo. If D_sub is available, write
 // only those tiles for which D_sub has valid values. Also save a shape file
 // with the tiles and the tile index for each tile, to be read in QGIS for
 // visualization.
-void produceTiles(ASPGlobalOptions const& opt,
-                  std::string const& output_prefix, 
+void produceTiles(bool is_map_projected,
+                  std::string const& output_prefix,
                   vw::Vector2 const& trans_left_image_size,
                   vw::Vector2i const& parallel_tile_size,
                   int sgm_collar_size) {
 
   if (trans_left_image_size == vw::Vector2(0, 0))
-      vw_throw(ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
+      vw::vw_throw(vw::ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
 
   // This georeference has at least the datum
   vw::cartography::GeoReference georef;
-  bool is_map_projected = opt.session->isMapProjected();
   // If is mapprojected, read the georef from L.tif, as that is what is used for tiling.
   // This should handle correctly --left-image-crop-win as well.
   if (is_map_projected) {
     std::string left_image_file = output_prefix + "-L.tif";
     bool has_georef = vw::cartography::read_georeference(georef, left_image_file);
     if (!has_georef)
-      vw_throw(ArgumentErr() << "L.tif has no georeference, cannot produce tiles.\n");
+      vw::vw_throw(vw::ArgumentErr() << "L.tif has no georeference, cannot produce tiles.\n");
   }
   
   // Will store here the tile structure for visualization. The API requires
