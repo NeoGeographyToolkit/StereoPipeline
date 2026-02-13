@@ -129,7 +129,6 @@ namespace asp {
     bool aster_use_csm; // Use the CSM camera model with ASTER images
     bool accept_provided_mapproj_dem;
     bool stop_after_stats;   // Stop after computing stereo stats
-    bool skip_calc_subimages; // Skip calculation of subsampled images
     bool stereo_dist_mode;   // Distributed stereo mode
 
     // Correlation options

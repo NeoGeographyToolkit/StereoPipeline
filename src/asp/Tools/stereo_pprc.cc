@@ -556,8 +556,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                      left_mask_file, right_mask_file);
   }
 
-  // Create subsampled images and masks
-  if (!stereo_settings().skip_calc_subimages)
+  // Create subsampled images and masks. Skip in distributed stereo mode.
+  if (!stereo_settings().stereo_dist_mode)
     createSubsampledImages(opt, in_file_list, crop_left, crop_right,
                            left_image, right_image,
                            left_mask_file, right_mask_file,
