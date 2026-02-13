@@ -323,7 +323,7 @@ output prefix such as ``out/run``, the plain-text match file name will be::
 
 Binary match files will have the same format but will end in ``.match``.
 
-The ``bundle_adjust`` program needs to be invoked with the input images and
+The ``bundle_adjust`` program needs to be invoked with the input images and::
 
   --match-files-prefix out/run
   
