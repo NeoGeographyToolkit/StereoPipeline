@@ -175,7 +175,8 @@ void createSubsampledImages(ASPGlobalOptions const& opt,
     if (sub_tile_size > vw_settings().default_tile_size())
       sub_tile_size = vw_settings().default_tile_size();
     Vector2 sub_tile_size_vec(sub_tile_size, sub_tile_size);
-    vw_out() << "\t--> Creating previews. Subsampling by " << sub_scale
+    
+    vw_out() << "Creating subimages and submasks. Subsampling by " << sub_scale
              << " by using a tile of size " << sub_tile_size << " and "
              << sub_threads << " threads.\n";
 
@@ -622,7 +623,8 @@ int main(int argc, char* argv[]) {
                                    !stereo_settings().part_of_multiview_run);
 
     stereo_preprocessing(adjust_left_image_size, opt);
-    asp::estimate_convergence_angle(opt);
+    if (!stereo_settings().stereo_dist_mode)
+      asp::estimate_convergence_angle(opt);
 
     vw_out() << "\n[ " << current_posix_time_string() << " ]: PREPROCESSING FINISHED\n";
 

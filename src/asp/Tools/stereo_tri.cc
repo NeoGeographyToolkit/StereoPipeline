@@ -960,7 +960,7 @@ int main(int argc, char* argv[]) {
 
     // This is good info to have at triangulation. Also prints a warning regarding
     // small triangulation angle and potentially an empty point cloud.
-    if (opt_vec.size() == 1)
+    if (opt_vec.size() == 1 && !asp::stereo_settings().stereo_dist_mode)
       asp::estimate_convergence_angle(opt_vec[0]);
 
     asp::stereo_triangulation(output_prefix, opt_vec);

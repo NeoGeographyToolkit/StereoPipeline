@@ -22,6 +22,7 @@
 #define __ASP_CORE_STEREO_TILING_H__
 
 #include <string>
+#include <vw/Math/BBox.h>
 #include <vw/Math/Vector.h>
 
 namespace asp {
@@ -42,6 +43,16 @@ void produceDistTileList(std::string const& in_file1,
                          std::string const& in_file2,
                          std::string const& output_prefix,
                          vw::Vector2i const& stereo_dist_tile_params);
+
+// Handle the crop windows for distributed stereo mode. Here the left crop
+// window is expanded by the collar size and the right crop window is
+// auto-computed.
+void handleDistCropWins(std::string const& left_image,
+                        std::string const& right_image,
+                        int collar_size,
+                        // Outputs
+                        vw::BBox2 & left_crop_win,
+                        vw::BBox2 & right_crop_win);
 
 } // end namespace asp
 

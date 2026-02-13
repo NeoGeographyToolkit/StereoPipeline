@@ -278,6 +278,11 @@ PreProcessingDescription::PreProcessingDescription():
     ("skip-calc-subimages",
       po::bool_switch(&global.skip_calc_subimages)->default_value(false)->implicit_value(true),
       "Skip calculation of subsampled images. These are not needed with stereo_dist.")
+    ("stereo-dist-mode",
+      po::bool_switch(&global.stereo_dist_mode)->default_value(false)->implicit_value(true),
+     "In this mode (distributed stereo processing) reuse the stats, expand the left crop "
+     "win by padding, auto-compute the right crop win, and skip stereo convergence angle "
+     "calculation.")
     ;
 }
 

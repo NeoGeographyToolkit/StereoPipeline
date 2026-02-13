@@ -27,6 +27,7 @@
 #include <asp/Core/AspLog.h>
 #include <asp/Core/StereoSettingsParse.h>
 #include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Core/StereoTiling.h>
 #include <asp/Tools/stereo.h>
 #include <asp/asp_config.h>
 
@@ -36,6 +37,8 @@
 #endif
 
 #include <vw/Cartography/PointImageManipulation.h>
+#include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrelationView.h>
@@ -599,10 +602,10 @@ bool is_tile_run(int argc, char* argv[]) {
   return false;
 }
 
-// Handle proj_win conversion to crop windows for mapprojected images. Also
-// convert the crop windows from (minx, miny, width, height) to (minx, miny,
-// maxx, maxy) format. This works for all types of images.
-void handleCropWins(ASPGlobalOptions & opt) {
+// Convert the crop windows from (minx, miny, width, height) to (minx, miny,
+// maxx, maxy) format in any cse. Handle proj_win conversion to crop windows for
+// mapprojected images.
+void handleCropWins(ASPGlobalOptions const& opt) {
   
   // Handle proj_win for mapprojected images
   BBox2 proj_win = stereo_settings().proj_win; // local copy
@@ -857,6 +860,17 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
   // Handle crop wins and proj_win conversion
   handleCropWins(opt);
   
+  // Handle the crop wins for distributed stereo mode. This must be after the
+  // crop wins are adjusted for the regular stereo mode.
+  if (asp::stereo_settings().stereo_dist_mode) {
+    handleDistCropWins(opt.in_file1, opt.in_file2,
+                       stereo_settings().sgm_collar_size,
+                       stereo_settings().left_image_crop_win,
+                       stereo_settings().right_image_crop_win);
+    // Reset trans_crop_win in case user set it by mistake; it's not used in dist mode
+    stereo_settings().trans_crop_win = BBox2i(0, 0, 0, 0);
+  }
+
   // Ensure the crop windows are always contained in the images.
   boost::shared_ptr<vw::DiskImageResource> left_resource, right_resource;
   left_resource  = vw::DiskImageResourcePtr(opt.in_file1);
@@ -1129,7 +1143,7 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
     vw::vw_throw(vw::ArgumentErr() << "Subpixel mode " << stereo_settings().subpixel_mode
               << " is not supported with block matching. Use mode <= 6.\n");
 
-  if (!using_tiles) {
+  if (!using_tiles && !stereo_settings().stereo_dist_mode) {
     // No need for a collar when we are not using tiles.
     stereo_settings().sgm_collar_size = 0;
   }
@@ -1291,6 +1305,22 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
       stereo_settings().alignment_method  = "none";
     vw_out(WarningMessage) << "Changing the alignment method to 'none' "
                             << "as the images are map-projected." << "\n";
+  }
+
+  // Sanity check for distributed stereo mode
+  if (stereo_settings().stereo_dist_mode) {
+    if (stereo_settings().alignment_method != "none")
+      vw_throw(ArgumentErr() << "In distributed stereo mode the alignment method "
+                << "must be 'none'.\n");
+    if (!opt.session->isMapProjected())
+      vw_throw(ArgumentErr() << "In distributed stereo mode the session must be "
+                << "map-projected.\n");
+    if (stereo_settings().sgm_collar_size <= 0)
+      vw_throw(ArgumentErr() << "In distributed stereo mode --sgm-collar-size "
+                << "must be positive.\n");
+    if (stereo_settings().proj_win != BBox2(0, 0, 0, 0))
+      vw_throw(ArgumentErr() << "In distributed stereo mode --proj-win "
+                << "must not be set.\n");
   }
 
   if (stereo_settings().corr_kernel[0]%2 == 0 ||

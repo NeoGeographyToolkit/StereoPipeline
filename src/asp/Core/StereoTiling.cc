@@ -315,4 +315,61 @@ void produceDistTileList(std::string const& in_file1,
   vw::geometry::writeQml(qmlFile, fieldId);
 }
 
+// Handle the crop windows for distributed stereo mode. Here the left crop
+// window is expanded by the collar size and the right crop window is
+// auto-computed.
+void handleDistCropWins(std::string const& left_image,
+                        std::string const& right_image,
+                        int collar_size,
+                        // Outputs
+                        vw::BBox2 & left_crop_win,
+                        vw::BBox2 & right_crop_win) {
+
+  // Sanity checks
+  if (left_crop_win.width() <= 0 || left_crop_win.height() <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "In distributed stereo mode the left crop window "
+              << "must have positive width and height.\n");
+  if (collar_size <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "In distributed stereo mode --sgm-collar-size "
+              << "must be positive.\n");
+  if (right_crop_win != vw::BBox2(0, 0, 0, 0))
+    vw::vw_throw(vw::ArgumentErr() << "In distributed stereo mode the right crop window "
+              << "must not be set, as it will be auto-computed.\n");
+
+  std::cout << "--left crop win is " << left_crop_win << "\n";
+  std::cout << "--sgm-collar-size is " << collar_size << "\n";
+  std::cout << "--right crop win is " << right_crop_win << "\n";
+
+  // Read georefs from both images
+  vw::cartography::GeoReference left_georef, right_georef;
+  bool has_left_georef = vw::cartography::read_georeference(left_georef, left_image);
+  bool has_right_georef = vw::cartography::read_georeference(right_georef, right_image);
+  if (!has_left_georef)
+    vw::vw_throw(vw::ArgumentErr() << "Missing georeference in: " << left_image << "\n");
+  if (!has_right_georef)
+    vw::vw_throw(vw::ArgumentErr() << "Missing georeference in: " << right_image << "\n");
+
+  // Get left image bbox
+  vw::Vector2 left_dims = vw::file_image_size(left_image);
+  vw::BBox2 left_bbox(0, 0, left_dims[0], left_dims[1]);
+  // Expand left crop win by collar size
+  left_crop_win.expand(collar_size);
+  // Crop to left image bbox
+  left_crop_win.crop(left_bbox);
+
+  std::cout << "--after bias and cropping, left crop win is " << left_crop_win << "\n";
+
+  // Use geo transform to convert left crop win (pixels) to right image pixels
+  // GeoTransform::forward_bbox converts pixel bbox from source to destination
+  vw::cartography::GeoTransform geo_trans(left_georef, right_georef);
+  right_crop_win = geo_trans.forward_bbox(left_crop_win);
+
+  // Crop to right image bbox
+  vw::Vector2 right_dims = vw::file_image_size(right_image);
+  vw::BBox2 right_bbox(0, 0, right_dims[0], right_dims[1]);
+  right_crop_win.crop(right_bbox);
+
+  std::cout << "--right crop win is " << right_crop_win << "\n";
+}
+
 } // end namespace asp
