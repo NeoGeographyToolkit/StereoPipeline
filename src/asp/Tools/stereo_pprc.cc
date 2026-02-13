@@ -565,7 +565,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                            left_georef, right_georef,
                            output_nodata);
 
-  if (skip_img_norm && stereo_settings().subpixel_mode == 2)
+  if (skip_img_norm &&
+      (stereo_settings().subpixel_mode == 2 || stereo_settings().subpixel_mode == 3))
     calcStatsForSkipImgNorm(left_rsrc, right_rsrc, left_image, right_image,
                             opt.out_prefix, left_image_file, right_image_file);
 
