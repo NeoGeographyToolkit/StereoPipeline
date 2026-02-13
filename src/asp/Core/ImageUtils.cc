@@ -218,7 +218,7 @@ void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &fun
 }
 
 // Compute the min, max, mean, and standard deviation of an image object and
-// write them to a log. This is not a member function.
+// write them to a log. 
 // The "tag" is only used to make the log messages more descriptive.
 // If prefix and image_path is set, will cache the results to a file.
 // For efficiency, the image must be traversed either rowwise or columnwise,
@@ -234,29 +234,29 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
              std::string const& image_path,
              bool force_reuse_cache) {
 
-  vw_out(InfoMessage) << "Computing statistics for " + tag << std::endl;
+  vw_out(InfoMessage) << "Computing statistics for " + image_path << "\n";
 
   Vector6f result;
   const bool use_cache = ((prefix != "") && (image_path != ""));
-  std::string cache_path = "";
+  std::string stats_file = "";
   if (use_cache) {
     if (image_path.find(prefix) == 0) {
       // If the image is, for example, run/run-L.tif,
-      // then cache_path = run/run-L-stats.tif.
-      cache_path =  fs::path(image_path).replace_extension("").string() + "-stats.tif";
+      // then stats_file = run/run-L-stats.tif.
+      stats_file = fs::path(image_path).replace_extension("").string() + "-stats.tif";
     } else {
       // If the image is left_image.tif,
-      // then cache_path = run/run-left_image.tif
-      cache_path = prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
+      // then stats_file = run/run-left_image-stats.tif
+      stats_file = prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
     }
   }
 
   // Check if this stats file was computed after any image modifications.
-  if ((use_cache && asp::first_is_newer(cache_path, image_path)) ||
-      (force_reuse_cache && fs::exists(cache_path))) {
-    vw_out(InfoMessage) << "\t--> Reading statistics from file " + cache_path << std::endl;
+  if ((use_cache && asp::first_is_newer(stats_file, image_path)) ||
+      (force_reuse_cache && fs::exists(stats_file))) {
+    vw_out(InfoMessage) << "\t--> Reading statistics from file " + stats_file << std::endl;
     Vector<float32> stats;
-    read_vector(stats, cache_path); // Just fetch the stats from the file on disk.
+    read_vector(stats, stats_file); // Just fetch the stats from the file on disk.
     result = stats;
 
   } else { // Compute the results
@@ -303,14 +303,14 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
 
     // Cache the results to disk
     if (use_cache) {
-      vw_out() << "\t    Writing stats file: " << cache_path << std::endl;
+      vw_out() << "\t    Writing stats file: " << stats_file << std::endl;
       Vector<float32> stats = result;  // cast
-      write_vector(cache_path, stats);
+      write_vector(stats_file, stats);
     }
 
   } // Done computing the results
 
-  vw_out(InfoMessage) << "\t    " << tag << ": [ lo: " << result[0] << " hi: " << result[1]
+  vw_out(InfoMessage) << "\t: [ lo: " << result[0] << " hi: " << result[1]
                       << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
 
   return result;
