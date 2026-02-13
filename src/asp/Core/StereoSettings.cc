@@ -618,11 +618,24 @@ ParseDescription::ParseDescription(): po::options_description("stereo_parse opti
   StereoSettings& global = stereo_settings();
   (*this).add_options()
   ("parallel-tile-size",
-      po::value(&global.parallel_tile_size)->default_value(Vector2i(0,0),"0 0"),
+    po::value(&global.parallel_tile_size)->default_value(Vector2i(0,0),"0 0"),
     "Create tiles with these dimensions that are needed for parallel_stereo. Skip the "
     "tiles that, after being padded, do not contain valid disparities.")
+  ("stereo-dist-tile-params",
+    po::value(&global.stereo_dist_tile_params)->default_value(Vector2i(0,0),"0 0"),
+    "Create the list of tiles with padding, in left image pixel units, that cover the "
+    "region of overlap of left and right mapprojected images. Specify as two positive "
+    "integers, having the tile size and padding, without quotes. Square tiles are "
+    "assumed. The tile size is without taking into account the padding. For use with the "
+    "stereo_dist distributed processing program. The list will be written to <output "
+    "prefix>-distTileList.txt.")
   ("tile-at-location", po::value(&global.tile_at_loc)->default_value(""),
-    "Find the tile in the current parallel_stereo run which generated the DEM portion having this lon-lat-height location. Specify as a string in quotes: 'lon lat height'. Use this option with stereo_parse and the rest of options used in parallel_stereo, including cameras, output prefix, etc. (except for those needed for tiling and parallelization). This does not work with mapprojected images.");
+    "Find the tile in the current parallel_stereo run which generated the DEM portion "
+    "having this lon-lat-height location. Specify as a string in quotes: 'lon lat "
+    "height'. Use this option with stereo_parse and the rest of options used in "
+    "parallel_stereo, including cameras, output prefix, etc. (except for those needed for "
+    "tiling and parallelization). This does not work with mapprojected images.")
+  ;
 }
 
 // Options for parallel_stereo. These are not used by the stereo

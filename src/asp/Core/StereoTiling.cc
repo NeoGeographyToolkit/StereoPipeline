@@ -22,6 +22,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/DisparityProcessing.h>
 
+#include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/shapeFile.h>
 
@@ -189,6 +190,127 @@ void produceTiles(bool is_map_projected,
   vw::geometry::write_shapefile(shapeFile, is_map_projected, georef, polyVec,
                                 fieldId, tile_id_vec);
   std::string qmlFile = output_prefix + "-tiles.qml"; // must match shapefile name
+  vw::vw_out() << "Writing qml file: " << qmlFile << "\n";
+  vw::geometry::writeQml(qmlFile, fieldId);
+}
+
+// Produce the list of tiles covering the overlap region of two mapprojected images,
+// for use with stereo_dist. Write as a text file. Write a shapefile for visualization.
+void produceDistTileList(std::string const& in_file1,
+                         std::string const& in_file2,
+                         std::string const& output_prefix,
+                         vw::Vector2i const& stereo_dist_tile_params) {
+
+  int tile_size = stereo_dist_tile_params[0];
+  int tile_padding = stereo_dist_tile_params[1];
+
+  if (tile_size <= 0 || tile_padding <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "Tile size and padding must be positive.\n");
+
+  // Read georefs from both images
+  vw::cartography::GeoReference georef1, georef2;
+  bool has_georef1 = vw::cartography::read_georeference(georef1, in_file1);
+  bool has_georef2 = vw::cartography::read_georeference(georef2, in_file2);
+  if (!has_georef1)
+    vw::vw_throw(vw::ArgumentErr() << "Missing georeference in: " << in_file1 << "\n");
+  if (!has_georef2)
+    vw::vw_throw(vw::ArgumentErr() << "Missing georeference in: " << in_file2 << "\n");
+
+  // Form bounding boxes in pixel coordinates
+  vw::Vector2 dims1 = vw::file_image_size(in_file1);
+  vw::Vector2 dims2 = vw::file_image_size(in_file2);
+  vw::BBox2i bbox1_pix(0, 0, dims1[0], dims1[1]);
+  vw::BBox2i bbox2_pix(0, 0, dims2[0], dims2[1]);
+
+  // Form projected bounding box for image1 in its own projected coordinates
+  vw::BBox2 bbox1_proj = georef1.pixel_to_point_bbox(bbox1_pix);
+
+  // Form bounding box for image2 in image1's projected coordinates
+  // GeoTransform converts from source (georef2) to destination (georef1)
+  vw::cartography::GeoTransform geo_trans(georef2, georef1);
+  vw::BBox2 bbox2_in_proj1 = geo_trans.pixel_to_point_bbox(bbox2_pix);
+
+  // Find intersection in projected coordinates
+  vw::BBox2 intersection_proj = bbox1_proj;
+  intersection_proj.crop(bbox2_in_proj1);
+  if (intersection_proj.empty())
+    vw::vw_throw(vw::ArgumentErr() << "The two images do not overlap.\n");
+
+  // Convert intersection to image1's pixel coordinates
+  vw::BBox2i intersection_pix = georef1.point_to_pixel_bbox(intersection_proj);
+  intersection_pix.expand(1);
+  // Crop to image1's pixel box, just in case
+  intersection_pix.crop(bbox1_pix);
+
+  // Calculate number of tiles
+  int width = intersection_pix.width();
+  int height = intersection_pix.height();
+  int tiles_nx = (int)std::ceil((double)width / tile_size);
+  int tiles_ny = (int)std::ceil((double)height / tile_size);
+
+  // Open output file
+  std::string tile_list_file = output_prefix + "-distTileList.txt";
+  std::ofstream ofs(tile_list_file.c_str());
+  if (!ofs.good())
+    vw::vw_throw(vw::ArgumentErr() << "Cannot open for writing: " << tile_list_file << "\n");
+
+  vw::vw_out() << "Writing tile list: " << tile_list_file << "\n";
+  vw::vw_out() << "Intersection region: " << intersection_pix << "\n";
+  vw::vw_out() << "Tile size: " << tile_size << ", padding: " << tile_padding << "\n";
+
+  // Prepare shapefile structure
+  std::vector<vw::geometry::dPoly> polyVec(1);
+  vw::geometry::dPoly& poly = polyVec[0];
+  std::vector<int> tile_id_vec;
+  std::string fieldId = "tile_id";
+
+  // Generate tiles covering the intersection region
+  int num_tiles = 0;
+  for (int iy = 0; iy < tiles_ny; iy++) {
+    for (int ix = 0; ix < tiles_nx; ix++) {
+
+      // Core tile position and size (without padding)
+      int core_x = intersection_pix.min().x() + ix * tile_size;
+      int core_y = intersection_pix.min().y() + iy * tile_size;
+      int core_w = std::min(tile_size, intersection_pix.max().x() - core_x);
+      int core_h = std::min(tile_size, intersection_pix.max().y() - core_y);
+
+      // Write: core_start_x core_start_y core_width core_height
+      ofs << core_x << " " << core_y << " " << core_w << " " << core_h << "\n";
+
+      // Convert core tile corners to projected coordinates for shapefile
+      std::vector<double> px(4), py(4);
+      vw::Vector2 pt;
+      pt = georef1.pixel_to_point(vw::Vector2(core_x, core_y));
+      px[0] = pt[0]; py[0] = pt[1];
+      pt = georef1.pixel_to_point(vw::Vector2(core_x + core_w, core_y));
+      px[1] = pt[0]; py[1] = pt[1];
+      pt = georef1.pixel_to_point(vw::Vector2(core_x + core_w, core_y + core_h));
+      px[2] = pt[0]; py[2] = pt[1];
+      pt = georef1.pixel_to_point(vw::Vector2(core_x, core_y + core_h));
+      px[3] = pt[0]; py[3] = pt[1];
+
+      // Append polygon
+      bool isPolyClosed = true;
+      std::string color = "green", layer = "";
+      poly.appendPolygon(px.size(), vw::geometry::vecPtr(px), vw::geometry::vecPtr(py),
+                         isPolyClosed, color, layer);
+      tile_id_vec.push_back(num_tiles);
+
+      num_tiles++;
+    }
+  }
+
+  ofs.close();
+  vw::vw_out() << "Wrote " << num_tiles << " tiles.\n";
+
+  // Write shapefile and qml file (for QGIS)
+  std::string shapeFile = output_prefix + "-distTileList.shp";
+  vw::vw_out() << "Writing shape file: " << shapeFile << "\n";
+  bool is_map_projected = true; // These are mapprojected images
+  vw::geometry::write_shapefile(shapeFile, is_map_projected, georef1, polyVec,
+                                fieldId, tile_id_vec);
+  std::string qmlFile = output_prefix + "-distTileList.qml";
   vw::vw_out() << "Writing qml file: " << qmlFile << "\n";
   vw::geometry::writeQml(qmlFile, fieldId);
 }

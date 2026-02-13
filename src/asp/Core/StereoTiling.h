@@ -36,6 +36,13 @@ void produceTiles(bool is_map_projected,
                   vw::Vector2i const& parallel_tile_size,
                   int sgm_collar_size);
 
+// Produce the list of tiles covering the overlap region of two mapprojected images,
+// for use with stereo_dist. Write as a text file and a shapefile for visualization.
+void produceDistTileList(std::string const& in_file1,
+                         std::string const& in_file2,
+                         std::string const& output_prefix,
+                         vw::Vector2i const& stereo_dist_tile_params);
+
 } // end namespace asp
 
 #endif // __ASP_CORE_STEREO_TILING_H__

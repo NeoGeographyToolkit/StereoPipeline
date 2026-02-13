@@ -111,10 +111,19 @@ int main(int argc, char* argv[]) {
 
     ASPGlobalOptions opt = opt_vec[0];
 
+    // This is needed for the stereo_dist distributed processing program. Save
+    // the needed list of tiles to disk (and their mapprojected versions as a
+    // shapefile) and exit.
+    if (asp::stereo_settings().stereo_dist_tile_params != vw::Vector2i(0, 0)) {
+      produceDistTileList(opt.in_file1, opt.in_file2, output_prefix,
+                          asp::stereo_settings().stereo_dist_tile_params);
+      return 0;
+    }
+
+    // Use this as a small utility in debugging parallel_stereo runs
     if (!stereo_settings().tile_at_loc.empty()) {
-      // Use this as a small utility in debugging parallel_stereo runs
       find_tile_at_loc(stereo_settings().tile_at_loc, opt);
-      return 1;
+      return 0;
     }
     
     vw_out() << "in_file1,"        << opt.in_file1        << "\n";
@@ -220,7 +229,7 @@ int main(int argc, char* argv[]) {
     if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0))
       produceTiles(opt.session->isMapProjected(), output_prefix, trans_left_image_size,
                    asp::stereo_settings().parallel_tile_size, sgm_collar_size);
-
+    
     // Attach a georeference to this disparity. 
     // TODO(oalexan1): Make this into a function
     std::string left_image_file = opt.out_prefix + "-L.tif";

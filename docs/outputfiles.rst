@@ -306,9 +306,6 @@ instead. In that case, all existing ``.match`` files will be ignored.
 This applies to :ref:`bundle_adjust`, :ref:`parallel_stereo`,
 :ref:`jitter_solve`, :ref:`image_align`, :ref:`gcp_gen`, and :ref:`ipmatch`.
 
-It is not possible to mix plain text and binary match files in the same run, to
-avoid confusion. 
-
 Conversions between these formats can be done with ``ipmatch``
 (:numref:`ipmatch_convert`). Do not use the ``parse_match_file.py``
 (:numref:`parse_match_file`) program as that one has a different purpose.

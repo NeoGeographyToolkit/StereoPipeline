@@ -270,6 +270,7 @@ namespace asp {
     // stereo_parse options
     std::string tile_at_loc;
     vw::Vector2i parallel_tile_size;
+    vw::Vector2i stereo_dist_tile_params;
 
     // Options for parallel_stereo. These are not used, but accept
     // them quietly so that when stereo_gui or stereo_parse is invoked
