@@ -150,19 +150,33 @@ void check_image_sizes(std::string const& file1, std::string const& file2) {
               << " to have the same dimensions. Delete this run and start all over.\n");
 }
 
-  // Create subsampled images and masks
+// Create subsampled images and masks
+void createSubsampledImages(ASPGlobalOptions const& opt,
+                            std::vector<std::string> const& in_file_list,
+                            bool crop_left, bool crop_right,
+                            DiskImageView<PixelGray<float>> const& left_image,
+                            DiskImageView<PixelGray<float>> const& right_image,
+                            std::string const& left_mask_file,
+                            std::string const& right_mask_file,
+                            bool has_left_georef, bool has_right_georef,
+                            cartography::GeoReference const& left_georef,
+                            cartography::GeoReference const& right_georef,
+                            float output_nodata) {
+
+  bool has_nodata = true;
+
   std::string lsub  = opt.out_prefix+"-L_sub.tif";
   std::string rsub  = opt.out_prefix+"-R_sub.tif";
   std::string lmsub = opt.out_prefix+"-lMask_sub.tif";
   std::string rmsub = opt.out_prefix+"-rMask_sub.tif";
 
-  inputs_changed = (!first_is_newer(lsub,  in_file_list) ||
+  bool inputs_changed = (!first_is_newer(lsub,  in_file_list) ||
                     !first_is_newer(rsub,  in_file_list) ||
                     !first_is_newer(lmsub, in_file_list) ||
                     !first_is_newer(rmsub, in_file_list));
 
   // We must always redo the subsampling if we are allowed to crop the images
-  rebuild = crop_left || crop_right || inputs_changed;
+  bool rebuild = crop_left || crop_right || inputs_changed;
 
   try {
     // First try to see if the subsampled images exist.
@@ -281,7 +295,8 @@ void check_image_sizes(std::string const& file1, std::string const& file2) {
       has_right_georef, right_sub_georef,
       has_nodata, output_nodata,
       opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
-  } // End try/catch to see if the subsampled images have content
+  } // End rebuild check
+} // End function createSubsampledImages
 
 /// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
@@ -395,10 +410,8 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       right_nodata_value = stereo_settings().nodata_value;
     }
     
-    // TODO(oalexan1): Remove the ThreadedEdgeMask logic, as it is slow. 
-    // But the alternative outlined below is not doing the same thing when 
-    // it comes to mapprojected images. 
-#if 1
+    // TODO(oalexan1): Remove the ThreadedEdgeMask logic, as it is slow. But need
+    // to ensure results are acceptable with both raw and mapprojected images. 
     ImageViewRef<PixelMask<uint8>> left_mask
       = copy_mask(constant_view(uint8(255),
                                 left_image.cols(), left_image.rows()),
@@ -415,17 +428,6 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     right_mask = intersect_mask(right_mask,
                                 create_mask_less_or_equal(right_image,
                                                           right_nodata_value));
-#else
-    // Mask no-data pixels
-    ImageViewRef<PixelMask<uint8>> left_mask 
-       = copy_mask(constant_view(uint8(255), left_image.cols(), left_image.rows()),
-                                 create_mask_less_or_equal(left_image,
-                                                         left_nodata_value));
-    ImageViewRef<PixelMask<uint8>> right_mask 
-        = copy_mask(constant_view(uint8(255), right_image.cols(), right_image.rows()),
-                                  create_mask_less_or_equal(right_image,
-                                                          right_nodata_value));
-#endif
       
     // Invalidate pixels below (normalized) threshold. This is experimental.
     double left_threshold  = std::numeric_limits<double>::quiet_NaN();
@@ -558,8 +560,13 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
   } // End creating masks
 
   // Create subsampled images and masks
- // end creating subsampled images and masks
- 
+  createSubsampledImages(opt, in_file_list, crop_left, crop_right,
+                         left_image, right_image,
+                         left_mask_file, right_mask_file,
+                         has_left_georef, has_right_georef,
+                         left_georef, right_georef,
+                         output_nodata);
+
   if (skip_img_norm && stereo_settings().subpixel_mode == 2) {
     // If image normalization is not done, we still need to compute the image
     // stats, to do normalization on the fly in stereo_rfne.
