@@ -82,6 +82,8 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
                       boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
                       float nodata_value,
                       std::string const& image_path,
+                      std::string const& out_prefix,
+                      bool force_reuse_match_files,
                       Vector6f & stats) {
 
   float isis_lo = isis_rsrc->valid_minimum();
@@ -113,7 +115,6 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
     isis_std  = accumulator.approximate_stddev();
     stats[4]  = accumulator.quantile(0.02);
     stats[5]  = accumulator.quantile(0.98);
-
   }
 
   // Normalizing to -+2 sigmas around mean
@@ -140,6 +141,26 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   ImageViewRef<float> processed_image = vw::apply_mask(masked_image, isis_lo);
   processed_image = remove_isis_special_pixels(processed_image, isis_lo, isis_hi, isis_lo);
   masked_image = vw::create_mask(processed_image, isis_lo);
+  
+  // Cache the results to disk
+  const bool use_cache = ((out_prefix != "") && (image_path != ""));
+  std::string stats_file = "";
+  if (use_cache) {
+    if (image_path.find(out_prefix) == 0) {
+      // If the image is, for example, run/run-L.tif,
+      // then stats_file = run/run-L-stats.tif.
+      stats_file = fs::path(image_path).replace_extension("").string() + "-stats.tif";
+    } else {
+      // If the image is left_image.tif,
+      // then stats_file = run/run-left_image-stats.tif
+      stats_file = out_prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
+    }
+  }
+  if (use_cache) {
+    vw_out() << "\t    Writing stats file: " << stats_file << std::endl;
+    Vector<float32> local_stats = stats;  // cast
+    write_vector(stats_file, local_stats);
+  }
   
   return masked_image;
 }
@@ -168,10 +189,12 @@ calcStatsMaskedImages(// Inputs
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
   left_masked_image
     = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
-                            left_cropped_file, left_stats);
+                            left_cropped_file, this->m_out_prefix,
+                            asp::stereo_settings().force_reuse_match_files, left_stats);
   right_masked_image
     = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
-                            right_cropped_file, right_stats);
+                            right_cropped_file, this->m_out_prefix,
+                            asp::stereo_settings().force_reuse_match_files, right_stats);
 }
 
 bool StereoSessionIsis::supports_multi_threading () const {

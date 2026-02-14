@@ -226,27 +226,24 @@ void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &fun
 // that function in favor of a single preprocessing_hook() in the base class.
 vw::Vector<vw::float32,6>
 gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
-             std::string const& prefix,
+             std::string const& out_prefix,
              std::string const& image_path,
              bool force_reuse_cache) {
-  std::cout << "--now in gather_stats\n";
-  std::cout << "--prefix is " << prefix << std::endl;
-  std::cout << "--image_path is " << image_path << std::endl;
   
   vw_out(InfoMessage) << "Computing statistics for " + image_path << "\n";
 
   Vector6f result;
-  const bool use_cache = ((prefix != "") && (image_path != ""));
+  const bool use_cache = ((out_prefix != "") && (image_path != ""));
   std::string stats_file = "";
   if (use_cache) {
-    if (image_path.find(prefix) == 0) {
+    if (image_path.find(out_prefix) == 0) {
       // If the image is, for example, run/run-L.tif,
       // then stats_file = run/run-L-stats.tif.
       stats_file = fs::path(image_path).replace_extension("").string() + "-stats.tif";
     } else {
       // If the image is left_image.tif,
       // then stats_file = run/run-left_image-stats.tif
-      stats_file = prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
+      stats_file = out_prefix + '-' + fs::path(image_path).stem().string() + "-stats.tif";
     }
   }
 

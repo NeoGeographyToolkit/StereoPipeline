@@ -72,7 +72,7 @@ void read_mapproj_header(std::string const& map_file,
 // to a file.
 vw::Vector<vw::float32,6>
 gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
-             std::string const& prefix,
+             std::string const& out_prefix,
              std::string const& image_path,
              bool force_reuse_cache = false);
 
