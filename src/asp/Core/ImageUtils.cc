@@ -218,18 +218,14 @@ void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &fun
 }
 
 // Compute the min, max, mean, and standard deviation of an image object and
-// write them to a log. 
-// The "tag" is only used to make the log messages more descriptive.
-// If prefix and image_path is set, will cache the results to a file.
-// For efficiency, the image must be traversed either rowwise or columnwise,
-// depending on how it is stored on disk.
-// This makes use of the global variable: asp::stereo_settings().force_reuse_match_files.
+// write them to a log. If prefix and image_path is set, will cache the results
+// to a file. For efficiency, the image must be traversed either rowwise or
+// columnwise, depending on how it is stored on disk.
 // TODO(oalexan1): This function must take into account ISIS special
 // pixels from StereoSessionIsis::preprocessing_hook(). Then, must eliminate
 // that function in favor of a single preprocessing_hook() in the base class.
-vw::Vector<vw::float32,6> 
+vw::Vector<vw::float32,6>
 gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
-             std::string const& tag,
              std::string const& prefix,
              std::string const& image_path,
              bool force_reuse_cache) {

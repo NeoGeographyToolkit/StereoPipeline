@@ -295,11 +295,11 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
       = copy_mask(left_image, create_mask(left_mask));
     ImageViewRef<PixelMask<float>> Rimg
       = copy_mask(right_image, create_mask(right_mask));
-    // By now the stats should be cached, but need to respect the API  
-    Vector6f left_stats  = gather_stats(Limg, "left", opt.out_prefix, left_image_file,
-                                         stereo_settings().force_reuse_match_files);
-    Vector6f right_stats = gather_stats(Rimg, "right", opt.out_prefix, right_image_file,
-                                         stereo_settings().force_reuse_match_files);
+    // By now the stats should be cached, but need to respect the API
+    Vector6f left_stats  = gather_stats(Limg, opt.out_prefix, left_image_file,
+                                        stereo_settings().force_reuse_match_files);
+    Vector6f right_stats = gather_stats(Rimg, opt.out_prefix, right_image_file,
+                                        stereo_settings().force_reuse_match_files);
 
     bool use_percentile_stretch = false;
     bool do_not_exceed_min_max = (opt.session->name() == "isis" ||

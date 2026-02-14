@@ -238,10 +238,9 @@ void normalizeImage(std::string const& image_file,
   image = vw::create_mask(vw::DiskImageView<float>(image_file), nodata_val);
 
   // Gather stats
-  std::string tag = image_file;
-  std::string prefix = ""; 
+  std::string prefix = "";
   bool reuse_cache = false;
-  vw::Vector6f stats = asp::gather_stats(image, tag, prefix, image_file, reuse_cache);
+  vw::Vector6f stats = asp::gather_stats(image, prefix, image_file, reuse_cache);
   
   // Use mean +/- 2 standard deviations. This is done in a few places in ASP.
   float mean = stats[2];

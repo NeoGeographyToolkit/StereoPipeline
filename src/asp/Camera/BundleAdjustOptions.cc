@@ -247,7 +247,7 @@ void computeStatsOrIp(asp::BaOptions const& opt,
 
     // Use caching function call to compute the image statistics.
     if (!calcIp)
-      asp::gather_stats(masked_image, image_path, opt.out_prefix, image_path,
+      asp::gather_stats(masked_image, opt.out_prefix, image_path,
                         asp::stereo_settings().force_reuse_match_files);
 
     // Compute and cache the camera footprint polygon and its bbox

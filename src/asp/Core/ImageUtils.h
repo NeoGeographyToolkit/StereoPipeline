@@ -68,12 +68,10 @@ void read_mapproj_header(std::string const& map_file,
                          std::string & cam_file, std::string & dem_file);
 
 // Compute the min, max, mean, and standard deviation of an image object and
-// write them to a file. This is not a member function.
-// the "tag" is only used to make the log messages more descriptive.
-// If prefix and image_path is set, will cache the results to a file.
+// write them to a file. If prefix and image_path is set, will cache the results
+// to a file.
 vw::Vector<vw::float32,6>
 gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
-             std::string const& tag,
              std::string const& prefix,
              std::string const& image_path,
              bool force_reuse_cache = false);

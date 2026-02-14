@@ -563,10 +563,10 @@ namespace asp {
     }
 
     // By now the stats should be cached, but need to respect the API
-    Vector6f left_stats  = gather_stats(left_masked_image, "left",
+    Vector6f left_stats  = gather_stats(left_masked_image,
                                         opt.out_prefix, left_unaligned_file,
                                         asp::stereo_settings().force_reuse_match_files);
-    Vector6f right_stats = gather_stats(right_masked_image, "right",
+    Vector6f right_stats = gather_stats(right_masked_image,
                                         opt.out_prefix, right_unaligned_file,
                                         asp::stereo_settings().force_reuse_match_files);
 

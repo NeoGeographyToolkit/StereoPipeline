@@ -434,9 +434,9 @@ void load_camera_and_find_ip(Options const& opt,
     ImageViewRef<PixelMask<float>> masked_image1 = create_mask(image1_view, nodata1);
     ImageViewRef<PixelMask<float>> masked_image2 = create_mask(image2_view, nodata2);
     vw::Vector<vw::float32,6> image1_stats
-      = asp::gather_stats(masked_image1, "raw", "", opt.raw_image);
+      = asp::gather_stats(masked_image1, "", opt.raw_image);
     vw::Vector<vw::float32,6> image2_stats
-      = asp::gather_stats(masked_image2, "ortho", "", opt.ortho_image);
+      = asp::gather_stats(masked_image2, "", opt.ortho_image);
 
     session->ip_matching(opt.raw_image, opt.ortho_image,
                          Vector2(masked_image1.cols(), masked_image1.rows()),

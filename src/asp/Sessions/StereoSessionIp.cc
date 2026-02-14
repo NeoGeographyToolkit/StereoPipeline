@@ -436,10 +436,10 @@ void matchIp(std::string const& out_prefix,
 
   // Since we computed statistics earlier, this will just be loading files.
   vw::Vector<vw::float32,6> image1_stats, image2_stats;
-  image1_stats = asp::gather_stats(masked_image1, image1_path,
+  image1_stats = asp::gather_stats(masked_image1,
                                    out_prefix, image1_path,
                                    asp::stereo_settings().force_reuse_match_files);
-  image2_stats = asp::gather_stats(masked_image2, image2_path,
+  image2_stats = asp::gather_stats(masked_image2,
                                    out_prefix, image2_path,
                                    asp::stereo_settings().force_reuse_match_files);
 

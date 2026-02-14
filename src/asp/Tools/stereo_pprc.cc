@@ -289,10 +289,10 @@ void calcStatsForSkipImgNorm(boost::shared_ptr<DiskImageResource> left_rsrc,
   }
 
   gather_stats(pixel_cast<PixelMask<float>>(left_masked_image),
-               "left", out_prefix, left_image_file,
+               out_prefix, left_image_file,
                asp::stereo_settings().force_reuse_match_files);
   gather_stats(pixel_cast<PixelMask<float>>(right_masked_image),
-               "right", out_prefix, right_image_file,
+               out_prefix, right_image_file,
                asp::stereo_settings().force_reuse_match_files);
 }
 

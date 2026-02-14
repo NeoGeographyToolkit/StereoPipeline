@@ -476,14 +476,14 @@ calcStatsMaskedImages(// Inputs
   // Compute input image statistics. This can be slow so use a timer.
   vw::Stopwatch sw1;
   sw1.start();
-  left_stats = gather_stats(left_masked_image,  "left",
+  left_stats = gather_stats(left_masked_image,
                             this->m_out_prefix, left_cropped_file,
                             asp::stereo_settings().force_reuse_match_files);
   sw1.stop();
   vw_out() << "Left image stats time: " << sw1.elapsed_seconds() << "\n";
   vw::Stopwatch sw2;
   sw2.start();
-  right_stats = gather_stats(right_masked_image, "right",
+  right_stats = gather_stats(right_masked_image,
                              this->m_out_prefix, right_cropped_file,
                              asp::stereo_settings().force_reuse_match_files);
   sw2.stop();
