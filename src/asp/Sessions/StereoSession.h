@@ -196,20 +196,20 @@ protected:
   // get nodata values. Return 'true' if cached outputs exist and we can
   // skip reprocessing.
   bool prepareInputImages(vw::GdalWriteOptions           & options,
-                                  std::string const             & left_input_file,
-                                  std::string const             & right_input_file,
-                                  std::string                   & left_output_file,
-                                  std::string                   & right_output_file,
-                                  std::string                   & left_cropped_file,
-                                  std::string                   & right_cropped_file,
-                                  vw::ImageViewRef<float>       & left_cropped_image,
-                                  vw::ImageViewRef<float>       & right_cropped_image,
-                                  float                         & left_nodata_value,
-                                  float                         & right_nodata_value,
-                                  bool                          & has_left_georef,
-                                  bool                          & has_right_georef,
-                                  vw::cartography::GeoReference & left_georef,
-                                  vw::cartography::GeoReference & right_georef);
+                          std::string const             & left_input_file,
+                          std::string const             & right_input_file,
+                          std::string                   & left_output_file,
+                          std::string                   & right_output_file,
+                          std::string                   & left_cropped_file,
+                          std::string                   & right_cropped_file,
+                          vw::ImageViewRef<float>       & left_cropped_image,
+                          vw::ImageViewRef<float>       & right_cropped_image,
+                          float                         & left_nodata_value,
+                          float                         & right_nodata_value,
+                          bool                          & has_left_georef,
+                          bool                          & has_right_georef,
+                          vw::cartography::GeoReference & left_georef,
+                          vw::cartography::GeoReference & right_georef);
 
   // These are all the currently supported transformation types
   vw::TransformPtr tx_identity        () const; // Not left or right specific
