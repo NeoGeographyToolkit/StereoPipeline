@@ -81,7 +81,7 @@ ImageViewRef<PixelMask<float>>
 find_ideal_isis_range(ImageViewRef<float> const& image,
                       boost::shared_ptr<DiskImageResourceIsis> isis_rsrc,
                       float nodata_value,
-                      std::string const& tag,
+                      std::string const& image_path,
                       Vector6f & stats) {
 
   float isis_lo = isis_rsrc->valid_minimum();
@@ -102,7 +102,7 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   // only does about a million samples.
   float isis_mean, isis_std;
   {
-    vw_out(InfoMessage) << "\t--> Computing statistics for " + tag + "\n";
+    vw_out(InfoMessage) << "Computing statistics for " + image_path << "\n";
     int stat_scale = int(ceil(sqrt(float(image.cols())*float(image.rows()) / 1000000)));
     ChannelAccumulator<math::CDFAccumulator<float>> accumulator;
     for_each_pixel(subsample(edge_extend(masked_image, ConstantEdgeExtension()),
@@ -114,8 +114,6 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
     stats[4]  = accumulator.quantile(0.02);
     stats[5]  = accumulator.quantile(0.98);
 
-    vw_out(InfoMessage) << "\t  "+tag+": [ lo:" << isis_lo << " hi:" << isis_hi
-                        << " m: " << isis_mean << " s: " << isis_std <<  "]\n";
   }
 
   // Normalizing to -+2 sigmas around mean
@@ -127,10 +125,10 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
       isis_lo = isis_mean - 2*isis_std;
     if (isis_hi > isis_mean + 2*isis_std)
       isis_hi = isis_mean + 2*isis_std;
-
-    vw_out(InfoMessage) << "\t    "+tag+" changed: [ lo:"
-                        << isis_lo << " hi:" << isis_hi << "]\n";
   }
+
+  vw_out(InfoMessage) << "\t: [ lo:" << isis_lo << " hi:" << isis_hi
+                      << " m: " << isis_mean << " s: " << isis_std <<  "]\n";
 
   stats[0] = isis_lo;
   stats[1] = isis_hi;
@@ -170,10 +168,10 @@ calcStatsMaskedImages(// Inputs
     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
   left_masked_image
     = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
-                            "left", left_stats);
+                            left_cropped_file, left_stats);
   right_masked_image
     = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
-                            "right", right_stats);
+                            right_cropped_file, right_stats);
 }
 
 bool StereoSessionIsis::supports_multi_threading () const {

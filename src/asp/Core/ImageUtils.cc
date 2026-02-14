@@ -229,7 +229,10 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
              std::string const& prefix,
              std::string const& image_path,
              bool force_reuse_cache) {
-
+  std::cout << "--now in gather_stats\n";
+  std::cout << "--prefix is " << prefix << std::endl;
+  std::cout << "--image_path is " << image_path << std::endl;
+  
   vw_out(InfoMessage) << "Computing statistics for " + image_path << "\n";
 
   Vector6f result;

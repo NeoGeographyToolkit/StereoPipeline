@@ -475,6 +475,7 @@ calcStatsMaskedImages(// Inputs
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
 
   // Compute input image statistics. This can be slow so use a timer.
+  std::cout << "--will call gather_stats\n";
   vw::Stopwatch sw1;
   sw1.start();
   left_stats = gather_stats(left_masked_image,
@@ -554,6 +555,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                       has_left_georef,    has_right_georef,
                                       left_georef,        right_georef);
 
+  std::cout << "--exit early is " << exit_early << "\n";
   if (exit_early)
     return;
 
@@ -575,6 +577,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   // Set up the image masks and compute the stats. If the user provided a custom
   // no-data value, values no more than that have been masked by now in
   // prepareInputImages. This is reimplemented for ISIS.
+  std::cout << "---will calc stats and masked images\n";
   this->calcStatsMaskedImages(// Inputs
                               left_cropped_image, right_cropped_image,
                               left_nodata_value, right_nodata_value,
