@@ -78,11 +78,6 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
              std::string const& image_path,
              bool force_reuse_cache = false);
 
-// Save image stats
-void saveStats(std::string const& out_prefix,
-               vw::Vector6f const& left_stats,
-               vw::Vector6f const& right_stats);
-
 // Checks if the given image file has an 8-bit channels
 bool hasByteChannels(const std::string& image_path);
 

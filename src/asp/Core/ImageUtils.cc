@@ -316,20 +316,6 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
   return result;
 } // end function gather_stats
 
-// Save image stats
-void saveStats(std::string const& out_prefix,
-               vw::Vector6f const& left_stats,
-               vw::Vector6f const& right_stats) {
-
-  std::string left_stats_file  = asp::leftStatsFile(out_prefix);
-  std::string right_stats_file = asp::rightStatsFile(out_prefix);
-  vw_out() << "Writing: " << left_stats_file << ' ' << right_stats_file << "\n";
-  vw::Vector<float32> left_stats2  = left_stats;  // cast
-  vw::Vector<float32> right_stats2 = right_stats; // cast
-  write_vector(left_stats_file,  left_stats2);
-  write_vector(right_stats_file, right_stats2);
-}
-
 // Checks if the given image file has an 8-bit channels
 bool hasByteChannels(const std::string& image_path) {
 

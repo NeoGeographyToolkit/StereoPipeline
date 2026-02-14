@@ -337,18 +337,8 @@ void separate_images_from_cameras(std::vector<std::string> const& inputs,
     while (cameras.size() < images.size())
       cameras.push_back("");
   }
-  
+
   return;
-}
-
-// Return the path to the left stats file
-std::string leftStatsFile(std::string const& out_prefix) {
-  return out_prefix + "-lStats.tif";
-}
-
-// Return the path to the right stats file
-std::string rightStatsFile(std::string const& out_prefix) {
-  return out_prefix + "-rStats.tif";
 }
 
 } // end namespace asp
