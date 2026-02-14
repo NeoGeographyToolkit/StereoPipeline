@@ -40,59 +40,12 @@
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Math/Functors.h>
-#include <vw/FileIO/FileUtils.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <vw/Image/Manipulation.h>
 
 using namespace vw;
 using namespace asp;
-
-/// Instead of writing L.tif and R.tif, just create sym links from
-/// input left and right images. Creating symbolic links can be tricky.
-void create_sym_links(std::string const& left_input_file,
-                      std::string const& right_input_file,
-                      std::string const& out_prefix,
-                      std::string & left_output_file,
-                      std::string & right_output_file) {
-
-  vw_out(WarningMessage) << "Skipping image normalization.\n";
-
-  left_output_file  = out_prefix+"-L.tif";
-  right_output_file = out_prefix+"-R.tif";
-  std::string cmd1, cmd2;
-  fs::path out_prefix_path(out_prefix);
-  fs::path left_rel_in, right_rel_in;
-  if (out_prefix_path.has_parent_path()) {
-    fs::path rundir = out_prefix_path.parent_path();
-    cmd1 = "cd " + rundir.string() + "; ";
-    cmd2 = "; cd " +  fs::canonical(".").string();
-    left_rel_in  = make_file_relative_to_dir(fs::path(left_input_file),  rundir);
-    right_rel_in = make_file_relative_to_dir(fs::path(right_input_file), rundir);
-  }else{
-    left_rel_in  = fs::path(left_input_file);
-    right_rel_in = fs::path(right_input_file);
-  }
-
-  std::string left_rel_out  = fs::path(left_output_file ).filename().string();
-  std::string right_rel_out = fs::path(right_output_file).filename().string();
-
-  std::string cmd;
-  if (!fs::exists(left_output_file)){
-    cmd = cmd1 + "ln -s " + left_rel_in.string() + " " + left_rel_out + cmd2;
-    vw_out() << cmd << std::endl;
-    int ret = system(cmd.c_str());
-    VW_ASSERT( ret == 0,
-               ArgumentErr() << "Failed to execute: " << cmd << "\n" );
-  }
-  if (!fs::exists(right_output_file)){
-    cmd = cmd1 + "ln -s " + right_rel_in.string() + " " + right_rel_out + cmd2;
-    vw_out() << cmd << std::endl;
-    int ret = system(cmd.c_str());
-    VW_ASSERT( ret == 0,
-               ArgumentErr() << "Failed to execute: " << cmd << "\n" );
-  }
-} // End function create_sym_links
 
 // Check that the images in file1 and file2 have same size, and throw
 // an exception if they don't.
@@ -253,49 +206,6 @@ void createSubsampledImages(ASPGlobalOptions const& opt,
   } // End rebuild check
 } // End function createSubsampledImages
 
-// If image normalization is not done, we still need to compute the image
-// stats, to do normalization on the fly in stereo_rfne. This code is not
-// in stereo_rfne, as that one is meant to be distributed across multiple
-// machines, so we want the stats to be computed just once, hence here.
-// TODO(oalexan1): This mirrors logic from somewhere else. Not good.
-void calcStatsForSkipImgNorm(boost::shared_ptr<DiskImageResource> left_rsrc,
-                             boost::shared_ptr<DiskImageResource> right_rsrc,
-                             DiskImageView<PixelGray<float>> const& left_image,
-                             DiskImageView<PixelGray<float>> const& right_image,
-                             std::string const& out_prefix,
-                             std::string const& left_image_file,
-                             std::string const& right_image_file) {
-
-  vw_out() << "Computing statistics for the un-normalized images.\n";
-  float left_no_data_value = 0, right_no_data_value = 0; // will change
-  asp::get_nodata_values(left_rsrc, right_rsrc,
-                         asp::stereo_settings().nodata_value,
-                         left_no_data_value, right_no_data_value);
-  float user_nodata = asp::stereo_settings().nodata_value;
-  if (!std::isnan(user_nodata)) {
-    left_no_data_value  = user_nodata;
-    right_no_data_value = user_nodata;
-  }
-
-  // If the user provided a custom no-data value, values no more than that are
-  // masked.
-  ImageViewRef<PixelMask<PixelGray<float>>> left_masked_image, right_masked_image;
-  if (!std::isnan(user_nodata)) {
-    left_masked_image = create_mask_less_or_equal(left_image, user_nodata);
-    right_masked_image = create_mask_less_or_equal(right_image, user_nodata);
-  } else {
-    left_masked_image = create_mask(left_image, left_no_data_value);
-    right_masked_image = create_mask(right_image, right_no_data_value);
-  }
-
-  gather_stats(pixel_cast<PixelMask<float>>(left_masked_image),
-               out_prefix, left_image_file,
-               asp::stereo_settings().force_reuse_match_files);
-  gather_stats(pixel_cast<PixelMask<float>>(right_masked_image),
-               out_prefix, right_image_file,
-               asp::stereo_settings().force_reuse_match_files);
-}
-
 // Create the image masks for the left and right images
 void createImageMasks(ASPGlobalOptions & opt,
                       boost::shared_ptr<DiskImageResource> left_rsrc,
@@ -455,27 +365,20 @@ void createImageMasks(ASPGlobalOptions & opt,
 /// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
-  // Normalize the images, or create symlinks to the original
-  // images if the user chose not to normalize.
+  // Normalize the images, or create symlinks if the user chose to skip
+  // normalization. The preprocessing_hook handles both cases now.
   std::string left_image_file, right_image_file;
   bool skip_img_norm = asp::skip_image_normalization(opt);
 
   // Bathymetry will not work with skipping image normalization.
-  // It could be made to work, but it is an obscure scenario not
-  // worth testing.
-  if (skip_img_norm && asp::doBathy(asp::stereo_settings())) 
-    vw_throw( ArgumentErr() 
+  if (skip_img_norm && asp::doBathy(asp::stereo_settings()))
+    vw_throw(ArgumentErr()
              << "\nCannot do bathymetry when skipping image normalization.\n");
 
-  // Need to also write the transformed bathy masks to disk, those
-  // will be used in stereo_tri.
-  if (skip_img_norm)
-    create_sym_links(opt.in_file1, opt.in_file2, opt.out_prefix,
-                     left_image_file, right_image_file);
-  else // Perform image normalization
-    opt.session->preprocessing_hook(adjust_left_image_size,
-                                    opt.in_file1, opt.in_file2,
-                                    left_image_file, right_image_file);
+  // Perform image normalization (or create symlinks and compute stats if skipping)
+  opt.session->preprocessing_hook(adjust_left_image_size,
+                                  opt.in_file1, opt.in_file2,
+                                  left_image_file, right_image_file);
 
   boost::shared_ptr<DiskImageResource>
     left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
@@ -555,11 +458,6 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                            has_left_georef, has_right_georef,
                            left_georef, right_georef,
                            output_nodata);
-
-  if (skip_img_norm &&
-      (stereo_settings().subpixel_mode == 2 || stereo_settings().subpixel_mode == 3))
-    calcStatsForSkipImgNorm(left_rsrc, right_rsrc, left_image, right_image,
-                            opt.out_prefix, left_image_file, right_image_file);
 
   // When alignment method is none or epipolar, no ip were created so far, so
   // produce them now.

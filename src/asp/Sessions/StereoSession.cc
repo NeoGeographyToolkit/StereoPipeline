@@ -55,6 +55,7 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
@@ -491,12 +492,51 @@ calcStatsMaskedImages(// Inputs
 
 }
 
+// Create symlinks to the input images for skip_image_normalization mode.
+// The symlinks are relative to the output directory.
+void createSymLinks(std::string const& left_input_file,
+                    std::string const& right_input_file,
+                    std::string const& out_prefix,
+                    std::string      & left_output_file,
+                    std::string      & right_output_file) {
+
+  namespace fs = boost::filesystem;
+
+  left_output_file  = out_prefix + "-L.tif";
+  right_output_file = out_prefix + "-R.tif";
+
+  if (!fs::exists(left_output_file)) {
+    fs::path out_dir = fs::path(out_prefix).parent_path();
+    fs::path left_rel = out_dir.empty() ? fs::path(left_input_file) :
+                        make_file_relative_to_dir(fs::path(left_input_file), out_dir);
+    fs::create_symlink(left_rel, left_output_file);
+    vw_out() << "Created symlink: " << left_output_file << " -> " << left_rel << "\n";
+  }
+
+  if (!fs::exists(right_output_file)) {
+    fs::path out_dir = fs::path(out_prefix).parent_path();
+    fs::path right_rel = out_dir.empty() ? fs::path(right_input_file) :
+                         make_file_relative_to_dir(fs::path(right_input_file), out_dir);
+    fs::create_symlink(right_rel, right_output_file);
+    vw_out() << "Created symlink: " << right_output_file << " -> " << right_rel << "\n";
+  }
+}
+
 // Default preprocessing hook. Some sessions may override it.
 void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                        std::string const& left_input_file,
                                        std::string const& right_input_file,
                                        std::string      & left_output_file,
                                        std::string      & right_output_file) {
+
+  // Handle skip_image_normalization mode. Create symlinks instead of normalized
+  // images, but still compute stats further down (needed for subpixel modes 2
+  // and 3). The validation for this mode was done earlier in stereo_pprc.cc.
+  if (stereo_settings().skip_image_normalization) {
+    vw_out(WarningMessage) << "Skipping image normalization.\n";
+    createSymLinks(left_input_file, right_input_file, m_out_prefix,
+                   left_output_file, right_output_file);
+  }
 
   std::string left_cropped_file, right_cropped_file;
   ImageViewRef<float> left_cropped_image, right_cropped_image;
@@ -516,6 +556,13 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
 
   if (exit_early)
     return;
+
+  // For skip_image_normalization, use L.tif/R.tif paths for stats file naming
+  // so that later stages (stereo_rfne) can find them.
+  if (stereo_settings().skip_image_normalization) {
+    left_cropped_file  = left_output_file;
+    right_cropped_file = right_output_file;
+  }
 
   // Get the image sizes. Later alignment options can choose to
   // change this parameters (such as affine epipolar alignment).
@@ -543,7 +590,12 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
     vw_out() << "Stopping after computing image statistics.\n";
     exit(0);
   }
-  
+
+  // For skip_image_normalization, we created symlinks above and computed stats.
+  // No alignment or image writing is needed.
+  if (stereo_settings().skip_image_normalization)
+    return;
+
   // Initialize the alignment matrices
   Matrix<double> align_left_matrix  = math::identity_matrix<3>();
   Matrix<double> align_right_matrix = math::identity_matrix<3>();
