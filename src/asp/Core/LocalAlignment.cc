@@ -21,6 +21,7 @@
 
 #include <asp/Core/LocalAlignment.h>
 #include <asp/Core/ImageNormalization.h>
+#include <asp/Core/ImageUtils.h>
 #include <asp/Core/AffineEpipolar.h>
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/IpMatchingAlgs.h>
@@ -525,13 +526,6 @@ namespace asp {
 
     // Apply the combined transforms to the original unscaled and
     // unaligned images, then scale them too.
-    Vector<float32> left_stats, right_stats;
-    std::string left_stats_file  = asp::leftStatsFile(opt.out_prefix);
-    std::string right_stats_file = asp::rightStatsFile(opt.out_prefix);
-    vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << "\n";
-    read_vector(left_stats,  left_stats_file);
-    read_vector(right_stats, right_stats_file);
-
     float left_unaligned_nodata_value = -32768.0;
     float right_unaligned_nodata_value = -32768.0;
     {
@@ -567,6 +561,14 @@ namespace asp {
       right_masked_image
         = create_mask(right_unaligned_image, right_unaligned_nodata_value);
     }
+
+    // By now the stats should be cached, but need to respect the API
+    Vector6f left_stats  = gather_stats(left_masked_image, "left",
+                                        opt.out_prefix, left_unaligned_file,
+                                        asp::stereo_settings().force_reuse_match_files);
+    Vector6f right_stats = gather_stats(right_masked_image, "right",
+                                        opt.out_prefix, right_unaligned_file,
+                                        asp::stereo_settings().force_reuse_match_files);
 
     PixelMask<float> nodata_mask = PixelMask<float>(); // invalid value for a PixelMask
 

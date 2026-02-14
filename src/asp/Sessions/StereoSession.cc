@@ -537,13 +537,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                               left_masked_image, right_masked_image,
                               left_stats, right_stats);
 
-  // These stats will be needed later on. This call is here to not duplicate in
-  // both implementations of calcStatsMaskedImages.
-  // TODO(oalexan1): In this case the stats are written twice with different
-  // conventions. Need to figure out how to integrate these.
-  if (stereo_settings().alignment_method == "local_epipolar")
-    asp::saveStats(this->m_out_prefix, left_stats, right_stats);
-
   // If the user only wanted stats, stop here. Doing exit(0) seems to be simpler
   // than tracing back a flag. This is needed for stereo_dist.
   if (stereo_settings().stop_after_stats) {
