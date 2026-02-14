@@ -603,7 +603,7 @@ bool is_tile_run(int argc, char* argv[]) {
 }
 
 // Convert the crop windows from (minx, miny, width, height) to (minx, miny,
-// maxx, maxy) format in any cse. Handle proj_win conversion to crop windows for
+// maxx, maxy) format in any case. Handle proj_win conversion to crop windows for
 // mapprojected images.
 void handleCropWins(ASPGlobalOptions const& opt) {
   
