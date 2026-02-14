@@ -192,10 +192,10 @@ protected: // Variables
 
 protected:
 
-  // Factor out here all functionality shared among the preprocessing hooks
-  // for various sessions. Return 'true' if we encounter cached images
-  // and don't need to go through the motions again.
-  bool shared_preprocessing_hook(vw::GdalWriteOptions           & options,
+  // Prepare input images for preprocessing: load images, handle cropping,
+  // get nodata values. Return 'true' if cached outputs exist and we can
+  // skip reprocessing.
+  bool prepareInputImages(vw::GdalWriteOptions           & options,
                                   std::string const             & left_input_file,
                                   std::string const             & right_input_file,
                                   std::string                   & left_output_file,

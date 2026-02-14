@@ -182,6 +182,7 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
   bool is_good = (!crop_left && !crop_right                    &&
                   stereo_settings().alignment_method == "none" &&
                   stereo_settings().cost_mode == 2             &&
+                  !asp::doBathy(asp::stereo_settings())        &&
                   vw::has_tif_or_ntf_extension(opt.in_file1)   &&
                   vw::has_tif_or_ntf_extension(opt.in_file2));
 
@@ -189,7 +190,7 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
     vw_throw(ArgumentErr()
               << "Cannot skip image normalization unless there is no alignment, "
               << "no use of --left-image-crop-win and --right-image-crop-win, "
-              << "the option --cost-mode is set to 2, and the input images have "
+              << "no bathymetry, --cost-mode is set to 2, and the input images have "
               << ".tif or .ntf extension.");
 
   return is_good;

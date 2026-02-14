@@ -545,14 +545,14 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
   bool exit_early =
-    StereoSession::shared_preprocessing_hook(options,
-                                             left_input_file,    right_input_file,
-                                             left_output_file,   right_output_file,
-                                             left_cropped_file,  right_cropped_file,
-                                             left_cropped_image, right_cropped_image,
-                                             left_nodata_value,  right_nodata_value,
-                                             has_left_georef,    has_right_georef,
-                                             left_georef,        right_georef);
+    StereoSession::prepareInputImages(options,
+                                      left_input_file,    right_input_file,
+                                      left_output_file,   right_output_file,
+                                      left_cropped_file,  right_cropped_file,
+                                      left_cropped_image, right_cropped_image,
+                                      left_nodata_value,  right_nodata_value,
+                                      has_left_georef,    has_right_georef,
+                                      left_georef,        right_georef);
 
   if (exit_early)
     return;
@@ -574,7 +574,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
 
   // Set up the image masks and compute the stats. If the user provided a custom
   // no-data value, values no more than that have been masked by now in
-  // shared_preprocessing_hook. This is reimplemented for ISIS.
+  // prepareInputImages. This is reimplemented for ISIS.
   this->calcStatsMaskedImages(// Inputs
                               left_cropped_image, right_cropped_image,
                               left_nodata_value, right_nodata_value,
@@ -736,22 +736,21 @@ void crop_bathy_mask(vw::GdalWriteOptions const& options,
                          TerminalProgressCallback("asp", "\t:  "));
 }
 
-bool StereoSession::
-shared_preprocessing_hook(vw::GdalWriteOptions           & options,
-                          std::string const              & left_input_file,
-                          std::string const              & right_input_file,
-                          std::string                    & left_output_file,
-                          std::string                    & right_output_file,
-                          std::string                    & left_cropped_file,
-                          std::string                    & right_cropped_file,
-                          vw::ImageViewRef<float>        & left_cropped_image,
-                          vw::ImageViewRef<float>        & right_cropped_image,
-                          float                          & left_nodata_value,
-                          float                          & right_nodata_value,
-                          bool                           & has_left_georef,
-                          bool                           & has_right_georef,
-                          vw::cartography::GeoReference  & left_georef,
-                          vw::cartography::GeoReference  & right_georef) {
+bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
+                                       std::string const             & left_input_file,
+                                       std::string const             & right_input_file,
+                                       std::string                   & left_output_file,
+                                       std::string                   & right_output_file,
+                                       std::string                   & left_cropped_file,
+                                       std::string                   & right_cropped_file,
+                                       vw::ImageViewRef<float>       & left_cropped_image,
+                                       vw::ImageViewRef<float>       & right_cropped_image,
+                                       float                         & left_nodata_value,
+                                       float                         & right_nodata_value,
+                                       bool                          & has_left_georef,
+                                       bool                          & has_right_georef,
+                                       vw::cartography::GeoReference & left_georef,
+                                       vw::cartography::GeoReference & right_georef) {
 
   // Retrieve nodata values and let the handles go out of scope right away.
   // For this to work the ISIS type must be registered with the

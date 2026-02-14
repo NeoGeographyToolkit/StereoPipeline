@@ -365,17 +365,8 @@ void createImageMasks(ASPGlobalOptions & opt,
 /// The main preprocessing function
 void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
 
-  // Normalize the images, or create symlinks if the user chose to skip
-  // normalization. The preprocessing_hook handles both cases now.
+  // Perform image normalization and calc stats. Handle skip_image_normalization.
   std::string left_image_file, right_image_file;
-  bool skip_img_norm = asp::skip_image_normalization(opt);
-
-  // Bathymetry will not work with skipping image normalization.
-  if (skip_img_norm && asp::doBathy(asp::stereo_settings()))
-    vw_throw(ArgumentErr()
-             << "\nCannot do bathymetry when skipping image normalization.\n");
-
-  // Perform image normalization (or create symlinks and compute stats if skipping)
   opt.session->preprocessing_hook(adjust_left_image_size,
                                   opt.in_file1, opt.in_file2,
                                   left_image_file, right_image_file);
@@ -444,6 +435,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       check_image_sizes(opt.in_file2, right_mask_file);
     }
   } else {
+    bool skip_img_norm = asp::skip_image_normalization(opt);
     createImageMasks(opt, left_rsrc, right_rsrc, left_image, right_image,
                      skip_img_norm, has_left_georef, has_right_georef,
                      left_georef, right_georef, has_nodata, output_nodata,
