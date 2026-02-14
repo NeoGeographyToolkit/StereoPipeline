@@ -22,6 +22,7 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/ImageNormalization.h>
+#include <asp/Core/ImageUtils.h>
 #include <asp/Core/AspLog.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Tools/stereo.h>
@@ -286,22 +287,19 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
       (stereo_settings().subpixel_mode == 2 ||
        stereo_settings().subpixel_mode == 3)) {
     // Images were not normalized in pre-processing. Must do so now
-    // as bayes_em_subpixel assumes them to be normalized.
+    // as subpixel mode 2 and 3 assumes them to be normalized.
     ImageViewRef<uint8> left_mask,  right_mask;
     left_mask  = DiskImageView<uint8>(left_mask_file);
     right_mask = DiskImageView<uint8>(right_mask_file);
-
     ImageViewRef<PixelMask<float>> Limg
       = copy_mask(left_image, create_mask(left_mask));
     ImageViewRef<PixelMask<float>> Rimg
       = copy_mask(right_image, create_mask(right_mask));
-
-    Vector<float32> left_stats, right_stats;
-    std::string left_stats_file  = asp::leftStatsFile(opt.out_prefix);
-    std::string right_stats_file = asp::rightStatsFile(opt.out_prefix);
-    vw_out() << "Reading: " << left_stats_file << ' ' << right_stats_file << "\n";
-    read_vector(left_stats,  left_stats_file);
-    read_vector(right_stats, right_stats_file);
+    // By now the stats should be cached, but need to respect the API  
+    Vector6f left_stats  = gather_stats(Limg, "left", opt.out_prefix, left_image_file,
+                                         stereo_settings().force_reuse_match_files);
+    Vector6f right_stats = gather_stats(Rimg, "right", opt.out_prefix, right_image_file,
+                                         stereo_settings().force_reuse_match_files);
 
     bool use_percentile_stretch = false;
     bool do_not_exceed_min_max = (opt.session->name() == "isis" ||
