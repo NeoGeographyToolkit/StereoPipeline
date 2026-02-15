@@ -28,7 +28,7 @@
 #include <asp/Sessions/StereoSessionPinhole.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/BaseCameraUtils.h>
-#include <asp/asp_config.h>
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 
 #include <vw/Image/Transform.h>
 

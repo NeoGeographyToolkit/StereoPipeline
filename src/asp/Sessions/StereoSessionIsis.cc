@@ -88,7 +88,10 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
 
   float isis_lo = isis_rsrc->valid_minimum();
   float isis_hi = isis_rsrc->valid_maximum();
-
+  
+  std::cout.precision(17);
+  std::cout << "--isis low is " << isis_lo << " high is " << isis_hi << " nodata is " << nodata_value << std::endl;
+  
   // Force the low value to be greater than the nodata value
   if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo) {
     // The new lower bound is the next floating point number > nodata_value.
@@ -165,37 +168,37 @@ find_ideal_isis_range(ImageViewRef<float> const& image,
   return masked_image;
 }
 
-// Find the masked images and stats. This is reimplemented for ISIS to take 
-// into account special pixels.
-void StereoSessionIsis::
-calcStatsMaskedImages(// Inputs
-                      vw::ImageViewRef<float> const& left_cropped_image,
-                      vw::ImageViewRef<float> const& right_cropped_image,
-                      float left_nodata_value, float right_nodata_value,
-                      std::string const& left_input_file,
-                      std::string const& right_input_file,
-                      std::string const& left_cropped_file,
-                      std::string const& right_cropped_file,
-                      // Outputs
-                      vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
-                      vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
-                      vw::Vector6f & left_stats, 
-                      vw::Vector6f & right_stats) const {
+// // Find the masked images and stats. This is reimplemented for ISIS to take 
+// // into account special pixels.
+// void StereoSessionIsis::
+// calcStatsMaskedImages(// Inputs
+//                       vw::ImageViewRef<float> const& left_cropped_image,
+//                       vw::ImageViewRef<float> const& right_cropped_image,
+//                       float left_nodata_value, float right_nodata_value,
+//                       std::string const& left_input_file,
+//                       std::string const& right_input_file,
+//                       std::string const& left_cropped_file,
+//                       std::string const& right_cropped_file,
+//                       // Outputs
+//                       vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
+//                       vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
+//                       vw::Vector6f & left_stats, 
+//                       vw::Vector6f & right_stats) const {
 
-  // TODO: A lot of this normalization code should be shared with the base class!
-  // Mask the pixels outside of the isis range and <= nodata.
-  boost::shared_ptr<DiskImageResourceIsis>
-    left_isis_rsrc (new DiskImageResourceIsis(left_input_file)),
-    right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
-  left_masked_image
-    = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
-                            left_cropped_file, this->m_out_prefix,
-                            asp::stereo_settings().force_reuse_match_files, left_stats);
-  right_masked_image
-    = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
-                            right_cropped_file, this->m_out_prefix,
-                            asp::stereo_settings().force_reuse_match_files, right_stats);
-}
+//   // TODO: A lot of this normalization code should be shared with the base class!
+//   // Mask the pixels outside of the isis range and <= nodata.
+//   boost::shared_ptr<DiskImageResourceIsis>
+//     left_isis_rsrc (new DiskImageResourceIsis(left_input_file)),
+//     right_isis_rsrc(new DiskImageResourceIsis(right_input_file));
+//   left_masked_image
+//     = find_ideal_isis_range(left_cropped_image, left_isis_rsrc, left_nodata_value,
+//                             left_cropped_file, this->m_out_prefix,
+//                             asp::stereo_settings().force_reuse_match_files, left_stats);
+//   right_masked_image
+//     = find_ideal_isis_range(right_cropped_image, right_isis_rsrc, right_nodata_value,
+//                             right_cropped_file, this->m_out_prefix,
+//                             asp::stereo_settings().force_reuse_match_files, right_stats);
+// }
 
 bool StereoSessionIsis::supports_multi_threading () const {
   return false;

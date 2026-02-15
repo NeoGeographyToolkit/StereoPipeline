@@ -45,20 +45,20 @@ public:
   static SessionPtr construct() { return SessionPtr(new StereoSessionIsis); }
 
 protected:
-  // Find the masked images and stats. Reimplemented for ISIS to handle special pixels.
-  virtual void calcStatsMaskedImages(// Inputs
-                                     vw::ImageViewRef<float> const& left_cropped_image,
-                                     vw::ImageViewRef<float> const& right_cropped_image,
-                                     float left_nodata_value, float right_nodata_value,
-                                     std::string const& left_input_file,
-                                     std::string const& right_input_file,
-                                     std::string const& left_cropped_file,
-                                     std::string const& right_cropped_file,
-                                     // Outputs
-                                     vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
-                                     vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
-                                     vw::Vector6f & left_stats, 
-                                     vw::Vector6f & right_stats) const;
+  // // Find the masked images and stats. Reimplemented for ISIS to handle special pixels.
+  // virtual void calcStatsMaskedImages(// Inputs
+  //                                    vw::ImageViewRef<float> const& left_cropped_image,
+  //                                    vw::ImageViewRef<float> const& right_cropped_image,
+  //                                    float left_nodata_value, float right_nodata_value,
+  //                                    std::string const& left_input_file,
+  //                                    std::string const& right_input_file,
+  //                                    std::string const& left_cropped_file,
+  //                                    std::string const& right_cropped_file,
+  //                                    // Outputs
+  //                                    vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
+  //                                    vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
+  //                                    vw::Vector6f & left_stats, 
+  //                                    vw::Vector6f & right_stats) const;
 
   /// Function to load a camera model of the particular type
   virtual boost::shared_ptr<vw::camera::CameraModel>

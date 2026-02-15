@@ -36,7 +36,7 @@
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/asp_config.h>
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisInterface.h>

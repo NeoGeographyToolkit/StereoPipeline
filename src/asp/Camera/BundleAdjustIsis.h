@@ -22,7 +22,7 @@
 #ifndef __BUNDLE_ADJUST_ISIS_H__
 #define __BUNDLE_ADJUST_ISIS_H__
 
-#include <asp/asp_config.h>
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <isis/ControlNet.h>

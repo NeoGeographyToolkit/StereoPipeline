@@ -22,7 +22,7 @@
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/BaseCostFuns.h>
-#include <asp/asp_config.h>
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Core/Exception.h>

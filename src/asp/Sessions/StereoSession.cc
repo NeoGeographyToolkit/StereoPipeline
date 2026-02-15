@@ -18,9 +18,15 @@
 /// \file StereoSession.cc
 ///
 
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/IsisCameraModel.h>
+#endif // ASP_HAVE_PKG_ISIS
+
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
+#include <asp/IsisIO/IsisSpecialPixels.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Bathymetry.h>
 #include <asp/Core/BundleAdjustUtils.h>
@@ -31,13 +37,8 @@
 #include <asp/Core/ImageNormalization.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/FileUtils.h>
-#include <asp/asp_config.h>
-
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-#include <asp/IsisIO/IsisCameraModel.h>
-#endif // ASP_HAVE_PKG_ISIS
-
 #include <asp/Core/AlignmentUtils.h>
+#include <asp/IsisIO/DiskImageResourceIsis.h> // temporary
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -59,6 +60,7 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/math/special_functions/next.hpp> // boost::math::float_next
 
 #include <map>
 #include <utility>
@@ -455,6 +457,31 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   return cam;
 }
 
+// Adjust to take into account special pixels
+void adjustIsisImage(std::string const& input_file,
+                     float nodata_value,
+                     ImageViewRef<PixelMask<float>> & masked_image) {
+
+  boost::shared_ptr<DiskImageResourceIsis> isis_rsrc(new DiskImageResourceIsis(input_file));
+  float isis_lo = isis_rsrc->valid_minimum();
+  float isis_hi = isis_rsrc->valid_maximum();
+
+  // Force the low value to be greater than the nodata value
+  if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo) {
+    isis_lo = boost::math::float_next(nodata_value);
+    if (isis_hi < isis_lo)
+      isis_hi = isis_lo;
+  }
+
+  ImageViewRef<float> processed_image = vw::apply_mask(masked_image, isis_lo);
+  // Invalidate pixels outside range
+  masked_image = create_mask(processed_image, isis_lo, isis_hi);
+  processed_image = vw::apply_mask(masked_image, isis_lo);
+  // ISIS-aware removal of special pixels
+  processed_image = remove_isis_special_pixels(processed_image, isis_lo, isis_hi, isis_lo);
+  masked_image = vw::create_mask(processed_image, isis_lo);
+}
+
 // Find the masked images and stats. This will be reimplemented in StereoSessionIsis.
 void StereoSession::
 calcStatsMaskedImages(// Inputs
@@ -473,20 +500,32 @@ calcStatsMaskedImages(// Inputs
 
   left_masked_image = create_mask(left_cropped_image, left_nodata_value);
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
-
-  // Compute input image statistics. This can be slow so use a timer.
+  
+  // Handle ISIS special pixels. Check if the session is isis.
+  // TODO(oalexan1): Need to handle isismapisis and CSM with cub cameras. 
+  bool isIsis = (this->name() == "isis");
+  if (isIsis) {
+    adjustIsisImage(left_input_file, left_nodata_value, left_masked_image);
+    adjustIsisImage(right_input_file, right_nodata_value, right_masked_image);
+  }
+  
+  // Compute input image statistics. This can be slow so use a timer. For ISIS,
+  // do not exceed min and max as there could be special pixels.
+  bool adjust_min_max_with_std = isIsis && !stereo_settings().force_use_entire_range;
   vw::Stopwatch sw1;
   sw1.start();
   left_stats = gather_stats(left_masked_image,
                             this->m_out_prefix, left_cropped_file,
-                            asp::stereo_settings().force_reuse_match_files);
+                            asp::stereo_settings().force_reuse_match_files,
+                            adjust_min_max_with_std);
   sw1.stop();
   vw_out() << "Left image stats time: " << sw1.elapsed_seconds() << "\n";
   vw::Stopwatch sw2;
   sw2.start();
   right_stats = gather_stats(right_masked_image,
                              this->m_out_prefix, right_cropped_file,
-                             asp::stereo_settings().force_reuse_match_files);
+                             asp::stereo_settings().force_reuse_match_files,
+                             adjust_min_max_with_std);
   sw2.stop();
   vw_out() << "Right image stats time: " << sw2.elapsed_seconds() << "\n";
 

@@ -29,7 +29,7 @@
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/StereoTiling.h>
 #include <asp/Tools/stereo.h>
-#include <asp/asp_config.h>
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 
 // Support for ISIS image files
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1

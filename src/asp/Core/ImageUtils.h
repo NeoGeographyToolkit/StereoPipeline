@@ -74,7 +74,8 @@ vw::Vector<vw::float32,6>
 gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
              std::string const& out_prefix,
              std::string const& image_path,
-             bool force_reuse_cache = false);
+             bool force_reuse_cache = false,
+             bool adjust_min_max_with_std = false);
 
 // Checks if the given image file has an 8-bit channels
 bool hasByteChannels(const std::string& image_path);

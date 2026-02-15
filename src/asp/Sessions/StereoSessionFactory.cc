@@ -26,7 +26,7 @@
 #include <asp/Sessions/StereoSessionASTER.h>
 #include <asp/Camera/SPOT_XML.h>
 #include <asp/Camera/ASTER_XML.h>
-#include <asp/asp_config.h>
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 #include <asp/Core/StereoSettings.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1

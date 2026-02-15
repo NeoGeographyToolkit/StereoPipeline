@@ -228,7 +228,8 @@ vw::Vector<vw::float32,6>
 gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
              std::string const& out_prefix,
              std::string const& image_path,
-             bool force_reuse_cache) {
+             bool force_reuse_cache,
+             bool adjust_min_max_with_std) {
   
   vw_out(InfoMessage) << "Computing statistics for " + image_path << "\n";
 
@@ -296,6 +297,24 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
     result[3] = accumulator.approximate_stddev();
     result[4] = accumulator.quantile(0.02); // Percentile values
     result[5] = accumulator.quantile(0.98);
+
+    // Adjust lo/hi to be within 2 standard deviations of the mean, but do not
+    // exceed min and max. Thi is needed for ISIS which has special pixels. May
+    // become the default eventually or all uses as there is no point in
+    // normalizing to a range that is much wider than the actual pixel values.
+    if (adjust_min_max_with_std) {
+      vw_out(InfoMessage) << "\t--> Adjusting hi and lo to -+2 sigmas around mean.\n";
+      float lo   = result[0];
+      float hi   = result[1];
+      float mean = result[2];
+      float std  = result[3];
+      if (lo < mean - 2*std)
+        lo = mean - 2*std;
+      if (hi > mean + 2*std)
+        hi = mean + 2*std;
+      result[0] = lo;
+      result[1] = hi;
+    }
 
     // Cache the results to disk
     if (use_cache) {
