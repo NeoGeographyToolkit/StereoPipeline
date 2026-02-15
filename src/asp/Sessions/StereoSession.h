@@ -243,8 +243,8 @@ protected:
                                   vw::ImageViewRef<vw::PixelMask<float>> & Limg,
                                   vw::ImageViewRef<vw::PixelMask<float>> & Rimg);
 
-  // Find the masked images and stats. This will be reimplemented in StereoSessionIsis.
-  virtual void calcStatsMaskedImages(// Inputs
+  // Find the masked images and stats. Handles ISIS special pixels if needed.
+  void calcStatsMaskedImages(// Inputs
                                      vw::ImageViewRef<float> const& left_cropped_image,
                                      vw::ImageViewRef<float> const& right_cropped_image,
                                      float left_nodata_value, float right_nodata_value,
