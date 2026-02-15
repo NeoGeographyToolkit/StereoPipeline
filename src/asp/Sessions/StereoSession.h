@@ -245,18 +245,18 @@ protected:
 
   // Find the masked images and stats. Handles ISIS special pixels if needed.
   void calcStatsMaskedImages(// Inputs
-                                     vw::ImageViewRef<float> const& left_cropped_image,
-                                     vw::ImageViewRef<float> const& right_cropped_image,
-                                     float left_nodata_value, float right_nodata_value,
-                                     std::string const& left_input_file,
-                                     std::string const& right_input_file,
-                                     std::string const& left_cropped_file,
-                                     std::string const& right_cropped_file,
-                                     // Outputs
-                                     vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
-                                     vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
-                                     vw::Vector6f & left_stats, 
-                                     vw::Vector6f & right_stats) const;
+                             vw::ImageViewRef<float> const& left_cropped_image,
+                             vw::ImageViewRef<float> const& right_cropped_image,
+                             float left_nodata_value, float right_nodata_value,
+                             std::string const& left_input_file,
+                             std::string const& right_input_file,
+                             std::string const& left_cropped_file,
+                             std::string const& right_cropped_file,
+                             // Outputs
+                             vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
+                             vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
+                             vw::Vector6f & left_stats,
+                             vw::Vector6f & right_stats) const;
 
   // Find ip matches and determine the alignment matrices
   void imageAlignment(// Inputs

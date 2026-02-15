@@ -22,11 +22,11 @@
 
 namespace asp {
 
-// Replace ISIS special pixel values with given replacement values.
-// Specialize this only for float pixels, as that's all that is needed.
-vw::ImageViewRef<float>
-remove_isis_special_pixels(vw::ImageViewRef<float> const& image,
-                           float r_low, float r_high, float r_null);
+// Adjust a masked image to handle ISIS special pixels. Reads valid min/max
+// from the ISIS file and removes special pixels from the image.
+void adjustIsisImage(std::string const& input_file,
+                     float nodata_value,
+                     vw::ImageViewRef<vw::PixelMask<float>> & masked_image);
 
 } // end namespace asp
 

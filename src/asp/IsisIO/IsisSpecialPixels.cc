@@ -19,11 +19,15 @@
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
 #include <asp/IsisIO/IsisSpecialPixels.h>
+#include <asp/IsisIO/DiskImageResourceIsis.h>
 
 #include <vw/Core/Functors.h>
+#include <vw/Image/MaskViews.h>
 #include <vw/Image/PerPixelViews.h>
 #include <vw/Image/PixelTypes.h>
 #include <vw/Image/Filter.h>
+
+#include <boost/math/special_functions/next.hpp> // boost::math::float_next
 
 // Isis headers
 #include <isis/SpecialPixel.h>
@@ -126,12 +130,38 @@ public:
   }
 };
 
-// Specialize this only for float pixels, as that's all that is needed
+// Replace ISIS special pixel values with given replacement values.
+// Specialize this only for float pixels, as that's all that is needed.
 vw::ImageViewRef<float>
-remove_isis_special_pixels(vw::ImageViewRef<float> const& image,
-                           float r_low, float r_high, float r_null) {
+removeIsisSpecialPixels(vw::ImageViewRef<float> const& image,
+                        float r_low, float r_high, float r_null) {
   auto obj = IsisSpecialPixelFunc<float>(r_low, r_high, r_null);
   return vw::per_pixel_filter(image.impl(), obj);
+}
+
+// Adjust a masked image to handle ISIS special pixels
+void adjustIsisImage(std::string const& input_file,
+                     float nodata_value,
+                     vw::ImageViewRef<vw::PixelMask<float>> & masked_image) {
+
+  boost::shared_ptr<vw::DiskImageResourceIsis> isis_rsrc(new vw::DiskImageResourceIsis(input_file));
+  float isis_lo = isis_rsrc->valid_minimum();
+  float isis_hi = isis_rsrc->valid_maximum();
+
+  // Force the low value to be greater than the nodata value
+  if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo) {
+    isis_lo = boost::math::float_next(nodata_value);
+    if (isis_hi < isis_lo)
+      isis_hi = isis_lo;
+  }
+
+  vw::ImageViewRef<float> processed_image = vw::apply_mask(masked_image, isis_lo);
+  // Invalidate pixels outside range
+  masked_image = vw::create_mask(processed_image, isis_lo, isis_hi);
+  processed_image = vw::apply_mask(masked_image, isis_lo);
+  // ISIS-aware removal of special pixels
+  processed_image = removeIsisSpecialPixels(processed_image, isis_lo, isis_hi, isis_lo);
+  masked_image = vw::create_mask(processed_image, isis_lo);
 }
 
 } // end namespace asp

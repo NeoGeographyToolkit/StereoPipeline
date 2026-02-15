@@ -89,8 +89,6 @@ vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraMode
   return isis_cam->get_datum_isis(use_sphere_for_non_earth);
 }
 
-// TODO(oalexan1):  Can we share more code with the DG implementation?
-
 boost::shared_ptr<vw::camera::CameraModel>
 StereoSessionIsis::load_camera_model(std::string const& image_file,
                                      std::string const& camera_file,

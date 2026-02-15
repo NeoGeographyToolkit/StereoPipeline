@@ -38,7 +38,6 @@
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/AlignmentUtils.h>
-#include <asp/IsisIO/DiskImageResourceIsis.h> // temporary
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
@@ -60,7 +59,6 @@
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/math/special_functions/next.hpp> // boost::math::float_next
 
 #include <map>
 #include <utility>
@@ -457,32 +455,7 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   return cam;
 }
 
-// Adjust to take into account special pixels
-void adjustIsisImage(std::string const& input_file,
-                     float nodata_value,
-                     ImageViewRef<PixelMask<float>> & masked_image) {
-
-  boost::shared_ptr<DiskImageResourceIsis> isis_rsrc(new DiskImageResourceIsis(input_file));
-  float isis_lo = isis_rsrc->valid_minimum();
-  float isis_hi = isis_rsrc->valid_maximum();
-
-  // Force the low value to be greater than the nodata value
-  if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo) {
-    isis_lo = boost::math::float_next(nodata_value);
-    if (isis_hi < isis_lo)
-      isis_hi = isis_lo;
-  }
-
-  ImageViewRef<float> processed_image = vw::apply_mask(masked_image, isis_lo);
-  // Invalidate pixels outside range
-  masked_image = create_mask(processed_image, isis_lo, isis_hi);
-  processed_image = vw::apply_mask(masked_image, isis_lo);
-  // ISIS-aware removal of special pixels
-  processed_image = remove_isis_special_pixels(processed_image, isis_lo, isis_hi, isis_lo);
-  masked_image = vw::create_mask(processed_image, isis_lo);
-}
-
-// Find the masked images and stats. This will be reimplemented in StereoSessionIsis.
+// Find the masked images and stats. Handles ISIS special pixels if needed.
 void StereoSession::
 calcStatsMaskedImages(// Inputs
                       vw::ImageViewRef<float> const& left_cropped_image,
@@ -502,7 +475,8 @@ calcStatsMaskedImages(// Inputs
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
   
   // Handle ISIS special pixels. Check if the session is isis.
-  // TODO(oalexan1): Need to handle isismapisis and CSM with cub cameras. 
+  // TODO(oalexan1): Need to handle isismapisis (cameras need reading) and CSM
+  // with cub cameras. 
   bool isIsis = (this->name() == "isis");
   if (isIsis) {
     adjustIsisImage(left_input_file, left_nodata_value, left_masked_image);
