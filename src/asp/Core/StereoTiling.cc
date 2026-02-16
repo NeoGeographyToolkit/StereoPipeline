@@ -269,25 +269,25 @@ void produceDistTileList(std::string const& in_file1,
   for (int iy = 0; iy < tiles_ny; iy++) {
     for (int ix = 0; ix < tiles_nx; ix++) {
 
-      // Core tile position and size (without padding)
-      int core_x = intersection_pix.min().x() + ix * tile_size;
-      int core_y = intersection_pix.min().y() + iy * tile_size;
-      int core_w = std::min(tile_size, intersection_pix.max().x() - core_x);
-      int core_h = std::min(tile_size, intersection_pix.max().y() - core_y);
+      // Tile position and size (without padding)
+      int tile_x = intersection_pix.min().x() + ix * tile_size;
+      int tile_y = intersection_pix.min().y() + iy * tile_size;
+      int tile_w = std::min(tile_size, intersection_pix.max().x() - tile_x);
+      int tile_h = std::min(tile_size, intersection_pix.max().y() - tile_y);
 
-      // Write: core_start_x core_start_y core_width core_height
-      ofs << core_x << " " << core_y << " " << core_w << " " << core_h << "\n";
+      // Write: tile_x tile_y tile_w tile_h tile_padding
+      ofs << tile_x << " " << tile_y << " " << tile_w << " " << tile_h << " " << tile_padding << "\n";
 
-      // Convert core tile corners to projected coordinates for shapefile
+      // Convert tile corners to projected coordinates for shapefile
       std::vector<double> px(4), py(4);
       vw::Vector2 pt;
-      pt = georef1.pixel_to_point(vw::Vector2(core_x, core_y));
+      pt = georef1.pixel_to_point(vw::Vector2(tile_x, tile_y));
       px[0] = pt[0]; py[0] = pt[1];
-      pt = georef1.pixel_to_point(vw::Vector2(core_x + core_w, core_y));
+      pt = georef1.pixel_to_point(vw::Vector2(tile_x + tile_w, tile_y));
       px[1] = pt[0]; py[1] = pt[1];
-      pt = georef1.pixel_to_point(vw::Vector2(core_x + core_w, core_y + core_h));
+      pt = georef1.pixel_to_point(vw::Vector2(tile_x + tile_w, tile_y + tile_h));
       px[2] = pt[0]; py[2] = pt[1];
-      pt = georef1.pixel_to_point(vw::Vector2(core_x, core_y + core_h));
+      pt = georef1.pixel_to_point(vw::Vector2(tile_x, tile_y + tile_h));
       px[3] = pt[0]; py[3] = pt[1];
 
       // Append polygon

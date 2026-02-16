@@ -42,19 +42,6 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
-def run_stereo_prog(prog, opt, args, extra_args=[]):
-    '''Run a stereo program with the given arguments.'''
-    binpath = asp_system_utils.bin_path(prog)
-    call = [binpath]
-    call.extend(args)
-    call.extend(extra_args)
-    #if opt.dryrun or opt.verbose:
-    print(' '.join(call))
-    if not opt.dryrun:
-        status = subprocess.call(call)
-        if status != 0:
-            asp_system_utils.raise_error(prog + ' failed')
-
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
@@ -83,10 +70,10 @@ if __name__ == '__main__':
         asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
 
     # Run stereo_pprc with --stop-after-stats to compute statistics only
-    run_stereo_prog('stereo_pprc', opt, args, ['--stop-after-stats'])
+    stereo_run('stereo_pprc', args, opt, extra_args=['--stop-after-stats'])
 
     # Run stereo_parse to generate the tile list
     tile_params = ['--stereo-dist-tile-params', str(opt.tile_size), str(opt.tile_padding)]
-    run_stereo_prog('stereo_parse', opt, args, tile_params)
+    stereo_run('stereo_parse', args, opt, extra_args=tile_params)
 
     sys.exit(0)

@@ -468,13 +468,13 @@ calcStatsMaskedImages(// Inputs
                       // Outputs
                       vw::ImageViewRef<vw::PixelMask<float>> & left_masked_image,
                       vw::ImageViewRef<vw::PixelMask<float>> & right_masked_image,
-                      vw::Vector6f & left_stats, 
+                      vw::Vector6f & left_stats,
                       vw::Vector6f & right_stats) const {
 
   // Form the masked images
   left_masked_image = create_mask(left_cropped_image, left_nodata_value);
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
-  
+
   // Handle ISIS special pixels, for the isis session only. May need to use for
   // csm and isis mapprojected images.
   bool isIsis = (this->name() == "isis");
@@ -482,7 +482,7 @@ calcStatsMaskedImages(// Inputs
     adjustIsisImage(left_input_file, left_nodata_value, left_masked_image);
     adjustIsisImage(right_input_file, right_nodata_value, right_masked_image);
   }
-  
+
   // In --stereo-dist-mode, want the stats from the original images which should already exist
   std::string left_file, right_file;
   if (!asp::stereo_settings().stereo_dist_mode) {
@@ -495,7 +495,7 @@ calcStatsMaskedImages(// Inputs
 
   // For ISIS, do not exceed min and max as there could be special pixels
   bool adjust_min_max_with_std = isIsis && !stereo_settings().force_use_entire_range;
-  
+
   // Compute input image statistics
   vw::Stopwatch sw1;
   sw1.start();
@@ -620,7 +620,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
 
   ImageViewRef<PixelMask<float>> Limg, Rimg;
   bool isis_session = (this->name() == "isis" || this->name() == "isismapisis");
-  
+
   // Use no-data in interpolation and edge extension
   // TODO(oalexan1): Maybe using 0 for nodata_pix is not good. May need to use
   // -32768.0.
@@ -710,7 +710,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   vw_out() << "\t--> Writing: " << right_output_file << "\n";
   vw::Stopwatch sw4;
   sw4.start();
-  
+
   // With no alignment, do not crop the right image to have the same dimensions
   // as the left image. Since there is no alignment, and images may not be
   // georeferenced, we do not know what portion of the right image corresponds
@@ -718,7 +718,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   // and right images overlap.
   if (stereo_settings().alignment_method != "none")
     Rimg = crop(edge_extend(Rimg, ext_nodata), bounding_box(Limg));
-    
+
   block_write_gdal_image(right_output_file, apply_mask(Rimg, output_nodata),
                          has_right_georef, right_georef,
                          has_nodata, output_nodata, options,
@@ -824,7 +824,7 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
     crop_left = false;
     crop_right = false;
   }
-  
+
   // Here either the input image or the cropped images will be returned,
   // depending on whether the crop actually happens
   left_cropped_file = this->left_cropped_image(crop_left);
@@ -861,7 +861,7 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
       rebuild = true;
     }
   }
-  
+
   // These will throw if the files do not exist
   if (!rebuild && !crop_left && !crop_right) {
     try {
@@ -924,7 +924,7 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
                   << "dimensions than set via --left-image-crop-win.");
       }
     }
-    
+
     // Crop the georef as well
     vw_out() << "\t--> Writing cropped image: " << left_cropped_file << "\n";
     block_write_gdal_image(left_cropped_file,
@@ -957,7 +957,7 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
                   << "dimensions than set via --right-image-crop-win.");
       }
     }
-    
+
     // Crop the georef as well
     vw_out() << "\t--> Writing cropped image: " << right_cropped_file << "\n";
     block_write_gdal_image(right_cropped_file,
@@ -1098,7 +1098,7 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
     vw_throw(NoImplErr() << "Could not read: " << left_aligned_file);
 
   // Read alignment matrices
-  vw::Matrix<double> align_left_matrix 
+  vw::Matrix<double> align_left_matrix
    = asp::alignmentMatrix(this->m_out_prefix, asp::stereo_settings().alignment_method,
                               "left");
   vw::Matrix<double> align_right_matrix
@@ -1131,9 +1131,9 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
 
   // Read the georef of the cropped left and right images saved before the masks
   vw::cartography::GeoReference left_georef, right_georef;
-  bool has_left_georef  = read_georeference(left_georef,  
+  bool has_left_georef  = read_georeference(left_georef,
                                             this->left_cropped_image(crop_left));
-  bool has_right_georef = read_georeference(right_georef, 
+  bool has_right_georef = read_georeference(right_georef,
                                             this->right_cropped_image(crop_right));
 
   std::string left_aligned_bathy_mask_file = StereoSession::left_aligned_bathy_mask();
@@ -1256,7 +1256,7 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
 }
 
 vw::TransformPtr StereoSession::tx_left_homography() const {
-  vw::Matrix<double> tx 
+  vw::Matrix<double> tx
     = asp::alignmentMatrix(m_out_prefix, asp::stereo_settings().alignment_method,
                            "left");
   return vw::TransformPtr(new vw::HomographyTransform(tx));

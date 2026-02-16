@@ -120,11 +120,14 @@ def reduce_num_threads(cmd):
 
     return cmd
 
-# Run one of the stereo executables
 def stereo_run(prog, args, opt, **kw):
+    '''Run a stereo executable. Output is shown on screen as it happens.
+       Optional kw args: extra_args (list), msg (string for error message).'''
+    extra_args = kw.get('extra_args', [])
+    msg = kw.get('msg', prog)
+
     binpath = bin_path(prog)
-    call = [binpath]
-    call.extend(args)
+    call = [binpath] + args + extra_args
 
     call = reduce_num_threads(call)
 
@@ -147,7 +150,7 @@ def stereo_run(prog, args, opt, **kw):
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
     if code != 0:
-        raise Exception('Stereo step ' + kw['msg'] + ' failed')
+        raise Exception('Stereo step ' + msg + ' failed')
 
 def run_sparse_disp(args, opt):
 

@@ -30,10 +30,9 @@ libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
 sys.path.insert(0, basepath) # prepend to Python path
 sys.path.insert(0, pythonpath)
 sys.path.insert(0, libexecpath)
-
-import asp_system_utils, asp_string_utils, asp_cmd_utils
+# Import after setting up the paths
+import asp_system_utils, asp_string_utils, asp_cmd_utils, asp_stereo_utils, asp_alg_utils
 asp_system_utils.verify_python_version_is_supported()
-from asp_stereo_utils import * # must be after the path is altered above
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
@@ -41,6 +40,40 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 # Ensure we can look up the ASP libraries
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+
+def symlink_stats_files(out_prefix, tile_subdir, tile_prefix):
+    '''Symlink stats files from parent directory to tile subdir.'''
+    for f in glob.glob(out_prefix + '*stats.tif'):
+        if os.path.isdir(f):
+            continue
+        rel_src = os.path.relpath(f, tile_subdir)
+        dst_f = f.replace(out_prefix, tile_prefix)
+        if not os.path.lexists(dst_f):
+            os.symlink(rel_src, dst_f)
+
+def read_tile_list(out_prefix, tile_index):
+    '''Read the tile list file and return (BBox, padding) for the given tile index.'''
+    tile_list_file = out_prefix + '-distTileList.txt'
+    if not os.path.exists(tile_list_file):
+        asp_system_utils.raise_error('Tile list file not found: ' + tile_list_file)
+
+    tiles = []
+    with open(tile_list_file, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            if len(parts) != 5:
+                asp_system_utils.raise_error('Invalid tile list line: ' + line)
+            x, y, width, height, padding = [int(p) for p in parts]
+            tiles.append((asp_alg_utils.BBox(x, y, width, height), padding))
+
+    if tile_index < 0 or tile_index >= len(tiles):
+        asp_system_utils.raise_error('Tile index ' + str(tile_index) +
+                                     ' out of range [0, ' + str(len(tiles) - 1) + ']')
+
+    return tiles[tile_index]
 
 if __name__ == '__main__':
     usage = '''stereo_tile [options] <images> [<cameras>]
@@ -54,6 +87,8 @@ if __name__ == '__main__':
                    help='Display the commands being executed.')
     p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
                    help='Do not launch the jobs, only print the commands that should be run.')
+    p.add_argument('--tile-index', dest='tile_index', default=None, type=int,
+                   help='Index of the tile to process (0-based).')
 
     (opt, args) = p.parse_known_args()
     args = asp_cmd_utils.clean_args(args)
@@ -65,10 +100,35 @@ if __name__ == '__main__':
         p.print_help()
         asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
 
-    # TODO: Implement tile processing logic here
-    # Will call stereo_pprc, stereo_corr, stereo_rfne, stereo_fltr, stereo_tri
-    # with --stereo-dist-mode and tile-specific crop windows
+    if opt.tile_index is None:
+        asp_system_utils.raise_error('\nERROR: --tile-index is required', code=2)
 
-    print("stereo_tile: TODO - Implementation pending")
+    # Run stereo_parse to get settings
+    sep = ","
+    settings = asp_system_utils.run_and_parse_output("stereo_parse", args, sep,
+                                                      opt.verbose)
+    out_prefix = settings['out_prefix'][0]
+
+    print("Output prefix: " + out_prefix)
+    print("Tile index: " + str(opt.tile_index))
+
+    (tile, padding) = read_tile_list(out_prefix, opt.tile_index)
+    print("Tile: " + tile.name_str() + ", padding: " + str(padding))
+
+    # Create tile subdir
+    tile_subdir = out_prefix + '-' + tile.name_str()
+    asp_system_utils.mkdir_p(tile_subdir)
+    tile_prefix = tile_subdir + '/' + os.path.basename(out_prefix)
+
+    # Symlink stats files to the subdir
+    symlink_stats_files(out_prefix, tile_subdir, tile_prefix)
+
+    # Run stereo_pprc for this tile
+    crop_win = [str(tile.x), str(tile.y), str(tile.width), str(tile.height)]
+    extra_args = ['--output-prefix-override', tile_prefix,
+                  '--stereo-dist-mode',
+                  '--left-image-crop-win'] + crop_win + \
+                 ['--sgm-collar-size', str(padding)]
+    asp_stereo_utils.stereo_run('stereo_pprc', args, opt, extra_args=extra_args)
 
     sys.exit(0)
