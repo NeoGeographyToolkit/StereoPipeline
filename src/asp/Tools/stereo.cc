@@ -241,14 +241,16 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
                                stereo_settings().alignment_method == "epipolar");
 
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
   std::string match_filename;
   bool matches_as_txt = stereo_settings().matches_as_txt;
   if (have_aligned_matches)
     match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif",
                                             matches_as_txt);
   else
-    match_filename = asp::stereoMatchFile(opt.session->left_cropped_image(),
-                                          opt.session->right_cropped_image(),
+    match_filename = asp::stereoMatchFile(opt.session->left_cropped_image(crop_left),
+                                          opt.session->right_cropped_image(crop_right),
                                           opt.out_prefix, matches_as_txt);
   // The interest points must exist by now. But be tolerant of failure, as
   // this functionality is not critical.

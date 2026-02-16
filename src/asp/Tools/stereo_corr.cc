@@ -524,14 +524,15 @@ void lowres_correlation(ASPGlobalOptions & opt) {
   vw_out() << "\n[ " << current_posix_time_string()
            << " ]: Stage 1 --> LOW-RESOLUTION CORRELATION\n";
 
+  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+
   // Working out search range if need be
   if (stereo_settings().is_search_defined()) {
     vw_out() << "\t--> Using user-defined search range: " 
       << stereo_settings().search_range << "\n";
 
     // Update user provided search range based on input crops
-    bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-    bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
     if (crop_left && !crop_right)
       stereo_settings().search_range += stereo_settings().left_image_crop_win.min();
     if (!crop_left && crop_right)
@@ -552,8 +553,8 @@ void lowres_correlation(ASPGlobalOptions & opt) {
       match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif",
                                               matches_as_txt);
     else
-      match_filename = asp::stereoMatchFile(opt.session->left_cropped_image(),
-                                            opt.session->right_cropped_image(),
+      match_filename = asp::stereoMatchFile(opt.session->left_cropped_image(crop_left),
+                                            opt.session->right_cropped_image(crop_right),
                                             opt.out_prefix, matches_as_txt);
     // The interest points must exist by now
     if (!fs::exists(match_filename))

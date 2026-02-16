@@ -141,8 +141,8 @@ public:
 
   // Return the left and right cropped images. These are the same as
   // the input images unless the cropping is on.
-  std::string left_cropped_image() const;
-  std::string right_cropped_image() const;
+  std::string left_cropped_image(bool do_crop) const;
+  std::string right_cropped_image(bool do_crop) const;
 
   std::string left_aligned_bathy_mask() const;
   std::string right_aligned_bathy_mask() const;

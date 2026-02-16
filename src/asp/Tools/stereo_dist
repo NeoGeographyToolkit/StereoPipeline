@@ -42,6 +42,19 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
+def run_stereo_prog(prog, opt, args, extra_args=[]):
+    '''Run a stereo program with the given arguments.'''
+    binpath = asp_system_utils.bin_path(prog)
+    call = [binpath]
+    call.extend(args)
+    call.extend(extra_args)
+    #if opt.dryrun or opt.verbose:
+    print(' '.join(call))
+    if not opt.dryrun:
+        status = subprocess.call(call)
+        if status != 0:
+            raise_error(prog + ' failed')
+
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
@@ -54,6 +67,10 @@ if __name__ == '__main__':
                    help='Display the commands being executed.')
     p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
                    help='Do not launch the jobs, only print the commands that should be run.')
+    p.add_argument('--tile-size', dest='tile_size', default=1024, type=int,
+                   help='Size of each tile for distributed processing.')
+    p.add_argument('--tile-padding', dest='tile_padding', default=256, type=int,
+                   help='Padding around each tile to avoid boundary artifacts.')
 
     (opt, args) = p.parse_known_args()
     args = asp_cmd_utils.clean_args(args)
@@ -66,17 +83,10 @@ if __name__ == '__main__':
         raise_error('\nERROR: Missing input files', code=2)
 
     # Run stereo_pprc with --stop-after-stats to compute statistics only
-    binpath = asp_system_utils.bin_path('stereo_pprc')
-    call = [binpath]
-    call.extend(args)
-    call.extend(['--stop-after-stats'])
+    run_stereo_prog('stereo_pprc', opt, args, ['--stop-after-stats'])
 
-    if opt.dryrun or opt.verbose:
-        print(' '.join(call))
-
-    if not opt.dryrun:
-        status = subprocess.call(call)
-        if status != 0:
-            raise_error('stereo_pprc failed')
+    # Run stereo_parse to generate the tile list
+    tile_params = ['--stereo-dist-tile-params', str(opt.tile_size), str(opt.tile_padding)]
+    run_stereo_prog('stereo_parse', opt, args, tile_params)
 
     sys.exit(0)
