@@ -471,25 +471,36 @@ calcStatsMaskedImages(// Inputs
                       vw::Vector6f & left_stats, 
                       vw::Vector6f & right_stats) const {
 
+  // Form the masked images
   left_masked_image = create_mask(left_cropped_image, left_nodata_value);
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
   
-  // Handle ISIS special pixels. Check if the session is isis.
-  // TODO(oalexan1): Need to handle isismapisis (cameras need reading) and CSM
-  // with cub images. 
+  // Handle ISIS special pixels, fo the isis session only. May need to use for
+  // csm and isis mapprojected images.
   bool isIsis = (this->name() == "isis");
   if (isIsis) {
     adjustIsisImage(left_input_file, left_nodata_value, left_masked_image);
     adjustIsisImage(right_input_file, right_nodata_value, right_masked_image);
   }
   
-  // Compute input image statistics. This can be slow so use a timer. For ISIS,
-  // do not exceed min and max as there could be special pixels.
+  // In --stereo-dist-mode, want the stats from the original images which should already exist
+  std::string left_file, right_file;
+  if (!asp::stereo_settings().stereo_dist_mode) {
+    left_file = left_cropped_file;
+    right_file = right_cropped_file;
+  } else {
+    left_file = left_input_file;
+    right_file = right_input_file;
+  }
+
+  // For ISIS, do not exceed min and max as there could be special pixels
   bool adjust_min_max_with_std = isIsis && !stereo_settings().force_use_entire_range;
+  
+  // Compute input image statistics
   vw::Stopwatch sw1;
   sw1.start();
   left_stats = gather_stats(left_masked_image,
-                            this->m_out_prefix, left_cropped_file,
+                            this->m_out_prefix, left_file,
                             asp::stereo_settings().force_reuse_match_files,
                             adjust_min_max_with_std);
   sw1.stop();
@@ -497,12 +508,11 @@ calcStatsMaskedImages(// Inputs
   vw::Stopwatch sw2;
   sw2.start();
   right_stats = gather_stats(right_masked_image,
-                             this->m_out_prefix, right_cropped_file,
+                             this->m_out_prefix, right_file,
                              asp::stereo_settings().force_reuse_match_files,
                              adjust_min_max_with_std);
   sw2.stop();
   vw_out() << "Right image stats time: " << sw2.elapsed_seconds() << "\n";
-
 }
 
 // Create symlinks to the input images for skip_image_normalization mode.

@@ -7,22 +7,21 @@
 # Note: When packaged, the files with a .py extension will
 # not get a shell script wrapper. See add_executable() 
 # in BinaryDist.py.
-set(PYTHON_TOOLS cam2map4stereo.py    hiedr2mosaic.py
-                 lronac2mosaic.py     parse_match_file.py
-                 dg_mosaic            parallel_stereo
-                 sparse_disp          stereo
-                 time_trials          camera_calibrate
-                 camera_solve         parallel_sfs
-                 mapproject           parallel_bundle_adjust
-                 extract_bag          list_timestamps
-                 rig_bracket          texrecon
-                 theia_sfm            multi_stereo
-                 sfm_proc             refr_index
-                 stereo_sweep
-                 historical_helper.py 
-                 bathy_threshold_calc.py 
-                 scale_bathy_mask.py
-                 orbit_plot.py)
+set(PYTHON_TOOLS dg_mosaic             parallel_stereo
+                 sparse_disp           stereo
+                 time_trials           camera_calibrate
+                 camera_solve          parallel_sfs
+                 mapproject            parallel_bundle_adjust
+                 extract_bag           list_timestamps
+                 rig_bracket           texrecon
+                 theia_sfm             multi_stereo
+                 sfm_proc              refr_index
+                 stereo_sweep          stereo_dist
+                 stereo_tile
+                 cam2map4stereo.py     hiedr2mosaic.py
+                 lronac2mosaic.py      parse_match_file.py
+                 historical_helper.py  bathy_threshold_calc.py 
+                 scale_bathy_mask.py   orbit_plot.py)
 
 foreach(p ${PYTHON_TOOLS})
   INSTALL(FILES ${p} PERMISSIONS

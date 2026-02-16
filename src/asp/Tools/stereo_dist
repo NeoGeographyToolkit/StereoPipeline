@@ -1,0 +1,60 @@
+#!/usr/bin/env python
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2026, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+"""
+stereo_dist - Distributed stereo processing.
+"""
+
+import sys, argparse, subprocess, re, os, math, time, glob, shutil, platform
+import os.path as P
+
+# Set up the path to Python modules about to load
+basepath    = os.path.abspath(sys.path[0])
+pythonpath  = os.path.abspath(basepath + '/../Python')  # for dev ASP
+libexecpath = os.path.abspath(basepath + '/../libexec') # for packaged ASP
+sys.path.insert(0, basepath) # prepend to Python path
+sys.path.insert(0, pythonpath)
+sys.path.insert(0, libexecpath)
+
+import asp_system_utils, asp_string_utils, asp_cmd_utils
+asp_system_utils.verify_python_version_is_supported()
+from asp_stereo_utils import * # must be after the path is altered above
+
+# Prepend to system PATH
+os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
+
+# This is explained below
+if 'ASP_LIBRARY_PATH' in os.environ:
+    os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+
+def main():
+    """Main function for distributed stereo."""
+
+    parser = argparse.ArgumentParser(description='Distributed stereo processing.')
+
+    # TODO: Add command-line arguments
+
+    args, unknown = parser.parse_known_args()
+
+    print("stereo_dist: Distributed stereo processing")
+    print("TODO: Implementation pending")
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
