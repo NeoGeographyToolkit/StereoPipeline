@@ -53,7 +53,7 @@ def run_stereo_prog(prog, opt, args, extra_args=[]):
     if not opt.dryrun:
         status = subprocess.call(call)
         if status != 0:
-            raise_error(prog + ' failed')
+            asp_system_utils.raise_error(prog + ' failed')
 
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     if not args and not opt.version:
         p.print_help()
-        raise_error('\nERROR: Missing input files', code=2)
+        asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
 
     # Run stereo_pprc with --stop-after-stats to compute statistics only
     run_stereo_prog('stereo_pprc', opt, args, ['--stop-after-stats'])

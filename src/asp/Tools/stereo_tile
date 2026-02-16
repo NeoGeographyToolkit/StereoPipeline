@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     if not args and not opt.version:
         p.print_help()
-        raise_error('\nERROR: Missing input files', code=2)
+        asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
 
     # TODO: Implement tile processing logic here
     # Will call stereo_pprc, stereo_corr, stereo_rfne, stereo_fltr, stereo_tri

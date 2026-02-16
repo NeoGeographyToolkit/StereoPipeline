@@ -475,7 +475,7 @@ calcStatsMaskedImages(// Inputs
   left_masked_image = create_mask(left_cropped_image, left_nodata_value);
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
   
-  // Handle ISIS special pixels, fo the isis session only. May need to use for
+  // Handle ISIS special pixels, for the isis session only. May need to use for
   // csm and isis mapprojected images.
   bool isIsis = (this->name() == "isis");
   if (isIsis) {
@@ -576,12 +576,10 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                       left_nodata_value,  right_nodata_value,
                                       has_left_georef,    has_right_georef,
                                       left_georef,        right_georef);
-  
 
   if (exit_early)
     return;
-  
-  
+
   // For skip_image_normalization, use L.tif/R.tif paths for stats file naming
   // so that later stages (stereo_rfne) can find them.
   if (stereo_settings().skip_image_normalization) {
@@ -832,7 +830,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
   left_cropped_file = this->left_cropped_image(crop_left);
   right_cropped_file = this->right_cropped_image(crop_right);
 
-  
   // If the output files already exist and are newer than the input files, and
   // we don't crop both left and right images, then there is nothing to do here.
   // Note: Must make sure all outputs are initialized before we get to this part
@@ -852,8 +849,7 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
                (!first_is_newer(left_aligned_bathy_mask(), check_files) ||
                 !first_is_newer(right_aligned_bathy_mask(), check_files)));
   }
-  
-  
+
   // Consider the case of multi-band images
   if (!rebuild) {
     int lc = vw::get_num_channels(left_input_file);
@@ -892,8 +888,7 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
       vw_settings().reload_config();
     }
   } // End check for existing output files
-  
-  
+
   // Load the desired band. Subtract 1 to make it start from 0.
   int ch = asp::stereo_settings().band - 1;
   ImageViewRef<float> left_orig_image = vw::read_channel<float>(left_input_file, ch);
@@ -986,7 +981,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
     has_right_georef = false;
   }
 
-  
   return false; // don't exit early
 }
 
@@ -1260,7 +1254,6 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
   else
     right_image_crop = BBox2i(0, 0, right_size[0], right_size[1]);
 }
-
 
 vw::TransformPtr StereoSession::tx_left_homography() const {
   vw::Matrix<double> tx 
