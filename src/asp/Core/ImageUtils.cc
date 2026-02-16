@@ -61,12 +61,12 @@ void create_masked_dem(std::string const& dem_file,
                        vw::cartography::GeoReference & dem_georef,
                        vw::ImageViewRef<vw::PixelMask<double>> & masked_dem) {
   
-  vw_out() << "Loading DEM: " << dem_file << std::endl;
+  vw_out() << "Loading DEM: " << dem_file << "\n";
 
   // Read the no-data
   double nodata_val = -std::numeric_limits<float>::max(); // note we use a float nodata
   if (vw::read_nodata_val(dem_file, nodata_val))
-    vw_out() << "Found DEM nodata value: " << nodata_val << std::endl;
+    vw_out() << "Found DEM nodata value: " << nodata_val << "\n";
 
   // Create the interpolated DEM. Values out of bounds will be invalid.
   vw::PixelMask<double> invalid_val;
@@ -231,7 +231,7 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
              bool force_reuse_cache,
              bool adjust_min_max_with_std) {
   
-  vw_out(InfoMessage) << "Computing statistics for " + image_path << "\n";
+  vw_out() << "Computing statistics for " + image_path << "\n";
 
   Vector6f result;
   const bool use_cache = ((out_prefix != "") && (image_path != ""));
@@ -251,7 +251,7 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
   // Check if this stats file was computed after any image modifications.
   if ((use_cache && asp::first_is_newer(stats_file, image_path)) ||
       (force_reuse_cache && fs::exists(stats_file))) {
-    vw_out(InfoMessage) << "\t--> Reading statistics from file " + stats_file << std::endl;
+    vw_out() << "\tReading statistics from file " + stats_file << "\n";
     Vector<float32> stats;
     read_vector(stats, stats_file); // Just fetch the stats from the file on disk.
     result = stats;
@@ -280,10 +280,10 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
     float num_pixels = float(image.cols())*float(image.rows());
     int   stat_scale = int(ceil(sqrt(num_pixels / TARGET_NUM_PIXELS)));
 
-    vw_out(InfoMessage) << "Using downsample scale: " << stat_scale << std::endl;
+    vw_out() << "Using downsample scale: " << stat_scale << "\n";
 
     ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
-    vw::TerminalProgressCallback tp("asp","\t  stats:  ");
+    vw::TerminalProgressCallback tp("asp","\tstats: ");
     if (block_size[0] >= block_size[1]) // Rows are long, so go row by row
      for_each_pixel_rowwise(subsample(edge_extend(image, ConstantEdgeExtension()),
                                stat_scale), accumulator, tp);
@@ -303,7 +303,7 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
     // become the default eventually or all uses as there is no point in
     // normalizing to a range that is much wider than the actual pixel values.
     if (adjust_min_max_with_std) {
-      vw_out(InfoMessage) << "\t--> Adjusting hi and lo to -+2 sigmas around mean.\n";
+      vw_out() << "\t--> Adjusting hi and lo to -+2 sigmas around mean.\n";
       float lo   = result[0];
       float hi   = result[1];
       float mean = result[2];
@@ -318,15 +318,15 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
 
     // Cache the results to disk
     if (use_cache) {
-      vw_out() << "\t    Writing stats file: " << stats_file << std::endl;
+      vw_out() << "\tWriting stats file: " << stats_file << "\n";
       Vector<float32> stats = result;  // cast
       write_vector(stats_file, stats);
     }
 
   } // Done computing the results
 
-  vw_out(InfoMessage) << "\t: [ lo: " << result[0] << " hi: " << result[1]
-                      << " mean: " << result[2] << " std_dev: "  << result[3] << " ]\n";
+  vw_out() << "\tlo: " << result[0] << " hi: " << result[1]
+           << " mean: " << result[2] << " std_dev: " << result[3] << "\n";
 
   return result;
 } // end function gather_stats
