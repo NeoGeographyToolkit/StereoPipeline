@@ -476,7 +476,7 @@ calcStatsMaskedImages(// Inputs
   
   // Handle ISIS special pixels. Check if the session is isis.
   // TODO(oalexan1): Need to handle isismapisis (cameras need reading) and CSM
-  // with cub cameras. 
+  // with cub images. 
   bool isIsis = (this->name() == "isis");
   if (isIsis) {
     adjustIsisImage(left_input_file, left_nodata_value, left_masked_image);

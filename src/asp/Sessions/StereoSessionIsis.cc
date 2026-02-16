@@ -21,53 +21,18 @@
 #include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
-// Stereo Pipeline
-#include <asp/Core/AffineEpipolar.h>
-#include <asp/Core/StereoSettings.h>
-#include <asp/IsisIO/IsisCameraModel.h>
-#include <asp/IsisIO/DiskImageResourceIsis.h>
-#include <asp/IsisIO/IsisSpecialPixels.h>
 #include <asp/Sessions/StereoSessionIsis.h>
+#include <asp/IsisIO/IsisCameraModel.h>
 #include <asp/Core/BaseCameraUtils.h>
-#include <asp/Core/ImageUtils.h>
-#include <asp/Core/ImageNormalization.h>
 
-// Vision Workbench
-#include <vw/Core/Settings.h>
-#include <vw/Core/Log.h>
-#include <vw/Math/Functors.h>
-#include <vw/Image/Algorithms.h>
-#include <vw/Image/EdgeExtension.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Image/Manipulation.h>
-#include <vw/Image/ImageMath.h>
-#include <vw/Image/MaskViews.h>
-#include <vw/Image/Statistics.h>
-#include <vw/Image/Transform.h>
-#include <vw/FileIO/DiskImageView.h>
-#include <vw/FileIO/DiskImageResourceGDAL.h>
-#include <vw/FileIO/MatrixIO.h>
-#include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Stereo/DisparityMap.h>
-#include <vw/FileIO/MatrixIO.h>
 #include <vw/Cartography/Datum.h>
-#include <vw/FileIO/DiskImageUtils.h>
-#include <vw/Image/Filter.h>
-#include <vw/Core/Stopwatch.h>
 
-// Boost
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/math/special_functions/next.hpp> // boost::float_next
 #include <boost/shared_ptr.hpp>
-
-#include <algorithm>
 
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::cartography;
-namespace fs = boost::filesystem;
 
 namespace asp {
 
