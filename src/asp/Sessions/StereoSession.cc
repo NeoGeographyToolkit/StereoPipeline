@@ -567,7 +567,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   float left_nodata_value, right_nodata_value;
   bool has_left_georef, has_right_georef;
   vw::cartography::GeoReference left_georef, right_georef;
-  std::cout << "----pp4\n";
   bool exit_early =
     StereoSession::prepareInputImages(options,
                                       left_input_file,    right_input_file,
@@ -578,12 +577,10 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                                       has_left_georef,    has_right_georef,
                                       left_georef,        right_georef);
   
-  std::cout << "--exit early is " << exit_early << "\n";
 
   if (exit_early)
     return;
   
-  std::cout << "---3\n";
   
   // For skip_image_normalization, use L.tif/R.tif paths for stats file naming
   // so that later stages (stereo_rfne) can find them.
@@ -598,7 +595,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   // Set up the image masks and compute the stats. If the user provided a custom
   // no-data value, values no more than that have been masked by now in
   // prepareInputImages.
-  std::cout << "---1\n";
   this->calcStatsMaskedImages(// Inputs
                               left_cropped_image, right_cropped_image,
                               left_nodata_value, right_nodata_value,
@@ -675,9 +671,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
 
   } else {
     // No alignment, just provide the original files.
-    std::cout << "--will do no alignment, just use the original files.\n";
-    std::cout << "---left masked image size is " << left_masked_image.cols() << " x " << left_masked_image.rows() << "\n";
-    std::cout << "---right masked image size is " << right_masked_image.cols() << " x " << right_masked_image.rows() << "\n";
     if (!asp::stereo_settings().stereo_dist_mode) {
       Limg = left_masked_image;
       Rimg = right_masked_image;
@@ -686,6 +679,9 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
       // only after normalization avoiding an unnecessary write.
       Limg = crop(left_masked_image, asp::stereo_settings().left_image_crop_win);
       Rimg = crop(right_masked_image, asp::stereo_settings().right_image_crop_win);
+      // Also crop the georefs
+      left_georef = crop(left_georef, asp::stereo_settings().left_image_crop_win);
+      right_georef = crop(right_georef, asp::stereo_settings().right_image_crop_win);
     }
   } // End of image alignment block
 
@@ -804,7 +800,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
                            left_nodata_value, right_nodata_value);
   }
 
-  std::cout << "-0005\n";
   // Set output file paths
   left_output_file  = this->m_out_prefix + "-L.tif";
   right_output_file = this->m_out_prefix + "-R.tif";
@@ -822,9 +817,9 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
     has_right_georef = false;
   }
 
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
-  
+  bool crop_left  = do_crop_left();
+  bool crop_right = do_crop_right();
+
   // For --stereo-dist-mode will do the cropping when we normalize to avoid
   // an extra write.
   if (asp::stereo_settings().stereo_dist_mode) {
@@ -837,8 +832,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
   left_cropped_file = this->left_cropped_image(crop_left);
   right_cropped_file = this->right_cropped_image(crop_right);
 
-  std::cout << "---left cropped file: " << left_cropped_file << "\n";
-  std::cout << "---right cropped file: " << right_cropped_file << "\n";
   
   // If the output files already exist and are newer than the input files, and
   // we don't crop both left and right images, then there is nothing to do here.
@@ -860,7 +853,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
                 !first_is_newer(right_aligned_bathy_mask(), check_files)));
   }
   
-  std::cout << "---nnnnn\n";
   
   // Consider the case of multi-band images
   if (!rebuild) {
@@ -873,15 +865,12 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
       rebuild = true;
     }
   }
-  std::cout << "----uuuu4\n";
   
   // These will throw if the files do not exist
   if (!rebuild && !crop_left && !crop_right) {
     try {
       vw_log().console_log().rule_set().add_rule(-1, "fileio");
-      std::cout << "vvvv5\n";
       if (!asp::stereo_settings().stereo_dist_mode) {
-        std::cout << "--ccc6\n";
         DiskImageView<PixelGray<float32>> out_left (left_output_file);
         DiskImageView<PixelGray<float32>> out_right(right_output_file);
       }
@@ -894,7 +883,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
       if (!asp::stereo_settings().stereo_dist_mode)
         vw_out(InfoMessage) << "\t--> Using cached normalized input images.\n";
       vw_settings().reload_config();
-      std::cout << "----zz return true\n";
       if (!asp::stereo_settings().stereo_dist_mode)
         return true; // Return true if we exist early since the images exist
     } catch (vw::ArgumentErr const& e) {
@@ -905,7 +893,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
     }
   } // End check for existing output files
   
-  std::cout << "---0006\n";
   
   // Load the desired band. Subtract 1 to make it start from 0.
   int ch = asp::stereo_settings().band - 1;
@@ -991,7 +978,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
   }
 
   // Re-read the georef, since it may have changed above.
-  std::cout << "---try to read georef for left cropped file: " << left_cropped_file << "\n";
   has_left_georef  = read_georeference(left_georef,  left_cropped_file);
   has_right_georef = read_georeference(right_georef, right_cropped_file);
   if (stereo_settings().alignment_method != "none") {
@@ -1000,7 +986,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
     has_right_georef = false;
   }
 
-  std::cout << "---2\n";
   
   return false; // don't exit early
 }
@@ -1014,8 +999,8 @@ void StereoSession::read_bathy_masks(float & left_bathy_nodata, float & right_ba
 
   // The left image (after crop) better needs to have the same dims
   // as the left mask after crop, and same for the right
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  bool crop_left  = do_crop_left();
+  bool crop_right = do_crop_right();
   DiskImageView<float> left_image(this->left_cropped_image(crop_left));
   DiskImageView<float> right_image(this->right_cropped_image(crop_right));
   if (left_bathy_mask.cols() != left_image.cols()   ||
@@ -1059,8 +1044,8 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
   check_files.push_back(stereo_settings().left_bathy_mask);
   check_files.push_back(stereo_settings().right_bathy_mask);
 
-  bool crop_left  = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  bool crop_left  = do_crop_left();
+  bool crop_right = do_crop_right();
 
   bool rebuild = (!first_is_newer(left_aligned_bathy_mask(), check_files) ||
                   !first_is_newer(right_aligned_bathy_mask(), check_files));
@@ -1206,6 +1191,14 @@ std::string StereoSession::right_cropped_image(bool do_crop) const{
   return cropped_image;
 }
 
+bool StereoSession::do_crop_left() const {
+  return stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0);
+}
+
+bool StereoSession::do_crop_right() const {
+  return stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0);
+}
+
 // Apply epipolar alignment to images, if the camera models are pinhole. This will
 // be reimplemented in StereoSessionPinhole.
 void StereoSession::
@@ -1223,7 +1216,7 @@ std::string StereoSession::left_cropped_bathy_mask() const {
     vw_throw(ArgumentErr() << "The left cropped bathy mask is requested when "
               << "bathymetry mode is not on.");
 
-  bool crop_left = (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0));
+  bool crop_left = do_crop_left();
   if (!crop_left)
     return stereo_settings().left_bathy_mask;
 
@@ -1235,7 +1228,7 @@ std::string StereoSession::right_cropped_bathy_mask() const {
     vw_throw(ArgumentErr() << "The right cropped bathy mask is requested when "
               << "bathymetry mode is not on.");
 
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  bool crop_right = do_crop_right();
   if (!crop_right)
     return stereo_settings().right_bathy_mask;
 
@@ -1257,12 +1250,12 @@ void StereoSession::get_input_image_crops(vw::BBox2i &left_image_crop,
   Vector2i left_size  = file_image_size(m_left_image_file);
   Vector2i right_size = file_image_size(m_right_image_file);
 
-  if (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0))
+  if (do_crop_left())
     left_image_crop  = stereo_settings().left_image_crop_win;
   else
     left_image_crop = BBox2i(0, 0, left_size [0], left_size [1]);
 
-  if (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0))
+  if (do_crop_right())
     right_image_crop = stereo_settings().right_image_crop_win;
   else
     right_image_crop = BBox2i(0, 0, right_size[0], right_size[1]);
@@ -1289,8 +1282,8 @@ vw::TransformPtr StereoSession::tx_identity() const {
 }
 
 vw::TransformPtr StereoSession::tx_left_map_trans() const {
-  
-  bool crop_left = (stereo_settings().left_image_crop_win != BBox2i(0, 0, 0, 0));
+
+  bool crop_left = do_crop_left();
   std::string left_map_proj_image = this->left_cropped_image(crop_left);
   if (!m_left_map_proj_model)
     vw_throw(ArgumentErr() << "Map projection model not loaded for image "
@@ -1303,7 +1296,7 @@ vw::TransformPtr StereoSession::tx_left_map_trans() const {
 
 vw::TransformPtr StereoSession::tx_right_map_trans() const {
 
-  bool crop_right = (stereo_settings().right_image_crop_win != BBox2i(0, 0, 0, 0));
+  bool crop_right = do_crop_right();
   std::string right_map_proj_image = this->right_cropped_image(crop_right);
   if (!m_right_map_proj_model)
     vw_throw(ArgumentErr() << "Map projection model not loaded for image "

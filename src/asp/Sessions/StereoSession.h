@@ -144,6 +144,10 @@ public:
   std::string left_cropped_image(bool do_crop) const;
   std::string right_cropped_image(bool do_crop) const;
 
+  // Helper functions to check if cropping is enabled
+  bool do_crop_left() const;
+  bool do_crop_right() const;
+
   std::string left_aligned_bathy_mask() const;
   std::string right_aligned_bathy_mask() const;
 

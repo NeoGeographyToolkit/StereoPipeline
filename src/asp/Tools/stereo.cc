@@ -1312,6 +1312,9 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
 
   // Sanity check for distributed stereo mode
   if (stereo_settings().stereo_dist_mode) {
+    if (asp::doBathy(stereo_settings()))
+      vw_throw(ArgumentErr() << "Bathymetry correction is not supported in "
+                << "distributed stereo mode.\n");
     if (stereo_settings().alignment_method != "none")
       vw_throw(ArgumentErr() << "In distributed stereo mode the alignment method "
                 << "must be 'none'.\n");
