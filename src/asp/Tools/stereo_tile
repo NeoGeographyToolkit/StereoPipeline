@@ -38,23 +38,37 @@ from asp_stereo_utils import * # must be after the path is altered above
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-# This is explained below
+# Ensure we can look up the ASP libraries
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
-def main():
-    """Main function for tile processing."""
+if __name__ == '__main__':
+    usage = '''stereo_tile [options] <images> [<cameras>]
+                  <output_file_prefix> [DEM]
+        Process a single tile for distributed stereo.\n''' + asp_system_utils.get_asp_version()
 
-    parser = argparse.ArgumentParser(description='Process a single tile for distributed stereo.')
+    p = argparse.ArgumentParser(usage=usage)
+    p.add_argument('-v', '--version', dest='version', default=False, action='store_true',
+                   help='Display the version of software.')
+    p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
+                   help='Display the commands being executed.')
+    p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
+                   help='Do not launch the jobs, only print the commands that should be run.')
 
-    # TODO: Add command-line arguments
+    (opt, args) = p.parse_known_args()
+    args = asp_cmd_utils.clean_args(args)
 
-    args, unknown = parser.parse_known_args()
+    if opt.version:
+        asp_system_utils.print_version_and_exit()
 
-    print("stereo_tile: Process a single tile for distributed stereo")
-    print("TODO: Implementation pending")
+    if not args and not opt.version:
+        p.print_help()
+        raise_error('\nERROR: Missing input files', code=2)
 
-    return 0
+    # TODO: Implement tile processing logic here
+    # Will call stereo_pprc, stereo_corr, stereo_rfne, stereo_fltr, stereo_tri
+    # with --stereo-dist-mode and tile-specific crop windows
 
-if __name__ == "__main__":
-    sys.exit(main())
+    print("stereo_tile: TODO - Implementation pending")
+
+    sys.exit(0)

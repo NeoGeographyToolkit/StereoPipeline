@@ -245,7 +245,7 @@ def get_num_nodes(nodes_list):
 
         num_nodes = len(nodes)
     except Exception as e:
-        die(e)
+        raise_error(e)
     if num_nodes == 0:
         raise Exception('The list of computing nodes is empty')
 
@@ -819,7 +819,7 @@ if __name__ == '__main__':
 
     if not args and not opt.version:
         p.print_help()
-        die('\nERROR: Missing input files', code=2)
+        raise_error('\nERROR: Missing input files', code=2)
 
     # Ensure our 'parallel' is not out of date
     asp_system_utils.check_parallel_version()
@@ -878,7 +878,7 @@ if __name__ == '__main__':
     # the list is not in a temp dir of one of the nodes.
     if opt.tile_id is None and opt.nodes_list is not None:
         if not os.path.isfile(opt.nodes_list):
-            die('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
+            raise_error('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
         local_nodes_list = out_prefix + "-nodes-list.txt"
         mkdir_p(os.path.dirname(local_nodes_list))
         if opt.nodes_list != local_nodes_list:
@@ -1181,5 +1181,5 @@ if __name__ == '__main__':
                          msg='%d: Triangulation' % opt.entry_point)
 
         except Exception as e:
-            die(e)
+            raise_error(e)
             raise

@@ -38,23 +38,45 @@ from asp_stereo_utils import * # must be after the path is altered above
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-# This is explained below
+# Ensure we can look up the ASP libraries
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
-def main():
-    """Main function for distributed stereo."""
+if __name__ == '__main__':
+    usage = '''stereo_dist [options] <images> [<cameras>]
+                  <output_file_prefix> [DEM]
+        Distributed stereo processing.\n''' + asp_system_utils.get_asp_version()
 
-    parser = argparse.ArgumentParser(description='Distributed stereo processing.')
+    p = argparse.ArgumentParser(usage=usage)
+    p.add_argument('-v', '--version', dest='version', default=False, action='store_true',
+                   help='Display the version of software.')
+    p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
+                   help='Display the commands being executed.')
+    p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
+                   help='Do not launch the jobs, only print the commands that should be run.')
 
-    # TODO: Add command-line arguments
+    (opt, args) = p.parse_known_args()
+    args = asp_cmd_utils.clean_args(args)
 
-    args, unknown = parser.parse_known_args()
+    if opt.version:
+        asp_system_utils.print_version_and_exit()
 
-    print("stereo_dist: Distributed stereo processing")
-    print("TODO: Implementation pending")
+    if not args and not opt.version:
+        p.print_help()
+        raise_error('\nERROR: Missing input files', code=2)
 
-    return 0
+    # Run stereo_pprc with --stop-after-stats to compute statistics only
+    binpath = asp_system_utils.bin_path('stereo_pprc')
+    call = [binpath]
+    call.extend(args)
+    call.extend(['--stop-after-stats'])
 
-if __name__ == "__main__":
-    sys.exit(main())
+    if opt.dryrun or opt.verbose:
+        print(' '.join(call))
+
+    if not opt.dryrun:
+        status = subprocess.call(call)
+        if status != 0:
+            raise_error('stereo_pprc failed')
+
+    sys.exit(0)

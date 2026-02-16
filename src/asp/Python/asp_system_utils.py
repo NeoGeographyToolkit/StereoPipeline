@@ -29,8 +29,8 @@ import asp_string_utils, asp_cmd_utils
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
-def die(msg, code=-1):
-    '''Exit the program with a message'''
+def raise_error(msg, code=-1):
+    '''Exit the program with an error message'''
     print(msg, file=sys.stderr)
     sys.exit(code)
 
@@ -166,7 +166,7 @@ def getNumNodesInList(nodesListPath):
 
         num_nodes = len(nodes)
     except Exception as e: # Fail on exception
-        die(e)
+        raise_error(e)
     if num_nodes == 0:
         raise Exception('The list of computing nodes is empty')
 
@@ -177,7 +177,7 @@ def check_parallel_version():
     # product as that one bundles 'parallel' with it.
     ver = get_prog_version('parallel')
     if ver < '20170722':
-        die("Expecting a version of GNU parallel >= 20170722.")
+        raise_error("Expecting a version of GNU parallel >= 20170722.")
 
 # Add simple quotes around each argument which has quotes or spaces
 # and which is not already quoted. This is a bugfix for 3D CRS specified via

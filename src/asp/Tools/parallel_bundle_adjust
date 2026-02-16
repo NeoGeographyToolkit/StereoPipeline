@@ -65,7 +65,7 @@ def get_num_nodes(nodes_list):
 
         num_nodes = len(nodes)
     except Exception as e:
-        asp_system_utils.die(e)
+        asp_system_utils.raise_error(e)
     if num_nodes == 0:
         raise Exception('The list of computing nodes is empty')
 
@@ -392,7 +392,7 @@ if __name__ == '__main__':
         # to ensure it can be seen on any node.
         if opt.nodes_list is not None:
             if not os.path.isfile(opt.nodes_list):
-                asp_system_utils.die('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
+                asp_system_utils.raise_error('\nERROR: No such nodes-list file: ' + opt.nodes_list, code=2)
             local_nodes_list = output_prefix + "-nodes-list.txt"
             if opt.nodes_list != local_nodes_list:
                 asp_system_utils.mkdir_p(os.path.dirname(output_prefix))
@@ -526,5 +526,5 @@ if __name__ == '__main__':
             # The optimization step will not be done in parallel so is not here
 
         except Exception as e:
-            asp_system_utils.die(e)
+            asp_system_utils.raise_error(e)
             raise
