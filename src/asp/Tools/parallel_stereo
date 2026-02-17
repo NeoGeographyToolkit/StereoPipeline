@@ -38,10 +38,6 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
-# We will not symlink PC.tif and RD.tif which will be VRT files,
-# and neither the log files. We will symlink L.txt and R.txt.
-skip_symlink_expr = r'^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
-
 def check_system_memory(opt, args, settings):
     '''Issue a warning when doing correlation if our selected options
     are estimated to exceed available RAM. Currently only the ASP SGM
@@ -112,65 +108,6 @@ def sym_link_prev_run(prev_run_prefix, out_prefix):
                 os.remove(dst_f) # this could be some dangling thing
             os.symlink(rel_src, dst_f)
 
-def create_subdirs_symlink(opt, args, settings):
-    """
-    Create the list of tiles and the corresponding subdirectories. Create
-    symbolic links in each subdirectory to actual files in parent run directory.
-    Don't symlink to RD.tif or PC.tif as those will be files which actually need
-    to be created in each subdirectory. Return the created subdirectories, and
-    save their list to disk.
-    """
-    
-    out_prefix = settings['out_prefix'][0]
-    tiles = produce_tiles(opt, args, settings, opt.job_size_w, opt.job_size_h)
-    subdirs = readDirList(out_prefix)
-
-    try:
-        parentDir = os.path.dirname(out_prefix)
-        mkdir_p(parentDir)
-    except:
-        pass
-    
-    for tile_id in range(len(subdirs)):
-
-        tile        = tiles[tile_id]    
-        subdir      = subdirs[tile_id]
-        tile_prefix = subdir + "/" + tile.name_str()
-    
-        if opt.dryrun:
-            print("mkdir -p %s" % subdir)
-            print("Soft linking via %s %s" % (tile_prefix, out_prefix))
-            continue
-            
-        mkdir_p(subdir)
-        files = glob.glob(out_prefix + '*') # the files in the parent directory
-        for f in files:
-            if os.path.isdir(f): continue # Skip folders
-            rel_src = os.path.relpath(f, subdir)
-            m = re.match(skip_symlink_expr, rel_src)
-            if m: continue # won't sym link certain patterns
-            # Make a symlink from main folder to the tile folder
-            dst_f = f.replace(out_prefix, tile_prefix)
-            if os.path.lexists(dst_f): continue
-            os.symlink(rel_src, dst_f)
-
-    return subdirs
-
-def rename_files(settings, subdirs, postfix_in, postfix_out):
-    """
-      Rename tile_dir/file_in.tif to tile_dir/file_out.tif.
-      Skip symlinks, such as when this directory was processed before.
-    """
-    for subdir in subdirs:
-        tile = dirToTile(subdir)
-        prefix = subdir + "/" + tile.name_str()
-        filename_in  = prefix + postfix_in
-        filename_out = prefix + postfix_out
-        if os.path.isfile(filename_in) and (not os.path.islink(filename_in)):
-            if os.path.exists(filename_out):
-                os.remove(filename_out)
-            os.rename(filename_in, filename_out)
-
 def create_symlinks_for_multiview(opt, args, settings):
     """
     Running parallel_stereo for each pair in a multiview run
@@ -224,7 +161,6 @@ def create_symlinks_for_multiview(opt, args, settings):
                 if os.path.lexists(dst_f):
                     continue
                 os.symlink(rel_src, dst_f)
-
 
 def get_num_nodes(nodes_list):
 
@@ -408,18 +344,18 @@ def tile_run(prog, args, opt, settings, tile, **kw):
     if 'linux' in sys.platform and os.path.exists('/usr/bin/time'):
         timeCmd = ['/usr/bin/time', '-f', prog + \
                    ': elapsed=%E ([hours:]minutes:seconds), memory=%M (kb)']
-    
+
     try:
         # Get tile folder
         tile_dir_prefix = tile_dir(out_prefix, tile) + "/" + tile.name_str()
 
         # When using SGM correlation, increase the output tile size.
-        # - The output image will contain more populated pixels but 
+        # - The output image will contain more populated pixels but
         #   there will be no other change.
         adjusted_tile = grow_crop_tile_maybe(settings, prog, tile)
         if adjusted_tile.width <= 0 or adjusted_tile.height <= 0:
             return # the produced tile is empty
-        
+
         # Increase the processing block size for the tile so we process
         # the entire tile in one go.
         if use_padded_tiles(settings) and prog == 'stereo_corr':
@@ -469,7 +405,7 @@ def tile_run(prog, args, opt, settings, tile, **kw):
                 os.rename(Dnosym, D)
                 updateNumDoneTiles(out_prefix, prog, resetStatus)
                 return
-            
+
             # We are left with the situation that there is no image which is both
             # valid and not a symlink. Perhaps D does not exist or is corrupted.
             # Then wipe D and Dnosym, if present, and redo the correlation.
@@ -490,47 +426,12 @@ def tile_run(prog, args, opt, settings, tile, **kw):
 
         if status != 0:
             raise Exception('Stereo step ' + kw['msg'] + ' failed')
-        
+
         if status == 0:
           updateNumDoneTiles(out_prefix, prog, resetStatus)
 
     except OSError as e:
         raise Exception('%s: %s' % (binpath, e))
-
-def normal_run(prog, opt, args, out_prefix, **kw):
-    '''Job launch wrapper for a non-tile stereo call.'''
-
-    binpath = asp_system_utils.bin_path(prog)
-    call = [binpath]
-    call.extend(args)
-    
-    if opt.threads_single is not None:
-        asp_cmd_utils.wipe_option(call, '--threads', 1)
-        call.extend(['--threads', str(opt.threads_single)])
-    call = reduce_num_threads(call)
-
-    if opt.dryrun:
-        print('%s' % ' '.join(call))
-        return
-    
-    if prog != "stereo_tri":
-        # Do not print status for stereo_tri point cloud center calculation. Will 
-        # print the status later for triangulation for each tile.
-        resetStatus = True
-        updateNumDoneTiles(out_prefix, prog, resetStatus)
-        
-    if opt.verbose:
-        print('%s' % ' '.join(call))
-    try:
-        status = subprocess.call(call)
-    except OSError as e:
-        raise Exception('%s: %s' % (binpath, e))
-    if status != 0:
-        raise Exception('Stereo step ' + kw['msg'] + ' failed')
-
-    if status == 0 and prog != "stereo_tri":
-        resetStatus = False
-        updateNumDoneTiles(out_prefix, prog, resetStatus)
 
 def keepOnlySpecified(keep_only, out_prefix, subdirs, settings):
     """
@@ -608,16 +509,6 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs, settings):
     pc_file = glob.glob(out_prefix + "-PC.tif")
     if len(pc_file) > 0 and int(settings['correlator_mode'][0]) == 0:
         print("Output point cloud: " + pc_file[0])
-
-def set_collar_size(new_collar_size, args, settings):
-    """
-    Set collar_size to a new value, and update the settings and args.
-    """
-    
-    collar_size = new_collar_size
-    asp_cmd_utils.set_option(args, '--sgm-collar-size', [str(collar_size)])
-    settings['collar_size'] = [str(collar_size)]
-    return (settings, args)
 
 def parallel_stereo_args(p, opt, parallel_args, args):
     """

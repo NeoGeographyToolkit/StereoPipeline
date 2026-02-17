@@ -58,9 +58,6 @@ def stereo_alg_to_num(alg):
     # Use an external algorithm
     return VW_CORRELATION_OTHER
 
-#===================================================================================
-# Some of these functions is somewhat generic and could be moved.
-
 class Step:
     # The ids of individual stereo steps
     pprc  = 0
@@ -611,4 +608,99 @@ def build_vrt(prog, opt, args, settings, georef, postfix, tile_postfix, contract
     # End band loop
     f.write("</VRTDataset>\n")
     f.close()
+
+# We will not symlink PC.tif and RD.tif which will be VRT files,
+# and neither the log files. We will symlink L.txt and R.txt.
+skip_symlink_expr = r'^.*?-(PC\.tif|RD\.tif|log.*?\.txt)$'
+
+def create_subdirs_symlink(opt, args, settings):
+    '''Create tile subdirectories and symlink files from parent run directory.
+       Return the created subdirectories.'''
+    out_prefix = settings['out_prefix'][0]
+    tiles = produce_tiles(opt, args, settings, opt.job_size_w, opt.job_size_h)
+    subdirs = readDirList(out_prefix)
+
+    try:
+        parentDir = os.path.dirname(out_prefix)
+        mkdir_p(parentDir)
+    except:
+        pass
+
+    for tile_id in range(len(subdirs)):
+        tile = tiles[tile_id]
+        subdir = subdirs[tile_id]
+        tile_prefix = subdir + "/" + tile.name_str()
+
+        if opt.dryrun:
+            print("mkdir -p %s" % subdir)
+            print("Soft linking via %s %s" % (tile_prefix, out_prefix))
+            continue
+
+        mkdir_p(subdir)
+        files = glob.glob(out_prefix + '*')
+        for f in files:
+            if os.path.isdir(f):
+                continue
+            rel_src = os.path.relpath(f, subdir)
+            m = re.match(skip_symlink_expr, rel_src)
+            if m:
+                continue
+            dst_f = f.replace(out_prefix, tile_prefix)
+            if os.path.lexists(dst_f):
+                continue
+            os.symlink(rel_src, dst_f)
+
+    return subdirs
+
+def rename_files(settings, subdirs, postfix_in, postfix_out):
+    '''Rename tile_dir/file_in.tif to tile_dir/file_out.tif.
+       Skip symlinks, such as when this directory was processed before.'''
+    for subdir in subdirs:
+        tile = dirToTile(subdir)
+        prefix = subdir + "/" + tile.name_str()
+        filename_in = prefix + postfix_in
+        filename_out = prefix + postfix_out
+        if os.path.isfile(filename_in) and (not os.path.islink(filename_in)):
+            if os.path.exists(filename_out):
+                os.remove(filename_out)
+            os.rename(filename_in, filename_out)
+
+def set_collar_size(new_collar_size, args, settings):
+    '''Set collar_size to a new value, and update the settings and args.'''
+    collar_size = new_collar_size
+    asp_cmd_utils.set_option(args, '--sgm-collar-size', [str(collar_size)])
+    settings['collar_size'] = [str(collar_size)]
+    return (settings, args)
+
+def normal_run(prog, opt, args, out_prefix, **kw):
+    '''Job launch wrapper for a non-tile stereo call.'''
+    binpath = bin_path(prog)
+    call = [binpath]
+    call.extend(args)
+
+    if opt.threads_single is not None:
+        asp_cmd_utils.wipe_option(call, '--threads', 1)
+        call.extend(['--threads', str(opt.threads_single)])
+    call = reduce_num_threads(call)
+
+    if opt.dryrun:
+        print('%s' % ' '.join(call))
+        return
+
+    if prog != "stereo_tri":
+        resetStatus = True
+        updateNumDoneTiles(out_prefix, prog, resetStatus)
+
+    if opt.verbose:
+        print('%s' % ' '.join(call))
+    try:
+        status = subprocess.call(call)
+    except OSError as e:
+        raise Exception('%s: %s' % (binpath, e))
+    if status != 0:
+        raise Exception('Stereo step ' + kw['msg'] + ' failed')
+
+    if status == 0 and prog != "stereo_tri":
+        resetStatus = False
+        updateNumDoneTiles(out_prefix, prog, resetStatus)
 

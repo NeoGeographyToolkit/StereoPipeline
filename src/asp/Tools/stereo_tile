@@ -89,6 +89,10 @@ if __name__ == '__main__':
                    help='Do not launch the jobs, only print the commands that should be run.')
     p.add_argument('--tile-index', dest='tile_index', default=None, type=int,
                    help='Index of the tile to process (0-based).')
+    p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
+                   help='Stereo pipeline entry point (0=pprc, 1=corr, 2=blend, 3=rfne, 4=fltr, 5=tri).')
+    p.add_argument('--stop-point', dest='stop_point', default=6, type=int,
+                   help='Stereo pipeline stop point (stop before this step).')
 
     (opt, args) = p.parse_known_args()
     args = asp_cmd_utils.clean_args(args)
@@ -123,12 +127,31 @@ if __name__ == '__main__':
     # Symlink stats files to the subdir
     symlink_stats_files(out_prefix, tile_subdir, tile_prefix)
 
-    # Run stereo_pprc for this tile
+    # Common extra args for all steps
     crop_win = [str(tile.x), str(tile.y), str(tile.width), str(tile.height)]
     extra_args = ['--output-prefix-override', tile_prefix,
                   '--stereo-dist-mode',
                   '--left-image-crop-win'] + crop_win + \
                  ['--sgm-collar-size', str(padding)]
-    asp_stereo_utils.stereo_run('stereo_pprc', args, opt, extra_args=extra_args)
+
+    Step = asp_stereo_utils.Step
+
+    if opt.entry_point <= Step.pprc < opt.stop_point:
+        asp_stereo_utils.stereo_run('stereo_pprc', args, opt, extra_args=extra_args)
+
+    if opt.entry_point <= Step.corr < opt.stop_point:
+        asp_stereo_utils.stereo_run('stereo_corr', args, opt, extra_args=extra_args)
+
+    if opt.entry_point <= Step.blend < opt.stop_point:
+        asp_stereo_utils.stereo_run('stereo_blend', args, opt, extra_args=extra_args)
+
+    if opt.entry_point <= Step.rfne < opt.stop_point:
+        asp_stereo_utils.stereo_run('stereo_rfne', args, opt, extra_args=extra_args)
+
+    if opt.entry_point <= Step.fltr < opt.stop_point:
+        asp_stereo_utils.stereo_run('stereo_fltr', args, opt, extra_args=extra_args)
+
+    if opt.entry_point <= Step.tri < opt.stop_point:
+        asp_stereo_utils.stereo_run('stereo_tri', args, opt, extra_args=extra_args)
 
     sys.exit(0)
