@@ -42,6 +42,66 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
+def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
+    '''Run stereo_tile on all tiles using GNU Parallel.'''
+
+    tiles = readDistTileList(outPrefix)
+    numTiles = len(tiles)
+    if numTiles == 0:
+        raise Exception('No tiles found in tile list.')
+
+    print('Running stereo_tile on ' + str(numTiles) + ' tiles.')
+
+    # Create argument file for GNU parallel (one line per tile with tile index)
+    outputFolder = os.path.dirname(outPrefix)
+    if outputFolder == '':
+        outputFolder = '.'
+    argumentFilePath = outPrefix + '-tileArgs.txt'
+    with open(argumentFilePath, 'w') as f:
+        for tileIndex in range(numTiles):
+            f.write(str(tileIndex) + '\n')
+
+    # Set up GNU parallel arguments
+    parallelArgs = ['--will-cite', '--env', 'ASP_DEPS_DIR',
+                    '--env', 'PATH', '--env', 'LD_LIBRARY_PATH',
+                    '--env', 'ASP_LIBRARY_PATH', '--env', 'ISISROOT']
+
+    if opt.parallel_options is not None:
+        parallelArgs += opt.parallel_options.split(' ')
+
+    # Determine number of processes
+    numProcesses = opt.processes
+    if numProcesses is None:
+        numProcesses = asp_system_utils.get_num_cpus()
+
+    # Build stereo_tile command with placeholder for tile index
+    pythonPath = sys.executable
+    stereoTilePath = asp_system_utils.bin_path('stereo_tile')
+    commandList = [pythonPath, stereoTilePath,
+                   '--tile-index', '{1}',
+                   '--entry-point', str(tileEntryPoint),
+                   '--stop-point', str(tileStopPoint)]
+
+    if opt.verbose:
+        commandList.append('--verbose')
+    if opt.dryrun:
+        commandList.append('--dry-run')
+
+    # Add the stereo args
+    commandList += args
+
+    # Prepend parallel args
+    commandList = parallelArgs + commandList
+
+    if opt.dryrun:
+        print('Run GNU parallel with ' + str(numProcesses) + ' processes')
+        print('Command: ' + ' '.join(commandList))
+        return
+
+    # Run via GNU parallel
+    asp_system_utils.runInGnuParallel(numProcesses, argumentFilePath,
+                                      commandList, opt.nodes_list, opt.verbose)
+
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
@@ -58,6 +118,30 @@ if __name__ == '__main__':
                    help='Size of each tile for distributed processing.')
     p.add_argument('--tile-padding', dest='tile_padding', default=256, type=int,
                    help='Padding around each tile to avoid boundary artifacts.')
+    p.add_argument('--threads-multiprocess', dest='threads_multi', default=None, type=int,
+                   help='The number of threads to use per process when running multiple '
+                   'processes.')
+    p.add_argument('--threads-singleprocess', dest='threads_single', default=None, type=int,
+                   help='The number of threads to use when running a single process '
+                   '(PPRC and FLTR).')
+    p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
+                   help='Stereo pipeline entry point (0=pprc, 1=corr, 2=blend, 3=rfne, '
+                   '4=fltr, 5=tri, 6=cleanup).')
+    p.add_argument('--stop-point', dest='stop_point', default=7, type=int,
+                   help='Stereo pipeline stop point (stop before this step).')
+    p.add_argument('--processes', dest='processes', default=None, type=int,
+                   help='The number of processes to use per node.')
+    p.add_argument('--nodes-list', dest='nodes_list', default=None,
+                   help='A file containing the list of computing nodes, one per line. '
+                   'If not provided, run on the local machine.')
+    p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
+                   help='Options to pass directly to GNU Parallel.')
+
+    # Warn about --threads being ignored
+    if '--threads' in sys.argv:
+        print("Ignoring the option --threads. Use --threads-multiprocess "
+              "and --threads-singleprocess.")
+        asp_cmd_utils.wipe_option(sys.argv, '--threads', 1)
 
     (opt, args) = p.parse_known_args()
     args = asp_cmd_utils.clean_args(args)
@@ -69,11 +153,45 @@ if __name__ == '__main__':
         p.print_help()
         asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
 
-    # Run stereo_pprc with --stop-after-stats to compute statistics only
-    stereo_run('stereo_pprc', args, opt, extra_args=['--stop-after-stats'])
+    # Set default threads if not specified
+    if opt.threads_single is None:
+        opt.threads_single = asp_system_utils.get_num_cpus()
 
-    # Run stereo_parse to generate the tile list
+    # Run stereo_pprc with --stop-after-stats to compute statistics only
+    asp_cmd_utils.wipe_option(args, '--threads', 1)
+    pprc_args = ['--stop-after-stats', '--threads', str(opt.threads_single)]
+    stereo_run('stereo_pprc', args, opt, extra_args=pprc_args)
+
+    # Run stereo_parse to generate the tile list and get the output prefix
     tile_params = ['--stereo-dist-tile-params', str(opt.tile_size), str(opt.tile_padding)]
     stereo_run('stereo_parse', args, opt, extra_args=tile_params)
+
+    # Get the output prefix from stereo_parse
+    sep = ","
+    settings = asp_system_utils.run_and_parse_output("stereo_parse", args, sep, opt.verbose)
+    outPrefix = settings['out_prefix'][0]
+
+    # Run stereo_tile on all tiles for pprc only (entry_point=0, stop_point=1)
+    if opt.entry_point <= Step.pprc < opt.stop_point:
+        runStereoTiles(opt, args, outPrefix, Step.pprc, Step.corr)
+
+    # Run stereo_tile on all tiles for corr only (entry_point=1, stop_point=2)
+    if opt.entry_point <= Step.corr < opt.stop_point:
+        runStereoTiles(opt, args, outPrefix, Step.corr, Step.blend)
+
+    # Skip blend - in distributed stereo each tile goes to point cloud/DEM independently,
+    # then only final DEMs are merged. No cross-talk needed until DEM merging.
+
+    # Run stereo_tile on all tiles for rfne only (entry_point=3, stop_point=4)
+    if opt.entry_point <= Step.rfne < opt.stop_point:
+        runStereoTiles(opt, args, outPrefix, Step.rfne, Step.fltr)
+
+    # Run stereo_tile on all tiles for fltr only (entry_point=4, stop_point=5)
+    if opt.entry_point <= Step.fltr < opt.stop_point:
+        runStereoTiles(opt, args, outPrefix, Step.fltr, Step.tri)
+
+    # Run stereo_tile on all tiles for tri only (entry_point=5, stop_point=6)
+    if opt.entry_point <= Step.tri < opt.stop_point:
+        runStereoTiles(opt, args, outPrefix, Step.tri, Step.clean)
 
     sys.exit(0)

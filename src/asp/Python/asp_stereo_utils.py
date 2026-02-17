@@ -704,3 +704,22 @@ def normal_run(prog, opt, args, out_prefix, **kw):
         resetStatus = False
         updateNumDoneTiles(out_prefix, prog, resetStatus)
 
+def readDistTileList(outPrefix):
+    '''Read the distributed tile list file. Return list of (BBox, padding) tuples.'''
+    tileListFile = outPrefix + '-distTileList.txt'
+    if not os.path.exists(tileListFile):
+        raise Exception('Tile list file not found: ' + tileListFile)
+
+    tiles = []
+    with open(tileListFile, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            if len(parts) != 5:
+                raise Exception('Invalid tile list line: ' + line)
+            x, y, width, height, padding = [int(p) for p in parts]
+            tiles.append((BBox(x, y, width, height), padding))
+
+    return tiles

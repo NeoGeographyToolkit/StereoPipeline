@@ -41,39 +41,25 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
-def symlink_stats_files(out_prefix, tile_subdir, tile_prefix):
+def symlinkStatsFiles(outPrefix, tileSubdir, tilePrefix):
     '''Symlink stats files from parent directory to tile subdir.'''
-    for f in glob.glob(out_prefix + '*stats.tif'):
+    for f in glob.glob(outPrefix + '*stats.tif'):
         if os.path.isdir(f):
             continue
-        rel_src = os.path.relpath(f, tile_subdir)
-        dst_f = f.replace(out_prefix, tile_prefix)
-        if not os.path.lexists(dst_f):
-            os.symlink(rel_src, dst_f)
+        relSrc = os.path.relpath(f, tileSubdir)
+        dstF = f.replace(outPrefix, tilePrefix)
+        if not os.path.lexists(dstF):
+            os.symlink(relSrc, dstF)
 
-def read_tile_list(out_prefix, tile_index):
-    '''Read the tile list file and return (BBox, padding) for the given tile index.'''
-    tile_list_file = out_prefix + '-distTileList.txt'
-    if not os.path.exists(tile_list_file):
-        asp_system_utils.raise_error('Tile list file not found: ' + tile_list_file)
+def getTileByIndex(outPrefix, tileIndex):
+    '''Read the tile list and return (BBox, padding) for the given tile index.'''
+    tiles = asp_stereo_utils.readDistTileList(outPrefix)
 
-    tiles = []
-    with open(tile_list_file, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split()
-            if len(parts) != 5:
-                asp_system_utils.raise_error('Invalid tile list line: ' + line)
-            x, y, width, height, padding = [int(p) for p in parts]
-            tiles.append((asp_alg_utils.BBox(x, y, width, height), padding))
-
-    if tile_index < 0 or tile_index >= len(tiles):
-        asp_system_utils.raise_error('Tile index ' + str(tile_index) +
+    if tileIndex < 0 or tileIndex >= len(tiles):
+        asp_system_utils.raise_error('Tile index ' + str(tileIndex) +
                                      ' out of range [0, ' + str(len(tiles) - 1) + ']')
 
-    return tiles[tile_index]
+    return tiles[tileIndex]
 
 if __name__ == '__main__':
     usage = '''stereo_tile [options] <images> [<cameras>]
@@ -90,8 +76,9 @@ if __name__ == '__main__':
     p.add_argument('--tile-index', dest='tile_index', default=None, type=int,
                    help='Index of the tile to process (0-based).')
     p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
-                   help='Stereo pipeline entry point (0=pprc, 1=corr, 2=blend, 3=rfne, 4=fltr, 5=tri).')
-    p.add_argument('--stop-point', dest='stop_point', default=6, type=int,
+                   help='Stereo pipeline entry point (0=pprc, 1=corr, 2=blend, 3=rfne, '
+                   '4=fltr, 5=tri, 6=cleanup).')
+    p.add_argument('--stop-point', dest='stop_point', default=7, type=int,
                    help='Stereo pipeline stop point (stop before this step).')
 
     (opt, args) = p.parse_known_args()
@@ -111,27 +98,27 @@ if __name__ == '__main__':
     sep = ","
     settings = asp_system_utils.run_and_parse_output("stereo_parse", args, sep,
                                                       opt.verbose)
-    out_prefix = settings['out_prefix'][0]
+    outPrefix = settings['out_prefix'][0]
 
-    print("Output prefix: " + out_prefix)
+    print("Output prefix: " + outPrefix)
     print("Tile index: " + str(opt.tile_index))
 
-    (tile, padding) = read_tile_list(out_prefix, opt.tile_index)
+    (tile, padding) = getTileByIndex(outPrefix, opt.tile_index)
     print("Tile: " + tile.name_str() + ", padding: " + str(padding))
 
     # Create tile subdir
-    tile_subdir = out_prefix + '-' + tile.name_str()
-    asp_system_utils.mkdir_p(tile_subdir)
-    tile_prefix = tile_subdir + '/' + os.path.basename(out_prefix)
+    tileSubdir = outPrefix + '-' + tile.name_str()
+    asp_system_utils.mkdir_p(tileSubdir)
+    tilePrefix = tileSubdir + '/' + os.path.basename(outPrefix)
 
     # Symlink stats files to the subdir
-    symlink_stats_files(out_prefix, tile_subdir, tile_prefix)
+    symlinkStatsFiles(outPrefix, tileSubdir, tilePrefix)
 
     # Common extra args for all steps. For now only --corr-seed-mode 0 is supported,
-    # so D_sub is avoided. 
+    # so D_sub is avoided.
     # TODO(oalexan1): Enable using --corr-seed-mode 2 and 3. Maybe that will require
     # seeding directly D.tif.
-    extra_args = ['--output-prefix-override', tile_prefix,
+    extraArgs = ['--output-prefix-override', tilePrefix,
                   '--stereo-dist-mode',
                   '--skip-low-res-disparity-comp',
                   '--corr-seed-mode', '0',
@@ -142,22 +129,21 @@ if __name__ == '__main__':
     Step = asp_stereo_utils.Step
 
     if opt.entry_point <= Step.pprc < opt.stop_point:
-        asp_stereo_utils.stereo_run('stereo_pprc', args, opt, extra_args=extra_args)
+        asp_stereo_utils.stereo_run('stereo_pprc', args, opt, extra_args=extraArgs)
 
     if opt.entry_point <= Step.corr < opt.stop_point:
-        asp_stereo_utils.stereo_run('stereo_corr', args, opt, extra_args=extra_args)
+        asp_stereo_utils.stereo_run('stereo_corr', args, opt, extra_args=extraArgs)
 
-    # Skip blend for now - it requires dirList.txt with all tile directories.
-    # TODO(oalexan1): Ensure dirList.txt is compatible with stereo_tile tiling logic.
-    # stereo_dist will run all tiles for corr, then all tiles for blend with cross-talk.
+    # Skip blend - in distributed stereo each tile goes to point cloud/DEM independently,
+    # then only final DEMs are merged. No cross-talk needed until DEM merging.
 
     if opt.entry_point <= Step.rfne < opt.stop_point:
-        asp_stereo_utils.stereo_run('stereo_rfne', args, opt, extra_args=extra_args)
+        asp_stereo_utils.stereo_run('stereo_rfne', args, opt, extra_args=extraArgs)
 
     if opt.entry_point <= Step.fltr < opt.stop_point:
-        asp_stereo_utils.stereo_run('stereo_fltr', args, opt, extra_args=extra_args)
+        asp_stereo_utils.stereo_run('stereo_fltr', args, opt, extra_args=extraArgs)
 
     if opt.entry_point <= Step.tri < opt.stop_point:
-        asp_stereo_utils.stereo_run('stereo_tri', args, opt, extra_args=extra_args)
+        asp_stereo_utils.stereo_run('stereo_tri', args, opt, extra_args=extraArgs)
 
     sys.exit(0)
