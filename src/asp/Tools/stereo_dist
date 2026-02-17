@@ -166,8 +166,8 @@ if __name__ == '__main__':
                    '(PPRC and FLTR).')
     p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
                    help='Stereo pipeline entry point (0=pprc, 1=corr, 2=blend, 3=rfne, '
-                   '4=fltr, 5=tri, 7=cleanup, 8=dem).')
-    p.add_argument('--stop-point', dest='stop_point', default=9, type=int,
+                   '4=fltr, 5=tri, 6=cleanup, 7=dem).')
+    p.add_argument('--stop-point', dest='stop_point', default=8, type=int,
                    help='Stereo pipeline stop point (stop before this step).')
     p.add_argument('--point2dem-options', dest='point2dem_options', default='',
                    help='Options to pass to point2dem.')
@@ -237,15 +237,15 @@ if __name__ == '__main__':
     if opt.entry_point <= Step.fltr < opt.stop_point:
         runStereoTiles(opt, args, outPrefix, Step.fltr, Step.tri)
 
-    # Run stereo_tile on all tiles for tri only (entry_point=5, stop_point=7)
+    # Run stereo_tile on all tiles for tri only (entry_point=5, stop_point=6)
     if opt.entry_point <= Step.tri < opt.stop_point:
         runStereoTiles(opt, args, outPrefix, Step.tri, Step.clean)
 
-    # Cleanup step (entry_point=7, stop_point=8)
+    # Cleanup step (entry_point=6, stop_point=7)
     if opt.entry_point <= Step.clean < opt.stop_point:
         runStereoTiles(opt, args, outPrefix, Step.clean, Step.dem)
 
-    # Run point2dem on all tiles (entry_point=8, stop_point=9)
+    # Run point2dem on all tiles (entry_point=7, stop_point=8)
     if opt.entry_point <= Step.dem < opt.stop_point:
         runStereoTiles(opt, args, outPrefix, Step.dem, Step.dem + 1)
         # TODO(oalexan1): The mosaic step must be parallelized too. First merge say
