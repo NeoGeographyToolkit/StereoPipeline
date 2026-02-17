@@ -1173,15 +1173,27 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
 // as the input images unless the cropping is on.
 std::string StereoSession::left_cropped_image(bool do_crop) const{
   std::string cropped_image = m_left_image_file;
-  if (do_crop)
-    cropped_image = m_out_prefix + "-L-cropped.tif";
+  if (do_crop) {
+    // In stereo_dist_mode, the cropped and normalized image is L.tif, L-cropped.tif is skipped
+    if (stereo_settings().stereo_dist_mode)
+      cropped_image = m_out_prefix + "-L.tif";
+    else
+      cropped_image = m_out_prefix + "-L-cropped.tif";
+  }
+  std::cout << "left_cropped_image: " << cropped_image << "\n";
   return cropped_image;
 }
 
 std::string StereoSession::right_cropped_image(bool do_crop) const{
   std::string cropped_image = m_right_image_file;
-  if (do_crop)
-    cropped_image = m_out_prefix + "-R-cropped.tif";
+  if (do_crop) {
+    // In stereo_dist_mode, the cropped and normalized image is R.tif, R-cropped.tif is skipped
+    if (stereo_settings().stereo_dist_mode)
+      cropped_image = m_out_prefix + "-R.tif";
+    else
+      cropped_image = m_out_prefix + "-R-cropped.tif";
+  }
+  std::cout << "right_cropped_image: " << cropped_image << "\n";
   return cropped_image;
 }
 

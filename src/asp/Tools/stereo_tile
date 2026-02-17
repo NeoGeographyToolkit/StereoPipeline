@@ -127,12 +127,17 @@ if __name__ == '__main__':
     # Symlink stats files to the subdir
     symlink_stats_files(out_prefix, tile_subdir, tile_prefix)
 
-    # Common extra args for all steps
-    crop_win = [str(tile.x), str(tile.y), str(tile.width), str(tile.height)]
+    # Common extra args for all steps. For now only --corr-seed-mode 0 is supported,
+    # so D_sub is avoided. 
+    # TODO(oalexan1): Enable using --corr-seed-mode 2 and 3. Maybe that will require
+    # seeding directly D.tif.
     extra_args = ['--output-prefix-override', tile_prefix,
                   '--stereo-dist-mode',
-                  '--left-image-crop-win'] + crop_win + \
-                 ['--sgm-collar-size', str(padding)]
+                  '--skip-low-res-disparity-comp',
+                  '--corr-seed-mode', '0',
+                  '--left-image-crop-win',
+                  str(tile.x), str(tile.y), str(tile.width), str(tile.height),
+                  '--sgm-collar-size', str(padding)]
 
     Step = asp_stereo_utils.Step
 
@@ -142,8 +147,9 @@ if __name__ == '__main__':
     if opt.entry_point <= Step.corr < opt.stop_point:
         asp_stereo_utils.stereo_run('stereo_corr', args, opt, extra_args=extra_args)
 
-    if opt.entry_point <= Step.blend < opt.stop_point:
-        asp_stereo_utils.stereo_run('stereo_blend', args, opt, extra_args=extra_args)
+    # Skip blend for now - it requires dirList.txt with all tile directories.
+    # TODO(oalexan1): Ensure dirList.txt is compatible with stereo_tile tiling logic.
+    # stereo_dist will run all tiles for corr, then all tiles for blend with cross-talk.
 
     if opt.entry_point <= Step.rfne < opt.stop_point:
         asp_stereo_utils.stereo_run('stereo_rfne', args, opt, extra_args=extra_args)
