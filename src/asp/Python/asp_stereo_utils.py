@@ -66,7 +66,8 @@ class Step:
     rfne  = 3
     fltr  = 4
     tri   = 5
-    clean = 6
+    clean = 7  # parallel_stereo stops here
+    dem   = 8  # only used by stereo_dist
 
 def stereoProgName(step):
     '''

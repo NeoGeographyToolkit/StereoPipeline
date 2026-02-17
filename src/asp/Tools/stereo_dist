@@ -102,6 +102,103 @@ def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
     asp_system_utils.runInGnuParallel(numProcesses, argumentFilePath,
                                       commandList, opt.nodes_list, opt.verbose)
 
+def runPoint2dem(opt, outPrefix):
+    '''Run point2dem on all tiles using GNU Parallel.'''
+
+    tiles = readDistTileList(outPrefix)
+    numTiles = len(tiles)
+    if numTiles == 0:
+        raise Exception('No tiles found in tile list.')
+
+    print('Running point2dem on ' + str(numTiles) + ' tiles.')
+
+    # Create argument file for GNU parallel (one line per tile with PC.tif path)
+    argumentFilePath = outPrefix + '-point2demArgs.txt'
+    with open(argumentFilePath, 'w') as f:
+        for (tile, padding) in tiles:
+            tileSubdir = outPrefix + '-' + tile.name_str()
+            tilePrefix = tileSubdir + '/' + os.path.basename(outPrefix)
+            pcFile = tilePrefix + '-PC.tif'
+            f.write(pcFile + '\n')
+
+    # Set up GNU parallel arguments
+    parallelArgs = ['--will-cite', '--env', 'ASP_DEPS_DIR',
+                    '--env', 'PATH', '--env', 'LD_LIBRARY_PATH',
+                    '--env', 'ASP_LIBRARY_PATH', '--env', 'ISISROOT']
+
+    if opt.parallel_options is not None:
+        parallelArgs += opt.parallel_options.split(' ')
+
+    # Determine number of processes
+    numProcesses = opt.processes
+    if numProcesses is None:
+        numProcesses = asp_system_utils.get_num_cpus()
+
+    # Build point2dem command with placeholder for PC.tif path
+    point2demPath = asp_system_utils.bin_path('point2dem')
+    commandList = [point2demPath]
+
+    # Add point2dem options
+    if opt.point2dem_options:
+        commandList += opt.point2dem_options.split()
+
+    # Add the PC.tif placeholder
+    commandList.append('{1}')
+
+    # Prepend parallel args
+    commandList = parallelArgs + commandList
+
+    if opt.dryrun:
+        print('Run GNU parallel with ' + str(numProcesses) + ' processes')
+        print('Command: ' + ' '.join(commandList))
+        return
+
+    # Run via GNU parallel
+    asp_system_utils.runInGnuParallel(numProcesses, argumentFilePath,
+                                      commandList, opt.nodes_list, opt.verbose)
+
+def mosaicDems(opt, outPrefix):
+    '''Collect per-tile DEMs and mosaic them using dem_mosaic.'''
+
+    tiles = readDistTileList(outPrefix)
+    numTiles = len(tiles)
+    if numTiles == 0:
+        raise Exception('No tiles found in tile list.')
+
+    # Collect DEM files that exist
+    demFiles = []
+    for (tile, padding) in tiles:
+        tileSubdir = outPrefix + '-' + tile.name_str()
+        tilePrefix = tileSubdir + '/' + os.path.basename(outPrefix)
+        demFile = tilePrefix + '-DEM.tif'
+        if os.path.exists(demFile):
+            demFiles.append(demFile)
+
+    if len(demFiles) == 0:
+        raise Exception('No DEM files found in tile directories.')
+
+    print('Found ' + str(len(demFiles)) + ' DEM files to mosaic.')
+
+    # Write DEM list file
+    demListFile = outPrefix + '-DEM-list.txt'
+    with open(demListFile, 'w') as f:
+        for demFile in demFiles:
+            f.write(demFile + '\n')
+
+    # Build dem_mosaic command
+    demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
+    outputDem = outPrefix + '-DEM.tif'
+    commandList = [demMosaicPath, '--dem-list', demListFile, '-o', outputDem]
+
+    if opt.dryrun:
+        print('Command: ' + ' '.join(commandList))
+        return
+
+    if opt.verbose:
+        print(' '.join(commandList))
+
+    subprocess.call(commandList)
+
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
@@ -126,9 +223,11 @@ if __name__ == '__main__':
                    '(PPRC and FLTR).')
     p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
                    help='Stereo pipeline entry point (0=pprc, 1=corr, 2=blend, 3=rfne, '
-                   '4=fltr, 5=tri, 6=cleanup).')
-    p.add_argument('--stop-point', dest='stop_point', default=7, type=int,
+                   '4=fltr, 5=tri, 7=cleanup, 8=dem).')
+    p.add_argument('--stop-point', dest='stop_point', default=9, type=int,
                    help='Stereo pipeline stop point (stop before this step).')
+    p.add_argument('--point2dem-options', dest='point2dem_options', default='',
+                   help='Options to pass to point2dem.')
     p.add_argument('--processes', dest='processes', default=None, type=int,
                    help='The number of processes to use per node.')
     p.add_argument('--nodes-list', dest='nodes_list', default=None,
@@ -152,6 +251,11 @@ if __name__ == '__main__':
     if not args and not opt.version:
         p.print_help()
         asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
+
+    # Validate --tr is in point2dem options when DEM step will run
+    if opt.entry_point <= Step.dem < opt.stop_point and '--tr' not in opt.point2dem_options:
+        asp_system_utils.raise_error('\nERROR: --point2dem-options must include --tr to '
+                                     'ensure consistent grid size across all tiles.')
 
     # Set default threads if not specified
     if opt.threads_single is None:
@@ -190,8 +294,20 @@ if __name__ == '__main__':
     if opt.entry_point <= Step.fltr < opt.stop_point:
         runStereoTiles(opt, args, outPrefix, Step.fltr, Step.tri)
 
-    # Run stereo_tile on all tiles for tri only (entry_point=5, stop_point=6)
+    # Run stereo_tile on all tiles for tri only (entry_point=5, stop_point=7)
     if opt.entry_point <= Step.tri < opt.stop_point:
         runStereoTiles(opt, args, outPrefix, Step.tri, Step.clean)
+
+    # Cleanup step (entry_point=7, stop_point=8)
+    # TODO(oalexan1): Implement cleanup
+    if opt.entry_point <= Step.clean < opt.stop_point:
+        print('Cleanup step not yet implemented.')
+
+    # Run point2dem on all tiles (entry_point=8, stop_point=9)
+    if opt.entry_point <= Step.dem < opt.stop_point:
+        runPoint2dem(opt, outPrefix)
+        # TODO(oalexan1): The mosaic step must be parallelized too. First merge say
+        # 2x2 tiles into 1, then merge those too so in a pyramid fashion.
+        mosaicDems(opt, outPrefix)
 
     sys.exit(0)

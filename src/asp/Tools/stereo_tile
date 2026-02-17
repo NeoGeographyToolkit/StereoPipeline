@@ -77,8 +77,8 @@ if __name__ == '__main__':
                    help='Index of the tile to process (0-based).')
     p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
                    help='Stereo pipeline entry point (0=pprc, 1=corr, 2=blend, 3=rfne, '
-                   '4=fltr, 5=tri, 6=cleanup).')
-    p.add_argument('--stop-point', dest='stop_point', default=7, type=int,
+                   '4=fltr, 5=tri, 7=cleanup, 8=dem).')
+    p.add_argument('--stop-point', dest='stop_point', default=9, type=int,
                    help='Stereo pipeline stop point (stop before this step).')
 
     (opt, args) = p.parse_known_args()
