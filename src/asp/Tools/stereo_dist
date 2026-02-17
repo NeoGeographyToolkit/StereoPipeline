@@ -79,6 +79,8 @@ def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
                    '--entry-point', str(tileEntryPoint),
                    '--stop-point', str(tileStopPoint)]
 
+    if opt.dem:
+        commandList += ['--dem', opt.dem]
     if opt.point2dem_options:
         commandList += ['--point2dem-options', opt.point2dem_options]
 
@@ -144,7 +146,7 @@ def mosaicDems(opt, outPrefix):
 
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
-                  <output_file_prefix> [DEM]
+                  <output_file_prefix>
         Distributed stereo processing.\n''' + asp_system_utils.get_asp_version()
 
     p = argparse.ArgumentParser(usage=usage)
@@ -176,6 +178,8 @@ if __name__ == '__main__':
     p.add_argument('--nodes-list', dest='nodes_list', default=None,
                    help='A file containing the list of computing nodes, one per line. '
                    'If not provided, run on the local machine.')
+    p.add_argument('--dem', dest='dem', required=True,
+                   help='Input DEM for mapprojection. Required.')
     p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
                    help='Options to pass directly to GNU Parallel.')
 
@@ -194,6 +198,15 @@ if __name__ == '__main__':
     if not args and not opt.version:
         p.print_help()
         asp_system_utils.raise_error('Missing input files.', code=2)
+
+    # These are not supported as stereo_dist manages its own crop windows per tile
+    for bad_opt in ['--left-image-crop-win', '--right-image-crop-win']:
+        if bad_opt in args:
+            asp_system_utils.raise_error('The option ' + bad_opt +
+                                         ' is not supported by stereo_dist.')
+
+    # Pass the DEM to the stereo C++ tools
+    args.extend(['--dem', opt.dem])
 
     # Validate --tr is in point2dem options when DEM step will run
     if opt.entry_point <= Step.dem < opt.stop_point and '--tr' not in opt.point2dem_options:

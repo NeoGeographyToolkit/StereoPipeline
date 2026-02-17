@@ -78,7 +78,7 @@ def runPoint2dem(tilePrefix, opt):
 
 if __name__ == '__main__':
     usage = '''stereo_tile [options] <images> [<cameras>]
-                  <output_file_prefix> [DEM]
+                  <output_file_prefix>
         Process a single tile for distributed stereo.\n''' + asp_system_utils.get_asp_version()
 
     p = argparse.ArgumentParser(usage=usage)
@@ -95,6 +95,8 @@ if __name__ == '__main__':
                    '4=fltr, 5=tri, 6=cleanup, 7=dem).')
     p.add_argument('--stop-point', dest='stop_point', default=8, type=int,
                    help='Stereo pipeline stop point (stop before this step).')
+    p.add_argument('--dem', dest='dem', required=True,
+                   help='Input DEM for mapprojection. Required.')
     p.add_argument('--point2dem-options', dest='point2dem_options', default='',
                    help='Options to pass to point2dem.')
 
@@ -110,6 +112,15 @@ if __name__ == '__main__':
 
     if opt.tile_index is None:
         asp_system_utils.raise_error('The option --tile-index is required.', code=2)
+
+    # These are not supported as stereo_tile manages its own crop windows per tile
+    for bad_opt in ['--left-image-crop-win', '--right-image-crop-win']:
+        if bad_opt in args:
+            asp_system_utils.raise_error('The option ' + bad_opt +
+                                         ' is not supported by stereo_tile.')
+
+    # Pass the DEM to the stereo C++ tools
+    args.extend(['--dem', opt.dem])
 
     # Run stereo_parse to get settings
     sep = ","
