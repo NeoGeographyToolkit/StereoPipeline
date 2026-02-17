@@ -725,14 +725,8 @@ if __name__ == '__main__':
     if opt.threads_single is None:
         opt.threads_single = get_num_cpus()
 
-    # If corr-seed-mode was not specified, read it from the file
-    if opt.seed_mode is None:
-        opt.seed_mode = parse_corr_seed_mode(opt.stereo_file)
-    # If not set in the file either, use 1.
-    if opt.seed_mode is None:
-        opt.seed_mode = 1
-    # Pass it to the subprocesses
-    args.extend(['--corr-seed-mode', str(opt.seed_mode)])
+    # Resolve corr-seed-mode from CLI, stereo file, or default
+    resolve_seed_mode(opt, args)
 
     if os.path.exists(opt.stereo_file):
         args.extend(['--stereo-file', opt.stereo_file])

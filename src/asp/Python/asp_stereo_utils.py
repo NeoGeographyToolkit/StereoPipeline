@@ -251,6 +251,15 @@ def parse_corr_seed_mode(filename):
 
     return mode
 
+def resolve_seed_mode(opt, args):
+    '''Resolve corr-seed-mode from CLI, stereo file, or default.
+    Sets opt.seed_mode and appends --corr-seed-mode to args.'''
+    if opt.seed_mode is None:
+        opt.seed_mode = parse_corr_seed_mode(opt.stereo_file)
+    if opt.seed_mode is None:
+        opt.seed_mode = 1
+    args.extend(['--corr-seed-mode', str(opt.seed_mode)])
+
 def run_multiview(prog_name, args, extra_args, entry_point, stop_point,
                   verbose, settings):
 

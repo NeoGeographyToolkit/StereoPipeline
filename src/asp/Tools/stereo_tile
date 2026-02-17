@@ -99,6 +99,16 @@ if __name__ == '__main__':
                    help='Input DEM for mapprojection. Required.')
     p.add_argument('--point2dem-options', dest='point2dem_options', default='',
                    help='Options to pass to point2dem.')
+    p.add_argument('-s', '--stereo-file', dest='stereo_file',
+                   default='./stereo.default',
+                   help='Explicitly specify the stereo.default file to use. '
+                   '[default: ./stereo.default]')
+    p.add_argument('--corr-seed-mode', dest='seed_mode', default=None, type=int,
+                   help='Correlation seed strategy. See stereo_corr for options.')
+    p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
+                   default=None,
+                   help='Options to pass directly to sparse_disp. Use quotes '
+                   'around this string.')
 
     (opt, args) = p.parse_known_args()
     args = asp_cmd_utils.clean_args(args)
@@ -122,8 +132,14 @@ if __name__ == '__main__':
     # Pass the DEM to the stereo C++ tools
     args.extend(['--dem', opt.dem])
 
-    # Run stereo_parse to get settings
+    # Resolve corr-seed-mode from CLI, stereo file, or default
     sep = ","
+    asp_stereo_utils.resolve_seed_mode(opt, args)
+
+    if os.path.exists(opt.stereo_file):
+        args.extend(['--stereo-file', opt.stereo_file])
+
+    # Run stereo_parse to get settings
     settings = asp_system_utils.run_and_parse_output("stereo_parse", args, sep,
                                                       opt.verbose)
     outPrefix = settings['out_prefix'][0]
@@ -160,6 +176,10 @@ if __name__ == '__main__':
         asp_stereo_utils.stereo_run('stereo_pprc', args, opt, extra_args=extraArgs)
 
     if opt.entry_point <= Step.corr < opt.stop_point:
+        # Compute low-res disparity (uses sparse_disp for seed mode 3)
+        tile_args = args + ['--output-prefix-override', tilePrefix]
+        asp_stereo_utils.calc_lowres_disp(tile_args, opt, sep)
+        # Run full-res correlation
         asp_stereo_utils.stereo_run('stereo_corr', args, opt, extra_args=extraArgs)
 
     # Skip blend - in distributed stereo each tile goes to point cloud/DEM independently,
