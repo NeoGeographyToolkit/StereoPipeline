@@ -20,7 +20,7 @@
 stereo_tile - Process a single tile for distributed stereo.
 """
 
-import sys, argparse, subprocess, re, os, math, time, glob, shutil, platform
+import sys, argparse, subprocess, re, os, math, time, glob, shutil, platform, shlex
 import os.path as P
 
 # Set up the path to Python modules about to load
@@ -37,7 +37,7 @@ asp_system_utils.verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-# Ensure we can look up the ASP libraries
+# Ensure we can look up the needed ASP libraries
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
 
@@ -61,6 +61,21 @@ def getTileByIndex(outPrefix, tileIndex):
 
     return tiles[tileIndex]
 
+def runPoint2dem(tilePrefix, opt):
+    '''Run point2dem on a tile's point cloud.'''
+    pcFile = tilePrefix + '-PC.tif'
+    commandList = [asp_system_utils.bin_path('point2dem')]
+    if opt.point2dem_options:
+        commandList += shlex.split(opt.point2dem_options)
+    commandList.append(pcFile)
+
+    if opt.dryrun:
+        print('Command: ' + ' '.join(commandList))
+    else:
+        if opt.verbose:
+            print(' '.join(commandList))
+        subprocess.call(commandList)
+
 if __name__ == '__main__':
     usage = '''stereo_tile [options] <images> [<cameras>]
                   <output_file_prefix> [DEM]
@@ -80,6 +95,8 @@ if __name__ == '__main__':
                    '4=fltr, 5=tri, 7=cleanup, 8=dem).')
     p.add_argument('--stop-point', dest='stop_point', default=9, type=int,
                    help='Stereo pipeline stop point (stop before this step).')
+    p.add_argument('--point2dem-options', dest='point2dem_options', default='',
+                   help='Options to pass to point2dem.')
 
     (opt, args) = p.parse_known_args()
     args = asp_cmd_utils.clean_args(args)
@@ -89,10 +106,10 @@ if __name__ == '__main__':
 
     if not args and not opt.version:
         p.print_help()
-        asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
+        asp_system_utils.raise_error('Missing input files.', code=2)
 
     if opt.tile_index is None:
-        asp_system_utils.raise_error('\nERROR: --tile-index is required', code=2)
+        asp_system_utils.raise_error('The option --tile-index is required.', code=2)
 
     # Run stereo_parse to get settings
     sep = ","
@@ -128,6 +145,11 @@ if __name__ == '__main__':
 
     Step = asp_stereo_utils.Step
 
+    # Validate --tr is in point2dem options when DEM step will run
+    if opt.entry_point <= Step.dem < opt.stop_point and '--tr' not in opt.point2dem_options:
+        asp_system_utils.raise_error('The option --point2dem-options must include --tr to '
+                                     'ensure consistent grid size across all tiles.')
+
     if opt.entry_point <= Step.pprc < opt.stop_point:
         asp_stereo_utils.stereo_run('stereo_pprc', args, opt, extra_args=extraArgs)
 
@@ -145,5 +167,12 @@ if __name__ == '__main__':
 
     if opt.entry_point <= Step.tri < opt.stop_point:
         asp_stereo_utils.stereo_run('stereo_tri', args, opt, extra_args=extraArgs)
+
+    # TODO(oalexan1): Implement cleanup step (delete intermediate files per tile)
+    if opt.entry_point <= Step.clean < opt.stop_point:
+        pass
+
+    if opt.entry_point <= Step.dem < opt.stop_point:
+        runPoint2dem(tilePrefix, opt)
 
     sys.exit(0)

@@ -90,7 +90,7 @@ if __name__ == '__main__':
 
     if not args and not opt.version:
         p.print_help()
-        asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
+        asp_system_utils.raise_error('Missing input files', code=2)
 
     if opt.threads == 0:
         opt.threads = asp_system_utils.get_num_cpus()

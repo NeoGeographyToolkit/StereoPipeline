@@ -560,10 +560,6 @@ def run_cmd( cmd, options ):
     if code:
         raise Exception('ProcessError', 'Non zero return code ('+str(code)+')')
 
-def raise_error(msg, code=-1):
-    print(msg, file=sys.stderr)
-    sys.exit(code)
-
 def scale_xml_element(elem, scale):
     tokens = elem.text.strip().split(' ')
     for i in range(len(tokens)):
@@ -684,11 +680,11 @@ def main():
 
             # Quit if the user provided conflicting resolution options
             if (options.reduce_percent != 100) and (options.target_resolution > 0):
-                raise_error('\nERROR: Cannot specify both --reduce-percent and --target-resolution!')
+                raise_error('Cannot specify both --reduce-percent and --target-resolution!')
 
             if not args:
                 parser.print_help()
-                raise_error('\nERROR: Need .ntf or .tif files.', code=2)
+                raise_error('Need .ntf or .tif files.', code=2)
 
             if len(options.gdaldir): options.gdaldir += "/"
 
@@ -698,7 +694,7 @@ def main():
         if options.output_prefix == "":
             options.output_prefix = args[0].split('-')[-1].split('.')[0]
         if options.output_prefix == "":
-            raise_error('\nERROR: Empty output prefix. Please set it via the ' + \
+            raise_error('Empty output prefix. Please set it via the ' + \
                 '--output-prefix option', code=2)
         out_dir=os.path.dirname(options.output_prefix)
         if len(out_dir)==0: 

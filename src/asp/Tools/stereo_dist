@@ -52,14 +52,11 @@ def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
 
     print('Running stereo_tile on ' + str(numTiles) + ' tiles.')
 
-    # Create argument file for GNU parallel (one line per tile with tile index)
-    outputFolder = os.path.dirname(outPrefix)
-    if outputFolder == '':
-        outputFolder = '.'
+    # Write argument file (one tile index per line)
     argumentFilePath = outPrefix + '-tileArgs.txt'
     with open(argumentFilePath, 'w') as f:
-        for tileIndex in range(numTiles):
-            f.write(str(tileIndex) + '\n')
+        for i in range(numTiles):
+            f.write(str(i) + '\n')
 
     # Set up GNU parallel arguments
     parallelArgs = ['--will-cite', '--env', 'ASP_DEPS_DIR',
@@ -82,80 +79,26 @@ def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
                    '--entry-point', str(tileEntryPoint),
                    '--stop-point', str(tileStopPoint)]
 
+    if opt.point2dem_options:
+        commandList += ['--point2dem-options', opt.point2dem_options]
+
     if opt.verbose:
         commandList.append('--verbose')
     if opt.dryrun:
         commandList.append('--dry-run')
 
-    # Add the stereo args
     commandList += args
 
-    # Prepend parallel args
-    commandList = parallelArgs + commandList
+    # Prepend parallel args to command
+    fullCommandList = parallelArgs + commandList
 
     if opt.dryrun:
         print('Run GNU parallel with ' + str(numProcesses) + ' processes')
-        print('Command: ' + ' '.join(commandList))
+        print('Command: ' + ' '.join(fullCommandList))
         return
 
-    # Run via GNU parallel
     asp_system_utils.runInGnuParallel(numProcesses, argumentFilePath,
-                                      commandList, opt.nodes_list, opt.verbose)
-
-def runPoint2dem(opt, outPrefix):
-    '''Run point2dem on all tiles using GNU Parallel.'''
-
-    tiles = readDistTileList(outPrefix)
-    numTiles = len(tiles)
-    if numTiles == 0:
-        raise Exception('No tiles found in tile list.')
-
-    print('Running point2dem on ' + str(numTiles) + ' tiles.')
-
-    # Create argument file for GNU parallel (one line per tile with PC.tif path)
-    argumentFilePath = outPrefix + '-point2demArgs.txt'
-    with open(argumentFilePath, 'w') as f:
-        for (tile, padding) in tiles:
-            tileSubdir = outPrefix + '-' + tile.name_str()
-            tilePrefix = tileSubdir + '/' + os.path.basename(outPrefix)
-            pcFile = tilePrefix + '-PC.tif'
-            f.write(pcFile + '\n')
-
-    # Set up GNU parallel arguments
-    parallelArgs = ['--will-cite', '--env', 'ASP_DEPS_DIR',
-                    '--env', 'PATH', '--env', 'LD_LIBRARY_PATH',
-                    '--env', 'ASP_LIBRARY_PATH', '--env', 'ISISROOT']
-
-    if opt.parallel_options is not None:
-        parallelArgs += opt.parallel_options.split(' ')
-
-    # Determine number of processes
-    numProcesses = opt.processes
-    if numProcesses is None:
-        numProcesses = asp_system_utils.get_num_cpus()
-
-    # Build point2dem command with placeholder for PC.tif path
-    point2demPath = asp_system_utils.bin_path('point2dem')
-    commandList = [point2demPath]
-
-    # Add point2dem options
-    if opt.point2dem_options:
-        commandList += opt.point2dem_options.split()
-
-    # Add the PC.tif placeholder
-    commandList.append('{1}')
-
-    # Prepend parallel args
-    commandList = parallelArgs + commandList
-
-    if opt.dryrun:
-        print('Run GNU parallel with ' + str(numProcesses) + ' processes')
-        print('Command: ' + ' '.join(commandList))
-        return
-
-    # Run via GNU parallel
-    asp_system_utils.runInGnuParallel(numProcesses, argumentFilePath,
-                                      commandList, opt.nodes_list, opt.verbose)
+                                      fullCommandList, opt.nodes_list, opt.verbose)
 
 def mosaicDems(opt, outPrefix):
     '''Collect per-tile DEMs and mosaic them using dem_mosaic.'''
@@ -250,11 +193,11 @@ if __name__ == '__main__':
 
     if not args and not opt.version:
         p.print_help()
-        asp_system_utils.raise_error('\nERROR: Missing input files', code=2)
+        asp_system_utils.raise_error('Missing input files.', code=2)
 
     # Validate --tr is in point2dem options when DEM step will run
     if opt.entry_point <= Step.dem < opt.stop_point and '--tr' not in opt.point2dem_options:
-        asp_system_utils.raise_error('\nERROR: --point2dem-options must include --tr to '
+        asp_system_utils.raise_error('The option --point2dem-options must include --tr to '
                                      'ensure consistent grid size across all tiles.')
 
     # Set default threads if not specified
@@ -299,13 +242,12 @@ if __name__ == '__main__':
         runStereoTiles(opt, args, outPrefix, Step.tri, Step.clean)
 
     # Cleanup step (entry_point=7, stop_point=8)
-    # TODO(oalexan1): Implement cleanup
     if opt.entry_point <= Step.clean < opt.stop_point:
-        print('Cleanup step not yet implemented.')
+        runStereoTiles(opt, args, outPrefix, Step.clean, Step.dem)
 
     # Run point2dem on all tiles (entry_point=8, stop_point=9)
     if opt.entry_point <= Step.dem < opt.stop_point:
-        runPoint2dem(opt, outPrefix)
+        runStereoTiles(opt, args, outPrefix, Step.dem, Step.dem + 1)
         # TODO(oalexan1): The mosaic step must be parallelized too. First merge say
         # 2x2 tiles into 1, then merge those too so in a pyramid fashion.
         mosaicDems(opt, outPrefix)

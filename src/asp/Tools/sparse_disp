@@ -28,9 +28,6 @@
 
 from __future__ import print_function
 import sys, optparse, subprocess, re, os, math, time, datetime
-def raise_error(msg, code=-1):
-    print(msg, file=sys.stderr)
-    sys.exit(code)
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -1019,7 +1016,7 @@ def main():
 
     if len(args) < 3:
         parser.print_help()
-        raise_error('\nERROR: Missing input files or output prefix', code=2)
+        asp_system_utils.raise_error('Missing input files or output prefix', code=2)
 
     if options.mask_file is not None:
         mask_file=gdal.Open(options.mask_file)

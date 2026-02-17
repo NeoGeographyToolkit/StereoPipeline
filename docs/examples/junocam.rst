@@ -170,11 +170,11 @@ selected earlier and the GCP files::
 Stereo terrain creation
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-We ran ``parallel_stereo`` on each pair of images having ``34C00001`` vs
-``34C00002`` in their names. Most of these overlap and result in a DEM::
+We ran ``parallel_stereo`` on *every combination* of overlapping images between
+the ``34C00001`` set and the ``34C00002`` one::
 
-    l=JNCR_2021158_34C00001_V01_0010
-    r=JNCR_2021158_34C00002_V01_0010
+    l=JNCR_2021158_34C00001_V01_xxxx
+    r=JNCR_2021158_34C00002_V01_yyyy
     pref=stereo_map/${l}_${r}/run
 
     parallel_stereo                      \
@@ -235,8 +235,11 @@ Handling gaps between DEMs
 
 The JunoCam images have very little overlap and sometimes that results in gaps
 between the DEMs produced from stereo. These are most notable around the first
-and last DEMs in any given sequence. So adding more DEMs at the beginning and
-end of the sequence will help cover those areas.
+and last DEMs in any given sequence. So adding more overlapping stereo pairs
+pairs at the beginning and end of the sequence will help cover those areas.
+
+Consider decreasing the grid size for mapprojection as well, say from 1000 m to
+800 m, which should result in more pixels in overlapping areas.
 
 These parameter changes in the workflow above may also help:
 

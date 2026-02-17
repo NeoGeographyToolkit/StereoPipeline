@@ -31,7 +31,7 @@ if 'ASP_LIBRARY_PATH' in os.environ:
 
 def raise_error(msg, code=-1):
     '''Exit the program with an error message'''
-    print(msg, file=sys.stderr)
+    print('Error: ' + msg, file=sys.stderr)
     sys.exit(code)
 
 def verify_python_version_is_supported():
