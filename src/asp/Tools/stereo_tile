@@ -131,14 +131,9 @@ if __name__ == '__main__':
     # Symlink stats files to the subdir
     symlinkStatsFiles(outPrefix, tileSubdir, tilePrefix)
 
-    # Common extra args for all steps. For now only --corr-seed-mode 0 is supported,
-    # so D_sub is avoided.
-    # TODO(oalexan1): Enable using --corr-seed-mode 2 and 3. Maybe that will require
-    # seeding directly D.tif.
+    # Common extra args for all steps
     extraArgs = ['--output-prefix-override', tilePrefix,
                   '--stereo-dist-mode',
-                  '--skip-low-res-disparity-comp',
-                  '--corr-seed-mode', '0',
                   '--left-image-crop-win',
                   str(tile.x), str(tile.y), str(tile.width), str(tile.height),
                   '--sgm-collar-size', str(padding)]

@@ -442,14 +442,13 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                      left_mask_file, right_mask_file);
   }
 
-  // Create subsampled images and masks. Skip in distributed stereo mode.
-  if (!stereo_settings().stereo_dist_mode)
-    createSubsampledImages(opt, in_file_list, crop_left, crop_right,
-                           left_image, right_image,
-                           left_mask_file, right_mask_file,
-                           has_left_georef, has_right_georef,
-                           left_georef, right_georef,
-                           output_nodata);
+  // Create subsampled images and masks
+  createSubsampledImages(opt, in_file_list, crop_left, crop_right,
+                         left_image, right_image,
+                         left_mask_file, right_mask_file,
+                         has_left_georef, has_right_georef,
+                         left_georef, right_georef,
+                         output_nodata);
 
   // When alignment method is none or epipolar, no ip were created so far, so
   // produce them now.
