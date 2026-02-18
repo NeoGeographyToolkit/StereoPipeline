@@ -269,7 +269,8 @@ Command-line options
 
 --query-projection
     Display the computed projection information and estimated ground
-    sample distance (pixel size on the ground), and quit.
+    sample distance (pixel size on the ground), save the projection as a
+    WKT file named ``<output image>.wkt``, and quit.
 
 --query-pixel <double double>
     Trace a ray from this input image pixel (values start from 0) to the ground.

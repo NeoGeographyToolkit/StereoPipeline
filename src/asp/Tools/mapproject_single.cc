@@ -38,6 +38,8 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/FileTypes.h>
 
+#include <fstream>
+
 using namespace vw;
 using namespace vw::cartography;
 namespace po = boost::program_options;
@@ -65,8 +67,10 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "Set the output file resolution in pixels per degree.")
     ("datum-offset",     po::value(&opt.datum_offset)->default_value(0),
      "When projecting to a datum instead of a DEM, use this elevation in meters from the datum.")
-    ("query-projection", po::bool_switch(&opt.isQuery)->default_value(false),
-     "Display the computed projection information and estimated ground sample distance (pixel size on the ground), and quit. Used by the mapproject script.")
+    ("query-projection", po::bool_switch(&opt.query_projection)->default_value(false),
+     "Display the computed projection information and estimated ground sample "
+     "distance (pixel size on the ground), save the projection as a WKT file "
+     "named <output image>.wkt, and quit. Used by the mapproject script.")
     ("session-type,t",      po::value(&opt.stereo_session),
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("t_projwin",        po::value(&opt.target_projwin),
@@ -305,9 +309,6 @@ void calc_target_geom(// Inputs
           << "The user-provided grid size (--tr) is " << current_resolution << ", "
           << "which is smaller than the auto-estimated grid size of " 
           << auto_res << ". Likely the resulting mapprojected image will not be accurate.\n";
-
-  // Print the GSD with full precision, as it may be employed with other images
-  vw_out() << std::setprecision(17) << "Output pixel size: " << current_resolution << "\n";
 
   // If an image bounding box (projected coordinates) was passed in,
   // override the camera's view on the ground with the custom box.
@@ -593,10 +594,12 @@ int main(int argc, char* argv[]) {
     }
 
     // Important: Don't modify the lines below, we count on them in the Python
-    // mapproject program.
+    // mapproject program. Print with full precision.
     vw_out() << "Output image size:\n";
     vw_out() << std::setprecision(17) << "(width: " << virtual_image_width
              << " height: " << virtual_image_height << ")" << "\n";
+    vw_out() << std::setprecision(17) << "Output pixel size: " 
+      << crop_georef.transform()(0, 0) << "\n";
 
     // Print an explanation for a potential problem.
     if (virtual_image_width <= 0 || virtual_image_height <= 0)
@@ -609,7 +612,16 @@ int main(int argc, char* argv[]) {
     BBox2 image_bbox(0, 0, virtual_image_width, virtual_image_height);
     crop_georef.ll_box_from_pix_box(image_bbox);
 
-    if (opt.isQuery) { // Quit before we do any image work
+    if (opt.query_projection) {
+      // Save the projection to a WKT file named <output>.wkt
+      std::string wkt_file = opt.output_file + ".wkt";
+      vw_out() << "Output projection file: " << wkt_file << "\n";
+      std::ofstream ofs(wkt_file.c_str());
+      if (!ofs.good())
+        vw_throw(ArgumentErr() << "Failed to open for writing: "
+                 << wkt_file << "\n");
+      ofs << crop_georef.get_wkt() << "\n";
+      ofs.close();
       vw_out() << "Query finished, exiting mapproject tool.\n";
       return 0;
     }
@@ -618,8 +630,7 @@ int main(int argc, char* argv[]) {
     // projection very slow, so we disable it here.  The check is very important
     // for computing the bounding box safely but we don't really need it when
     // projecting the pixels back in to the camera.
-    boost::shared_ptr<vw::camera::PinholeModel> pinhole_ptr =
-                boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_model);
+    auto pinhole_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_model);
     if (pinhole_ptr)
       pinhole_ptr->set_do_point_to_pixel_check(false);
 
