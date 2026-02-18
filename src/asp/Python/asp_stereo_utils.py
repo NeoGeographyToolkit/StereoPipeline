@@ -66,8 +66,9 @@ class Step:
     rfne  = 3
     fltr  = 4
     tri   = 5
-    clean = 6  # parallel_stereo stops here
-    dem   = 7  # only used by stereo_dist
+    clean  = 6  # parallel_stereo stops here
+    dem    = 7  # only used by stereo_dist
+    mosaic = 8  # only used by stereo_dist
 
 def stereoProgName(step):
     '''
@@ -733,3 +734,20 @@ def readDistTileList(outPrefix):
             tiles.append((BBox(x, y, width, height), padding))
 
     return tiles
+
+def tileGridSize(tiles):
+    '''Given a list of (BBox, padding) tuples from readDistTileList,
+    return (num_cols, num_rows) of the tile grid.'''
+    xs = set(tile.x for (tile, padding) in tiles)
+    ys = set(tile.y for (tile, padding) in tiles)
+    return (len(xs), len(ys))
+
+def numMosaicJobs(nodesListPath, numProcesses):
+    '''Compute the number of parallel dem_mosaic jobs for DEM assembly.
+    Uses nodes * processes, capped at 32.'''
+    numNodes = asp_system_utils.getNumNodesInList(nodesListPath)
+    if numProcesses is not None and numProcesses > 0:
+        numJobs = numNodes * numProcesses
+    else:
+        numJobs = numNodes * asp_system_utils.get_num_cpus()
+    return min(numJobs, 32)
