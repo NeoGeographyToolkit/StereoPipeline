@@ -348,21 +348,17 @@ Specifying settings on the command line
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 All the settings given via the ``stereo.default`` file (:numref:`stereodefault`)
-can be overridden from the command line. Just add a double hyphen (``--``) in
-front the option's name and then fill out the option just as you would in the
-configuration file. 
+can be overridden from the command line. For this add a double hyphen (``--``)
+in front of the option's name and set the value as in the configuration file.
 
 For options in the ``stereo.default`` file that take multiple numbers, they must
-be separated by spaces (like ``--corr-kernel 25 25``) on the command line. 
+be separated by spaces (like ``--corr-kernel 25 25``) on the command line.
 
-Here is an example in which we override the search range and subpixel mode from
-the command line.
+Example::
 
-::
-
-     ISIS> parallel_stereo E0201461.map.cub M0100115.map.cub \
-               -s stereo.map --corr-search -70 -4 40 4       \
-               --subpixel-mode 3 results/output
+   parallel_stereo E0201461.map.cub M0100115.map.cub \
+      -s stereo.map --corr-search -70 -4 40 4        \
+      --subpixel-mode 3 results/output
 
 Stereo on multiple machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

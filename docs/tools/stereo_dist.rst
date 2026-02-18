@@ -6,12 +6,12 @@ stereo_dist
 The ``stereo_dist`` program performs distributed stereo processing.  Nearly all
 steps are run on small tiles in parallel across a set of computing nodes. This
 also includes the preprocessing and filtering steps, which are serial in
-:ref:`parallel_stereo`. DEM creation per tile is also distributed, though the
-final DEM mosaicking step is still serial for the moment.
+:ref:`parallel_stereo`. DEM creation per tile and mosaicking of produced DEMs are
+also distributed.
 
-This program requires that input images be mapprojected.
-GNU Parallel manages the jobs. It is expected that all nodes can connect to each
-other using ssh without password and that they share the same storage space.
+This program requires that input images be mapprojected. GNU Parallel manages
+the jobs. It is expected that all nodes can connect to each other using ssh
+without password and that they share the same storage space.
 
 .. _stereo_dist_example:
 
@@ -25,8 +25,8 @@ Example
       left.json right.json            \
       run/run                         \
       --dem input_dem.tif             \
-      --tile-size 512                 \
-      --tile-padding 128              \
+      --tile-size 2048                \
+      --tile-padding 256              \
       --nodes-list machines.txt       \
       --processes 5                   \
       --threads-multiprocess 4        \
@@ -34,9 +34,12 @@ Example
       --point2dem-options '--tr 2.0'
 
 The input images must be mapprojected (:numref:`mapproj-example`). The
-mapprojection DEM should be set with ``--dem``. All output files will start with
-the provided prefix (``run/run`` above).
- 
+mapprojection DEM should be set with ``--dem``. All output files
+(:numref:`outputfiles`) will start with the provided prefix (``run/run`` above).
+
+The result of this program will be the stereo DEM. The workflow below has more
+details.
+
 The option ``--point2dem-options`` must include ``--tr`` and the grid size
 (typically in meters) to ensure a consistent grid size across all tiles that are
 later merged. This is passed to :ref:`point2dem`.
@@ -53,25 +56,29 @@ The processing is as follows:
 
 - Statistics is computed for the full input images. This is a serial process but
   is quite fast.
-  
+
 - The list of tiles is created and saved with a name based on the output prefix
-  and ending in ``-distTileList.txt``. 
-    
-- All tiles are run in parallel with the :ref:`stereo_tile` program. This
-  program does preprocessing, correlation, refinement, filtering, triangulation,
-  and DEM creation. These operations are described in :numref:`entrypoints`. 
-  
-- A subdirectory is created for each tile and the global statistics are
-  provided to in each subdirectory via symbolic link.
-  
+  and ending in ``-distTileList.txt``.
+
+- All tiles are run in parallel with the :ref:`stereo_tile` program. That
+  program crates a subdirectory for the given tile and provides the global
+  statistics via a symbolic link. It then does preprocessing, correlation,
+  refinement, filtering, triangulation, and DEM creation. These operations are
+  described in :numref:`entrypoints`.
+
 - The per-tile DEMs are mosaicked into a single output DEM using
-  :ref:`dem_mosaic`. For now, this step is serial.
+  :ref:`dem_mosaic`. This is done in parallel as well, for subsets of DEMs,
+  whose results are then mosaicked together.
+
+Unlike :ref:`parallel_stereo`, the blend step for disparities is skipped. Each
+tile is processed fully independently, and blending only happens between DEMs
+during the final mosaic.
 
 The ``--entry-point`` and ``--stop-point`` options can be invoked to run only a
 portion of these steps. See :numref:`stereo_dist_options` for the step numbers.
 
-Any option that are not specific to this program are passed directly to the
-stereo programs (:numref:`cmdline`).
+Any options that are not specific to this program are passed directly to 
+:ref:`stereo_tile` and the stereo executables (:numref:`cmdline`).
 
 .. _stereo_dist_options:
 
@@ -106,7 +113,8 @@ Command-line options
     The number of threads to use when running a single process.
 
 -e, --entry-point <integer (default: 0)>
-    Stereo pipeline entry point. Values: 0=pprc, 1=corr, 2=blend, 3=rfne,
+    Stereo pipeline entry point. Values: 0=pprc, 1=corr, 2=blend (skipped,
+    kept for compatibility with :ref:`parallel_stereo` steps), 3=rfne,
     4=fltr, 5=tri, 6=cleanup, 7=dem, 8=mosaic.
 
 --stop-point <integer (default: 9)>

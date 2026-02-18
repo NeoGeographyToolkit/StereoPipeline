@@ -61,6 +61,35 @@ def getTileByIndex(outPrefix, tileIndex):
 
     return tiles[tileIndex]
 
+def runDemMosaicBlock(masterFile, blockIndex, opt):
+    '''Run dem_mosaic on a block of DEMs specified in a list. The master file
+    has the input list and output DEM name at the given index.'''
+    with open(masterFile, 'r') as f:
+        lines = [l.strip() for l in f if l.strip()]
+
+    if blockIndex < 0 or blockIndex >= len(lines):
+        asp_system_utils.raise_error('Block index ' + str(blockIndex) +
+                                     ' out of range [0, ' +
+                                     str(len(lines) - 1) + ']')
+
+    parts = lines[blockIndex].split()
+    if len(parts) != 2:
+        asp_system_utils.raise_error('Invalid master file line: ' +
+                                     lines[blockIndex])
+
+    demListFile = parts[0]
+    outputDem = parts[1]
+
+    demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
+    commandList = [demMosaicPath, '--dem-list', demListFile, '-o', outputDem]
+
+    if opt.dryrun:
+        print('Command: ' + ' '.join(commandList))
+    else:
+        if opt.verbose:
+            print(' '.join(commandList))
+        subprocess.call(commandList)
+
 def runPoint2dem(tilePrefix, opt):
     '''Run point2dem on a tile's point cloud.'''
     pcFile = tilePrefix + '-PC.tif'
@@ -82,12 +111,6 @@ if __name__ == '__main__':
         Process a single tile for distributed stereo.\n''' + asp_system_utils.get_asp_version()
 
     p = argparse.ArgumentParser(usage=usage)
-    p.add_argument('-v', '--version', dest='version', default=False, action='store_true',
-                   help='Display the version of software.')
-    p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
-                   help='Display the commands being executed.')
-    p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
-                   help='Do not launch the jobs, only print the commands that should be run.')
     p.add_argument('--tile-index', dest='tile_index', default=None, type=int,
                    help='Index of the tile to process (0-based).')
     p.add_argument('-e', '--entry-point', dest='entry_point', default=0, type=int,
@@ -96,20 +119,35 @@ if __name__ == '__main__':
     p.add_argument('--stop-point', dest='stop_point', default=9, type=int,
                    help='Stereo pipeline stop point, stop before this step '
                    '(default: 9).')
-    p.add_argument('--dem', dest='dem', required=True,
-                   help='Input DEM for mapprojection. Required.')
+    p.add_argument('--dem', dest='dem', default=None,
+                   help='Input DEM for mapprojection. Required for tile processing.')
     p.add_argument('--point2dem-options', dest='point2dem_options', default='',
                    help='Options to pass to point2dem.')
     p.add_argument('-s', '--stereo-file', dest='stereo_file',
                    default='./stereo.default',
                    help='Explicitly specify the stereo.default file to use. '
-                   '[default: ./stereo.default]')
+                   'This is optional.')
     p.add_argument('--corr-seed-mode', dest='seed_mode', default=None, type=int,
                    help='Correlation seed strategy. See stereo_corr for options.')
     p.add_argument('--sparse-disp-options', dest='sparse_disp_options',
                    default=None,
                    help='Options to pass directly to sparse_disp. Use quotes '
                    'around this string.')
+    p.add_argument('--dem-mosaic-index', dest='dem_mosaic_index', default=None,
+                   type=int,
+                   help='Index of the mosaic block to process (0-based). '
+                   'Requires --dem-mosaic-master. Invoked by stereo_dist for '
+                   'parallel DEM mosaicking.')
+    p.add_argument('--dem-mosaic-master', dest='dem_mosaic_master', default=None,
+                   help='Master file enumerating for each block to mosaic the '
+                   'input DEM list file and output DEM path, one block per line.')
+    p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
+                   help='Display the commands being executed.')
+    p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
+                   help='Do not launch the jobs, only print the commands that '
+                   'should be run.')
+    p.add_argument('-v', '--version', dest='version', default=False, action='store_true',
+                   help='Display the version of the software.')
 
     (opt, args) = p.parse_known_args()
     args = asp_cmd_utils.clean_args(args)
@@ -117,12 +155,27 @@ if __name__ == '__main__':
     if opt.version:
         asp_system_utils.print_version_and_exit()
 
+    # Handle dem mosaic mode. Runs dem_mosaic on one block and exits. Hence this
+    # aux tool does both mosaicking of DEMs or running stereo tiles depending on
+    # the options.
+    if opt.dem_mosaic_index is not None:
+        if opt.dem_mosaic_master is None:
+            asp_system_utils.raise_error('--dem-mosaic-master is required with ' +
+                                         '--dem-mosaic-index.')
+        runDemMosaicBlock(opt.dem_mosaic_master, opt.dem_mosaic_index, opt)
+        sys.exit(0)
+
+    # In tile processing mode there should be some positional arguments
     if not args and not opt.version:
         p.print_help()
         asp_system_utils.raise_error('Missing input files.', code=2)
 
     if opt.tile_index is None:
         asp_system_utils.raise_error('The option --tile-index is required.', code=2)
+
+    if opt.dem is None:
+        asp_system_utils.raise_error('The option --dem is required for tile processing.',
+                                     code=2)
 
     # These are not supported as stereo_tile manages its own crop windows per tile
     for bad_opt in ['--left-image-crop-win', '--right-image-crop-win']:
@@ -142,7 +195,7 @@ if __name__ == '__main__':
 
     # Run stereo_parse to get settings
     settings = asp_system_utils.run_and_parse_output("stereo_parse", args, sep,
-                                                      opt.verbose)
+                                                     opt.verbose)
     outPrefix = settings['out_prefix'][0]
 
     print("Output prefix: " + outPrefix)

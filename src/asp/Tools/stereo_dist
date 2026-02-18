@@ -73,7 +73,7 @@ def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
 
     # Build stereo_tile command with placeholder for tile index
     pythonPath = sys.executable
-    stereoTilePath = asp_system_utils.bin_path('stereo_tile')
+    stereoTilePath = asp_system_utils.libexec_path('stereo_tile')
     commandList = [pythonPath, stereoTilePath,
                    '--tile-index', '{1}',
                    '--entry-point', str(tileEntryPoint),
@@ -103,8 +103,7 @@ def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
                                       fullCommandList, opt.nodes_list, opt.verbose)
 
 def runBlockMosaic(opt, masterFile):
-    '''Run dem_mosaic in parallel on blocks via GNU Parallel.
-    Each job reads one line from masterFile by index and runs dem_mosaic.'''
+    '''Run dem_mosaic in parallel on blocks via stereo_tile --dem-mosaic-index.'''
 
     # Count blocks in master file
     with open(masterFile, 'r') as f:
@@ -134,14 +133,17 @@ def runBlockMosaic(opt, masterFile):
     if numProcesses is None:
         numProcesses = asp_system_utils.get_num_cpus()
 
-    # Build bash -c command that reads the master file at the given index
-    # and runs dem_mosaic. {1} is the 0-based block index from the argument
-    # file. sed -n uses 1-based line numbers, so add 1.
-    demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
-    bashScript = ('line=$(sed -n "$(({1}+1))p" ' + masterFile + '); '
-                  + demMosaicPath +
-                  ' --dem-list "${line%% *}" -o "${line##* }"')
-    commandList = ['bash', '-c', bashScript]
+    # Build stereo_tile command with --dem-mosaic-index placeholder
+    pythonPath = sys.executable
+    stereoTilePath = asp_system_utils.libexec_path('stereo_tile')
+    commandList = [pythonPath, stereoTilePath,
+                   '--dem-mosaic-index', '{1}',
+                   '--dem-mosaic-master', masterFile]
+
+    if opt.verbose:
+        commandList.append('--verbose')
+    if opt.dryrun:
+        commandList.append('--dry-run')
 
     # Prepend parallel args to command
     fullCommandList = parallelArgs + commandList
@@ -156,7 +158,8 @@ def runBlockMosaic(opt, masterFile):
                                       opt.verbose)
 
 def mosaicDems(opt, outPrefix):
-    '''Collect per-tile DEMs and mosaic them in parallel blocks.'''
+    '''Mosaic blocks of per-tile DEMs in parallel, then mosaic the results. This
+    is more efficient than a single mosaic of all tile DEMs.'''
 
     # Read the list of tiles
     tiles = readDistTileList(outPrefix)
@@ -172,30 +175,22 @@ def mosaicDems(opt, outPrefix):
         demFile = tilePrefix + '-DEM.tif'
         if os.path.exists(demFile):
             demFiles.append(demFile)
-
     if len(demFiles) == 0:
         raise Exception('No DEM files found in tile directories.')
-
     print('Found ' + str(len(demFiles)) + ' DEM files to mosaic.')
 
-    # Simple single-process mosaic of all tile DEMs
-    demListFile = outPrefix + '-demList.txt'
-    with open(demListFile, 'w') as f:
-        for d in demFiles:
-            f.write(d + '\n')
-    finalDem = outPrefix + '-DEM.tif'
-    demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
-    commandList = [demMosaicPath, '--dem-list', demListFile, '-o', finalDem]
-    print('Running: ' + ' '.join(commandList))
-    if not opt.dryrun:
-        subprocess.call(commandList)
-    return
-    
-    # This more fancy version needs to be tested and tuned. For now will return
-    # right above after the simple version does the job.
-     
-    # Will first mosaic with several batches then merge the results. This seems
-    # to be the sweet spot for I/O and performance.
+    # # Simple single-process mosaic of all tile DEMs
+    # demListFile = outPrefix + '-demList.txt'
+    # with open(demListFile, 'w') as f:
+    #     for d in demFiles:
+    #         f.write(d + '\n')
+    # finalDem = outPrefix + '-DEM.tif'
+    # demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
+    # commandList = [demMosaicPath, '--dem-list', demListFile, '-o', finalDem]
+    # print('Running: ' + ' '.join(commandList))
+    # if not opt.dryrun:
+    #     subprocess.call(commandList)
+    # return
     
     # Compute tile grid size and number of parallel jobs
     (numCols, numRows) = tileGridSize(tiles)
@@ -211,11 +206,8 @@ def mosaicDems(opt, outPrefix):
     numJobs = max(min(numJobs, maxJobs), 1)
     print('Num mosaic jobs after capping: ' + str(numJobs))
     
-    # TODO(oalexan1): Must handle at the end if we have just one job
-
     # Divide tile grid into blocks matching the aspect ratio
     aspect = float(numCols) / float(max(numRows, 1))
-    print("--aspect is " + str(aspect))
     
     blockCols = int(round(math.sqrt(numJobs * aspect)))
     blockRows = int(round(numJobs / float(max(blockCols, 1))))
@@ -286,7 +278,7 @@ def mosaicDems(opt, outPrefix):
                   str(by) + '): ' + str(len(blockDems)) + ' DEMs, list: ' +
                   blockDemListFile)
 
-    # Write master file
+    # Write master file having the list of lists to mosaic.
     masterFile = outPrefix + '-mosaicMaster.txt'
     with open(masterFile, 'w') as f:
         for (listFile, outputDem) in masterList:
@@ -296,32 +288,23 @@ def mosaicDems(opt, outPrefix):
 
     finalDem = outPrefix + '-DEM.tif'
 
-    if len(masterList) == 1:
-        # Single block - just run dem_mosaic directly, no parallel overhead
-        demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
-        commandList = [demMosaicPath, '--dem-list', masterList[0][0],
-                       '-o', finalDem]
-        print('Single block mosaic: ' + ' '.join(commandList))
-        if not opt.dryrun:
-            subprocess.call(commandList)
-    else:
-        # Run parallel dem_mosaic per block
-        runBlockMosaic(opt, masterFile)
+    # Run parallel dem_mosaic per block
+    runBlockMosaic(opt, masterFile)
 
-        # Final merge of block DEMs into outPrefix-DEM.tif
-        blockDemFiles = [outputDem for (listFile, outputDem) in masterList]
-        # Filter to existing files
-        blockDemFiles = [f for f in blockDemFiles if os.path.exists(f)]
-        if len(blockDemFiles) == 0:
-            raise Exception('No block DEM files were produced.')
+    # Final merge of block DEMs into outPrefix-DEM.tif
+    blockDemFiles = [outputDem for (listFile, outputDem) in masterList]
+    # Collect the created mosaics per block
+    blockDemFiles = [f for f in blockDemFiles if os.path.exists(f)]
+    if len(blockDemFiles) == 0:
+        raise Exception('No block DEM files were produced.')
 
-        print('Merging ' + str(len(blockDemFiles)) + ' block DEMs into ' + finalDem)
-        demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
-        commandList = [demMosaicPath] + blockDemFiles + ['-o', finalDem]
-        if not opt.dryrun:
-            if opt.verbose:
-                print(' '.join(commandList))
-            subprocess.call(commandList)
+    print('Merging ' + str(len(blockDemFiles)) + ' block DEMs into ' + finalDem)
+    demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
+    commandList = [demMosaicPath] + blockDemFiles + ['-o', finalDem]
+    if not opt.dryrun:
+        if opt.verbose:
+            print(' '.join(commandList))
+        subprocess.call(commandList)
 
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
@@ -398,12 +381,8 @@ if __name__ == '__main__':
     if opt.threads_single is None:
         opt.threads_single = asp_system_utils.get_num_cpus()
 
-    # Run stereo_pprc with --stop-after-stats to compute statistics only
-    asp_cmd_utils.wipe_option(args, '--threads', 1)
-    pprc_args = ['--stop-after-stats', '--threads', str(opt.threads_single)]
-    stereo_run('stereo_pprc', args, opt, extra_args=pprc_args)
-
-    # Run stereo_parse to generate the tile list and get the output prefix
+    # Run stereo_parse to generate the tile list
+    # TODO(oalexan1): Should this be done only at entry_point 0?
     tile_params = ['--stereo-dist-tile-params', str(opt.tile_size), str(opt.tile_padding)]
     stereo_run('stereo_parse', args, opt, extra_args=tile_params)
 
@@ -414,6 +393,11 @@ if __name__ == '__main__':
 
     # Run stereo_tile on all tiles for pprc only (entry_point=0, stop_point=1)
     if opt.entry_point <= Step.pprc < opt.stop_point:
+        # Run stereo_pprc with full images and --stop-after-stats to compute statistics only
+        asp_cmd_utils.wipe_option(args, '--threads', 1)
+        pprc_args = ['--stop-after-stats', '--threads', str(opt.threads_single)]
+        stereo_run('stereo_pprc', args, opt, extra_args=pprc_args)
+        # Do the rest of preprocessing logic per tiles
         runStereoTiles(opt, args, outPrefix, Step.pprc, Step.corr)
 
     # Run stereo_tile on all tiles for corr only (entry_point=1, stop_point=2)
