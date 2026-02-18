@@ -20,7 +20,7 @@
 # other modules such as asp_system_utils, etc.
 
 from __future__ import print_function
-import sys, optparse, subprocess, re, os, time, glob
+import sys, optparse, subprocess, re, os, math, time, glob
 import fcntl # for file locking
 import os.path as P
 
@@ -751,3 +751,112 @@ def numMosaicJobs(nodesListPath, numProcesses):
     else:
         numJobs = numNodes * asp_system_utils.get_num_cpus()
     return min(numJobs, 32)
+
+def buildMosaicBlockLists(outPrefix, numJobs):
+    '''Partition tile DEMs into blocks for parallel mosaicking. Reads the
+    distributed tile list, collects existing DEM files, divides the tile grid
+    into blocks, writes per-block DEM list files, and returns a list of
+    (blockDemListFile, blockOutputDem) tuples.'''
+
+    # Read the list of tiles
+    tiles = readDistTileList(outPrefix)
+    numTiles = len(tiles)
+    if numTiles == 0:
+        raise Exception('No tiles found in tile list.')
+
+    # Collect DEM files that exist
+    demFiles = []
+    for (tile, padding) in tiles:
+        tileSubdir = outPrefix + '-' + tile.name_str()
+        tilePrefix = tileSubdir + '/' + os.path.basename(outPrefix)
+        demFile = tilePrefix + '-DEM.tif'
+        if os.path.exists(demFile):
+            demFiles.append(demFile)
+    if len(demFiles) == 0:
+        raise Exception('No DEM files found in tile directories.')
+    print('Found ' + str(len(demFiles)) + ' DEM files to mosaic.')
+
+    # Compute tile grid size and number of parallel jobs
+    (numCols, numRows) = tileGridSize(tiles)
+    print('Tile grid: ' + str(numCols) + ' cols x ' + str(numRows) + ' rows')
+
+    # Each block must have at least 2 tiles. Use this to limit the number of jobs
+    maxJobs = (numCols * numRows) // 2
+    numJobs = max(min(numJobs, maxJobs), 1)
+    print('Num mosaic jobs: ' + str(numJobs))
+
+    # Divide tile grid into blocks matching the aspect ratio
+    aspect = float(numCols) / float(max(numRows, 1))
+
+    blockCols = int(round(math.sqrt(numJobs * aspect)))
+    blockRows = int(round(numJobs / float(max(blockCols, 1))))
+    blockCols = max(blockCols, 1)
+    blockRows = max(blockRows, 1)
+    blockCols = min(blockCols, numCols)
+    blockRows = min(blockRows, numRows)
+    print('Block grid: ' + str(blockCols) + ' x ' + str(blockRows) +
+          ' = ' + str(blockCols * blockRows) + ' blocks')
+
+    # Compute tiles per block in each dimension
+    tilesPerBlockX = int(math.ceil(numCols / blockCols))
+    tilesPerBlockY = int(math.ceil(numRows / blockRows))
+    print('Tiles per block: ' + str(tilesPerBlockX) + ' x ' +
+          str(tilesPerBlockY))
+
+    # Build sorted lists of distinct tile starting corner coordinates
+    tileStartCornerX = sorted(set(tile.x for (tile, padding) in tiles))
+    tileStartCornerY = sorted(set(tile.y for (tile, padding) in tiles))
+
+    # Build a map from (x, y) origin to DEM file path
+    demMap = {}
+    for (tile, padding) in tiles:
+        tileSubdir = outPrefix + '-' + tile.name_str()
+        tilePrefix = tileSubdir + '/' + os.path.basename(outPrefix)
+        demFile = tilePrefix + '-DEM.tif'
+        if os.path.exists(demFile):
+            demMap[(tile.x, tile.y)] = demFile
+
+    # Keep track of each partial DEM mosaic name and of the list of DEMs
+    # that goes into making it.
+    masterList = []
+
+    # Assign tiles to blocks. For each block, find which tile grid columns
+    # and rows it covers, convert grid indices to pixel origins via
+    # tileStartCornerX/Y, and look up the DEM file in demMap.
+    for by in range(blockRows):
+        for bx in range(blockCols):
+            # Range of tile indices for this block
+            colStart = bx * tilesPerBlockX
+            colEnd = min((bx + 1) * tilesPerBlockX, numCols)
+            rowStart = by * tilesPerBlockY
+            rowEnd = min((by + 1) * tilesPerBlockY, numRows)
+
+            blockDems = []
+            for ci in range(colStart, colEnd):
+                for ri in range(rowStart, rowEnd):
+                    # Tile corner in pixel coordinates
+                    key = (tileStartCornerX[ci], tileStartCornerY[ri])
+                    if key in demMap:
+                        # Collect DEMs that exist
+                        blockDems.append(demMap[key])
+
+            # Skip empty blocks
+            if len(blockDems) == 0:
+                continue
+
+            # Write this block's DEM list file
+            blockIndex = len(masterList)
+            blockDemListFile = (outPrefix + '-mosaicBlock_' +
+                                str(blockIndex) + '.txt')
+            blockOutputDem = (outPrefix + '-mosaicBlock_' +
+                              str(blockIndex) + '-DEM.tif')
+            with open(blockDemListFile, 'w') as f:
+                for d in blockDems:
+                    f.write(d + '\n')
+
+            masterList.append((blockDemListFile, blockOutputDem))
+            print('Block ' + str(blockIndex) + ' (' + str(bx) + ', ' +
+                  str(by) + '): ' + str(len(blockDems)) + ' DEMs, list: ' +
+                  blockDemListFile)
+
+    return masterList
