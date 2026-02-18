@@ -593,14 +593,6 @@ int main(int argc, char* argv[]) {
       crop_georef = vw::cartography::crop(target_georef, crop_bbox);
     }
 
-    // Important: Don't modify the lines below, we count on them in the Python
-    // mapproject program. Print with full precision.
-    vw_out() << "Output image size:\n";
-    vw_out() << std::setprecision(17) << "(width: " << virtual_image_width
-             << " height: " << virtual_image_height << ")" << "\n";
-    vw_out() << std::setprecision(17) << "Output pixel size: " 
-      << crop_georef.transform()(0, 0) << "\n";
-
     // Print an explanation for a potential problem.
     if (virtual_image_width <= 0 || virtual_image_height <= 0)
       vw_throw(ArgumentErr() << "Computed output image size is not positive. "
@@ -615,14 +607,22 @@ int main(int argc, char* argv[]) {
     if (opt.query_projection) {
       // Save the projection to a WKT file named <output>.wkt
       std::string wkt_file = opt.output_file + ".wkt";
-      vw_out() << "Output projection file: " << wkt_file << "\n";
       std::ofstream ofs(wkt_file.c_str());
       if (!ofs.good())
         vw_throw(ArgumentErr() << "Failed to open for writing: "
                  << wkt_file << "\n");
       ofs << crop_georef.get_wkt() << "\n";
       ofs.close();
-      vw_out() << "Query finished, exiting mapproject tool.\n";
+
+      // Structured output for the Python mapproject wrapper to parse.
+      // The comma separator must be in sync with the Python side.
+      vw_out() << std::setprecision(17)
+               << "Query results:\n"
+               << "image_width," << virtual_image_width << "\n"
+               << "image_height," << virtual_image_height << "\n"
+               << "pixel_size," << crop_georef.transform()(0, 0) << "\n"
+               << "projection_wkt_file," << wkt_file << "\n";
+
       return 0;
     }
 

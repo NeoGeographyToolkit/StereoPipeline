@@ -398,33 +398,29 @@ def main(argsIn):
         # Wipe this, it will be added later right below
         asp_cmd_utils.wipe_option(options.extraArgs, '--query-projection', 0)
 
-    # Call mapproject on the input data using subprocess and record output
-    cmd = ['mapproject_single',  '--query-projection', options.demPath,
-                options.imagePath, options.cameraPath, options.outputPath]
-    cmd = cmd + options.extraArgs # Append other options
+    # Create the output folder if needed, before --query-projection writes the
+    # WKT file there
+    outputFolder = os.path.dirname(options.outputPath)
+    if outputFolder == '':
+        outputFolder = './'
+    asp_file_utils.createFolder(outputFolder)
+
+    # Run mapproject_single --query-projection to get image size and projection
+    queryArgs = ['--query-projection', options.demPath,
+                 options.imagePath, options.cameraPath, options.outputPath]
+    queryArgs = queryArgs + options.extraArgs
     if options.noGeoHeaderInfo:
-        cmd += ['--no-geoheader-info']
-    print(" ".join(cmd))
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
-    projectionInfo, err = p.communicate()
-    if not options.suppressOutput:
-        print(projectionInfo)
+        queryArgs += ['--no-geoheader-info']
+    sep = ","
+    queryVerbose = (query_only or not options.suppressOutput)
+    querySettings = asp_system_utils.run_and_parse_output(
+        'mapproject_single', queryArgs, sep, queryVerbose)
 
     if query_only:
         return 0
-    
-    # Now find the image size in the output
-    startPos    = projectionInfo.find('Output image size:')
-    widthStart  = projectionInfo.find('width:', startPos)
-    heightStart = projectionInfo.find('height:', widthStart)
-    heightEnd   = projectionInfo.find(')', heightStart)
-    if startPos < 0:
-        print('Error computing projected area, quitting!')
-        return -1
 
-    # Extract values
-    fullWidth   = int(projectionInfo[widthStart+7  : heightStart-1])
-    fullHeight  = int(projectionInfo[heightStart+8 : heightEnd])
+    fullWidth  = int(querySettings['image_width'][0])
+    fullHeight = int(querySettings['image_height'][0])
     print('Output image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
 
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
@@ -433,12 +429,7 @@ def main(argsIn):
 
     print('Splitting into ' + str(numTilesX) + ' by ' + str(numTilesY) + ' tiles.')
 
-    # Set up output folder
-    outputFolder = os.path.dirname(options.outputPath)
-    if outputFolder == '':
-        outputFolder = './' # Handle calls in same directory
     outputName = os.path.basename(options.outputPath)
-    asp_file_utils.createFolder(outputFolder)
 
     # Make a temporary directory to store the tiles
     if options.workDir:
