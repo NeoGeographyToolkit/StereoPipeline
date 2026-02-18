@@ -347,14 +347,16 @@ regions to run stereo on.
 Specifying settings on the command line
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-All the settings given via the ``stereo.default`` file can be
-over-ridden from the command line. Just add a double hyphen (``--``) in
-front the option's name and then fill out the option just as you would
-in the configuration file. For options in the ``stereo.default`` file
-that take multiple numbers, they must be separated by spaces (like
-``corr-kernel 25 25``) on the command line. Here is an example in
-which we override the search range and subpixel mode from the command
-line.
+All the settings given via the ``stereo.default`` file (:numref:`stereodefault`)
+can be overridden from the command line. Just add a double hyphen (``--``) in
+front the option's name and then fill out the option just as you would in the
+configuration file. 
+
+For options in the ``stereo.default`` file that take multiple numbers, they must
+be separated by spaces (like ``--corr-kernel 25 25``) on the command line. 
+
+Here is an example in which we override the search range and subpixel mode from
+the command line.
 
 ::
 

@@ -102,6 +102,59 @@ def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
     asp_system_utils.runInGnuParallel(numProcesses, argumentFilePath,
                                       fullCommandList, opt.nodes_list, opt.verbose)
 
+def runBlockMosaic(opt, masterFile):
+    '''Run dem_mosaic in parallel on blocks via GNU Parallel.
+    Each job reads one line from masterFile by index and runs dem_mosaic.'''
+
+    # Count blocks in master file
+    with open(masterFile, 'r') as f:
+        lines = [l.strip() for l in f if l.strip()]
+    numBlocks = len(lines)
+    if numBlocks == 0:
+        raise Exception('No blocks in master file: ' + masterFile)
+
+    print('Running dem_mosaic on ' + str(numBlocks) + ' blocks.')
+
+    # Write argument file (one block index per line, 0-based)
+    argumentFilePath = masterFile.replace('.txt', '-args.txt')
+    with open(argumentFilePath, 'w') as f:
+        for i in range(numBlocks):
+            f.write(str(i) + '\n')
+
+    # Set up GNU parallel arguments
+    parallelArgs = ['--will-cite', '--env', 'ASP_DEPS_DIR',
+                    '--env', 'PATH', '--env', 'LD_LIBRARY_PATH',
+                    '--env', 'ASP_LIBRARY_PATH', '--env', 'ISISROOT']
+
+    if opt.parallel_options is not None:
+        parallelArgs += opt.parallel_options.split(' ')
+
+    # Determine number of processes
+    numProcesses = opt.processes
+    if numProcesses is None:
+        numProcesses = asp_system_utils.get_num_cpus()
+
+    # Build bash -c command that reads the master file at the given index
+    # and runs dem_mosaic. {1} is the 0-based block index from the argument
+    # file. sed -n uses 1-based line numbers, so add 1.
+    demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
+    bashScript = ('line=$(sed -n "$(({1}+1))p" ' + masterFile + '); '
+                  + demMosaicPath +
+                  ' --dem-list "${line%% *}" -o "${line##* }"')
+    commandList = ['bash', '-c', bashScript]
+
+    # Prepend parallel args to command
+    fullCommandList = parallelArgs + commandList
+
+    if opt.dryrun:
+        print('Run GNU parallel with ' + str(numProcesses) + ' processes')
+        print('Command: ' + ' '.join(fullCommandList))
+        return
+
+    asp_system_utils.runInGnuParallel(numProcesses, argumentFilePath,
+                                      fullCommandList, opt.nodes_list,
+                                      opt.verbose)
+
 def mosaicDems(opt, outPrefix):
     '''Collect per-tile DEMs and mosaic them in parallel blocks.'''
 
@@ -125,7 +178,23 @@ def mosaicDems(opt, outPrefix):
 
     print('Found ' + str(len(demFiles)) + ' DEM files to mosaic.')
 
-    # Will first mosaic with several batches then merge the results. This seems 
+    # Simple single-process mosaic of all tile DEMs
+    demListFile = outPrefix + '-demList.txt'
+    with open(demListFile, 'w') as f:
+        for d in demFiles:
+            f.write(d + '\n')
+    finalDem = outPrefix + '-DEM.tif'
+    demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
+    commandList = [demMosaicPath, '--dem-list', demListFile, '-o', finalDem]
+    print('Running: ' + ' '.join(commandList))
+    if not opt.dryrun:
+        subprocess.call(commandList)
+    return
+    
+    # This more fancy version needs to be tested and tuned. For now will return
+    # right above after the simple version does the job.
+     
+    # Will first mosaic with several batches then merge the results. This seems
     # to be the sweet spot for I/O and performance.
     
     # Compute tile grid size and number of parallel jobs
@@ -225,11 +294,34 @@ def mosaicDems(opt, outPrefix):
     print('Wrote master mosaic file: ' + masterFile + ' with ' +
           str(len(masterList)) + ' blocks')
 
-    # TODO(oalexan1): Must handle if we have just one job
+    finalDem = outPrefix + '-DEM.tif'
 
-    # TODO: Run parallel dem_mosaic per block, then final merge
-    print('DEBUG: Exiting before actual mosaicking.')
-    sys.exit(0)
+    if len(masterList) == 1:
+        # Single block - just run dem_mosaic directly, no parallel overhead
+        demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
+        commandList = [demMosaicPath, '--dem-list', masterList[0][0],
+                       '-o', finalDem]
+        print('Single block mosaic: ' + ' '.join(commandList))
+        if not opt.dryrun:
+            subprocess.call(commandList)
+    else:
+        # Run parallel dem_mosaic per block
+        runBlockMosaic(opt, masterFile)
+
+        # Final merge of block DEMs into outPrefix-DEM.tif
+        blockDemFiles = [outputDem for (listFile, outputDem) in masterList]
+        # Filter to existing files
+        blockDemFiles = [f for f in blockDemFiles if os.path.exists(f)]
+        if len(blockDemFiles) == 0:
+            raise Exception('No block DEM files were produced.')
+
+        print('Merging ' + str(len(blockDemFiles)) + ' block DEMs into ' + finalDem)
+        demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
+        commandList = [demMosaicPath] + blockDemFiles + ['-o', finalDem]
+        if not opt.dryrun:
+            if opt.verbose:
+                print(' '.join(commandList))
+            subprocess.call(commandList)
 
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
@@ -243,8 +335,8 @@ if __name__ == '__main__':
                    help='Display the commands being executed.')
     p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
                    help='Do not launch the jobs, only print the commands that should be run.')
-    p.add_argument('--tile-size', dest='tile_size', default=1024, type=int,
-                   help='Size of each tile for distributed processing.')
+    p.add_argument('--tile-size', dest='tile_size', default=2048, type=int,
+                   help='Size of each tile for distributed processing. This is before the padding is added.')
     p.add_argument('--tile-padding', dest='tile_padding', default=256, type=int,
                    help='Padding around each tile to avoid boundary artifacts.')
     p.add_argument('--threads-multiprocess', dest='threads_multi', default=None, type=int,

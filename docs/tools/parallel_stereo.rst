@@ -172,6 +172,9 @@ Step 6 (Cleanup)
     If the run was successful, the data from run subdirectories are combined
     and the subdirectories are removed. See ``--keep-only``.
 
+This is followed usually by DEM creation with :ref:`point2dem`, which is not
+part of this program.
+
 .. _ps_options:
 
 Command-line options
