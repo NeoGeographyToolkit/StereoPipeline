@@ -160,7 +160,10 @@ def runBlockMosaic(opt, masterFile):
 def mosaicDems(opt, outPrefix):
     '''Mosaic blocks of per-tile DEMs in parallel, then mosaic the results. This
     is more efficient than a single mosaic of all tile DEMs.'''
-
+    
+    # Maximum number of jobs based on number of nodes and processes per node
+    numJobs = numMosaicJobs(opt.nodes_list, opt.processes)
+    #begx
     # Read the list of tiles
     tiles = readDistTileList(outPrefix)
     numTiles = len(tiles)
@@ -179,32 +182,14 @@ def mosaicDems(opt, outPrefix):
         raise Exception('No DEM files found in tile directories.')
     print('Found ' + str(len(demFiles)) + ' DEM files to mosaic.')
 
-    # # Simple single-process mosaic of all tile DEMs
-    # demListFile = outPrefix + '-demList.txt'
-    # with open(demListFile, 'w') as f:
-    #     for d in demFiles:
-    #         f.write(d + '\n')
-    # finalDem = outPrefix + '-DEM.tif'
-    # demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
-    # commandList = [demMosaicPath, '--dem-list', demListFile, '-o', finalDem]
-    # print('Running: ' + ' '.join(commandList))
-    # if not opt.dryrun:
-    #     subprocess.call(commandList)
-    # return
-    
     # Compute tile grid size and number of parallel jobs
     (numCols, numRows) = tileGridSize(tiles)
     print('Tile grid: ' + str(numCols) + ' cols x ' + str(numRows) + ' rows')
 
-    numJobs = numMosaicJobs(opt.nodes_list, opt.processes)
-    print('Initial num mosaic jobs: ' + str(numJobs))
-
-    # Each block must have at least 2 tiles
-    # TODO(oalexan1): Increase this to 4 tiles
+    # Each block must have at least 2 tiles. Use this to limit the number of jobs
     maxJobs = (numCols * numRows) // 2
-    
     numJobs = max(min(numJobs, maxJobs), 1)
-    print('Num mosaic jobs after capping: ' + str(numJobs))
+    print('Num mosaic jobs: ' + str(numJobs))
     
     # Divide tile grid into blocks matching the aspect ratio
     aspect = float(numCols) / float(max(numRows, 1))
@@ -277,7 +262,8 @@ def mosaicDems(opt, outPrefix):
             print('Block ' + str(blockIndex) + ' (' + str(bx) + ', ' +
                   str(by) + '): ' + str(len(blockDems)) + ' DEMs, list: ' +
                   blockDemListFile)
-
+    #endx
+    
     # Write master file having the list of lists to mosaic.
     masterFile = outPrefix + '-mosaicMaster.txt'
     with open(masterFile, 'w') as f:
@@ -285,8 +271,6 @@ def mosaicDems(opt, outPrefix):
             f.write(listFile + ' ' + outputDem + '\n')
     print('Wrote master mosaic file: ' + masterFile + ' with ' +
           str(len(masterList)) + ' blocks')
-
-    finalDem = outPrefix + '-DEM.tif'
 
     # Run parallel dem_mosaic per block
     runBlockMosaic(opt, masterFile)
@@ -298,6 +282,7 @@ def mosaicDems(opt, outPrefix):
     if len(blockDemFiles) == 0:
         raise Exception('No block DEM files were produced.')
 
+    finalDem = outPrefix + '-DEM.tif'
     print('Merging ' + str(len(blockDemFiles)) + ' block DEMs into ' + finalDem)
     demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
     commandList = [demMosaicPath] + blockDemFiles + ['-o', finalDem]
@@ -381,11 +366,6 @@ if __name__ == '__main__':
     if opt.threads_single is None:
         opt.threads_single = asp_system_utils.get_num_cpus()
 
-    # Run stereo_parse to generate the tile list
-    # TODO(oalexan1): Should this be done only at entry_point 0?
-    tile_params = ['--stereo-dist-tile-params', str(opt.tile_size), str(opt.tile_padding)]
-    stereo_run('stereo_parse', args, opt, extra_args=tile_params)
-
     # Get the output prefix from stereo_parse
     sep = ","
     settings = asp_system_utils.run_and_parse_output("stereo_parse", args, sep, opt.verbose)
@@ -393,6 +373,9 @@ if __name__ == '__main__':
 
     # Run stereo_tile on all tiles for pprc only (entry_point=0, stop_point=1)
     if opt.entry_point <= Step.pprc < opt.stop_point:
+        # Run stereo_parse to generate the tile list
+        tile_params = ['--stereo-dist-tile-params', str(opt.tile_size), str(opt.tile_padding)]
+        stereo_run('stereo_parse', args, opt, extra_args=tile_params)
         # Run stereo_pprc with full images and --stop-after-stats to compute statistics only
         asp_cmd_utils.wipe_option(args, '--threads', 1)
         pprc_args = ['--stop-after-stats', '--threads', str(opt.threads_single)]
