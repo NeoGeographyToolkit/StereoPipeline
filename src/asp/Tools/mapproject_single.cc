@@ -415,7 +415,6 @@ int main(int argc, char* argv[]) {
 
     // TODO: Replace this using the new CameraModelLoader functions. But those
     // may not have the session guessing logic.
-
     // We create a stereo session where both of the cameras and images
     // are the same, because we want to take advantage of the stereo
     // pipeline's ability to generate camera models for various
@@ -593,7 +592,7 @@ int main(int argc, char* argv[]) {
       crop_georef = vw::cartography::crop(target_georef, crop_bbox);
     }
 
-    // Important: Don't modify the line below, we count on it in the Python
+    // Important: Don't modify the lines below, we count on them in the Python
     // mapproject program.
     vw_out() << "Output image size:\n";
     vw_out() << std::setprecision(17) << "(width: " << virtual_image_width

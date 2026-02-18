@@ -49,6 +49,9 @@ Command-line options
     Master file enumerating for each block to mosaic the input DEM list file and
     output DEM path, one block per line. Used with ``--dem-mosaic-index``.
 
+--run-dir <string>
+    Directory in which the script is running. Set by ``stereo_dist``.
+
 --verbose
     Display the commands being executed.
 

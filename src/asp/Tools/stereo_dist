@@ -91,6 +91,10 @@ def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
 
     commandList += args
 
+    # Append the run directory so the child can chdir to it
+    runDir = asp_system_utils.escape_token(os.getcwd())
+    commandList += ['--run-dir', runDir]
+
     # Prepend parallel args to command
     fullCommandList = parallelArgs + commandList
 
@@ -144,6 +148,10 @@ def runBlockMosaic(opt, masterFile):
         commandList.append('--verbose')
     if opt.dryrun:
         commandList.append('--dry-run')
+
+    # Append the run directory so the child can chdir to it
+    runDir = asp_system_utils.escape_token(os.getcwd())
+    commandList += ['--run-dir', runDir]
 
     # Prepend parallel args to command
     fullCommandList = parallelArgs + commandList

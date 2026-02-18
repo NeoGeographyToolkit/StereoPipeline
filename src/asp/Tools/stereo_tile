@@ -141,6 +141,8 @@ if __name__ == '__main__':
     p.add_argument('--dem-mosaic-master', dest='dem_mosaic_master', default=None,
                    help='Master file enumerating for each block to mosaic the '
                    'input DEM list file and output DEM path, one block per line.')
+    p.add_argument('--run-dir', dest='runDir', default=None,
+                   help='Directory in which the script is running.')
     p.add_argument('--verbose', dest='verbose', default=False, action='store_true',
                    help='Display the commands being executed.')
     p.add_argument('--dry-run', dest='dryrun', default=False, action='store_true',
@@ -154,6 +156,10 @@ if __name__ == '__main__':
 
     if opt.version:
         asp_system_utils.print_version_and_exit()
+
+    # This can handle spaces in directory names, unlike when GNU parallel is in charge
+    if opt.runDir is not None:
+        os.chdir(opt.runDir)
 
     # Handle dem mosaic mode. Runs dem_mosaic on one block and exits. Hence this
     # aux tool does both mosaicking of DEMs or running stereo tiles depending on
