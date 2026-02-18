@@ -1,7 +1,10 @@
 Changes since last release
 --------------------------
 
-Added cloud-optimized GeoTIFF (COG) support via the ``--cog`` option to 
+Added a new program for distributed stereo processing across computing nodes
+  (:numref:`stereo_dist`).
+
+Added cloud-optimized GeoTIFF (COG) support via the ``--cog`` option to
   ``point2dem``, ``mapproject``, etc. (:numref:`cog_output`).
 
 Added support for plain-text match files (:numref:`txt_match`).
