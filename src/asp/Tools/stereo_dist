@@ -74,7 +74,7 @@ def runMapprojection(opt, settings, outPrefix, entryPoint):
             if not os.path.exists(f):
                 raise Exception('Mapprojected image not found: ' + f +
                     '. Run from entry point 0 first.')
-        print('Skipping mapprojection (entry point > 0).')
+        print('Skipping mapprojection (entry point > ' + str(Step.pprc) + ').')
         return (leftMap, rightMap)
 
     # Create the output directory if needed
@@ -185,21 +185,30 @@ def mapprojAndUpdateArgs(opt, settings, outPrefix, sep):
     (leftMap, rightMap) = runMapprojection(opt, settings, outPrefix,
                                            opt.entry_point)
 
-    # Care is needed when the images are .cub so have the cameras embedded
+    # Care is needed when the images are .cub so have the cameras embedded. For RPC,
+    # the mapprojected images will be .tif but will hve internally the cameras, so no
+    # need for extra args.
     in_file1  = settings['in_file1'][0]
     in_file2  = settings['in_file2'][0]
     cam_file1 = settings['cam_file1'][0]
     cam_file2 = settings['cam_file2'][0]
-    if not cam_file1:
-        cam_file1 = in_file1
-    if not cam_file2:
-        cam_file2 = in_file2
+    if settings['stereo_session'][0] == 'isis':
+        if not cam_file1:
+            cam_file1 = in_file1
+        if not cam_file2:
+            cam_file2 = in_file2
 
     # named_options has all the options and values we need to pass through
     named_opts = settings.get('named_options', [''])
     if named_opts == ['']:
         named_opts = []
-    args = [leftMap, rightMap, cam_file1, cam_file2, outPrefix] + named_opts
+    args = [leftMap, rightMap]
+    if cam_file1:
+        args.append(cam_file1)
+    if cam_file2:
+        args.append(cam_file2)
+    args.append(outPrefix)
+    args += named_opts
 
     # Add the DEM for the stereo pipeline, if not already present
     if '--dem' not in args:
