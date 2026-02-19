@@ -20,7 +20,7 @@
 stereo_dist - Distributed stereo processing.
 """
 
-import sys, argparse, subprocess, re, os, time, glob, shutil, platform
+import sys, argparse, subprocess, re, os, time, glob, shutil, platform, math
 import os.path as P
 
 # Set up the path to Python modules about to load
@@ -41,6 +41,129 @@ os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 # Ensure we can look up the ASP libraries
 if 'ASP_LIBRARY_PATH' in os.environ:
     os.environ['LD_LIBRARY_PATH'] = os.environ['ASP_LIBRARY_PATH']
+
+def queryMapproject(dem, image, camera, outputImage, extraArgs):
+    '''Run mapproject_single --query-projection and return parsed settings.'''
+    queryArgs = ['--query-projection', dem, image]
+    if camera:
+        queryArgs.append(camera)
+    queryArgs.append(outputImage)
+    queryArgs += extraArgs
+    sep = ","
+    return asp_system_utils.run_and_parse_output(
+        'mapproject_single', queryArgs, sep, verbose=False)
+
+def runMapprojection(opt, settings, outPrefix):
+    '''Mapproject both input images onto the DEM with a common projection,
+    grid size, and bounding box. Return the paths to the mapprojected images.'''
+
+    in_file1  = settings['in_file1'][0]
+    in_file2  = settings['in_file2'][0]
+    cam_file1 = settings['cam_file1'][0]
+    cam_file2 = settings['cam_file2'][0]
+
+    leftMap  = outPrefix + '-left_map.tif'
+    rightMap = outPrefix + '-right_map.tif'
+
+    # Create the output directory if needed
+    outDir = os.path.dirname(outPrefix)
+    if outDir and not os.path.exists(outDir):
+        os.makedirs(outDir)
+
+    # Step 1: Query left image to get auto projection, GSD, and bounding box.
+    # If --t_srs is provided, use it for the left query too.
+    leftExtraArgs = []
+    if opt.t_srs is not None:
+        leftExtraArgs = ['--t_srs', opt.t_srs]
+    print('Querying projection for the left image.')
+    leftQuery = queryMapproject(opt.dem, in_file1, cam_file1, leftMap,
+                                leftExtraArgs)
+
+    leftGsd = float(leftQuery['pixel_size'][0])
+    leftWkt = leftQuery['projection_wkt_file'][0]
+    leftXmin = float(leftQuery['proj_box_xmin'][0])
+    leftYmin = float(leftQuery['proj_box_ymin'][0])
+    leftXmax = float(leftQuery['proj_box_xmax'][0])
+    leftYmax = float(leftQuery['proj_box_ymax'][0])
+
+    print('Left GSD: ' + str(leftGsd))
+    print('Left WKT: ' + leftWkt)
+    print('Left proj box: ' + str(leftXmin) + ' ' + str(leftYmin) +
+          ' ' + str(leftXmax) + ' ' + str(leftYmax))
+
+    # Step 2: Query right image with the left projection forced
+    print('Querying projection for the right image.')
+    rightQuery = queryMapproject(opt.dem, in_file2, cam_file2, rightMap,
+                                ['--t_srs', leftWkt])
+
+    rightGsd = float(rightQuery['pixel_size'][0])
+    rightXmin = float(rightQuery['proj_box_xmin'][0])
+    rightYmin = float(rightQuery['proj_box_ymin'][0])
+    rightXmax = float(rightQuery['proj_box_xmax'][0])
+    rightYmax = float(rightQuery['proj_box_ymax'][0])
+
+    print('Right GSD: ' + str(rightGsd))
+    print('Right proj box: ' + str(rightXmin) + ' ' + str(rightYmin) +
+          ' ' + str(rightXmax) + ' ' + str(rightYmax))
+
+    # Step 3: Use the finer (smaller) GSD
+    gsd = min(abs(leftGsd), abs(rightGsd))
+
+    # Step 4: Intersect the two bounding boxes
+    xmin = max(leftXmin, rightXmin)
+    ymin = max(leftYmin, rightYmin)
+    xmax = min(leftXmax, rightXmax)
+    ymax = min(leftYmax, rightYmax)
+
+    if xmin >= xmax or ymin >= ymax:
+        raise Exception('The two images do not overlap in projected space.')
+
+    # Step 5: Override with user-provided values
+    if opt.tr is not None:
+        gsd = opt.tr
+        print('Using input GSD: ' + str(gsd))
+    else:
+        print('Using min estim GSD: ' + str(gsd))
+    
+    if opt.t_projwin is not None:
+        xmin = opt.t_projwin[0]
+        ymin = opt.t_projwin[1]
+        xmax = opt.t_projwin[2]
+        ymax = opt.t_projwin[3]
+        print('Using input box: ' + str(xmin) + ' ' + str(ymin) +
+          ' ' + str(xmax) + ' ' + str(ymax))
+    else:
+        print('Using intersection box: ' + str(xmin) + ' ' + str(ymin) +
+          ' ' + str(xmax) + ' ' + str(ymax))
+
+    if opt.t_srs is not None:
+       leftWkt = opt.t_srs
+       print('Using input projection: ' + leftWkt)
+
+    # Step 6: Run mapproject on both images with common parameters
+    commonArgs = ['--t_srs', leftWkt, '--tr', str(gsd),
+                  '--t_projwin', str(xmin), str(ymin), str(xmax), str(ymax)]
+
+    mapprojectPath = asp_system_utils.bin_path('mapproject')
+
+    for (image, camera, outputPath, label) in \
+        [(in_file1, cam_file1, leftMap, 'left'),
+         (in_file2, cam_file2, rightMap, 'right')]:
+
+        cmd = [mapprojectPath] + commonArgs + [opt.dem, image]
+        if camera:
+            cmd.append(camera)
+        cmd.append(outputPath)
+        if opt.nodes_list:
+            cmd += ['--nodes-list', opt.nodes_list]
+
+        print('Mapprojecting ' + label + ' image.')
+        if opt.verbose or opt.dryrun:
+            print(' '.join(cmd))
+        if not opt.dryrun:
+            subprocess.check_call(cmd)
+
+    return (leftMap, rightMap)
 
 def runStereoTiles(opt, args, outPrefix, tileEntryPoint, tileStopPoint):
     '''Run stereo_tile on all tiles using GNU Parallel.'''
@@ -239,7 +362,25 @@ if __name__ == '__main__':
                    help='A file containing the list of computing nodes, one per line. '
                    'If not provided, run on the local machine.')
     p.add_argument('--dem', dest='dem', required=True,
-                   help='Input DEM for mapprojection. Required.')
+                   help='Input DEM. Required.')
+    p.add_argument('--mapproject', dest='mapproject', default=False,
+                   action='store_true',
+                   help='Mapproject the input images onto the DEM before '
+                   'running stereo. The projection, grid size, and bounding '
+                   'box are auto-determined to be consistent for both images. '
+                   'These can be overridden with --t_srs, --tr, and --t_projwin.')
+    p.add_argument('--t_srs', dest='t_srs', default=None,
+                   help='Output projection for mapprojection. A PROJ string, '
+                   'EPSG code, or path to a WKT file. Auto-determined if not set.')
+    p.add_argument('--tr', dest='tr', default=None, type=float,
+                   help='Output grid size (ground sample distance) for '
+                   'mapprojection, in units of the projection. '
+                   'Auto-determined as the finer of the two images if not set.')
+    p.add_argument('--t_projwin', dest='t_projwin', default=None, type=float,
+                   nargs=4, metavar=('XMIN', 'YMIN', 'XMAX', 'YMAX'),
+                   help='Bounding box for mapprojection in projected coordinates: '
+                   'xmin ymin xmax ymax. Auto-determined as the intersection of '
+                   'the two images if not set.')
     p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
                    help='Options to pass directly to GNU Parallel.')
 
@@ -259,14 +400,33 @@ if __name__ == '__main__':
         p.print_help()
         asp_system_utils.raise_error('Missing input files.', code=2)
 
+    # Validate --t_projwin if provided. Swap min/max if in wrong order,
+    # as some tools print bounding boxes with inverted y axis.
+    if opt.t_projwin is not None:
+        if opt.t_projwin[0] > opt.t_projwin[2]:
+            opt.t_projwin[0], opt.t_projwin[2] = opt.t_projwin[2], opt.t_projwin[0]
+        if opt.t_projwin[1] > opt.t_projwin[3]:
+            opt.t_projwin[1], opt.t_projwin[3] = opt.t_projwin[3], opt.t_projwin[1]
+
+    # Validate that --t_srs, --tr, --t_projwin are only used with --mapproject
+    if not opt.mapproject:
+        for name in ['--t_srs', '--tr', '--t_projwin']:
+            val = getattr(opt, name.lstrip('-').replace('-', '_'))
+            if val is not None:
+                asp_system_utils.raise_error(
+                    name + ' can only be used with --mapproject.')
+
     # These are not supported as stereo_dist manages its own crop windows per tile
     for bad_opt in ['--left-image-crop-win', '--right-image-crop-win']:
         if bad_opt in args:
             asp_system_utils.raise_error('The option ' + bad_opt +
                                          ' is not supported by stereo_dist.')
 
-    # Pass the DEM to the stereo C++ tools
-    args.extend(['--dem', opt.dem])
+    # Pass the DEM to the stereo C++ tools. When mapprojecting, defer this
+    # until after mapprojection, as stereo_parse will complain about
+    # non-mapprojected images with --dem.
+    if not opt.mapproject:
+        args.extend(['--dem', opt.dem])
 
     # Validate --tr is in point2dem options when DEM step will run
     if opt.entry_point <= Step.dem < opt.stop_point and '--tr' not in opt.point2dem_options:
@@ -281,6 +441,45 @@ if __name__ == '__main__':
     sep = ","
     settings = asp_system_utils.run_and_parse_output("stereo_parse", args, sep, opt.verbose)
     outPrefix = settings['out_prefix'][0]
+
+    # Mapproject both images onto the DEM with consistent parameters
+    if opt.mapproject:
+        (leftMap, rightMap) = runMapprojection(opt, settings, outPrefix)
+
+        # Replace original images with mapprojected ones in args.
+        # Keep original camera files. For embedded cameras (e.g., ISIS .cub),
+        # add the original image files as explicit camera arguments, since
+        # the mapprojected .tif files don't contain the camera.
+        in_file1  = settings['in_file1'][0]
+        in_file2  = settings['in_file2'][0]
+        cam_file1 = settings['cam_file1'][0]
+        cam_file2 = settings['cam_file2'][0]
+
+        # For embedded cameras, the original image is the camera
+        if not cam_file1:
+            cam_file1 = in_file1
+        if not cam_file2:
+            cam_file2 = in_file2
+
+        # Remove all positional args, then rebuild. Must also remove
+        # camera files when they are separate (e.g. RPC XML), otherwise
+        # they remain in args and stereo_parse mistakes them for images.
+        positionals = [in_file1, in_file2, outPrefix]
+        if cam_file1 and cam_file1 != in_file1:
+            positionals.append(cam_file1)
+        if cam_file2 and cam_file2 != in_file2:
+            positionals.append(cam_file2)
+        newArgs = [a for a in args if a not in positionals]
+        newArgs += [leftMap, rightMap, cam_file1, cam_file2, outPrefix]
+        args = newArgs
+
+        # Now add the DEM for the stereo pipeline
+        args.extend(['--dem', opt.dem])
+
+        # Re-parse with updated args
+        settings = asp_system_utils.run_and_parse_output(
+            "stereo_parse", args, sep, opt.verbose)
+        outPrefix = settings['out_prefix'][0]
 
     # Run stereo_tile on all tiles for pprc only (entry_point=0, stop_point=1)
     if opt.entry_point <= Step.pprc < opt.stop_point:
