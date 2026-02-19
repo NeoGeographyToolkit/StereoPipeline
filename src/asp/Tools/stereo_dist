@@ -466,31 +466,23 @@ if __name__ == '__main__':
                                                 opt.entry_point)
 
         # Replace original images with mapprojected ones in args.
-        # Keep original camera files. For embedded cameras (e.g., ISIS .cub),
-        # add the original image files as explicit camera arguments, since
-        # the mapprojected .tif files don't contain the camera.
+        # For embedded cameras (e.g., ISIS .cub), the original image
+        # serves as the camera file.
         in_file1  = settings['in_file1'][0]
         in_file2  = settings['in_file2'][0]
         cam_file1 = settings['cam_file1'][0]
         cam_file2 = settings['cam_file2'][0]
-
-        # For embedded cameras, the original image is the camera
         if not cam_file1:
             cam_file1 = in_file1
         if not cam_file2:
             cam_file2 = in_file2
 
-        # Remove all positional args, then rebuild. Must also remove
-        # camera files when they are separate (e.g. RPC XML), otherwise
-        # they remain in args and stereo_parse mistakes them for images.
-        positionals = [in_file1, in_file2, outPrefix]
-        if cam_file1 and cam_file1 != in_file1:
-            positionals.append(cam_file1)
-        if cam_file2 and cam_file2 != in_file2:
-            positionals.append(cam_file2)
-        newArgs = [a for a in args if a not in positionals]
-        newArgs += [leftMap, rightMap, cam_file1, cam_file2, outPrefix]
-        args = newArgs
+        # Remove all positional args from the list, keep only options
+        positionals = set([in_file1, in_file2, cam_file1, cam_file2, outPrefix])
+        args = [a for a in args if a not in positionals]
+
+        # Prepend new positionals: mapprojected images, cameras, prefix
+        args = [leftMap, rightMap, cam_file1, cam_file2, outPrefix] + args
 
         # Now add the DEM for the stereo pipeline
         args.extend(['--dem', opt.dem])
