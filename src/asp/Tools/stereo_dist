@@ -53,9 +53,11 @@ def queryMapproject(dem, image, camera, outputImage, extraArgs):
     return asp_system_utils.run_and_parse_output(
         'mapproject_single', queryArgs, sep, verbose=False)
 
-def runMapprojection(opt, settings, outPrefix):
+def runMapprojection(opt, settings, outPrefix, entryPoint):
     '''Mapproject both input images onto the DEM with a common projection,
-    grid size, and bounding box. Return the paths to the mapprojected images.'''
+    grid size, and bounding box. Return the paths to the mapprojected images.
+    If entryPoint > 0, skip mapprojection and just return the expected paths,
+    verifying that the mapprojected images already exist.'''
 
     in_file1  = settings['in_file1'][0]
     in_file2  = settings['in_file2'][0]
@@ -64,6 +66,16 @@ def runMapprojection(opt, settings, outPrefix):
 
     leftMap  = outPrefix + '-left_map.tif'
     rightMap = outPrefix + '-right_map.tif'
+
+    # If resuming from a later entry point, just verify the mapprojected
+    # images exist and return their paths.
+    if entryPoint > 0:
+        for f in [leftMap, rightMap]:
+            if not os.path.exists(f):
+                raise Exception('Mapprojected image not found: ' + f +
+                    '. Run from entry point 0 first.')
+        print('Skipping mapprojection (entry point > 0).')
+        return (leftMap, rightMap)
 
     # Create the output directory if needed
     outDir = os.path.dirname(outPrefix)
@@ -325,6 +337,12 @@ def mosaicDems(opt, outPrefix):
             print(' '.join(commandList))
         subprocess.call(commandList)
 
+    # Clean up partial block mosaics
+    print('Removing partial DEM mosaics.')
+    for (listFile, outputDem) in masterList:
+        if os.path.exists(outputDem):
+            os.remove(outputDem)
+
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
                   <output_file_prefix>
@@ -444,7 +462,8 @@ if __name__ == '__main__':
 
     # Mapproject both images onto the DEM with consistent parameters
     if opt.mapproject:
-        (leftMap, rightMap) = runMapprojection(opt, settings, outPrefix)
+        (leftMap, rightMap) = runMapprojection(opt, settings, outPrefix,
+                                                opt.entry_point)
 
         # Replace original images with mapprojected ones in args.
         # Keep original camera files. For embedded cameras (e.g., ISIS .cub),
