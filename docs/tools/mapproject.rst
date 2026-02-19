@@ -47,14 +47,14 @@ If this is not set, the projection from the DEM will be used, unless it is the
 auto-determined.
 
 For Earth, with the WGS84 datum, the auto-determined projection is UTM
-with an auto-computed zone, except for latitudes above 84° North and below 80°
+with an auto-computed zone, except for latitudes above 84 degrees North and below 80 degrees
 South, where the `NSDIC polar stereographic projections
 <https://nsidc.org/data/user-resources/help-center/guide-nsidcs-polar-stereographic-projection>`_
 are used.
 
 For other Earth datums and other planetary bodies, the automatic determination
 produces a local stereographic projection. The projection center is found
-by a median calculation based on of a sample of image pixels.
+by a median calculation based on a sample of image pixels.
 Or consider using the cylindrical equal area projection.
 
 To ensure the automatic projection determination is always invoked, overriding
@@ -268,9 +268,9 @@ Command-line options
     the values should contain spaces.
 
 --query-projection
-    Display the computed projection information and estimated ground
-    sample distance (pixel size on the ground), save the projection as a
-    WKT file named ``<output image>.wkt``, and quit.
+    Display the computed projection information, estimated ground sample
+    distance, and projected bounding box. Save the projection as a WKT
+    file named ``<output image>.wkt``. Quit afterwards.
 
 --query-pixel <double double>
     Trace a ray from this input image pixel (values start from 0) to the ground.
@@ -286,7 +286,7 @@ Command-line options
     the rotation and translation from the .adjust file, the DEM it
     mapprojected onto, and the value of the ``--mo`` option.
 
---nodata-value <float(default: -32768)>
+--nodata-value <float (default: -32768)>
     No-data value to use unless specified in the input image.
 
 --suppress-output

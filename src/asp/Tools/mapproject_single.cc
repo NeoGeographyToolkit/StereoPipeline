@@ -68,9 +68,9 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     ("datum-offset",     po::value(&opt.datum_offset)->default_value(0),
      "When projecting to a datum instead of a DEM, use this elevation in meters from the datum.")
     ("query-projection", po::bool_switch(&opt.query_projection)->default_value(false),
-     "Display the computed projection information and estimated ground sample "
-     "distance (pixel size on the ground), save the projection as a WKT file "
-     "named <output image>.wkt, and quit. Used by the mapproject script.")
+     "Display the computed projection information, estimated ground sample "
+     "distance, and projected bounding box. Save the projection as a WKT "
+     "file named <output image>.wkt. Quit afterwards.")
     ("session-type,t",      po::value(&opt.stereo_session),
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("t_projwin",        po::value(&opt.target_projwin),

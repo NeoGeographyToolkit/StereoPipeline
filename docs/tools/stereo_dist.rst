@@ -69,19 +69,19 @@ stereo. This program can be invoked as::
 Here we omitted the cameras as those are contained in the cub files.
 
 The projection is auto-determined based on the DEM and the left image
-(:numref:`mapproj_auto_proj`). 
+(:numref:`mapproj_auto_proj`).
 
 The grid size is set to the minimum of those estimated from the input images.
 
-The mapprojection region is the intersection of the regions for the two  
+The mapprojection region is the intersection of the regions for the two
 images.
 
-Any of these can be explicitly set with  ``--t_srs``, ``--tr``, and ``--t_projwin``
+Any of these can be explicitly set with ``--t_srs``, ``--tr``, and ``--t_projwin``
 (:numref:`stereo_dist_options`).
 
 The mapprojected images are saved as ``<output prefix>-left_map.tif`` and
 ``<output prefix>-right_map.tif``. Then, the same processing is done as
-with pre-existing mapprojected images. 
+with pre-existing mapprojected images.
 
 .. _stereo_dist_workflow:
 
