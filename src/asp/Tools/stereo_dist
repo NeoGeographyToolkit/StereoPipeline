@@ -465,8 +465,7 @@ if __name__ == '__main__':
         (leftMap, rightMap) = runMapprojection(opt, settings, outPrefix,
                                                 opt.entry_point)
 
-        # Rebuild args using only named options from stereo_parse (safe,
-        # no risk of collisions between positional and option values).
+        # Care is needed when the images are .cub so have the cameras embedded
         in_file1  = settings['in_file1'][0]
         in_file2  = settings['in_file2'][0]
         cam_file1 = settings['cam_file1'][0]
@@ -486,9 +485,10 @@ if __name__ == '__main__':
         if '--dem' not in args:
             args.extend(['--dem', opt.dem])
 
-        # Re-parse with updated args
-        settings = asp_system_utils.run_and_parse_output(
-            "stereo_parse", args, sep, opt.verbose)
+        # Re-parse with updated args. Likely redundant, but good to have as a sanity check
+        # that we reconnected correctly the args.
+        settings = asp_system_utils.run_and_parse_output("stereo_parse", args, 
+                                                         sep, opt.verbose)
         outPrefix = settings['out_prefix'][0]
     
     # Run stereo_tile on all tiles for pprc only (entry_point=0, stop_point=1)
