@@ -146,6 +146,15 @@ int main(int argc, char* argv[]) {
     // This is different from opt.out_prefix for multiview
     vw_out() << "out_prefix," << output_prefix << "\n";
 
+    // Output only the named options (no positional args) so that callers
+    // like stereo_dist can safely reconstruct command lines.
+    std::vector<std::string> opts_vals;
+    asp::parseStereoOptsVals(argc, argv, ParseDescription(), opts_vals);
+    vw_out() << "named_options";
+    for (size_t i = 0; i < opts_vals.size(); i++)
+      vw_out() << "," << opts_vals[i];
+    vw_out() << "\n";
+
     Vector2i left_image_size  = file_image_size(opt.in_file1),
              right_image_size = file_image_size(opt.in_file2);
     vw_out() << "left_image_size,"  << left_image_size.x()  << "," 

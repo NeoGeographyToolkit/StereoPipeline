@@ -9,14 +9,15 @@ also includes the preprocessing and filtering steps, which are serial in
 :ref:`parallel_stereo`. DEM creation per tile and mosaicking of produced DEMs are
 also distributed.
 
-This program requires that input images be mapprojected. GNU Parallel manages
-the jobs. It is expected that all nodes can connect to each other using ssh
-without password and that they share the same storage space.
+This program requires that input images be mapprojected, or the ``--mapproject``
+option be used to mapproject them automatically. GNU Parallel manages the jobs.
+It is expected that all nodes can connect to each other using ssh without
+password and that they share the same storage space.
 
 .. _stereo_dist_example:
 
-Example
-~~~~~~~
+Example with mapprojected images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -37,8 +38,8 @@ The input images must be mapprojected (:numref:`mapproj-example`). The
 mapprojection DEM should be set with ``--dem``. All output files
 (:numref:`outputfiles`) will start with the provided prefix (``run/run`` above).
 
-The result of this program will be the stereo DEM. The workflow below has more
-details.
+The result of this program will be the stereo DEM. The workflow in
+:numref:`stereo_dist_workflow` has more details.
 
 The option ``--point2dem-options`` must include ``--tr`` and the grid size
 (typically in meters) to ensure a consistent grid size across all tiles that are
@@ -47,6 +48,41 @@ later merged. This is passed to :ref:`point2dem`.
 This program can be run on PBS and SLURM systems in a manner analogous to
 :ref:`parallel_stereo`. See :numref:`pbs_slurm` for details.
 
+.. _stereo_dist_mapproject:
+
+Example with raw images
+~~~~~~~~~~~~~~~~~~~~~~~
+
+With the ``--mapproject`` option, raw (not mapprojected) images can be specified
+as inputs. The program will mapproject both images onto the DEM before running
+stereo. This program can be invoked as::
+
+    stereo_dist           \
+      --mapproject        \
+      left.cub right.cub  \
+      run/run             \
+      --dem input_dem.tif \
+      --tile-size 2048    \
+      --tile-padding 256  \
+      --point2dem-options '--tr 2.0'
+
+Here we omitted the cameras as those are contained in the cub files.
+
+The projection is auto-determined based on the DEM and the left image
+(:numref:`mapproj_auto_proj`). 
+
+The grid size is set to the minimum of those estimated from the input images.
+
+The mapprojection region is the intersection of the regions for the two  
+images.
+
+Any of these can be explicitly set with  ``--t_srs``, ``--tr``, and ``--t_projwin``
+(:numref:`stereo_dist_options`).
+
+The mapprojected images are saved as ``<output prefix>-left_map.tif`` and
+``<output prefix>-right_map.tif``. Then, the same processing is done as
+with pre-existing mapprojected images. 
+
 .. _stereo_dist_workflow:
 
 Workflow
@@ -54,8 +90,10 @@ Workflow
 
 The processing is as follows:
 
-- Statistics is computed for the full input images. This is a serial process but
-  is quite fast.
+- The images are mapprojected (with the ``--mapproject`` option only).
+
+- Statistics is computed for the input mapprojected images. This is a serial
+  process but is quite fast.
 
 - The list of tiles is created and saved with a name based on the output prefix
   and ending in ``-distTileList.txt``.
@@ -86,7 +124,28 @@ Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
 --dem <string>
-    Input DEM for mapprojection. Required.
+    Input DEM. Required. Used for mapprojection (with ``--mapproject``)
+    and for stereo triangulation.
+
+--mapproject
+    Mapproject the input images onto the DEM before running stereo. The
+    projection, grid size, and bounding box are auto-determined to be
+    consistent for both images. See :numref:`stereo_dist_mapproject`.
+
+--t_srs <string>
+    Output projection for mapprojection. A PROJ string, EPSG code, or path
+    to a WKT file. Auto-determined from the left image if not set. Only
+    used with ``--mapproject``.
+
+--tr <float>
+    Output grid size (ground sample distance) for mapprojection, in units of
+    the projection. Auto-determined as the finer of the two images if not
+    set. Only used with ``--mapproject``.
+
+--t_projwin <xmin ymin xmax ymax>
+    Bounding box for mapprojection in projected coordinates. Auto-determined
+    as the intersection of the two image footprints if not set. Only used
+    with ``--mapproject``.
 
 --tile-size <integer (default: 2048)>
     Size of each tile (in pixels) for distributed processing. This is before the

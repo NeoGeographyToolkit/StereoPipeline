@@ -70,6 +70,13 @@ namespace asp {
                        std::vector<ASPGlobalOptions> & opt_vec,
                        bool exit_early = false);
 
+  /// Extract only the named options (flags and their values) from the command
+  /// line, skipping positional arguments (images, cameras, output prefix).
+  void parseStereoOptsVals(int argc, char *argv[],
+                           boost::program_options::options_description const&
+                           additional_options,
+                           std::vector<std::string> & opts_and_vals);
+
   /// Parse input command line arguments
   void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
                          boost::program_options::options_description const&

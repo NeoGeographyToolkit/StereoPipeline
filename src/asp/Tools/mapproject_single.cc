@@ -621,6 +621,10 @@ int main(int argc, char* argv[]) {
                << "image_width," << virtual_image_width << "\n"
                << "image_height," << virtual_image_height << "\n"
                << "pixel_size," << crop_georef.transform()(0, 0) << "\n"
+               << "proj_box_xmin," << cam_box.min().x() << "\n"
+               << "proj_box_ymin," << cam_box.min().y() << "\n"
+               << "proj_box_xmax," << cam_box.max().x() << "\n"
+               << "proj_box_ymax," << cam_box.max().y() << "\n"
                << "projection_wkt_file," << wkt_file << "\n";
 
       return 0;

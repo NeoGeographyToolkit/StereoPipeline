@@ -465,9 +465,8 @@ if __name__ == '__main__':
         (leftMap, rightMap) = runMapprojection(opt, settings, outPrefix,
                                                 opt.entry_point)
 
-        # Replace original images with mapprojected ones in args.
-        # For embedded cameras (e.g., ISIS .cub), the original image
-        # serves as the camera file.
+        # Rebuild args using only named options from stereo_parse (safe,
+        # no risk of collisions between positional and option values).
         in_file1  = settings['in_file1'][0]
         in_file2  = settings['in_file2'][0]
         cam_file1 = settings['cam_file1'][0]
@@ -476,22 +475,22 @@ if __name__ == '__main__':
             cam_file1 = in_file1
         if not cam_file2:
             cam_file2 = in_file2
+        
+        # named_options has all the options and values we need to pass through
+        named_opts = settings.get('named_options', [''])
+        if named_opts == ['']:
+            named_opts = []
+        args = [leftMap, rightMap, cam_file1, cam_file2, outPrefix] + named_opts
 
-        # Remove all positional args from the list, keep only options
-        positionals = set([in_file1, in_file2, cam_file1, cam_file2, outPrefix])
-        args = [a for a in args if a not in positionals]
-
-        # Prepend new positionals: mapprojected images, cameras, prefix
-        args = [leftMap, rightMap, cam_file1, cam_file2, outPrefix] + args
-
-        # Now add the DEM for the stereo pipeline
-        args.extend(['--dem', opt.dem])
+        # Add the DEM for the stereo pipeline, if not already present
+        if '--dem' not in args:
+            args.extend(['--dem', opt.dem])
 
         # Re-parse with updated args
         settings = asp_system_utils.run_and_parse_output(
             "stereo_parse", args, sep, opt.verbose)
         outPrefix = settings['out_prefix'][0]
-
+    
     # Run stereo_tile on all tiles for pprc only (entry_point=0, stop_point=1)
     if opt.entry_point <= Step.pprc < opt.stop_point:
         # Run stereo_parse to generate the tile list
