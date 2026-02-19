@@ -16,9 +16,6 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-# TODO(oalexan1): Distribute some of the more low-level functions from here to 
-# other modules such as asp_system_utils, etc.
-
 from __future__ import print_function
 import sys, optparse, subprocess, re, os, math, time, glob
 import fcntl # for file locking

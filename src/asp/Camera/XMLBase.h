@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -15,10 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
-// This header shouldn't be included by any other headers since it
-// brings in a bunch of Xerces Headers. This way I can limit the
-// spread of those headers and objects.
+// This header should not be included by other headers since it
+// brings in xercesc headers. This limits the spread of those
+// headers and objects.
 
 #ifndef __STEREO_SESSION_XMLBASE_H__
 #define __STEREO_SESSION_XMLBASE_H__
@@ -27,6 +26,7 @@
 #include <vw/Core/FundamentalTypes.h>
 
 #include <string>
+#include <vector>
 
 // Can't do much about warnings in boost except to hide them
 #pragma GCC diagnostic push
@@ -41,39 +41,45 @@
 #include <xercesc/util/XMLString.hpp>
 #include <xercesc/util/Xerces_autoconf_config.hpp>
 
-// TODO: Rename this file to something like XML_utils
-
 namespace asp {
 
 namespace XmlUtils {
 
-/// Helper function to convert XML text to binary value we want.
+/// Helper function to convert XML text to a binary value.
 template <class T>
-void cast_xmlch( const XMLCh* ch, T& dst) {
+void cast_xmlch(const XMLCh* ch, T& dst) {
   char* text = xercesc::XMLString::transcode(ch);
   try {
-    dst = boost::lexical_cast<T>( text );
+    dst = boost::lexical_cast<T>(text);
   } catch (boost::bad_lexical_cast const& e) {
     vw_throw(vw::ArgumentErr() << "Failed to parse string: " << text << "\n");
   }
-
-  xercesc::XMLString::release( &text );
+  xercesc::XMLString::release(&text);
 }
 
-/// Helper function to retreive a node via string and verify that only one exists.
+/// Helper function to retrieve a node via string and verify that only one exists.
 template <class T>
-T* get_node( xercesc::DOMElement* element, std::string const& tag ) {
+T* get_node(xercesc::DOMElement* element, std::string const& tag) {
   XMLCh* tag_c = xercesc::XMLString::transcode(tag.c_str());
-  xercesc::DOMNodeList* list = element->getElementsByTagName( tag_c );
-  VW_ASSERT( list->getLength() != 0,
-             vw::IOErr() << "Couldn't find \"" << tag << "\" tag." );
-  VW_ASSERT( list->getLength() == 1,
-             vw::IOErr() << "Found multiple \"" << tag << "\" tags." );
+  xercesc::DOMNodeList* list = element->getElementsByTagName(tag_c);
+  VW_ASSERT(list->getLength() != 0,
+            vw::IOErr() << "Could not find \"" << tag << "\" tag.");
+  VW_ASSERT(list->getLength() == 1,
+            vw::IOErr() << "Found multiple \"" << tag << "\" tags.");
   xercesc::XMLString::release(&tag_c);
   return dynamic_cast<T*>(list->item(0));
 }
 
-} // End namespace XmlUtils 
+/// Parse all doubles from a named XML block in raw text using strtod.
+/// Finds the text between openTag and closeTag, skips any XML tags
+/// inside, and extracts all floating-point numbers. Much faster than
+/// xercesc DOM traversal for large blocks of numeric data.
+void parseDoublesFromXmlBlock(std::string const& rawXml,
+                              std::string const& openTag,
+                              std::string const& closeTag,
+                              std::vector<double>& values);
+
+} // End namespace XmlUtils
 
 } // end namespace asp
 

@@ -106,12 +106,12 @@ namespace asp {
   class EphemerisXML : public BitChecker {
 
     void parse_meta    (xercesc::DOMElement* node);
-    void parse_eph_list(xercesc::DOMElement* node);
+    void parse_eph_list(std::string const& rawXml);
 
   public:
     EphemerisXML();
 
-    void parse(xercesc::DOMElement* node);
+    void parse(xercesc::DOMElement* node, std::string const& rawXml);
 
     std::string start_time;      // UTC
     double time_interval;        // seconds
@@ -135,12 +135,12 @@ namespace asp {
   class AttitudeXML : public BitChecker {
 
     void parse_meta(xercesc::DOMElement* node);
-    void parse_att_list(xercesc::DOMElement* node);
+    void parse_att_list(std::string const& rawXml);
 
   public:
     AttitudeXML();
 
-    void parse(xercesc::DOMElement* node);
+    void parse(xercesc::DOMElement* node, std::string const& rawXml);
 
     std::string start_time;
     double time_interval;

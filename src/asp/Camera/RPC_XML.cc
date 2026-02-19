@@ -35,6 +35,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include <fstream>
+
 using namespace vw;
 using namespace vw::cartography;
 using namespace xercesc;
@@ -43,6 +45,7 @@ namespace fs=boost::filesystem;
 
 using asp::XmlUtils::get_node;
 using asp::XmlUtils::cast_xmlch;
+using asp::XmlUtils::parseDoublesFromXmlBlock;
 
 //========================================================================
 // ImageXML class
@@ -334,55 +337,39 @@ void asp::EphemerisXML::parse_meta(xercesc::DOMElement* node) {
   satellite_pos_cov.resize(6 * num_points); // see RPC_XML.h
 }
 
-void asp::EphemerisXML::parse_eph_list(xercesc::DOMElement* node) {
-  DOMNodeList* children = node->getChildNodes();
-  size_t count = 0;
+void asp::EphemerisXML::parse_eph_list(std::string const& rawXml) {
+  // Each EPHEMLIST entry has 13 doubles: index, pos[3], vel[3], cov[6]
+  std::vector<double> values;
+  parseDoublesFromXmlBlock(rawXml, "<EPHEMLISTList>", "</EPHEMLISTList>",
+                           values);
 
-  for (XMLSize_t i = 0; i < children->getLength(); i++) {
-    if (children->item(i)->getNodeType() == DOMNode::ELEMENT_NODE) {
-      DOMElement* element = dynamic_cast<DOMElement*>(children->item(i));
-      std::string buffer;
-      cast_xmlch(element->getTextContent(), buffer);
+  size_t numExpected = satellite_position_vec.size();
+  size_t valsPerEntry = 13;
+  if (values.size() != numExpected * valsPerEntry)
+    vw_throw(IOErr() << "Expected " << numExpected * valsPerEntry
+             << " ephemeris values, got " << values.size() << ".\n");
 
-      std::istringstream istr(buffer);
-      std::string index_b;
-      istr >> index_b;
-      size_t index;
-      try{
-        index = size_t(boost::lexical_cast<float>(index_b) + 0.5) - 1;
-      } catch (boost::bad_lexical_cast const& e) {
-        vw_throw(ArgumentErr() << "Failed to parse string: " << index_b << "\n");
-      }
-
-      istr >> satellite_position_vec[index][0]
-           >> satellite_position_vec[index][1]
-           >> satellite_position_vec[index][2]
-           >> velocity_vec[index][0]
-           >> velocity_vec[index][1]
-           >> velocity_vec[index][2];
-      istr >> satellite_pos_cov[6*index + 0]
-           >> satellite_pos_cov[6*index + 1]
-           >> satellite_pos_cov[6*index + 2]
-           >> satellite_pos_cov[6*index + 3]
-           >> satellite_pos_cov[6*index + 4]
-           >> satellite_pos_cov[6*index + 5];
-
-      count++;
-    }
+  for (size_t i = 0; i < numExpected; i++) {
+    const double* v = &values[i * valsPerEntry];
+    size_t index = size_t(v[0] + 0.5) - 1;
+    satellite_position_vec[index][0] = v[1];
+    satellite_position_vec[index][1] = v[2];
+    satellite_position_vec[index][2] = v[3];
+    velocity_vec[index][0] = v[4];
+    velocity_vec[index][1] = v[5];
+    velocity_vec[index][2] = v[6];
+    for (int j = 0; j < 6; j++)
+      satellite_pos_cov[6 * index + j] = v[7 + j];
   }
-
-  VW_ASSERT(count == satellite_position_vec.size(),
-            IOErr() << "Read incorrect number of points.");
 }
 
 asp::EphemerisXML::EphemerisXML() : BitChecker(2) {}
 
-void asp::EphemerisXML::parse(xercesc::DOMElement* node) {
+void asp::EphemerisXML::parse(xercesc::DOMElement* node,
+                              std::string const& rawXml) {
   parse_meta(node);
   check_argument(0);
-
-  // TODO(oalexan1): This is slow to parse
-  parse_eph_list(get_node<DOMElement>(node, "EPHEMLISTList"));
+  parse_eph_list(rawXml);
   check_argument(1);
 }
 
@@ -398,55 +385,35 @@ void asp::AttitudeXML::parse_meta(xercesc::DOMElement* node) {
   satellite_quat_cov.resize(10 * num_points); // see RPC_XML.h
 }
 
-void asp::AttitudeXML::parse_att_list(xercesc::DOMElement* node) {
-  DOMNodeList* children = node->getChildNodes();
-  size_t count = 0;
-  Vector4 qbuf;
+void asp::AttitudeXML::parse_att_list(std::string const& rawXml) {
+  // Each ATTLIST entry has 15 doubles: index, quat[4], cov[10]
+  std::vector<double> values;
+  parseDoublesFromXmlBlock(rawXml, "<ATTLISTList>", "</ATTLISTList>",
+                           values);
 
-  for (XMLSize_t i = 0; i < children->getLength(); i++) {
-    if (children->item(i)->getNodeType() == DOMNode::ELEMENT_NODE) {
-      DOMElement* element = dynamic_cast<DOMElement*>(children->item(i));
-      std::string buffer;
-      cast_xmlch(element->getTextContent(), buffer);
+  size_t numExpected = satellite_quat_vec.size();
+  size_t valsPerEntry = 15;
+  if (values.size() != numExpected * valsPerEntry)
+    vw_throw(IOErr() << "Expected " << numExpected * valsPerEntry
+             << " attitude values, got " << values.size() << ".\n");
 
-      std::istringstream istr(buffer);
-      std::string index_b;
-      istr >> index_b;
-      size_t index;
-      try {
-        index = size_t(boost::lexical_cast<float>(index_b) + 0.5) - 1;
-      } catch (boost::bad_lexical_cast const& e) {
-        vw_throw(ArgumentErr() << "Failed to parse string: " << index_b << "\n");
-      }
-
-      // Read the quaternion values for satellite orientation.
-      istr >> satellite_quat_vec[index][0]
-           >> satellite_quat_vec[index][1]
-           >> satellite_quat_vec[index][2]
-           >> satellite_quat_vec[index][3];
-      // Only the upper-right portion of the 4x4 covariance matrix is saved
-      istr >> satellite_quat_cov[10*index + 0] >> satellite_quat_cov[10*index + 1]
-           >> satellite_quat_cov[10*index + 2] >> satellite_quat_cov[10*index + 3]
-           >> satellite_quat_cov[10*index + 4] >> satellite_quat_cov[10*index + 5]
-           >> satellite_quat_cov[10*index + 6] >> satellite_quat_cov[10*index + 7]
-           >> satellite_quat_cov[10*index + 8] >> satellite_quat_cov[10*index + 9];
-
-      count++;
-    }
+  for (size_t i = 0; i < numExpected; i++) {
+    const double* v = &values[i * valsPerEntry];
+    size_t index = size_t(v[0] + 0.5) - 1;
+    for (int j = 0; j < 4; j++)
+      satellite_quat_vec[index][j] = v[1 + j];
+    for (int j = 0; j < 10; j++)
+      satellite_quat_cov[10 * index + j] = v[5 + j];
   }
-
-  VW_ASSERT(count == satellite_quat_vec.size(),
-            IOErr() << "Read incorrect number of points.");
 }
 
 asp::AttitudeXML::AttitudeXML() : BitChecker(2) {}
 
-void asp::AttitudeXML::parse(xercesc::DOMElement* node) {
+void asp::AttitudeXML::parse(xercesc::DOMElement* node,
+                             std::string const& rawXml) {
   parse_meta(node);
   check_argument(0);
-
-  // TODO(oalexan1): This is slow to parse
-  parse_att_list(get_node<DOMElement>(node, "ATTLISTList"));
+  parse_att_list(rawXml);
   check_argument(1);
 }
 
@@ -817,6 +784,18 @@ void asp::read_xml(std::string const& filename,
   if (!fs::exists(filename))
     vw_throw(ArgumentErr() << "XML file \"" << filename << "\" does not exist.");
 
+  // Read entire file into a string for fast ephemeris/attitude parsing
+  std::string rawXml;
+  {
+    std::ifstream ifs(filename.c_str(), std::ios::binary | std::ios::ate);
+    if (!ifs)
+      vw_throw(ArgumentErr() << "Cannot open XML file: " << filename << "\n");
+    std::streamsize size = ifs.tellg();
+    ifs.seekg(0, std::ios::beg);
+    rawXml.resize(size);
+    ifs.read(&rawXml[0], size);
+  }
+
   try {
     boost::shared_ptr<XercesDOMParser> parser(new XercesDOMParser());
     parser->setValidationScheme(XercesDOMParser::Val_Always);
@@ -842,9 +821,9 @@ void asp::read_xml(std::string const& filename,
         if (tag == "GEO")
           geo.parse(curr_element);
         else if (tag == "EPH")
-          eph.parse(curr_element);
+          eph.parse(curr_element, rawXml);
         else if (tag == "ATT")
-          att.parse(curr_element);
+          att.parse(curr_element, rawXml);
         else if (tag == "IMD")
           img.parse(curr_element);
         else if (tag == "RPB")

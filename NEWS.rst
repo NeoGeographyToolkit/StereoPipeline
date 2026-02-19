@@ -91,6 +91,7 @@ parse_match_file.py (:numref:`parse_match_file`):
     default. Use the ``--save-descriptors`` option to include them.
     
 Misc:
+  * Greatly improved the speed of parsing WorldView XML camera files.
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment. 
   * Added the option ``--bathy-plane-list`` to supplement ``--bathy-plane``
