@@ -32,21 +32,24 @@ Example with mapprojected images
       --processes 5                   \
       --threads-multiprocess 4        \
       --threads-singleprocess 16      \
-      --point2dem-options '--tr 2.0'
+      --point2dem-options             \
+        '--tr 2.0 
+        --orthoimage 
+        --errorimage'
 
 The input images must be mapprojected (:numref:`mapproj-example`). The
 mapprojection DEM should be set with ``--dem``. All output files
 (:numref:`outputfiles`) will start with the provided prefix (``run/run`` above).
 
-The result of this program will be the stereo DEM. The workflow in
-:numref:`stereo_dist_workflow` has more details.
-
-The option ``--point2dem-options`` must include ``--tr`` and the grid size
-(typically in meters) to ensure a consistent grid size across all tiles that are
-later merged. This is passed to :ref:`point2dem`.
+The result of this program will be the stereo DEM (and optionally ortho and
+error images). The workflow in :numref:`stereo_dist_workflow` has more details.
 
 This program can be run on PBS and SLURM systems in a manner analogous to
 :ref:`parallel_stereo`. See :numref:`pbs_slurm` for details.
+
+The option ``--point2dem-options`` must include ``--tr`` and the grid size
+(typically in meters) to ensure a consistent grid size across all tiles that are
+later merged.
 
 .. _stereo_dist_mapproject:
 
@@ -64,7 +67,8 @@ stereo. This program can be invoked as::
       --dem input_dem.tif \
       --tile-size 2048    \
       --tile-padding 256  \
-      --point2dem-options '--tr 2.0'
+      --point2dem-options \
+        '--tr 2.0'
 
 Here we omitted the cameras as those are contained in the cub files.
 
@@ -99,14 +103,19 @@ The processing is as follows:
   and ending in ``-distTileList.txt``.
 
 - All tiles are run in parallel with the :ref:`stereo_tile` program. That
-  program crates a subdirectory for the given tile and provides the global
+  program creates a subdirectory for the given tile and provides the global
   statistics via a symbolic link. It then does preprocessing, correlation,
   refinement, filtering, triangulation, and DEM creation. These operations are
   described in :numref:`entrypoints`.
 
 - The per-tile DEMs are mosaicked into a single output DEM using
   :ref:`dem_mosaic`. This is done in parallel as well, for subsets of DEMs,
-  whose results are then mosaicked together.
+  whose results are then mosaicked together. If ``--orthoimage`` is in
+  ``--point2dem-options``, the per-tile ortho images (DRG files,
+  :numref:`point2dem_ortho_err`) are mosaicked the same way. The ``L.tif`` file
+  needed by ``--orthoimage`` is autocompleted for each tile. Similarly, if
+  ``--errorimage`` is passed, the per-tile intersection error images are
+  mosaicked.
 
 Unlike :ref:`parallel_stereo`, the blend step for disparities is skipped. Each
 tile is processed fully independently, and blending only happens between DEMs
@@ -115,7 +124,7 @@ during the final mosaic.
 The ``--entry-point`` and ``--stop-point`` options can be invoked to run only a
 portion of these steps. See :numref:`stereo_dist_options` for the step numbers.
 
-Any options that are not specific to this program are passed directly to 
+Any options that are not specific to this program are passed directly to
 :ref:`stereo_tile` and the stereo executables (:numref:`cmdline`).
 
 .. _stereo_dist_options:
@@ -156,7 +165,9 @@ Command-line options
 
 --point2dem-options <string>
     Options to pass to :ref:`point2dem`. Must include ``--tr`` to set
-    the grid size for consistent tiling.
+    the grid size for consistent tiling. Can pass ``--orthoimage`` with
+    no argument, and the L.tif file for each tile will be autocompleted.
+    Can also pass ``--errorimage``. See :numref:`stereo_dist_workflow`.
 
 --nodes-list <filename>
     A file containing the list of computing nodes, one per line. If not

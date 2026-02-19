@@ -96,6 +96,16 @@ def runPoint2dem(tilePrefix, opt):
     commandList = [asp_system_utils.bin_path('point2dem')]
     if opt.point2dem_options:
         commandList += shlex.split(opt.point2dem_options)
+
+    # If --orthoimage is in the options with no argument, insert L.tif after it
+    if opt.point2dem_options and '--orthoimage' in opt.point2dem_options:
+        lFile = tilePrefix + '-L.tif'
+        try:
+            orthoIdx = commandList.index('--orthoimage')
+            commandList.insert(orthoIdx + 1, lFile)
+        except ValueError:
+            pass
+
     commandList.append(pcFile)
 
     if opt.dryrun:
@@ -122,7 +132,9 @@ if __name__ == '__main__':
     p.add_argument('--dem', dest='dem', default=None,
                    help='Input DEM for mapprojection. Required for tile processing.')
     p.add_argument('--point2dem-options', dest='point2dem_options', default='',
-                   help='Options to pass to point2dem.')
+                   help='Options to pass to point2dem. Can pass --orthoimage '
+                   'with no argument, and the L.tif file for each tile '
+                   'will be autocompleted. Can also pass --errorimage.')
     p.add_argument('-s', '--stereo-file', dest='stereo_file',
                    default='./stereo.default',
                    help='Explicitly specify the stereo.default file to use. '

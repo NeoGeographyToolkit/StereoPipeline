@@ -752,11 +752,12 @@ def numMosaicJobs(nodesListPath, numProcesses):
         numJobs = numNodes * asp_system_utils.get_num_cpus()
     return min(numJobs, 32)
 
-def buildMosaicBlockLists(outPrefix, numJobs):
-    '''Partition tile DEMs into blocks for parallel mosaicking. Reads the
-    distributed tile list, collects existing DEM files, divides the tile grid
-    into blocks, writes per-block DEM list files, and returns a list of
-    (blockDemListFile, blockOutputDem) tuples.'''
+def buildMosaicBlockLists(outPrefix, numJobs, suffix='DEM'):
+    '''Partition tile raster files into blocks for parallel mosaicking. Reads
+    the distributed tile list, collects existing files with the given suffix
+    (e.g., DEM, DRG, IntersectionErr), divides the tile grid into blocks,
+    writes per-block list files, and returns a list of (blockListFile,
+    blockOutputFile) tuples.'''
 
     # Read the list of tiles
     tiles = readDistTileList(outPrefix)
@@ -764,17 +765,17 @@ def buildMosaicBlockLists(outPrefix, numJobs):
     if numTiles == 0:
         raise Exception('No tiles found in tile list.')
 
-    # Collect DEM files that exist
+    # Collect files with given suffix that exist
     demFiles = []
     for (tile, padding) in tiles:
         tileSubdir = outPrefix + '-' + tile.name_str()
         tilePrefix = tileSubdir + '/' + os.path.basename(outPrefix)
-        demFile = tilePrefix + '-DEM.tif'
+        demFile = tilePrefix + '-' + suffix + '.tif'
         if os.path.exists(demFile):
             demFiles.append(demFile)
     if len(demFiles) == 0:
-        raise Exception('No DEM files found in tile directories.')
-    print('Found ' + str(len(demFiles)) + ' DEM files to mosaic.')
+        raise Exception('No ' + suffix + ' files found in tile directories.')
+    print('Found ' + str(len(demFiles)) + ' ' + suffix + ' files to mosaic.')
 
     # Compute tile grid size and number of parallel jobs
     (numCols, numRows) = tileGridSize(tiles)
@@ -807,12 +808,12 @@ def buildMosaicBlockLists(outPrefix, numJobs):
     tileStartCornerX = sorted(set(tile.x for (tile, padding) in tiles))
     tileStartCornerY = sorted(set(tile.y for (tile, padding) in tiles))
 
-    # Build a map from (x, y) origin to DEM file path
+    # Build a map from (x, y) origin to file path
     demMap = {}
     for (tile, padding) in tiles:
         tileSubdir = outPrefix + '-' + tile.name_str()
         tilePrefix = tileSubdir + '/' + os.path.basename(outPrefix)
-        demFile = tilePrefix + '-DEM.tif'
+        demFile = tilePrefix + '-' + suffix + '.tif'
         if os.path.exists(demFile):
             demMap[(tile.x, tile.y)] = demFile
 
@@ -847,9 +848,9 @@ def buildMosaicBlockLists(outPrefix, numJobs):
             # Write this block's DEM list file
             blockIndex = len(masterList)
             blockDemListFile = (outPrefix + '-mosaicBlock_' +
-                                str(blockIndex) + '.txt')
+                                str(blockIndex) + '_' + suffix + '.txt')
             blockOutputDem = (outPrefix + '-mosaicBlock_' +
-                              str(blockIndex) + '-DEM.tif')
+                              str(blockIndex) + '-' + suffix + '.tif')
             with open(blockDemListFile, 'w') as f:
                 for d in blockDems:
                     f.write(d + '\n')

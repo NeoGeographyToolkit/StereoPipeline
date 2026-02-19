@@ -345,48 +345,69 @@ def runBlockMosaic(opt, masterFile):
                                       fullCommandList, opt.nodes_list,
                                       opt.verbose)
 
-def mosaicDems(opt, outPrefix):
-    '''Mosaic blocks of per-tile DEMs in parallel, then mosaic the results. This
-    is more efficient than a single mosaic of all tile DEMs.'''
-    
-    # Maximum number of jobs based on number of nodes and processes per node
-    numJobs = numMosaicJobs(opt.nodes_list, opt.processes)
-    
-    # Partition tile DEMs into blocks for parallel mosaicking
-    masterList = buildMosaicBlockLists(outPrefix, numJobs)
-    
-    # Write master file having the list of lists to mosaic.
-    masterFile = outPrefix + '-mosaicMaster.txt'
+def mosaicProduct(opt, outPrefix, numJobs, suffix):
+    '''Mosaic blocks of per-tile products (DEM, DRG, or IntersectionErr) in
+    parallel, then mosaic the block results into a final output.'''
+
+    # Partition tile files into blocks for parallel mosaicking
+    masterList = buildMosaicBlockLists(outPrefix, numJobs, suffix)
+
+    # Write master file having the list of lists to mosaic
+    masterFile = outPrefix + '-mosaicMaster_' + suffix + '.txt'
     with open(masterFile, 'w') as f:
-        for (listFile, outputDem) in masterList:
-            f.write(listFile + ' ' + outputDem + '\n')
+        for (listFile, outputFile) in masterList:
+            f.write(listFile + ' ' + outputFile + '\n')
     print('Wrote master mosaic file: ' + masterFile + ' with ' +
           str(len(masterList)) + ' blocks')
 
     # Run parallel dem_mosaic per block
     runBlockMosaic(opt, masterFile)
 
-    # Final merge of block DEMs into outPrefix-DEM.tif
-    blockDemFiles = [outputDem for (listFile, outputDem) in masterList]
-    # Collect the created mosaics per block
-    blockDemFiles = [f for f in blockDemFiles if os.path.exists(f)]
-    if len(blockDemFiles) == 0:
-        raise Exception('No block DEM files were produced.')
+    # Final merge of block files
+    blockFiles = [outputFile for (listFile, outputFile) in masterList]
+    blockFiles = [f for f in blockFiles if os.path.exists(f)]
+    if len(blockFiles) == 0:
+        raise Exception('No block ' + suffix + ' files were produced.')
 
-    finalDem = outPrefix + '-DEM.tif'
-    print('Merging ' + str(len(blockDemFiles)) + ' block DEMs into ' + finalDem)
+    finalFile = outPrefix + '-' + suffix + '.tif'
+    print('Merging ' + str(len(blockFiles)) + ' block ' + suffix +
+          ' files into ' + finalFile)
     demMosaicPath = asp_system_utils.bin_path('dem_mosaic')
-    commandList = [demMosaicPath] + blockDemFiles + ['-o', finalDem]
+    commandList = [demMosaicPath] + blockFiles + ['-o', finalFile]
     if not opt.dryrun:
         if opt.verbose:
             print(' '.join(commandList))
         subprocess.call(commandList)
 
-    # Clean up partial block mosaics
-    print('Removing partial DEM mosaics.')
-    for (listFile, outputDem) in masterList:
-        if os.path.exists(outputDem):
-            os.remove(outputDem)
+    # Clean up partial block mosaics and helper lists
+    print('Removing partial ' + suffix + ' mosaics and helper lists.')
+    for (listFile, outputFile) in masterList:
+        if os.path.exists(outputFile):
+            os.remove(outputFile)
+        if os.path.exists(listFile):
+            os.remove(listFile)
+    # Remove the args file created by runBlockMosaic
+    argsFile = masterFile.replace('.txt', '-args.txt')
+    if os.path.exists(argsFile):
+        os.remove(argsFile)
+    if os.path.exists(masterFile):
+        os.remove(masterFile)
+
+def mosaicDems(opt, outPrefix):
+    '''Mosaic per-tile DEMs, and optionally DRG and IntersectionErr files.'''
+
+    numJobs = numMosaicJobs(opt.nodes_list, opt.processes)
+
+    # Always mosaic DEMs
+    mosaicProduct(opt, outPrefix, numJobs, 'DEM')
+
+    # Mosaic ortho images if --orthoimage was requested
+    if opt.point2dem_options and '--orthoimage' in opt.point2dem_options:
+        mosaicProduct(opt, outPrefix, numJobs, 'DRG')
+
+    # Mosaic error images if --errorimage was requested
+    if opt.point2dem_options and '--errorimage' in opt.point2dem_options:
+        mosaicProduct(opt, outPrefix, numJobs, 'IntersectionErr')
 
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
@@ -418,7 +439,9 @@ if __name__ == '__main__':
                    help='Stereo pipeline stop point, stop before this step '
                    '(default: 9).')
     p.add_argument('--point2dem-options', dest='point2dem_options', default='',
-                   help='Options to pass to point2dem.')
+                   help='Options to pass to point2dem. Can pass --orthoimage '
+                   'with no argument, and the L.tif file for each tile '
+                   'will be autocompleted. Can also pass --errorimage.')
     p.add_argument('--processes', dest='processes', default=None, type=int,
                    help='The number of processes to use per node.')
     p.add_argument('--nodes-list', dest='nodes_list', default=None,

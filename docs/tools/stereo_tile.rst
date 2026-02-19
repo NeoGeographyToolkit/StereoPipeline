@@ -28,7 +28,9 @@ Command-line options
     Input DEM for mapprojection. Required for tile processing.
 
 --point2dem-options <string>
-    Options to pass to :ref:`point2dem`.
+    Options to pass to :ref:`point2dem`. Can pass ``--orthoimage`` with
+    no argument, and the L.tif file for each tile will be autocompleted.
+    Can also pass ``--errorimage``.
 
 -s, --stereo-file <string (default: ./stereo.default)>
     Explicitly specify the ``stereo.default`` file to use
