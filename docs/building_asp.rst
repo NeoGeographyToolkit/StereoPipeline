@@ -42,7 +42,6 @@ Build VisionWorkbench and Stereo Pipeline version 3.6.0::
     cd build
     $envPath/bin/cmake ..                             \
       -DASP_DEPS_DIR=$envPath                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                     \
       -DCMAKE_INSTALL_PREFIX=$workDir/install         \
     make -j10 && make install
 
@@ -57,7 +56,6 @@ Build VisionWorkbench and Stereo Pipeline version 3.6.0::
     cd build
     $envPath/bin/cmake ..                             \
       -DASP_DEPS_DIR=$envPath                         \
-      -DCMAKE_VERBOSE_MAKEFILE=ON                     \
       -DCMAKE_INSTALL_PREFIX=$workDir/install         \
       -DVISIONWORKBENCH_INSTALL_DIR=$workDir/install  \
     make -j10 && make install

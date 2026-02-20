@@ -38,12 +38,8 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Math/Geometry.h>
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/path.hpp>
-
 using namespace vw;
 using namespace vw::cartography;
-namespace fs = boost::filesystem;
 
 namespace asp {
 
@@ -105,36 +101,6 @@ calcStatsMaskedImages(// Inputs
                              adjust_min_max_with_std);
   sw2.stop();
   vw_out() << "Right image stats time: " << sw2.elapsed_seconds() << "\n";
-}
-
-// Create symlinks to the input images for skip_image_normalization mode.
-// The symlinks are relative to the output directory.
-void createSymLinks(std::string const& left_input_file,
-                    std::string const& right_input_file,
-                    std::string const& out_prefix,
-                    std::string      & left_output_file,
-                    std::string      & right_output_file) {
-
-  namespace fs = boost::filesystem;
-
-  left_output_file  = out_prefix + "-L.tif";
-  right_output_file = out_prefix + "-R.tif";
-
-  if (!fs::exists(left_output_file)) {
-    fs::path out_dir = fs::path(out_prefix).parent_path();
-    fs::path left_rel = out_dir.empty() ? fs::path(left_input_file) :
-                        make_file_relative_to_dir(fs::path(left_input_file), out_dir);
-    fs::create_symlink(left_rel, left_output_file);
-    vw_out() << "Created symlink: " << left_output_file << " -> " << left_rel << "\n";
-  }
-
-  if (!fs::exists(right_output_file)) {
-    fs::path out_dir = fs::path(out_prefix).parent_path();
-    fs::path right_rel = out_dir.empty() ? fs::path(right_input_file) :
-                         make_file_relative_to_dir(fs::path(right_input_file), out_dir);
-    fs::create_symlink(right_rel, right_output_file);
-    vw_out() << "Created symlink: " << right_output_file << " -> " << right_rel << "\n";
-  }
 }
 
 // Default preprocessing hook. Some sessions may override it.

@@ -18,10 +18,8 @@
 #ifndef __CORE_FILE_UTILS_H__
 #define __CORE_FILE_UTILS_H__
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
 #include <string>
+#include <vector>
 
 #include <vw/Math/Vector.h>
 
@@ -70,76 +68,24 @@ void separate_images_from_cameras(std::vector<std::string> const& inputs,
                                   std::vector<std::string>      & cameras,
                                   bool ensure_equal_sizes);
 
-  // Consider a stream, like a text file. Each line has n elements,
-  // to be read in a vector. Every now and then there is an empty
-  // line. Put all vectors between two empty lines as the row in a
-  // matrix. Hence we get a matrix of vectors.
-  template<class StreamT, class VectorT>
-  void read_matrix_from_stream(std::string const & file,
-                               StreamT & str, std::vector<std::vector<VectorT>> & mat) {
-    mat.clear();
-    bool first_row = true;
-    int num_cols = 0;
-    std::vector<VectorT> row;
-    char line[2048];
-    while (str.getline(line, 2048)) {
+  // Read a matrix of vectors from a file or string. Each line has n elements
+  // (2 for Vector2, 3 for Vector3). Empty lines separate matrix rows.
+  void read_matrix_from_file(std::string const& file,
+                             std::vector<std::vector<vw::Vector2>> & mat);
+  void read_matrix_from_file(std::string const& file,
+                             std::vector<std::vector<vw::Vector3>> & mat);
+  void read_matrix_from_string(std::string const& str,
+                               std::vector<std::vector<vw::Vector2>> & mat);
+  void read_matrix_from_string(std::string const& str,
+                               std::vector<std::vector<vw::Vector3>> & mat);
 
-      // An empty line or one starting with a space is a separator
-      if ( (line[0] == '\0' || line[0] == ' ') && !row.empty()) {
-
-        if (first_row) {
-          num_cols = row.size();
-          first_row = false;
-
-        }
-
-        if (num_cols != int(row.size())) {
-          vw::vw_throw( vw::ArgumentErr()
-                        << "Failed parsing a matrix from: " << file
-                        << ". Not all rows have the same size.\n" );
-        }
-
-        mat.push_back(row);
-
-        row.clear();       // reset
-        continue;
-      }
-
-      if (line[0] == '\0' || line[0] == ' ') continue;
-
-      // Read elements
-      std::istringstream is(line);
-      VectorT v;
-      for (size_t p = 0; p < v.size(); p++) {
-        if (! (is >> v[p]) ){
-          vw::vw_throw( vw::ArgumentErr() << "Failed parsing " << v.size()
-                        << " elements from line " << std::string(line)
-                        << " in file " << file << "\n");
-        }
-      }
-
-      row.push_back(v);
-    }
-
-    // last row
-    if (!row.empty()) 
-      mat.push_back(row);
-
-  }
-
-  template<class VectorT>
-  void read_matrix_from_file(std::string const & file,
-                             std::vector< std::vector<VectorT> > & mat){
-    std::ifstream ifs(file.c_str());
-    read_matrix_from_stream(file, ifs, mat);
-  }
-  
-  template<class VectorT>
-  void read_matrix_from_string(std::string const & str,
-                               std::vector< std::vector<VectorT> > & mat){
-    std::istringstream ifs(str);
-    read_matrix_from_stream(str, ifs, mat);
-  }
+// Create symlinks to the input images for skip_image_normalization mode.
+// The symlinks are relative to the output directory.
+void createSymLinks(std::string const& left_input_file,
+                    std::string const& right_input_file,
+                    std::string const& out_prefix,
+                    std::string      & left_output_file,
+                    std::string      & right_output_file);
 
 } //end namespace asp
 

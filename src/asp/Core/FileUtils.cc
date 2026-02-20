@@ -18,12 +18,17 @@
 #include <asp/Core/FileUtils.h>
 
 #include <vw/FileIO/FileTypes.h>
+#include <vw/FileIO/FileUtils.h>
+#include <vw/Core/Log.h>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/replace.hpp>
+
+#include <fstream>
+#include <sstream>
 
 namespace fs = boost::filesystem;
 
@@ -339,6 +344,135 @@ void separate_images_from_cameras(std::vector<std::string> const& inputs,
   }
 
   return;
+}
+
+// Parse a matrix of fixed-size vectors from a stream. Each line has vec_size
+// doubles. Empty lines (or lines starting with a space) separate matrix rows.
+void read_matrix_from_stream(std::string const& source, std::istream & str,
+                             int vec_size,
+                             // Output
+                             std::vector<std::vector<std::vector<double>>> & mat) {
+  mat.clear();
+  bool first_row = true;
+  int num_cols = 0;
+  std::vector<std::vector<double>> row;
+  char line[2048];
+  while (str.getline(line, 2048)) {
+    // An empty line or one starting with a space is a separator
+    if ((line[0] == '\0' || line[0] == ' ') && !row.empty()) {
+      if (first_row) {
+        num_cols = row.size();
+        first_row = false;
+      }
+      if (num_cols != int(row.size()))
+        vw::vw_throw(vw::ArgumentErr()
+                     << "Failed parsing a matrix from: " << source
+                     << ". Not all rows have the same size.\n");
+      mat.push_back(row);
+      row.clear();
+      continue;
+    }
+    if (line[0] == '\0' || line[0] == ' ')
+      continue;
+    // Read elements
+    std::istringstream is(line);
+    std::vector<double> v(vec_size, 0.0);
+    for (int p = 0; p < vec_size; p++) {
+      if (!(is >> v[p]))
+        vw::vw_throw(vw::ArgumentErr()
+                     << "Failed parsing " << vec_size
+                     << " elements from line " << std::string(line)
+                     << " in file " << source << "\n");
+    }
+    row.push_back(v);
+  }
+  // Last row
+  if (!row.empty())
+    mat.push_back(row);
+}
+
+// Convert a raw double matrix to a matrix of Vector2
+void convertToVec2(std::vector<std::vector<std::vector<double>>> const& raw,
+                   std::vector<std::vector<vw::Vector2>> & mat) {
+  mat.resize(raw.size());
+  for (size_t r = 0; r < raw.size(); r++) {
+    mat[r].resize(raw[r].size());
+    for (size_t c = 0; c < raw[r].size(); c++)
+      mat[r][c] = vw::Vector2(raw[r][c][0], raw[r][c][1]);
+  }
+}
+
+// Convert a raw double matrix to a matrix of Vector3
+void convertToVec3(std::vector<std::vector<std::vector<double>>> const& raw,
+                   std::vector<std::vector<vw::Vector3>> & mat) {
+  mat.resize(raw.size());
+  for (size_t r = 0; r < raw.size(); r++) {
+    mat[r].resize(raw[r].size());
+    for (size_t c = 0; c < raw[r].size(); c++)
+      mat[r][c] = vw::Vector3(raw[r][c][0], raw[r][c][1], raw[r][c][2]);
+  }
+}
+
+void read_matrix_from_file(std::string const& file,
+                           std::vector<std::vector<vw::Vector2>> & mat) {
+  std::ifstream ifs(file.c_str());
+  std::vector<std::vector<std::vector<double>>> raw;
+  read_matrix_from_stream(file, ifs, 2, raw);
+  convertToVec2(raw, mat);
+}
+
+void read_matrix_from_file(std::string const& file,
+                           std::vector<std::vector<vw::Vector3>> & mat) {
+  std::ifstream ifs(file.c_str());
+  std::vector<std::vector<std::vector<double>>> raw;
+  read_matrix_from_stream(file, ifs, 3, raw);
+  convertToVec3(raw, mat);
+}
+
+void read_matrix_from_string(std::string const& str,
+                             std::vector<std::vector<vw::Vector2>> & mat) {
+  std::istringstream iss(str);
+  std::vector<std::vector<std::vector<double>>> raw;
+  read_matrix_from_stream(str, iss, 2, raw);
+  convertToVec2(raw, mat);
+}
+
+void read_matrix_from_string(std::string const& str,
+                             std::vector<std::vector<vw::Vector3>> & mat) {
+  std::istringstream iss(str);
+  std::vector<std::vector<std::vector<double>>> raw;
+  read_matrix_from_stream(str, iss, 3, raw);
+  convertToVec3(raw, mat);
+}
+
+// Create symlinks to the input images for skip_image_normalization mode.
+// The symlinks are relative to the output directory.
+void createSymLinks(std::string const& left_input_file,
+                    std::string const& right_input_file,
+                    std::string const& out_prefix,
+                    std::string      & left_output_file,
+                    std::string      & right_output_file) {
+
+  namespace fs = boost::filesystem;
+
+  left_output_file  = out_prefix + "-L.tif";
+  right_output_file = out_prefix + "-R.tif";
+
+  if (!fs::exists(left_output_file)) {
+    fs::path out_dir = fs::path(out_prefix).parent_path();
+    fs::path left_rel = out_dir.empty() ? fs::path(left_input_file) :
+                        vw::make_file_relative_to_dir(fs::path(left_input_file), out_dir);
+    fs::create_symlink(left_rel, left_output_file);
+    vw::vw_out() << "Created symlink: " << left_output_file << " -> " << left_rel << "\n";
+  }
+
+  if (!fs::exists(right_output_file)) {
+    fs::path out_dir = fs::path(out_prefix).parent_path();
+    fs::path right_rel = out_dir.empty() ? fs::path(right_input_file) :
+                         vw::make_file_relative_to_dir(fs::path(right_input_file), out_dir);
+    fs::create_symlink(right_rel, right_output_file);
+    vw::vw_out() << "Created symlink: " << right_output_file << " -> " << right_rel << "\n";
+  }
 }
 
 } // end namespace asp
