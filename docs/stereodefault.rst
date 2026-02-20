@@ -291,7 +291,8 @@ right-image-crop-win xoff yoff xsize ysize
 
 proj-win minx miny maxx maxy
     Limit stereo to this projection window for input mapprojected images
-    (:numref:`mapproj-example`). This option forces redoing all the
+    (:numref:`mapproj-example`). Also works with
+    :ref:`stereo_dist`. This option forces redoing all the
     pre-processing steps in a resumed run. Available in build 2026-01 or later
     (:numref:`release`). See also ``left-image-crop-win`` and
     ``right-image-crop-win``.

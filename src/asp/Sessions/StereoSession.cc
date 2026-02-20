@@ -26,17 +26,12 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/IsisIO/IsisSpecialPixels.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Core/Bathymetry.h>
-#include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/Core/ImageUtils.h>
-#include <asp/Core/ImageNormalization.h>
 #include <asp/Core/BaseCameraUtils.h>
-#include <asp/Core/FileUtils.h>
 #include <asp/Core/AlignmentUtils.h>
 
 #include <vw/Core/Exception.h>
@@ -45,17 +40,10 @@
 #include <vw/Math/Functors.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Image/PixelMask.h>
-#include <vw/Image/PixelTypeInfo.h>
-#include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Cartography/DatumUtils.h>
-#include <vw/FileIO/MatrixIO.h>
-#include <vw/Core/Stopwatch.h>
-#include <vw/Cartography/DatumUtils.h>
-#include <vw/FileIO/DiskImageUtils.h>
-#include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
@@ -63,8 +51,6 @@
 #include <map>
 #include <utility>
 #include <string>
-#include <ostream>
-#include <limits>
 
 using namespace vw;
 using namespace vw::cartography;

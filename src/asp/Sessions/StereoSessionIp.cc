@@ -35,10 +35,7 @@
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
 #include <vw/Math/Vector.h>
-#include <vw/Math/Functors.h>
-#include <vw/Math/Geometry.h>
 #include <vw/Image/PixelMask.h>
-#include <vw/Image/PixelTypeInfo.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -48,11 +45,7 @@
 
 #include <boost/filesystem/operations.hpp>
 
-#include <map>
-#include <utility>
 #include <string>
-#include <ostream>
-#include <limits>
 
 using namespace vw;
 using namespace vw::cartography;

@@ -194,9 +194,11 @@ Command-line options
     set. Only used with ``--mapproject``.
 
 --t_projwin <xmin ymin xmax ymax>
-    Bounding box for mapprojection in projected coordinates. Auto-determined
-    as the intersection of the two image footprints if not set. Only used
-    with ``--mapproject``.
+    Bounding box for mapprojection in projected coordinates. Auto-determined as
+    the intersection of the two image footprints if not set. Only used with
+    ``--mapproject``. If the images are already mapprojected, use instead the
+    ``--proj-win`` option which will be passed to the stereo executables
+    (:numref:`stereodefault`).
 
 --parallel-options <string (default: "--sshdelay 0.2")>
     Options to pass directly to GNU Parallel.

@@ -236,6 +236,20 @@ void produceDistTileList(std::string const& in_file1,
   if (intersection_proj.empty())
     vw::vw_throw(vw::ArgumentErr() << "The two images do not overlap.\n");
 
+  // Further limit by --proj-win if set
+  vw::BBox2 proj_win = asp::stereo_settings().proj_win;
+  if (proj_win != vw::BBox2(0, 0, 0, 0)) {
+    // Swap min and max if need be
+    if (proj_win.min().y() > proj_win.max().y())
+      std::swap(proj_win.min().y(), proj_win.max().y());
+    if (proj_win.min().x() > proj_win.max().x())
+      std::swap(proj_win.min().x(), proj_win.max().x());
+    intersection_proj.crop(proj_win);
+    if (intersection_proj.empty())
+      vw::vw_throw(vw::ArgumentErr()
+                    << "The --proj-win does not overlap the images.\n");
+  }
+
   // Convert intersection to image1's pixel coordinates
   vw::BBox2i intersection_pix = georef1.point_to_pixel_bbox(intersection_proj);
   intersection_pix.expand(1);

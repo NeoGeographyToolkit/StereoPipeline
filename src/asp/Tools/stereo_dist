@@ -172,6 +172,9 @@ if __name__ == '__main__':
         # Run stereo_parse to generate the tile list
         tile_params = ['--stereo-dist-tile-params', str(opt.tile_size), str(opt.tile_padding)]
         stereo_run('stereo_parse', args, opt, extra_args=tile_params)
+        # The tile layout already accounts for --proj-win, so remove it to avoid
+        # conflict with per-tile --left-image-crop-win / --right-image-crop-win
+        asp_cmd_utils.wipe_option(args, '--proj-win', 4)
         # Run stereo_pprc with full images and --stop-after-stats to compute statistics only
         asp_cmd_utils.wipe_option(args, '--threads', 1)
         pprc_args = ['--stop-after-stats', '--threads', str(opt.threads_single)]
