@@ -21,6 +21,7 @@
 
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
+#include <asp/Core/PointCloudRead.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/DiskImageUtils.h>
 
@@ -505,7 +506,7 @@ vw::int64 load_pc_aux(std::string const& file_name,
   data.conservativeResize(DIM+1, num_points_to_load);
 
   // To do: Is it faster to to do for_each?
-  vw::ImageViewRef<vw::Vector3> point_cloud = read_asp_point_cloud<DIM>(file_name);
+  vw::ImageViewRef<vw::Vector3> point_cloud = read_asp_point_cloud_3(file_name);
 
   // We will randomly pick or not a point with probability load_ratio
   // Use std::int64_t to avoid integer overflow.

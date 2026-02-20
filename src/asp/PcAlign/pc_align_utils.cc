@@ -21,6 +21,7 @@
 #include <asp/PcAlign/pc_align_utils.h>
 #include <asp/Core/EigenUtils.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PointCloudRead.h>
 #include <asp/Core/PdalUtils.h>
 
 #include <vw/Cartography/PointImageManipulation.h>
@@ -417,7 +418,10 @@ void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
 
-  vw::ImageViewRef<vw::Vector<double, n>> point_cloud = read_asp_point_cloud<n>(input_file);
+  vw::ImageViewRef<vw::Vector<double, n>> point_cloud;
+  if constexpr (n == 3) point_cloud = read_asp_point_cloud_3(input_file);
+  else if constexpr (n == 4) point_cloud = read_asp_point_cloud_4(input_file);
+  else if constexpr (n == 6) point_cloud = read_asp_point_cloud_6(input_file);
   vw::cartography::block_write_gdal_image(output_file,
                               per_pixel_filter(point_cloud, TransformPC(T)),
                               has_georef, curr_geo,

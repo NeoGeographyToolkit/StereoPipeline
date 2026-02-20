@@ -27,6 +27,7 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Image/MaskViews.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PointCloudRead.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/FileIO/FileUtils.h>
 
@@ -302,7 +303,7 @@ int main(int argc, char *argv[]){
                                   opt.point_cloud_step_size);
     }else if (num_channels >= 3){
       // The input DEM is a point cloud
-      point_cloud = vw::subsample(asp::read_asp_point_cloud<3>(input_file),
+      point_cloud = vw::subsample(asp::read_asp_point_cloud_3(input_file),
                                   opt.point_cloud_step_size);
     }else{
       vw_throw( ArgumentErr() << "The input must be a point cloud or a DEM.\n");

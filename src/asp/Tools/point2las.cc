@@ -24,6 +24,7 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/AspLog.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PointCloudRead.h>
 #include <asp/Core/PdalUtils.h>
 
 #include <vw/Cartography/PointImageManipulation.h>
@@ -344,7 +345,7 @@ int main(int argc, char *argv[]) {
       }
 
       // Save the las file with given georeference, if present
-      point_image = asp::read_asp_point_cloud<3>(opt.pointcloud_file);
+      point_image = asp::read_asp_point_cloud_3(opt.pointcloud_file);
       
       if (have_out_georef) {
         // See if to use [-180, 180] or [0, 360]

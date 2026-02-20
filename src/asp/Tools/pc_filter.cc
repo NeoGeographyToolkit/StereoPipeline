@@ -37,6 +37,7 @@
 #include <asp/Core/EigenUtils.h>
 #include <asp/PclIO/PclIO.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PointCloudRead.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/FileIO/MatrixIO.h>
@@ -268,7 +269,7 @@ int main(int argc, char *argv[]) {
       vw_throw(ArgumentErr() << "The output point cloud extension must be .tif, .pcd, or .ply.");
     
     // Read the point cloud fully in memory, and remove any offset
-    ImageView<Vector<double, 4>> point_image = asp::read_asp_point_cloud<4>(opt.input_cloud);
+    ImageView<Vector<double, 4>> point_image = asp::read_asp_point_cloud_4(opt.input_cloud);
     std::cout << "Read point cloud: " << opt.input_cloud << std::endl;
 
     // Load the texture or set it to 1
