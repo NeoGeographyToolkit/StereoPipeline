@@ -23,6 +23,7 @@
 #include <asp/Core/InterestPointMatching.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/FileIO/ImageChannelRead.h>
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/Image/Filter.h>
@@ -63,7 +64,7 @@ struct ImageData{
       // ASP, so if we know for sure that just one band is present,
       // don't come here.
       int channel = band - 1;  // In VW, bands start from 0, not 1.
-      src_img = select_channel(read_channels<1, float>(src_file, channel), 0);
+      src_img = vw::read_float_channel(src_file, channel);
     }
 
     // Read nodata-value from disk, if available. Overwrite with

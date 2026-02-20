@@ -34,6 +34,7 @@
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/FileIO/ImageChannelRead.h>
 #include <vw/FileIO/FileUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Math/Geometry.h>
@@ -290,7 +291,6 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
 
 } // End function preprocessing_hook
 
-
 bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
                                        std::string const             & left_input_file,
                                        std::string const             & right_input_file,
@@ -389,8 +389,8 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
     try {
       vw_log().console_log().rule_set().add_rule(-1, "fileio");
       if (!asp::stereo_settings().stereo_dist_mode) {
-        DiskImageView<PixelGray<float32>> out_left (left_output_file);
-        DiskImageView<PixelGray<float32>> out_right(right_output_file);
+        DiskImageView<float> out_left (left_output_file);
+        DiskImageView<float> out_right(right_output_file);
       }
 
       if (do_bathy) {
@@ -413,8 +413,8 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
 
   // Load the desired band. Subtract 1 to make it start from 0.
   int ch = asp::stereo_settings().band - 1;
-  ImageViewRef<float> left_orig_image = vw::read_channel<float>(left_input_file, ch);
-  ImageViewRef<float> right_orig_image = vw::read_channel<float>(right_input_file, ch);
+  ImageViewRef<float> left_orig_image = vw::read_float_channel(left_input_file, ch);
+  ImageViewRef<float> right_orig_image = vw::read_float_channel(right_input_file, ch);
 
   // If the user provided a custom no-data value, values no more than that are
   // masked.

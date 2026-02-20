@@ -28,6 +28,7 @@
 #include <asp/Core/GdalUtils.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/FileIO/ImageChannelRead.h>
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/AlgorithmFunctions.h>
 #include <vw/Image/Manipulation.h>
@@ -77,7 +78,7 @@ void get_input_image(std::string const& path,
                      double &nodata) {
 
   // Extract the desired band. // In VW, bands start from 0, not 1.
-  image = vw::read_channel<float>(path, opt.band - 1);
+  image = vw::read_float_channel(path, opt.band - 1);
   
   // Read the nodata-value from disk
   DiskImageResourceGDAL in_rsrc(path);
