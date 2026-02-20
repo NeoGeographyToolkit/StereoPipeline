@@ -59,6 +59,8 @@ inline subtract_shift(vw::ImageViewBase<ImageT> const& image,
     (image.impl(), SubtractShift<typename ImageT::pixel_type>(shift));
 }
 
+// Compile-intensive via read_channels (12 instantiations).
+// Prefer the wrappers in PointCloudRead.h.
 template<int m>
 vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename) {
 
