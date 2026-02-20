@@ -20,6 +20,7 @@
 #include <asp/Core/PointCloudProcessing.h>
 #include <asp/Core/PdalUtils.h>
 #include <asp/Core/CartographyUtils.h>
+#include <vw/FileIO/DiskImageUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Image/Filter.h>

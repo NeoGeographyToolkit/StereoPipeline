@@ -25,6 +25,7 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/OrthoRasterizer.h>
+#include <asp/Core/GdalUtils.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Mosaic/ImageComposite.h>

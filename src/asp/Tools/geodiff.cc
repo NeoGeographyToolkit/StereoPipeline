@@ -22,6 +22,8 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/Image/PixelMath.h>
+#include <vw/Image/ImageMath.h>
 
 using namespace vw;
 using namespace vw::cartography;

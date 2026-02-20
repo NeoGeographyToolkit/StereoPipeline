@@ -26,6 +26,8 @@
 #include <vw/Image/Transform.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Image/MaskViews.h>
+#include <vw/Image/Filter.h>
+#include <vw/FileIO/DiskImageUtils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PointCloudRead.h>
 #include <vw/Image/Manipulation.h>

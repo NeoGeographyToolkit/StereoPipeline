@@ -32,6 +32,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/BlockImageOperator.h>
+#include <vw/Image/Filter.h>
 
 #include <limits>
 

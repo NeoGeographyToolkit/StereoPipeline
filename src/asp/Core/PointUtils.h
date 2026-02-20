@@ -22,15 +22,11 @@
 #ifndef __ASP_CORE_POINT_UTILS_H__
 #define __ASP_CORE_POINT_UTILS_H__
 
-#include <asp/Core/GdalUtils.h>
-
 #include <vw/Core/Functors.h>
 #include <vw/Image/PerPixelViews.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Image/ImageViewRef.h>
-#include <vw/Mosaic/ImageComposite.h>
-#include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/StringUtils.h>
 
@@ -224,32 +220,12 @@ namespace asp {
   template<int m>
   vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename);
 
-  /// Hide these functions from external users
-  namespace point_utils_private {
-
-    // These two functions choose between two possible inputs for the
-    // form_point_cloud_composite function.
-
-    /// Read a texture file
-    template<class PixelT>
-    typename boost::enable_if<boost::is_same<PixelT, vw::PixelGray<float>>, vw::ImageViewRef<PixelT>>::type
-    read_point_cloud_compatible_file(std::string const& file) {
-      return vw::DiskImageView<PixelT>(file);
-    }
-    /// Read a point cloud file
-    template<class PixelT>
-    typename boost::disable_if<boost::is_same<PixelT, vw::PixelGray<float>>, vw::ImageViewRef<PixelT>>::type
-    read_point_cloud_compatible_file(std::string const& file) {
-      return asp::read_asp_point_cloud<vw::math::VectorSize<PixelT>::value >(file);
-    }
-
-  } // end namespace point_utils_private
-
-  /// Read multiple image files pack them into a single patchwork tiled image.
-  /// - Relies on the vw::mosaic::ImageComposite class.
+  /// Read multiple image files and pack them into a single patchwork tiled image.
+  /// Relies on the vw::mosaic::ImageComposite class. Explicit instantiations
+  /// are in PointUtils.cc for PixelGray<float>, Vector3, Vector4, Vector6.
   template<class PixelT>
-  inline vw::ImageViewRef<PixelT>
-  form_point_cloud_composite(std::vector<std::string> const & files, int spacing=0);
+  vw::ImageViewRef<PixelT>
+  form_point_cloud_composite(std::vector<std::string> const& files, int spacing = 0);
 
   // Apply an offset to the points in the PointImage
   class PointOffsetFunc : public vw::UnaryReturnSameType {
@@ -358,43 +334,6 @@ namespace asp {
     virtual ~PcdReader();
   }; // End class PcdReader
 
-// Template function definitions
-
-/// Read given files and form an image composite.
-template<class PixelT>
-vw::ImageViewRef<PixelT> form_point_cloud_composite(std::vector<std::string> const & files,
-                                                    int spacing) {
-
-  VW_ASSERT(files.size() >= 1, vw::ArgumentErr() << "Expecting at least one file.\n");
-
-  vw::mosaic::ImageComposite<PixelT> composite_image;
-  composite_image.set_draft_mode(true); // images will be disjoint, no need for fancy stuff
-
-  for (int i = 0; i < (int)files.size(); i++) {
-
-    vw::ImageViewRef<PixelT> I
-      = point_utils_private::read_point_cloud_compatible_file<PixelT>(files[i]);
-
-    // We will stack the images in the composite side by side. Images which
-    // are wider than tall will be transposed.
-    // To do: A more efficient approach would be to also stack one
-    // image on top of each other, if some images are not too tall.
-    // --> Does this code ever get images where rows != cols??
-    // TODO(oalexan1): Is this transpose really useful?
-    if (files.size() > 1 && I.rows() < I.cols())
-      I = transpose(I);
-
-    int start = composite_image.cols();
-    if (i > 0) {
-      // Insert the spacing
-      start = spacing*(int)ceil(double(start)/spacing) + spacing;
-    }
-    composite_image.insert(I, start, 0);
-
-  } // End loop through files
-
-  return composite_image;
-}
 
 // Determine if we should be using a longitude range between
 // [-180, 180] or [0,360]. The former is used, unless the latter
@@ -429,22 +368,10 @@ struct VectorNorm: public vw::ReturnFixedType<double> {
   }
 };
   
-// Read the error channels from the point clouds, and take their norm
+// Read the error channels from the point clouds, and take their norm.
+// Explicit instantiations are in PointUtils.cc for num_ch = 4 and 6.
 template<int num_ch>
-vw::ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files) {
-
-  VW_ASSERT(pc_files.size() >= 1, vw::ArgumentErr() << "Expecting at least one file.\n");
-
-  const int beg_ech = 3; // errors start at this channel
-  const int num_ech = num_ch - beg_ech; // number of error channels
-  vw::ImageViewRef<vw::Vector<double, num_ch>> point_disk_image
-    = asp::form_point_cloud_composite<vw::Vector<double, num_ch>>
-    (pc_files, ASP_MAX_SUBBLOCK_SIZE);
-  vw::ImageViewRef<vw::Vector<double, num_ech>> error_channels =
-    vw::select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
-
-  return vw::per_pixel_filter(error_channels, VectorNorm<vw::Vector<double, num_ech>>());
-}
+vw::ImageViewRef<double> error_norm(std::vector<std::string> const& pc_files);
 
 // Get a handle to the error image given a set of point clouds with 4 or 6 bands
 vw::ImageViewRef<double> 

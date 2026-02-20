@@ -19,7 +19,10 @@
 ///
 
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/PointCloudRead.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Mosaic/ImageComposite.h>
 #include <vw/Geometry/geomUtils.h>
 
 #include <boost/math/special_functions/fpclassify.hpp>
@@ -1076,3 +1079,87 @@ vw::ImageViewRef<double> asp::point_cloud_error_image
 
   return error_image;
 }
+
+// Read a single image file as a point cloud or texture, depending on PixelT.
+// For PixelGray<float>, just read the file directly. For vector types, use
+// the pre-compiled read_asp_point_cloud wrappers to avoid template bloat.
+namespace {
+template<class PixelT>
+typename boost::enable_if<boost::is_same<PixelT, PixelGray<float>>,
+                          ImageViewRef<PixelT>>::type
+read_point_cloud_compatible_file(std::string const& file) {
+  return DiskImageView<PixelT>(file);
+}
+template<class PixelT>
+typename boost::disable_if<boost::is_same<PixelT, PixelGray<float>>,
+                           ImageViewRef<PixelT>>::type
+read_point_cloud_compatible_file(std::string const& file) {
+  constexpr int N = vw::math::VectorSize<PixelT>::value;
+  if constexpr (N == 3)
+    return asp::read_asp_point_cloud_3(file);
+  else if constexpr (N == 4)
+    return asp::read_asp_point_cloud_4(file);
+  else if constexpr (N == 6)
+    return asp::read_asp_point_cloud_6(file);
+  else
+    vw::vw_throw(vw::ArgumentErr() << "Unsupported number of channels: " << N << "\n");
+}
+} // end anonymous namespace
+
+// Read given files and form an image composite.
+template<class PixelT>
+ImageViewRef<PixelT>
+asp::form_point_cloud_composite(std::vector<std::string> const& files,
+                                int spacing) {
+  VW_ASSERT(files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
+
+  vw::mosaic::ImageComposite<PixelT> composite_image;
+  composite_image.set_draft_mode(true);
+
+  for (int i = 0; i < (int)files.size(); i++) {
+    ImageViewRef<PixelT> I = read_point_cloud_compatible_file<PixelT>(files[i]);
+
+    // Stack images side by side, transposing wide ones
+    if (files.size() > 1 && I.rows() < I.cols())
+      I = transpose(I);
+
+    int start = composite_image.cols();
+    if (i > 0)
+      start = spacing * (int)ceil(double(start) / spacing) + spacing;
+
+    composite_image.insert(I, start, 0);
+  }
+
+  return composite_image;
+}
+
+// Explicit instantiations of form_point_cloud_composite
+template ImageViewRef<PixelGray<float>>
+asp::form_point_cloud_composite<PixelGray<float>>(std::vector<std::string> const&, int);
+template ImageViewRef<Vector3>
+asp::form_point_cloud_composite<Vector3>(std::vector<std::string> const&, int);
+template ImageViewRef<Vector4>
+asp::form_point_cloud_composite<Vector4>(std::vector<std::string> const&, int);
+template ImageViewRef<Vector6>
+asp::form_point_cloud_composite<Vector6>(std::vector<std::string> const&, int);
+
+// Read the error channels from the point clouds, and take their norm
+template<int num_ch>
+ImageViewRef<double>
+asp::error_norm(std::vector<std::string> const& pc_files) {
+  VW_ASSERT(pc_files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
+
+  const int beg_ech = 3;
+  const int num_ech = num_ch - beg_ech;
+  ImageViewRef<Vector<double, num_ch>> point_disk_image
+    = asp::form_point_cloud_composite<Vector<double, num_ch>>
+      (pc_files, ASP_MAX_SUBBLOCK_SIZE);
+  ImageViewRef<Vector<double, num_ech>> error_channels
+    = select_channels<num_ech, num_ch, double>(point_disk_image, beg_ech);
+
+  return per_pixel_filter(error_channels, asp::VectorNorm<Vector<double, num_ech>>());
+}
+
+// Explicit instantiations of error_norm
+template ImageViewRef<double> asp::error_norm<4>(std::vector<std::string> const&);
+template ImageViewRef<double> asp::error_norm<6>(std::vector<std::string> const&);

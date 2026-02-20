@@ -35,6 +35,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspLog.h>
 #include <asp/Core/IpMatchingAlgs.h>
+#include <asp/Core/GdalUtils.h>
 #include <asp/Tools/stereo.h>
 
 #include <vw/Camera/CameraModel.h>
