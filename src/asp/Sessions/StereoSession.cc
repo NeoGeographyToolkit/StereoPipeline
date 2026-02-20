@@ -455,7 +455,6 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
   return cam;
 }
 
-
 ImageViewRef<PixelMask<Vector2f>>
 StereoSession::pre_pointcloud_hook(std::string const& input_file) {
   return DiskImageView<PixelMask<Vector2f> >(input_file);
