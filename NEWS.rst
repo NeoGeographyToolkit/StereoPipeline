@@ -83,16 +83,16 @@ rig_calibrator (:numref:`rig_calibrator`):
     ``--out_dir`` is now ``--out-dir``.
 
 theia_sfm (:numref:`theia_sfm`):
-  * Made the SfM reconstruction deterministic by passing a fixed random seed
-    to Theia. Previously, results could vary between runs due to time-based
-    random seeding in RANSAC.
+  * Made the SfM reconstruction deterministic on Linux by passing a fixed
+    random seed to Theia. Previously, results could vary between runs due
+    to time-based random seeding in RANSAC.
   * All command-line options now use dashes instead of underscores. For example,
     ``--rig_config`` is now ``--rig-config``.
 
 camera_solve (:numref:`camera_solve`):
-  * Made the SfM reconstruction deterministic by passing a fixed random seed
-    to Theia. Previously, results could vary between runs due to time-based
-    random seeding in RANSAC.
+  * Made the SfM reconstruction deterministic on Linux by passing a fixed
+    random seed to Theia. Previously, results could vary between runs due
+    to time-based random seeding in RANSAC.
 
 parse_match_file.py (:numref:`parse_match_file`):
   * When converting from binary to text, descriptors are no longer saved by

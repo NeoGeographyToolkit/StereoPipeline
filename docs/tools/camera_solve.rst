@@ -97,8 +97,8 @@ Command-line options
 --theia-overrides <string>
     Override any option in the auto-generated Theia flag file.  Set
     as ``"--option1=val1 --option2=val2 ..."``. The option
-    ``--random_seed=1`` is passed to Theia by default, to ensure
-    reproducible results. This can be overridden with
+    ``--random_seed=1`` is passed to Theia by default on Linux, to
+    ensure reproducible results. This can be overridden with
     ``--theia-overrides "--random_seed=0"``, which seeds with
     current time, producing different results on each run.
 

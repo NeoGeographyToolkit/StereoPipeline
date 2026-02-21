@@ -158,8 +158,8 @@ Command-line options for theia_sfm
 --theia-flags <string (default: "")>
     The flags to pass to Theia. By default, the file
     ``share/theia_flags.txt`` in the software distribution is used.
-    The option ``--random_seed=1`` is passed to Theia by default, to
-    ensure reproducible results.
+    The option ``--random_seed=1`` is passed to Theia by default on
+    Linux, to ensure reproducible results.
 --out-dir <string (default: "")>
     The output directory.
 -h, --help
