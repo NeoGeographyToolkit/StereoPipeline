@@ -74,7 +74,9 @@ def processArgs(args, base_dir):
     parser.add_argument("--theia-flags", dest="theia_flags",
                         default="", help="The flags to pass to Theia. By default, " + \
                         "the file ``share/theia_flags.txt`` in the software "       + \
-                        "distribution is used.")
+                        "distribution is used. The option --random_seed=1 is "      + \
+                        "passed to Theia by default, to ensure reproducible "       + \
+                        "results.")
 
     parser.add_argument("--out-dir", dest="out_dir", default="",
                         help="The output directory (only the 'cameras.nvm' " + \
@@ -288,7 +290,8 @@ if __name__ == "__main__":
            "--calibration_file", calib_file,
            "--output_reconstruction", reconstruction_file,
            "--matching_working_directory", matching_dir,
-           "--intrinsics_to_optimize", "NONE", "-v", "2"]
+           "--intrinsics_to_optimize", "NONE", "-v", "2",
+           "--random_seed", "1"]
     asp_rig_utils.run_cmd(cmd)
     
     nvm_file = reconstruction_file + ".nvm"

@@ -341,7 +341,8 @@ def build_reconstruction(options):
 
     if (not os.path.exists(options.theia_output_path)) or options.overwrite:
         abs_flag_path = os.path.abspath(flagfile_path)
-        cmd = ['build_reconstruction', '--flagfile', abs_flag_path, '-v', '2']
+        cmd = ['build_reconstruction', '--flagfile', abs_flag_path, '-v', '2',
+               '--random_seed', '1']
         if options.threads > 0:
             cmd += ['--num_threads', str(options.threads)]
         verbose = False
@@ -725,7 +726,7 @@ def main(argsIn):
         parser.add_option('--bundle-adjust-params',  dest='bundle_params', default=None,
           help='Params string (in single quotes '') passed to the bundle_adjust tool')
         parser.add_option('--theia-overrides',  dest='theia_overrides', default='',
-          help='Override any option in the auto-generated Theia flag file. Set as "--option1=val1 --option2=val2 ...".')
+          help='Override any option in the auto-generated Theia flag file. Set as "--option1=val1 --option2=val2 ...". The option --random_seed=1 is passed to Theia by default, to ensure reproducible results. This can be overridden with --theia-overrides "--random_seed=0", which seeds with current time, producing different results on each run.')
 
         parser.add_option('--theia-flagfile',  dest='existing_theia_flagfile', default=None,
           help='Path to a custom Theia flag file to fine-tune its operation. File paths specified in this file are ignored.')
