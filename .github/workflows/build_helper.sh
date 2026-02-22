@@ -34,7 +34,7 @@ fi
 # save_mac_deps.sh for how to save and update a tarball with the dependencies.
 # New dependencies can be created from scratch with the environment in
 # stereopipeline-feedstock.
-tag=asp_deps_mac_x64_v1 # Mac Intel. Sync up tag with build_test.sh.
+tag=asp_deps_mac_x64_v2 # Mac Intel. Sync up tag with build_test.sh.
 # tag=asp_deps_mac_arm64_v2 # Mac Arm. Sync up tag with build_test.sh.
 # tag=asp_deps_linux_v1 # Linux.
 
