@@ -239,7 +239,7 @@ output cameras can then be passed directly to ``parallel_stereo``::
 
 When cameras are of CSM type (:numref:`csm`), self-contained optimized cameras
 will be written to disk (:numref:`csm_state`). These cameras can also be used
-as-is, so without the ``--bunlde-adjust-prefix`` option. If the CSM cameras are
+as-is, so without the ``--bundle-adjust-prefix`` option. If the CSM cameras are
 appended to the .cub files (:numref:`embedded_csm`), the updated .cub files can
 also be used as-is.
 
@@ -329,7 +329,7 @@ The measured distances between the initial and final triangulated points are
 saved to a file (:numref:`ba_tri_offsets`) and should be inspected. Also check
 the pixel reprojection errors per camera (:numref:`ba_errors_per_camera`).
 
-The implementation is follows. The distances between initially triangulated
+The implementation is as follows. The distances between initially triangulated
 points and those being optimized points are computed, then divided by the local
 averaged ground sample distance (GSD) (to make them into pixel units, like the
 reprojection errors). These are multiplied by ``--tri-weight``. Then, the robust
@@ -827,7 +827,7 @@ Reprojection errors per triangulated point
 If the ``--datum`` option is specified or auto-guessed based on images and
 cameras, ``bundle_adjust`` will write the triangulated ground position for every
 feature being matched in two or more images, and the mean pixel reprojection
-error :numref:`bundle_adjustment`) for each position, before the first and after
+error (:numref:`bundle_adjustment`) for each position, before the first and after
 the last optimization pass, in geodetic coordinates. The files are named
 
 ::
@@ -935,7 +935,7 @@ The produced errors are saved to the file::
 This file will have, for each image pair having matches, the median horizontal
 and vertical components of the triangulation uncertainties, the mean of each
 type of uncertainty, the standard deviations, and number of samples used
-(usually the same as the number of inliner interest points). All errors are in
+(usually the same as the number of inlier interest points). All errors are in
 meters.
 
 This operation will use the cameras after bundle adjustment. Invoke with
@@ -1478,7 +1478,7 @@ Command-line options
 
 --disable-pinhole-gcp-init
     Do not try to initialize pinhole camera coordinates using provided
-    GCP coordinates. This ignored as is now the default. See also:
+    GCP coordinates. This is ignored as it is now the default. See also:
     ``--init-camera-using-gcp``.
 
 --position-filter-dist <max_dist (default: -1.0)>
