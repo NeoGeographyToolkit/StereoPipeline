@@ -74,7 +74,7 @@ def processArgs(args, base_dir):
     parser.add_argument("--theia-flags", dest="theia_flags",
                         default="", help="The flags to pass to Theia. By default, " + \
                         "the file ``share/theia_flags.txt`` in the software "       + \
-                        "distribution is used. On Linux, the option "                + \
+                        "distribution is used. On Linux and Mac, the option "        + \
                         "--random_seed=1 is passed to Theia by default, to "       + \
                         "ensure reproducible results.")
 
@@ -291,7 +291,7 @@ if __name__ == "__main__":
            "--output_reconstruction", reconstruction_file,
            "--matching_working_directory", matching_dir,
            "--intrinsics_to_optimize", "NONE", "-v", "2"]
-    if sys.platform == 'linux':
+    if sys.platform == 'linux' or sys.platform == 'darwin':
         cmd += ["--random_seed", "1"]
     asp_rig_utils.run_cmd(cmd)
     

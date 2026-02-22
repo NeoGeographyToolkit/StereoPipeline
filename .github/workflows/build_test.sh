@@ -34,7 +34,7 @@ isArm64=$(uname -m | grep arm64)
 # versions of these change during development.
 if [ "$isArm64" != "" ]; then
     echo "Platform: Arm64 Mac"
-    tag=asp_deps_mac_arm64_v1
+    tag=asp_deps_mac_arm64_v2
     envName=asp_deps
 else
     echo "Platform: Intel Mac"
