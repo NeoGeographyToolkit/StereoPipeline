@@ -142,7 +142,7 @@ for lib in $installDir/lib/*dylib; do
 done
 export DYLD_LIBRARY_PATH=$installDir/lib:$DYLD_LIBRARY_PATH
 
-# Package with BinaryBuilder. The Mac Arm and Mac x84 use
+# Package with BinaryBuilder. The Mac Arm and Mac x64 use
 # different paths to the python environment.
 echo Packaging the build
 cd $baseDir
