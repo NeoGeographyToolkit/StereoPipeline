@@ -40,6 +40,9 @@ cam_test (:numref:`cam_test`):
 bundle_adjust (:numref:`bundle_adjust`):
   * Added bathymetry support (:numref:`ba_bathy`).
 
+ipfind (:numref:`ipfind`):
+  * Added the option ``--binary-to-txt`` to convert .vwip files to text.
+
 ipmatch (:numref:`ipmatch`):
   * Added options for converting match files between binary and text formats
     (:numref:`ipmatch_convert`).

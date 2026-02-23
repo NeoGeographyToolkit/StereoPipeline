@@ -85,6 +85,13 @@ Command-line options for ipfind:
     Save the interest points in an ASCII data format that is
     compatible with the Lowe-SIFT toolchain.
 
+--binary-to-txt
+    Convert a .vwip file to a text file. Each line has the fields:
+    x, y, scale, orientation, interest, polarity, octave, scale_lvl,
+    followed by the descriptor values. Usage::
+
+        ipfind --binary-to-txt input.vwip output.txt
+
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
