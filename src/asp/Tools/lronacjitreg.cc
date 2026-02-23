@@ -31,7 +31,7 @@
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskCacheImageView.h>
 #include <vw/FileIO/GdalWriteOptions.h>
-#include <vw/Stereo/PreFilter.h>
+#include <vw/Stereo/PrefilterEnum.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>

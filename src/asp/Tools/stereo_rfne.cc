@@ -27,7 +27,7 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/Tools/stereo.h>
 
-#include <vw/Stereo/PreFilter.h>
+#include <vw/Stereo/PrefilterEnum.h>
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/ParabolaSubpixelView.h>
 #include <vw/Stereo/SubpixelView.h>
