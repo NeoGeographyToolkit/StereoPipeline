@@ -172,16 +172,13 @@ int main(int argc, char *argv[]) {
     bool has_nodata      = true;
     std::string output_image = opt.output_prefix + "-" + opt.metric + ".tif";
     vw_out() << "Writing: " << output_image << "\n";
-    // Extra padding beyond the NCC kernel so operations like prefiltering
-    // have enough context at tile boundaries, avoiding boundary artifacts.
-    int prefilter_padding = (int)ceil(opt.prefilter_kernel_width) + 5;
-
     asp::saveWithTempBigBlocks
       (bigBlockSize, output_image,
        apply_mask(vw::stereo::corr_eval(masked_left, masked_right,
                                         disp, opt.kernel_size, opt.metric,
                                         opt.sample_rate, opt.round_to_int,
-                                        prefilter_padding),
+                                        opt.prefilter_mode,
+                                        opt.prefilter_kernel_width),
                   left_nodata),
        has_left_georef, left_georef,
        has_nodata, left_nodata, opt,
