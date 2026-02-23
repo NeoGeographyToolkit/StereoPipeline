@@ -23,6 +23,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/GdalUtils.h>
 
 #include <vw/Stereo/PreFilter.h>
 #include <vw/Stereo/CorrEval.h>
@@ -146,14 +147,12 @@ int main(int argc, char *argv[]) {
     vw_out() << "Left and right image no-data values: " << left_nodata << ' '
              << right_nodata << "\n";
     
-    // Use bigger tiles on output, should be faster that way given
-    // that we have to grab a big chunk of the right image for each
-    // tile.
-    //opt.raster_tile_size = Vector2i(asp::ASPGlobalOptions::corr_tile_size(), // 1024
-    //                                asp::ASPGlobalOptions::corr_tile_size());
-    // These should result in less memory being used
+    // Use 256x256 as the final output tile size. Process with bigger
+    // tiles (512) internally via saveWithTempBigBlocks, so the prefilter
+    // and NCC kernel have enough padding at tile boundaries.
     opt.raster_tile_size = Vector2i(asp::ASPGlobalOptions::rfne_tile_size(), // 256
                                     asp::ASPGlobalOptions::rfne_tile_size());
+    int bigBlockSize = 512;
 
     ImageViewRef<PixelMask<float>> masked_left  = create_mask(left, left_nodata);
     ImageViewRef<PixelMask<float>> masked_right = create_mask(right, right_nodata);
@@ -173,11 +172,16 @@ int main(int argc, char *argv[]) {
     bool has_nodata      = true;
     std::string output_image = opt.output_prefix + "-" + opt.metric + ".tif";
     vw_out() << "Writing: " << output_image << "\n";
-    vw::cartography::block_write_gdal_image
-      (output_image,
+    // Extra padding beyond the NCC kernel so operations like prefiltering
+    // have enough context at tile boundaries, avoiding boundary artifacts.
+    int prefilter_padding = (int)ceil(opt.prefilter_kernel_width) + 5;
+
+    asp::saveWithTempBigBlocks
+      (bigBlockSize, output_image,
        apply_mask(vw::stereo::corr_eval(masked_left, masked_right,
                                         disp, opt.kernel_size, opt.metric,
-                                        opt.sample_rate, opt.round_to_int),
+                                        opt.sample_rate, opt.round_to_int,
+                                        prefilter_padding),
                   left_nodata),
        has_left_georef, left_georef,
        has_nodata, left_nodata, opt,
