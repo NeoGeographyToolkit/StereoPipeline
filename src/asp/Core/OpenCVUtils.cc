@@ -14,10 +14,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
+#include <asp/Core/OpenCVUtils.h>
 
 #include <vw/Core/Exception.h>
-#include <asp/Core/OpenCVUtils.h>
 
 #include <Eigen/Core>
 #include <opencv2/core/eigen.hpp>

@@ -24,6 +24,7 @@
 #include <asp/SfS/SfsOptions.h>
 
 #include <vw/Image/ImageView.h>
+#include <vw/Cartography/GeoReference.h>
 #include <boost/shared_ptr.hpp>
 
 namespace asp {

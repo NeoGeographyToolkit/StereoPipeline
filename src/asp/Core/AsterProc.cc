@@ -19,6 +19,7 @@
 #include <asp/Core/FileUtils.h>
 
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Image/ImageViewRef.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>

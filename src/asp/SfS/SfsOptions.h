@@ -21,7 +21,7 @@
 #ifndef __ASP_SFS_SFS_OPTIONS_H__
 #define __ASP_SFS_SFS_OPTIONS_H__
 
-#include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/FileIO/GdalWriteOptions.h>
 
 namespace asp {
 

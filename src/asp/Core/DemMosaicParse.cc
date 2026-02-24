@@ -26,6 +26,8 @@
 #include <vw/FileIO/GdalWriteOptionsDesc.h>
 #include <vw/FileIO/FileUtils.h>
 
+#include <cmath>
+
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 
@@ -402,7 +404,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   // Cast this to float. All our nodata are float.
   opt.nodata_threshold = float(opt.nodata_threshold);
 
-  if (!boost::math::isnan(opt.nodata_threshold) && noblend)
+  if (!std::isnan(opt.nodata_threshold) && noblend)
     vw::vw_throw(vw::ArgumentErr()
       << "The option --nodata-threshold cannot be used together with "
       << "some other invoked options.\n");
@@ -424,7 +426,7 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
   if (opt.weight_list != "") {
 
     if (noblend || opt.priority_blending_len > 0 ||
-        !boost::math::isnan(opt.nodata_threshold))
+        !std::isnan(opt.nodata_threshold))
       vw::vw_throw(vw::ArgumentErr()
                 << "Cannot do anything except regular blending with the option "
                 << "--weight-list.\n");

@@ -24,6 +24,9 @@
 #include <vw/Image/InpaintView.h>
 
 #include <boost/filesystem.hpp>
+
+#include <cmath>
+
 namespace fs = boost::filesystem;
 
 // Moved here some logic from PointToDem.cc to speed up compilation.
@@ -102,7 +105,7 @@ template<class VectorT>
 struct NaN2Mask: public ReturnFixedType<PixelMask<VectorT>> {
   NaN2Mask() {}
   PixelMask<VectorT> operator() (VectorT const& vec) const {
-    if (boost::math::isnan(vec.z()))
+    if (std::isnan(vec.z()))
       return PixelMask<VectorT>(); // invalid
     else
       return PixelMask<VectorT>(vec); // valid
@@ -126,7 +129,7 @@ struct NaN2NoData: public ReturnFixedType<Vector3> {
   NaN2NoData(float nodata_val):m_nodata_val(nodata_val) {}
   float m_nodata_val;
   Vector3 operator() (Vector3 const& vec) const {
-    if (boost::math::isnan(vec.z()))
+    if (std::isnan(vec.z()))
       return Vector3(m_nodata_val, m_nodata_val, m_nodata_val); // invalid
     else
       return vec; // valid

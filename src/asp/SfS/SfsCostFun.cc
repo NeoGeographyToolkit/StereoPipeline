@@ -29,6 +29,7 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif // ASP_HAVE_PKG_ISIS
 
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/ProgressCallback.h>
 #include <vw/Core/Thread.h>
 

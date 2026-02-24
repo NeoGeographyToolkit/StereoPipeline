@@ -65,6 +65,7 @@
 
 #include <iostream>
 #include <string>
+#include <cmath>
 
 #if defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic pop
@@ -423,7 +424,7 @@ double setupDemNodata(SfsOptions const& opt) {
       vw::vw_out() << "Overwriting the nodata value with: " << dem_nodata_val << "\n";
     }
   }
-  if (!boost::math::isnan(opt.nodata_val)) {
+  if (!std::isnan(opt.nodata_val)) {
     dem_nodata_val = opt.nodata_val;
     vw::vw_out() << "Over-riding the DEM nodata value with: " << dem_nodata_val << "\n";
   }
@@ -696,7 +697,7 @@ int main(int argc, char* argv[]) {
     prepareDemAndAlbedo(opt, dem, albedo, geo, dem_nodata_val);
 
     // See if to use provided initial DEM height
-    if (!boost::math::isnan(opt.init_dem_height)) {
+    if (!std::isnan(opt.init_dem_height)) {
       for (int col = 0; col < dem.cols(); col++) {
         for (int row = 0; row < dem.rows(); row++) {
           dem(col, row) = opt.init_dem_height;

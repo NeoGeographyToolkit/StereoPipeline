@@ -36,7 +36,7 @@
 
 #include <asp/Core/PointUtils.h>
 #include <boost/foreach.hpp>
-#include <boost/math/special_functions/next.hpp>
+#include <cmath>
 #include <asp/Core/OrthoRasterizer.h>
 #include <valarray>
 
@@ -70,7 +70,7 @@ namespace asp{
     for (int col = 0; col < crop_img.cols(); col++) {
       for (int row = 0; row < crop_img.rows(); row++) {
         Vector3 p = crop_img(col, row);
-        if (boost::math::isnan(p.z())) continue;
+        if (std::isnan(p.z())) continue;
         of << p.x() << ' ' << p.y()  << ' ' << p.z() << std::endl;
       }
     }
@@ -98,7 +98,7 @@ namespace asp{
     struct GrowBBoxAccumulator {
       BBox3 bbox;
       void operator()(Vector3 const& v) {
-        if (!boost::math::isnan(v.z()))
+        if (!std::isnan(v.z()))
           bbox.grow(v);
       }
     };
@@ -173,7 +173,7 @@ namespace asp{
           for (int row = 0; row < local_image2.rows(); row++) {
 
             // Skip invalid points
-            if (boost::math::isnan(local_image2(col, row).z()))
+            if (std::isnan(local_image2(col, row).z()))
               continue;
 
             // Skip outliers, points not in the estimated bounding box
@@ -202,7 +202,9 @@ namespace asp{
             if (std::isinf(pts_bdbox.min()[i]) || std::isinf(pts_bdbox.max()[i]))
               continue;
             if (pts_bdbox.min()[i] == pts_bdbox.max()[i])
-              pts_bdbox.max()[i] = boost::math::float_next(pts_bdbox.max()[i]);
+              pts_bdbox.max()[i] = 
+                std::nextafter(pts_bdbox.max()[i], 
+                               std::numeric_limits<double>::max());
           }
 
           local_union.grow(pts_bdbox);
@@ -279,13 +281,13 @@ namespace asp{
     for (int col = 0; col < image.cols(); col++) {
       for (int row = 0; row < image.rows(); row++) {
 
-        if (boost::math::isnan(image(col, row).z()))
+        if (std::isnan(image(col, row).z()))
           continue;
 
         std::vector<double> vals;
         for (int c = std::max(col-half, 0); c <= std::min(col+half, nc-1); c++) {
           for (int r = std::max(row-half, 0); r <= std::min(row+half, nr-1); r++) {
-            if (boost::math::isnan(image(c, r).z()))
+            if (std::isnan(image(c, r).z()))
               continue;
             vals.push_back(image(c, r).z());
           }
@@ -336,7 +338,7 @@ namespace asp{
           for (int c = start_col; c <= stop_col; c++) {
             for (int r = start_row; r <= stop_row; r++) {
               // If any of these pixels are bad, throw out this pixel
-              if (boost::math::isnan(read_ptr->operator()(c, r).z()))
+              if (std::isnan(read_ptr->operator()(c, r).z()))
                 write_ptr->operator()(col, row).z() = nan;
             }
           } // End inner erode double loop
@@ -768,7 +770,7 @@ namespace asp{
 
         for (int32 col = 0; col < point_copy.cols(); col++) {
 
-          if (!boost::math::isnan(point_copy(col, row).z()) &&
+          if (!std::isnan(point_copy(col, row).z()) &&
                 local_3d_bbox.contains(point_copy(col, row))) {
             point2grid.AddPoint(point_copy(col, row).x(),
                                 point_copy(col, row).y(),

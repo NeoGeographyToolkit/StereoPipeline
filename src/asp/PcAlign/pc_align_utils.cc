@@ -26,7 +26,6 @@
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Image/Filter.h>
-
 #include <pdal/PDALUtils.hpp>
 #include <pointmatcher/PointMatcher.h>
 

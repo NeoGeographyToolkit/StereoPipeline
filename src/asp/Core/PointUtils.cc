@@ -25,8 +25,7 @@
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/Geometry/geomUtils.h>
 
-#include <boost/math/special_functions/fpclassify.hpp>
-#include <boost/math/special_functions/next.hpp>
+#include <cmath>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -843,7 +842,7 @@ vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
     for (int col=0; col < point_image.cols(); ++col) {
       vw::Vector3 pt = point_image(col, row);
       if ((!is_geodetic && pt != vw::Vector3()) ||
-           (is_geodetic  &&  !boost::math::isnan(pt.z())))
+           (is_geodetic  &&  !std::isnan(pt.z())))
         result.grow(pt);
     }
   }

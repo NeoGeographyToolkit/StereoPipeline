@@ -47,6 +47,7 @@
 #include <pdal/Streamable.hpp>
 #include <pdal/util/ProgramArgs.hpp>
 
+#include <cmath>
 namespace pdal {
     
 // A class to produce a point cloud point-by-point, rather than
@@ -178,7 +179,7 @@ bool StreamedCloud::processOne(PointRef& point) {
     
     // Skip no-data points and point above the max valid triangulation error
     bool valid_xyz = ((!m_has_georef && xyz != vw::Vector3()) ||
-                    (m_has_georef  && !boost::math::isnan(xyz.z())));
+                    (m_has_georef  && !std::isnan(xyz.z())));
     bool valid_tri_err = (m_max_valid_triangulation_error <= 0 ||
                     m_error_image(m_col_count, m_row_count) <= 
                     m_max_valid_triangulation_error);

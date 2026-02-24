@@ -21,6 +21,7 @@
 #include <asp/SfS/SfsErrorEstim.h>
 #include <asp/SfS/SfsModel.h>
 
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Log.h>
 #include <vw/Core/ProgressCallback.h>
 #include <vw/FileIO/FileUtils.h>

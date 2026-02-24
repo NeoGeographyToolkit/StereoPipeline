@@ -21,6 +21,7 @@
 #include <vw/Math/Statistics.h>
 #include <vw/Core/Stopwatch.h>
 
+#include <cmath>
 using namespace vw;
 
 namespace asp {
@@ -52,9 +53,9 @@ void estimate_inliers_bbox(double pct_factor_x, double pct_factor_y, double pct_
 
   // Need to compute the next double because the VW bounding box is
   // exclusive at the top.
-  ex = boost::math::nextafter(ex, std::numeric_limits<double>::max());
-  ey = boost::math::nextafter(ey, std::numeric_limits<double>::max());
-  ez = boost::math::nextafter(ez, std::numeric_limits<double>::max());
+  ex = std::nextafter(ex, std::numeric_limits<double>::max());
+  ey = std::nextafter(ey, std::numeric_limits<double>::max());
+  ez = std::nextafter(ez, std::numeric_limits<double>::max());
 
   inliers_bbox.grow(Vector3(bx, by, bz));
   inliers_bbox.grow(Vector3(ex, ey, ez));

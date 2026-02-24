@@ -40,6 +40,7 @@
 
 #include <limits>
 #include <cstring>
+#include <cmath>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -426,19 +427,19 @@ int main(int argc, char *argv[]) {
     // user overwrites it.
     float val = std::numeric_limits<float>::quiet_NaN();
     bool has_input_nodata = vw::read_nodata_val(opt.image_file, val);
-    if (has_input_nodata && boost::math::isnan(opt.input_nodata_value))
+    if (has_input_nodata && std::isnan(opt.input_nodata_value))
       opt.input_nodata_value = val;
 
-    if (!boost::math::isnan(opt.input_nodata_value)) 
+    if (!std::isnan(opt.input_nodata_value)) 
       vw_out() << "Using input nodata value: " << opt.input_nodata_value << "\n";
     else
       has_input_nodata = false;
 
     // If the output nodata value was not specified, use the input one
-    if (boost::math::isnan(opt.output_nodata_value)) 
+    if (std::isnan(opt.output_nodata_value)) 
       opt.output_nodata_value = opt.input_nodata_value;
 
-    if (!boost::math::isnan(opt.output_nodata_value)) {
+    if (!std::isnan(opt.output_nodata_value)) {
       opt.has_output_nodata = true;
       vw_out() << "Using output nodata value: " << opt.output_nodata_value << "\n";
     }else{

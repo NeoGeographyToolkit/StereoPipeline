@@ -27,7 +27,8 @@
 #include <vw/Image/PixelTypes.h>
 #include <vw/Image/Filter.h>
 
-#include <boost/math/special_functions/next.hpp> // boost::math::float_next
+#include <cmath>
+#include <limits>
 
 // Isis headers
 #include <isis/SpecialPixel.h>
@@ -149,8 +150,8 @@ void adjustIsisImage(std::string const& input_file,
   float isis_hi = isis_rsrc->valid_maximum();
 
   // Force the low value to be greater than the nodata value
-  if (!boost::math::isnan(nodata_value) && nodata_value >= isis_lo) {
-    isis_lo = boost::math::float_next(nodata_value);
+  if (!std::isnan(nodata_value) && nodata_value >= isis_lo) {
+    isis_lo = std::nextafter(nodata_value, std::numeric_limits<float>::max());
     if (isis_hi < isis_lo)
       isis_hi = isis_lo;
   }

@@ -36,7 +36,7 @@
 
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/foreach.hpp>
-#include <boost/math/special_functions/fpclassify.hpp>
+#include <cmath>
 
 // Some of the implementation is in InterestPointMatching2.cc
 
@@ -99,7 +99,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
 
   vw::vw_out() << "\t    Using " << ip_per_tile << " interest points per tile (1024^2 px).\n";
 
-  const bool has_nodata = !boost::math::isnan(nodata);
+  const bool has_nodata = !std::isnan(nodata);
 
   // Load the detection method from stereo_settings.
   // - This relies on a direct match in the enum integer value.
@@ -160,7 +160,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
   vw::vw_out(vw::DebugMessage,"asp") << "Detect interest points elapsed time: "
                                      << sw1.elapsed_seconds() << " s." << std::endl;
   
-  if (!boost::math::isnan(nodata)) {
+  if (!std::isnan(nodata)) {
     vw::vw_out() << "\t    Removing IP near nodata with radius "
              << stereo_settings().ip_nodata_radius << std::endl;
     remove_ip_near_nodata(image.impl(), nodata, ip, stereo_settings().ip_nodata_radius);
@@ -220,8 +220,8 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
 
   if (stereo_settings().ip_debug_images) {
     vw::vw_out() << "\t    Writing detected IP debug images. " << std::endl;
-    write_ip_debug_image("ASP_IP_detect_debug1.tif", image1, ip1, !boost::math::isnan(nodata1), nodata1);
-    write_ip_debug_image("ASP_IP_detect_debug2.tif", image2, ip2, !boost::math::isnan(nodata2), nodata2);
+    write_ip_debug_image("ASP_IP_detect_debug1.tif", image1, ip1, !std::isnan(nodata1), nodata1);
+    write_ip_debug_image("ASP_IP_detect_debug2.tif", image2, ip2, !std::isnan(nodata2), nodata2);
   }
 
   side_ip_filtering(ip1, ip2, bounding_box(image1), bounding_box(image2));
@@ -1351,7 +1351,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   //   and stop them from being masked out.
   // TODO(oalexan1): Would it be better to pass masked images and use interpolation?
   // TODO(oalexan1): Likely bilinear interpolation is better for the IP detection.
-  auto ext = ValueEdgeExtension<float>(boost::math::isnan(nodata2) ? 0 : nodata2);
+  auto ext = ValueEdgeExtension<float>(std::isnan(nodata2) ? 0 : nodata2);
   std::string right_vwip_file = ""; // Don't record IP from transformed images
   bool use_cached_ip = false;
   if (!detect_ip_pair(ip1, ip2, image1,
