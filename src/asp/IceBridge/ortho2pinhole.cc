@@ -35,6 +35,7 @@
 #include <asp/Core/AspLog.h>
 #include <asp/Core/ImageUtils.h>
 
+#include <vw/Image/ImageTransform.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Cartography/GeoTransform.h>
