@@ -23,6 +23,7 @@
 #include <test/Helpers.h>
 
 #include <vw/Stereo/StereoModel.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 
 using namespace vw;
 using namespace asp;
@@ -47,7 +48,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   double dem_height = 2287; // Average height of this area
   fill( lowres_overcrop_image, dem_height );
   UnlinkName lowres_dem_name( "lowres_dem.tif" );
-  write_georeferenced_image( lowres_dem_name, lowres_overcrop_image, lowres_overcrop_georef );
+  write_gdal_image(lowres_dem_name, lowres_overcrop_image, lowres_overcrop_georef, GdalWriteOptions());
 
   // Make hires images
   cartography::GeoReference hires_georef = lowres_georef;
@@ -59,8 +60,8 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   ImageView<float> lowres_image(4,4);
   fill( lowres_image, 2 );
   UnlinkName left_image_name("faked_left.tif"), right_image_name("faked_right.tif");
-  write_georeferenced_image( left_image_name, lowres_image, lowres_georef );
-  write_georeferenced_image( right_image_name, hires_image, hires_georef );
+  write_gdal_image(left_image_name, lowres_image, lowres_georef, GdalWriteOptions());
+  write_gdal_image(right_image_name, hires_image, hires_georef, GdalWriteOptions());
 
   // Create session
   vw::GdalWriteOptions opt;
