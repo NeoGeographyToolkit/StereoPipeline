@@ -31,7 +31,6 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/ParabolaSubpixelView.h>
 #include <vw/Stereo/SubpixelView.h>
-#include <vw/Stereo/EMSubpixelCorrelatorView.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/Image/InpaintView.h>
@@ -56,22 +55,24 @@ refine_disparity(Image1T const& left_image,
   PrefilterModeType prefilter_mode =
     static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
 
-  if ((stereo_settings().subpixel_mode == 0) ||
-      (stereo_settings().subpixel_mode > 6)) {
-    // Do nothing (includes SGM specific subpixel modes)
+  // Mode 0 and SGM modes 7-12: no refinement in this stage
+  if (stereo_settings().subpixel_mode == 0 ||
+      (stereo_settings().subpixel_mode >= 7 &&
+       stereo_settings().subpixel_mode <= 12)) {
     if (verbose)
       vw_out() << "\t--> Skipping subpixel mode.\n";
-  } else {
-    if (verbose) {
-      if (stereo_settings().pre_filter_mode == 2)
-        vw_out() << "\t--> Using LOG pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n";
-      else if (stereo_settings().pre_filter_mode == 1)
-        vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n";
-      else
-        vw_out() << "\t--> NO preprocessing.\n";
-    }
+    return refined_disp;
+  }
+
+  if (verbose) {
+    if (stereo_settings().pre_filter_mode == 2)
+      vw_out() << "\t--> Using LOG pre-processing filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+    else if (stereo_settings().pre_filter_mode == 1)
+      vw_out() << "\t--> Using Subtracted Mean pre-processing filter with "
+               << stereo_settings().slogW << " sigma blur.\n";
+    else
+      vw_out() << "\t--> NO preprocessing.\n";
   }
 
   if (stereo_settings().subpixel_mode == 1) {
@@ -136,18 +137,9 @@ refine_disparity(Image1T const& left_image,
                    stereo_settings().subpixel_kernel,
                    stereo_settings().subpixel_max_levels);
 
-  } else if (stereo_settings().subpixel_mode == 6) {
-    
-    // This no longer works.
-    vw::vw_throw(NoImplErr() << "Subpixel mode 6 support has been removed.\n");
-  } // End of subpixel mode selection
-
-  if ((stereo_settings().subpixel_mode < 0) || (stereo_settings().subpixel_mode > 5)) {
-    if (verbose) {
-      vw_out() << "\t--> Invalid subpixel mode selection: "
-               << stereo_settings().subpixel_mode << "\n";
-      vw_out() << "\t--> Doing nothing\n";
-    }
+  } else {
+    vw::vw_throw(vw::ArgumentErr() << "Invalid subpixel mode: "
+                 << stereo_settings().subpixel_mode << ".\n");
   }
 
   return refined_disp;

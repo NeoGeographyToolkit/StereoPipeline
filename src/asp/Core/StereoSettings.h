@@ -198,11 +198,6 @@ namespace asp {
     vw::uint16 subpixel_max_levels;   // Max pyramid levels to process. 0 hits only once.
     vw::uint16 phase_subpixel_accuracy;  // Phase subpixel is accurate to 1/this pixels
 
-    // Experimental Subpixel options (mode 3 only)
-    int subpixel_em_iter;
-    int subpixel_affine_iter;
-    int subpixel_pyramid_levels;
-
     // Filtering options
     int filter_mode;                  // Which filter mode to use
     vw::Vector2i rm_half_kernel;      // Low confidence pixel removal kernel size

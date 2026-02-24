@@ -402,7 +402,9 @@ SubpixelDescription::SubpixelDescription(): po::options_description("Subpixel op
   StereoSettings& global = stereo_settings();
   (*this).add_options()
     ("subpixel-mode", po::value(&global.subpixel_mode)->default_value(1),
-      "Subpixel algorithm. [0 None, 1 Parabola, 2 Bayes EM, 3 Affine, 4 Phase Correlation 5 LK, 6 Bayes EM w/gamma, 7 SGM None 8 SGM Linear, 9 SGM Poly4, 10 SGM Cos, 11 SGM Parabola 12 SGM Blend]")
+      "Subpixel algorithm. [0 None, 1 Parabola, 2 Bayes EM, 3 Affine, "
+      "4 Phase Correlation 5 LK, 7 SGM None 8 SGM Linear, 9 SGM Poly4, "
+      "10 SGM Cos, 11 SGM Parabola 12 SGM Blend]")
     ("subpix-from-blend", po::bool_switch(&global.subpix_from_blend)->default_value(false)->implicit_value(true),
       "For the input to subpixel, use the -B.tif file instead of the -D.tif file.")
     ("subpixel-kernel", po::value(&global.subpixel_kernel)->default_value(Vector2i(35,35), "35 35"),
@@ -416,15 +418,6 @@ SubpixelDescription::SubpixelDescription(): po::options_description("Subpixel op
     ("phase-subpixel-accuracy", po::value(&global.phase_subpixel_accuracy)->default_value(20),
       "Accuracy to use for mode 4 phase subpixel.  Resolution is 1/this.  Larger values take more time.");
 
-  po::options_description experimental_subpixel_options("Experimental subpixel options");
-  experimental_subpixel_options.add_options()
-    ("subpixel-em-iter", po::value(&global.subpixel_em_iter)->default_value(15),
-      "Maximum number of EM iterations for EMSubpixelCorrelator.")
-    ("subpixel-affine-iter", po::value(&global.subpixel_affine_iter)->default_value(5),
-      "Maximum number of affine optimization iterations for EMSubpixelCorrelator.")
-    ("subpixel-pyramid-levels", po::value(&global.subpixel_pyramid_levels)->default_value(3),
-      "Number of pyramid levels for EMSubpixelCorrelator.");
-  (*this).add(experimental_subpixel_options);
 
   po::options_description backwards_compat_options("Aliased backwards compatibility options");
   backwards_compat_options.add_options()
