@@ -23,6 +23,7 @@
 #include <asp/Core/PhotometricOutlier.h>
 
 #include <vw/Image/AlgorithmFunctions.h>
+#include <vw/Image/Grassfire.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/Convolution.h>

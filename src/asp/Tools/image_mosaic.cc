@@ -31,6 +31,7 @@
 #include <vw/FileIO/ImageChannelRead.h>
 #include <vw/Image/Algorithms2.h>
 #include <vw/Image/AlgorithmFunctions.h>
+#include <vw/Image/Grassfire.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/FileIO/FileUtils.h>

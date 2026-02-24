@@ -38,6 +38,7 @@
 #include <asp/Core/AspLog.h>
 #include <asp/Tools/stereo.h>
 
+#include <vw/Image/Grassfire.h>
 #include <vw/Image/ImageMath.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Cartography/GeoReference.h>
