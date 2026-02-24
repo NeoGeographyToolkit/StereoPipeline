@@ -30,7 +30,7 @@
 
 #include <vw/FileIO/DiskImageManager.h>
 #include <vw/Image/InpaintView.h>
-#include <vw/Image/Algorithms2.h>
+#include <vw/Image/RoundAndClamp.h>
 #include <vw/Image/Filter.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Image/NoDataAlg.h>

@@ -24,7 +24,7 @@
 
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/FileIO/ImageChannelRead.h>
-#include <vw/Image/Algorithms2.h>
+#include <vw/Image/RoundAndClamp.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/Image/Filter.h>
 

@@ -29,7 +29,7 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Image/Filter.h>
-#include <vw/Image/Algorithms2.h>
+#include <vw/Image/RoundAndClamp.h>
 #include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem.hpp>
