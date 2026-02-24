@@ -20,6 +20,7 @@
 #include <asp/Core/GdalUtils.h>
 
 #include <vw/Image/AntiAliasing.h>
+#include <vw/Image/FillHoles.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/InpaintView.h>
 
