@@ -34,7 +34,6 @@
 #include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem.hpp>
-#include <iostream>
 
 namespace fs = boost::filesystem;
 
@@ -201,76 +200,60 @@ void write_parallel_type_multichannel(std::string              const& filename,
     vw_throw(NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
 }
 
-/// Mapproject the image with a nodata value.  Used for single channel images.
-template <class ImagePixelT, class Map2CamTransT>
+/// Mapproject the image with a nodata value. Used for single channel images.
+/// Input is always read as float (no template on pixel type needed since the
+/// only caller uses float).
+template <class Map2CamTransT>
 void project_image_nodata(asp::MapprojOptions & opt,
                           GeoReference  const& croppedGeoRef,
                           Vector2i      const& virtual_image_size,
                           BBox2i        const& croppedImageBB,
                           Map2CamTransT const& transform) {
 
-    typedef PixelMask<ImagePixelT> ImageMaskPixelT;
+    typedef PixelMask<float> ImageMaskPixelT;
 
     // Create handle to input image to be projected on to the map
-    boost::shared_ptr<DiskImageResource> img_rsrc = 
-          vw::DiskImageResourcePtr(opt.image_file);   
+    boost::shared_ptr<DiskImageResource> img_rsrc =
+          vw::DiskImageResourcePtr(opt.image_file);
 
     // Update the nodata value from the input file if it is present.
-    if (img_rsrc->has_nodata_read()) 
+    if (img_rsrc->has_nodata_read())
       opt.nodata_value = img_rsrc->nodata_read();
 
     bool            has_img_nodata = true;
     ImageMaskPixelT nodata_mask = ImageMaskPixelT(); // invalid value for a PixelMask
 
-    // TODO: This is a lot of code duplication, is there a better way?
     if (opt.nearest_neighbor) {
       write_parallel_type
-        ( // Write to the output file
-        opt.output_file,
-        crop( // Apply crop (only happens if --t_pixelwin was specified)
-              apply_mask
-              ( // Handle nodata
-              transform_nodata( // Apply the output from Map2CamTrans
-                                create_mask(DiskImageView<ImagePixelT>(img_rsrc),
-                                            opt.nodata_value), // Handle nodata
+        (opt.output_file,
+        crop(apply_mask
+              (transform_nodata(create_mask(DiskImageView<float>(img_rsrc),
+                                            opt.nodata_value),
                                 transform,
                                 virtual_image_size[0],
                                 virtual_image_size[1],
                                 ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
-                                NearestPixelInterpolation(), nodata_mask
-                                ),
-              opt.nodata_value
-              ),
-              croppedImageBB
-              ),
+                                NearestPixelInterpolation(), nodata_mask),
+              opt.nodata_value),
+              croppedImageBB),
         croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
-        TerminalProgressCallback("","")
-        );
+        TerminalProgressCallback("",""));
     } else {
       write_parallel_type
-        ( // Write to the output file
-        opt.output_file,
-        crop( // Apply crop (only happens if --t_pixelwin was specified)
-              apply_mask
-              ( // Handle nodata
-              transform_nodata( // Apply the output from Map2CamTrans
-                                create_mask(DiskImageView<ImagePixelT>(img_rsrc),
-                                            opt.nodata_value), // Handle nodata
+        (opt.output_file,
+        crop(apply_mask
+              (transform_nodata(create_mask(DiskImageView<float>(img_rsrc),
+                                            opt.nodata_value),
                                 transform,
                                 virtual_image_size[0],
                                 virtual_image_size[1],
                                 ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
-                                BicubicInterpolation(), nodata_mask
-                                ),
-              opt.nodata_value
-              ),
-              croppedImageBB
-              ),
+                                BicubicInterpolation(), nodata_mask),
+              opt.nodata_value),
+              croppedImageBB),
         croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
-        TerminalProgressCallback("","")
-        );
+        TerminalProgressCallback("",""));
     }
-
 }
 
 /// Map project the image with an alpha channel. Used for multi-channel images.
@@ -320,7 +303,6 @@ void project_image_alpha(asp::MapprojOptions & opt,
 // transform classes which will be passed to the image projection function.
 // - TODO: Is there a good reason for the transform classes to be CRTP instead of virtual?
 
-template <class ImagePixelT>
 void project_image_nodata_pick_transform(asp::MapprojOptions & opt,
                           GeoReference const& dem_georef,
                           GeoReference const& target_georef,
@@ -329,28 +311,23 @@ void project_image_nodata_pick_transform(asp::MapprojOptions & opt,
                           Vector2i     const& virtual_image_size,
                           BBox2i       const& croppedImageBB,
                           boost::shared_ptr<camera::CameraModel> const& camera_model) {
-  const bool        call_from_mapproject = true;
+  const bool call_from_mapproject = true;
   if (fs::path(opt.dem_file).extension() != "") {
     // A DEM file was provided
-    return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
-                                             virtual_image_size, croppedImageBB,
-                                             Map2CamTrans(// Converts coordinates in DEM
-                                                          // georeference to camera pixels
-                                                          camera_model.get(), target_georef,
-                                                          dem_georef, opt.dem_file, image_size,
-                                                          call_from_mapproject,
-                                                          opt.nearest_neighbor));
+    return project_image_nodata(opt, croppedGeoRef,
+                                virtual_image_size, croppedImageBB,
+                                Map2CamTrans(camera_model.get(), target_georef,
+                                             dem_georef, opt.dem_file, image_size,
+                                             call_from_mapproject,
+                                             opt.nearest_neighbor));
   } else {
     // A constant datum elevation was provided
-    return project_image_nodata<ImagePixelT>(opt, croppedGeoRef,
-                                             virtual_image_size, croppedImageBB,
-                                             Datum2CamTrans
-                                             (// Converts coordinates in DEM
-                                              // georeference to camera pixels
-                                              camera_model.get(), target_georef,
-                                              dem_georef, opt.datum_offset, image_size,
-                                              call_from_mapproject,
-                                              opt.nearest_neighbor));
+    return project_image_nodata(opt, croppedGeoRef,
+                                virtual_image_size, croppedImageBB,
+                                Datum2CamTrans(camera_model.get(), target_georef,
+                                               dem_georef, opt.datum_offset,
+                                               image_size, call_from_mapproject,
+                                               opt.nearest_neighbor));
   }
 }
 
@@ -439,7 +416,7 @@ void project_image(asp::MapprojOptions & opt, GeoReference const& dem_georef,
       //vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
       vw_out() << "Detected multi-band image. Only the first band will be used. The pixels will be interpreted as float.\n";
     // This will cast to float but will not rescale the pixel values.
-    project_image_nodata_pick_transform<float>(opt, dem_georef, target_georef, croppedGeoRef,
+    project_image_nodata_pick_transform(opt, dem_georef, target_georef, croppedGeoRef,
                                                 image_size, 
                           Vector2i(virtual_image_width, virtual_image_height),
                           croppedImageBB, opt.camera_model);
