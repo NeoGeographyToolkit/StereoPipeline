@@ -108,6 +108,9 @@ Misc:
   * Added the option ``--bathy-plane-list`` to supplement ``--bathy-plane``
     to various programs.
   * Removed the old qi2txt program for reading IceBridge QFIT binary data.
+  * Removed unused quad-tree tile generators and visualization formats (TOAST,
+    Celestia, Gigapan, GMap, TMS, Uniview) from VisionWorkbench. Only KML is
+    kept for ``image2qtree``.
   * Do not use more than 128 threads in ``parallel_stereo``, as OpenBlas 
     fails then.
   * Removed the undocumented ``dem_mosaic`` options ``--first-dem-as-reference``
