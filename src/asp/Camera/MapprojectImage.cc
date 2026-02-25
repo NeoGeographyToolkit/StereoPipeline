@@ -29,10 +29,12 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Image/Filter.h>
+#include <vw/Image/ImageChannels.h>
 #include <vw/Image/RoundAndClamp.h>
 #include <vw/FileIO/FileUtils.h>
 
 #include <boost/filesystem.hpp>
+#include <iostream>
 
 namespace fs = boost::filesystem;
 
@@ -162,6 +164,43 @@ void write_parallel_type(std::string              const& filename,
     vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
 }
 
+// Like write_parallel_type, but for compound pixel types (e.g., PixelRGBA<float32>).
+// Uses channel_cast_round_and_clamp to convert each channel independently,
+// preserving the multi-channel pixel structure.
+template <class ImageT>
+void write_parallel_type_multichannel(std::string              const& filename,
+                                      ImageT                   const& image,
+                                      GeoReference             const& georef,
+                                      bool has_nodata, double nodata_val,
+                                      asp::MapprojOptions      const& opt,
+                                      TerminalProgressCallback const& tpc) {
+
+  if (opt.output_type == "Float32")
+    write_parallel_cond(filename, image, georef, has_nodata, nodata_val, opt, tpc);
+  else if (opt.output_type == "Byte")
+    write_parallel_cond(filename, channel_cast_round_and_clamp<uint8>(image),
+                        georef, has_nodata,
+                        vw::round_and_clamp<uint8>(nodata_val), opt, tpc);
+  else if (opt.output_type == "UInt16")
+    write_parallel_cond(filename, channel_cast_round_and_clamp<uint16>(image),
+                        georef, has_nodata,
+                        vw::round_and_clamp<uint16>(nodata_val), opt, tpc);
+  else if (opt.output_type == "Int16")
+    write_parallel_cond(filename, channel_cast_round_and_clamp<int16>(image),
+                        georef, has_nodata,
+                        vw::round_and_clamp<int16>(nodata_val), opt, tpc);
+  else if (opt.output_type == "UInt32")
+    write_parallel_cond(filename, channel_cast_round_and_clamp<uint32>(image),
+                        georef, has_nodata,
+                        vw::round_and_clamp<uint32>(nodata_val), opt, tpc);
+  else if (opt.output_type == "Int32")
+    write_parallel_cond(filename, channel_cast_round_and_clamp<int32>(image),
+                        georef, has_nodata,
+                        vw::round_and_clamp<int32>(nodata_val), opt, tpc);
+  else
+    vw_throw(NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
+}
+
 /// Mapproject the image with a nodata value.  Used for single channel images.
 template <class ImagePixelT, class Map2CamTransT>
 void project_image_nodata(asp::MapprojOptions & opt,
@@ -234,58 +273,47 @@ void project_image_nodata(asp::MapprojOptions & opt,
 
 }
 
-/// Map project the image with an alpha channel.  Used for multi-channel images.
-template <class ImagePixelT, class Map2CamTransT>
+/// Map project the image with an alpha channel. Used for multi-channel images.
+/// The input image is read as its native type, then channel_cast to float32
+/// (preserving values, e.g., uint8 255 becomes 255.0f). Processing happens
+/// entirely in float32. On write, channel_cast_round_and_clamp converts back
+/// to the original integer type when appropriate.
+template <class Map2CamTransT>
 void project_image_alpha(asp::MapprojOptions & opt,
+                         ImageViewRef<PixelRGBA<float32>> const& input_image,
                          GeoReference const& croppedGeoRef,
                          Vector2i     const& virtual_image_size,
                          BBox2i       const& croppedImageBB,
-                         boost::shared_ptr<camera::CameraModel> const& camera_model,
                          Map2CamTransT const& transform) {
-  
-    // Create handle to input image to be projected on to the map
-    boost::shared_ptr<DiskImageResource> img_rsrc = 
-          vw::DiskImageResourcePtr(opt.image_file);   
 
-    const bool        has_img_nodata    = false;
-    const ImagePixelT transparent_pixel = ImagePixelT();
+    const bool has_img_nodata = false;
+    const PixelRGBA<float32> transparent_pixel = PixelRGBA<float32>();
 
-    // TODO: Is it possible to reduce code duplication?
     if (opt.nearest_neighbor) {
-      write_parallel_type
-        ( // Write to the output file
-        opt.output_file,
-        crop( // Apply crop (only happens if --t_pixelwin was specified)
-              // Transparent pixels are inserted for nodata
-              transform_nodata( // Apply the output from Map2CamTrans
-                                DiskImageView<ImagePixelT>(img_rsrc),
-                                transform,
-                                virtual_image_size[0],
-                                virtual_image_size[1],
-                                ConstantEdgeExtension(),
-                                NearestPixelInterpolation(), transparent_pixel),
+      write_parallel_type_multichannel
+        (opt.output_file,
+        crop(transform_nodata(input_image,
+                              transform,
+                              virtual_image_size[0],
+                              virtual_image_size[1],
+                              ConstantEdgeExtension(),
+                              NearestPixelInterpolation(), transparent_pixel),
               croppedImageBB),
         croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
-        TerminalProgressCallback("","")
-        );
+        TerminalProgressCallback("",""));
     } else {
-      write_parallel_type
-        ( // Write to the output file
-        opt.output_file,
-        crop( // Apply crop (only happens if --t_pixelwin was specified)
-              // Transparent pixels are inserted for nodata
-              transform_nodata( // Apply the output from Map2CamTrans
-                                DiskImageView<ImagePixelT>(img_rsrc),
-                                transform,
-                                virtual_image_size[0],
-                                virtual_image_size[1],
-                                ConstantEdgeExtension(),
-                                BicubicInterpolation(), transparent_pixel),
+      write_parallel_type_multichannel
+        (opt.output_file,
+        crop(transform_nodata(input_image,
+                              transform,
+                              virtual_image_size[0],
+                              virtual_image_size[1],
+                              ConstantEdgeExtension(),
+                              BicubicInterpolation(), transparent_pixel),
               croppedImageBB),
         croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
         TerminalProgressCallback("",""));
     }
-
 }
 
 // The two "pick" functions below select between the Map2CamTrans and Datum2CamTrans
@@ -326,8 +354,8 @@ void project_image_nodata_pick_transform(asp::MapprojOptions & opt,
   }
 }
 
-template <class ImagePixelT>
 void project_image_alpha_pick_transform(asp::MapprojOptions & opt,
+                                        ImageViewRef<PixelRGBA<float32>> const& input_image,
                                         GeoReference const& dem_georef,
                                         GeoReference const& target_georef,
                                         GeoReference const& croppedGeoRef,
@@ -336,28 +364,24 @@ void project_image_alpha_pick_transform(asp::MapprojOptions & opt,
                                         BBox2i       const& croppedImageBB,
                                         boost::shared_ptr<camera::CameraModel> const&
                                         camera_model) {
-  
+
   const bool call_from_mapproject = true;
   if (fs::path(opt.dem_file).extension() != "") {
     // A DEM file was provided
-    return project_image_alpha<ImagePixelT>(opt, croppedGeoRef,
-                                            virtual_image_size, croppedImageBB, camera_model, 
-                                            Map2CamTrans(// Converts coordinates in DEM
-                                                         // georeference to camera pixels
-                                                         camera_model.get(), target_georef,
-                                                         dem_georef, opt.dem_file, image_size,
-                                                         call_from_mapproject,
-                                                         opt.nearest_neighbor));
+    return project_image_alpha(opt, input_image, croppedGeoRef,
+                               virtual_image_size, croppedImageBB,
+                               Map2CamTrans(camera_model.get(), target_georef,
+                                            dem_georef, opt.dem_file, image_size,
+                                            call_from_mapproject,
+                                            opt.nearest_neighbor));
   } else {
     // A constant datum elevation was provided
-    return project_image_alpha<ImagePixelT>(opt, croppedGeoRef,
-                                            virtual_image_size, croppedImageBB, camera_model, 
-                                            Datum2CamTrans(// Converts coordinates in DEM
-                                                           // georeference to camera pixels
-                                                           camera_model.get(), target_georef,
-                                                           dem_georef, opt.datum_offset, image_size,
-                                                           call_from_mapproject,
-                                                           opt.nearest_neighbor));
+    return project_image_alpha(opt, input_image, croppedGeoRef,
+                               virtual_image_size, croppedImageBB,
+                               Datum2CamTrans(camera_model.get(), target_georef,
+                                              dem_georef, opt.datum_offset,
+                                              image_size, call_from_mapproject,
+                                              opt.nearest_neighbor));
   }
 }
 
@@ -377,42 +401,37 @@ void project_image(asp::MapprojOptions & opt, GeoReference const& dem_georef,
   const int num_input_channels = num_channels(image_fmt.pixel_format);
 
   // Redirect to the correctly typed function to perform the actual map projection.
-  // - Must correspond to the type of the input image.
   if (image_fmt.pixel_format == VW_PIXEL_RGB) {
 
-    // We can't just use float for everything or the output will be cast
-    //  into the -1 to 1 range which is probably not desired.
-    // - Always use an alpha channel with RGB images.
-    switch(image_fmt.channel_type) {
+    // RGB processing strategy: read as native type, channel_cast to float32
+    // (preserving values: uint8 255 becomes 255.0f, not 1.0f), process entirely
+    // in float32, then write_parallel_type applies RoundAndClamp to convert back
+    // to the original integer type. This avoids heavy template instantiation for
+    // each input channel type - only the lightweight read+cast is type-specific.
+    ImageViewRef<PixelRGBA<float32>> float_image;
+    switch (image_fmt.channel_type) {
     case VW_CHANNEL_UINT8:
-      project_image_alpha_pick_transform<PixelRGBA<uint8>>(opt, dem_georef, target_georef,
-                                                            croppedGeoRef, image_size, 
-                                                            Vector2i(virtual_image_width,
-                                                                    virtual_image_height),
-                                                            croppedImageBB, opt.camera_model);
+      float_image = channel_cast<float32>(DiskImageView<PixelRGBA<uint8>>(image_rsrc));
+      opt.output_type = "Byte";
       break;
     case VW_CHANNEL_INT16:
-      project_image_alpha_pick_transform<PixelRGBA<int16>>(opt, dem_georef, target_georef,
-                                                            croppedGeoRef, image_size, 
-                                                            Vector2i(virtual_image_width,
-                                                                    virtual_image_height),
-                                                            croppedImageBB, opt.camera_model);
+      float_image = channel_cast<float32>(DiskImageView<PixelRGBA<int16>>(image_rsrc));
+      opt.output_type = "Int16";
       break;
     case VW_CHANNEL_UINT16:
-      project_image_alpha_pick_transform<PixelRGBA<uint16>>(opt, dem_georef, target_georef,
-                                                            croppedGeoRef, image_size, 
-                                                            Vector2i(virtual_image_width,
-                                                                      virtual_image_height),
-                                                            croppedImageBB, opt.camera_model);
+      float_image = channel_cast<float32>(DiskImageView<PixelRGBA<uint16>>(image_rsrc));
+      opt.output_type = "UInt16";
       break;
     default:
-      project_image_alpha_pick_transform<PixelRGBA<float32>>(opt, dem_georef, target_georef,
-                                                              croppedGeoRef, image_size, 
-                                                              Vector2i(virtual_image_width,
-                                                                      virtual_image_height),
-                                                              croppedImageBB, opt.camera_model);
+      float_image = DiskImageView<PixelRGBA<float32>>(image_rsrc);
+      opt.output_type = "Float32";
       break;
-    };
+    }
+
+    project_image_alpha_pick_transform(opt, float_image, dem_georef,
+      target_georef, croppedGeoRef, image_size,
+      Vector2i(virtual_image_width, virtual_image_height),
+      croppedImageBB, opt.camera_model);
     
   } else {
     // If the input image is not RGB, only single channel images are supported.
