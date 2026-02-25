@@ -894,7 +894,7 @@ void loadDemBdBoxes(asp::DemMosaicOptions const& opt,
     // the same projection, and it is not longlat, as then we need to worry about
     // a 360 degree shift.
     if ((!has_lonat) && mosaic_georef.get_wkt() == georef.get_wkt()) {
-      vw::BBox2 proj_box = georef.bounding_box(img);
+      vw::BBox2 proj_box = georef.pixel_to_point_bbox(vw::bounding_box(img));
       mosaic_bbox.grow(proj_box);
       dem_proj_bboxes.push_back(proj_box);
     } else {
