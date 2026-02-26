@@ -25,6 +25,7 @@
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/PointUtils.h>
 
+#include <vw/Image/ImageChannels.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/Manipulation.h>

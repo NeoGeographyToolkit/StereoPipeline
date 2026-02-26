@@ -28,7 +28,6 @@
 #include <asp/Core/Point2Grid.h>
 
 #include <vw/Core/Thread.h>
-#include <vw/Image/ImageChannels.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Math/BBox.h>
