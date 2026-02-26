@@ -71,7 +71,7 @@ namespace asp{
     std::int64_t * m_num_invalid_pixels; ///< Keep a count of nodata output pixels, needs to be pointer due to VW weirdness.
     vw::Mutex  *m_count_mutex;        ///< A lock for m_num_invalid_pixels, needs to be pointer due to C++ weirdness.
 
-    // We could actually use a quadtree here .. but this should be a
+    // We could use a quad tree here but this should be a
     // good enough improvement.
     std::vector<BBoxPair> m_point_image_boundaries;
     // These boundaries describe a point cloud 3D boundaries and then
@@ -124,71 +124,30 @@ namespace asp{
     int rows() const;
     int planes() const;
 
-    inline pixel_accessor origin() const { 
-      return pixel_accessor(*this); 
-    }
-
-    inline result_type operator()(int /*i*/, int /*j*/, int /*p*/=0) const {
-      vw::vw_throw(vw::NoImplErr() 
-                   << "OrthoRasterizersView::operator()(double i, double j, int p) "
-                   << "has not been implemented.");
-      return pixel_type();
-    }
+    pixel_accessor origin() const;
+    result_type operator()(int /*i*/, int /*j*/, int /*p*/=0) const;
 
     /// \cond INTERNAL
     typedef vw::CropView<vw::ImageView<pixel_type> > prerasterize_type;
     prerasterize_type prerasterize(vw::BBox2i const& bbox) const;
 
-    template <class DestT> 
+    template <class DestT>
     inline void rasterize(DestT const& dest, vw::BBox2i const& bbox) const {
       vw::rasterize(prerasterize(bbox), dest, bbox);
     }
     /// \endcond
 
-    void set_use_alpha          (bool   val) { m_use_alpha       = val; }
-    void set_use_minz_as_default(bool   val) { m_minz_as_default = val; }
-    void set_default_value      (double val) { m_default_value   = val; }
-    double default_value() {
-      if (m_minz_as_default) return m_bbox.min().z();
-      else return m_default_value;
-    }
-
-    /// If the DEM spacing is set to zero, we compute a DEM with
-    /// approximately the same pixel dimensions as the input image.
-    /// Note, however, that this could lead to a loss in DEM
-    /// resolution if the DEM is rotated from the orientation of the
-    /// original image.
-    void set_spacing(double val) {
-      if (val == 0.0) {
-        m_spacing = m_default_spacing * m_default_grid_size_multiplier;
-      } else {
-        m_spacing = val;
-      }
-
-    }
-
-    double spacing() const { return m_spacing; }
-
-    // Convert the hole fill length from output image pixels to point cloud pixels.
-    int pc_hole_fill_len(int hole_fill_len) {
-
-      if (hole_fill_len ==0) return 0;
-
-      VW_ASSERT(m_spacing > 0 && m_default_spacing > 0,
-                vw::ArgumentErr() << "Expecting positive DEM spacing.");
-      return (int)round((m_spacing/m_default_spacing)*hole_fill_len);
-    }
-
-    vw::BBox3 bounding_box() const { return m_snapped_bbox; }
-
-    // Return the affine georeferencing transform.
+    void set_use_alpha(bool val);
+    void set_use_minz_as_default(bool val);
+    void set_default_value(double val);
+    double default_value();
+    void set_spacing(double val);
+    double spacing() const;
+    int pc_hole_fill_len(int hole_fill_len);
+    vw::BBox3 bounding_box() const;
     vw::Matrix<double,3,3> geo_transform();
-
-    vw::ImageViewRef<vw::Vector3> get_point_image() { return m_point_image; }
-
-    void set_point_image(vw::ImageViewRef<vw::Vector3> point_image) {
-      m_point_image = point_image;
-    }
+    vw::ImageViewRef<vw::Vector3> get_point_image();
+    void set_point_image(vw::ImageViewRef<vw::Vector3> point_image);
 
   };
 

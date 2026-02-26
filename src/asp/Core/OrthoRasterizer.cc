@@ -856,4 +856,59 @@ vw::Matrix<double,3,3> OrthoRasterizerView::geo_transform() {
   return geo_transform;
 }
 
+OrthoRasterizerView::pixel_accessor OrthoRasterizerView::origin() const {
+  return pixel_accessor(*this);
+}
+
+OrthoRasterizerView::result_type
+OrthoRasterizerView::operator()(int /*i*/, int /*j*/, int /*p*/) const {
+  vw::vw_throw(vw::NoImplErr()
+               << "OrthoRasterizerView::operator()(double i, double j, int p) "
+               << "has not been implemented.");
+  return pixel_type();
+}
+
+void OrthoRasterizerView::set_use_alpha(bool val) { m_use_alpha = val; }
+void OrthoRasterizerView::set_use_minz_as_default(bool val) { m_minz_as_default = val; }
+void OrthoRasterizerView::set_default_value(double val) { m_default_value = val; }
+
+double OrthoRasterizerView::default_value() {
+  if (m_minz_as_default)
+    return m_bbox.min().z();
+  return m_default_value;
+}
+
+// If the DEM spacing is set to zero, we compute a DEM with
+// approximately the same pixel dimensions as the input image.
+// Note, however, that this could lead to a loss in DEM
+// resolution if the DEM is rotated from the orientation of the
+// original image.
+void OrthoRasterizerView::set_spacing(double val) {
+  if (val == 0.0)
+    m_spacing = m_default_spacing * m_default_grid_size_multiplier;
+  else
+    m_spacing = val;
+}
+
+double OrthoRasterizerView::spacing() const { return m_spacing; }
+
+// Convert the hole fill length from output image pixels to point cloud pixels.
+int OrthoRasterizerView::pc_hole_fill_len(int hole_fill_len) {
+  if (hole_fill_len == 0)
+    return 0;
+  VW_ASSERT(m_spacing > 0 && m_default_spacing > 0,
+            ArgumentErr() << "Expecting positive DEM spacing.");
+  return (int)round((m_spacing / m_default_spacing) * hole_fill_len);
+}
+
+BBox3 OrthoRasterizerView::bounding_box() const { return m_snapped_bbox; }
+
+ImageViewRef<Vector3> OrthoRasterizerView::get_point_image() {
+  return m_point_image;
+}
+
+void OrthoRasterizerView::set_point_image(ImageViewRef<Vector3> point_image) {
+  m_point_image = point_image;
+}
+
 } // namespace asp
