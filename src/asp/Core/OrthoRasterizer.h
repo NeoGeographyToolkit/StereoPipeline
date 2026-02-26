@@ -57,7 +57,7 @@ namespace asp{
     double  m_search_radius_factor;
     double  m_sigma_factor;
     double  m_default_value;
-    bool    m_minz_as_default;
+    bool    m_min_z_as_default;
     bool    m_use_alpha;
     int     m_block_size;
     vw::BBox2 m_projwin;
@@ -71,8 +71,7 @@ namespace asp{
     std::int64_t * m_num_invalid_pixels; ///< Keep a count of nodata output pixels, needs to be pointer due to VW weirdness.
     vw::Mutex  *m_count_mutex;        ///< A lock for m_num_invalid_pixels, needs to be pointer due to C++ weirdness.
 
-    // We could use a quad tree here but this should be a
-    // good enough improvement.
+    // We could use a quad tree here but this should be a good enough improvement.
     std::vector<BBoxPair> m_point_image_boundaries;
     // These boundaries describe a point cloud 3D boundaries and then
     // their location in the the point cloud image. These boxes are
@@ -138,7 +137,7 @@ namespace asp{
     /// \endcond
 
     void set_use_alpha(bool val);
-    void set_use_minz_as_default(bool val);
+    void set_use_min_z_as_default(bool val);
     void set_default_value(double val);
     double default_value();
     void set_spacing(double val);

@@ -411,7 +411,7 @@ namespace asp{
     m_search_radius_factor(search_radius_factor),
     m_sigma_factor(sigma_factor),
     m_default_value(0),
-    m_minz_as_default(true), m_use_alpha(false),
+    m_min_z_as_default(true), m_use_alpha(false),
     m_block_size(pc_tile_size),
     m_projwin(projwin), m_gdal_tap(gdal_tap),
     m_error_image(error_image), m_error_cutoff(-1.0),
@@ -708,7 +708,7 @@ namespace asp{
     if (m_use_alpha) {
       // use this dummy value to denote transparency
       min_val = std::numeric_limits<float>::min();
-    } else if (m_minz_as_default) {
+    } else if (m_min_z_as_default) {
       min_val = m_snapped_bbox.min().z();
     } else {
       min_val = m_default_value;
@@ -869,11 +869,11 @@ OrthoRasterizerView::operator()(int /*i*/, int /*j*/, int /*p*/) const {
 }
 
 void OrthoRasterizerView::set_use_alpha(bool val) { m_use_alpha = val; }
-void OrthoRasterizerView::set_use_minz_as_default(bool val) { m_minz_as_default = val; }
+void OrthoRasterizerView::set_use_min_z_as_default(bool val) { m_min_z_as_default = val; }
 void OrthoRasterizerView::set_default_value(double val) { m_default_value = val; }
 
 double OrthoRasterizerView::default_value() {
-  if (m_minz_as_default)
+  if (m_min_z_as_default)
     return m_bbox.min().z();
   return m_default_value;
 }

@@ -454,7 +454,7 @@ void rasterize_cloud_multi_spacing(const ImageViewRef<Vector3>& proj_points,
 
   // Perform other rasterizer configuration
   rasterizer.set_use_alpha(opt.has_alpha);
-  rasterizer.set_use_minz_as_default(false);
+  rasterizer.set_use_min_z_as_default(false);
   rasterizer.set_default_value(opt.nodata_value);
 
   std::string base_out_prefix = opt.out_prefix;
