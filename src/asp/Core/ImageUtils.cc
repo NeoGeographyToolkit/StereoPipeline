@@ -22,6 +22,8 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/Interpolation.h>
+#include <vw/Image/Statistics.h>
+#include <vw/Math/Statistics.h>
 #include <vw/FileIO/MatrixIO.h>
 
 #include <boost/filesystem.hpp>

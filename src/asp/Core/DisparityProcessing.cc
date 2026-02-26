@@ -19,6 +19,7 @@
 #include <asp/Core/DisparityProcessing.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 
+#include <vw/Math/Statistics.h>
 #include <vw/Math/Transform.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/FileIO/MatrixIO.h>

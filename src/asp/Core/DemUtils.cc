@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Core/DemUtils.h>
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Cartography/CameraBBox.h>

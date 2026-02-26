@@ -33,6 +33,7 @@
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Interpolation.h>
+#include <vw/Image/PixelTypeInfo.h>
 #include <vw/Cartography/shapeFile.h>
 
 #include <string>
