@@ -589,6 +589,12 @@ namespace asp{
     m_texture = texture;
   }
 
+  // Snap the coordinates of a BBox to a grid spacing
+  void snap_bbox(double spacing, BBox3 &bbox) {
+    bbox.min() = spacing*floor(bbox.min()/spacing);
+    bbox.max() = spacing*ceil (bbox.max()/spacing);
+  }
+
   // This is kind of like part 2 of the constructor
   // - This function finalizes the spacing and generates a spacing-snapped BBox.
   void OrthoRasterizerView::initialize_spacing(const double spacing) {

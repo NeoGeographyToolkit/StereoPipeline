@@ -192,13 +192,6 @@ namespace asp{
 
   };
 
-  /// Snaps the coordinates of a BBox to a grid spacing
-  template <size_t N>
-  void snap_bbox(const double spacing, vw::BBox<double, N> &bbox) {
-    bbox.min() = spacing*floor(bbox.min()/spacing);
-    bbox.max() = spacing*ceil (bbox.max()/spacing);
-  }
-
 } // namespace asp
 
 #endif
