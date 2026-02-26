@@ -57,8 +57,9 @@ endif(Boost_FOUND)
 # Custom options
 option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 
-# Use full length RPATHS in the installed files
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+# Don't set CMAKE_INSTALL_RPATH_USE_LINK_PATH. On macOS the Apple linker
+# auto-adds rpaths for @rpath dylibs, causing duplicates with USE_LINK_PATH.
+# On Linux, $ORIGIN/../lib + explicit paths cover all needed paths.
 
 # Make sure installed files can find installed libraries
 if (APPLE)
@@ -66,11 +67,10 @@ if (APPLE)
 elseif (UNIX)
   SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib" ${CMAKE_INSTALL_RPATH})
 endif()
-# Prioritize the install directory, and before that the VW directory.
-# This prevents linking to older versions of these in the asp deps.
-# This does not seem to be sufficient though.
 set(CMAKE_INSTALL_RPATH ${VISIONWORKBENCH_INSTALL_DIR}/lib ${CMAKE_INSTALL_RPATH})
 SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_RPATH})
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} ${ASP_DEPS_DIR}/lib/csmplugins)
+list(REMOVE_DUPLICATES CMAKE_INSTALL_RPATH)
 
 # Enable/disable SSE optimizations
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
