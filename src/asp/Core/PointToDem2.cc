@@ -311,7 +311,7 @@ void save_intersection_error(DemOptions & opt,
     // The error is a scalar (4 channels or 6 channels but last two are stddev),
     // or we want to find the norm of the error.
     ImageViewRef<double> error_channel = asp::point_cloud_error_image(opt.pointcloud_files);
-    rasterizer.set_texture(error_channel);
+    rasterizer.set_texture(channel_cast<float>(channels_to_planes(error_channel)));
     save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer.impl(),
                                                         opt.rounding_error,
                                                         opt.nodata_value),
@@ -324,7 +324,7 @@ void save_intersection_error(DemOptions & opt,
     std::vector<ImageViewRef<PixelGray<float>>>  rasterized(3);
     for (int ch_index = 0; ch_index < 3; ch_index++) {
       ImageViewRef<double> ch = select_channel(ned_err, ch_index);
-      rasterizer.set_texture(ch);
+      rasterizer.set_texture(channel_cast<float>(channels_to_planes(ch)));
       rasterized[ch_index] =
         block_cache(rasterizer.impl(), tile_size, opt.num_threads);
     }
@@ -364,14 +364,14 @@ void save_stddev(DemOptions & opt,
       (opt.pointcloud_files, ASP_MAX_SUBBLOCK_SIZE);
 
     ImageViewRef<double> horizontal_stddev_channel = select_channel(point_disk_image, 4);
-    rasterizer.set_texture(horizontal_stddev_channel);
+    rasterizer.set_texture(channel_cast<float>(channels_to_planes(horizontal_stddev_channel)));
     save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer.impl(),
                                                         rounding_error, // local value
                                                         opt.nodata_value),
                 georef, hole_fill_len, "HorizontalStdDev");
 
     ImageViewRef<double> vertical_stddev_channel = select_channel(point_disk_image, 5);
-    rasterizer.set_texture(vertical_stddev_channel);
+    rasterizer.set_texture(channel_cast<float>(channels_to_planes(vertical_stddev_channel)));
     save_image(opt, asp::round_image_pixels_skip_nodata(rasterizer.impl(),
                                                         rounding_error, // local value
                                                         opt.nodata_value),
@@ -392,7 +392,7 @@ void save_ortho(DemOptions & opt,
   ImageViewRef<PixelGray<float>> texture
     = asp::form_point_cloud_composite<PixelGray<float>>
     (opt.texture_files, ASP_MAX_SUBBLOCK_SIZE);
-  rasterizer.set_texture(texture);
+  rasterizer.set_texture(channel_cast<float>(channels_to_planes(texture)));
 
   if (opt.ortho_hole_fill_len > 0) {
 

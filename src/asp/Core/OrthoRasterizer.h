@@ -25,14 +25,15 @@
 #ifndef __ASP_CORE_ORTHORASTERIZER_H__
 #define __ASP_CORE_ORTHORASTERIZER_H__
 
-#include <vw/Core/Thread.h>
-#include <vw/Image/ImageView.h>
-#include <vw/Image/ImageChannels.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Math/Vector.h>
-#include <vw/Math/Matrix.h>
-#include <vw/Math/BBox.h>
 #include <asp/Core/Point2Grid.h>
+
+#include <vw/Core/Thread.h>
+#include <vw/Image/ImageChannels.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Math/BBox.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Math/Vector.h>
 
 namespace asp{
 

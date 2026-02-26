@@ -19,20 +19,20 @@
 /// \file point2mesh2.cc
 ///
 
-#include <asp/Core/Macros.h>
-#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/AspLog.h>
+#include <asp/Core/AspProgramOptions.h>
+#include <asp/Core/Macros.h>
+#include <asp/Core/PointCloudRead.h>
+#include <asp/Core/PointUtils.h>
 
-#include <vw/Image/Transform.h>
 #include <vw/Cartography/PointImageManipulation.h>
-#include <vw/Image/MaskViews.h>
+#include <vw/FileIO/DiskImageUtils.h>
+#include <vw/FileIO/FileUtils.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Image/Filter.h>
-#include <vw/FileIO/DiskImageUtils.h>
-#include <asp/Core/PointUtils.h>
-#include <asp/Core/PointCloudRead.h>
 #include <vw/Image/Manipulation.h>
-#include <vw/FileIO/FileUtils.h>
+#include <vw/Image/MaskViews.h>
+#include <vw/Image/Transform.h>
 
 #include <stdlib.h>
 #include <string.h>

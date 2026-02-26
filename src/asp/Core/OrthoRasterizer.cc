@@ -22,22 +22,24 @@
 /// of the point image; producing an evenly sampled ortho-image with
 /// interpolated z values.
 
+#include <asp/Core/OrthoRasterizer.h>
+#include <asp/Core/PointUtils.h>
+
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/Algorithms.h>
 #include <vw/Image/BlockRasterize.h>
+#include <vw/Image/Filter.h>
+#include <vw/Image/InpaintView.h>
 #include <vw/Core/ThreadPool.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 #include <vw/Math/Statistics.h>
-#include <vw/Image/Filter.h>
-#include <vw/Image/InpaintView.h>
 
-#include <asp/Core/PointUtils.h>
 #include <boost/foreach.hpp>
 #include <cmath>
-#include <asp/Core/OrthoRasterizer.h>
+#include <iostream>
 #include <valarray>
 
 namespace asp{
@@ -420,7 +422,7 @@ namespace asp{
     m_count_mutex(count_mutex) {
 
     *m_num_invalid_pixels = 0; // Init counter
-    set_texture(texture.impl());
+    set_texture(channel_cast<float>(channels_to_planes(texture.impl())));
 
     // Convert the filter from string to enum, to speed up checking against it later
     m_percentile = -1; // ensure it is initialized
@@ -579,6 +581,15 @@ namespace asp{
 
     return;
   } // End OrthoRasterizerView Constructor
+
+  void OrthoRasterizerView::set_texture(ImageViewRef<float> texture) {
+    std::cout << "SET_TEXTURE_V1\n";
+    VW_ASSERT(texture.cols() == m_point_image.cols() &&
+              texture.rows() == m_point_image.rows(),
+    ArgumentErr() << "Orthorasterizer: set_texture() failed."
+                  << " Texture dimensions must match point image dimensions.");
+    m_texture = texture;
+  }
 
   // This is kind of like part 2 of the constructor
   // - This function finalizes the spacing and generates a spacing-snapped BBox.
