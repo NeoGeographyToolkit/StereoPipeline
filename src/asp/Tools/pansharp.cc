@@ -16,6 +16,11 @@
 // __END_LICENSE__
 
 
+#include <asp/Core/Macros.h>
+#include <asp/Core/AspProgramOptions.h>
+#include <asp/Camera/RPC_XML.h>
+
+#include <vw/Image/ImageChannels.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/FileIO/FileUtils.h>
@@ -25,10 +30,6 @@ using std::string;
 
 using namespace vw;
 using namespace vw::cartography;
-
-#include <asp/Core/Macros.h>
-#include <asp/Core/AspProgramOptions.h>
-#include <asp/Camera/RPC_XML.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

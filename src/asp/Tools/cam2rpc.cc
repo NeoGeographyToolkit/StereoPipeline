@@ -30,6 +30,7 @@
 #include <asp/Core/PointUtils.h>
 #include <asp/Camera/RpcUtils.h>
 
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>

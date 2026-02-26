@@ -18,6 +18,7 @@
 #include <asp/GUI/chooseFilesDlg.h>
 #include <asp/GUI/GuiBase.h>
 #include <asp/Core/StereoSettings.h>
+#include <vw/Core/Log.h>
 
 #include <QWidget>
 #include <QHeaderView>

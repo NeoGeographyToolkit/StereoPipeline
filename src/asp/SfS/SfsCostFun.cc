@@ -30,6 +30,7 @@
 #endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Image/ImageChannels.h>
 #include <vw/Core/ProgressCallback.h>
 #include <vw/Core/Thread.h>
 

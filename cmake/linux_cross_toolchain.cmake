@@ -8,16 +8,16 @@
 #   - lld (LLVM linker) in MAC_ASP_DEPS env
 #   - Linux deps prefix with sysroot and GCC 12.4.0 libraries
 #
-# Usage (VW):
-#   cmake ../src \
+# Usage (VW, from build_linux/):
+#   cmake .. \
 #     -DCMAKE_TOOLCHAIN_FILE=../cmake/linux_cross_toolchain.cmake \
 #     -DLINUX_DEPS_PREFIX=$HOME/miniconda3/envs/asp_deps_linux \
 #     -DMAC_ASP_DEPS=$HOME/anaconda3/envs/asp_deps \
 #     -DASP_DEPS_DIR=$HOME/miniconda3/envs/asp_deps_linux \
 #     -DCMAKE_INSTALL_PREFIX=$HOME/projects/StereoPipeline/install_linux
 #
-# Usage (ASP):
-#   cmake ../src \
+# Usage (ASP, from build_linux/):
+#   cmake .. \
 #     -DCMAKE_TOOLCHAIN_FILE=../cmake/linux_cross_toolchain.cmake \
 #     -DLINUX_DEPS_PREFIX=$HOME/miniconda3/envs/asp_deps_linux \
 #     -DMAC_ASP_DEPS=$HOME/anaconda3/envs/asp_deps \
@@ -29,6 +29,10 @@
 #     -DOpenMP_C_LIB_NAMES=omp \
 #     -DOpenMP_CXX_LIB_NAMES=omp \
 #     -DOpenMP_omp_LIBRARY=${LINUX_DEPS_PREFIX}/lib/libomp.so
+
+# Propagate these variables to try_compile() projects. Without this, CMake's
+# ABI detection re-invokes this toolchain file but loses the -D variables.
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES LINUX_DEPS_PREFIX MAC_ASP_DEPS)
 
 # Validate required variables.
 if(NOT DEFINED LINUX_DEPS_PREFIX)
@@ -51,12 +55,11 @@ set(CMAKE_SYSTEM_PROCESSOR x86_64)
 set(CMAKE_C_COMPILER "${MAC_ASP_DEPS}/bin/clang")
 set(CMAKE_CXX_COMPILER "${MAC_ASP_DEPS}/bin/clang++")
 
-# Sysroot and GCC toolchain.
-set(CMAKE_SYSROOT "${CROSS_SYSROOT}")
-
-# Compiler flags.
+# Compiler flags. Pass --sysroot directly in flags instead of using
+# CMAKE_SYSROOT, which strips path prefixes and corrupts other paths.
 set(CROSS_COMMON_FLAGS
   "--target=x86_64-unknown-linux-gnu \
+   --sysroot=${CROSS_SYSROOT} \
    --gcc-toolchain=${LINUX_DEPS_PREFIX} \
    -B${GCC_LIB} \
    -fuse-ld=${MAC_ASP_DEPS}/bin/ld.lld \
@@ -80,3 +83,9 @@ set(CMAKE_FIND_ROOT_PATH "${LINUX_DEPS_PREFIX}")
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+
+# Qt moc/rcc/uic are host tools that must run on Mac, not target Linux binaries.
+set(QT_HOST_PATH "${MAC_ASP_DEPS}")
+set(QT_MOC_EXECUTABLE "${MAC_ASP_DEPS}/bin/moc")
+set(QT_RCC_EXECUTABLE "${MAC_ASP_DEPS}/bin/rcc")
+set(QT_UIC_EXECUTABLE "${MAC_ASP_DEPS}/bin/uic")

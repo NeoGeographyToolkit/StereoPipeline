@@ -24,6 +24,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/ImageUtils.h>
 
+#include <vw/Image/ImageChannels.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/Core/Log.h>
 #include <vw/Core/Stopwatch.h>

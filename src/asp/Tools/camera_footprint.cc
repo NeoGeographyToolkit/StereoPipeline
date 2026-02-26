@@ -24,6 +24,7 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
 
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>

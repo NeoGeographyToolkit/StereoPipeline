@@ -25,6 +25,7 @@
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/Cartography/GeoReferenceUtils.h>

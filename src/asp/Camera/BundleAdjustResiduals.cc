@@ -25,6 +25,7 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Math/Functors.h>
+#include <vw/Math/Statistics.h>
 
 #include <string>
 

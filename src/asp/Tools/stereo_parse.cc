@@ -31,6 +31,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Cartography/shapeFile.h>
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/DiskImageView.h>
 
 #include <xercesc/util/PlatformUtils.hpp>

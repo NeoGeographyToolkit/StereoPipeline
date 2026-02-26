@@ -15,21 +15,21 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+#include <asp/Core/Macros.h>
+#include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/DemUtils.h>
 
 #include <vw/FileIO/DiskImageView.h>
-#include <vw/Cartography/GeoTransform.h>
-#include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/Image/ImageChannels.h>
 #include <vw/Image/PixelMath.h>
 #include <vw/Image/ImageMath.h>
+#include <vw/Cartography/GeoTransform.h>
+#include <vw/Cartography/PointImageManipulation.h>
 
 using namespace vw;
 using namespace vw::cartography;
-
-#include <asp/Core/Macros.h>
-#include <asp/Core/AspProgramOptions.h>
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

@@ -27,8 +27,10 @@
 
 #include <vw/Core/Thread.h>
 #include <vw/Image/ImageView.h>
+#include <vw/Image/ImageChannels.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Math/Vector.h>
+#include <vw/Math/Matrix.h>
 #include <vw/Math/BBox.h>
 #include <asp/Core/Point2Grid.h>
 
@@ -112,17 +114,10 @@ namespace asp{
     void initialize_spacing(double spacing=0.0);
 
     /// You can change the texture after the class has been
-    /// initialized.  The texture image must have the same dimensions
-    /// as the point image, and texture pixels must correspond exactly
-    /// to point image pixels.
-    template <class TextureViewT>
-    void set_texture(TextureViewT texture) {
-      VW_ASSERT(texture.impl().cols() == m_point_image.cols() &&
-                texture.impl().rows() == m_point_image.rows(),
-      vw::ArgumentErr() << "Orthorasterizer: set_texture() failed."
-                    << " Texture dimensions must match point image dimensions.");
-      m_texture = vw::channel_cast<float>(vw::channels_to_planes(texture.impl()));
-    }
+    /// initialized. The texture must be ImageViewRef<float> with the same
+    /// dimensions as the point image. Callers must apply
+    /// channel_cast<float>(channels_to_planes(...)) before calling this.
+    void set_texture(vw::ImageViewRef<float> texture);
 
     int cols() const;
     int rows() const;

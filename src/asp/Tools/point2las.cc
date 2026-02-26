@@ -30,7 +30,10 @@
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Math/Statistics.h>
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/Image/ImageChannels.h>
+#include <vw/Image/Statistics.h>
 #include <vw/Cartography/PointImageManipulation.h>
 
 #include <fstream>

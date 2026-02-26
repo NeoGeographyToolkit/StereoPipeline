@@ -32,6 +32,7 @@
 
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/Image/Algorithms.h>
 #include <vw/Image/Filter.h>
 #include <vw/FileIO/FileUtils.h>
 

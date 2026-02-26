@@ -37,6 +37,7 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/FileIO/FileTypes.h>
+#include <vw/Image/ImageChannels.h>
 
 #include <fstream>
 

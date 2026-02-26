@@ -41,6 +41,7 @@
 #include <asp/IsisIO/IsisCameraModel.h>
 #endif // ASP_HAVE_PKG_ISIS
 
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/Camera/PinholeModel.h>

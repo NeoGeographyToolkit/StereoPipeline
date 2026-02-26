@@ -52,6 +52,7 @@
 #include <asp/Core/Bathymetry.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
+#include <vw/Image/ImageChannels.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/CameraBBox.h>

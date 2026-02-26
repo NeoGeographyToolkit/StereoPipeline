@@ -26,6 +26,7 @@
 #include <asp/Camera/BundleAdjustResiduals.h>
 #include <asp/Core/OutlierProcessing.h>
 
+#include <vw/Math/Statistics.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
 

@@ -31,6 +31,7 @@ extern "C" {
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/AspLog.h>
 
+#include <vw/Image/ImageChannels.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/Cartography/GeoReferenceResourceGDAL.h>
 #include <vw/FileIO/FileUtils.h>

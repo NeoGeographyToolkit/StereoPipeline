@@ -23,6 +23,7 @@
 
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageIO.h>
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/Core/Log.h>
 

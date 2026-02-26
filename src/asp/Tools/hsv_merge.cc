@@ -19,12 +19,13 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
 
+#include <vw/Cartography/GeoReference.h>
+#include <vw/Image/ImageChannels.h>
+
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
 #include <boost/filesystem/path.hpp>
 namespace fs = boost::filesystem;
-
-#include <vw/Cartography/GeoReference.h>
 
 using namespace vw;
 

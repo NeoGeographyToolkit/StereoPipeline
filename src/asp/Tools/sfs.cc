@@ -56,6 +56,7 @@
 #include <vw/Image/AntiAliasing.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/FileIO/DiskImageIO.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/GeoTransform.h>
