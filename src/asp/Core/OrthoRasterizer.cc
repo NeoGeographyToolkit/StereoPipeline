@@ -39,7 +39,6 @@
 
 #include <boost/foreach.hpp>
 #include <cmath>
-#include <iostream>
 #include <valarray>
 
 namespace asp{
@@ -583,7 +582,6 @@ namespace asp{
   } // End OrthoRasterizerView Constructor
 
   void OrthoRasterizerView::set_texture(ImageViewRef<float> texture) {
-    std::cout << "SET_TEXTURE_V1\n";
     VW_ASSERT(texture.cols() == m_point_image.cols() &&
               texture.rows() == m_point_image.rows(),
     ArgumentErr() << "Orthorasterizer: set_texture() failed."
