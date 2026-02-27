@@ -765,6 +765,52 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
   paint->drawImage(rect, transformedImage);
 }
 
+// Compute joint min/max across all images in the given range.
+// Uses --min/--max if set, otherwise unions CSV findRobustBounds
+// and raster approx_bounds.
+vw::Vector2 calcJointBounds(std::vector<imageData> const& images,
+                            int begIdx, int endIdx) {
+
+  if (stereo_settings().min < stereo_settings().max)
+    return vw::Vector2(stereo_settings().min,
+                       stereo_settings().max);
+
+  vw::Vector2 bounds(std::numeric_limits<double>::max(),
+                     -std::numeric_limits<double>::max());
+  for (int i = begIdx; i < endIdx; i++) {
+    if (images[i].m_isPoly)
+      continue;
+    if (images[i].m_isCsv) {
+      if (!images[i].scattered_data.empty()) {
+        double lo = 0.0, hi = 0.0;
+        findRobustBounds(images[i].scattered_data, lo, hi);
+        bounds[0] = std::min(bounds[0], lo);
+        bounds[1] = std::max(bounds[1], hi);
+      }
+      continue;
+    }
+    auto const& img = images[i].currentImg();
+    if (img.m_type != CH1_DOUBLE)
+      continue;
+    vw::Vector2 ab = img.m_img_ch1_double.approx_bounds();
+    bounds[0] = std::min(bounds[0], ab[0]);
+    bounds[1] = std::max(bounds[1], ab[1]);
+  }
+  return bounds;
+}
+
+// Build a colormap from a colormap style string. Falls back to
+// "binary-red-blue" if the style is not recognized.
+vw::Colormap buildColormap(std::string const& colormap_style) {
+  std::map<float, vw::Vector3u> lut_map;
+  try {
+    vw::parseColorStyle(colormap_style, lut_map);
+  } catch (...) {
+    vw::parseColorStyle("binary-red-blue", lut_map);
+  }
+  return vw::Colormap(lut_map);
+}
+
 // Draw the images on the screen
 void MainWidget::drawImage(QPainter* paint) {
 
@@ -813,38 +859,12 @@ void MainWidget::drawImage(QPainter* paint) {
   if (app_data.use_georef && !has_csv)
     std::reverse(draw_order.begin(), draw_order.end());
   
-  // For --colorize, compute joint min/max across all images (raster and CSV)
-  // in this widget unless the user set --min/--max explicitly.
+  // For --colorize, compute joint min/max across all images in this widget
   vw::Vector2 joint_bounds(std::numeric_limits<double>::max(),
                            -std::numeric_limits<double>::max());
-  if (asp::stereo_settings().colorize) {
-    if (asp::stereo_settings().min < asp::stereo_settings().max) {
-      joint_bounds = vw::Vector2(asp::stereo_settings().min,
-                                 asp::stereo_settings().max);
-    } else {
-      for (size_t j = 0; j < draw_order.size(); j++) {
-        int i = draw_order[j];
-        if (app_data.images[i].m_isPoly)
-          continue;
-        if (app_data.images[i].m_isCsv) {
-          if (!app_data.images[i].scattered_data.empty()) {
-            double lo = 0.0, hi = 0.0;
-            findRobustBounds(app_data.images[i].scattered_data,
-                             lo, hi);
-            joint_bounds[0] = std::min(joint_bounds[0], lo);
-            joint_bounds[1] = std::max(joint_bounds[1], hi);
-          }
-          continue;
-        }
-        auto const& img = app_data.images[i].currentImg();
-        if (img.m_type != asp::CH1_DOUBLE)
-          continue;
-        vw::Vector2 ab = img.m_img_ch1_double.approx_bounds();
-        joint_bounds[0] = std::min(joint_bounds[0], ab[0]);
-        joint_bounds[1] = std::max(joint_bounds[1], ab[1]);
-      }
-    }
-  }
+  if (asp::stereo_settings().colorize)
+    joint_bounds = calcJointBounds(app_data.images,
+                                   m_beg_image_id, m_end_image_id);
 
   // Draw the images
   // TODO(oalexan1): Must use a single QImage, that will be updated as we go
@@ -937,16 +957,10 @@ void MainWidget::drawImage(QPainter* paint) {
 
     // Build a colormap if --colorize is active and image has a colormap style
     vw::Colormap const* colormap_ptr = nullptr;
-    std::map<float, vw::Vector3u> lut_map;
-    vw::Colormap colormap_obj(lut_map); // placeholder, populated below
+    vw::Colormap colormap_obj = buildColormap("binary-red-blue");
     if (asp::stereo_settings().colorize &&
         !app_data.images[i].colormap.empty()) {
-      try {
-        vw::parse_color_style(app_data.images[i].colormap, lut_map);
-      } catch (...) {
-        vw::parse_color_style("binary-red-blue", lut_map);
-      }
-      colormap_obj = vw::Colormap(lut_map);
+      colormap_obj = buildColormap(app_data.images[i].colormap);
       colormap_ptr = &colormap_obj;
     }
 
@@ -1007,15 +1021,7 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index,
                      min_val, max_val);
   }
 
-  std::map<float, vw::Vector3u> lut_map;
-  try {
-    vw::parse_color_style(app_data.images[image_index].colormap, lut_map);
-  } catch (...) {
-    popUp("Unknown colormap style: " + app_data.images[image_index].colormap);
-    app_data.images[image_index].colormap = "binary-red-blue";
-    vw::parse_color_style(app_data.images[image_index].colormap, lut_map);
-  }
-  vw::Colormap colormap(lut_map);
+  vw::Colormap colormap = buildColormap(app_data.images[image_index].colormap);
 
   for (size_t pt_it = 0; pt_it < app_data.images[image_index].scattered_data.size(); pt_it++) {
     auto const& P = app_data.images[image_index].scattered_data[pt_it];

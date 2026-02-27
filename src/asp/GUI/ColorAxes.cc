@@ -541,11 +541,11 @@ ColorAxes::ColorAxes(QWidget *parent,
   // Parse and set the colormap
   std::map<float, vw::Vector3u> lut_map;
   try {
-    vw::parse_color_style(app_data.images[m_beg_image_id].colormap, lut_map);
+    vw::parseColorStyle(app_data.images[m_beg_image_id].colormap, lut_map);
   } catch (...) {
     popUp("Unknown colormap style: " +  app_data.images[m_beg_image_id].colormap);
     app_data.images[m_beg_image_id].colormap = "binary-red-blue"; // fallback to this
-    vw::parse_color_style(app_data.images[m_beg_image_id].colormap, lut_map);
+    vw::parseColorStyle(app_data.images[m_beg_image_id].colormap, lut_map);
   }
   m_plotter->setColorMap(new LutColormap(lut_map));
 

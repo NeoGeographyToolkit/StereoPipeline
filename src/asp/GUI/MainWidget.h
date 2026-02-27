@@ -32,6 +32,7 @@
 // Vision Workbench
 #include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
+#include <vw/Image/Colormap.h>
 #include <vw/Image/ImageResource.h>
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Image/ImageView.h>
@@ -364,6 +365,13 @@ private:
   void   addPolyVert     (double px, double py);
 
 };
+
+// Compute joint min/max across all images in the given range
+vw::Vector2 calcJointBounds(std::vector<asp::imageData> const& images,
+                            int begIdx, int endIdx);
+
+// Build a colormap from a style string, with fallback
+vw::Colormap buildColormap(std::string const& colormap_style);
 
 } // namespace asp
 

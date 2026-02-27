@@ -361,7 +361,7 @@ QWidget* createColorbarLayout(QWidget* widget,
 
   // Parse the colormap
   std::map<float, vw::Vector3u> lut_map;
-  vw::parse_color_style(colormap_style, lut_map);
+  vw::parseColorStyle(colormap_style, lut_map);
 
   // Build a QwtLinearColorMap from the LUT
   auto firstC = lut_map.begin()->second;
@@ -551,31 +551,10 @@ void MainWindow::createLayout() {
     if (mw(m_widgets[i]) && asp::stereo_settings().colorize) {
       int begIdx = mw(m_widgets[i])->m_beg_image_id;
       int endIdx = mw(m_widgets[i])->m_end_image_id;
-      // Compute joint value range for the colorbar across all images
-      double min_val = asp::stereo_settings().min;
-      double max_val = asp::stereo_settings().max;
-      if (std::isnan(min_val) || std::isnan(max_val)) {
-        min_val = std::numeric_limits<double>::max();
-        max_val = -std::numeric_limits<double>::max();
-        for (int k = begIdx; k < endIdx; k++) {
-          if (!app_data.images[k].scattered_data.empty()) {
-            double lo = 0.0, hi = 0.0;
-            findRobustBounds(app_data.images[k].scattered_data,
-                             lo, hi);
-            min_val = std::min(min_val, lo);
-            max_val = std::max(max_val, hi);
-          } else if (app_data.images[k].currentImg().m_type ==
-                     asp::CH1_DOUBLE) {
-            vw::Vector2 ab =
-              app_data.images[k].currentImg()
-              .m_img_ch1_double.approx_bounds();
-            min_val = std::min(min_val, ab[0]);
-            max_val = std::max(max_val, ab[1]);
-          }
-        }
-      }
+      vw::Vector2 bounds = calcJointBounds(app_data.images,
+                                           begIdx, endIdx);
       wid = createColorbarLayout(m_widgets[i],
-                                 min_val, max_val,
+                                 bounds[0], bounds[1],
                                  app_data.images[begIdx].colormap);
     }
     grid->addWidget(wid, row, col);
