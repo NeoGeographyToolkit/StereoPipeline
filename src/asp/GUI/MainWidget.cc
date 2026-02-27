@@ -941,7 +941,6 @@ void MainWidget::drawImage(QPainter* paint) {
     // screen area small, render a sub-sampled version of the image for speed.
     // Increase the scale a little. This will make the image a little blurrier
     // but will be faster to render.
-    // Same logic is used in ColorAxes.cc
     double scale = sqrt((1.0*image_box.width()) * image_box.height())/
       std::max(1.0, sqrt((1.0*screen_box.width()) * screen_box.height()));
     scale *= 1.3;

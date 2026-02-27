@@ -17,7 +17,7 @@
 
 // \file WidgetBase.h
 // 
-// This has logic that is used both in MainWidget and in the ColorAxes classes.
+// This has logic that is used in MainWidget.
 // 
 #ifndef __STEREO_GUI_WIDGET_BASE_H__
 #define __STEREO_GUI_WIDGET_BASE_H__

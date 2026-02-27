@@ -28,7 +28,6 @@
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/GUI/ChooseFilesDlg.h>
-#include <asp/GUI/ColorAxes.h>
 #include <asp/Core/GCP.h>
 #include <asp/Core/Nvm.h>
 #include <asp/Core/IpMatchingAlgs.h>
@@ -86,11 +85,6 @@ private:
 // Will return non-NULL if the input pointer is to a MainWidget object.
 MainWidget* mw(QWidget * wid) {
   return dynamic_cast<MainWidget*>(wid);
-}
-
-// Same function for the ColorAxes widget
-ColorAxes* ca(QWidget * wid) {
-  return dynamic_cast<ColorAxes*>(wid);
 }
 
 bool MainWindow::sanityChecks(int num_images) {
@@ -503,24 +497,22 @@ void MainWindow::createLayout() {
       if (isHidden) 
         continue;
 
-      QWidget * widget = NULL;
       int beg_image_id = i, end_image_id = i + 1;
-      if (!app_data.images[i].colorbar ||
-          previewOrSideBySideWithDialog() || app_data.images[i].img().planes() > 1) {
-        // regular plot
-        widget = new MainWidget(centralWidget,
-                                m_opt,
-                                beg_image_id, end_image_id, BASE_IMAGE_ID, app_data,
-                                m_output_prefix,
-                                m_match_mgr,
-                                m_chooseFiles,
-                                m_allowMultipleSelections);
-      } else {
-        // Qwt plot with axes and colorbar. Hard to use the same API as earlier.
-        // TODO(oalexan1): Must integrate the two approaches.
-        widget = new ColorAxes(this, 
-                               beg_image_id, end_image_id, BASE_IMAGE_ID, app_data);
-      }
+
+      // When --colorbar is set, enable colorization so MainWidget renders
+      // the image with a colormap, matching the old ColorAxes behavior.
+      if (app_data.images[i].colorbar &&
+          !previewOrSideBySideWithDialog() && app_data.images[i].img().planes() <= 1)
+        stereo_settings().colorize = true;
+
+      QWidget * widget = new MainWidget(centralWidget,
+                                        m_opt,
+                                        beg_image_id, end_image_id,
+                                        BASE_IMAGE_ID, app_data,
+                                        m_output_prefix,
+                                        m_match_mgr,
+                                        m_chooseFiles,
+                                        m_allowMultipleSelections);
       m_widgets.push_back(widget);
     }
   }
@@ -1063,10 +1055,8 @@ void MainWindow::sizeToFit() {
   }else{
     // Full view for each individual image
     for (size_t i = 0; i < m_widgets.size(); i++) {
-      if (mw(m_widgets[i])) // for MainWidget
+      if (mw(m_widgets[i]))
         mw(m_widgets[i])->sizeToFit();
-      else if (ca(m_widgets[i])) // for ColorAxes widget
-       ca(m_widgets[i])->sizeToFit();
     }
   }
 
