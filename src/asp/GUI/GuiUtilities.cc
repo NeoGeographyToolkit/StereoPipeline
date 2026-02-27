@@ -285,6 +285,41 @@ void PointList::push_back(std::list<vw::Vector2> pts) {
   }
 }
 
+// Given an image and an input file name, modify the filename using a suffix.
+// Write the image to that filename. If that fails, create instead the filename
+// in the current directory. Return the name of the output file.
+std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
+                                      vw::ImageViewRef<double> & image,
+                                      std::string const& input_file,
+                                      std::string const& suffix,
+                                      bool has_georef,
+                                      vw::cartography::GeoReference const& georef,
+                                      bool has_nodata,
+                                      double nodata_val) {
+
+  std::string output_file
+    = vw::mosaic::filename_from_suffix1(input_file, suffix);
+  vw::TerminalProgressCallback tpc("asp", ": ");
+  vw::vw_out() << "Writing: " << output_file << "\n";
+  try {
+    vw::cartography::block_write_gdal_image(output_file, image,
+                                            has_georef, georef,
+                                            has_nodata, nodata_val,
+                                            opt, tpc);
+  } catch(...) {
+    // Failed to write, presumably because we have no write access.
+    // Write the file in the current dir.
+    vw::vw_out() << "Failed to write: " << output_file << "\n";
+    output_file = vw::mosaic::filename_from_suffix2(input_file, suffix);
+    vw::vw_out() << "Writing: " << output_file << "\n";
+    vw::cartography::block_write_gdal_image(output_file, image,
+                                            has_georef, georef,
+                                            has_nodata, nodata_val,
+                                            opt, tpc);
+  }
+  return output_file;
+}
+
 // See if we are in the mode where the images are displayed side-by-side with a
 // dialog to choose which ones to display.
 bool sideBySideWithDialog() {
