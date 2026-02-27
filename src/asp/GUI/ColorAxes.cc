@@ -134,7 +134,7 @@ void findSpatialBounds(imageData const& image,
   // Outputs
   double & min_x, double & min_y, double & max_x, double & max_y) {
 
-  bool poly_or_xyz = (image.m_isPoly || image.m_isCsv);
+  bool poly_or_xyz = image.isPolyOrCsv();
   if (poly_or_xyz) {
 
     if (image.scattered_data.empty()) {
@@ -192,7 +192,7 @@ void calcLowResMinMax(imageData const& image, double nodata_val,
   // TODO(oalexan1): How about removing a small percentile of intensity from ends?
 
   // Get the lowest-resolution image version from the pyramid
-  bool poly_or_xyz = (image.m_isPoly || image.m_isCsv);
+  bool poly_or_xyz = image.isPolyOrCsv();
   if (poly_or_xyz) // will not get here
     vw_throw(ArgumentErr() << "Expecting an image, not scattered points.\n");
 
@@ -276,7 +276,7 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
   m_max_val = asp::stereo_settings().max;
 
   // Find the min and max values, and the no-data value
-  bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
+  bool poly_or_xyz = m_image.isPolyOrCsv();
   if (poly_or_xyz) {
     m_nodata_val = -std::numeric_limits<double>::max();
     if (std::isnan(m_min_val) || std::isnan(m_max_val))
@@ -309,7 +309,7 @@ void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageS
   m_beg_x = 0;
   m_beg_y = 0;
 
-  bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
+  bool poly_or_xyz = m_image.isPolyOrCsv();
   if (poly_or_xyz)
     return; // nothing to do
 
@@ -350,7 +350,7 @@ virtual double value(double x, double y) const {
     vw::vw_throw(vw::ArgumentErr() 
                  << "Programmer error. Not ready yet to render the image.\n");
 
-  bool poly_or_xyz = (m_image.m_isPoly || m_image.m_isCsv);
+  bool poly_or_xyz = m_image.isPolyOrCsv();
   if (poly_or_xyz)
     return m_nodata_plot_val; // TODO(oalexan1): Make transparent
 
@@ -458,7 +458,7 @@ public:
 
     //vw::Stopwatch sw2;
     //sw2.start();
-    bool poly_or_xyz = (m_cdata->m_image.m_isPoly || m_cdata->m_image.m_isCsv);
+    bool poly_or_xyz = m_cdata->m_image.isPolyOrCsv();
     if (!poly_or_xyz) {
       // Draw the image
      QwtPlotSpectrogram::draw(painter, xMap, yMap, canvasRect);
@@ -562,7 +562,7 @@ ColorAxes::ColorAxes(QWidget *parent,
   m_plotter->attach(this);
   setAxisScale(QwtPlot::xBottom, m_min_x, m_max_x);
   setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
-  bool poly_or_xyz = (app_data.images[m_beg_image_id].m_isPoly || app_data.images[m_beg_image_id].m_isCsv);
+  bool poly_or_xyz = app_data.images[m_beg_image_id].isPolyOrCsv();
   if (!poly_or_xyz)
     setAxisScale(QwtPlot::yLeft, m_max_y, m_min_y); // y axis goes down
   else
@@ -626,7 +626,7 @@ void ColorAxes::resizeEvent(QResizeEvent *e) {
   QRectF box = expand_box_to_aspect_ratio(in_box, aspect_ratio);
 
   // Adjust the scales accordingly
-  bool poly_or_xyz = (app_data.images[m_beg_image_id].m_isPoly || app_data.images[m_beg_image_id].m_isCsv);
+  bool poly_or_xyz = app_data.images[m_beg_image_id].isPolyOrCsv();
   setAxisScale(QwtPlot::xBottom, box.left(), box.right());
   if (!poly_or_xyz)
     setAxisScale(QwtPlot::yLeft, box.bottom(), box.top()); // y axis goes down

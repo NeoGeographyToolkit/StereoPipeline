@@ -1124,7 +1124,7 @@ void MainWindow::zoomToProjWin() {
   proj_win.grow(Vector2(c, d));
 
   BBox2 image_box;
-  if (app_data.images[BASE_IMAGE_ID].m_isPoly || app_data.images[BASE_IMAGE_ID].m_isCsv)
+  if (app_data.images[BASE_IMAGE_ID].isPolyOrCsv())
     image_box = proj_win;
   else
     image_box = app_data.images[BASE_IMAGE_ID].georef.point_to_pixel_bbox(proj_win);

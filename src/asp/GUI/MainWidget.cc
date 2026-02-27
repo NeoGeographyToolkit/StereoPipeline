@@ -148,7 +148,7 @@ MainWidget::MainWidget(QWidget *parent,
     // size, this region's dimensions will be adjusted to have
     // correct aspect ratio.
     BBox2 proj_win = asp::stereo_settings().zoom_proj_win, image_box;
-    if (app_data.images[m_base_image_id].m_isPoly || app_data.images[m_base_image_id].m_isCsv)
+    if (app_data.images[m_base_image_id].isPolyOrCsv())
       image_box = proj_win;
     else
       image_box = app_data.images[m_base_image_id].georef.point_to_pixel_bbox(proj_win);
@@ -354,7 +354,7 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
     std::string input_file = app_data.images[image_iter].name;
 
-    if (app_data.images[image_iter].m_isPoly || app_data.images[image_iter].m_isCsv)
+    if (app_data.images[image_iter].isPolyOrCsv())
       continue;
 
     double nodata_val = -std::numeric_limits<double>::max();
@@ -415,7 +415,7 @@ void MainWidget::maybeGenHillshade() {
     }
 
     // Cannot hillshade a polygon or xyz data
-    if (app_data.images[image_iter].m_isPoly || app_data.images[image_iter].m_isCsv) {
+    if (app_data.images[image_iter].isPolyOrCsv()) {
       app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
       continue;
     }
@@ -1591,7 +1591,7 @@ void MainWidget::handleCropWin() {
       Vector2 proj_min, proj_max;
       // Convert pixels to projected coordinates
       BBox2 point_box;
-      if (app_data.images[image_it].m_isPoly || app_data.images[image_it].m_isCsv)
+      if (app_data.images[image_it].isPolyOrCsv())
         point_box = image_box;
       else
         point_box = app_data.images[image_it].georef.pixel_to_point_bbox(image_box);

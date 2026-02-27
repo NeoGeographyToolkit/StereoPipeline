@@ -103,7 +103,7 @@ AppData::AppData(vw::GdalWriteOptions const& opt_in,
 // for consistency with how images are plotted.  Convert a world box
 // to a pixel box for the given image.
 vw::Vector2 AppData::world2image_trans(vw::Vector2 const& P, int imageIndex) const{
-  bool poly_or_xyz = (images[imageIndex].m_isPoly || images[imageIndex].m_isCsv);
+  bool poly_or_xyz = images[imageIndex].isPolyOrCsv();
 
   if (poly_or_xyz) {
     // Poly or points. There is no pixel concept in that case.
@@ -120,7 +120,7 @@ vw::Vector2 AppData::world2image_trans(vw::Vector2 const& P, int imageIndex) con
 
 vw::BBox2 AppData::world2image_trans(vw::BBox2 const& R, int imageIndex) const {
 
-  bool poly_or_xyz = (images[imageIndex].m_isPoly || images[imageIndex].m_isCsv);
+  bool poly_or_xyz = images[imageIndex].isPolyOrCsv();
 
   if (R.empty())
     return R;
@@ -143,7 +143,7 @@ vw::BBox2 AppData::world2image_trans(vw::BBox2 const& R, int imageIndex) const {
 // The reverse of world2image_trans()
 vw::Vector2 AppData::image2world_trans(vw::Vector2 const& P, int imageIndex) const {
 
-  bool poly_or_xyz = (images[imageIndex].m_isPoly || images[imageIndex].m_isCsv);
+  bool poly_or_xyz = images[imageIndex].isPolyOrCsv();
 
   if (poly_or_xyz) {
     if (!use_georef)
@@ -163,7 +163,7 @@ vw::BBox2 AppData::image2world_trans(vw::BBox2 const& R, int imageIndex) const {
   if (R.empty()) return R;
   if (images.empty()) return R;
 
-  bool poly_or_xyz = (images[imageIndex].m_isPoly || images[imageIndex].m_isCsv);
+  bool poly_or_xyz = images[imageIndex].isPolyOrCsv();
 
   // Consider the case when the current layer is a polygon.
   // TODO(oalexan1): What if a layer has both an image and a polygon?

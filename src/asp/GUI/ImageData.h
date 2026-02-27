@@ -93,6 +93,7 @@ namespace asp {
     void writePoly(std::string const& polyFile);
 
     bool m_isPoly, m_isCsv;
+    bool isPolyOrCsv() const { return m_isPoly || m_isCsv; }
 
 private:
     // These are very slow if used per pixel, so we cache their results in
