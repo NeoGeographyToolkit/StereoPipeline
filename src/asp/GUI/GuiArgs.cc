@@ -19,6 +19,7 @@
 ///
 
 #include <asp/GUI/GuiArgs.h>
+#include <asp/GUI/ImageData.h>
 #include <asp/GUI/GuiUtilities.h>
 
 #include <vw/FileIO/FileTypes.h>

@@ -31,7 +31,7 @@
 #include <vw/Cartography/GeoTransform.h> // For vw::cartography::GeoTransform
 
 // ASP includes
-#include <asp/GUI/GuiUtilities.h> // For imageData
+#include <asp/GUI/ImageData.h>
 
 namespace asp { // User requested namespace 'asp'
 
