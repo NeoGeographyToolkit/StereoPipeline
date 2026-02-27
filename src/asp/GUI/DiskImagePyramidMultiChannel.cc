@@ -221,6 +221,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
                   vw::BBox2i region_in,
                   bool highlight_nodata,
                   vw::Colormap const* colormap,
+                  vw::Vector2 const& bounds_override,
                   QImage & qimg, double & scale_out,
                   vw::BBox2i & region_out) const {
 
@@ -231,9 +232,13 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
 
     //Stopwatch sw0;
     //sw0.start();
-    if (asp::stereo_settings().min < asp::stereo_settings().max) {
+    if (bounds_override[0] < bounds_override[1]) {
+      // Use the caller-provided bounds (joint min/max or user --min/--max)
+      approx_bounds = bounds_override;
+    } else if (asp::stereo_settings().min < asp::stereo_settings().max) {
       // If the min and max are set, not NaN, and first is less than the second
-      approx_bounds = vw::Vector2(asp::stereo_settings().min, asp::stereo_settings().max);
+      approx_bounds = vw::Vector2(asp::stereo_settings().min,
+                                  asp::stereo_settings().max);
     } else {
       // Normally these are auto-estimated rather well, except for images with
       // most data being very small, like in shadow.

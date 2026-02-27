@@ -310,7 +310,8 @@ private:
   void drawImage(QPainter* paint);
   // Draw irregular xyz data to be plotted at (x, y) location with z giving
   // the intensity. May be colorized.
-  void drawScatteredData(QPainter* paint, int image_index);
+  void drawScatteredData(QPainter* paint, int image_index,
+                         vw::Vector2 const& bounds_override);
 
   // Zoom debouncing
   QTimer *m_zoomTimer; // Owned by Qt's parent-child mechanism

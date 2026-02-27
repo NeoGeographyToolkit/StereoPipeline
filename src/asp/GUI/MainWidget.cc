@@ -813,6 +813,39 @@ void MainWidget::drawImage(QPainter* paint) {
   if (app_data.use_georef && !has_csv)
     std::reverse(draw_order.begin(), draw_order.end());
   
+  // For --colorize, compute joint min/max across all images (raster and CSV)
+  // in this widget unless the user set --min/--max explicitly.
+  vw::Vector2 joint_bounds(std::numeric_limits<double>::max(),
+                           -std::numeric_limits<double>::max());
+  if (asp::stereo_settings().colorize) {
+    if (asp::stereo_settings().min < asp::stereo_settings().max) {
+      joint_bounds = vw::Vector2(asp::stereo_settings().min,
+                                 asp::stereo_settings().max);
+    } else {
+      for (size_t j = 0; j < draw_order.size(); j++) {
+        int i = draw_order[j];
+        if (app_data.images[i].m_isPoly)
+          continue;
+        if (app_data.images[i].m_isCsv) {
+          if (!app_data.images[i].scattered_data.empty()) {
+            double lo = 0.0, hi = 0.0;
+            findRobustBounds(app_data.images[i].scattered_data,
+                             lo, hi);
+            joint_bounds[0] = std::min(joint_bounds[0], lo);
+            joint_bounds[1] = std::max(joint_bounds[1], hi);
+          }
+          continue;
+        }
+        auto const& img = app_data.images[i].currentImg();
+        if (img.m_type != asp::CH1_DOUBLE)
+          continue;
+        vw::Vector2 ab = img.m_img_ch1_double.approx_bounds();
+        joint_bounds[0] = std::min(joint_bounds[0], ab[0]);
+        joint_bounds[1] = std::max(joint_bounds[1], ab[1]);
+      }
+    }
+  }
+
   // Draw the images
   // TODO(oalexan1): Must use a single QImage, that will be updated as we go
   // over images and scattered points in csv.
@@ -833,7 +866,7 @@ void MainWidget::drawImage(QPainter* paint) {
     // later pass this to the widget painter.
     // Maybe should replace m_pixmap with QImage.
     if (app_data.images[i].m_isCsv) {
-      MainWidget::drawScatteredData(paint, i);
+      MainWidget::drawScatteredData(paint, i, joint_bounds);
       continue; // there is no image, so no point going on
     }
 
@@ -921,6 +954,7 @@ void MainWidget::drawImage(QPainter* paint) {
     app_data.images[i].currentImg().get_image_clip(scale, image_box,
                                                    highlight_nodata,
                                                    colormap_ptr,
+                                                   joint_bounds,
                                                    qimg, scale_out,
                                                    region_out);
 
@@ -955,16 +989,23 @@ void MainWidget::drawImage(QPainter* paint) {
 // in the paint event. This way, you can draw the scattered data to the pixmap,
 // and it will be preserved across paint events.
 // https://stackoverflow.com/questions/13058669/how-to-obtain-the-frame-buffer-from-within-qwidgets-paintevent
-void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
+void MainWidget::drawScatteredData(QPainter* paint, int image_index,
+                                   vw::Vector2 const& bounds_override) {
 
   int r = asp::stereo_settings().plot_point_radius;
 
-  // If set, use --min and --max values. Otherwise, find them and
-  // remove outliers along the way to not skew the plotting range.
-  double min_val = asp::stereo_settings().min;
-  double max_val = asp::stereo_settings().max;
-  if (std::isnan(min_val) || std::isnan(max_val))
-    findRobustBounds(app_data.images[image_index].scattered_data, min_val, max_val);
+  // Use caller-provided joint bounds when valid, otherwise compute locally
+  double min_val = 0.0, max_val = 0.0; // will change
+  if (bounds_override[0] < bounds_override[1]) {
+    min_val = bounds_override[0];
+    max_val = bounds_override[1];
+  } else if (asp::stereo_settings().min < asp::stereo_settings().max) {
+    min_val = asp::stereo_settings().min;
+    max_val = asp::stereo_settings().max;
+  } else {
+    findRobustBounds(app_data.images[image_index].scattered_data,
+                     min_val, max_val);
+  }
 
   std::map<float, vw::Vector3u> lut_map;
   try {

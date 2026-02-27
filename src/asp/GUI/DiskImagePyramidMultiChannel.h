@@ -92,6 +92,7 @@ namespace asp {
     void get_image_clip(double scale_in, vw::BBox2i region_in,
                         bool highlight_nodata,
                         vw::Colormap const* colormap,
+                        vw::Vector2 const& bounds_override,
                         QImage & qimg, double & scale_out,
                         vw::BBox2i & region_out) const;
     double get_nodata_val() const;
