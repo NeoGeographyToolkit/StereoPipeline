@@ -67,9 +67,6 @@ class QPolygon;
 
 namespace asp {
 
-  // TODO(oalexan1): Remove this def out of this header file
-  namespace fs = boost::filesystem;
-
   bool isPolyZeroDim(const QPolygon & pa);
 
   bool getStringFromGui(QWidget * parent,
