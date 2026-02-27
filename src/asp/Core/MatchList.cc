@@ -18,6 +18,7 @@
 
 #include <string>
 #include <vector>
+#include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <asp/Core/MatchList.h>

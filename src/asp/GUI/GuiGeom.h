@@ -20,45 +20,37 @@
 
 #include <asp/GUI/AppData.h>
 #include <vw/Geometry/dPoly.h>
+#include <limits>
 #include <vector>
 
 namespace asp {
 
-void findClosestPolyVertex(// inputs
-                           double world_x0, double world_y0,
+// Result of searching for the closest polygon vertex or edge
+struct PolySearchResult {
+  int clipIndex = -1;
+  int polyVecIndex = -1;
+  int polyIndexInCurrPoly = -1;
+  int vertIndexInCurrPoly = -1;
+  double minX = 0;
+  double minY = 0;
+  double minDist = std::numeric_limits<double>::max();
+};
+
+void findClosestPolyVertex(double world_x0, double world_y0,
                            asp::AppData const& app_data,
                            int beg_image_id, int end_image_id,
-                           // outputs
-                           int & clipIndex,
-                           int & polyVecIndex,
-                           int & polyIndexInCurrPoly,
-                           int & vertIndexInCurrPoly,
-                           double & minX, double & minY,
-                           double & minDist);
+                           PolySearchResult & result);
 
 // Find the closest point in a given vector of polygons to a given point.
-void findClosestPolyVertex(// inputs
-                           double x0, double y0,
+void findClosestPolyVertex(double x0, double y0,
                            std::vector<vw::geometry::dPoly> const& polyVec,
-                           // outputs
-                           int & polyVecIndex,
-                           int & polyIndexInCurrPoly,
-                           int & vertIndexInCurrPoly,
-                           double & minX, double & minY,
-                           double & minDist);
+                           PolySearchResult & result);
 
 // Find the closest edge in a given set of polygons to a given point.
-void findClosestPolyEdge(// inputs
-                         double world_x0, double world_y0,
+void findClosestPolyEdge(double world_x0, double world_y0,
                          asp::AppData const& app_data,
                          int beg_image_id, int end_image_id,
-                         // outputs
-                         int & clipIndex,
-                         int & polyVecIndex,
-                         int & polyIndexInCurrPoly,
-                         int & vertIndexInCurrPoly,
-                         double & minX, double & minY,
-                         double & minDist);
+                         PolySearchResult & result);
 
 // Merge some polygons and save them in app_data.images[outIndex]
 void mergePolys(asp::AppData & app_data, int beg_image_id, int end_image_id, int outIndex);
@@ -75,15 +67,9 @@ void formPoly(std::string              const& override_color,
               std::vector<vw::Vector3> const& vertices,
               std::vector<vw::geometry::dPoly> & polyVec);
 
-  // Find the closest edge in a given vector of polygons to a given point.
-  void findClosestPolyEdge(// inputs
-                           double x0, double y0,
-                           std::vector<vw::geometry::dPoly> const& polyVec,
-                           // outputs
-                           int & polyVecIndex,
-                           int & polyIndexInCurrPoly,
-                           int & vertIndexInCurrPoly,
-                           double & minX, double & minY,
-                           double & minDist);
+// Find the closest edge in a given vector of polygons to a given point.
+void findClosestPolyEdge(double x0, double y0,
+                         std::vector<vw::geometry::dPoly> const& polyVec,
+                         PolySearchResult & result);
 }
 #endif // __ASP_GUI_GUI_GEOM_H__

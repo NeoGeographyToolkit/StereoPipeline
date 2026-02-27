@@ -189,26 +189,18 @@ void MainWidget::deleteVertex() {
 
   vw::Vector2 P = screen2world(vw::Vector2(m_mousePrsX, m_mousePrsY));
 
-  double min_x, min_y, min_dist;
-  int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
-  asp::findClosestPolyVertex(// inputs
-                             P.x(), P.y(), app_data,
-                             m_beg_image_id, m_end_image_id,
-                             // outputs
-                             clipIndex,
-                             polyVecIndex,
-                             polyIndexInCurrPoly,
-                             vertIndexInCurrPoly,
-                             min_x, min_y, min_dist);
+  asp::PolySearchResult sr;
+  asp::findClosestPolyVertex(P.x(), P.y(), app_data,
+                             m_beg_image_id, m_end_image_id, sr);
 
-  if (clipIndex           < 0 ||
-      polyVecIndex        < 0 ||
-      polyIndexInCurrPoly < 0 ||
-      vertIndexInCurrPoly < 0)
+  if (sr.clipIndex           < 0 ||
+      sr.polyVecIndex        < 0 ||
+      sr.polyIndexInCurrPoly < 0 ||
+      sr.vertIndexInCurrPoly < 0)
     return;
 
-  app_data.images[clipIndex].polyVec[polyVecIndex].eraseVertex
-    (polyIndexInCurrPoly, vertIndexInCurrPoly);
+  app_data.images[sr.clipIndex].polyVec[sr.polyVecIndex].eraseVertex
+    (sr.polyIndexInCurrPoly, sr.vertIndexInCurrPoly);
 
   // This will redraw just the polygons, not the pixmap
   update();
@@ -261,30 +253,21 @@ void MainWidget::insertVertex() {
 
   // The location of the point to be inserted looks more reasonable
   // when one searches for closest edge, not vertex.
-  double min_x, min_y, min_dist;
-  int clipIndex, polyVecIndex, polyIndexInCurrPoly, vertIndexInCurrPoly;
-  asp::findClosestPolyEdge(// inputs
-                           P.x(), P.y(), app_data,
-                           m_beg_image_id, m_end_image_id,
-                           // outputs
-                           clipIndex,
-                           polyVecIndex,
-                           polyIndexInCurrPoly,
-                           vertIndexInCurrPoly,
-                           min_x, min_y, min_dist);
+  asp::PolySearchResult sr;
+  asp::findClosestPolyEdge(P.x(), P.y(), app_data,
+                           m_beg_image_id, m_end_image_id, sr);
 
-  if (clipIndex           < 0 ||
-      polyVecIndex        < 0 ||
-      polyIndexInCurrPoly < 0 ||
-      vertIndexInCurrPoly < 0) return;
+  if (sr.clipIndex           < 0 ||
+      sr.polyVecIndex        < 0 ||
+      sr.polyIndexInCurrPoly < 0 ||
+      sr.vertIndexInCurrPoly < 0) return;
 
   // Convert to coordinates of the desired clip
-  P = app_data.world2proj(P, clipIndex);
+  P = app_data.world2proj(P, sr.clipIndex);
 
   // Need +1 below as we insert AFTER current vertex
-  app_data.images[clipIndex].polyVec[polyVecIndex].insertVertex(polyIndexInCurrPoly,
-                                                          vertIndexInCurrPoly + 1,
-                                                          P.x(), P.y());
+  app_data.images[sr.clipIndex].polyVec[sr.polyVecIndex].insertVertex(
+    sr.polyIndexInCurrPoly, sr.vertIndexInCurrPoly + 1, P.x(), P.y());
 
   // This will redraw just the polygons, not the pixmap
   update();

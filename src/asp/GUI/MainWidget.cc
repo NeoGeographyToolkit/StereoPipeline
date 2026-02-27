@@ -1230,27 +1230,17 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   // If the user is currently editing polygons
   if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
 
-    // Ensure these are always initialized
-    m_editPolyVecIndex        = -1;
-    m_editIndexInCurrPoly     = -1;
-    m_editVertIndexInCurrPoly = -1;
-
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
     m_world_box.grow(P); // to not cut when plotting later
 
     // Find the vertex we want to move
-    double min_x, min_y, min_dist;
-    int clipIndex;
-    asp::findClosestPolyVertex(// inputs
-                               P.x(), P.y(), app_data,
-                               m_beg_image_id, m_end_image_id,
-                               // outputs
-                               clipIndex,
-                               m_editPolyVecIndex,
-                               m_editIndexInCurrPoly,
-                               m_editVertIndexInCurrPoly,
-                               min_x, min_y, min_dist);
-    m_editClipIndex = clipIndex;
+    asp::PolySearchResult sr;
+    asp::findClosestPolyVertex(P.x(), P.y(), app_data,
+                               m_beg_image_id, m_end_image_id, sr);
+    m_editClipIndex           = sr.clipIndex;
+    m_editPolyVecIndex        = sr.polyVecIndex;
+    m_editIndexInCurrPoly     = sr.polyIndexInCurrPoly;
+    m_editVertIndexInCurrPoly = sr.vertIndexInCurrPoly;
 
     // This will redraw just the polygons, not the pixmap
     update();
