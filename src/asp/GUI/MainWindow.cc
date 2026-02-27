@@ -47,6 +47,14 @@
 
 #include <boost/filesystem/path.hpp>
 
+#include <vw/Image/Colormap.h>
+
+#include <qwt_color_map.h>
+#include <qwt_scale_widget.h>
+#include <qwt_scale_engine.h>
+#include <qwt_scale_draw.h>
+#include <qwt_interval.h>
+
 #include <sstream>
 
 using namespace asp;
@@ -488,8 +496,61 @@ void MainWindow::createLayout() {
     // Add the current widget
     int row = i / grid_cols;
     int col = i % grid_cols;
-    grid->addWidget(m_widgets[i], row, col);
-    
+
+    // For colorize mode, wrap MainWidget + colorbar in a container
+    if (mw(m_widgets[i]) && asp::stereo_settings().colorize) {
+      int imgIdx = mw(m_widgets[i])->m_beg_image_id;
+      if (!app_data.images[imgIdx].scattered_data.empty()) {
+        // Get the value range
+        double min_val = asp::stereo_settings().min;
+        double max_val = asp::stereo_settings().max;
+        if (std::isnan(min_val) || std::isnan(max_val))
+          findRobustBounds(app_data.images[imgIdx].scattered_data,
+                           min_val, max_val);
+
+        // Parse the colormap
+        std::map<float, vw::cm::Vector3u> lut_map;
+        vw::cm::parse_color_style(app_data.images[imgIdx].colormap, lut_map);
+
+        // Build a QwtLinearColorMap from the LUT
+        auto firstC = lut_map.begin()->second;
+        auto lastC = lut_map.rbegin()->second;
+        QwtLinearColorMap *cmap =
+          new QwtLinearColorMap(QColor(firstC[0], firstC[1], firstC[2]),
+                                QColor(lastC[0], lastC[1], lastC[2]));
+        for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
+          if (it->first == 0.0 || it->first == 1.0)
+            continue;
+          auto const& c = it->second;
+          cmap->addColorStop(it->first, QColor(c[0], c[1], c[2]));
+        }
+
+        // Create the colorbar widget
+        QwtScaleWidget *colorbar =
+          new QwtScaleWidget(QwtScaleDraw::RightScale);
+        QwtInterval interval(min_val, max_val);
+        colorbar->setColorBarEnabled(true);
+        colorbar->setColorBarWidth(30);
+        colorbar->setColorMap(interval, cmap);
+        QwtLinearScaleEngine engine;
+        colorbar->setScaleDiv(
+          engine.divideScale(min_val, max_val, 8, 5));
+
+        // Wrap in a horizontal layout
+        QWidget *wrapper = new QWidget();
+        QHBoxLayout *hbox = new QHBoxLayout(wrapper);
+        hbox->setContentsMargins(0, 0, 0, 0);
+        hbox->setSpacing(0);
+        hbox->addWidget(m_widgets[i], 1);
+        hbox->addWidget(colorbar, 0);
+        grid->addWidget(wrapper, row, col);
+      } else {
+        grid->addWidget(m_widgets[i], row, col);
+      }
+    } else {
+      grid->addWidget(m_widgets[i], row, col);
+    }
+
     if (!mw(m_widgets[i]))
       continue; // Only MainWidget type can be used below
 
