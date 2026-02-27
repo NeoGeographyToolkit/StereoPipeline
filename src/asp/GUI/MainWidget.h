@@ -327,6 +327,7 @@ private:
   bool handlePolyVertexMove(int mouseMoveX, int mouseMoveY);
   void handleRubberBandDrag(int mouseMoveX, int mouseMoveY);
   void handleThresholdClick(int mouseRelX, int mouseRelY);
+  void handlePolyEditClick(int mouseRelX, int mouseRelY);
 
   void renderGeoreferencedImage(double scale_out, 
                                 int image_index,

@@ -1450,8 +1450,15 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
     MainWidget::plotProfile(app_data.images, m_profile.x, m_profile.y);
 
     // TODO(oalexan1): Why is this buried in the short distance check?
-  } else if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() &&
-             !m_cropWinMode) {
+  } else if (m_polyEditMode) {
+    handlePolyEditClick(mouseRelX, mouseRelY);
+  }
+}
+
+// Handle poly edit mode click: move or add vertex
+void MainWidget::handlePolyEditClick(int mouseRelX, int mouseRelY) {
+
+  if (m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
     // Move vertex
 
     if (m_editPolyVecIndex        < 0 ||
@@ -1473,11 +1480,11 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
 
     // This will redraw just the polygons, not the pixmap
     update();
-
-  } else if (m_polyEditMode) {
-    // Add vertex
-    addPolyVert(mouseRelX, mouseRelY);
+    return;
   }
+
+  // Add vertex
+  addPolyVert(mouseRelX, mouseRelY);
 }
 
 // Handle threshold mode pixel click
