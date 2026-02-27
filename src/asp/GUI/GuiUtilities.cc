@@ -278,6 +278,42 @@ QPoint Vec2QPoint(vw::Vector2 const& V) {
   return QPoint(round(V.x()), round(V.y()));
 }
 
+vw::Vector2 flip_in_y(vw::Vector2 const& P) {
+  return vw::Vector2(P.x(), -P.y());
+}
+
+vw::BBox2 flip_in_y(vw::BBox2 const& B) {
+  vw::BBox2 R = B;
+  R.min().y() = -B.max().y();
+  R.max().y() = -B.min().y();
+  return R;
+}
+
+vw::BBox2 qrect2bbox(QRect const& R) {
+  return vw::BBox2(vw::Vector2(R.left(), R.top()),
+                   vw::Vector2(R.right(), R.bottom()));
+}
+
+PointList::PointList(vw::Vector3 const& color): m_color(color) {}
+
+PointList::PointList(std::list<vw::Vector2> const& points,
+                     vw::Vector3 const& color):
+  m_color(color) {
+  this->push_back(points);
+}
+
+std::list<vw::Vector2> const& PointList::points() const {
+  return m_points;
+}
+
+vw::Vector3 PointList::color() const {
+  return m_color;
+}
+
+void PointList::push_back(vw::Vector2 pt) {
+  m_points.push_back(pt);
+}
+
 void PointList::push_back(std::list<vw::Vector2> pts) {
   std::list<vw::Vector2>::iterator iter  = pts.begin();
   while (iter != pts.end()) {

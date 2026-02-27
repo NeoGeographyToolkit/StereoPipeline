@@ -80,20 +80,11 @@ namespace asp {
   std::string fileDialog(std::string title, std::string start_folder="");
 
   // Flip a point and a box in y
-  inline vw::Vector2 flip_in_y(vw::Vector2 const& P){
-    return vw::Vector2(P.x(), -P.y());
-  }
-  inline vw::BBox2 flip_in_y(vw::BBox2 const& B){
-    vw::BBox2 R = B;
-    R.min().y() = -B.max().y();
-    R.max().y() = -B.min().y();
-    return R;
-  }
+  vw::Vector2 flip_in_y(vw::Vector2 const& P);
+  vw::BBox2 flip_in_y(vw::BBox2 const& B);
 
   /// Convert a QRect object to a BBox2 object.
-  inline vw::BBox2 qrect2bbox(QRect const& R){
-    return vw::BBox2(vw::Vector2(R.left(), R.top()), vw::Vector2(R.right(), R.bottom()));
-  }
+  vw::BBox2 qrect2bbox(QRect const& R);
 
   /// Convert a BBox2 object to a QRect object.
   QRect bbox2qrect(vw::BBox2 const& B);
@@ -143,16 +134,13 @@ namespace asp {
     std::list<vw::Vector2> m_points;
     vw::Vector3 m_color;
   public:
-    PointList(vw::Vector3 const& color) : m_color(color) {}
-    PointList(std::list<vw::Vector2> const& points, vw::Vector3 const& color) :
-      m_color(color) {
-      this->push_back(points);
-    }
+    PointList(vw::Vector3 const& color);
+    PointList(std::list<vw::Vector2> const& points, vw::Vector3 const& color);
 
-    std::list<vw::Vector2> const& points() const { return m_points; }
-    vw::Vector3 color() const { return m_color; }
+    std::list<vw::Vector2> const& points() const;
+    vw::Vector3 color() const;
 
-    void push_back(vw::Vector2 pt) { m_points.push_back(pt); }
+    void push_back(vw::Vector2 pt);
     void push_back(std::list<vw::Vector2> pts);
   };
 
