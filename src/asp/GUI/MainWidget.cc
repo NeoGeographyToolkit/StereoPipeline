@@ -1373,110 +1373,110 @@ void MainWidget::handleRubberBandDrag(int mouseMoveX, int mouseMoveY) {
 // The action to take when a user releases the mouse close to where it was pressed
 void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
 
-  if (!m_threshold.calcMode) {
+  // Threshold mode: early return
+  if (m_threshold.calcMode) {
+    handleThresholdClick(mouseRelX, mouseRelY);
+    return;
+  }
 
-    Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-    if (!m_profile.mode && !m_polyEditMode) {
-      QPainter paint;
-      paint.begin(&m_pixmap);
-      QPoint Q(mouseRelX, mouseRelY);
-      paint.setPen(QColor("red"));
-      paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little larger
-      paint.end();  // Make sure to end the painting session
-    }
+  Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
+  if (!m_profile.mode && !m_polyEditMode) {
+    QPainter paint;
+    paint.begin(&m_pixmap);
+    QPoint Q(mouseRelX, mouseRelY);
+    paint.setPen(QColor("red"));
+    paint.drawEllipse(Q, 2, 2); // Draw the point, and make it a little larger
+    paint.end();  // Make sure to end the painting session
+  }
 
-    bool can_profile = m_profile.mode;
+  bool can_profile = m_profile.mode;
 
-    // Print pixel coordinates and image value.
-    for (int j = m_beg_image_id; j < m_end_image_id; j++) {
+  // Print pixel coordinates and image value.
+  for (int j = m_beg_image_id; j < m_end_image_id; j++) {
 
-      int it = m_filesOrder[j];
+    int it = m_filesOrder[j];
 
-      // Don't show files the user wants hidden
-      std::string fileName = app_data.images[it].name;
-      if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
-        continue;
+    // Don't show files the user wants hidden
+    std::string fileName = app_data.images[it].name;
+    if (m_chooseFiles && m_chooseFiles->isHidden(fileName))
+      continue;
 
-      std::string val = "none";
-      Vector2 q = app_data.world2image_trans(p, it);
+    std::string val = "none";
+    Vector2 q = app_data.world2image_trans(p, it);
 
-      int col = floor(q[0]), row = floor(q[1]);
+    int col = floor(q[0]), row = floor(q[1]);
 
-      if (col >= 0 && row >= 0 && col < app_data.images[it].img().cols() &&
-          row < app_data.images[it].img().rows()) {
-        val = app_data.images[it].img().get_value_as_str(col, row);
+    if (col >= 0 && row >= 0 && col < app_data.images[it].img().cols() &&
+        row < app_data.images[it].img().rows())
+      val = app_data.images[it].img().get_value_as_str(col, row);
+
+    vw_out() << "Pixel and value: " << app_data.images[it].name << " ("
+              << col << ", " << row << ") " << val << "\n";
+
+    update();
+
+    if (m_profile.mode) {
+
+      // Sanity checks
+      if (m_end_image_id - m_beg_image_id != 1) {
+        popUp("A profile can be shown only when a single image is present.");
+        can_profile = false;
+      }
+      int num_channels = app_data.images[it].img().planes();
+      if (num_channels != 1) {
+        popUp("A profile can be shown only when the image has a single channel.");
+        can_profile = false;
       }
 
-      vw_out() << "Pixel and value: " << app_data.images[it].name << " ("
-                << col << ", " << row << ") " << val << "\n";
-
-      update();
-
-      if (m_profile.mode) {
-
-        // Sanity checks
-        if (m_end_image_id - m_beg_image_id != 1) {
-          popUp("A profile can be shown only when a single image is present.");
-          can_profile = false;
-        }
-        int num_channels = app_data.images[it].img().planes();
-        if (num_channels != 1) {
-          popUp("A profile can be shown only when the image has a single channel.");
-          can_profile = false;
-        }
-
-        if (!can_profile) {
-          MainWidget::setProfileMode(can_profile);
-          return;
-        }
-
-      } // End if m_profile.mode
-
-    } // end iterating over images
-
-    if (can_profile) {
-      // Save the current point the user clicked onto in the
-      // world coordinate system.
-      m_profile.x.push_back(p.x());
-      m_profile.y.push_back(p.y());
-
-      // PaintEvent() will be called, which will call
-      // plotProfilePolyLine() to show the polygonal line.
-
-      // Now show the profile.
-      MainWidget::plotProfile(app_data.images, m_profile.x, m_profile.y);
-
-      // TODO: Why is this buried in the short distance check?
-    } else if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
-      // Move vertex
-
-      if (m_editPolyVecIndex        < 0 ||
-          m_editIndexInCurrPoly     < 0 ||
-          m_editVertIndexInCurrPoly < 0)
+      if (!can_profile) {
+        MainWidget::setProfileMode(can_profile);
         return;
+      }
 
-      Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
-      m_world_box.grow(P); // to not cut when plotting later
-      P = app_data.world2proj(P, m_polyLayerIndex); // projected units
-      app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
-        .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly,
-                            P.x(), P.y());
+    } // End if m_profile.mode
 
-      // These are no longer needed for the time being
-      m_editPolyVecIndex        = -1;
-      m_editIndexInCurrPoly     = -1;
-      m_editVertIndexInCurrPoly = -1;
+  } // end iterating over images
 
-      // This will redraw just the polygons, not the pixmap
-      update();
+  if (can_profile) {
+    // Save the current point the user clicked onto in the
+    // world coordinate system.
+    m_profile.x.push_back(p.x());
+    m_profile.y.push_back(p.y());
 
-    } else if (m_polyEditMode) {
-      // Add vertex
-      addPolyVert(mouseRelX, mouseRelY);
-    }
+    // PaintEvent() will be called, which will call
+    // plotProfilePolyLine() to show the polygonal line.
 
-  } else {
-    handleThresholdClick(mouseRelX, mouseRelY);
+    // Now show the profile.
+    MainWidget::plotProfile(app_data.images, m_profile.x, m_profile.y);
+
+    // TODO(oalexan1): Why is this buried in the short distance check?
+  } else if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() &&
+             !m_cropWinMode) {
+    // Move vertex
+
+    if (m_editPolyVecIndex        < 0 ||
+        m_editIndexInCurrPoly     < 0 ||
+        m_editVertIndexInCurrPoly < 0)
+      return;
+
+    Vector2 P = screen2world(Vector2(mouseRelX, mouseRelY));
+    m_world_box.grow(P); // to not cut when plotting later
+    P = app_data.world2proj(P, m_polyLayerIndex); // projected units
+    app_data.images[m_polyLayerIndex].polyVec[m_editPolyVecIndex]
+      .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly,
+                          P.x(), P.y());
+
+    // These are no longer needed for the time being
+    m_editPolyVecIndex        = -1;
+    m_editIndexInCurrPoly     = -1;
+    m_editVertIndexInCurrPoly = -1;
+
+    // This will redraw just the polygons, not the pixmap
+    update();
+
+  } else if (m_polyEditMode) {
+    // Add vertex
+    addPolyVert(mouseRelX, mouseRelY);
   }
 }
 
