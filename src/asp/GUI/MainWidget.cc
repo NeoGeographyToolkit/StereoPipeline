@@ -22,6 +22,7 @@
 /// TODO: Test with empty images and images having just one pixel.
 
 #include <asp/GUI/MainWidget.h>
+#include <asp/GUI/GuiConstants.h>
 #include <asp/GUI/GuiGeom.h>
 #include <asp/GUI/chooseFilesDlg.h>
 #include <asp/Core/StereoSettings.h>
@@ -1250,7 +1251,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
     P = app_data.world2image_trans(P, m_base_image_id);
 
     // Find the match point we want to move
-    const double DISTANCE_LIMIT = 70;
+    const double DISTANCE_LIMIT = MATCH_POINT_DISTANCE_LIMIT;
     m_match_mgr.m_editMatchPointVecIndex
       = m_match_mgr.m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
 
@@ -1963,7 +1964,7 @@ void MainWidget::deleteMatchPoint() {
   // Find the closest match to this point.
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
   P = app_data.world2image_trans(P, m_base_image_id);
-  const double DISTANCE_LIMIT = 70;
+  const double DISTANCE_LIMIT = MATCH_POINT_DISTANCE_LIMIT;
   int min_index = m_match_mgr.m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
 
   if (min_index < 0) {

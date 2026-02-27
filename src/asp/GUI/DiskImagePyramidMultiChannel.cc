@@ -142,7 +142,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
 
   int & lowres_size = asp::stereo_settings().lowest_resolution_subimage_num_pixels; // alias
   if (lowres_size <= 0) // bug fix, longer term need to improve the workflow
-    lowres_size = 1000 * 1000;
+    lowres_size = LOWRES_SIZE_DEFAULT;
 
   boost::shared_ptr<DiskImageResource> image_rsrc
     = vw::DiskImageResourcePtr(image_file);

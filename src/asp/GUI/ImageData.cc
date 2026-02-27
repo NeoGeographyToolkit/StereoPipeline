@@ -21,6 +21,7 @@
 
 #include <asp/GUI/ImageData.h>
 #include <asp/GUI/GuiBase.h>
+#include <asp/GUI/GuiConstants.h>
 #include <asp/GUI/GuiGeom.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
@@ -430,8 +431,8 @@ void imageData::load() {
 
   }else{
     // Read an image
-    int top_image_max_pix = 1000*1000;
-    int subsample = 4;
+    int top_image_max_pix = TOP_IMAGE_MAX_PIX;
+    int subsample = LOAD_SUBSAMPLE;
     has_georef = vw::cartography::read_georeference(georef, name);
     if (m_display_mode == REGULAR_VIEW) {
       img = DiskImagePyramidMultiChannel(name, m_opt, top_image_max_pix, subsample);

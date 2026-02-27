@@ -23,6 +23,7 @@
 #include <QtWidgets>
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/AppData.h>
+#include <asp/GUI/GuiConstants.h>
 #include <asp/GUI/GuiArgs.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
@@ -287,9 +288,9 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   if (lowres_size <= 0) {
     if (delay) {
       // To avoid creating many small subimages. But then the displaying is slow.
-      lowres_size = 8000 * 8000; 
+      lowres_size = LOWRES_SIZE_PREVIEW;
     } else {
-      lowres_size = 1000 * 1000;
+      lowres_size = LOWRES_SIZE_DEFAULT;
     }
   }
   

@@ -25,6 +25,7 @@
 #define __STEREO_GUI_DISK_IMAGE_PYRAMID_MULTICHANNEL_H__
 
 #include <asp/GUI/GuiBase.h>
+#include <asp/GUI/GuiConstants.h>
 
 #include <vw/Core/Thread.h>
 #include <vw/Core/Log.h>
@@ -81,8 +82,8 @@ namespace asp {
     DiskImagePyramidMultiChannel(std::string const& image_file = "",
                                  vw::GdalWriteOptions const&
                                  opt = vw::GdalWriteOptions(),
-                                 int top_image_max_pix = 1000*1000,
-                                 int subsample = 2);
+                                 int top_image_max_pix = TOP_IMAGE_MAX_PIX,
+                                 int subsample = PYRAMID_SUBSAMPLE);
 
     // This function will return a QImage to be shown on screen.
     // How we create it, depends on the type of image we want to display.
