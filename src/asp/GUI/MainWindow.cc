@@ -349,6 +349,55 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   createLayout();
 }
 
+// Wrap a widget in a horizontal layout with a colorbar on the right.
+// Returns the wrapper widget, or the original widget if bounds are invalid.
+// The colormap style is taken from the first image in the range.
+QWidget* createColorbarLayout(QWidget* widget,
+                              double min_val, double max_val,
+                              std::string const& colormap_style) {
+
+  if (min_val >= max_val)
+    return widget;
+
+  // Parse the colormap
+  std::map<float, vw::Vector3u> lut_map;
+  vw::parse_color_style(colormap_style, lut_map);
+
+  // Build a QwtLinearColorMap from the LUT
+  auto firstC = lut_map.begin()->second;
+  auto lastC = lut_map.rbegin()->second;
+  QwtLinearColorMap *cmap =
+    new QwtLinearColorMap(QColor(firstC[0], firstC[1], firstC[2]),
+                          QColor(lastC[0], lastC[1], lastC[2]));
+  for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
+    if (it->first == 0.0 || it->first == 1.0)
+      continue;
+    auto const& c = it->second;
+    cmap->addColorStop(it->first, QColor(c[0], c[1], c[2]));
+  }
+
+  // Create the colorbar widget
+  QwtScaleWidget *colorbar =
+    new QwtScaleWidget(QwtScaleDraw::RightScale);
+  QwtInterval interval(min_val, max_val);
+  colorbar->setColorBarEnabled(true);
+  colorbar->setColorBarWidth(30);
+  colorbar->setColorMap(interval, cmap);
+  QwtLinearScaleEngine engine;
+  colorbar->setScaleDiv(
+    engine.divideScale(min_val, max_val, 8, 5));
+
+  // Wrap in a horizontal layout
+  QWidget *wrapper = new QWidget();
+  QHBoxLayout *hbox = new QHBoxLayout(wrapper);
+  hbox->setContentsMargins(0, 0, 0, 0);
+  hbox->setSpacing(0);
+  hbox->addWidget(widget, 1);
+  hbox->addWidget(colorbar, 0);
+
+  return wrapper;
+}
+
 // Create a new central widget. Qt is smart enough to de-allocate
 // the previous widget and all of its children.
 void MainWindow::createLayout() {
@@ -498,6 +547,7 @@ void MainWindow::createLayout() {
     int col = i % grid_cols;
 
     // For colorize mode, wrap MainWidget + colorbar in a container
+    QWidget* wid = m_widgets[i];
     if (mw(m_widgets[i]) && asp::stereo_settings().colorize) {
       int begIdx = mw(m_widgets[i])->m_beg_image_id;
       int endIdx = mw(m_widgets[i])->m_end_image_id;
@@ -524,51 +574,11 @@ void MainWindow::createLayout() {
           }
         }
       }
-
-      if (min_val < max_val) {
-        // Parse the colormap
-        std::map<float, vw::Vector3u> lut_map;
-        vw::parse_color_style(app_data.images[begIdx].colormap,
-                              lut_map);
-
-        // Build a QwtLinearColorMap from the LUT
-        auto firstC = lut_map.begin()->second;
-        auto lastC = lut_map.rbegin()->second;
-        QwtLinearColorMap *cmap =
-          new QwtLinearColorMap(QColor(firstC[0], firstC[1], firstC[2]),
-                                QColor(lastC[0], lastC[1], lastC[2]));
-        for (auto it = lut_map.begin(); it != lut_map.end(); it++) {
-          if (it->first == 0.0 || it->first == 1.0)
-            continue;
-          auto const& c = it->second;
-          cmap->addColorStop(it->first, QColor(c[0], c[1], c[2]));
-        }
-
-        // Create the colorbar widget
-        QwtScaleWidget *colorbar =
-          new QwtScaleWidget(QwtScaleDraw::RightScale);
-        QwtInterval interval(min_val, max_val);
-        colorbar->setColorBarEnabled(true);
-        colorbar->setColorBarWidth(30);
-        colorbar->setColorMap(interval, cmap);
-        QwtLinearScaleEngine engine;
-        colorbar->setScaleDiv(
-          engine.divideScale(min_val, max_val, 8, 5));
-
-        // Wrap in a horizontal layout
-        QWidget *wrapper = new QWidget();
-        QHBoxLayout *hbox = new QHBoxLayout(wrapper);
-        hbox->setContentsMargins(0, 0, 0, 0);
-        hbox->setSpacing(0);
-        hbox->addWidget(m_widgets[i], 1);
-        hbox->addWidget(colorbar, 0);
-        grid->addWidget(wrapper, row, col);
-      } else {
-        grid->addWidget(m_widgets[i], row, col);
-      }
-    } else {
-      grid->addWidget(m_widgets[i], row, col);
+      wid = createColorbarLayout(m_widgets[i],
+                                 min_val, max_val,
+                                 app_data.images[begIdx].colormap);
     }
+    grid->addWidget(wid, row, col);
 
     if (!mw(m_widgets[i]))
       continue; // Only MainWidget type can be used below
