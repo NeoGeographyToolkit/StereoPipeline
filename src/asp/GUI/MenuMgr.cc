@@ -139,30 +139,42 @@ void MenuMgr::setupContextMenu(MainWidget* parent_widget) {
   m_saveScreenshot->setVisible(true); // always visible
 }
 
-QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget) {
-  
-m_customMenu = new QMenu(parent_widget);
+QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget,
+                               int imageIndex) {
 
-m_toggleHillshadeFromImageList = m_customMenu->addAction("Toggle hillshade display");
-  QObject::connect(m_toggleHillshadeFromImageList, SIGNAL(triggered()),
-                   parent_widget, SLOT(toggleHillshadeFromImageList()));
+  m_customMenu = new QMenu(parent_widget);
+
+  m_toggleHillshadeFromImageList =
+    m_customMenu->addAction("Toggle hillshade display");
+  QObject::connect(m_toggleHillshadeFromImageList, &QAction::triggered,
+    [parent_widget, imageIndex]() {
+      parent_widget->toggleHillshadeFromImageList(imageIndex);
+    });
 
   if (!sideBySideWithDialog()) {
     // Do not offer these options when the images are side-by-side,
     // as that will just mess up with their order.
 
-    m_bringImageOnTopFromTable = m_customMenu->addAction("Bring image on top");
-    QObject::connect(m_bringImageOnTopFromTable, SIGNAL(triggered()),
-                     parent_widget, SLOT(bringImageOnTopSlot()));
+    m_bringImageOnTopFromTable =
+      m_customMenu->addAction("Bring image on top");
+    QObject::connect(m_bringImageOnTopFromTable, &QAction::triggered,
+      [parent_widget, imageIndex]() {
+        parent_widget->bringImageOnTopSlot(imageIndex);
+      });
 
-    m_pushImageToBottomFromTable = m_customMenu->addAction("Push image to bottom");
-    QObject::connect(m_pushImageToBottomFromTable, SIGNAL(triggered()),
-                     parent_widget, SLOT(pushImageToBottomSlot()));
+    m_pushImageToBottomFromTable =
+      m_customMenu->addAction("Push image to bottom");
+    QObject::connect(m_pushImageToBottomFromTable, &QAction::triggered,
+      [parent_widget, imageIndex]() {
+        parent_widget->pushImageToBottomSlot(imageIndex);
+      });
   }
 
   m_zoomToImageFromTable = m_customMenu->addAction("Zoom to image");
-  QObject::connect(m_zoomToImageFromTable, SIGNAL(triggered()),
-                   parent_widget, SLOT(zoomToImage()));
+  QObject::connect(m_zoomToImageFromTable, &QAction::triggered,
+    [parent_widget, imageIndex]() {
+      parent_widget->zoomToImage(imageIndex);
+    });
 
   // If having polygons, make it possible to change their colors
   bool hasPoly = false;
@@ -172,8 +184,12 @@ m_toggleHillshadeFromImageList = m_customMenu->addAction("Toggle hillshade displ
       hasPoly = true;
   }
   if (hasPoly) {
-    m_changePolyColor = m_customMenu->addAction("Change colors of polygons");
-    QObject::connect(m_changePolyColor, SIGNAL(triggered()), parent_widget, SLOT(changePolyColor()));
+    m_changePolyColor =
+      m_customMenu->addAction("Change colors of polygons");
+    QObject::connect(m_changePolyColor, &QAction::triggered,
+      [parent_widget, imageIndex]() {
+        parent_widget->changePolyColor(imageIndex);
+      });
   }
 
   return m_customMenu;

@@ -62,7 +62,6 @@
 #include <string>
 #include <vector>
 #include <list>
-#include <set>
 #include <memory>
 
 class QMouseEvent;
@@ -131,8 +130,6 @@ public:
                             std::vector<double> const& profileX,
                             std::vector<double> const& profileY);
 
-  std::set<int> & indicesWithAction() { return m_indicesWithAction; }
-
   void   setThreshold(double thresh); ///< Set the image threshold
   double getThreshold() const;            ///< Get the image threshold
 
@@ -177,12 +174,12 @@ public slots:
   void setThreshold           (); ///< Set change image threshold (from right click menu)
   void setHillshadeParams     (); ///< Set the azimuth and elevation for hillshaded images.
   void toggleHillshadeImageRightClick(); ///< Turn on/off hillshading on right-click on image
-  void toggleHillshadeFromImageList(); ///< Toggle hillshade by right-click on image list
+  void toggleHillshadeFromImageList(int imageIndex); ///< Toggle hillshade by right-click on image list
   void refreshHillshade       (); ///< Update the display if the state of hillshading changed.
-  void bringImageOnTopSlot    (); ///< Show this image on top of other images.
-  void pushImageToBottomSlot  (); ///< Show all other images on top of this
-  void zoomToImage            (); ///< Zoom to have this image in full view.
-  void changePolyColor        (); ///< Change the color of given set of polygons
+  void bringImageOnTopSlot    (int imageIndex); ///< Show this image on top of other images.
+  void pushImageToBottomSlot  (int imageIndex); ///< Show all other images on top of this
+  void zoomToImage            (int imageIndex); ///< Zoom to have this image in full view.
+  void changePolyColor        (int imageIndex); ///< Change the color of given set of polygons
   void allowMultipleSelections(); ///< Allow the user to select multiple regions
   void deleteSelection        (); ///< Delete an area selected with the mouse at current point
   void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region
@@ -294,8 +291,6 @@ private:
 
   double m_thresh;
   bool   m_thresh_calc_mode;
-
-  std::set<int> m_indicesWithAction;
 
   bool   m_can_emit_zoom_all_signal;
 

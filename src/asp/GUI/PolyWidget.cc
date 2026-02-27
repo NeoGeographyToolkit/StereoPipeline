@@ -42,7 +42,7 @@ namespace asp {
 // to this file to reduce the size of MainWidget.cc.
 
 // Change the color of given layer of polygons
-void MainWidget::changePolyColor() {
+void MainWidget::changePolyColor(int imageIndex) {
   std::string polyColor;
   bool ans = getStringFromGui(this,
                               "Polygonal line color",
@@ -56,15 +56,9 @@ void MainWidget::changePolyColor() {
     return;
   }
 
-  for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++) {
-
-    // We will assume the user wants to see this on top
-    m_perImagePolyColor[*it] = polyColor;
-    bringImageOnTop(*it);
-  }
-
-  // This is no longer needed
-  m_indicesWithAction.clear();
+  // We will assume the user wants to see this on top
+  m_perImagePolyColor[imageIndex] = polyColor;
+  bringImageOnTop(imageIndex);
 
   // Redraw everything, which will change the color
   refreshPixmap();

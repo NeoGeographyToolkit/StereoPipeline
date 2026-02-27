@@ -206,12 +206,8 @@ void MainWidget::customMenuRequested(QPoint pos) {
   QModelIndex tablePos = filesTable->indexAt(pos);
   int imageIndex = tablePos.row();
 
-  // We will pass this index to the slots via this global variable
-  m_indicesWithAction.clear();
-  m_indicesWithAction.insert(imageIndex);
-
-  // Form the menu
-  QMenu *menu = m_menu_mgr->formCustomMenu(this);
+  // Form the menu, passing the image index explicitly
+  QMenu *menu = m_menu_mgr->formCustomMenu(this, imageIndex);
 
   menu->exec(filesTable->mapToGlobal(pos));
 }
@@ -249,12 +245,7 @@ void MainWidget::showFilesChosenByUser(int rowClicked, int columnClicked) {
 }
 
 void MainWidget::zoomToImageInTableCell(int rowClicked, int columnClicked) {
-  // We will pass this index to the desired slot via this global variable
-  m_indicesWithAction.clear();
-  m_indicesWithAction.insert(rowClicked);
-
-  // Do the actual work for given value
-  zoomToImage();
+  zoomToImage(rowClicked);
 }
 
 void MainWidget::hideShowAll_widgetVersion() {
@@ -484,18 +475,15 @@ void MainWidget::allowMultipleSelections() {
 }
 
 // This is reached with right-click from the list of images on the left
-void MainWidget::toggleHillshadeFromImageList() {
-  for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++) {
-    if (app_data.images[*it].m_display_mode == HILLSHADED_VIEW)
-      app_data.images[*it].m_display_mode = REGULAR_VIEW;
-    else if (app_data.images[*it].m_display_mode != HILLSHADED_VIEW)
-      app_data.images[*it].m_display_mode = HILLSHADED_VIEW;
+void MainWidget::toggleHillshadeFromImageList(int imageIndex) {
+  if (app_data.images[imageIndex].m_display_mode == HILLSHADED_VIEW)
+    app_data.images[imageIndex].m_display_mode = REGULAR_VIEW;
+  else
+    app_data.images[imageIndex].m_display_mode = HILLSHADED_VIEW;
 
-    // We will assume if the user wants to see the hillshade
-    // status of this image change, he'll also want it on top.
-    bringImageOnTop(*it);
-  }
-  m_indicesWithAction.clear();
+  // We will assume if the user wants to see the hillshade
+  // status of this image change, he'll also want it on top.
+  bringImageOnTop(imageIndex);
 
   refreshHillshade();
 }
@@ -519,44 +507,29 @@ void MainWidget::refreshHillshade() {
   refreshPixmap();
 }
 
-void MainWidget::zoomToImage() {
+void MainWidget::zoomToImage(int imageIndex) {
 
-  for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++) {
+  // We will assume if the user wants to zoom to this image,
+  // it should be on top.
+  bringImageOnTop(imageIndex);
 
-    // We will assume if the user wants to zoom to this image,
-    // it should be on top.
-    bringImageOnTop(*it);
-
-    // Set the view window to be the region encompassing the image
-    BBox2 world_box = app_data.image2world_trans(app_data.images[*it].image_bbox, *it);
-    double aspect = double(m_window_width) / m_window_height;  
-    m_current_view = vw::geometry::expandBoxToRatio(world_box, aspect);
-  }
-
-  // This is no longer needed
-  m_indicesWithAction.clear();
+  // Set the view window to be the region encompassing the image
+  BBox2 world_box = app_data.image2world_trans(
+    app_data.images[imageIndex].image_bbox, imageIndex);
+  double aspect = double(m_window_width) / m_window_height;
+  m_current_view = vw::geometry::expandBoxToRatio(world_box, aspect);
 
   // Redraw in the computed window
   refreshPixmap();
 }
 
-void MainWidget::bringImageOnTopSlot() {
-
-  for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++)
-    bringImageOnTop(*it);
-
-  m_indicesWithAction.clear();
-
+void MainWidget::bringImageOnTopSlot(int imageIndex) {
+  bringImageOnTop(imageIndex);
   refreshPixmap();
 }
 
-void MainWidget::pushImageToBottomSlot() {
-
-  for (auto it = m_indicesWithAction.begin(); it != m_indicesWithAction.end(); it++)
-    pushImageToBottom(*it);
-
-  m_indicesWithAction.clear();
-
+void MainWidget::pushImageToBottomSlot(int imageIndex) {
+  pushImageToBottom(imageIndex);
   refreshPixmap();
 }
 
