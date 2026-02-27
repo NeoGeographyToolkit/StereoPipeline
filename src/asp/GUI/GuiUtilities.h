@@ -22,8 +22,10 @@
 #ifndef __STEREO_GUI_GUI_UTILITIES_H__
 #define __STEREO_GUI_GUI_UTILITIES_H__
 
-// ASP
-#include <asp/GUI/DiskImagePyramidMultiChannel.h>
+// Fforward declaration
+namespace asp { 
+  class DiskImagePyramidMultiChannel; 
+}
 
 // Vision Workbench
 #include <vw/Core/Thread.h>

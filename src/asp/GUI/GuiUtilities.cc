@@ -21,6 +21,7 @@
 // These may need to be moved to separate files.
 
 #include <asp/GUI/GuiUtilities.h>
+#include <asp/GUI/DiskImagePyramidMultiChannel.h>
 #include <asp/GUI/GuiGeom.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/PointUtils.h>
