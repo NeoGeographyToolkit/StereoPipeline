@@ -222,16 +222,14 @@ sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
 Documentation for the latest build and latest release is available online
 at https://stereopipeline.readthedocs.io/en/latest/.
 
-To build the documentation locally, install these packages such as:: 
+To build the documentation locally, install these packages such as::
 
-    conda create -n sphinx -c conda-forge python=3.6 \
-      sphinx=3.5.4 sphinxcontrib-bibtex=2.1.4  
+    conda create -n sphinx -c conda-forge python=3.11 \
+      sphinx sphinxcontrib-bibtex
     conda activate sphinx
 
 Note that we used a separate conda environment to minimize the chance
-of conflict with other dependencies. Also, Sphinx version 4 seems to
-have trouble compiling our documentation, hence a lower version is
-used here.
+of conflict with other dependencies.
 
 The ``docs`` directory contains the root of the documentation. Running there
 ``make html`` will create the HTML version of the documentation in the
