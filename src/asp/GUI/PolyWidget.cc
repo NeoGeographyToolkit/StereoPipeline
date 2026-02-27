@@ -23,7 +23,7 @@
 
 #include <asp/GUI/MainWidget.h>
 #include <asp/GUI/GuiGeom.h>
-#include <asp/GUI/chooseFilesDlg.h>
+#include <asp/GUI/ChooseFilesDlg.h>
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Cartography/shapeFile.h>

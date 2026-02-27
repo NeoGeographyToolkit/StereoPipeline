@@ -16,7 +16,7 @@
 // __END_LICENSE__
 
 
-/// \file chooseFilesDlg.h
+/// \file ChooseFilesDlg.h
 ///
 /// A dialog for user to choose which files to show.
 ///
@@ -35,12 +35,12 @@ namespace asp {
   class imageData;
   
   /// Class to create a file list on the left side of the window
-  class chooseFilesDlg: public QWidget{
+  class ChooseFilesDlg: public QWidget{
     Q_OBJECT
 
   public:
-    chooseFilesDlg(QWidget * parent);
-    ~chooseFilesDlg();
+    ChooseFilesDlg(QWidget * parent);
+    ~ChooseFilesDlg();
     void chooseFiles(const std::vector<std::string> & image_files);
 
     QTableWidget * getFilesTable(){ return m_filesTable; }

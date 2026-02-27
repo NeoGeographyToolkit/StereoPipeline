@@ -77,7 +77,7 @@ class QStylePainter;
 namespace asp {
 
 // Forward declarations
-class chooseFilesDlg;
+class ChooseFilesDlg;
 class MenuMgr;
 
 /// This class handles user interaction with the a single image pane.
@@ -93,7 +93,7 @@ public:
               asp::AppData & app_data,
               std::string & output_prefix,     // will be aliased
               asp::MatchPointMgr & match_mgr,
-              chooseFilesDlg * chooseFiles,
+              ChooseFilesDlg * chooseFiles,
               bool & allowMultipleSelections); // alias
 
   virtual ~MainWidget();
@@ -243,7 +243,7 @@ private:
   /// Handle to parent GUI panel used to select which of the multiple "owned"
   ///  images should be currently displayed.
   /// - Null if there is only one image.
-  chooseFilesDlg  *     m_chooseFiles;
+  ChooseFilesDlg  *     m_chooseFiles;
   std::vector<int>      m_filesOrder;     ///< The order the images are drawn in.
 
   std::string & m_output_prefix; // alias

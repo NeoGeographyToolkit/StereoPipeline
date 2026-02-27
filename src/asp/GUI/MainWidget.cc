@@ -24,7 +24,7 @@
 #include <asp/GUI/MainWidget.h>
 #include <asp/GUI/GuiConstants.h>
 #include <asp/GUI/GuiGeom.h>
-#include <asp/GUI/chooseFilesDlg.h>
+#include <asp/GUI/ChooseFilesDlg.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/GUI/MenuMgr.h>
 
@@ -59,7 +59,7 @@ MainWidget::MainWidget(QWidget *parent,
                        asp::AppData & app_data, // alias
                        std::string & output_prefix,     // will be aliased
                        asp::MatchPointMgr & match_mgr,
-                       chooseFilesDlg * chooseFiles,
+                       ChooseFilesDlg * chooseFiles,
                        bool & allowMultipleSelections):
     QwtScaleWidget(parent),
     WidgetBase(beg_image_id, end_image_id, base_image_id, app_data),

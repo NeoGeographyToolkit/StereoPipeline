@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <asp/GUI/chooseFilesDlg.h>
+#include <asp/GUI/ChooseFilesDlg.h>
 #include <asp/GUI/GuiBase.h>
 #include <asp/Core/StereoSettings.h>
 #include <vw/Core/Log.h>
@@ -31,7 +31,7 @@ using namespace vw;
 
 // Allow the user to choose which files to hide/show in the GUI.
 // User's choice will be processed by MainWidget::showFilesChosenByUser().
-chooseFilesDlg::chooseFilesDlg(QWidget * parent):
+ChooseFilesDlg::ChooseFilesDlg(QWidget * parent):
   QWidget(parent){
 
   setWindowModality(Qt::ApplicationModal);
@@ -54,9 +54,9 @@ chooseFilesDlg::chooseFilesDlg(QWidget * parent):
   return;
 }
   
-chooseFilesDlg::~chooseFilesDlg(){}
+ChooseFilesDlg::~ChooseFilesDlg(){}
 
-void chooseFilesDlg::chooseFiles(const std::vector<std::string> & image_files) {
+void ChooseFilesDlg::chooseFiles(const std::vector<std::string> & image_files) {
 
   // See the top of this file for documentation.
 
@@ -121,7 +121,7 @@ void chooseFilesDlg::chooseFiles(const std::vector<std::string> & image_files) {
 }
 
 // Quickly find in what table row the current image is  
-int chooseFilesDlg::imageRow(std::string const& image) const {
+int ChooseFilesDlg::imageRow(std::string const& image) const {
   auto it = image_to_row.find(image);
   if (it == image_to_row.end()) {
     popUp("Cannot find image in table.");
@@ -131,7 +131,7 @@ int chooseFilesDlg::imageRow(std::string const& image) const {
 }
   
 // Check if the given image is hidden (not shown) based on the table checkbox  
-bool chooseFilesDlg::isHidden(std::string const& image) const {
+bool ChooseFilesDlg::isHidden(std::string const& image) const {
 
   int row = imageRow(image);
   QTableWidgetItem *item = m_filesTable->item(row, 0);
@@ -144,27 +144,27 @@ bool chooseFilesDlg::isHidden(std::string const& image) const {
 }
 
 // Hide the given image  
-void chooseFilesDlg::hide(std::string const& image) {
+void ChooseFilesDlg::hide(std::string const& image) {
   int image_id = imageRow(image);
-  chooseFilesDlg::hide(image_id);
+  ChooseFilesDlg::hide(image_id);
 }
-void chooseFilesDlg::hide(int image_id) {
+void ChooseFilesDlg::hide(int image_id) {
   QTableWidgetItem *item = m_filesTable->item(image_id, 0);
   item->setCheckState(Qt::Unchecked);
 }
 
 // Show the given image by turning on the checkbox in the table
-void chooseFilesDlg::unhide(std::string const& image) {
+void ChooseFilesDlg::unhide(std::string const& image) {
   int image_id = imageRow(image);
-  chooseFilesDlg::unhide(image_id);
+  ChooseFilesDlg::unhide(image_id);
 }
-void chooseFilesDlg::unhide(int image_id) {
+void ChooseFilesDlg::unhide(int image_id) {
   QTableWidgetItem *item = m_filesTable->item(image_id, 0);
   item->setCheckState(Qt::Checked);
 }
 
 // Show this many of the first several input images
-void chooseFilesDlg::setNumImagesToShow(int num) {
+void ChooseFilesDlg::setNumImagesToShow(int num) {
 
   int rows = m_filesTable->rowCount();
   for (int row = 0; row < std::min(num, rows); row++) {
@@ -178,7 +178,7 @@ void chooseFilesDlg::setNumImagesToShow(int num) {
 }
   
 // Show all images
-void chooseFilesDlg::showAllImages() {
+void ChooseFilesDlg::showAllImages() {
   int rows = m_filesTable->rowCount();
   for (int row = 0; row < rows; row++) {
     QTableWidgetItem *item = m_filesTable->item(row, 0);
@@ -187,7 +187,7 @@ void chooseFilesDlg::showAllImages() {
 }
 
 // Number of images being shown
-int chooseFilesDlg::numShown() {
+int ChooseFilesDlg::numShown() {
   int num = 0;
   int rows = m_filesTable->rowCount();
   for (int row = 0; row < rows; row++) {
@@ -199,7 +199,7 @@ int chooseFilesDlg::numShown() {
 }
 
 // If some images are shown, hide all. Else, show all.
-void chooseFilesDlg::hideShowAll() {
+void ChooseFilesDlg::hideShowAll() {
 
   int rows = m_filesTable->rowCount();
 
@@ -229,7 +229,7 @@ void chooseFilesDlg::hideShowAll() {
   hScrollBar->triggerAction(QScrollBar::SliderToMinimum);
 }
 
-void chooseFilesDlg::viewOtherImage(int delta) {
+void ChooseFilesDlg::viewOtherImage(int delta) {
   if (delta != -1 && delta != 1) 
     return;
   
@@ -271,7 +271,7 @@ void chooseFilesDlg::viewOtherImage(int delta) {
   vw_out() << "Image: " << shownRow + 1  << ' ' << fileName << "\n";
 }
   
-void chooseFilesDlg::keyPressEvent(QKeyEvent *event) {
+void ChooseFilesDlg::keyPressEvent(QKeyEvent *event) {
   // std::cout << "Key was pressed " << event->key() << std::endl;
 }
 

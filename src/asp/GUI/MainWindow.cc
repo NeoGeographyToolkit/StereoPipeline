@@ -27,7 +27,7 @@
 #include <asp/GUI/GuiArgs.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/GUI/chooseFilesDlg.h>
+#include <asp/GUI/ChooseFilesDlg.h>
 #include <asp/GUI/ColorAxes.h>
 #include <asp/Core/GCP.h>
 #include <asp/Core/Nvm.h>
@@ -55,7 +55,7 @@ using namespace vw;
 namespace fs = boost::filesystem;
 
 // Need this class to manage what happens when keys are pressed while
-// the chooseFilesDlg table is in focus. Do not let it accept key
+// the ChooseFilesDlg table is in focus. Do not let it accept key
 // strokes, which just end up editing the table entries, but rather
 // pass them to the main program event filter.
 class chooseFilesFilterDelegate: public QStyledItemDelegate {
@@ -303,7 +303,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
     forceQuit();
 
   // For being able to choose which files to show/hide
-  m_chooseFiles = new chooseFilesDlg(this);
+  m_chooseFiles = new ChooseFilesDlg(this);
   m_chooseFiles->chooseFiles(app_data.image_files);
   // See note at chooseFilesFilterDelegate
   m_chooseFiles->getFilesTable()->setItemDelegate(new chooseFilesFilterDelegate(this));

@@ -47,7 +47,7 @@ namespace asp {
 enum ViewType {VIEW_SIDE_BY_SIDE, VIEW_IN_SINGLE_WINDOW, VIEW_AS_TILES_ON_GRID};
 
 class MainWidget;
-class chooseFilesDlg;
+class ChooseFilesDlg;
 
 /// This class handles the menus at the top bar and other application level details.
 class MainWindow : public QMainWindow {
@@ -148,7 +148,7 @@ private:
   std::string               m_output_prefix;
   double                    m_widRatio;    // ratio of sidebar to entire win wid
   std::vector<QWidget*>     m_widgets;     // one of these for each separate image pane.
-  chooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
+  ChooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
 
   QMenu *m_file_menu;
   QMenu *m_view_menu;
