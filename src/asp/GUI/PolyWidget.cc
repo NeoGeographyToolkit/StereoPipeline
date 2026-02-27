@@ -684,6 +684,14 @@ void MainWidget::plotPolys(QPainter & paint) {
       MainWidget::plotPoly(plotPoints, plotEdges, m_menu_mgr->m_showPolysFilled->isChecked(),
                             m_menu_mgr->m_showIndices->isChecked(), m_lineWidth, drawVertIndex,
                             QColor(colors[0].c_str()), paint, poly);
+
+      // Show a small square at the first vertex of the in-progress polygon
+      // so the user can see where to click to close it
+      if (currDrawnPoly && !m_currPolyX.empty()) {
+        vw::Vector2 S = world2screen(m_startPix);
+        drawOneVertex(S.x(), S.y(), QColor(m_polyColor.c_str()),
+                      m_lineWidth, 1, paint);
+      }
     }
   } // end iterating over polygons for all images
 }
