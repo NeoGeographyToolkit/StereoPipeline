@@ -38,16 +38,11 @@ TemporaryFiles& temporary_files() {
   return *temporary_files_ptr;
 }
 
-// Form a QImage to show on screen. For scalar images, we scale them
-// and handle the nodata val. For two channel images, interpret the
-// second channel as mask. If there are 3 or more channels,
-// interpret those as RGB.
-
-template<class PixelT>
-typename boost::enable_if<boost::is_same<PixelT,double>, void>::type
-formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-           vw::Vector2 const& approx_bounds,
-           ImageView<PixelT> const& clip, QImage & qimg) {
+// Form a QImage to show on screen from a single-channel double image.
+// Scale pixel values to [0, 255] and handle nodata.
+void formQimageDouble(bool highlight_nodata, double nodata_val,
+                      vw::Vector2 const& approx_bounds,
+                      ImageView<double> const& clip, QImage & qimg) {
 
   double min_val = approx_bounds[0];
   double max_val = approx_bounds[1];
@@ -58,60 +53,42 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
   for (int col = 0; col < clip.cols(); col++) {
     for (int row = 0; row < clip.rows(); row++) {
 
-      double v = clip(col, row);
-      if (scale_pixels)
-        v = round(255*(std::max(v, min_val) - min_val)/(max_val-min_val));
-
-      v = std::min(std::max(0.0, v), 255.0);
-
       if (clip(col, row) == nodata_val || std::isnan(clip(col, row))) {
-
-        if (!highlight_nodata) {
-          // transparent
+        if (!highlight_nodata)
           qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
-        } else {
-          // highlight in red
+        else
           qimg.setPixel(col, row, qRgb(255, 0, 0));
-        }
-
-      } else {
-        // opaque
-        qimg.setPixel(col, row, QColor(v, v, v, 255).rgba());
+        continue;
       }
+
+      double v = clip(col, row);
+      v = round(255 * (std::max(v, min_val) - min_val) / (max_val - min_val));
+      v = std::min(std::max(0.0, v), 255.0);
+      qimg.setPixel(col, row, QColor(v, v, v, 255).rgba());
     }
   }
-
-  return;
 }
 
-template<class PixelT>
-typename boost::enable_if<boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>, void>::type
-formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-           vw::Vector2 const& approx_bounds,
-           ImageView<PixelT> const& clip, QImage & qimg) {
+// Form a QImage from a two-channel uint8 image (grayscale + mask).
+void formQimageGrayAlpha(ImageView<Vector<vw::uint8, 2>> const& clip,
+                         QImage & qimg) {
 
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
   #pragma omp parallel for
   for (int col = 0; col < clip.cols(); col++) {
     for (int row = 0; row < clip.rows(); row++) {
       Vector<vw::uint8, 2> v = clip(col, row);
-      if (v[1] > 0 && v == v) { // need the latter for NaN
-        // opaque grayscale
+      if (v[1] > 0 && v == v) // need the latter for NaN
         qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba());
-      } else {
-        // transparent
+      else
         qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
-      }
     }
   }
 }
 
+// Form a QImage from a 3 or 4 channel uint8 image (RGB or RGBA).
 template<class PixelT>
-typename boost::disable_if<boost::mpl::or_<boost::is_same<PixelT,double>,
-                                            boost::is_same<PixelT, vw::Vector<vw::uint8, 2>>>, void>::type
-formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
-           vw::Vector2 const& approx_bounds,
-           ImageView<PixelT> const& clip, QImage & qimg) {
+void formQimageRGB(ImageView<PixelT> const& clip, QImage & qimg) {
 
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
 
@@ -121,11 +98,11 @@ formQimage(bool highlight_nodata, bool scale_pixels, double nodata_val,
       PixelT v = clip(col, row);
       if (v != v) // NaN, set to transparent
         qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
-      else if (v.size() == 3) // color
+      else if (v.size() == 3)
         qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255).rgba());
-      else if (v.size() > 3) // color or transparent
+      else if (v.size() > 3)
         qimg.setPixel(col, row, QColor(v[0], v[1], v[2], 255*(v[3] > 0)).rgba());
-      else // grayscale
+      else
         qimg.setPixel(col, row, QColor(v[0], v[0], v[0], 255).rgba());
     }
   }
@@ -232,7 +209,6 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
                   bool highlight_nodata,
                   QImage & qimg, double & scale_out, vw::BBox2i & region_out) const{
 
-  bool scale_pixels = (m_type == CH1_DOUBLE);
   vw::Vector2 approx_bounds;
 
   // Extract the clip, then convert it from VW format to QImage format.
@@ -266,8 +242,8 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw2;
     //sw2.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch1_double.get_nodata_val(),
-               approx_bounds, clip, qimg);
+    formQimageDouble(highlight_nodata, m_img_ch1_double.get_nodata_val(),
+                     approx_bounds, clip, qimg);
     //sw2.stop();
     //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
   } else if (m_type == CH2_UINT8) {
@@ -282,8 +258,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw5;
     //sw5.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch2_uint8.get_nodata_val(),
-               approx_bounds, clip, qimg);
+    formQimageGrayAlpha(clip, qimg);
     //sw5.stop();
     //vw_out() << "Render time sw5 (seconds): " << sw5.elapsed_seconds() << std::endl;
 
@@ -298,8 +273,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw7;
     //sw7.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch3_uint8.get_nodata_val(),
-               approx_bounds, clip, qimg);
+    formQimageRGB(clip, qimg);
     //sw7.stop();
     //vw_out() << "Render time sw7 (seconds): " << sw7.elapsed_seconds() << std::endl;
 
@@ -314,8 +288,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
 
     //Stopwatch sw9;
     //sw9.start();
-    formQimage(highlight_nodata, scale_pixels, m_img_ch4_uint8.get_nodata_val(),
-               approx_bounds, clip, qimg);
+    formQimageRGB(clip, qimg);
     //sw9.stop();
     //vw_out() << "Render time sw9 (seconds): " << sw9.elapsed_seconds() << std::endl;
   } else {
