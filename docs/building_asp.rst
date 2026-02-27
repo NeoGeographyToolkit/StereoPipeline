@@ -216,8 +216,8 @@ Building the documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ASP documentation is written in ReStructured Text and is built
-with the Sphinx-Doc system (https://www.sphinx-doc.org) with 
-sphinxcontrib-bibtex (https://sphinxcontrib-bibtex.readthedocs.io).
+with `Sphinx <https://www.sphinx-doc.org>`_ and
+`sphinxcontrib-bibtex <https://sphinxcontrib-bibtex.readthedocs.io>`_.
 
 Documentation for the latest build and latest release is available online
 at https://stereopipeline.readthedocs.io/en/latest/.
