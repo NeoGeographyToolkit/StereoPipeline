@@ -164,7 +164,7 @@ void findSpatialBounds(imageData const& image,
 
   } else {
 
-    vw::mosaic::DiskImagePyramid<double> const& img = image.img.m_img_ch1_double;
+    vw::mosaic::DiskImagePyramid<double> const& img = image.img().m_img_ch1_double;
     min_x = 0;
     min_y = 0;
     max_x = std::max(img.cols() - 1, 1);
@@ -196,7 +196,7 @@ void calcLowResMinMax(imageData const& image, double nodata_val,
   if (poly_or_xyz) // will not get here
     vw_throw(ArgumentErr() << "Expecting an image, not scattered points.\n");
 
-  ImageView<double> lowres_img = image.img.m_img_ch1_double.pyramid().back();
+  ImageView<double> lowres_img = image.img().m_img_ch1_double.pyramid().back();
   min_val = std::numeric_limits<double>::max();
   max_val = -min_val;
   for (int col = 0; col < lowres_img.cols(); col++) {
@@ -218,7 +218,7 @@ void calcLowResMinMax(imageData const& image, double nodata_val,
   }
 
   // TODO(oalexan1): Integrate this with formQimage logic.
-  Vector2 approx_bounds = image.img.m_img_ch1_double.approx_bounds();
+  Vector2 approx_bounds = image.img().m_img_ch1_double.approx_bounds();
   min_val = std::max(min_val, approx_bounds[0]);
   max_val = std::min(max_val, approx_bounds[1]);
 
@@ -280,7 +280,7 @@ ColorAxesData(imageData & image, double min_x, double min_y, double max_x, doubl
     if (std::isnan(m_min_val) || std::isnan(m_max_val))
       findRobustBounds(m_image.scattered_data, m_min_val, m_max_val);
   } else {
-    auto const& img = m_image.img.m_img_ch1_double;
+    auto const& img = m_image.img().m_img_ch1_double;
     if (img.planes() != 1)
       vw::vw_throw(vw::ArgumentErr()
         << "Only images with one channel can be colorized.\n"); // should not be reached
@@ -332,7 +332,7 @@ void prepareClip(double x0, double y0, double x1, double y1, QSize const& imageS
   scale *= 1.3;
   
   vw::BBox2i region_out;
-  m_image.img.m_img_ch1_double.get_image_clip(scale, image_box, 
+  m_image.img().m_img_ch1_double.get_image_clip(scale, image_box,
                                               // Outputs
                                               m_sub_image, m_sub_scale, region_out);
   

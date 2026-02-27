@@ -214,16 +214,9 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
                      std::map<std::string, std::string> const& properties,
                      bool delay_loading) {
 
+  m_variants[display_mode].name = name_in;
   if (display_mode == REGULAR_VIEW)
     name = name_in;
-  else if (display_mode == HILLSHADED_VIEW)
-    hillshaded_name = name_in;
-  else if (display_mode == THRESHOLDED_VIEW)
-    thresholded_name = name_in;
-  else if (display_mode == COLORIZED_VIEW)
-    colorized_name = name_in;
-  else
-    vw::vw_throw(vw::ArgumentErr() << "Unknown display mode.\n");
 
   // TODO(oalexan1): There is no need to make the color a class member,
   // as it is already stored in individual polygons
@@ -325,27 +318,11 @@ void parseCsvHeader(std::string const& file, std::string & wkt,
 void imageData::load() {
 
   // Loaded data need not be reloaded
-  if (m_display_mode == REGULAR_VIEW) {
-    if (loaded_regular)
-      return;
-    vw_out() << "Reading: " << name << "\n";
-    loaded_regular = true;
-  } else if (m_display_mode == HILLSHADED_VIEW) {
-    if (loaded_hillshaded)
-      return;
-    vw_out() << "Reading: " << hillshaded_name << "\n";
-    loaded_hillshaded = true;
-  } else if (m_display_mode == THRESHOLDED_VIEW) {
-    if (loaded_thresholded)
-      return;
-    vw_out() << "Reading: " << thresholded_name << "\n";
-    loaded_thresholded = true;
-  } else if (m_display_mode == COLORIZED_VIEW) {
-    if (loaded_colorized)
-      return;
-    vw_out() << "Reading: " << colorized_name << "\n";
-    loaded_colorized = true;
-  }
+  auto& variant = m_variants[m_display_mode];
+  if (variant.loaded)
+    return;
+  vw_out() << "Reading: " << variant.name << "\n";
+  variant.loaded = true;
 
   std::string default_poly_color = "green"; // default, will be overwritten later
 
@@ -434,22 +411,9 @@ void imageData::load() {
     int top_image_max_pix = TOP_IMAGE_MAX_PIX;
     int subsample = LOAD_SUBSAMPLE;
     has_georef = vw::cartography::read_georeference(georef, name);
-    if (m_display_mode == REGULAR_VIEW) {
-      img = DiskImagePyramidMultiChannel(name, m_opt, top_image_max_pix, subsample);
-      image_bbox = BBox2(0, 0, img.cols(), img.rows());
-    } else if (m_display_mode == HILLSHADED_VIEW) {
-      hillshaded_img = DiskImagePyramidMultiChannel(hillshaded_name, m_opt,
-                                                    top_image_max_pix, subsample);
-      image_bbox = BBox2(0, 0, hillshaded_img.cols(), hillshaded_img.rows());
-    } else if (m_display_mode == THRESHOLDED_VIEW) {
-      thresholded_img = DiskImagePyramidMultiChannel(thresholded_name, m_opt,
-                                                     top_image_max_pix, subsample);
-      image_bbox = BBox2(0, 0, thresholded_img.cols(), thresholded_img.rows());
-    } else if (m_display_mode == COLORIZED_VIEW) {
-      colorized_img = DiskImagePyramidMultiChannel(colorized_name, m_opt,
-                                                     top_image_max_pix, subsample);
-      image_bbox = BBox2(0, 0, colorized_img.cols(), colorized_img.rows());
-    }
+    variant.image = DiskImagePyramidMultiChannel(variant.name, m_opt,
+                                                 top_image_max_pix, subsample);
+    image_bbox = BBox2(0, 0, variant.image.cols(), variant.image.rows());
   }
 }
 

@@ -45,25 +45,43 @@ namespace asp {
   // Return true if the extension is .csv or .txt
   bool hasCsv(std::string const& fileName);
 
+  // An image pyramid and its loaded state for a given display mode
+  struct ImageVariant {
+    std::string name;
+    DiskImagePyramidMultiChannel image;
+    bool loaded = false;
+  };
+
   // A class to keep all data associated with an image file
   class imageData {
   public:
-    std::string      name, hillshaded_name, thresholded_name, colorized_name;
+    std::string      name; // primary filename (REGULAR_VIEW)
     vw::GdalWriteOptions m_opt;
     bool             has_georef;
     vw::cartography::GeoReference georef;
     vw::BBox2        image_bbox;
     vw::Vector2      val_range;
-    bool             loaded_regular, loaded_hillshaded,
-      loaded_thresholded, loaded_colorized; // if the image was loaded
     // There are several display modes. The one being shown is
     // determined by m_display_mode. Store the corresponding
-    // image in one of the structures below
+    // image pyramid and loaded state in m_variants.
     DisplayMode m_display_mode;
-    DiskImagePyramidMultiChannel img;
-    DiskImagePyramidMultiChannel hillshaded_img;
-    DiskImagePyramidMultiChannel thresholded_img;
-    DiskImagePyramidMultiChannel colorized_img;
+    std::map<DisplayMode, ImageVariant> m_variants;
+
+    // Image pyramid for the regular (default) display mode
+    DiskImagePyramidMultiChannel& img() {
+      return m_variants[REGULAR_VIEW].image;
+    }
+    DiskImagePyramidMultiChannel const& img() const {
+      return m_variants.at(REGULAR_VIEW).image;
+    }
+
+    // Image pyramid for the current display mode
+    DiskImagePyramidMultiChannel& currentImg() {
+      return m_variants[m_display_mode].image;
+    }
+    DiskImagePyramidMultiChannel const& currentImg() const {
+      return m_variants.at(m_display_mode).image;
+    }
 
     std::vector<vw::geometry::dPoly> polyVec; // a shapefile
     std::string color; // poly color
@@ -76,11 +94,9 @@ namespace asp {
     std::vector<vw::Vector3> scattered_data;
 
     imageData(): m_display_mode(REGULAR_VIEW), has_georef(false),
-                 loaded_regular(false), loaded_hillshaded(false),
-                 loaded_thresholded(false), loaded_colorized(false),
                  m_isPoly(false), m_isCsv(false), colorbar(false) {}
 
-    // Read an image from disk into img and set the other variables.
+    // Read an image from disk and set the other variables.
     void read(std::string const& image, vw::GdalWriteOptions const& opt,
               DisplayMode display_mode = REGULAR_VIEW,
               std::map<std::string, std::string> const& properties =

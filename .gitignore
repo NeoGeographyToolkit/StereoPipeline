@@ -1,7 +1,9 @@
 # Generally ignorable files.
 *~
 /build
+/build_linux
 /install
+/install_linux
 docs/_build
 GitHubReleases.txt
 

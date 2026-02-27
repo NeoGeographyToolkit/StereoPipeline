@@ -364,14 +364,14 @@ bool MainWidget::contourImage() {
 
   m_polyLayerIndex = non_poly_image;
 
-  int num_channels = app_data.images[m_polyLayerIndex].img.planes();
+  int num_channels = app_data.images[m_polyLayerIndex].img().planes();
   if (num_channels > 1) {
     popUp("Contouring images makes sense only for single-channel images.");
     return false;
   }
 
   if (num_channels == 1)
-    asp::contour_image(app_data.images[m_polyLayerIndex].img, 
+    asp::contour_image(app_data.images[m_polyLayerIndex].img(),
                        app_data.images[m_polyLayerIndex].georef,
                        m_thresh, 
                        app_data.images[m_polyLayerIndex].polyVec);

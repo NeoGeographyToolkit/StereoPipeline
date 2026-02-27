@@ -362,7 +362,7 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
 
     // Do not use max(nodata_val, thresh) as sometimes nodata_val can be larger than data
     nodata_val = m_thresh;
-    int num_channels = app_data.images[image_iter].img.planes();
+    int num_channels = app_data.images[image_iter].img().planes();
 
     if (num_channels != 1) {
       popUp("Thresholding makes sense only for single-channel images.");
@@ -387,7 +387,7 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
                                   has_nodata, nodata_val);
 
     // Read it back right away
-    app_data.images[image_iter].loaded_thresholded = false; // force reload
+    app_data.images[image_iter].m_variants[THRESHOLDED_VIEW].loaded = false; // force reload
     app_data.images[image_iter].read(thresholded_file, m_opt, THRESHOLDED_VIEW);
     temporary_files().files.insert(thresholded_file);
   }
@@ -427,12 +427,12 @@ void MainWidget::maybeGenHillshade() {
     }
 
     std::string input_file = app_data.images[image_iter].name;
-    int num_channels = app_data.images[image_iter].img.planes();
+    int num_channels = app_data.images[image_iter].img().planes();
     if (num_channels != 1) {
       // Turn off hillshade mode for all images which don't support it,
       // or else this error will keep on coming up
       for (int iter2 = 0; iter2 < num_images; iter2++) {
-        int num_channels2 = app_data.images[iter2].img.planes();
+        int num_channels2 = app_data.images[iter2].img().planes();
         if (num_channels2 != 1) {
           // TODO(oalexan1): Do we need a lock here?
           app_data.images[iter2].m_display_mode = REGULAR_VIEW;
@@ -905,19 +905,9 @@ void MainWidget::drawImage(QPainter* paint) {
     }
 
     QImage qimg;
-    if (app_data.images[i].m_display_mode == THRESHOLDED_VIEW) {
-      app_data.images[i].thresholded_img.get_image_clip(scale, image_box,
-                                                  highlight_nodata,
-                                                  qimg, scale_out, region_out);
-    } else if (app_data.images[i].m_display_mode == HILLSHADED_VIEW) {
-      app_data.images[i].hillshaded_img.get_image_clip(scale, image_box,
-                                                highlight_nodata,
-                                                qimg, scale_out, region_out);
-    } else {
-      // Original images
-      app_data.images[i].img.get_image_clip(scale, image_box, highlight_nodata,
-                                     qimg, scale_out, region_out);
-    }
+    app_data.images[i].currentImg().get_image_clip(scale, image_box,
+                                                   highlight_nodata,
+                                                   qimg, scale_out, region_out);
 
     // Draw on image screen
     Stopwatch sw4;
@@ -1424,9 +1414,9 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
 
       int col = floor(q[0]), row = floor(q[1]);
 
-      if (col >= 0 && row >= 0 && col < app_data.images[it].img.cols() &&
-          row < app_data.images[it].img.rows()) {
-        val = app_data.images[it].img.get_value_as_str(col, row);
+      if (col >= 0 && row >= 0 && col < app_data.images[it].img().cols() &&
+          row < app_data.images[it].img().rows()) {
+        val = app_data.images[it].img().get_value_as_str(col, row);
       }
 
       vw_out() << "Pixel and value: " << app_data.images[it].name << " ("
@@ -1441,7 +1431,7 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
           popUp("A profile can be shown only when a single image is present.");
           can_profile = false;
         }
-        int num_channels = app_data.images[it].img.planes();
+        int num_channels = app_data.images[it].img().planes();
         if (num_channels != 1) {
           popUp("A profile can be shown only when the image has a single channel.");
           can_profile = false;
@@ -1516,7 +1506,7 @@ void MainWidget::handleThresholdClick(int mouseRelX, int mouseRelY) {
     return;
   }
 
-  if (app_data.images[m_beg_image_id].img.planes() != 1) {
+  if (app_data.images[m_beg_image_id].img().planes() != 1) {
     popUp("Thresholding makes sense only for single-channel images.");
     m_thresh_calc_mode = false;
     return;
@@ -1536,9 +1526,9 @@ void MainWidget::handleThresholdClick(int mouseRelX, int mouseRelY) {
   vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
 
   if (col >= 0 && row >= 0 &&
-      col < app_data.images[m_beg_image_id].img.cols() &&
-      row < app_data.images[m_beg_image_id].img.rows()) {
-    double val = app_data.images[m_beg_image_id].img.get_value_as_double(
+      col < app_data.images[m_beg_image_id].img().cols() &&
+      row < app_data.images[m_beg_image_id].img().rows()) {
+    double val = app_data.images[m_beg_image_id].img().get_value_as_double(
       col, row);
     m_thresh = std::max(m_thresh, val);
   }
@@ -2007,8 +1997,8 @@ void MainWidget::hideImagesNotInRegion() {
     int image_it = m_filesOrder[j];
     std::string fileName = app_data.images[image_it].name;
     BBox2i image_box = app_data.world2image_trans(m_stereoCropWin, image_it);
-    image_box.crop(BBox2(0, 0, app_data.images[image_it].img.cols(),
-                          app_data.images[image_it].img.rows()));
+    image_box.crop(BBox2(0, 0, app_data.images[image_it].img().cols(),
+                          app_data.images[image_it].img().rows()));
 
     if (image_box.empty())
       m_chooseFiles->hide(fileName);

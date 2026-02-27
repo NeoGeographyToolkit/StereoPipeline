@@ -449,7 +449,7 @@ void MainWindow::createLayout() {
       QWidget * widget = NULL;
       int beg_image_id = i, end_image_id = i + 1;
       if (!app_data.images[i].colorbar ||
-          previewOrSideBySideWithDialog() || app_data.images[i].img.planes() > 1) {
+          previewOrSideBySideWithDialog() || app_data.images[i].img().planes() > 1) {
         // regular plot
         widget = new MainWidget(centralWidget,
                                 m_opt,

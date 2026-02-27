@@ -41,7 +41,7 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
     m_profilePlot = new ProfilePlotter(this);
 
   int imgInd = m_beg_image_id; // just one image is present
-  double nodata_val = images[imgInd].img.get_nodata_val();
+  double nodata_val = images[imgInd].img().get_nodata_val();
 
   m_valsX.clear(); m_valsY.clear();
   int count = 0;
@@ -72,12 +72,12 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
       double t = double(p)/seg_len;
       int x = round(begX + t*(endX - begX));
       int y = round(begY + t*(endY - begY));
-      bool is_in = (x >= 0 && x <= images[imgInd].img.cols()-1 &&
-                    y >= 0 && y <= images[imgInd].img.rows()-1);
+      bool is_in = (x >= 0 && x <= images[imgInd].img().cols()-1 &&
+                    y >= 0 && y <= images[imgInd].img().rows()-1);
       if (!is_in)
         continue;
 
-      double pixel_val = images[imgInd].img.get_value_as_double(x, y);
+      double pixel_val = images[imgInd].img().get_value_as_double(x, y);
 
       // TODO: Deal with this NAN
       if (pixel_val == nodata_val)
