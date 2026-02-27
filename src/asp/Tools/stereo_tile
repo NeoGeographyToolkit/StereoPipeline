@@ -117,7 +117,7 @@ def runPoint2dem(tilePrefix, opt):
 
 if __name__ == '__main__':
     usage = '''stereo_tile [options] <images> [<cameras>]
-                  <output_file_prefix>
+                  <output_prefix>
         Process a single tile for distributed stereo.\n''' + asp_system_utils.get_asp_version()
 
     p = argparse.ArgumentParser(usage=usage)

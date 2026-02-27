@@ -81,7 +81,7 @@ void parseStereoGuiArgs(int argc, char *argv[], ASPGlobalOptions& opt,
     ("input-files", po::value< std::vector<std::string> >(), "Input files");
   positional_desc.add("input-files", -1);
 
-  std::string usage = "[options] <images> <output_file_prefix>";
+  std::string usage = "[options] <images> <output_prefix>";
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm = asp::check_command_line(argc, argv, opt, general_options,

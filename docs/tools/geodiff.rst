@@ -15,7 +15,7 @@ second.
 
 Usage::
 
-    geodiff [options] <dem1> <dem2> [ -o output_file_prefix ]
+    geodiff [options] <dem1> <dem2> [ -o output_prefix ]
 
 Examples
 ~~~~~~~~

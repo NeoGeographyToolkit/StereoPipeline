@@ -14,7 +14,7 @@ Use as stereo front-end
 
 This program can be invoked just as ``parallel_stereo``::
 
-    stereo_gui [options] <images> [<cameras>] output_file_prefix [dem]
+    stereo_gui [options] <images> [<cameras>] output_prefix [dem]
 
 Here is an example when using RPC cameras::
  
@@ -185,6 +185,8 @@ The range of intensities of each colorized image is computed automatically.
 Right-click in each image to adjust this range. The ``--min`` and ``--max``
 options will set values for these that will apply to all images.
 
+Colorization works as well with overlaid and georeferenced images.
+
 .. figure:: ../images/colorbar_axes.png
    :name: colorbar_axes_fig
    :alt: colorbar_axes_fig.
@@ -293,7 +295,8 @@ Plain-text polygon files
 The ``stereo_gui`` program can overlay plain-text polygon files on top of
 images, such as::
 
-    stereo_gui --use-georef --single-window poly1.txt poly2.txt image.tif
+    stereo_gui --use-georef --single-window \
+        poly1.txt poly2.txt image.tif
 
 if each of these has georeference (and csv format) information. That is the
 case when the polygons were created in the GUI and saved to disk. 
@@ -302,8 +305,8 @@ This polygon format is described in :numref:`poly_files`.
 To display polygons from any text file, additional options should be specified,
 such as::
 
-  stereo_gui --style poly --csv-format 1:lon,2:lat \
-    --csv-datum D_MOON poly.csv
+    stereo_gui --style poly --csv-format 1:lon,2:lat \
+        --csv-datum D_MOON poly.csv
 
 If such a file has multiple columns, the indices above can be changed
 to the ones desired to plot. Files having Easting-Northing information

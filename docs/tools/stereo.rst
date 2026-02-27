@@ -14,7 +14,7 @@ block matching algorithm (``ASP_BM``). It is suggested to use instead
 
 Usage::
 
-    stereo [options] <images> [<cameras>] <output_file_prefix>
+    stereo [options] <images> [<cameras>] <output_prefix>
 
 Example (for ISIS)::
 

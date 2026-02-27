@@ -760,7 +760,7 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
                    positional_options, positional_desc);
 
   usage =
-   "[options] <images> [<cameras>] <output_file_prefix> [DEM]\n"
+   "[options] <images> [<cameras>] <output_prefix> [DEM]\n"
    "  Extensions are automatically added to the output files.\n"
    "  Camera model arguments may be optional for some stereo session types (e.g., isis).\n"
    "  Stereo parameters should be set in the stereo.default file.";

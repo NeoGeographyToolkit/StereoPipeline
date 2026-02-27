@@ -17,7 +17,7 @@ size, with the size set either in pixels or in georeferenced (projected)
 units. The default tile size is large enough that normally the entire
 mosaic is saved as one tile, named as::
 
-    output_file_prefix-tile-0.tif
+    output_prefix-tile-0.tif
 
 Alternatively, one can pass to the ``-o`` option an output file, such
 as ``output.tif``. Then the mosaic will be written with this exact
@@ -282,11 +282,11 @@ Usage
 
 ::
 
-     dem_mosaic [options] <dem files> -o output_file_prefix
+     dem_mosaic [options] <dem files> -o output_prefix
 
 or::
 
-     dem_mosaic [options] -l dem_files_list.txt -o output_file_prefix
+     dem_mosaic [options] -l dem_files_list.txt -o output_prefix
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~

@@ -17,7 +17,7 @@ using ssh without password and that they share the same storage space.
 
 Usage::
 
-    parallel_stereo [options] <images> [<cameras>] <output_file_prefix>
+    parallel_stereo [options] <images> [<cameras>] <output_prefix>
 
 See :numref:`tutorial` for more details. Many examples of this
 program are in :numref:`examples`.

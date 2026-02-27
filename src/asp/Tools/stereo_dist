@@ -45,7 +45,7 @@ if 'ASP_LIBRARY_PATH' in os.environ:
 
 if __name__ == '__main__':
     usage = '''stereo_dist [options] <images> [<cameras>]
-                  <output_file_prefix>
+                  <output_prefix>
         Distributed stereo processing.\n''' + asp_system_utils.get_asp_version()
 
     p = argparse.ArgumentParser(usage=usage)
