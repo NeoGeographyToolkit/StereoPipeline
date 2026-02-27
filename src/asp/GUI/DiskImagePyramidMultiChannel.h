@@ -48,9 +48,9 @@
 #include <list>
 #include <set>
 
-namespace vw { namespace cm {
+namespace vw {
   class Colormap;
-}}
+}
 
 namespace asp {
 
@@ -91,7 +91,7 @@ namespace asp {
     // How we create it, depends on the type of image we want to display.
     void get_image_clip(double scale_in, vw::BBox2i region_in,
                         bool highlight_nodata,
-                        vw::cm::Colormap const* colormap,
+                        vw::Colormap const* colormap,
                         QImage & qimg, double & scale_out,
                         vw::BBox2i & region_out) const;
     double get_nodata_val() const;

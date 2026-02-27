@@ -86,10 +86,10 @@ QRectF expand_box_to_aspect_ratio(QRectF const& in_box, double aspect_ratio) {
 }
 
 // The background will be set to black. This will be used in a few places
-vw::cm::Vector3u bgColor(0, 0, 0);
+vw::Vector3u bgColor(0, 0, 0);
 
 // Small auxiliary function
-inline QColor rgb2color(vw::cm::Vector3u const& c) {
+inline QColor rgb2color(vw::Vector3u const& c) {
   return QColor(c[0], c[1], c[2]);
 }
 
@@ -101,7 +101,7 @@ public:
   LutColormap() {}
 
   // Custom constructor
-  LutColormap(std::map<float, vw::cm::Vector3u> const& lut_map) {
+  LutColormap(std::map<float, vw::Vector3u> const& lut_map) {
     // Sanity check: the first and last color keys must be 0 and 1.
     if (lut_map.empty() || lut_map.begin()->first != 0.0 || lut_map.rbegin()->first != 1.0)
       popUp("First colormap stop must be at 0.0 and last at 1.0.");
@@ -539,13 +539,13 @@ ColorAxes::ColorAxes(QWidget *parent,
   m_plotter->setRenderThreadCount(0);
 
   // Parse and set the colormap
-  std::map<float, vw::cm::Vector3u> lut_map;
+  std::map<float, vw::Vector3u> lut_map;
   try {
-    vw::cm::parse_color_style(app_data.images[m_beg_image_id].colormap, lut_map);
+    vw::parse_color_style(app_data.images[m_beg_image_id].colormap, lut_map);
   } catch (...) {
     popUp("Unknown colormap style: " +  app_data.images[m_beg_image_id].colormap);
     app_data.images[m_beg_image_id].colormap = "binary-red-blue"; // fallback to this
-    vw::cm::parse_color_style(app_data.images[m_beg_image_id].colormap, lut_map);
+    vw::parse_color_style(app_data.images[m_beg_image_id].colormap, lut_map);
   }
   m_plotter->setColorMap(new LutColormap(lut_map));
 

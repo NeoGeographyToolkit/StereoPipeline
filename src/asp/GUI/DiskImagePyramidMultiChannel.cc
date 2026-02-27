@@ -46,7 +46,7 @@ TemporaryFiles& temporary_files() {
 void formQimageDouble(bool highlight_nodata, double nodata_val,
                       vw::Vector2 const& approx_bounds,
                       ImageView<double> const& clip,
-                      vw::cm::Colormap const* colormap,
+                      vw::Colormap const* colormap,
                       QImage & qimg) {
 
   double min_val = approx_bounds[0];
@@ -220,7 +220,7 @@ double DiskImagePyramidMultiChannel::get_nodata_val() const {
 void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
                   vw::BBox2i region_in,
                   bool highlight_nodata,
-                  vw::cm::Colormap const* colormap,
+                  vw::Colormap const* colormap,
                   QImage & qimg, double & scale_out,
                   vw::BBox2i & region_out) const {
 

@@ -521,9 +521,9 @@ void MainWindow::createLayout() {
 
       if (min_val < max_val) {
         // Parse the colormap
-        std::map<float, vw::cm::Vector3u> lut_map;
-        vw::cm::parse_color_style(app_data.images[imgIdx].colormap,
-                                  lut_map);
+        std::map<float, vw::Vector3u> lut_map;
+        vw::parse_color_style(app_data.images[imgIdx].colormap,
+                              lut_map);
 
         // Build a QwtLinearColorMap from the LUT
         auto firstC = lut_map.begin()->second;

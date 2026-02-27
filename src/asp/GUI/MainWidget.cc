@@ -903,17 +903,17 @@ void MainWidget::drawImage(QPainter* paint) {
     }
 
     // Build a colormap if --colorize is active and image has a colormap style
-    vw::cm::Colormap const* colormap_ptr = nullptr;
-    std::map<float, vw::cm::Vector3u> lut_map;
-    vw::cm::Colormap colormap_obj(lut_map); // placeholder, populated below
+    vw::Colormap const* colormap_ptr = nullptr;
+    std::map<float, vw::Vector3u> lut_map;
+    vw::Colormap colormap_obj(lut_map); // placeholder, populated below
     if (asp::stereo_settings().colorize &&
         !app_data.images[i].colormap.empty()) {
       try {
-        vw::cm::parse_color_style(app_data.images[i].colormap, lut_map);
+        vw::parse_color_style(app_data.images[i].colormap, lut_map);
       } catch (...) {
-        vw::cm::parse_color_style("binary-red-blue", lut_map);
+        vw::parse_color_style("binary-red-blue", lut_map);
       }
-      colormap_obj = vw::cm::Colormap(lut_map);
+      colormap_obj = vw::Colormap(lut_map);
       colormap_ptr = &colormap_obj;
     }
 
@@ -966,15 +966,15 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index) {
   if (std::isnan(min_val) || std::isnan(max_val))
     findRobustBounds(app_data.images[image_index].scattered_data, min_val, max_val);
 
-  std::map<float, vw::cm::Vector3u> lut_map;
+  std::map<float, vw::Vector3u> lut_map;
   try {
-    vw::cm::parse_color_style(app_data.images[image_index].colormap, lut_map);
+    vw::parse_color_style(app_data.images[image_index].colormap, lut_map);
   } catch (...) {
     popUp("Unknown colormap style: " + app_data.images[image_index].colormap);
     app_data.images[image_index].colormap = "binary-red-blue";
-    vw::cm::parse_color_style(app_data.images[image_index].colormap, lut_map);
+    vw::parse_color_style(app_data.images[image_index].colormap, lut_map);
   }
-  vw::cm::Colormap colormap(lut_map);
+  vw::Colormap colormap(lut_map);
 
   for (size_t pt_it = 0; pt_it < app_data.images[image_index].scattered_data.size(); pt_it++) {
     auto const& P = app_data.images[image_index].scattered_data[pt_it];
