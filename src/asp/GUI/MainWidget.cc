@@ -862,7 +862,10 @@ void MainWidget::drawImage(QPainter* paint) {
   // For --colorize, compute joint min/max across all images in this widget
   vw::Vector2 joint_bounds(std::numeric_limits<double>::max(),
                            -std::numeric_limits<double>::max());
-  if (asp::stereo_settings().colorize)
+  bool any_colorize = false;
+  for (int i = m_beg_image_id; i < m_end_image_id; i++)
+    any_colorize = any_colorize || app_data.images[i].colorize;
+  if (any_colorize)
     joint_bounds = calcJointBounds(app_data.images,
                                    m_beg_image_id, m_end_image_id);
 
@@ -954,11 +957,10 @@ void MainWidget::drawImage(QPainter* paint) {
       highlight_nodata = false;
     }
 
-    // Build a colormap if --colorize is active and image has a colormap style
+    // Build a colormap if this image has colorize set
     vw::Colormap const* colormap_ptr = nullptr;
     vw::Colormap colormap_obj = buildColormap("binary-red-blue");
-    if (asp::stereo_settings().colorize &&
-        !app_data.images[i].colormap.empty()) {
+    if (app_data.images[i].colorize && !app_data.images[i].colormap.empty()) {
       colormap_obj = buildColormap(app_data.images[i].colormap);
       colormap_ptr = &colormap_obj;
     }
@@ -1039,7 +1041,7 @@ void MainWidget::drawScatteredData(QPainter* paint, int image_index,
       s = 0.0;
 
     QColor c;
-    if (asp::stereo_settings().colorize) {
+    if (app_data.images[image_index].colorize) {
       // Get the color from the colormap
       PixelRGB<uint8> v = colormap(s).child();
       c = QColor(v[0], v[1], v[2]);

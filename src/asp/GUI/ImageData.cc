@@ -223,6 +223,7 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   color = "default";
   style = "default";
   colormap = "binary-red-blue";
+  colorize = false;
   colorbar = false;
 
   m_opt = opt;
@@ -236,6 +237,8 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
       style = it->second; // copy the style (poly, line, points)
     if (it->first == "colormap")
       colormap = it->second; // copy the colormap style (e.g., binary-red-blue)
+    if (it->first == "colorize")
+      colorize = atof(it->second.c_str());
     if (it->first == "colorbar")
       colorbar = atof(it->second.c_str());
   }

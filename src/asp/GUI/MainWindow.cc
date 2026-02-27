@@ -449,8 +449,9 @@ void MainWindow::createLayout() {
   splitter->addWidget(m_chooseFiles);
 
   bool do_colorize = false;
-  for (size_t i = 0; i < app_data.images.size(); i++) 
-    do_colorize = do_colorize || app_data.images[i].colorbar;
+  for (size_t i = 0; i < app_data.images.size(); i++)
+    do_colorize = do_colorize || app_data.images[i].colorize ||
+                  app_data.images[i].colorbar;
   bool delay = !asp::stereo_settings().nvm.empty()       ||
                !asp::stereo_settings().isis_cnet.empty() ||
                 asp::stereo_settings().preview;
@@ -499,12 +500,6 @@ void MainWindow::createLayout() {
 
       int beg_image_id = i, end_image_id = i + 1;
 
-      // When --colorbar is set, enable colorization so MainWidget renders
-      // the image with a colormap, matching the old ColorAxes behavior.
-      if (app_data.images[i].colorbar &&
-          !previewOrSideBySideWithDialog() && app_data.images[i].img().planes() <= 1)
-        stereo_settings().colorize = true;
-
       QWidget * widget = new MainWidget(centralWidget,
                                         m_opt,
                                         beg_image_id, end_image_id,
@@ -538,11 +533,11 @@ void MainWindow::createLayout() {
     int row = i / grid_cols;
     int col = i % grid_cols;
 
-    // For colorize mode, wrap MainWidget + colorbar in a container
+    // When --colorbar is set, wrap MainWidget + colorbar in a container
     QWidget* wid = m_widgets[i];
-    if (mw(m_widgets[i]) && asp::stereo_settings().colorize) {
-      int begIdx = mw(m_widgets[i])->m_beg_image_id;
-      int endIdx = mw(m_widgets[i])->m_end_image_id;
+    int begIdx = mw(m_widgets[i]) ? mw(m_widgets[i])->m_beg_image_id : 0;
+    int endIdx = mw(m_widgets[i]) ? mw(m_widgets[i])->m_end_image_id : 0;
+    if (mw(m_widgets[i]) && app_data.images[begIdx].colorbar) {
       vw::Vector2 bounds = calcJointBounds(app_data.images,
                                            begIdx, endIdx);
       wid = createColorbarLayout(m_widgets[i],

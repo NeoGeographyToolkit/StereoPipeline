@@ -87,14 +87,16 @@ namespace asp {
     std::string color; // poly color
     std::string style; // plotting style
     std::string colormap; // colormap style
-    bool colorbar; // if a given image must be colorized
+    bool colorize; // if a given image must be colorized
+    bool colorbar; // if a colorbar should be shown
 
     // Scattered data to be plotted at (x, y) location with z giving
     // the intensity. May be colorized.
     std::vector<vw::Vector3> scattered_data;
 
     imageData(): m_display_mode(REGULAR_VIEW), has_georef(false),
-                 m_isPoly(false), m_isCsv(false), colorbar(false) {}
+                 m_isPoly(false), m_isCsv(false),
+                 colorize(false), colorbar(false) {}
 
     // Read an image from disk and set the other variables.
     void read(std::string const& image, vw::GdalWriteOptions const& opt,

@@ -101,17 +101,21 @@ parse_match_file.py (:numref:`parse_match_file`):
   * When converting from binary to text, descriptors are no longer saved by
     default. Use the ``--save-descriptors`` option to include them.
     
+stereo_gui (:numref:`stereo_gui`):
+  * The ``--colorize`` and ``--colorbar`` options now work with overlaid and
+    georeferenced images. Added ``--no-colorize`` (:numref:`colorize`).
+
 Misc:
   * Greatly improved the speed of parsing WorldView XML camera files.
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
-    triangulation in stereo and bundle adjustment. 
+    triangulation in stereo and bundle adjustment.
   * Added the option ``--bathy-plane-list`` to supplement ``--bathy-plane``
     to various programs.
   * Removed the old qi2txt program for reading IceBridge QFIT binary data.
   * Removed unused quad-tree tile generators and visualization formats (TOAST,
     Celestia, Gigapan, GMap, TMS, Uniview) from VisionWorkbench. Only KML is
     kept for ``image2qtree``.
-  * Do not use more than 128 threads in ``parallel_stereo``, as OpenBlas 
+  * Do not use more than 128 threads in ``parallel_stereo``, as OpenBlas
     fails then.
   * Removed the undocumented ``dem_mosaic`` options ``--first-dem-as-reference``
     and ``--this-dem-as-reference``.

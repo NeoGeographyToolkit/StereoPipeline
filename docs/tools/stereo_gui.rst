@@ -95,8 +95,8 @@ The ``stereo_gui`` program can:
 
   - Create and show hillshaded DEMs (:numref:`stereo_gui_hillshade`).
    
-  - Colorize images on-the-fly and show them with a
-    colorbar and axes (:numref:`colorize`).
+  - Colorize images on-the-fly (``--colorize``) and optionally show a
+    colorbar with axes (``--colorbar``). See :numref:`colorize`.
 
   - Display the output of the ASP ``colormap`` and ``hillshade`` tools
     (:numref:`colormap`, :numref:`hillshade`).
@@ -153,10 +153,14 @@ Displaying colorized images, with a colorbar and axes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``stereo_gui`` can have images be colorized on-the-fly by mapping intensities to
-colors of a given colormap. The results are plotted with a colorbar and axes
-(with ticks). 
+colors of a given colormap. Optionally, a colorbar with axes (ticks) can be
+shown next to each image.
 
-CSV files can be shown with a colorbar as well.
+CSV files can be colorized as well.
+
+The ``--colorize`` and ``--colorbar`` flags are per-image with sticky semantics:
+each applies to all subsequent images until turned off by ``--no-colorize`` or
+``--no-colorbar``. The ``--colorbar`` flag implies ``--colorize``.
 
 An example invocation is as follows::
 
@@ -168,14 +172,13 @@ An example invocation is as follows::
       --no-colorbar                    \
       img3.tif
 
-This will colorize the first image using the ``inferno`` colormap, the
-second one with the ``binary-red-blue`` colormap, and will not
-colorize the third one. See :numref:`colormap` for the full list of
-colormaps. 
+This will colorize the first two images (with colorbar) using the ``inferno``
+and ``binary-red-blue`` colormaps respectively. The third image is still
+colorized (because ``--no-colorbar`` does not turn off colorization) but has
+no colorbar. Use ``--no-colorize`` to fully turn off colorization. See
+:numref:`colormap` for the full list of colormaps.
 
-The ``--colorbar`` option applies to all subsequent images until
-``--no-colorbar`` is encountered, and vice-versa. Each 
-``--colormap-style`` option also applies to all subsequent images until
+Each ``--colormap-style`` option also applies to all subsequent images until
 overridden by this option with another value.
 
 The range of intensities of each colorized image is computed automatically.
@@ -197,8 +200,9 @@ View scattered points
 
 ``stereo_gui`` can plot and colorize scattered points stored in CSV files, and
 overlay them on top of images or each other. Each point will show up as a dot
-with a radius given by ``--plot-point-radius``. A colorbar and axes can be shown
-as well (:numref:`scattered_points_colorbar`).
+with a radius given by ``--plot-point-radius``. Use ``--colorize`` or
+``--colorbar`` to enable colorization. A colorbar and axes can be shown as
+well (:numref:`scattered_points_colorbar`).
 
 Here is an example of plotting the final ``*pointmap.csv``
 residuals created by ``bundle_adjust`` for each interest point
@@ -245,9 +249,9 @@ projection, and use for the CSV format a string such as::
    :name: scattered_points_colorbar
    :alt:  scattered_points_colorbar
 
-   A colorized CSV file with a colorbar and axes. This uses the  ``--colorbar``
-   option. For the moment, several datasets with colorbars can only be displayed
-   side-by-side (:numref:`colorize`).
+   A colorized CSV file with a colorbar and axes. This uses the ``--colorbar``
+   option. Datasets with colorbars are displayed side-by-side
+   (:numref:`colorize`).
 
 .. _plot_poly:
 
@@ -894,17 +898,23 @@ accept all other ``parallel_stereo`` options as well.
     Zoom all images to the same region. Also accessible from the *View* menu.
 
 --colorize
-    Colorize input CSV files (must set ``--min`` and ``--max``).
+    Colorize all images and/or CSV files after this option until
+    ``--no-colorize`` is encountered. Per-image flag with sticky
+    semantics (:numref:`colorize`).
+
+--no-colorize
+    Turn off colorization for subsequent images, until ``--colorize``
+    or ``--colorbar`` is encountered.
 
 --colorbar
-    Colorize all images and/or csv files after this option until the
-    ``--no-colorbar`` option is encountered. Show these images with a colorbar
-    and axes (:numref:`colorize`). Right-click in each image to adjust the
-    range of intensities to colorize.
+    Colorize all images and/or CSV files after this option until
+    ``--no-colorbar`` is encountered, and show a colorbar with axes
+    (:numref:`colorize`). Implies ``--colorize``. Right-click in each
+    image to adjust the range of intensities to colorize.
 
 --no-colorbar
-    Do not colorize any images after this option, until the option 
-    ``--colorbar`` is encountered. 
+    Turn off the colorbar for subsequent images, until ``--colorbar``
+    is encountered. Does not turn off colorization.
 
 --colormap-style <string (default="binary-red-blue")>
     Specify the colormap style. See :numref:`colormap` for options.
@@ -914,14 +924,14 @@ accept all other ``parallel_stereo`` options as well.
 
 --min <double (default = NaN)>
     Value corresponding to 'coldest' color in the color map, when
-    using the ``--colorize`` option and plotting csv data.
+    using ``--colorize`` or ``--colorbar``, and plotting CSV data.
     Also used to manually set the minimum value in grayscale
     images. If not set, use the dataset minimum for
     color images, and estimate the minimum for grayscale images.
 
 --max <double (default = NaN)>
     Value corresponding to the 'hottest' color in the color map, when
-    using the ``--colorize`` option and plotting csv data.
+    using ``--colorize`` or ``--colorbar``, and plotting CSV data.
     Also used to manually set the maximum value in grayscale
     images. If not set, use the dataset maximum for color images, and
     estimate the maximum for grayscale images.

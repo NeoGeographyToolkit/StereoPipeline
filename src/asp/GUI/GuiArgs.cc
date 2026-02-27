@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2006-2024, United States Government as represented by the
+//  Copyright (c) 2006-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -39,6 +39,7 @@ void preprocessArgs(int &argc, char** argv,
   std::string curr_color = "default";
   std::string curr_colormap = "binary-red-blue";
   std::string colorbar = "0";
+  std::string colorize = "0";
   
   // One set of properties for each argument. That to make sure that a filename
   // can show up twice with different properties
@@ -46,9 +47,6 @@ void preprocessArgs(int &argc, char** argv,
   properties.resize(argc);
   for (int it = 1; it < argc; it++) { // skip program name, so start from 1
 
-    // TODO(oalexan1): Add support for --no-colorize, and make this and --colorize
-    // to be able to apply to all subsequent images.
-    
     if (std::string(argv[it]) == "--style") {
       if (it == argc - 1)
         continue; // There is nothing else
@@ -76,15 +74,22 @@ void preprocessArgs(int &argc, char** argv,
       continue;
     }
 
-    // This is an option with no value
+    // Sticky boolean flags with no value
     if (std::string(argv[it]) == "--colorbar") {
       colorbar = "1";
+      colorize = "1"; // --colorbar implies --colorize
       continue;
     }
-
-    // This is an option with no value
     if (std::string(argv[it]) == "--no-colorbar") {
       colorbar = "0";
+      continue;
+    }
+    if (std::string(argv[it]) == "--colorize") {
+      colorize = "1";
+      continue;
+    }
+    if (std::string(argv[it]) == "--no-colorize") {
+      colorize = "0";
       continue;
     }
 
@@ -96,6 +101,7 @@ void preprocessArgs(int &argc, char** argv,
       properties[it]["color"] = curr_color;
       properties[it]["colormap"] = curr_colormap;
       properties[it]["colorbar"] = colorbar;
+      properties[it]["colorize"] = colorize;
     }
     
     // Shift arguments left, which will wipe what we processed above
