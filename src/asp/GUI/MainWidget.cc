@@ -902,10 +902,27 @@ void MainWidget::drawImage(QPainter* paint) {
       highlight_nodata = false;
     }
 
+    // Build a colormap if --colorize is active and image has a colormap style
+    vw::cm::Colormap const* colormap_ptr = nullptr;
+    std::map<float, vw::cm::Vector3u> lut_map;
+    vw::cm::Colormap colormap_obj(lut_map); // placeholder, populated below
+    if (asp::stereo_settings().colorize &&
+        !app_data.images[i].colormap.empty()) {
+      try {
+        vw::cm::parse_color_style(app_data.images[i].colormap, lut_map);
+      } catch (...) {
+        vw::cm::parse_color_style("binary-red-blue", lut_map);
+      }
+      colormap_obj = vw::cm::Colormap(lut_map);
+      colormap_ptr = &colormap_obj;
+    }
+
     QImage qimg;
     app_data.images[i].currentImg().get_image_clip(scale, image_box,
                                                    highlight_nodata,
-                                                   qimg, scale_out, region_out);
+                                                   colormap_ptr,
+                                                   qimg, scale_out,
+                                                   region_out);
 
     // Draw on image screen
     Stopwatch sw4;

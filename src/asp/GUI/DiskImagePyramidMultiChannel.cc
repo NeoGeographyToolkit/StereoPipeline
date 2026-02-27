@@ -17,7 +17,9 @@
 
 #include <asp/GUI/DiskImagePyramidMultiChannel.h>
 #include <asp/Core/StereoSettings.h>
+
 #include <vw/Core/Stopwatch.h>
+#include <vw/Image/Colormap.h>
 #include <QtWidgets>
 
 #include <string>
@@ -39,10 +41,13 @@ TemporaryFiles& temporary_files() {
 }
 
 // Form a QImage to show on screen from a single-channel double image.
-// Scale pixel values to [0, 255] and handle nodata.
+// Scale pixel values to [0, 255] and handle nodata. If colormap is not null,
+// apply it to produce colorized output instead of grayscale.
 void formQimageDouble(bool highlight_nodata, double nodata_val,
                       vw::Vector2 const& approx_bounds,
-                      ImageView<double> const& clip, QImage & qimg) {
+                      ImageView<double> const& clip,
+                      vw::cm::Colormap const* colormap,
+                      QImage & qimg) {
 
   double min_val = approx_bounds[0];
   double max_val = approx_bounds[1];
@@ -62,9 +67,16 @@ void formQimageDouble(bool highlight_nodata, double nodata_val,
       }
 
       double v = clip(col, row);
-      v = round(255 * (std::max(v, min_val) - min_val) / (max_val - min_val));
-      v = std::min(std::max(0.0, v), 255.0);
-      qimg.setPixel(col, row, QColor(v, v, v, 255).rgba());
+      double s = (std::max(v, min_val) - min_val) / (max_val - min_val);
+      s = std::min(std::max(0.0, s), 1.0);
+
+      if (colormap != nullptr) {
+        vw::PixelRGB<vw::uint8> c = (*colormap)(s).child();
+        qimg.setPixel(col, row, QColor(c[0], c[1], c[2], 255).rgba());
+      } else {
+        int gray = round(255.0 * s);
+        qimg.setPixel(col, row, QColor(gray, gray, gray, 255).rgba());
+      }
     }
   }
 }
@@ -205,9 +217,12 @@ double DiskImagePyramidMultiChannel::get_nodata_val() const {
   }
 }
 
-void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i region_in,
+void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
+                  vw::BBox2i region_in,
                   bool highlight_nodata,
-                  QImage & qimg, double & scale_out, vw::BBox2i & region_out) const{
+                  vw::cm::Colormap const* colormap,
+                  QImage & qimg, double & scale_out,
+                  vw::BBox2i & region_out) const {
 
   vw::Vector2 approx_bounds;
 
@@ -243,7 +258,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in, vw::BBox2i re
     //Stopwatch sw2;
     //sw2.start();
     formQimageDouble(highlight_nodata, m_img_ch1_double.get_nodata_val(),
-                     approx_bounds, clip, qimg);
+                     approx_bounds, clip, colormap, qimg);
     //sw2.stop();
     //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
   } else if (m_type == CH2_UINT8) {

@@ -500,17 +500,30 @@ void MainWindow::createLayout() {
     // For colorize mode, wrap MainWidget + colorbar in a container
     if (mw(m_widgets[i]) && asp::stereo_settings().colorize) {
       int imgIdx = mw(m_widgets[i])->m_beg_image_id;
-      if (!app_data.images[imgIdx].scattered_data.empty()) {
-        // Get the value range
-        double min_val = asp::stereo_settings().min;
-        double max_val = asp::stereo_settings().max;
-        if (std::isnan(min_val) || std::isnan(max_val))
+      // Get the value range for the colorbar
+      double min_val = asp::stereo_settings().min;
+      double max_val = asp::stereo_settings().max;
+      if (std::isnan(min_val) || std::isnan(max_val)) {
+        if (!app_data.images[imgIdx].scattered_data.empty())
           findRobustBounds(app_data.images[imgIdx].scattered_data,
                            min_val, max_val);
+        else
+          // Raster image - use the pyramid's approx bounds
+          min_val = max_val = 0.0; // will be overridden below
+      }
+      // For raster images without scattered data and no --min/--max
+      auto const& img = app_data.images[imgIdx].currentImg();
+      if (min_val >= max_val && img.m_type == asp::CH1_DOUBLE) {
+        vw::Vector2 ab = img.m_img_ch1_double.approx_bounds();
+        min_val = ab[0];
+        max_val = ab[1];
+      }
 
+      if (min_val < max_val) {
         // Parse the colormap
         std::map<float, vw::cm::Vector3u> lut_map;
-        vw::cm::parse_color_style(app_data.images[imgIdx].colormap, lut_map);
+        vw::cm::parse_color_style(app_data.images[imgIdx].colormap,
+                                  lut_map);
 
         // Build a QwtLinearColorMap from the LUT
         auto firstC = lut_map.begin()->second;
