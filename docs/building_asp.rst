@@ -224,8 +224,7 @@ at https://stereopipeline.readthedocs.io/en/latest/.
 
 To build the documentation locally, install these packages such as::
 
-    conda create -n sphinx -c conda-forge python=3.11 \
-      sphinx sphinxcontrib-bibtex
+    conda create -n sphinx -c conda-forge sphinx sphinxcontrib-bibtex
     conda activate sphinx
 
 Note that we used a separate conda environment to minimize the chance
