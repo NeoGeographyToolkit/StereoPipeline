@@ -37,13 +37,13 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
   if (images.empty()) return; // nothing to do
 
   // Create the profile window
-  if (m_profilePlot == NULL)
-    m_profilePlot = new ProfilePlotter(this);
+  if (m_profile.plot == NULL)
+    m_profile.plot = new ProfilePlotter(this);
 
   int imgInd = m_beg_image_id; // just one image is present
   double nodata_val = images[imgInd].img().get_nodata_val();
 
-  m_valsX.clear(); m_valsY.clear();
+  m_profile.valsX.clear(); m_profile.valsY.clear();
   int count = 0;
 
   int num_pts = profileX.size();
@@ -82,8 +82,8 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
       // TODO: Deal with this NAN
       if (pixel_val == nodata_val)
         pixel_val = std::numeric_limits<double>::quiet_NaN();
-      m_valsX.push_back(count);
-      m_valsY.push_back(pixel_val);
+      m_profile.valsX.push_back(count);
+      m_profile.valsY.push_back(pixel_val);
       count++;
     }
 
@@ -91,23 +91,23 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
 
   if (num_pts == 1) {
     // Just one point, really
-    m_valsX.resize(1);
-    m_valsY.resize(1);
+    m_profile.valsX.resize(1);
+    m_profile.valsY.resize(1);
   }
 
   // Wipe whatever was there before
-  m_profilePlot->detachItems();
+  m_profile.plot->detachItems();
 
   QwtPlotCurve * curve = new QwtPlotCurve("1D Profile");
-  m_profilePlot->setFixedWidth(300);
-  m_profilePlot->setWindowTitle("1D Profile");
+  m_profile.plot->setFixedWidth(300);
+  m_profile.plot->setWindowTitle("1D Profile");
 
-  if (!m_valsX.empty()) {
+  if (!m_profile.valsX.empty()) {
 
-    double min_x = *std::min_element(m_valsX.begin(), m_valsX.end());
-    double max_x = *std::max_element(m_valsX.begin(), m_valsX.end());
-    double min_y = *std::min_element(m_valsY.begin(), m_valsY.end());
-    double max_y = *std::max_element(m_valsY.begin(), m_valsY.end());
+    double min_x = *std::min_element(m_profile.valsX.begin(), m_profile.valsX.end());
+    double max_x = *std::max_element(m_profile.valsX.begin(), m_profile.valsX.end());
+    double min_y = *std::min_element(m_profile.valsY.begin(), m_profile.valsY.end());
+    double max_y = *std::max_element(m_profile.valsY.begin(), m_profile.valsY.end());
 
     // Ensure the window is always valid
     double small = 0.1;
@@ -123,36 +123,36 @@ void MainWidget::plotProfile(std::vector<imageData> const& images,
       curve->setStyle(QwtPlotCurve::Dots);
     }
 
-    curve->setData(new QwtCPointerData<double>(&m_valsX[0], &m_valsY[0], m_valsX.size()));
+    curve->setData(new QwtCPointerData<double>(&m_profile.valsX[0], &m_profile.valsY[0], m_profile.valsX.size()));
     curve->setPen(* new QPen(Qt::red));
-    curve->attach(m_profilePlot);
+    curve->attach(m_profile.plot);
 
     double delta = 0.1;  // expand a bit right to see more x and y labels
     double widx = max_x - min_x;
     double widy = max_y - min_y;
-    m_profilePlot->setAxisScale(QwtPlot::xBottom, min_x - delta*widx, max_x + delta*widx);
-    m_profilePlot->setAxisScale(QwtPlot::yLeft,   min_y - delta*widy, max_y + delta*widy);
+    m_profile.plot->setAxisScale(QwtPlot::xBottom, min_x - delta*widx, max_x + delta*widx);
+    m_profile.plot->setAxisScale(QwtPlot::yLeft,   min_y - delta*widy, max_y + delta*widy);
   }
 
   // Finally, refresh the plot
-  m_profilePlot->replot();
-  m_profilePlot->show();
+  m_profile.plot->replot();
+  m_profile.plot->show();
 }
 
 void MainWidget::setProfileMode(bool profile_mode) {
-  m_profileMode = profile_mode;
+  m_profile.mode = profile_mode;
 
-  if (!m_profileMode) {
+  if (!m_profile.mode) {
     // Clean up any profiling related info
-    m_profileX.clear();
-    m_profileY.clear();
+    m_profile.x.clear();
+    m_profile.y.clear();
 
     // Close the window.
-    if (m_profilePlot != NULL) {
-      m_profilePlot->close();
-      m_profilePlot->deleteLater();
-      delete m_profilePlot;
-      m_profilePlot = NULL;
+    if (m_profile.plot != NULL) {
+      m_profile.plot->close();
+      m_profile.plot->deleteLater();
+      delete m_profile.plot;
+      m_profile.plot = NULL;
     }
 
     // Call back to the main window and tell it to uncheck the profile
@@ -169,7 +169,7 @@ void MainWidget::setProfileMode(bool profile_mode) {
       app_data.images[it].load();
 
     // Show the profile window
-    MainWidget::plotProfile(app_data.images, m_profileX, m_profileY);
+    MainWidget::plotProfile(app_data.images, m_profile.x, m_profile.y);
   }
 
   refreshPixmap();

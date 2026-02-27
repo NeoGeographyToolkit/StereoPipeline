@@ -356,7 +356,7 @@ bool MainWidget::contourImage() {
   if (num_channels == 1)
     asp::contour_image(app_data.images[m_polyLayerIndex].img(),
                        app_data.images[m_polyLayerIndex].georef,
-                       m_thresh, 
+                       m_threshold.value, 
                        app_data.images[m_polyLayerIndex].polyVec);
 
   // This will call paintEvent which will draw the contour

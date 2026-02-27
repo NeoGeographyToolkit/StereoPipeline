@@ -73,8 +73,8 @@ MainWidget::MainWidget(QWidget *parent,
     m_lineWidth(1), m_polyColor("green"),
     m_firstPaintEvent(false),
     m_emptyRubberBand(QRect(0,0,0,0)), m_rubberBand(QRect(0,0,0,0)),
-    m_cropWinMode(false), m_profileMode(false),
-    m_profilePlot(NULL), m_mousePrsX(0), m_mousePrsY(0),
+    m_cropWinMode(false),
+    m_mousePrsX(0), m_mousePrsY(0),
     m_zoomTimer(new QTimer(this)), m_accumulatedZoomTicks(0.0) { 
 
   connect(m_zoomTimer, &QTimer::timeout, this, &MainWidget::handleZoomTimeout);
@@ -97,12 +97,10 @@ MainWidget::MainWidget(QWidget *parent,
   m_filesOrder.resize(num_images);
 
   // Each image can be hillshaded independently of the other ones
-  m_hillshade_azimuth   = asp::stereo_settings().hillshade_azimuth;
-  m_hillshade_elevation = asp::stereo_settings().hillshade_elevation;
+  m_hillshade.azimuth   = asp::stereo_settings().hillshade_azimuth;
+  m_hillshade.elevation = asp::stereo_settings().hillshade_elevation;
 
-  // Image threshold
-  m_thresh = -std::numeric_limits<double>::max();
-  m_thresh_calc_mode = false;
+  // Image threshold (struct defaults handle initialization)
 
   MainWidget::maybeGenHillshade();
 
@@ -361,7 +359,7 @@ void MainWidget::viewThreshImages(bool refresh_pixmap) {
     vw::read_nodata_val(input_file, nodata_val);
 
     // Do not use max(nodata_val, thresh) as sometimes nodata_val can be larger than data
-    nodata_val = m_thresh;
+    nodata_val = m_threshold.value;
     int num_channels = app_data.images[image_iter].img().planes();
 
     if (num_channels != 1) {
@@ -450,8 +448,8 @@ void MainWidget::maybeGenHillshade() {
     bool have_gui = true;
     bool success = write_hillshade(m_opt,
                                     have_gui,
-                                    m_hillshade_azimuth,
-                                    m_hillshade_elevation,
+                                    m_hillshade.azimuth,
+                                    m_hillshade.elevation,
                                     input_file, hillshaded_file);
 
     if (!success) {
@@ -501,7 +499,7 @@ void MainWidget::toggleHillshadeImageRightClick() {
 }
 
 void MainWidget::refreshHillshade() {
-  m_thresh_calc_mode = false;
+  m_threshold.calcMode = false;
   MainWidget::maybeGenHillshade();
 
   refreshPixmap();
@@ -1118,11 +1116,11 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
   std::string layer  = "";
 
   // Plot the polygonal line which we are profiling
-  if (m_profileMode) {
+  if (m_profile.mode) {
     vw::geometry::dPoly poly;
-    poly.appendPolygon(m_profileX.size(),
-                        vw::geometry::vecPtr(m_profileX),
-                        vw::geometry::vecPtr(m_profileY),
+    poly.appendPolygon(m_profile.x.size(),
+                        vw::geometry::vecPtr(m_profile.x),
+                        vw::geometry::vecPtr(m_profile.y),
                         isPolyClosed, polyColorStr, layer);
     bool showIndices = false;
     MainWidget::plotPoly(plotPoints, plotEdges, plotFilled, showIndices,
@@ -1375,10 +1373,10 @@ void MainWidget::handleRubberBandDrag(int mouseMoveX, int mouseMoveY) {
 // The action to take when a user releases the mouse close to where it was pressed
 void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
 
-  if (!m_thresh_calc_mode) {
+  if (!m_threshold.calcMode) {
 
     Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-    if (!m_profileMode && !m_polyEditMode) {
+    if (!m_profile.mode && !m_polyEditMode) {
       QPainter paint;
       paint.begin(&m_pixmap);
       QPoint Q(mouseRelX, mouseRelY);
@@ -1387,7 +1385,7 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
       paint.end();  // Make sure to end the painting session
     }
 
-    bool can_profile = m_profileMode;
+    bool can_profile = m_profile.mode;
 
     // Print pixel coordinates and image value.
     for (int j = m_beg_image_id; j < m_end_image_id; j++) {
@@ -1414,7 +1412,7 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
 
       update();
 
-      if (m_profileMode) {
+      if (m_profile.mode) {
 
         // Sanity checks
         if (m_end_image_id - m_beg_image_id != 1) {
@@ -1432,21 +1430,21 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
           return;
         }
 
-      } // End if m_profileMode
+      } // End if m_profile.mode
 
     } // end iterating over images
 
     if (can_profile) {
       // Save the current point the user clicked onto in the
       // world coordinate system.
-      m_profileX.push_back(p.x());
-      m_profileY.push_back(p.y());
+      m_profile.x.push_back(p.x());
+      m_profile.y.push_back(p.y());
 
       // PaintEvent() will be called, which will call
       // plotProfilePolyLine() to show the polygonal line.
 
       // Now show the profile.
-      MainWidget::plotProfile(app_data.images, m_profileX, m_profileY);
+      MainWidget::plotProfile(app_data.images, m_profile.x, m_profile.y);
 
       // TODO: Why is this buried in the short distance check?
     } else if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
@@ -1491,21 +1489,21 @@ void MainWidget::handleThresholdClick(int mouseRelX, int mouseRelY) {
   if (m_end_image_id - m_beg_image_id != 1) {
     popUp("Must have just one image in each window to do "
           "image threshold detection.");
-    m_thresh_calc_mode = false;
+    m_threshold.calcMode = false;
     refreshPixmap();
     return;
   }
 
   if (app_data.images[m_beg_image_id].img().planes() != 1) {
     popUp("Thresholding makes sense only for single-channel images.");
-    m_thresh_calc_mode = false;
+    m_threshold.calcMode = false;
     return;
   }
 
   if (app_data.use_georef) {
     popUp("Thresholding is not supported when using georeference "
           "information to show images.");
-    m_thresh_calc_mode = false;
+    m_threshold.calcMode = false;
     return;
   }
 
@@ -1520,12 +1518,12 @@ void MainWidget::handleThresholdClick(int mouseRelX, int mouseRelY) {
       row < app_data.images[m_beg_image_id].img().rows()) {
     double val = app_data.images[m_beg_image_id].img().get_value_as_double(
       col, row);
-    m_thresh = std::max(m_thresh, val);
+    m_threshold.value = std::max(m_threshold.value, val);
   }
 
   vw_out() << "Image threshold for "
             << app_data.images[m_beg_image_id].name
-            << ": " << m_thresh << std::endl;
+            << ": " << m_threshold.value << std::endl;
 }
 
 // Handle crop win in mouse release event
@@ -2006,7 +2004,7 @@ void MainWidget::setThreshold() {
 
   std::ostringstream oss;
   oss.precision(17);
-  oss << m_thresh;
+  oss << m_threshold.value;
   std::string imageThresh = oss.str();
   bool ans = getStringFromGui(this,
       "Image threshold",
@@ -2038,14 +2036,14 @@ void MainWidget::setThreshold(double thresh) {
     return;
   }
 
-  m_thresh = thresh;
+  m_threshold.value = thresh;
   vw_out() << "Image threshold for " << app_data.images[non_poly_image].name
-      << ": " << m_thresh << std::endl;
+      << ": " << m_threshold.value << std::endl;
 }
 
 // TODO(oalexan1): Each image must know its threshold
 double MainWidget::getThreshold() const {
-  return m_thresh;
+  return m_threshold.value;
 }
 
 // Set the azimuth and elevation for hillshaded images
@@ -2053,9 +2051,9 @@ void MainWidget::setHillshadeParams() {
 
   std::ostringstream oss;
   oss.precision(17);
-  oss << m_hillshade_azimuth
+  oss << m_hillshade.azimuth
       << " "
-      << m_hillshade_elevation << std::endl;
+      << m_hillshade.elevation << std::endl;
 
   std::string azimuthElevation = oss.str();
   bool ans = getStringFromGui(this,
@@ -2072,14 +2070,14 @@ void MainWidget::setHillshadeParams() {
     popUp("Could not read the hillshade azimuth and elevation values.");
     return;
   }
-  m_hillshade_azimuth = a;
-  m_hillshade_elevation = e;
+  m_hillshade.azimuth = a;
+  m_hillshade.elevation = e;
 
   MainWidget::maybeGenHillshade();
   refreshPixmap();
 
   vw_out() << "Hillshade azimuth and elevation for " << app_data.images[m_beg_image_id].name
-           << ": " << m_hillshade_azimuth << ' ' << m_hillshade_elevation << "\n";
+           << ": " << m_hillshade.azimuth << ' ' << m_hillshade.elevation << "\n";
 }
 
 // Save the current view to a file

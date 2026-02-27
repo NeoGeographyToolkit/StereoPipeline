@@ -108,7 +108,7 @@ public:
   void viewMatches();
   void setEditingMatches(bool editingMatches) { m_match_mgr.m_editingMatches = editingMatches; }
   bool getEditingMatches() const { return m_match_mgr.m_editingMatches; }
-  void setThreshMode(bool turnOn) { m_thresh_calc_mode = turnOn; }
+  void setThreshMode(bool turnOn) { m_threshold.calcMode = turnOn; }
   void plotProfile(std::vector<imageData> const& images,
                     std::vector<double> const& profileX,
                     std::vector<double> const& profileY);
@@ -244,7 +244,12 @@ private:
   std::vector<int>      m_filesOrder;     // The order the images are drawn in.
 
   std::string & m_output_prefix; // alias
-  double m_hillshade_azimuth, m_hillshade_elevation;
+  // Hillshade parameters
+  struct HillshadeSettings {
+    double azimuth = 0.0;
+    double elevation = 0.0;
+  };
+  HillshadeSettings m_hillshade;
 
   asp::MatchPointMgr & m_match_mgr;
 
@@ -258,11 +263,14 @@ private:
   // If we are selecting a crop win to do stereo in
   bool m_cropWinMode;
 
-  // If we are in the midst of drawing a profile
-  bool m_profileMode;
-  std::vector<double> m_profileX, m_profileY; // indices in the image to profile
-  std::vector<double> m_valsX, m_valsY;    // index and pixel value
-  ProfilePlotter * m_profilePlot;          // the profile window
+  // Profile tool state
+  struct ProfileState {
+    bool mode = false;
+    std::vector<double> x, y; // indices in the image to profile
+    std::vector<double> valsX, valsY; // index and pixel value
+    ProfilePlotter *plot = nullptr;   // the profile window
+  };
+  ProfileState m_profile;
 
   // Use double buffering: draw to a pixmap first, refresh it only
   // if really necessary, and display it when paintEvent is called.
@@ -289,8 +297,12 @@ private:
   // Right-click context menu
   std::unique_ptr<MenuMgr> m_menu_mgr;
 
-  double m_thresh;
-  bool   m_thresh_calc_mode;
+  // Threshold state
+  struct ThresholdState {
+    double value = -std::numeric_limits<double>::max();
+    bool calcMode = false;
+  };
+  ThresholdState m_threshold;
 
   bool   m_can_emit_zoom_all_signal;
 
