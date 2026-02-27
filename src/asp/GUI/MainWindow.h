@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2006-2013, United States Government as represented by the
+//  Copyright (c) 2006-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -147,7 +147,7 @@ private:
   vw::GdalWriteOptions m_opt;
   std::string               m_output_prefix;
   double                    m_widRatio;    // ratio of sidebar to entire win wid
-  std::vector<QWidget*>     m_widgets;     // one of these for each separate image pane.
+  std::vector<MainWidget*>  m_widgets;     // one of these for each separate image pane.
   ChooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
 
   QMenu *m_file_menu;
