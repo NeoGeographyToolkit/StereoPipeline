@@ -85,12 +85,6 @@ public:
   vw::BBox2 screen2world(vw::BBox2 const& R) const;
 }; // End class WidgetBase
 
-// Find the min and max values, ignoring outliers. We look only 
-// at the last component of each point, as that has the intensity,
-// while the previous two have the position.
-// Keep this here as it is used only for plotting in widget code
-void findRobustBounds(std::vector<vw::Vector3> const& scattered_data,
-                      double & min_val, double & max_val);
 
 } // namespace asp
 

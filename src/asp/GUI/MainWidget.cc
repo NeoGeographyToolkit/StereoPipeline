@@ -765,40 +765,6 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
   paint->drawImage(rect, transformedImage);
 }
 
-// Compute joint min/max across all images in the given range.
-// Uses --min/--max if set, otherwise unions CSV findRobustBounds
-// and raster approx_bounds.
-vw::Vector2 calcJointBounds(std::vector<imageData> const& images,
-                            int begIdx, int endIdx) {
-
-  if (stereo_settings().min < stereo_settings().max)
-    return vw::Vector2(stereo_settings().min,
-                       stereo_settings().max);
-
-  vw::Vector2 bounds(std::numeric_limits<double>::max(),
-                     -std::numeric_limits<double>::max());
-  for (int i = begIdx; i < endIdx; i++) {
-    if (images[i].m_isPoly)
-      continue;
-    if (images[i].m_isCsv) {
-      if (!images[i].scattered_data.empty()) {
-        double lo = 0.0, hi = 0.0;
-        findRobustBounds(images[i].scattered_data, lo, hi);
-        bounds[0] = std::min(bounds[0], lo);
-        bounds[1] = std::max(bounds[1], hi);
-      }
-      continue;
-    }
-    auto const& img = images[i].currentImg();
-    if (img.m_type != CH1_DOUBLE)
-      continue;
-    vw::Vector2 ab = img.m_img_ch1_double.approx_bounds();
-    bounds[0] = std::min(bounds[0], ab[0]);
-    bounds[1] = std::max(bounds[1], ab[1]);
-  }
-  return bounds;
-}
-
 // Build a colormap from a colormap style string. Falls back to
 // "binary-red-blue" if the style is not recognized.
 vw::Colormap buildColormap(std::string const& colormap_style) {

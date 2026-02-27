@@ -29,6 +29,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/FileIO/FileTypes.h>
+#include <vw/Math/Statistics.h>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/trim.hpp>
@@ -465,6 +466,63 @@ bool imageData::isPolyInternal(std::string const& name, std::string const& style
 }
 bool imageData::isCsvInternal(std::string const& name, std::string const& style) const {
   return asp::hasCsv(name) && !imageData::isPolyInternal(name, style);
+}
+
+// Find the min and max values, ignoring outliers. We look only
+// at the last component of each point, as that has the intensity,
+// while the previous two have the position.
+void findRobustBounds(std::vector<vw::Vector3> const& scattered_data,
+  double & min_val, double & max_val) {
+
+  std::vector<double> vals;
+  for (size_t pt_it = 0; pt_it < scattered_data.size(); pt_it++)
+    vals.push_back(scattered_data[pt_it][2]);
+
+  double beg_inlier = -1, end_inlier = -1, pct_fraction = 0.25, factor = 3.0;
+  vw::math::find_outlier_brackets(vals, pct_fraction, factor, beg_inlier, end_inlier);
+  min_val = end_inlier;
+  max_val = beg_inlier;
+
+  for (size_t it = 0; it < vals.size(); it++) {
+    if (vals[it] < beg_inlier || vals[it] > end_inlier)
+      continue;
+    min_val = std::min(min_val, vals[it]);
+    max_val = std::max(max_val, vals[it]);
+  }
+}
+
+// Compute joint min/max across all images in the given range.
+// Uses --min/--max if set, otherwise unions CSV findRobustBounds
+// and raster approx_bounds.
+vw::Vector2 calcJointBounds(std::vector<imageData> const& images,
+                            int begIdx, int endIdx) {
+
+  if (stereo_settings().min < stereo_settings().max)
+    return vw::Vector2(stereo_settings().min,
+                       stereo_settings().max);
+
+  vw::Vector2 bounds(std::numeric_limits<double>::max(),
+                     -std::numeric_limits<double>::max());
+  for (int i = begIdx; i < endIdx; i++) {
+    if (images[i].m_isPoly)
+      continue;
+    if (images[i].m_isCsv) {
+      if (!images[i].scattered_data.empty()) {
+        double lo = 0.0, hi = 0.0;
+        findRobustBounds(images[i].scattered_data, lo, hi);
+        bounds[0] = std::min(bounds[0], lo);
+        bounds[1] = std::max(bounds[1], hi);
+      }
+      continue;
+    }
+    auto const& img = images[i].currentImg();
+    if (img.m_type != CH1_DOUBLE)
+      continue;
+    vw::Vector2 ab = img.m_img_ch1_double.approx_bounds();
+    bounds[0] = std::min(bounds[0], ab[0]);
+    bounds[1] = std::max(bounds[1], ab[1]);
+  }
+  return bounds;
 }
 
 } // namespace asp

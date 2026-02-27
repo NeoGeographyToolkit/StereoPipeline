@@ -366,10 +366,6 @@ private:
 
 };
 
-// Compute joint min/max across all images in the given range
-vw::Vector2 calcJointBounds(std::vector<asp::imageData> const& images,
-                            int begIdx, int endIdx);
-
 // Build a colormap from a style string, with fallback
 vw::Colormap buildColormap(std::string const& colormap_style);
 

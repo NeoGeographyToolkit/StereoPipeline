@@ -121,6 +121,15 @@ private:
 
   };
 
+// Find the min and max values of scattered data, ignoring outliers.
+// Looks at the third component (intensity) of each point.
+void findRobustBounds(std::vector<vw::Vector3> const& scattered_data,
+                      double & min_val, double & max_val);
+
+// Compute joint min/max across all images in the given range
+vw::Vector2 calcJointBounds(std::vector<asp::imageData> const& images,
+                            int begIdx, int endIdx);
+
 } // namespace asp
 
 #endif  // __STEREO_GUI_IMAGE_DATA_H__

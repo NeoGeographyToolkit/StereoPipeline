@@ -18,7 +18,6 @@
 // \file WidgetBase.cc
 
 #include <asp/GUI/WidgetBase.h>
-#include <vw/Math/Statistics.h>
 
 namespace vw { namespace cartography {
   class GeoTransform;
@@ -33,32 +32,6 @@ WidgetBase::WidgetBase(int beg_image_id, int end_image_id, int base_image_id,
     app_data(data),
     m_base_image_id(base_image_id), 
     m_world_box(vw::BBox2()), m_border_factor(0.95) {
-}
-
-// Find the min and max values, ignoring outliers. We look only 
-// at the last component of each point, as that has the intensity,
-// while the previous two have the position.
-// Keep this here as it is used only for plotting in widget code.
-void findRobustBounds(std::vector<vw::Vector3> const& scattered_data,
-  double & min_val, double & max_val) {
-
-  std::vector<double> vals;
-  for (size_t pt_it = 0; pt_it < scattered_data.size(); pt_it++)
-    vals.push_back(scattered_data[pt_it][2]);
-
-  double beg_inlier = -1, end_inlier = -1, pct_fraction = 0.25, factor = 3.0;
-  vw::math::find_outlier_brackets(vals, pct_fraction, factor, beg_inlier, end_inlier);
-  min_val = end_inlier;
-  max_val = beg_inlier;
-
-  for (size_t it = 0; it < vals.size(); it++) {
-    if (vals[it] < beg_inlier || vals[it] > end_inlier) 
-      continue;
-    min_val = std::min(min_val, vals[it]);
-    max_val = std::max(max_val, vals[it]);
-  }
-
-  return;
 }
 
 // Convert a position in the world coordinate system to a pixel
