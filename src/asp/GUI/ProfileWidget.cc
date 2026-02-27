@@ -15,9 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file ProfileWidget.cc
-///
-/// Member functions of MainWidget that have to do with profing.
+// \file ProfileWidget.cc
+// 
+// Member functions of MainWidget that have to do with profing.
 
 #include <asp/GUI/MainWidget.h>
 #include <asp/GUI/GuiGeom.h>

@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file WidgetBase.cc
+// \file WidgetBase.cc
 
 #include <asp/GUI/WidgetBase.h>
 #include <vw/Math/Statistics.h>

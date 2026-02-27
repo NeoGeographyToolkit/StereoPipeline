@@ -14,12 +14,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
-
-/// \file ColorAxes.h
-///
-/// A widget showing colorized data with a colormap and axes
-///
+// \file ColorAxes.h
+// 
+// A widget showing colorized data with a colormap and axes
+// 
 
 #ifndef __STEREO_GUI_COLOR_AXES_H__
 #define __STEREO_GUI_COLOR_AXES_H__

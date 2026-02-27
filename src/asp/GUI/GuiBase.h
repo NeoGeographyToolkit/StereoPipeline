@@ -14,12 +14,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
-
-/// \file GuiBase.h
-///
-/// Very low-level Qt functions
-///
+// \file GuiBase.h
+// 
+// Very low-level Qt functions
+// 
 #ifndef __STEREO_GUI_GUI_BASE_H__
 #define __STEREO_GUI_GUI_BASE_H__
 

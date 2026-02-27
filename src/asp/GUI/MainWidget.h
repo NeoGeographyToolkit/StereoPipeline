@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file MainWidget.h
-///
-/// A widget showing images and vector data
-///
+// \file MainWidget.h
+// 
+// A widget showing images and vector data
+// 
 #ifndef __STEREO_GUI_MAIN_WIDGET_H__
 #define __STEREO_GUI_MAIN_WIDGET_H__
 
@@ -79,7 +79,7 @@ namespace asp {
 class ChooseFilesDlg;
 class MenuMgr;
 
-/// This class handles user interaction with the a single image pane.
+// This class handles user interaction with the a single image pane.
 class MainWidget: public QwtScaleWidget, public WidgetBase {
   Q_OBJECT
 
@@ -130,14 +130,14 @@ public:
                             std::vector<double> const& profileX,
                             std::vector<double> const& profileY);
 
-  void   setThreshold(double thresh); ///< Set the image threshold
-  double getThreshold() const;            ///< Get the image threshold
+  void   setThreshold(double thresh); // Set the image threshold
+  double getThreshold() const;            // Get the image threshold
 
-  void   setLineWidth(int lineWidth); ///< Set the line width for polygons
-  int  getLineWidth() const; ///< Get the line width for polygons
+  void   setLineWidth(int lineWidth); // Set the line width for polygons
+  int  getLineWidth() const; // Get the line width for polygons
 
-  void   setPolyColor(std::string const& polyColor); ///< Set the color of polygons
-  std::string getPolyColor() const; ///< Get the color of polygons
+  void   setPolyColor(std::string const& polyColor); // Set the color of polygons
+  std::string getPolyColor() const; // Get the color of polygons
 
   vw::BBox2 current_view() const;
   void  zoomToRegion (vw::BBox2 const& region);
@@ -169,32 +169,32 @@ public slots:
   void viewThreshImages  (bool refresh_pixmap);
   void viewHillshadedImages(bool hillshade_mode);
 
-  void addMatchPoint          (); ///< Add a new interest point (from right click menu)
-  void deleteMatchPoint       (); ///< Delete an interest point (from right click menu)
-  void setThreshold           (); ///< Set change image threshold (from right click menu)
-  void setHillshadeParams     (); ///< Set the azimuth and elevation for hillshaded images.
-  void toggleHillshadeImageRightClick(); ///< Turn on/off hillshading on right-click on image
-  void toggleHillshadeFromImageList(int imageIndex); ///< Toggle hillshade by right-click on image list
-  void refreshHillshade       (); ///< Update the display if the state of hillshading changed.
-  void bringImageOnTopSlot    (int imageIndex); ///< Show this image on top of other images.
-  void pushImageToBottomSlot  (int imageIndex); ///< Show all other images on top of this
-  void zoomToImage            (int imageIndex); ///< Zoom to have this image in full view.
-  void changePolyColor        (int imageIndex); ///< Change the color of given set of polygons
-  void allowMultipleSelections(); ///< Allow the user to select multiple regions
-  void deleteSelection        (); ///< Delete an area selected with the mouse at current point
-  void hideImagesNotInRegion  (); ///< Hide images not intersecting a given region
-  void saveVectorLayerAsShapeFile(); ///< Save polygons in current layer as shapefile
-  void saveVectorLayerAsTextFile(); ///< Save polygons in current layer as a text file
-  bool contourImage           (); ///< Contour an image at a specified threshold
-  void setProfileMode (bool profile_mode); ///< Turn on and off the 1D profile tool
-  void setPolyEditMode(bool polyEditMode, bool refresh); ///< Turn on and off the vector layer drawing
-  void deleteVertex           (); ///< Delete a vertex from a vector layer
-  void deleteVertices         (); ///< Delete poly vertices in selected region
-  void insertVertex           (); ///< Insert an intermediate vertex at right-click
-  void mergePolys             (); ///< Merge existing polygons
-  void saveScreenshot         (); ///< Save a screenshot of the current imagery
+  void addMatchPoint          (); // Add a new interest point (from right click menu)
+  void deleteMatchPoint       (); // Delete an interest point (from right click menu)
+  void setThreshold           (); // Set change image threshold (from right click menu)
+  void setHillshadeParams     (); // Set the azimuth and elevation for hillshaded images.
+  void toggleHillshadeImageRightClick(); // Turn on/off hillshading on right-click on image
+  void toggleHillshadeFromImageList(int imageIndex); // Toggle hillshade by right-click on image list
+  void refreshHillshade       (); // Update the display if the state of hillshading changed.
+  void bringImageOnTopSlot    (int imageIndex); // Show this image on top of other images.
+  void pushImageToBottomSlot  (int imageIndex); // Show all other images on top of this
+  void zoomToImage            (int imageIndex); // Zoom to have this image in full view.
+  void changePolyColor        (int imageIndex); // Change the color of given set of polygons
+  void allowMultipleSelections(); // Allow the user to select multiple regions
+  void deleteSelection        (); // Delete an area selected with the mouse at current point
+  void hideImagesNotInRegion  (); // Hide images not intersecting a given region
+  void saveVectorLayerAsShapeFile(); // Save polygons in current layer as shapefile
+  void saveVectorLayerAsTextFile(); // Save polygons in current layer as a text file
+  bool contourImage           (); // Contour an image at a specified threshold
+  void setProfileMode (bool profile_mode); // Turn on and off the 1D profile tool
+  void setPolyEditMode(bool polyEditMode, bool refresh); // Turn on and off the vector layer drawing
+  void deleteVertex           (); // Delete a vertex from a vector layer
+  void deleteVertices         (); // Delete poly vertices in selected region
+  void insertVertex           (); // Insert an intermediate vertex at right-click
+  void mergePolys             (); // Merge existing polygons
+  void saveScreenshot         (); // Save a screenshot of the current imagery
 
-  void refreshPixmap(); /// Draw the image
+  void refreshPixmap(); // Draw the image
   
 protected:
 
@@ -237,11 +237,11 @@ private:
 
   vw::GdalWriteOptions m_opt;
 
-  /// Handle to parent GUI panel used to select which of the multiple "owned"
-  ///  images should be currently displayed.
-  /// - Null if there is only one image.
+  // Handle to parent GUI panel used to select which of the multiple "owned"
+  // images should be currently displayed.
+  // - Null if there is only one image.
   ChooseFilesDlg  *     m_chooseFiles;
-  std::vector<int>      m_filesOrder;     ///< The order the images are drawn in.
+  std::vector<int>      m_filesOrder;     // The order the images are drawn in.
 
   std::string & m_output_prefix; // alias
   double m_hillshade_azimuth, m_hillshade_elevation;
@@ -296,16 +296,12 @@ private:
 
   // Drawing is driven by QPaintEvent, which calls out to drawImage()
   void drawImage(QPainter* paint);
-
-
-
-
   // Draw irregular xyz data to be plotted at (x, y) location with z giving
   // the intensity. May be colorized.
   void drawScatteredData(QPainter* paint, int image_index);
 
   // Zoom debouncing
-  QTimer *m_zoomTimer; ///< Owned by Qt's parent-child mechanism
+  QTimer *m_zoomTimer; // Owned by Qt's parent-child mechanism
   double m_accumulatedZoomTicks;
 
 private:
@@ -329,8 +325,6 @@ private:
                                 vw::BBox2i const& region_out,
                                 vw::ImageView<int> & screen_image);
                               
-
-
   void updateCurrentMousePosition();
   void updateRubberBand(QRect & R);
   void maybeGenHillshade();

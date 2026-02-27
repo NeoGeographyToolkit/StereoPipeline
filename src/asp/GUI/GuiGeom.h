@@ -85,7 +85,5 @@ void formPoly(std::string              const& override_color,
                            int & vertIndexInCurrPoly,
                            double & minX, double & minY,
                            double & minDist);
-
-
 }
 #endif // __ASP_GUI_GUI_GEOM_H__

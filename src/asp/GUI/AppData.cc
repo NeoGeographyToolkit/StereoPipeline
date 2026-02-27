@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file AppData.cc
-///
-/// Data structures for the GUI
-///
+// \file AppData.cc
+// 
+// Data structures for the GUI
+// 
 
 #include <asp/GUI/AppData.h>
 #include <asp/GUI/GuiArgs.h>

@@ -32,8 +32,6 @@
 #include <memory>
 
 class QPainter;
-
-
 namespace asp {
 
 // Forward declarations

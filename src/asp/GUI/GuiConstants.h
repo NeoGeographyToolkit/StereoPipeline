@@ -15,9 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file GuiConstants.h
-///
-/// Magic numbers used across stereo_gui, centralized in one place.
+// \file GuiConstants.h
+// 
+// Magic numbers used across stereo_gui, centralized in one place.
 
 #ifndef __STEREO_GUI_CONSTANTS_H__
 #define __STEREO_GUI_CONSTANTS_H__

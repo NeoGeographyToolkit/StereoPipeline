@@ -14,12 +14,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
-
-/// \file AppData.h
-///
-/// Data structures for the GUI
-///
+// \file AppData.h
+// 
+// Data structures for the GUI
+// 
 #ifndef __ASP_GUI_APP_DATA_H__
 #define __ASP_GUI_APP_DATA_H__
 

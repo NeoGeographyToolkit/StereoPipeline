@@ -264,8 +264,6 @@ bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
   
   return vw::cartography::read_georeference(georef, file);
 }
-
-
 vw::Vector2 QPoint2Vec(QPoint const& qpt) {
   return vw::Vector2(qpt.x(), qpt.y());
 }

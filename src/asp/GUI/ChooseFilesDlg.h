@@ -14,12 +14,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
-
-/// \file ChooseFilesDlg.h
-///
-/// A dialog for user to choose which files to show.
-///
+// \file ChooseFilesDlg.h
+// 
+// A dialog for user to choose which files to show.
+// 
 #ifndef __STEREO_GUI_CHOOSE_FILES_DLG_H__
 #define __STEREO_GUI_CHOOSE_FILES_DLG_H__
 
@@ -34,7 +32,7 @@ namespace asp {
 
   class imageData;
   
-  /// Class to create a file list on the left side of the window
+  // Class to create a file list on the left side of the window
   class ChooseFilesDlg: public QWidget{
     Q_OBJECT
 

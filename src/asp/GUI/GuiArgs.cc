@@ -15,8 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file GuiArgs.cc
-///
+// \file GuiArgs.cc
+// 
 
 #include <asp/GUI/GuiArgs.h>
 #include <asp/GUI/ImageData.h>

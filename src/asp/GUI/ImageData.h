@@ -15,9 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file ImageData.h
-///
-/// A class to keep all data associated with an image file
+// \file ImageData.h
+// 
+// A class to keep all data associated with an image file
 
 #ifndef __STEREO_GUI_IMAGE_DATA_H__
 #define __STEREO_GUI_IMAGE_DATA_H__
@@ -45,7 +45,7 @@ namespace asp {
   // Return true if the extension is .csv or .txt
   bool hasCsv(std::string const& fileName);
 
-  /// A class to keep all data associated with an image file
+  // A class to keep all data associated with an image file
   class imageData {
   public:
     std::string      name, hillshaded_name, thresholded_name, colorized_name;
@@ -80,7 +80,7 @@ namespace asp {
                  loaded_thresholded(false), loaded_colorized(false),
                  m_isPoly(false), m_isCsv(false), colorbar(false) {}
 
-    /// Read an image from disk into img and set the other variables.
+    // Read an image from disk into img and set the other variables.
     void read(std::string const& image, vw::GdalWriteOptions const& opt,
               DisplayMode display_mode = REGULAR_VIEW,
               std::map<std::string, std::string> const& properties =

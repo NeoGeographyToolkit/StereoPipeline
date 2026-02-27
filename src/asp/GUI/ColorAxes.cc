@@ -18,7 +18,7 @@
 // TODO(oalexan1): Reconcile this with MainWidget.cc so that different
 // images and curves can be overlaid while using a colormap and axes.
 
-/// \file ColorAxes.cc
+// \file ColorAxes.cc
 
 #include <qwt_color_map.h>
 #include <qwt_plot_spectrogram.h>
@@ -260,8 +260,6 @@ void setMinMaxNoData(double min_val, double max_val) {
   m_nodata_plot_val = adjustMinVal(m_min_val, m_max_val);
   QwtMatrixRasterData::setInterval(Qt::ZAxis, QwtInterval(m_nodata_plot_val, m_max_val));
 }
-
-
 ColorAxesData(imageData & image, double min_x, double min_y, double max_x, double max_y):
   m_image(image), m_min_x(min_x), m_min_y(min_y), m_max_x(max_x), m_max_y(max_y) {
 
@@ -702,4 +700,3 @@ void ColorAxes::setMinMaxIntensity() {
 }
 
 } // namespace asp
-

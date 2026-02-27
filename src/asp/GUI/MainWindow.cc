@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file MainWindow.cc
-///
-/// The stereo_gui main window class.
-///
+// \file MainWindow.cc
+// 
+// The stereo_gui main window class.
+// 
 #include <QtGui>
 #include <QtWidgets>
 #include <asp/GUI/MainWindow.h>
@@ -226,8 +226,6 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_cursor_count(0),
   m_saved_gcp_and_ip(true),
   m_match_mgr(app_data) { // Initialize m_match_mgr with app_data
-
-
   // Window size
   resize(window_size[0], window_size[1]);
 

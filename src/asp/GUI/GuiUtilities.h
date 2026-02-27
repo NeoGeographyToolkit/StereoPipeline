@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file GuiUtilities.h
-///
-/// Low-level GUI logic
-///
+// \file GuiUtilities.h
+// 
+// Low-level GUI logic
+// 
 #ifndef __STEREO_GUI_GUI_UTILITIES_H__
 #define __STEREO_GUI_GUI_UTILITIES_H__
 
@@ -76,20 +76,20 @@ namespace asp {
 
   bool supplyOutputPrefixIfNeeded(QWidget * parent, std::string & output_prefix);
 
-  /// Pop-up a window to have the user select a file
+  // Pop-up a window to have the user select a file
   std::string fileDialog(std::string title, std::string start_folder="");
 
   // Flip a point and a box in y
   vw::Vector2 flip_in_y(vw::Vector2 const& P);
   vw::BBox2 flip_in_y(vw::BBox2 const& B);
 
-  /// Convert a QRect object to a BBox2 object.
+  // Convert a QRect object to a BBox2 object.
   vw::BBox2 qrect2bbox(QRect const& R);
 
-  /// Convert a BBox2 object to a QRect object.
+  // Convert a BBox2 object to a QRect object.
   QRect bbox2qrect(vw::BBox2 const& B);
 
-  /// Save a hillshaded file
+  // Save a hillshaded file
   bool write_hillshade(vw::GdalWriteOptions const& opt,
                        bool have_gui,
                        double azimuth, double elevation,
@@ -128,8 +128,8 @@ namespace asp {
   vw::Vector2 QPointF2Vec(QPointF    const& qpt);
   QPoint      Vec2QPoint(vw::Vector2 const& V  );
 
-  /// A simple class for keeping track of crosshair locations and colors.
-  /// - Contains a list of points and the color applied to them.
+  // A simple class for keeping track of crosshair locations and colors.
+  // - Contains a list of points and the color applied to them.
   class PointList {
     std::list<vw::Vector2> m_points;
     vw::Vector3 m_color;

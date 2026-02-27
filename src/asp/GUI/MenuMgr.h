@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file MenuMgr.h
-///
-/// Handles menu creation and management for MainWidget.
-///
+// \file MenuMgr.h
+// 
+// Handles menu creation and management for MainWidget.
+// 
 #ifndef __STEREO_GUI_MENU_MGR_H__
 #define __STEREO_GUI_MENU_MGR_H__
 

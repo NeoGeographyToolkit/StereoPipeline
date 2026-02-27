@@ -15,9 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file MainWindow.h
-///
-///
+// \file MainWindow.h
+// 
+// 
 #ifndef __STEREO_GUI_MAINWINDOW_H__
 #define __STEREO_GUI_MAINWINDOW_H__
 
@@ -49,7 +49,7 @@ enum ViewType {VIEW_SIDE_BY_SIDE, VIEW_IN_SINGLE_WINDOW, VIEW_AS_TILES_ON_GRID};
 class MainWidget;
 class ChooseFilesDlg;
 
-/// This class handles the menus at the top bar and other application level details.
+// This class handles the menus at the top bar and other application level details.
 class MainWindow : public QMainWindow {
   Q_OBJECT
 
@@ -80,7 +80,7 @@ private slots:
   void viewPairwiseCleanMatchesSlot();
   void addDelMatches              ();
   void saveMatches                ();
-  void writeGroundControlPoints   (); ///< Write a ground control point file for bundle_adjust
+  void writeGroundControlPoints   (); // Write a ground control point file for bundle_adjust
   void save_screenshot            ();
   void select_region              ();
   void change_cursor              ();
@@ -122,8 +122,8 @@ private:
 
   void run_stereo_or_parallel_stereo(std::string const& cmd);
 
-  /// Go through m_matches and retain only IPs detected in the first image.
-  /// - If require_all is set, only keep IPs detected in all images.
+  // Go through m_matches and retain only IPs detected in the first image.
+  // - If require_all is set, only keep IPs detected in all images.
   size_t consolidate_matches(bool require_all = true);
 
   void createMenus();

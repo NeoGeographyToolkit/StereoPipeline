@@ -15,11 +15,11 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file MainWidget.cc
-///
+// \file MainWidget.cc
+// 
 // TODO(oalexan1): Each layer must have just a dPoly, rather
 // than a vector of them.
-/// TODO: Test with empty images and images having just one pixel.
+// TODO: Test with empty images and images having just one pixel.
 
 #include <asp/GUI/MainWidget.h>
 #include <asp/GUI/GuiConstants.h>
@@ -939,8 +939,6 @@ void MainWidget::drawImage(QPainter* paint) {
 
   return;
 } // End function drawImage()
-
-
 
 // Draw irregular xyz data to be plotted at (x, y) location with z giving
 // the intensity. May be colorized.

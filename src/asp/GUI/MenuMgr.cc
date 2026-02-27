@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file MenuMgr.cc
-///
-/// Handles menu creation and management for MainWidget.
-///
+// \file MenuMgr.cc
+// 
+// Handles menu creation and management for MainWidget.
+// 
 #include <asp/GUI/MenuMgr.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/GUI/GuiUtilities.h>

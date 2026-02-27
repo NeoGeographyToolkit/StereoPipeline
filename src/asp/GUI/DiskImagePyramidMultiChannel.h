@@ -14,13 +14,11 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
-
-
-/// \file DiskImagePyramidMultiChannel.h
-///
-/// Functions for managing multi-channel images and converting
-/// them to QImage.
-///
+// \file DiskImagePyramidMultiChannel.h
+// 
+// Functions for managing multi-channel images and converting
+// them to QImage.
+// 
 #ifndef __STEREO_GUI_DISK_IMAGE_PYRAMID_MULTICHANNEL_H__
 #define __STEREO_GUI_DISK_IMAGE_PYRAMID_MULTICHANNEL_H__
 
@@ -55,11 +53,11 @@ namespace asp {
   // The kinds of images we support
   enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
 
-  /// A global structure to hold all the temporary files we have created
+  // A global structure to hold all the temporary files we have created
   struct TemporaryFiles {
     std::set<std::string> files;
   };
-  /// Access the global list of temporary files
+  // Access the global list of temporary files
   TemporaryFiles& temporary_files();
 
   // An image class that supports 1 to 3 channels.  We use
@@ -96,8 +94,8 @@ namespace asp {
     vw::int32 rows  () const { return m_rows;  }
     vw::int32 planes() const { return m_num_channels; }
 
-    /// Return the element at this location (at the lowest level) cast to double.
-    /// - Only works for single channel pyramids!
+    // Return the element at this location (at the lowest level) cast to double.
+    // - Only works for single channel pyramids!
     double get_value_as_double(vw::int32 x, vw::int32 y) const;
 
     // Return value as string

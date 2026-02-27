@@ -15,8 +15,8 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file GuiArgs.h
-///
+// \file GuiArgs.h
+// 
 
 #ifndef __ASP_GUI_GUI_ARGS_H__
 #define __ASP_GUI_GUI_ARGS_H__

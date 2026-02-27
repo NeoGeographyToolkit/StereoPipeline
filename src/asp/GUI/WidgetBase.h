@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file WidgetBase.h
-///
-/// This has logic that is used both in MainWidget and in the ColorAxes classes.
-///
+// \file WidgetBase.h
+// 
+// This has logic that is used both in MainWidget and in the ColorAxes classes.
+// 
 #ifndef __STEREO_GUI_WIDGET_BASE_H__
 #define __STEREO_GUI_WIDGET_BASE_H__
 

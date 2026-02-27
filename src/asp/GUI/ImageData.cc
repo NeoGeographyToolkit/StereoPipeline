@@ -15,9 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file ImageData.cc
-///
-/// Implementation of the imageData class
+// \file ImageData.cc
+// 
+// Implementation of the imageData class
 
 #include <asp/GUI/ImageData.h>
 #include <asp/GUI/GuiBase.h>

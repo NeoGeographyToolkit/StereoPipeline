@@ -15,9 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file PolyWidget.cc
-///
-/// Member functions of MainWidget that have to do with polygons.
+// \file PolyWidget.cc
+// 
+// Member functions of MainWidget that have to do with polygons.
 
 #include <asp/GUI/MenuMgr.h>
 
@@ -296,8 +296,6 @@ void MainWidget::insertVertex() {
 void MainWidget::mergePolys() {
   asp::mergePolys(app_data, m_beg_image_id, m_end_image_id, m_polyLayerIndex);
 }
-
-
 // Save the currently created vector layer
 void MainWidget::saveVectorLayerAsShapeFile() {
 
@@ -311,8 +309,6 @@ void MainWidget::saveVectorLayerAsShapeFile() {
   QString qShapeFile = QFileDialog::getSaveFileName(this,
                                                   tr("Save shapefile"), shapeFile.c_str(),
                                                   tr("(*.shp)"));
-
-
   shapeFile = qShapeFile.toStdString();
   if (shapeFile == "")
     return;
@@ -347,8 +343,6 @@ void MainWidget::saveVectorLayerAsTextFile() {
 
   app_data.images[m_polyLayerIndex].writePoly(textFile);
 }
-
-
 // Contour the current image
 bool MainWidget::contourImage() {
 
