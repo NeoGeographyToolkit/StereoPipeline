@@ -1251,9 +1251,9 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
     P = app_data.world2image_trans(P, m_base_image_id);
 
     // Find the match point we want to move
-    const double DISTANCE_LIMIT = MATCH_POINT_DISTANCE_LIMIT;
+    double dist_limit = MATCH_POINT_DISTANCE_LIMIT;
     m_match_mgr.m_editMatchPointVecIndex
-      = m_match_mgr.m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
+      = m_match_mgr.m_matchlist.findNearestMatchPoint(m_beg_image_id, P, dist_limit);
 
     if (asp::stereo_settings().view_matches) {
       // Update IP draw color
@@ -1964,8 +1964,8 @@ void MainWidget::deleteMatchPoint() {
   // Find the closest match to this point.
   Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
   P = app_data.world2image_trans(P, m_base_image_id);
-  const double DISTANCE_LIMIT = MATCH_POINT_DISTANCE_LIMIT;
-  int min_index = m_match_mgr.m_matchlist.findNearestMatchPoint(m_beg_image_id, P, DISTANCE_LIMIT);
+  double dist_limit = MATCH_POINT_DISTANCE_LIMIT;
+  int min_index = m_match_mgr.m_matchlist.findNearestMatchPoint(m_beg_image_id, P, dist_limit);
 
   if (min_index < 0) {
     popUp("Did not find a nearby match to delete.");
