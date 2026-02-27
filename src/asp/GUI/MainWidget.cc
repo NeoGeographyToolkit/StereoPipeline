@@ -1307,62 +1307,82 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
   m_curr_pixel_pos = QPoint2Vec(Q);
   updateCurrentMousePosition();
 
-  if (!((event->buttons() & Qt::LeftButton)))
+  if (!(event->buttons() & Qt::LeftButton))
     return;
 
   // The mouse is pressed and moving
-
   m_cropWinMode = ((event->buttons  () & Qt::LeftButton) &&
                    (event->modifiers() & Qt::ControlModifier));
 
-  // If the user is editing match points
-  if (!m_polyEditMode && m_menu_mgr->m_moveMatchPoint->isChecked() && !m_cropWinMode) {
-
-    m_match_mgr.m_editingMatches = true;
-
-    // Error checking
-    if ((m_beg_image_id < 0) || (m_match_mgr.m_editMatchPointVecIndex < 0) ||
-          (!m_match_mgr.m_matchlist.pointExists(m_beg_image_id, m_match_mgr.m_editMatchPointVecIndex)))
-      return;
-
-    Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
-    P = app_data.world2image_trans(P, m_base_image_id);
-
-    // Update the IP location
-    m_match_mgr.m_matchlist.setPointPosition(m_beg_image_id, m_match_mgr.m_editMatchPointVecIndex, P.x(), P.y());
-
-    if (asp::stereo_settings().view_matches) {
-      // Update IP draw color
-      // Will keep the zoom level
-      emit updateMatchesSignal();
-    } else {
-      // Will reset the layout before continuing with matches
-      asp::stereo_settings().view_matches = true;
-      emit toggleViewMatchesSignal();
-    }
+  if (handleMatchPointMove(mouseMoveX, mouseMoveY))
     return;
-  } // End match point editing
-
-  // If the user is editing polygons
-  if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
-
-    // If moving vertices
-    if (m_editClipIndex < 0 ||
-        m_editPolyVecIndex        < 0 ||
-        m_editIndexInCurrPoly     < 0 ||
-        m_editVertIndexInCurrPoly < 0)
-      return;
-
-    Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
-
-    m_world_box.grow(P); // to not cut when plotting later
-    P = app_data.world2proj(P, m_editClipIndex); // projected units
-    app_data.images[m_editClipIndex].polyVec[m_editPolyVecIndex]
-      .changeVertexValue(m_editIndexInCurrPoly, m_editVertIndexInCurrPoly, P.x(), P.y());
-    // This will redraw just the polygons, not the pixmap
-    update();
+  if (handlePolyVertexMove(mouseMoveX, mouseMoveY))
     return;
-  } // End polygon editing
+  handleRubberBandDrag(mouseMoveX, mouseMoveY);
+} // End function mouseMoveEvent()
+
+// Handle match point dragging during mouse move
+bool MainWidget::handleMatchPointMove(int mouseMoveX, int mouseMoveY) {
+
+  if (m_polyEditMode || !m_menu_mgr->m_moveMatchPoint->isChecked() ||
+      m_cropWinMode)
+    return false;
+
+  m_match_mgr.m_editingMatches = true;
+
+  // Error checking
+  if ((m_beg_image_id < 0) || (m_match_mgr.m_editMatchPointVecIndex < 0) ||
+        (!m_match_mgr.m_matchlist.pointExists(m_beg_image_id,
+          m_match_mgr.m_editMatchPointVecIndex)))
+    return true;
+
+  Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
+  P = app_data.world2image_trans(P, m_base_image_id);
+
+  // Update the IP location
+  m_match_mgr.m_matchlist.setPointPosition(m_beg_image_id,
+    m_match_mgr.m_editMatchPointVecIndex, P.x(), P.y());
+
+  if (asp::stereo_settings().view_matches) {
+    // Update IP draw color
+    // Will keep the zoom level
+    emit updateMatchesSignal();
+  } else {
+    // Will reset the layout before continuing with matches
+    asp::stereo_settings().view_matches = true;
+    emit toggleViewMatchesSignal();
+  }
+  return true;
+}
+
+// Handle polygon vertex dragging during mouse move
+bool MainWidget::handlePolyVertexMove(int mouseMoveX, int mouseMoveY) {
+
+  if (!m_polyEditMode || !m_menu_mgr->m_moveVertex->isChecked() ||
+      m_cropWinMode)
+    return false;
+
+  // If moving vertices
+  if (m_editClipIndex < 0 ||
+      m_editPolyVecIndex        < 0 ||
+      m_editIndexInCurrPoly     < 0 ||
+      m_editVertIndexInCurrPoly < 0)
+    return true;
+
+  Vector2 P = screen2world(Vector2(mouseMoveX, mouseMoveY));
+
+  m_world_box.grow(P); // to not cut when plotting later
+  P = app_data.world2proj(P, m_editClipIndex); // projected units
+  app_data.images[m_editClipIndex].polyVec[m_editPolyVecIndex]
+    .changeVertexValue(m_editIndexInCurrPoly,
+                       m_editVertIndexInCurrPoly, P.x(), P.y());
+  // This will redraw just the polygons, not the pixmap
+  update();
+  return true;
+}
+
+// Handle rubberband rectangle dragging during mouse move
+void MainWidget::handleRubberBandDrag(int mouseMoveX, int mouseMoveY) {
 
   // Standard Qt rubberband trick. This is highly confusing.  The
   // explanation for what is going on is the following.  We need to
@@ -1398,9 +1418,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
     R = bbox2qrect(world2screen(m_stereoCropWin));
     updateRubberBand(R);
   }
-
-  return;
-} // End function mouseMoveEvent()
+}
 
 // The action to take when a user releases the mouse close to where it was pressed
 void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
@@ -1508,46 +1526,54 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
     }
 
   } else {
-    // Image threshold mode. If we released the mouse where we
-    // pressed it, that means we want the current pixel value
-    // to be the threshold if larger than the existing threshold.
-    if (m_end_image_id - m_beg_image_id != 1) {
-      popUp("Must have just one image in each window to do image threshold detection.");
-      m_thresh_calc_mode = false;
-      refreshPixmap();
-      return;
-    }
+    handleThresholdClick(mouseRelX, mouseRelY);
+  }
+}
 
-    if (app_data.images[m_beg_image_id].img.planes() != 1) {
-      popUp("Thresholding makes sense only for single-channel images.");
-      m_thresh_calc_mode = false;
-      return;
-    }
+// Handle threshold mode pixel click
+void MainWidget::handleThresholdClick(int mouseRelX, int mouseRelY) {
 
-    if (app_data.use_georef) {
-      popUp("Thresholding is not supported when using georeference "
-            "information to show images.");
-      m_thresh_calc_mode = false;
-      return;
-    }
-
-    Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
-    Vector2 q = app_data.world2image_trans(p, m_beg_image_id);
-
-    int col = round(q[0]), row = round(q[1]);
-    vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
-
-    if (col >= 0 && row >= 0 && col < app_data.images[m_beg_image_id].img.cols() &&
-        row < app_data.images[m_beg_image_id].img.rows()) {
-      double val = app_data.images[m_beg_image_id].img.get_value_as_double(col, row);
-      m_thresh = std::max(m_thresh, val);
-    }
-
-    vw_out() << "Image threshold for " << app_data.images[m_beg_image_id].name
-              << ": " << m_thresh << std::endl;
+  // Image threshold mode. If we released the mouse where we
+  // pressed it, that means we want the current pixel value
+  // to be the threshold if larger than the existing threshold.
+  if (m_end_image_id - m_beg_image_id != 1) {
+    popUp("Must have just one image in each window to do "
+          "image threshold detection.");
+    m_thresh_calc_mode = false;
+    refreshPixmap();
+    return;
   }
 
-  return;
+  if (app_data.images[m_beg_image_id].img.planes() != 1) {
+    popUp("Thresholding makes sense only for single-channel images.");
+    m_thresh_calc_mode = false;
+    return;
+  }
+
+  if (app_data.use_georef) {
+    popUp("Thresholding is not supported when using georeference "
+          "information to show images.");
+    m_thresh_calc_mode = false;
+    return;
+  }
+
+  Vector2 p = screen2world(Vector2(mouseRelX, mouseRelY));
+  Vector2 q = app_data.world2image_trans(p, m_beg_image_id);
+
+  int col = round(q[0]), row = round(q[1]);
+  vw_out() << "Clicked on pixel: " << col << ' ' << row << std::endl;
+
+  if (col >= 0 && row >= 0 &&
+      col < app_data.images[m_beg_image_id].img.cols() &&
+      row < app_data.images[m_beg_image_id].img.rows()) {
+    double val = app_data.images[m_beg_image_id].img.get_value_as_double(
+      col, row);
+    m_thresh = std::max(m_thresh, val);
+  }
+
+  vw_out() << "Image threshold for "
+            << app_data.images[m_beg_image_id].name
+            << ": " << m_thresh << std::endl;
 }
 
 // Handle crop win in mouse release event

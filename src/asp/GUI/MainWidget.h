@@ -320,6 +320,10 @@ private:
   void handleCropWin();
   void zoomInOut(int mouseRelX, int mouseRelY);
   void adjustForEditMatchPoint();
+  bool handleMatchPointMove(int mouseMoveX, int mouseMoveY);
+  bool handlePolyVertexMove(int mouseMoveX, int mouseMoveY);
+  void handleRubberBandDrag(int mouseMoveX, int mouseMoveY);
+  void handleThresholdClick(int mouseRelX, int mouseRelY);
 
   void renderGeoreferencedImage(double scale_out, 
                                 int image_index,
