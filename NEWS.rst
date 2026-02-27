@@ -117,6 +117,8 @@ Misc:
     and ``--this-dem-as-reference``.
   * Much removal of templates and breaking up of functions and files into smaller
     and better-organized components.
+  * Removed the unused HDR module, Python SWIG bindings, and legacy tools
+    (contourgen, blend, bayer, learnpca, doc-generate) from VisionWorkbench.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
