@@ -283,12 +283,6 @@ private:
   std::map<int, std::string> m_perImagePolyColor;
   int m_lineWidth;
 
-  // Adjustment mode
-  enum AdjustmentMode {NoAdjustment,
-                        TransformAdjustment, GainAdjustment,
-                        OffsetAdjustment, GammaAdjustment};
-  AdjustmentMode m_adjust_mode;
-
   // Mouse position
   vw::Vector2 m_curr_pixel_pos, m_curr_world_pos;
 
