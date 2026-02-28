@@ -332,7 +332,7 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   m_view_type_old = m_view_type; // initialize this
   
   // Set up the basic layout of the window and its menus
-  createMenus();
+  m_win_menu_mgr.init(this);
 
   // Must happen after menus are created
   createLayout();
@@ -480,7 +480,7 @@ void MainWindow::createLayout() {
                                 m_allowMultipleSelections);
     // Tell the widget if the poly edit mode and hillshade mode is on or not
     bool refresh = false; // Do not refresh prematurely
-    widget->setPolyEditMode(m_polyEditMode_action->isChecked(), refresh);
+    widget->setPolyEditMode(m_win_menu_mgr.m_polyEditMode_action->isChecked(), refresh);
     m_widgets.push_back(widget);
   } else {
     // Each MainWidget object gets passed a single image
@@ -588,15 +588,24 @@ void MainWindow::createLayout() {
   }
 
   // Refresh the menu checkboxes
-  m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
-  m_viewAllSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE && !asp::stereo_settings().view_several_side_by_side);
-  m_viewSeveralSideBySide_action->setChecked(asp::stereo_settings().view_several_side_by_side);
-  m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
+  auto& wm = m_win_menu_mgr;
+  wm.m_viewSingleWindow_action
+    ->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
+  wm.m_viewAllSideBySide_action
+    ->setChecked(m_view_type == VIEW_SIDE_BY_SIDE &&
+                 !asp::stereo_settings().view_several_side_by_side);
+  wm.m_viewSeveralSideBySide_action
+    ->setChecked(asp::stereo_settings().view_several_side_by_side);
+  wm.m_viewAsTiles_action
+    ->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
   MainWindow::updateDisplayModeMenuEntries();
-  m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
-  m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef &&
-                                                  (m_view_type == VIEW_IN_SINGLE_WINDOW));
-  m_zoomAllToSameRegion_action->setChecked(asp::stereo_settings().zoom_all_to_same_region);
+  wm.m_viewGeoreferencedImages_action
+    ->setChecked(app_data.use_georef);
+  wm.m_overlayGeoreferencedImages_action
+    ->setChecked(app_data.use_georef &&
+                 (m_view_type == VIEW_IN_SINGLE_WINDOW));
+  wm.m_zoomAllToSameRegion_action
+    ->setChecked(asp::stereo_settings().zoom_all_to_same_region);
 
   if (m_widgets.size() == 2                   &&
       num_images == 2                         &&
@@ -631,292 +640,6 @@ void MainWindow::createLayout() {
   }
   
   return;
-}
-
-void MainWindow::createMenus() {
-
-  QMenuBar* menu = menuBar();
-
-  // Exit or Quit
-  m_exit_action = new QAction(tr("Exit"), this);
-  m_exit_action->setShortcut(tr("Q"));
-  m_exit_action->setStatusTip(tr("Exit the application"));
-  connect(m_exit_action, SIGNAL(triggered()), this, SLOT(forceQuit()));
-
-  // Save screenshot
-  m_save_screenshot_action = new QAction(tr("Save screenshot"), this);
-  m_save_screenshot_action->setStatusTip(tr("Save screenshot"));
-  connect(m_save_screenshot_action, SIGNAL(triggered()), this, SLOT(save_screenshot()));
-
-  // Select region
-  m_select_region_action = new QAction(tr("Select region"), this);
-  m_select_region_action->setStatusTip(tr("Select rectangular region"));
-  connect(m_select_region_action, SIGNAL(triggered()), this, SLOT(select_region()));
-  
-  // Change cursor shape (a workaround for Qt not setting the cursor correctly in vnc)
-  m_change_cursor_action = new QAction(tr("Change cursor shape"), this);
-  m_change_cursor_action->setStatusTip(tr("Change cursor shape"));
-  connect(m_change_cursor_action, SIGNAL(triggered()), this, SLOT(change_cursor()));
-  m_change_cursor_action->setShortcut(tr("C"));
-
-  // Run parallel_stereo
-  m_run_parallel_stereo_action = new QAction(tr("Run parallel_stereo"), this);
-  m_run_parallel_stereo_action->setStatusTip(tr("Run parallel_stereo on selected clips"));
-  connect(m_run_parallel_stereo_action, SIGNAL(triggered()), this, SLOT(run_parallel_stereo()));
-  m_run_parallel_stereo_action->setShortcut(tr("R"));
-
-  // Run stereo
-  m_run_stereo_action = new QAction(tr("Run stereo"), this);
-  m_run_stereo_action->setStatusTip(tr("Run stereo on selected clips"));
-  connect(m_run_stereo_action, SIGNAL(triggered()), this, SLOT(run_stereo()));
-
-  // Zoom to full view
-  m_sizeToFit_action = new QAction(tr("Zoom to full view"), this);
-  m_sizeToFit_action->setStatusTip(tr("Change the view to encompass the images"));
-  connect(m_sizeToFit_action, SIGNAL(triggered()), this, SLOT(sizeToFit()));
-  m_sizeToFit_action->setShortcut(tr("F"));
-
-  m_viewSingleWindow_action = new QAction(tr("Single window"), this);
-  m_viewSingleWindow_action->setStatusTip(tr("View images in a single window"));
-  m_viewSingleWindow_action->setCheckable(true);
-  m_viewSingleWindow_action->setChecked(m_view_type == VIEW_IN_SINGLE_WINDOW);
-  m_viewSingleWindow_action->setShortcut(tr("W"));
-  connect(m_viewSingleWindow_action, SIGNAL(triggered()), this, SLOT(viewSingleWindow()));
-
-  m_viewAllSideBySide_action = new QAction(tr("All side-by-side"), this);
-  m_viewAllSideBySide_action->setStatusTip(tr("View all images side-by-side"));
-  m_viewAllSideBySide_action->setCheckable(true);
-  m_viewAllSideBySide_action->setChecked(m_view_type == VIEW_SIDE_BY_SIDE && !sideBySideWithDialog());
-  m_viewAllSideBySide_action->setShortcut(tr("S"));
-  connect(m_viewAllSideBySide_action, SIGNAL(triggered()), this, SLOT(viewAllSideBySide()));
-
-  m_viewSeveralSideBySide_action = new QAction(tr("Several side-by-side"), this);
-  m_viewSeveralSideBySide_action->setStatusTip(tr("View several images side-by-side"));
-  m_viewSeveralSideBySide_action->setCheckable(true);
-  m_viewSeveralSideBySide_action->setChecked(asp::stereo_settings().view_several_side_by_side);
-  connect(m_viewSeveralSideBySide_action, SIGNAL(triggered()),
-          this, SLOT(viewSeveralSideBySide()));
-
-  m_viewAsTiles_action = new QAction(tr("As tiles on grid"), this);
-  m_viewAsTiles_action->setStatusTip(tr("View images as tiles on grid"));
-  m_viewAsTiles_action->setCheckable(true);
-  m_viewAsTiles_action->setChecked(m_view_type == VIEW_AS_TILES_ON_GRID);
-  m_viewAsTiles_action->setShortcut(tr("T"));
-  connect(m_viewAsTiles_action, SIGNAL(triggered()), this, SLOT(viewAsTiles()));
-
-  // View hillshaded images
-  m_viewHillshadedImages_action = new QAction(tr("Hillshaded images"), this);
-  m_viewHillshadedImages_action->setStatusTip(tr("View hillshaded images"));
-  m_viewHillshadedImages_action->setCheckable(true);
-  m_viewHillshadedImages_action->setChecked(app_data.display_mode == HILLSHADED_VIEW);
-  m_viewHillshadedImages_action->setShortcut(tr("H"));
-  connect(m_viewHillshadedImages_action, SIGNAL(triggered()),
-          this, SLOT(viewHillshadedImages()));
-
-  // View as georeferenced
-  m_viewGeoreferencedImages_action = new QAction(tr("View as georeferenced images"), this);
-  m_viewGeoreferencedImages_action->setStatusTip(tr("View as georeferenced images"));
-  m_viewGeoreferencedImages_action->setCheckable(true);
-  m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
-  m_viewGeoreferencedImages_action->setShortcut(tr("G"));
-  connect(m_viewGeoreferencedImages_action, SIGNAL(triggered()),
-          this, SLOT(viewGeoreferencedImages()));
-  
-  // View overlaid georeferenced images
-  m_overlayGeoreferencedImages_action = new QAction(tr("Overlay georeferenced images"), this);
-  m_overlayGeoreferencedImages_action->setStatusTip(tr("Overlay georeferenced images"));
-  m_overlayGeoreferencedImages_action->setCheckable(true);
-  m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef &&
-                                                  (m_view_type == VIEW_IN_SINGLE_WINDOW));
-  m_overlayGeoreferencedImages_action->setShortcut(tr("O"));
-  connect(m_overlayGeoreferencedImages_action, SIGNAL(triggered()),
-          this, SLOT(overlayGeoreferencedImages()));
-
-  // Zoom all images to same region
-  m_zoomAllToSameRegion_action = new QAction(tr("Zoom all images to same region"), this);
-  m_zoomAllToSameRegion_action->setStatusTip(tr("Zoom all images to same region"));
-  m_zoomAllToSameRegion_action->setCheckable(true);
-  m_zoomAllToSameRegion_action->setChecked(asp::stereo_settings().zoom_all_to_same_region);
-  m_zoomAllToSameRegion_action->setShortcut(tr("Z"));
-  connect(m_zoomAllToSameRegion_action, SIGNAL(triggered()),
-          this, SLOT(setZoomAllToSameRegion()));
-
-  // View next image
-  m_viewNextImage_action = new QAction(tr("View next image"), this);
-  m_viewNextImage_action->setStatusTip(tr("View next image"));
-  m_viewNextImage_action->setCheckable(false);
-  m_viewNextImage_action->setShortcut(tr("N"));
-  connect(m_viewNextImage_action, SIGNAL(triggered()),
-          this, SLOT(viewNextImage()));
-
-  // View prev image
-  m_viewPrevImage_action = new QAction(tr("View previous image"), this);
-  m_viewPrevImage_action->setStatusTip(tr("View previous image"));
-  m_viewPrevImage_action->setCheckable(false);
-  m_viewPrevImage_action->setShortcut(tr("P"));
-  connect(m_viewPrevImage_action, SIGNAL(triggered()),
-          this, SLOT(viewPrevImage()));
-
-  m_zoomToProjWin_action = new QAction(tr("Zoom to proj win"), this);
-  m_zoomToProjWin_action->setStatusTip(tr("Zoom to proj win"));
-  m_zoomToProjWin_action->setCheckable(false);
-  connect(m_zoomToProjWin_action, SIGNAL(triggered()), this, SLOT(zoomToProjWin()));
-  
-  // IP matches
-  m_viewMatches_action = new QAction(tr("View IP matches"), this);
-  m_viewMatches_action->setStatusTip(tr("View IP matches"));
-  m_viewMatches_action->setCheckable(true);
-  m_viewMatches_action->setChecked(asp::stereo_settings().view_matches);
-  connect(m_viewMatches_action, SIGNAL(triggered()), this, SLOT(viewMatchesFromMenu()));
-
-  m_viewPairwiseMatches_action = new QAction(tr("View pairwise IP matches"), this);
-  m_viewPairwiseMatches_action->setStatusTip(tr("View pairwise IP matches"));
-  m_viewPairwiseMatches_action->setCheckable(true);
-  m_viewPairwiseMatches_action->setChecked(asp::stereo_settings().pairwise_matches);
-  connect(m_viewPairwiseMatches_action, SIGNAL(triggered()), this, SLOT(viewPairwiseMatchesSlot()));
-
-  m_viewPairwiseCleanMatches_action = new QAction(tr("View pairwise clean IP matches"), this);
-  m_viewPairwiseCleanMatches_action->setStatusTip(tr("View pairwise clean IP matches"));
-  m_viewPairwiseCleanMatches_action->setCheckable(true);
-  m_viewPairwiseCleanMatches_action->setChecked(asp::stereo_settings().pairwise_clean_matches);
-  connect(m_viewPairwiseCleanMatches_action, SIGNAL(triggered()),
-          this, SLOT(viewPairwiseCleanMatchesSlot()));
-
-  m_addDelMatches_action = new QAction(tr("Add/delete IP matches"), this);
-  m_addDelMatches_action->setStatusTip(tr("Add/delete interest point matches"));
-  connect(m_addDelMatches_action, SIGNAL(triggered()), this, SLOT(addDelMatches()));
-
-  m_saveMatches_action = new QAction(tr("Save IP matches"), this);
-  m_saveMatches_action->setStatusTip(tr("Save interest point matches"));
-  connect(m_saveMatches_action, SIGNAL(triggered()), this, SLOT(saveMatches()));
-
-  m_writeGcp_action = new QAction(tr("Save GCP and IP matches"), this);
-  m_writeGcp_action->setStatusTip(tr("Save interest point matches as GCP for bundle_adjust"));
-  connect(m_writeGcp_action, SIGNAL(triggered()), this, SLOT(writeGroundControlPoints()));
-
-  // Threshold calculation by clicking on pixels and setting the threshold
-  // as the largest determined pixel value
-  m_thresholdCalc_action = new QAction(tr("Threshold detection"), this);
-  m_thresholdCalc_action->setStatusTip(tr("Threshold detection"));
-  m_thresholdCalc_action->setCheckable(true);
-  connect(m_thresholdCalc_action, SIGNAL(triggered()), this, SLOT(thresholdCalc()));
-
-  // Thresholded image visualization
-  m_viewThreshImages_action = new QAction(tr("View thresholded images"), this);
-  m_viewThreshImages_action->setStatusTip(tr("View thresholded images"));
-  m_viewThreshImages_action->setCheckable(true);
-  m_viewThreshImages_action->setChecked(app_data.display_mode == THRESHOLDED_VIEW);
-  connect(m_viewThreshImages_action, SIGNAL(triggered()), this, SLOT(viewThreshImages()));
-
-  // View/set image threshold
-  m_thresholdGetSet_action = new QAction(tr("View/set thresholds"), this);
-  m_thresholdGetSet_action->setStatusTip(tr("View/set thresholds"));
-  connect(m_thresholdGetSet_action, SIGNAL(triggered()), this, SLOT(thresholdGetSet()));
-
-  // 1D profile mode
-  m_profileMode_action = new QAction(tr("1D profile mode"), this);
-  m_profileMode_action->setStatusTip(tr("Profile mode"));
-  m_profileMode_action->setCheckable(true);
-  m_profileMode_action->setChecked(false);
-  connect(m_profileMode_action, SIGNAL(triggered()), this, SLOT(profileMode()));
-
-  // Polygon edit mode
-  m_polyEditMode_action = new QAction(tr("Polygon edit mode"), this);
-  m_polyEditMode_action->setStatusTip(tr("Polygon edit mode"));
-  m_polyEditMode_action->setCheckable(true);
-  m_polyEditMode_action->setChecked(false);
-  connect(m_polyEditMode_action, SIGNAL(triggered()), this, SLOT(polyEditMode()));
-
-  // Set line width
-  m_setLineWidth_action = new QAction(tr("Set line width"), this);
-  m_setLineWidth_action->setStatusTip(tr("Set line width"));
-  connect(m_setLineWidth_action, SIGNAL(triggered()), this, SLOT(setLineWidth()));
-
-  // Set color of polygons
-  m_setPolyColor_action = new QAction(tr("Set color of polygons"), this);
-  m_setPolyColor_action->setStatusTip(tr("Set color of polygons"));
-  connect(m_setPolyColor_action, SIGNAL(triggered()), this, SLOT(setPolyColor()));
-
-  // Contour image
-  m_contourImages_action = new QAction(tr("Find contour at threshold"), this);
-  m_contourImages_action->setStatusTip(tr("Find contour at threshold"));
-  connect(m_contourImages_action, SIGNAL(triggered()), this, SLOT(contourImages()));
-  
-  // Save vector layer as shape file
-  m_saveVectorLayerAsShapeFile_action = new QAction(tr("Save vector layer as shapefile"), this);
-  m_saveVectorLayerAsShapeFile_action->setStatusTip(tr("Save vector layer as shapefile"));
-  connect(m_saveVectorLayerAsShapeFile_action, SIGNAL(triggered()), this,
-          SLOT(saveVectorLayerAsShapeFile()));
-
-  // Save vector layer as text file
-  m_saveVectorLayerAsTextFile_action = new QAction(tr("Save vector layer as text file"), this);
-  m_saveVectorLayerAsTextFile_action->setStatusTip(tr("Save vector layer as text file"));
-  connect(m_saveVectorLayerAsTextFile_action, SIGNAL(triggered()), this,
-          SLOT(saveVectorLayerAsTextFile()));
-
-  // The About box
-  m_about_action = new QAction(tr("About stereo_gui"), this);
-  m_about_action->setStatusTip(tr("Show the stereo_gui about box"));
-  connect(m_about_action, SIGNAL(triggered()), this, SLOT(about()));
-
-  // File menu
-  m_file_menu = menu->addMenu(tr("&File"));
-  m_file_menu->addAction(m_save_screenshot_action);
-  m_file_menu->addAction(m_select_region_action);
-  m_file_menu->addAction(m_change_cursor_action);
-  m_file_menu->addAction(m_exit_action);
-
-  // Run menu
-  m_file_menu = menu->addMenu(tr("&Run"));
-  m_file_menu->addAction(m_run_parallel_stereo_action);
-  m_file_menu->addAction(m_run_stereo_action);
-
-  // View menu
-  m_view_menu = menu->addMenu(tr("&View"));
-  m_view_menu->addAction(m_sizeToFit_action);
-  m_view_menu->addAction(m_viewSingleWindow_action);
-  m_view_menu->addAction(m_viewAllSideBySide_action);
-  m_view_menu->addAction(m_viewSeveralSideBySide_action);
-  m_view_menu->addAction(m_viewAsTiles_action);
-  m_view_menu->addAction(m_viewHillshadedImages_action);
-  m_view_menu->addAction(m_viewGeoreferencedImages_action);
-  m_view_menu->addAction(m_overlayGeoreferencedImages_action);
-  m_view_menu->addAction(m_zoomAllToSameRegion_action);
-  m_view_menu->addAction(m_viewNextImage_action);
-  m_view_menu->addAction(m_viewPrevImage_action);
-  m_view_menu->addAction(m_zoomToProjWin_action);
-
-  // Matches menu
-  m_matches_menu = menu->addMenu(tr("&IP matches"));
-  m_matches_menu->addAction(m_viewMatches_action);
-  m_matches_menu->addAction(m_viewPairwiseMatches_action);
-  m_matches_menu->addAction(m_viewPairwiseCleanMatches_action);
-  m_matches_menu->addAction(m_addDelMatches_action);
-  m_matches_menu->addAction(m_saveMatches_action);
-  m_matches_menu->addAction(m_writeGcp_action);
-
-  // Threshold menu
-  m_threshold_menu = menu->addMenu(tr("&Threshold"));
-  m_threshold_menu->addAction(m_thresholdCalc_action);
-  m_threshold_menu->addAction(m_viewThreshImages_action);
-  m_threshold_menu->addAction(m_thresholdGetSet_action);
-
-  // Profile menu
-  m_profile_menu = menu->addMenu(tr("Profile"));
-  m_profile_menu->addAction(m_profileMode_action);
-
-  // Vector layer menu
-  m_vector_layer_menu = menu->addMenu(tr("Vector layer"));
-  m_vector_layer_menu->addAction(m_polyEditMode_action);
-  m_vector_layer_menu->addAction(m_setLineWidth_action);
-  m_vector_layer_menu->addAction(m_setPolyColor_action);
-  m_vector_layer_menu->addAction(m_contourImages_action);
-  m_vector_layer_menu->addAction(m_saveVectorLayerAsShapeFile_action);
-  m_vector_layer_menu->addAction(m_saveVectorLayerAsTextFile_action);
-
-  // Help menu
-  m_help_menu = menu->addMenu(tr("&Help"));
-  m_help_menu->addAction(m_about_action);
 }
 
 // In previewOrSideBySideWithDialog mode, checking/unchecking images has to result
@@ -1055,7 +778,7 @@ void MainWindow::sizeToFit() {
 
 void MainWindow::viewSingleWindow() {
 
-  bool single_window = m_viewSingleWindow_action->isChecked();
+  bool single_window = m_win_menu_mgr.m_viewSingleWindow_action->isChecked();
 
   if (single_window) {
 
@@ -1104,7 +827,7 @@ void MainWindow::viewSeveralSideBySide() {
 
 void MainWindow::viewAsTiles() {
 
-  if (!m_viewAsTiles_action->isChecked()) {
+  if (!m_win_menu_mgr.m_viewAsTiles_action->isChecked()) {
     if (m_view_type_old != VIEW_AS_TILES_ON_GRID)
       m_view_type = m_view_type_old; // restore this
     else
@@ -1189,21 +912,29 @@ void MainWindow::zoomToProjWin() {
 // Update the checkboxes for the matches menu entries based on stereo_settings()
 // values.
 void MainWindow::updateViewMenuEntries() {
-  m_viewMatches_action->setChecked(asp::stereo_settings().view_matches);
-  m_viewPairwiseCleanMatches_action->setChecked(asp::stereo_settings().pairwise_clean_matches);
-  m_viewPairwiseMatches_action->setChecked(asp::stereo_settings().pairwise_matches);
-  m_viewSeveralSideBySide_action->setChecked(asp::stereo_settings().view_several_side_by_side);
+  auto& wm = m_win_menu_mgr;
+  wm.m_viewMatches_action
+    ->setChecked(asp::stereo_settings().view_matches);
+  wm.m_viewPairwiseCleanMatches_action
+    ->setChecked(asp::stereo_settings().pairwise_clean_matches);
+  wm.m_viewPairwiseMatches_action
+    ->setChecked(asp::stereo_settings().pairwise_matches);
+  wm.m_viewSeveralSideBySide_action
+    ->setChecked(asp::stereo_settings().view_several_side_by_side);
 }
 
 // Update checkboxes for viewing thresholded and hillshaded images
 void MainWindow::updateDisplayModeMenuEntries() {
-  m_viewThreshImages_action->setChecked(app_data.display_mode == THRESHOLDED_VIEW);
-  m_viewHillshadedImages_action->setChecked(app_data.display_mode == HILLSHADED_VIEW);
+  auto& wm = m_win_menu_mgr;
+  wm.m_viewThreshImages_action
+    ->setChecked(app_data.display_mode == THRESHOLDED_VIEW);
+  wm.m_viewHillshadedImages_action
+    ->setChecked(app_data.display_mode == HILLSHADED_VIEW);
 }
 
 void MainWindow::viewMatchesFromMenu() {
   // Record user's intent
-  asp::stereo_settings().view_matches = m_viewMatches_action->isChecked();
+  asp::stereo_settings().view_matches = m_win_menu_mgr.m_viewMatches_action->isChecked();
   
   toggleViewMatches();
 }
@@ -1229,7 +960,7 @@ void MainWindow::toggleViewMatches() {
 void MainWindow::viewMatches() {
   
   // Record user's intent
-  asp::stereo_settings().view_matches = m_viewMatches_action->isChecked();
+  asp::stereo_settings().view_matches = m_win_menu_mgr.m_viewMatches_action->isChecked();
   asp::stereo_settings().preview = false;
   
   // Turn off the other ways of viewing matches
@@ -1308,7 +1039,8 @@ void MainWindow::viewMatches() {
 
 void MainWindow::viewPairwiseMatchesSlot() {
   // Record user's intent
-  asp::stereo_settings().pairwise_matches = m_viewPairwiseMatches_action->isChecked();
+  asp::stereo_settings().pairwise_matches
+    = m_win_menu_mgr.m_viewPairwiseMatches_action->isChecked();
 
   if (asp::stereo_settings().pairwise_matches)
     m_show_two_images_when_side_by_side_with_dialog = true;
@@ -1325,7 +1057,7 @@ void MainWindow::viewPairwiseMatchesSlot() {
 void MainWindow::viewPairwiseCleanMatchesSlot() {
   // Record user's intent
   asp::stereo_settings().pairwise_clean_matches
-    = m_viewPairwiseCleanMatches_action->isChecked();
+    = m_win_menu_mgr.m_viewPairwiseCleanMatches_action->isChecked();
 
   if (asp::stereo_settings().pairwise_clean_matches)
     m_show_two_images_when_side_by_side_with_dialog = true;
@@ -1615,7 +1347,7 @@ void MainWindow::run_parallel_stereo() {
 
 // Toggle on or of the tool for detecting a threshold in images
 void MainWindow::thresholdCalc() {
-  bool on = m_thresholdCalc_action->isChecked();
+  bool on = m_win_menu_mgr.m_thresholdCalc_action->isChecked();
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
       m_widgets[i]->setThreshMode(on);
@@ -1623,7 +1355,7 @@ void MainWindow::thresholdCalc() {
 }
 
 void MainWindow::viewThreshImages() {
-  if (m_viewThreshImages_action->isChecked())
+  if (m_win_menu_mgr.m_viewThreshImages_action->isChecked())
     app_data.display_mode = THRESHOLDED_VIEW;
   else
     app_data.display_mode = REGULAR_VIEW;
@@ -1785,7 +1517,8 @@ void MainWindow::setPolyColor() {
 }
 
 void MainWindow::viewHillshadedImages() {
-  app_data.display_mode = m_viewHillshadedImages_action->isChecked() ? HILLSHADED_VIEW : REGULAR_VIEW;
+  bool hillshade = m_win_menu_mgr.m_viewHillshadedImages_action->isChecked();
+  app_data.display_mode = hillshade ? HILLSHADED_VIEW : REGULAR_VIEW;
   MainWindow::updateDisplayModeMenuEntries();
   
   for (size_t i = 0; i < m_widgets.size(); i++) {
@@ -1797,14 +1530,15 @@ void MainWindow::viewHillshadedImages() {
 // Pass to the widget the desire to zoom all images to the same region
 // or its cancellation
 void MainWindow::setZoomAllToSameRegionAux(bool do_zoom) {
-  m_zoomAllToSameRegion_action->setChecked(do_zoom);
+  m_win_menu_mgr.m_zoomAllToSameRegion_action->setChecked(do_zoom);
 }
 
 // Pass to the widget the desire to zoom all images to the same region
 // or its cancellation
 void MainWindow::setZoomAllToSameRegion() {
   
-  asp::stereo_settings().zoom_all_to_same_region = m_zoomAllToSameRegion_action->isChecked();
+  asp::stereo_settings().zoom_all_to_same_region
+    = m_win_menu_mgr.m_zoomAllToSameRegion_action->isChecked();
   setZoomAllToSameRegionAux(asp::stereo_settings().zoom_all_to_same_region);
 
   if (!asp::stereo_settings().zoom_all_to_same_region)
@@ -1828,7 +1562,7 @@ void MainWindow::setZoomAllToSameRegion() {
 
   if (has_georef && !app_data.use_georef) {
     app_data.use_georef = true;
-    m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
+    m_win_menu_mgr.m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
     viewGeoreferencedImages(); // This will invoke createLayout() too.
   }else{
     createLayout();
@@ -1890,12 +1624,12 @@ void MainWindow::viewPrevImage() {
 }
 
 void MainWindow::uncheckProfileModeCheckbox() {
-  m_profileMode_action->setChecked(false);
+  m_win_menu_mgr.m_profileMode_action->setChecked(false);
   return;
 }
 
 void MainWindow::profileMode() {
-  bool profile_mode = m_profileMode_action->isChecked();
+  bool profile_mode = m_win_menu_mgr.m_profileMode_action->isChecked();
   if (profile_mode && m_widgets.size() != 1) {
     popUp("A profile can be shown only when a single image is present.");
     uncheckProfileModeCheckbox();
@@ -1909,12 +1643,12 @@ void MainWindow::profileMode() {
 }
 
 void MainWindow::uncheckPolyEditModeCheckbox() {
-  m_polyEditMode_action->setChecked(false);
+  m_win_menu_mgr.m_polyEditMode_action->setChecked(false);
   return;
 }
 
 void MainWindow::polyEditMode() {
-  bool polyEditMode = m_polyEditMode_action->isChecked();
+  bool polyEditMode = m_win_menu_mgr.m_polyEditMode_action->isChecked();
 
   if (polyEditMode) {
     // Turn on vector layer editing
@@ -1930,8 +1664,9 @@ void MainWindow::polyEditMode() {
         // and any newly-created polygons will inherit the georeference.
         popUp("To edit polygons, the data will be overlaid in one window using georeferences.");
         app_data.use_georef = true;
-        m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
-        m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_win_menu_mgr.m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_win_menu_mgr.m_overlayGeoreferencedImages_action
+          ->setChecked(app_data.use_georef);
         overlayGeoreferencedImages();
         return;
       }
@@ -1950,7 +1685,7 @@ void MainWindow::polyEditMode() {
 }
 
 void MainWindow::viewGeoreferencedImages() {
-  app_data.use_georef = m_viewGeoreferencedImages_action->isChecked();
+  app_data.use_georef = m_win_menu_mgr.m_viewGeoreferencedImages_action->isChecked();
   if (app_data.use_georef) {
 
     // Will show in single window with georef. Must first check if all images have georef.
@@ -1959,8 +1694,9 @@ void MainWindow::viewGeoreferencedImages() {
         popUp("Cannot view georeferenced images, as there is no georeference in: "
               + app_data.image_files[i]);
         app_data.use_georef = false;
-        m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
-        m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_win_menu_mgr.m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_win_menu_mgr.m_overlayGeoreferencedImages_action
+          ->setChecked(app_data.use_georef);
         return;
       }
     }
@@ -1970,7 +1706,7 @@ void MainWindow::viewGeoreferencedImages() {
 }
 
 void MainWindow::overlayGeoreferencedImages() {
-  app_data.use_georef = m_overlayGeoreferencedImages_action->isChecked();
+  app_data.use_georef = m_win_menu_mgr.m_overlayGeoreferencedImages_action->isChecked();
 
   if (app_data.use_georef) {
 
@@ -1979,8 +1715,9 @@ void MainWindow::overlayGeoreferencedImages() {
       if (!app_data.images[i].has_georef) {
         popUp("Cannot overlay, as there is no georeference in: " + app_data.image_files[i]);
         app_data.use_georef = false;
-        m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
-        m_overlayGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_win_menu_mgr.m_viewGeoreferencedImages_action->setChecked(app_data.use_georef);
+        m_win_menu_mgr.m_overlayGeoreferencedImages_action
+          ->setChecked(app_data.use_georef);
         return;
       }
     }

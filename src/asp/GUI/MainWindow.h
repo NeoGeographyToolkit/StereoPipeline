@@ -25,6 +25,7 @@
 #include <asp/GUI/GuiUtilities.h>
 #include <asp/GUI/AppData.h>
 #include <asp/GUI/MatchPointMgr.h>
+#include <asp/GUI/WindowMenuMgr.h>
 
 #include <vw/Math/Vector.h>
 #include <vw/InterestPoint/InterestPoint.h>
@@ -126,7 +127,6 @@ private:
   // - If require_all is set, only keep IPs detected in all images.
   size_t consolidate_matches(bool require_all = true);
 
-  void createMenus();
 
   // Event handlers
   void resizeEvent(QResizeEvent *);
@@ -150,49 +150,8 @@ private:
   std::vector<MainWidget*>  m_widgets;     // one of these for each separate image pane.
   ChooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
 
-  QMenu *m_file_menu;
-  QMenu *m_view_menu;
-  QMenu *m_matches_menu;
-  QMenu *m_threshold_menu;
-  QMenu *m_profile_menu;
-  QMenu *m_vector_layer_menu;
-  QMenu *m_help_menu;
-
-  QAction *m_about_action;
-  QAction *m_thresholdCalc_action;
-  QAction *m_thresholdGetSet_action;
-  QAction *m_setLineWidth_action;
-  QAction *m_setPolyColor_action;
-  QAction *m_sizeToFit_action;
-  QAction *m_viewSingleWindow_action;
-  QAction *m_viewAllSideBySide_action;
-  QAction *m_viewSeveralSideBySide_action;
-  QAction *m_viewAsTiles_action;
-  QAction *m_zoomToProjWin_action;
-  QAction *m_viewHillshadedImages_action;
-  QAction *m_viewGeoreferencedImages_action;
-  QAction *m_overlayGeoreferencedImages_action;
-  QAction *m_viewThreshImages_action;
-  QAction *m_contourImages_action;
-  QAction *m_saveVectorLayerAsShapeFile_action;
-  QAction *m_saveVectorLayerAsTextFile_action;
-  QAction *m_zoomAllToSameRegion_action;
-  QAction *m_viewNextImage_action;
-  QAction *m_viewPrevImage_action;
-  QAction *m_viewMatches_action;
-  QAction *m_viewPairwiseMatches_action;
-  QAction *m_viewPairwiseCleanMatches_action;
-  QAction *m_addDelMatches_action;
-  QAction *m_saveMatches_action;
-  QAction *m_writeGcp_action;
-  QAction *m_save_screenshot_action;
-  QAction *m_select_region_action;
-  QAction *m_change_cursor_action;
-  QAction *m_run_stereo_action;
-  QAction *m_run_parallel_stereo_action;
-  QAction *m_exit_action;
-  QAction *m_profileMode_action;
-  QAction *m_polyEditMode_action;
+  WindowMenuMgr m_win_menu_mgr;
+  friend struct WindowMenuMgr;
 
   ViewType m_view_type, m_view_type_old;
   int      m_grid_cols, m_grid_cols_old;
