@@ -21,7 +21,8 @@ Here is an example when using RPC cameras::
     stereo_gui -t rpc left.tif right.tif left.xml right.xml run/run
 
 One can zoom with the mouse wheel, or by dragging the mouse from
-upper-left to lower-right (zoom in), and vice-versa (zoom out), Use
+upper-left to lower-right (zoom in), and vice-versa (zoom out). The
+``=`` and ``-`` keys zoom in and out (also in the ``View`` menu). Use
 the arrow keys to pan (first click to bring the image in focus).
 
 By pressing the ``Control`` key while dragging the mouse, clips can be
