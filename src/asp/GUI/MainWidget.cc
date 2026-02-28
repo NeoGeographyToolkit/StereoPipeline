@@ -26,7 +26,7 @@
 #include <asp/GUI/GuiGeom.h>
 #include <asp/GUI/ChooseFilesDlg.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/GUI/MenuMgr.h>
+#include <asp/GUI/WidgetMenuMgr.h>
 
 #include <vw/Math/EulerAngles.h>
 #include <vw/Image/Algorithms.h>
@@ -180,7 +180,7 @@ MainWidget::MainWidget(QWidget *parent,
   }
   
   // Initialize the menu manager
-  m_menu_mgr = std::unique_ptr<MenuMgr>(new MenuMgr(this));
+  m_wid_menu_mgr = std::unique_ptr<WidgetMenuMgr>(new WidgetMenuMgr(this));
 } // End constructor
 
 MainWidget::~MainWidget() {
@@ -205,7 +205,7 @@ void MainWidget::customMenuRequested(QPoint pos) {
   int imageIndex = tablePos.row();
 
   // Form the menu, passing the image index explicitly
-  QMenu *menu = m_menu_mgr->formCustomMenu(this, imageIndex);
+  QMenu *menu = m_wid_menu_mgr->formCustomMenu(this, imageIndex);
 
   menu->exec(filesTable->mapToGlobal(pos));
 }
@@ -465,7 +465,7 @@ void MainWidget::maybeGenHillshade() {
 // Allow the user to select multiple windows.
 void MainWidget::allowMultipleSelections() {
   m_allowMultipleSelections = !m_allowMultipleSelections;
-  m_menu_mgr->m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
+  m_wid_menu_mgr->m_allowMultipleSelections_action->setChecked(m_allowMultipleSelections);
   if (!m_allowMultipleSelections) {
     m_selectionRectangles.clear();
     refreshPixmap();
@@ -1232,7 +1232,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   m_match_mgr.m_editMatchPointVecIndex = -1; // Keep this initialized
 
   // If the user is currently editing match points
-  if (!m_polyEditMode && m_menu_mgr->m_moveMatchPoint->isChecked()
+  if (!m_polyEditMode && m_wid_menu_mgr->m_moveMatchPoint->isChecked()
       && !m_cropWinMode && asp::stereo_settings().view_matches) {
 
     m_match_mgr.m_editingMatches = true;
@@ -1257,7 +1257,7 @@ void MainWidget::mousePressEvent(QMouseEvent *event) {
   } // End match point update case
 
   // If the user is currently editing polygons
-  if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
+  if (m_polyEditMode && m_wid_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
 
     Vector2 P = screen2world(Vector2(m_mousePrsX, m_mousePrsY));
     m_world_box.grow(P); // to not cut when plotting later
@@ -1305,7 +1305,7 @@ void MainWidget::mouseMoveEvent(QMouseEvent *event) {
 // Handle match point dragging during mouse move
 bool MainWidget::handleMatchPointMove(int mouseMoveX, int mouseMoveY) {
 
-  if (m_polyEditMode || !m_menu_mgr->m_moveMatchPoint->isChecked() ||
+  if (m_polyEditMode || !m_wid_menu_mgr->m_moveMatchPoint->isChecked() ||
       m_cropWinMode)
     return false;
 
@@ -1339,7 +1339,7 @@ bool MainWidget::handleMatchPointMove(int mouseMoveX, int mouseMoveY) {
 // Handle polygon vertex dragging during mouse move
 bool MainWidget::handlePolyVertexMove(int mouseMoveX, int mouseMoveY) {
 
-  if (!m_polyEditMode || !m_menu_mgr->m_moveVertex->isChecked() ||
+  if (!m_polyEditMode || !m_wid_menu_mgr->m_moveVertex->isChecked() ||
       m_cropWinMode)
     return false;
 
@@ -1489,7 +1489,7 @@ void MainWidget::handlePixelClick(int mouseRelX, int mouseRelY) {
 // Handle poly edit mode click: move or add vertex
 void MainWidget::handlePolyEditClick(int mouseRelX, int mouseRelY) {
 
-  if (m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
+  if (m_wid_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode) {
     // Move vertex
 
     if (m_editPolyVecIndex        < 0 ||
@@ -1733,10 +1733,10 @@ void MainWidget::mouseReleaseEvent(QMouseEvent *event) {
   }
 
   // Do not zoom or do other funny stuff if we are moving IP or vertices
-  if (!m_polyEditMode && m_menu_mgr->m_moveMatchPoint->isChecked() && !m_cropWinMode)
+  if (!m_polyEditMode && m_wid_menu_mgr->m_moveMatchPoint->isChecked() && !m_cropWinMode)
     return;
     
-  if (m_polyEditMode && m_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode)
+  if (m_polyEditMode && m_wid_menu_mgr->m_moveVertex->isChecked() && !m_cropWinMode)
     return;
 
   if (event->buttons() & Qt::RightButton) {
@@ -1870,9 +1870,9 @@ void MainWidget::contextMenuEvent(QContextMenuEvent *event) {
   m_mousePrsX = x;
   m_mousePrsY = y;
 
-  m_menu_mgr->setupContextMenu(this);
+  m_wid_menu_mgr->setupContextMenu(this);
 
-  m_menu_mgr->m_contextMenu->popup(mapToGlobal(QPoint(x,y)));
+  m_wid_menu_mgr->m_contextMenu->popup(mapToGlobal(QPoint(x,y)));
   return;
 }
 

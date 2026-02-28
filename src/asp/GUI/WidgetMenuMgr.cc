@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2006-2024, United States Government as represented by the
+//  Copyright (c) 2006-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -15,21 +15,21 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// \file MenuMgr.cc
-// 
-// Handles menu creation and management for MainWidget.
-// 
-#include <asp/GUI/MenuMgr.h>
+// \file WidgetMenuMgr.cc
+//
+// Handles right-click context menu creation and management for MainWidget.
+//
+#include <asp/GUI/WidgetMenuMgr.h>
 #include <asp/GUI/MainWidget.h>
 #include <asp/GUI/GuiUtilities.h>
 
 namespace asp {
 
 // Right-click context menu
-MenuMgr::MenuMgr(MainWidget* parent_widget) {
-  
-  m_contextMenu = new QMenu(parent_widget);
-  
+WidgetMenuMgr::WidgetMenuMgr(MainWidget* wid) {
+
+  m_contextMenu = new QMenu(wid);
+
   // Polygon editing mode, they will be visible only when editing happens
   m_insertVertex   = m_contextMenu->addAction("Insert vertex");
   m_deleteVertex   = m_contextMenu->addAction("Delete vertex");
@@ -64,91 +64,91 @@ MenuMgr::MenuMgr(MainWidget* parent_widget) {
   m_allowMultipleSelections_action
     = m_contextMenu->addAction("Allow multiple selected regions");
   m_allowMultipleSelections_action->setCheckable(true);
-  m_allowMultipleSelections_action->setChecked(parent_widget->m_allowMultipleSelections);
+  m_allowMultipleSelections_action->setChecked(wid->m_allowMultipleSelections);
 
   m_deleteSelection = m_contextMenu->addAction("Delete selected regions around this point");
   m_hideImagesNotInRegion
     = m_contextMenu->addAction("Hide images not intersecting selected region");
 
-  // Connect signals to slots in the parent_widget
-  QObject::connect(m_addMatchPoint, SIGNAL(triggered()), 
-                   parent_widget, SLOT(addMatchPoint()));
-  QObject::connect(m_deleteMatchPoint, SIGNAL(triggered()), 
-                   parent_widget, SLOT(deleteMatchPoint()));
-  QObject::connect(m_toggleHillshadeImageRightClick, SIGNAL(triggered()), 
-                   parent_widget, SLOT(toggleHillshadeImageRightClick()));
-  QObject::connect(m_setHillshadeParams, SIGNAL(triggered()), 
-                   parent_widget, SLOT(setHillshadeParams()));
-  QObject::connect(m_setThreshold, SIGNAL(triggered()), 
-                   parent_widget, SLOT(setThreshold()));
-  QObject::connect(m_saveScreenshot, SIGNAL(triggered()), 
-                   parent_widget, SLOT(saveScreenshot()));
-  QObject::connect(m_allowMultipleSelections_action, SIGNAL(triggered()), 
-                   parent_widget, SLOT(allowMultipleSelections()));
-  QObject::connect(m_deleteSelection, SIGNAL(triggered()), 
-                   parent_widget, SLOT(deleteSelection()));
-  QObject::connect(m_hideImagesNotInRegion, SIGNAL(triggered()), 
-                   parent_widget, SLOT(hideImagesNotInRegion()));
-  QObject::connect(m_saveVectorLayerAsShapeFile, SIGNAL(triggered()), 
-                   parent_widget, SLOT(saveVectorLayerAsShapeFile()));
-  QObject::connect(m_saveVectorLayerAsTextFile, SIGNAL(triggered()), 
-                   parent_widget, SLOT(saveVectorLayerAsTextFile()));
-  QObject::connect(m_deleteVertex, SIGNAL(triggered()), 
-                   parent_widget, SLOT(deleteVertex()));
-  QObject::connect(m_deleteVertices, SIGNAL(triggered()), 
-                   parent_widget, SLOT(deleteVertices()));
-  QObject::connect(m_insertVertex, SIGNAL(triggered()), 
-                   parent_widget, SLOT(insertVertex()));
-  QObject::connect(m_mergePolys, SIGNAL(triggered()), 
-                   parent_widget, SLOT(mergePolys()));
+  // Connect signals to slots in the wid
+  QObject::connect(m_addMatchPoint, SIGNAL(triggered()),
+                   wid, SLOT(addMatchPoint()));
+  QObject::connect(m_deleteMatchPoint, SIGNAL(triggered()),
+                   wid, SLOT(deleteMatchPoint()));
+  QObject::connect(m_toggleHillshadeImageRightClick, SIGNAL(triggered()),
+                   wid, SLOT(toggleHillshadeImageRightClick()));
+  QObject::connect(m_setHillshadeParams, SIGNAL(triggered()),
+                   wid, SLOT(setHillshadeParams()));
+  QObject::connect(m_setThreshold, SIGNAL(triggered()),
+                   wid, SLOT(setThreshold()));
+  QObject::connect(m_saveScreenshot, SIGNAL(triggered()),
+                   wid, SLOT(saveScreenshot()));
+  QObject::connect(m_allowMultipleSelections_action, SIGNAL(triggered()),
+                   wid, SLOT(allowMultipleSelections()));
+  QObject::connect(m_deleteSelection, SIGNAL(triggered()),
+                   wid, SLOT(deleteSelection()));
+  QObject::connect(m_hideImagesNotInRegion, SIGNAL(triggered()),
+                   wid, SLOT(hideImagesNotInRegion()));
+  QObject::connect(m_saveVectorLayerAsShapeFile, SIGNAL(triggered()),
+                   wid, SLOT(saveVectorLayerAsShapeFile()));
+  QObject::connect(m_saveVectorLayerAsTextFile, SIGNAL(triggered()),
+                   wid, SLOT(saveVectorLayerAsTextFile()));
+  QObject::connect(m_deleteVertex, SIGNAL(triggered()),
+                   wid, SLOT(deleteVertex()));
+  QObject::connect(m_deleteVertices, SIGNAL(triggered()),
+                   wid, SLOT(deleteVertices()));
+  QObject::connect(m_insertVertex, SIGNAL(triggered()),
+                   wid, SLOT(insertVertex()));
+  QObject::connect(m_mergePolys, SIGNAL(triggered()),
+                   wid, SLOT(mergePolys()));
 }
 
-void MenuMgr::setupContextMenu(MainWidget* parent_widget) {
-  
+void WidgetMenuMgr::setupContextMenu(MainWidget* wid) {
+
   // If in poly edit mode, turn on these items.
-  m_deleteVertex->setVisible(parent_widget->m_polyEditMode);
-  m_deleteVertices->setVisible(parent_widget->m_polyEditMode);
-  m_insertVertex->setVisible(parent_widget->m_polyEditMode);
-  m_moveVertex->setVisible(parent_widget->m_polyEditMode);
-  m_showIndices->setVisible(parent_widget->m_polyEditMode);
-  m_showPolysFilled->setVisible(parent_widget->m_polyEditMode);
+  m_deleteVertex->setVisible(wid->m_polyEditMode);
+  m_deleteVertices->setVisible(wid->m_polyEditMode);
+  m_insertVertex->setVisible(wid->m_polyEditMode);
+  m_moveVertex->setVisible(wid->m_polyEditMode);
+  m_showIndices->setVisible(wid->m_polyEditMode);
+  m_showPolysFilled->setVisible(wid->m_polyEditMode);
 
   // Add the saving polygon option even when not editing
   m_saveVectorLayerAsShapeFile->setVisible(true);
   m_saveVectorLayerAsTextFile->setVisible(true);
 
-  m_mergePolys->setVisible(parent_widget->m_polyEditMode);
+  m_mergePolys->setVisible(wid->m_polyEditMode);
 
   // Refresh this from the variable, before popping up the menu
-  m_allowMultipleSelections_action->setChecked(parent_widget->m_allowMultipleSelections);
+  m_allowMultipleSelections_action->setChecked(wid->m_allowMultipleSelections);
 
   // Turn on these items if we are NOT in poly edit mode. Also turn some off
   // in sideBySideWithDialog() mode, as then we draw the interest points
   // only with refreshPixmap(), which is rare, so user's editing
   // choices won't be reflected in the GUI.
-  m_addMatchPoint->setVisible(!parent_widget->m_polyEditMode && !sideBySideWithDialog());
-  m_deleteMatchPoint->setVisible(!parent_widget->m_polyEditMode && !sideBySideWithDialog());
-  m_moveMatchPoint->setVisible(!parent_widget->m_polyEditMode && !sideBySideWithDialog());
-  m_toggleHillshadeImageRightClick->setVisible(!parent_widget->m_polyEditMode);
-  m_setHillshadeParams->setVisible(!parent_widget->m_polyEditMode);
-  m_setThreshold->setVisible(!parent_widget->m_polyEditMode);
-  m_allowMultipleSelections_action->setVisible(!parent_widget->m_polyEditMode);
+  m_addMatchPoint->setVisible(!wid->m_polyEditMode && !sideBySideWithDialog());
+  m_deleteMatchPoint->setVisible(!wid->m_polyEditMode && !sideBySideWithDialog());
+  m_moveMatchPoint->setVisible(!wid->m_polyEditMode && !sideBySideWithDialog());
+  m_toggleHillshadeImageRightClick->setVisible(!wid->m_polyEditMode);
+  m_setHillshadeParams->setVisible(!wid->m_polyEditMode);
+  m_setThreshold->setVisible(!wid->m_polyEditMode);
+  m_allowMultipleSelections_action->setVisible(!wid->m_polyEditMode);
   m_deleteSelection->setVisible(!sideBySideWithDialog());
   m_hideImagesNotInRegion->setVisible(!sideBySideWithDialog());
 
   m_saveScreenshot->setVisible(true); // always visible
 }
 
-QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget,
+QMenu* WidgetMenuMgr::formCustomMenu(MainWidget* wid,
                                int imageIndex) {
 
-  m_customMenu = new QMenu(parent_widget);
+  m_customMenu = new QMenu(wid);
 
   m_toggleHillshadeFromImageList =
     m_customMenu->addAction("Toggle hillshade display");
   QObject::connect(m_toggleHillshadeFromImageList, &QAction::triggered,
-    [parent_widget, imageIndex]() {
-      parent_widget->toggleHillshadeFromImageList(imageIndex);
+    [wid, imageIndex]() {
+      wid->toggleHillshadeFromImageList(imageIndex);
     });
 
   if (!sideBySideWithDialog()) {
@@ -158,37 +158,37 @@ QMenu* MenuMgr::formCustomMenu(MainWidget* parent_widget,
     m_bringImageOnTopFromTable =
       m_customMenu->addAction("Bring image on top");
     QObject::connect(m_bringImageOnTopFromTable, &QAction::triggered,
-      [parent_widget, imageIndex]() {
-        parent_widget->bringImageOnTopSlot(imageIndex);
+      [wid, imageIndex]() {
+        wid->bringImageOnTopSlot(imageIndex);
       });
 
     m_pushImageToBottomFromTable =
       m_customMenu->addAction("Push image to bottom");
     QObject::connect(m_pushImageToBottomFromTable, &QAction::triggered,
-      [parent_widget, imageIndex]() {
-        parent_widget->pushImageToBottomSlot(imageIndex);
+      [wid, imageIndex]() {
+        wid->pushImageToBottomSlot(imageIndex);
       });
   }
 
   m_zoomToImageFromTable = m_customMenu->addAction("Zoom to image");
   QObject::connect(m_zoomToImageFromTable, &QAction::triggered,
-    [parent_widget, imageIndex]() {
-      parent_widget->zoomToImage(imageIndex);
+    [wid, imageIndex]() {
+      wid->zoomToImage(imageIndex);
     });
 
   // If having polygons, make it possible to change their colors
   bool hasPoly = false;
-  for (int image_iter = parent_widget->m_beg_image_id;
-       image_iter < parent_widget->m_end_image_id; image_iter++) {
-    if (parent_widget->app_data.images[image_iter].m_isPoly)
+  for (int image_iter = wid->m_beg_image_id;
+       image_iter < wid->m_end_image_id; image_iter++) {
+    if (wid->app_data.images[image_iter].m_isPoly)
       hasPoly = true;
   }
   if (hasPoly) {
     m_changePolyColor =
       m_customMenu->addAction("Change colors of polygons");
     QObject::connect(m_changePolyColor, &QAction::triggered,
-      [parent_widget, imageIndex]() {
-        parent_widget->changePolyColor(imageIndex);
+      [wid, imageIndex]() {
+        wid->changePolyColor(imageIndex);
       });
   }
 

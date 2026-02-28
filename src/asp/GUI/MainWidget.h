@@ -78,7 +78,7 @@ namespace asp {
 
 // Forward declarations
 class ChooseFilesDlg;
-class MenuMgr;
+class WidgetMenuMgr;
 
 // This class handles user interaction with the a single image pane.
 class MainWidget: public QwtScaleWidget, public WidgetBase {
@@ -296,7 +296,7 @@ private:
   int m_mousePrsX,  m_mousePrsY;
 
   // Right-click context menu
-  std::unique_ptr<MenuMgr> m_menu_mgr;
+  std::unique_ptr<WidgetMenuMgr> m_wid_menu_mgr;
 
   // Threshold state
   struct ThresholdState {

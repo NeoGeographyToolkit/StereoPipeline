@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2006-2024, United States Government as represented by the
+//  Copyright (c) 2006-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -15,12 +15,12 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-// \file MenuMgr.h
-// 
-// Handles menu creation and management for MainWidget.
-// 
-#ifndef __STEREO_GUI_MENU_MGR_H__
-#define __STEREO_GUI_MENU_MGR_H__
+// \file WidgetMenuMgr.h
+//
+// Handles right-click context menu creation and management for MainWidget.
+//
+#ifndef __STEREO_GUI_WIDGET_MENU_MGR_H__
+#define __STEREO_GUI_WIDGET_MENU_MGR_H__
 
 // Qt
 #include <QMenu>
@@ -31,13 +31,13 @@ namespace asp {
 
 class MainWidget; // Forward declaration
 
-// This struct will contain all the menu-related members and their creation
-struct MenuMgr {
+// Right-click context menu for MainWidget
+struct WidgetMenuMgr {
 
   // Constructor to create and connect menu actions
-  MenuMgr(MainWidget* parent_widget);
-  QMenu* formCustomMenu(MainWidget* parent_widget, int imageIndex);
-  void setupContextMenu(MainWidget* parent_widget);
+  WidgetMenuMgr(MainWidget* wid);
+  QMenu* formCustomMenu(MainWidget* wid, int imageIndex);
+  void setupContextMenu(MainWidget* wid);
 
   // Right-click context menu
   QMenu  * m_contextMenu;
@@ -67,8 +67,8 @@ struct MenuMgr {
   QAction* m_mergePolys;
   QAction* m_showPolysFilled;
 
-}; // End struct MenuMgr
+}; // End struct WidgetMenuMgr
 
 } // End namespace asp
 
-#endif  // __STEREO_GUI_MENU_MGR_H__
+#endif  // __STEREO_GUI_WIDGET_MENU_MGR_H__
