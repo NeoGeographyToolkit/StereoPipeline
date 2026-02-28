@@ -68,6 +68,8 @@ public:
 private slots:
   void forceQuit                  (); // Ensure the program shuts down.
   void sizeToFit                  ();
+  void zoomIn                     ();
+  void zoomOut                    ();
   void viewSingleWindow           ();
   void viewAllSideBySide          ();
   void viewSeveralSideBySide      ();

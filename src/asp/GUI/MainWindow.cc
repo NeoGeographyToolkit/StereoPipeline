@@ -776,6 +776,18 @@ void MainWindow::sizeToFit() {
 
 }
 
+void MainWindow::zoomIn() {
+  for (size_t i = 0; i < m_widgets.size(); i++)
+    if (m_widgets[i])
+      m_widgets[i]->zoom(1.0/0.75);
+}
+
+void MainWindow::zoomOut() {
+  for (size_t i = 0; i < m_widgets.size(); i++)
+    if (m_widgets[i])
+      m_widgets[i]->zoom(0.75);
+}
+
 void MainWindow::viewSingleWindow() {
 
   bool single_window = m_win_menu_mgr.m_viewSingleWindow_action->isChecked();

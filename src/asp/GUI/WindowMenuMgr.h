@@ -54,6 +54,8 @@ struct WindowMenuMgr {
   QAction *m_setLineWidth_action;
   QAction *m_setPolyColor_action;
   QAction *m_sizeToFit_action;
+  QAction *m_zoomIn_action;
+  QAction *m_zoomOut_action;
   QAction *m_viewSingleWindow_action;
   QAction *m_viewAllSideBySide_action;
   QAction *m_viewSeveralSideBySide_action;

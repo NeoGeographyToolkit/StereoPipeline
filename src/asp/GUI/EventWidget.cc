@@ -618,8 +618,6 @@ void MainWidget::leaveEvent(QEvent */*event*/) {
 
 void MainWidget::keyPressEvent(QKeyEvent *event) {
 
-  std::ostringstream s;
-
   // Save these before we modify the box
   double width  = m_current_view.width();
   double height = m_current_view.height();
@@ -651,18 +649,6 @@ void MainWidget::keyPressEvent(QKeyEvent *event) {
     m_current_view.max().y() += height*factor;
     m_can_emit_zoom_all_signal = true;
     refreshPixmap();
-    break;
-
-    // Zoom out
-  case Qt::Key_Minus:
-  case Qt::Key_Underscore:
-    zoom(0.75);
-    break;
-
-    // Zoom in
-  case Qt::Key_Plus:
-  case Qt::Key_Equal:
-    zoom(1.0/0.75);
     break;
 
   default:

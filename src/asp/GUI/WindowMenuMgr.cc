@@ -76,6 +76,21 @@ void WindowMenuMgr::init(MainWindow* win) {
                    win, SLOT(sizeToFit()));
   m_sizeToFit_action->setShortcut(QObject::tr("F"));
 
+  // Zoom in and out
+  m_zoomIn_action = new QAction(QObject::tr("Zoom in"), win);
+  m_zoomIn_action->setStatusTip(QObject::tr("Zoom in"));
+  m_zoomIn_action->setShortcuts({QKeySequence(Qt::Key_Equal),
+                                 QKeySequence(Qt::Key_Plus)});
+  QObject::connect(m_zoomIn_action, SIGNAL(triggered()),
+                   win, SLOT(zoomIn()));
+
+  m_zoomOut_action = new QAction(QObject::tr("Zoom out"), win);
+  m_zoomOut_action->setStatusTip(QObject::tr("Zoom out"));
+  m_zoomOut_action->setShortcuts({QKeySequence(Qt::Key_Minus),
+                                  QKeySequence(Qt::Key_Underscore)});
+  QObject::connect(m_zoomOut_action, SIGNAL(triggered()),
+                   win, SLOT(zoomOut()));
+
   m_viewSingleWindow_action = new QAction(QObject::tr("Single window"), win);
   m_viewSingleWindow_action->setStatusTip(QObject::tr("View images in a single window"));
   m_viewSingleWindow_action->setCheckable(true);
@@ -317,6 +332,8 @@ void WindowMenuMgr::init(MainWindow* win) {
   // View menu
   m_view_menu = menu->addMenu(QObject::tr("&View"));
   m_view_menu->addAction(m_sizeToFit_action);
+  m_view_menu->addAction(m_zoomIn_action);
+  m_view_menu->addAction(m_zoomOut_action);
   m_view_menu->addAction(m_viewSingleWindow_action);
   m_view_menu->addAction(m_viewAllSideBySide_action);
   m_view_menu->addAction(m_viewSeveralSideBySide_action);
