@@ -23,6 +23,8 @@
 
 #include <vw/FileIO/GdalWriteOptions.h>
 
+#include <set>
+
 namespace asp {
 
 struct SfsOptions: public vw::GdalWriteOptions {
