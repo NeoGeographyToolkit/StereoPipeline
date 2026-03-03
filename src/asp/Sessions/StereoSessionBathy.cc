@@ -39,7 +39,9 @@ using namespace vw::cartography;
 
 namespace asp {
 
-// A little function whose goal is to avoid repeating same logic in a handful of places
+// Crop the bathy mask to match the crop window. This only does the cropping and
+// does not interpret which pixels are land or water. That is handled later by
+// read_bathy_mask() when the cropped mask is read.
 void crop_bathy_mask(vw::GdalWriteOptions const& options,
                      std::string const& input_mask_file, std::string const& input_image_file,
                      BBox2i const& crop_win, std::string const& cropped_mask_file) {
@@ -54,9 +56,10 @@ void crop_bathy_mask(vw::GdalWriteOptions const& options,
       input_bathy_mask.rows() != input_image.rows())
     vw_throw(ArgumentErr() << "Input image and input bathy mask don't have the same dimensions.");
 
-  float mask_nodata_value = -std::numeric_limits<float>::max();
-  if (!vw::read_nodata_val(input_mask_file, mask_nodata_value))
-    vw_throw(ArgumentErr() << "Unable to read the nodata value from " << input_mask_file);
+  // Read nodata from the file. If absent, default to 0 (water pixels have
+  // non-positive values). The full masking logic is in read_bathy_mask().
+  float mask_nodata_value = 0.0f;
+  vw::read_nodata_val(input_mask_file, mask_nodata_value);
 
   vw::cartography::GeoReference georef;
   bool has_georef = read_georeference(georef, input_image_file);

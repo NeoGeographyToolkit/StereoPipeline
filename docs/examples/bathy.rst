@@ -203,8 +203,8 @@ Having these in place, stereo can then happen as follows:
       run_bathy/run 
  
 Here we specified the two masks, the water index of refraction, and the water
-plane found before. Pixels classified as water must be either no data or have
-zero value in the mask, while land pixels must have positive value.
+plane found before. Pixels classified as water must have non-positive value
+or be no-data in the mask, while land pixels must have positive value.
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices.

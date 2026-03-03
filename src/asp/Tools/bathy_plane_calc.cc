@@ -26,6 +26,7 @@
 #include <asp/Core/BathyPlaneCalc.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Cartography/BathyStereoModel.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/FileIO/FileUtils.h>
@@ -62,10 +63,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem",   po::value(&opt.dem),
      "The DEM to use.")
     ("mask",   po::value(&opt.mask),
-     "An input mask, created from a raw camera image and hence having the same dimensions, "
-     "with values of 1 on land and 0 on water, or positive values on land and nodata "
-     "values on water. The larger of the nodata value and zero is used as the water "
-     "value. The heights will be looked up in the DEM with bilinear interpolation.")
+     "An input mask, created from a raw camera image and hence having the same dimensions. "
+     "Land pixels must have positive value. Water pixels must have non-positive value "
+     "or be no-data. The heights will be looked up in the DEM with bilinear "
+     "interpolation.")
     ("camera",   po::value(&opt.camera),
      "The camera file to use with the mask.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -103,9 +104,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Save the inlier and outlier shapefiles as polygons, rather than "
      "discrete vertices. May be more convenient for processing in a GIS tool.")
     ("ortho-mask",   po::value(&opt.ortho_mask),
-     "An input mask, that is georeferenced and aligned with the DEM, with positive values "
-     "on land and 0 or nodata values on water. The larger of the nodata value and zero is "
-     "used as the water value.")
+     "An input mask, that is georeferenced and aligned with the DEM. Land pixels must "
+     "have positive value. Water pixels must have non-positive value or be no-data.")
     ("lon-lat-measurements",
      po::value(&opt.lon_lat_measurements)->default_value(""),
      "Use this CSV file having longitude and latitude measurements for the water surface. "
@@ -274,19 +274,20 @@ int main(int argc, char *argv[]) {
     std::string poly_color = "green";
 
     if (use_mask) {
-      // Read the mask. The nodata value is the largest of what
-      // is read from the mask file and the value 0, as pixels
-      // over land are supposed to be positive and be valid data.
+      // Use read_bathy_mask() which invalidates both nodata and non-positive
+      // pixels. Then apply_mask() converts to a plain float image with 0 for
+      // water, so the existing threshold logic works with threshold = 0.
       vw::vw_out() << "Reading the mask: " << opt.mask << "\n";
-      float mask_nodata_val = -std::numeric_limits<float>::max();
-      if (vw::read_nodata_val(opt.mask, mask_nodata_val))
-        vw::vw_out() << "Read mask nodata value: " << mask_nodata_val << ".\n";
-      mask_nodata_val = std::max(0.0f, mask_nodata_val);
-      if (std::isnan(mask_nodata_val))
-        mask_nodata_val = 0.0f;
-      vw::vw_out() << "Pixels with values no more than " << mask_nodata_val
-               << " are classified as water.\n";
-      vw::DiskImageView<float> mask(opt.mask);
+      float mask_nodata_val = 0.0f;
+      {
+        float file_nodata = -std::numeric_limits<float>::max();
+        if (vw::read_nodata_val(opt.mask, file_nodata))
+          vw::vw_out() << "Read mask nodata value: " << file_nodata << ".\n";
+      }
+      auto masked = vw::read_bathy_mask(opt.mask, mask_nodata_val);
+      auto mask = vw::apply_mask(masked, 0.0f);
+      mask_nodata_val = 0.0f;
+      vw::vw_out() << "Non-positive or nodata pixels are classified as water.\n";
       shape_georef = dem_georef;
       asp::sampleMaskBd(mask, mask_nodata_val,
                         camera_model, shape_georef,

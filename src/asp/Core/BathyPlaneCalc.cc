@@ -19,6 +19,7 @@
 #include <asp/Core/PointUtils.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
+#include <vw/Cartography/BathyStereoModel.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Cartography/CameraBBox.h>
@@ -461,20 +462,20 @@ void sampleOrthoMaskBd(std::string const& mask_file,
     vw::vw_throw(vw::ArgumentErr() << "The input mask must be relative to the "
                  << "WGS_1984 datum.\n" << "Got: " << dem_georef.datum().name() << ".\n");
 
-  // Read the mask. The nodata value is the largest of what
-  // is read from the mask file and the value 0, as pixels
-  // over land are supposed to be positive and be valid data.
+  // Use read_bathy_mask() which invalidates both nodata and non-positive
+  // pixels. Then apply_mask() converts to a plain float image with 0 for
+  // water, so the existing threshold logic works with threshold = 0.
   vw::vw_out() << "Reading the ortho mask: " << mask_file << "\n";
-  float mask_thresh = -std::numeric_limits<float>::max();
-  if (vw::read_nodata_val(mask_file, mask_thresh))
-    vw::vw_out() << "Read ortho mask nodata value: " << mask_thresh << ".\n";
-  mask_thresh = std::max(0.0f, mask_thresh);
-  if (std::isnan(mask_thresh))
-    mask_thresh = 0.0f;
-  vw::vw_out() << "Pixels with values no more than " << mask_thresh
-               << " are classified as water.\n";
-
-  vw::DiskImageView<float> mask(mask_file);
+  float mask_thresh = 0.0f;
+  {
+    float file_nodata = -std::numeric_limits<float>::max();
+    if (vw::read_nodata_val(mask_file, file_nodata))
+      vw::vw_out() << "Read ortho mask nodata value: " << file_nodata << ".\n";
+  }
+  auto masked_mask = vw::read_bathy_mask(mask_file, mask_thresh);
+  auto mask = vw::apply_mask(masked_mask, 0.0f);
+  mask_thresh = 0.0f;
+  vw::vw_out() << "Non-positive or nodata pixels are classified as water.\n";
 
   // num_samples must be positive
   if (num_samples <= 0)

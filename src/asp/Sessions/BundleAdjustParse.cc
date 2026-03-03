@@ -1160,7 +1160,7 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      po::value(&asp::stereo_settings().bathy_mask_list)->default_value(""),
      "A file having a list of mask files to use for bathymetry. Specify one per line. "
      "Must be one per input image and 1-to-1 with the images. Pixels classified as "
-     "water must be either no data or have zero value in the mask, while land pixels "
+     "water must have non-positive value or be no-data in the mask, while land pixels "
      "must have positive value. This is preliminary work. This program does not yet "
      "model bathymetry.")
     ("bathy-plane",

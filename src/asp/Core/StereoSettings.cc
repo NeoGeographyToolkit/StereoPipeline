@@ -252,8 +252,8 @@ PreProcessingDescription::PreProcessingDescription():
     // For bathymetry correction
     ("left-bathy-mask", po::value(&global.left_bathy_mask),
       "Mask to use for the left image when doing bathymetry. Pixels classified as "
-      "water must be either no data or have zero value in the mask, while land pixels "
-      "must have positive value.")
+      "water must have non-positive value or be no-data in the mask, while land "
+      "pixels must have positive value.")
     ("right-bathy-mask", po::value(&global.right_bathy_mask),
       "Mask to use for the right image when doing bathymetry. See also "
       "left-bathy-mask.")

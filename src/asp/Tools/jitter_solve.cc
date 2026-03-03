@@ -360,7 +360,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("bathy-mask-list",
      po::value(&asp::stereo_settings().bathy_mask_list)->default_value(""),
      "List of masks to use for bathymetry. Must be one per input image and 1-to-1 with "
-     "the images. Pixels classified as water must be either no data or have zero value "
+     "the images. Pixels classified as water must have non-positive value or be no-data "
      "in the mask, while land pixels must have positive value. This is preliminary work. "
      "This program does not yet model bathymetry.")
     ("bathy-plane",
