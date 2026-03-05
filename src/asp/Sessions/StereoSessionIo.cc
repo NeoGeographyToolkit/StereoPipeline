@@ -41,6 +41,7 @@
 
 using namespace vw;
 using namespace vw::cartography;
+namespace fs = boost::filesystem;
 
 namespace asp {
 
@@ -64,13 +65,12 @@ calcStatsMaskedImages(// Inputs
   left_masked_image = create_mask(left_cropped_image, left_nodata_value);
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
 
-  // Handle ISIS special pixels, for the isis session only. May need to use for
-  // csm and isis mapprojected images.
-  bool isIsis = (this->name() == "isis");
-  if (isIsis) {
+  // Handle ISIS special pixels for .cub files (isis, csm, and mapprojected sessions)
+  bool isIsis = (fs::path(left_input_file).extension() == ".cub");
+  if (isIsis)
     adjustIsisImage(left_input_file, left_nodata_value, left_masked_image);
+  if (fs::path(right_input_file).extension() == ".cub")
     adjustIsisImage(right_input_file, right_nodata_value, right_masked_image);
-  }
 
   // In --stereo-dist-mode, want the stats from the original images which should already exist
   std::string left_file, right_file;

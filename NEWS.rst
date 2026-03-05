@@ -105,6 +105,9 @@ stereo_gui (:numref:`stereo_gui`):
   * The ``--colorize`` and ``--colorbar`` options now work with overlaid and
     georeferenced images. Added ``--no-colorize`` (:numref:`colorize`).
 
+mapproject (:numref:`mapproject`):
+  * Consistently handle ISIS special pixels in ``.cub`` input images.
+
 Misc:
   * Greatly improved the speed of parsing WorldView XML camera files.
   * Removed the unused and undocumented option ``--use-least-squares`` for ray

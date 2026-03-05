@@ -23,6 +23,7 @@
 #include <asp/Camera/MapprojectImage.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/AspStringUtils.h>
+#include <asp/IsisIO/IsisSpecialPixels.h>
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/Map2CamTrans.h>
@@ -220,6 +221,15 @@ void project_image_nodata(asp::MapprojOptions & opt,
     if (img_rsrc->has_nodata_read())
       opt.nodata_value = img_rsrc->nodata_read();
 
+    // Create masked image from input
+    ImageViewRef<ImageMaskPixelT> masked_input
+      = create_mask(DiskImageView<float>(img_rsrc), opt.nodata_value);
+
+    // For ISIS .cub files, also mask special pixels (LIS, LRS, HIS, HRS)
+    // that are not covered by the single nodata value
+    if (fs::path(opt.image_file).extension() == ".cub")
+      asp::adjustIsisImage(opt.image_file, opt.nodata_value, masked_input);
+
     bool            has_img_nodata = true;
     ImageMaskPixelT nodata_mask = ImageMaskPixelT(); // invalid value for a PixelMask
 
@@ -227,8 +237,7 @@ void project_image_nodata(asp::MapprojOptions & opt,
       write_parallel_type
         (opt.output_file,
         crop(apply_mask
-              (transform_nodata(create_mask(DiskImageView<float>(img_rsrc),
-                                            opt.nodata_value),
+              (transform_nodata(masked_input,
                                 transform,
                                 virtual_image_size[0],
                                 virtual_image_size[1],
@@ -242,8 +251,7 @@ void project_image_nodata(asp::MapprojOptions & opt,
       write_parallel_type
         (opt.output_file,
         crop(apply_mask
-              (transform_nodata(create_mask(DiskImageView<float>(img_rsrc),
-                                            opt.nodata_value),
+              (transform_nodata(masked_input,
                                 transform,
                                 virtual_image_size[0],
                                 virtual_image_size[1],
