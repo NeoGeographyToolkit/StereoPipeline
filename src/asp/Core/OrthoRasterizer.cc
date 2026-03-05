@@ -23,6 +23,7 @@
 /// interpolated z values.
 
 #include <asp/Core/OrthoRasterizer.h>
+#include <asp/Core/CartographyUtils.h>
 #include <asp/Core/PointUtils.h>
 
 #include <vw/Image/ImageChannels.h>
@@ -590,12 +591,6 @@ namespace asp{
     m_texture = texture;
   }
 
-  // Snap the coordinates of a BBox to a grid spacing
-  void snap_bbox(double spacing, BBox3 &bbox) {
-    bbox.min() = spacing*floor(bbox.min()/spacing);
-    bbox.max() = spacing*ceil (bbox.max()/spacing);
-  }
-
   // This is kind of like part 2 of the constructor
   // - This function finalizes the spacing and generates a spacing-snapped BBox.
   void OrthoRasterizerView::initialize_spacing(const double spacing) {
@@ -631,7 +626,7 @@ namespace asp{
     if (m_search_radius_factor > 0)
       m_snapped_bbox.expand(spacing*m_search_radius_factor);
 
-    snap_bbox(m_spacing, m_snapped_bbox);
+    asp::snapBBox3ToGrid(m_snapped_bbox, m_spacing);
 
     // Override with user's projwin, if specified
     if (m_projwin != BBox2()) {
@@ -645,7 +640,7 @@ namespace asp{
         m_snapped_bbox.min() += Vector3(m_spacing/2.0, m_spacing/2.0, 0);
         m_snapped_bbox.max() -= Vector3(m_spacing/2.0, m_spacing/2.0, 0);
       }
-      snap_bbox(m_spacing, m_snapped_bbox);
+      asp::snapBBox3ToGrid(m_snapped_bbox, m_spacing);
     }
 
   } // End function initialize_spacing()

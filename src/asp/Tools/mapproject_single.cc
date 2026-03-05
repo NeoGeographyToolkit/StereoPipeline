@@ -76,7 +76,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("t_projwin",        po::value(&opt.target_projwin),
      "Limit the mapprojected image to this region, with the corners given in georeferenced "
-     "coordinates (xmin ymin xmax ymax). Max is exclusive, unless --gdal-tap is set.")
+     "coordinates (xmin ymin xmax ymax). See also --gdal-tap.")
     ("t_pixelwin",       po::value(&opt.target_pixelwin),
      "Limit the mapprojected image to this region, with the corners given in pixels (xmin ymin xmax ymax). Max is exclusive.")
     ("gdal-tap", po::bool_switch(&opt.gdal_tap)->default_value(false),
@@ -319,26 +319,22 @@ void calc_target_geom(// Inputs
     cam_box = opt.target_projwin;
     if (cam_box.min().y() > cam_box.max().y())
       std::swap(cam_box.min().y(), cam_box.max().y());
-    // Make the maximum non-exclusive, unless --gdal-tap is set.
-    if (!opt.gdal_tap) {
-      cam_box.max().x() -= current_resolution;
-      cam_box.max().y() -= current_resolution;
-    }
   }
 
-  // In principle the corners of the projection box can be arbitrary.  However,
-  // we will force them to be at integer multiples of pixel size. This is needed
-  // if we want to do tiling, that is break the DEM into tiles, project on
-  // individual tiles, and then combine the tiles nicely without seams into a
-  // single projected image. The tiling solution provides a nice speedup when
-  // dealing with ISIS images, when projection runs only with one thread.
-  // This is adjusted below if --gdal-tap is set.
-  double s = current_resolution;
-  int min_x         = (int)round(cam_box.min().x() / s);
-  int min_y         = (int)round(cam_box.min().y() / s);
-  int output_width  = (int)round(cam_box.width()   / s);
-  int output_height = (int)round(cam_box.height()  / s);
-  cam_box = s * BBox2(min_x, min_y, output_width, output_height);
+  // Snap the projection box corners to integer multiples of pixel size. This
+  // is needed for tiling, so that adjacent tiles align without seams.
+  // When projwin is set without --gdal-tap, it specifies the full pixel extent
+  // (pixel edges, as reported by gdalinfo). Convert edges to pixel centers
+  // before snapping. The pipeline's PixelAsArea delta (0.5 * grid size) will
+  // convert the snapped centers back to edges when writing the output.
+  // With --gdal-tap, projwin specifies pixel edges at integer multiples of
+  // grid size, so no conversion is needed.
+  if (opt.target_projwin != BBox2() && !opt.gdal_tap) {
+    vw::Vector2 half(0.5 * current_resolution, 0.5 * current_resolution);
+    cam_box.min() += half;
+    cam_box.max() -= half;
+  }
+  asp::snapBBox2ToGrid(cam_box, current_resolution);
 
   // This transform is from pixel to projected coordinates
   Matrix3x3 T = target_georef.transform();
@@ -359,7 +355,7 @@ void calc_target_geom(// Inputs
   double delta = 0.0;
   if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea &&
       !opt.gdal_tap)
-    delta = 0.5 * current_resolution; // center of pixel (0, 0) is (0.5, 0.5)
+    delta = 0.5 * current_resolution;
 
   // Apply this behavior to the transform
   T(0,2) -= delta; 

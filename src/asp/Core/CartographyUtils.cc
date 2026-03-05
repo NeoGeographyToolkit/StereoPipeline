@@ -16,7 +16,10 @@
 // __END_LICENSE__
 
 #include <asp/Core/CartographyUtils.h>
+
 #include <vw/Cartography/Utm.h>
+
+#include <cmath>
 
 namespace asp {
 
@@ -42,6 +45,16 @@ void setAutoProj(double lat, double lon,
   }
 
   return;
+}
+
+void snapBBox2ToGrid(vw::BBox2 &bbox, double spacing) {
+  bbox.min() = spacing * floor(bbox.min() / spacing);
+  bbox.max() = spacing * ceil(bbox.max() / spacing);
+}
+
+void snapBBox3ToGrid(vw::BBox3 &bbox, double spacing) {
+  bbox.min() = spacing * floor(bbox.min() / spacing);
+  bbox.max() = spacing * ceil(bbox.max() / spacing);
 }
 
 } //end namespace asp

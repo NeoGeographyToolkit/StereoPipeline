@@ -199,8 +199,7 @@ Command-line options
 
 --t_projwin <xmin ymin xmax ymax>
     Limit the mapprojected image to this region, with the corners given in
-    georeferenced coordinates (xmin ymin xmax ymax). Max is exclusive, unless
-    ``--gdal-tap`` is set.
+    georeferenced coordinates (xmin ymin xmax ymax). See also ``--gdal-tap``.
 
 --t_pixelwin <xmin ymin xmax ymax>
     Limit the mapprojected image to this region, with the corners

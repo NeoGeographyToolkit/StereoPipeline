@@ -19,6 +19,7 @@
 #define __CORE_CARTOGRAPHY_UTILS_H__
 
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Math/BBox.h>
 
 #include <string>
 
@@ -27,11 +28,21 @@ namespace asp {
 // Auto-compute a local projection. It is assumed that the datum is known.
 // For Earth, use UTM or polar stereographic. For other datums, use
 // local stereographic.
-void setAutoProj(double lat, double lon, 
+void setAutoProj(double lat, double lon,
                  vw::cartography::GeoReference & output_georef);
+
+// Snap a BBox2 to a grid: floor on min, ceil on max. This ensures the box
+// covers at least the original extent with corners at integer multiples of
+// the grid spacing. Uses floor/ceil deliberately instead of round(), because
+// round() rounds away from zero at 0.5 boundaries, which causes asymmetric
+// snapping for positive vs negative coordinates. For example,
+// round(-0.5) = -1 but round(0.5) = 1 (a gap of 2 instead of 1). With
+// floor/ceil the behavior is consistent regardless of sign.
+void snapBBox2ToGrid(vw::BBox2 &bbox, double spacing);
+
+// Same as snapBBox2ToGrid but for BBox3. The z component is also snapped.
+void snapBBox3ToGrid(vw::BBox3 &bbox, double spacing);
 
 } //end namespace asp
 
 #endif // __CORE_CARTOGRAPHY_UTILS_H__
-
-

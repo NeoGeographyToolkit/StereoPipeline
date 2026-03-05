@@ -119,6 +119,8 @@ Misc:
     fails then.
   * Removed the undocumented ``dem_mosaic`` options ``--first-dem-as-reference``
     and ``--this-dem-as-reference``.
+  * The ``--t_projwin`` option in ``mapproject`` no longer subtracts one
+    grid size from the maximum, so the requested extent is fully covered.
   * Much removal of templates and breaking up of functions and files into smaller
     and better-organized components.
   * Removed the unused HDR module, Python SWIG bindings, and legacy tools
