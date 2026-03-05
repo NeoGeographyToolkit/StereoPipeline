@@ -1191,16 +1191,18 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
 } // end paint event
 
-// Call paintEvent() on the edges of the rubberband
+// Call paintEvent() on the edges of the rubberband.
+// Use a margin wider than 1 pixel to account for HiDPI/Retina displays
+// where devicePixelRatio > 1.
 void MainWidget::updateRubberBand(QRect & R) {
   QRect rect = R.normalized();
   if (rect.width() > 0 || rect.height() > 0) {
-    update(rect.left(),  rect.top(),    rect.width(), 1);
-    update(rect.left(),  rect.top(),    1,            rect.height());
-    update(rect.left(),  rect.bottom(), rect.width(), 1);
-    update(rect.right(), rect.top(),    1,            rect.height());
+    int w = devicePixelRatio() + 1;
+    update(rect.left() - w, rect.top() - w, rect.width() + 2*w, w*2);
+    update(rect.left() - w, rect.top() - w, w*2, rect.height() + 2*w);
+    update(rect.left() - w, rect.bottom() - w, rect.width() + 2*w, w*2);
+    update(rect.right() - w, rect.top() - w, w*2, rect.height() + 2*w);
   }
-  return;
 }
 
 // Convert a length in pixels to a length in world coordinates
