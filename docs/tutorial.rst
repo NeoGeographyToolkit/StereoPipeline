@@ -36,7 +36,8 @@ be obtained with ``--subpixel-mode 2``, but this is even more
 computationally expensive. 
 
 It is very recommended to read :numref:`nextsteps`, which describes
-other alignment methods and stereo algorithms.
+other alignment methods and stereo algorithms. See :numref:`ps_options`
+for the ``--nodes-list`` option.
 
 Then normally one would create a DEM (:numref:`point2dem`)::
   
@@ -208,7 +209,8 @@ alignment methods are described in :numref:`settingoptionsinstereodefault`.
 
 If your data has steep slopes, mapprojection can improve the results.
 See :numref:`mapproj-example` and :numref:`mapproj_with_cam2map`. 
-See :numref:`pbs_slurm` for running on multiple machines.
+See :numref:`pbs_slurm` for running on multiple machines and 
+:numref:`ps_options` for the ``--nodes-list`` option.
 
 When creating a DEM, it is suggested to use a local projection
 (:numref:`point2dem_proj`).
@@ -321,7 +323,8 @@ How to create a DEM and visualize the results of stereo is described in
 :numref:`visualising`. Choosing a projection is discussed in
 :numref:`point2dem_proj`.
 
-See :numref:`pbs_slurm` for running on multiple machines.
+See :numref:`pbs_slurm` for running on multiple machines
+and :numref:`ps_options` for the ``--nodes-list`` option.
 
 .. figure:: images/examples/dg/wv_tutorial.png
    :name: fig:dg-example
