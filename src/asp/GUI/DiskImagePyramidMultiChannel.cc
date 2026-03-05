@@ -17,11 +17,17 @@
 
 #include <asp/GUI/DiskImagePyramidMultiChannel.h>
 #include <asp/Core/StereoSettings.h>
+#include <asp/asp_config.h>
+
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/DiskImageResourceIsis.h>
+#endif
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Colormap.h>
 #include <QtWidgets>
 
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -43,14 +49,16 @@ TemporaryFiles& temporary_files() {
 // Form a QImage to show on screen from a single-channel double image.
 // Scale pixel values to [0, 255] and handle nodata. If colormap is not null,
 // apply it to produce colorized output instead of grayscale.
-void formQimageDouble(bool highlight_nodata, double nodata_val,
-                      vw::Vector2 const& approx_bounds,
-                      ImageView<double> const& clip,
-                      vw::Colormap const* colormap,
-                      QImage & qimg) {
+void formQimageFloat(bool highlight_nodata, double nodata_val,
+                     float valid_min, float valid_max,
+                     vw::Vector2 const& approx_bounds,
+                     ImageView<double> const& clip,
+                     vw::Colormap const* colormap,
+                     QImage & qimg) {
 
   double min_val = approx_bounds[0];
   double max_val = approx_bounds[1];
+  bool has_valid_range = !std::isnan(valid_min) && !std::isnan(valid_max);
 
   qimg = QImage(clip.cols(), clip.rows(), QImage::Format_ARGB32_Premultiplied);
 
@@ -58,7 +66,11 @@ void formQimageDouble(bool highlight_nodata, double nodata_val,
   for (int col = 0; col < clip.cols(); col++) {
     for (int row = 0; row < clip.rows(); row++) {
 
-      if (clip(col, row) == nodata_val || std::isnan(clip(col, row))) {
+      double val = clip(col, row);
+      bool is_nodata = (val == nodata_val) || std::isnan(val);
+      if (!is_nodata && has_valid_range)
+        is_nodata = (val < valid_min) || (val > valid_max);
+      if (is_nodata) {
         if (!highlight_nodata)
           qimg.setPixel(col, row, QColor(0, 0, 0, 0).rgba());
         else
@@ -124,7 +136,9 @@ DiskImagePyramidMultiChannel::
 DiskImagePyramidMultiChannel(std::string const& image_file,
                              vw::GdalWriteOptions const& opt,
                              int top_image_max_pix, int subsample):
-  m_opt(opt), m_num_channels(0), m_rows(0), m_cols(0), m_type(UNINIT) {
+  m_opt(opt), m_num_channels(0), m_rows(0), m_cols(0), m_type(UNINIT),
+  m_valid_min(std::numeric_limits<float>::quiet_NaN()),
+  m_valid_max(std::numeric_limits<float>::quiet_NaN()) {
 
   if (image_file == "")
     return;
@@ -150,11 +164,28 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
                << "double precision.\n";
     }
 
+    // For ISIS .cub files, get the valid pixel range so the pyramid
+    // masks special pixels (LIS, LRS, HIS, HRS) during subsampling.
+    float valid_min = std::numeric_limits<float>::quiet_NaN();
+    float valid_max = std::numeric_limits<float>::quiet_NaN();
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+    if (boost::filesystem::path(image_file).extension() == ".cub") {
+      try {
+        vw::DiskImageResourceIsis isis_rsrc(image_file);
+        valid_min = isis_rsrc.valid_minimum();
+        valid_max = isis_rsrc.valid_maximum();
+      } catch (...) {}
+    }
+#endif
+    m_valid_min = valid_min;
+    m_valid_max = valid_max;
+
     if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
       // Single channel image with float pixels.
 
       m_img_ch1_double =
-        vw::mosaic::DiskImagePyramid<double>(image_file, m_opt, lowres_size);
+        vw::mosaic::DiskImagePyramid<double>(image_file, m_opt, lowres_size,
+                                             2, valid_min, valid_max);
       m_rows = m_img_ch1_double.rows();
       m_cols = m_img_ch1_double.cols();
       m_type = CH1_DOUBLE;
@@ -262,8 +293,9 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
 
     //Stopwatch sw2;
     //sw2.start();
-    formQimageDouble(highlight_nodata, m_img_ch1_double.get_nodata_val(),
-                     approx_bounds, clip, colormap, qimg);
+    formQimageFloat(highlight_nodata, m_img_ch1_double.get_nodata_val(),
+                    m_valid_min, m_valid_max,
+                    approx_bounds, clip, colormap, qimg);
     //sw2.stop();
     //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
   } else if (m_type == CH2_UINT8) {

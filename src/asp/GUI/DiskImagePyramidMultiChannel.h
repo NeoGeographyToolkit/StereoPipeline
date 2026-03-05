@@ -79,6 +79,8 @@ namespace asp {
     int m_num_channels;
     int m_rows, m_cols;
     ImgType m_type; // keeps track of which of the above images we use
+    float m_valid_min; // ISIS valid pixel range (NaN if not applicable)
+    float m_valid_max;
 
     // Constructor
     DiskImagePyramidMultiChannel(std::string const& image_file = "",
