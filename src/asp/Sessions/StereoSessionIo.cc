@@ -65,7 +65,7 @@ calcStatsMaskedImages(// Inputs
   left_masked_image = create_mask(left_cropped_image, left_nodata_value);
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
 
-  // Handle ISIS special pixels for .cub files (isis, csm, and mapprojected sessions)
+  // Handle ISIS special pixels for .cub files (isis and csm sessions)
   bool isIsis = (fs::path(left_input_file).extension() == ".cub");
   if (isIsis)
     adjustIsisImage(left_input_file, left_nodata_value, left_masked_image);
