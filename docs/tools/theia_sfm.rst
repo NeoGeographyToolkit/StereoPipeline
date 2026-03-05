@@ -52,7 +52,7 @@ The configuration file contains the intrinsics for each sensor. Is the same as
 for ``rig_calibrator`` (:numref:`rig_config`). This program does not use the
 transforms between sensors, and there is no concept of reference sensor.
 
-See `Theia's supported camera model types <http://theia-sfm.org/cameras.html>`_.
+See `TheiaSfM's supported camera model types <https://github.com/sweeneychris/TheiaSfM/blob/master/docs/source/cameras.rst>`_.
 In the rig configuration those are named ``no_distortion``, ``radtan``,
 ``fisheye`` and ``fov``.
 
@@ -158,8 +158,8 @@ Command-line options for theia_sfm
 --theia-flags <string (default: "")>
     The flags to pass to Theia. By default, the file
     ``share/theia_flags.txt`` in the software distribution is used.
-    The option ``--random_seed=1`` is passed to Theia by default on
-    Linux, to ensure reproducible results.
+    The option ``--random_seed=1`` is passed to Theia by default, to
+    ensure reproducible results.
 --out-dir <string (default: "")>
     The output directory.
 -h, --help

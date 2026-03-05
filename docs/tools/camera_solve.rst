@@ -12,7 +12,7 @@ examples see :numref:`sfm`.
 Overview
 ~~~~~~~~
 
-This tool is a wrapper around the `Theia <http://theia-sfm.org/>`_
+This tool is a wrapper around the `TheiaSfM <https://github.com/sweeneychris/TheiaSfM>`_
 structure-from-motion software, and its goal is to create camera models which
 can later be used with ASP's bundle adjustment (:numref:`bundle_adjust`)
 and stereo (:numref:`tutorial`). 
@@ -97,8 +97,8 @@ Command-line options
 --theia-overrides <string>
     Override any option in the auto-generated Theia flag file.  Set
     as ``"--option1=val1 --option2=val2 ..."``. The option
-    ``--random_seed=1`` is passed to Theia by default on Linux, to
-    ensure reproducible results. This can be overridden with
+    ``--random_seed=1`` is passed to Theia by default, to ensure
+    reproducible results. This can be overridden with
     ``--theia-overrides "--random_seed=0"``, which seeds with
     current time, producing different results on each run.
 

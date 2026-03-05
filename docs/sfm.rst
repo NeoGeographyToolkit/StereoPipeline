@@ -28,7 +28,7 @@ metadata, or when information may be incomplete or inaccurate.
 
 The ``camera_solve`` program is a Python script invoking two other
 tools that we ship. The first of these is `TheiaSfM
-<http://www.theia-sfm.org/index.html>`_. It generates initial camera position
+<https://github.com/sweeneychris/TheiaSfM>`_. It generates initial camera position
 estimates in a local coordinate space. The second one is ``bundle_adjust``
 (:numref:`bundle_adjust`). This program improves the solution to account for
 lens distortion and transforms the solution from local to global coordinates by
