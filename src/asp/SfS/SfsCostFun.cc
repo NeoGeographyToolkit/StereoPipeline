@@ -1606,8 +1606,8 @@ void calcSaveSfsCovariances(SfsOptions const& opt,
   if (opt.save_covariances) {
     dx = {0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2}; // more points for propagation
     dy = {0, 1, 2, -2, -1, 0, 1, 2, -2, -1, 0, 1, 2};
-    //dx = {0, -1, 1, 0, 0}; // self, left, right, bottom, top
-    //dy = {0, 0, 0, -1, 1};
+    //dx = {0, 1, 1, 0}; // self, right-bottom, right, top
+    //dy = {0, -1, 0, 1};
   }
 
   ceres::Covariance::Options covariance_options;
@@ -1636,8 +1636,8 @@ void calcSaveSfsCovariances(SfsOptions const& opt,
                  "-dr1_dc2-covariance.tif",
                  "-dr2_dc2-covariance.tif"
                };
-    //suffixes = {"-variance.tif", "-left-covariance.tif", "-right-covariance.tif",
-    //            "-bottom-covariance.tif", "-top-covariance.tif"};
+    //suffixes = {"-variance.tif", "-right-bottom-covariance.tif", "-right-covariance.tif",
+    //            "-top-covariance.tif"};
 
   // Save DEM variance and covariances
   saveSfsCovariances(opt, dem, opt.out_prefix + "-DEM", suffixes, dx, dy,
