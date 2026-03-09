@@ -31,13 +31,16 @@ namespace asp {
 void setAutoProj(double lat, double lon,
                  vw::cartography::GeoReference & output_georef);
 
+// Snap a value to the nearest grid multiple, rounding down (floor) or up
+// (ceil). Uses half-grid rounding internally to avoid floating-point noise
+// causing floor/ceil to overshoot by one grid step when the value is very
+// close to a grid multiple.
+double gridFloor(double val, double spacing);
+double gridCeil(double val, double spacing);
+
 // Snap a BBox2 to a grid: floor on min, ceil on max. This ensures the box
 // covers at least the original extent with corners at integer multiples of
-// the grid spacing. Uses floor/ceil deliberately instead of round(), because
-// round() rounds away from zero at 0.5 boundaries, which causes asymmetric
-// snapping for positive vs negative coordinates. For example,
-// round(-0.5) = -1 but round(0.5) = 1 (a gap of 2 instead of 1). With
-// floor/ceil the behavior is consistent regardless of sign.
+// the grid spacing.
 void snapBBox2ToGrid(vw::BBox2 &bbox, double spacing);
 
 // Same as snapBBox2ToGrid but for BBox3. The z component is also snapped.
