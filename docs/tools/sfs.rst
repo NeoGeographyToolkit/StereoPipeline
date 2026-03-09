@@ -99,13 +99,13 @@ outputs are produced.
      build 2025/11. See also ``--save-sim-intensity-only``.
 
  - ``run/run-DEM-variance.tif``
-     If ``--save-variances`` was set, this file stores the variance for each
+     If ``--save-variances`` was set, this file stores the uncalibrated variance for each
      DEM pixel. If ``--float-albedo`` is also on, the albedo variance is stored
      in ``<output prefix>-albedo-variance.tif``. Values within 3 pixels of the
      boundary are set to nodata. See :numref:`sfs_unc`.
 
  - ``run/run-DEM-{left,right,top,bottom}-covariance.tif``
-     If ``--save-covariances`` was set, the ``left`` file stores the covariance
+     If ``--save-covariances`` was set, the ``left`` file stores the uncalibrated covariance
      of each DEM pixel and its left neighbor, and similarly for the other files.
      If ``--float-albedo`` is also on, the albedo covariances with analogous
      names are saved as well. Values within 3 pixels of the boundary are set to
@@ -253,14 +253,14 @@ Command-line options for sfs
     thresholds are set.
 
 --save-variances
-    Save the variance of the DEM for each pixel. If ``--float-albedo`` is on,
+    Save the uncalibrated variance of the DEM for each pixel. If ``--float-albedo`` is on,
     also save the variance of the albedo. Note that computing the albedo
     variance can be ill-posed if ``--float-haze`` and/or ``--float-exposure`` is
     also on. See :numref:`sfs_outputs` for output filenames and
     :numref:`sfs_unc` for usage.
 
 --save-covariances
-    In addition to saving the variance of the DEM (and albedo) at each pixel (as
+    In addition to saving the uncalibrated variance of the DEM (and albedo) at each pixel (as
     for ``--save-variances``), also save the covariance between each DEM pixel
     and its four immediate neighbors (left, right, top, bottom), and the same
     for the albedo if ``--float-albedo`` is on. See :numref:`sfs_outputs` for
