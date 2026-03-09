@@ -2146,7 +2146,7 @@ compute the variance for each DEM pixel (available in ASP 3.6.0 or later).
 
 The square root of the variance is the standard deviation, a relative measure of
 DEM height uncertainty.
-This feature is experimental: the values are uncalibrated and they do not do not
+This feature is experimental: the values are uncalibrated and they do not
 represent real elevation uncertainties in meters.
 
 Use the ``--save-variances`` option (:numref:`sfs_opt`) with ``parallel_sfs``
