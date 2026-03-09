@@ -71,19 +71,17 @@ double gridCeil(double val, double spacing) {
 }
 
 void snapBBox2ToGrid(vw::BBox2 &bbox, double spacing) {
-  bbox.min().x() = gridFloor(bbox.min().x(), spacing);
-  bbox.min().y() = gridFloor(bbox.min().y(), spacing);
-  bbox.max().x() = gridCeil(bbox.max().x(), spacing);
-  bbox.max().y() = gridCeil(bbox.max().y(), spacing);
+  for (size_t i = 0; i < bbox.min().size(); i++) {
+    bbox.min()[i] = gridFloor(bbox.min()[i], spacing);
+    bbox.max()[i] = gridCeil(bbox.max()[i], spacing);
+  }
 }
 
 void snapBBox3ToGrid(vw::BBox3 &bbox, double spacing) {
-  bbox.min().x() = gridFloor(bbox.min().x(), spacing);
-  bbox.min().y() = gridFloor(bbox.min().y(), spacing);
-  bbox.min().z() = gridFloor(bbox.min().z(), spacing);
-  bbox.max().x() = gridCeil(bbox.max().x(), spacing);
-  bbox.max().y() = gridCeil(bbox.max().y(), spacing);
-  bbox.max().z() = gridCeil(bbox.max().z(), spacing);
+  for (size_t i = 0; i < bbox.min().size(); i++) {
+    bbox.min()[i] = gridFloor(bbox.min()[i], spacing);
+    bbox.max()[i] = gridCeil(bbox.max()[i], spacing);
+  }
 }
 
 } //end namespace asp
