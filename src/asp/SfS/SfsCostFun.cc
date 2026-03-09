@@ -1604,8 +1604,10 @@ void calcSaveSfsCovariances(SfsOptions const& opt,
   // The variance is for a pixel with itself. For covariance will need the neighbors.
   std::vector<int> dx = {0}, dy = {0};
   if (opt.save_covariances) {
-    dx = {0, -1, 1, 0, 0}; // self, left, right, bottom, top
-    dy = {0, 0, 0, -1, 1};
+    dx = {0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2}; // more points for propagation
+    dy = {0, 1, 2, -2, -1, 0, 1, 2, -2, -1, 0, 1, 2};
+    //dx = {0, -1, 1, 0, 0}; // self, left, right, bottom, top
+    //dy = {0, 0, 0, -1, 1};
   }
 
   ceres::Covariance::Options covariance_options;
@@ -1619,8 +1621,23 @@ void calcSaveSfsCovariances(SfsOptions const& opt,
   // File name suffixes for variance and covariances. Indices match dx/dy.
   std::vector<std::string> suffixes = {"-variance.tif"};
   if (opt.save_covariances)
-    suffixes = {"-variance.tif", "-left-covariance.tif", "-right-covariance.tif",
-                "-bottom-covariance.tif", "-top-covariance.tif"};
+    suffixes = {
+                 "-variance.tif",
+                 "-dr1_dc0-covariance.tif",
+                 "-dr2_dc0-covariance.tif",
+                 "-drn2_dc1-covariance.tif",
+                 "-drn1_dc1-covariance.tif",
+                 "-dr0_dc1-covariance.tif",
+                 "-dr1_dc1-covariance.tif",
+                 "-dr2_dc1-covariance.tif",
+                 "-drn2_dc2-covariance.tif",
+                 "-drn1_dc2-covariance.tif",
+                 "-dr0_dc2-covariance.tif",
+                 "-dr1_dc2-covariance.tif",
+                 "-dr2_dc2-covariance.tif"
+               };
+    //suffixes = {"-variance.tif", "-left-covariance.tif", "-right-covariance.tif",
+    //            "-bottom-covariance.tif", "-top-covariance.tif"};
 
   // Save DEM variance and covariances
   saveSfsCovariances(opt, dem, opt.out_prefix + "-DEM", suffixes, dx, dy,
