@@ -105,8 +105,8 @@ outputs are produced.
      boundary are set to nodata. See :numref:`sfs_unc`.
 
  - ``run/run-DEM-{left,right,top,bottom}-covariance.tif``
-     If ``--save-covariances`` was set, the ``left`` file stores the uncalibrated covariance
-     of each DEM pixel and its left neighbor, and similarly for the other files.
+     If ``--save-covariances`` was set, the "-dr1_dcn1" file stores the uncalibrated covariance
+     of each DEM pixel with its top-left neighbor ("+1" row and "-1" column away).
      If ``--float-albedo`` is also on, the albedo covariances with analogous
      names are saved as well. Values within 3 pixels of the boundary are set to
      nodata. See :numref:`sfs_unc`.
