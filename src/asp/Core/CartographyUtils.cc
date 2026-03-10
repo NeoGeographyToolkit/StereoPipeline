@@ -20,7 +20,6 @@
 #include <vw/Cartography/Utm.h>
 
 #include <cmath>
-#include <cstdint>
 
 namespace asp {
 
@@ -48,40 +47,17 @@ void setAutoProj(double lat, double lon,
   return;
 }
 
-// Snap a value to the nearest grid multiple, rounding down (floor).
-// Uses half-grid rounding to avoid floating-point noise causing floor()
-// to round down by an extra grid step when the value is very close to
-// a grid multiple. Example: floor(-1580598.8 / 0.3) can give -5266699
-// instead of -5266698 because the quotient is -5266698.0000000009.
-// Approach: divide by half the spacing, round to nearest integer (robust),
-// then convert from half-grid to full-grid units with integer division.
-double gridFloor(double val, double spacing) {
-  double half = 0.5 * spacing;
-  int64_t n = llround(val / half); // half-grid integer, robust
-  int64_t g = (n >= 0) ? (n / 2) : ((n - 1) / 2); // floor to full grid
-  return g * spacing;
-}
-
-// Same as gridFloor but rounding up (ceil).
-double gridCeil(double val, double spacing) {
-  double half = 0.5 * spacing;
-  int64_t n = llround(val / half); // half-grid integer, robust
-  int64_t g = (n >= 0) ? ((n + 1) / 2) : (n / 2); // ceil to full grid
-  return g * spacing;
-}
-
+// Snap the coordinates of a BBox2 to a grid spacing. Use floor for min
+// and ceil for max, so the box always covers at least the original extent.
 void snapBBox2ToGrid(vw::BBox2 &bbox, double spacing) {
-  for (size_t i = 0; i < bbox.min().size(); i++) {
-    bbox.min()[i] = gridFloor(bbox.min()[i], spacing);
-    bbox.max()[i] = gridCeil(bbox.max()[i], spacing);
-  }
+  bbox.min() = spacing * floor(bbox.min() / spacing);
+  bbox.max() = spacing * ceil(bbox.max() / spacing);
 }
 
+// Same as above but for BBox3. The z component is also snapped.
 void snapBBox3ToGrid(vw::BBox3 &bbox, double spacing) {
-  for (size_t i = 0; i < bbox.min().size(); i++) {
-    bbox.min()[i] = gridFloor(bbox.min()[i], spacing);
-    bbox.max()[i] = gridCeil(bbox.max()[i], spacing);
-  }
+  bbox.min() = spacing * floor(bbox.min() / spacing);
+  bbox.max() = spacing * ceil(bbox.max() / spacing);
 }
 
 } //end namespace asp
