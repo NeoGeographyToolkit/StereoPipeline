@@ -171,6 +171,49 @@ are not available.
 These fields are editable with ``image_calc`` (:numref:`image_calc_metadata`),
 but this is not recommended.
 
+.. _mapproj_isis:
+
+ISIS compatibility
+~~~~~~~~~~~~~~~~~~
+
+ISIS is in the process of merging in logic for the `cam2map
+<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/cam2map/cam2map.html>`_
+program that, when called with ``asp_map=true``, uses the same per-pixel
+projection algorithm as ``mapproject``.
+
+When the grid size is not specified, each program auto-computes it from the
+camera and DEM, and the results may differ slightly (under 1e-6 relative
+error) due to implementation details. The produced projection bounds may
+disagree somewhat as well.
+
+However, given the same inputs and the same grid size, these programs will
+create results that agree to float numerical precision at every grid point.
+
+Example with an LRO NAC (:numref:`lronac-example`) image and an
+equicylindrical DEM on the Moon::
+
+    proj="+proj=eqc +lat_ts=0 +lon_0=15.3 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
+
+    mapproject --tr 1.2 --t_srs "$proj" \
+      dem.tif image.cub output_asp.tif
+
+    cam2map asp_map=true useproj=true   \
+      projstring="$proj"                \
+      pixres=mpp resolution=1.2         \
+      dem=dem.tif from=image.cub to=output_isis.cub
+
+The ``--tr`` option in ``mapproject`` and ``pixres=mpp resolution=`` in
+``cam2map`` both set the grid size (ground sample distance) in meters per pixel.
+We pass in the projection as well to both programs.
+
+The DEM must be a GeoTIFF file with the pixel values representing the height
+above datum, in meters.
+
+The two results can be compared with :ref:`geodiff`::
+
+    geodiff output_isis.cub output_asp.tif -o run
+    gdalinfo -stats run-diff.tif
+
 Usage
 ~~~~~
 
