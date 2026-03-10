@@ -332,15 +332,17 @@ def main(argsIn):
         if '--save-dem-with-nodata' in argsIn:
             baseFileNames  += ['DEM-nodata-final.tif']
         
-        # Variances and covariances. Can be up to 8 of them.
+        # Variances and covariances
         if '--save-variances' in argsIn:
             prefixes = ['DEM']
             if '--float-albedo' in argsIn:
                 prefixes += ['albedo']
             suffixes = ['-variance.tif']
             if '--save-covariances' in argsIn:
-                suffixes += ['-left-covariance.tif', '-right-covariance.tif',
-                             '-bottom-covariance.tif', '-top-covariance.tif']
+                suffixes += ['-dr0_dc2-covariance.tif',
+                             '-dr1_dcn1-covariance.tif',
+                             '-dr1_dc1-covariance.tif',
+                             '-dr2_dc0-covariance.tif']
             for prefix in prefixes:
                 for suffix in suffixes:
                     baseFileNames += [prefix + suffix]
