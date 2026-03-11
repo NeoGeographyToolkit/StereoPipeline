@@ -131,6 +131,9 @@ Misc:
     and better-organized components.
   * Removed the unused HDR module, Python SWIG bindings, and legacy tools
     (contourgen, blend, bayer, learnpca, doc-generate) from VisionWorkbench.
+  * Removed the ``grassfirealpha`` tool from VisionWorkbench. Simplified
+    ``image2qtree`` to produce uint8 RGBA output, removing the
+    ``--channel-type`` and ``--terrain`` options.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
