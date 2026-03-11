@@ -8,7 +8,7 @@ other tools available to either pre-process the input images/cameras
 or to manipulate ``parallel_stereo``'s outputs, both in the context of
 planetary ISIS data and for Earth images. This includes how to
 customize ``parallel_stereo``'s settings (:numref:`running-stereo`),
-use ``point2dem`` to create 3D terrain models (:numref:`visualising`),
+use ``point2dem`` to create 3D terrain models (:numref:`manipulating_results`),
 visualize the results (:numref:`genhillshade`).
 
 Other topics include bundle adjustment (:numref:`next_steps_ba`), align the
@@ -317,7 +317,7 @@ The string ``results/output`` is arbitrary, and in this case we will
 simply make all outputs go to the ``results`` directory.
 
 When ``parallel_stereo`` finishes, it will have produced a point cloud image.
-:numref:`visualising` describes how to convert it to a digital
+:numref:`manipulating_results` describes how to convert it to a digital
 elevation model (DEM) or other formats.
 
 The ``parallel_stereo`` program can be used purely for computing the
@@ -1232,54 +1232,21 @@ If the alignment was done with the DEM produced from a triangulated point
 cloud, it can be applied with ``pc_align`` to the point cloud and then
 continue as above.
 
-.. _visualising:
+.. _manipulating_results:
 
-Visualizing and manipulating the results
-----------------------------------------
+Manipulating the results
+------------------------
 
 When ``parallel_stereo`` finishes, it will have produced a point cloud image,
 with a name like ``results/output-PC.tif`` (:numref:`outputfiles`), which can be
 used to create many kinds of data products, such as DEMs and orthoimages
 (:numref:`point2dem`), textured meshes (:numref:`point2mesh`), LAS files
 (:numref:`point2las`), colormaps (:numref:`colormap`), hillshaded images
-(:numref:`genhillshade`), etc. 
-
-The ``stereo_gui`` program (:numref:`stereo_gui`) is a very versatile
-viewer that can overlay hillshaded DEMs, orthoimages, interest point matches,
-ASP's report files in CSV format, polygons, etc.
+(:numref:`genhillshade`), etc.
 
 Produced DEMs can also be mosaicked (:numref:`dem_mosaic`), subtracted from
 other DEMs or CSV files (:numref:`geodiff`), aligned to a reference
 (:numref:`pc-align-example`), etc.
-
-.. _asp_plot:
-
-Diagnostic plots and reports with asp_plot
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The `asp_plot <https://github.com/uw-cryo/asp_plot>`_ Python package can be
-used to generate diagnostic plots and comprehensive PDF reports from ASP
-outputs. It provides visualization of stereo DEMs (hillshades, colormaps,
-difference maps), bundle adjustment residuals, interest point matches,
-map-projected image overlays, CSM camera model comparisons, and stereo
-geometry. For Earth-based datasets, it also supports comparison against ICESat-2
-altimetry data via `SlideRule <https://slideruleearth.io/>`_.
-
-The ``asp_plot`` package supports processing outputs from many sensors,
-including WorldView, ASTER, LRO NAC, CTX, HiRISE, and MOC.
-
-``asp_plot`` is available via ``conda`` and ``pip``::
-
-    conda install -c conda-forge asp_plot
-
-or::
-
-    pip install asp_plot
-
-For full documentation, including installation, CLI usage, example notebooks,
-and example reports, see:
-
-    https://asp-plot.readthedocs.io
 
 .. _p19-osg:
 
@@ -1485,6 +1452,43 @@ This creates files with 512 x 512 tiles, internal overviews (pyramids), and
 optimized compression for efficient streaming from cloud storage.
 
 Use ``gdalinfo`` (:numref:`gdal_tools`) to check if an output file is a COG.
+
+.. _visualizing_results:
+
+Visualizing the results
+-----------------------
+
+The ``stereo_gui`` program (:numref:`stereo_gui`) is a very versatile
+viewer that can overlay hillshaded DEMs, orthoimages, interest point matches,
+ASP's report files in CSV format, polygons, etc.
+
+.. _asp_plot:
+
+Diagnostic plots and reports with asp_plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `asp_plot <https://github.com/uw-cryo/asp_plot>`__ Python package can be
+used to generate diagnostic plots and comprehensive PDF reports from ASP
+outputs. It provides visualization of stereo DEMs (hillshades, colormaps,
+difference maps), bundle adjustment residuals, interest point matches,
+map-projected image overlays, CSM camera model comparisons, and stereo
+geometry. For Earth-based datasets, it also supports comparison against ICESat-2
+altimetry data via `SlideRule <https://slideruleearth.io/>`_.
+
+The ``asp_plot`` package supports processing outputs from many sensors,
+including WorldView, LRO NAC, etc. (:numref:`examples`).
+
+``asp_plot`` is available via ``conda`` and ``pip``::
+
+    conda install -c conda-forge asp_plot
+
+or::
+
+    pip install asp_plot
+
+For full documentation, including installation, CLI usage, example notebooks,
+and example reports, see the
+`asp_plot documentation <https://asp-plot.readthedocs.io>`__.
 
 .. _google_earth_overlays:
 

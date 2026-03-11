@@ -12,6 +12,9 @@ Added support for plain-text match files (:numref:`txt_match`).
 Added a new program to study parameter sensitivity by running stereo on small
 patches with different parameter combinations (:numref:`stereo_sweep`).
 
+Added the ``asp_plot`` package for generating diagnostic plots and PDF reports
+from ASP outputs (:numref:`asp_plot`).
+
 aster2asp (:numref:`aster2asp`):
   * Added support for ASTER Level 1A V004 HDF format.
 

@@ -68,7 +68,7 @@ are created by the ``parallel_stereo`` program above)::
 
      point2mesh results/run-PC.tif results/run-L.tif
 
-Visualization is further discussed in :numref:`visualising`.
+Visualization is further discussed in :numref:`visualizing_results`.
 
 A produced DEM may need to be aligned to some pre-existing reference
 (:numref:`pc_align`). 
@@ -320,7 +320,7 @@ algorithms, and use stereo in parallel or from a GUI. For more
 details, see :numref:`nextsteps`.
 
 How to create a DEM and visualize the results of stereo is described in
-:numref:`visualising`. Choosing a projection is discussed in
+:numref:`manipulating_results`. Choosing a projection is discussed in
 :numref:`point2dem_proj`.
 
 See :numref:`pbs_slurm` for running on multiple machines

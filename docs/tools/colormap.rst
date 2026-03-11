@@ -31,7 +31,7 @@ Alternatively, run::
 The second approach can incorporate any type of grayscale image as
 a multiplier to the colorized image.
 
-See :numref:`visualising` for a discussion of ASP's visualization
+See :numref:`visualizing_results` for a discussion of ASP's visualization
 tools, including this one.
 
 To add a colorbar and axes, use ``stereo_gui`` (:numref:`colorize`).

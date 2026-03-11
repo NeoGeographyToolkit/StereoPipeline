@@ -188,7 +188,7 @@ Here, the projection string in ``$proj`` can be the same as for the DEM created 
 (the ``gdalinfo -proj4`` command invoked on that DEM can print it). 
 
 The ``geodiff`` program can take the difference of the now-aligned DEMs.
-Other inspections can be done as discussed in :numref:`visualising`.
+Other inspections can be done as discussed in :numref:`visualizing_results`.
 
 .. _umbra_failure:
 

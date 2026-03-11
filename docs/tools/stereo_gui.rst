@@ -800,6 +800,17 @@ In this mode, the lowest-resolution subimage size is larger than usual to avoid
 creating small images when building an image pyramid. See
 ``--lowest-resolution-subimage-num-pixels``.
 
+See also
+~~~~~~~~
+
+The ``sfm_view`` tool (:numref:`sfm_view`) can visualize cameras in orbit.
+
+The ``asp_plot`` package (:numref:`asp_plot`) can generate diagnostic plots and
+PDF reports from ASP outputs.
+
+The ``orbit_plot.py`` tool (:numref:`orbit_plot`) can visualize camera
+orientations along an orbit.
+
 .. _gui_options:
 
 Command line options for ``stereo_gui``

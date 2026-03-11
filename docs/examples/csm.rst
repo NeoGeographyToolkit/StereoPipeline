@@ -420,7 +420,7 @@ See :numref:`nextsteps` for a discussion about various stereo
 speed-vs-quality choices.
 
 A DEM is produced with ``point2dem`` (:numref:`point2dem`), and other products
-are made for visualization (:numref:`visualising`)::
+are made for visualization (:numref:`manipulating_results`)::
 
     point2dem --stereographic --auto-proj-center \
       run/run-PC.tif --orthoimage run/run-L.tif 

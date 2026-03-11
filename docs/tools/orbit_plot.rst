@@ -209,7 +209,10 @@ See also
 ~~~~~~~~
 
 The tool ``sfm_view`` (:numref:`sfm_view`) can be used to visualize cameras in
-orbit. 
+orbit.
+
+The ``asp_plot`` package (:numref:`asp_plot`) can generate diagnostic plots and
+PDF reports from ASP stereo outputs.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
