@@ -67,10 +67,6 @@ add_executable(geodiff geodiff.cc)
 target_link_libraries(geodiff AspCore AspSessions)
 install(TARGETS geodiff DESTINATION bin)
 
-add_executable(hsv_merge hsv_merge.cc)
-target_link_libraries(hsv_merge AspCore AspSessions)
-install(TARGETS hsv_merge DESTINATION bin)
-
 add_executable(lronacjitreg lronacjitreg.cc)
 target_link_libraries(lronacjitreg AspSessions)
 install(TARGETS lronacjitreg DESTINATION bin)

@@ -136,6 +136,12 @@ Misc:
     ``--channel-type`` and ``--terrain`` options.
   * Removed the unused ``georef`` tool from VisionWorkbench.
   * Removed the ``--preserve-pixel-type`` option from ``undistort_image``.
+  * Removed the ``slopemap`` tool from VisionWorkbench. Use ``gdaldem slope``
+    and ``gdaldem aspect`` instead.
+  * Removed the ``hsv_merge`` tool. Use ``gdaldem color-relief`` with
+    ``gdaldem hillshade`` for similar results.
+  * Removed the unused ``PixelHSV`` and ``PixelLuv`` pixel types from
+    VisionWorkbench.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
