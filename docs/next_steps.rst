@@ -1252,6 +1252,35 @@ Produced DEMs can also be mosaicked (:numref:`dem_mosaic`), subtracted from
 other DEMs or CSV files (:numref:`geodiff`), aligned to a reference
 (:numref:`pc-align-example`), etc.
 
+.. _asp_plot:
+
+Diagnostic plots and reports with asp_plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The `asp_plot <https://github.com/uw-cryo/asp_plot>`_ Python package can be
+used to generate diagnostic plots and comprehensive PDF reports from ASP
+outputs. It provides visualization of stereo DEMs (hillshades, colormaps,
+difference maps), bundle adjustment residuals, interest point matches,
+map-projected image overlays, CSM camera model comparisons, and stereo
+geometry. For Earth-based datasets, it also supports comparison against ICESat-2
+altimetry data via `SlideRule <https://slideruleearth.io/>`_.
+
+The ``asp_plot`` package supports processing outputs from many sensors,
+including WorldView, ASTER, LRO NAC, CTX, HiRISE, and MOC.
+
+``asp_plot`` is available via ``conda`` and ``pip``::
+
+    conda install -c conda-forge asp_plot
+
+or::
+
+    pip install asp_plot
+
+For full documentation, including installation, CLI usage, example notebooks,
+and example reports, see:
+
+    https://asp-plot.readthedocs.io
+
 .. _p19-osg:
 
 .. figure:: images/p19-osg_400px.png
