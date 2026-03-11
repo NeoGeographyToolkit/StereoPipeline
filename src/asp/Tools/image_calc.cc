@@ -861,45 +861,9 @@ void image_calc(Options & opt) {
   const std::string firstFile = opt.input_files[0];
   std::string output_file = opt.output_file;
 
-  // Determining the format of the input images
-  auto rsrc = vw::DiskImageResourcePtr(firstFile);
-  vw::ChannelTypeEnum input_data_type = rsrc->channel_type();
-
-  // Assume that all inputs are of the same type. ASP does strange things if 
-  // loading a uint8 file as a float, for example.
-  // TODO(oalexan1): Load each file according to its format, then cast to double.
-  // TODO(oalexan1): Do not rescale the pixels on input.
-  // TODO(oalexan1): Likely do not need any template logic here. All inputs should
-  // be loaded as double, processed as double, and then cast to the output type.
-  for (size_t it = 1; it < opt.input_files.size(); it++) {
-    auto curr_rsrc = vw::DiskImageResourcePtr(opt.input_files[it]);
-    vw::ChannelTypeEnum curr_data_type = curr_rsrc->channel_type();
-    if (input_data_type != curr_data_type)
-      vw::vw_throw(vw::ArgumentErr() << "All input images are supposed to be of the same data type.\n");
-  }
-
-  // Redirect to another function with the correct template type
-  switch(input_data_type) {
-    // GDAL does not support int8
-    //case vw::VW_CHANNEL_INT8: proc_img<vw::PixelGray<vw::int8 >>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_UINT8: 
-    proc_img<vw::PixelGray<vw::uint8>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_INT16: 
-    proc_img<vw::PixelGray<vw::int16>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_UINT16: 
-    proc_img<vw::PixelGray<vw::uint16>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_INT32: 
-    proc_img<vw::PixelGray<vw::int32>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_UINT32: 
-    proc_img<vw::PixelGray<vw::uint32>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_FLOAT32: 
-    proc_img<vw::PixelGray<vw::float32>>(opt, output_file, calc_tree);  break;
-  case vw::VW_CHANNEL_FLOAT64: 
-    proc_img<vw::PixelGray<vw::float64>>(opt, output_file, calc_tree);  break;
-  default: 
-    vw::vw_throw(vw::ArgumentErr() 
-      << "Input image format " << input_data_type << " is not supported.\n");
-  };
+  // All inputs are read as double to avoid template bloat. The computation
+  // is done in double precision, and the output is cast to the requested type.
+  proc_img<vw::PixelGray<double>>(opt, output_file, calc_tree);
 }
 
 /// The main function calls the cmd line parsers and figures out the input image type
