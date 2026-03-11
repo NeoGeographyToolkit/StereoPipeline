@@ -134,6 +134,8 @@ Misc:
   * Removed the ``grassfirealpha`` tool from VisionWorkbench. Simplified
     ``image2qtree`` to produce uint8 RGBA output, removing the
     ``--channel-type`` and ``--terrain`` options.
+  * Removed the unused ``georef`` tool from VisionWorkbench.
+  * Removed the ``--preserve-pixel-type`` option from ``undistort_image``.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------

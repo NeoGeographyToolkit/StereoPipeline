@@ -24,10 +24,6 @@ Command-line options for undistort_image:
     Set the output nodata value.  Only applicable if the output is
     a single-channel image with pixels that are float or double.
 
---preserve-pixel-type
-    Save the undistorted image with integer pixels if so is the
-    input. This may result in reduced accuracy.
-
 --interpolation-method <bilinear|bicubic (default: bilinear)>
     Interpolation method.
 
