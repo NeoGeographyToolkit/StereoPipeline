@@ -468,16 +468,18 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 // Write the aligned image with the specified output data type, casting and
 // clamping as needed. Integer types are rounded before clamping.
-#define WRITE_ALIGNED_INT(T)                                                \
-  vw::cartography::block_write_gdal_image(opt.output_image,                \
-    per_pixel_filter(apply_mask(aligned_image2, nodata2),                   \
-                     vw::ClampRoundAndCastToInt<T, double>()),              \
+#define WRITE_ALIGNED_INT(T)                                   \
+  vw::cartography::block_write_gdal_image(                     \
+    opt.output_image,                                          \
+    per_pixel_filter(apply_mask(aligned_image2, nodata2),      \
+                     vw::ClampRoundAndCastToInt<T, double>()), \
     has_georef2, georef2, has_nodata2, nodata2, opt, tpc)
 
-#define WRITE_ALIGNED_FLOAT(T)                                             \
-  vw::cartography::block_write_gdal_image(opt.output_image,                \
-    per_pixel_filter(apply_mask(aligned_image2, nodata2),                   \
-                     vw::ClampAndCast<T, double>()),                        \
+#define WRITE_ALIGNED_FLOAT(T)                                 \
+  vw::cartography::block_write_gdal_image(                     \
+    opt.output_image,                                          \
+    per_pixel_filter(apply_mask(aligned_image2, nodata2),      \
+                     vw::ClampAndCast<T, double>()),           \
     has_georef2, georef2, has_nodata2, nodata2, opt, tpc)
 
 void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
