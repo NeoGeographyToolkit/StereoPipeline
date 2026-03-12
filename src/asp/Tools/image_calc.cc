@@ -27,6 +27,7 @@
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
 #include <vw/Image/Algorithms.h>
+#include <vw/Image/ImageChannels.h>
 #include <vw/Image/ImageIO.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
@@ -759,9 +760,12 @@ void handleGeoref(Options const& opt, bool & have_georef,
   }
 }
 
-template <typename PixelT>
-void loadImagesNodata(Options & opt, 
-                      std::vector<vw::ImageViewRef<PixelT>> & input_images,
+// Read each image in its native type, then cast to double without rescaling.
+// This avoids the VW channel normalization (e.g., uint8 [0,255] -> double [0,1])
+// that happens when reading a non-double image as DiskImageView<PixelGray<double>>.
+typedef vw::PixelGray<double> DoublePixelT;
+void loadImagesNodata(Options & opt,
+                      std::vector<vw::ImageViewRef<DoublePixelT>> & input_images,
                       std::vector<bool> & has_nodata_vec,
                       std::vector<double> & nodata_vec) {
 
@@ -771,21 +775,22 @@ void loadImagesNodata(Options & opt,
 
     // Determining the format of the input
     auto rsrc = vw::DiskImageResourcePtr(input);
+    vw::ChannelTypeEnum input_type = rsrc->channel_type();
 
     // Check for nodata value in the file
     if (opt.has_in_nodata) {
       // User has specified a default nodata value, override its value in the file
       has_nodata_vec[i]  = true;
       nodata_vec[i]      = opt.in_nodata_value;
-      opt.has_out_nodata = true; // If any inputs have nodata, the output must have nodata.
+      opt.has_out_nodata = true;
       vw::vw_out() << "\t--> Using as nodata value: " << nodata_vec[i] << "\n";
     } else if (rsrc->has_nodata_read()) {
       nodata_vec[i] = rsrc->nodata_read();
       has_nodata_vec[i] = true;
 
       if (!opt.has_out_nodata) {
-        opt.has_out_nodata   = true; // If any inputs have nodata, the output must have nodata
-        opt.out_nodata_value = nodata_vec[i]; // If not set by the user, use this on output
+        opt.has_out_nodata   = true;
+        opt.out_nodata_value = nodata_vec[i];
       }
       vw::vw_out() << "\t--> Extracted nodata value from " << input << ": "
                 << nodata_vec[i] << "\n";
@@ -794,19 +799,48 @@ void loadImagesNodata(Options & opt,
       has_nodata_vec[i] = false;
     }
 
-    vw::DiskImageView<PixelT> this_disk_image(input);
-    input_images[i] = this_disk_image;
+    // Read in native type, then channel_cast to double (no rescaling)
+    switch (input_type) {
+    case vw::VW_CHANNEL_UINT8:
+      input_images[i] = vw::channel_cast<double>(
+        vw::DiskImageView<vw::PixelGray<vw::uint8>>(input));
+      break;
+    case vw::VW_CHANNEL_INT16:
+      input_images[i] = vw::channel_cast<double>(
+        vw::DiskImageView<vw::PixelGray<vw::int16>>(input));
+      break;
+    case vw::VW_CHANNEL_UINT16:
+      input_images[i] = vw::channel_cast<double>(
+        vw::DiskImageView<vw::PixelGray<vw::uint16>>(input));
+      break;
+    case vw::VW_CHANNEL_INT32:
+      input_images[i] = vw::channel_cast<double>(
+        vw::DiskImageView<vw::PixelGray<vw::int32>>(input));
+      break;
+    case vw::VW_CHANNEL_UINT32:
+      input_images[i] = vw::channel_cast<double>(
+        vw::DiskImageView<vw::PixelGray<vw::uint32>>(input));
+      break;
+    case vw::VW_CHANNEL_FLOAT32:
+      input_images[i] = vw::channel_cast<double>(
+        vw::DiskImageView<vw::PixelGray<vw::float32>>(input));
+      break;
+    default: {
+      vw::DiskImageView<DoublePixelT> disk_image(input);
+      input_images[i] = disk_image;
+      break;
+    }
+    }
   }
 }
 
 /// This function loads the input images and calls the main processing function
-template <typename PixelT>
 void proc_img(Options & opt, std::string const& output_file,
               calc_operation const& calc_tree) {
 
   // Read the georef from the first file, they should all have the same value.
   size_t numInputFiles = opt.input_files.size();
-  std::vector<vw::ImageViewRef<PixelT>> input_images(numInputFiles);
+  std::vector<vw::ImageViewRef<DoublePixelT>> input_images(numInputFiles);
   std::vector<bool> has_nodata_vec(numInputFiles);
   std::vector<double> nodata_vec(numInputFiles);
 
@@ -819,20 +853,20 @@ void proc_img(Options & opt, std::string const& output_file,
 
   // Write out the selected data type
   switch(opt.output_data_type) {
-    case vw::VW_CHANNEL_UINT8: 
-      write_out<PixelT, vw::PixelGray<vw::uint8>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case vw::VW_CHANNEL_INT16: 
-      write_out<PixelT, vw::PixelGray<vw::int16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case vw::VW_CHANNEL_UINT16: 
-      write_out<PixelT, vw::PixelGray<vw::uint16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case vw::VW_CHANNEL_INT32: 
-      write_out<PixelT, vw::PixelGray<vw::int32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case vw::VW_CHANNEL_UINT32: 
-      write_out<PixelT, vw::PixelGray<vw::uint32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-    case vw::VW_CHANNEL_FLOAT32: 
-      write_out<PixelT, vw::PixelGray<vw::float32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
-  default: 
-    write_out<PixelT, vw::PixelGray<vw::float64>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_UINT8:
+      write_out<DoublePixelT, vw::PixelGray<vw::uint8>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_INT16:
+      write_out<DoublePixelT, vw::PixelGray<vw::int16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_UINT16:
+      write_out<DoublePixelT, vw::PixelGray<vw::uint16>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_INT32:
+      write_out<DoublePixelT, vw::PixelGray<vw::int32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_UINT32:
+      write_out<DoublePixelT, vw::PixelGray<vw::uint32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+    case vw::VW_CHANNEL_FLOAT32:
+      write_out<DoublePixelT, vw::PixelGray<vw::float32>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
+  default:
+    write_out<DoublePixelT, vw::PixelGray<vw::float64>>(output_file, opt, calc_tree, have_georef, georef, input_images, has_nodata_vec, nodata_vec); break;
   };
 
 }
@@ -861,9 +895,10 @@ void image_calc(Options & opt) {
   const std::string firstFile = opt.input_files[0];
   std::string output_file = opt.output_file;
 
-  // All inputs are read as double to avoid template bloat. The computation
-  // is done in double precision, and the output is cast to the requested type.
-  proc_img<vw::PixelGray<double>>(opt, output_file, calc_tree);
+  // All inputs are read in native type and cast to double without rescaling.
+  // The computation is done in double precision, and the output is cast to
+  // the requested type.
+  proc_img(opt, output_file, calc_tree);
 }
 
 /// The main function calls the cmd line parsers and figures out the input image type
