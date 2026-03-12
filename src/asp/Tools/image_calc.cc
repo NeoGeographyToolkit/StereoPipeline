@@ -27,7 +27,6 @@
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
 #include <vw/Image/Algorithms.h>
-#include <vw/Image/ImageChannels.h>
 #include <vw/Image/ImageIO.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
@@ -760,9 +759,8 @@ void handleGeoref(Options const& opt, bool & have_georef,
   }
 }
 
-// Read each image in its native type, then cast to double without rescaling.
-// This avoids the VW channel normalization (e.g., uint8 [0,255] -> double [0,1])
-// that happens when reading a non-double image as DiskImageView<PixelGray<double>>.
+// Read all images as double. Disable rescaling on the resource so integer
+// pixels (uint8, uint16, etc.) keep their original values when read as double.
 typedef vw::PixelGray<double> DoublePixelT;
 void loadImagesNodata(Options & opt,
                       std::vector<vw::ImageViewRef<DoublePixelT>> & input_images,
@@ -773,9 +771,9 @@ void loadImagesNodata(Options & opt,
   for (size_t i = 0; i < numInputFiles; i++) {
     std::string input = opt.input_files[i];
 
-    // Determining the format of the input
+    // Open the resource and disable rescaling
     auto rsrc = vw::DiskImageResourcePtr(input);
-    vw::ChannelTypeEnum input_type = rsrc->channel_type();
+    rsrc->set_rescale(false);
 
     // Check for nodata value in the file
     if (opt.has_in_nodata) {
@@ -799,38 +797,8 @@ void loadImagesNodata(Options & opt,
       has_nodata_vec[i] = false;
     }
 
-    // Read in native type, then channel_cast to double (no rescaling)
-    switch (input_type) {
-    case vw::VW_CHANNEL_UINT8:
-      input_images[i] = vw::channel_cast<double>(
-        vw::DiskImageView<vw::PixelGray<vw::uint8>>(input));
-      break;
-    case vw::VW_CHANNEL_INT16:
-      input_images[i] = vw::channel_cast<double>(
-        vw::DiskImageView<vw::PixelGray<vw::int16>>(input));
-      break;
-    case vw::VW_CHANNEL_UINT16:
-      input_images[i] = vw::channel_cast<double>(
-        vw::DiskImageView<vw::PixelGray<vw::uint16>>(input));
-      break;
-    case vw::VW_CHANNEL_INT32:
-      input_images[i] = vw::channel_cast<double>(
-        vw::DiskImageView<vw::PixelGray<vw::int32>>(input));
-      break;
-    case vw::VW_CHANNEL_UINT32:
-      input_images[i] = vw::channel_cast<double>(
-        vw::DiskImageView<vw::PixelGray<vw::uint32>>(input));
-      break;
-    case vw::VW_CHANNEL_FLOAT32:
-      input_images[i] = vw::channel_cast<double>(
-        vw::DiskImageView<vw::PixelGray<vw::float32>>(input));
-      break;
-    default: {
-      vw::DiskImageView<DoublePixelT> disk_image(input);
-      input_images[i] = disk_image;
-      break;
-    }
-    }
+    vw::DiskImageView<DoublePixelT> disk_image(rsrc);
+    input_images[i] = disk_image;
   }
 }
 

@@ -217,6 +217,12 @@ void project_image_nodata(asp::MapprojOptions & opt,
     boost::shared_ptr<DiskImageResource> img_rsrc =
           vw::DiskImageResourcePtr(opt.image_file);
 
+    // Disable rescaling so integer pixels (uint8, uint16, etc.) are not
+    // normalized to [0,1] when read as float. In practice, rescaling does
+    // not appear to happen in the GDAL read path even without this call,
+    // but set it explicitly as a safeguard.
+    img_rsrc->set_rescale(false);
+
     // Update the nodata value from the input file if it is present.
     if (img_rsrc->has_nodata_read())
       opt.nodata_value = img_rsrc->nodata_read();
@@ -423,7 +429,7 @@ void project_image(asp::MapprojOptions & opt, GeoReference const& dem_georef,
     if (num_input_channels != 1 || image_fmt.planes != 1)
       //vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
       vw_out() << "Detected multi-band image. Only the first band will be used. The pixels will be interpreted as float.\n";
-    // This will cast to float but will not rescale the pixel values.
+    // Read as float with rescaling disabled, so integer values are preserved.
     project_image_nodata_pick_transform(opt, dem_georef, target_georef, croppedGeoRef,
                                                 image_size, 
                           Vector2i(virtual_image_width, virtual_image_height),
