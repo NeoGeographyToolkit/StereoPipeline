@@ -231,16 +231,20 @@ void process_disparity(Options& opt) {
 
   ImageViewRef<PixelMask<Vector2f>> disk_disparity_map;
   if (has_mask && is_int)
-    disk_disparity_map = pixel_cast<PixelMask<Vector2f>>
-      (DiskImageView<PixelMask<Vector2i>>(opt.input_file_name));
+    disk_disparity_map =
+      pixel_cast<PixelMask<Vector2f>>
+        (DiskImageView<PixelMask<Vector2i>>(opt.input_file_name));
   else if (has_mask)
-    disk_disparity_map = DiskImageView<PixelMask<Vector2f>>(opt.input_file_name);
+    disk_disparity_map =
+      DiskImageView<PixelMask<Vector2f>>(opt.input_file_name);
   else if (is_int)
-    disk_disparity_map = pixel_cast<PixelMask<Vector2f>>
-      (create_mask(DiskImageView<Vector2i>(opt.input_file_name)));
+    disk_disparity_map =
+      pixel_cast<PixelMask<Vector2f>>
+        (create_mask(DiskImageView<Vector2i>(opt.input_file_name)));
   else
-    disk_disparity_map = pixel_cast<PixelMask<Vector2f>>
-      (create_mask(DiskImageView<Vector2f>(opt.input_file_name)));
+    disk_disparity_map =
+      pixel_cast<PixelMask<Vector2f>>
+        (create_mask(DiskImageView<Vector2f>(opt.input_file_name)));
 
   if (opt.save_norm) {
     std::string norm_file = opt.output_prefix + "-norm." + opt.output_file_type;
