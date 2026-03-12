@@ -35,6 +35,7 @@
 #include <vw/Image/Algorithms.h>
 #include <vw/Image/Filter.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/Image/PixelMask.h>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -213,7 +214,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << "the output file type must be tif.\n");
 }
 
-template <class PixelT>
 void process_disparity(Options& opt) {
 
   cartography::GeoReference georef;
@@ -221,8 +221,28 @@ void process_disparity(Options& opt) {
   bool has_nodata = false;
   float output_nodata = -32768.0;
 
+  // Read as PixelMask<Vector2f> regardless of input type.
+  // Must handle int32 vs float and masked vs unmasked variants.
+  ImageFormat fmt = vw::image_format(opt.input_file_name);
+  bool has_mask = (fmt.pixel_format == VW_PIXEL_RGB ||
+                   fmt.pixel_format == VW_PIXEL_GENERIC_3_CHANNEL ||
+                   (fmt.pixel_format == VW_PIXEL_SCALAR && fmt.planes == 3));
+  bool is_int = (fmt.channel_type == VW_CHANNEL_INT32);
+
+  ImageViewRef<PixelMask<Vector2f>> disk_disparity_map;
+  if (has_mask && is_int)
+    disk_disparity_map = pixel_cast<PixelMask<Vector2f>>
+      (DiskImageView<PixelMask<Vector2i>>(opt.input_file_name));
+  else if (has_mask)
+    disk_disparity_map = DiskImageView<PixelMask<Vector2f>>(opt.input_file_name);
+  else if (is_int)
+    disk_disparity_map = pixel_cast<PixelMask<Vector2f>>
+      (create_mask(DiskImageView<Vector2i>(opt.input_file_name)));
+  else
+    disk_disparity_map = pixel_cast<PixelMask<Vector2f>>
+      (create_mask(DiskImageView<Vector2f>(opt.input_file_name)));
+
   if (opt.save_norm) {
-    DiskImageView<PixelMask<Vector2f>> disk_disparity_map(opt.input_file_name);
     std::string norm_file = opt.output_prefix + "-norm." + opt.output_file_type;
     vw_out() << "\t--> Writing disparity norm: " << norm_file << "\n";
     block_write_gdal_image(norm_file,
@@ -234,7 +254,6 @@ void process_disparity(Options& opt) {
   }
 
   if (opt.save_norm_diff) {
-    DiskImageView<PixelMask<Vector2f>> disk_disparity_map(opt.input_file_name);
     std::string norm_file = opt.output_prefix + "-norm-diff." + opt.output_file_type;
     vw_out() << "\t--> Writing norm of disparity diff: " << norm_file << "\n";
     block_write_gdal_image(norm_file,
@@ -245,8 +264,6 @@ void process_disparity(Options& opt) {
     return;
   }
 
-  DiskImageView<PixelT> disk_disparity_map(opt.input_file_name);
-
   // If no ROI passed in, use the full image
   BBox2 roiToUse(opt.roi);
   if (opt.roi == BBox2(0, 0, 0, 0))
@@ -256,38 +273,36 @@ void process_disparity(Options& opt) {
     georef = crop(georef, roiToUse);
 
   // Crop to ROI and select channels
-  typedef typename PixelChannelType<PixelT>::type ChannelT;
-  ImageViewRef<PixelT> disp = crop(disk_disparity_map, roiToUse);
-  ImageViewRef<ChannelT> horizontal = select_channel(disp, 0);
-  ImageViewRef<ChannelT> vertical   = select_channel(disp, 1);
+  ImageViewRef<PixelMask<Vector2f>> disp = crop(disk_disparity_map, roiToUse);
+  ImageViewRef<float> horizontal = select_channel(disp, 0);
+  ImageViewRef<float> vertical   = select_channel(disp, 1);
 
   // Set up output files
   std::string h_file = opt.output_prefix + "-H." + opt.output_file_type;
   std::string v_file = opt.output_prefix + "-V." + opt.output_file_type;
-  
+
   if (opt.raw) {
     has_nodata = true;
     // Pick as nodata a value that large and representable exactly as float
-    output_nodata = -1e+6; 
-    // Save as float regardless of input type
-    ImageViewRef<float> horiz_float = channel_cast<float>(horizontal);
-    ImageViewRef<float> vert_float  = channel_cast<float>(vertical);
+    output_nodata = -1e+6;
     // Set invalid pixels to nodata
-    horiz_float = apply_mask(copy_mask(horiz_float, disp), output_nodata);
-    vert_float  = apply_mask(copy_mask(vert_float, disp), output_nodata);
-    
+    ImageViewRef<float> horiz_out = apply_mask(copy_mask(horizontal, disp),
+                                               output_nodata);
+    ImageViewRef<float> vert_out  = apply_mask(copy_mask(vertical, disp),
+                                               output_nodata);
+
     // Write both images to disk
     vw_out() << "\t--> Writing raw horizontal disparity: " << h_file << "\n";
-    block_write_gdal_image(h_file, horiz_float, has_georef, georef,
+    block_write_gdal_image(h_file, horiz_out, has_georef, georef,
                            has_nodata, output_nodata,
                            opt, TerminalProgressCallback("asp","\t    H : "));
     vw_out() << "\t--> Writing raw vertical disparity: " << v_file << "\n";
-    block_write_gdal_image(v_file, vert_float, has_georef, georef,
+    block_write_gdal_image(v_file, vert_out, has_georef, georef,
                            has_nodata, output_nodata,
                            opt, TerminalProgressCallback("asp","\t    V : "));
     return;
   }
-  
+
   // Compute intensity display range if not passed in. For this purpose
   // subsample the image.
   vw_out() << "\t--> Computing disparity range.\n";
@@ -296,7 +311,7 @@ void process_disparity(Options& opt) {
       float(roiToUse.height())*float(roiToUse.width()) / (1000.f * 1000.f);
     subsample_amt = std::max(subsample_amt, 1.0f);
     opt.normalization_range
-      = get_disparity_range(subsample(crop(disk_disparity_map, roiToUse), subsample_amt));
+      = get_disparity_range(subsample(disp, subsample_amt));
   }
 
   vw_out() << "\t    Horizontal: [" << opt.normalization_range.min().x()
@@ -304,20 +319,21 @@ void process_disparity(Options& opt) {
            << opt.normalization_range.min().y() << " "
            << opt.normalization_range.max().y() << "]\n";
 
-  // Generate value-normalized copies of the H and V channels
+  // Generate value-normalized copies of the H and V channels.
+  // Normalize to [0,1] (float channel range), then rescale to uint8.
   horizontal =
     apply_mask(copy_mask(clamp(normalize(horizontal,
                                          opt.normalization_range.min().x(),
                                          opt.normalization_range.max().x(),
-                                         ChannelRange<ChannelT>::min(),
-                                         ChannelRange<ChannelT>::max())),
+                                         ChannelRange<float>::min(),
+                                         ChannelRange<float>::max())),
                          disp));
   vertical =
     apply_mask(copy_mask(clamp(normalize(vertical,
                                          opt.normalization_range.min().y(),
                                          opt.normalization_range.max().y(),
-                                         ChannelRange<ChannelT>::min(),
-                                         ChannelRange<ChannelT>::max())),
+                                         ChannelRange<float>::min(),
+                                         ChannelRange<float>::max())),
                          disp));
 
   // Write both images to disk, casting as UINT8
@@ -342,46 +358,20 @@ int main(int argc, char *argv[]) {
     handle_arguments(argc, argv, opt);
 
     vw_out() << "Reading: " << opt.input_file_name << "\n";
-    ImageFormat fmt = vw::image_format(opt.input_file_name);
 
-    switch(fmt.pixel_format) {
-    case VW_PIXEL_GENERIC_2_CHANNEL:
-      switch (fmt.channel_type) {
-      case VW_CHANNEL_INT32:
-        process_disparity<Vector2i>(opt); break;
-      default:
-        process_disparity<Vector2f>(opt); break;
-      } break;
-    case VW_PIXEL_RGB:
-    case VW_PIXEL_GENERIC_3_CHANNEL:
-      switch (fmt.channel_type) {
-      case VW_CHANNEL_INT32:
-        process_disparity<PixelMask<Vector2i>>(opt); break;
-      default:
-        process_disparity<PixelMask<Vector2f>>(opt); break;
-      } break;
-    case VW_PIXEL_SCALAR:
-      // OpenEXR stores everything as planar, so this allows us to
-      // still read that data.
-      if (fmt.planes == 2) {
-        switch (fmt.channel_type) {
-        case VW_CHANNEL_INT32:
-          process_disparity<Vector2i>(opt); break;
-        default:
-          process_disparity<Vector2f>(opt); break;
-        } break;
-      } else if (fmt.planes == 3) {
-        switch (fmt.channel_type) {
-        case VW_CHANNEL_INT32:
-          process_disparity<PixelMask<Vector2i>>(opt); break;
-        default:
-          process_disparity<PixelMask<Vector2f>>(opt); break;
-        } break;
-      }
-    default:
+    // Validate that the input is a 2 or 3 channel image
+    ImageFormat fmt = vw::image_format(opt.input_file_name);
+    bool valid = (fmt.pixel_format == VW_PIXEL_GENERIC_2_CHANNEL ||
+                  fmt.pixel_format == VW_PIXEL_RGB ||
+                  fmt.pixel_format == VW_PIXEL_GENERIC_3_CHANNEL ||
+                  (fmt.pixel_format == VW_PIXEL_SCALAR &&
+                   (fmt.planes == 2 || fmt.planes == 3)));
+    if (!valid)
       vw_throw(ArgumentErr() << "Unsupported pixel format. Expected 2 or 3 channel image. "
                 << "Instead got [" << pixel_format_name(fmt.pixel_format) << "].");
-    }
+
+    // All disparity data is read as float and processed uniformly
+    process_disparity(opt);
 
   } ASP_STANDARD_CATCHES;
 

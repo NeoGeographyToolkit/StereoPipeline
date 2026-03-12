@@ -466,76 +466,43 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   return;  
 }
 
+// Write the aligned image with the specified output data type, casting and
+// clamping as needed. Integer types are rounded before clamping.
+#define WRITE_ALIGNED_INT(T)                                                \
+  vw::cartography::block_write_gdal_image(opt.output_image,                \
+    per_pixel_filter(apply_mask(aligned_image2, nodata2),                   \
+                     vw::ClampRoundAndCastToInt<T, double>()),              \
+    has_georef2, georef2, has_nodata2, nodata2, opt, tpc)
+
+#define WRITE_ALIGNED_FLOAT(T)                                             \
+  vw::cartography::block_write_gdal_image(opt.output_image,                \
+    per_pixel_filter(apply_mask(aligned_image2, nodata2),                   \
+                     vw::ClampAndCast<T, double>()),                        \
+    has_georef2, georef2, has_nodata2, nodata2, opt, tpc)
+
 void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
                  bool has_nodata2, float nodata2,
                  bool has_georef2, vw::cartography::GeoReference const& georef2,
                  Options const& opt) {
-  
+
   vw_out() << "Writing: " << opt.output_image << "\n";
-  // Note that output int types get rounded before being clamped and
-  // cast, but not output float or double types.
+  TerminalProgressCallback tpc("asp", "\t  Aligned image:  ");
+
   switch (opt.output_data_type) {
-  case VW_CHANNEL_UINT8:
-    block_write_gdal_image(opt.output_image,
-                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampRoundAndCastToInt<vw::uint8, double>()),
-                           has_georef2, georef2, has_nodata2, nodata2, opt,
-                           TerminalProgressCallback("asp","\t  Aligned image:  "));
-    break;
-  case VW_CHANNEL_UINT16:
-    block_write_gdal_image(opt.output_image,
-                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampRoundAndCastToInt<vw::uint16, double>()),
-                           has_georef2, georef2, has_nodata2, nodata2, opt,
-                           TerminalProgressCallback("asp","\t  Aligned image:  "));
-    break;
-  case VW_CHANNEL_UINT32:
-    block_write_gdal_image(opt.output_image,
-                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampRoundAndCastToInt<vw::uint32, double>()),
-                           has_georef2, georef2, has_nodata2, nodata2, opt,
-                           TerminalProgressCallback("asp","\t  Aligned image:  "));
-    break;
-    // GDAL does not support int8
-    //case VW_CHANNEL_INT8:
-    //block_write_gdal_image(opt.output_image,
-    //                       per_pixel_filter(apply_mask(aligned_image2, nodata2),
-    //                                       vw::ClampRoundAndCastToInt<vw::int8, double>()),
-    //                      has_georef2, georef2, has_nodata2, nodata2, opt,
-    //                      TerminalProgressCallback("asp","\t  Aligned image:  "));
-    break;
-  case VW_CHANNEL_INT16:
-    block_write_gdal_image(opt.output_image,
-                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampRoundAndCastToInt<vw::int16, double>()),
-                           has_georef2, georef2, has_nodata2, nodata2, opt,
-                           TerminalProgressCallback("asp","\t  Aligned image:  "));
-    break;
-  case VW_CHANNEL_INT32:
-    block_write_gdal_image(opt.output_image,
-                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampRoundAndCastToInt<vw::int32, double>()),
-                           has_georef2, georef2, has_nodata2, nodata2, opt,
-                           TerminalProgressCallback("asp","\t  Aligned image:  "));
-    break;
-  case VW_CHANNEL_FLOAT32:
-    block_write_gdal_image(opt.output_image,
-                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampAndCast<vw::float32, double>()),
-                           has_georef2, georef2, has_nodata2, nodata2, opt,
-                           TerminalProgressCallback("asp","\t  Aligned image:  "));
-    break;
-  case VW_CHANNEL_FLOAT64:
-    block_write_gdal_image(opt.output_image,
-                           per_pixel_filter(apply_mask(aligned_image2, nodata2),
-                                            vw::ClampAndCast<vw::float64, double>()),
-                           has_georef2, georef2, has_nodata2, nodata2, opt,
-                           TerminalProgressCallback("asp","\t  Aligned image:  "));
+  case VW_CHANNEL_UINT8:   WRITE_ALIGNED_INT(vw::uint8);   break;
+  case VW_CHANNEL_UINT16:  WRITE_ALIGNED_INT(vw::uint16);  break;
+  case VW_CHANNEL_UINT32:  WRITE_ALIGNED_INT(vw::uint32);  break;
+  case VW_CHANNEL_INT16:   WRITE_ALIGNED_INT(vw::int16);   break;
+  case VW_CHANNEL_INT32:   WRITE_ALIGNED_INT(vw::int32);   break;
+  case VW_CHANNEL_FLOAT32: WRITE_ALIGNED_FLOAT(vw::float32); break;
+  case VW_CHANNEL_FLOAT64: WRITE_ALIGNED_FLOAT(vw::float64); break;
   default:
     vw_throw(ArgumentErr() << "Invalid value for the output pixel format.\n");
-
-  };
+  }
 }
+
+#undef WRITE_ALIGNED_INT
+#undef WRITE_ALIGNED_FLOAT
 
 int main(int argc, char *argv[]) {
 
