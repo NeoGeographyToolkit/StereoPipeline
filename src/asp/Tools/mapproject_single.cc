@@ -341,9 +341,14 @@ void calc_target_geom(// Inputs
   }
 
   // Compute output image dimensions directly from the snapped extent.
-  // Both min and max are pixel centers at grid multiples, so +1 to include both endpoints.
-  outCols = (int)round((cam_box.max().x() - cam_box.min().x()) / current_resolution) + 1;
-  outRows = (int)round((cam_box.max().y() - cam_box.min().y()) / current_resolution) + 1;
+  // Without --gdal-tap, min and max are pixel centers at grid multiples,
+  // so +1 to include both endpoints. With --gdal-tap, min and max are pixel
+  // edges, so the count is (max - min) / res with no +1.
+  int endpointAdj = opt.gdal_tap ? 0 : 1;
+  outCols = (int)round((cam_box.max().x() - cam_box.min().x()) / current_resolution)
+            + endpointAdj;
+  outRows = (int)round((cam_box.max().y() - cam_box.min().y()) / current_resolution)
+            + endpointAdj;
 
   // Set the geotransform. Pixel centers are at integer multiples of the grid
   // size (PixelAsArea convention). The GDAL geotransform origin is the upper-left
