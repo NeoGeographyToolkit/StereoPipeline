@@ -40,6 +40,7 @@
 #include <vw/Image/ImageChannels.h>
 
 #include <fstream>
+#include <iomanip>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -263,7 +264,8 @@ void calc_target_geom(// Inputs
                       bool proj_on_datum,
                       asp::MapprojOptions const & opt,
                       // Outputs
-                      BBox2 & cam_box, GeoReference & target_georef) {
+                      BBox2 & cam_box, GeoReference & target_georef,
+                      int & outCols, int & outRows) {
 
   // Find the camera bbox and the target resolution unless user-supplied.
   // - This call returns the bounding box of the camera view on the ground.
@@ -321,61 +323,50 @@ void calc_target_geom(// Inputs
       std::swap(cam_box.min().y(), cam_box.max().y());
   }
 
-  // Snap the projection box corners to integer multiples of pixel size. This
-  // is needed for tiling, so that adjacent tiles align without seams.
-  // When projwin is set without --gdal-tap, it specifies the full pixel extent
-  // (pixel edges, as reported by gdalinfo). Convert edges to pixel centers
-  // before snapping. The pipeline's PixelAsArea delta (0.5 * grid size) will
-  // convert the snapped centers back to edges when writing the output.
-  // With --gdal-tap, projwin specifies pixel edges at integer multiples of
-  // grid size, so no conversion is needed.
+  // When projwin is set without --gdal-tap, convert pixel edges to centers,
+  // then round to nearest grid multiples. When edges are at half-grid points
+  // (the normal case from a previous mapproject), the inset lands exactly on
+  // grid centers and round is a no-op. Unlike floor/ceil, round tolerates
+  // float noise without overshooting by a grid step.
+  // For auto-computed bbox (no projwin), use floor/ceil to expand outward.
   if (opt.target_projwin != BBox2() && !opt.gdal_tap) {
     vw::Vector2 half(0.5 * current_resolution, 0.5 * current_resolution);
     cam_box.min() += half;
     cam_box.max() -= half;
+    double s = current_resolution;
+    cam_box.min() = s * round(cam_box.min() / s);
+    cam_box.max() = s * round(cam_box.max() / s);
+  } else {
+    asp::snapBBox2ToGrid(cam_box, current_resolution);
   }
-  asp::snapBBox2ToGrid(cam_box, current_resolution);
 
-  // This transform is from pixel to projected coordinates
-  Matrix3x3 T = target_georef.transform();
-  // This polarity checking is to make sure the output has been
-  // transposed after going through reprojection. Normally this is
-  // the case. Yet with grid data from GMT, it is not.
-  if (T(0, 0) < 0) // If X coefficient of affine transform is negative (cols go opposite direction from projected x coords)
-    T(0,2) = cam_box.max().x();  // The maximum projected X coordinate is the starting offset
-  else
-    T(0,2) = cam_box.min().x(); // The minimum projected X coordinate is the starting offset
-  T(0,0) = current_resolution;  // Set col/X conversion to meters per pixel
-  T(1,1) = -current_resolution;  // Set row/Y conversion to meters per pixel with a vertical flip (increasing row = down in Y)
-  T(1,2) = cam_box.max().y();       // The maximum projected Y coordinate is the starting offset
-  
-  // The default behavior is that center of pixel is at integer multiples of the
-  // pixel size. If --gdal-tap is set, emulate the GDAL -tap option, so corners
-  // of pixels are at integer multiples of the grid.
+  // Compute output image dimensions directly from the snapped extent.
+  // Both min and max are pixel centers at grid multiples, so +1 to include both endpoints.
+  outCols = (int)round((cam_box.max().x() - cam_box.min().x()) / current_resolution) + 1;
+  outRows = (int)round((cam_box.max().y() - cam_box.min().y()) / current_resolution) + 1;
+
+  // Set the geotransform. Pixel centers are at integer multiples of the grid
+  // size (PixelAsArea convention). The GDAL geotransform origin is the upper-left
+  // pixel edge, which is half a pixel before the first pixel center.
   double delta = 0.0;
   if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea &&
       !opt.gdal_tap)
     delta = 0.5 * current_resolution;
 
-  // Apply this behavior to the transform
-  T(0,2) -= delta; 
-  T(1,2) += delta;
+  Matrix3x3 T = target_georef.transform();
+  // Check polarity before overwriting T(0,0)
+  bool x_flipped = (T(0, 0) < 0);
+  T(0,0) = current_resolution;
+  T(1,1) = -current_resolution;
+  if (x_flipped)
+    T(0,2) = cam_box.max().x() + delta;
+  else
+    T(0,2) = cam_box.min().x() - delta;
+  T(1,2) = cam_box.max().y() + delta;
   target_georef.set_transform(T);
 
-  // Compute output image size in pixels using bounding box in output projected space
-  // Do not use point_to_pixel_bbox() as that one exaggerates the size of the box.
-  // TODO(oalexan1): Below, target_image_size must be of type BBox2. This will break a lot
-  // of tests though.
-  BBox2i target_image_size;
-  vw::Vector2 d(delta, delta);
-  target_image_size.grow(target_georef.point_to_pixel(cam_box.min() + d));
-  target_image_size.grow(target_georef.point_to_pixel(cam_box.max() + d));
-  target_image_size.min() = round(target_image_size.min());
-  target_image_size.max() = round(target_image_size.max());
-
-  // Last adjustment, to ensure 0 0 is always in the box corner
-  target_georef = crop(target_georef, target_image_size.min().x(),
-                       target_image_size.min().y());
+  // cam_box stays as the snapped projected extent (pixel-center grid).
+  // Downstream code uses outCols/outRows for image dimensions.
 
   return;
 }
@@ -556,32 +547,22 @@ int main(int argc, char* argv[]) {
     bool user_provided_resolution = (!std::isnan(opt.ppd));
     bool     calc_target_res = !user_provided_resolution;
     BBox2    cam_box;
+    int      outCols = 0, outRows = 0;
     calc_target_geom(// Inputs
                      calc_target_res, image_size, opt.camera_model,
                      dem, dem_georef, proj_on_datum, opt,
                      // Outputs
-                     cam_box, target_georef);
+                     cam_box, target_georef, outCols, outRows);
 
     // Set a high precision, as the numbers can come out big for UTM
     vw_out() << std::setprecision(17) << "Projected space bounding box: " << cam_box << "\n";
 
-    // Compute output image size in pixels using bounding box in output projected space
-    BBox2i target_image_size = target_georef.point_to_pixel_bbox(cam_box);
-
-    // Very important note: this box may be in the middle of the
-    // image.  However, the virtual image we create with
-    // transform_nodata() below is assumed to start at (0, 0), and in
-    // target_georef we assume the same thing. Hence, its width and
-    // height are going to be the max values of target_image_size.
-    // There is no performance hit here, since that potentially huge
-    // image is never actually realized, we crop it as seen below
-    // before finding its pixels. This could be made less confusing.
-    int virtual_image_width  = target_image_size.max().x();
-    int virtual_image_height = target_image_size.max().y();
+    int virtual_image_width  = outCols;
+    int virtual_image_height = outRows;
 
     // Shrink output image BB if an output image BB was passed in
     GeoReference crop_georef = target_georef;
-    BBox2i crop_bbox = target_image_size;
+    BBox2i crop_bbox(0, 0, outCols, outRows);
     if (opt.target_pixelwin != BBox2()) {
       // Replace with passed-in bounding box
       crop_bbox = opt.target_pixelwin;
