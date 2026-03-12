@@ -546,8 +546,10 @@ int main(int argc, char* argv[]) {
 
     bool user_provided_resolution = (!std::isnan(opt.ppd));
     bool     calc_target_res = !user_provided_resolution;
-    BBox2    cam_box;
-    int      outCols = 0, outRows = 0;
+    BBox2 cam_box;
+    // Output image dimensions. The full image is never realized in memory
+    // because it is written in tiles.
+    int outCols = 0, outRows = 0;
     calc_target_geom(// Inputs
                      calc_target_res, image_size, opt.camera_model,
                      dem, dem_georef, proj_on_datum, opt,
@@ -556,9 +558,6 @@ int main(int argc, char* argv[]) {
 
     // Set a high precision, as the numbers can come out big for UTM
     vw_out() << std::setprecision(17) << "Projected space bounding box: " << cam_box << "\n";
-
-    int virtual_image_width  = outCols;
-    int virtual_image_height = outRows;
 
     // Shrink output image BB if an output image BB was passed in
     GeoReference crop_georef = target_georef;
@@ -572,14 +571,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Print an explanation for a potential problem.
-    if (virtual_image_width <= 0 || virtual_image_height <= 0)
+    if (outCols <= 0 || outRows <= 0)
       vw_throw(ArgumentErr() << "Computed output image size is not positive. "
                 << "This can happen if the projection is in meters while the "
                 << "grid size is either in degrees or too large for the given input.\n");
 
     // Form the lon-lat bounding box of the output image. This helps with
     // geotransform operations and should be done any time a georef is modified.
-    BBox2 image_bbox(0, 0, virtual_image_width, virtual_image_height);
+    BBox2 image_bbox(0, 0, outCols, outRows);
     crop_georef.ll_box_from_pix_box(image_bbox);
 
     if (opt.query_projection) {
@@ -596,8 +595,8 @@ int main(int argc, char* argv[]) {
       // The comma separator must be in sync with the Python side.
       vw_out() << std::setprecision(17)
                << "Query results:\n"
-               << "image_width," << virtual_image_width << "\n"
-               << "image_height," << virtual_image_height << "\n"
+               << "image_width," << outCols << "\n"
+               << "image_height," << outRows << "\n"
                << "pixel_size," << crop_georef.transform()(0, 0) << "\n"
                << "proj_box_xmin," << cam_box.min().x() << "\n"
                << "proj_box_ymin," << cam_box.min().y() << "\n"
@@ -618,7 +617,7 @@ int main(int argc, char* argv[]) {
 
     // Project the image depending on image format.
     project_image(opt, dem_georef, target_georef, crop_georef, image_size,
-                  virtual_image_width, virtual_image_height, crop_bbox);
+                  outCols, outRows, crop_bbox);
 
   } ASP_STANDARD_CATCHES;
 
