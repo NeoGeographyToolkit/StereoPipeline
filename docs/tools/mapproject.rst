@@ -214,6 +214,22 @@ The two results can be compared with :ref:`geodiff`::
     geodiff output_isis.cub output_asp.tif -o run
     gdalinfo -stats run-diff.tif
 
+If an existing georeferenced image or .cub file is available, its projection,
+extent, and grid size can be reused::
+
+    cam2map asp_map=true dem=dem.tif     \
+      map=ref.cub matchmap=true          \
+      from=image.cub to=output_isis.cub
+
+The ``cam2map`` options ``interp``, ``warpalgorithm``, ``patchsize``,
+``trim``, ``occlusion``, and ``lonseam`` are ignored in ``asp_map`` mode,
+which always uses per-pixel bicubic interpolation.
+
+This mode is consistent with ``mapproject`` in that the output grid is
+snapped to integer multiples of the grid size. The produced extent goes
+half a grid pixel beyond the snapped grid on each side, because the grid
+is at pixel centers.
+
 Usage
 ~~~~~
 
