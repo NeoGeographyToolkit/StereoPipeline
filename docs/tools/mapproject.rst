@@ -273,6 +273,12 @@ supported in ``asp_map`` mode. Since cam2map can only create mapprojected
 cube files with projection in meters, these input bounds will be converted
 to projected units for the input projection.
 
+This implementation supports multi-band inputs with float values. ASP's
+``mapproject`` program can handle single-band float images and RGB images.
+For other multi-band inputs (including RGBA), only the first band is used.
+When comparing with ``cam2map`` on multi-band inputs, ``mapproject`` results
+correspond to the first band only.
+
 The ``cam2map`` options ``interp``, ``warpalgorithm``, ``patchsize``,
 ``trim``, ``occlusion``, and ``lonseam`` are ignored in ``asp_map`` mode,
 which always uses per-pixel bicubic interpolation.

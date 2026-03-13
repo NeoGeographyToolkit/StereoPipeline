@@ -227,9 +227,16 @@ void project_image_nodata(asp::MapprojOptions & opt,
     if (img_rsrc->has_nodata_read())
       opt.nodata_value = img_rsrc->nodata_read();
 
+    // Read as single-plane float. Multi-band images (e.g., THEMIS IR) are
+    // exposed as multiple planes by VW's GDAL reader; only the first band
+    // is used in this path (the RGB path handles multi-channel images).
+    ImageViewRef<float> disk_img = DiskImageView<float>(img_rsrc);
+    if (disk_img.planes() > 1)
+      disk_img = select_plane(disk_img, 0);
+
     // Create masked image from input
     ImageViewRef<ImageMaskPixelT> masked_input
-      = create_mask(DiskImageView<float>(img_rsrc), opt.nodata_value);
+      = create_mask(disk_img, opt.nodata_value);
 
     // For ISIS .cub files, also mask special pixels (LIS, LRS, HIS, HRS)
     // that are not covered by the single nodata value
