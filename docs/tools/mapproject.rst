@@ -189,10 +189,16 @@ disagree somewhat as well.
 However, given the same inputs and the same grid size, these programs will
 create results that agree to float numerical precision at every grid point.
 
-Example with an LRO NAC (:numref:`lronac-example`) image and an
-equicylindrical DEM on the Moon::
+Example with camera in cube file
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Consider an LRO NAC (:numref:`lronac-example`) image having the camera
+information in the .cub file and an equicylindrical DEM on the Moon. Set up the
+projection string::
 
     proj="+proj=eqc +lat_ts=0 +lon_0=15.3 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
+
+Run both programs with the same inputs and grid size::
 
     mapproject --tr 1.2 --t_srs "$proj" \
       dem.tif image.cub output_asp.tif
@@ -204,31 +210,80 @@ equicylindrical DEM on the Moon::
 
 The ``--tr`` option in ``mapproject`` and ``pixres=mpp resolution=`` in
 ``cam2map`` both set the grid size (ground sample distance) in meters per pixel.
-We pass in the projection as well to both programs.
+The DEM must be a GeoTIFF file with pixel values representing height above
+datum, in meters.
 
-The DEM must be a GeoTIFF file with the pixel values representing the height
-above datum, in meters.
+Example with CSM camera model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use a CSM (:numref:`csm`) camera model from an ISD file instead of the
+SPICE camera in the cube. Assume the projection string is defined as
+above.
+
+::
+
+    mapproject --tr 1.2 --t_srs "$proj" \
+      dem.tif image.cub image.json output_asp.tif
+
+    cam2map asp_map=true useproj=true   \
+      projstring="$proj"                \
+      pixres=mpp resolution=1.2         \
+      dem=dem.tif isd=image.json        \
+      from=image.cub to=output_isis.cub
+
+The CSM and SPICE camera models differ somewhat in implementation. When
+comparing map-projected images obtained with the two, the pixel difference
+may be on the order of 1e-4, and the extents may differ too.
+
+However, ``mapproject`` and ``cam2map asp_map=true`` will still agree to
+float numerical precision at every grid point, when the same CSM camera
+model is used as input to both.
+
+The ``isd`` parameter requires CSM plugins to be installed, which is the
+default in recent versions of ISIS.
+
+Example with preexisting mapprojected image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If an existing georeferenced image or .cub file is available, say named
+``ref.cub``, its projection, extent, and grid size can be reused::
+
+    cam2map asp_map=true dem=dem.tif     \
+      map=ref.cub matchmap=true          \
+      from=image.cub to=output_isis.cub
+
+Validation
+^^^^^^^^^^
 
 The two results can be compared with :ref:`geodiff`::
 
     geodiff output_isis.cub output_asp.tif -o run
     gdalinfo -stats run-diff.tif
 
-If an existing georeferenced image or .cub file is available, its projection,
-extent, and grid size can be reused::
+The expected pixel difference should be on the order of 1e-7 or less.
 
-    cam2map asp_map=true dem=dem.tif     \
-      map=ref.cub matchmap=true          \
-      from=image.cub to=output_isis.cub
+The ``gdalinfo`` command can also be employed to verify that both outputs have
+the same projection, extent, and grid size.
+
+Other cam2map options
+^^^^^^^^^^^^^^^^^^^^^
+
+The ``cam2map`` options ``minlat``, ``maxlat``, ``minlon``, ``maxlon`` are
+supported in ``asp_map`` mode. Since cam2map can only create mapprojected
+cube files with projection in meters, these input bounds will be converted
+to projected units for the input projection.
 
 The ``cam2map`` options ``interp``, ``warpalgorithm``, ``patchsize``,
 ``trim``, ``occlusion``, and ``lonseam`` are ignored in ``asp_map`` mode,
 which always uses per-pixel bicubic interpolation.
 
-This mode is consistent with ``mapproject`` in that the output grid is
-snapped to integer multiples of the grid size. The produced extent goes
-half a grid pixel beyond the snapped grid on each side, because the grid
-is at pixel centers.
+Grid snapping and output extent
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When ``cam2map`` is run with ``asp_map=true``, the output grid is snapped
+to integer multiples of the grid size, consistent with ``mapproject``. The
+produced extent goes half a grid pixel beyond the snapped grid on each
+side, because the grid is at pixel centers.
 
 Usage
 ~~~~~
