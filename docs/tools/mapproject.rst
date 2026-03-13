@@ -277,7 +277,7 @@ This implementation supports multi-band inputs with float values. ASP's
 ``mapproject`` program can handle single-band float images and RGB images.
 For other multi-band inputs (including RGBA), only the first band is used.
 When comparing with ``cam2map`` on multi-band inputs, ``mapproject`` results
-correspond to the first band only of the ``cam2map`` output.
+correspond to the first band of the ``cam2map`` output.
 
 The ``cam2map`` options ``interp``, ``warpalgorithm``, ``patchsize``,
 ``trim``, ``occlusion``, and ``lonseam`` are ignored in ``asp_map`` mode,
