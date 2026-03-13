@@ -273,6 +273,10 @@ supported in ``asp_map`` mode. Since cam2map can only create mapprojected
 cube files with projection in meters, these input bounds will be converted
 to projected units for the input projection.
 
+When the option ``pixres`` is not set, the default value is used (``camera``),
+which amounts to auto-determining the grid size from the camera and DEM. This is
+the same behavior as for ``mapproject`` when the ``--tr`` option is not set.
+
 This implementation supports multi-band inputs with float values. ASP's
 ``mapproject`` program can handle single-band float images and RGB images.
 For other multi-band inputs (including RGBA), only the first band is used.
