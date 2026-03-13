@@ -39,6 +39,8 @@
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/FileIO/DiskImageView.h>
 
+#include <map>
+#include <set>
 #include <string>
 
 namespace vw {

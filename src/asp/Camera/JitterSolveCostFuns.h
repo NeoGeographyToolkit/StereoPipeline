@@ -40,8 +40,9 @@
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
-#include <string>
 #include <map>
+#include <set>
+#include <string>
 #include <vector>
 
 namespace asp {

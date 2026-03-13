@@ -26,6 +26,8 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Image/ImageViewRef.h>
 
+#include <map>
+
 // Forward declarations
 namespace vw {
   namespace camera {

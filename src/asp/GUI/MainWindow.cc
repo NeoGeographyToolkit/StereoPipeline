@@ -54,6 +54,7 @@
 #include <qwt_scale_draw.h>
 #include <qwt_interval.h>
 
+#include <set>
 #include <sstream>
 
 using namespace asp;

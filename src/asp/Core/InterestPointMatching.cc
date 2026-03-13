@@ -36,7 +36,9 @@
 
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/foreach.hpp>
+
 #include <cmath>
+#include <set>
 
 // Some of the implementation is in InterestPointMatching2.cc
 

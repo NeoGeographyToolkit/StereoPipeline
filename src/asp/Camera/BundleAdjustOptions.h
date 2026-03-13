@@ -23,7 +23,9 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Cartography/Datum.h>
 
-// Functions that need the BaOptions class. 
+#include <set>
+
+// Functions that need the BaOptions class.
 
 namespace asp {
   

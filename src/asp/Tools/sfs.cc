@@ -64,9 +64,10 @@
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
-#include <iostream>
-#include <string>
 #include <cmath>
+#include <iostream>
+#include <set>
+#include <string>
 
 #if defined(__GNUC__) || defined(__GNUG__)
 #pragma GCC diagnostic pop

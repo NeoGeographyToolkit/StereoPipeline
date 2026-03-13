@@ -36,6 +36,8 @@
 
 #include <boost/filesystem/path.hpp>
 
+#include <set>
+
 namespace fs = boost::filesystem;
 
 namespace asp {

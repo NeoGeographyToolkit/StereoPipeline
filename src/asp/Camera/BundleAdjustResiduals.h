@@ -27,6 +27,8 @@
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
 
+#include <map>
+#include <set>
 #include <string>
 
 namespace asp {

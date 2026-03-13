@@ -30,6 +30,8 @@
 #include <vw/Core/Stopwatch.h>
 #include <vw/FileIO/FileUtils.h>
 
+#include <set>
+
 // Move some code here from InterestPointMatching.cc, as that one is slow to compile.
 // The logic here is mostly for matching, and not for ip detection or filtering.
 

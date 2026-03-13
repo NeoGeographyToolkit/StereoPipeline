@@ -24,6 +24,8 @@
 
 #include <asp/Core/BundleAdjustUtils.h>
 
+#include <map>
+#include <set>
 #include <string>
 
 namespace ceres {

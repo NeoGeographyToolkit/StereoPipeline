@@ -68,6 +68,8 @@
 
 #include <xercesc/util/PlatformUtils.hpp>
 
+#include <set>
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

@@ -23,6 +23,8 @@
 #define __ASP_RIG_OPTIONS_H__
 
 #include <asp/Core/BaBaseOptions.h>
+
+#include <set>
 #include <string>
 
 namespace rig {

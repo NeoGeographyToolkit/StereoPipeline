@@ -31,6 +31,8 @@
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Cartography/GeoTransform.h>
 
+#include <set>
+
 namespace asp {
 
 using namespace vw;

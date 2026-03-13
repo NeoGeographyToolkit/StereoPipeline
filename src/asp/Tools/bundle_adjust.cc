@@ -71,6 +71,8 @@
 
 #include <xercesc/util/PlatformUtils.hpp>
 
+#include <set>
+
 namespace fs = boost::filesystem;
 
 using namespace vw;

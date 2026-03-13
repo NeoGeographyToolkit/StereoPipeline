@@ -27,9 +27,10 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
 
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 #include <boost/smart_ptr/shared_ptr.hpp>
 

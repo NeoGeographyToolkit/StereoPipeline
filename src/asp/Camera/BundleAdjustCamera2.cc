@@ -52,6 +52,8 @@
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 
 #include <boost/algorithm/string.hpp>
+
+#include <set>
 #include <string>
 
 using namespace vw;

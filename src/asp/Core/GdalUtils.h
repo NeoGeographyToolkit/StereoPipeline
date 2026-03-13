@@ -26,6 +26,8 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Core/StringUtils.h>
 
+#include <map>
+
 namespace asp {
 
 /// String we use in ASP written point cloud files to indicate that an offset

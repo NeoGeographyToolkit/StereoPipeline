@@ -30,6 +30,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/StringUtils.h>
 
+#include <map>
 #include <string>
 
 namespace vw{

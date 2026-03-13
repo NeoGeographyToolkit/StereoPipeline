@@ -25,6 +25,8 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <map>
+
 namespace vw {
   class DiskImageResource;
 }

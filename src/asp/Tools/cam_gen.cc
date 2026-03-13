@@ -66,8 +66,9 @@
 
 #include <nlohmann/json.hpp>
 
-#include <limits>
 #include <cstring>
+#include <limits>
+#include <set>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;

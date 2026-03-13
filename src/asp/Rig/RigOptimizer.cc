@@ -34,8 +34,9 @@
 #include <ceres/dynamic_numeric_diff_cost_function.h>
 #include <ceres/loss_function.h>
 
-#include <iostream>
 #include <iomanip>
+#include <iostream>
+#include <set>
 
 namespace rig {
 

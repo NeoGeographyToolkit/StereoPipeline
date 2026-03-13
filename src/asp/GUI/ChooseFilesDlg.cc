@@ -25,6 +25,8 @@
 #include <QVBoxLayout>
 #include <QScrollBar>
 
+#include <set>
+
 namespace asp {
 
 using namespace vw;

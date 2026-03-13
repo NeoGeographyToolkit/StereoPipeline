@@ -33,10 +33,11 @@
 
 #include <Eigen/Dense>
 
-#include <random>
 #include <algorithm>
-#include <iterator>
 #include <iostream>
+#include <iterator>
+#include <random>
+#include <set>
 #include <vector>
 
 namespace po = boost::program_options;

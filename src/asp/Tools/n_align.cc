@@ -49,9 +49,10 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include <vector>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <set>
+#include <vector>
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
