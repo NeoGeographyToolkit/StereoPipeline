@@ -1265,23 +1265,26 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
                << "--allow-different-mapproject-gsd, but is not recommended.\n");
   }
 
-  // If the images are map-projected, we need an input DEM, as we use the ASP
-  // flow with map-projected images.
+  // Read the mapprojection metadata to identify the DEM used. This is safe
+  // to call on any image; outputs stay empty if the metadata is absent.
   bool corr_only = stereo_settings().correlator_mode;
-  if (has_georef1 && has_georef2 && !dem_provided && !corr_only) {
-
-    // Read the mapprojection metadata to identify the DEM used.
-    std::string l_adj_key, l_img_key, l_cam_type_key, l_cam_file_key, l_dem_key;
-    std::string l_adj, l_img, l_cam_type, l_cam_file, l_dem_file;
+  std::string l_adj_key, l_img_key, l_cam_type_key, l_cam_file_key, l_dem_key;
+  std::string l_adj, l_img, l_cam_type, l_cam_file, l_dem_file;
+  std::string r_adj_key, r_img_key, r_cam_type_key, r_cam_file_key, r_dem_key;
+  std::string r_adj, r_img, r_cam_type, r_cam_file, r_dem_file;
+  if (has_georef1 && has_georef2 && !corr_only) {
     asp::read_mapproj_header(opt.in_file1, l_adj_key, l_img_key,
                              l_cam_type_key, l_cam_file_key, l_dem_key,
                              l_adj, l_img, l_cam_type, l_cam_file, l_dem_file);
-    std::string r_adj_key, r_img_key, r_cam_type_key, r_cam_file_key, r_dem_key;
-    std::string r_adj, r_img, r_cam_type, r_cam_file, r_dem_file;
     asp::read_mapproj_header(opt.in_file2, r_adj_key, r_img_key,
                              r_cam_type_key, r_cam_file_key, r_dem_key,
                              r_adj, r_img, r_cam_type, r_cam_file, r_dem_file);
-    if (l_dem_file != "" || r_dem_file != "")
+  }
+
+  // If the images are map-projected, we need an input DEM, as we use the ASP
+  // flow with map-projected images.
+  if (has_georef1 && has_georef2 && !dem_provided && !corr_only) {
+    if (!l_dem_file.empty() || !r_dem_file.empty())
       vw_throw(ArgumentErr() << "The input images appear to be mapprojected. "
                 << "Please provide a DEM.\n");
 
@@ -1289,6 +1292,22 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
     vw_out(WarningMessage) << "It appears that the input images are "
                             << "map-projected. In that case a DEM needs to be "
                             << "provided for stereo to give correct results.\n";
+  }
+
+  // Sanity check for .cub images produced with cam2map asp_map=true.
+  // These have the AspMapproject metadata group but no embedded camera model.
+  // RPC/DG .tif files also have DEM_FILE in their header but embed the camera
+  // coefficients, so this check is restricted to .cub inputs.
+  bool is_cub1 = (vw::get_extension(opt.in_file1) == ".cub");
+  bool is_cub2 = (vw::get_extension(opt.in_file2) == ".cub");
+  if (has_georef1 && has_georef2 && dem_provided && (is_cub1 || is_cub2) &&
+      (opt.cam_file1.empty() || opt.cam_file2.empty()) && !corr_only) {
+    if (!l_dem_file.empty() || !r_dem_file.empty())
+      vw_throw(ArgumentErr()
+               << "The input .cub images were produced with cam2map asp_map=true "
+               << "and do not contain embedded camera models. Please provide "
+               << "the original camera files (unprojected .cub or .json ISD) "
+               << "as the 3rd and 4th arguments.\n");
   }
 
   // Check that if the user provided a dem that we are using a map projection method

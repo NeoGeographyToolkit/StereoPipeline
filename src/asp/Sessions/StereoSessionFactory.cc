@@ -306,6 +306,20 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
     
   } // End map promotion section
 
+  // For ISIS and CSM sessions with mapprojected images, camera files must be
+  // provided separately. Unlike RPC/DG where camera info is embedded in the
+  // image header, ISIS and CSM cameras are in external files (.cub or .json).
+  // This catches both cam2map asp_map=true cubes (no embedded camera) and the
+  // case of .tif images mapprojected with ISIS/CSM cameras.
+  if (!input_dem.empty() &&
+      (actual_session_type == "isismapisis" ||
+       actual_session_type == "csmmapcsm") &&
+      (left_camera_file.empty() || right_camera_file.empty()) &&
+      !asp::stereo_settings().correlator_mode)
+    vw_throw(vw::ArgumentErr()
+             << "The input images are mapprojected. Camera files must be "
+             << "provided as the 3rd and 4th arguments.\n");
+
   if (!input_dem.empty() && actual_session_type == "perusat") {
     // User says PeruSat-1 or Pleiades but also gives a DEM, so the images were mapprojected.
     // If the mapprojection was done with the exact model, stereo becomes

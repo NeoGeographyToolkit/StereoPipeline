@@ -265,6 +265,32 @@ The expected pixel difference should be on the order of 1e-7 or less.
 The ``gdalinfo`` command can also be employed to verify that both outputs have
 the same projection, extent, and grid size.
 
+Running stereo
+^^^^^^^^^^^^^^
+
+Images mapprojected with ``cam2map asp_map=true`` do not retain the original
+camera information in the cube header. The original cameras must be provided as
+additional arguments to ``parallel_stereo`` (:numref:`parallel_stereo`). The
+first two arguments are the mapprojected images and the next two are the
+cameras::
+
+    parallel_stereo                          \
+      left_cam2map.cub right_cam2map.cub     \
+      left.cub right.cub                     \
+      run/run                                \
+      --dem dem.tif                          \
+      --stereo-algorithm asp_mgm             \
+      --subpixel-mode 9
+
+    point2dem --tr 1.2 run/run-PC.tif
+
+This is the same workflow as stereo with ISIS mapprojected images
+(:numref:`mapproj_with_cam2map`), where the camera arguments are the
+original unprojected .cub files.
+
+The DEMs produced with these two invocations should agree with nearly float
+precision if invoked with the same choices of parameters.
+
 Other cam2map options
 ^^^^^^^^^^^^^^^^^^^^^
 
