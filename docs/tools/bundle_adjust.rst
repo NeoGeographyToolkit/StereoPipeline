@@ -1543,10 +1543,12 @@ Command-line options
     images. Unproject and save those matches, then continue with bundle adjustment.
     Existing match files will be reused. Specify the mapprojected images and the
     DEM as a string in quotes, separated by spaces. The order must be same as
-    for the input images. The DEM must be the last file. See :numref:`mapip` for
-    an example. It is suggested to use this with ``--auto-overlap-params.`` See
-    also ``--mapprojected-data-list``. 
-   
+    for the input images. The DEM is optional (since the 1/2026 build) if it
+    can be looked up in the geoheaders of the mapprojected images. If provided,
+    the DEM must be the last file. See :numref:`mapip` for an example. It is
+    suggested to use this with ``--auto-overlap-params.`` See also
+    ``--mapprojected-data-list``.
+
 --save-intermediate-cameras
     Save the values for the cameras at each iteration.
 
@@ -1573,8 +1575,9 @@ Command-line options
 --mapprojected-data-list
     A file containing the list of mapprojected images and the DEM (see
     ``--mapprojected-data``), when they are too many to specify on the command
-    line. The order must be the same as for input images. The DEM must be the
-    last entry.
+    line. The order must be the same as for input images. The DEM is optional
+    (since the 1/2026 build) if it can be looked up in the geoheaders of the
+    mapprojected images. If provided, the DEM must be the last entry.
 
 --proj-win
     Flag as outliers input triangulated points not in this proj

@@ -883,7 +883,10 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "the command line. If the images have embedded camera information, such as for ISIS, "
      "this file may be omitted, or specify the image names instead of camera names.")
     ("mapprojected-data-list", po::value(&opt.mapprojected_data_list)->default_value(""),
-     "A file containing the list of mapprojected images and the DEM (see --mapprojected-data), when they are too many to specify on the command line.")
+     "A file containing the list of mapprojected images and the DEM "
+     "(see --mapprojected-data), when they are too many to specify on the command line. "
+     "The DEM is optional (since the 1/2026 build) if it can be looked up in the "
+     "geoheaders of the mapprojected images. If provided, the DEM must be the last entry.")
     ("position-filter-dist", po::value(&opt.position_filter_dist)->default_value(-1),
      "Set a distance in meters and don't perform IP matching on images with an estimated camera center farther apart than this distance.  Requires --camera-positions.")
     ("match-first-to-last", po::bool_switch(&opt.match_first_to_last)->default_value(false)->implicit_value(true),
@@ -1044,8 +1047,9 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "onto, create interest point matches between the mapprojected images. Unproject and "
      "save those matches, then continue with bundle adjustment. Existing match files will "
      "be reused. Specify the mapprojected images and the DEM as a string in quotes, "
-     "separated by spaces. The DEM must be the last file. It is suggested to use this with "
-     "--auto-overlap-params.")
+     "separated by spaces. The DEM is optional (since the 1/2026 build) if it can be "
+     "looked up in the geoheaders of the mapprojected images. If provided, the DEM must "
+     "be the last file. It is suggested to use this with --auto-overlap-params.")
     ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
      "How many interest point matches to compute in each image tile (of size "
      "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "

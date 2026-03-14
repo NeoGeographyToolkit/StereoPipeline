@@ -1139,8 +1139,9 @@ in incorrect results. See :numref:`mapip` for more details.
 Create three lists, each being a plain text file with one file name on
 each line, having the input images (sorted by illumination),
 corresponding cameras (in .json or .cub format), and corresponding
-mapprojected images. Append to the last list also the input DEM that
-was used in mapprojection.
+mapprojected images. The DEM used in mapprojection can be appended to the
+last list, but is optional (since the 1/2026 build) if it can be looked up
+in the geoheaders of the mapprojected images.
 
 Run bundle adjustment::
 
