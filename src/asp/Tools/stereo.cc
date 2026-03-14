@@ -28,6 +28,7 @@
 #include <asp/Core/StereoSettingsParse.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/StereoTiling.h>
+#include <asp/Core/ImageUtils.h>
 #include <asp/Tools/stereo.h>
 #include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 
@@ -1269,16 +1270,17 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
   bool corr_only = stereo_settings().correlator_mode;
   if (has_georef1 && has_georef2 && !dem_provided && !corr_only) {
 
-    // If we can identify the DEM these were map-projected from, that's a fatal
-    // error.
-    std::string l_dem_file, r_dem_file;
-    std::string dem_file_key = "DEM_FILE";
-    boost::shared_ptr<vw::DiskImageResource>
-      l_rsrc(new vw::DiskImageResourceGDAL(opt.in_file1));
-    vw::cartography::read_header_string(*l_rsrc.get(), dem_file_key, l_dem_file);
-    boost::shared_ptr<vw::DiskImageResource>
-      r_rsrc(new vw::DiskImageResourceGDAL(opt.in_file2));
-    vw::cartography::read_header_string(*r_rsrc.get(), dem_file_key, r_dem_file);
+    // Read the mapprojection metadata to identify the DEM used.
+    std::string l_adj_key, l_img_key, l_cam_type_key, l_cam_file_key, l_dem_key;
+    std::string l_adj, l_img, l_cam_type, l_cam_file, l_dem_file;
+    asp::read_mapproj_header(opt.in_file1, l_adj_key, l_img_key,
+                             l_cam_type_key, l_cam_file_key, l_dem_key,
+                             l_adj, l_img, l_cam_type, l_cam_file, l_dem_file);
+    std::string r_adj_key, r_img_key, r_cam_type_key, r_cam_file_key, r_dem_key;
+    std::string r_adj, r_img, r_cam_type, r_cam_file, r_dem_file;
+    asp::read_mapproj_header(opt.in_file2, r_adj_key, r_img_key,
+                             r_cam_type_key, r_cam_file_key, r_dem_key,
+                             r_adj, r_img, r_cam_type, r_cam_file, r_dem_file);
     if (l_dem_file != "" || r_dem_file != "")
       vw_throw(ArgumentErr() << "The input images appear to be mapprojected. "
                 << "Please provide a DEM.\n");

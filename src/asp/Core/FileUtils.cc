@@ -19,6 +19,7 @@
 
 #include <vw/FileIO/FileTypes.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/Cartography/GeoReference.h>
 #include <vw/Core/Log.h>
 
 #include <boost/filesystem/path.hpp>
@@ -303,9 +304,32 @@ void separate_images_from_cameras(std::vector<std::string> const& inputs,
   
   // Let the first half of the data be images, and the second half be cameras.
   // Unless we have only .cub files, when all the data are images.
-  if ((has_cub && !has_nocub) || (!has_cam)) {
-    // Only cubes, or only non-cameras, cases 1 and 3 above
-    for (size_t i=0; i < inputs2.size(); ++i) 
+  // Special case: if all are .cub and we have an even number >= 4, check if
+  // the first half are map-projected (have georef). This handles cam2map
+  // asp_map output where map-projected .cub + camera .cub are all .cub.
+  bool all_cub_mapproj = false;
+  if (has_cub && !has_nocub && inputs2.size() >= 4 && inputs2.size() % 2 == 0) {
+    int half = inputs2.size() / 2;
+    bool first_half_has_georef = true;
+    for (int i = 0; i < half; i++) {
+      vw::cartography::GeoReference georef;
+      bool has_geo = false;
+      try {
+        has_geo = vw::cartography::read_georeference(georef, inputs2[i]);
+      } catch (...) {}
+      if (!has_geo) {
+        first_half_has_georef = false;
+        break;
+      }
+    }
+    if (first_half_has_georef) {
+      all_cub_mapproj = true;
+      vw::vw_out() << "Detected map-projected .cub inputs with camera .cub files.\n";
+    }
+  }
+  if (((has_cub && !has_nocub) && !all_cub_mapproj) || (!has_cam)) {
+    // Only cubes (non-mapprojected), or only non-cameras, cases 1 and 3 above
+    for (size_t i = 0; i < inputs2.size(); i++)
       images.push_back(inputs2[i]);
   } else {
     // Images and cameras (cameras could be cubes)

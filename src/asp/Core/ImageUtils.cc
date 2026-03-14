@@ -28,6 +28,9 @@
 
 #include <boost/filesystem.hpp>
 
+#include <gdal_priv.h>
+#include <nlohmann/json.hpp>
+
 using namespace vw;
 
 namespace fs = boost::filesystem;
@@ -134,32 +137,82 @@ bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
   return true;
 }
 
+// For ISIS .cub files from cam2map asp_map, the metadata is in the PVL
+// AspMapproject group, not in GDAL metadata tags. Read it via the
+// json:ISIS3 metadata domain.
+void read_cam2map_pvl(std::string const& map_file,
+                      std::string const& adj_key,
+                      std::string const& img_file_key,
+                      std::string const& cam_type_key,
+                      std::string const& cam_file_key,
+                      std::string const& dem_file_key,
+                      // Outputs
+                      std::string & adj_prefix,
+                      std::string & image_file, std::string & cam_type,
+                      std::string & cam_file, std::string & dem_file) {
+
+  GDALAllRegister();
+  GDALDataset *ds = (GDALDataset*)GDALOpen(map_file.c_str(), GA_ReadOnly);
+  if (!ds)
+    return;
+
+  char **md = ds->GetMetadata("json:ISIS3");
+  if (md && md[0]) {
+    try {
+      auto j = nlohmann::json::parse(md[0]);
+      auto aspGrp = j.value("IsisCube", nlohmann::json::object())
+                     .value("AspMapproject", nlohmann::json::object());
+      if (!aspGrp.empty()) {
+        adj_prefix = aspGrp.value(adj_key, "");
+        image_file = aspGrp.value(img_file_key, "");
+        cam_type   = aspGrp.value(cam_type_key, "");
+        cam_file   = aspGrp.value(cam_file_key, "");
+        dem_file   = aspGrp.value(dem_file_key, "");
+      }
+    } catch (...) {}
+  }
+  GDALClose(ds);
+}
+
 // Read keywords that describe how the images were map-projected.
 void read_mapproj_header(std::string const& map_file,
                          // Outputs
                          std::string & adj_key, std::string & img_file_key,
-                         std::string & cam_type_key, std::string & cam_file_key, 
+                         std::string & cam_type_key, std::string & cam_file_key,
                          std::string & dem_file_key,
                          std::string & adj_prefix,
                          std::string & image_file, std::string & cam_type,
                          std::string & cam_file, std::string & dem_file) {
 
+  // Initialize all outputs to empty
+  adj_prefix = "";
+  image_file = "";
+  cam_type   = "";
+  cam_file   = "";
+  dem_file   = "";
+
   boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(map_file));
-  adj_key      = "BUNDLE_ADJUST_PREFIX"; 
+  adj_key      = "BUNDLE_ADJUST_PREFIX";
   img_file_key = "INPUT_IMAGE_FILE";
   cam_type_key = "CAMERA_MODEL_TYPE",
   cam_file_key = "CAMERA_FILE";
-  dem_file_key = "DEM_FILE"; 
+  dem_file_key = "DEM_FILE";
 
   vw::cartography::read_header_string(*rsrc.get(), adj_key,      adj_prefix);
   vw::cartography::read_header_string(*rsrc.get(), img_file_key, image_file);
   vw::cartography::read_header_string(*rsrc.get(), cam_type_key, cam_type);
   vw::cartography::read_header_string(*rsrc.get(), cam_file_key, cam_file);
   vw::cartography::read_header_string(*rsrc.get(), dem_file_key, dem_file);
-  
+
+  // Fall back to reading cam2map asp_map PVL metadata from .cub files.
+  if (dem_file.empty())
+    read_cam2map_pvl(map_file, adj_key, img_file_key, cam_type_key,
+                     cam_file_key, dem_file_key, adj_prefix, image_file,
+                     cam_type, cam_file, dem_file);
+
   // This is important. When writing, have to write something, so use NONE,
   // but on reading, if the string is NONE, make it empty.
-  if (adj_prefix == "NONE") 
+  if (adj_prefix == "NONE")
     adj_prefix = "";
 }
 

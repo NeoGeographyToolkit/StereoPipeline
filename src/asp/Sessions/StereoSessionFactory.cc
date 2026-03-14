@@ -28,6 +28,7 @@
 #include <asp/Camera/ASTER_XML.h>
 #include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 #include <asp/Core/StereoSettings.h>
+#include <asp/Core/ImageUtils.h>
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisInterface.h>
@@ -238,12 +239,19 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
       actual_session_type = actual_session_type + "map" + actual_session_type;
     }
 
+    // Read the camera model type from the mapprojection metadata.
+    std::string l_cam_type;
+    if (!input_dem.empty()) {
+      std::string adj_key, img_key, cam_type_key, cam_file_key, dem_key;
+      std::string adj, img, cam_file, dem;
+      asp::read_mapproj_header(left_image_file, adj_key, img_key,
+                               cam_type_key, cam_file_key, dem_key,
+                               adj, img, l_cam_type, cam_file, dem);
+    }
+
     if (!input_dem.empty() && actual_session_type == "dg") {
       // User says DG but also gives a DEM.
       // Mapprojection can happen either with DG or RPC cameras
-      std::string cam_tag = "CAMERA_MODEL_TYPE";
-      std::string l_cam_type 
-        = vw::cartography::read_header_string(left_image_file, cam_tag);
       if (l_cam_type == "dg")
         actual_session_type = "dgmapdg";
       else
@@ -263,9 +271,7 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
     }
     if (!input_dem.empty() && actual_session_type == "csm") {
       // User says CSM but also gives a DEM.
-      // Mapprojection can happen either with csm or RPC cameras (the latter for DG)
-      std::string cam_tag = "CAMERA_MODEL_TYPE";
-      std::string l_cam_type = vw::cartography::read_header_string(left_image_file, cam_tag);
+      // Mapprojection can happen either with CSM or RPC cameras
       if (l_cam_type == "rpc")
         actual_session_type = "csmmaprpc";
       else
@@ -281,10 +287,7 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
     }
     if (!input_dem.empty() && actual_session_type == "aster") {
       // User says ASTER but also gives a DEM.
-      // Mapprojection can happen either with ASTER or RPC cameras 
-      std::string cam_tag = "CAMERA_MODEL_TYPE";
-      std::string l_cam_type 
-        = vw::cartography::read_header_string(left_image_file, cam_tag);
+      // Mapprojection can happen either with ASTER or RPC cameras
       if (l_cam_type == "aster")
         actual_session_type = "astermapaster";
       else

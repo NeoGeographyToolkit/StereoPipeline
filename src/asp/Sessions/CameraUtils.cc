@@ -25,6 +25,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/DemUtils.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Core/ImageUtils.h>
 
 #include <vw/Cartography/Map2CamTrans.h>
 #include <vw/Core/Exception.h>
@@ -325,12 +326,12 @@ void parseStereoRuns(std::string const& prefix_file,
         continue; 
         
       std::string img = images[i];
-      // Look up the raw image in the mapprojected image
-      std::string img_file_key = "INPUT_IMAGE_FILE";
-      std::string raw_img; 
-      boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(img));
-      vw::cartography::read_header_string(*rsrc.get(), img_file_key, raw_img);
-      // If empty, that's a failure
+      // Read the raw image name from the mapprojection metadata.
+      std::string adj_key, img_key, cam_type_key, cam_file_key, dem_key;
+      std::string adj, raw_img, cam_type, cam_file, dem;
+      asp::read_mapproj_header(img, adj_key, img_key, cam_type_key,
+                               cam_file_key, dem_key, adj, raw_img,
+                               cam_type, cam_file, dem);
       if (raw_img.empty())
         vw::vw_throw(vw::ArgumentErr() << "Failed to find the raw image name in "
                      << "the geoheader of " << img << ".\n");
