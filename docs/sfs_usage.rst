@@ -1753,7 +1753,7 @@ This invocation requires a build of ASP as of 2025/11 or later
     --max-num-gcp 2000000                            \
     --output-gcp sfs_ref_corr/run.gcp
 
-The value of ``--gcp-sigma`` should be a fraction of the ground sample distance
+The value of ``--gcp-sigma`` should be on the order of the ground sample distance
 (in meters), to ensure that the GCP constraint is strong enough.
 
 The resulting GCP file can be passed to ``bundle_adjust`` together with the 
