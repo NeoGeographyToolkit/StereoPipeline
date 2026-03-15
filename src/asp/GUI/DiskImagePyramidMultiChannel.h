@@ -55,7 +55,7 @@ namespace vw {
 namespace asp {
 
   // The kinds of images we support
-  enum ImgType {UNINIT, CH1_DOUBLE, CH2_UINT8, CH3_UINT8, CH4_UINT8};
+  enum ImgType {UNINIT, CH1_FLOAT, CH2_UINT8, CH3_UINT8, CH4_UINT8};
 
   // A global structure to hold all the temporary files we have created
   struct TemporaryFiles {
@@ -65,14 +65,14 @@ namespace asp {
   TemporaryFiles& temporary_files();
 
   // An image class that supports 1 to 3 channels.  We use
-  // DiskImagePyramid<double> to be able to use some of the
+  // DiskImagePyramid<float> to be able to use some of the
   // pre-defined member functions for an image class. This class
   // is not a perfect solution, but there seem to be no easy way
   // in ASP to handle images with variable numbers of channels.
   // TODO: Add the case when multi-channel images also have float or double pixels
   struct DiskImagePyramidMultiChannel {
     vw::GdalWriteOptions m_opt;
-    vw::mosaic::DiskImagePyramid<double>               m_img_ch1_double;
+    vw::mosaic::DiskImagePyramid<float>                m_img_ch1_float;
     vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 2>> m_img_ch2_uint8;
     vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 3>> m_img_ch3_uint8;
     vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 4>> m_img_ch4_uint8;

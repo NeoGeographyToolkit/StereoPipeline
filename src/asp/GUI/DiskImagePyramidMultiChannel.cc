@@ -183,14 +183,14 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
     if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
       // Single channel image with float pixels.
 
-      m_img_ch1_double =
-        vw::mosaic::DiskImagePyramid<double>(image_file, m_opt, lowres_size,
-                                             2, valid_min, valid_max);
-      m_rows = m_img_ch1_double.rows();
-      m_cols = m_img_ch1_double.cols();
-      m_type = CH1_DOUBLE;
-      temporary_files().files.insert(m_img_ch1_double.get_temporary_files().begin(),
-                                     m_img_ch1_double.get_temporary_files().end());
+      m_img_ch1_float =
+        vw::mosaic::DiskImagePyramid<float>(image_file, m_opt, lowres_size,
+                                            2, valid_min, valid_max);
+      m_rows = m_img_ch1_float.rows();
+      m_cols = m_img_ch1_float.cols();
+      m_type = CH1_FLOAT;
+      temporary_files().files.insert(m_img_ch1_float.get_temporary_files().begin(),
+                                     m_img_ch1_float.get_temporary_files().end());
     } else if (m_num_channels == 2) {
       // uint8 image with an alpha channel.
       m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>>
@@ -235,8 +235,8 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
 double DiskImagePyramidMultiChannel::get_nodata_val() const {
 
   // Extract the clip, then convert it from VW format to QImage format.
-  if (m_type == CH1_DOUBLE) {
-    return m_img_ch1_double.get_nodata_val();
+  if (m_type == CH1_FLOAT) {
+    return m_img_ch1_float.get_nodata_val();
   } else if (m_type == CH2_UINT8) {
     return m_img_ch2_uint8.get_nodata_val();
   } else if (m_type == CH3_UINT8) {
@@ -259,7 +259,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
   vw::Vector2 approx_bounds;
 
   // Extract the clip, then convert it from VW format to QImage format.
-  if (m_type == CH1_DOUBLE) {
+  if (m_type == CH1_FLOAT) {
 
     //Stopwatch sw0;
     //sw0.start();
@@ -273,7 +273,7 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
     } else {
       // Normally these are auto-estimated rather well, except for images with
       // most data being very small, like in shadow.
-      approx_bounds = m_img_ch1_double.approx_bounds();
+      approx_bounds = m_img_ch1_float.approx_bounds();
     }
 
     // Ensure the bounds are always distinct
@@ -284,16 +284,16 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
     //sw0.stop();
     //vw_out() << "Render time sw0 (seconds): " << sw0.elapsed_seconds() << std::endl;
 
-    ImageView<double> clip;
+    ImageView<float> clip;
     //Stopwatch sw1;
     //sw1.start();
-    m_img_ch1_double.get_image_clip(scale_in, region_in, clip, scale_out, region_out);
+    m_img_ch1_float.get_image_clip(scale_in, region_in, clip, scale_out, region_out);
     //sw1.stop();
     //vw_out() << "Render time sw1 (seconds): " << sw1.elapsed_seconds() << std::endl;
 
     //Stopwatch sw2;
     //sw2.start();
-    formQimageFloat(highlight_nodata, m_img_ch1_double.get_nodata_val(),
+    formQimageFloat(highlight_nodata, m_img_ch1_float.get_nodata_val(),
                     m_valid_min, m_valid_max,
                     approx_bounds, clip, colormap, qimg);
     //sw2.stop();
@@ -353,8 +353,8 @@ std::string DiskImagePyramidMultiChannel::get_value_as_str(int32 x, int32 y) con
   // Below we cast from Vector<uint8> to Vector<double>, as the former
   // refuses to print well.
   std::ostringstream os;
-  if (m_type == CH1_DOUBLE) {
-    os << m_img_ch1_double.bottom()(x, y, 0);
+  if (m_type == CH1_FLOAT) {
+    os << m_img_ch1_float.bottom()(x, y, 0);
   } else if (m_type == CH2_UINT8) {
     os << Vector2(m_img_ch2_uint8.bottom()(x, y, 0));
   } else if (m_type == CH3_UINT8) {
@@ -369,8 +369,8 @@ std::string DiskImagePyramidMultiChannel::get_value_as_str(int32 x, int32 y) con
 }
 
 double DiskImagePyramidMultiChannel::get_value_as_double(int32 x, int32 y) const {
-  if (m_type == CH1_DOUBLE) {
-    return m_img_ch1_double.bottom()(x, y, 0);
+  if (m_type == CH1_FLOAT) {
+    return m_img_ch1_float.bottom()(x, y, 0);
   } else if (m_type == CH2_UINT8) {
     return m_img_ch2_uint8.bottom()(x, y, 0)[0];
   } else {

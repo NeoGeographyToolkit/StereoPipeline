@@ -516,9 +516,9 @@ vw::Vector2 calcJointBounds(std::vector<imageData> const& images,
       continue;
     }
     auto const& img = images[i].currentImg();
-    if (img.m_type != CH1_DOUBLE)
+    if (img.m_type != CH1_FLOAT)
       continue;
-    vw::Vector2 ab = img.m_img_ch1_double.approx_bounds();
+    vw::Vector2 ab = img.m_img_ch1_float.approx_bounds();
     bounds[0] = std::min(bounds[0], ab[0]);
     bounds[1] = std::max(bounds[1], ab[1]);
   }
