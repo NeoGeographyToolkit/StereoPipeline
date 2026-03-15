@@ -109,6 +109,9 @@ stereo_gui (:numref:`stereo_gui`):
     georeferenced images. Added ``--no-colorize`` (:numref:`colorize`).
 
 mapproject (:numref:`mapproject`):
+  * Documented compatibility with the upcoming ISIS ``cam2map asp_map=true``
+    option, which uses the same per-pixel projection algorithm
+    (:numref:`mapproj_isis`).
   * Consistently handle ISIS special pixels in ``.cub`` input images.
 
 Misc:

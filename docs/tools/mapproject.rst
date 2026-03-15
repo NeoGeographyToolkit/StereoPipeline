@@ -242,8 +242,8 @@ model is used as input to both.
 The ``isd`` parameter requires CSM plugins to be installed, which is the
 default in recent versions of ISIS.
 
-Example with preexisting mapprojected image
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Example with preexisting map
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If an existing georeferenced image or .cub file is available, say named
 ``ref.cub``, its projection, extent, and grid size can be reused::
@@ -251,6 +251,10 @@ If an existing georeferenced image or .cub file is available, say named
     cam2map asp_map=true dem=dem.tif     \
       map=ref.cub matchmap=true          \
       from=image.cub to=output_isis.cub
+
+A PVL ``.map`` file with these projection parameters can also be passed to the
+``map`` argument. Using a georeferenced image supports a wider range of
+projections, since GDAL reads the projection directly from the file.
 
 Validation
 ^^^^^^^^^^
@@ -290,6 +294,16 @@ original unprojected .cub files.
 
 The DEMs produced with these two invocations should agree with nearly float
 precision if invoked with the same choices of parameters.
+
+Saved metadata
+^^^^^^^^^^^^^^
+
+When ``cam2map`` is run with ``asp_map=true``, the output .cub file contains an
+``AspMapproject`` PVL group with the same fields as ``mapproject`` saves in the
+GeoTIFF geoheader (:numref:`mapproj_metadata`): ``INPUT_IMAGE_FILE``,
+``BUNDLE_ADJUST_PREFIX``, ``CAMERA_MODEL_TYPE``, ``CAMERA_FILE``, and
+``DEM_FILE``. This group can be inspected with ``gdalinfo -mdd all`` or
+``catlab``.
 
 Other cam2map options
 ^^^^^^^^^^^^^^^^^^^^^
