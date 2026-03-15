@@ -177,7 +177,7 @@ void SpotXML::read_look_angles(std::string const& rawXml) {
 
   for (size_t i = 0; i < num_cols; i++) {
     const double* v = &values[i * valsPerEntry];
-    look_angles[i].first    = static_cast<int>(v[0] + 0.5);
+    look_angles[i].first    = static_cast<int>(v[0]);
     look_angles[i].second.x() = v[1];
     look_angles[i].second.y() = v[2];
   }
