@@ -37,6 +37,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
+
+#include <fstream>
 #include <iomanip>
 
 using namespace vw;
@@ -45,6 +47,7 @@ using namespace xercesc;
 
 using asp::XmlUtils::get_node;
 using asp::XmlUtils::cast_xmlch;
+using asp::XmlUtils::parseDoublesFromXmlBlock;
 
 namespace asp {
 
@@ -101,7 +104,13 @@ DOMElement* SpotXML::open_xml_file(std::string const& xml_path) {
 void SpotXML::read_xml(std::string const& xml_path) {
 
   DOMElement * elementRoot = open_xml_file(xml_path);
-  parse_xml(elementRoot);
+
+  // Read the raw XML for fast parsing of large numeric blocks
+  std::ifstream ifs(xml_path);
+  std::string rawXml((std::istreambuf_iterator<char>(ifs)),
+                      std::istreambuf_iterator<char>());
+
+  parse_xml(elementRoot, rawXml);
 }
 
 std::vector<vw::Vector2> SpotXML::get_lonlat_corners(std::string const& xml_path) {
@@ -113,35 +122,20 @@ std::vector<vw::Vector2> SpotXML::get_lonlat_corners(std::string const& xml_path
   return xml_reader.lonlat_corners;
 }
 
-void SpotXML::parse_xml(xercesc::DOMElement* node) {
+void SpotXML::parse_xml(xercesc::DOMElement* node,
+                        std::string const& rawXml) {
 
-  //std::cout << "Find dataset\n";
   xercesc::DOMElement* dataset_frame_node       = get_node<DOMElement>(node, "Dataset_Frame");
-  //xercesc::DOMElement* crs_node                 get_node<DOMElement>(node, "Coordinate_Reference_System");
-  //xercesc::DOMElement* image_display_node       get_node<DOMElement>(node, "Image_Display");
-  //xercesc::DOMElement* scene_source_node        get_node<DOMElement>(node, "Scene_Source");
-  //std::cout << "Find dims\n";
   xercesc::DOMElement* raster_dims_node         = get_node<DOMElement>(node, "Raster_Dimensions");
   xercesc::DOMElement* ephemeris_node           = get_node<DOMElement>(node, "Ephemeris");
-  //std::cout << "Find ephem\n";
   xercesc::DOMElement* corrected_attitudes_node = get_node<DOMElement>(node, "Corrected_Attitudes");
-  //std::cout << "Find angles\n";
-  xercesc::DOMElement* look_angles_node         = get_node<DOMElement>(node, "Instrument_Look_Angles_List");
   xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
 
-  //std::cout << "Parse dataset\n";
   read_corners(dataset_frame_node);
-  //read_datum(crs_node);
-  //read_display_info(image_display_node);
-  //read_datetime(scene_source_node);
-  //std::cout << "Parse dims\n";
   read_ephemeris(ephemeris_node);
   read_image_size(raster_dims_node);
-  //std::cout << "Parse ephem\n";
   read_attitude(corrected_attitudes_node);
-  //std::cout << "Parse angles\n";
-  read_look_angles(look_angles_node);
-  //std::cout << "Parse line times\n";
+  read_look_angles(rawXml);
   read_line_times(sensor_config_node);
 
   // Set up the base time
@@ -162,62 +156,31 @@ void SpotXML::parse_xml(xercesc::DOMElement* node) {
   //std::cout << "Done parsing XML.\n";
 }
 
-void SpotXML::read_look_angles(xercesc::DOMElement* look_angles_node) {
+void SpotXML::read_look_angles(std::string const& rawXml) {
 
-  // Set up the data storage
   const size_t num_cols = image_size.x();
   if (num_cols == 0)
     vw_throw(ArgumentErr() << "Did not load image size from SPOT XML file!\n");
-  look_angles.resize(image_size.x());
+  look_angles.resize(num_cols);
 
-  // Dig two levels down
-  xercesc::DOMElement* look_angle_node
-    = get_node<DOMElement>(look_angles_node, "Instrument_Look_Angles");
-  xercesc::DOMElement* look_angle_list_node
-    = get_node<DOMElement>(look_angle_node, "Look_Angles_List");
+  // Fast path: extract all doubles from the Look_Angles_List block
+  // Each entry has 3 values: DETECTOR_ID, PSI_X, PSI_Y
+  std::vector<double> values;
+  parseDoublesFromXmlBlock(rawXml,
+                           "<Look_Angles_List>", "</Look_Angles_List>",
+                           values);
 
-  // Pick out the "Angles" nodes
-  DOMNodeList* children = look_angle_list_node->getChildNodes();
+  size_t valsPerEntry = 3;
+  if (values.size() != num_cols * valsPerEntry)
+    vw_throw(ArgumentErr() << "Expected " << num_cols * valsPerEntry
+             << " look angle values, got " << values.size() << ".\n");
 
-  size_t index = 0;
-  const XMLSize_t num_children = children->getLength();
-  for (XMLSize_t i = 0; i < num_children; i++) {
-    // Check child node type
-    DOMNode* curr_node = children->item(i);
-    if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
-      continue;
-
-    // Check the node name
-    DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
-
-    if (index >= num_cols)
-      vw_throw(ArgumentErr() << "More look angles than rows in SPOT XML file!\n");
-
-    // Look through the three nodes and assign each of them
-    // - In this function we do this a little more by hand to try and speed things up
-    DOMNodeList* sub_children = curr_element->getChildNodes();
-    for (XMLSize_t j = 0; j < sub_children->getLength(); j++) {
-
-      DOMNode* child_node = sub_children->item(j);
-      if (child_node->getNodeType() != DOMNode::ELEMENT_NODE)
-        continue;
-      DOMElement* child_element = dynamic_cast<DOMElement*>(child_node);
-      std::string tag2(XMLString::transcode(child_element->getTagName()));
-      std::string text(XMLString::transcode(child_element->getTextContent()));
-
-      if (tag2 == "DETECTOR_ID")
-        look_angles[index].first = atoi(text.c_str());
-      if (tag2 == "PSI_X")
-        look_angles[index].second.x() = atof(text.c_str());
-      if (tag2 == "PSI_Y")
-        look_angles[index].second.y() = atof(text.c_str());
-    }
-
-    ++index;
-
-  } // End loop through look angles
-  if (index != num_cols)
-    vw_throw(ArgumentErr() << "Did not load the correct number of SPOT5 pixel look angles!\n");
+  for (size_t i = 0; i < num_cols; i++) {
+    const double* v = &values[i * valsPerEntry];
+    look_angles[i].first    = static_cast<int>(v[0] + 0.5);
+    look_angles[i].second.x() = v[1];
+    look_angles[i].second.y() = v[2];
+  }
 }
 
 void SpotXML::read_ephemeris(xercesc::DOMElement* ephemeris_node) {

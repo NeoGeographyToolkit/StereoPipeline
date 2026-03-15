@@ -112,7 +112,7 @@ mapproject (:numref:`mapproject`):
   * Consistently handle ISIS special pixels in ``.cub`` input images.
 
 Misc:
-  * Greatly improved the speed of parsing WorldView XML camera files.
+  * Greatly improved the speed of parsing WorldView and SPOT5 XML camera files.
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment.
   * Added the option ``--bathy-plane-list`` to supplement ``--bathy-plane``

@@ -73,7 +73,7 @@ namespace asp {
     void read_xml(std::string const& xml_path);
 
     /// Parse an XML tree to populate the data
-    void parse_xml(xercesc::DOMElement* node);
+    void parse_xml(xercesc::DOMElement* node, std::string const& rawXml);
 
     /// Load the estimated image lonlat corners from the XML file
     /// - Corners are returned in clockwise order.
@@ -91,7 +91,7 @@ namespace asp {
     /// Just opens the XML file for reading and returns the root node.
     xercesc::DOMElement* open_xml_file(std::string const& xml_path);
 
-    void read_look_angles(xercesc::DOMElement* look_angles_node);
+    void read_look_angles(std::string const& rawXml);
     void read_ephemeris  (xercesc::DOMElement* ephemeris_node);
     void read_attitude   (xercesc::DOMElement* corrected_attitudes_node);
     void read_corners    (xercesc::DOMElement* dataset_frame_node);
