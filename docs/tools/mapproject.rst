@@ -323,6 +323,11 @@ For other multi-band inputs (including RGBA), only the first band is used.
 When comparing with ``cam2map`` on multi-band inputs, ``mapproject`` results
 correspond to the first band of the ``cam2map`` output.
 
+The ``defaultrange`` option is partially supported: ``defaultrange=camera``
+unlocks the ``minlat``/``maxlat``/``minlon``/``maxlon`` overrides, and
+``defaultrange=map`` uses the map file's extent. Other values are silently
+ignored (bounds are auto-computed from the camera footprint and DEM).
+
 The ``cam2map`` options ``interp``, ``warpalgorithm``, ``patchsize``,
 ``trim``, ``occlusion``, and ``lonseam`` are ignored in ``asp_map`` mode,
 which always uses per-pixel bicubic interpolation.
