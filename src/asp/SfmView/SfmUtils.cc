@@ -35,28 +35,33 @@ SfmCameraInfo::SfmCameraInfo() {
   rot[0] = rot[4] = rot[8] = 1.0; // identity
 }
 
-void SfmCameraInfo::fill_camera_pos(float* pos) const {
+Eigen::Vector3f SfmCameraInfo::fill_camera_pos() const {
+  Eigen::Vector3f pos;
   pos[0] = float(-rot[0] * trans[0] - rot[3] * trans[1] - rot[6] * trans[2]);
   pos[1] = float(-rot[1] * trans[0] - rot[4] * trans[1] - rot[7] * trans[2]);
   pos[2] = float(-rot[2] * trans[0] - rot[5] * trans[1] - rot[8] * trans[2]);
+  return pos;
 }
 
-void SfmCameraInfo::fill_viewing_direction(float* viewdir) const {
+Eigen::Vector3f SfmCameraInfo::fill_viewing_direction() const {
+  Eigen::Vector3f viewdir;
   for (int i = 0; i < 3; ++i)
     viewdir[i] = float(rot[6 + i]);
+  return viewdir;
 }
 
-void SfmCameraInfo::fill_cam_to_world(float* mat) const {
+Eigen::Matrix4f SfmCameraInfo::fill_cam_to_world() const {
+  Eigen::Matrix4f m = Eigen::Matrix4f::Zero();
   // 3x3 block is R^T (transpose of world-to-camera rotation)
-  mat[0]  = float(rot[0]); mat[1]  = float(rot[3]); mat[2]  = float(rot[6]);
-  mat[4]  = float(rot[1]); mat[5]  = float(rot[4]); mat[6]  = float(rot[7]);
-  mat[8]  = float(rot[2]); mat[9]  = float(rot[5]); mat[10] = float(rot[8]);
+  m(0, 0) = float(rot[0]); m(0, 1) = float(rot[3]); m(0, 2) = float(rot[6]);
+  m(1, 0) = float(rot[1]); m(1, 1) = float(rot[4]); m(1, 2) = float(rot[7]);
+  m(2, 0) = float(rot[2]); m(2, 1) = float(rot[5]); m(2, 2) = float(rot[8]);
   // Translation is -R^T * t
-  mat[3]  = float(-(rot[0]*trans[0] + rot[3]*trans[1] + rot[6]*trans[2]));
-  mat[7]  = float(-(rot[1]*trans[0] + rot[4]*trans[1] + rot[7]*trans[2]));
-  mat[11] = float(-(rot[2]*trans[0] + rot[5]*trans[1] + rot[8]*trans[2]));
-  // Bottom row
-  mat[12] = 0.0f; mat[13] = 0.0f; mat[14] = 0.0f; mat[15] = 1.0f;
+  m(0, 3) = float(-(rot[0]*trans[0] + rot[3]*trans[1] + rot[6]*trans[2]));
+  m(1, 3) = float(-(rot[1]*trans[0] + rot[4]*trans[1] + rot[7]*trans[2]));
+  m(2, 3) = float(-(rot[2]*trans[0] + rot[5]*trans[1] + rot[8]*trans[2]));
+  m(3, 3) = 1.0f;
+  return m;
 }
 
 // Read camera parameters from a .tsai pinhole model file.

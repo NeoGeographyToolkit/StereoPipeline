@@ -24,6 +24,8 @@
 #ifndef __ASP_SFMVIEW_SFM_UTILS_H__
 #define __ASP_SFMVIEW_SFM_UTILS_H__
 
+#include <asp/SfmView/SfmMath.h>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,14 +37,14 @@ namespace sfm {
 struct SfmCameraInfo {
   SfmCameraInfo();
 
-  // Compute camera position: pos = -R^T * t. Output is 3 floats.
-  void fill_camera_pos(float* pos) const;
+  // Compute camera position: pos = -R^T * t.
+  Eigen::Vector3f fill_camera_pos() const;
 
-  // Store the viewing direction (third row of rotation). Output is 3 floats.
-  void fill_viewing_direction(float* viewdir) const;
+  // Return the viewing direction (third row of rotation).
+  Eigen::Vector3f fill_viewing_direction() const;
 
-  // Store the 4x4 camera-to-world matrix. Output is 16 floats.
-  void fill_cam_to_world(float* mat) const;
+  // Return the 4x4 camera-to-world matrix.
+  Eigen::Matrix4f fill_cam_to_world() const;
 
   // Read camera parameters from a .tsai pinhole model file.
   void read_tsai(std::string const& filename);

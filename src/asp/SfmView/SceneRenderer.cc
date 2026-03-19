@@ -63,13 +63,13 @@ void SceneRenderer::load_shaders(void) {
 
 void SceneRenderer::send_uniform(sfm::SfmCamera const& cam) {
   this->wireframe_shader->bind();
-  // transpose=true: our matrices are row-major, GL expects column-major
+  // Eigen column-major matches GL column-major, so transpose=false
   GLint loc_view = this->wireframe_shader->uniformLocation("viewmat");
   if (loc_view >= 0)
-    glFunctions()->glUniformMatrix4fv(loc_view, 1, GL_TRUE, *cam.view);
+    glFunctions()->glUniformMatrix4fv(loc_view, 1, GL_FALSE, cam.view.data());
   GLint loc_proj = this->wireframe_shader->uniformLocation("projmat");
   if (loc_proj >= 0)
-    glFunctions()->glUniformMatrix4fv(loc_proj, 1, GL_TRUE, *cam.proj);
+    glFunctions()->glUniformMatrix4fv(loc_proj, 1, GL_FALSE, cam.proj.data());
 }
 
 SceneRenderer::SceneRenderer(GlWidget* gl_widget) {
@@ -206,25 +206,25 @@ void SceneRenderer::paint_impl(void) {
 // Add a camera frustum wireframe to a mesh.
 void add_camera_to_mesh(sfm::SfmCameraInfo const& camera,
   float size, sfm::TriangleMesh::Ptr mesh) {
-  sfm::Vec4f const frustum_start_color(1.0f, 1.0f, 1.0f, 1.0f);
-  sfm::Vec4f const frustum_end_color(1.0f, 1.0f, 1.0f, 1.0f);
+  Eigen::Vector4f const frustum_start_color(1.0f, 1.0f, 1.0f, 1.0f);
+  Eigen::Vector4f const frustum_end_color(1.0f, 1.0f, 1.0f, 1.0f);
 
   sfm::TriangleMesh::VertexList& verts = mesh->get_vertices();
   sfm::TriangleMesh::ColorList& colors = mesh->get_vertex_colors();
   sfm::TriangleMesh::FaceList& faces = mesh->get_faces();
 
-  sfm::Matrix4f ctw;
-  camera.fill_cam_to_world(*ctw);
-  sfm::Vec3f cam_x = ctw.mult(sfm::Vec3f(1.0f, 0.0f, 0.0f), 0.0f);
-  sfm::Vec3f cam_y = ctw.mult(sfm::Vec3f(0.0f, 1.0f, 0.0f), 0.0f);
-  sfm::Vec3f cam_z = ctw.mult(sfm::Vec3f(0.0f, 0.0f, 1.0f), 0.0f);
-  sfm::Vec3f campos = ctw.mult(sfm::Vec3f(0.0f), 1.0f);
+  Eigen::Matrix4f ctw = camera.fill_cam_to_world();
+  Eigen::Vector3f cam_x = sfm::mult_homogeneous(ctw, Eigen::Vector3f(1.0f, 0.0f, 0.0f), 0.0f);
+  Eigen::Vector3f cam_y = sfm::mult_homogeneous(ctw, Eigen::Vector3f(0.0f, 1.0f, 0.0f), 0.0f);
+  Eigen::Vector3f cam_z = sfm::mult_homogeneous(ctw, Eigen::Vector3f(0.0f, 0.0f, 1.0f), 0.0f);
+  Eigen::Vector3f campos = sfm::mult_homogeneous(ctw,
+    Eigen::Vector3f(0.0f, 0.0f, 0.0f), 1.0f);
 
   std::size_t idx = verts.size();
   verts.push_back(campos);
   colors.push_back(frustum_start_color);
   for (int j = 0; j < 4; ++j) {
-    sfm::Vec3f corner = campos + size * cam_z
+    Eigen::Vector3f corner = campos + size * cam_z
       + cam_x * size / (2.0f * camera.flen) * (j & 1 ? -1.0f : 1.0f)
       + cam_y * size / (2.0f * camera.flen) * (j & 2 ? -1.0f : 1.0f);
     verts.push_back(corner);
@@ -242,19 +242,19 @@ void add_camera_to_mesh(sfm::SfmCameraInfo const& camera,
   verts.push_back(campos + (size * 0.5f) * cam_y);
   verts.push_back(campos);
   verts.push_back(campos + (size * 0.5f) * cam_z);
-  colors.push_back(sfm::Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
-  colors.push_back(sfm::Vec4f(1.0f, 0.0f, 0.0f, 1.0f));
-  colors.push_back(sfm::Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
-  colors.push_back(sfm::Vec4f(0.0f, 1.0f, 0.0f, 1.0f));
-  colors.push_back(sfm::Vec4f(0.0f, 0.0f, 1.0f, 1.0f));
-  colors.push_back(sfm::Vec4f(0.0f, 0.0f, 1.0f, 1.0f));
+  colors.push_back(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
+  colors.push_back(Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
+  colors.push_back(Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f));
+  colors.push_back(Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f));
+  colors.push_back(Eigen::Vector4f(0.0f, 0.0f, 1.0f, 1.0f));
+  colors.push_back(Eigen::Vector4f(0.0f, 0.0f, 1.0f, 1.0f));
   faces.push_back(idx + 5); faces.push_back(idx + 6);
   faces.push_back(idx + 7); faces.push_back(idx + 8);
   faces.push_back(idx + 9); faces.push_back(idx + 10);
 }
 
 // Find shortest distance from camera center to the origin
-double find_shortest_distance(std::vector<sfm::Vec3d> centers) {
+double find_shortest_distance(std::vector<Eigen::Vector3d> centers) {
   if (centers.size() == 0)
     return 1.0;
 
@@ -268,22 +268,22 @@ double find_shortest_distance(std::vector<sfm::Vec3d> centers) {
 }
 
 // Function to find the mean camera position
-sfm::Vec3d find_mean_camera_pos(std::vector<sfm::Vec3d> const& centers) {
+Eigen::Vector3d find_mean_camera_pos(std::vector<Eigen::Vector3d> const& centers) {
   if (centers.size() == 0)
-    return sfm::Vec3d(0,0,0);
+    return Eigen::Vector3d::Zero();
 
-  sfm::Vec3d mean(0,0,0);
+  Eigen::Vector3d mean = Eigen::Vector3d::Zero();
   for (std::size_t i = 0; i < centers.size(); i++)
     mean += centers[i];
-  mean /= centers.size();
+  mean /= (double)centers.size();
   return mean;
 }
 
 // Collect the cam2world matrices and camera centers in vectors.
 void extractSfmCameraPoses(sfm::Scene::ViewList const& views,
   // Outputs
-  std::vector<sfm::Vec3d>& cam_centers,
-  std::vector<sfm::Matrix3d>& cam2world_vec) {
+  std::vector<Eigen::Vector3d>& cam_centers,
+  std::vector<Eigen::Matrix3d>& cam2world_vec) {
 
   cam_centers.clear();
   cam2world_vec.clear();
@@ -304,10 +304,13 @@ void extractSfmCameraPoses(sfm::Scene::ViewList const& views,
     // and camera2world = transpose(rot)
     // camera_center = -camera2world * trans
 
-    sfm::Matrix3d world2cam(cam.rot);
-    sfm::Vec3d t(cam.trans);
-    sfm::Matrix3d cam2world = world2cam.transposed();
-    sfm::Vec3d ctr = -cam2world.mult(t);
+    // cam.rot is row-major double[9], map it as row-major then convert
+    Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>
+      world2cam_rm(cam.rot);
+    Eigen::Matrix3d world2cam = world2cam_rm; // copy to column-major
+    Eigen::Vector3d t = Eigen::Map<const Eigen::Vector3d>(cam.trans);
+    Eigen::Matrix3d cam2world = world2cam.transpose();
+    Eigen::Vector3d ctr = -(cam2world * t);
 
     cam_centers.push_back(ctr);
     cam2world_vec.push_back(cam2world);
@@ -317,8 +320,8 @@ void extractSfmCameraPoses(sfm::Scene::ViewList const& views,
 }
 
 // Apply the camera2world transforms and camera centers to the cameras
-void applySfmCameraPoses(std::vector<sfm::Vec3d> const& cam_centers,
-                      std::vector<sfm::Matrix3d> const& cam2world_vec,
+void applySfmCameraPoses(std::vector<Eigen::Vector3d> const& cam_centers,
+                      std::vector<Eigen::Matrix3d> const& cam2world_vec,
                       sfm::Scene::ViewList& views) {
 
   for (std::size_t i = 0; i < views.size(); i++) {
@@ -330,12 +333,12 @@ void applySfmCameraPoses(std::vector<sfm::Vec3d> const& cam_centers,
     sfm::SfmCameraInfo cam = views[i]->get_camera();
 
     // Compute T = -cam2world^T * C and copy to the camera
-    sfm::Vec3d t = -cam2world_vec[i].transposed().mult(cam_centers[i]);
+    Eigen::Vector3d t = -(cam2world_vec[i].transpose() * cam_centers[i]);
     for (int coord = 0; coord < 3; coord++)
       cam.trans[coord] = t[coord];
 
-    // Compute R = cam2world^T and copy it to the camera
-    sfm::Matrix3d R = cam2world_vec[i].transposed();
+    // Compute R = cam2world^T and copy to cam.rot (row-major double[9])
+    Eigen::Matrix3d R = cam2world_vec[i].transpose();
     for (int row = 0; row < 3; row++)
       for (int col = 0; col < 3; col++)
         cam.rot[row * 3 + col] = R(row, col);
@@ -347,7 +350,7 @@ void applySfmCameraPoses(std::vector<sfm::Vec3d> const& cam_centers,
 }
 
 // Given a vector, find a rotation matrix that rotates the vector to the y-axis.
-void completeVectorToRotation(sfm::Vec3d& y, sfm::Matrix3d& R) {
+void completeVectorToRotation(Eigen::Vector3d& y, Eigen::Matrix3d& R) {
 
   int largest_comp = 0;
   for (int i = 1; i < 3; i++) {
@@ -359,22 +362,22 @@ void completeVectorToRotation(sfm::Vec3d& y, sfm::Matrix3d& R) {
   if (j == 3)
     j = 0;
 
-  sfm::Vec3d x(0.0, 0.0, 0.0);
+  Eigen::Vector3d x = Eigen::Vector3d::Zero();
   x[j] = y[largest_comp];
   x[largest_comp] = -y[j];
 
   if (std::abs(y[largest_comp]) == 0.0) {
     // Handle degenerate case, will return the identity matrix
-    x = sfm::Vec3d(1.0, 0.0, 0.0);
-    y = sfm::Vec3d(0.0, 1.0, 0.0);
+    x = Eigen::Vector3d(1.0, 0.0, 0.0);
+    y = Eigen::Vector3d(0.0, 1.0, 0.0);
   }
 
-  x = x / x.norm();
-  y = y / y.norm();
+  x.normalize();
+  y.normalize();
 
-  // Find y as the cross product of plane normal and x
-  sfm::Vec3d z = x.cross(y);
-  z = z / z.norm();
+  // Find z as the cross product of x and y
+  Eigen::Vector3d z = x.cross(y);
+  z.normalize();
 
   // Find the matrix with x, y, z as columns
   for (int row = 0; row < 3; row++) {
@@ -387,8 +390,8 @@ void completeVectorToRotation(sfm::Vec3d& y, sfm::Matrix3d& R) {
 }
 
 // Find the bounding box of the camera centers
-void bdBox(sfm::Matrix3d const& EcefToGL,
-           std::vector<sfm::Vec3d>& cam_centers,
+void bdBox(Eigen::Matrix3d const& EcefToGL,
+           std::vector<Eigen::Vector3d>& cam_centers,
            // Outputs
            double& x_min, double& x_max,
            double& y_min, double& y_max,
@@ -399,7 +402,7 @@ void bdBox(sfm::Matrix3d const& EcefToGL,
   x_max = -big; y_max = -big; z_max = -big;
 
   for (std::size_t i = 0; i < cam_centers.size(); i++) {
-    sfm::Vec3d trans_center = EcefToGL.mult(cam_centers[i]);
+    Eigen::Vector3d trans_center = EcefToGL * cam_centers[i];
     x_min = std::min(x_min, trans_center[0]);
     x_max = std::max(x_max, trans_center[0]);
     y_min = std::min(y_min, trans_center[1]);
@@ -428,8 +431,8 @@ void SceneRenderer::create_frusta_renderer(void) {
   }
 
   // Work on copies so the originals are never modified
-  std::vector<sfm::Vec3d> cam_centers = this->orig_cam_centers;
-  std::vector<sfm::Matrix3d> cam2world_vec = this->orig_cam2world_vec;
+  std::vector<Eigen::Vector3d> cam_centers = this->orig_cam_centers;
+  std::vector<Eigen::Matrix3d> cam2world_vec = this->orig_cam2world_vec;
 
   // Find shortest distance from camera center to the origin
   double shortest_dist = find_shortest_distance(cam_centers);
@@ -440,17 +443,17 @@ void SceneRenderer::create_frusta_renderer(void) {
     cam_centers[cam] = cam_centers[cam] / shortest_dist;
 
   // Find the mean camera center, use it as normal to the ground plane
-  sfm::Vec3d mean_cam_center = find_mean_camera_pos(cam_centers);
+  Eigen::Vector3d mean_cam_center = find_mean_camera_pos(cam_centers);
 
   // Will map the cameras so that the ground plane is the x-z plane
   // This is consistent with how OpenGL by default renders this plane
   // as horizontal (z axis pointing to user, y goes up, x goes right).
-  sfm::Vec3d y = mean_cam_center; // will change below
-  sfm::Matrix3d GLToEcef;
+  Eigen::Vector3d y = mean_cam_center; // will change below
+  Eigen::Matrix3d GLToEcef;
   completeVectorToRotation(y, GLToEcef);
 
   // Inverse matrix
-  sfm::Matrix3d EcefToGL = GLToEcef.transposed();
+  Eigen::Matrix3d EcefToGL = GLToEcef.transpose();
 
   // Find the bounding box of the camera centers in the coordinate system
   // having the ground plane as x and z axes. The y axis will point up,
@@ -476,30 +479,30 @@ void SceneRenderer::create_frusta_renderer(void) {
   double GL_cam_shift_y = 0.2; // cameras are above the ground
   double GL_ground_shift_y = -0.8;
   for (std::size_t i = 0; i < cam_centers.size(); i++) {
-    sfm::Vec3d cam_center = cam_centers[i];
-    sfm::Vec3d trans_center = EcefToGL.mult(cam_center);
+    Eigen::Vector3d cam_center = cam_centers[i];
+    Eigen::Vector3d trans_center = EcefToGL * cam_center;
     trans_center[0] = (trans_center[0] - x_mid)/len;
     trans_center[1] = (trans_center[1] - y_mid)/len + GL_cam_shift_y;
     trans_center[2] = (trans_center[2] - z_mid)/len;
-    cam_centers[i] = GLToEcef.mult(trans_center);
+    cam_centers[i] = GLToEcef * trans_center;
   }
 
   if (z_max - z_min > x_max - x_min) {
     // Rotate around the y axis by 90 degrees to show the cameras
     // side-by-side as seen in the OpenGL default coordinate system.
-    sfm::Matrix3d R90;
-    R90[0] = 0; R90[1] = 0; R90[2] = -1;
-    R90[3] = 0; R90[4] = 1; R90[5] = 0;
-    R90[6] = 1; R90[7] = 0; R90[8] = 0;
-    EcefToGL = R90.mult(EcefToGL);
+    Eigen::Matrix3d R90;
+    R90 << 0, 0, -1,
+           0, 1,  0,
+           1, 0,  0;
+    EcefToGL = R90 * EcefToGL;
   }
 
   // Rotate the camera positions and orientations
   double GL_cam_shift_z = -0.5; // Move the cameras a bit to the back
   for (std::size_t i = 0; i < cam_centers.size(); i++) {
-    cam_centers[i] = EcefToGL.mult(cam_centers[i]);
+    cam_centers[i] = EcefToGL * cam_centers[i];
     cam_centers[i][2] += GL_cam_shift_z;
-    cam2world_vec[i] = EcefToGL.mult(cam2world_vec[i]);
+    cam2world_vec[i] = EcefToGL * cam2world_vec[i];
   }
 
   // Apply the camera positions and orientations to the views
@@ -510,7 +513,7 @@ void SceneRenderer::create_frusta_renderer(void) {
   sfm::TriangleMesh::VertexList& verts(mesh->get_vertices());
   sfm::TriangleMesh::FaceList& faces(mesh->get_faces());
   sfm::TriangleMesh::ColorList& colors(mesh->get_vertex_colors());
-  sfm::Vec4f color(0, 1, 0, 1); // green
+  Eigen::Vector4f color(0.0f, 1.0f, 0.0f, 1.0f); // green
   float size = this->frusta_size_slider->value() / 100.0f;
   for (std::size_t i = 0; i < views.size(); i++) {
     if (views[i].get() == nullptr) {
@@ -537,7 +540,7 @@ void SceneRenderer::create_ground_renderer(void) {
   sfm::TriangleMesh::VertexList& verts(mesh->get_vertices());
   sfm::TriangleMesh::FaceList& faces(mesh->get_faces());
   sfm::TriangleMesh::ColorList& colors(mesh->get_vertex_colors());
-  sfm::Vec4f color(0, 1, 0, 1); // green
+  Eigen::Vector4f color(0.0f, 1.0f, 0.0f, 1.0f); // green
 
   // Draw a ground plane as (x, z) in [-1, 1] x [-1, 1] at some height y.
   double GL_ground_shift_y = -0.8;
@@ -552,8 +555,8 @@ void SceneRenderer::create_ground_renderer(void) {
       z[0] = -1.0; z[1] = 1.0;
     }
 
-    sfm::Vec3d v1(x[0], GL_ground_shift_y, z[0]);
-    sfm::Vec3d v2(x[1], GL_ground_shift_y, z[1]);
+    Eigen::Vector3f v1((float)x[0], (float)GL_ground_shift_y, (float)z[0]);
+    Eigen::Vector3f v2((float)x[1], (float)GL_ground_shift_y, (float)z[1]);
 
     verts.push_back(v1);
     verts.push_back(v2);
@@ -572,18 +575,17 @@ void SceneRenderer::create_viewdir_renderer(void) {
   if (this->view == nullptr)
     return;
 
-  sfm::Vec3f campos, viewdir;
   sfm::SfmCameraInfo const& cam(this->view->get_camera());
-  cam.fill_camera_pos(*campos);
-  cam.fill_viewing_direction(*viewdir);
+  Eigen::Vector3f campos = cam.fill_camera_pos();
+  Eigen::Vector3f viewdir = cam.fill_viewing_direction();
 
   sfm::TriangleMesh::Ptr mesh = sfm::TriangleMesh::create();
   sfm::TriangleMesh::VertexList& verts = mesh->get_vertices();
   sfm::TriangleMesh::ColorList& colors = mesh->get_vertex_colors();
   verts.push_back(campos);
   verts.push_back(campos + viewdir * 100.0f);
-  colors.push_back(sfm::Vec4f(1.0f, 1.0f, 0.0f, 1.0f));
-  colors.push_back(sfm::Vec4f(1.0f, 1.0f, 0.0f, 1.0f));
+  colors.push_back(Eigen::Vector4f(1.0f, 1.0f, 0.0f, 1.0f));
+  colors.push_back(Eigen::Vector4f(1.0f, 1.0f, 0.0f, 1.0f));
 
   this->viewdir_renderer = sfm::MeshRenderer::create(mesh);
   this->viewdir_renderer->set_shader(this->wireframe_shader);

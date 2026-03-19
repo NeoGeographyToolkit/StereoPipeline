@@ -77,8 +77,8 @@ private:
 
   // Cached original poses (before GL transformation).
   // Cleared on scene change, preserved across slider changes.
-  std::vector<sfm::Vec3d> orig_cam_centers;
-  std::vector<sfm::Matrix3d> orig_cam2world_vec;
+  std::vector<Eigen::Vector3d> orig_cam_centers;
+  std::vector<Eigen::Matrix3d> orig_cam2world_vec;
 };
 
 #endif // __ASP_SFMVIEW_SCENE_RENDERER_H__

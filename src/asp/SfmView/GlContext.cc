@@ -28,24 +28,24 @@ void CamTrackball::set_camera(SfmCamera* camera) {
   this->cam = camera;
 }
 
-sfm::Vec3f CamTrackball::get_campos(void) const {
+Eigen::Vector3f CamTrackball::get_campos(void) const {
   return this->tb_center + this->tb_tocam * this->tb_radius;
 }
 
-sfm::Vec3f CamTrackball::get_viewdir(void) const {
+Eigen::Vector3f CamTrackball::get_viewdir(void) const {
   return -this->tb_tocam;
 }
 
-sfm::Vec3f const& CamTrackball::get_upvec(void) const {
+Eigen::Vector3f const& CamTrackball::get_upvec(void) const {
   return this->tb_upvec;
 }
 
 CamTrackball::CamTrackball(void) {
   this->cam = nullptr;
   this->tb_radius = 1.0f;
-  this->tb_center = sfm::Vec3f(0.0f);
-  this->tb_tocam = sfm::Vec3f(0.0f, 0.0f, 1.0f);
-  this->tb_upvec = sfm::Vec3f(0.0f, 1.0f, 0.0f);
+  this->tb_center = Eigen::Vector3f::Zero();
+  this->tb_tocam = Eigen::Vector3f(0.0f, 0.0f, 1.0f);
+  this->tb_upvec = Eigen::Vector3f(0.0f, 1.0f, 0.0f);
 }
 
 bool CamTrackball::consume_event(MouseEvent const& event) {
@@ -96,39 +96,39 @@ bool CamTrackball::consume_event(MouseEvent const& event) {
 
 void CamTrackball::handle_tb_rotation(int x, int y) {
   // Get ball normals.
-  sfm::Vec3f bn_start = this->get_ball_normal(
+  Eigen::Vector3f bn_start = this->get_ball_normal(
     this->rot_mouse_x, this->rot_mouse_y);
-  sfm::Vec3f bn_now = this->get_ball_normal(x, y);
+  Eigen::Vector3f bn_now = this->get_ball_normal(x, y);
 
   // Rotation axis and angle.
-  sfm::Vec3f axis = bn_now.cross(bn_start);
+  Eigen::Vector3f axis = bn_now.cross(bn_start);
   float angle = std::acos(bn_now.dot(bn_start));
 
   // Rotate axis to world coords. Build inverse viewing matrix from
   // values stored at the time of mouse click.
-  sfm::Matrix4f cam_to_world;
-  sfm::Vec3f campos = this->tb_center + this->rot_tb_tocam * this->tb_radius;
-  sfm::Vec3f viewdir = -this->rot_tb_tocam;
+  Eigen::Matrix4f cam_to_world;
+  Eigen::Vector3f campos = this->tb_center + this->rot_tb_tocam * this->tb_radius;
+  Eigen::Vector3f viewdir = -this->rot_tb_tocam;
   cam_to_world = sfm::matrix_inverse_viewtrans(
     campos, viewdir, this->rot_tb_upvec);
-  axis = cam_to_world.mult(axis, 0.0f);
+  axis = sfm::mult_homogeneous(cam_to_world, axis, 0.0f);
   axis.normalize();
 
   // Rotate camera and up vector around axis.
-  sfm::Matrix3f rot = matrix_rotation_from_axis_angle(axis, angle);
+  Eigen::Matrix3f rot = matrix_rotation_from_axis_angle(axis, angle);
   this->tb_tocam = rot * this->rot_tb_tocam;
   this->tb_upvec = rot * this->rot_tb_upvec;
 }
 
-sfm::Vec3f CamTrackball::get_ball_normal(int x, int y) {
+Eigen::Vector3f CamTrackball::get_ball_normal(int x, int y) {
   // Calculate normal on unit sphere.
-  sfm::Vec3f sn;
+  Eigen::Vector3f sn;
   sn[0] = 2.0f * (float)x / (float)(this->cam->width - 1) - 1.0f;
   sn[1] = 1.0f - 2.0f * (float)y / (float)(this->cam->height - 1);
   float z2 = 1.0f - sn[0] * sn[0] - sn[1] * sn[1];
   sn[2] = z2 > 0.0f ? std::sqrt(z2) : 0.0f;
 
-  return sn.normalize();
+  return sn.normalized();
 }
 
 // GlContext

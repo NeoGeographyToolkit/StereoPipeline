@@ -33,25 +33,25 @@ public:
   void set_camera(SfmCamera* camera);
   bool consume_event(MouseEvent const& event);
 
-  sfm::Vec3f get_campos(void) const;
-  sfm::Vec3f get_viewdir(void) const;
-  sfm::Vec3f const& get_upvec(void) const;
+  Eigen::Vector3f get_campos(void) const;
+  Eigen::Vector3f get_viewdir(void) const;
+  Eigen::Vector3f const& get_upvec(void) const;
 
 private:
   void handle_tb_rotation(int x, int y);
-  sfm::Vec3f get_ball_normal(int x, int y);
+  Eigen::Vector3f get_ball_normal(int x, int y);
 
   SfmCamera* cam;
 
   float tb_radius;
-  sfm::Vec3f tb_center;
-  sfm::Vec3f tb_tocam;
-  sfm::Vec3f tb_upvec;
+  Eigen::Vector3f tb_center;
+  Eigen::Vector3f tb_tocam;
+  Eigen::Vector3f tb_upvec;
 
   int rot_mouse_x;
   int rot_mouse_y;
-  sfm::Vec3f rot_tb_tocam;
-  sfm::Vec3f rot_tb_upvec;
+  Eigen::Vector3f rot_tb_tocam;
+  Eigen::Vector3f rot_tb_upvec;
 
   float zoom_tb_radius;
   int zoom_mouse_y;
