@@ -428,8 +428,13 @@ set(ASP_SfS_LIB_DEPENDENCIES AspCore AspCamera ${SOLVER_LIBRARIES})
 # ASP GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets 
+set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets
     ${QWT_LIBRARIES})
+
+# ASP SfmView
+get_all_source_files( "SfmView"       ASP_SFMVIEW_SRC_FILES)
+get_all_source_files( "SfmView/tests" ASP_SFMVIEW_TEST_FILES)
+set(ASP_SFMVIEW_LIB_DEPENDENCIES Qt5::Core Qt5::Gui Qt5::Widgets Qt5::OpenGL)
 
 # ASP Gotcha
 get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)
@@ -467,6 +472,7 @@ add_subdirectory(Camera)
 
 add_subdirectory(Sessions)
 add_subdirectory(GUI)
+add_subdirectory(SfmView)
 add_subdirectory(Gotcha)
 add_subdirectory(SfS)
 

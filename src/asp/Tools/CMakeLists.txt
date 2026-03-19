@@ -147,6 +147,11 @@ add_executable(stereo_gui stereo_gui.cc stereo.h stereo.cc)
 target_link_libraries(stereo_gui AspGUI AspSessions AspRig)
 install(TARGETS stereo_gui DESTINATION bin)
 
+add_executable(sfm_view sfm_view.cc)
+target_link_libraries(sfm_view AspSfmView)
+set_target_properties(sfm_view PROPERTIES AUTOMOC TRUE)
+install(TARGETS sfm_view DESTINATION bin)
+
 add_executable(stereo_parse stereo_parse.cc stereo.h stereo.cc) 
 target_link_libraries(stereo_parse AspSessions)
 install(TARGETS stereo_parse DESTINATION bin)
