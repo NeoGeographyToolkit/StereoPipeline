@@ -4,6 +4,7 @@ Changes since last release
 sfm_view (:numref:`sfm_view`):
   * Brought the source code into the ASP repository from the external
     MultiView dependency.
+  * Input images are no longer required. Only camera files are needed.
 
 Added a new program for distributed stereo processing across computing nodes
   (:numref:`stereo_dist`).

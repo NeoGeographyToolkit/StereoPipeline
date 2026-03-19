@@ -23,15 +23,13 @@
 #include <QApplication>
 #include <QStyleFactory>
 
-#include <algorithm>
-#include <cctype>
 #include <cstdlib>
 #include <iostream>
 #include <string>
 #include <vector>
 
 void print_usage_and_exit() {
-  std::cerr << "Usage: sfm_view [OPTIONS] [FILES | SCENEDIR]\n"
+  std::cerr << "Usage: sfm_view [OPTIONS] cameras.tsai ...\n"
             << "Options:\n"
             << "  -h, --help      Print this help and exit\n"
             << "  --width VALUE   Window width in pixels\n"
@@ -39,45 +37,26 @@ void print_usage_and_exit() {
   std::exit(EXIT_FAILURE);
 }
 
-// Return lowercase file extension including the dot (e.g. ".tsai").
-std::string get_file_extension(std::string const& path) {
-  std::string::size_type pos = path.rfind('.');
-  if (pos == std::string::npos)
-    return "";
-  std::string ext = path.substr(pos);
-  std::transform(ext.begin(), ext.end(), ext.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-  return ext;
-}
-
 int main(int argc, char** argv) {
 
-  std::vector<std::string> images, cameras;
+  std::vector<std::string> cameras;
   int width = 1400, height = 1200; // default window size
 
   for (int i = 1; i < argc; i++) {
     std::string arg = argv[i];
-    if (arg == "-h" || arg == "--help") {
+    if (arg == "-h" || arg == "--help")
       print_usage_and_exit();
-    } else if (arg == "--width" && i + 1 < argc) {
+    else if (arg == "--width" && i + 1 < argc)
       width = std::atoi(argv[++i]);
-    } else if (arg == "--height" && i + 1 < argc) {
+    else if (arg == "--height" && i + 1 < argc)
       height = std::atoi(argv[++i]);
-    } else {
-      // Classify positional arg as image, camera, or scene dir
-      std::string ext = get_file_extension(arg);
-      if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" ||
-          ext == ".tif" || ext == ".tiff")
-        images.push_back(arg);
-      else if (ext == ".tsai")
-        cameras.push_back(arg);
-      // Other files are ignored (only .tsai + image pairs are used)
-    }
+    else
+      cameras.push_back(arg);
   }
 
-  if (images.size() != cameras.size()) {
-    std::cerr << "Number of images and cameras do not match.\n";
-    std::exit(EXIT_FAILURE);
+  if (cameras.empty()) {
+    std::cerr << "No camera files specified.\n";
+    print_usage_and_exit();
   }
 
   if (width < 10 || height < 10) {
@@ -102,9 +81,8 @@ int main(int argc, char** argv) {
   // Create main window.
   SfmMainWindow win(width, height);
 
-  // Load images and cameras with .tsai extension
-  if (!images.empty() && !cameras.empty())
-    win.load_scene(images, cameras);
+  // Load camera files
+  win.load_scene(cameras);
 
   return app.exec();
 }

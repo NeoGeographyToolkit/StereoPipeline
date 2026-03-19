@@ -36,7 +36,7 @@ Example
 
 ::
 
-    sfm_view images/*.tif images/*.tsai
+    sfm_view cameras/*.tsai
 
 See also
 ^^^^^^^^

@@ -67,11 +67,10 @@ SfmMainWindow::SfmMainWindow(int width, int height) {
   this->show();
 }
 
-void SfmMainWindow::load_scene(std::vector<std::string> const& images,
-  std::vector<std::string> const& cameras) {
+void SfmMainWindow::load_scene(std::vector<std::string> const& cameras) {
   sfm::Scene::Ptr scene;
   try {
-    scene = sfm::Scene::create(images, cameras);
+    scene = sfm::Scene::create(cameras);
   } catch (std::exception& e) {
     QMessageBox::information(this, tr("Error loading scene"),
       tr("Scene could not be loaded.\n"

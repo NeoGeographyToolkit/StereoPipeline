@@ -65,8 +65,7 @@ public:
 
   // Load camera from a .tsai file. The view name is set to the
   // basename of camera_path.
-  void load_view(std::string const& image_path,
-                 std::string const& camera_path);
+  void load_view(std::string const& camera_path);
 
   std::string const& get_name() const;
 
@@ -88,9 +87,8 @@ public:
   using Ptr = std::shared_ptr<Scene>;
   using ViewList = std::vector<View::Ptr>;
 
-  // Create a scene from paired image and .tsai camera files.
-  static Ptr create(std::vector<std::string> const& image_files,
-                    std::vector<std::string> const& camera_files);
+  // Create a scene from .tsai camera files.
+  static Ptr create(std::vector<std::string> const& camera_files);
 
   ViewList const& get_views() const;
   ViewList& get_views();

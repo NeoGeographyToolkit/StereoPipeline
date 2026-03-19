@@ -62,8 +62,7 @@ public:
   SfmMainWindow(int width, int height);
   ~SfmMainWindow(void);
 
-  void load_scene(std::vector<std::string> const& images,
-                  std::vector<std::string> const& cameras);
+  void load_scene(std::vector<std::string> const& cameras);
 };
 
 #endif // __ASP_SFMVIEW_SFM_MAIN_WINDOW_H__

@@ -200,8 +200,7 @@ void View::set_camera(SfmCameraInfo const& cam) {
 void View::set_dirty(bool /*dirty*/) {
 }
 
-void View::load_view(std::string const& /*image_path*/,
-                     std::string const& camera_path) {
+void View::load_view(std::string const& camera_path) {
   // Extract basename for the view name
   std::string::size_type pos = camera_path.find_last_of("/\\");
   if (pos != std::string::npos)
@@ -230,17 +229,12 @@ View::Ptr Scene::get_view_by_id(std::size_t id) {
 }
 
 Scene::Ptr Scene::create(
-  std::vector<std::string> const& image_files,
   std::vector<std::string> const& camera_files) {
-  if (image_files.size() != camera_files.size())
-    throw std::invalid_argument(
-      "Scene::create: Number of images and camera files do not match.");
-
   Ptr scene(new Scene);
-  scene->views_.resize(image_files.size());
-  for (std::size_t i = 0; i < image_files.size(); ++i) {
+  scene->views_.resize(camera_files.size());
+  for (std::size_t i = 0; i < camera_files.size(); ++i) {
     scene->views_[i] = View::create();
-    scene->views_[i]->load_view(image_files[i], camera_files[i]);
+    scene->views_[i]->load_view(camera_files[i]);
   }
   return scene;
 }
