@@ -1,11 +1,6 @@
 Changes since last release
 --------------------------
 
-sfm_view (:numref:`sfm_view`):
-  * Brought the source code into the ASP repository from the external
-    MultiView dependency.
-  * Input images are no longer required. Only camera files are needed.
-
 Added a new program for distributed stereo processing across computing nodes
   (:numref:`stereo_dist`).
 
@@ -19,6 +14,11 @@ patches with different parameter combinations (:numref:`stereo_sweep`).
 
 Added the ``asp_plot`` package for generating diagnostic plots and PDF reports
 from ASP outputs (:numref:`asp_plot`).
+
+sfm_view (:numref:`sfm_view`):
+  * Brought the source code into the ASP repository from the external
+    MultiView dependency.
+  * Input images are no longer required. Only camera files are needed.
 
 aster2asp (:numref:`aster2asp`):
   * Added support for ASTER Level 1A V004 HDF format.

@@ -6,9 +6,8 @@ sfm_view
 The ``sfm_view`` program displays the positions and orientations of a set of
 orbital Pinhole camera models (:numref:`pinholemodels`) relative to the ground. 
 
-This program is a modified version of `umve
-<https://github.com/simonfuhrmann/mve>`_, by Simon Fuhrmann. It is still in
-development and not all features of umve are available yet.
+This program is based on `umve
+<https://github.com/simonfuhrmann/mve>`_, by Simon Fuhrmann.
 
 The cameras are represented as pyramids (the pyramid tip is the camera center
 and the base is the sensor plane), and the ground as shown as a plane. The
@@ -26,10 +25,10 @@ Zooming and scene rotation are done with the computer mouse.
    :name: nadir_sfm_view_illustration
    :alt:  Illustration of ``sfm_view``
 
-   Illustration of ``sfm_view`` showing nadir-pointing cameras. The entries in
-   the left tab are in the same order as the cameras specified on the
-   command line. Clicking on an entry highlights that camera's view direction.
-   Synthetic cameras can be created with ``sat_sim`` (:numref:`sat_sim`).
+   Illustration showing two cameras pointing generally downward. The left panel
+   lists the camera file names. Clicking on an entry highlights that camera's
+   view direction. Synthetic cameras can be created with ``sat_sim``
+   (:numref:`sat_sim`).
 
 Example
 ^^^^^^^
