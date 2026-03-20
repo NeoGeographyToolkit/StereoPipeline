@@ -430,53 +430,45 @@ void SceneRenderer::create_frusta_renderer(void) {
     return;
   }
 
-  // Work on copies so the originals are never modified
+  // Work on copies so the originals are never modified.
+  // All position arithmetic is done in double. Camera centers start
+  // at orbital radii (millions of meters), which would lose precision
+  // in the float GL pipeline. We normalize by dividing by the orbital
+  // radius, rotate into the GL frame, then center and scale the
+  // bounding box to ~[-1, 1]. Float is used only at render time,
+  // when values are already O(1).
   std::vector<Eigen::Vector3d> cam_centers = this->orig_cam_centers;
   std::vector<Eigen::Matrix3d> cam2world_vec = this->orig_cam2world_vec;
 
-  // Find shortest distance from camera center to the origin
+  // Divide by orbital radius to bring positions from millions to ~1.0
   double shortest_dist = find_shortest_distance(cam_centers);
   shortest_dist = std::max(shortest_dist, 0.0001); // avoid division by zero
-
-  // Divide by the shortest distance to normalize the camera centers
   for (size_t cam = 0; cam < cam_centers.size(); cam++)
     cam_centers[cam] = cam_centers[cam] / shortest_dist;
 
-  // Find the mean camera center, use it as normal to the ground plane
+  // Use the mean camera direction (from planet center) as the ground
+  // plane normal. Build a rotation that maps this to the GL y-axis,
+  // so the ground plane becomes the x-z plane (GL convention: y up).
   Eigen::Vector3d mean_cam_center = find_mean_camera_pos(cam_centers);
-
-  // Will map the cameras so that the ground plane is the x-z plane
-  // This is consistent with how OpenGL by default renders this plane
-  // as horizontal (z axis pointing to user, y goes up, x goes right).
   Eigen::Vector3d y = mean_cam_center; // will change below
   Eigen::Matrix3d GLToEcef;
   completeVectorToRotation(y, GLToEcef);
-
-  // Inverse matrix
   Eigen::Matrix3d EcefToGL = GLToEcef.transpose();
 
-  // Find the bounding box of the camera centers in the coordinate system
-  // having the ground plane as x and z axes. The y axis will point up,
-  // consistent with the OpenGL default.
+  // Bounding box in the GL frame
   double x_min = 0, x_max = 0, y_min = 0, y_max = 0, z_min = 0, z_max = 0;
   bdBox(EcefToGL, cam_centers, x_min, x_max, y_min, y_max, z_min, z_max);
 
-  // Max box size and mid point
   double len = std::max(x_max - x_min,
                         std::max(y_max - y_min, z_max - z_min));
   if (len == 0.0)
-    len = 1.0; // careful not to divide by zero
+    len = 1.0; // avoid division by zero
   double x_mid = (x_min + x_max)/2.0;
   double y_mid = (y_min + y_max)/2.0;
   double z_mid = (z_min + z_max)/2.0;
 
-  // Rotate the camera centers so that the ground plane is the x-z plane
-  // then normalize them to be on the order of 1.0. Rotate
-  // the camera orientations as well. Then shift them so that they
-  // can be seen in the default OpenGL view. Then put them
-  // back to ECEF, before we later transform them again to GL, but after
-  // more fine tuning of the rotation transformation.
-  double GL_cam_shift_y = 0.2; // cameras are above the ground
+  // Center and scale to ~[-1, 1], then shift for visual placement
+  double GL_cam_shift_y = 0.2; // cameras above the ground plane
   double GL_ground_shift_y = -0.8;
   for (std::size_t i = 0; i < cam_centers.size(); i++) {
     Eigen::Vector3d cam_center = cam_centers[i];

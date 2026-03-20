@@ -70,11 +70,11 @@ matrix_viewtrans(Eigen::Matrix<T, 3, 1> const& campos,
   Eigen::Matrix<T, 3, 1> x = upvec.cross(z).normalized();
   Eigen::Matrix<T, 3, 1> y = z.cross(x);
 
-  Eigen::Matrix<T, 4, 4> m = Eigen::Matrix<T, 4, 4>::Zero();
+  // Start with identity, replace the rotation and translation parts
+  Eigen::Matrix<T, 4, 4> m = Eigen::Matrix<T, 4, 4>::Identity();
   m(0, 0) = x[0]; m(0, 1) = x[1]; m(0, 2) = x[2];
   m(1, 0) = y[0]; m(1, 1) = y[1]; m(1, 2) = y[2];
   m(2, 0) = z[0]; m(2, 1) = z[1]; m(2, 2) = z[2];
-  m(3, 3) = T(1);
 
   Eigen::Matrix<T, 3, 1> t = -campos;
   m(0, 3) = m(0, 0)*t[0] + m(0, 1)*t[1] + m(0, 2)*t[2];
@@ -93,11 +93,11 @@ matrix_inverse_viewtrans(Eigen::Matrix<T, 3, 1> const& campos,
   Eigen::Matrix<T, 3, 1> x = upvec.cross(z).normalized();
   Eigen::Matrix<T, 3, 1> y = z.cross(x);
 
-  Eigen::Matrix<T, 4, 4> m = Eigen::Matrix<T, 4, 4>::Zero();
+  // Start with identity, replace the rotation and translation parts
+  Eigen::Matrix<T, 4, 4> m = Eigen::Matrix<T, 4, 4>::Identity();
   m(0, 0) = x[0]; m(0, 1) = y[0]; m(0, 2) = z[0]; m(0, 3) = campos[0];
   m(1, 0) = x[1]; m(1, 1) = y[1]; m(1, 2) = z[1]; m(1, 3) = campos[1];
   m(2, 0) = x[2]; m(2, 1) = y[2]; m(2, 2) = z[2]; m(2, 3) = campos[2];
-  m(3, 3) = T(1);
   return m;
 }
 
