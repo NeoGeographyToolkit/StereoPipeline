@@ -15,6 +15,8 @@ patches with different parameter combinations (:numref:`stereo_sweep`).
 Added the ``asp_plot`` package for generating diagnostic plots and PDF reports
 from ASP outputs (:numref:`asp_plot`).
 
+Added support for SPOT 6 and 7 exact linescan camera models (:numref:`spot67`).
+
 sfm_view (:numref:`sfm_view`):
   * Brought the source code into the ASP repository from the external
     MultiView dependency.

@@ -45,7 +45,7 @@ namespace asp {
     PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
                         vw::camera::LagrangianInterpolation const& position,
                         vw::camera::LagrangianInterpolation const& velocity,
-                        bool isNeo, double m_t0Quat, double m_dtQuat,
+                        bool isNeoOrSpot67, double m_t0Quat, double m_dtQuat,
                         double quat_offset_time, double quat_scale,
                         std::vector<vw::Vector<double, 4>>  const& quaternion_coeffs,
                         vw::Vector2                         const& coeff_psi_x,
@@ -97,7 +97,7 @@ namespace asp {
     double m_min_time, m_max_time;
     
     // These will be used to fit the quaternions
-    bool m_isNeo;
+    bool m_isNeoOrSpot67;
     double m_t0Quat, m_dtQuat;
     double m_quat_offset_time, m_quat_scale;
     std::vector<vw::Vector<double, 4>> m_quaternion_coeffs;
@@ -125,6 +125,11 @@ namespace asp {
   ///   make sure this is done before/after this function is called!
   boost::shared_ptr<PleiadesCameraModel>
   load_pleiades_camera_model_from_xml(std::string const& path);
+
+  /// Load a SPOT 6/7 camera model from a DIMAP V2 XML file.
+  /// Uses the same camera model as Pleiades NEO.
+  boost::shared_ptr<PleiadesCameraModel>
+  load_spot_camera_model_from_xml(std::string const& path);
 
 } // end namespace asp
 

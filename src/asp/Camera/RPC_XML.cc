@@ -467,9 +467,18 @@ void asp::RPCXML::read_from_file(std::string const& name) {
   }
 
   try {
-    // Pleiades/Astrium RPC
+    // Pleiades/Astrium/SPOT 6/7 RPC
     DOMElement* model = get_node<DOMElement>(elementRoot, "Rational_Function_Model");
-    parse_rational_function_model(model);
+    // Check the sensor name to determine pixel origin convention.
+    // SPOT 6/7 RPCs use 0-based offsets, Pleiades uses 1-based.
+    bool is_spot67 = false;
+    try {
+      DOMElement* metadata_id = get_node<DOMElement>(elementRoot, "Metadata_Identification");
+      DOMElement* profile = get_node<DOMElement>(metadata_id, "METADATA_PROFILE");
+      std::string sensor = XMLString::transcode(profile->getTextContent());
+      is_spot67 = (sensor == "S6_SENSOR" || sensor == "S7_SENSOR");
+    } catch (...) {}
+    parse_rational_function_model(model, is_spot67);
     return;
   } catch (vw::IOErr const& e) {
     // Possibly Rational_Function_Model doesn't work
@@ -645,7 +654,8 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* root) {
 }
 
 // Pleiades/Astrium RPC
-void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
+void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node,
+                                                 bool is_spot67) {
 
   DOMElement* inverse_model;
 
@@ -694,7 +704,13 @@ void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node) {
   cast_xmlch(get_node<DOMElement>(rfm_validity, "SAMP_OFF")->getTextContent(), xy_offset.x());
   cast_xmlch(get_node<DOMElement>(rfm_validity, "LINE_OFF")->getTextContent(), xy_offset.y());
 
-  xy_offset -= Vector2i(1,1);
+  // Pleiades RPCs use 1-based pixel offsets (SAMP_OFF = (N+1)/2), so
+  // subtract (1,1) to convert to 0-based. SPOT 6/7 RPCs already use
+  // 0-based offsets (SAMP_OFF = N/2), so no subtraction is needed.
+  // See the SPOT 6/7 user guide (Appendix C.2.1, "first column index is 0")
+  // and the Pleiades user guide (page 76, ref col/row = 1).
+  if (!is_spot67)
+    xy_offset -= Vector2i(1, 1);
 
   // No Earth example is known where the datum is anything but WGS_1984.
   m_rpc = boost::make_shared<RPCModel>(cartography::Datum("WGS_1984"),

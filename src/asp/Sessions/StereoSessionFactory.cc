@@ -185,6 +185,17 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
       }
 
       if (actual_session_type.empty()) {
+        // Try SPOT 6/7 exact linescan model (before Pleiades, same DIMAP V2 family)
+        try {
+          StereoSessionSpot67 session;
+          boost::shared_ptr<vw::camera::CameraModel>
+            left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
+            right_model = session.camera_model(right_image_file, right_camera_file, quiet);
+          actual_session_type = "spot";
+        } catch (...) {}
+      }
+
+      if (actual_session_type.empty()) {
         // Try Pleiades exact linescan model
         try {
           StereoSessionPleiades session;
@@ -297,6 +308,10 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
       // User says Pleiades but also gives a DEM.
       actual_session_type = "pleiadesmappleiades";
     }
+    if (!input_dem.empty() && actual_session_type == "spot") {
+      // User says SPOT 6/7 but also gives a DEM.
+      actual_session_type = "spotmapspot";
+    }
     
     // Quietly switch from nadirpinhole to pinhole for mapprojected images
     if (!input_dem.empty() && actual_session_type == "nadirpinhole") {
@@ -369,6 +384,8 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
       session = StereoSessionASTERMapRPC::construct();
   else if (actual_session_type == "pleiadesmappleiades")
       session = StereoSessionPleiadesMapPleiades::construct();
+  else if (actual_session_type == "spotmapspot")
+      session = StereoSessionSpot67MapSpot67::construct();
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   else if (actual_session_type == "isis")
     session = StereoSessionIsis::construct();
@@ -379,6 +396,8 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
     session = StereoSessionSpot::construct();
   else if (actual_session_type == "perusat")
     session = StereoSessionPeruSat::construct();
+  else if (actual_session_type == "spot")
+    session = StereoSessionSpot67::construct();
   else if (actual_session_type == "pleiades")
     session = StereoSessionPleiades::construct();
   else if (actual_session_type == "aster")

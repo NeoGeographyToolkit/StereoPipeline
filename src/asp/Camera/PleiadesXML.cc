@@ -112,15 +112,20 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
 
   xercesc::DOMElement* metadata_profile = get_node<DOMElement>(metadata_id, "METADATA_PROFILE");
 
-  std::string sensor_name = XMLString::transcode(metadata_profile->getTextContent());
-  m_isNeo = false; // Is this a Neo sensor or L1A/L1B?
-  if (sensor_name == "PHR_SENSOR")
-    m_isNeo = false;
-  else if (sensor_name == "PNEO_SENSOR")
-    m_isNeo = true;
+  m_sensor_name = XMLString::transcode(metadata_profile->getTextContent());
+  m_isNeoOrSpot67 = false;
+  if (m_sensor_name == "PHR_SENSOR")
+    m_isNeoOrSpot67 = false;
+  else if (m_sensor_name == "PNEO_SENSOR" ||
+           m_sensor_name == "S6_SENSOR"   ||
+           m_sensor_name == "S7_SENSOR")
+    m_isNeoOrSpot67 = true;
   else
-    vw_throw(ArgumentErr() << "Incorrect sensor name. Expected: PHR or PNEO sensor, " 
-      << "but got: " << sensor_name << ". Only primary (non-ortho) images can be used.\n");
+    vw_throw(ArgumentErr() << "Incorrect sensor name. Expected: PHR, PNEO, S6, or S7 sensor, "
+      << "but got: " << m_sensor_name
+      << ". Only primary (non-ortho) images can be used.\n");
+
+  vw_out() << "Sensor profile: " << m_sensor_name << "\n";
 
   xercesc::DOMElement* raster_data = get_node<DOMElement>(root, "Raster_Data");
   read_image_size(raster_data);
@@ -136,7 +141,7 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   
   // Quaternions are stored differently for Neo and 1A/1B
   xercesc::DOMElement* attitudes = get_node<DOMElement>(refined_model, "Attitudes");
-  if (m_isNeo)
+  if (m_isNeoOrSpot67)
     read_attitudes_Neo(attitudes);
   else
     read_attitudes_1A1B(attitudes);
@@ -144,7 +149,7 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   xercesc::DOMElement* geom_calib  = get_node<DOMElement>(refined_model, "Geometric_Calibration");
   xercesc::DOMElement* instr_calib = get_node<DOMElement>(geom_calib, "Instrument_Calibration");
 
-  if (!m_isNeo) {
+  if (!m_isNeoOrSpot67) {
     xercesc::DOMElement* swath_range = get_node<DOMElement>(instr_calib, "Swath_Range");
     read_ref_col_row(swath_range);
   } else {
@@ -155,13 +160,14 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   }
 
   xercesc::DOMElement* look_angles = NULL;
-  if (!m_isNeo) {
+  if (!m_isNeoOrSpot67) {
     look_angles = get_node<DOMElement>(instr_calib, "Polynomial_Look_Angles");
   } else {
-    xercesc::DOMElement* band_list = get_node<DOMElement>(instr_calib, 
+    xercesc::DOMElement* band_list = get_node<DOMElement>(instr_calib,
       "Band_Calibration_List");
     xercesc::DOMElement* band = get_node<DOMElement>(band_list, "Band_Calibration");
     look_angles = get_node<DOMElement>(band, "Polynomial_Look_Angles");
+
   }
   read_look_angles(look_angles);
 
@@ -194,13 +200,14 @@ void PleiadesXML::read_times(xercesc::DOMElement* time) {
 
   xercesc::DOMElement* time_stamp = get_node<DOMElement>(time, "Time_Stamp");
   cast_xmlch(get_node<DOMElement>(time_stamp, "LINE_PERIOD")->getTextContent(), m_line_period);
-  if (m_isNeo) {
-  // Convert from microseconds to seconds
+  if (m_isNeoOrSpot67) {
+    // Convert from microseconds to seconds
     m_line_period /= 1.0e+6;
   } else {
     // Convert from milliseconds to seconds
-    m_line_period /= 1.0e+3; 
+    m_line_period /= 1.0e+3;
   }
+
 }
   
 void PleiadesXML::read_ephemeris(xercesc::DOMElement* ephemeris) {
@@ -435,7 +442,7 @@ void PleiadesXML::read_look_angles(xercesc::DOMElement* look_angles) {
   m_coeff_psi_y[0] = atof(ylos_0.c_str());
 
   // But for NEO, as for PeruSat, there are two values.
-  if (m_isNeo) {
+  if (m_isNeoOrSpot67) {
     std::string ylos_1;
     cast_xmlch(get_node<DOMElement>(look_angles, "YLOS_1")->getTextContent(),
                ylos_1);
@@ -605,7 +612,30 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
   double num_positions       = m_positions.size();
   double position_start_time = m_positions.front().first;
   double position_stop_time  = m_positions.back().first;
-  double position_delta_t    = (position_stop_time - position_start_time) / (num_positions - 1.0);
+
+  // Compute delta_t from the first two points, not the overall range.
+  // SPOT 6/7 data can have a shorter last interval that would skew the average.
+  auto it_pos = m_positions.begin();
+  double t0_pos = it_pos->first;
+  it_pos++;
+  double t1_pos = it_pos->first;
+  double position_delta_t = t1_pos - t0_pos;
+
+  // If the last point breaks uniform spacing, drop it. The extrapolation
+  // logic below will extend coverage if needed.
+  if (num_positions > 2) {
+    auto it_last = m_positions.end();
+    it_last--;
+    auto it_prev = it_last;
+    it_prev--;
+    double last_dt = it_last->first - it_prev->first;
+    double err = std::abs(last_dt - position_delta_t) / position_delta_t;
+    if (err > 1e-2) {
+      m_positions.pop_back();
+      num_positions       = m_positions.size();
+      position_stop_time  = m_positions.back().first;
+    }
+  }
 
   // This is a persistent problem with Pleiades NEO data. Try to fix it.
   for (int attempt = 0; attempt < 4; attempt++) {
@@ -679,7 +709,29 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
   double num_velocities      = m_velocities.size();
   double velocity_start_time = m_velocities.front().first;
   double velocity_stop_time  = m_velocities.back().first;
-  double velocity_delta_t    = (velocity_stop_time - velocity_start_time) / (num_velocities - 1.0);
+
+  // Compute delta_t from the first two points, not the overall range.
+  // SPOT 6/7 data can have a shorter last interval that would skew the average.
+  auto it_vel = m_velocities.begin();
+  double t0_vel = it_vel->first;
+  it_vel++;
+  double t1_vel = it_vel->first;
+  double velocity_delta_t = t1_vel - t0_vel;
+
+  // If the last point breaks uniform spacing, drop it.
+  if (num_velocities > 2) {
+    auto it_last = m_velocities.end();
+    it_last--;
+    auto it_prev = it_last;
+    it_prev--;
+    double last_dt = it_last->first - it_prev->first;
+    double err = std::abs(last_dt - velocity_delta_t) / velocity_delta_t;
+    if (err > 1e-2) {
+      m_velocities.pop_back();
+      num_velocities      = m_velocities.size();
+      velocity_stop_time  = m_velocities.back().first;
+    }
+  }
 
   // This is a persistent problem with Pleiades NEOdata. Try to fix it.
   for (int attempt = 0; attempt < 4; attempt++) {
@@ -753,7 +805,29 @@ void PleiadesXML::setup_pose_func
   double num_poses           = m_poses.size();
   double pose_start_time     = m_poses.front().first;
   double pose_stop_time      = m_poses.back().first;
-  double pose_delta_t        = (pose_stop_time - pose_start_time) / (num_poses - 1.0);
+
+  // Compute delta_t from the first two points, not the overall range.
+  // SPOT 6/7 data can have a shorter last interval that would skew the average.
+  auto it_pose = m_poses.begin();
+  double t0_pose = it_pose->first;
+  it_pose++;
+  double t1_pose = it_pose->first;
+  double pose_delta_t = t1_pose - t0_pose;
+
+  // If the last point breaks uniform spacing, drop it.
+  if (num_poses > 2) {
+    auto it_last = m_poses.end();
+    it_last--;
+    auto it_prev = it_last;
+    it_prev--;
+    double last_dt = it_last->first - it_prev->first;
+    double err = std::abs(last_dt - pose_delta_t) / pose_delta_t;
+    if (err > 1e-2) {
+      m_poses.pop_back();
+      num_poses       = m_poses.size();
+      pose_stop_time  = m_poses.back().first;
+    }
+  }
 
   // This is a persistent problem with the Pleiades NEO data. Try to fix it.
   for (int attempt = 0; attempt < 4; attempt++) {

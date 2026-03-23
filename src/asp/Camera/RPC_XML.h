@@ -168,7 +168,8 @@ namespace asp {
                        vw::Vector<double,20> & vec);
 
     void parse_rpb(xercesc::DOMElement* root); ///< Digital Globe XML
-    void parse_rational_function_model(xercesc::DOMElement* node); ///< Pleiades / Astrium
+    void parse_rational_function_model(xercesc::DOMElement* node,
+                                       bool is_spot67 = false);
     void parse_perusat_model(xercesc::DOMElement* node); ///< PeruSat-1
 
   public:

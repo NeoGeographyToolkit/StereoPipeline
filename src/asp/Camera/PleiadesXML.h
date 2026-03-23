@@ -52,7 +52,7 @@ namespace asp {
   public:
 
     /// Constructor
-    PleiadesXML(): m_start_time_is_set(false), m_ref_row(0), m_ref_col(0), m_accuracy_stdv(0.0), m_isNeo(false), m_t0Quat(-1.0), m_dtQuat(-1.0) {}
+    PleiadesXML(): m_start_time_is_set(false), m_ref_row(0), m_ref_col(0), m_accuracy_stdv(0.0), m_isNeoOrSpot67(false), m_t0Quat(-1.0), m_dtQuat(-1.0) {}
 
     vw::Vector2i m_image_size;
     vw::Vector2 m_coeff_psi_x, m_coeff_psi_y;
@@ -61,11 +61,10 @@ namespace asp {
     // These will be used to fit the quaternions for L1A and L1B data
     double m_quat_offset_time, m_quat_scale;
     std::vector<vw::Vector<double, 4>> m_quaternion_coeffs;
-    // For NEO
-    bool m_isNeo;
+    // For NEO and SPOT 6/7 (tabulated quaternions)
+    bool m_isNeoOrSpot67;
+    std::string m_sensor_name; // PHR_SENSOR, PNEO_SENSOR, S6_SENSOR, S7_SENSOR
     double m_t0Quat, m_dtQuat;
-
-    // These will be used to fit the quaternions for Neo data
 
     double m_accuracy_stdv;
     
@@ -114,7 +113,7 @@ namespace asp {
     
     std::list<std::pair<double, vw::Vector3>> m_positions;        // time,   X/Y/Z)
     std::list<std::pair<double, vw::Vector3>> m_velocities;       // time,   dX/dY/dZ)
-    std::list<std::pair<double, vw::Quaternion<double>>> m_poses; // time, quat, for NEO only
+    std::list<std::pair<double, vw::Quaternion<double>>> m_poses; // time, quat, for NEO and SPOT 6/7
     
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
     boost::shared_ptr<xercesc::ErrorHandler>    m_err_handler;

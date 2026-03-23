@@ -4,7 +4,8 @@ Pleiades
 --------
 
 ASP supports the 1A/1B and NEO satellites from Airbus Pleiades. For NEO, see
-:numref:`pleiades_neo` for additional notes. 
+:numref:`pleiades_neo` for additional notes. SPOT 6 and 7 use a closely related
+camera model (:numref:`spot67`).
 
 Generally, ASP expects raw images, not orthorectified images. ASP supports the
 Pleiades ortho products, if the projection was done on a surface of constant
@@ -133,7 +134,9 @@ Exact and RPC cameras
 To compare the linescan (exact) and RPC models, run ``cam_test``
 (:numref:`cam_test`) as::
 
-     cam_test --image img.tif --cam1 cam_exact.xml --cam2 cam_rpc.xml \
+     cam_test --image img.tif            \
+       --cam1 cam_exact.xml              \
+       --cam2 cam_rpc.xml                \
        --session1 pleiades --session2 rpc
 
 This should give great agreement when it comes to pixels projected

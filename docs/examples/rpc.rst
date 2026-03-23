@@ -11,7 +11,7 @@ etc., provide Rational Polynomial Coefficient (RPC) camera models.
 (Certain providers also offer exact linescan models. ASP supports the
 ones from DigitalGlobe/Maxar (:numref:`dg_tutorial`),
 PeruSat-1 (:numref:`perusat1`), Pleiades 1A/1B (:numref:`pleiades`),
-and SPOT 5 (:numref:`spot5`).)
+SPOT 5 (:numref:`spot5`), and SPOT 6/7 (:numref:`spot67`).)
 
 About RPC
 ~~~~~~~~~

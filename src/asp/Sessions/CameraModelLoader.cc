@@ -124,6 +124,12 @@ CameraModelLoader::load_pleiades_camera_model(std::string const& path) const {
   return vw::CamPtr(load_pleiades_camera_model_from_xml(path));
 }
 
+// Load a SPOT 6/7 linescan camera file
+boost::shared_ptr<vw::camera::CameraModel>
+CameraModelLoader::load_spot_camera_model(std::string const& path) const {
+  return vw::CamPtr(load_spot_camera_model_from_xml(path));
+}
+
 // Load a ASTER camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_ASTER_camera_model(std::string const& path) const {

@@ -201,7 +201,30 @@ namespace asp {
                                  image_file, camera_file, ba_prefix, pixel_offset);
     }
   };
-  
+
+  /// StereoSession instance for processing SPOT 6/7 data.
+  /// Uses the same camera model as Pleiades NEO.
+  class StereoSessionSpot67: public StereoSessionPleiades {
+
+  public:
+    StereoSessionSpot67(){}
+    virtual ~StereoSessionSpot67(){}
+
+    virtual std::string name() const { return "spot"; }
+
+    static SessionPtr construct() { return SessionPtr(new StereoSessionSpot67); }
+
+  protected:
+    virtual vw::CamPtr
+    load_camera_model(std::string const& image_file,
+                      std::string const& camera_file,
+                      std::string const& ba_prefix,
+                      vw::Vector2 pixel_offset) const{
+      return load_adjusted_model(m_camera_loader.load_spot_camera_model(camera_file),
+                                 image_file, camera_file, ba_prefix, pixel_offset);
+    }
+  };
+
 } // End namespace asp
 
 #endif//__STEREO_SESSION_GDAL_H__

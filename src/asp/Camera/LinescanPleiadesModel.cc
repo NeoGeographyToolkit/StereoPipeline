@@ -35,7 +35,7 @@ PleiadesCameraModel::
 PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
                     vw::camera::LagrangianInterpolation const& position,
                     vw::camera::LagrangianInterpolation const& velocity,
-                    bool isNeo, double t0Quat, double dtQuat,
+                    bool isNeoOrSpot67, double t0Quat, double dtQuat,
                     double quat_offset_time, double quat_scale,
                     std::vector<vw::Vector<double, 4>>  const& quaternion_coeffs,
                     vw::Vector2                         const& coeff_psi_x,
@@ -44,7 +44,7 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
                     double min_time, double max_time,
                     int ref_col, int ref_row, double accuracy_stdv):
   m_position_func(position), m_velocity_func(velocity),
-  m_isNeo(isNeo), m_t0Quat(t0Quat), m_dtQuat(dtQuat),
+  m_isNeoOrSpot67(isNeoOrSpot67), m_t0Quat(t0Quat), m_dtQuat(dtQuat),
   m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
   m_quaternion_coeffs(quaternion_coeffs),
   m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
@@ -144,7 +144,7 @@ void PleiadesCameraModel::populateCsmModel() {
   // and velocity are available, which a way longer range than the time spent
   // acquiring image lines.
   // TODO(oalexan1): What is the right factor (inverse of sampling rate)?
-  if (m_isNeo) {
+  if (m_isNeoOrSpot67) {
     m_ls_model->m_numQuaternions = 4 * m_quaternion_coeffs.size();
     m_ls_model->m_t0Quat = m_t0Quat;
     m_ls_model->m_dtQuat = m_dtQuat;
@@ -166,7 +166,7 @@ void PleiadesCameraModel::populateCsmModel() {
   m_ls_model->m_quaternions.resize(m_ls_model->m_numQuaternions);
   for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
     vw::Quat q;
-    if (m_isNeo) {
+    if (m_isNeoOrSpot67) {
       vw::Vector<double, 4> const& v = m_quaternion_coeffs[pos_it]; // alias
       q = vw::Quat(v[0], v[1], v[2], v[3]); // order is w, x, y, z
     } else {
@@ -284,7 +284,7 @@ vw::Vector3 PleiadesCameraModel::get_camera_velocity_at_time(double time) const 
 // product, when the quaternions are tabulated instead.
 vw::Quat PleiadesCameraModel::get_camera_pose_at_time(double time) const {
 
-  if (m_isNeo)
+  if (m_isNeoOrSpot67)
     vw::vw_throw(vw::NoImplErr() << "PleiadesCameraModel: Cannot compute camera pose "
       << "from polynomial for NEO products. This is a programmer error.\n");
 
@@ -330,12 +330,10 @@ vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) 
   return result;
 }
 
-boost::shared_ptr<PleiadesCameraModel>
-load_pleiades_camera_model_from_xml(std::string const& path) {
-
-  // Parse the Pleiades XML file
-  PleiadesXML xml_reader;
-  xml_reader.read_xml(path);
+// Shared implementation for loading Pleiades/NEO/SPOT 6/7 camera models.
+// The sensor model and XML structure are the same for all these sensors.
+static boost::shared_ptr<PleiadesCameraModel>
+load_pleiades_family_camera_model(PleiadesXML & xml_reader) {
 
   // Get all the initial functors
   vw::camera::LinearTimeInterpolation
@@ -347,7 +345,7 @@ load_pleiades_camera_model_from_xml(std::string const& path) {
   
   // Set up the quaternions for NEO. This will create xml_reader m_t0Quat, 
   // m_dtQuat, m_quaternion_coeffs.
-  if (xml_reader.m_isNeo)
+  if (xml_reader.m_isNeoOrSpot67)
     xml_reader.setup_pose_func(time_func);
 
   // Find the range of times for which we can solve for position and pose
@@ -362,7 +360,7 @@ load_pleiades_camera_model_from_xml(std::string const& path) {
   // Create the model. This can throw an exception.
   boost::shared_ptr<PleiadesCameraModel> cam
     (new PleiadesCameraModel(time_func, position_func, velocity_func,
-                             xml_reader.m_isNeo,
+                             xml_reader.m_isNeoOrSpot67,
                              xml_reader.m_t0Quat,
                              xml_reader.m_dtQuat,
                              xml_reader.m_quat_offset_time,
@@ -376,7 +374,37 @@ load_pleiades_camera_model_from_xml(std::string const& path) {
                              xml_reader.m_accuracy_stdv));
   
   return cam;
-} // End function load_pleiades_camera_model()
+}
+
+boost::shared_ptr<PleiadesCameraModel>
+load_pleiades_camera_model_from_xml(std::string const& path) {
+
+  PleiadesXML xml_reader;
+  xml_reader.read_xml(path);
+
+  // Only accept Pleiades sensors, not SPOT 6/7
+  if (xml_reader.m_sensor_name != "PHR_SENSOR" &&
+      xml_reader.m_sensor_name != "PNEO_SENSOR")
+    vw::vw_throw(vw::ArgumentErr() << "Expected a Pleiades sensor, got: "
+                 << xml_reader.m_sensor_name << ".\n");
+
+  return load_pleiades_family_camera_model(xml_reader);
+}
+
+boost::shared_ptr<PleiadesCameraModel>
+load_spot_camera_model_from_xml(std::string const& path) {
+
+  PleiadesXML xml_reader;
+  xml_reader.read_xml(path);
+
+  // Only accept SPOT 6/7 sensors
+  if (xml_reader.m_sensor_name != "S6_SENSOR" &&
+      xml_reader.m_sensor_name != "S7_SENSOR")
+    vw::vw_throw(vw::ArgumentErr() << "Expected a SPOT 6/7 sensor, got: "
+                 << xml_reader.m_sensor_name << ".\n");
+
+  return load_pleiades_family_camera_model(xml_reader);
+} // End function load_spot_camera_model()
 
 } // end namespace asp
 
