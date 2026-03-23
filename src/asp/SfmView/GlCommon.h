@@ -21,16 +21,15 @@
 #define __ASP_SFMVIEW_GL_COMMON_H__
 
 // OpenGL via Qt
-#include <QOpenGLFunctions_3_3_Core>
+#include <QOpenGLExtraFunctions>
 #include <QOpenGLContext>
 
 #include <stdexcept>
 #include <string>
 
-// Get GL 3.3 functions from the current Qt GL context.
-inline QOpenGLFunctions_3_3_Core* glFunctions() {
-  return QOpenGLContext::currentContext()
-    ->versionFunctions<QOpenGLFunctions_3_3_Core>();
+// Get GL functions from the current Qt GL context (Qt6).
+inline QOpenGLExtraFunctions* glFunctions() {
+  return QOpenGLContext::currentContext()->extraFunctions();
 }
 
 namespace sfm {

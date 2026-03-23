@@ -176,7 +176,7 @@ void SceneRenderer::paint_impl(void) {
   glFunctions()->glDepthFunc(GL_LESS);
   glFunctions()->glEnable(GL_DEPTH_TEST);
   glFunctions()->glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glFunctions()->glClearDepth(1.0f);
+  glFunctions()->glClearDepthf(1.0f);
   glFunctions()->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   this->send_uniform(this->camera);

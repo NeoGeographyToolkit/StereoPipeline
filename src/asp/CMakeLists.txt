@@ -145,25 +145,27 @@ set(QT_MOC_EXECUTABLE    ${ASP_DEPS_DIR}/bin/moc)
 set(QT_RCC_EXECUTABLE    ${ASP_DEPS_DIR}/bin/rcc)
 set(QT_UIC_EXECUTABLE    ${ASP_DEPS_DIR}/bin/uic)
 
+# Qt6: Script, ScriptTools, XmlPatterns were removed.
+# OpenGLWidgets is new in Qt6 (split from OpenGL).
 set(REQUIRED_QT_COMPONENTS  Core                Concurrent
                             Gui                 Multimedia
                             MultimediaWidgets   Network
-                            OpenGL              PrintSupport
+                            OpenGL              OpenGLWidgets
+                            PrintSupport
                             Qml                 Quick
-                            Script              ScriptTools
                             Sql                 Svg
                             Test                Widgets
-                            Xml                 XmlPatterns)
-find_package(Qt5 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
+                            Xml                 Core5Compat)
+find_package(Qt6 COMPONENTS ${REQUIRED_QT_COMPONENTS} REQUIRED)
 
-if(Qt5_FOUND)
+if(Qt6_FOUND)
     # We need this to be able to include headers produced by uic in our
     # code (CMAKE_BINARY_DIR holds a path to the build directory, while
     # INCLUDE_DIRECTORIES() works just like INCLUDEPATH from qmake)
     INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR})
     set (ASP_HAVE_PKG_QT 1)
-    message("Qt found: ${Qt5Core_INCLUDE_DIRS}")
-endif(Qt5_FOUND)
+    message("Qt found: ${Qt6Core_INCLUDE_DIRS}")
+endif(Qt6_FOUND)
 
 find_external_library(QWT ${ASP_DEPS_DIR} "" "qwt" REQUIRED)
 
@@ -228,7 +230,7 @@ if (USE_ISIS)
   find_external_library(SPICE ${ASP_DEPS_DIR} "cspice" "cspice" REQUIRED)
   find_external_library(ARMADILLO ${ASP_DEPS_DIR} "" "armadillo" REQUIRED)
   find_external_library(EMBREE ${ASP_DEPS_DIR} "" "embree3" REQUIRED)
-  find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis" REQUIRED)
+  find_external_library(ISIS ${ASP_DEPS_DIR} "isis" "isis;core" REQUIRED)
   
   # Pull the ISIS version. It is on the first line before the first space.
   file(STRINGS "${ASP_DEPS_DIR}/isis_version.txt" ISIS_VERSION_LINE LIMIT_COUNT 1)
@@ -245,9 +247,10 @@ if (USE_ISIS)
   endif()
 
   # Some ISIS headers include Qt headers in a way that requires the include below
-  include_directories("${ASP_DEPS_DIR}/include/qt")
-  include_directories("${ASP_DEPS_DIR}/include/qt/QtCore")
-  include_directories("${ASP_DEPS_DIR}/include/qt/QtXml")
+  include_directories("${ASP_DEPS_DIR}/include/qt6")
+  include_directories("${ASP_DEPS_DIR}/include/qt6/QtCore")
+  include_directories("${ASP_DEPS_DIR}/include/qt6/QtXml")
+  include_directories("${ASP_DEPS_DIR}/include/qt6/QtCore5Compat")
   set(ASP_HAVE_PKG_ISIS 1)
 else()
   message(STATUS "ISIS not found. Some features will be disabled.")
@@ -326,7 +329,7 @@ set(ASP_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES}
     ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
     ${PROJ_LIBRARIES} ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
     ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES}
-    Qt5::Core ${PROTOBUF_LIBRARIES} 
+    Qt6::Core ${PROTOBUF_LIBRARIES} 
     ${QWT_LIBRARIES} ${PCL_LIBRARIES} ${TBB_LIBRARIES})
 if (USE_OPENEXR)
   list(APPEND ASP_3RD_PARTY_LIBS ${OPENEXR_LIBRARIES} ${ILMBASE_LIBRARIES})
@@ -387,7 +390,8 @@ if (USE_ISIS)
   get_all_source_files( "IsisIO"       ASP_ISISIO_SRC_FILES)
   get_all_source_files( "IsisIO/tests" ASP_ISISIO_TEST_FILES)
   set(ASP_ISISIO_LIB_DEPENDENCIES AspCore ${ASP_3RD_PARTY_LIBS} ${ISIS_LIBRARIES}
-                               ${ASP_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES})
+                               ${ASP_3RD_PARTY_LIBS} ${VISIONWORKBENCH_LIBRARIES}
+                               Qt6::Core5Compat)
 endif()
 
 # ASP PclIO
@@ -428,13 +432,13 @@ set(ASP_SfS_LIB_DEPENDENCIES AspCore AspCamera ${SOLVER_LIBRARIES})
 # ASP GUI
 get_all_source_files( "GUI"       ASP_GUI_SRC_FILES)
 get_all_source_files( "GUI/tests" ASP_GUI_TEST_FILES)
-set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt5::Core Qt5::Gui Qt5::Widgets
+set(ASP_GUI_LIB_DEPENDENCIES AspCore AspCamera Qt6::Core Qt6::Gui Qt6::Widgets
     ${QWT_LIBRARIES})
 
 # ASP SfmView
 get_all_source_files( "SfmView"       ASP_SFMVIEW_SRC_FILES)
 get_all_source_files( "SfmView/tests" ASP_SFMVIEW_TEST_FILES)
-set(ASP_SFMVIEW_LIB_DEPENDENCIES Qt5::Core Qt5::Gui Qt5::Widgets Qt5::OpenGL)
+set(ASP_SFMVIEW_LIB_DEPENDENCIES Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
 
 # ASP Gotcha
 get_all_source_files( "Gotcha"       ASP_GOTCHA_SRC_FILES)

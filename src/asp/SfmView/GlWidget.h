@@ -22,7 +22,7 @@
 
 #include <asp/SfmView/GlContext.h>
 
-#include <QOpenGLWidget>
+#include <QtOpenGLWidgets/QOpenGLWidget>
 #include <QMouseEvent>
 #include <QTimer>
 
