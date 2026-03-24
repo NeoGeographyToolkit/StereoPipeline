@@ -44,9 +44,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include <iomanip>
-#include <fstream>
-
 using namespace vw;
 using namespace vw::cartography;
 using namespace xercesc;
@@ -55,29 +52,6 @@ using asp::XmlUtils::get_node;
 using asp::XmlUtils::cast_xmlch;
 
 namespace asp {
-
-// Dump Vector3 samples (times and values) to a text file for debugging.
-void dumpVec3Samples(std::string const& filename,
-                     std::vector<double> const& times,
-                     std::vector<Vector3> const& vals) {
-  std::ofstream ofs(filename);
-  ofs << std::setprecision(17);
-  for (size_t i = 0; i < times.size(); i++)
-    ofs << times[i] << " "
-        << vals[i][0] << " " << vals[i][1] << " " << vals[i][2] << "\n";
-}
-
-// Dump quaternion samples (times and values) to a text file for debugging.
-void dumpQuatSamples(std::string const& filename,
-                     std::vector<double> const& times,
-                     std::vector<vw::Quaternion<double>> const& vals) {
-  std::ofstream ofs(filename);
-  ofs << std::setprecision(17);
-  for (size_t i = 0; i < times.size(); i++)
-    ofs << times[i] << " "
-        << vals[i].w() << " " << vals[i].x() << " "
-        << vals[i].y() << " " << vals[i].z() << "\n";
-}
 
 // Resample non-uniform Vector3 data to a uniform grid with 5x the input count.
 // Uses Lagrange interpolation with the given radius.
