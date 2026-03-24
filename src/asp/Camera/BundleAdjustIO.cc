@@ -608,7 +608,7 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
   // adjustment applied to it. This applies when not solving for intrinsics and
   // using CSM. Do something analogous for RPC.
   if (opt.stereo_session == "csm" || opt.stereo_session == "pleiades" ||
-      opt.stereo_session == "dg"  ||
+      opt.stereo_session == "spot" || opt.stereo_session == "dg"  ||
       (opt.stereo_session == "aster" && asp::stereo_settings().aster_use_csm))
     cam_file = saveUpdatedCsm(opt, icam, adjust_file, param_storage);
   else if (opt.stereo_session == "rpc" && opt.save_adjusted_rpc)

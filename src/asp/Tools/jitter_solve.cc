@@ -483,9 +483,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     // Catch and record any error
     err_str = e.what();
   }
-  // First check for unexpected sessions. Only dg, pleiades, aster, csm are allowed.
+  // First check for unexpected sessions. Only dg, pleiades, spot, aster, csm are allowed.
   if (opt.stereo_session != "dg" && opt.stereo_session != "pleiades" &&
-      opt.stereo_session != "aster" && opt.stereo_session != "csm")
+      opt.stereo_session != "spot" && opt.stereo_session != "aster" &&
+      opt.stereo_session != "csm")
     vw_throw(ArgumentErr() << "Session " << opt.stereo_session
              << " is not supported in jitter_solve. Check your camera files and/or "
              << "specify the -t (--session-type) option.\n");
