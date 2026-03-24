@@ -736,9 +736,6 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
   double num_positions       = m_positions.size();
   double position_start_time = m_positions.front().first;
   double position_stop_time  = m_positions.back().first;
-
-  // SPOT 6/7 data is resampled to uniform in parse_xml(), so by this
-  // point all sensors have uniformly spaced data.
   double position_delta_t =
     (position_stop_time - position_start_time) / (num_positions - 1.0);
 
@@ -814,9 +811,6 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
   double num_velocities      = m_velocities.size();
   double velocity_start_time = m_velocities.front().first;
   double velocity_stop_time  = m_velocities.back().first;
-
-  // SPOT 6/7 data is resampled to uniform in parse_xml(), so by this
-  // point all sensors have uniformly spaced data.
   double velocity_delta_t =
     (velocity_stop_time - velocity_start_time) / (num_velocities - 1.0);
 
@@ -892,9 +886,6 @@ void PleiadesXML::setup_pose_func
   double num_poses           = m_poses.size();
   double pose_start_time     = m_poses.front().first;
   double pose_stop_time      = m_poses.back().first;
-
-  // SPOT 6/7 data is resampled to uniform in parse_xml(), so by this
-  // point all sensors have uniformly spaced data.
   double pose_delta_t =
     (pose_stop_time - pose_start_time) / (num_poses - 1.0);
 
