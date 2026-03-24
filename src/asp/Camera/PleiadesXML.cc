@@ -613,28 +613,35 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
   double position_start_time = m_positions.front().first;
   double position_stop_time  = m_positions.back().first;
 
-  // Compute delta_t from the first two points, not the overall range.
-  // SPOT 6/7 data can have a shorter last interval that would skew the average.
-  auto it_pos = m_positions.begin();
-  double t0_pos = it_pos->first;
-  it_pos++;
-  double t1_pos = it_pos->first;
-  double position_delta_t = t1_pos - t0_pos;
+  bool is_spot67 = (m_sensor_name == "S6_SENSOR" || m_sensor_name == "S7_SENSOR");
+  double position_delta_t = 0.0;
 
-  // If the last point breaks uniform spacing, drop it. The extrapolation
-  // logic below will extend coverage if needed.
-  if (num_positions > 2) {
-    auto it_last = m_positions.end();
-    it_last--;
-    auto it_prev = it_last;
-    it_prev--;
-    double last_dt = it_last->first - it_prev->first;
-    double err = std::abs(last_dt - position_delta_t) / position_delta_t;
-    if (err > 1e-2) {
-      m_positions.pop_back();
-      num_positions       = m_positions.size();
-      position_stop_time  = m_positions.back().first;
+  if (is_spot67) {
+    // Compute delta_t from the first two points, not the overall range.
+    // SPOT 6/7 data can have a shorter last interval that would skew the average.
+    auto it_pos = m_positions.begin();
+    double t0_pos = it_pos->first;
+    it_pos++;
+    double t1_pos = it_pos->first;
+    position_delta_t = t1_pos - t0_pos;
+
+    // If the last point breaks uniform spacing, drop it. The extrapolation
+    // logic below will extend coverage if needed.
+    if (num_positions > 2) {
+      auto it_last = m_positions.end();
+      it_last--;
+      auto it_prev = it_last;
+      it_prev--;
+      double last_dt = it_last->first - it_prev->first;
+      double err = std::abs(last_dt - position_delta_t) / position_delta_t;
+      if (err > 1e-2) {
+        m_positions.pop_back();
+        num_positions       = m_positions.size();
+        position_stop_time  = m_positions.back().first;
+      }
     }
+  } else {
+    position_delta_t = (position_stop_time - position_start_time) / (num_positions - 1.0);
   }
 
   // This is a persistent problem with Pleiades NEO data. Try to fix it.
@@ -710,27 +717,34 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
   double velocity_start_time = m_velocities.front().first;
   double velocity_stop_time  = m_velocities.back().first;
 
-  // Compute delta_t from the first two points, not the overall range.
-  // SPOT 6/7 data can have a shorter last interval that would skew the average.
-  auto it_vel = m_velocities.begin();
-  double t0_vel = it_vel->first;
-  it_vel++;
-  double t1_vel = it_vel->first;
-  double velocity_delta_t = t1_vel - t0_vel;
+  bool is_spot67 = (m_sensor_name == "S6_SENSOR" || m_sensor_name == "S7_SENSOR");
+  double velocity_delta_t = 0.0;
 
-  // If the last point breaks uniform spacing, drop it.
-  if (num_velocities > 2) {
-    auto it_last = m_velocities.end();
-    it_last--;
-    auto it_prev = it_last;
-    it_prev--;
-    double last_dt = it_last->first - it_prev->first;
-    double err = std::abs(last_dt - velocity_delta_t) / velocity_delta_t;
-    if (err > 1e-2) {
-      m_velocities.pop_back();
-      num_velocities      = m_velocities.size();
-      velocity_stop_time  = m_velocities.back().first;
+  if (is_spot67) {
+    // Compute delta_t from the first two points, not the overall range.
+    // SPOT 6/7 data can have a shorter last interval that would skew the average.
+    auto it_vel = m_velocities.begin();
+    double t0_vel = it_vel->first;
+    it_vel++;
+    double t1_vel = it_vel->first;
+    velocity_delta_t = t1_vel - t0_vel;
+
+    // If the last point breaks uniform spacing, drop it.
+    if (num_velocities > 2) {
+      auto it_last = m_velocities.end();
+      it_last--;
+      auto it_prev = it_last;
+      it_prev--;
+      double last_dt = it_last->first - it_prev->first;
+      double err = std::abs(last_dt - velocity_delta_t) / velocity_delta_t;
+      if (err > 1e-2) {
+        m_velocities.pop_back();
+        num_velocities      = m_velocities.size();
+        velocity_stop_time  = m_velocities.back().first;
+      }
     }
+  } else {
+    velocity_delta_t = (velocity_stop_time - velocity_start_time) / (num_velocities - 1.0);
   }
 
   // This is a persistent problem with Pleiades NEOdata. Try to fix it.
@@ -806,27 +820,34 @@ void PleiadesXML::setup_pose_func
   double pose_start_time     = m_poses.front().first;
   double pose_stop_time      = m_poses.back().first;
 
-  // Compute delta_t from the first two points, not the overall range.
-  // SPOT 6/7 data can have a shorter last interval that would skew the average.
-  auto it_pose = m_poses.begin();
-  double t0_pose = it_pose->first;
-  it_pose++;
-  double t1_pose = it_pose->first;
-  double pose_delta_t = t1_pose - t0_pose;
+  bool is_spot67 = (m_sensor_name == "S6_SENSOR" || m_sensor_name == "S7_SENSOR");
+  double pose_delta_t = 0.0;
 
-  // If the last point breaks uniform spacing, drop it.
-  if (num_poses > 2) {
-    auto it_last = m_poses.end();
-    it_last--;
-    auto it_prev = it_last;
-    it_prev--;
-    double last_dt = it_last->first - it_prev->first;
-    double err = std::abs(last_dt - pose_delta_t) / pose_delta_t;
-    if (err > 1e-2) {
-      m_poses.pop_back();
-      num_poses       = m_poses.size();
-      pose_stop_time  = m_poses.back().first;
+  if (is_spot67) {
+    // Compute delta_t from the first two points, not the overall range.
+    // SPOT 6/7 data can have a shorter last interval that would skew the average.
+    auto it_pose = m_poses.begin();
+    double t0_pose = it_pose->first;
+    it_pose++;
+    double t1_pose = it_pose->first;
+    pose_delta_t = t1_pose - t0_pose;
+
+    // If the last point breaks uniform spacing, drop it.
+    if (num_poses > 2) {
+      auto it_last = m_poses.end();
+      it_last--;
+      auto it_prev = it_last;
+      it_prev--;
+      double last_dt = it_last->first - it_prev->first;
+      double err = std::abs(last_dt - pose_delta_t) / pose_delta_t;
+      if (err > 1e-2) {
+        m_poses.pop_back();
+        num_poses       = m_poses.size();
+        pose_stop_time  = m_poses.back().first;
+      }
     }
+  } else {
+    pose_delta_t = (pose_stop_time - pose_start_time) / (num_poses - 1.0);
   }
 
   // This is a persistent problem with the Pleiades NEO data. Try to fix it.

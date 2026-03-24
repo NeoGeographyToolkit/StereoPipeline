@@ -332,7 +332,7 @@ vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) 
 
 // Shared implementation for loading Pleiades/NEO/SPOT 6/7 camera models.
 // The sensor model and XML structure are the same for all these sensors.
-static boost::shared_ptr<PleiadesCameraModel>
+boost::shared_ptr<PleiadesCameraModel>
 load_pleiades_family_camera_model(PleiadesXML & xml_reader) {
 
   // Get all the initial functors
