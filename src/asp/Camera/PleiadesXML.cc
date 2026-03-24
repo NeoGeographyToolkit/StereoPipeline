@@ -30,6 +30,7 @@
 #include <vw/Cartography/Datum.h>       // for Datum
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Core/StringUtils.h>
+#include <vw/Camera/Extrinsics.h>       // for LagrangianInterpolationVarTime, etc
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
@@ -44,6 +45,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <iomanip>
+#include <fstream>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -54,16 +56,88 @@ using asp::XmlUtils::cast_xmlch;
 
 namespace asp {
 
+// Dump Vector3 samples (times and values) to a text file for debugging.
+void dumpVec3Samples(std::string const& filename,
+                     std::vector<double> const& times,
+                     std::vector<Vector3> const& vals) {
+  std::ofstream ofs(filename);
+  ofs << std::setprecision(17);
+  for (size_t i = 0; i < times.size(); i++)
+    ofs << times[i] << " "
+        << vals[i][0] << " " << vals[i][1] << " " << vals[i][2] << "\n";
+}
+
+// Dump quaternion samples (times and values) to a text file for debugging.
+void dumpQuatSamples(std::string const& filename,
+                     std::vector<double> const& times,
+                     std::vector<vw::Quaternion<double>> const& vals) {
+  std::ofstream ofs(filename);
+  ofs << std::setprecision(17);
+  for (size_t i = 0; i < times.size(); i++)
+    ofs << times[i] << " "
+        << vals[i].w() << " " << vals[i].x() << " "
+        << vals[i].y() << " " << vals[i].z() << "\n";
+}
+
+// Resample non-uniform Vector3 data to a uniform grid with 5x the input count.
+// Uses Lagrange interpolation with the given radius.
+void resampleVec3ToUniform(std::vector<double> const& in_times,
+                           std::vector<Vector3> const& in_vals,
+                           int radius,
+                           std::vector<double>& out_times,
+                           std::vector<Vector3>& out_vals) {
+
+  // Use a sampling 5 times finer to ensure we capture properly the data.
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * 5 + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+
+  vw::camera::LagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = interp(out_times[i]);
+  }
+}
+
+// Resample non-uniform quaternion data to a uniform grid with 5x the input count.
+// Uses Lagrange interpolation with the given radius. The result is normalized.
+void resampleQuatToUniform(std::vector<double> const& in_times,
+                           std::vector<vw::Quaternion<double>> const& in_vals,
+                           int radius,
+                           std::vector<double>& out_times,
+                           std::vector<vw::Quaternion<double>>& out_vals) {
+
+  // Use a sampling 5 times finer to ensure we capture properly the data.
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * 5 + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+
+  vw::camera::QuatLagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = interp(out_times[i]);
+  }
+}
+
 DOMElement* PleiadesXML::open_xml_file(std::string const& xml_path) {
 
   // Check if the file actually exists and throw a user helpful file.
   if (!boost::filesystem::exists(xml_path))
     vw_throw(ArgumentErr() << "XML file: " << xml_path << " does not exist.");
 
-  std::string error_prefix = "XML file: " + xml_path + " is invalid.\nException message is: \n";
+  std::string error_prefix = "XML file: " + xml_path + " is invalid.\n"
+   "Exception message is: \n";
   std::string err_message  = ""; // Filled in later on error
 
-  try{
+  try {
     // Set up the XML parser if we have not already done so
     if (!m_parser.get()) {
       m_parser.reset(new XercesDOMParser());
@@ -173,15 +247,65 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
 
   PleiadesXML::parse_accuracy_stdv(root);
 
+  // SPOT 6/7 data can have non-uniform time spacing for positions,
+  // velocities, and quaternions. Resample to a uniform grid so the
+  // downstream code (which assumes uniform spacing) works correctly.
+  // After this, the data looks the same as Pleiades.
+  bool is_spot67 = (m_sensor_name == "S6_SENSOR" || m_sensor_name == "S7_SENSOR");
+  if (is_spot67) {
+    const int RADIUS = 4; // Lagrange interpolation order = 2 * RADIUS
+
+    // Resample positions
+    std::vector<double> pos_times, pos_out_times;
+    std::vector<Vector3> pos_vals, pos_out_vals;
+    for (auto it = m_positions.begin(); it != m_positions.end(); it++) {
+      pos_times.push_back(it->first);
+      pos_vals.push_back(it->second);
+    }
+    resampleVec3ToUniform(pos_times, pos_vals, RADIUS,
+                          pos_out_times, pos_out_vals);
+    m_positions.clear();
+    for (size_t i = 0; i < pos_out_times.size(); i++)
+      m_positions.push_back(std::make_pair(pos_out_times[i], pos_out_vals[i]));
+
+    // Resample velocities
+    std::vector<double> vel_times, vel_out_times;
+    std::vector<Vector3> vel_vals, vel_out_vals;
+    for (auto it = m_velocities.begin(); it != m_velocities.end(); it++) {
+      vel_times.push_back(it->first);
+      vel_vals.push_back(it->second);
+    }
+    resampleVec3ToUniform(vel_times, vel_vals, RADIUS,
+                          vel_out_times, vel_out_vals);
+    m_velocities.clear();
+    for (size_t i = 0; i < vel_out_times.size(); i++)
+      m_velocities.push_back(std::make_pair(vel_out_times[i], vel_out_vals[i]));
+
+    // Resample quaternions
+    std::vector<double> quat_times, quat_out_times;
+    std::vector<vw::Quaternion<double>> quat_vals, quat_out_vals;
+    for (auto it = m_poses.begin(); it != m_poses.end(); it++) {
+      quat_times.push_back(it->first);
+      quat_vals.push_back(it->second);
+    }
+    resampleQuatToUniform(quat_times, quat_vals, RADIUS,
+                          quat_out_times, quat_out_vals);
+    m_poses.clear();
+    for (size_t i = 0; i < quat_out_times.size(); i++)
+      m_poses.push_back(std::make_pair(quat_out_times[i], quat_out_vals[i]));
+  }
+
   return;
 }
 
 void PleiadesXML::read_image_size(xercesc::DOMElement* raster_data_node) {
-  xercesc::DOMElement* raster_dims_node = get_node<DOMElement>(raster_data_node,
-                                                                 "Raster_Dimensions");
+  xercesc::DOMElement* raster_dims_node 
+    = get_node<DOMElement>(raster_data_node, "Raster_Dimensions");
 
-  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), m_image_size[1]);
-  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), m_image_size[0]);
+  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NROWS")->getTextContent(), 
+             m_image_size[1]);
+  cast_xmlch(get_node<DOMElement>(raster_dims_node, "NCOLS")->getTextContent(), 
+             m_image_size[0]);
 }
 
 void PleiadesXML::read_times(xercesc::DOMElement* time) {
@@ -613,36 +737,10 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
   double position_start_time = m_positions.front().first;
   double position_stop_time  = m_positions.back().first;
 
-  bool is_spot67 = (m_sensor_name == "S6_SENSOR" || m_sensor_name == "S7_SENSOR");
-  double position_delta_t = 0.0;
-
-  if (is_spot67) {
-    // Compute delta_t from the first two points, not the overall range.
-    // SPOT 6/7 data can have a shorter last interval that would skew the average.
-    auto it_pos = m_positions.begin();
-    double t0_pos = it_pos->first;
-    it_pos++;
-    double t1_pos = it_pos->first;
-    position_delta_t = t1_pos - t0_pos;
-
-    // If the last point breaks uniform spacing, drop it. The extrapolation
-    // logic below will extend coverage if needed.
-    if (num_positions > 2) {
-      auto it_last = m_positions.end();
-      it_last--;
-      auto it_prev = it_last;
-      it_prev--;
-      double last_dt = it_last->first - it_prev->first;
-      double err = std::abs(last_dt - position_delta_t) / position_delta_t;
-      if (err > 1e-2) {
-        m_positions.pop_back();
-        num_positions       = m_positions.size();
-        position_stop_time  = m_positions.back().first;
-      }
-    }
-  } else {
-    position_delta_t = (position_stop_time - position_start_time) / (num_positions - 1.0);
-  }
+  // SPOT 6/7 data is resampled to uniform in parse_xml(), so by this
+  // point all sensors have uniformly spaced data.
+  double position_delta_t =
+    (position_stop_time - position_start_time) / (num_positions - 1.0);
 
   // This is a persistent problem with Pleiades NEO data. Try to fix it.
   for (int attempt = 0; attempt < 4; attempt++) {
@@ -717,35 +815,10 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
   double velocity_start_time = m_velocities.front().first;
   double velocity_stop_time  = m_velocities.back().first;
 
-  bool is_spot67 = (m_sensor_name == "S6_SENSOR" || m_sensor_name == "S7_SENSOR");
-  double velocity_delta_t = 0.0;
-
-  if (is_spot67) {
-    // Compute delta_t from the first two points, not the overall range.
-    // SPOT 6/7 data can have a shorter last interval that would skew the average.
-    auto it_vel = m_velocities.begin();
-    double t0_vel = it_vel->first;
-    it_vel++;
-    double t1_vel = it_vel->first;
-    velocity_delta_t = t1_vel - t0_vel;
-
-    // If the last point breaks uniform spacing, drop it.
-    if (num_velocities > 2) {
-      auto it_last = m_velocities.end();
-      it_last--;
-      auto it_prev = it_last;
-      it_prev--;
-      double last_dt = it_last->first - it_prev->first;
-      double err = std::abs(last_dt - velocity_delta_t) / velocity_delta_t;
-      if (err > 1e-2) {
-        m_velocities.pop_back();
-        num_velocities      = m_velocities.size();
-        velocity_stop_time  = m_velocities.back().first;
-      }
-    }
-  } else {
-    velocity_delta_t = (velocity_stop_time - velocity_start_time) / (num_velocities - 1.0);
-  }
+  // SPOT 6/7 data is resampled to uniform in parse_xml(), so by this
+  // point all sensors have uniformly spaced data.
+  double velocity_delta_t =
+    (velocity_stop_time - velocity_start_time) / (num_velocities - 1.0);
 
   // This is a persistent problem with Pleiades NEOdata. Try to fix it.
   for (int attempt = 0; attempt < 4; attempt++) {
@@ -820,35 +893,10 @@ void PleiadesXML::setup_pose_func
   double pose_start_time     = m_poses.front().first;
   double pose_stop_time      = m_poses.back().first;
 
-  bool is_spot67 = (m_sensor_name == "S6_SENSOR" || m_sensor_name == "S7_SENSOR");
-  double pose_delta_t = 0.0;
-
-  if (is_spot67) {
-    // Compute delta_t from the first two points, not the overall range.
-    // SPOT 6/7 data can have a shorter last interval that would skew the average.
-    auto it_pose = m_poses.begin();
-    double t0_pose = it_pose->first;
-    it_pose++;
-    double t1_pose = it_pose->first;
-    pose_delta_t = t1_pose - t0_pose;
-
-    // If the last point breaks uniform spacing, drop it.
-    if (num_poses > 2) {
-      auto it_last = m_poses.end();
-      it_last--;
-      auto it_prev = it_last;
-      it_prev--;
-      double last_dt = it_last->first - it_prev->first;
-      double err = std::abs(last_dt - pose_delta_t) / pose_delta_t;
-      if (err > 1e-2) {
-        m_poses.pop_back();
-        num_poses       = m_poses.size();
-        pose_stop_time  = m_poses.back().first;
-      }
-    }
-  } else {
-    pose_delta_t = (pose_stop_time - pose_start_time) / (num_poses - 1.0);
-  }
+  // SPOT 6/7 data is resampled to uniform in parse_xml(), so by this
+  // point all sensors have uniformly spaced data.
+  double pose_delta_t =
+    (pose_stop_time - pose_start_time) / (num_poses - 1.0);
 
   // This is a persistent problem with the Pleiades NEO data. Try to fix it.
   for (int attempt = 0; attempt < 4; attempt++) {

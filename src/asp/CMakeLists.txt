@@ -57,9 +57,10 @@ endif(Boost_FOUND)
 # Custom options
 option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 
-# Don't set CMAKE_INSTALL_RPATH_USE_LINK_PATH. On macOS the Apple linker
-# auto-adds rpaths for @rpath dylibs, causing duplicates with USE_LINK_PATH.
-# On Linux, $ORIGIN/../lib + explicit paths cover all needed paths.
+# Use install rpaths at build time. This prevents the Apple linker from
+# auto-adding duplicate rpaths on macOS. Requires 'make install' before
+# running binaries.
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 # Make sure installed files can find installed libraries
 if (APPLE)
