@@ -1022,16 +1022,15 @@ See :numref:`fig_dg_jitter_intersection_err_dem_diff` for results.
 Example 3: Airbus Pleiades
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In this section we will solve for jitter with Pleiades linescan
-cameras. The same approach applies to SPOT 6/7 (:numref:`spot67`),
-which uses the same camera model. We will investigate the effects of
-two kinds of ground constraints: ``--tri-weight`` and
-``--heights-from-dem``
-(:numref:`jitter_ground`). The first constraint tries to keep the
-triangulated points close to where they are, and the second tries to
-tie them to a reference DEM. Note that if these are used together, the
-first one will kick in only in regions where there is no coverage in
-the provided DEM.
+In this section we will solve for jitter with Pleiades linescan cameras. The
+same approach applies to SPOT 6/7 (:numref:`spot67`). 
+
+We will investigate the effects of two kinds of ground constraints:
+``--tri-weight`` and ``--heights-from-dem`` (:numref:`jitter_ground`). The first
+constraint tries to keep the triangulated points close to where they are, and
+the second tries to tie them to a reference DEM. Note that if these are used
+together, the first one will kick in only in regions where there is no coverage
+in the provided DEM.
 
 The conclusion is that if the two kinds of ground constraints are
 weak, and the reference DEM is decent, the results are rather similar.
