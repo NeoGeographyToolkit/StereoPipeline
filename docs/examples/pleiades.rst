@@ -50,7 +50,8 @@ Then, a DEM is created with ``point2dem`` (:numref:`point2dem`)::
 
     point2dem results/run-PC.tif
 
-For steep terrain, it is suggested to run stereo with mapprojected images (:numref:`pleiades_map`).
+For steep terrain, it is suggested to run stereo with mapprojected
+images (:numref:`pleiades_map`).
     
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices for stereo.
@@ -60,8 +61,8 @@ camera files should be passed in. If the ``-t`` option is not
 specified, it will be auto-guessed based on the content of the camera
 files provided as inputs.
 
-To make use of bundle-adjusted cameras, add the option ``--bundle-adjust-prefix
-ba/run`` to the ``parallel_stereo`` command above.
+The ``--bundle-adjust-prefix`` option above enables the use of
+bundle-adjusted cameras.
 
 For Pleiades exact linescan camera models the atmospheric correction
 and velocity aberration corrections (:cite:`nugent1966velocity`) are
@@ -115,7 +116,7 @@ Example::
       run_map/run                    \
       ref_dem.tif
       
-   point2dem run_map/run-PC.tif 
+    point2dem run_map/run-PC.tif
 
 The projection string above needs to be modified for your area of
 interest. It is strongly suggested to use an auto-determined UTM or polar

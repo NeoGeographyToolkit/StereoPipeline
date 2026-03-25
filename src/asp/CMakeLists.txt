@@ -494,11 +494,11 @@ if (APPLE)
       execute_process(
         COMMAND otool -l \${_f}
         OUTPUT_VARIABLE _otool_out ERROR_QUIET)
-      string(REGEX MATCHALL \"path [^\n]*anaconda3/envs/[^\n]*/lib \"
+      string(REGEX MATCHALL \"path [^\n]*[^ ]*conda[^ ]*/envs/[^\n]*/lib \"
              _matches \"\${_otool_out}\")
       list(LENGTH _matches _count)
       if (_count GREATER 1)
-        string(REGEX MATCH \"anaconda3/envs/[^/]*/lib\" _envlib \"\${_matches}\")
+        string(REGEX MATCH \"[^ ]*conda[^ ]*/envs/[^/]*/lib\" _envlib \"\${_matches}\")
         string(REGEX MATCH \"/[^ ]*\${_envlib}\" _rpath \"\${_matches}\")
         execute_process(
           COMMAND install_name_tool -delete_rpath \${_rpath} \${_f}
