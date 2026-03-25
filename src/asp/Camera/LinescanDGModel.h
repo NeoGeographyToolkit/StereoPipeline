@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -28,7 +28,9 @@
 #include <asp/Camera/TimeProcessing.h>
 #include <asp/Camera/CsmModel.h>
 
-#include <vw/Camera/Extrinsics.h>
+#include <vw/Math/PositionInterp.h>
+#include <vw/Math/QuatInterp.h>
+#include <vw/Camera/TimeInterp.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Math/EulerAngles.h>
 
@@ -41,7 +43,7 @@ namespace asp {
   // matrix and 4x4 satellite quaternion matrix.
   const int SAT_POS_COV_SIZE = 6, SAT_QUAT_COV_SIZE = 10;
   
-  // This is the standard DG implementation. In Extrinsics.cc there are other
+  // This is the standard DG implementation. In PositionInterp.cc and QuatInterp.cc there are other
   // ways of performing position and pose interpolation as well. TODO(oalexan1):
   // Eliminate all these VW functions use directly the inputs from the XML file.
   class DGCameraModel: public asp::CsmModel {
@@ -49,10 +51,10 @@ namespace asp {
   public:
     
     DGCameraModel
-      (vw::camera::PiecewiseAPositionInterpolation      const& position,
-       vw::camera::LinearPiecewisePositionInterpolation const& velocity,
-       vw::camera::SLERPPoseInterpolation               const& pose,
-       vw::camera::TLCTimeInterpolation                 const& time,
+      (vw::PiecewiseAPositionInterpolation      const& position,
+       vw::LinearPiecewisePositionInterpolation const& velocity,
+       vw::SLERPPoseInterpolation               const& pose,
+       vw::TLCTimeInterpolation                 const& time,
        vw::Vector2i                                     const& image_size, 
        vw::Vector2                                      const& detector_origin,
        double                                           const  focal_length,
@@ -86,10 +88,10 @@ namespace asp {
 
     // Extrinsics
     // TODO(oalexan1): Wipe all these. Use the data from the xml directly.
-    vw::camera::PiecewiseAPositionInterpolation m_position_func; // Position at given time
-    vw::camera::LinearPiecewisePositionInterpolation m_velocity_func; // Velocity at given time
-    vw::camera::SLERPPoseInterpolation m_pose_func; // Pose at given time
-    vw::camera::TLCTimeInterpolation m_time_func; // Time at a given line
+    vw::PiecewiseAPositionInterpolation m_position_func; // Position at given time
+    vw::LinearPiecewisePositionInterpolation m_velocity_func; // Velocity at given time
+    vw::SLERPPoseInterpolation m_pose_func; // Pose at given time
+    vw::TLCTimeInterpolation m_time_func; // Time at a given line
 
     // Intrinsics
     

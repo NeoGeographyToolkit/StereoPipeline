@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -29,7 +29,6 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Camera/Extrinsics.h> // for LinearTimeInterpolation
 
 #include <vector>
 #include <string>
@@ -74,15 +73,15 @@ namespace asp {
     /// Parse an XML tree to populate the data
     void parse_xml(xercesc::DOMElement* node);
 
-    // Functions to setup functors which manage the raw input data.
-    vw::camera::LinearTimeInterpolation setup_time_func() const;
-    void setup_position_func(vw::camera::LinearTimeInterpolation const& time_func,
+    // Functions to extract the raw input data from the XML fields.
+    void setup_time_func(double & time_t0, double & time_dt) const;
+    void setup_position_func(double time_t0, double time_dt,
                              std::vector<vw::Vector3> & positions,
                              double & pos_t0, double & pos_dt, double & pos_tend);
-    void setup_velocity_func(vw::camera::LinearTimeInterpolation const& time_func,
+    void setup_velocity_func(double time_t0, double time_dt,
                              std::vector<vw::Vector3> & velocities,
                              double & vel_t0, double & vel_dt, double & vel_tend);
-    void setup_pose_func(vw::camera::LinearTimeInterpolation const& time_func);
+    void setup_pose_func(double time_t0, double time_dt);
     
   private: // The various XML data reading sections
   

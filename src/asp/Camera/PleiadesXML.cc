@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -30,7 +30,8 @@
 #include <vw/Cartography/Datum.h>       // for Datum
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Core/StringUtils.h>
-#include <vw/Camera/Extrinsics.h>       // for LagrangianInterpolationVarTime, QuatLagrangianInterpolationVarTime
+#include <vw/Math/PositionInterp.h>
+#include <vw/Math/QuatInterp.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
@@ -67,7 +68,7 @@ void resampleVec3ToUniform(std::vector<double> const& in_times,
   double t_start = in_times.front();
   double t_end = in_times.back();
 
-  vw::camera::LagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+  vw::LagrangianInterpolationVarTime interp(in_vals, in_times, radius);
 
   out_times.resize(n_out);
   out_vals.resize(n_out);
@@ -91,7 +92,7 @@ void resampleQuatToUniform(std::vector<double> const& in_times,
   double t_start = in_times.front();
   double t_end = in_times.back();
 
-  vw::camera::QuatLagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+  vw::QuatLagrangianInterpolationVarTime interp(in_vals, in_times, radius);
 
   out_times.resize(n_out);
   out_vals.resize(n_out);
@@ -603,8 +604,9 @@ void PleiadesXML::parse_accuracy_stdv(xercesc::DOMElement* root) {
 // at line 0, so time at line 0 is 0. There can be negative times,
 // as the positions and velocities are tabulated at times both
 // before the first line and after the last time.
-vw::camera::LinearTimeInterpolation PleiadesXML::setup_time_func() const {
-  return vw::camera::LinearTimeInterpolation(m_start_time, m_line_period);
+void PleiadesXML::setup_time_func(double & time_t0, double & time_dt) const {
+  time_t0 = m_start_time;
+  time_dt = m_line_period;
 }
 
 // Insert one more value at the start of the list, based on extrapolated first two
@@ -701,14 +703,14 @@ void extrapolateAtEndTime(double delta_time,
 // The position is already in GCC, so just pack into a function.
 // Currently this is identical to the velocity function, but this may change later.
 void PleiadesXML::setup_position_func
-(vw::camera::LinearTimeInterpolation const& time_func,
+(double time_t0, double time_dt,
  std::vector<vw::Vector3> & positions,
  double & pos_t0, double & pos_dt, double & pos_tend) {
 
   // Sanity check, we should be able to find the position for each image line
   size_t num_lines           = m_image_size[1];
-  double first_line_time     = time_func(0);
-  double last_line_time      = time_func(num_lines - 1.0);
+  double first_line_time     = time_t0;
+  double last_line_time      = time_t0 + time_dt * (num_lines - 1.0);
   double num_positions       = m_positions.size();
   double position_start_time = m_positions.front().first;
   double position_stop_time  = m_positions.back().first;
@@ -777,14 +779,14 @@ void PleiadesXML::setup_position_func
 
 // The velocity is already in GCC, so just pack into a function.
 void PleiadesXML::setup_velocity_func
-(vw::camera::LinearTimeInterpolation const& time_func,
+(double time_t0, double time_dt,
  std::vector<vw::Vector3> & velocities,
  double & vel_t0, double & vel_dt, double & vel_tend) {
 
   // Sanity check, we should be able to find the velocity for each image line
   size_t num_lines           = m_image_size[1];
-  double first_line_time     = time_func(0);
-  double last_line_time      = time_func(num_lines - 1.0);
+  double first_line_time     = time_t0;
+  double last_line_time      = time_t0 + time_dt * (num_lines - 1.0);
   double num_velocities      = m_velocities.size();
   double velocity_start_time = m_velocities.front().first;
   double velocity_stop_time  = m_velocities.back().first;
@@ -850,12 +852,11 @@ void PleiadesXML::setup_velocity_func
   
 // Set up the quaternions for NEO. This will create m_t0Quat, 
 // m_dtQuat, m_quaternion_coeffs.
-void PleiadesXML::setup_pose_func
-  (vw::camera::LinearTimeInterpolation const& time_func) {
+void PleiadesXML::setup_pose_func(double time_t0, double time_dt) {
 
   size_t num_lines           = m_image_size[1];
-  double first_line_time     = time_func(0);
-  double last_line_time      = time_func(num_lines - 1.0);
+  double first_line_time     = time_t0;
+  double last_line_time      = time_t0 + time_dt * (num_lines - 1.0);
 
   double num_poses           = m_poses.size();
   double pose_start_time     = m_poses.front().first;

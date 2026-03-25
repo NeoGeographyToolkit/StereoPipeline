@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -27,7 +27,9 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/LinescanModel.h>
 #include <vw/Camera/PinholeModel.h>
-#include <vw/Camera/Extrinsics.h>
+#include <vw/Math/PositionInterp.h>
+#include <vw/Math/QuatInterp.h>
+#include <vw/Camera/TimeInterp.h>
 
 
 namespace asp {
@@ -98,10 +100,10 @@ namespace asp {
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    SPOTCameraModel(vw::camera::LagrangianInterpolation       const& position,
-                    vw::camera::LagrangianInterpolation       const& velocity,
-                    vw::camera::SLERPPoseInterpolation        const& pose,
-                    vw::camera::LinearTimeInterpolation       const& time,
+    SPOTCameraModel(vw::LagrangianInterpolation       const& position,
+                    vw::LagrangianInterpolation       const& velocity,
+                    vw::SLERPPoseInterpolation        const& pose,
+                    vw::LinearTimeInterpolation       const& time,
                     std::vector<std::pair<int, vw::Vector2> > const& look_angles,
                     vw::Vector2i  const& image_size,
                     double min_time, double max_time,
@@ -154,10 +156,10 @@ namespace asp {
   protected:
 
     // Extrinsics
-    vw::camera::LagrangianInterpolation m_position_func; ///< Yields position at time T
-    vw::camera::LagrangianInterpolation m_velocity_func; ///< Yields velocity at time T
-    vw::camera::SLERPPoseInterpolation  m_pose_func;     ///< Yields pose     at time T
-    vw::camera::LinearTimeInterpolation m_time_func;     ///< Yields time at a given line.
+    vw::LagrangianInterpolation m_position_func; ///< Yields position at time T
+    vw::LagrangianInterpolation m_velocity_func; ///< Yields velocity at time T
+    vw::SLERPPoseInterpolation  m_pose_func;     ///< Yields pose     at time T
+    vw::LinearTimeInterpolation m_time_func;     ///< Yields time at a given line.
     
     // Intrinsics
     

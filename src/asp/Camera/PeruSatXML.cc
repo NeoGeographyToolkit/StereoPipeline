@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -331,14 +331,14 @@ double PeruSatXML::convert_time(std::string const& s, bool is_start_time) {
 // and that corresponds to line (num_lines - 1)/2.0 as expected. Yet PeruSat
 // also provides there a center row, but that one is wrong and not equal
 // to (num_lines - 1)/2.0.
-vw::camera::LinearTimeInterpolation PeruSatXML::setup_time_func() const {
-  return vw::camera::LinearTimeInterpolation(m_start_time, m_line_period);
+vw::LinearTimeInterpolation PeruSatXML::setup_time_func() const {
+  return vw::LinearTimeInterpolation(m_start_time, m_line_period);
 }
 
 // The position is already in GCC, so just pack into a function.
 // - Currently this is identical to the velocity function, but this may change later.
-vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func
-(vw::camera::LinearTimeInterpolation const& time_func) const {
+vw::LagrangianInterpolation PeruSatXML::setup_position_func
+(vw::LinearTimeInterpolation const& time_func) const {
 
   // Sanity check, we should be able to find the position for each image line
   size_t num_lines           = m_image_size[1];
@@ -382,10 +382,10 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func
   }
   
   // More generic method for variable time intervals
-  // return vw::camera::LagrangianInterpolationVarTime(position_vec, time_vec, INTERP_RADII);
+  // return vw::LagrangianInterpolationVarTime(position_vec, time_vec, INTERP_RADII);
   
   // A faster method for when we know the time delta is constant
-  return vw::camera::LagrangianInterpolation(position_vec, position_start_time,
+  return vw::LagrangianInterpolation(position_vec, position_start_time,
                                              position_delta_t, position_stop_time, INTERP_RADII);
 }
   
@@ -393,8 +393,8 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_position_func
 //  Earth rotation.
 
 // The velocity is already in GCC, so just pack into a function.
-vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func
-(vw::camera::LinearTimeInterpolation const& time_func) const {
+vw::LagrangianInterpolation PeruSatXML::setup_velocity_func
+(vw::LinearTimeInterpolation const& time_func) const {
 
   // Sanity check, we should be able to find the velocity for each image line
   size_t num_lines           = m_image_size[1];
@@ -437,10 +437,10 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func
   }
 
   // More generic method for variable time intervals
-  //return vw::camera::LagrangianInterpolationVarTime(velocity_vec, time_vec, INTERP_RADII);
+  //return vw::LagrangianInterpolationVarTime(velocity_vec, time_vec, INTERP_RADII);
 
   // A faster method for when we know the time delta is constant
-  return vw::camera::LagrangianInterpolation(velocity_vec, velocity_start_time,
+  return vw::LagrangianInterpolation(velocity_vec, velocity_start_time,
                                              velocity_delta_t, velocity_stop_time, INTERP_RADII);
 }
 
@@ -450,8 +450,8 @@ vw::camera::LagrangianInterpolation PeruSatXML::setup_velocity_func
 // TODO(oalexan1): See if using bicubic pose interpolation (as the
 // SPOT-6 manual suggests) is better than the bilinear interpolation
 // used now.
-vw::camera::SLERPPoseInterpolation PeruSatXML::setup_pose_func
-  (vw::camera::LinearTimeInterpolation const& time_func) const {
+vw::SLERPPoseInterpolation PeruSatXML::setup_pose_func
+  (vw::LinearTimeInterpolation const& time_func) const {
 
   size_t num_lines           = m_image_size[1];
   double first_line_time     = time_func(0);
@@ -490,7 +490,7 @@ vw::camera::SLERPPoseInterpolation PeruSatXML::setup_pose_func
   // the order of 2 cm, so it appears not to make a difference.
   bool use_splines = false;
   double min_time = time_vec.front();
-  return vw::camera::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t, use_splines);
+  return vw::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t, use_splines);
 }
   
 } // end namespace asp

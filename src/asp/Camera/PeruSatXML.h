@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -28,7 +28,9 @@
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Camera/Extrinsics.h>
+#include <vw/Math/PositionInterp.h>
+#include <vw/Math/QuatInterp.h>
+#include <vw/Camera/TimeInterp.h>
 
 #include <vector>
 #include <string>
@@ -64,13 +66,13 @@ namespace asp {
     void parse_xml(xercesc::DOMElement* node);
 
     // Functions to setup functors which manage the raw input data.
-    vw::camera::LinearTimeInterpolation setup_time_func() const;
-    vw::camera::LagrangianInterpolation setup_position_func
-    (vw::camera::LinearTimeInterpolation const& time_func) const;
-    vw::camera::LagrangianInterpolation setup_velocity_func
-    (vw::camera::LinearTimeInterpolation const& time_func) const;
-    vw::camera::SLERPPoseInterpolation         setup_pose_func
-    (vw::camera::LinearTimeInterpolation const& time_func) const;
+    vw::LinearTimeInterpolation setup_time_func() const;
+    vw::LagrangianInterpolation setup_position_func
+    (vw::LinearTimeInterpolation const& time_func) const;
+    vw::LagrangianInterpolation setup_velocity_func
+    (vw::LinearTimeInterpolation const& time_func) const;
+    vw::SLERPPoseInterpolation         setup_pose_func
+    (vw::LinearTimeInterpolation const& time_func) const;
     
   private: // The various XML data reading sections
   

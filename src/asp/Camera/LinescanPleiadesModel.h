@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -27,7 +27,6 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/LinescanModel.h>
 #include <vw/Camera/PinholeModel.h>
-#include <vw/Camera/Extrinsics.h> // for LinearTimeInterpolation
 #include <asp/Camera/CsmModel.h>
 
 // Forward declaration
@@ -42,7 +41,7 @@ namespace asp {
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
+    PleiadesCameraModel(double time_t0, double time_dt,
                         std::vector<vw::Vector3> const& positions,
                         std::vector<vw::Vector3> const& velocities,
                         double pos_t0, double pos_dt,
@@ -87,7 +86,7 @@ namespace asp {
 
     void populateCsmModel();
     
-    vw::camera::LinearTimeInterpolation m_time_func; ///< Yields time at a given line.
+    double m_time_t0, m_time_dt; ///< Time at line = m_time_t0 + m_time_dt * line
     std::vector<vw::Vector3> m_positions; ///< Position samples
     std::vector<vw::Vector3> m_velocities; ///< Velocity samples
     double m_pos_t0, m_pos_dt; ///< Position/velocity time grid

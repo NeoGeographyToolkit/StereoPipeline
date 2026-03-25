@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -139,7 +139,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
   }
 
   // Build the TLCTimeInterpolation object and do a quick sanity check.
-  vw::camera::TLCTimeInterpolation
+  vw::TLCTimeInterpolation
     tlc_time_interpolation(img.tlc_vec, convert(parse_dg_time(img.tlc_start_time)));
   double first_line_time = convert(parse_dg_time(img.first_line_start_time));
   double tol = std::abs(1.0 / (10.0 * img.avg_line_rate));
@@ -204,11 +204,11 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
     }
 
     vw::CamPtr cam_ptr
-      (new DGCameraModel(vw::camera::PiecewiseAPositionInterpolation
+      (new DGCameraModel(vw::PiecewiseAPositionInterpolation
                            (camera_position_vec, eph.velocity_vec, et0, edt),
-                         vw::camera::LinearPiecewisePositionInterpolation
+                         vw::LinearPiecewisePositionInterpolation
                            (eph.velocity_vec, et0, edt),
-                         vw::camera::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
+                         vw::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
                          tlc_time_interpolation, img.image_size, final_detector_origin,
                          geo.principal_distance, mean_ground_elevation, local_earth_radius));
 
@@ -239,10 +239,10 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
 // Constructor
 DGCameraModel::DGCameraModel
-  (vw::camera::PiecewiseAPositionInterpolation      const& position,
-   vw::camera::LinearPiecewisePositionInterpolation const& velocity,
-   vw::camera::SLERPPoseInterpolation               const& pose,
-   vw::camera::TLCTimeInterpolation                 const& time,
+  (vw::PiecewiseAPositionInterpolation      const& position,
+   vw::LinearPiecewisePositionInterpolation const& velocity,
+   vw::SLERPPoseInterpolation               const& pose,
+   vw::TLCTimeInterpolation                 const& time,
    vw::Vector2i                                     const& image_size, 
    vw::Vector2                                      const& detector_origin,
    double                                           const  focal_length,

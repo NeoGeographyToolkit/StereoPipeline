@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -51,7 +51,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/PinholeModel.h>
-#include <vw/Camera/Extrinsics.h>
+#include <vw/Math/PositionInterp.h>
 
 #include <ctime>
 #include <stdlib.h>
@@ -296,8 +296,8 @@ public:
 
   // TODO: Is the rotation interpolation method ok?  It is the only
   //       method implemented in VW with sparse time values!
-  typedef vw::camera::LagrangianInterpolationVarTime PosInterpType;
-  typedef vw::camera::LagrangianInterpolationVarTime RotInterpType;
+  typedef vw::LagrangianInterpolationVarTime PosInterpType;
+  typedef vw::LagrangianInterpolationVarTime RotInterpType;
 
   // Open the file
   ScrollingNavInterpolator(std::string const& path, Datum const& datum_in)

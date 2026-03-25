@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -30,7 +30,6 @@
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/Transform.h>
-#include <vw/Camera/Extrinsics.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Cartography/Datum.h>
 

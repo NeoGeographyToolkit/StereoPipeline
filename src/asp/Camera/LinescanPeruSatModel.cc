@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -125,13 +125,13 @@ boost::shared_ptr<PeruSatCameraModel> load_perusat_camera_model_from_xml(std::st
   xml_reader.read_xml(path);
 
   // Get all the initial functors
-  vw::camera::LinearTimeInterpolation
+  vw::LinearTimeInterpolation
     time_func      = xml_reader.setup_time_func();
-  vw::camera::LagrangianInterpolation
+  vw::LagrangianInterpolation
     position_func  = xml_reader.setup_position_func(time_func);
-  vw::camera::LagrangianInterpolation
+  vw::LagrangianInterpolation
     velocity_func  = xml_reader.setup_velocity_func(time_func);
-  vw::camera::SLERPPoseInterpolation
+  vw::SLERPPoseInterpolation
     pose_func      = xml_reader.setup_pose_func(time_func);
 
   // Find the range of times for which we can solve for position and pose

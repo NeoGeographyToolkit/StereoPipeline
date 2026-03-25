@@ -29,7 +29,8 @@
 #include <vw/Math/BBox.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Camera/Extrinsics.h>
+#include <vw/Math/PositionInterp.h>
+#include <vw/Camera/TimeInterp.h>
 #include <asp/Camera/TimeProcessing.h>
 
 #include <vector>
@@ -80,11 +81,11 @@ namespace asp {
     static std::vector<vw::Vector2> get_lonlat_corners(std::string const& xml_path);
 
     // Functions to setup functors which manage the raw input data.
-    vw::camera::LagrangianInterpolation setup_position_func() const;
-    vw::camera::LagrangianInterpolation setup_velocity_func() const;
-    vw::camera::LinearTimeInterpolation setup_time_func    () const;
-    vw::camera::LinearPiecewisePositionInterpolation setup_pose_func(
-        vw::camera::LinearTimeInterpolation const& time_func) const; // (yaw/pitch/roll)        
+    vw::LagrangianInterpolation setup_position_func() const;
+    vw::LagrangianInterpolation setup_velocity_func() const;
+    vw::LinearTimeInterpolation setup_time_func    () const;
+    vw::LinearPiecewisePositionInterpolation setup_pose_func(
+        vw::LinearTimeInterpolation const& time_func) const; // (yaw/pitch/roll)        
 
   private: // The various XML data reading sections
 

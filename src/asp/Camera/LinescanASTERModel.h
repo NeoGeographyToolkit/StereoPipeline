@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -30,7 +30,8 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/LinescanModel.h>
 #include <vw/Camera/PinholeModel.h>
-#include <vw/Camera/Extrinsics.h>
+#include <vw/Math/PositionInterp.h>
+#include <vw/Math/QuatInterp.h>
 
 namespace asp {
   
@@ -92,8 +93,8 @@ namespace asp {
     std::vector<std::vector<vw::Vector3>> m_world_sight_mat;
     std::vector<vw::Vector3>              m_sat_pos;
     vw::Vector2i                          m_image_size;
-    vw::camera::LinearPiecewisePositionInterpolation m_interp_sat_pos;
-    vw::camera::SlerpGridPointingInterpolation m_interp_sight_mat;
+    vw::LinearPiecewisePositionInterpolation m_interp_sat_pos;
+    vw::SlerpGridPointingInterpolation m_interp_sight_mat;
     boost::shared_ptr<vw::camera::CameraModel> m_rpc_model; // rpc approx, for initial guess
     
   }; // End class ASTERCameraModel

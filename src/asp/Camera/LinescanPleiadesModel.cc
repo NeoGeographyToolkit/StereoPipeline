@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -32,7 +32,7 @@
 namespace asp {
 // Constructor
 PleiadesCameraModel::
-PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
+PleiadesCameraModel(double time_t0, double time_dt,
                     std::vector<vw::Vector3> const& positions,
                     std::vector<vw::Vector3> const& velocities,
                     double pos_t0, double pos_dt,
@@ -49,7 +49,8 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
   m_isNeoOrSpot67(isNeoOrSpot67), m_t0Quat(t0Quat), m_dtQuat(dtQuat),
   m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
   m_quaternion_coeffs(quaternion_coeffs),
-  m_time_func(time), m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
+  m_time_t0(time_t0), m_time_dt(time_dt),
+  m_coeff_psi_x(coeff_psi_x), m_coeff_psi_y(coeff_psi_y),
   m_min_time(min_time), m_max_time(max_time), m_ref_col(ref_col), m_ref_row(ref_row),
   m_image_size(image_size), m_accuracy_stdv(accuracy_stdv) {
 
@@ -120,8 +121,8 @@ void PleiadesCameraModel::populateCsmModel() {
 
   // Time
   m_ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions
-  m_ls_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
-  m_ls_model->m_intTimes.push_back(m_time_func.m_dt);
+  m_ls_model->m_intTimeStartTimes.push_back(m_time_t0);
+  m_ls_model->m_intTimes.push_back(m_time_dt);
   int num_pos = m_positions.size();
   if ((size_t)num_pos != m_velocities.size())
     vw::vw_throw(vw::ArgumentErr() << "Expecting as many positions as velocities.\n");
@@ -336,21 +337,21 @@ vw::Vector3 PleiadesCameraModel::get_local_pixel_vector(vw::Vector2 const& pix) 
 boost::shared_ptr<PleiadesCameraModel>
 load_pleiades_family_camera_model(PleiadesXML & xml_reader) {
 
-  // Get all the initial functors
-  vw::camera::LinearTimeInterpolation
-    time_func = xml_reader.setup_time_func();
+  // Time at line = time_t0 + time_dt * line
+  double time_t0 = 0, time_dt = 0;
+  xml_reader.setup_time_func(time_t0, time_dt);
 
   // Position and velocity samples with uniform time grid
   std::vector<vw::Vector3> positions, velocities;
   double pos_t0 = 0, pos_dt = 0, pos_tend = 0;
   double vel_t0 = 0, vel_dt = 0, vel_tend = 0;
-  xml_reader.setup_position_func(time_func, positions, pos_t0, pos_dt, pos_tend);
-  xml_reader.setup_velocity_func(time_func, velocities, vel_t0, vel_dt, vel_tend);
+  xml_reader.setup_position_func(time_t0, time_dt, positions, pos_t0, pos_dt, pos_tend);
+  xml_reader.setup_velocity_func(time_t0, time_dt, velocities, vel_t0, vel_dt, vel_tend);
 
   // Set up the quaternions for NEO. This will create xml_reader m_t0Quat,
   // m_dtQuat, m_quaternion_coeffs.
   if (xml_reader.m_isNeoOrSpot67)
-    xml_reader.setup_pose_func(time_func);
+    xml_reader.setup_pose_func(time_t0, time_dt);
 
   // Find the range of times for which we can solve for position and pose
   double min_time = std::max(pos_t0, vel_t0);
@@ -358,7 +359,7 @@ load_pleiades_family_camera_model(PleiadesXML & xml_reader) {
 
   // Create the model. This can throw an exception.
   boost::shared_ptr<PleiadesCameraModel> cam
-    (new PleiadesCameraModel(time_func, positions, velocities,
+    (new PleiadesCameraModel(time_t0, time_dt, positions, velocities,
                              pos_t0, pos_dt,
                              xml_reader.m_isNeoOrSpot67,
                              xml_reader.m_t0Quat,

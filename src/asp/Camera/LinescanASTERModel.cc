@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -78,10 +78,10 @@ ASTERCameraModel::ASTERCameraModel(
                    << "agree with the number of sight vectors.\n" );  
 
   m_interp_sat_pos
-    = vw::camera::LinearPiecewisePositionInterpolation(m_sat_pos, min_row, d_row);
+    = vw::LinearPiecewisePositionInterpolation(m_sat_pos, min_row, d_row);
 
   m_interp_sight_mat
-    = vw::camera::SlerpGridPointingInterpolation(m_world_sight_mat, min_row, d_row,
+    = vw::SlerpGridPointingInterpolation(m_world_sight_mat, min_row, d_row,
                                                  min_col, d_col);
 
   // Do not create the CSM model unless the user asked for it, as that can be slow.

@@ -194,10 +194,10 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
   xml_reader.read_xml(path);
 
   // Get all the initial functors
-  vw::camera::LagrangianInterpolation position_func  = xml_reader.setup_position_func();
-  vw::camera::LagrangianInterpolation velocity_func  = xml_reader.setup_velocity_func();
-  vw::camera::LinearTimeInterpolation time_func      = xml_reader.setup_time_func();
-  vw::camera::LinearPiecewisePositionInterpolation spot_pose_func = xml_reader.setup_pose_func(time_func);
+  vw::LagrangianInterpolation position_func  = xml_reader.setup_position_func();
+  vw::LagrangianInterpolation velocity_func  = xml_reader.setup_velocity_func();
+  vw::LinearTimeInterpolation time_func      = xml_reader.setup_time_func();
+  vw::LinearPiecewisePositionInterpolation spot_pose_func = xml_reader.setup_pose_func(time_func);
 
   // The SPOT5 camera uses a different pose convention than we do, so we create
   //  a new pose interpolation functor that will return the pose in an easy to use format.
@@ -241,7 +241,7 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
     gcc_pose[i] = vw::Quat(combined_rotation);
   }
 
-  vw::camera::SLERPPoseInterpolation pose_func(gcc_pose, min_time, time_delta);
+  vw::SLERPPoseInterpolation pose_func(gcc_pose, min_time, time_delta);
 
   // This is where we could set the Earth radius and mean surface elevation if we have that info.
 

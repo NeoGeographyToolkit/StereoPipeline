@@ -323,7 +323,7 @@ double SpotXML::convert_time(std::string const& s) const {
 }
 
 // This is pretty simple, SPOT5 has a constant time for each line.
-vw::camera::LinearTimeInterpolation SpotXML::setup_time_func() const {
+vw::LinearTimeInterpolation SpotXML::setup_time_func() const {
 
   // The metadata tells us the time of the middle line, so find the time for the first line.
   double center_time_d = convert_time(this->center_time);
@@ -331,14 +331,14 @@ vw::camera::LinearTimeInterpolation SpotXML::setup_time_func() const {
   double min_line_time = center_time_d + this->line_period*min_line_diff;
   //std::cout << "Setup time functor: " << std::setprecision(12)  << min_line_time << ", " << this->line_period << std::endl;
   //std::cout << std::setprecision(12)  << "Center time: " << center_time_d << std::endl;
-  return vw::camera::LinearTimeInterpolation(min_line_time, this->line_period);
+  return vw::LinearTimeInterpolation(min_line_time, this->line_period);
 }
 
 // Velocities are the sum of inertial velocities and the instantaneous
 //  Earth rotation.
 
 // The velocity is already in GCC, so just pack into a function.
-vw::camera::LagrangianInterpolation SpotXML::setup_velocity_func() const {
+vw::LagrangianInterpolation SpotXML::setup_velocity_func() const {
 
   const int INTERP_RADII = 4; // Reccomended in the docs
   std::vector<double>  time;
@@ -354,18 +354,18 @@ vw::camera::LagrangianInterpolation SpotXML::setup_velocity_func() const {
   }
 
   // More generic method for variable time intervals
-  //return vw::camera::LagrangianInterpolationVarTime(velocity, time, INTERP_RADII);
+  //return vw::LagrangianInterpolationVarTime(velocity, time, INTERP_RADII);
 
   // A faster method for when we know the time delta is constant
   double min_time   = time[0];
   double max_time   = time[time.size()-1];
   double time_delta = (max_time - min_time) / (time.size()-1);
-  return vw::camera::LagrangianInterpolation(velocity, min_time, time_delta, max_time, INTERP_RADII);
+  return vw::LagrangianInterpolation(velocity, min_time, time_delta, max_time, INTERP_RADII);
 }
 
 // The position is already in GCC, so just pack into a function.
 // - Currently this is identical to the velocity function, but this may change later.
-vw::camera::LagrangianInterpolation SpotXML::setup_position_func() const {
+vw::LagrangianInterpolation SpotXML::setup_position_func() const {
 
  const int INTERP_RADII = 4; // Reccomended in the docs
   std::vector<double>  time;
@@ -381,17 +381,17 @@ vw::camera::LagrangianInterpolation SpotXML::setup_position_func() const {
   }
 
   // More generic method for variable time intervals
-  //return vw::camera::LagrangianInterpolationVarTime(position, time, INTERP_RADII);
+  //return vw::LagrangianInterpolationVarTime(position, time, INTERP_RADII);
 
   // A faster method for when we know the time delta is constant
   double min_time   = time[0];
   double max_time   = time[time.size()-1];
   double time_delta = (max_time - min_time) / (time.size()-1);
-  return vw::camera::LagrangianInterpolation(position, min_time, time_delta, max_time, INTERP_RADII);
+  return vw::LagrangianInterpolation(position, min_time, time_delta, max_time, INTERP_RADII);
 }
 
-vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
-        vw::camera::LinearTimeInterpolation const& time_func) const {
+vw::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
+        vw::LinearTimeInterpolation const& time_func) const {
 
   // This function returns a functor that returns just the yaw/pitch/roll angles.
   // - The time interval between lines is not constant but it is extremely close.
@@ -418,7 +418,7 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
   //std::cout << "Pose start: " << pose_start_time << std::endl;
   //std::cout << "Pose stop:  " << pose_stop_time  << std::endl;
   num_postfill_poses += 1; // Stick another bit of padding on the back.
-                           // This is so our Extrinsics algorithms have enough room to interpolate.
+                           // This is so our interpolation algorithms have enough room to interpolate.
   if (num_prefill_poses < 1)
     num_prefill_poses = 0;
   if (num_postfill_poses < 1)
@@ -463,7 +463,7 @@ vw::camera::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
   //std::cout << std::setprecision(12) << "Adding pose info: " << min_time << ", " 
   //          << max_time << " -> " << pose_delta_t << std::endl;
 
-  return vw::camera::LinearPiecewisePositionInterpolation(pose, min_time, pose_delta_t);
+  return vw::LinearPiecewisePositionInterpolation(pose, min_time, pose_delta_t);
 
 }
 
