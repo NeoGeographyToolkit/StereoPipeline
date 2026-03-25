@@ -30,7 +30,7 @@
 #include <vw/Cartography/Datum.h>       // for Datum
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Core/StringUtils.h>
-#include <vw/Camera/Extrinsics.h>       // for LagrangianInterpolationVarTime, etc
+#include <vw/Camera/Extrinsics.h>       // for LagrangianInterpolationVarTime, QuatLagrangianInterpolationVarTime
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
@@ -700,8 +700,10 @@ void extrapolateAtEndTime(double delta_time,
 
 // The position is already in GCC, so just pack into a function.
 // Currently this is identical to the velocity function, but this may change later.
-vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
-(vw::camera::LinearTimeInterpolation const& time_func) {
+void PleiadesXML::setup_position_func
+(vw::camera::LinearTimeInterpolation const& time_func,
+ std::vector<vw::Vector3> & positions,
+ double & pos_t0, double & pos_dt, double & pos_tend) {
 
   // Sanity check, we should be able to find the position for each image line
   size_t num_lines           = m_image_size[1];
@@ -742,9 +744,6 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
     vw::vw_throw(ArgumentErr() << "Extrapolation was not enough. The position "
       << "timestamps do not fully span the range of times for the image lines.");
 
-  // Use Lagrange interpolation with degree 7 polynomials with 8
-  // samples, per the doc (1A/1B doc, page 77).
-  const int INTERP_RADIUS = 4;  // interpolation order = 2 * INTERP_RADIUS
   std::vector<double>  time_vec;
   std::vector<Vector3> position_vec;
 
@@ -759,24 +758,28 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_position_func
     if (index > 0) {
       double err = std::abs(time_vec[index] - time_vec[index - 1] - position_delta_t)
         / position_delta_t;
-      if (err > 1e-2) 
+      if (err > 1e-2)
         vw_throw(ArgumentErr() << "The position timestamps are not uniformly distributed.");
     }
-    
+
     index++;
   }
 
-  // We know the time delta is constant, so the data is uniformly distributed.
-  return vw::camera::LagrangianInterpolation(position_vec, position_start_time,
-                                             position_delta_t, position_stop_time, INTERP_RADIUS);
+  // Return the uniformly-sampled data
+  positions = position_vec;
+  pos_t0    = position_start_time;
+  pos_dt    = position_delta_t;
+  pos_tend  = position_stop_time;
 }
 
 // Velocities are the sum of inertial velocities and the instantaneous
 //  Earth rotation.
 
 // The velocity is already in GCC, so just pack into a function.
-vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
-(vw::camera::LinearTimeInterpolation const& time_func) {
+void PleiadesXML::setup_velocity_func
+(vw::camera::LinearTimeInterpolation const& time_func,
+ std::vector<vw::Vector3> & velocities,
+ double & vel_t0, double & vel_dt, double & vel_tend) {
 
   // Sanity check, we should be able to find the velocity for each image line
   size_t num_lines           = m_image_size[1];
@@ -817,8 +820,6 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
     vw::vw_throw(ArgumentErr() << "Extrapolation was not enough. The velocity "
       << "timestamps do not fully span the range of times for the image lines.");
 
-  // See note when the position function was set up earlier.
-  const int INTERP_RADIUS = 4; // Interpolation order = 2 * INTERP_RADIUS
   std::vector<double>  time_vec;
   std::vector<Vector3> velocity_vec;
 
@@ -840,12 +841,11 @@ vw::camera::LagrangianInterpolation PleiadesXML::setup_velocity_func
     index++;
   }
 
-  // More generic method for variable time intervals
-  //return vw::camera::LagrangianInterpolationVarTime(velocity_vec, time_vec, INTERP_RADIUS);
-
-  // A faster method for when we know the time delta is constant
-  return vw::camera::LagrangianInterpolation(velocity_vec, velocity_start_time,
-                                             velocity_delta_t, velocity_stop_time, INTERP_RADIUS);
+  // Return the uniformly-sampled data
+  velocities = velocity_vec;
+  vel_t0     = velocity_start_time;
+  vel_dt     = velocity_delta_t;
+  vel_tend   = velocity_stop_time;
 }
   
 // Set up the quaternions for NEO. This will create m_t0Quat, 

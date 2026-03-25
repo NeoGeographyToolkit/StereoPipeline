@@ -29,7 +29,7 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 #include <vw/Camera/CameraModel.h>
-#include <vw/Camera/Extrinsics.h>
+#include <vw/Camera/Extrinsics.h> // for LinearTimeInterpolation
 
 #include <vector>
 #include <string>
@@ -76,10 +76,12 @@ namespace asp {
 
     // Functions to setup functors which manage the raw input data.
     vw::camera::LinearTimeInterpolation setup_time_func() const;
-    vw::camera::LagrangianInterpolation setup_position_func
-    (vw::camera::LinearTimeInterpolation const& time_func);
-    vw::camera::LagrangianInterpolation setup_velocity_func
-    (vw::camera::LinearTimeInterpolation const& time_func);
+    void setup_position_func(vw::camera::LinearTimeInterpolation const& time_func,
+                             std::vector<vw::Vector3> & positions,
+                             double & pos_t0, double & pos_dt, double & pos_tend);
+    void setup_velocity_func(vw::camera::LinearTimeInterpolation const& time_func,
+                             std::vector<vw::Vector3> & velocities,
+                             double & vel_t0, double & vel_dt, double & vel_tend);
     void setup_pose_func(vw::camera::LinearTimeInterpolation const& time_func);
     
   private: // The various XML data reading sections

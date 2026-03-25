@@ -33,8 +33,9 @@ namespace asp {
 // Constructor
 PleiadesCameraModel::
 PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
-                    vw::camera::LagrangianInterpolation const& position,
-                    vw::camera::LagrangianInterpolation const& velocity,
+                    std::vector<vw::Vector3> const& positions,
+                    std::vector<vw::Vector3> const& velocities,
+                    double pos_t0, double pos_dt,
                     bool isNeoOrSpot67, double t0Quat, double dtQuat,
                     double quat_offset_time, double quat_scale,
                     std::vector<vw::Vector<double, 4>>  const& quaternion_coeffs,
@@ -43,7 +44,8 @@ PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
                     vw::Vector2i                        const& image_size,
                     double min_time, double max_time,
                     int ref_col, int ref_row, double accuracy_stdv):
-  m_position_func(position), m_velocity_func(velocity),
+  m_positions(positions), m_velocities(velocities),
+  m_pos_t0(pos_t0), m_pos_dt(pos_dt),
   m_isNeoOrSpot67(isNeoOrSpot67), m_t0Quat(t0Quat), m_dtQuat(dtQuat),
   m_quat_offset_time(quat_offset_time), m_quat_scale(quat_scale),
   m_quaternion_coeffs(quaternion_coeffs),
@@ -120,21 +122,20 @@ void PleiadesCameraModel::populateCsmModel() {
   m_ls_model->m_intTimeLines.push_back(1.0); // to offset CSM's quirky 0.5 additions
   m_ls_model->m_intTimeStartTimes.push_back(m_time_func.m_t0);
   m_ls_model->m_intTimes.push_back(m_time_func.m_dt);
-  int num_pos = m_position_func.m_samples.size();
-  if ((size_t)num_pos != m_velocity_func.m_samples.size())
+  int num_pos = m_positions.size();
+  if ((size_t)num_pos != m_velocities.size())
     vw::vw_throw(vw::ArgumentErr() << "Expecting as many positions as velocities.\n");
 
   // Positions and velocities
   m_ls_model->m_numPositions = 3 * num_pos; // concatenate all coordinates
-  m_ls_model->m_t0Ephem = m_position_func.get_t0();
-  
-  m_ls_model->m_dtEphem = m_position_func.get_dt();
+  m_ls_model->m_t0Ephem = m_pos_t0;
+  m_ls_model->m_dtEphem = m_pos_dt;
   m_ls_model->m_positions.resize(m_ls_model->m_numPositions);
   m_ls_model->m_velocities.resize(m_ls_model->m_numPositions);
   for (int pos_it = 0; pos_it < num_pos; pos_it++) {
     for (int coord = 0; coord < 3; coord++) {
-      m_ls_model->m_positions [3*pos_it + coord] = m_position_func.m_samples[pos_it][coord];
-      m_ls_model->m_velocities[3*pos_it + coord] = m_velocity_func.m_samples[pos_it][coord];
+      m_ls_model->m_positions [3*pos_it + coord] = m_positions[pos_it][coord];
+      m_ls_model->m_velocities[3*pos_it + coord] = m_velocities[pos_it][coord];
     }
   }
 
@@ -338,28 +339,27 @@ load_pleiades_family_camera_model(PleiadesXML & xml_reader) {
   // Get all the initial functors
   vw::camera::LinearTimeInterpolation
     time_func = xml_reader.setup_time_func();
-  vw::camera::LagrangianInterpolation
-    position_func = xml_reader.setup_position_func(time_func);
-  vw::camera::LagrangianInterpolation
-    velocity_func = xml_reader.setup_velocity_func(time_func);
-  
-  // Set up the quaternions for NEO. This will create xml_reader m_t0Quat, 
+
+  // Position and velocity samples with uniform time grid
+  std::vector<vw::Vector3> positions, velocities;
+  double pos_t0 = 0, pos_dt = 0, pos_tend = 0;
+  double vel_t0 = 0, vel_dt = 0, vel_tend = 0;
+  xml_reader.setup_position_func(time_func, positions, pos_t0, pos_dt, pos_tend);
+  xml_reader.setup_velocity_func(time_func, velocities, vel_t0, vel_dt, vel_tend);
+
+  // Set up the quaternions for NEO. This will create xml_reader m_t0Quat,
   // m_dtQuat, m_quaternion_coeffs.
   if (xml_reader.m_isNeoOrSpot67)
     xml_reader.setup_pose_func(time_func);
 
   // Find the range of times for which we can solve for position and pose
-  double min_position_time = position_func.get_t0();
-  double max_position_time = position_func.get_tend();
-  double min_velocity_time = velocity_func.get_t0();
-  double max_velocity_time = velocity_func.get_tend();
-
-  double min_time = std::max(min_position_time, min_velocity_time);
-  double max_time = std::min(max_position_time, max_velocity_time);
+  double min_time = std::max(pos_t0, vel_t0);
+  double max_time = std::min(pos_tend, vel_tend);
 
   // Create the model. This can throw an exception.
   boost::shared_ptr<PleiadesCameraModel> cam
-    (new PleiadesCameraModel(time_func, position_func, velocity_func,
+    (new PleiadesCameraModel(time_func, positions, velocities,
+                             pos_t0, pos_dt,
                              xml_reader.m_isNeoOrSpot67,
                              xml_reader.m_t0Quat,
                              xml_reader.m_dtQuat,

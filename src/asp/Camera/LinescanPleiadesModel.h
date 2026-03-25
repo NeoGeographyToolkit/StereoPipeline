@@ -27,7 +27,7 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/LinescanModel.h>
 #include <vw/Camera/PinholeModel.h>
-#include <vw/Camera/Extrinsics.h>
+#include <vw/Camera/Extrinsics.h> // for LinearTimeInterpolation
 #include <asp/Camera/CsmModel.h>
 
 // Forward declaration
@@ -43,8 +43,9 @@ namespace asp {
     // Constructors / Destructors
     //------------------------------------------------------------------
     PleiadesCameraModel(vw::camera::LinearTimeInterpolation const& time,
-                        vw::camera::LagrangianInterpolation const& position,
-                        vw::camera::LagrangianInterpolation const& velocity,
+                        std::vector<vw::Vector3> const& positions,
+                        std::vector<vw::Vector3> const& velocities,
+                        double pos_t0, double pos_dt,
                         bool isNeoOrSpot67, double m_t0Quat, double m_dtQuat,
                         double quat_offset_time, double quat_scale,
                         std::vector<vw::Vector<double, 4>>  const& quaternion_coeffs,
@@ -86,9 +87,10 @@ namespace asp {
 
     void populateCsmModel();
     
-    vw::camera::LinearTimeInterpolation m_time_func;     ///< Yields time at a given line.
-    vw::camera::LagrangianInterpolation m_position_func; ///< Yields position at time T
-    vw::camera::LagrangianInterpolation m_velocity_func; ///< Yields velocity at time T
+    vw::camera::LinearTimeInterpolation m_time_func; ///< Yields time at a given line.
+    std::vector<vw::Vector3> m_positions; ///< Position samples
+    std::vector<vw::Vector3> m_velocities; ///< Velocity samples
+    double m_pos_t0, m_pos_dt; ///< Position/velocity time grid
 
     // These are used to find the look direction in camera coordinates at a given line
     vw::Vector2 m_coeff_psi_x, m_coeff_psi_y;
