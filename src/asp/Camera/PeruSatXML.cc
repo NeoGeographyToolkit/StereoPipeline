@@ -486,11 +486,8 @@ vw::SLERPPoseInterpolation PeruSatXML::setup_pose_func
     index++;
   }
 
-  // Using splines for pose interpolation changed the DEM heights on
-  // the order of 2 cm, so it appears not to make a difference.
-  bool use_splines = false;
   double min_time = time_vec.front();
-  return vw::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t, use_splines);
+  return vw::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t);
 }
   
 } // end namespace asp
