@@ -138,12 +138,12 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
                                          img.avg_line_rate, direction));
   }
 
-  // Build the TLCTimeInterpolation object and do a quick sanity check.
-  vw::TLCTimeInterpolation
-    tlc_time_interpolation(img.tlc_vec, convert(parse_dg_time(img.tlc_start_time)));
+  // Sanity check: first line time should agree with TLC time at line 0.
+  double tlc_start_time = convert(parse_dg_time(img.tlc_start_time));
+  double tlc_time_at_0 = img.tlc_vec[0].second + tlc_start_time;
   double first_line_time = convert(parse_dg_time(img.first_line_start_time));
   double tol = std::abs(1.0 / (10.0 * img.avg_line_rate));
-  VW_ASSERT(std::abs(first_line_time - tlc_time_interpolation(0)) < tol,
+  VW_ASSERT(std::abs(first_line_time - tlc_time_at_0) < tol,
 	     vw::ArgumentErr()
         << "First line time does not agree with TLC time for file: " << path << ".\n"
         << "This suggests that your camera file is incorrect. To make this error go away, "
@@ -151,7 +151,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
         << "<FIRSTLINETIME>. Use the produced cameras with caution.\n"
         << "Or consider using the RPC camera model (option -t rpc).\n"
         << "First line time is: " << first_line_time << ".\n"
-        << "TLC time is: " << tlc_time_interpolation(0) << ".\n");
+        << "TLC time is: " << tlc_time_at_0 << ".\n");
 
   double et0 = convert(parse_dg_time(eph.start_time));
   double at0 = convert(parse_dg_time(att.start_time));
@@ -204,13 +204,13 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
     }
 
     vw::CamPtr cam_ptr
-      (new DGCameraModel(vw::PiecewiseAPositionInterpolation
-                           (camera_position_vec, eph.velocity_vec, et0, edt),
-                         vw::LinearPiecewisePositionInterpolation
-                           (eph.velocity_vec, et0, edt),
-                         vw::SLERPPoseInterpolation(camera_quat_vec, at0, adt),
-                         tlc_time_interpolation, img.image_size, final_detector_origin,
-                         geo.principal_distance, mean_ground_elevation, local_earth_radius));
+      (new DGCameraModel(camera_position_vec, eph.velocity_vec, et0, edt,
+                         camera_quat_vec, at0, adt,
+                         img.tlc_vec,
+                         convert(parse_dg_time(img.tlc_start_time)),
+                         img.image_size, final_detector_origin,
+                         geo.principal_distance, mean_ground_elevation,
+                         local_earth_radius));
 
     if (cam_it == 0) 
       nominal_cam = cam_ptr;
@@ -239,18 +239,23 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
 
 // Constructor
 DGCameraModel::DGCameraModel
-  (vw::PiecewiseAPositionInterpolation      const& position,
-   vw::LinearPiecewisePositionInterpolation const& velocity,
-   vw::SLERPPoseInterpolation               const& pose,
-   vw::TLCTimeInterpolation                 const& time,
-   vw::Vector2i                                     const& image_size, 
-   vw::Vector2                                      const& detector_origin,
-   double                                           const  focal_length,
-   double                                           const  mean_ground_elevation,
-   double                                           const  local_earth_radius):
- m_position_func(position), m_velocity_func(velocity),
- m_pose_func(pose), m_time_func(time), m_image_size(image_size),
- m_detector_origin(detector_origin),
+  (std::vector<vw::Vector3>             const& positions,
+   std::vector<vw::Vector3>             const& velocities,
+   double pos_t0, double pos_dt,
+   std::vector<vw::Quat>               const& quaternions,
+   double quat_t0, double quat_dt,
+   std::vector<std::pair<double,double>> const& tlc,
+   double time_offset,
+   vw::Vector2i                         const& image_size,
+   vw::Vector2                          const& detector_origin,
+   double focal_length,
+   double mean_ground_elevation,
+   double local_earth_radius):
+ m_positions(positions), m_velocities(velocities),
+ m_pos_t0(pos_t0), m_pos_dt(pos_dt),
+ m_quaternions(quaternions), m_quat_t0(quat_t0), m_quat_dt(quat_dt),
+ m_tlc(tlc), m_time_offset(time_offset),
+ m_image_size(image_size), m_detector_origin(detector_origin),
  m_focal_length(focal_length), m_mean_ground_elevation(mean_ground_elevation),
  m_local_earth_radius(local_earth_radius) {
    // Populate the underlying CSM model
@@ -330,9 +335,9 @@ void DGCameraModel::populateCsmModel() {
   m_ls_model->m_detectorSampleOrigin   = -m_detector_origin[0] + 0.5;
 
   // Time
-  auto const& tlc = m_time_func.m_tlc;
-  double time_offset = m_time_func.m_time_offset;
-  if (tlc.size() < 2) 
+  auto const& tlc = m_tlc;
+  double time_offset = m_time_offset;
+  if (tlc.size() < 2)
     vw::vw_throw(vw::ArgumentErr()
                  << "Expecting at least two line and time sample pairs.\n");
   m_ls_model->m_intTimeLines.clear(); // not needed, but best for clarity
@@ -359,14 +364,14 @@ void DGCameraModel::populateCsmModel() {
   }
 
   // Pass to CSM the positions and velocities. CSM uses Lagrange interpolation.
-  m_ls_model->m_numPositions = 3 * m_position_func.m_position_samples.size();
-  m_ls_model->m_t0Ephem = m_position_func.m_t0; // position t0
-  m_ls_model->m_dtEphem = m_position_func.m_dt; // position dt
+  m_ls_model->m_numPositions = 3 * m_positions.size();
+  m_ls_model->m_t0Ephem = m_pos_t0;
+  m_ls_model->m_dtEphem = m_pos_dt;
   m_ls_model->m_positions.resize(m_ls_model->m_numPositions);
   m_ls_model->m_velocities.resize(m_ls_model->m_numPositions);
-  for (size_t pos_it = 0; pos_it < m_position_func.m_position_samples.size(); pos_it++) {
-    vw::Vector3 P = m_position_func.m_position_samples[pos_it];
-    vw::Vector3 V = m_velocity_func.m_position_samples[pos_it];
+  for (size_t pos_it = 0; pos_it < m_positions.size(); pos_it++) {
+    vw::Vector3 P = m_positions[pos_it];
+    vw::Vector3 V = m_velocities[pos_it];
     for (int coord = 0; coord < 3; coord++) {
       m_ls_model->m_positions [3*pos_it + coord] = P[coord];
       m_ls_model->m_velocities[3*pos_it + coord] = V[coord];
@@ -374,14 +379,14 @@ void DGCameraModel::populateCsmModel() {
   }
 
   // Quaternions. CSM uses Lagrange interpolation.
-  int num_quat = m_pose_func.m_pose_samples.size();
+  int num_quat = m_quaternions.size();
   m_ls_model->m_numQuaternions = 4 * num_quat; // concatenate all coordinates
-  m_ls_model->m_t0Quat = m_pose_func.m_t0; // quaternion t0
-  m_ls_model->m_dtQuat = m_pose_func.m_dt; // quaternion dt
+  m_ls_model->m_t0Quat = m_quat_t0;
+  m_ls_model->m_dtQuat = m_quat_dt;
   m_ls_model->m_quaternions.resize(m_ls_model->m_numQuaternions);
 
   for (int pos_it = 0; pos_it < m_ls_model->m_numQuaternions / 4; pos_it++) {
-    vw::Quat q = m_pose_func.m_pose_samples[pos_it];
+    vw::Quat q = m_quaternions[pos_it];
     // ASP stores the quaternions as (w, x, y, z). CSM wants them as
     // x, y, z, w.
     int coord = 0;

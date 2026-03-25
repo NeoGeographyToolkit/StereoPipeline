@@ -28,11 +28,9 @@
 #include <asp/Camera/TimeProcessing.h>
 #include <asp/Camera/CsmModel.h>
 
-#include <vw/Math/PositionInterp.h>
-#include <vw/Math/QuatInterp.h>
-#include <vw/Camera/TimeInterp.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Math/EulerAngles.h>
+#include <vw/Math/Quaternion.h>
 
 // Forward declaration
 class UsgsAstroLsSensorModel;
@@ -51,15 +49,18 @@ namespace asp {
   public:
     
     DGCameraModel
-      (vw::PiecewiseAPositionInterpolation      const& position,
-       vw::LinearPiecewisePositionInterpolation const& velocity,
-       vw::SLERPPoseInterpolation               const& pose,
-       vw::TLCTimeInterpolation                 const& time,
-       vw::Vector2i                                     const& image_size, 
-       vw::Vector2                                      const& detector_origin,
-       double                                           const  focal_length,
-       double                                           const  mean_ground_elevation,
-       double                                           const  local_earth_radius);
+      (std::vector<vw::Vector3>             const& positions,
+       std::vector<vw::Vector3>             const& velocities,
+       double pos_t0, double pos_dt,
+       std::vector<vw::Quat>               const& quaternions,
+       double quat_t0, double quat_dt,
+       std::vector<std::pair<double,double>> const& tlc,
+       double time_offset,
+       vw::Vector2i                         const& image_size,
+       vw::Vector2                          const& detector_origin,
+       double focal_length,
+       double mean_ground_elevation,
+       double local_earth_radius);
 
     virtual ~DGCameraModel() {}
     virtual std::string type() const { return "LinescanDG"; }
@@ -86,12 +87,13 @@ namespace asp {
 
     void populateCsmModel();
 
-    // Extrinsics
-    // TODO(oalexan1): Wipe all these. Use the data from the xml directly.
-    vw::PiecewiseAPositionInterpolation m_position_func; // Position at given time
-    vw::LinearPiecewisePositionInterpolation m_velocity_func; // Velocity at given time
-    vw::SLERPPoseInterpolation m_pose_func; // Pose at given time
-    vw::TLCTimeInterpolation m_time_func; // Time at a given line
+    // Extrinsics - uniformly sampled data copied into CSM model
+    std::vector<vw::Vector3> m_positions, m_velocities;
+    double m_pos_t0, m_pos_dt;
+    std::vector<vw::Quat> m_quaternions;
+    double m_quat_t0, m_quat_dt;
+    std::vector<std::pair<double,double>> m_tlc; // line->time pairs
+    double m_time_offset;
 
     // Intrinsics
     
