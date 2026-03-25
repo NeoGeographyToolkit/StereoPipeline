@@ -135,8 +135,7 @@ To compare the linescan (exact) and RPC models, run ``cam_test``
 
 With the ESA La Crau sample (PAN band) and the additional option
 ``--height-above-datum 200`` (given the validity range in the RPC model), the
-pixel difference between exact and RPC models was median 0.021, max 0.041
-pixels.
+pixel difference between exact and RPC models was max 0.002 pixels.
 
 The camera centers computed by the two methods won't agree, because the RPC
 camera model does not store the camera center. ASP then substitutes it with an
