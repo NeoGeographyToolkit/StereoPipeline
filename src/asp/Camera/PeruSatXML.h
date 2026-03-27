@@ -28,6 +28,8 @@
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
 #include <vw/Camera/CameraModel.h>
+// TODO(oalexan1): Remove these interpolation headers once the old VW-based
+// PeruSatCameraModel is removed and only the CSM path remains.
 #include <vw/Math/PositionInterp.h>
 #include <vw/Math/QuatInterp.h>
 #include <vw/Camera/TimeInterp.h>

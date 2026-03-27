@@ -22,6 +22,8 @@
 
 #include <vw/Camera/CameraSolve.h>
 #include <vw/Camera/OrbitalCorrections.h>
+#include <vw/Math/PositionInterp.h>
+#include <vw/Math/QuatInterp.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 
@@ -375,7 +377,56 @@ vw::Vector2 PeruSatCsmCameraModel::point_to_pixel(vw::Vector3 const& point) cons
   return asp_pix;
 }
 
-// Load PeruSat camera using the CSM-based implementation
+// Resample Vector3 data to a denser uniform grid using Lagrange interpolation.
+// Uses the same Lagrange degree 3 (RADIUS=2) as the old VW path.
+static void resampleVec3(std::vector<double> const& in_times,
+                         std::vector<Vector3> const& in_vals,
+                         int radius, int factor,
+                         std::vector<double>& out_times,
+                         std::vector<Vector3>& out_vals) {
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * factor + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+
+  vw::LagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = interp(out_times[i]);
+  }
+}
+
+// Resample quaternion data to a denser uniform grid using SLERP interpolation.
+// This matches the old VW path which uses SLERPPoseInterpolation.
+static void resampleQuatSlerp(std::vector<double> const& in_times,
+                              std::vector<vw::Quaternion<double>> const& in_vals,
+                              int factor,
+                              std::vector<double>& out_times,
+                              std::vector<vw::Quaternion<double>>& out_vals) {
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * factor + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+  double dt_in = (t_end - t_start) / (n_in - 1.0);
+
+  // Create the same SLERP interpolator the old VW path uses
+  vw::SLERPPoseInterpolation slerp(in_vals, t_start, dt_in);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = slerp(out_times[i]);
+  }
+}
+
+// Load PeruSat camera using the CSM-based implementation.
+// Resampling is done here (not in PeruSatXML) so the XML class returns raw data.
+// Positions/velocities: Lagrange degree 3 (RADIUS=2), matching the old VW path.
+// Quaternions: SLERP, matching the old VW path's SLERPPoseInterpolation.
 boost::shared_ptr<PeruSatCsmCameraModel>
 load_perusat_csm_camera_model_from_xml(std::string const& path) {
 
@@ -384,17 +435,61 @@ load_perusat_csm_camera_model_from_xml(std::string const& path) {
   PeruSatXML xml_reader;
   xml_reader.read_xml(path);
 
-  // Extract raw data
+  // Extract raw (unresampled) data from the XML
   double time_t0 = 0, time_dt = 0;
-  std::vector<Vector3> positions, velocities;
-  double pos_t0 = 0, pos_dt = 0;
-  std::vector<vw::Quaternion<double>> quaternions;
-  double quat_t0 = 0, quat_dt = 0;
+  std::vector<Vector3> raw_positions, raw_velocities;
+  double raw_pos_t0 = 0, raw_pos_dt = 0;
+  std::vector<vw::Quaternion<double>> raw_quaternions;
+  double raw_quat_t0 = 0, raw_quat_dt = 0;
   double min_time = 0, max_time = 0;
   xml_reader.extractRawData(time_t0, time_dt,
-                            positions, velocities, pos_t0, pos_dt,
-                            quaternions, quat_t0, quat_dt,
+                            raw_positions, raw_velocities,
+                            raw_pos_t0, raw_pos_dt,
+                            raw_quaternions, raw_quat_t0, raw_quat_dt,
                             min_time, max_time);
+
+  // Resample to a denser grid so CSM's Lagrange interpolation
+  // closely reproduces VW's interpolation on the sparse raw data.
+  const int RESAMPLE_FACTOR = 10;
+  const int RADIUS = 2; // Lagrange interpolation radius (degree 3, 4 points)
+
+  // Resample positions and velocities with Lagrange (same as old VW path)
+  std::vector<double> pos_times_raw, vel_times_raw;
+  for (size_t i = 0; i < raw_positions.size(); i++)
+    pos_times_raw.push_back(raw_pos_t0 + i * raw_pos_dt);
+  for (size_t i = 0; i < raw_velocities.size(); i++)
+    vel_times_raw.push_back(raw_pos_t0 + i * raw_pos_dt);
+
+  std::vector<double> pos_out_times, vel_out_times;
+  std::vector<Vector3> positions, velocities;
+  resampleVec3(pos_times_raw, raw_positions, RADIUS, RESAMPLE_FACTOR,
+               pos_out_times, positions);
+  resampleVec3(vel_times_raw, raw_velocities, RADIUS, RESAMPLE_FACTOR,
+               vel_out_times, velocities);
+
+  double pos_t0 = pos_out_times.front();
+  double pos_dt = (pos_out_times.back() - pos_out_times.front()) /
+                  (pos_out_times.size() - 1.0);
+
+  // Resample quaternions with SLERP (same as old VW path)
+  std::vector<double> quat_times_raw;
+  for (size_t i = 0; i < raw_quaternions.size(); i++)
+    quat_times_raw.push_back(raw_quat_t0 + i * raw_quat_dt);
+
+  std::vector<double> quat_out_times;
+  std::vector<vw::Quaternion<double>> quaternions;
+  resampleQuatSlerp(quat_times_raw, raw_quaternions, RESAMPLE_FACTOR,
+                    quat_out_times, quaternions);
+
+  double quat_t0 = quat_out_times.front();
+  double quat_dt = (quat_out_times.back() - quat_out_times.front()) /
+                   (quat_out_times.size() - 1.0);
+
+  // Update min/max time based on resampled data
+  min_time = std::max(pos_out_times.front(),
+                      std::max(vel_out_times.front(), quat_out_times.front()));
+  max_time = std::min(pos_out_times.back(),
+                      std::min(vel_out_times.back(), quat_out_times.back()));
 
   boost::shared_ptr<PeruSatCsmCameraModel> cam
     (new PeruSatCsmCameraModel(time_t0, time_dt,
