@@ -247,39 +247,62 @@ void PeruSatCsmCameraModel::populateCsmModel() {
   m_ls_model->m_iTransS[1] = 0.0; // no skew
   m_ls_model->m_iTransS[2] = 1.0; // no scale
 
-  // Look angle mapping to CSM detector parameters.
-  // PeruSat formula:
-  //   psi_x = tan_psi_x[0] * col + tan_psi_x[1]
-  //   psi_y = tan_psi_y[0] * col + tan_psi_y[1]
-  //   look = (tan(psi_y), -tan(psi_x), 1)
-  //   look = instrument_biases_inverse.rotate(look)
-  //
-  // CSM uses focal_length=1 and computes a linear function of column:
-  //   detSample = (col + 0.5) * sampleSumming + startingSample
-  //   look = (detLine - lineOrigin, -(detSample - sampleOrigin), focalLength)
-  //
-  // We need the CSM linear model to match tan(psi), not psi.
-  // Linearize: tan(a*col + b) ~= tan(b) + a/cos^2(b) * col.
-  // Max linearization error over the image is ~8e-9, negligible.
-  // The instrument biases quaternion gets folded into each attitude quaternion.
-  double cos_bx = cos(m_tan_psi_x[1]);
-  double tan_slope_x = m_tan_psi_x[0] / (cos_bx * cos_bx); // d/dcol tan(psi_x)
-  double tan_intercept_x = tan(m_tan_psi_x[1]);              // tan(psi_x) at col=0
-
-  double cos_by = cos(m_tan_psi_y[1]);
-  double tan_slope_y = m_tan_psi_y[0] / (cos_by * cos_by);
-  double tan_intercept_y = tan(m_tan_psi_y[1]);
-
-  m_ls_model->m_detectorLineSumming   = 1.0;
-  m_ls_model->m_detectorSampleSumming = -tan_slope_x;
-
   m_ls_model->m_startingDetectorLine   = 0.0;
   m_ls_model->m_startingDetectorSample = 0.0;
 
-  // Optical center
-  m_ls_model->m_detectorLineOrigin   = -tan_intercept_y;
-  m_ls_model->m_detectorSampleOrigin = tan_intercept_x
-    + tan_slope_x * (-0.5);
+  // PeruSat look angle formula:
+  //   psi_x = tan_psi_x[0] * col + tan_psi_x[1]
+  //   psi_y = tan_psi_y[0] * col + tan_psi_y[1]
+  //   look = (tan(psi_y), -tan(psi_x), 1)
+  //
+  // In CSM, the linear detector model produces psi (the angle), and the
+  // tan() is replaced by a transverse distortion polynomial from usgscsm.
+  // The coefficients encode atan() as a 3rd-order Taylor polynomial: u - u^3/3.
+  // For PeruSat angles (~0.01 rad), the approximation error is ~1e-12.
+  //
+  // The instrument biases quaternion is folded into each attitude quaternion.
+
+  // Set detector params to give psi directly (the angle, not tangent).
+  //
+  // CSM image-to-ground computes (with identity iTransL/iTransS):
+  //   detSample = (col+0.5) * sampleSumming + startingSample
+  //   distortedY = detSample - sampleOrigin
+  //   distortedX = 0 - lineOrigin = -lineOrigin (constant, detLine=0 for linescan)
+  //   removeDistortion(distortedX, distortedY) -> (undistortedX, undistortedY)
+  //   Look direction is proportional to (undistortedX, undistortedY, 1).
+  //
+  // We need: look = (tan(psi_y), -tan(psi_x), 1).
+  // So: undistortedX = tan(psi_y), undistortedY = -tan(psi_x).
+  // With transverse atan() distortion (odd function):
+  //   distortedX = psi_y, distortedY = -psi_x
+  //
+  // For distortedY = -psi_x = -(tan_psi_x[0]*col + tan_psi_x[1]):
+  //   distortedY = (col+0.5)*sampleSumming - sampleOrigin
+  //              = -tan_psi_x[0]*col - tan_psi_x[1]
+  //   sampleSumming = -tan_psi_x[0]
+  //   sampleOrigin = 0.5*(-tan_psi_x[0]) + tan_psi_x[1]
+  //                = tan_psi_x[1] - 0.5*tan_psi_x[0]
+  m_ls_model->m_detectorSampleSumming = -m_tan_psi_x[0];
+  m_ls_model->m_detectorSampleOrigin  = m_tan_psi_x[1]
+    - 0.5 * m_tan_psi_x[0];
+
+  // For distortedX = psi_y = tan_psi_y[1] (constant, slope is zero):
+  //   -lineOrigin = tan_psi_y[1], so lineOrigin = -tan_psi_y[1]
+  m_ls_model->m_detectorLineSumming  = 1.0;
+  m_ls_model->m_detectorLineOrigin   = -m_tan_psi_y[1];
+
+  // Transverse distortion: 20 coefficients (first 10 for x, last 10 for y).
+  // Monomials: [1, ux, uy, ux^2, ux*uy, uy^2, ux^3, ux^2*uy, ux*uy^2, uy^3]
+  // For x: dx = ux - ux^3/3  (atan(ux) Taylor approximation)
+  // For y: dy = uy - uy^3/3
+  m_ls_model->m_distortionType = DistortionType::TRANSVERSE;
+  m_ls_model->m_opticalDistCoeffs.resize(20, 0.0);
+  // x coefficients: [0, 1, 0, 0, 0, 0, -1/3, 0, 0, 0]
+  m_ls_model->m_opticalDistCoeffs[1] = 1.0;
+  m_ls_model->m_opticalDistCoeffs[6] = -1.0 / 3.0;
+  // y coefficients: [0, 0, 1, 0, 0, 0, 0, 0, 0, -1/3]
+  m_ls_model->m_opticalDistCoeffs[12] = 1.0;
+  m_ls_model->m_opticalDistCoeffs[19] = -1.0 / 3.0;
 
   // Time
   m_ls_model->m_intTimeLines.push_back(1.0); // offset CSM's quirky 0.5 additions
