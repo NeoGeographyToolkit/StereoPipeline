@@ -25,7 +25,14 @@
 
 namespace asp {
 
-// Find the underlying CSM camera. Applies only to CSM, Pleiades, ASTER, and DG.
+// Whether the session uses a CSM linescan model (directly or via a wrapper).
+bool isLinescanCsmSession(std::string const& session) {
+  return (session == "csm"      || session == "dg"      ||
+          session == "pleiades" || session == "spot"     ||
+          session == "perusat"  || session == "aster");
+}
+
+// Find the underlying CSM camera. Applies to all linescan CSM sessions.
 asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                           std::string const& stereo_session) {
   

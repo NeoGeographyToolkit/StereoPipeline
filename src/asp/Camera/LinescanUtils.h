@@ -26,7 +26,11 @@
 
 namespace asp {
 
-  // Find the underlying CSM camera. Applies only to CSM, Pleiades, and DG.
+  // Whether the session uses a CSM linescan model (directly or via a wrapper).
+  // This is true for csm, dg, pleiades, spot, perusat, and aster.
+  bool isLinescanCsmSession(std::string const& session);
+
+  // Find the underlying CSM camera. Applies to all linescan CSM sessions.
   class CsmModel;
   CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
                       std::string const& stereo_session);

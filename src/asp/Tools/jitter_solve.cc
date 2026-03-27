@@ -484,9 +484,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     err_str = e.what();
   }
   // First check for unexpected sessions.
-  if (opt.stereo_session != "dg" && opt.stereo_session != "pleiades" &&
-      opt.stereo_session != "spot" && opt.stereo_session != "perusat" &&
-      opt.stereo_session != "aster" && opt.stereo_session != "csm")
+  if (!asp::isLinescanCsmSession(opt.stereo_session))
     vw_throw(ArgumentErr() << "Session " << opt.stereo_session
              << " is not supported in jitter_solve. Check your camera files and/or "
              << "specify the -t (--session-type) option.\n");

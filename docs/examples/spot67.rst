@@ -54,7 +54,8 @@ for stereo.
 
 See :numref:`jitter_pleiades` for an example of solving for jitter with these
 cameras. Note the limitations of the jitter solver in
-:numref:`jitter_limitations`.
+:numref:`jitter_limitations`. This is available as of build 2026/03
+(:numref:`release`).
 
 For the RPC model (:numref:`rpc`), the option ``-t rpc`` should be used
 and the RPC camera files should be passed in. If the ``-t`` option is
