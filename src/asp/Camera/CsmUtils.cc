@@ -24,6 +24,8 @@
 #include <asp/Core/BaseCameraUtils.h>
 
 #include <vw/Camera/OrbitalCorrections.h>
+#include <vw/Math/PositionInterp.h>
+#include <vw/Math/QuatInterp.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
@@ -561,6 +563,77 @@ void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model,
     vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated orientation is "
                  << end_orientation_line << ", which is before last image line, which is "
                    << numLines - 1 << ".\n");
+}
+
+// Resample Vector3 data to a denser uniform grid using Lagrange interpolation.
+// Order = number of interpolation points (4 for cubic, 8 for degree 7).
+// Factor = output density multiplier: output has (n_in - 1) * factor + 1 points.
+void resampleVec3Lagrange(std::vector<double> const& in_times,
+                          std::vector<vw::Vector3> const& in_vals,
+                          int order, int factor,
+                          std::vector<double>& out_times,
+                          std::vector<vw::Vector3>& out_vals) {
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * factor + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+  int radius = order / 2;
+
+  vw::LagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = interp(out_times[i]);
+  }
+}
+
+// Resample quaternion data to a denser uniform grid using Lagrange
+// interpolation on the quaternion components. The result is normalized.
+void resampleQuatLagrange(std::vector<double> const& in_times,
+                          std::vector<vw::Quaternion<double>> const& in_vals,
+                          int order, int factor,
+                          std::vector<double>& out_times,
+                          std::vector<vw::Quaternion<double>>& out_vals) {
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * factor + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+  int radius = order / 2;
+
+  vw::QuatLagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = interp(out_times[i]);
+  }
+}
+
+// Resample quaternion data to a denser uniform grid using SLERP
+// (spherical linear interpolation between adjacent samples).
+void resampleQuatSlerp(std::vector<double> const& in_times,
+                       std::vector<vw::Quaternion<double>> const& in_vals,
+                       int factor,
+                       std::vector<double>& out_times,
+                       std::vector<vw::Quaternion<double>>& out_vals) {
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * factor + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+  double dt_in = (t_end - t_start) / (n_in - 1.0);
+
+  // Create the same SLERP interpolator used by the old VW linescan paths
+  vw::SLERPPoseInterpolation slerp(in_vals, t_start, dt_in);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = slerp(out_times[i]);
+  }
 }
 
 // The provided tabulated positions, velocities and quaternions may be too few,

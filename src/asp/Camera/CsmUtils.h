@@ -24,10 +24,12 @@
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Math/Matrix.h>
+#include <vw/Math/Quaternion.h>
 
 #include <string>
 #include <iostream>
 #include <map>
+#include <vector>
 
 class UsgsAstroFrameSensorModel;
 class UsgsAstroLsSensorModel;
@@ -101,6 +103,33 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                                  std::string const& adjust_prefix,
                                  vw::CamPtr  const& cam,
                                  asp::CsmModel    * csm_cam); 
+
+// Resample Vector3 data (positions or velocities) to a denser uniform grid
+// using Lagrange interpolation. Order = number of interpolation points
+// (e.g., 4 for cubic, 8 for degree 7). Factor = output density multiplier:
+// output has (n_in - 1) * factor + 1 points.
+void resampleVec3Lagrange(std::vector<double> const& in_times,
+                          std::vector<vw::Vector3> const& in_vals,
+                          int order, int factor,
+                          std::vector<double>& out_times,
+                          std::vector<vw::Vector3>& out_vals);
+
+// Resample quaternion data to a denser uniform grid using Lagrange
+// interpolation on the quaternion components. Order and factor are as above.
+void resampleQuatLagrange(std::vector<double> const& in_times,
+                          std::vector<vw::Quaternion<double>> const& in_vals,
+                          int order, int factor,
+                          std::vector<double>& out_times,
+                          std::vector<vw::Quaternion<double>>& out_vals);
+
+// Resample quaternion data to a denser uniform grid using SLERP
+// (spherical linear interpolation between adjacent samples).
+// Factor = output density multiplier.
+void resampleQuatSlerp(std::vector<double> const& in_times,
+                       std::vector<vw::Quaternion<double>> const& in_vals,
+                       int factor,
+                       std::vector<double>& out_times,
+                       std::vector<vw::Quaternion<double>>& out_vals);
 
 // Resample a model using Lagrange interpolation.
 void resampleModel(int num_lines_per_position, int num_lines_per_orientation,

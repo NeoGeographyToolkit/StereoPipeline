@@ -24,14 +24,13 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/XMLBase.h>
 #include <asp/Camera/TimeProcessing.h>
+#include <asp/Camera/CsmUtils.h>
 
 #include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
 #include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
 #include <vw/Cartography/Datum.h>       // for Datum
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Core/StringUtils.h>
-#include <vw/Math/PositionInterp.h>
-#include <vw/Math/QuatInterp.h>
 
 #include <xercesc/parsers/XercesDOMParser.hpp>
 #include <xercesc/sax/HandlerBase.hpp>
@@ -53,54 +52,6 @@ using asp::XmlUtils::get_node;
 using asp::XmlUtils::cast_xmlch;
 
 namespace asp {
-
-// Resample non-uniform Vector3 data to a uniform grid with 5x the input count.
-// Uses Lagrange interpolation with the given radius.
-void resampleVec3ToUniform(std::vector<double> const& in_times,
-                           std::vector<Vector3> const& in_vals,
-                           int radius,
-                           std::vector<double>& out_times,
-                           std::vector<Vector3>& out_vals) {
-
-  // Use a sampling 5 times finer to ensure we capture properly the data.
-  int n_in = in_times.size();
-  int n_out = (n_in - 1) * 5 + 1;
-  double t_start = in_times.front();
-  double t_end = in_times.back();
-
-  vw::LagrangianInterpolationVarTime interp(in_vals, in_times, radius);
-
-  out_times.resize(n_out);
-  out_vals.resize(n_out);
-  for (int i = 0; i < n_out; i++) {
-    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
-    out_vals[i] = interp(out_times[i]);
-  }
-}
-
-// Resample non-uniform quaternion data to a uniform grid with 5x the input count.
-// Uses Lagrange interpolation with the given radius. The result is normalized.
-void resampleQuatToUniform(std::vector<double> const& in_times,
-                           std::vector<vw::Quaternion<double>> const& in_vals,
-                           int radius,
-                           std::vector<double>& out_times,
-                           std::vector<vw::Quaternion<double>>& out_vals) {
-
-  // Use a sampling 5 times finer to ensure we capture properly the data.
-  int n_in = in_times.size();
-  int n_out = (n_in - 1) * 5 + 1;
-  double t_start = in_times.front();
-  double t_end = in_times.back();
-
-  vw::QuatLagrangianInterpolationVarTime interp(in_vals, in_times, radius);
-
-  out_times.resize(n_out);
-  out_vals.resize(n_out);
-  for (int i = 0; i < n_out; i++) {
-    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
-    out_vals[i] = interp(out_times[i]);
-  }
-}
 
 DOMElement* PleiadesXML::open_xml_file(std::string const& xml_path) {
 
@@ -228,7 +179,8 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
   // After this, the data looks the same as Pleiades.
   bool is_spot67 = (m_sensor_name == "S6_SENSOR" || m_sensor_name == "S7_SENSOR");
   if (is_spot67) {
-    const int RADIUS = 4; // Lagrange interpolation order = 2 * RADIUS
+    int order = 8;  // Lagrange interpolation order (8 points, degree 7)
+    int factor = 5; // resample to 5x denser grid
 
     // Resample positions
     std::vector<double> pos_times, pos_out_times;
@@ -237,8 +189,8 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
       pos_times.push_back(it->first);
       pos_vals.push_back(it->second);
     }
-    resampleVec3ToUniform(pos_times, pos_vals, RADIUS,
-                          pos_out_times, pos_out_vals);
+    asp::resampleVec3Lagrange(pos_times, pos_vals, order, factor,
+                              pos_out_times, pos_out_vals);
     m_positions.clear();
     for (size_t i = 0; i < pos_out_times.size(); i++)
       m_positions.push_back(std::make_pair(pos_out_times[i], pos_out_vals[i]));
@@ -250,8 +202,8 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
       vel_times.push_back(it->first);
       vel_vals.push_back(it->second);
     }
-    resampleVec3ToUniform(vel_times, vel_vals, RADIUS,
-                          vel_out_times, vel_out_vals);
+    asp::resampleVec3Lagrange(vel_times, vel_vals, order, factor,
+                              vel_out_times, vel_out_vals);
     m_velocities.clear();
     for (size_t i = 0; i < vel_out_times.size(); i++)
       m_velocities.push_back(std::make_pair(vel_out_times[i], vel_out_vals[i]));
@@ -263,8 +215,8 @@ void PleiadesXML::parse_xml(xercesc::DOMElement* root) {
       quat_times.push_back(it->first);
       quat_vals.push_back(it->second);
     }
-    resampleQuatToUniform(quat_times, quat_vals, RADIUS,
-                          quat_out_times, quat_out_vals);
+    asp::resampleQuatLagrange(quat_times, quat_vals, order, factor,
+                              quat_out_times, quat_out_vals);
     m_poses.clear();
     for (size_t i = 0; i < quat_out_times.size(); i++)
       m_poses.push_back(std::make_pair(quat_out_times[i], quat_out_vals[i]));
