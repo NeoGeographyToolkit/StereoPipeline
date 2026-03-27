@@ -76,7 +76,7 @@ void PeruSatCsmCameraModel::populateCsmModel() {
   // Override some initializations
   m_ls_model->m_nSamples = m_image_size[0];
   m_ls_model->m_nLines   = m_image_size[1];
-  m_ls_model->m_platformFlag = 0; // order 4 Lagrange, matching the PeruSat doc and VW resampling
+  m_ls_model->m_platformFlag = 1; // order 8 Lagrange, consistent with all other CSM sensors
   m_ls_model->m_maxElevation =  10000.0; //  10 km
   m_ls_model->m_minElevation = -10000.0; // -10 km
   m_ls_model->m_focalLength  = 1.0;
