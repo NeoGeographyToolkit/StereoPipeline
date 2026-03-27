@@ -54,7 +54,8 @@ asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
        vw::vw_throw(vw::ArgumentErr() << "Expected an ASTER camera model.");
     csm_model = &aster_model->m_csm_model;
   } else {
-    // The Pleiades and DG models will come here as there is direct inheritance from CSM
+    // All other models, that is, Pleiades, DG, PeruSat, Spot (not Spot5),  will
+    // come here as there is direct inheritance from CSM.
     csm_model = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam.get()));
   }
 

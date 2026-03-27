@@ -73,6 +73,20 @@ namespace asp {
     (vw::LinearTimeInterpolation const& time_func) const;
     vw::SLERPPoseInterpolation         setup_pose_func
     (vw::LinearTimeInterpolation const& time_func) const;
+
+    // Extract raw data for direct CSM population (no VW interpolation).
+    // Outputs: positions, velocities with uniform time grid (pos_t0, pos_dt),
+    // quaternions with uniform time grid (quat_t0, quat_dt), and time function
+    // parameters (time_t0, time_dt).
+    void extractRawData(
+      // Outputs
+      double & time_t0, double & time_dt,
+      std::vector<vw::Vector3> & positions,
+      std::vector<vw::Vector3> & velocities,
+      double & pos_t0, double & pos_dt,
+      std::vector<vw::Quaternion<double>> & quaternions,
+      double & quat_t0, double & quat_dt,
+      double & min_time, double & max_time) const;
     
   private: // The various XML data reading sections
   

@@ -24,6 +24,8 @@
 #include <vw/Core/Exception.h>          // for ArgumentErr, vw_throw, etc
 #include <vw/Math/Quaternion.h>         // for Quat, Quaternion
 #include <vw/Math/Vector.h>             // for Vector, Vector3, Vector4, etc
+#include <vw/Math/PositionInterp.h>     // for LagrangianInterpolationVarTime
+#include <vw/Math/QuatInterp.h>         // for QuatLagrangianInterpolationVarTime
 #include <vw/Cartography/Datum.h>       // for Datum
 #include <vw/FileIO/DiskImageResourceGDAL.h>
 #include <vw/Core/StringUtils.h>
@@ -490,4 +492,116 @@ vw::SLERPPoseInterpolation PeruSatXML::setup_pose_func
   return vw::SLERPPoseInterpolation(pose_vec, min_time, pose_delta_t);
 }
   
+// Resample Vector3 data to a denser uniform grid using Lagrange interpolation.
+// Cloned from PleiadesXML.cc with a configurable factor (temporary).
+static void perusatResampleVec3(std::vector<double> const& in_times,
+                                std::vector<Vector3> const& in_vals,
+                                int radius, int factor,
+                                std::vector<double>& out_times,
+                                std::vector<Vector3>& out_vals) {
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * factor + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+
+  vw::LagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = interp(out_times[i]);
+  }
+}
+
+// Resample quaternion data to a denser uniform grid using Lagrange interpolation.
+// Cloned from PleiadesXML.cc with a configurable factor (temporary).
+static void perusatResampleQuat(std::vector<double> const& in_times,
+                                std::vector<vw::Quaternion<double>> const& in_vals,
+                                int radius, int factor,
+                                std::vector<double>& out_times,
+                                std::vector<vw::Quaternion<double>>& out_vals) {
+  int n_in = in_times.size();
+  int n_out = (n_in - 1) * factor + 1;
+  double t_start = in_times.front();
+  double t_end = in_times.back();
+
+  vw::QuatLagrangianInterpolationVarTime interp(in_vals, in_times, radius);
+
+  out_times.resize(n_out);
+  out_vals.resize(n_out);
+  for (int i = 0; i < n_out; i++) {
+    out_times[i] = t_start + i * (t_end - t_start) / (n_out - 1.0);
+    out_vals[i] = interp(out_times[i]);
+  }
+}
+
+// Extract raw data for direct CSM population (no VW interpolation).
+// Resample positions, velocities, and quaternions to a denser uniform grid
+// so CSM's Lagrange interpolation has enough points and matches VW closely.
+void PeruSatXML::extractRawData(
+  double & time_t0, double & time_dt,
+  std::vector<Vector3> & positions,
+  std::vector<Vector3> & velocities,
+  double & pos_t0, double & pos_dt,
+  std::vector<vw::Quaternion<double>> & quaternions,
+  double & quat_t0, double & quat_dt,
+  double & min_time, double & max_time) const {
+
+  // Time function: time at line = m_start_time + m_line_period * line
+  time_t0 = m_start_time;
+  time_dt = m_line_period;
+
+  const int RESAMPLE_FACTOR = 10;
+  const int RADIUS = 2; // Lagrange interpolation radius (order = 2 * RADIUS)
+
+  // Extract raw positions and velocities with their times
+  std::vector<double> pos_times, vel_times;
+  std::vector<Vector3> pos_raw, vel_raw;
+  for (auto iter = m_positions.begin(); iter != m_positions.end(); iter++) {
+    pos_times.push_back(iter->first);
+    pos_raw.push_back(iter->second);
+  }
+  for (auto iter = m_velocities.begin(); iter != m_velocities.end(); iter++) {
+    vel_times.push_back(iter->first);
+    vel_raw.push_back(iter->second);
+  }
+
+  // Resample positions and velocities to a denser uniform grid
+  std::vector<double> pos_out_times, vel_out_times;
+  perusatResampleVec3(pos_times, pos_raw, RADIUS, RESAMPLE_FACTOR,
+                      pos_out_times, positions);
+  perusatResampleVec3(vel_times, vel_raw, RADIUS, RESAMPLE_FACTOR,
+                      vel_out_times, velocities);
+
+  // Position/velocity time grid (now uniform and dense)
+  pos_t0 = pos_out_times.front();
+  pos_dt = (pos_out_times.back() - pos_out_times.front()) /
+           (pos_out_times.size() - 1.0);
+
+  // Extract raw quaternions with their times
+  std::vector<double> quat_times;
+  std::vector<vw::Quaternion<double>> quat_raw;
+  for (auto iter = m_poses.begin(); iter != m_poses.end(); iter++) {
+    quat_times.push_back(iter->first);
+    quat_raw.push_back(iter->second);
+  }
+
+  // Resample quaternions to a denser uniform grid
+  std::vector<double> quat_out_times;
+  perusatResampleQuat(quat_times, quat_raw, RADIUS, RESAMPLE_FACTOR,
+                      quat_out_times, quaternions);
+
+  // Quaternion time grid (now uniform and dense)
+  quat_t0 = quat_out_times.front();
+  quat_dt = (quat_out_times.back() - quat_out_times.front()) /
+            (quat_out_times.size() - 1.0);
+
+  // Time range for which we have data
+  min_time = std::max(pos_out_times.front(),
+                      std::max(vel_out_times.front(), quat_out_times.front()));
+  max_time = std::min(pos_out_times.back(),
+                      std::min(vel_out_times.back(), quat_out_times.back()));
+}
+
 } // end namespace asp
