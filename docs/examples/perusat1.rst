@@ -62,15 +62,16 @@ Stereo with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ASP supports running stereo with mapprojected PeruSat-1 images
-(:numref:`mapproj-example`).
+(:numref:`mapproj-example`). As of build 2026/03 (:numref:`release`),
+mapprojection is significantly faster due to the switch to the CSM camera model.
 
 All input images must be mapprojected at the same resolution (which is
 comparable with the ground sample distance, GSD). The same camera models must be
 used for mapprojection as for stereo, so one should not mix the exact and RPC
 cameras.
 
-Ensure the input DEM used for mapprojection is relative to the ellipsoid
-(:numref:`conv_to_ellipsoid`).
+It is strongly suggested to verify that the input DEM used for mapprojection is
+relative to the ellipsoid (:numref:`conv_to_ellipsoid`).
 
 Example::
 
@@ -114,6 +115,11 @@ The value of the ``--tr`` option is the ground sample distance. It is normally
 
 To not use bundle-adjusted cameras, remove the option ``--bundle-adjust-prefix``
 from all ``mapproject`` and ``parallel_stereo`` commands above.
+
+It is strongly suggested to overlay the left and right mapprojected images on
+each other and on the input DEM in ``stereo_gui`` (:numref:`stereo_gui`). A
+systematic shift likely indicates a vertical datum disagreement between the DEM
+and the camera models.
 
 .. _perusat1_notes:
 
