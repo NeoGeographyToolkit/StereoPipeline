@@ -15,98 +15,23 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-
 /// \file LinescanPeruSatModel.h
 ///
-/// Linescan camera model for PeruSat. Implemented based on
-/// Modelo%20Orbital%20PeruSAT-1.pdf, as provided by Peru's space agency.
-///
-///
+/// CSM linescan camera model for PeruSat-1. Populates a UsgsAstroLsSensorModel
+/// directly from the PeruSat XML metadata, using transverse distortion from
+/// usgscsm to handle the tan(psi) look angle computation.
+
 #ifndef __STEREO_CAMERA_LINESCAN_PERUSAT_MODEL_H__
 #define __STEREO_CAMERA_LINESCAN_PERUSAT_MODEL_H__
 
 #include <vw/Math/Matrix.h>
-#include <vw/Camera/LinescanModel.h>
-#include <vw/Camera/PinholeModel.h>
-#include <vw/Math/PositionInterp.h>
-#include <vw/Math/QuatInterp.h>
-#include <vw/Camera/TimeInterp.h>
+#include <vw/Math/Quaternion.h>
 #include <asp/Camera/CsmModel.h>
 
 // Forward declaration
 class UsgsAstroLsSensorModel;
 
 namespace asp {
-
-  /// Specialization of the generic LinescanModel for PeruSat satellites.
-  class PeruSatCameraModel : public vw::camera::LinescanModel {
-
-  public:
-    //------------------------------------------------------------------
-    // Constructors / Destructors
-    //------------------------------------------------------------------
-    PeruSatCameraModel(vw::LagrangianInterpolation const& position,
-                       vw::LagrangianInterpolation const& velocity,
-                       vw::SLERPPoseInterpolation  const& pose,
-                       vw::LinearTimeInterpolation const& time,
-                       vw::Vector2                         const& tan_psi_x,
-                       vw::Vector2                         const& tan_psi_y,
-                       vw::Quaternion<double>              const& instrument_biases,
-                       vw::Vector2i                        const& image_size,
-                       double min_time, double max_time,
-                       bool   correct_velocity, bool   correct_atmosphere):
-      vw::camera::LinescanModel(image_size, correct_velocity, correct_atmosphere),
-      m_position_func(position), m_velocity_func(velocity),
-      m_pose_func(pose), m_time_func(time),
-      m_tan_psi_x(tan_psi_x), m_tan_psi_y(tan_psi_y),
-      m_inverse_instrument_biases(inverse(instrument_biases)),
-      m_min_time(min_time), m_max_time(max_time) {}
-    
-    virtual ~PeruSatCameraModel() {}
-    virtual std::string type() const { return "LinescanPeruSat"; }
-
-    // -- This set of functions implements virtual functions from LinescanModel.h --
-
-    // Implement the functions from the LinescanModel class using functors
-    virtual vw::Vector3 get_camera_center_at_time  (double time) const;
-    virtual vw::Vector3 get_camera_velocity_at_time(double time) const;
-    virtual vw::Quat    get_camera_pose_at_time    (double time) const;
-    virtual double      get_time_at_line           (double line) const;
-    
-    /// As pixel_to_vector, but in the local camera frame.
-    virtual vw::Vector3 get_local_pixel_vector(vw::Vector2 const& pix) const;
-
-    // TODO: See if we can port these local changes to the parent class
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
-      return point_to_pixel(point, -1); // Redirect to the function with no initial guess
-    }
-    
-  private:
-
-    vw::LinearTimeInterpolation m_time_func;     ///< Yields time at a given line.
-    vw::LagrangianInterpolation m_position_func; ///< Yields position at time T
-    vw::LagrangianInterpolation m_velocity_func; ///< Yields velocity at time T
-    vw::SLERPPoseInterpolation  m_pose_func;     ///< Yields pose     at time T
-    
-    // These are used to find the look direction in camera coordinates at a given line
-    vw::Vector2 m_tan_psi_x, m_tan_psi_y;
-    vw::Quaternion<double> m_inverse_instrument_biases;
-
-    /// These are the limits of when he have pose data available.
-    double m_min_time, m_max_time;
-    
-    /// Throw an exception if the input time is outside the given bounds.
-    /// - Pass the caller location in to get a nice error message.
-    void check_time(double time, std::string const& location) const;
-
-  }; // End class PeruSatCameraModel
-
-
-  /// Load a PeruSat camera model from an XML file (old VW-based model).
-  /// - This function does not take care of Xerces XML init/de-init, the caller must
-  ///   make sure this is done before/after this function is called!
-  boost::shared_ptr<PeruSatCameraModel> load_perusat_camera_model_from_xml(std::string const& path);
 
   // CSM-based PeruSat camera model, following the Pleiades pattern.
   // Populates a UsgsAstroLsSensorModel directly, bypassing VW interpolation.
@@ -126,7 +51,7 @@ namespace asp {
                           double min_time, double max_time);
 
     virtual ~PeruSatCsmCameraModel() {}
-    virtual std::string type() const { return "LinescanPeruSatCsm"; }
+    virtual std::string type() const { return "LinescanPeruSat"; }
 
     // These delegate to the CSM model
     virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const;
@@ -155,19 +80,10 @@ namespace asp {
     UsgsAstroLsSensorModel * m_ls_model;
   }; // End class PeruSatCsmCameraModel
 
-  /// Load a PeruSat camera model using the CSM-based implementation.
+  /// Load a PeruSat camera model from an XML file.
   boost::shared_ptr<PeruSatCsmCameraModel>
-  load_perusat_csm_camera_model_from_xml(std::string const& path);
-
-  // Toggle between old VW-based and new CSM-based PeruSat model.
-  // When true, load_perusat_camera_model_from_xml_auto() returns the CSM model.
-  extern bool use_perusat_csm;
-
-  // Returns either old or new model based on use_perusat_csm flag.
-  boost::shared_ptr<vw::camera::CameraModel>
-  load_perusat_camera_model_auto(std::string const& path);
+  load_perusat_camera_model_from_xml(std::string const& path);
 
 } // end namespace asp
-
 
 #endif//__STEREO_CAMERA_LINESCAN_PERUSAT_MODEL_H__

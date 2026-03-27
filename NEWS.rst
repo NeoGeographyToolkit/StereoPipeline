@@ -17,6 +17,9 @@ from ASP outputs (:numref:`asp_plot`).
 
 Added support for SPOT 6 and 7 exact linescan camera models (:numref:`spot67`).
 
+Migrated PeruSat-1 to a CSM linescan camera model (:numref:`perusat1`). This
+  enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
+
 sfm_view (:numref:`sfm_view`):
   * Brought the source code into the ASP repository from the external
     MultiView dependency.

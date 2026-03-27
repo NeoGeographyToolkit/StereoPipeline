@@ -33,7 +33,6 @@
 #include <asp/Camera/RPCModel.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/Covariance.h>
-#include <asp/Camera/LinescanPeruSatModel.h>
 #include <asp/Sessions/CameraUtils.h>
 
 #include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
@@ -55,8 +54,7 @@ struct Options: vw::GdalWriteOptions {
   cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum, bathy_plane;
   int sample_rate;
   double subpixel_offset, height_above_datum, refraction_index;
-  bool print_per_pixel_results, aster_use_csm, aster_vs_csm, test_error_propagation,
-       perusat_use_csm, perusat_vs_csm;
+  bool print_per_pixel_results, aster_use_csm, aster_vs_csm, test_error_propagation;
   vw::Vector2 single_pixel;
   std::vector<vw::BathyPlane> bathy_plane_vec;
 
@@ -97,12 +95,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("aster-vs-csm",
      po::bool_switch(&opt.aster_vs_csm)->default_value(false)->implicit_value(true),
      "Compare projecting into the camera without and with using the CSM model for ASTER.")
-    ("perusat-use-csm",
-     po::bool_switch(&opt.perusat_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model with PeruSat cameras (-t perusat).")
-    ("perusat-vs-csm",
-     po::bool_switch(&opt.perusat_vs_csm)->default_value(false)->implicit_value(true),
-     "Compare projecting into the camera without and with using the CSM model for PeruSat.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Adjust the cameras using this prefix.")
     ("cam1-bundle-adjust-prefix", po::value(&opt.cam1_bundle_adjust_prefix),
@@ -147,10 +139,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     opt.aster_use_csm = true;
   asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
 
-  // PeruSat CSM toggle
-  if (opt.perusat_vs_csm)
-    opt.perusat_use_csm = true;
-  asp::use_perusat_csm = opt.perusat_use_csm;
 
   // If either cam1_adjust_prefix or cam2_adjust_prefix is set, then
   // must not set bundle_adjust_prefix. Throw an error then.
@@ -287,10 +275,6 @@ void run_cam_test(Options & opt) {
   std::string default_session1 = opt.session1; // save it before it changes
   if (indiv_adjust_prefix)
     asp::stereo_settings().bundle_adjust_prefix = opt.cam1_bundle_adjust_prefix;
-  // For --perusat-vs-csm: cam1 uses CSM, cam2 uses old VW model
-  if (opt.perusat_vs_csm)
-    asp::use_perusat_csm = true;
-
   asp::SessionPtr cam1_session(asp::StereoSessionFactory::create
                               (opt.session1, // may change
                               opt,
@@ -301,10 +285,6 @@ void run_cam_test(Options & opt) {
     = cam1_session->camera_model(opt.image_file, opt.cam1_file);
 
   // Load cam2
-  // For --perusat-vs-csm: cam2 uses the old VW model
-  if (opt.perusat_vs_csm)
-    asp::use_perusat_csm = false;
-
   std::string default_session2 = opt.session2; // save it before it changes
   if (indiv_adjust_prefix)
     asp::stereo_settings().bundle_adjust_prefix = opt.cam2_bundle_adjust_prefix;

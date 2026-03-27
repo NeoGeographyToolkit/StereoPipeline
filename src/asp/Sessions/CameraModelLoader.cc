@@ -114,7 +114,7 @@ CameraModelLoader::load_spot5_camera_model(std::string const& path) const {
 // Load a PeruSat linescan camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_perusat_camera_model(std::string const& path) const {
-  return load_perusat_camera_model_auto(path);
+  return vw::CamPtr(load_perusat_camera_model_from_xml(path));
 }
 
 // Load a Pleiades linescan camera file

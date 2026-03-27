@@ -30,4 +30,9 @@ can be used to reduce this discrepancy. The mean absolute
 difference of the (full-image extent) aligned DEMs is about 0.17
 meters.
 
+See :numref:`jitter_pleiades` for an example of solving for jitter with these
+cameras. Note the limitations of the jitter solver in
+:numref:`jitter_limitations`. This is available as of build 2026/03
+(:numref:`release`).
+
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices.

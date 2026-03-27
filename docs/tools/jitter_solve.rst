@@ -1023,7 +1023,9 @@ Example 3: Airbus Pleiades
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In this section we will solve for jitter with Pleiades linescan cameras. The
-same approach applies to SPOT 6/7 (:numref:`spot67`). 
+same approach applies to SPOT 6/7 (:numref:`spot67`) and PeruSat-1
+(:numref:`perusat1`). PeruSat-1 support is available as of build 2026/03
+(:numref:`release`).
 
 We will investigate the effects of two kinds of ground constraints:
 ``--tri-weight`` and ``--heights-from-dem`` (:numref:`jitter_ground`). The first

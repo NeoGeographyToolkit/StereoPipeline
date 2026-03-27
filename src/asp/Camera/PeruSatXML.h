@@ -28,11 +28,6 @@
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/BBox.h>
 #include <vw/Camera/CameraModel.h>
-// TODO(oalexan1): Remove these interpolation headers once the old VW-based
-// PeruSatCameraModel is removed and only the CSM path remains.
-#include <vw/Math/PositionInterp.h>
-#include <vw/Math/QuatInterp.h>
-#include <vw/Camera/TimeInterp.h>
 
 #include <vector>
 #include <string>
@@ -63,20 +58,11 @@ namespace asp {
 
     /// Parse an XML file to populate the data
     void read_xml(std::string const& xml_path);
-    
+
     /// Parse an XML tree to populate the data
     void parse_xml(xercesc::DOMElement* node);
 
-    // Functions to setup functors which manage the raw input data.
-    vw::LinearTimeInterpolation setup_time_func() const;
-    vw::LagrangianInterpolation setup_position_func
-    (vw::LinearTimeInterpolation const& time_func) const;
-    vw::LagrangianInterpolation setup_velocity_func
-    (vw::LinearTimeInterpolation const& time_func) const;
-    vw::SLERPPoseInterpolation         setup_pose_func
-    (vw::LinearTimeInterpolation const& time_func) const;
-
-    // Extract raw data for direct CSM population (no VW interpolation).
+    // Extract raw data for direct CSM population (no interpolation).
     // Outputs: positions, velocities with uniform time grid (pos_t0, pos_dt),
     // quaternions with uniform time grid (quat_t0, quat_dt), and time function
     // parameters (time_t0, time_dt).
@@ -89,9 +75,9 @@ namespace asp {
       std::vector<vw::Quaternion<double>> & quaternions,
       double & quat_t0, double & quat_dt,
       double & min_time, double & max_time) const;
-    
+
   private: // The various XML data reading sections
-  
+
     /// Just opens the XML file for reading and returns the root node.
     xercesc::DOMElement* open_xml_file(std::string const& xml_path);
 
@@ -121,12 +107,11 @@ namespace asp {
     std::list<std::pair<double, vw::Vector3>> m_positions;        // (time,   X/Y/Z)
     std::list<std::pair<double, vw::Vector3>> m_velocities;       // (time,   dX/dY/dZ)
     std::list<std::pair<double, vw::Quaternion<double>>> m_poses; // (time, quaternion)
-    
+
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
     boost::shared_ptr<xercesc::ErrorHandler>    m_err_handler;
-    
-  }; // End class PeruSatXML
 
+  }; // End class PeruSatXML
 
 } //end namespace asp
 
