@@ -22,7 +22,9 @@ Migrated PeruSat-1 to a CSM linescan camera model (:numref:`perusat1`). This
 
 Migrated ASTER to inherit directly from the CSM linescan camera model
   (:numref:`aster`). Removed the old VW-based interpolation camera and the
-  ``--aster-use-csm`` option. The CSM model is now always used.
+  ``--aster-use-csm`` option. The CSM model is now always used. Removed
+  the use of the helper RPC model for interest point matching, as the
+  exact cameras are now fast enough.
 
 sfm_view (:numref:`sfm_view`):
   * Brought the source code into the ASP repository from the external

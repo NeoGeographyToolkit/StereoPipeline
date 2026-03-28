@@ -22,11 +22,11 @@
 namespace asp {
 
 ASTERCameraModel::ASTERCameraModel(
-           std::vector<std::vector<vw::Vector2>> const& lattice_mat,
-				   std::vector<std::vector<vw::Vector3>> const& sight_mat,
-				   std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
-				   std::vector<vw::Vector3>              const& sat_pos,
-				   vw::Vector2i                          const& image_size) {
+    std::vector<std::vector<vw::Vector2>> const& lattice_mat,
+    std::vector<std::vector<vw::Vector3>> const& sight_mat,
+    std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
+    std::vector<vw::Vector3>              const& sat_pos,
+    vw::Vector2i                          const& image_size) {
 
   if (lattice_mat.empty() || lattice_mat[0].empty())
     vw::vw_throw(vw::ArgumentErr() << "Empty matrix of lattice points.\n");
@@ -78,7 +78,7 @@ ASTERCameraModel::ASTERCameraModel(
   // Fit a CSM sensor with distortion to given tabulated sight directions
   bool fit_distortion = true;
   fitCsmLinescan(sensor_id, datum, image_size, sat_pos, world_sight_mat,
-              min_col, min_row, d_col, d_row, fit_distortion, *this);
+                 min_col, min_row, d_col, d_row, fit_distortion, *this);
 }
 
 boost::shared_ptr<ASTERCameraModel>

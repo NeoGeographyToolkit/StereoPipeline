@@ -200,3 +200,13 @@ with no further refinement, invoke this tool with zero iterations.
 
 The CSM model may be further refined by tying together multiple datasets and
 using ground constraints (:numref:`kaguya_ba`).
+
+.. _aster_rpc:
+
+Using the RPC model
+^^^^^^^^^^^^^^^^^^^
+
+ASTER XML files also contain RPC coefficients. These can be used with
+``-t rpc`` (:numref:`rpc`) instead of ``-t aster``. The RPC model is an
+approximation and less accurate than the exact linescan model described above.
+Use the exact model (``-t aster``) for best results.

@@ -49,10 +49,10 @@ namespace asp {
 
   public:
     ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& lattice_mat,
-		     std::vector<std::vector<vw::Vector3>> const& sight_mat,
-		     std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
-		     std::vector<vw::Vector3>               const& sat_pos,
-		     vw::Vector2i                            const& image_size);
+                     std::vector<std::vector<vw::Vector3>> const& sight_mat,
+                     std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
+                     std::vector<vw::Vector3>               const& sat_pos,
+                     vw::Vector2i                            const& image_size);
 
     virtual ~ASTERCameraModel() {}
     virtual std::string type() const { return "LinescanASTER"; }
