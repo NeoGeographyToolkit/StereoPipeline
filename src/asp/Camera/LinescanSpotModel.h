@@ -34,8 +34,9 @@
 
 namespace asp {
 
+class CsmModel;
 
-/* 
+/*
    The intrinisic model expects +Z to be point out the camera. +X is
    the column direction of the image and is perpendicular to
    direction of flight. +Y is the row direction of the image (down
@@ -183,6 +184,11 @@ namespace asp {
   /// - This function does not take care of Xerces XML init/de-init, the caller must
   ///   make sure this is done before/after this function is called!
   boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string const& path);
+
+  /// Load a SPOT5 CSM camera model from an XML file.
+  /// Uses the old SPOTCameraModel to generate sight vectors, then fits
+  /// a CSM linescan model using fitCsmLinescan() (same approach as ASTER).
+  boost::shared_ptr<CsmModel> load_spot5_csm_camera_model_from_xml(std::string const& path);
 
 }      // namespace asp
 

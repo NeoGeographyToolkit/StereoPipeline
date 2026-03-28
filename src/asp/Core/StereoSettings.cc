@@ -529,6 +529,11 @@ TriangulationDescription::TriangulationDescription():
       po::bool_switch(&global.enable_velocity_aberration_correction)->default_value(false)->implicit_value(true),
       "Enable velocity aberration correction for Pleiades linescan cameras. By default, "
       "such a correction is enabled only for WorldView linescan cameras.")
+    ("spot5-use-csm",
+      po::bool_switch(&global.spot5_use_csm)->default_value(false)->implicit_value(true),
+      "Use a CSM linescan model for SPOT5 cameras instead of the default VW-based "
+      "model. The CSM model is fitted to the original model's sight vectors. "
+      "Enables jitter_solve for SPOT5.")
     ;
 }
 

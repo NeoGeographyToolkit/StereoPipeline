@@ -15,10 +15,14 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-#include <vw/Camera/CameraSolve.h>
-#include <asp/Core/StereoSettings.h>
-#include <asp/Camera/SPOT_XML.h>
+#include <asp/Camera/CsmModel.h>
+#include <asp/Camera/CsmModelFit.h>
 #include <asp/Camera/LinescanSpotModel.h>
+#include <asp/Camera/SPOT_XML.h>
+#include <asp/Core/StereoSettings.h>
+
+#include <vw/Camera/CameraSolve.h>
+#include <vw/Cartography/Datum.h>
 
 namespace asp {
 
@@ -258,6 +262,75 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
                          enable_correct_atmospheric_refraction));
 
 } // End function load_spot_camera_model()
+
+// Load a SPOT5 CSM camera model. Uses the old SPOTCameraModel to generate
+// a grid of world sight vectors, then fits a CSM linescan model using the
+// same approach as ASTER (fitCsmLinescan).
+boost::shared_ptr<CsmModel>
+load_spot5_csm_camera_model_from_xml(std::string const& path) {
+
+  // First load the old VW-based model
+  boost::shared_ptr<SPOTCameraModel> old_model = load_spot5_camera_model_from_xml(path);
+
+  vw::Vector2i image_size = old_model->get_image_size();
+  int num_cols = image_size[0];
+  int num_rows = image_size[1];
+
+  // Sample the old model on a grid to generate sight vectors.
+  // Keep the grid small enough for Ceres optimization speed.
+  // More columns help capture look angle nonlinearity.
+  int d_col = std::max(1, num_cols / 100); // ~100 column samples
+  int d_row = std::max(1, num_rows / 20);  // ~20 row samples
+
+  // Build the sampled column and row indices
+  std::vector<int> col_indices, row_indices;
+  for (int c = 0; c < num_cols; c += d_col)
+    col_indices.push_back(c);
+  if (col_indices.back() != num_cols - 1)
+    col_indices.push_back(num_cols - 1);
+
+  for (int r = 0; r < num_rows; r += d_row)
+    row_indices.push_back(r);
+  if (row_indices.back() != num_rows - 1)
+    row_indices.push_back(num_rows - 1);
+
+  int n_sampled_cols = col_indices.size();
+  int n_sampled_rows = row_indices.size();
+
+  // Generate world sight vectors and satellite positions from the old model
+  SightMatT world_sight_mat(n_sampled_rows);
+  std::vector<vw::Vector3> sat_pos(n_sampled_rows);
+
+  for (int ri = 0; ri < n_sampled_rows; ri++) {
+    int row = row_indices[ri];
+    world_sight_mat[ri].resize(n_sampled_cols);
+
+    // Camera center at this row
+    vw::Vector2 mid_pix(num_cols / 2.0, row);
+    sat_pos[ri] = old_model->camera_center(mid_pix);
+
+    for (int ci = 0; ci < n_sampled_cols; ci++) {
+      int col = col_indices[ci];
+      vw::Vector2 pix(col, row);
+      world_sight_mat[ri][ci] = old_model->pixel_to_vector(pix);
+    }
+  }
+
+  int min_col = col_indices.front();
+  int min_row = row_indices.front();
+
+  vw::cartography::Datum datum("WGS84");
+  std::string sensor_id = "SPOT5";
+  vw::vw_out() << "Fitting CSM linescan model to SPOT5 camera.\n";
+
+  // Create a CsmModel and fit it
+  boost::shared_ptr<CsmModel> csm_model(new CsmModel());
+  bool fit_distortion = true;
+  fitCsmLinescan(sensor_id, datum, image_size, sat_pos, world_sight_mat,
+                 min_col, min_row, d_col, d_row, fit_distortion, *csm_model);
+
+  return csm_model;
+}
 
 } // end namespace asp
 

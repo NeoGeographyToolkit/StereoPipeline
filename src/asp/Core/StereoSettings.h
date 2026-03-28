@@ -242,6 +242,7 @@ namespace asp {
     bool   unalign_disparity;                 // Compute disparity between unaligned images
     bool enable_atmospheric_refraction_correction;
     bool enable_velocity_aberration_correction;
+    bool spot5_use_csm; // Use CSM model for SPOT5 instead of old VW linescan
 
     // stereo_gui options
     int grid_cols;
