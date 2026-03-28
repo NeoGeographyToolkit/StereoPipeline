@@ -36,12 +36,14 @@ class CsmModel;
 
 typedef std::vector<std::vector<vw::Vector3>> SightMatT;
 
-// Refine a CSM linescan model by floating rotations, optical center,
-// focal length, and distortion to match given world sight vectors.
+// Refine a CSM linescan model by floating optical center, focal length,
+// and distortion to match given world sight vectors. Rotations can
+// optionally be fixed (for SPOT5 where extrinsics come from vendor).
 void refineCsmLinescanFit(SightMatT const& world_sight_mat,
                           int min_col, int min_row,
                           int d_col, int d_row,
-                          asp::CsmModel & csm_model);
+                          asp::CsmModel & csm_model,
+                          bool fix_rotations = false);
 
 // Fit a CSM sensor with distortion to given tabulated sight directions.
 // This is specific to ASTER.

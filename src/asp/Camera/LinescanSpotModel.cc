@@ -451,11 +451,45 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   vw::vw_out() << "SPOT5 CSM model: initial focal_length = " << focal_length
                << ", optical_center = " << optical_center << "\n";
 
-  // TODO(oalexan1): Fit intrinsics (focal_length, optical_center, distortion)
-  // to match the vendor's per-column look angle table. Must NOT float
-  // rotations (extrinsics are from vendor). Need a Ceres cost function that
-  // works directly with the detector model + distortion in the local frame.
-  // refineCsmLinescanFit() cannot be used because it floats rotations.
+  // Fit intrinsics (focal_length, optical_center, distortion) to match
+  // the vendor's per-column look angle table. Rotations are pinned constant
+  // since extrinsics come from the vendor. Generate world sight vectors from
+  // the old model and use refineCsmLinescanFit with fix_rotations=true.
+  {
+    boost::shared_ptr<SPOTCameraModel> old_model
+      = load_spot5_camera_model_from_xml(path);
+
+    int num_rows = xml_reader.image_size[1];
+    int d_col_fit = std::max(1, num_cols / 500); // ~500 column samples
+    int d_row_fit = std::max(1, num_rows / 3);   // ~3 rows (intrinsics same per row)
+
+    std::vector<int> col_idx, row_idx;
+    for (int c = 0; c < num_cols; c += d_col_fit)
+      col_idx.push_back(c);
+    if (col_idx.back() != num_cols - 1)
+      col_idx.push_back(num_cols - 1);
+    for (int r = 0; r < num_rows; r += d_row_fit)
+      row_idx.push_back(r);
+    if (row_idx.back() != num_rows - 1)
+      row_idx.push_back(num_rows - 1);
+
+    SightMatT world_sight_mat(row_idx.size());
+    for (size_t ri = 0; ri < row_idx.size(); ri++) {
+      world_sight_mat[ri].resize(col_idx.size());
+      for (size_t ci = 0; ci < col_idx.size(); ci++) {
+        vw::Vector2 pix(col_idx[ci], row_idx[ri]);
+        world_sight_mat[ri][ci] = old_model->pixel_to_vector(pix);
+      }
+    }
+
+    int min_col = col_idx.front();
+    int min_row = row_idx.front();
+    vw::vw_out() << "Fitting SPOT5 intrinsics: " << col_idx.size()
+                 << " cols x " << row_idx.size() << " rows (rotations fixed)\n";
+    bool fix_rotations = true;
+    asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row,
+                              d_col_fit, d_row_fit, *csm_model, fix_rotations);
+  }
 
   return csm_model;
 }

@@ -379,7 +379,8 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
                           int min_col, int min_row,
                           int d_col, int d_row,
                           // This model will be modified
-                          asp::CsmModel & csm_model) {
+                          asp::CsmModel & csm_model,
+                          bool fix_rotations) {
 
   // Read data from the model
   double focal_length = csm_model.focal_length();
@@ -415,9 +416,13 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
   
   // Minimize all residuals equally
   ceres::LossFunction* loss_function = NULL;
-  problem.AddResidualBlock(cost_function, loss_function, 
+  problem.AddResidualBlock(cost_function, loss_function,
                            &rotations[0], &optical_center[0], &focal_length,
                            &distortion[0]);
+
+  // For SPOT5: vendor extrinsics are known, only fit intrinsics
+  if (fix_rotations)
+    problem.SetParameterBlockConstant(&rotations[0]);
 
   // linescanFitSaveResiduals(problem, "residuals2_before.txt"); // for debugging
    
