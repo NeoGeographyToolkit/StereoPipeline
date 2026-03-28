@@ -405,8 +405,8 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
     dist_type = TRANSVERSE;
     distortion.resize(20, 0.0);
     // Identity for linear terms, zero for nonlinear
-    distortion[1] = 1.0; // x coefficient for ux
-    distortion[11] = 1.0; // y coefficient for uy
+    distortion[1] = 1.0;  // x coeff for ux (index 1 in first 10)
+    distortion[12] = 1.0; // y coeff for uy (index 2 in second 10)
   } else {
     dist_type = RADTAN;
     distortion.assign(5, 1e-8);
