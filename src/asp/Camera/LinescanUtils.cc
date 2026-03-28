@@ -19,13 +19,10 @@
 
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/Camera/LinescanDGModel.h>
-#include <asp/Camera/LinescanPleiadesModel.h>
-#include <asp/Camera/LinescanASTERModel.h>
 
 namespace asp {
 
-// Whether the session uses a CSM linescan model (directly or via a wrapper).
+// Whether the session uses a CSM linescan model.
 bool isLinescanCsmSession(std::string const& session) {
   return (session == "csm"      || session == "dg"      ||
           session == "pleiades" || session == "spot"     ||
@@ -33,42 +30,30 @@ bool isLinescanCsmSession(std::string const& session) {
 }
 
 // Find the underlying CSM camera. Applies to all linescan CSM sessions.
-asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam,
-                          std::string const& stereo_session) {
-  
+// All linescan CSM models (Pleiades, DG, PeruSat, Spot, ASTER) inherit
+// directly from CsmModel, so a simple dynamic_cast suffices.
+asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam) {
+
   // In some places the camera models have an external adjustment.
   // If that is the case, this function only works if the adjustment
   // is the identity, as it does not know how to apply it.
-  vw::camera::AdjustedCameraModel *adj_cam 
+  vw::camera::AdjustedCameraModel *adj_cam
     = dynamic_cast<vw::camera::AdjustedCameraModel*>(cam.get());
   if (adj_cam != NULL) {
     vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
     // must be the identity
     if (ecef_transform != vw::math::identity_matrix<4>())
-      vw::vw_throw(vw::ArgumentErr() 
+      vw::vw_throw(vw::ArgumentErr()
         << "A CSM camera with an adjustment such as coming from "
         << "--bundle-adjust-prefix detected. Not supported in this workflow.\n");
   }
-  
-  asp::CsmModel * csm_model = NULL;
 
-  // TODO(oalexan1): Have ASTER use the CSM camera directly, then remove the stereo 
-  // session argument.   
-  if (stereo_session == "aster") {
-    ASTERCameraModel * aster_model 
-      = dynamic_cast<asp::ASTERCameraModel*>(vw::camera::unadjusted_model(cam.get()));
-    if (aster_model == NULL) 
-       vw::vw_throw(vw::ArgumentErr() << "Expected an ASTER camera model.");
-    csm_model = &aster_model->m_csm_model;
-  } else {
-    // All other models, that is, Pleiades, DG, PeruSat, Spot (not Spot5),  will
-    // come here as there is direct inheritance from CSM.
-    csm_model = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam.get()));
-  }
+  asp::CsmModel * csm_model
+    = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam.get()));
 
-  if (csm_model == NULL) 
+  if (csm_model == NULL)
       vw::vw_throw(vw::ArgumentErr() << "Expected a CSM camera model.");
-    
+
   return csm_model;
 }
 

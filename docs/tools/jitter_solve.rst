@@ -1247,7 +1247,6 @@ reference Copernicus DEM relative to WGS84 is ``ref.tif``.
 Bundle adjustment::
 
   bundle_adjust -t aster          \
-    --aster-use-csm               \
     --camera-weight 0.0           \
     --tri-weight 0.1              \
     --tri-robust-threshold 0.1    \
@@ -1257,10 +1256,9 @@ Bundle adjustment::
     -o ba/run
 
 Not using ``-t aster`` will result in RPC cameras being used, which would lead
-to wrong results. We used the option ``--aster-use-csm``. This saves the
-adjusted cameras in CSM format (:numref:`csm_state`), which is needed for the
-jitter solver. Then the produced .adjust files should not be used as they save
-the adjustments only.
+to wrong results. The adjusted cameras are saved in CSM format
+(:numref:`csm_state`), which is needed for the jitter solver. The produced
+.adjust files should not be used as they save the adjustments only.
 
 Stereo was done with mapprojected images. The reference DEM was blurred a little
 as it is at the resolution of the images, and then any small misalignment

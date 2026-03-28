@@ -59,12 +59,6 @@ functions are inverse of each other, up to a certain tolerance.
       --session1 csm --session2 csm --sample-rate 100               \
       --subpixel-offset 0.3
 
-Compare the existing ASTER camera implementation to the new one
-that uses the CSM camera model::
-
-    cam_test --image image.tif --cam1 image.xml --cam2 image.xml \
-      --session1 aster --session2 aster --aster-vs-csm
-
 Usage
 ~~~~~
 
@@ -127,13 +121,6 @@ Command-line options
     
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
-
---aster-use-csm
-    Use the CSM model with ASTER cameras (``-t aster``).
-    
---aster-vs-csm
-    Compare projecting into the camera without and with using the CSM
-    model for ASTER.    
 
 --bathy-plane <string>
     Read from this file a bathy plane, so a water surface which is a plane in

@@ -1093,7 +1093,7 @@ void calcCameraCenters(std::string const& stereo_session,
     asp::CsmModel * csm_cam = NULL;
     try {
       csm_cam
-        = asp::csm_model(vw::camera::unadjusted_model(camera_models[icam]), stereo_session);
+        = asp::csm_model(vw::camera::unadjusted_model(camera_models[icam]));
     } catch(...) {}
     if (csm_cam == NULL) {
       // Not a CSM camera, pull directly the camera center

@@ -1247,10 +1247,6 @@ void read_pinhole_from_json(Options & opt, vw::cartography::GeoReference & geo,
 
 void save_linescan(Options & opt) {
 
-  // Set this before loading an ASTER camera, as otherwise the camera will not
-  // be of linescan type.
-  asp::stereo_settings().aster_use_csm = true;
-
   // Load the cameras. For now load without any adjustment, which will be applied later.
   auto local_prefix = asp::stereo_settings().bundle_adjust_prefix;
   asp::stereo_settings().bundle_adjust_prefix = "";
@@ -1264,11 +1260,9 @@ void save_linescan(Options & opt) {
   vw::CamPtr camera_model = session->camera_model(opt.image_file, opt.input_camera);
 
   // Get a pointer to the underlying CSM model. It is owned by camera_model.
-  asp::CsmModel * csm_cam = asp::csm_model(camera_model, opt.stereo_session);
+  asp::CsmModel * csm_cam = asp::csm_model(camera_model);
 
-  // This is a bit of a convoluted way of applying the adjustment from the base
-  // camera model to the CSM model. To be revisited once all ASP linescan cameras
-  // are CSM rather than having CSM as a member.
+  // Apply the adjustment from the base camera model to the CSM model.
   asp::stereo_settings().bundle_adjust_prefix = local_prefix;
   if (asp::stereo_settings().bundle_adjust_prefix != "")
      asp::applyAdjustmentToCsmCamera(opt.image_file,

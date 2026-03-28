@@ -322,9 +322,6 @@ threads (*integer*) (default = 0)
 cache-size-mb (*integer*) (default = 1024)
     Set the system cache size, in MB, for each process.
 
-aster-use-csm
-    Use the CSM model with ASTER cameras (``-t aster``).
-
 .. _corr_section:
 
 Correlation

@@ -18,9 +18,8 @@
 
 /// \file LinescanASTERModel.h
 ///
-/// Linescan model for ASTER. Old approach: Don't bother with time, just interpolate
-/// between pointing vectors. New approach: Find best-fitting camera poses and
-/// create a CSM model.
+/// Linescan model for ASTER. Fits a CSM linescan model to the ASTER
+/// lattice of sight vectors and satellite positions.
 ///
 #ifndef __STEREO_CAMERA_LINESCAN_ASTER_MODEL_H__
 #define __STEREO_CAMERA_LINESCAN_ASTER_MODEL_H__
@@ -28,75 +27,42 @@
 #include <asp/Camera/CsmModel.h>
 
 #include <vw/Math/Matrix.h>
-#include <vw/Camera/LinescanModel.h>
-#include <vw/Camera/PinholeModel.h>
-#include <vw/Math/PositionInterp.h>
-#include <vw/Math/QuatInterp.h>
 
 namespace asp {
-  
+
   // References:
   // -----------
   // ASTER User Handbook Version 2
   // https://asterweb.jpl.nasa.gov/content/03_data/04_Documents/aster_user_guide_v2.pdf
-  
+
   // https://lpdaac.usgs.gov/documents/175/ASTER_L1_Product_Specifications.pdf
-  
+
   // The following paper has a blurb on the ASTER linescan camera.
   // Quantifying ice loss in the eastern Himalayas since 1974 using
   // declassified spy satellite imagery
   // Joshua M. Maurer, Summer B. Rupper, Joerg M. Schaefer
 
-  // We do linear interpolation to find at each pixel the camera center
-  // and pointing vector, and use a solver to back-project into the camera.
-  // The useful load_ASTER_camera_model() function is at the end of the file.
-
-  /// Specialization of the generic LinescanModel for ASTER satellites.
-  class ASTERCameraModel : public vw::camera::CameraModel {
+  /// CSM-based linescan camera model for ASTER satellites.
+  /// Inherits from CsmModel, following the same pattern as Pleiades,
+  /// DG, SPOT, and PeruSat.
+  class ASTERCameraModel : public asp::CsmModel {
 
   public:
-    //------------------------------------------------------------------
-    // Constructors / Destructors
-    //------------------------------------------------------------------
-    ASTERCameraModel(std::vector< std::vector<vw::Vector2>> const& lattice_mat,
-		     std::vector< std::vector<vw::Vector3> > const& sight_mat,
-		     std::vector< std::vector<vw::Vector3> > const& world_sight_mat,
-		     std::vector<vw::Vector3>                const& sat_pos,
+    ASTERCameraModel(std::vector<std::vector<vw::Vector2>> const& lattice_mat,
+		     std::vector<std::vector<vw::Vector3>> const& sight_mat,
+		     std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
+		     std::vector<vw::Vector3>               const& sat_pos,
 		     vw::Vector2i                            const& image_size,
 		     boost::shared_ptr<vw::camera::CameraModel>     rpc_model);
-    
+
     virtual ~ASTERCameraModel() {}
     virtual std::string type() const { return "LinescanASTER"; }
 
-    // -- This set of functions implements virtual functions from LinescanModel.h --
-
-    // TODO: See if we can port these local changes to the parent class
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, vw::Vector2 const& start) const;
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point, double starty) const;
-    virtual vw::Vector2 point_to_pixel(vw::Vector3 const& point) const {
-      return point_to_pixel(point, -1); // Redirect to the function with no initial guess
-    }
-
-    virtual vw::Vector3 camera_center(vw::Vector2 const& pix) const;
-    
-    vw::Vector3 pixel_to_vector(vw::Vector2 const& pixel) const;
-
     boost::shared_ptr<vw::camera::CameraModel> get_rpc_model() { return m_rpc_model; }
-    
-    // Need to have access to this for some operations
-    asp::CsmModel m_csm_model;
-    
-  protected:
 
-    std::vector<std::vector<vw::Vector2>> m_lattice_mat;
-    std::vector<std::vector<vw::Vector3>> m_sight_mat;
-    std::vector<std::vector<vw::Vector3>> m_world_sight_mat;
-    std::vector<vw::Vector3>              m_sat_pos;
-    vw::Vector2i                          m_image_size;
-    vw::LinearPiecewisePositionInterpolation m_interp_sat_pos;
-    vw::SlerpGridPointingInterpolation m_interp_sight_mat;
+  protected:
     boost::shared_ptr<vw::camera::CameraModel> m_rpc_model; // rpc approx, for initial guess
-    
+
   }; // End class ASTERCameraModel
 
 

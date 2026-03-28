@@ -420,14 +420,6 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
                       out_prefix, input_dem);
   session_type = session->name(); // update the session name 
 
-// This is important so that the user does not load RPC cameras while thinking
-// ASTER or DG models are loaded. 
-if (session_type.find("rpc") != std::string::npos && 
-    asp::stereo_settings().aster_use_csm)
-    vw_throw(vw::ArgumentErr() 
-              << "The --aster-use-csm option must be used only with the "
-              << "ASTER session (-t aster).\n");
-  
   return session;
 } // End function create()
 

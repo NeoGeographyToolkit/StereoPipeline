@@ -229,8 +229,6 @@ PreProcessingDescription::PreProcessingDescription():
       "If --left-image-crop-win is used, replaced the left image cropped to that window with this clip.")
     ("right-image-clip", po::value(&global.right_image_clip)->default_value(""),
       "If --right-image-crop-win is used, replaced the right image cropped to that window with this clip.")
-    ("aster-use-csm", po::bool_switch(&global.aster_use_csm)->default_value(false)->implicit_value(true),
-      "Use the CSM model with ASTER cameras (-t aster).")
     ("accept-provided-mapproj-dem",
       po::bool_switch(&global.accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
       "Accept the DEM provided on the command line as the one mapprojection was done with, "

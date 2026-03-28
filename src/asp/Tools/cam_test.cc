@@ -54,7 +54,7 @@ struct Options: vw::GdalWriteOptions {
   cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum, bathy_plane;
   int sample_rate;
   double subpixel_offset, height_above_datum, refraction_index;
-  bool print_per_pixel_results, aster_use_csm, aster_vs_csm, test_error_propagation;
+  bool print_per_pixel_results, test_error_propagation;
   vw::Vector2 single_pixel;
   std::vector<vw::BathyPlane> bathy_plane_vec;
 
@@ -89,12 +89,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Options: WGS_1984, D_MOON (1,737,400 meters), D_MARS (3,396,190 meters), MOLA "
      "(3,396,000 meters), NAD83, WGS72, and NAD27. Also accepted: Earth (=WGS_1984), Mars "
      "(=D_MARS), Moon (=D_MOON).")
-    ("aster-use-csm",
-     po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model with ASTER cameras (-t aster).")
-    ("aster-vs-csm",
-     po::bool_switch(&opt.aster_vs_csm)->default_value(false)->implicit_value(true),
-     "Compare projecting into the camera without and with using the CSM model for ASTER.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Adjust the cameras using this prefix.")
     ("cam1-bundle-adjust-prefix", po::value(&opt.cam1_bundle_adjust_prefix),
@@ -133,12 +127,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   if (opt.sample_rate <= 0)
     vw_throw(ArgumentErr() << "The sample rate must be positive.\n" << usage << general_options);
-
-  // If we have to deal with the CSM model, ensure it is loaded. Set this early.
-  if (opt.aster_vs_csm)
-    opt.aster_use_csm = true;
-  asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
-
 
   // If either cam1_adjust_prefix or cam2_adjust_prefix is set, then
   // must not set bundle_adjust_prefix. Throw an error then.
@@ -398,7 +386,6 @@ void run_cam_test(Options & opt) {
   // Iterate over the image
   bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
   std::vector<double> ctr_diff, dir_diff, cam1_to_cam2_diff, cam2_to_cam1_diff;
-  std::vector<double> nocsm_vs_csm_diff;
   int num_failed = 0;
   for (int col = 0; col < image_cols; col += opt.sample_rate) {
     for (int row = 0; row < image_rows; row += opt.sample_rate) {
@@ -452,20 +439,6 @@ void run_cam_test(Options & opt) {
         if (opt.print_per_pixel_results)
           vw_out() << "cam1 to cam2 pixel diff: " << image_pix - cam2_pix << std::endl;
 
-        // Turn CSM on and off and see the effect on the pixel
-        if (opt.aster_vs_csm) {
-          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          Vector2 cam2_pix2;
-          if (!have_bathy_plane)
-            cam2_pix2 = cam2_model->point_to_pixel(xyz);
-          else
-            cam2_pix2 = vw::point_to_pixel(cam2_model.get(), opt.bathy_plane_vec[0],
-                                           opt.refraction_index, xyz);
-
-          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          nocsm_vs_csm_diff.push_back(norm_2(cam2_pix - cam2_pix2));
-        }
-
         // Shoot a ray from the cam2 camera, intersect it with the
         // given height above the datum, and project it back into the
         // cam1 camera.
@@ -492,17 +465,6 @@ void run_cam_test(Options & opt) {
         if (opt.print_per_pixel_results)
           vw_out() << "cam2 to cam1 pixel diff: " << image_pix - cam1_pix << "\n\n";
 
-        if (opt.aster_vs_csm) {
-          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          Vector2 cam1_pix2;
-          if (!have_bathy_plane)
-            cam1_pix2 = cam1_model->point_to_pixel(xyz);
-          else
-            cam1_pix2 = point_to_pixel(cam1_model.get(), opt.bathy_plane_vec[0],
-                                       opt.refraction_index, xyz);
-          asp::stereo_settings().aster_use_csm = !asp::stereo_settings().aster_use_csm;
-          nocsm_vs_csm_diff.push_back(norm_2(cam1_pix - cam1_pix2));
-        }
       } catch (...) {
         // Failure to compute these operations can occur for pinhole cameras
         num_failed++;
@@ -525,9 +487,6 @@ void run_cam_test(Options & opt) {
   print_diffs("cam1 to cam2 camera center diff (meters)", ctr_diff);
   print_diffs("cam1 to cam2 pixel diff", cam1_to_cam2_diff);
   print_diffs("cam2 to cam1 pixel diff", cam2_to_cam1_diff);
-  if (opt.aster_vs_csm)
-    print_diffs("No-csm vs csm pixel diff", nocsm_vs_csm_diff);
-
   // If either session is rpc, warn that the camera center may not be accurate
   if (opt.session1 == "rpc" || opt.session2 == "rpc") {
     vw::vw_out() << "\n"; // separate from the diffs

@@ -103,9 +103,6 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "Trace a ray from this input image pixel (values start from 0) to the ground. "
      "Print the intersection point with the DEM as lon, lat, height, then "
      "as DEM column, row, height. Quit afterwards.")
-    ("aster-use-csm",
-     po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model with ASTER cameras (-t aster).")
     ("parse-options", po::bool_switch(&opt.parseOptions)->default_value(false),
      "Parse the options and print the results. Used by the mapproject script.")
     ;
@@ -163,8 +160,6 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
   // Need this to be able to load adjusted camera models. That will happen
   // in the stereo session.
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
-  asp::stereo_settings().aster_use_csm = opt.aster_use_csm;
-
   if (!opt.ref_map.empty()) {
     // Ensure that --ref-map and --t_srs are not both set
     if (!opt.target_srs_string.empty())

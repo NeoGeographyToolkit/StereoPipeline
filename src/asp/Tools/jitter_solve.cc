@@ -401,9 +401,6 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   // Stereo settings must be set after the command line arguments are parsed.
 
-  // Set this before loading cameras, as jitter can be modeled only with CSM
-  // cameras.
-  asp::stereo_settings().aster_use_csm = true;
   // TODO(oalexan1): This old option may need to be wiped given the newer
   // recent outlier filtering.
   asp::stereo_settings().ip_edge_buffer_percent = opt.ip_edge_buffer_percent;
@@ -857,7 +854,7 @@ void initResampleCsmCams(Options                     const& opt,
   csm_models.clear();
 
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
-    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam], opt.stereo_session);
+    asp::CsmModel * csm_cam = asp::csm_model(camera_models[icam]);
 
     // Sanity check
     if (csm_cam == NULL)

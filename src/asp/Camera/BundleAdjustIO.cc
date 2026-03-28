@@ -499,8 +499,7 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   std::string csmFile          = asp::csmStateFile(adjustFile);
   asp::CsmModel * csm_model
-    = asp::csm_model(vw::camera::unadjusted_model(opt.camera_models[icam]),
-                                                opt.stereo_session);
+    = asp::csm_model(vw::camera::unadjusted_model(opt.camera_models[icam]));
 
   // Apply the adjustment and save a transformed copy of the camera model
   boost::shared_ptr<asp::CsmModel> out_cam;
@@ -607,8 +606,7 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
   // For CSM camera models export, in addition, the JSON state with the
   // adjustment applied to it. This applies when not solving for intrinsics and
   // using CSM. Do something analogous for RPC.
-  if (asp::isLinescanCsmSession(opt.stereo_session) &&
-      (opt.stereo_session != "aster" || asp::stereo_settings().aster_use_csm))
+  if (asp::isLinescanCsmSession(opt.stereo_session))
     cam_file = saveUpdatedCsm(opt, icam, adjust_file, param_storage);
   else if (opt.stereo_session == "rpc" && opt.save_adjusted_rpc)
     cam_file = saveUpdatedRpc(opt, icam, adjust_file, param_storage);
@@ -706,7 +704,7 @@ void saveCsmCameras(std::string const& out_prefix,
                                                           camera_files[icam]);
     std::string csmFile = asp::csmStateFile(adjustFile);
     asp::CsmModel * csm_cam
-      = asp::csm_model(camera_models[icam], stereo_session);
+      = asp::csm_model(camera_models[icam]);
     vw::vw_out() << "Writing: " << csmFile << "\n";
     csm_cam->saveState(csmFile);
     cam_files[icam] = csmFile;

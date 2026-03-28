@@ -1736,9 +1736,6 @@ Command-line options
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB, for each process.
 
---aster-use-csm
-    Use the CSM model with ASTER cameras (``-t aster``).
-    
 -v, --version
     Display the version of software.
 

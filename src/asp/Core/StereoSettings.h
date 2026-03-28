@@ -125,8 +125,6 @@ namespace asp {
     std::string output_prefix_override; // override the output prefix with this 
     std::string flann_method; // The method to use for FLANN matching
 
-    // This option will be the default in the future and then it will go away
-    bool aster_use_csm; // Use the CSM camera model with ASTER images
     bool accept_provided_mapproj_dem;
     bool stop_after_stats;   // Stop after computing stereo stats
     bool stereo_dist_mode;   // Distributed stereo mode

@@ -80,7 +80,6 @@ Run ``parallel_stereo`` (:numref:`parallel_stereo`)::
      parallel_stereo -t aster         \
        --stereo-algorithm asp_mgm     \
        --subpixel-mode 9              \
-       --aster-use-csm                \
         out-Band3N.tif out-Band3B.tif \
         out-Band3N.xml out-Band3B.xml \
         out_stereo/run
@@ -88,10 +87,6 @@ Run ``parallel_stereo`` (:numref:`parallel_stereo`)::
 This uses the ``asp_mgm`` algorithm, which is the most accurate algorithm ASP
 has. One can also try the option ``--subpixel-mode 2`` which will be much slower
 but produce better results.
-
-The option ``--aster-use-csm`` fits a CSM model to the ASTER cameras
-(:numref:`aster_csm`). This makes the processing a lot faster and will be the
-default in the future.
 
 See :numref:`nextsteps` for a discussion about various stereo algorithms and
 speed-vs-quality choices.
@@ -122,7 +117,6 @@ Initial stereo::
     parallel_stereo -t aster         \
       --stereo-algorithm asp_mgm     \
       --subpixel-mode 9              \
-      --aster-use-csm                \
        out-Band3N.tif out-Band3B.tif \
        out-Band3N.xml out-Band3B.xml \
        out_stereo/run
@@ -135,11 +129,11 @@ Create a low-resolution smooth DEM at 200 meters/pixel::
 
 Mapproject onto this DEM at 15 meters/pixel::
 
-    mapproject --tr 15 --aster-use-csm \
-      out_stereo/run-200m-DEM.tif      \
+    mapproject --tr 15               \
+      out_stereo/run-200m-DEM.tif    \
       out-Band3N.tif out-Band3N.xml out-Band3N_proj.tif
-    mapproject --tr 15 --aster-use-csm \
-      out_stereo/run-200m-DEM.tif      \
+    mapproject --tr 15               \
+      out_stereo/run-200m-DEM.tif    \
       out-Band3B.tif out-Band3B.xml out-Band3B_proj.tif
      
 Run parallel_stereo with the mapprojected images::
@@ -147,7 +141,6 @@ Run parallel_stereo with the mapprojected images::
     parallel_stereo -t aster                  \
       --stereo-algorithm asp_mgm              \
       --subpixel-mode 9                       \
-      --aster-use-csm                         \
       out-Band3N_proj.tif out-Band3B_proj.tif \
       out-Band3N.xml out-Band3B.xml           \
       out_stereo_proj/run                     \
@@ -184,38 +177,26 @@ nearly the same as obtained with L1A images.
 
 .. _aster_csm:
 
-Using the CSM model
-^^^^^^^^^^^^^^^^^^^
+The CSM model
+^^^^^^^^^^^^^
 
 An ASTER camera model consists of a sequence of satellite position samples and a
 set of camera directions (sight vectors, in world coordinates), sampled at about
-a dozen image rows and columns. Interpolation is used in-between.
+a dozen image rows and columns.
 
-ASP can also fit a CSM linescan model (:numref:`csm`) on-the-fly to the
-ASTER model. This has the advantage that instead of a set of directions on a grid,
-there is one camera orientation at each satellite position sample. These will 
-be used to solve for jitter in ASTER cameras (:numref:`jitter_aster`).
-
-This functionality can be turned on with the option ``--aster-use-csm`` in
-``parallel_stereo``, ``bundle_adjust``, ``mapproject``, and ``cam_test``.
-This option is implicitly assumed when solving for jitter, as that tool only
-works with CSM cameras.
+ASP fits a CSM linescan model (:numref:`csm`) on-the-fly to the ASTER sight
+vectors and satellite positions. Instead of a set of directions on a grid, there
+is one camera orientation at each satellite position sample. This enables
+solving for jitter in ASTER cameras (:numref:`jitter_aster`).
 
 The CSM model is produced by optimizing the optical center, focal length, and
 camera orientations, to fit best the provided ASTER sight vectors. No ground
 information is used, or stereo pair knowledge. The satellite positions do not
-change. This model results in a triangulated surface that is different by an
-average of 1 m or so vertically from the one obtained with the original cameras,
-but this is very small given the ground sample distance of 15 meters, and is not
-noticeable when taking the difference with a prior terrain model.
-
-The ``cam_test`` documentation also describes how to compare the existing ASTER
-and new CSM-based implementations. 
+change.
 
 The bundle adjustment program (:numref:`bundle_adjust`) will optimize and save
-the produced CSM models (:numref:`csm_state`), if invoked with this switch. To
-save the best-fit CSM models with no further refinement, invoke this tool with
-zero iterations. 
+the produced CSM models (:numref:`csm_state`). To save the best-fit CSM models
+with no further refinement, invoke this tool with zero iterations.
 
 The CSM model may be further refined by tying together multiple datasets and
 using ground constraints (:numref:`kaguya_ba`).

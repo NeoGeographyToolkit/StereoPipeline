@@ -1039,9 +1039,6 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "When having GCP (or a DEM constraint), constrain the triangulated points in the "
      "longitude, latitude, and height space, instead of ECEF. The standard deviations "
      "in the GCP file (or DEM uncertainty) are applied accordingly.")
-    ("aster-use-csm", 
-     po::bool_switch(&opt.aster_use_csm)->default_value(false)->implicit_value(true),
-     "Use the CSM model with ASTER cameras (-t aster).")
     ("mapprojected-data",  po::value(&opt.mapprojected_data)->default_value(""),
      "Given map-projected versions of the input images and the DEM they were mapprojected "
      "onto, create interest point matches between the mapprojected images. Unproject and "
