@@ -488,7 +488,8 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
                  << " cols x " << row_idx.size() << " rows (rotations fixed)\n";
     bool fix_rotations = true;
     asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row,
-                              d_col_fit, d_row_fit, *csm_model, fix_rotations);
+                              d_col_fit, d_row_fit, *csm_model,
+                              fix_rotations);
   }
 
   return csm_model;

@@ -380,7 +380,8 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
                           int d_col, int d_row,
                           // This model will be modified
                           asp::CsmModel & csm_model,
-                          bool fix_rotations) {
+                          bool fix_rotations,
+                          int distortion_type) {
 
   // Read data from the model
   double focal_length = csm_model.focal_length();
@@ -396,16 +397,20 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
   // Create rotations from quaternions
   std::vector<double> rotations;
   csmQuatVecToAxisAngle(num_poses, &quaternions[0], rotations);
-  
-  // Initial Kaguya distortion. These initial values were shown to work well.
-  //DistortionType dist_type = KAGUYALISM;
-  // std::vector<double> distortion = {1e-7, 1e-7, 1e-8, 1e-8, 1e-9, 
-  //                                   1e-7, 1e-7, 1e-8, 1e-8, 1e-9};
-  
-  // Use instead the radtan model. This does not result in an artifact
-  // on the right.
-  DistortionType dist_type = RADTAN;
-  std::vector<double> distortion = {1e-8, 1e-8, 1e-8, 1e-8, 1e-8};
+
+  // Choose distortion model. Default (-1) uses RADTAN.
+  DistortionType dist_type;
+  std::vector<double> distortion;
+  if (distortion_type == TRANSVERSE) {
+    dist_type = TRANSVERSE;
+    distortion.resize(20, 0.0);
+    // Identity for linear terms, zero for nonlinear
+    distortion[1] = 1.0; // x coefficient for ux
+    distortion[11] = 1.0; // y coefficient for uy
+  } else {
+    dist_type = RADTAN;
+    distortion.assign(5, 1e-8);
+  }
   
   // Set up an optimization problem to refine the CSM model.
   ceres::Problem problem;
