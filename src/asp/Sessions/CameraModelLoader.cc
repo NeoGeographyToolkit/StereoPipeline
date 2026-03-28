@@ -132,10 +132,7 @@ CameraModelLoader::load_spot_camera_model(std::string const& path) const {
 // Load a ASTER camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_ASTER_camera_model(std::string const& path) const {
-  // This model file also needs the RPC model as an initial guess
-  boost::shared_ptr<vw::camera::CameraModel> rpc_model = load_rpc_camera_model(path);
-
-  return vw::CamPtr(load_ASTER_camera_model_from_xml(path, rpc_model));
+  return vw::CamPtr(load_ASTER_camera_model_from_xml(path));
 }
 
 // Load an ISIS camera model

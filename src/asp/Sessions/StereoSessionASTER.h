@@ -39,10 +39,6 @@ public:
   /// Simple factory function
   static SessionPtr construct() { return SessionPtr(new StereoSessionASTER); }
 
-  /// Fetch the RPC models. We want to use those for ip matching, as they are faster.
-  void rpc_camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                         boost::shared_ptr<vw::camera::CameraModel> &cam2);
-  
 protected:
   /// Function to load a camera model of the particular type.
   virtual boost::shared_ptr<vw::camera::CameraModel>

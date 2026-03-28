@@ -26,9 +26,7 @@ ASTERCameraModel::ASTERCameraModel(
 				   std::vector<std::vector<vw::Vector3>> const& sight_mat,
 				   std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
 				   std::vector<vw::Vector3>              const& sat_pos,
-				   vw::Vector2i                          const& image_size,
-				   boost::shared_ptr<vw::camera::CameraModel>   rpc_model):
-  m_rpc_model(rpc_model) {
+				   vw::Vector2i                          const& image_size) {
 
   if (lattice_mat.empty() || lattice_mat[0].empty())
     vw::vw_throw(vw::ArgumentErr() << "Empty matrix of lattice points.\n");
@@ -84,8 +82,7 @@ ASTERCameraModel::ASTERCameraModel(
 }
 
 boost::shared_ptr<ASTERCameraModel>
-load_ASTER_camera_model_from_xml(std::string const& path,
-                                 boost::shared_ptr<vw::camera::CameraModel> rpc_model) {
+load_ASTER_camera_model_from_xml(std::string const& path) {
 
   // XYZ coordinates are in the ITRF coordinate frame which means GCC coordinates.
   // - The velocities are in the same coordinate frame, not in some local frame.
@@ -103,8 +100,7 @@ load_ASTER_camera_model_from_xml(std::string const& path,
                           xml_reader.m_sight_mat,
                           xml_reader.m_world_sight_mat,
                           xml_reader.m_sat_pos,
-                          xml_reader.m_image_size,
-                          rpc_model));
+                          xml_reader.m_image_size));
 }
 
 } // end namespace asp

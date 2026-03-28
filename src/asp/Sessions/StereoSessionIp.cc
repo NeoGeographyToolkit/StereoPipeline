@@ -27,7 +27,6 @@
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/FileUtils.h>
 #include <asp/Camera/RPCModel.h>
-#include <asp/Sessions/StereoSessionASTER.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/ImageUtils.h>
@@ -70,20 +69,6 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                 vw::BBox2i const& bbox2) {
 
   vw_out() << "\t--> Matching interest points in StereoSession.\n";
-
-  // Fix for ASTER. This will modify the pointers to the cameras for this function,
-  // but not the cameras in the caller of this function.
-  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
-  if (this->name() == "aster") {
-    vw_out() << "Using the RPC model instead of the exact ASTER model for interest point "
-              << "matching, for speed. This does not affect the accuracy of final results.\n";
-    StereoSessionASTER * aster_session = dynamic_cast<StereoSessionASTER*>(this);
-    if (aster_session == NULL)
-      vw_throw(ArgumentErr() << "ASTER session is expected.");
-    aster_session->rpc_camera_models(left_cam, right_cam);
-    cam1 = left_cam.get();
-    cam2 = right_cam.get();
-  }
 
   // Sanity checks. Must be here since we will use this code in stereo and bundle_adjust.
   if (asp::stereo_settings().matches_per_tile > 0) {

@@ -52,16 +52,10 @@ namespace asp {
 		     std::vector<std::vector<vw::Vector3>> const& sight_mat,
 		     std::vector<std::vector<vw::Vector3>> const& world_sight_mat,
 		     std::vector<vw::Vector3>               const& sat_pos,
-		     vw::Vector2i                            const& image_size,
-		     boost::shared_ptr<vw::camera::CameraModel>     rpc_model);
+		     vw::Vector2i                            const& image_size);
 
     virtual ~ASTERCameraModel() {}
     virtual std::string type() const { return "LinescanASTER"; }
-
-    boost::shared_ptr<vw::camera::CameraModel> get_rpc_model() { return m_rpc_model; }
-
-  protected:
-    boost::shared_ptr<vw::camera::CameraModel> m_rpc_model; // rpc approx, for initial guess
 
   }; // End class ASTERCameraModel
 
@@ -70,8 +64,7 @@ namespace asp {
   /// - This function does not take care of Xerces XML init/de-init, the caller must
   ///   make sure this is done before/after this function is called!
   boost::shared_ptr<ASTERCameraModel>
-  load_ASTER_camera_model_from_xml(std::string const& path,
-				   boost::shared_ptr<vw::camera::CameraModel> rpc_model);
+  load_ASTER_camera_model_from_xml(std::string const& path);
   
 } // end namespace asp
 
