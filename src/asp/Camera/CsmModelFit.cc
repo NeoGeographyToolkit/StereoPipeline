@@ -403,10 +403,12 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
   std::vector<double> distortion;
   if (distortion_type == TRANSVERSE) {
     dist_type = TRANSVERSE;
-    distortion.resize(20, 0.0);
-    // Identity for linear terms, zero for nonlinear
-    distortion[1] = 1.0;  // x coeff for ux (index 1 in first 10)
-    distortion[12] = 1.0; // y coeff for uy (index 2 in second 10)
+    distortion.resize(20, 1e-6);
+    // Identity for linear terms, small nonzero for rest so Ceres sees gradient
+    distortion[0] = 0.0;  // x constant (no offset)
+    distortion[1] = 1.0;  // x coeff for ux (identity)
+    distortion[10] = 0.0; // y constant
+    distortion[12] = 1.0; // y coeff for uy (identity)
   } else {
     dist_type = RADTAN;
     distortion.assign(5, 1e-8);
@@ -450,6 +452,14 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
   // Copy back rotations vec to quaternions
   axisAngleToCsmQuatVec(rotations.size()/3, &rotations[0], quaternions); 
   
+  // Print fitted values
+  vw::vw_out() << "refineCsmLinescanFit: focal_length = " << focal_length
+               << ", optical_center = " << optical_center << "\n";
+  vw::vw_out() << "refineCsmLinescanFit: distortion coeffs:";
+  for (size_t i = 0; i < distortion.size(); i++)
+    vw::vw_out() << " " << distortion[i];
+  vw::vw_out() << "\n";
+
   // Update the model quaternions, focal length, optical center, and distortion
   csm_model.set_linescan_quaternions(quaternions);
   csm_model.set_focal_length(focal_length);

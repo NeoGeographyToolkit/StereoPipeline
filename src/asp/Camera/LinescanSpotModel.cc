@@ -342,29 +342,46 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
     cam2world_vec[i] = lo_frame * look_rotation * R;
   }
 
-  // Compute initial intrinsics from the look angle table.
+  // Compute intrinsics from the look angle table using the PeruSat approach:
+  // focal_length = 1.0, detector params in angle units.
+  //
   // The old model's local look vector is: (tan(PSI_Y), tan(PSI_X), 1.0)
-  // CSM's look vector is: (sample_coord - cx, line_coord - cy, focal_length)
-  // So: sample_coord - cx = f * tan(PSI_Y)
-  //     line_coord - cy   = f * tan(PSI_X)
-  // At pixel (c, 0), sample_coord = c, line_coord = 0 (for the detector).
-  // PSI_Y spans [-0.071, +0.071] across columns -> FOV.
-  // PSI_X is ~0.35 rad (forward look for HRS) -> constant offset.
+  // CSM's look vector is: normalize(undist_x, undist_y, focal_length)
+  // With f=1.0: look = normalize(undist_x, undist_y, 1.0)
+  // So we need: undist_x = tan(PSI_Y(col)), undist_y = tan(PSI_X(col))
+  //
+  // The detector model computes:
+  //   distortedY = col * sampleSumming - sampleOrigin  (across-track)
+  //   distortedX = 0 * lineSumming - lineOrigin         (along-track)
+  //
+  // Fit a linear model to tan(PSI_Y) vs column:
+  //   tan(PSI_Y(col)) ~ slope_y * col + intercept_y
+  // Then: sampleSumming = slope_y, sampleOrigin = -intercept_y
+  //
+  // For PSI_X (nearly constant): lineOrigin = -tan(PSI_X_center)
   auto const& look_angles = xml_reader.look_angles;
   int num_cols = xml_reader.image_size[0];
-  double psi_y_first = look_angles.front().second[1];
-  double psi_y_last  = look_angles.back().second[1];
-  double half_fov = std::max(std::abs(psi_y_first), std::abs(psi_y_last));
-  double focal_length = (num_cols / 2.0) / tan(half_fov);
 
-  // The optical center in X is at the middle column
-  double cx = num_cols / 2.0;
-  // The optical center in Y accounts for the along-track look angle (PSI_X).
-  // At the center column, PSI_X gives the forward/backward look offset.
+  // Linear fit to tan(PSI_Y) vs column index (0-based)
+  double sum_c = 0, sum_ty = 0, sum_c2 = 0, sum_cty = 0;
+  for (int c = 0; c < num_cols; c++) {
+    double ty = tan(look_angles[c].second[1]);
+    sum_c   += c;
+    sum_ty  += ty;
+    sum_c2  += c * (double)c;
+    sum_cty += c * ty;
+  }
+  double n = num_cols;
+  double slope_y     = (n * sum_cty - sum_c * sum_ty) / (n * sum_c2 - sum_c * sum_c);
+  double intercept_y = (sum_ty - slope_y * sum_c) / n;
+
+  // PSI_X is nearly constant - use center value
   int mid_col = num_cols / 2;
   double psi_x_center = look_angles[mid_col].second[0];
-  double cy = -focal_length * tan(psi_x_center);
-  vw::Vector2 optical_center(cx, cy);
+
+  double focal_length = 1.0;
+  // optical_center is not used directly - detector origin encodes it
+  vw::Vector2 optical_center(0.0, 0.0);
 
   // Line dating
   double first_line_time = time_func(0);
@@ -398,15 +415,17 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   ls->m_majorAxis        = datum.semi_major_axis();
   ls->m_minorAxis        = datum.semi_minor_axis();
 
-  // Detector model (identity transform, optical center sets the origin)
+  // Detector model: PeruSat-style, mapping pixels to angle-like values.
+  // distortedY = col * sampleSumming - sampleOrigin = slope_y * col + intercept_y
+  // distortedX = 0 - lineOrigin = tan(PSI_X_center)
   ls->m_iTransL[0] = 0.0; ls->m_iTransL[1] = 0.0; ls->m_iTransL[2] = 1.0;
   ls->m_iTransS[0] = 0.0; ls->m_iTransS[1] = 1.0; ls->m_iTransS[2] = 0.0;
+  ls->m_detectorSampleSumming  = slope_y;
+  ls->m_detectorSampleOrigin   = -intercept_y + 0.5 * slope_y;
   ls->m_detectorLineSumming    = 1.0;
-  ls->m_detectorSampleSumming  = 1.0;
+  ls->m_detectorLineOrigin     = -tan(psi_x_center);
   ls->m_startingDetectorLine   = 0.0;
   ls->m_startingDetectorSample = 0.0;
-  ls->m_detectorLineOrigin     = optical_center[1];
-  ls->m_detectorSampleOrigin   = optical_center[0] + 0.5;
 
   // Line timing
   ls->m_intTimeLines.push_back(1.0);
@@ -440,9 +459,11 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   }
   asp::normalizeQuaternions(ls);
 
-  // Zero distortion for now
-  ls->m_distortionType = RADTAN;
-  ls->m_opticalDistCoeffs.resize(5, 0.0);
+  // TRANSVERSE distortion starting at identity
+  ls->m_distortionType = TRANSVERSE;
+  ls->m_opticalDistCoeffs.resize(20, 0.0);
+  ls->m_opticalDistCoeffs[1]  = 1.0; // x: identity for ux
+  ls->m_opticalDistCoeffs[12] = 1.0; // y: identity for uy
 
   // Re-create from state to finalize internal bookkeeping
   std::string modelState = ls->getModelState();
@@ -489,7 +510,7 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
     bool fix_rotations = true;
     asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row,
                               d_col_fit, d_row_fit, *csm_model,
-                              fix_rotations);
+                              fix_rotations, TRANSVERSE);
   }
 
   return csm_model;
