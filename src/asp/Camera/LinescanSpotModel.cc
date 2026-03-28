@@ -17,12 +17,17 @@
 
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmModelFit.h>
+#include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/LinescanSpotModel.h>
 #include <asp/Camera/SPOT_XML.h>
+#include <asp/Core/CameraTransforms.h>
 #include <asp/Core/StereoSettings.h>
 
 #include <vw/Camera/CameraSolve.h>
 #include <vw/Cartography/Datum.h>
+
+#include <usgscsm/UsgsAstroLsSensorModel.h>
+#include <usgscsm/Distortion.h>
 
 namespace asp {
 
@@ -263,71 +268,194 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
 
 } // End function load_spot_camera_model()
 
-// Load a SPOT5 CSM camera model. Uses the old SPOTCameraModel to generate
-// a grid of world sight vectors, then fits a CSM linescan model using the
-// same approach as ASTER (fitCsmLinescan).
+// Load a SPOT5 CSM camera model. Populates CSM with vendor extrinsics
+// directly (positions, velocities, quaternions from XML), then fits
+// only intrinsics (focal length, optical center, distortion) to match
+// the vendor's per-column look angle table.
 boost::shared_ptr<CsmModel>
 load_spot5_csm_camera_model_from_xml(std::string const& path) {
 
-  // First load the old VW-based model
-  boost::shared_ptr<SPOTCameraModel> old_model = load_spot5_camera_model_from_xml(path);
+  vw::vw_out() << "Building SPOT5 CSM model from XML.\n";
 
-  vw::Vector2i image_size = old_model->get_image_size();
-  int num_cols = image_size[0];
-  int num_rows = image_size[1];
+  // Parse the SPOT5 XML file
+  SpotXML xml_reader;
+  xml_reader.read_xml(path);
 
-  // Sample the old model on a grid to generate sight vectors.
-  // Keep the grid small enough for Ceres optimization speed.
-  // More columns help capture look angle nonlinearity.
-  int d_col = std::max(1, num_cols / 100); // ~100 column samples
-  int d_row = std::max(1, num_rows / 20);  // ~20 row samples
+  // Get the interpolation functors for position/velocity (for quaternion conversion)
+  vw::LagrangianInterpolation position_func = xml_reader.setup_position_func();
+  vw::LagrangianInterpolation velocity_func = xml_reader.setup_velocity_func();
+  vw::LinearTimeInterpolation time_func     = xml_reader.setup_time_func();
 
-  // Build the sampled column and row indices
-  std::vector<int> col_indices, row_indices;
-  for (int c = 0; c < num_cols; c += d_col)
-    col_indices.push_back(c);
-  if (col_indices.back() != num_cols - 1)
-    col_indices.push_back(num_cols - 1);
+  // Extract raw position/velocity data with times
+  std::vector<vw::Vector3> positions, velocities;
+  std::vector<double> pos_times;
+  for (auto iter = xml_reader.position_logs.begin();
+       iter != xml_reader.position_logs.end(); iter++) {
+    double t = xml_reader.convert_time(iter->first);
+    pos_times.push_back(t);
+    positions.push_back(iter->second);
+  }
+  for (auto iter = xml_reader.velocity_logs.begin();
+       iter != xml_reader.velocity_logs.end(); iter++)
+    velocities.push_back(iter->second);
 
-  for (int r = 0; r < num_rows; r += d_row)
-    row_indices.push_back(r);
-  if (row_indices.back() != num_rows - 1)
-    row_indices.push_back(num_rows - 1);
+  // Compute uniform ephemeris time grid
+  double t0_ephem = pos_times.front();
+  double dt_ephem = (pos_times.back() - pos_times.front()) / (pos_times.size() - 1.0);
 
-  int n_sampled_cols = col_indices.size();
-  int n_sampled_rows = row_indices.size();
+  // Extract raw pose data and convert yaw/pitch/roll to GCC quaternions.
+  // Reuse the same conversion logic as load_spot5_camera_model_from_xml().
+  vw::LinearPiecewisePositionInterpolation spot_pose_func
+    = xml_reader.setup_pose_func(time_func);
 
-  // Generate world sight vectors and satellite positions from the old model
-  SightMatT world_sight_mat(n_sampled_rows);
-  std::vector<vw::Vector3> sat_pos(n_sampled_rows);
-
-  for (int ri = 0; ri < n_sampled_rows; ri++) {
-    int row = row_indices[ri];
-    world_sight_mat[ri].resize(n_sampled_cols);
-
-    // Camera center at this row
-    vw::Vector2 mid_pix(num_cols / 2.0, row);
-    sat_pos[ri] = old_model->camera_center(mid_pix);
-
-    for (int ci = 0; ci < n_sampled_cols; ci++) {
-      int col = col_indices[ci];
-      vw::Vector2 pix(col, row);
-      world_sight_mat[ri][ci] = old_model->pixel_to_vector(pix);
-    }
+  // Get pose sample times
+  std::vector<double> pose_times;
+  for (auto iter = xml_reader.pose_logs.begin();
+       iter != xml_reader.pose_logs.end(); iter++) {
+    double t = xml_reader.convert_time(iter->first);
+    pose_times.push_back(t);
   }
 
-  int min_col = col_indices.front();
-  int min_row = row_indices.front();
+  // Pad pose times to match what setup_pose_func does (it pads at boundaries)
+  double t0_quat = spot_pose_func.get_t0();
+  double dt_quat = spot_pose_func.get_dt();
+  double tend_quat = spot_pose_func.get_tend();
+  size_t num_quat = static_cast<size_t>(round((tend_quat - t0_quat) / dt_quat));
+
+  // Axis reorientation matrix (same as in the old loader)
+  Matrix3x3 R;
+  R(0,0) = -1.0; R(0,1) = 0.0; R(0,2) =  0.0;
+  R(1,0) =  0.0; R(1,1) = 1.0; R(1,2) =  0.0;
+  R(2,0) =  0.0; R(2,1) = 0.0; R(2,2) = -1.0;
+
+  // Convert each pose sample to a GCC rotation matrix
+  std::vector<vw::Matrix<double,3,3>> cam2world_vec(num_quat);
+  for (size_t i = 0; i < num_quat; i++) {
+    double time = t0_quat + dt_quat * static_cast<double>(i);
+    Vector3 position       = position_func(time);
+    Vector3 velocity       = velocity_func(time);
+    Vector3 yaw_pitch_roll = spot_pose_func(time);
+
+    Matrix3x3 lo_frame      = SPOTCameraModel::get_local_orbital_frame(position, velocity);
+    Matrix3x3 look_rotation = SPOTCameraModel::get_look_rotation_matrix(
+                                yaw_pitch_roll[0], yaw_pitch_roll[1], yaw_pitch_roll[2]);
+    cam2world_vec[i] = lo_frame * look_rotation * R;
+  }
+
+  // Compute initial intrinsics from the look angle table.
+  // The old model's local look vector is: (tan(PSI_Y), tan(PSI_X), 1.0)
+  // CSM's look vector is: (sample_coord - cx, line_coord - cy, focal_length)
+  // So: sample_coord - cx = f * tan(PSI_Y)
+  //     line_coord - cy   = f * tan(PSI_X)
+  // At pixel (c, 0), sample_coord = c, line_coord = 0 (for the detector).
+  // PSI_Y spans [-0.071, +0.071] across columns -> FOV.
+  // PSI_X is ~0.35 rad (forward look for HRS) -> constant offset.
+  auto const& look_angles = xml_reader.look_angles;
+  int num_cols = xml_reader.image_size[0];
+  double psi_y_first = look_angles.front().second[1];
+  double psi_y_last  = look_angles.back().second[1];
+  double half_fov = std::max(std::abs(psi_y_first), std::abs(psi_y_last));
+  double focal_length = (num_cols / 2.0) / tan(half_fov);
+
+  // The optical center in X is at the middle column
+  double cx = num_cols / 2.0;
+  // The optical center in Y accounts for the along-track look angle (PSI_X).
+  // At the center column, PSI_X gives the forward/backward look offset.
+  int mid_col = num_cols / 2;
+  double psi_x_center = look_angles[mid_col].second[0];
+  double cy = -focal_length * tan(psi_x_center);
+  vw::Vector2 optical_center(cx, cy);
+
+  // Line dating
+  double first_line_time = time_func(0);
+  double dt_line = xml_reader.line_period;
 
   vw::cartography::Datum datum("WGS84");
   std::string sensor_id = "SPOT5";
-  vw::vw_out() << "Fitting CSM linescan model to SPOT5 camera.\n";
 
-  // Create a CsmModel and fit it
+  // Populate CSM model fields directly. We do this instead of calling
+  // populateCsmLinescan() because positions (12 pts at 30s) and quaternions
+  // (515 pts at 0.125s) have different counts and time grids.
   boost::shared_ptr<CsmModel> csm_model(new CsmModel());
-  bool fit_distortion = true;
-  fitCsmLinescan(sensor_id, datum, image_size, sat_pos, world_sight_mat,
-                 min_col, min_row, d_col, d_row, fit_distortion, *csm_model);
+  csm_model->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
+  csm_model->m_semi_major_axis = datum.semi_major_axis();
+  csm_model->m_semi_minor_axis = datum.semi_minor_axis();
+
+  csm_model->m_gm_model = boost::make_shared<UsgsAstroLsSensorModel>();
+  UsgsAstroLsSensorModel* ls =
+    dynamic_cast<UsgsAstroLsSensorModel*>(csm_model->m_gm_model.get());
+  ls->reset();
+
+  ls->m_nSamples         = xml_reader.image_size[0];
+  ls->m_nLines           = xml_reader.image_size[1];
+  ls->m_platformFlag     = 1; // order 8 Lagrange (matches vendor prescription)
+  ls->m_minElevation     = -10000.0;
+  ls->m_maxElevation     =  10000.0;
+  ls->m_focalLength      = focal_length;
+  ls->m_zDirection       = 1.0;
+  ls->m_halfSwath        = 1.0;
+  ls->m_sensorIdentifier = sensor_id;
+  ls->m_majorAxis        = datum.semi_major_axis();
+  ls->m_minorAxis        = datum.semi_minor_axis();
+
+  // Detector model (identity transform, optical center sets the origin)
+  ls->m_iTransL[0] = 0.0; ls->m_iTransL[1] = 0.0; ls->m_iTransL[2] = 1.0;
+  ls->m_iTransS[0] = 0.0; ls->m_iTransS[1] = 1.0; ls->m_iTransS[2] = 0.0;
+  ls->m_detectorLineSumming    = 1.0;
+  ls->m_detectorSampleSumming  = 1.0;
+  ls->m_startingDetectorLine   = 0.0;
+  ls->m_startingDetectorSample = 0.0;
+  ls->m_detectorLineOrigin     = optical_center[1];
+  ls->m_detectorSampleOrigin   = optical_center[0] + 0.5;
+
+  // Line timing
+  ls->m_intTimeLines.push_back(1.0);
+  ls->m_intTimeStartTimes.push_back(first_line_time);
+  ls->m_intTimes.push_back(dt_line);
+
+  // Positions and velocities (12 pts at 30s)
+  ls->m_t0Ephem = t0_ephem;
+  ls->m_dtEphem = dt_ephem;
+  ls->m_numPositions = 3 * positions.size();
+  ls->m_positions.resize(ls->m_numPositions);
+  ls->m_velocities.resize(ls->m_numPositions);
+  for (size_t i = 0; i < positions.size(); i++)
+    for (int c = 0; c < 3; c++) {
+      ls->m_positions [3*i + c] = positions[i][c];
+      ls->m_velocities[3*i + c] = velocities[i][c];
+    }
+
+  // Quaternions (from converted yaw/pitch/roll, ~515 pts at 0.125s)
+  ls->m_t0Quat = t0_quat;
+  ls->m_dtQuat = dt_quat;
+  ls->m_numQuaternions = 4 * cam2world_vec.size();
+  ls->m_quaternions.resize(ls->m_numQuaternions);
+  for (size_t i = 0; i < cam2world_vec.size(); i++) {
+    double x, y, z, w;
+    asp::matrixToQuaternion(cam2world_vec[i], x, y, z, w);
+    ls->m_quaternions[4*i + 0] = x;
+    ls->m_quaternions[4*i + 1] = y;
+    ls->m_quaternions[4*i + 2] = z;
+    ls->m_quaternions[4*i + 3] = w;
+  }
+  asp::normalizeQuaternions(ls);
+
+  // Zero distortion for now
+  ls->m_distortionType = RADTAN;
+  ls->m_opticalDistCoeffs.resize(5, 0.0);
+
+  // Re-create from state to finalize internal bookkeeping
+  std::string modelState = ls->getModelState();
+  ls->replaceModelState(modelState);
+
+  vw::vw_out() << "SPOT5 CSM model: initial focal_length = " << focal_length
+               << ", optical_center = " << optical_center << "\n";
+
+  // TODO(oalexan1): Fit intrinsics (focal_length, optical_center, distortion)
+  // to match the vendor's per-column look angle table. Must NOT float
+  // rotations (extrinsics are from vendor). Need a Ceres cost function that
+  // works directly with the detector model + distortion in the local frame.
+  // refineCsmLinescanFit() cannot be used because it floats rotations.
 
   return csm_model;
 }

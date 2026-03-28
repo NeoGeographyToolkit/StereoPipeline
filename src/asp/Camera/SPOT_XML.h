@@ -87,6 +87,10 @@ namespace asp {
     vw::LinearPiecewisePositionInterpolation setup_pose_func(
         vw::LinearTimeInterpolation const& time_func) const; // (yaw/pitch/roll)        
 
+    /// Converts a time from string to numeric format.
+    /// - All times are in seconds relative to the earliest ephemeris time.
+    double convert_time(std::string const& s) const;
+
   private: // The various XML data reading sections
 
     /// Just opens the XML file for reading and returns the root node.
@@ -98,10 +102,6 @@ namespace asp {
     void read_corners    (xercesc::DOMElement* dataset_frame_node);
     void read_image_size (xercesc::DOMElement* raster_dims_node);
     void read_line_times (xercesc::DOMElement* sensor_config_node);
-
-    /// Converts a time from string to numeric format.
-    /// - All times are in seconds relative to May 5th, 2002 (when SPOT5 launched)
-    double convert_time(std::string const& s) const;
 
     boost::shared_ptr<xercesc::XercesDOMParser> m_parser;
     boost::shared_ptr<xercesc::ErrorHandler>    m_errHandler;

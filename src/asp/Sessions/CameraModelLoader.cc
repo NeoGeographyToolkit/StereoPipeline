@@ -101,7 +101,6 @@ CameraModelLoader::load_dg_camera_model(std::string const& path) const {
 // Load a spot5 camera file
 boost::shared_ptr<vw::camera::CameraModel>
 CameraModelLoader::load_spot5_camera_model(std::string const& path) const {
-  vw::vw_out() << "Loading a SPOT5 camera model can take a few minutes.\n";
   vw::Stopwatch sw;
   sw.start();
 
