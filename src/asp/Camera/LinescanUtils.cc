@@ -26,7 +26,8 @@ namespace asp {
 bool isLinescanCsmSession(std::string const& session) {
   return (session == "csm"      || session == "dg"      ||
           session == "pleiades" || session == "spot"     ||
-          session == "perusat"  || session == "aster");
+          session == "perusat"  || session == "aster"    ||
+          session == "spot5");
 }
 
 // Find the underlying CSM camera. Applies to all linescan CSM sessions.

@@ -303,6 +303,14 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   double t0_ephem = pos_times.front();
   double dt_ephem = (pos_times.back() - pos_times.front()) / (pos_times.size() - 1.0);
 
+  // Warn if ephemeris time grid is not uniform (1e-3 relative tolerance)
+  for (size_t i = 1; i < pos_times.size(); i++) {
+    double dt_i = pos_times[i] - pos_times[i-1];
+    if (std::abs(dt_i - dt_ephem) > 1e-3 * std::abs(dt_ephem))
+      vw::vw_out(vw::WarningMessage) << "SPOT5: non-uniform ephemeris spacing at "
+        << "sample " << i << ": dt = " << dt_i << " vs expected " << dt_ephem << "\n";
+  }
+
   // Extract raw pose data and convert yaw/pitch/roll to GCC quaternions.
   // Reuse the same conversion logic as load_spot5_camera_model_from_xml().
   vw::LinearPiecewisePositionInterpolation spot_pose_func
@@ -314,6 +322,18 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
        iter != xml_reader.pose_logs.end(); iter++) {
     double t = xml_reader.convert_time(iter->first);
     pose_times.push_back(t);
+  }
+
+  // Warn if attitude time grid is not uniform (1e-3 relative tolerance)
+  if (pose_times.size() > 1) {
+    double dt_pose = (pose_times.back() - pose_times.front()) /
+                     (pose_times.size() - 1.0);
+    for (size_t i = 1; i < pose_times.size(); i++) {
+      double dt_i = pose_times[i] - pose_times[i-1];
+      if (std::abs(dt_i - dt_pose) > 1e-3 * std::abs(dt_pose))
+        vw::vw_out(vw::WarningMessage) << "SPOT5: non-uniform attitude spacing at "
+          << "sample " << i << ": dt = " << dt_i << " vs expected " << dt_pose << "\n";
+    }
   }
 
   // Pad pose times to match what setup_pose_func does (it pads at boundaries)
