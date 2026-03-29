@@ -1306,9 +1306,6 @@ void run_jitter_solve(int argc, char* argv[]) {
   rig::RigSet rig;
   handle_arguments(argc, argv, opt, rig);
 
-  // Always use CSM for SPOT5 (old VW linescan path does not support jitter_solve)
-  asp::stereo_settings().spot5_use_csm = true;
-
   // Load the cameras  
   bool approximate_pinhole_intrinsics = false;
   asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,

@@ -790,9 +790,6 @@ int main(int argc, char* argv[]) {
     // Process the bundle_adjust options and sanity checks
     handleBaArgs(argc, argv, opt);
 
-    // Always use CSM for SPOT5 (old VW linescan path does not support BA/jitter)
-    asp::stereo_settings().spot5_use_csm = true;
-
     asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,
                       opt.approximate_pinhole_intrinsics,
                       // Outputs

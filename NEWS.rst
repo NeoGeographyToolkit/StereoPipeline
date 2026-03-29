@@ -17,6 +17,9 @@ Added support for plain-text match files (:numref:`txt_match`).
 
 Added support for SPOT 6 and 7 exact linescan camera models (:numref:`spot67`).
 
+Migrated SPOT 5 to a CSM linescan camera model (:numref:`spot5`). This enables
+use of ``jitter_solve`` (:numref:`jitter_pleiades`).
+
 Migrated PeruSat-1 to a CSM linescan camera model (:numref:`perusat1`). This
 enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
 

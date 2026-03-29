@@ -54,11 +54,11 @@ struct Options: vw::GdalWriteOptions {
   cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum, bathy_plane;
   int sample_rate;
   double subpixel_offset, height_above_datum, refraction_index;
-  bool print_per_pixel_results, test_error_propagation, spot5_vs_csm;
+  bool print_per_pixel_results, test_error_propagation;
   vw::Vector2 single_pixel;
   std::vector<vw::BathyPlane> bathy_plane_vec;
 
-  Options(): spot5_vs_csm(false) {}
+  Options() {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -106,14 +106,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("refraction-index", po::value(&opt.refraction_index)->default_value(1.0),
      "The index of refraction of water to be used in bathymetry correction. "
      "Must be bigger than 1. This index can be computed with refr_index.")
-    ("spot5-use-csm",
-     po::bool_switch(&asp::stereo_settings().spot5_use_csm)->default_value(false)->implicit_value(true),
-     "Use a CSM linescan model for SPOT5 cameras instead of the default VW-based "
-     "model. The CSM model is fitted to the original model's sight vectors.")
-    ("spot5-vs-csm",
-     po::bool_switch(&opt.spot5_vs_csm)->default_value(false)->implicit_value(true),
-     "Compare the old VW-based SPOT5 model (cam1) against the CSM model (cam2). "
-     "Both are loaded from the same camera file.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -279,10 +271,6 @@ void run_cam_test(Options & opt) {
                               out_prefix));
   boost::shared_ptr<vw::camera::CameraModel> cam1_model
     = cam1_session->camera_model(opt.image_file, opt.cam1_file);
-
-  // For --spot5-vs-csm, enable CSM for cam2
-  if (opt.spot5_vs_csm)
-    asp::stereo_settings().spot5_use_csm = true;
 
   // Load cam2
   std::string default_session2 = opt.session2; // save it before it changes

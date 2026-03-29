@@ -104,11 +104,7 @@ CameraModelLoader::load_spot5_camera_model(std::string const& path) const {
   vw::Stopwatch sw;
   sw.start();
 
-  vw::CamPtr ans;
-  if (asp::stereo_settings().spot5_use_csm)
-    ans = load_spot5_csm_camera_model_from_xml(path);
-  else
-    ans = load_spot5_camera_model_from_xml(path);
+  vw::CamPtr ans = load_spot5_csm_camera_model_from_xml(path);
 
   sw.stop();
   vw::vw_out() << "Load time: " << sw.elapsed_seconds() << " seconds.\n";
