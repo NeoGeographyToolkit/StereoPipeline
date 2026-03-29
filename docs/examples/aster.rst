@@ -74,7 +74,10 @@ and ensure that they are of good quality, or else get another dataset.
 
 Stereo with raw images
 ^^^^^^^^^^^^^^^^^^^^^^
- 
+
+As of build 2026/3 (:numref:`release`), ASTER data are always processed with the
+CSM model (:numref:`csm`).
+
 Run ``parallel_stereo`` (:numref:`parallel_stereo`)::
 
      parallel_stereo -t aster         \

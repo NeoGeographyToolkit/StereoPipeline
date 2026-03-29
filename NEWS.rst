@@ -4,27 +4,25 @@ Changes since last release
 Added a new program for distributed stereo processing across computing nodes
   (:numref:`stereo_dist`).
 
-Added cloud-optimized GeoTIFF (COG) support via the ``--cog`` option to
-  ``point2dem``, ``mapproject``, etc. (:numref:`cog_output`).
-
-Added support for plain-text match files (:numref:`txt_match`).
-
 Added a new program to study parameter sensitivity by running stereo on small
 patches with different parameter combinations (:numref:`stereo_sweep`).
 
 Added the ``asp_plot`` package for generating diagnostic plots and PDF reports
 from ASP outputs (:numref:`asp_plot`).
 
+Added cloud-optimized GeoTIFF (COG) support via the ``--cog`` option to
+  ``point2dem``, ``mapproject``, etc. (:numref:`cog_output`).
+
+Added support for plain-text match files (:numref:`txt_match`).
+
 Added support for SPOT 6 and 7 exact linescan camera models (:numref:`spot67`).
 
 Migrated PeruSat-1 to a CSM linescan camera model (:numref:`perusat1`). This
   enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
 
-Migrated ASTER to inherit directly from the CSM linescan camera model
-  (:numref:`aster`). Removed the old VW-based interpolation camera and the
-  ``--aster-use-csm`` option. The CSM model is now always used. Removed
-  the use of the helper RPC model for interest point matching, as the
-  exact cameras are now fast enough.
+For the ASTER camera (:numref:`aster`), removed the ``--aster-use-csm`` option
+as that is the default. Removed the use of the helper RPC model for interest
+point matching.
 
 sfm_view (:numref:`sfm_view`):
   * Brought the source code into the ASP repository from the external
