@@ -30,6 +30,8 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Core/StereoSettings.h>
+#include <asp/Camera/CsmModel.h>
 #include <asp/Camera/SPOT_XML.h>
 #include <asp/Camera/LinescanSpotModel.h>
 #include <asp/Camera/RPCModel.h>
@@ -109,9 +111,13 @@ void generate_point_pairs(Options opt,
     // Load up the camera model from the camera file
     xercesc::XMLPlatformUtils::Initialize();
 
-    // Load the input camera model
-    boost::shared_ptr<camera::CameraModel> cam_ptr
-      = asp::load_spot5_camera_model_from_xml(opt.input_path);
+    // Load the input camera model. Use CSM if available (much faster).
+    boost::shared_ptr<camera::CameraModel> cam_ptr;
+    if (asp::stereo_settings().spot5_use_csm)
+      cam_ptr = boost::dynamic_pointer_cast<camera::CameraModel>(
+                  asp::load_spot5_csm_camera_model_from_xml(opt.input_path));
+    else
+      cam_ptr = asp::load_spot5_camera_model_from_xml(opt.input_path);
 
     // Load some image info
     vw::ImageFormat format     = vw::DiskImageResourceRaw::image_format_from_spot5_DIM(opt.input_path);
@@ -335,7 +341,10 @@ int main( int argc, char *argv[] ) {
   Options opt;
   try {
     handle_arguments(argc, argv, opt);
-    
+
+    // Always use CSM for SPOT5 (much faster than old VW linescan path)
+    asp::stereo_settings().spot5_use_csm = true;
+
     // Generate all the point pairs using the input options
     Vector<double> normalized_geodetics;
     Vector<double> normalized_pixels;
