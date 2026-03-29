@@ -427,13 +427,14 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
                            &rotations[0], &optical_center[0], &focal_length,
                            &distortion[0]);
 
-  // For SPOT5: vendor extrinsics are known, only fit intrinsics
+  // Positions are not optimized by this solver. Fix rotations too when
+  // vendor extrinsics are known (SPOT5), so only intrinsics are fitted.
   if (fix_rotations)
     problem.SetParameterBlockConstant(&rotations[0]);
 
   // linescanFitSaveResiduals(problem, "residuals2_before.txt"); // for debugging
-   
-  // Set up the solver options 
+
+  // Set up the solver options
   ceres::Solver::Options options;
   options.linear_solver_type = ceres::ITERATIVE_SCHUR;
   options.num_threads = 1; // Use one thread for unique solution
@@ -450,15 +451,7 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
   // linescanFitSaveResiduals(problem, "residuals2_after.txt"); // for debugging
 
   // Copy back rotations vec to quaternions
-  axisAngleToCsmQuatVec(rotations.size()/3, &rotations[0], quaternions); 
-  
-  // Print fitted values
-  vw::vw_out() << "refineCsmLinescanFit: focal_length = " << focal_length
-               << ", optical_center = " << optical_center << "\n";
-  vw::vw_out() << "refineCsmLinescanFit: distortion coeffs:";
-  for (size_t i = 0; i < distortion.size(); i++)
-    vw::vw_out() << " " << distortion[i];
-  vw::vw_out() << "\n";
+  axisAngleToCsmQuatVec(rotations.size()/3, &rotations[0], quaternions);
 
   // Update the model quaternions, focal length, optical center, and distortion
   csm_model.set_linescan_quaternions(quaternions);

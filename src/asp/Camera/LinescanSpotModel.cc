@@ -275,8 +275,6 @@ boost::shared_ptr<SPOTCameraModel> load_spot5_camera_model_from_xml(std::string 
 boost::shared_ptr<CsmModel>
 load_spot5_csm_camera_model_from_xml(std::string const& path) {
 
-  vw::vw_out() << "Building SPOT5 CSM model from XML.\n";
-
   // Parse the SPOT5 XML file
   SpotXML xml_reader;
   xml_reader.read_xml(path);
@@ -374,7 +372,8 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   //   distortedY = col * sampleSumming - sampleOrigin  (across-track)
   //   distortedX = 0 * lineSumming - lineOrigin         (along-track)
   //
-  // Fit a linear model to tan(PSI_Y) vs column:
+  // Fit a linear model to tan(PSI_Y) vs column. The nonlinear residual
+  // (degree 3+ curvature) is captured later by TRANSVERSE distortion.
   //   tan(PSI_Y(col)) ~ slope_y * col + intercept_y
   // Then: sampleSumming = slope_y, sampleOrigin = -intercept_y
   //
@@ -511,8 +510,6 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   std::string modelState = ls->getModelState();
   ls->replaceModelState(modelState);
 
-  vw::vw_out() << "SPOT5 CSM model: initial focal_length = " << focal_length
-               << ", optical_center = " << optical_center << "\n";
 
   // Fit intrinsics (focal_length, optical_center, distortion) to match
   // the vendor's per-column look angle table. Rotations are pinned constant
@@ -547,8 +544,6 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
 
     int min_col = col_idx.front();
     int min_row = row_idx.front();
-    vw::vw_out() << "Fitting SPOT5 intrinsics: " << col_idx.size()
-                 << " cols x " << row_idx.size() << " rows (rotations fixed)\n";
     bool fix_rotations = true;
     asp::refineCsmLinescanFit(world_sight_mat, min_col, min_row,
                               d_col_fit, d_row_fit, *csm_model,
