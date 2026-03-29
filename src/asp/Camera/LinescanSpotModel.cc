@@ -444,18 +444,40 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
       ls->m_velocities[3*i + c] = velocities[i][c];
     }
 
-  // Quaternions (from converted yaw/pitch/roll, ~515 pts at 0.125s)
-  ls->m_t0Quat = t0_quat;
-  ls->m_dtQuat = dt_quat;
-  ls->m_numQuaternions = 4 * cam2world_vec.size();
-  ls->m_quaternions.resize(ls->m_numQuaternions);
+  // Convert rotation matrices to VW quaternions (w, x, y, z order)
+  std::vector<vw::Quaternion<double>> in_quats(cam2world_vec.size());
+  std::vector<double> in_quat_times(cam2world_vec.size());
   for (size_t i = 0; i < cam2world_vec.size(); i++) {
     double x, y, z, w;
     asp::matrixToQuaternion(cam2world_vec[i], x, y, z, w);
-    ls->m_quaternions[4*i + 0] = x;
-    ls->m_quaternions[4*i + 1] = y;
-    ls->m_quaternions[4*i + 2] = z;
-    ls->m_quaternions[4*i + 3] = w;
+    in_quats[i] = vw::Quaternion<double>(w, x, y, z);
+    in_quat_times[i] = t0_quat + dt_quat * static_cast<double>(i);
+  }
+
+  // SLERP resample 5x to honor vendor's linear interpolation prescription.
+  // CSM uses order-8 Lagrange on quaternion components, but the vendor
+  // prescribes linear interpolation of attitude. A 5x denser grid makes
+  // Lagrange converge to linear behavior between the original samples.
+  int quat_resample_factor = 5;
+  std::vector<double> out_quat_times;
+  std::vector<vw::Quaternion<double>> out_quats;
+  asp::resampleQuatSlerp(in_quat_times, in_quats, quat_resample_factor,
+                         out_quat_times, out_quats);
+
+  double quat_t0_out = out_quat_times.front();
+  double quat_dt_out = (out_quat_times.back() - out_quat_times.front()) /
+                       (out_quat_times.size() - 1.0);
+
+  // Populate CSM quaternions (USGSCSM stores as x, y, z, w)
+  ls->m_t0Quat = quat_t0_out;
+  ls->m_dtQuat = quat_dt_out;
+  ls->m_numQuaternions = 4 * out_quats.size();
+  ls->m_quaternions.resize(ls->m_numQuaternions);
+  for (size_t i = 0; i < out_quats.size(); i++) {
+    ls->m_quaternions[4*i + 0] = out_quats[i].x();
+    ls->m_quaternions[4*i + 1] = out_quats[i].y();
+    ls->m_quaternions[4*i + 2] = out_quats[i].z();
+    ls->m_quaternions[4*i + 3] = out_quats[i].w();
   }
   asp::normalizeQuaternions(ls);
 
