@@ -819,7 +819,7 @@ created (:numref:`jitter_ip`), to be used later to solve for jitter.
       ref.tif
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
-    point2dem --tr 0.4 --t_srs "$proj" --errorimage \ 
+    point2dem --tr 0.4 --t_srs "$proj" --errorimage \
       run_1_2_map/run-PC.tif
 
 A discussion regarding the projection to use above is in :numref:`point2dem_proj`.

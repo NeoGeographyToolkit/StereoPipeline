@@ -586,7 +586,7 @@ a 3D transform.
 As an example, assume that ``pc_align`` is run as::
 
     pc_align --max-displacement 100              \
-      --csv-format '1:x 2:y 3:z'                 \      
+      --csv-format '1:x 2:y 3:z'                 \
       --save-transformed-source-points           \
       --save-inv-transformed-reference-points    \
       ref_dem.tif source.csv                     \

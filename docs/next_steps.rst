@@ -912,8 +912,8 @@ The orthoimages may have different pixel sizes (as read with ``gdalinfo``,
 :numref:`gdal_tools`). The coarser one must be regridded to the pixel size of
 the finer one, with a command such as::
 
-  gdalwarp -r cubicspline -overwrite -tr 0.4 0.4 \ 
-    ortho.tif ortho_regrid.tif 
+  gdalwarp -r cubicspline -overwrite -tr 0.4 0.4 \
+    ortho.tif ortho_regrid.tif
 
 The orthoimages must have the same projection, in units of meters (such as UTM).
 If these are different, the desired projection string can be added to the

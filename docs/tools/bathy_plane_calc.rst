@@ -163,9 +163,9 @@ inputs::
      bathy_plane_calc                        \
        --shapefile shape.shp                 \
        --dem dem.tif                         \
-       --outlier-threshold 0.5               \ 
+       --outlier-threshold 0.5               \
        --output-inlier-shapefile inliers.shp \
-       --bathy-plane plane.txt 
+       --bathy-plane plane.txt
 
 As earlier, it is important to consider carefully what outlier
 threshold to use, and to examine the number and distribution of

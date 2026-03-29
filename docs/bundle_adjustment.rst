@@ -540,7 +540,7 @@ follows (the example here is for 4 images)::
        --robust-threshold 2                                   \
        --max-disp-error 50 --max-num-reference-points 1000000 \
        --overlap-limit 1 --parameter-tolerance 1e-12          \
-       --reference-terrain-weight 5                           \   
+       --reference-terrain-weight 5                           \
        -o run_ba_intr_lidar/run
 
 In case it is desired to omit the disparity between one pair of images,

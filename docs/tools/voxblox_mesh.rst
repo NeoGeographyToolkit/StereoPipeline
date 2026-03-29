@@ -62,7 +62,7 @@ usual ``PC.tif`` point clouds (:numref:`pc_filter`). One has to make
 sure the cloud is transformed to camera coordinates. The command to
 create such a ``.pcd`` file is along the lines of::
 
-    pc_filter --transform-to-camera-coordinates   \ 
+    pc_filter --transform-to-camera-coordinates   \
       --max-distance-from-camera 2.0              \
       --max-camera-ray-to-surface-normal-angle 75 \
       --input-cloud run/run-PC.tif                \
