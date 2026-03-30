@@ -140,16 +140,15 @@ for lib in $installDir/lib/*dylib; do
         install_name_tool -delete_rpath  $f $lib
     done
 done
-# Copy libomp into install dir so binaries find it via @rpath without
-# polluting DYLD_LIBRARY_PATH (which breaks system tools like git).
-cp -fv $envPath/lib/libomp.dylib $installDir/lib/ 2>/dev/null || true
 export DYLD_LIBRARY_PATH=$installDir/lib:$DYLD_LIBRARY_PATH
 
 # Package with BinaryBuilder. The Mac Arm and Mac x64 use
 # different paths to the python environment.
 echo Packaging the build
 cd $baseDir
-git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
+# Clone BinaryBuilder BEFORE setting DYLD_LIBRARY_PATH to include conda
+# libs, as conda's libiconv conflicts with system git.
+/usr/bin/git clone https://github.com/NeoGeographyToolkit/BinaryBuilder
 cd BinaryBuilder
 num=$(ls -d $HOME/*conda3/envs/python* | wc -l)
 # Must have exactly one python env
@@ -158,6 +157,9 @@ if [ "$num" -ne 1 ]; then
     exit 1
 fi
 export ISISROOT=$envPath # needed for Mac Arm
+# Add conda env libs for make-dist.py (runs stereo --version which needs them).
+# Done after git clone to avoid conda libiconv breaking system git.
+export DYLD_LIBRARY_PATH=$envPath/lib:$DYLD_LIBRARY_PATH
 ./make-dist.py $installDir \
   --asp-deps-dir $envPath  \
   --python-env $(ls -d $HOME/*conda3/envs/python*)
