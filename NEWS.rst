@@ -162,6 +162,7 @@ Misc:
     ``gdaldem hillshade`` for similar results.
   * Removed the unused ``PixelHSV`` and ``PixelLuv`` pixel types from
     VisionWorkbench.
+  * Updated from Qt5 to Qt6.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
