@@ -38,7 +38,7 @@ if [ "$isArm64" != "" ]; then
     envName=asp_deps
 else
     echo "Platform: Intel Mac"
-    tag=asp_deps_mac_x64_v2
+    tag=asp_deps_mac_x64_v3
     envName=asp_deps
 fi
 

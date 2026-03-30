@@ -34,9 +34,9 @@ fi
 # save_mac_deps.sh for how to save and update a tarball with the dependencies.
 # New dependencies can be created from scratch with the environment in
 # stereopipeline-feedstock.
-tag=asp_deps_mac_x64_v2 # Mac Intel. Sync up tag with build_test.sh.
+tag=asp_deps_mac_x64_v3 # Mac Intel. Sync up tag with build_test.sh.
 # tag=asp_deps_mac_arm64_v3 # Mac Arm. Sync up tag with build_test.sh.
-# tag=asp_deps_linux_v1 # Linux.
+# tag=asp_deps_linux_v2 # Linux.
 
 cd $HOME
 wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
