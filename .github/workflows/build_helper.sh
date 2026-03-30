@@ -35,7 +35,7 @@ fi
 # New dependencies can be created from scratch with the environment in
 # stereopipeline-feedstock.
 tag=asp_deps_mac_x64_v2 # Mac Intel. Sync up tag with build_test.sh.
-# tag=asp_deps_mac_arm64_v2 # Mac Arm. Sync up tag with build_test.sh.
+# tag=asp_deps_mac_arm64_v3 # Mac Arm. Sync up tag with build_test.sh.
 # tag=asp_deps_linux_v1 # Linux.
 
 cd $HOME
