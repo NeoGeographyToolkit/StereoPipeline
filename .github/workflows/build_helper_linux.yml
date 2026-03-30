@@ -36,6 +36,16 @@ jobs:
         source ~/.bash_profile
         conda activate asp_deps
 
+        # The tarball was stripped to fit GitHub releases (2GB limit).
+        # Removed: lib/python3.13/, static .a files, LLVM/clang, OpenVINO,
+        # openblas (MKL used), conda-meta, rclone, mysqld, locale-archive,
+        # opt/bullet, include/{bullet,qt6,vtk-9.5}.
+        # BLAS/LAPACK symlinks redirect to MKL (libmkl_rt.so).
+        # Reinstall stripped packages needed for ISIS build.
+        # Pin versions to match environment_asp_deps_linux.yml.
+        conda install -c conda-forge -y \
+          "bullet>=3.25" "qt6-main>=6,<7" "openblas" 2>/dev/null || true
+
         # Create the Python env (needed for ASP packaging later).
         # Must match the Python version in asp_deps.
         conda create -n python_isis9 -c conda-forge -y python=3.13 numpy
