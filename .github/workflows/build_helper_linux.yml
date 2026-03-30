@@ -1,0 +1,124 @@
+name: build_helper_linux
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-activate-base: true
+        activate-environment: ""
+
+    - uses: actions/checkout@v3
+
+    - name: Build deps on top of asp_deps
+      run: |
+        set -ex
+
+        # Fetch the asp_deps tarball (cross-compiled on Mac, has all deps
+        # except ISIS, Geoid, and Python env)
+        tag=asp_deps_linux_v2
+        cd $HOME
+        wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz
+        /usr/bin/time tar xzf asp_deps.tar.gz -C $HOME
+
+        # Find the env
+        envPath=$(ls -d $HOME/*conda3/envs/asp_deps)
+        if [ ! -d "$envPath" ]; then
+            echo "Error: $envPath does not exist"
+            exit 1
+        fi
+        export PATH=$envPath/bin:$PATH
+        conda init bash
+        source ~/.bash_profile
+        conda activate asp_deps
+
+        # Create the Python env (needed for ASP packaging later).
+        # Must match the Python version in asp_deps.
+        conda create -n python_isis9 -c conda-forge -y python=3.13 numpy
+
+        # Set up compiler
+        cc_comp=x86_64-conda-linux-gnu-gcc
+        cxx_comp=x86_64-conda-linux-gnu-g++
+        PREFIX=$envPath
+
+        # Build Geoid (Fortran, can't cross-compile on Mac)
+        cd $HOME
+        wget https://github.com/NeoGeographyToolkit/StereoPipeline/releases/download/geoid1.0/geoids.tgz
+        tar xzf geoids.tgz
+        cd geoids
+        ${PREFIX}/bin/x86_64-conda-linux-gnu-gfortran -fPIC -O3 -c interp_2p5min.f
+        ${PREFIX}/bin/x86_64-conda-linux-gnu-gfortran -shared -o libegm2008.so interp_2p5min.o
+        cp -fv libegm2008.so ${PREFIX}/lib/
+        mkdir -p ${PREFIX}/share/geoids
+        cp -fv *.tif *.jp2 ${PREFIX}/share/geoids/
+
+        # Build ALE (already cross-compiled in tarball, skip for now)
+        if [ 1 -eq 0 ]; then
+        cd $HOME
+        git clone https://github.com/DOI-USGS/ale.git --recursive
+        cd ale
+        mkdir -p build && cd build
+        cmake ..                                         \
+          -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
+          -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
+          -DALE_USE_EXTERNAL_EIGEN=ON                    \
+          -DALE_USE_EXTERNAL_JSON=ON                     \
+          -DALE_BUILD_LOAD=ON                            \
+          -DALE_BUILD_DOCS=OFF                           \
+          -DALE_BUILD_TESTS=OFF                          \
+          -DCMAKE_INSTALL_PREFIX=${PREFIX}
+        make -j$(nproc) install
+        fi
+
+        # Build USGSCSM (already cross-compiled in tarball, skip for now)
+        if [ 1 -eq 0 ]; then
+        cd $HOME
+        git clone https://github.com/DOI-USGS/usgscsm.git --recursive
+        cd usgscsm
+        mkdir -p build && cd build
+        cmake ..                                         \
+          -DCMAKE_C_COMPILER=${PREFIX}/bin/$cc_comp      \
+          -DCMAKE_CXX_COMPILER=${PREFIX}/bin/$cxx_comp   \
+          -DUSGSCSM_EXTERNAL_DEPS=ON                     \
+          -DUSGSCSM_BUILD_DOCS=OFF                       \
+          -DUSGSCSM_BUILD_TESTS=OFF                      \
+          -DCMAKE_INSTALL_PREFIX=${PREFIX}
+        make -j$(nproc) install
+        fi
+
+        # Build ISIS (needs Qt6, Fortran deps - can't cross-compile on Mac)
+        cd $HOME
+        git clone https://github.com/DOI-USGS/ISIS3.git
+        cd ISIS3
+        git submodule update --init --recursive
+        mkdir -p build && cd build
+        export ISISROOT=$PWD
+        cmake ..                                         \
+          -GNinja                                        \
+          -DJP2KFLAG=OFF                                 \
+          -Dpybindings=OFF                               \
+          -DBUILD_TESTING=OFF                            \
+          -DCMAKE_BUILD_TYPE=Release                     \
+          -DCMAKE_INSTALL_PREFIX=${PREFIX}               \
+          ../isis
+        /usr/bin/time ninja install
+
+        # Tar both envs (asp_deps + python_isis9)
+        mkdir -p ~/work/StereoPipeline/packages
+        cd $HOME
+        condaDir=$(basename $(dirname $envPath))
+        /usr/bin/time tar czf ~/work/StereoPipeline/packages/asp_deps.tar.gz \
+            ${condaDir}/envs/asp_deps ${condaDir}/envs/python_isis9
+
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+         name: asp-deps-linux-with-isis
+         path: ~/work/StereoPipeline/packages
+         retention-days: 2
+      continue-on-error: true

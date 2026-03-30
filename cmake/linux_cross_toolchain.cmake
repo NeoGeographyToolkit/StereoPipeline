@@ -44,7 +44,10 @@ endif()
 
 # Derived paths.
 set(CROSS_SYSROOT "${LINUX_DEPS_PREFIX}/x86_64-conda-linux-gnu/sysroot")
-set(GCC_LIB "${LINUX_DEPS_PREFIX}/lib/gcc/x86_64-conda-linux-gnu/12.4.0")
+# Auto-detect GCC version in the linux prefix.
+file(GLOB GCC_VERSION_DIRS "${LINUX_DEPS_PREFIX}/lib/gcc/x86_64-conda-linux-gnu/*")
+list(GET GCC_VERSION_DIRS 0 GCC_LIB)
+message(STATUS "Cross-compile: GCC lib dir = ${GCC_LIB}")
 set(GCC_INC "${GCC_LIB}/include/c++")
 
 # Target platform.
