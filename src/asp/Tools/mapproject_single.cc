@@ -71,8 +71,10 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "When projecting to a datum instead of a DEM, use this elevation in meters from the datum.")
     ("query-projection", po::bool_switch(&opt.query_projection)->default_value(false),
      "Display the computed projection information, estimated ground sample "
-     "distance, and projected bounding box. Save the projection as a WKT "
-     "file named <output image>.wkt. Quit afterwards.")
+     "distance, and projected bounding box. Quit afterwards.")
+    ("write-wkt", po::bool_switch(&opt.write_wkt)->default_value(false),
+     "When used with --query-projection, save the projection as a WKT "
+     "file named <output image>.wkt.")
     ("session-type,t",      po::value(&opt.stereo_session),
      "Select the stereo session type to use for processing. Usually the program can select this automatically by the file extension, except for xml cameras. See the doc for options.")
     ("t_projwin",        po::value(&opt.target_projwin),
@@ -582,14 +584,18 @@ int main(int argc, char* argv[]) {
     crop_georef.ll_box_from_pix_box(image_bbox);
 
     if (opt.query_projection) {
-      // Save the projection to a WKT file named <output>.wkt
+
       std::string wkt_file = opt.output_file + ".wkt";
-      std::ofstream ofs(wkt_file.c_str());
-      if (!ofs.good())
-        vw_throw(ArgumentErr() << "Failed to open for writing: "
-                 << wkt_file << "\n");
-      ofs << crop_georef.get_wkt() << "\n";
-      ofs.close();
+
+      // Optionally save the projection to a WKT file named <output>.wkt
+      if (opt.write_wkt) {
+        std::ofstream ofs(wkt_file.c_str());
+        if (!ofs.good())
+          vw_throw(ArgumentErr() << "Failed to open for writing: "
+                   << wkt_file << "\n");
+        ofs << crop_georef.get_wkt() << "\n";
+        ofs.close();
+      }
 
       // Structured output for the Python mapproject wrapper to parse.
       // The comma separator must be in sync with the Python side.

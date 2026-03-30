@@ -154,7 +154,7 @@ def buildMosaicBlockLists(outPrefix, numJobs, suffix='DEM'):
 
 def queryMapproject(dem, image, camera, outputImage, extraArgs):
     '''Run mapproject_single --query-projection and return parsed settings.'''
-    queryArgs = ['--query-projection', dem, image]
+    queryArgs = ['--query-projection', '--write-wkt', dem, image]
     if camera:
         queryArgs.append(camera)
     queryArgs.append(outputImage)
