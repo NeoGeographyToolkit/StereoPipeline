@@ -140,7 +140,7 @@ for lib in $installDir/lib/*dylib; do
         install_name_tool -delete_rpath  $f $lib
     done
 done
-export DYLD_LIBRARY_PATH=$installDir/lib:$DYLD_LIBRARY_PATH
+export DYLD_LIBRARY_PATH=$installDir/lib:$envPath/lib:$DYLD_LIBRARY_PATH
 
 # Package with BinaryBuilder. The Mac Arm and Mac x64 use
 # different paths to the python environment.
