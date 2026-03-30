@@ -260,3 +260,6 @@ cp -rfv $out_build_vw $out_build_asp $reportFile $packageDir
 # Wipe the extracted tarball so we do not upload it
 # TODO(oalexan1): Consider extracting it to a different location to start with
 rm -rfv $(dirname $binDir) > /dev/null 2>&1
+
+# Exit with test status so CI reports failure when tests fail
+exit $ans

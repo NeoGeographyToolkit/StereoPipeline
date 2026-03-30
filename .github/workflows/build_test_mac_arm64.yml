@@ -28,6 +28,7 @@ jobs:
       # Build and test ASP
       run: ./.github/workflows/build_test.sh
     - name: Upload artifacts
+      if: always()
       uses: actions/upload-artifact@v4
       with:
          # This must be in sync with BinaryBuilder/auto_build
