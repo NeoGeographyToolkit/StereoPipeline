@@ -513,11 +513,11 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
 
   // Fit intrinsics (focal_length, optical_center, distortion) to match
   // the vendor's per-column look angle table. Rotations are pinned constant
-  // since extrinsics come from the vendor. Generate world sight vectors from
-  // the old model and use refineCsmLinescanFit with fix_rotations=true.
+  // since extrinsics come from the vendor. Generate world sight vectors
+  // directly from the look angle table and SLERP'd quaternions.
   {
-    boost::shared_ptr<SPOTCameraModel> old_model
-      = load_spot5_camera_model_from_xml(path);
+    // SLERP interpolator on the resampled quaternions (same data as CSM has)
+    vw::SLERPPoseInterpolation slerp_interp(out_quats, quat_t0_out, quat_dt_out);
 
     int num_rows = xml_reader.image_size[1];
     int d_col_fit = std::max(1, num_cols / 500); // ~500 column samples
@@ -533,12 +533,23 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
     if (row_idx.back() != num_rows - 1)
       row_idx.push_back(num_rows - 1);
 
+    // Axis reorientation: vendor look direction (Eq. 5a) is
+    //   u1 = normalize(-tan(PSI_Y), tan(PSI_X), -1)
+    // The rotation matrices (cam2world_vec) already include the R=diag(-1,1,-1)
+    // axis flip, so the local look vector in the rotated frame is:
+    //   u_local = normalize(tan(PSI_Y), tan(PSI_X), 1.0)
     SightMatT world_sight_mat(row_idx.size());
     for (size_t ri = 0; ri < row_idx.size(); ri++) {
       world_sight_mat[ri].resize(col_idx.size());
+      double time = first_line_time + dt_line * row_idx[ri];
+      vw::Quaternion<double> q = slerp_interp(time);
+      vw::Matrix3x3 rot = q.rotation_matrix();
       for (size_t ci = 0; ci < col_idx.size(); ci++) {
-        vw::Vector2 pix(col_idx[ci], row_idx[ri]);
-        world_sight_mat[ri][ci] = old_model->pixel_to_vector(pix);
+        int c = col_idx[ci];
+        double psi_x = look_angles[c].second[0];
+        double psi_y = look_angles[c].second[1];
+        vw::Vector3 local_look = normalize(vw::Vector3(tan(psi_y), tan(psi_x), 1.0));
+        world_sight_mat[ri][ci] = rot * local_look;
       }
     }
 
