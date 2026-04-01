@@ -39,6 +39,8 @@
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/FileIO/FileUtils.h>
 
+#include <ogr_spatialref.h>
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -345,6 +347,47 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.out_gcp);
 }
 
+// Check that two georefs have the same projection. Compare PROJ4 strings and
+// dynamic datum properties. WKT strings can differ in naming conventions while
+// representing the same projection (e.g., "Moon (2015)" vs "D_MOON"), so a
+// WKT mismatch alone is only a warning.
+void datumCheck(vw::cartography::GeoReference const& georef1,
+                vw::cartography::GeoReference const& georef2) {
+  std::string wkt1 = georef1.get_wkt();
+  std::string wkt2 = georef2.get_wkt();
+  std::cout << "First WKT:  " << wkt1 << "\n";
+  std::cout << "Second WKT: " << wkt2 << "\n";
+  OGRSpatialReference srs1, srs2;
+  srs1.SetFromUserInput(wkt1.c_str());
+  srs2.SetFromUserInput(wkt2.c_str());
+  // Export to PROJ4 for a parameter-level comparison
+  char *proj4_1 = nullptr, *proj4_2 = nullptr;
+  srs1.exportToProj4(&proj4_1);
+  srs2.exportToProj4(&proj4_2);
+  std::string p1 = (proj4_1 ? proj4_1 : "");
+  std::string p2 = (proj4_2 ? proj4_2 : "");
+  CPLFree(proj4_1);
+  CPLFree(proj4_2);
+  // Check if either uses a dynamic datum (epoch-based CRS)
+  bool dynamic_mismatch = (srs1.IsDynamic() != srs2.IsDynamic());
+  if (p1 != p2 || dynamic_mismatch)
+    vw::vw_throw(vw::ArgumentErr()
+                << "The warped DEM and reference DEM have different projections. "
+                << "Use gdalwarp -t_srs to convert them to the same projection.\n"
+                << "Warped DEM PROJ4: " << p1 << "\n"
+                << "Ref DEM PROJ4:    " << p2 << "\n"
+                << "Warped DEM WKT: " << wkt1 << "\n"
+                << "Ref DEM WKT:    " << wkt2 << "\n");
+  // Warn if PROJ4 and dynamic datum agree but WKT strings differ
+  if (wkt1 != wkt2)
+    vw::vw_out(vw::WarningMessage)
+      << "Found projections with same PROJ4 string and dynamic datum "
+      << "properties but different WKT. Continuing.\n"
+      << "PROJ4: " << p1 << "\n"
+      << "First WKT:  " << wkt1 << "\n"
+      << "Second WKT: " << wkt2 << "\n";
+}
+
 int run_dem2gcp(int argc, char * argv[]) {
   
   Options opt;
@@ -390,16 +433,10 @@ int run_dem2gcp(int argc, char * argv[]) {
   vw::ImageViewRef<vw::PixelMask<double>> interp_ref_dem;
   asp::create_interp_dem(opt.ref_dem_file, ref_dem_georef, interp_ref_dem);
   
-  // Must ensure these have the same projection and grid size, as then it is
-  // most likely the disparity will be computed accurately.
-  if (warped_dem_georef.get_wkt() != ref_dem_georef.get_wkt())
-    vw::vw_throw( vw::ArgumentErr() 
-                << "The warped DEM and reference DEM have different projections. "
-                << "Use gdalwarp -t_srs to convert them to the same projection.\n"
-                << "Warped DEM WKT: " << warped_dem_georef.get_wkt() << "\n"
-                << "Ref DEM WKT:    " << ref_dem_georef.get_wkt() << "\n");
-    
-  // The grid size is based on the transform
+  // Must ensure these have the same projection
+  datumCheck(warped_dem_georef, ref_dem_georef);
+
+  // Must have the same grid size, which is based on the transform
   auto warped_trans = warped_dem_georef.transform();
   auto ref_trans = ref_dem_georef.transform();
   
