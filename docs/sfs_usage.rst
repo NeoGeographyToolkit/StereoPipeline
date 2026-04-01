@@ -1681,6 +1681,12 @@ grid size and extent. Consider adjusting the elevation (``-e``) parameter and
 also the azimuth (``-a``) parameter to produce well-lit images with good range
 of intensities that fill most of the 0 to 255 range. 
 
+If some areas appear saturated or too much in shadow, consider a hillshade command
+along the lines of::
+ 
+    gdaldem hillshade -multidirectional -compute_edges -alt 20 \
+      dem.tif dem_hill.tif
+ 
 Run stereo in correlator mode (:numref:`correlator-mode`)::
 
     parallel_stereo               \
@@ -1755,6 +1761,10 @@ This invocation requires a build of ASP as of 2025/11 or later
 
 The value of ``--gcp-sigma`` should be on the order of the ground sample distance
 (in meters), to ensure that the GCP constraint is strong enough.
+
+This program can be sensitive to outliers, so the clean matches above should be
+produced with bundle adjustment with a value of ``--remove-outliers-params``
+that removes outliers with reprojection error more than 5-10 pixels or so. 
 
 The resulting GCP file can be passed to ``bundle_adjust`` together with the 
 images and *latest* cameras, such as in :numref:`sfs_ba_refine`, but *without*
