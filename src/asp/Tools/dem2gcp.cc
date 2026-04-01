@@ -355,8 +355,6 @@ void datumCheck(vw::cartography::GeoReference const& georef1,
                 vw::cartography::GeoReference const& georef2) {
   std::string wkt1 = georef1.get_wkt();
   std::string wkt2 = georef2.get_wkt();
-  std::cout << "First WKT:  " << wkt1 << "\n";
-  std::cout << "Second WKT: " << wkt2 << "\n";
   OGRSpatialReference srs1, srs2;
   srs1.SetFromUserInput(wkt1.c_str());
   srs2.SetFromUserInput(wkt2.c_str());
