@@ -170,7 +170,10 @@ Alternatively, this tool can be invoked pairwise for individual stereo DEMs,
 creating many GCP files.
 
 The match file need not have dense matches. It is only assumed that there are
-many and well-distributed.
+many and well-distributed. Dense matches are produced from the disparity, so they
+are usually clean. Otherwise, one should consider clean match files loaded with
+the option ``--clean-match-files-prefix``, as bundle adjustment is sensitive to
+inaccurate GCP.
 
 All produced GCP files should be passed together with all images and cameras to
 ``bundle_adjust``, as shown below.
@@ -196,7 +199,7 @@ Solving for extrinsics and intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 We employ the recipe from :numref:`heights_from_dem`, that mostly addresses
-of the vertical component of disagreement between the ASP-produced and reference
+the vertical component of disagreement between the ASP-produced and reference
 DEMs. The added GCP mostly address the horizontal component.
 
 The most recent bundle-adjusted and aligned cameras can be converted to use the
@@ -221,23 +224,43 @@ The command when it is desired to refine the intrinsics as well::
       --intrinsics-to-share none                  \
       --num-iterations 100                        \
       --match-files-prefix dense_matches/run      \
-      --max-pairwise-matches 100000               \
+      --max-pairwise-matches 10000                \
       --remove-outliers-params '75.0 3.0 100 100' \
       --heights-from-dem ref_dem.tif              \
       --heights-from-dem-uncertainty 250          \
       out.gcp                                     \
       -o ba_rpc_gcp_ht/run
-     
-Note how we employ *both* the match file and the GCP created earlier. A higher
-value in ``--heights-from-dem-uncertainty`` gives less weight to the vertical
-constraint. Likely it is better to prioritize the GCP instead. Reducing
-``--max-pairwise-matches`` will thin the interest point matches, but not
-the GCP. 
+
+Clean matches are preferable when they do not come from the disparity.
+Use ``--clean-match-files-prefix`` instead of ``--match-files-prefix`` in that
+case.
+
+It is very important to note that the DEM constraint (``--heights-from-dem``)
+may conflict with the GCP, because GCP pull the triangulated points toward the
+correct positions on the reference DEM, while the DEM constraint ties them to
+where they are at the start. One should be mindful of how many triangulated
+points without GCP exist and what their uncertainty is, relative to the GCP
+count and their uncertainty.
+
+One may use ``--max-pairwise-matches 0`` (accepted as of build 2026/4) to load
+no matches, so only GCP constrain the solution. If matches are also used, as may
+be needed when solving for intrinsics, their count should be smaller than the
+GCP count, to ensure GCP dominate. Or at least have higher uncertainties for the
+non-GCP points.
+
+If the GCP produced by ``dem2gcp`` do not cover the area well but matches do,
+one should consider loading the matches. Be mindful that without the DEM
+constraint, the triangulation constraint ``--tri-weight`` (:numref:`ba_options`)
+will try to tie triangulated points to their initial positions, which may be at
+odds with the GCP.
 
 This invocation can be sensitive to inaccurate GCP, as those do not use a robust
-cost function. Consider using the ``bundle_adjust`` option ``--max-gcp-reproj-err``
-(:numref:`ba_options`) to remove worst GCP outliers. The option ``--max-disp``
-for ``dem2gcp`` can help with this as well.
+cost function. That is why GCP should be produced with clean match files
+(:numref:`ba_match_files`), and the outlier filtering threshold used to create
+those clean matches (``--remove-outliers-params``, :numref:`ba_options`) should
+be no more than 5 to 10 pixels. Consider also using the ``bundle_adjust`` option
+``--max-gcp-reproj-err`` (:numref:`ba_options`) to remove worst GCP outliers.
+The option ``--max-disp`` for ``dem2gcp`` can help with this as well.
 
 For linescan cameras, the jitter solver can be invoked instead with a very
 similar command to the above (:numref:`jitter_solve`).
@@ -306,6 +329,10 @@ The match files can be specified via ``--match-files-prefix`` or
 Here, the entries in the camera list are usually after bundle adjustment, and
 the ``matches/run`` prefix points to the interest point matches, such as
 produced by ``bundle_adjust``, or with dense matching (:numref:`dense_ip`).
+
+As before, care should be taken that the matches are clean, and that later in
+bundle adjustment one should ensure the GCP pull the solution harder than the
+DEM constraint or triangulated points without GCP.
 
 The value of ``--gcp-sigma`` should be a fraction of the ground sample distance
 (in meters), to ensure that GCP provide strong constraints in bundle adjustment.

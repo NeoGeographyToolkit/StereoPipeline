@@ -139,7 +139,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(10000),
      "Reduce the number of matches per pair of images to at most this "
      "number, by selecting a random subset, if needed. This happens "
-     "when setting up the optimization, and before outlier filtering.")
+     "when setting up the optimization, and before outlier filtering. "
+     "Set to 0 to load no matches (use with GCP only).")
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to "
      "accept this point as valid. It must be a positive value.")

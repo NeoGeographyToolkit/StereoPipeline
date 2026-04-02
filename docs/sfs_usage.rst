@@ -1578,6 +1578,7 @@ Next, SfS follows, using ``parallel_sfs`` (:numref:`parallel_sfs`)::
       --blending-dist 10                             \
       --min-blend-size 50                            \
       --allow-borderline-data                        \
+      --low-light-threshold 0.03                     \
       --smoothness-weight 0.08                       \
       --initial-dem-constraint-weight 0.0025         \
       --reflectance-type 1                           \
@@ -1630,6 +1631,8 @@ Use a larger ``--blending-dist`` if the produced terrain has visible artifacts
 around shadow regions which do not go away after increasing the shadow
 thresholds. To get more seamless results around small shadowed craters reduce
 the value of ``--min-blend-size``. This can result in more erosion.
+
+See :numref:`sfs_seams` for fixing seams in low-light areas.
 
 The option ``--use-approx-camera-models`` is not necessary with CSM
 cameras.
@@ -1764,15 +1767,20 @@ The value of ``--gcp-sigma`` should be on the order of the ground sample distanc
 
 This program can be sensitive to outliers, so the clean matches above should be
 produced with bundle adjustment with a value of ``--remove-outliers-params``
-that removes outliers with reprojection error more than 5-10 pixels or so. 
+that removes outliers with reprojection error more than 5-10 pixels or so.
 
-The resulting GCP file can be passed to ``bundle_adjust`` together with the 
+The resulting GCP file can be passed to ``bundle_adjust`` together with the
 images and *latest* cameras, such as in :numref:`sfs_ba_refine`, but *without*
-a DEM constraint, as GCP provide that information. Consider using in bundle 
-adjustment a smaller value of ``--max-pairwise-matches``, such as 1000, to ensure
-the GCP dominate the solution.
+a DEM constraint, as GCP provide that information.
 
-Then, SfS must be rerun with the new cameras. Misalignment can be evaluated 
+Since the GCP are derived from the interest point matches (corrected by the
+disparity), using those same matches again in bundle adjustment is redundant and
+can pull the solution back toward the uncorrected camera positions. It is
+recommended to use ``--max-pairwise-matches 0`` (accepted as of build
+2026/4) to load no matches, so only GCP constrain the solution. Alternatively,
+ensure the number of triangulated points without GCP does not dominate the GCP.
+
+Then, SfS must be rerun with the new cameras. Misalignment can be evaluated
 as before.
 
 The created SfS terrain can be employed to improve the registration of 
@@ -1940,8 +1948,10 @@ operation on the weights, per above, may still result in some erosion.)
 This approach is available with a build from 2025/11 or later
 (:numref:`release`).
 
-This should be used only on clips that show seams, as it may cause erosion
-elsewhere.
+After extensive experimentation, it was validated that this option works well
+when enabled for a full run, not just for clips that show seams. If not desired,
+remove the ``--low-light-threshold`` option from the ``parallel_sfs`` invocation
+(:numref:`parallel_sfs_usage`).
 
 To enable this approach, the option ``--allow-borderline-data`` is assumed
 (:numref:`sfs_borderline`). Then, the following additional options are needed::
@@ -1949,6 +1959,10 @@ To enable this approach, the option ``--allow-borderline-data`` is assumed
     --low-light-threshold 0.03   \
     --low-light-weight-power 4.0 \
     --low-light-blur-sigma 3.0 
+
+The value of ``--low-light-threshold`` should be chosen based on the specific
+dataset. For LRO NAC, where the shadow threshold is around 0.005, a value of
+0.03 was observed to work well.
 
 The full documentation for these options is :numref:`sfs`.
 

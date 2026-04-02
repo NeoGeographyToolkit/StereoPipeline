@@ -302,9 +302,13 @@ void loadValidateBaOptions(po::variables_map const& vm,
     vw::vw_throw(vw::ArgumentErr() << "When using a camera position file, the csv-format "
               << "option must be set.\n");
 
-  if (opt.max_pairwise_matches <= 0)
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "Must have a positive number of max pairwise matches.\n");
+  if (opt.max_pairwise_matches < 0)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "The value of --max-pairwise-matches must be non-negative.\n");
+  if (opt.max_pairwise_matches == 0)
+    vw::vw_out(vw::WarningMessage)
+      << "Setting --max-pairwise-matches to 0 will result in no matches being "
+      << "loaded. Only GCP will constrain the solution.\n";
 
   // Copy the IP settings to the global stereo_settings() object
   opt.copy_to_asp_settings();
@@ -832,7 +836,8 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(10000),
      "Reduce the number of matches per pair of images to at most this "
      "number, by selecting a random subset, if needed. This happens "
-     "when setting up the optimization, and before outlier filtering.")
+     "when setting up the optimization, and before outlier filtering. "
+     "Set to 0 to load no matches (use with GCP only).")
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
      "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
     ("epipolar-threshold",      po::value(&opt.epipolar_threshold)->default_value(-1),
