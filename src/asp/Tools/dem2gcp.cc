@@ -40,6 +40,9 @@
 #include <vw/FileIO/FileUtils.h>
 
 #include <ogr_spatialref.h>
+#include <algorithm>
+#include <atomic>
+#include <omp.h>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -138,89 +141,122 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
                  vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
                  vw::cartography::GeoReference const& warped_dem_georef,
                  std::vector<std::string> const& image_files,
-                 double gcp_sigma, int search_len, 
-                 int max_num_gcp,
+                 double gcp_sigma, int search_len,
+                 int max_num_gcp, int num_threads,
                  vw::ImageViewRef<vw::PixelMask<float>> const& gcp_sigma_image,
                  vw::cartography::GeoReference          const& gcp_sigma_image_georef,
                  std::string const& gcpFile) {
 
   int num_pts = cnet.size();
 
-  // Collect all GCP, in case we need to reduce their number
-  std::vector<Gcp> gcp_vec;
-  gcp_vec.reserve(num_pts);
-  gcp_vec.clear();
-  
   // Form the interpolated disparity
   DpixT nodata_pix;
   nodata_pix.invalidate();
   vw::ImageViewRef<DpixT> interp_disp
-    = interpolate(disparity, vw::BilinearInterpolation(), 
+    = interpolate(disparity, vw::BilinearInterpolation(),
                   vw::ValueEdgeExtension<DpixT>(nodata_pix));
 
   bool have_gcp_sigma_image = (gcp_sigma_image.cols() > 0 &&
                                gcp_sigma_image.rows() > 0);
-  
-  // Iterate over the cnet. Keep track of progress.
+
+  // Use per-thread local vectors to avoid locking
+  int actual_threads = num_threads;
+  if (actual_threads <= 0)
+    actual_threads = vw::vw_settings().default_num_threads();
+  vw::vw_out() << "Producing GCP using " << actual_threads << " threads.\n";
+
+  // Store (original_index, Gcp) pairs per thread for deterministic output
+  typedef std::pair<int, Gcp> IndexedGcp;
+  std::vector<std::vector<IndexedGcp>> thread_gcp(actual_threads);
+
+  // Atomic counter for progress reporting
+  std::atomic<int> progress_count(0);
+  int report_interval = std::max(num_pts / 100, 1);
+
   vw::TerminalProgressCallback tpc("asp", "Producing GCP --> ");
-  int progress_steps = 100; 
-  double inc_amount = double(progress_steps) / std::max(num_pts, 1);
   tpc.report_progress(0);
+
+  #pragma omp parallel for num_threads(actual_threads) schedule(dynamic, 1000)
   for (int ipt = 0; ipt < num_pts; ipt++) {
-    
-    // Report progress once this many points are processed
-    if (ipt % progress_steps == 0)
-      tpc.report_incremental_progress(inc_amount);
-    
+
+    int tid = omp_get_thread_num();
+
+    // Report progress from thread 0
+    int count = progress_count.fetch_add(1);
+    if (tid == 0 && count % report_interval == 0)
+      tpc.report_progress(double(count) / std::max(num_pts, 1));
+
     vw::ba::ControlPoint const& cp = cnet[ipt]; // alias
-    
+
     // Find the pixel in the warped DEM
     vw::Vector3 xyz = cnet[ipt].position();
     vw::Vector3 llh;
     llh = warped_dem_georef.datum().cartesian_to_geodetic(xyz);
     vw::Vector2 dem_pix = warped_dem_georef.lonlat_to_pixel(vw::Vector2(llh.x(), llh.y()));
-    
+
     // Find the corresponding pixel in the reference DEM
-    DpixT disp = find_disparity(disparity, interp_disp, dem_pix.x(), dem_pix.y(), search_len);
+    DpixT disp = find_disparity(disparity, interp_disp,
+                                dem_pix.x(), dem_pix.y(), search_len);
     if (!is_valid(disp))
-      continue; 
+      continue;
     vw::Vector2 ref_pix = dem_pix + disp.child();
-    
+
     // Find height at the reference pixel
     double ref_height = interp_ref_dem(ref_pix.x(), ref_pix.y());
-    if (!vw::is_valid(ref_height)) 
+    if (!vw::is_valid(ref_height))
       continue;
-    
+
     // Find lon-lat-height at the reference pixel
     vw::Vector2 ref_lonlat = ref_dem_georef.pixel_to_lonlat(ref_pix);
     vw::Vector3 ref_llh(ref_lonlat.x(), ref_lonlat.y(), ref_height);
 
     // The case when the GCP sigma comes from a file
+    double local_gcp_sigma = gcp_sigma;
     if (have_gcp_sigma_image) {
-      vw::PixelMask<float> img_gcp_sigma 
-        = vw::cartography::closestPixelVal(gcp_sigma_image, gcp_sigma_image_georef, xyz);
-        
+      vw::PixelMask<float> img_gcp_sigma
+        = vw::cartography::closestPixelVal(gcp_sigma_image,
+                                           gcp_sigma_image_georef, xyz);
+
       // Flag bad gcp_sigmas as outliers
-      if (!is_valid(img_gcp_sigma) || std::isnan(img_gcp_sigma.child()) || 
+      if (!is_valid(img_gcp_sigma) || std::isnan(img_gcp_sigma.child()) ||
           img_gcp_sigma.child() <= 0.0)
         continue;
-       
-      // Use this sigma
-      gcp_sigma = img_gcp_sigma.child();
+
+      local_gcp_sigma = img_gcp_sigma.child();
     }
 
     // Set the GCP uncertainty for the ground point (in meters). The pixel sigmas
     // from the input match file will be ignored and replaced with (1, 1) when the
     // GCP file is written.
-    vw::Vector3 sigma(gcp_sigma, gcp_sigma, gcp_sigma);
+    vw::Vector3 sigma(local_gcp_sigma, local_gcp_sigma, local_gcp_sigma);
 
     Gcp gcp;
     gcp.cp = cp;
     gcp.llh = ref_llh;
     gcp.sigma = sigma;
-    gcp_vec.push_back(gcp);
+    thread_gcp[tid].push_back(IndexedGcp(ipt, gcp));
   }
   tpc.report_finished();
+
+  // Merge per-thread results
+  std::vector<IndexedGcp> indexed_gcp;
+  for (int t = 0; t < actual_threads; t++) {
+    indexed_gcp.insert(indexed_gcp.end(),
+                       thread_gcp[t].begin(), thread_gcp[t].end());
+    std::vector<IndexedGcp>().swap(thread_gcp[t]);
+  }
+
+  // Sort by original cnet index for deterministic output
+  std::sort(indexed_gcp.begin(), indexed_gcp.end(),
+            [](IndexedGcp const& a, IndexedGcp const& b) {
+              return a.first < b.first;
+            });
+
+  // Extract the Gcp values
+  std::vector<Gcp> gcp_vec(indexed_gcp.size());
+  for (size_t i = 0; i < indexed_gcp.size(); i++)
+    gcp_vec[i] = indexed_gcp[i].second;
+  std::vector<IndexedGcp>().swap(indexed_gcp);
 
   // See if to reduce the number of GCP
   vw::vw_out() << "Generated " << gcp_vec.size() << " GCP points.\n";
@@ -506,8 +542,9 @@ int run_dem2gcp(int argc, char * argv[]) {
     vw::vw_throw(vw::ArgumentErr() << "Failed to load the interest points.\n");
   
   genWriteGcp(ref_dem_georef, cnet, disparity,
-              interp_ref_dem, warped_dem_georef, image_files, 
+              interp_ref_dem, warped_dem_georef, image_files,
               opt.gcp_sigma, opt.search_len, opt.max_num_gcp,
+              opt.num_threads,
               gcp_sigma_image, gcp_sigma_image_georef,
               opt.out_gcp);
   
