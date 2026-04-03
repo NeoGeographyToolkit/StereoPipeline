@@ -457,12 +457,6 @@ void MainWindow::createLayout() {
     // This is hard to get right
     do_colorize = false;
   }
-  if (do_colorize && m_view_type == VIEW_IN_SINGLE_WINDOW) {
-     if (app_data.images.size() > 1) // for one image do this quietly
-      popUp("Colorized images can only be shown side-by-side.");
-    m_view_type = VIEW_SIDE_BY_SIDE;
-  }
-
   // See if to show it. In a side-by-side view it is normally not needed
   size_t num_images = app_data.images.size();
   bool showChooseFiles = ((m_view_type == VIEW_IN_SINGLE_WINDOW || sideBySideWithDialog()) &&
@@ -470,7 +464,7 @@ void MainWindow::createLayout() {
   m_chooseFiles->setVisible(showChooseFiles);
 
   if (m_view_type == VIEW_IN_SINGLE_WINDOW) {
-    // Pass all images to a single MainWidget object. No colorizing in this mode.
+    // Pass all images to a single MainWidget object.
     int beg_image_id = 0, end_image_id = app_data.images.size();
     MainWidget * widget = new MainWidget(centralWidget,
                                 m_opt,
