@@ -155,9 +155,6 @@ for lib in $installDir/lib/*dylib; do
         install_name_tool -delete_rpath  $f $lib
     done
 done
-# Copy libomp.dylib to install dir so stereo_parse can find it via rpath.
-# Without this, stereo --version fails with "Library not loaded: libomp.dylib".
-/bin/cp -fv $envPath/lib/libomp.dylib $installDir/lib/ 2>/dev/null
 export DYLD_LIBRARY_PATH=$installDir/lib:$DYLD_LIBRARY_PATH
 
 # Package with BinaryBuilder. The Mac Arm and Mac x64 use
@@ -178,8 +175,9 @@ export ISISROOT=$envPath # needed for Mac Arm
 # Do not add $envPath/lib to DYLD_LIBRARY_PATH. Conda's libiconv and ICU libs
 # shadow system frameworks and crash CoreFoundation (Qt6 static init dies with
 # "unrecognized selector" in CFStringGetFileSystemRepresentation on Sequoia).
-# ASP binaries find conda deps via rpaths, so DYLD_LIBRARY_PATH is not needed.
-#export DYLD_LIBRARY_PATH=$envPath/lib:$DYLD_LIBRARY_PATH
+# Use DYLD_FALLBACK_LIBRARY_PATH instead - it only kicks in when rpath/install_name
+# lookup fails, so system libs are never shadowed.
+export DYLD_FALLBACK_LIBRARY_PATH=$envPath/lib
 # Qt6 crashes on macOS 15 during os version check in its static initializer.
 # SYSTEM_VERSION_COMPAT=1 tells macOS to report version in a compatible way.
 export SYSTEM_VERSION_COMPAT=1
