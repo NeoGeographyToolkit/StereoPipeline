@@ -48,8 +48,18 @@ else
 fi
 
 # Fetch and unzip the ASP dependencies
-wget https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}/asp_deps.tar.gz > /dev/null 2>&1 # this is verbose
-/usr/bin/time tar xzf asp_deps.tar.gz -C $HOME > /dev/null 2>&1 # this is verbose
+bbUrl=https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}
+if [ "$isArm64" != "" ]; then
+    # ARM64: single tarball
+    wget ${bbUrl}/asp_deps.tar.gz > /dev/null 2>&1
+    /usr/bin/time tar xzf asp_deps.tar.gz -C $HOME > /dev/null 2>&1
+else
+    # Intel x64: split into two tarballs (env exceeds 2 GB GitHub limit)
+    wget ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
+    wget ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1
+    /usr/bin/time tar xzf asp_deps_p1.tar.gz -C $HOME > /dev/null 2>&1
+    /usr/bin/time tar xzf asp_deps_p2.tar.gz -C $HOME > /dev/null 2>&1
+fi
 
 # The env can be in miniconda3 or anaconda3  
 envPath=$(ls -d $HOME/*conda3/envs/${envName})
