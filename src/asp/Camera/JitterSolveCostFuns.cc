@@ -440,9 +440,9 @@ void calcIndexBounds(double time1, double time2, double t0, double dt, int numVa
   // Keep in bounds
   begIndex = std::max(0, begIndex);
   endIndex = std::min(endIndex, numVals);
+  // This can happen with wildly out-of-range anchor points.
   if (begIndex >= endIndex)
-    vw::vw_throw(vw::ArgumentErr() << "Book-keeping error in interpolation. "
-      << "Likely image order is different than camera order.\n");
+    vw::vw_throw(vw::ArgumentErr() << "Out-of-range interpolation indices.\n");
 
   return;
 }
@@ -741,6 +741,10 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
         UsgsAstroFrameSensorModel * frame_model
           = dynamic_cast<UsgsAstroFrameSensorModel*>(csm);
 
+        // Skip points whose pixel falls outside the camera ephemeris range.
+        // This can happen with --num-anchor-points-extra-lines.
+        try {
+
         if (!have_rig) {
           // No rig
           addLsOrFrameReprojectionErr(opt, icam, ls_model, frame_model, frame_params,
@@ -773,6 +777,8 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
                                     problem);
 
         } // end condition for having a rig
+
+        } catch (...) { continue; }
 
         // Two residuals were added. Save the corresponding weights.
         for (int c = 0; c < asp::PIXEL_SIZE; c++)
@@ -1908,11 +1914,14 @@ void addRefTerrainCostFun(asp::BaBaseOptions            const& opt,
       // convert from meters to pixels.
       double weight = gsd / opt.reference_terrain_uncertainty;
 
-      // Add the error cost function for this point
-      success = addRefTerrainReprojectionErr(opt, left_ls, right_ls,
-                                             left_tx, right_tx,
-                                             left_bbox, right_bbox,
-                                             disp_vec[i], P, weight, problem);
+      // Add the error cost function for this point. Skip points whose pixel
+      // falls outside the camera ephemeris range.
+      try {
+        success = addRefTerrainReprojectionErr(opt, left_ls, right_ls,
+                                               left_tx, right_tx,
+                                               left_bbox, right_bbox,
+                                               disp_vec[i], P, weight, problem);
+      } catch (...) { success = false; }
       if (!success)
         continue; // skip this point
 
