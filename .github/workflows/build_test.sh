@@ -155,6 +155,9 @@ for lib in $installDir/lib/*dylib; do
         install_name_tool -delete_rpath  $f $lib
     done
 done
+# Copy libomp.dylib to install dir so stereo_parse can find it via rpath.
+# Without this, stereo --version fails with "Library not loaded: libomp.dylib".
+/bin/cp -fv $envPath/lib/libomp.dylib $installDir/lib/ 2>/dev/null
 export DYLD_LIBRARY_PATH=$installDir/lib:$DYLD_LIBRARY_PATH
 
 # Package with BinaryBuilder. The Mac Arm and Mac x64 use
