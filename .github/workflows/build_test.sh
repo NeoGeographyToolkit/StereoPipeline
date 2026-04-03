@@ -172,9 +172,11 @@ if [ "$num" -ne 1 ]; then
     exit 1
 fi
 export ISISROOT=$envPath # needed for Mac Arm
-# Add conda env libs for make-dist.py (runs stereo --version which needs them).
-# Done after git clone to avoid conda libiconv breaking system git.
-export DYLD_LIBRARY_PATH=$envPath/lib:$DYLD_LIBRARY_PATH
+# Do not add $envPath/lib to DYLD_LIBRARY_PATH. Conda's libiconv and ICU libs
+# shadow system frameworks and crash CoreFoundation (Qt6 static init dies with
+# "unrecognized selector" in CFStringGetFileSystemRepresentation on Sequoia).
+# ASP binaries find conda deps via rpaths, so DYLD_LIBRARY_PATH is not needed.
+#export DYLD_LIBRARY_PATH=$envPath/lib:$DYLD_LIBRARY_PATH
 # Qt6 crashes on macOS 15 during os version check in its static initializer.
 # SYSTEM_VERSION_COMPAT=1 tells macOS to report version in a compatible way.
 export SYSTEM_VERSION_COMPAT=1
