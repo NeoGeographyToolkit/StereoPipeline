@@ -3,6 +3,11 @@
 # This is run by GitHub Actions to build and test the Mac version of ASP.
 # See build_helper.sh for detailed build commands for ASP and its dependencies.
 
+# Track infrastructure failures separately from test failures.
+# Infrastructure failures (build, packaging) are fatal.
+# Test validation failures are reported but not fatal.
+build_failed=0
+
 # Record the location where the script is running, which should
 # be the base of the StereoPipeline repo. This must happen first.
 aspRepoDir=$(pwd) # same as $HOME/work/StereoPipeline/StereoPipeline
@@ -166,6 +171,10 @@ export SYSTEM_VERSION_COMPAT=1
 ./make-dist.py $installDir \
   --asp-deps-dir $envPath  \
   --python-env $(ls -d $HOME/*conda3/envs/python*)
+if [ $? -ne 0 ]; then
+    echo "Error: make-dist.py failed"
+    build_failed=1
+fi
 # Prepare the package for upload
 mkdir -p $packageDir
 mv -fv Stereo* $packageDir
@@ -175,7 +184,7 @@ cd $packageDir
 tarBall=$(ls StereoPipeline-*.tar.bz2 | head -n 1)
 if [ "$tarBall" == "" ]; then
   echo Cannot find the packaged ASP tarball
-  # Do not exit so we can save the build log
+  build_failed=1
 fi
 /usr/bin/time tar xjf $tarBall > /dev/null 2>&1 # this is verbose
 
@@ -187,7 +196,7 @@ export PATH=$binDir:$PATH
 echo "Binaries are in $binDir"
 if [ ! -d "$binDir" ]; then
     echo "Error: Directory: $binDir does not exist. Build failed."
-    # Do not exit so we can save the build log
+    build_failed=1
 fi
 
 # TODO(oalexan1): Run the tests as a different step in the .yml file.
@@ -203,7 +212,7 @@ wget https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download
 # Check if we got the tarball
 if [ ! -f "StereoPipelineTest.tar" ]; then
     echo "Error: File: StereoPipelineTest.tar does not exist. Test failed."
-    # Do not exit so we can save the build log
+    build_failed=1
 fi
 tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 
@@ -217,7 +226,7 @@ tar xfv StereoPipelineTest.tar > /dev/null 2>&1 # this is verbose
 # Go to the test dir
 if [ ! -d "$testDir" ]; then
     echo "Error: Directory: $testDir does not exist"
-    # Do not exit so we can save the build log
+    build_failed=1
 fi
 cd $testDir
 
@@ -268,6 +277,12 @@ cp -rfv $out_build_vw $out_build_asp $reportFile $packageDir
 # Wipe the extracted tarball so we do not upload it
 # TODO(oalexan1): Consider extracting it to a different location to start with
 rm -rfv $(dirname $binDir) > /dev/null 2>&1
+
+# Exit with failure if build/packaging broke (infrastructure failure)
+if [ "$build_failed" -ne 0 ]; then
+    echo "Build or packaging failed (see errors above)"
+    exit 1
+fi
 
 # Exit with test status so CI reports failure when tests fail
 exit $ans
