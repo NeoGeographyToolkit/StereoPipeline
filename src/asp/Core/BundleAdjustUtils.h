@@ -143,7 +143,6 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
                      std::vector<std::vector<double>> & residuals);
 
 
-// A type alias for clarity, representing the mapping from an image pair to its sigma.
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_UTILS_H__
