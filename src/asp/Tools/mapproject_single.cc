@@ -607,8 +607,9 @@ int main(int argc, char* argv[]) {
                << "proj_box_xmin," << cam_box.min().x() << "\n"
                << "proj_box_ymin," << cam_box.min().y() << "\n"
                << "proj_box_xmax," << cam_box.max().x() << "\n"
-               << "proj_box_ymax," << cam_box.max().y() << "\n"
-               << "projection_wkt_file," << wkt_file << "\n";
+               << "proj_box_ymax," << cam_box.max().y() << "\n";
+      if (opt.write_wkt)
+        vw_out() << "projection_wkt_file," << wkt_file << "\n";
 
       return 0;
     }
