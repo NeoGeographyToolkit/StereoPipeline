@@ -127,11 +127,6 @@ void loadValidateBaOptions(po::variables_map const& vm,
     vw::vw_throw(vw::ArgumentErr() << "Unknown value for --output-cnet-type: "
                            << opt.output_cnet_type << ".\n");
 
-  if ((opt.isis_cnet != "" || opt.nvm != "") &&
-      opt.match_pair_sigma != "") 
-    vw::vw_throw(vw::ArgumentErr() << "Cannot use --match-pair-sigma "
-                 << "with ISIS cnet or NVM input.\n");
-    
   //  When skipping matching, we are already forced to reuse match
   //  files based on the logic in the code, but here enforce it
   //  explicitly anyway.
@@ -240,10 +235,6 @@ void loadValidateBaOptions(po::variables_map const& vm,
     auto_build_overlap_list(opt, opt.auto_overlap_buffer);
   }
   // The third alternative, --auto-overlap-params will be handled when we have cameras
-
-   // Handle option --match-pair-sigma
-   if (opt.match_pair_sigma != "")
-    asp::readMatchPairSigmas(opt.match_pair_sigma, opt.image_files, opt.match_sigmas);
 
   if (opt.camera_weight < 0.0)
     vw::vw_throw(vw::ArgumentErr() << "The camera weight must be non-negative.\n");
@@ -1128,15 +1119,6 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "is currently ignored as .vwip are always saved.")
     ("ip-nodata-radius", po::value(&opt.ip_nodata_radius)->default_value(4),
      "Remove IP near nodata with this radius, in pixels.")
-    ("match-pair-sigma", po::value(&opt.match_pair_sigma)->default_value(""),
-     "A file containing on each line two input (non-mapprojected) images and a sigma "
-     "(uncertainty), separated by spaces. Example: image1.tif image2.tif 0.1. Use with "
-     "--min-matches 0. Interest point matches for those images will have their uncertainty "
-     "multiplied by this value. A lower uncertainty will result in a higher weight for "
-     "those matches in bundle adjustment. A value less than 0.1 - 0.01 can result in "
-     "slow convergence due to --robust-threshold. This is useful with a handful hand- "
-     "picked matches that should be given a higher weight. The order of images on each "
-     "line is not important. This is not fully tested and not documented.")
     ("accept-provided-mapproj-dem", 
      po::bool_switch(&asp::stereo_settings().accept_provided_mapproj_dem)->default_value(false)->implicit_value(true),
      "Accept the DEM provided on the command line as the one mapprojection was done with, "

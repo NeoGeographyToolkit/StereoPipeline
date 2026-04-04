@@ -500,7 +500,6 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                                                    opt.forced_triangulation_distance,
                                                    opt.max_pairwise_matches,
                                                    stereo_settings().matches_as_txt,
-                                                   opt.match_sigmas,
                                                    opt.bathy_data);
       if (!success) {
         vw_out() << "Failed to build a control network.\n"
