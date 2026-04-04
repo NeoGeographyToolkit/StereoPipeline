@@ -1734,8 +1734,8 @@ disparities shown by this plot.
 A sample plot of such disparities is shown in :numref:`sfs_disp`. It can be seen
 that here the misregistration is large and non-uniform. In this case, the only
 reliable solution for repair is to make use of custom GCP produced with
-``dem2gcp``. A simpler recipe for correcting a shift or rotation only with
-``pc_align`` is shown further down.
+``dem2gcp`` as seen in the next section. A simpler recipe for correcting a shift
+or rotation only with ``pc_align`` is shown further down.
 
 GCP-based refinement
 """"""""""""""""""""
