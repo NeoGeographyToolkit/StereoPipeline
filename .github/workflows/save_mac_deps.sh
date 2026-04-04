@@ -35,6 +35,11 @@
 # This script will overwrite the dependencies. If in doubt, use it with a new
 # tag, as the dependencies are very hard to recreate.
 
+# TODO(oalexan1): For Intel Mac, the env exceeds the 2 GB GitHub release limit
+# and must be split into two tarballs (asp_deps_p1.tar.gz and asp_deps_p2.tar.gz).
+# This script does not yet handle the split. The build_test.sh script already
+# expects two parts for Intel Mac.
+
 # If the tarball with dependencies already exists locally, rather than being
 # fetched as an artifact first, the commands from the latter part of 
 # this script can be run manually to upload the tarball as a release.
