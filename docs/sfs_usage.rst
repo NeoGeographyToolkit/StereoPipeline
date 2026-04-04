@@ -1770,15 +1770,11 @@ produced with bundle adjustment with a value of ``--remove-outliers-params``
 that removes outliers with reprojection error more than 5-10 pixels or so.
 
 The resulting GCP file can be passed to ``bundle_adjust`` together with the
-images and *latest* cameras, such as in :numref:`sfs_ba_refine`, but *without*
-a DEM constraint, as GCP provide that information.
+images and *latest* cameras, such as in :numref:`sfs_ba_refine`.
 
-Since the GCP are derived from the interest point matches (corrected by the
-disparity), using those same matches again in bundle adjustment is redundant and
-can pull the solution back toward the uncorrected camera positions. It is
-recommended to use ``--max-pairwise-matches 0`` (accepted as of build
-2026/4) to load no matches, so only GCP constrain the solution. Alternatively,
-ensure the number of triangulated points without GCP does not dominate the GCP.
+Care must be taken that these GCP do not conflict with triangulated points in
+bundle adjustment, with or without the ``--heights-from-dem`` option. See
+:numref:`gcp_vs_tri`.
 
 Then, SfS must be rerun with the new cameras. Misalignment can be evaluated
 as before.
@@ -2242,9 +2238,13 @@ in :numref:`sfs_ba_refine`.
 
 We used a lot more pairwise matches, as jitter is a finer-grained operation.
 We went back to the full set of matches in ``ba``, before outlier filtering
-and before selecting a subset of them. This may potentially consume 
-a lot of memory and take a lot of time. The number of matches can 
+and before selecting a subset of them. This may potentially consume
+a lot of memory and take a lot of time. The number of matches can
 be reduced in those cases.
+
+If GCP from ``dem2gcp`` are used with this command, care must be taken that the
+``--heights-from-dem`` constraint and the triangulated points without GCP do not
+overwhelm the GCP. See :numref:`gcp_vs_tri`.
 
 We assume the cameras in ``ba_align_ref`` are in CSM format, with the
 adjustments and alignment already applied to them.

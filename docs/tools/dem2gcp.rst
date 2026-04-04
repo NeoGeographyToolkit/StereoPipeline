@@ -235,24 +235,8 @@ Clean matches are preferable when they do not come from the disparity.
 Use ``--clean-match-files-prefix`` instead of ``--match-files-prefix`` in that
 case.
 
-It is very important to note that the DEM constraint (``--heights-from-dem``)
-may conflict with the GCP, because GCP pull the triangulated points toward the
-correct positions on the reference DEM, while the DEM constraint ties them to
-where they are at the start. One should be mindful of how many triangulated
-points without GCP exist and what their uncertainty is, relative to the GCP
-count and their uncertainty.
-
-One may use ``--max-pairwise-matches 0`` (accepted as of build 2026/4) to load
-no matches, so only GCP constrain the solution. If matches are also used, as may
-be needed when solving for intrinsics, their count should be smaller than the
-GCP count, to ensure GCP dominate. Or at least have higher uncertainties for the
-non-GCP points.
-
-If the GCP produced by ``dem2gcp`` do not cover the area well but matches do,
-one should consider loading the matches. Be mindful that without the DEM
-constraint, the triangulation constraint ``--tri-weight`` (:numref:`ba_options`)
-will try to tie triangulated points to their initial positions, which may be at
-odds with the GCP.
+Care must be taken to ensure that GCP are not overwhelmed by other constraints.
+See :numref:`gcp_vs_tri` for a discussion.
 
 This invocation can be sensitive to inaccurate GCP, as those do not use a robust
 cost function. That is why GCP should be produced with clean match files
@@ -299,6 +283,30 @@ We further improved the results for KH-7 and KH-9 cameras by creating
 linescan cameras (:numref:`opticalbar2csm`) and running ``jitter_solve``
 with GCP (:numref:`jitter_solve`).
 
+.. _gcp_vs_tri:
+
+Balancing GCP against other constraints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When using GCP from ``dem2gcp`` in ``bundle_adjust`` or ``jitter_solve``,
+triangulated points that lack GCP are still constrained by
+``--heights-from-dem`` or ``--tri-weight`` (:numref:`ba_options`). Both of
+these anchor such points to their initial (potentially incorrect) positions. If
+these points greatly outnumber the GCP, or have smaller uncertainties than GCP, 
+they can dominate the solution and prevent the GCP from correcting the cameras.
+
+To avoid this:
+
+- Use a smaller value of ``--max-pairwise-matches`` and check how many triangulated
+  points without GCP have been loaded, vs GCP.
+- Increase ``--heights-from-dem-uncertainty`` so the DEM constraint is weaker.
+- Use a small value of ``--gcp-sigma``. It is however suggested not to have
+  this under one GSD.
+- Be aware that ``--tri-weight`` has the same anchoring effect as
+  ``--heights-from-dem`` and should be used with the same caution. Though this
+  constraint is usually weak and should not be an issue if triangulated points
+  without GCP are not more than ones with GCP.
+
 .. _dem2gcp_multi_image:
 
 Multiple images and cameras
@@ -330,11 +338,11 @@ Here, the entries in the camera list are usually after bundle adjustment, and
 the ``matches/run`` prefix points to the interest point matches, such as
 produced by ``bundle_adjust``, or with dense matching (:numref:`dense_ip`).
 
-As before, care should be taken that the matches are clean, and that later in
-bundle adjustment one should ensure the GCP pull the solution harder than the
-DEM constraint or triangulated points without GCP.
+As before, care should be taken that the matches are clean. See
+:numref:`gcp_vs_tri` for how to ensure GCP are not overwhelmed by other
+constraints.
 
-The value of ``--gcp-sigma`` should be a fraction of the ground sample distance
+The value of ``--gcp-sigma`` should be on the order of the ground sample distance
 (in meters), to ensure that GCP provide strong constraints in bundle adjustment.
 
 The value in ``--max-pairwise-matches`` can be reduced if there is a large number of
