@@ -740,5 +740,4 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
   return;
 } // end function residualsPerRow
 
-// Read sigmas for some pairs of input images. The file is in format: 
 } // end namespace asp
