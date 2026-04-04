@@ -40,7 +40,10 @@ void preprocessArgs(int &argc, char** argv,
   std::string curr_colormap = "binary-red-blue";
   std::string colorbar = "0";
   std::string colorize = "0";
-  
+
+  // Track whether an image appeared after a colorization option was set
+  bool image_after_color_opt = true;
+
   // One set of properties for each argument. That to make sure that a filename
   // can show up twice with different properties
   int out_it = 1;
@@ -71,6 +74,7 @@ void preprocessArgs(int &argc, char** argv,
 
       it++;
       curr_colormap = argv[it]; // copy the color value, and move past it
+      image_after_color_opt = false;
       continue;
     }
 
@@ -78,6 +82,7 @@ void preprocessArgs(int &argc, char** argv,
     if (std::string(argv[it]) == "--colorbar") {
       colorbar = "1";
       colorize = "1"; // --colorbar implies --colorize
+      image_after_color_opt = false;
       continue;
     }
     if (std::string(argv[it]) == "--no-colorbar") {
@@ -86,6 +91,7 @@ void preprocessArgs(int &argc, char** argv,
     }
     if (std::string(argv[it]) == "--colorize") {
       colorize = "1";
+      image_after_color_opt = false;
       continue;
     }
     if (std::string(argv[it]) == "--no-colorize") {
@@ -97,17 +103,26 @@ void preprocessArgs(int &argc, char** argv,
     // option, assign to it the properties so far
     if (argv[it][0] != '-') {
       properties[it]["name"] = argv[it];
-      properties[it]["style"] = curr_style;  
+      properties[it]["style"] = curr_style;
       properties[it]["color"] = curr_color;
       properties[it]["colormap"] = curr_colormap;
       properties[it]["colorbar"] = colorbar;
       properties[it]["colorize"] = colorize;
+      image_after_color_opt = true;
     }
-    
+
     // Shift arguments left, which will wipe what we processed above
     argv[out_it] = argv[it]; // this copies pointer addresses
-    out_it++; 
+    out_it++;
   }
+
+  // Warn if colorization options were set after all images
+  if (!image_after_color_opt)
+    vw::vw_out(vw::WarningMessage)
+      << "Colorization options (--colormap-style, --colorize, --colorbar) "
+      << "were set after the last image, so they will not apply. "
+      << "Move them before the images they should affect, as they only "
+      << "apply to subsequent images.\n";
 
   // Update the number of remaining arguments
   argc = out_it;
