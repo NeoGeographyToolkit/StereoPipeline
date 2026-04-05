@@ -777,7 +777,7 @@ void writeRefTerrainResiduals(std::string                   const& residual_pref
 // Save the pixel reprojection error and anchor point residuals for the jitter solver.
 // Here we count on the fact that they are at the beginning of the residuals vector,
 // and we go through them in the same order as they were added.
-void saveJitterResiduals(ceres::Problem                             & problem, 
+void saveJitterResiduals(ceres::Problem                             & problem,
                          std::string                           const& residual_prefix,
                          asp::BaBaseOptions                    const& opt,
                          vw::ba::ControlNetwork                const& cnet,
@@ -791,7 +791,9 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::vector<std::vector<int>>         const& isAnchor_vec,
                          std::vector<std::vector<int>>         const& pix2xyz_index,
                          std::vector<vw::Vector3>              const& reference_vec,
-                         std::vector<std::vector<int>>         const& ref_indices) {
+                         std::vector<std::vector<int>>         const& ref_indices,
+                         // Output
+                         std::vector<double>                        & mean_pixel_residuals) {
 
   // Compute the residuals at the current solution
   std::vector<double> residuals;
@@ -904,11 +906,12 @@ void saveJitterResiduals(ceres::Problem                             & problem,
     vw_throw(ArgumentErr() << "More residuals found than expected.\n");
 
   if (opt.reference_terrain != "")
-    writeRefTerrainResiduals(residual_prefix, datum, 
+    writeRefTerrainResiduals(residual_prefix, datum,
                              residuals, weight_per_residual,
                              reference_vec, ref_indices);
-     
-  return;
+
+  // Return the mean pixel residual per tri point
+  mean_pixel_residuals = mean_pixel_residual_norm;
 }
 
 } // end namespace asp 

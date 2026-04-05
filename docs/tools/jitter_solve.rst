@@ -2266,11 +2266,16 @@ Command-line options for jitter_solve
     NVM format. This can be used with any images and cameras supported by ASP.
     Camera poses will not be read from the NVM file.
     
---max-initial-reprojection-error <integer (default: 20)> 
+--max-initial-reprojection-error <integer (default: 20)>
     Filter as outliers any triangulated points that have a reprojection error
     (in pixels) of more than this value, with the initial cameras. Since jitter
     corrections are supposed to be small and cameras bundle-adjusted by now,
     this value need not be too big. Does not apply to GCP.
+
+--max-gcp-reproj-err <double (default: -1.0)>
+    If positive, after each pass remove GCPs whose mean reprojection
+    error (averaged over all cameras seeing that point) is more than
+    this value (in pixels).
 
 --num-anchor-points <integer (default: 0)>
     How many anchor points to create tying each pixel to a point on a DEM along

@@ -120,7 +120,7 @@ void saveCameraOffsets(vw::cartography::Datum                const& datum,
                        std::string                           const& camera_offset_file);
 
 // This is used in jitter_solve
-void saveJitterResiduals(ceres::Problem                             & problem, 
+void saveJitterResiduals(ceres::Problem                             & problem,
                          std::string                           const& residual_prefix,
                          asp::BaBaseOptions                    const& opt,
                          vw::ba::ControlNetwork                const& cnet,
@@ -134,7 +134,9 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::vector<std::vector<int>>         const& isAnchor_vec,
                          std::vector<std::vector<int>>         const& pix2xyz_index,
                          std::vector<vw::Vector3>              const& reference_vec,
-                         std::vector<std::vector<int>>         const& ref_indices);
+                         std::vector<std::vector<int>>         const& ref_indices,
+                         // Output
+                         std::vector<double>                        & mean_pixel_residuals);
 
 // This is used in jitter_solve
 void compute_residuals(asp::BaBaseOptions const& opt,

@@ -369,4 +369,37 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
 }
 
-} // end namespace asp 
+// Filter GCP outliers based on mean reprojection error per triangulated point.
+// Adds to the existing outlier set (does not clear it).
+void filterGcpOutliers(vw::ba::ControlNetwork const& cnet,
+                       std::vector<double>    const& mean_residuals,
+                       double                        max_gcp_reproj_err,
+                       std::set<int>               & outliers) {
+
+  if (max_gcp_reproj_err <= 0)
+    return;
+
+  if (mean_residuals.size() != cnet.size())
+    vw_throw(ArgumentErr() << "filterGcpOutliers: mean residuals size ("
+             << mean_residuals.size() << ") does not match control network size ("
+             << cnet.size() << ").\n");
+
+  int num_gcp_outliers = 0;
+  for (int ipt = 0; ipt < (int)cnet.size(); ipt++) {
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
+      continue;
+    if (outliers.find(ipt) != outliers.end())
+      continue;
+    if (mean_residuals[ipt] > max_gcp_reproj_err) {
+      outliers.insert(ipt);
+      num_gcp_outliers++;
+    }
+  }
+
+  vw_out() << "Removed " << num_gcp_outliers
+           << " GCP outliers with mean reprojection error > "
+           << max_gcp_reproj_err << " pixels. "
+           << "These will be excluded from the next pass of optimization.\n";
+}
+
+} // end namespace asp

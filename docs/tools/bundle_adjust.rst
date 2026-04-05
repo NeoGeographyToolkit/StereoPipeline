@@ -1368,8 +1368,9 @@ Command-line options
     four values.
 
 --max-gcp-reproj-err <double (default: -1.0)>
-    If positive, after each pass of bundle adjustment remove GCPs
-    whose reprojection error is more than this value (in pixels).
+    If positive, after each pass remove GCPs whose mean reprojection
+    error (averaged over all cameras seeing that point) is more than
+    this value (in pixels).
 
 --heights-from-dem <string (default: "")>
     Assuming the cameras have already been bundle-adjusted and aligned to a

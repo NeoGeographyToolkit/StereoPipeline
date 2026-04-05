@@ -68,6 +68,14 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
                     std::vector<vw::Vector3> const& reference_vec,
                     ceres::Problem &problem);
 
+// Filter GCP outliers based on mean reprojection error per triangulated point.
+// Adds to the existing outlier set (does not clear it).
+// Used by jitter_solve where outliers are tracked as std::set<int>.
+void filterGcpOutliers(vw::ba::ControlNetwork const& cnet,
+                       std::vector<double>    const& mean_residuals,
+                       double                        max_gcp_reproj_err,
+                       std::set<int>               & outliers);
+
 } // end namespace asp
 
 #endif // __BUNDLE_ADJUST_OUTLIERS_H__

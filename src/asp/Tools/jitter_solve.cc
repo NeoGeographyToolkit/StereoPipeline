@@ -30,6 +30,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BundleAdjustOutliers.h>
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
@@ -150,6 +151,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "(in pixels) of more than this value, with the initial cameras. Since jitter "
      "corrections are supposed to be small and cameras bundle-adjusted by now, "
      "this value need not be too big. Does not apply to GCP.")
+    ("max-gcp-reproj-err",
+     po::value(&opt.max_gcp_reproj_err)->default_value(-1.0),
+     "If positive, after each pass remove GCPs whose mean reprojection error "
+     "(averaged over all cameras seeing that point) is more than this, in pixels.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for the Cauchy robust cost function. Increasing this makes "
      "the solver focus harder on the larger errors.")
@@ -1199,12 +1204,14 @@ void jitterSolvePass(int                                 pass,
                                  problem);
 
   // Save residuals before optimization
+  std::vector<double> mean_pixel_residuals;
   if (pass == 0) {
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                    tri_points_vec, outliers, weight_per_residual,
                    pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
-                   reference_vec, ref_indices);
+                   reference_vec, ref_indices,
+                   mean_pixel_residuals);
   }
 
   // Set up the problem
@@ -1251,7 +1258,13 @@ void jitterSolvePass(int                                 pass,
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
                  pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
-                 reference_vec, ref_indices);
+                 reference_vec, ref_indices,
+                 mean_pixel_residuals);
+
+  // Filter GCP outliers based on mean reprojection error
+  if (opt.max_gcp_reproj_err > 0)
+    asp::filterGcpOutliers(cnet, mean_pixel_residuals,
+                           opt.max_gcp_reproj_err, outliers);
 
   // Save the optimized camera models
   saveCsmCameras(opt.out_prefix, opt.stereo_session,

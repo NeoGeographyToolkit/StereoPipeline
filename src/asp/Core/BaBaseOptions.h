@@ -66,7 +66,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
     heights_from_dem_robust_threshold, camera_weight, rotation_weight,
     camera_position_weight, camera_position_robust_threshold,
     tri_weight, tri_robust_threshold, camera_position_uncertainty_power,
-    max_disp_error;
+    max_disp_error, max_gcp_reproj_err;
   std::vector<vw::Vector2> camera_position_uncertainty;
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;
@@ -90,6 +90,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
    match_first_to_last(false), single_threaded_cameras(false),
    update_isis_cubes_with_csm_state(false),
    fix_gcp_xyz(false), use_llh_error(false),
+   max_gcp_reproj_err(-1.0),
    camera_type(BaCameraType_Other), max_num_reference_points(-1),
    datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM,
                                 "User Specified Spheroid",
