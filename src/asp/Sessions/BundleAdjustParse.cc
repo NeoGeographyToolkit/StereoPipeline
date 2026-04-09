@@ -1051,7 +1051,7 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
       po::bool_switch(&opt.save_cnet_as_gcp)->default_value(false)->implicit_value(true),
      "Save the optimized control network, after outlier filtering, in the "
      "format used by ground control points (GCP), including any input GCP. "
-     "The xyz sigma is 1 meter for regular triangulated points and the "
+     "The xyz sigma is 1 meter for regular non-GCP triangulated points and the "
      "value of --heights-from-dem-uncertainty for DEM-constrained points.")
     ("num-parallel-jobs", po::value(&opt.num_parallel_jobs)->default_value(1),
      "The number of bundle_adjustment processes being run in parallel over all nodes.")

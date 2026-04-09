@@ -579,7 +579,7 @@ is useful when the GCP are very accurate. Otherwise set per-GCP sigma.
 The option ``--save-cnet-as-gcp`` can be invoked to save the optimized control
 network in the GCP format, after outlier filtering. Any input GCP are included
 in the output. This can be useful for inspecting the final triangulated points.
-The xyz sigma is 1 meter for regular triangulated points and the value of
+The xyz sigma is 1 meter for regular non-GCP triangulated points and the value of
 ``--heights-from-dem-uncertainty`` for DEM-constrained points. See also
 ``--max-gcp-reproj-err`` for filtering GCP by reprojection error.
 
@@ -1450,7 +1450,7 @@ Command-line options
 --save-cnet-as-gcp
     Save the optimized control network, after outlier filtering, in the format
     used by ground control points (:numref:`bagcp`), including any input GCP.
-    The xyz sigma is 1 meter for regular triangulated points and the
+    The xyz sigma is 1 meter for regular non-GCP triangulated points and the
     value of ``--heights-from-dem-uncertainty`` for DEM-constrained points.
     Can be inspected with ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 

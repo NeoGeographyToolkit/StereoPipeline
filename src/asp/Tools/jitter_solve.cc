@@ -392,7 +392,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       po::bool_switch(&opt.save_cnet_as_gcp)->default_value(false)->implicit_value(true),
      "Save the optimized control network, after outlier filtering, in the "
      "format used by ground control points (GCP), including any input GCP. "
-     "The xyz sigma is 1 meter for regular triangulated points and the "
+     "The xyz sigma is 1 meter for regular non-GCP triangulated points and the "
      "value of --heights-from-dem-uncertainty for DEM-constrained points.")
     ;
     general_options.add(vw::GdalWriteOptionsDescription(opt));
