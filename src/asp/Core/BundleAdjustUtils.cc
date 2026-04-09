@@ -20,7 +20,9 @@
 
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/GCP.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Camera/BaParams.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
@@ -503,6 +505,7 @@ std::string rpcAdjustedFile(std::string const& adjustFile) {
 // if we have one.
 void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
                 bool have_dem,
+                double heights_from_dem_uncertainty,
                 // Outputs
                 vw::ba::ControlNetwork & cnet,
                 std::vector<double>    & orig_tri_points_vec,
@@ -538,6 +541,11 @@ void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
 
       // Ensure we can track it later
       cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem);
+
+      // Set the uncertainty to the DEM uncertainty
+      double s = heights_from_dem_uncertainty;
+      if (s > 0)
+        cnet[ipt].set_sigma(Vector3(s, s, s));
     }
 
     for (int q = 0; q < NUM_XYZ_PARAMS; q++)
@@ -739,5 +747,76 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
 
   return;
 } // end function residualsPerRow
+
+// Save the control network in GCP format using optimized positions from
+// param_storage, filtering outliers. For GCP, use the original position
+// from the cnet. For other points, use the optimized position from
+// param_storage. Includes GCP. For bundle_adjust.
+void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
+                   asp::BaParams const& param_storage,
+                   vw::cartography::Datum const& datum,
+                   std::vector<std::string> const& image_files,
+                   std::string const& filename) {
+
+  std::vector<asp::Gcp> gcp_vec;
+  for (int ipt = 0; ipt < (int)cnet.size(); ipt++) {
+    if (param_storage.get_point_outlier(ipt))
+      continue;
+    asp::Gcp gcp;
+    gcp.cp = cnet[ipt];
+    bool is_gcp =
+      (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+    vw::Vector3 xyz = is_gcp ? cnet[ipt].position()
+                             : param_storage.get_point(ipt);
+    gcp.llh = datum.cartesian_to_geodetic(xyz);
+    gcp.sigma = cnet[ipt].sigma();
+    gcp_vec.push_back(gcp);
+  }
+
+  vw::cartography::GeoReference georef(datum);
+  bool ignore_pixel_sigma = false;
+  asp::writeGcp(filename, georef, gcp_vec, image_files, ignore_pixel_sigma);
+}
+
+// Save the control network in GCP format using optimized positions from
+// tri_points_vec, filtering outliers. For GCP, use the original position
+// from the cnet. For other points, use the optimized position from
+// tri_points_vec. Includes GCP. For jitter_solve.
+void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
+                   std::vector<double> const& tri_points_vec,
+                   std::set<int> const& outliers,
+                   vw::cartography::Datum const& datum,
+                   std::vector<std::string> const& image_files,
+                   std::string const& filename) {
+
+  int num_points = (int)cnet.size();
+  if ((int)tri_points_vec.size() < num_points * NUM_XYZ_PARAMS)
+    vw_throw(ArgumentErr()
+             << "saveCnetAsGcp: tri_points_vec too small for cnet.\n");
+
+  std::vector<asp::Gcp> gcp_vec;
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (outliers.find(ipt) != outliers.end())
+      continue;
+    asp::Gcp gcp;
+    gcp.cp = cnet[ipt];
+    bool is_gcp =
+      (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+    vw::Vector3 xyz;
+    if (is_gcp) {
+      xyz = cnet[ipt].position();
+    } else {
+      for (int k = 0; k < NUM_XYZ_PARAMS; k++)
+        xyz[k] = tri_points_vec[ipt * NUM_XYZ_PARAMS + k];
+    }
+    gcp.llh = datum.cartesian_to_geodetic(xyz);
+    gcp.sigma = cnet[ipt].sigma();
+    gcp_vec.push_back(gcp);
+  }
+
+  vw::cartography::GeoReference georef(datum);
+  bool ignore_pixel_sigma = false;
+  asp::writeGcp(filename, georef, gcp_vec, image_files, ignore_pixel_sigma);
+}
 
 } // end namespace asp

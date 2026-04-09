@@ -283,13 +283,6 @@ int baOnePass(asp::BaOptions                & opt,
     kmlPointSkip = 1;
 
   if (first_pass) {
-    // Save the cnet
-    if (opt.save_cnet_as_csv) {
-      std::string cnet_file = opt.out_prefix + "-cnet.csv";
-      vw_out() << "Writing: " << cnet_file << "\n";
-      cnet.write_in_gcp_format(cnet_file, opt.datum);
-    }
-
     vw_out() << "Writing initial condition files." << "\n";
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     write_residual_logs(residual_prefix, opt, param_storage,
@@ -776,6 +769,12 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   else if (opt.output_cnet_type == "nvm") {
     asp::saveNvm(opt, opt.no_poses_from_nvm, cnet, param_storage,
                   world_to_cam, optical_offsets);
+  }
+
+  // Save the optimized control network in GCP format, after outlier filtering
+  if (opt.save_cnet_as_gcp) {
+    std::string gcp_file = opt.out_prefix + "-cnet.gcp";
+    asp::saveCnetAsGcp(cnet, param_storage, opt.datum, opt.image_files, gcp_file);
   }
 
 } // end do_ba_ceres

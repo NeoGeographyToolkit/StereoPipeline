@@ -58,7 +58,14 @@ cam_test (:numref:`cam_test`):
     bathymetry correction with ray bending according to Snell's law.
 
 bundle_adjust (:numref:`bundle_adjust`):
+  * Replaced ``--save-cnet-as-csv`` with ``--save-cnet-as-gcp``. The control
+    network is now saved after optimization and outlier filtering, with
+    optimized triangulated point positions, including any input GCP.
   * Added bathymetry support (:numref:`ba_bathy`).
+
+jitter_solve (:numref:`jitter_solve`):
+  * Added ``--save-cnet-as-gcp`` to save the optimized control network in
+    GCP format, after outlier filtering (:numref:`bagcp`).
 
 ipfind (:numref:`ipfind`):
   * Added the option ``--binary-to-txt`` to convert .vwip files to text.

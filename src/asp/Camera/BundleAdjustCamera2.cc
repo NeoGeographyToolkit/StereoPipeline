@@ -1618,9 +1618,9 @@ void checkGcpRadius(vw::cartography::Datum const& datum,
     double thresh = 2e+5; // 200 km
     if (std::abs(norm_2(observation) - datum.semi_major_axis()) > thresh ||
         std::abs(norm_2(observation) - datum.semi_minor_axis()) > thresh)
-      vw_throw(ArgumentErr() << "Radius of a ground control point in ECEF differs "
-              << "from the datum radii by more than " << thresh << " meters.\n"
-              << "Check your GCPs and datum.\n");
+      vw_out(vw::WarningMessage) << "GCP " << ipt
+        << " has ECEF radius differing from the datum by more than "
+        << thresh << " m. Check your GCPs and datum.\n";
   }
 
   return;

@@ -38,6 +38,7 @@
 namespace vw {
 
   namespace cartography {
+    class Datum;
     class GeoReference;
   }
 
@@ -53,7 +54,9 @@ namespace vw {
 }
 
 namespace asp {
-  
+
+class BaParams;
+
 const int NUM_XYZ_PARAMS  = 3;
 const int NUM_QUAT_PARAMS = 4;
 const int PIXEL_SIZE      = 2;
@@ -125,9 +128,10 @@ std::string csmStateFile(std::string const& adjustFile);
 std::string rpcAdjustedFile(std::string const& adjustFile);
 
 // Put the triangulated points in a vector. Update the cnet from the DEM,
-// if we have one.
+// if we have one. Set the sigma for DEM-constrained points.
 void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
                 bool have_dem,
+                double heights_from_dem_uncertainty,
                 // Outputs
                 vw::ba::ControlNetwork & cnet,
                 std::vector<double>    & orig_tri_points_vec,
@@ -142,6 +146,23 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
                      // Output
                      std::vector<std::vector<double>> & residuals);
 
+
+// Save the control network in GCP format using optimized positions from
+// param_storage, filtering outliers. Includes GCP. For bundle_adjust.
+void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
+                   asp::BaParams const& param_storage,
+                   vw::cartography::Datum const& datum,
+                   std::vector<std::string> const& image_files,
+                   std::string const& filename);
+
+// Save the control network in GCP format using optimized positions from
+// tri_points_vec, filtering outliers. Includes GCP. For jitter_solve.
+void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
+                   std::vector<double> const& tri_points_vec,
+                   std::set<int> const& outliers,
+                   vw::cartography::Datum const& datum,
+                   std::vector<std::string> const& image_files,
+                   std::string const& filename);
 
 } // end namespace asp
 

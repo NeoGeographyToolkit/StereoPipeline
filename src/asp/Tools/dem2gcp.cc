@@ -271,7 +271,9 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
     gcp_vec.swap(local_vec);
   }
   
-  writeGcp(gcpFile, ref_dem_georef, gcp_vec, image_files);
+  // Use pixel sigma of 1. TODO(oalexan1): Revisit.
+  bool ignore_pixel_sigma = true;
+  writeGcp(gcpFile, ref_dem_georef, gcp_vec, image_files, ignore_pixel_sigma);
 }
 
 // Put the variables below in a struct

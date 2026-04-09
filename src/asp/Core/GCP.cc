@@ -26,11 +26,13 @@
 
 namespace asp {
 
-// Write GCP to a file
+// Write GCP to a file. If ignore_pixel_sigma is true, or if a measure's
+// pixel sigma is non-positive, use a pixel sigma of 1.
 void writeGcp(std::string const& gcpFile,
               vw::cartography::GeoReference const& geo,
               std::vector<Gcp> const& gcp_vec,
-              std::vector<std::string> const& image_files) {
+              std::vector<std::string> const& image_files,
+              bool ignore_pixel_sigma) {
 
   vw::vw_out() << "Writing: " << gcpFile << "\n";
   std::ofstream ofs(gcpFile.c_str());
@@ -49,25 +51,33 @@ void writeGcp(std::string const& gcpFile,
     auto const& cp    = gcp.cp; // alias
     auto const& llh   = gcp.llh; // alias
     auto const& sigma = gcp.sigma; // alias
-    vw::Vector2 pix_sigma(1, 1);
 
     // Write the id, lat, lon, height, sigmas
     ofs << gcp_id << " " << llh.y() << " " << llh.x() << " " << llh.z() << " "
         << sigma[0] << " " << sigma[1] << " " << sigma[2] << " ";
-        
+
     for (int im = 0; im < cp.size(); im++) {
       auto const& cm = cp[im]; // measure
-      ofs << image_files[cm.image_id()] << " " 
+
+      // Use the measure's pixel sigma, or fall back to 1
+      double col_sigma = 1.0, row_sigma = 1.0;
+      if (!ignore_pixel_sigma) {
+        vw::Vector2 ms = cm.sigma();
+        if (ms[0] > 0) col_sigma = ms[0];
+        if (ms[1] > 0) row_sigma = ms[1];
+      }
+
+      ofs << image_files[cm.image_id()] << " "
           << cm.position()[0] << " " << cm.position()[1] << " "
-          << pix_sigma[0] << " " << pix_sigma[1];
-      
+          << col_sigma << " " << row_sigma;
+
       // Have a space between measures, except after the last one
       if (im < int(cp.size()) - 1)
         ofs << " ";
     }
     ofs << "\n";
   }
-  
+
   ofs.close();
 }
 
@@ -152,8 +162,9 @@ void genWriteGcp(std::vector<std::string> const& image_files,
     gcp_vec.push_back(gcp);
   }
   
-  // Write the GCPs to file
-  asp::writeGcp(gcp_file, image_georef, gcp_vec, image_files);
+  // Write the GCPs to file. Use pixel sigma of 1. TODO(oalexan1): Revisit.
+  bool ignore_pixel_sigma = true;
+  asp::writeGcp(gcp_file, image_georef, gcp_vec, image_files, ignore_pixel_sigma);
 
   return;
 }

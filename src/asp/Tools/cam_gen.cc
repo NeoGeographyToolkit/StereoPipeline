@@ -1116,6 +1116,7 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
   Vector3 llh, xyz;
   std::vector<Vector3> xyz_vec;
 
+  // TODO(oalexan1): Use asp::writeGcp() instead of inline GCP writing.
   // If to write a gcp file
   std::ostringstream gcp;
   gcp.precision(17);

@@ -388,6 +388,12 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       "The index of refraction of water to be used in bathymetry correction. "
       "Must be specified and bigger than 1. This index can be computed with "
       "the refr_index program.")
+    ("save-cnet-as-gcp",
+      po::bool_switch(&opt.save_cnet_as_gcp)->default_value(false)->implicit_value(true),
+     "Save the optimized control network, after outlier filtering, in the "
+     "format used by ground control points (GCP), including any input GCP. "
+     "The xyz sigma is 1 meter for regular triangulated points and the "
+     "value of --heights-from-dem-uncertainty for DEM-constrained points.")
     ;
     general_options.add(vw::GdalWriteOptionsDescription(opt));
   po::options_description positional("");
@@ -1052,7 +1058,7 @@ void jitterSolvePass(int                                 pass,
   // Put the triangulated points in a vector. Update the cnet from the DEM,
   // if we have one. Later will add here the anchor points.
   std::vector<double> local_orig_tri_points_vec, tri_points_vec;
-  asp::formTriVec(dem_xyz_vec, have_dem,
+  asp::formTriVec(dem_xyz_vec, have_dem, opt.heights_from_dem_uncertainty,
     cnet, local_orig_tri_points_vec, tri_points_vec); // outputs
 
   // Create structures for pixels, xyz, and weights, to be used in optimization
@@ -1310,6 +1316,13 @@ void jitterSolvePass(int                                 pass,
   asp::saveTriOffsetsPerCamera(opt.image_files, outliers,
                                orig_tri_points_vec, tri_points_vec,
                                crn, tri_offsets_file);
+
+  // Save the optimized control network in GCP format, after outlier filtering
+  if (opt.save_cnet_as_gcp) {
+    std::string gcp_file = opt.out_prefix + "-cnet.gcp";
+    asp::saveCnetAsGcp(cnet, tri_points_vec, outliers, opt.datum,
+                       opt.image_files, gcp_file);
+  }
 
 } // end jitterSolvePass
 

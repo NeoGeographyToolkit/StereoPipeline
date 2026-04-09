@@ -2410,7 +2410,14 @@ Command-line options for jitter_solve
     files. Any prior version and any SPICE data will be deleted.
     Mapprojected images obtained with prior version of the cameras
     must no longer be used in stereo.
-        
+
+--save-cnet-as-gcp
+    Save the optimized control network, after outlier filtering, in the format
+    used by ground control points (:numref:`bagcp`), including any input GCP.
+    The xyz sigma is 1 meter for regular triangulated points and the
+    value of ``--heights-from-dem-uncertainty`` for DEM-constrained points.
+    Can be inspected with ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
+
 --min-triangulation-angle <degrees (default: 0.1)>
     The minimum angle, in degrees, at which rays must meet at a
     triangulated point to accept this point as valid. It must

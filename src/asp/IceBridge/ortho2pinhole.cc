@@ -88,6 +88,7 @@ struct Options : public vw::GdalWriteOptions {
 };
 
 /// Record a set of IP results as ground control points
+// TODO(oalexan1): Use asp::writeGcp() instead of inline GCP writing.
 void write_gcp_file(Options const& opt,
                     std::vector<Vector3> const& llh_pts,
                     std::vector<Vector2> const& pixels) {

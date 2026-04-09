@@ -58,7 +58,8 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
   std::string overlap_list_file, auto_overlap_params, datum_str, proj_str,
     csv_format_str, csv_srs, csv_proj4_str, disparity_list, stereo_prefix_list;
   bool have_overlap_list, propagate_errors, match_first_to_last, single_threaded_cameras,
-    update_isis_cubes_with_csm_state, save_adjusted_rpc, fix_gcp_xyz, use_llh_error;
+    update_isis_cubes_with_csm_state, save_adjusted_rpc, fix_gcp_xyz, use_llh_error,
+    save_cnet_as_gcp;
   double forced_triangulation_distance, min_triangulation_angle, max_triangulation_angle,
     max_init_reproj_error, robust_threshold, parameter_tolerance;
   double heights_from_dem_uncertainty, reference_terrain_weight,
@@ -89,7 +90,7 @@ struct BaBaseOptions: public vw::GdalWriteOptions {
    overlap_limit(0), have_overlap_list(false), propagate_errors(false),
    match_first_to_last(false), single_threaded_cameras(false),
    update_isis_cubes_with_csm_state(false),
-   fix_gcp_xyz(false), use_llh_error(false),
+   fix_gcp_xyz(false), use_llh_error(false), save_cnet_as_gcp(false),
    max_gcp_reproj_err(-1.0),
    camera_type(BaCameraType_Other), max_num_reference_points(-1),
    datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM,

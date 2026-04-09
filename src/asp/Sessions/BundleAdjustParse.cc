@@ -1047,11 +1047,12 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "How many interest point matches to compute in each image tile (of size "
      "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "
      "than this. See also --matches-per-tile-params.")
-    ("save-cnet-as-csv", 
-      po::bool_switch(&opt.save_cnet_as_csv)->default_value(false)->implicit_value(true),
-     "Save the control network containing all interest points in the format used by ground "
-     "control points, so it can be inspected. The triangulated points are before "
-     "optimization.")
+    ("save-cnet-as-gcp",
+      po::bool_switch(&opt.save_cnet_as_gcp)->default_value(false)->implicit_value(true),
+     "Save the optimized control network, after outlier filtering, in the "
+     "format used by ground control points (GCP), including any input GCP. "
+     "The xyz sigma is 1 meter for regular triangulated points and the "
+     "value of --heights-from-dem-uncertainty for DEM-constrained points.")
     ("num-parallel-jobs", po::value(&opt.num_parallel_jobs)->default_value(1),
      "The number of bundle_adjustment processes being run in parallel over all nodes.")
     ("job-id", po::value(&opt.job_id)->default_value(0),

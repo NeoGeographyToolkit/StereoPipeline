@@ -576,9 +576,11 @@ For use with SfM, see :numref:`sfm_world_coords`.
 The option ``--fix-gcp-xyz`` fixes the GCP coordinates during optimization. This
 is useful when the GCP are very accurate. Otherwise set per-GCP sigma.
 
-The option ``--save-cnet-as-csv`` can be invoked to save the entire control
-network in the GCP format, before any optimization. This can be useful for
-comparing with any manually created GCP.
+The option ``--save-cnet-as-gcp`` can be invoked to save the optimized control
+network in the GCP format, after outlier filtering. Any input GCP are included
+in the output. The xyz sigma is 1 meter for regular triangulated points and the
+value of ``--heights-from-dem-uncertainty`` for DEM-constrained points. This can
+be useful for inspecting the final triangulated points.
 
 When the ``--use-lon-lat-height-gcp-error`` flag is set, the three
 standard deviations are interpreted as applying not to :math:`x, y, z`
@@ -1444,11 +1446,12 @@ Command-line options
 --ip-num-ransac-iterations <iterations (default: 1000)>
     How many RANSAC iterations to do in interest point matching.
 
---save-cnet-as-csv
-    Save the initial control network containing all interest points in the
-    format used by ground control points (:numref:`bagcp`), so it can be
-    inspected (:numref:`stereo_gui_vwip_gcp`). The triangulated points are
-    before optimization.
+--save-cnet-as-gcp
+    Save the optimized control network, after outlier filtering, in the format
+    used by ground control points (:numref:`bagcp`), including any input GCP.
+    The xyz sigma is 1 meter for regular triangulated points and the
+    value of ``--heights-from-dem-uncertainty`` for DEM-constrained points.
+    Can be inspected with ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 
 --camera-positions <filename>
     CSV file containing estimated position of each camera, in ECEF
