@@ -2294,9 +2294,6 @@ that can be compared with the one from bundle adjustment. Hopefully
 the median registration errors go down somewhat. 
 
 The validation can proceed as earlier, in :numref:`sfs_reg_valid`.
-
-Stereo DEMs can be produced with the updated cameras and compared to the earlier
-ones.
  
 .. _sfsinsights:
 

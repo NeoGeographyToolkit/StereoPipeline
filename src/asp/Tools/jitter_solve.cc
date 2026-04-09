@@ -440,7 +440,6 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   bool rm_from_input_list = true;
   opt.gcp_files = vw::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
 
-
   if (!opt.image_list.empty()) {
     // Read the images and cameras and put them in 'images_or_cams' to be parsed later
     if (!opt.image_files.empty())
