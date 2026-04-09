@@ -2218,7 +2218,7 @@ This particular site had a DEM of 57840 by 41790 pixels, at 1 m/pixel
 resolution. There were about 3650 images.
 
 At this stage the images should already be well-aligned with the reference DEM.
-We will take the last batch of optimized cameras stored in ``ba_align_ref`` 
+We will take the last batch of optimized cameras stored in ``ba_align_ref``
 from :numref:`sfs_ba_refine`, and run the jitter command as::
 
     jitter_solve                                     \
@@ -2246,11 +2246,11 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --mapproj-dem ref_dem.tif                      \
       --max-gcp-reproj-err 30                        \
       --camera-position-uncertainty 500,500          \
-      input.gcp                                      \
       --threads 60                                   \
-      -o jitter_align_ref/run
+      -o jitter_align_ref/run                        \
+      input.gcp
 
-It is important to compare this with the bundle adjustment command 
+It is important to compare this with the bundle adjustment command
 in :numref:`sfs_ba_refine`.
 
 The camera position constraints prevented the cameras from moving far. The
@@ -2258,8 +2258,9 @@ anchor points constrained the ground points. These together implicitly
 constrained the orientations as well.
 
 The number of triangulated points, GCP, and anchor points should be kept
-relatively balanced. The uncertainties and weights for these should also be
-chosen carefully.
+relatively balanced. This program prints the number of triangulated non-GCP
+points and the number of GCP. The uncertainties and weights for these should
+also be chosen carefully.
 
 The anchor DEM (``ref_dem_extra.tif``) went 40 km beyond the site of interest to
 ensure we constrain oscillations in the cameras even outside the main DEM
@@ -2272,29 +2273,27 @@ which is generous enough to allow the expected 30-100 m corrections but
 prevents wild oscillations. This is a soft constraint and in practice the
 camera positions can move somewhat beyond that.
 
-GCP were produced as earlier (:numref:`sfs_gcp`). The GCP sigma per triangulated
-point was set to 10 meters. The option ``--max-gcp-reproj-err`` was used to
-filter GCP outliers.
+GCP were produced as earlier (:numref:`sfs_gcp`), with ``dem2gcp``
+(:numref:`dem2gcp`). The GCP sigma was set to 10 meters. The option
+``--max-gcp-reproj-err`` was used to filter GCP outliers.
 
 Clean matches from bundle adjustment were reused. The number of pairwise
 matches can be adjusted to balance quality and problem size. Too many matches
-can cause the Ceres Jacobian to overflow for large datasets. This program
-prints the number of triangulated non-GCP points and the number of GCP. These
-should be comparable.
+can cause the Ceres Jacobian to overflow for large datasets.
 
 We assume the cameras in ``ba_align_ref`` are in CSM format, with the
 adjustments and alignment already applied to them.
 
-The option ``--mapproj-dem`` will result, as before, in a report file, 
+The option ``--mapproj-dem`` will result, as before, in a report file,
 named::
 
   jitter_align_ref/run-mapproj_match_offset_stats.txt
-  
+
 that can be compared with the one from bundle adjustment. Hopefully
-the median registration errors go down somewhat. 
+the median registration errors go down somewhat.
 
 The validation can proceed as earlier, in :numref:`sfs_reg_valid`.
- 
+
 .. _sfsinsights:
 
 Insights for getting the most of SfS
