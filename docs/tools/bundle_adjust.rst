@@ -580,7 +580,8 @@ The option ``--save-cnet-as-gcp`` can be invoked to save the optimized control
 network in the GCP format, after outlier filtering. Any input GCP are included
 in the output. This can be useful for inspecting the final triangulated points.
 The xyz sigma is 1 meter for regular triangulated points and the value of
-``--heights-from-dem-uncertainty`` for DEM-constrained points.
+``--heights-from-dem-uncertainty`` for DEM-constrained points. See also
+``--max-gcp-reproj-err`` for filtering GCP by reprojection error.
 
 When the ``--use-lon-lat-height-gcp-error`` flag is set, the three
 standard deviations are interpreted as applying not to :math:`x, y, z`
