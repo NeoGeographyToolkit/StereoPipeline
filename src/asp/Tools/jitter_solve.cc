@@ -439,9 +439,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   // Separate out GCP files
   bool rm_from_input_list = true;
   opt.gcp_files = vw::get_files_with_ext(opt.image_files, ".gcp", rm_from_input_list);
-  int num_gcp_files = opt.gcp_files.size();
-  if (num_gcp_files > 0)
-    vw_out() << "Found " << num_gcp_files << " GCP files.\n";
+
 
   if (!opt.image_list.empty()) {
     // Read the images and cameras and put them in 'images_or_cams' to be parsed later
@@ -1406,6 +1404,8 @@ void run_jitter_solve(int argc, char* argv[]) {
                                   opt.max_pairwise_matches,
                                   stereo_settings().matches_as_txt);
   }
+
+  vw::vw_out() << "Number of triangulated control points: " << cnet.size() << "\n";
 
   if (!opt.gcp_files.empty()) {
     int num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);

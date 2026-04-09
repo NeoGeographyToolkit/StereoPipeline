@@ -1737,6 +1737,8 @@ reliable solution for repair is to make use of custom GCP produced with
 ``dem2gcp`` as seen in the next section. A simpler recipe for correcting a shift
 or rotation only with ``pc_align`` is shown further down.
 
+.. _sfs_gcp:
+
 GCP-based refinement
 """"""""""""""""""""
 
@@ -2200,20 +2202,20 @@ Solving for jitter
 ASP has a jitter solver (:numref:`jitter_solve`). This one can refine individual
 position and orientation samples in a linescan camera.
 
-Normally, for SfS, bundle adjsutment as in :numref:`sfs_ba_refine` is sufficinet.
-However, we found the jitter solver helpful for a very large site (40 km on the side, at 1 m/pixel). It was able to resolve very long-wavelnegth error accumulatio in linescan cameas
-and produce better registraiotn.
+Normally, for SfS, bundle adjustment as in :numref:`sfs_ba_refine` is
+sufficient. However, we found the jitter solver helpful for a very large site
+(more than 50 km on the side, at 1 m/pixel). It was able to resolve very
+long-wavelength error accumulation in linescan cameras and produce better
+registration.
 
-It is important to note that, as seen below, the solver should be called with carefully
-set constraints, to avoid large oscillations in the solution, and hese constraints
-should be balanced well. The Google Ceres solver that is imployed also has an uppper
-bound on problem size, beyond which it will refuse to run.
+It is important to note that, as seen below, the solver should be called with
+carefully set constraints, to avoid large oscillations in the solution, and
+these constraints should be balanced well. The Google Ceres solver that is
+employed also has an upper bound on problem size, beyond which it will refuse
+to run.
 
-If the bundle adjustment with a terrain constraint from :numref:`sfs_ba_refine`
-produced well-registered images, as validated in :numref:`sfs_reg_valid`, but
-some jitter is seen in the triangulation error of pairwise stereo DEMs in
-:numref:`sfs_ground_align`, the adventurous user may try to see if the cameras
-can be further refined by solving for jitter (:numref:`jitter_solve`).
+This particular site had a DEM of 57840 by 41790 pixels, at 1 m/pixel
+resolution. There were about 3650 images.
 
 At this stage the images should already be well-aligned with the reference DEM.
 We will take the last batch of optimized cameras stored in ``ba_align_ref`` 
@@ -2222,10 +2224,10 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
     jitter_solve                                     \
       --image-list ba_align_ref/run-image_list.txt   \
       --camera-list ba_align_ref/run-camera_list.txt \
-      --num-lines-per-position 500                   \
-      --num-lines-per-orientation 500                \
-      --match-files-prefix ba/run                    \
-      --max-pairwise-matches 10000                   \
+      --num-lines-per-position 15000                 \
+      --num-lines-per-orientation 4000               \
+      --clean-match-files-prefix ba/run              \
+      --max-pairwise-matches 75                      \
       --match-first-to-last                          \
       --min-matches 1                                \
       --forced-triangulation-distance 100000         \
@@ -2236,36 +2238,49 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --overlap-limit 10000                          \
       --parameter-tolerance 1e-20                    \
       --heights-from-dem ref_dem.tif                 \
-      --heights-from-dem-uncertainty 20.0            \
-      --anchor-dem ref_dem_extra.tif                       \
-      --num-anchor-points-per-tile 50                \
-      --num-anchor-points-extra-lines 2000           \
+      --heights-from-dem-uncertainty 10.0            \
+      --anchor-dem ref_dem_extra.tif                 \
+      --num-anchor-points-per-tile 1                 \
+      --num-anchor-points-extra-lines 40000          \
       --anchor-weight 0.05                           \
       --mapproj-dem ref_dem.tif                      \
-      --threads 20                                   \
+      --max-gcp-reproj-err 30                        \
+      --camera-position-uncertainty 500,500          \
+      input.gcp                                      \
+      --threads 60                                   \
       -o jitter_align_ref/run
 
 It is important to compare this with the bundle adjustment command 
 in :numref:`sfs_ba_refine`.
 
-The camera position contraints rprevente teh caeras from moving far. the a hor
-anchor poitns goinstraints the tground points. Tehse together implicitly constrained
-the orientations as well.
+The camera position constraints prevented the cameras from moving far. The
+anchor points constrained the ground points. These together implicitly
+constrained the orientations as well.
 
-The number of triangualted points, GCP, and acnhor points should be kept releatively 
-balanced. The above run had xxx, xxx, and xx of these. The uncertainties and weights
-for these should laso be chosen carefully.
+The number of triangulated points, GCP, and anchor points should be kept
+relatively balanced. The uncertainties and weights for these should also be
+chosen carefully.
 
-The anchor DEM went 40 km beyond the site of interest to ensure we control sociallytions
-in the cameras (this length was likely excessive).
+The anchor DEM (``ref_dem_extra.tif``) went 40 km beyond the site of interest to
+ensure we constrain oscillations in the cameras even outside the main DEM
+extent. The option ``--num-anchor-points-extra-lines`` placed anchor points well
+beyond the first and last image lines, covering the full orbit strip within the
+anchor DEM. These values were likely excessive for this dataset.
 
-GCP were produed as earlier (:numref:`xxxx`).
+The camera position uncertainty was set to 500 m horizontally and vertically,
+which is generous enough to allow the expected 30-100 m corrections but
+prevents wild oscillations. This is a soft constraint and in practice the
+camera positions can move somewhat beyond that.
 
-We used a lot more pairwise matches, as jitter is a finer-grained operation.
-We went back to the full set of matches in ``ba``, before outlier filtering
-and before selecting a subset of them. This may potentially consume
-a lot of memory and take a lot of time. The number of matches can
-be reduced in those cases.
+GCP were produced as earlier (:numref:`sfs_gcp`). The GCP sigma per triangulated
+point was set to 10 meters. The option ``--max-gcp-reproj-err`` was used to
+filter GCP outliers.
+
+Clean matches from bundle adjustment were reused. The number of pairwise
+matches can be adjusted to balance quality and problem size. Too many matches
+can cause the Ceres Jacobian to overflow for large datasets. This program
+prints the number of triangulated non-GCP points and the number of GCP. These
+should be comparable.
 
 We assume the cameras in ``ba_align_ref`` are in CSM format, with the
 adjustments and alignment already applied to them.

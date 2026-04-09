@@ -494,6 +494,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                                                    opt.max_pairwise_matches,
                                                    stereo_settings().matches_as_txt,
                                                    opt.bathy_data);
+      vw_out() << "Number of triangulated control points: " << cnet.size() << "\n";
       if (!success) {
         vw_out() << "Failed to build a control network.\n"
                  << " - Consider removing all .vwip and .match files and \n"
@@ -507,7 +508,6 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   }
 
   if (!opt.gcp_files.empty()) {
-    vw::vw_out() << "Found " << opt.gcp_files.size() << " ground control point files.\n";
     num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
     checkGcpRadius(opt.datum, cnet);
     vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
