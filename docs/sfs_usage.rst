@@ -2240,9 +2240,9 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --heights-from-dem ref_dem.tif                 \
       --heights-from-dem-uncertainty 10.0            \
       --anchor-dem ref_dem_extra.tif                 \
-      --num-anchor-points-per-tile 1                 \
+      --num-anchor-points-per-tile 4                 \
       --num-anchor-points-extra-lines 40000          \
-      --anchor-weight 0.05                           \
+      --anchor-weight 0.1                            \
       --mapproj-dem ref_dem.tif                      \
       --max-gcp-reproj-err 30                        \
       --camera-position-uncertainty 500,500          \
@@ -2255,7 +2255,9 @@ in :numref:`sfs_ba_refine`.
 
 The camera position constraints prevented the cameras from moving far. The
 anchor points constrained the ground points. These together implicitly
-constrained the orientations as well.
+constrained the orientations as well. Adding more anchor points per tile
+and increasing the anchor weight helped reduce spline oscillations in dark
+or low-match regions.
 
 The number of triangulated points, GCP, and anchor points should be kept
 relatively balanced. This program prints the number of triangulated non-GCP
