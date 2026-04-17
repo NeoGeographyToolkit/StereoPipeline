@@ -1983,7 +1983,7 @@ The blending can be done as::
     sfs_blend --lola-dem lola_dem.tif --sfs-dem sfs_dem.tif      \
       --max-lit-image-mosaic max_lit.tif --image-threshold 0.005 \
       --lit-blend-length 25 --shadow-blend-length 5              \
-      --min-blend-size 50 --weight-blur-sigma 5                  \
+      --min-blend-size 25 --weight-blur-sigma 5                  \
       --output-dem sfs_blend.tif --output-weight sfs_weight.tif
 
 Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
