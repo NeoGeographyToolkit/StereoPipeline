@@ -70,16 +70,20 @@ Create nadir-pointing frame cameras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
-  
-    sat_sim --dem dem.tif          \
-        --ortho ortho.tif          \
-        --first 397.1 400.7 450000 \
-        --last 397.1 500.7 450000  \
-        --num 5                    \
-        --focal-length 450000      \
-        --optical-center 500 500   \
-        --image-size 1000 1000     \
+
+    sat_sim --dem dem.tif        \
+        --ortho ortho.tif        \
+        --first 397 400 450000   \
+        --last  397 500 450000   \
+        --num 5                  \
+        --focal-length 450000    \
+        --optical-center 500 500 \
+        --image-size 1000 1000   \
         -o run/run
+
+The ``--first`` and ``--last`` values are DEM pixel column, row, and
+height above the DEM datum (meters) -- not lon/lat. Values outside
+the DEM extent will be rejected with an error.
 
 See :numref:`sat_sim_roll_pitch_yaw` for how to apply a custom rotation
 to the cameras.
