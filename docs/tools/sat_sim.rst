@@ -81,9 +81,8 @@ Create nadir-pointing frame cameras
         --image-size 1000 1000   \
         -o run/run
 
-The ``--first`` and ``--last`` values are DEM pixel column, row, and
-height above the DEM datum (meters) -- not lon/lat. Values outside
-the DEM extent will be rejected with an error.
+The ``--first`` and ``--last`` values are DEM pixel column, row
+(starting from 0), and height above the DEM datum (meters).
 
 See :numref:`sat_sim_roll_pitch_yaw` for how to apply a custom rotation
 to the cameras.
