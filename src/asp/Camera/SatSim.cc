@@ -850,6 +850,30 @@ void genCamPoses(SatSimOptions & opt,
   ref_cam2world.clear();
   cam_times.clear();
 
+  // Validate that --first, --last, and ground-pos (if given) are DEM
+  // pixel coordinates inside the DEM extent. Out-of-range values
+  // previously caused sat_sim to spin indefinitely while the optimizer
+  // searched in unreachable regions.
+  auto checkPixInDem = [&](std::string const& name,
+                           vw::Vector2 const& pix) {
+    double col = pix[0], row = pix[1];
+    if (std::isnan(col) || std::isnan(row)) return;
+    int ncols = dem.cols(), nrows = dem.rows();
+    if (col < 0 || col > ncols - 1 || row < 0 || row > nrows - 1)
+      vw::vw_throw(vw::ArgumentErr()
+          << name << " DEM pixel (" << col << ", " << row
+          << ") is outside DEM extent [0.." << (ncols - 1)
+          << ", 0.." << (nrows - 1) << "]. "
+          << "sat_sim expects --" << name
+          << " in DEM pixel coordinates, not lon/lat.\n");
+  };
+  checkPixInDem("first",
+                vw::math::subvector(opt.first, 0, 2));
+  checkPixInDem("last",
+                vw::math::subvector(opt.last,  0, 2));
+  checkPixInDem("first-ground-pos", opt.first_ground_pos);
+  checkPixInDem("last-ground-pos",  opt.last_ground_pos);
+
   // Convert the first and last camera center positions to projected coordinates
   vw::Vector3 first_proj, last_proj;
   subvector(first_proj, 0, 2) = dem_georef.pixel_to_point
