@@ -85,9 +85,12 @@ vegetation well.
 To compute NDWI using ``image_calc`` (:numref:`image_calc`), do::
 
      image_calc -c "(var_0 - var_1) / (var_0 + var_1)" \
+       --output-nodata-value -1e+6                     \
        input_b3.tif input_b7.tif -o ndwi.tif
 
 where ``input_b3.tif`` is the green band and ``input_b7.tif`` is the NIR band.
+The ``--output-nodata-value`` sets an explicit nodata sentinel on the output
+(well outside the valid ``[-1, 1]`` NDWI range).
 
 RNDVI (Reversed Normalized Difference Vegetation Index)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -107,6 +110,7 @@ standard NIR masking may be ambiguous.
 To compute RNDVI using ``image_calc`` run::
 
      image_calc -c "(var_0 - var_1) / (var_0 + var_1)" \
+       --output-nodata-value -1e+6                     \
        input_b5.tif input_b7.tif -o rndvi.tif
 
 where ``input_b5.tif`` is the red band and ``input_b7.tif`` is the NIR band.
@@ -127,6 +131,7 @@ shallow water than NDWI or RNDVI.
 The ``image_calc`` command is::
 
      image_calc -c "(var_0 + var_1) / var_2" \
+       --output-nodata-value -1e+6           \
        input_b3.tif input_b5.tif input_b2.tif -o osi.tif
 
 where ``input_b3.tif`` is the green band, ``input_b5.tif`` is the red band,
