@@ -2264,6 +2264,10 @@ relatively balanced. This program prints the number of triangulated non-GCP
 points and the number of GCP. The uncertainties and weights for these should
 also be chosen carefully.
 
+Normally a much larger value of ``--max-pairwise-matches`` is preferred,
+but given the very large number of input images this had to be drastically
+reduced.
+
 The anchor DEM (``ref_dem_extra.tif``) went 40 km beyond the site of interest to
 ensure we constrain oscillations in the cameras even outside the main DEM
 extent. The option ``--num-anchor-points-extra-lines`` placed anchor points well
