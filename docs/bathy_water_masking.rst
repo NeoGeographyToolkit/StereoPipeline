@@ -51,12 +51,16 @@ Individual bands can be extracted from a multispectral image with
 band (band 3)::
 
      b=3
-     gdal_translate -b ${b} -co compress=lzw -co TILED=yes \
+     gdal_translate -b ${b} -a_nodata 0                    \
+       -co compress=lzw -co TILED=yes                      \
        -co BLOCKXSIZE=256 -co BLOCKYSIZE=256               \
        input.TIF input_b${b}.tif
 
 The compression and tiling options help with the performance of ASP processing
 later.
+
+The option ``-a_nodata 0`` sets out-of-footprint pixels to nodata,
+to avoid division by zero when computing the water indices below.
 
 Water indices for land-water masking
 ------------------------------------
