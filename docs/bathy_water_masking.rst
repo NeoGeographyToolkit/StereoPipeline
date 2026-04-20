@@ -89,7 +89,7 @@ To compute NDWI using ``image_calc`` (:numref:`image_calc`), do::
        input_b3.tif input_b7.tif -o ndwi.tif
 
 where ``input_b3.tif`` is the green band and ``input_b7.tif`` is the NIR band.
-The ``--output-nodata-value`` sets an explicit nodata sentinel on the output
+The ``--output-nodata-value`` option sets an explicit nodata value on the output
 (well outside the valid ``[-1, 1]`` NDWI range).
 
 RNDVI (Reversed Normalized Difference Vegetation Index)
