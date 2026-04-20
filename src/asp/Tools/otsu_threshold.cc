@@ -23,7 +23,7 @@
 #include <limits>
 
 #include <vw/FileIO/DiskImageUtils.h>
-#include <vw/Image/Statistics.h>
+#include <vw/Image/ImageThresh.h>
 
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
