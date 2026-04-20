@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # __BEGIN_LICENSE__
-#  Copyright (c) 2009-2013, United States Government as represented by the
+#  Copyright (c) 2009-2026, United States Government as represented by the
 #  Administrator of the National Aeronautics and Space Administration. All
 #  rights reserved.
 #
@@ -66,6 +66,7 @@ print("Image file is " + options.image)
 print("Number of samples is " + str(options.num_samples))
 
 # Try to read the file using GDAL
+nodata = None
 try:
     ds = gdal.Open(options.image, gdal.GA_ReadOnly)
 
@@ -80,7 +81,8 @@ try:
         
     rb = ds.GetRasterBand(1)
     image = rb.ReadAsArray()
-    
+    nodata = rb.GetNoDataValue()
+
 except Exception as err:
     print("Could not read the file: " + options.image)
     print("It must exist and be a single-band TIF file.")
@@ -123,7 +125,19 @@ sub_cols = sub_cols.astype(int)
 sub_image = image[sub_rows, :][:, sub_cols]
 
 # Make it into an array
-data = sub_image.reshape(-1)
+data = sub_image.reshape(-1).astype(np.float64, copy=False)
+
+# Signed satellite indices (NDWI, RNDVI, OSI) often carry NaN from 0/0 outside
+# the image footprint. Handle this.
+# Filter out nodata
+if nodata is not None:
+    data = data[data != nodata]
+# Filter out NaN, +/-Inf
+data = data[np.isfinite(data)]
+if data.size == 0:
+    print("No valid pixels after dropping nodata and non-finite values.")
+    sys.exit(1)
+
 xvals = np.linspace(data.min(), data.max(), 1000)
 
 beg = time.time()
