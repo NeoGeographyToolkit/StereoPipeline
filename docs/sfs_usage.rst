@@ -2256,8 +2256,8 @@ in :numref:`sfs_ba_refine`.
 The camera position constraints prevented the cameras from moving far. The
 anchor points constrained the ground points. These together implicitly
 constrained the orientations as well. Adding more anchor points per tile
-and increasing the anchor weight helped reduce spline oscillations in dark
-or low-match regions.
+and increasing the anchor weight helped reduce pose interpolation
+oscillations in dark or low-match regions.
 
 The number of triangulated points, GCP, and anchor points should be kept
 relatively balanced. This program prints the number of triangulated non-GCP
