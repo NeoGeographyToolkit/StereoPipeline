@@ -18,7 +18,6 @@
 #include <asp/Core/InterestPointMatching.h>
 #include <asp/Core/StereoSettings.h>
 
-#include <vw/Math/GaussianClustering.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Stereo/StereoModel.h>
