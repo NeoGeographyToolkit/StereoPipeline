@@ -35,6 +35,7 @@
 #include <vw/FileIO/DiskCacheImageView.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Stereo/DisparityMap.h>
+#include <vw/Math/CDFAccumulator.h>
 
 namespace fs = boost::filesystem;
 

@@ -35,6 +35,7 @@
 #include <vw/Image/PixelMath.h>
 #include <vw/Image/Statistics.h>
 #include <vw/Image/Filter.h>
+#include <vw/Math/CDFAccumulator.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/FileIO/FileUtils.h>
