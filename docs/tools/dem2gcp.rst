@@ -351,6 +351,47 @@ pairs of images.
 The produced GCP file can then be passed to ``bundle_adjust`` or ``jitter_solve``
 with the same lists of images, cameras, and match files.
 
+.. _dem2gcp_transform_gcp:
+
+Transforming existing GCP files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Existing GCP files whose ground coordinates were measured on the warped DEM
+can be passed in with ``--input-gcp-list``. The argument is a plain text file
+with one GCP file path per line. Each triangulated point in these GCP is mapped
+through the disparity to the reference DEM (the same transform applied to the
+points from interest point matches), and the resulting GCP are appended to the
+output GCP file.
+
+Example::
+
+    ls warped_gcp1.gcp warped_gcp2.gcp > input_gcp_list.txt
+
+    dem2gcp                                    \
+      --warped-dem asp_dem.tif                 \
+      --ref-dem ref_dem.tif                    \
+      --warped-to-ref-disparity warp/run-F.tif \
+      --image-list image_list.txt              \
+      --camera-list camera_list.txt            \
+      --clean-match-files-prefix matches/run   \
+      --input-gcp-list input_gcp_list.txt      \
+      --max-num-gcp 20000                      \
+      --gcp-sigma 1.0                          \
+      --output-gcp out.gcp
+
+The images referenced in the input GCP files must appear in the current image
+list; otherwise a warning is printed and those measurements are skipped.
+
+The options ``--gcp-sigma`` (or ``--gcp-sigma-image``) and ``--max-num-gcp``
+apply to the combined set of match-derived and input GCP.
+
+For finer control over weighting, ``dem2gcp`` can be invoked twice: once with
+match files (and a chosen ``--gcp-sigma``), and once with only
+``--input-gcp-list`` and ``--max-pairwise-matches 0`` (to skip the match-derived
+points), using a different ``--gcp-sigma``. The two produced GCP files can
+both be passed to ``bundle_adjust`` (:numref:`bundle_adjust`) or
+``jitter_solve`` (:numref:`jitter_solve`).
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
   
@@ -426,6 +467,14 @@ Command-line options
 --search-len <int (default: 0)>
     How many DEM pixels to search around to find a valid DEM disparity (pick the
     closest). This may help with a spotty disparity but should not be overused.
+
+--input-gcp-list <string (default: "")>
+    A file containing a list of existing GCP files (one per line), with ground
+    coordinates measured on the warped DEM. Each triangulated point is mapped
+    via the disparity to the reference DEM, and the resulting GCP are appended
+    to the output GCP file. The options ``--gcp-sigma`` and ``--max-num-gcp``
+    apply to the combined set. A warning is issued for images referenced by
+    the input GCP that are not in the image list.
 
 -v, --version
     Display the version of software.

@@ -280,7 +280,7 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
 struct Options: public vw::GdalWriteOptions {
   std::string warped_dem_file, ref_dem_file, warped_to_ref_disp_file, left_img, right_img,
     left_cam, right_cam,  match_file, out_gcp, gcp_sigma_image, image_list, camera_list,
-    match_files_prefix, clean_match_files_prefix;
+    match_files_prefix, clean_match_files_prefix, input_gcp_list;
   int search_len, max_num_gcp, max_pairwise_matches;
   double gcp_sigma, max_disp;
 };
@@ -340,6 +340,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("max-pairwise-matches", po::value(&opt.max_pairwise_matches)->default_value(-1),
      "If positive, reduce the number of matches to load from any given match file to at "
      "most this value.")
+    ("input-gcp-list", po::value(&opt.input_gcp_list)->default_value(""),
+     "A file containing a list of existing GCP files (one per line), with ground "
+     "coordinates measured on the warped DEM. Each triangulated point is mapped via "
+     "the disparity to the reference DEM, and the resulting GCP are appended to the "
+     "output GCP file. The options --gcp-sigma and --max-num-gcp apply to the "
+     "combined set.")
     ("help,h", "Display this help message");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -542,7 +548,21 @@ int run_dem2gcp(int argc, char * argv[]) {
                                                stereo_settings().matches_as_txt);
   if (!success)
     vw::vw_throw(vw::ArgumentErr() << "Failed to load the interest points.\n");
-  
+
+  // Append GCPs from --input-gcp-list into the same cnet. Their ground
+  // positions are measured on the warped DEM and will be mapped through the
+  // disparity to the reference DEM in the same loop as the IP-derived points.
+  if (!opt.input_gcp_list.empty()) {
+    std::vector<std::string> input_gcp_files;
+    asp::read_list(opt.input_gcp_list, input_gcp_files);
+    int num_input_gcp
+      = vw::ba::add_ground_control_points(cnet, input_gcp_files,
+                                          warped_dem_georef.datum());
+    vw::vw_out() << "Loaded " << num_input_gcp
+                 << " input GCP from " << input_gcp_files.size()
+                 << " file(s) in " << opt.input_gcp_list << ".\n";
+  }
+
   genWriteGcp(ref_dem_georef, cnet, disparity,
               interp_ref_dem, warped_dem_georef, image_files,
               opt.gcp_sigma, opt.search_len, opt.max_num_gcp,
