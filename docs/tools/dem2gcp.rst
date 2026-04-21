@@ -363,7 +363,12 @@ through the disparity to the reference DEM (the same transform applied to the
 points from interest point matches), and the resulting GCP are appended to the
 output GCP file.
 
-Example::
+In the example below we transform only the input GCP, without generating any
+match-derived GCP, by setting ``--max-pairwise-matches 0``. In that case
+``--match-file``, ``--match-files-prefix``, and ``--clean-match-files-prefix``
+are not required, and any value set is ignored.
+
+::
 
     ls warped_gcp1.gcp warped_gcp2.gcp > input_gcp_list.txt
 
@@ -373,24 +378,26 @@ Example::
       --warped-to-ref-disparity warp/run-F.tif \
       --image-list image_list.txt              \
       --camera-list camera_list.txt            \
-      --clean-match-files-prefix matches/run   \
       --input-gcp-list input_gcp_list.txt      \
-      --max-num-gcp 20000                      \
+      --max-pairwise-matches 0                 \
+      --max-num-gcp 100000                     \
       --gcp-sigma 1.0                          \
       --output-gcp out.gcp
 
 The images referenced in the input GCP files must appear in the current image
 list; otherwise a warning is printed and those measurements are skipped.
 
-The options ``--gcp-sigma`` (or ``--gcp-sigma-image``) and ``--max-num-gcp``
-apply to the combined set of match-derived and input GCP.
+Match files and ``--input-gcp-list`` can also be used together in a single
+invocation; the options ``--gcp-sigma`` (or ``--gcp-sigma-image``) and
+``--max-num-gcp`` then apply to the combined set of match-derived and input
+GCP.
 
 For finer control over weighting, ``dem2gcp`` can be invoked twice: once with
-match files (and a chosen ``--gcp-sigma``), and once with only
-``--input-gcp-list`` and ``--max-pairwise-matches 0`` (to skip the match-derived
-points), using a different ``--gcp-sigma``. The two produced GCP files can
-both be passed to ``bundle_adjust`` (:numref:`bundle_adjust`) or
-``jitter_solve`` (:numref:`jitter_solve`).
+match files to produce match-derived GCP (with one ``--gcp-sigma``), and once
+with ``--input-gcp-list`` and ``--max-pairwise-matches 0`` to transform the
+input GCP (with a different ``--gcp-sigma``). Both output files can then be
+passed to ``bundle_adjust`` (:numref:`bundle_adjust`) or ``jitter_solve``
+(:numref:`jitter_solve`).
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~

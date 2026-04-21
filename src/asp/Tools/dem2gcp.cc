@@ -365,14 +365,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   vw::create_out_dir(opt.out_gcp);
 
   //  Only one of --match-file, --match-files-prefix, or
-  //  --clean-match-files-prefix can be used
+  //  --clean-match-files-prefix can be used. When --max-pairwise-matches
+  //  is 0, match files are not read and these options are ignored.
   int num = int(!opt.match_file.empty()) +
             int(!opt.match_files_prefix.empty()) +
             int(!opt.clean_match_files_prefix.empty());
-  if (num != 1)
+  if (opt.max_pairwise_matches == 0) {
+    if (num > 0)
+      vw::vw_out() << "Ignoring --match-file, --match-files-prefix, and "
+                   << "--clean-match-files-prefix since --max-pairwise-matches "
+                   << "is 0.\n";
+  } else if (num != 1) {
     vw::vw_throw(vw::ArgumentErr()
                  << "Exactly one of --match-file, --match-files-prefix, or "
                  << "--clean-match-files-prefix must be specified.\n");
+  }
   
   //  Can have either left and right image, or image-list
   if ((!opt.left_img.empty() || !opt.right_img.empty()) &&
@@ -516,38 +523,47 @@ int run_dem2gcp(int argc, char * argv[]) {
   }
 
   // Load the control network. This can be slow so left for last. Consider the
-  // case of one match files or a prefix pointing to many match files.  
+  // case of one match files or a prefix pointing to many match files. When
+  // --max-pairwise-matches is 0, skip match loading entirely; the cnet will
+  // be populated only from --input-gcp-list below.
   vw::ba::ControlNetwork cnet("asp");
-  bool triangulate_control_points = true;
-  std::map<std::pair<int, int>, std::string> match_files;
-  if (!opt.match_file.empty()) {
-    match_files[std::make_pair(0, 1)] = opt.match_file;
+  if (opt.max_pairwise_matches == 0) {
+    // Register the image names so add_ground_control_points can resolve
+    // image references in the input GCP files.
+    for (size_t i = 0; i < image_files.size(); i++)
+      cnet.add_image_name(image_files[i]);
   } else {
-    // Load all match files with no constraints
-    int overlap_limit = image_files.size();
-    bool match_first_to_last = true;
-    asp::findMatchFiles(overlap_limit, match_first_to_last,
-                        image_files, opt.clean_match_files_prefix,
-                        opt.match_files_prefix, out_prefix,
-                        asp::stereo_settings().matches_as_txt,
-                        // Outputs
-                        match_files);
+    bool triangulate_control_points = true;
+    std::map<std::pair<int, int>, std::string> match_files;
+    if (!opt.match_file.empty()) {
+      match_files[std::make_pair(0, 1)] = opt.match_file;
+    } else {
+      // Load all match files with no constraints
+      int overlap_limit = image_files.size();
+      bool match_first_to_last = true;
+      asp::findMatchFiles(overlap_limit, match_first_to_last,
+                          image_files, opt.clean_match_files_prefix,
+                          opt.match_files_prefix, out_prefix,
+                          asp::stereo_settings().matches_as_txt,
+                          // Outputs
+                          match_files);
+    }
+
+    int min_matches = 0; // Not used as we are just loading
+    double min_triangulation_angle = 1e-10;
+    double forced_triangulation_distance = -1.0;
+    bool success = vw::ba::build_control_network(triangulate_control_points,
+                                                 cnet, camera_models,
+                                                 image_files,
+                                                 match_files,
+                                                 min_matches,
+                                                 min_triangulation_angle,
+                                                 forced_triangulation_distance,
+                                                 opt.max_pairwise_matches,
+                                                 stereo_settings().matches_as_txt);
+    if (!success)
+      vw::vw_throw(vw::ArgumentErr() << "Failed to load the interest points.\n");
   }
-  
-  int min_matches = 0; // Not used as we are just loading
-  double min_triangulation_angle = 1e-10;
-  double forced_triangulation_distance = -1.0;
-  bool success = vw::ba::build_control_network(triangulate_control_points,
-                                               cnet, camera_models,
-                                               image_files,
-                                               match_files,
-                                               min_matches,
-                                               min_triangulation_angle,
-                                               forced_triangulation_distance,
-                                               opt.max_pairwise_matches,
-                                               stereo_settings().matches_as_txt);
-  if (!success)
-    vw::vw_throw(vw::ArgumentErr() << "Failed to load the interest points.\n");
 
   // Append GCPs from --input-gcp-list into the same cnet. Their ground
   // positions are measured on the warped DEM and will be mapped through the
