@@ -17,11 +17,7 @@
 
 /// \file OptimizerOptions.h
 ///
-/// Base options shared by optimizer tools (bundle_adjust, jitter_solve,
-/// rig_calibrator). Holds only the common optimizer and triangulation knobs.
-/// Bundle_adjust and jitter_solve extend this via BaBaseOptions to add
-/// camera models, control networks, bathymetry, etc. rig_calibrator
-/// inherits directly from this and does not pull in those fields.
+/// Base options shared by bundle_adjust, jitter_solve, and rig_calibrator.
 
 #ifndef __ASP_CORE_OPTIMIZER_OPTIONS_H__
 #define __ASP_CORE_OPTIMIZER_OPTIONS_H__

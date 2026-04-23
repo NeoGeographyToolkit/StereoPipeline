@@ -17,10 +17,7 @@
 
 /// \file BaBaseOptions.h
 ///
-/// Base options structure shared by bundle_adjust and jitter_solve. Extends
-/// OptimizerOptions with fields specific to bundle adjustment and jitter
-/// solving (camera models, control networks, bathymetry, etc.). The lighter
-/// OptimizerOptions is used by rig_calibrator.
+/// Base options shared by bundle_adjust and jitter_solve.
 
 #ifndef __ASP_CORE_BA_BASE_OPTIONS_H__
 #define __ASP_CORE_BA_BASE_OPTIONS_H__

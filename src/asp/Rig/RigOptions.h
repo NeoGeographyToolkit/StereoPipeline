@@ -17,10 +17,7 @@
 
 /// \file RigOptions.h
 ///
-/// Options structure for rig_calibrator, inheriting common options from
-/// OptimizerOptions. rig_calibrator does not use BA-specific fields
-/// (camera models, control network, bathymetry, etc.), so it deliberately
-/// does not inherit from BaBaseOptions.
+/// Options structure for rig_calibrator.
 
 #ifndef __ASP_RIG_OPTIONS_H__
 #define __ASP_RIG_OPTIONS_H__
