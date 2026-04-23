@@ -22,12 +22,11 @@
 #ifndef __ASP_CORE_BATHYMETRY_H__
 #define __ASP_CORE_BATHYMETRY_H__
 
-#include <vw/Math/Vector.h>
-#include <vw/Stereo/StereoModel.h>
-#include <vw/Cartography/BathyStereoModel.h>
-#include <vw/Cartography/GeoReference.h>
-#include <vw/Image/ImageViewRef.h>
-#include <vw/Image/PixelMask.h>
+#include <string>
+
+namespace vw {
+  struct BathyData;
+}
 
 namespace asp {
 

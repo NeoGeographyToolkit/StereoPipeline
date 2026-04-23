@@ -24,12 +24,13 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/AlignmentUtils.h>
 
+#include <vw/Cartography/BathyStereoModel.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Log.h>
-#include <vw/Image/PixelMask.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/FileIO/FileUtils.h>
-#include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Image/PixelMask.h>
 #include <vw/Math/Geometry.h>
 
 #include <boost/filesystem/operations.hpp>
