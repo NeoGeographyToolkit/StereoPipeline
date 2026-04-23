@@ -23,7 +23,7 @@
 #define __ASP_CORE_BA_BASE_OPTIONS_H__
 
 #include <asp/Core/OptimizerOptions.h>
-#include <vw/Cartography/BathyStereoModel.h>
+#include <vw/Cartography/BathyData.h>
 #include <vw/Math/Vector.h>
 #include <vw/Math/BBox.h>
 #include <vw/Camera/CameraModel.h>

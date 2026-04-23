@@ -27,6 +27,7 @@
 #include <vw/Camera/CameraImage.h>
 #include <vw/Camera/LensDistortion.h>
 #include <vw/Camera/CameraUtilities.h>
+#include <vw/Cartography/BathyStereoModel.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 
 using namespace vw;
