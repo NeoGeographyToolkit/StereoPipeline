@@ -24,7 +24,7 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/AlignmentUtils.h>
 
-#include <vw/Cartography/BathyStereoModel.h>
+#include <vw/Cartography/BathyData.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Core/Log.h>
 #include <vw/FileIO/DiskImageView.h>

@@ -19,7 +19,7 @@
 #include <asp/Core/PointUtils.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
-#include <vw/Cartography/BathyStereoModel.h>
+#include <vw/Cartography/BathyData.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Cartography/CameraBBox.h>

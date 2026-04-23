@@ -26,7 +26,7 @@
 #include <asp/Core/BathyPlaneCalc.h>
 
 #include <vw/FileIO/DiskImageUtils.h>
-#include <vw/Cartography/BathyStereoModel.h>
+#include <vw/Cartography/BathyData.h>
 #include <vw/Cartography/shapeFile.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/FileIO/FileUtils.h>
