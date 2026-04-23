@@ -177,11 +177,10 @@ masks may be necessary.
 Determination of the water surface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In order to run stereo and properly triangulate the rays which 
-may intersect under water, it is necessary to determine
-the water surface. Since for images of large extent the Earth
-curvature will be important, this surface will be found as a plane
-in a local stereographic projection.
+In order to run stereo and properly triangulate the rays which may intersect
+under water, it is necessary to determine the water surface. Since for images of
+large extent the Earth curvature will be important, this surface will be found
+as a plane or a surface in projected coordinates (:numref:`bathy_plane_def`).
 
 The procedure for this is described in :numref:`bathy_plane_calc`.
 

@@ -944,7 +944,8 @@ bathy-plane (*string*)
 bathy-plane-list (*string*)
     Path to a file containing a list of bathy plane files for bathymetry
     correction, if more than one. Set one plane file per line. Must specify one
-    plane per input image, in the same order. Use with ``refraction-index``.
+    plane per input image, in the same order. See :numref:`bathy_plane_def` for
+    the file format. Use with ``refraction-index``.
 
 refraction-index (*double*) (default = 0.0) 
     The index of refraction of water to be used in bathymetry correction.

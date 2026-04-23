@@ -1678,17 +1678,17 @@ Command-line options
 
 --bathy-plane <string (default: "")>
     Path to a file containing a plane approximating the water surface, for
-    bathymetry correction with underwater terrain (:numref:`bathy_intro`). This
-    corrects camera rays passing through water using Snell's law. If multiple
-    images are used and they have different water surfaces use
-    ``--bathy-plane-list``. Use together with ``--refraction-index``. See also
-    ``--bathy-mask-list``.
+    bathymetry correction with underwater terrain (:numref:`bathy_intro`; file
+    format: :numref:`bathy_plane_def`). This corrects camera rays passing
+    through water using Snell's law. If multiple images are used and they have
+    different water surfaces use ``--bathy-plane-list``. Use together with
+    ``--refraction-index``. See also ``--bathy-mask-list``.
 
 --bathy-plane-list <string (default: "")>
     Path to a file containing a list of bathy plane files for bathymetry
     correction, if more than one. Set one plane file per line. Must specify one
-    plane per input image, in the same order. Use with ``--bathy-mask-list`` and
-    ``--refraction-index``.
+    plane per input image, in the same order. See :numref:`bathy_plane_def` for
+    the file format. Use with ``--bathy-mask-list`` and ``--refraction-index``.
 
 --bathy-mask-list <string (default: "")>
     Path to a file containing a list of water mask images for bathymetry correction,

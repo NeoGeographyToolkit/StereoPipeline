@@ -76,28 +76,7 @@ Running this command will produce an output as follows::
     Mean plane height above datum (meters): -22.2469
     Writing: plane.txt
 
-.. _bathy_plane_def:
-
-Bathy plane definition
-^^^^^^^^^^^^^^^^^^^^^^
-
-The file ``plane.txt`` having the bathy plane will look like this::
-
-  -0.0090 0.0130 0.9998 22.2460
-  # Latitude and longitude of the local stereographic projection with the WGS_1984 datum:
-  24.5836 -81.7730
-
-The last line has the center of the local stereographic projection in which
-the plane is computed, and the first line has the equation of the plane
-in that local coordinate system as::
-
-    a * x + b * y + c * z + d = 0.
-
-The value of ``c`` is almost 1, hence this plane is almost perfectly
-horizontal in local coordinates and the value of ``-d/c`` gives its
-height above the datum (The small deviation from the horizontal may be
-due to the orientations of the satellites taking the pictures not
-being perfectly known.)
+The output file format is described in :numref:`bathy_plane_def`.
 
 Handling adjusted cameras and alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -348,6 +327,53 @@ point in latitude/longitude besides the height of the point.
 
 Export your data to a CSV file with a header containing ID, longitude, latitude, and
 WGS_1984 height measurements.
+
+.. _bathy_plane_def:
+
+Bathy plane format
+~~~~~~~~~~~~~~~~~~
+
+The bathy plane file can have one of two formats: a plain-text file with
+four plane coefficients, or a georeferenced image of water-surface
+heights.
+
+The plain-text format is produced by ``bathy_plane_calc``. The
+georeferenced-image format is typically an external water-surface
+product (e.g. mean sea surface plus tide at image acquisition time).
+
+Plain text bathy plane
+^^^^^^^^^^^^^^^^^^^^^^
+
+In this mode, the bathy plane ends with a ``.txt`` extension. It will
+look like this::
+
+  -0.0090 0.0130 0.9998 22.2460
+  # Latitude and longitude of the local stereographic projection with the WGS_1984 datum:
+  24.5836 -81.7730
+
+The last line has the center of the local stereographic projection in which
+the plane is computed, and the first line has the equation of the plane
+in that local coordinate system as::
+
+    a * x + b * y + c * z + d = 0.
+
+The value of ``c`` is almost 1, hence this plane is almost perfectly
+horizontal in local coordinates and the value of ``-d/c`` gives its
+height above the datum (The small deviation from the horizontal may be
+due to the orientations of the satellites taking the pictures not
+being perfectly known.)
+
+Georeferenced image bathy plane
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Alternatively, the bathy plane can be provided as a georeferenced image
+of per-pixel water-surface heights above the WGS84 ellipsoid, in meters,
+with an optional no-data value. In this mode, the file is formatted like
+a DEM.
+
+Heights at arbitrary locations are looked up by bilinear interpolation. A
+best-fit plane is also derived from the raster and used as the fallback for
+queries outside its footprint.
 
 Command-line options for bathy_plane_calc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
