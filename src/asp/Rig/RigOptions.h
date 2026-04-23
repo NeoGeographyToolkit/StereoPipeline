@@ -17,19 +17,22 @@
 
 /// \file RigOptions.h
 ///
-/// Options structure for rig_calibrator, inheriting common options from BaBaseOptions.
+/// Options structure for rig_calibrator, inheriting common options from
+/// OptimizerOptions. rig_calibrator does not use BA-specific fields
+/// (camera models, control network, bathymetry, etc.), so it deliberately
+/// does not inherit from BaBaseOptions.
 
 #ifndef __ASP_RIG_OPTIONS_H__
 #define __ASP_RIG_OPTIONS_H__
 
-#include <asp/Core/BaBaseOptions.h>
+#include <asp/Core/OptimizerOptions.h>
 
 #include <set>
 #include <string>
 
 namespace rig {
 
-struct RigOptions: public asp::BaBaseOptions {
+struct RigOptions: public asp::OptimizerOptions {
   std::string rig_config, image_sensor_list, intrinsics_to_float_str,
     camera_poses_to_float_str, depth_to_image_transforms_to_float_str,
     mesh, hugin_file, xyz_file, camera_poses, extra_list,
@@ -53,7 +56,7 @@ struct RigOptions: public asp::BaBaseOptions {
   std::set<std::string> depth_to_image_transforms_to_float;
   std::set<std::string> fixed_images;
 
-  RigOptions(): asp::BaBaseOptions(),
+  RigOptions(): asp::OptimizerOptions(),
     bracket_len(0.6), depth_tri_weight(1000.0),
     mesh_tri_weight(0.0), depth_mesh_weight(0.0),
     timestamp_offsets_max_change(1.0),
