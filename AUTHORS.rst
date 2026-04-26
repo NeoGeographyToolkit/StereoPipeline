@@ -45,6 +45,7 @@ at the NASA Ames Research Center in Moffett Field, CA.
 - Joachim Meyer (University of Washington)
 - Jay Laura (USGS)
 - Shashank Bhushan (University of Washington)
+- `lavaFreak <https://github.com/lavaFreak>`_
 
 Acknowledgments
 ---------------

@@ -47,6 +47,29 @@ namespace asp{
 
   using namespace vw;
 
+  namespace {
+
+  double interquartile_mean(std::vector<double> & vals) {
+    if (vals.empty())
+      return 0.0;
+
+    std::sort(vals.begin(), vals.end());
+
+    size_t len = vals.size();
+    size_t begin = static_cast<size_t>(std::floor(0.25 * len));
+    size_t end = static_cast<size_t>(std::ceil(0.75 * len));
+    begin = std::min(begin, len - 1);
+    end = std::max(begin + 1, std::min(end, len));
+
+    double sum = 0.0;
+    for (size_t i = begin; i < end; i++)
+      sum += vals[i];
+
+    return sum / static_cast<double>(end - begin);
+  }
+
+  } // namespace
+
   class compare_bboxes { // simple comparison function
   public:
     bool operator()(const BBox2i A, const BBox2i B) const {
@@ -548,9 +571,8 @@ namespace asp{
                << " meters.\n";
     }
 
-    // Find the width and height of the median point cloud pixel in
-    // projected coordinates. For las or csv files, this approach
-    // does not work.
+    // Find representative point cloud pixel spacings in projected
+    // coordinates. For las or csv files, this approach does not work.
     int len = m_point_image_boundaries.size();
     if (!has_las_or_csv) {
       // This vectors can be large, so don't keep them for too long
@@ -563,20 +585,14 @@ namespace asp{
         vx.push_back(boundary.first.width() /sub_block_size);
         vy.push_back(boundary.first.height()/sub_block_size);
       }
-      std::sort(vx.begin(), vx.end());
-      std::sort(vy.begin(), vy.end());
-
-      if (len > 0) {
-        // Get the median
-        // TODO(oalexan1): This is not robust. For lro nac, vertical resolution
-        // and horizontal resolution differ by a factor of 4, e.g.,
-        // 0.5 m and 2 m. The median can be one of the two, which is
-        // wrong.  This code should be an average of the values in the
-        // [25%, 75%] range.
+      if (!vx.empty() && !vy.empty()) {
+        // Use the middle half of the sampled spacings. This avoids
+        // outliers while producing a better default for anisotropic
+        // line-scan cameras than a raw median.
         // TODO(oalexan1): Integrate with the logic for mapproject.
         // https://github.com/NeoGeographyToolkit/StereoPipeline/issues/173
-        m_default_spacing_x = vx[(int)(0.5*len)];
-        m_default_spacing_y = vy[(int)(0.5*len)];
+        m_default_spacing_x = interquartile_mean(vx);
+        m_default_spacing_y = interquartile_mean(vy);
       }
     }
 

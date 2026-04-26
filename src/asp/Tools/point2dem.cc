@@ -198,8 +198,8 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
      "weight to give to a cloud point contribution to a given DEM grid point, "
      "with x the distance in meters between the two. The default is -log(0.25) = 1.3863. "
      "A smaller value will result in a smoother terrain.")
-    ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(1.0),
-     "If the output DEM grid size (--dem-spacing) is not specified, compute it automatically (as the mean ground sample distance), and then multiply it by this number. It is suggested that this number be set to 4 though the default is 1.")
+    ("default-grid-size-multiplier", po::value(&opt.default_grid_size_multiplier)->default_value(4.0),
+     "If the output DEM grid size (--dem-spacing) is not specified, estimate it automatically from the ground sample distance and then multiply it by this number. The default is 4.")
     ("propagate-errors", po::bool_switch(&opt.propagate_errors)->default_value(false),  
      "Write files with names {output-prefix}-HorizontalStdDev.tif and {output-prefix}-VerticalStdDev.tif having the gridded stddev produced from bands 5 and 6 of the input point cloud, if this cloud was created with the option --propagate-errors. The same gridding algorithm is used as for creating the DEM.")
     ("no-dem", po::bool_switch(&opt.no_dem)->default_value(false),

@@ -41,7 +41,7 @@ DemOptions::DemOptions():
   remove_outliers_with_pct(true), use_tukey_outlier_removal(false),
   max_valid_triangulation_error(0),
   erode_len(0), search_radius_factor(0), sigma_factor(0),
-  default_grid_size_multiplier(1.0),
+  default_grid_size_multiplier(4.0),
   has_las_or_csv_or_pcd(false), max_output_size(9999999, 9999999),
   auto_proj_center(false), input_is_projected(false) {}
 
