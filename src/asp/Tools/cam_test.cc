@@ -51,7 +51,8 @@ namespace fs = boost::filesystem;
 
 struct Options: vw::GdalWriteOptions {
   std::string image_file, cam1_file, cam2_file, session1, session2, bundle_adjust_prefix,
-  cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum, bathy_plane;
+  cam1_bundle_adjust_prefix, cam2_bundle_adjust_prefix, datum,
+  cam1_bathy_plane, cam2_bathy_plane;
   int sample_rate;
   double subpixel_offset, height_above_datum, refraction_index;
   bool print_per_pixel_results, test_error_propagation;
@@ -98,11 +99,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("test-error-propagation", po::bool_switch(&opt.test_error_propagation)->default_value(false)->implicit_value(true),
      "Test computing the stddev (see --propagate-errors). This is an undocumented "
      "developer option.")
-    ("bathy-plane", po::value(&opt.bathy_plane),
-     "Read from this file a bathy plane, so a water surface which is a plane in local "
-     "projected coordinates. A ray from the camera to the ellipsoid determined by "
+    ("cam1-bathy-plane", po::value(&opt.cam1_bathy_plane),
+     "Bathy plane (water surface) used with the first camera. Either a text file with "
+     "plane coefficients in local projected coordinates, or a GeoTIFF raster of water "
+     "surface heights. A ray from the camera to the ellipsoid determined by "
      "--height-above-datum that encounters this bathy plane along the way will get bent "
      "according to Snell's law. Same for a ray going in reverse.")
+    ("cam2-bathy-plane", po::value(&opt.cam2_bathy_plane),
+     "Bathy plane (water surface) used with the second camera. Same format as "
+     "--cam1-bathy-plane.")
     ("refraction-index", po::value(&opt.refraction_index)->default_value(1.0),
      "The index of refraction of water to be used in bathymetry correction. "
      "Must be bigger than 1. This index can be computed with refr_index.")
@@ -144,21 +149,28 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     asp::stereo_settings().propagate_errors = true;
 
   // Validate bathymetry options
-  bool have_bathy_plane = (opt.bathy_plane != "");
+  bool have_cam1_plane = (opt.cam1_bathy_plane != "");
+  bool have_cam2_plane = (opt.cam2_bathy_plane != "");
+  bool have_bathy_plane = have_cam1_plane || have_cam2_plane;
   bool have_refraction = (opt.refraction_index > 1.0);
 
+  if (have_cam1_plane != have_cam2_plane)
+    vw_throw(ArgumentErr() << "Both --cam1-bathy-plane and --cam2-bathy-plane must be "
+             << "set, or neither.\n");
+
   if (have_bathy_plane && !have_refraction)
-    vw_throw(ArgumentErr() << "When --bathy-plane is set, --refraction-index must be "
+    vw_throw(ArgumentErr() << "When a bathy plane is set, --refraction-index must be "
              << "specified and bigger than 1.\n");
 
   if (!have_bathy_plane && have_refraction)
-    vw_throw(ArgumentErr() << "When --refraction-index is set, --bathy-plane must "
-             << "also be specified.\n");
+    vw_throw(ArgumentErr() << "When --refraction-index is set, --cam1-bathy-plane and "
+             << "--cam2-bathy-plane must also be specified.\n");
 
-  // Load bathy plane if specified
+  // Load per-camera bathy planes
   if (have_bathy_plane) {
-    int num_images = 1;
-    vw::readBathyPlanes(opt.bathy_plane, num_images, opt.bathy_plane_vec);
+    opt.bathy_plane_vec.resize(2);
+    vw::readBathyPlane(opt.cam1_bathy_plane, opt.bathy_plane_vec[0]);
+    vw::readBathyPlane(opt.cam2_bathy_plane, opt.bathy_plane_vec[1]);
     vw_out() << "Refraction index: " << opt.refraction_index << "\n";
   }
 
@@ -381,7 +393,7 @@ void run_cam_test(Options & opt) {
   double major_axis = datum.semi_major_axis() + opt.height_above_datum;
   double minor_axis = datum.semi_minor_axis() + opt.height_above_datum;
 
-  bool have_bathy_plane = (opt.bathy_plane != "");
+  bool have_bathy_plane = (opt.cam1_bathy_plane != "");
 
   // Iterate over the image
   bool single_pix = !std::isnan(opt.single_pixel[0]) && !std::isnan(opt.single_pixel[1]);
@@ -432,7 +444,7 @@ void run_cam_test(Options & opt) {
         if (!have_bathy_plane)
           cam2_pix = cam2_model->point_to_pixel(xyz);
         else
-          cam2_pix = vw::point_to_pixel(cam2_model.get(), opt.bathy_plane_vec[0],
+          cam2_pix = vw::point_to_pixel(cam2_model.get(), opt.bathy_plane_vec[1],
                                         opt.refraction_index, xyz);
         cam1_to_cam2_diff.push_back(norm_2(image_pix - cam2_pix));
 
@@ -448,7 +460,7 @@ void run_cam_test(Options & opt) {
         else
           xyz = vw::datumBathyIntersection(cam2_ctr, cam2_dir,
                                            major_axis, minor_axis,
-                                           opt.bathy_plane_vec[0],
+                                           opt.bathy_plane_vec[1],
                                            opt.refraction_index);
         // Skip invalid intersections
         if (xyz == Vector3(0, 0, 0))

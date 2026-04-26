@@ -198,7 +198,6 @@ having the longitude and latitude. The CSV file can have other columns
 as well (such as an ID), which will be ignored. See 
 :numref:`bathy_plane_water_meas` for more details on the CSV format.
 
-
 .. _bathy_plane_water_meas:
 
 Using water height measurements
@@ -340,6 +339,9 @@ heights.
 The plain-text format is produced by ``bathy_plane_calc``. The
 georeferenced-image format is typically an external water-surface
 product (e.g. mean sea surface plus tide at image acquisition time).
+
+See :numref:`cam_test` for how to quickly test a bathy plane with an image
+and a camera.
 
 Plain text bathy plane
 ^^^^^^^^^^^^^^^^^^^^^^

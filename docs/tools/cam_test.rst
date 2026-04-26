@@ -20,44 +20,66 @@ See :numref:`examples` for information on the camera types used below.
 
 Compare a CSM camera model against itself::
 
-  cam_test --image input.cub --cam1 input.json --cam2 input.json \
-    --session1 csm --session2 csm
+    cam_test --image input.cub      \
+      --cam1 input.json              \
+      --cam2 input.json              \
+      --session1 csm --session2 csm
 
-Compare a PeruSat-1 exact linescan model to its RPC
-approximation::
+Compare a PeruSat-1 exact linescan model to its RPC approximation::
 
-    cam_test --image input.tif --cam1 exact_cam.xml --cam2 rpc_cam.xml
+    cam_test --image input.tif      \
+      --cam1 exact_cam.xml           \
+      --cam2 rpc_cam.xml
 
 Here the two individual camera types will be auto-guessed as ``perusat`` and
 ``rpc``, or can be specified as above with ``--session1`` and ``--session2``.
 
 Compare ISIS to CSM cameras::
 
-    cam_test --image input.cub --cam1 input.cub --cam2 input.json \
+    cam_test --image input.cub      \
+      --cam1 input.cub               \
+      --cam2 input.json              \
       --sample-rate 5000
 
 Compare the exact and RPC model stored in the same DigitalGlobe / Maxar file::
 
-    cam_test --image input.tif --cam1 input.xml --cam2 input.xml \
-      --session1 dg --session2 rpc --sample-rate 1000
+    cam_test --image input.tif      \
+      --cam1 input.xml               \
+      --cam2 input.xml               \
+      --session1 dg --session2 rpc   \
+      --sample-rate 1000
 
-Evaluate a camera transformed with ``convert_pinhole_model`` 
+Evaluate a camera transformed with ``convert_pinhole_model``
 (:numref:`convert_pinhole_model`). In this case the session names
 would be the same but the cameras would differ::
 
-    cam_test --image input.tif --cam1 in.tsai --cam2 out.tsai \
+    cam_test --image input.tif      \
+      --cam1 in.tsai                 \
+      --cam2 out.tsai                \
       --session1 pinhole --session2 pinhole
 
-Here we evaluate a CSM camera against itself, with
-no .cub image file. The image dimensions are contained in the camera
-file. This verifies that the ground-to-image and image-to-ground
-functions are inverse of each other, up to a certain tolerance.
+Here we evaluate a CSM camera against itself, with no .cub image file. The
+image dimensions are contained in the camera file. This verifies that the
+ground-to-image and image-to-ground functions are inverse of each other, up
+to a certain tolerance::
 
-::
-
-    cam_test --image input.json --cam1 input.json --cam2 input.json \
-      --session1 csm --session2 csm --sample-rate 100               \
+    cam_test --image input.json     \
+      --cam1 input.json              \
+      --cam2 input.json              \
+      --session1 csm --session2 csm  \
+      --sample-rate 100              \
       --subpixel-offset 0.3
+
+Evaluate a bathymetry-corrected camera against itself. Each camera takes its
+own bathy plane (text file or GeoTIFF raster of water surface heights)::
+
+    cam_test --image input.tif      \
+      --cam1 input.xml               \
+      --cam2 input.xml               \
+      --cam1-bathy-plane bathy_plane.txt \
+      --cam2-bathy-plane bathy_plane.txt \
+      --refraction-index 1.333       \
+      --height-above-datum -16
 
 Usage
 ~~~~~
@@ -122,12 +144,17 @@ Command-line options
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 
---bathy-plane <string>
-    Read from this file a bathy plane, so a water surface which is a plane in
-    local projected coordinates (:numref:`bathy_plane_def`). A ray from the
-    camera to the ellipsoid determined by ``--height-above-datum`` that
-    encounters this bathy plane along the way will get bent according to Snell's
-    law. Same for a ray going in reverse.
+--cam1-bathy-plane <string>
+    Bathy plane (water surface) used with the first camera. Either a text plane
+    file in local projected coordinates (:numref:`bathy_plane_def`) or a GeoTIFF
+    raster of water surface heights. A ray from the camera to the ellipsoid
+    determined by ``--height-above-datum`` that encounters this bathy plane
+    along the way will get bent according to Snell's law. Same for a ray going
+    in reverse.
+
+--cam2-bathy-plane <string>
+    Bathy plane (water surface) used with the second camera. Same format as
+    ``--cam1-bathy-plane``.
 
 --refraction-index <double (default: 1.0)>
     The index of refraction of water to be used in bathymetry correction.
