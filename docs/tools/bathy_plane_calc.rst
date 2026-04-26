@@ -329,19 +329,20 @@ WGS_1984 height measurements.
 
 .. _bathy_plane_def:
 
-Bathy plane format
-~~~~~~~~~~~~~~~~~~
+Bathy plane definition and format
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The bathy plane file can have one of two formats: a plain-text file with
-four plane coefficients, or a georeferenced image of water-surface
-heights.
+The bathy plane represents the surface of the water at the time of image
+acquisition. It can have one of two formats: a plain-text file with four plane
+coefficients in local projected coordinates, or a georeferenced image of
+water-surface heights (in either a projected or a geographic CRS).
 
 The plain-text format is produced by ``bathy_plane_calc``. The
 georeferenced-image format is typically an external water-surface
-product (e.g. mean sea surface plus tide at image acquisition time).
+product (e.g., the mean sea surface plus tide at image acquisition time).
 
-See :numref:`cam_test` for how to quickly test a bathy plane with an image
-and a camera.
+See :numref:`cam_test` for how to quickly test a bathy plane in either format
+or for comparing the same plane specified in different formats.
 
 Plain text bathy plane
 ^^^^^^^^^^^^^^^^^^^^^^

@@ -70,14 +70,15 @@ to a certain tolerance::
       --sample-rate 100             \
       --subpixel-offset 0.3
 
-Evaluate a bathymetry-corrected camera against itself. Each camera takes its
-own bathy plane (text file or GeoTIFF raster of water surface heights)::
+Evaluate a bathymetry-corrected camera (:numref:`bathy_intro`) against itself.
+Each camera takes its own bathy plane. This example compares a plain-text bathy
+plane vs one specified as a georeferenced image (:numref:`bathy_plane_def`)::
 
     cam_test --image input.tif           \
       --cam1 input.xml                   \
       --cam2 input.xml                   \
       --cam1-bathy-plane bathy_plane.txt \
-      --cam2-bathy-plane bathy_plane.txt \
+      --cam2-bathy-plane bathy_plane.tif \
       --refraction-index 1.333           \
       --height-above-datum -16
 
