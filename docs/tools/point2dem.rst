@@ -16,7 +16,7 @@ The grid size is set with ``--tr`` for the given projection. The grid points are
 placed at integer multiples of the grid size, and the created DEM has a ground
 footprint that is outwardly larger by half a grid pixel than the bounding box of
 the grid points. If not set, the grid size is estimated automatically as about
-four times the ground sample distance.
+four times the ground sample distance (as of build 2026/4, :numref:`release`).
 The behavior is somewhat different with ``--gdal-tap``.
 
 A custom extent can be specified with the option ``--t_projwin``. This will be
