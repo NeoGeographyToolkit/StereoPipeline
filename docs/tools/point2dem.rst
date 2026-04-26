@@ -15,9 +15,15 @@ of the heights of points in the cloud (see ``--search-radius-factor``).
 The grid size is set with ``--tr`` for the given projection. The grid points are
 placed at integer multiples of the grid size, and the created DEM has a ground
 footprint that is outwardly larger by half a grid pixel than the bounding box of
-the grid points. If not set, the grid size is estimated automatically as about
-four times the ground sample distance (as of build 2026/4, :numref:`release`).
+the grid points. If not set, the grid size is estimated automatically
+(as of build 2026/4, :numref:`release`).
 The behavior is somewhat different with ``--gdal-tap``.
+
+The auto grid size is computed as follows. The ground sample distance is
+estimated separately in the horizontal and vertical directions by averaging
+the 25%-75% percentile range of projected pixel spacings. The larger of the
+two values is then multiplied by 4 to obtain the grid size. This can be
+adjusted with ``--default-grid-size-multiplier``.
 
 A custom extent can be specified with the option ``--t_projwin``. This will be
 adjusted to ensure, as above, that the grid points are placed at integer
