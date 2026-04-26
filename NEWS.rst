@@ -100,6 +100,11 @@ parallel_stereo (:numref:`parallel_stereo`):
   * The DEM for mapprojected images can be set with ``--dem`` instead of as the
     last positional argument (:numref:`mapproj-example`).
 
+point2dem (:numref:`point2dem`):
+  * When auto-estimating DEM resolution, use the average projected spacing from
+    the middle 25%-75% of samples and multiply the result by 4. This produces
+    a more robust default grid size for anisotropic line-scan cameras.
+
 sfs (:numref:`sfs`):
   * Recommend the variance-based uncertainty estimation (:numref:`sfs_unc`).
   * Added the option ``--save-covariances`` (:numref:`sfs_opt`).

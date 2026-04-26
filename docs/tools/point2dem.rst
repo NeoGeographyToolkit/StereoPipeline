@@ -15,7 +15,8 @@ of the heights of points in the cloud (see ``--search-radius-factor``).
 The grid size is set with ``--tr`` for the given projection. The grid points are
 placed at integer multiples of the grid size, and the created DEM has a ground
 footprint that is outwardly larger by half a grid pixel than the bounding box of
-the grid points. If not set, the grid size is estimated automatically.
+the grid points. If not set, the grid size is estimated automatically as about
+four times the ground sample distance.
 The behavior is somewhat different with ``--gdal-tap``.
 
 A custom extent can be specified with the option ``--t_projwin``. This will be
@@ -428,8 +429,9 @@ Command-line options for point2dem
     Set output DEM resolution (in target georeferenced units per
     pixel). These units may be in meters or degrees, depending on the
     projection. If not specified, it will be computed automatically
-    (except for LAS and CSV files). Multiple spacings can be set
-    (in quotes) to generate multiple output files.
+    as about four times the estimated ground sample distance (except
+    for LAS and CSV files). Multiple spacings can be set (in quotes)
+    to generate multiple output files.
 
 -o, --output-prefix <string (default: "")>
     Specify the output prefix. The output DEM will be 
@@ -545,6 +547,12 @@ Command-line options for point2dem
     cloud point's contribution to a given DEM grid point, with *x* the
     distance in meters between the two. The default is -log(0.25) = 1.3863. A
     smaller value will result in a smoother terrain.
+
+--default-grid-size-multiplier <float (default: 4)>
+    If the output DEM grid size is not specified with ``--dem-spacing``,
+    estimate it automatically from the point cloud ground sample distance, then
+    multiply by this number. The default of 4 follows the usual rule of thumb
+    for DEM generation from image-derived point clouds.
 
 --csv-format <string (default: "")>
     Specify the format of input CSV files as a list of entries
