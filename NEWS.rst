@@ -101,9 +101,9 @@ parallel_stereo (:numref:`parallel_stereo`):
     last positional argument (:numref:`mapproj-example`).
 
 point2dem (:numref:`point2dem`):
-  * When auto-estimating DEM resolution, use the average projected spacing from
-    the middle 25%-75% of samples and multiply the result by 4. This produces
-    a more robust default grid size for anisotropic line-scan cameras.
+  * The default grid size is now 4x the estimated ground sample distance,
+    using a robust average of the 25%-75% percentile range instead of
+    a raw median. This can be adjusted with ``--default-grid-size-multiplier``.
 
 sfs (:numref:`sfs`):
   * Recommend the variance-based uncertainty estimation (:numref:`sfs_unc`).

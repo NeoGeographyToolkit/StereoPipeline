@@ -586,11 +586,10 @@ namespace asp{
         vy.push_back(boundary.first.height()/sub_block_size);
       }
       if (!vx.empty() && !vy.empty()) {
-        // Use the middle half of the sampled spacings. This avoids
-        // outliers while producing a better default for anisotropic
-        // line-scan cameras than a raw median.
-        // TODO(oalexan1): Integrate with the logic for mapproject.
-        // https://github.com/NeoGeographyToolkit/StereoPipeline/issues/173
+        // Average the middle 25%-75% of sampled spacings. More robust
+        // than a raw median.
+        // Note: mapproject uses the 10-90 percentile instead, likely
+        // not much of a difference in practice.
         m_default_spacing_x = interquartile_mean(vx);
         m_default_spacing_y = interquartile_mean(vy);
       }

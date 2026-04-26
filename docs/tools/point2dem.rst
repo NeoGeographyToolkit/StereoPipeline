@@ -348,33 +348,16 @@ sizes you specified, and the subpixel versions of the same, if used)
 and projecting them out into space from the cameras, and arriving at a
 point in real world coordinates. Since ``stereo`` does this for every
 pixel in the input images, the *default* value that ``point2dem`` uses
-(if you don't specify anything explicitly) is the input image scale,
-because there's an "answer" in the point cloud file for each pixel in
-the original image.
+(if you don't specify anything explicitly) is about 4x the input image ground
+sample distance. This follows the rule of thumb that a 3x3 patch of pixels
+is needed for reliable matching, so the effective DEM resolution is coarser
+than the raw pixel scale. The multiplier can be adjusted with
+``--default-grid-size-multiplier``.
 
-However, as you may suspect, this is probably not the best value to use
-because there really is not that much "information" in the data. The true
-resolution of the output model is dependent on a whole bunch of things
-(like the kernel sizes you choose to use) but also can vary from place
-to place in the image depending on the texture.
-
-The general rule of thumb is to produce a terrain model that has a
-post spacing of about 3x the input image ground scale. This is based
-on the fact that it is nearly impossible to uniquely identify a single
-pixel correspondence between two images, but a 3x3 patch of pixels
-provides improved matching reliability. This depends on the stereo
-algorithm as well, however, with the ``asp_mgm`` algorithm producing a
-higher effective DEM resolution than ``asp_bm``. As you go to numerically
-larger post-spacings on output, you are averaging more point data
-(that is probably spatially correlated anyway) together.
-
-So you can either use the ``--dem-spacing`` argument to ``point2dem`` to
-do that directly, or you can use your favorite averaging algorithm to
-reduce the ``point2dem``-created model down to the scale you want.
-
-If you attempt to derive science results from an ASP-produced terrain
-model with the default DEM spacing, expect serious questions from
-reviewers.
+The true resolution of the output model depends on the stereo algorithm
+(``asp_mgm`` produces higher effective resolution than ``asp_bm``), kernel
+sizes, and local image texture. The ``--dem-spacing`` option can be used
+to set a specific grid size directly.
 
 LAS or CSV clouds
 ~~~~~~~~~~~~~~~~~
