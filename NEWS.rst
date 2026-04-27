@@ -36,10 +36,16 @@ aster2asp (:numref:`aster2asp`):
   * Added support for ASTER Level 1A V004 HDF format.
 
 bathymetry (:numref:`bathy_intro`):
-  * Added a program for computing the effective refraction index of water 
+  * Added a program for computing the effective refraction index of water
     for a satellite band (:numref:`refr_index`).
   * Added documentation on alternative spectral indices for water masking
     (:numref:`bathy_water_masking`).
+
+refr_index (:numref:`refr_index`):
+  * Added the ``--wavelength-method`` option to select how a spectral
+    response CSV is reduced to a single effective wavelength:
+    ``weighted_mean`` (default, response-weighted average) or
+    ``peak_response`` (wavelength at peak response).
     
 bathy_plane_calc (:numref:`bathy_plane_calc`):
   * Refined the algorithm by taking into account that given a mask of land

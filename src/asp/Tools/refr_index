@@ -67,11 +67,8 @@ def read_csv(filename):
                 print("Error: Empty spectral response file.")
                 sys.exit(1)
 
-            # Skip header
-            if len(lines) > 0:
-                print(f"Skipping first line: {lines[0].strip()}", file=sys.stderr)
-
-            for line in lines[1:]:
+            first_data_seen = False
+            for line in lines:
                 line = line.strip()
                 if not line:
                     continue
@@ -84,8 +81,14 @@ def read_csv(filename):
                     wl = float(parts[0])
                     resp = float(parts[1])
                 except ValueError:
+                    # Non-numeric leading lines are treated as headers and
+                    # skipped silently. Once we have seen real data, a later
+                    # non-numeric line is genuine bad data and we warn.
+                    if not first_data_seen:
+                        continue
                     print(f"Warning: Skipping invalid line: {line}", file=sys.stderr)
                     continue
+                first_data_seen = True
 
                 # Only include positive responses
                 if resp <= 0:
@@ -139,6 +142,13 @@ def main():
                         help='Temperature in degrees Celsius.')
     parser.add_argument('--mode', type=str, default='Quan-Fry',
                         help='Refractive index equation: Quan-Fry (default) or Parrish.')
+    parser.add_argument('--wavelength-method', type=str, default='weighted_mean',
+                        choices=['weighted_mean', 'peak_response'],
+                        help='How to reduce a spectral response CSV to a single ' +
+                             'effective wavelength. weighted_mean (default): ' +
+                             'response-weighted average of CSV wavelengths. ' +
+                             'peak_response: wavelength at which the response ' +
+                             'is largest. Ignored when --wavelength is used.')
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--spectral-response', type=str, default="",
@@ -212,18 +222,24 @@ def main():
             sys.exit(1)
         # Read spectral response
         wavelengths, responses = read_csv(args.spectral_response)
+
+        if np.sum(responses) == 0:
+            print("Error: Sum of spectral responses is zero.")
+            sys.exit(1)
+
+        # Reduce the CSV response curve to a single effective wavelength.
+        if args.wavelength_method == 'weighted_mean':
+            eff_wl = np.sum(wavelengths * responses) / np.sum(responses)
+        elif args.wavelength_method == 'peak_response':
+            eff_wl = float(wavelengths[int(np.argmax(responses))])
+        else:
+            print(f"Error: Unknown --wavelength-method '{args.wavelength_method}'.")
+            sys.exit(1)
+        print(f"Effective wavelength method: {args.wavelength_method}")
+        print(f"Effective wavelength: {eff_wl:.4f} nm")
     else:
-        # Single wavelength case
-        wl = args.wavelength
-        wavelengths = np.array([wl])
-        responses = np.array([1.0])
-
-    if np.sum(responses) == 0:
-        print("Error: Sum of spectral responses is zero.")
-        sys.exit(1)
-
-    # Compute effective wavelength using spectral response weights
-    eff_wl = np.sum(wavelengths * responses) / np.sum(responses)
+        # Single wavelength case - no reduction needed.
+        eff_wl = args.wavelength
 
     # Validate effective wavelength
     if eff_wl < min_wl_warn or eff_wl > max_wl_warn:

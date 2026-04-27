@@ -15,10 +15,25 @@ Single wavelength refraction index::
     refr_index --salinity 35 --temperature 20 \
         --wavelength 532
 
-Provide a spectral response file::
+This uses the Quan and Fry method (:numref:`refr_model`).
 
-    refr_index --salinity 35 --temperature 20 \
+When a spectral response file is provided, two methods are available. The invocation::
+
+    refr_index --salinity 35 --temperature 20  \
+      --wavelength-method weighted_mean        \
       --spectral-response WV03_Green.csv
+
+returns the refraction index corresponding to the response-weighted average
+of the CSV wavelengths and is the default.
+
+Alternatively::
+
+    refr_index --salinity 35 --temperature 20  \
+      --wavelength-method peak_response        \
+      --spectral-response WV03_Green.csv
+
+returns the refraction index corresponding to the wavelength at which the
+spectral response is largest (the peak of the response curve).
 
 The result is printed to standard output.
 
@@ -32,10 +47,16 @@ Spectral response
 
 It is assumed that a satellite band, such as Green for WorldView-3, records
 light in a narrow range of wavelengths. The spectral response of the band
-contains the sensitivity of the sensor to each wavelength in that band. An
-effective wavelength is first computed as the weighted average of the
-wavelengths, with the weights given by the spectral response. The refraction
-index is then computed with this effective wavelength (:numref:`refr_model`).
+contains the sensitivity of the sensor to each wavelength in that band.
+An effective wavelength is computed from the response curve and used as
+input to the refraction index models (:numref:`refr_model`). Two reduction
+methods are available, controlled by ``--wavelength-method``:
+
+* ``weighted_mean`` (default) - the response-weighted average of the
+  CSV wavelengths.
+
+* ``peak_response`` - the wavelength at which the spectral response is
+  largest.
 
 The spectral response CSV file must have two columns, with the wavelength (in
 nanometers) in the first column, the relative response for that wavelength in
@@ -47,7 +68,7 @@ in the range 300-1100 nm but outside 400-700 nm will be used but a warning will 
 printed, as they are outside the validated range for the models
 (:numref:`refr_model`).
 
-Example::
+Example spectral response table::
 
     wavelength response
     521 0.78240309
@@ -70,7 +91,7 @@ between 0°C and 30°C.
 Modeling
 ^^^^^^^^
 
-Two methods are available for computing the refraction index:
+Two methods are available for computing the refraction index.
 
 * Quan and Fry (:cite:`quan1995empirical`, `source code
   <https://github.com/geojames/global_refractive_index_532>`_) -
@@ -97,6 +118,12 @@ Command-line options
 --mode <string (default: Quan-Fry)>
     Refraction index equation to use: ``Quan-Fry`` (default) or ``Parrish``. See
     :numref:`refr_model` for details.
+
+--wavelength-method <string (default: weighted_mean)>
+    How to reduce a spectral response CSV to a single effective wavelength.
+    ``weighted_mean`` (default) uses the response-weighted average of the
+    CSV wavelengths. ``peak_response`` uses the wavelength at which the
+    response is largest. Ignored when ``--wavelength`` is used.
 
 --spectral-response <string (default: "")>
     CSV file containing the spectral response of the sensor band. See an example
