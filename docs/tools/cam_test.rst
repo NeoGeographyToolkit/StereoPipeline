@@ -80,7 +80,10 @@ plane vs one specified as a georeferenced image (:numref:`bathy_plane_def`)::
       --cam1-bathy-plane bathy_plane.txt \
       --cam2-bathy-plane bathy_plane.tif \
       --refraction-index 1.333           \
-      --height-above-datum -16
+      --height-above-datum -50
+
+Here we chose a height above datum that is below the water surface to ensure
+the rays from the camera encounter this surface.
 
 Usage
 ~~~~~
