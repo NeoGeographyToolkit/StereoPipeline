@@ -61,8 +61,8 @@ Compare the exact and RPC model stored in the same DigitalGlobe / Maxar file::
       --session1 dg --session2 rpc \
       --sample-rate 1000
 
-Pinhole transformed by convert_pinhole_model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Pinhole model
+^^^^^^^^^^^^^
 
 Evaluate a camera transformed with ``convert_pinhole_model``
 (:numref:`convert_pinhole_model`). In this case the session names
