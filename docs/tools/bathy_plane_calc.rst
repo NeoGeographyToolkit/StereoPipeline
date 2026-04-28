@@ -73,7 +73,7 @@ Running this command will produce an output as follows::
     Found 5017 / 13490 inliers.
     Max distance to the plane (meters): 6.00301
     Max inlier distance to the plane (meters): 0.499632
-    Mean plane height above datum (meters): -22.2469
+    Mean water-surface height above datum (meters): -22.2469
     Writing: plane.txt
 
 The output file format is described in :numref:`bathy_plane_def`.
@@ -195,8 +195,25 @@ longitude and latitude will be interpreted relative to the DEM georeference.
 
 The ``--csv-format`` option must be set correctly to identify the columns
 having the longitude and latitude. The CSV file can have other columns
-as well (such as an ID), which will be ignored. See 
+as well (such as an ID), which will be ignored. See
 :numref:`bathy_plane_water_meas` for more details on the CSV format.
+
+.. _bathy_plane_water_surface:
+
+Using a water-surface raster
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Given a water-surface raster (:numref:`bathy_plane_img`), this mode writes its
+best-fit plane in plain-text format (:numref:`bathy_plane_txt`). The plane is
+fit in a local stereographic projection::
+
+    bathy_plane_calc                    \
+      --water-surface water_surface.tif \
+      --bathy-plane plane.txt
+
+This is for inspecting or comparing the plane against the raster surface
+(:numref:`cam_test_bathy`). The ``parallel_stereo`` program accepts
+the water surface raster directly (:numref:`bathy_stereo`).
 
 .. _bathy_plane_water_meas:
 
@@ -268,7 +285,7 @@ Example::
 
 When the input is a mask, a random sample is picked (their number given by
 ``--num-samples``). The heights are looked up in the DEM if not already present
-in the input. 
+in the input.
 
 This shapefile may then be passed to some external tool for looking up water
 level heights at these points.
@@ -341,8 +358,7 @@ The plain-text format is produced by ``bathy_plane_calc``. The
 georeferenced-image format is typically an external water-surface
 product (e.g., the mean sea surface plus tide at image acquisition time).
 
-See :numref:`cam_test` for how to quickly test a bathy plane in either format
-or for comparing the same plane specified in different formats.
+.. _bathy_plane_txt:
 
 Plain text bathy plane
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -366,17 +382,28 @@ height above the datum (The small deviation from the horizontal may be
 due to the orientations of the satellites taking the pictures not
 being perfectly known.)
 
+.. _bathy_plane_img:
+
 Georeferenced image bathy plane
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Alternatively, the bathy plane can be provided as a georeferenced image
-of per-pixel water-surface heights above the WGS84 ellipsoid, in meters,
-with an optional no-data value. In this mode, the file is formatted like
-a DEM.
+Alternatively, the bathy plane can be provided as a georeferenced image (raster)
+of per-pixel water-surface heights above the WGS_1984 ellipsoid, in meters, with
+an optional no-data value. In this mode, the file is formatted like a DEM. The
+projection can be either geographic (lon-lat) or in meters.
 
-Heights at arbitrary locations are looked up by bilinear interpolation. A
-best-fit plane is also derived from the raster and used as the fallback for
-queries outside its footprint.
+The pixel values must be ellipsoid heights, rather than orthometric heights or
+heights above a geoid. 
+
+A typical source is the mean sea surface (e.g. ``MSS_CNES_CLS2022``) plus the
+geocentric tide at image acquisition time (e.g. from ``FES2022b``).
+
+See :numref:`bathy_plane_water_surface` for how to convert a bathy plane in
+image format to the plain-text format.
+
+See :numref:`cam_test_bathy` for how to quickly test such a bathy plane (in
+either format), or for comparing the same surface specified in different
+formats.
 
 Command-line options for bathy_plane_calc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -471,8 +498,16 @@ Command-line options for bathy_plane_calc
     in a GIS tool.
 
 --dem-minus-plane <string (default: "")>
-    If specified, subtract from the input DEM the best-fit plane and save the 
+    If specified, subtract from the input DEM the best-fit plane and save the
     obtained DEM to this GeoTiff file.
+
+--water-surface <string (default: "")>
+    Takes as input a georeferenced image of per-pixel water-surface heights
+    above the WGS_1984 ellipsoid, in meters, with an optional no-data value (see
+    :numref:`bathy_plane_img`). The best-fit plane to this raster is computed in
+    a local stereographic projection and written to ``--bathy-plane`` for
+    inspection or comparison. No DEM, mask, shapefile, or measurement file is
+    required in this mode (see :numref:`bathy_plane_water_surface`).
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

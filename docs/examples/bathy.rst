@@ -184,6 +184,8 @@ as a plane or a surface in projected coordinates (:numref:`bathy_plane_def`).
 
 The procedure for this is described in :numref:`bathy_plane_calc`.
 
+.. _bathy_stereo:
+
 Stereo with bathymetry correction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -205,22 +207,30 @@ Here we specified the two masks, the water index of refraction, and the water
 plane found before. Pixels classified as water must have non-positive value
 or be no-data in the mask, while land pixels must have positive value.
 
+The argument of ``--bathy-plane`` may also be a georeferenced image of
+per-pixel water-surface heights (see :numref:`bathy_plane_img`) instead of
+the four-coefficient text file::
+
+      --bathy-plane water_surface.tif
+
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices.
 
 This is followed by creating a DEM (:numref:`point2dem`)::
 
-    point2dem run_bathy/run-PC.tif --orthoimage run_bathy/run-L.tif 
+    point2dem run_bathy/run-PC.tif --orthoimage run_bathy/run-L.tif
 
-The water refraction index was set 1.34 :cite:`jerlov1976marine`. Alternatively,
-one could use 1.333 :cite:`thormahlen1985refractive,harvey1998calibration`, or a
-more precise value that depends on wavelength, temperature, and if having
-saltwater or freshwater (`Parrish (2020)
+The water refraction index above is ``1.34``, the recommended saltwater value
+:cite:`jerlov1976marine`. Use ``1.333`` only for freshwater
+:cite:`thormahlen1985refractive,harvey1998calibration` - the two differ enough
+to bias bathy depths noticeably for marine sites, so do not pick the
+freshwater value by default. A more precise value depends on wavelength,
+temperature, and salinity (`Parrish (2020)
 <http://research.engr.oregonstate.edu/parrish/index-refraction-seawater-and-freshwater-function-wavelength-and-temperature>`_,
 :cite:`austin1976index,mobley1995optical`).  For example, using the equation and
 coefficients found in Parrish (2020), and the green wavelength for saltwater,
 the water refraction index is 1.340125 when the water temperature is 27 |deg| C
-(this was applied to a Florida Keys test site for the month of May). 
+(this was applied to a Florida Keys test site for the month of May).
 
 The refraction index can be computed with the :ref:`refr_index` program.
 

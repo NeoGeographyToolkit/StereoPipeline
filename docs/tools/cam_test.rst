@@ -18,12 +18,18 @@ Examples
 
 See :numref:`examples` for information on the camera types used below.
 
+CSM against itself
+^^^^^^^^^^^^^^^^^^
+
 Compare a CSM camera model against itself::
 
     cam_test --image input.cub \
       --cam1 input.json        \
       --cam2 input.json        \
       --session1 csm --session2 csm
+
+Exact linescan vs RPC
+^^^^^^^^^^^^^^^^^^^^^
 
 Compare a PeruSat-1 exact linescan model to its RPC approximation::
 
@@ -34,12 +40,18 @@ Compare a PeruSat-1 exact linescan model to its RPC approximation::
 Here the two individual camera types will be auto-guessed as ``perusat`` and
 ``rpc``, or can be specified as above with ``--session1`` and ``--session2``.
 
+ISIS vs CSM
+^^^^^^^^^^^
+
 Compare ISIS to CSM cameras::
 
     cam_test --image input.cub \
       --cam1 input.cub         \
       --cam2 input.json        \
       --sample-rate 5000
+
+DigitalGlobe exact vs RPC
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Compare the exact and RPC model stored in the same DigitalGlobe / Maxar file::
 
@@ -49,6 +61,9 @@ Compare the exact and RPC model stored in the same DigitalGlobe / Maxar file::
       --session1 dg --session2 rpc \
       --sample-rate 1000
 
+Pinhole transformed by convert_pinhole_model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Evaluate a camera transformed with ``convert_pinhole_model``
 (:numref:`convert_pinhole_model`). In this case the session names
 would be the same but the cameras would differ::
@@ -57,6 +72,9 @@ would be the same but the cameras would differ::
       --cam1 in.tsai           \
       --cam2 out.tsai          \
       --session1 pinhole --session2 pinhole
+
+CSM ground-image roundtrip
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Here we evaluate a CSM camera against itself, with no .cub image file. The
 image dimensions are contained in the camera file. This verifies that the
@@ -70,6 +88,11 @@ to a certain tolerance::
       --sample-rate 100             \
       --subpixel-offset 0.3
 
+.. _cam_test_bathy:
+
+Bathymetry-corrected camera
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 Evaluate a bathymetry-corrected camera (:numref:`bathy_intro`) against itself.
 Each camera takes its own bathy plane. This example compares a plain-text bathy
 plane vs one specified as a georeferenced image (:numref:`bathy_plane_def`)::
@@ -79,11 +102,19 @@ plane vs one specified as a georeferenced image (:numref:`bathy_plane_def`)::
       --cam2 input.xml                   \
       --cam1-bathy-plane bathy_plane.txt \
       --cam2-bathy-plane bathy_plane.tif \
-      --refraction-index 1.333           \
+      --refraction-index 1.34            \
       --height-above-datum -50
 
-Here we chose a height above datum that is below the water surface to ensure
-the rays from the camera encounter this surface.
+The two ``--camN-bathy-plane`` files can describe the same water surface in
+different formats (plain-text plane vs georeferenced image), or be two
+genuinely different surfaces. When they describe the same surface, the
+projected pixel diff stays at the noise level of the refraction solver, so
+this is also a quick equivalence test between formats.
+
+A height above datum below the water surface is chosen so that the rays from
+the camera encounter the water surface. If the candidate ground point is above
+the water surface, refraction is skipped (the ray reaches land before the
+water), so the test would silently exercise no refraction.
 
 Usage
 ~~~~~

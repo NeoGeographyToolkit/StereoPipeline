@@ -46,7 +46,7 @@ struct Options: vw::GdalWriteOptions {
   std::string shapefile, dem, mask, ortho_mask, camera, stereo_session, bathy_plane,
     water_height_measurements, lon_lat_measurements, csv_format_str,
     output_inlier_shapefile, bundle_adjust_prefix, output_outlier_shapefile,
-    mask_boundary_shapefile, dem_minus_plane;
+    mask_boundary_shapefile, dem_minus_plane, water_surface;
 
   double outlier_threshold;
   int num_ransac_iterations, num_samples;
@@ -125,7 +125,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("dem-minus-plane",
      po::value(&opt.dem_minus_plane),
      "If specified, subtract from the input DEM the best-fit plane and save the "
-     "obtained DEM to this GeoTiff file.");
+     "obtained DEM to this GeoTiff file.")
+    ("water-surface",
+     po::value(&opt.water_surface)->default_value(""),
+     "Takes as input a georeferenced image of per-pixel water-surface heights "
+     "above the WGS_1984 ellipsoid, in meters, with an optional no-data value. "
+     "The best-fit plane to this raster is computed in a local stereographic "
+     "projection and written to ``--bathy-plane`` for inspection or "
+     "comparison. No DEM, mask, shapefile, or measurement file is required "
+     "in this mode.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -148,23 +156,24 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   // before loading the cameras. 
   asp::stereo_settings().bundle_adjust_prefix = opt.bundle_adjust_prefix;
 
-  bool use_shapefile  = !opt.shapefile.empty();
-  bool use_mask       = !opt.mask.empty();
-  bool use_ortho_mask = !opt.ortho_mask.empty();
-  bool use_meas       = !opt.water_height_measurements.empty();
-  bool use_lon_lat    = !opt.lon_lat_measurements.empty();
+  bool use_shapefile     = !opt.shapefile.empty();
+  bool use_mask          = !opt.mask.empty();
+  bool use_ortho_mask    = !opt.ortho_mask.empty();
+  bool use_meas          = !opt.water_height_measurements.empty();
+  bool use_lon_lat       = !opt.lon_lat_measurements.empty();
+  bool use_water_surface = !opt.water_surface.empty();
 
   if (use_mask && opt.camera.empty())
     vw::vw_throw(vw::ArgumentErr() << "If using a mask, must specify a camera.\n"
              << usage << general_options);
 
-  if (use_shapefile + use_mask + use_ortho_mask + use_meas + use_lon_lat != 1)
-    vw::vw_throw(vw::ArgumentErr() 
-              << "Must use either a mask and camera, an ortho-mask, a shapefile, "
-              << "water height measurements, or lon-lat measurements, "
-              << "and just one of these.\n");
+  if (use_shapefile + use_mask + use_ortho_mask + use_meas + use_lon_lat
+        + use_water_surface != 1)
+    vw::vw_throw(vw::ArgumentErr()
+              << "Must use exactly one of: mask and camera, ortho-mask, shapefile, "
+              << "water height measurements, lon-lat measurements, or water surface.\n");
 
-  if (!use_meas && opt.dem == "")
+  if (!use_meas && !use_water_surface && opt.dem == "")
     vw::vw_throw(vw::ArgumentErr() << "Missing the input dem.\n" << usage << general_options);
 
   if (opt.bathy_plane.empty() && opt.mask_boundary_shapefile.empty())
@@ -183,6 +192,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "The option --dem must be set if using --dem-minus-plane.\n"
              << usage << general_options);
 
+  if (use_water_surface && !opt.dem_minus_plane.empty())
+    vw::vw_throw(vw::ArgumentErr() << "The option --dem-minus-plane is not "
+             << "supported with --water-surface.\n" << usage << general_options);
+
   // Create the output prefix  
   std::string out_prefix = opt.bathy_plane;
   if (opt.bathy_plane.empty())
@@ -197,11 +210,62 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", out_prefix);
 }
 
+// Parse +lat_0=<v> and +lon_0=<v> tokens from a proj4 string. The local
+// stereographic carried in BathyPlane::stereographic_proj is constructed
+// with vw's set_stereographic(lat, lon, scale), so both tokens are present.
+void parseStereoLatLon(std::string const& proj4_str,
+                       // Outputs
+                       double & lat, double & lon) {
+  auto extract = [&](std::string const& key, double & out) {
+    size_t pos = proj4_str.find(key);
+    if (pos == std::string::npos)
+      vw::vw_throw(vw::LogicErr() << "Could not find " << key
+                   << " in proj4 string: " << proj4_str << "\n");
+    std::istringstream iss(proj4_str.substr(pos + key.size()));
+    if (!(iss >> out))
+      vw::vw_throw(vw::LogicErr() << "Could not parse value after " << key
+                   << " in proj4 string: " << proj4_str << "\n");
+  };
+  extract("+lat_0=", lat);
+  extract("+lon_0=", lon);
+
+  // GDAL's proj4 round-trip normalizes longitude to [0, 360). Bring it back
+  // to (-180, 180] to match the convention used by every other bathy_plane
+  // text file produced in this codebase.
+  if (lon > 180.0)
+    lon -= 360.0;
+}
+
 int main(int argc, char *argv[]) {
 
   Options opt;
   try {
     handle_arguments(argc, argv, opt);
+
+    // Water-surface raster path: read the wl.tif, fit a plane in a local
+    // stereographic frame, write the four-coefficient text plane file. No
+    // DEM, mask, shapefile, or measurements are involved. 
+    if (!opt.water_surface.empty()) {
+      vw::BathyPlane bp;
+      // Populate bp.plane_proj from the raster's georef
+      if (!vw::cartography::read_georeference(bp.plane_proj, opt.water_surface))
+        vw::vw_throw(vw::ArgumentErr() << "The input water-surface raster "
+                     << opt.water_surface << " has no georeference.\n");
+      vw::readBathyPlaneFromRaster(opt.water_surface, bp);
+
+      double proj_lat = 0.0, proj_lon = 0.0;
+      parseStereoLatLon(bp.stereographic_proj.overall_proj4_str(),
+                        proj_lat, proj_lon);
+
+      vw::Matrix<double> plane(1, 4);
+      for (int i = 0; i < 4; i++)
+        plane(0, i) = bp.bathy_plane[i];
+
+      vw::vw_out() << "Mean water-surface height above datum (meters): "
+                   << bp.mean_height << "\n";
+      asp::saveBathyPlane(proj_lat, proj_lon, plane, opt.bathy_plane);
+      return 0;
+    }
 
     // Load the camera if we use the mask and the camera
     bool use_shapefile  = !opt.shapefile.empty();

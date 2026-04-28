@@ -838,7 +838,7 @@ void calcPlaneProperties(std::vector<Eigen::Vector3d> const& proj_vec,
 
   vw::vw_out() << "Max distance to the plane (meters): " << max_error << "\n";
   vw::vw_out() << "Max inlier distance to the plane (meters): " << max_inlier_error << "\n";
-  vw::vw_out() << "Mean plane height above datum (meters): " << mean_height << "\n";
+  vw::vw_out() << "Mean water-surface height above datum (meters): " << mean_height << "\n";
 }
 
 // Save the bathy plane and the projection parameters if needed
