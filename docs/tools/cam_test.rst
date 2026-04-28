@@ -105,12 +105,6 @@ plane vs one specified as a georeferenced image (:numref:`bathy_plane_def`)::
       --refraction-index 1.34            \
       --height-above-datum -50
 
-The two ``--camN-bathy-plane`` files can describe the same water surface in
-different formats (plain-text plane vs georeferenced image), or be two
-genuinely different surfaces. When they describe the same surface, the
-projected pixel diff stays at the noise level of the refraction solver, so
-this is also a quick equivalence test between formats.
-
 A height above datum below the water surface is chosen so that the rays from
 the camera encounter the water surface. If the candidate ground point is above
 the water surface, refraction is skipped (the ray reaches land before the
