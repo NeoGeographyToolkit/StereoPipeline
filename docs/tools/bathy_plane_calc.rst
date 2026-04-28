@@ -213,7 +213,7 @@ fit in a local stereographic projection::
 
 This is for inspecting or comparing the plane against the raster surface
 (:numref:`cam_test_bathy`). The ``parallel_stereo`` program accepts
-the water surface raster directly (:numref:`bathy_stereo`).
+the water surface raster directly (:numref:`bathy_stereo_run`).
 
 .. _bathy_plane_water_meas:
 

@@ -184,7 +184,7 @@ as a plane or a surface in projected coordinates (:numref:`bathy_plane_def`).
 
 The procedure for this is described in :numref:`bathy_plane_calc`.
 
-.. _bathy_stereo:
+.. _bathy_stereo_run:
 
 Stereo with bathymetry correction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
