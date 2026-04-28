@@ -351,11 +351,11 @@ Bathy plane definition and format
 
 The bathy plane represents the surface of the water at the time of image
 acquisition. It can have one of two formats: a plain-text file with four plane
-coefficients in local projected coordinates, or a georeferenced image of
+coefficients in local projected coordinates, or a georeferenced raster of
 water-surface heights (in either a projected or a geographic CRS).
 
 The plain-text format is produced by ``bathy_plane_calc``. The
-georeferenced-image format is typically an external water-surface
+georeferenced-raster format is typically an external water-surface
 product (e.g., the mean sea surface plus tide at image acquisition time).
 
 .. _bathy_plane_txt:
@@ -384,22 +384,22 @@ being perfectly known.)
 
 .. _bathy_plane_img:
 
-Georeferenced image bathy plane
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Georeferenced raster bathy plane
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Alternatively, the bathy plane can be provided as a georeferenced image (raster)
-of per-pixel water-surface heights above the WGS_1984 ellipsoid, in meters, with
+Alternatively, the bathy plane can be provided as a georeferenced raster of
+per-pixel water-surface heights above the WGS_1984 ellipsoid, in meters, with
 an optional no-data value. In this mode, the file is formatted like a DEM. The
 projection can be either geographic (lon-lat) or in meters.
 
 The pixel values must be ellipsoid heights, rather than orthometric heights or
-heights above a geoid. 
+heights above a geoid.
 
 A typical source is the mean sea surface (e.g. ``MSS_CNES_CLS2022``) plus the
 geocentric tide at image acquisition time (e.g. from ``FES2022b``).
 
 See :numref:`bathy_plane_water_surface` for how to convert a bathy plane in
-image format to the plain-text format.
+raster format to the plain-text format.
 
 See :numref:`cam_test_bathy` for how to quickly test such a bathy plane (in
 either format), or for comparing the same surface specified in different
@@ -502,7 +502,7 @@ Command-line options for bathy_plane_calc
     obtained DEM to this GeoTiff file.
 
 --water-surface <string (default: "")>
-    Takes as input a georeferenced image of per-pixel water-surface heights
+    Takes as input a georeferenced raster of per-pixel water-surface heights
     above the WGS_1984 ellipsoid, in meters, with an optional no-data value (see
     :numref:`bathy_plane_img`). The best-fit plane to this raster is computed in
     a local stereographic projection and written to ``--bathy-plane`` for

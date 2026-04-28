@@ -95,7 +95,7 @@ Bathymetry-corrected camera
 
 Evaluate a bathymetry-corrected camera (:numref:`bathy_intro`) against itself.
 Each camera takes its own bathy plane. This example compares a plain-text bathy
-plane vs one specified as a georeferenced image (:numref:`bathy_plane_def`)::
+plane vs one specified as a georeferenced raster (:numref:`bathy_plane_def`)::
 
     cam_test --image input.tif           \
       --cam1 input.xml                   \

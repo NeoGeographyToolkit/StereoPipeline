@@ -207,7 +207,7 @@ Here we specified the two masks, the water index of refraction, and the water
 plane found before. Pixels classified as water must have non-positive value
 or be no-data in the mask, while land pixels must have positive value.
 
-The argument of ``--bathy-plane`` may also be a georeferenced image of
+The argument of ``--bathy-plane`` may also be a georeferenced raster of
 per-pixel water-surface heights (see :numref:`bathy_plane_img`) instead of
 the four-coefficient text file::
 

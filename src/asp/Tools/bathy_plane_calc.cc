@@ -128,7 +128,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "obtained DEM to this GeoTiff file.")
     ("water-surface",
      po::value(&opt.water_surface)->default_value(""),
-     "Takes as input a georeferenced image of per-pixel water-surface heights "
+     "Takes as input a georeferenced raster of per-pixel water-surface heights "
      "above the WGS_1984 ellipsoid, in meters, with an optional no-data value. "
      "The best-fit plane to this raster is computed in a local stereographic "
      "projection and written to ``--bathy-plane`` for inspection or "

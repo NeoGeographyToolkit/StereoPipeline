@@ -40,6 +40,8 @@ bathymetry (:numref:`bathy_intro`):
     for a satellite band (:numref:`refr_index`).
   * Added documentation on alternative spectral indices for water masking
     (:numref:`bathy_water_masking`).
+  * Added support for the water surface as a georeferenced raster
+    (:numref:`bathy_plane_img`).
 
 refr_index (:numref:`refr_index`):
   * Added the ``--wavelength-method`` option to select how a spectral
@@ -60,8 +62,11 @@ bathy_plane_calc (:numref:`bathy_plane_calc`):
     that the bathy plane is computed in local projected coordinates.
     
 cam_test (:numref:`cam_test`):
-  * Added the options ``--bathy-plane`` and ``--refraction-index`` to model
-    bathymetry correction with ray bending according to Snell's law.
+  * Added the options ``--cam1-bathy-plane``, ``--cam2-bathy-plane``, and
+    ``--refraction-index`` to model bathymetry correction with ray bending
+    according to Snell's law (:numref:`cam_test_bathy`). Each camera takes
+    its own bathy plane, so this also serves as an equivalence test
+    between two representations of the same water surface.
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Replaced ``--save-cnet-as-csv`` with ``--save-cnet-as-gcp``. The control
