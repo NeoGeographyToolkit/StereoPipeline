@@ -398,11 +398,13 @@ The GitHub ``gh`` program can be invoked to push the binaries to the release.
 Example::
 
   cd BinaryBuilder/asp_tarballs
-  for file in StereoPipeline-3.6.0-2025-12-26-x86_64-Linux.tar.bz2 \
-              StereoPipeline-3.6.0-2025-12-26-x86_64-OSX.tar.bz2 \
-              StereoPipeline-3.6.0-2025-12-26-arm64-OSX.tar.bz2; do 
+  for file in                                            \
+    StereoPipeline-3.6.0-2025-12-26-x86_64-Linux.tar.bz2 \
+    StereoPipeline-3.6.0-2025-12-26-x86_64-OSX.tar.bz2   \
+    StereoPipeline-3.6.0-2025-12-26-arm64-OSX.tar.bz2; do
+
     gh release upload 3.6.0 $file \
-      -R git@github.com:NeoGeographyToolkit/StereoPipeline.git   
+      -R git@github.com:NeoGeographyToolkit/StereoPipeline.git
   done
 
 Alternatively, these can be uploaded from a web browser.
