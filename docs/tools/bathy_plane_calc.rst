@@ -329,33 +329,70 @@ the satellite day and time of acquisition at the
 <https://opendap.co-ops.nos.noaa.gov/axis/>`_. Choose Verified Data->
 Six Minutes Data->Try me. 
 
-The user can download tide data in any
-reference as long as the value is expressed in meters. This value
-needs to be transformed into an ellipsoid heights value relative to the WGS_1984 datum. For
-this the `NOAA VDATUM Java program <https://vdatum.noaa.gov/>`_ can be used,
-or the `NOAA online app <https://www.vdatum.noaa.gov/vdatumweb/>`_. 
+The user can download tide data in any reference as long as the value is
+expressed in meters. This value needs to be transformed into an ellipsoid
+heights value relative to the WGS_1984 datum. For this the `NOAA VDATUM Java
+program <https://vdatum.noaa.gov/>`_ can be used, or the `NOAA online app
+<https://www.vdatum.noaa.gov/vdatumweb/>`_. 
 
 Please note that even if lots of points on the land/water limit belong to the
 same tidal zone polygon, so they will have same elevation value, the
-transformation in ellipsoid heights with VDATUM will result in
-different ellipsoid heights since VDATUM uses the position of the
-point in latitude/longitude besides the height of the point.
+transformation in ellipsoid heights with VDATUM will result in different
+ellipsoid heights since VDATUM uses the position of the point in
+latitude/longitude besides the height of the point.
 
-Export your data to a CSV file with a header containing ID, longitude, latitude, and
-WGS_1984 height measurements.
+Export your data to a CSV file with a header containing ID, longitude, latitude,
+and WGS_1984 height measurements.
+
+.. _global_tides:
 
 Global tide models and water surface elevation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ASP bathymetry module requires a water surface elevation plane corresponding to the date and time of satellite image acquisition. This input may be provided either as a text file containing water plane model parameters or as a water surface elevation raster. The georeferenced water surface raster is commonly sourced externally by combining the global mean sea surface with the appropriate global tide raster model, matched to the relevant date and time for the processed satellite images.
-Typically, the global tide model expresses water surface elevations in meters (or centimeters) above mean sea surface (MSS), referenced to the Earth's ellipsoid based on satellite altimetry, or above mean sea level (MSL) derived from tide-gauge measurements, and aligned to land-based vertical datums (usually orthometric). Several global tide services are available, including:
-AVISO FES22 (Finite Element Solution), which leverages finite-element hydrodynamics, altimeter and tide gauge measurements, and loading data, accessed through the Archiving, Validation and Interpretation of Satellite Oceanographic (AVISO+) portal https://www.aviso.altimetry.fr/en/home.html 
-Tidal Prediction eXpanded and Ocean Tides Inversion System, TPXO10 / OTIS, a global and regional barotropic tide modeling system developed by Oregon State University https://www.tpxo.net/global/tpxo10 
-NASA Goddard Ocean Tide (GOT) series, providing empirical fits derived from altimeter data for both short-period (diurnal/semidiurnal) and long-period tides https://earth.gsfc.nasa.gov/geo/data/ocean-tide-models 
-DTU10 global ocean tide model from the Technical University of Denmark, based on multi-mission satellite altimetry extending into coastal regions https://www.space.dtu.dk/english/research/scientific_data_and_models/global-ocean-tide-model 
-The EOT20 global empirical ocean tide model, developed by the German Geodetic Research Institute, Technical University of Munich (DGFI-TUM), utilizing multi-mission altimetry data https://doi.org/10.17882/79489 
-The resultant water surface elevation raster is computed by adding MSS (or MSL converted to ellipsoid heights) and the tide values extracted for the satellite image area of interest, at their exact acquisition date and time. 
-The ASP bathymetry module underwent extensive validation using water surface elevations derived from AVISO+ MSS and extrapolated FES22 data for geocentric tides. The FES22 geocentric tide model consists of two elements: (a) ocean tide extrapolated into coastal and shallow waters, illustrating vertical displacement due to tidal forces relative to the ocean floor, and (b) tidal loading, reflecting Earth's elastic response to ocean water redistribution during tidal events.
+The ASP bathymetry module requires a water surface elevation plane corresponding
+to the date and time of satellite image acquisition. This input may be provided
+either as a text file containing water plane model parameters
+(:numref:`bathy_plane_txt`) or as a water surface elevation raster
+(:numref:`bathy_plane_img`). The georeferenced water surface raster is commonly
+sourced externally by combining the global mean sea surface with the appropriate
+global tide raster model, matched to the relevant date and time for the
+processed satellite images.
+
+Typically, the global tide model expresses water surface elevations in meters
+(or centimeters) above mean sea surface (MSS), referenced to the Earth's
+ellipsoid based on satellite altimetry, or above mean sea level (MSL) derived
+from tide-gauge measurements, and aligned to land-based vertical datums
+(usually orthometric). Several global tide services are available, including:
+
+* `AVISO FES22 <https://www.aviso.altimetry.fr/en/home.html>`_ (Finite Element
+  Solution), which leverages finite-element hydrodynamics, altimeter and
+  tide-gauge measurements, and loading data, accessed through the Archiving,
+  Validation and Interpretation of Satellite Oceanographic (AVISO+) portal.
+* `TPXO10 / OTIS <https://www.tpxo.net/global/tpxo10>`_ (Tidal Prediction
+  eXpanded and Ocean Tides Inversion System), a global and regional barotropic
+  tide modeling system developed by Oregon State University.
+* `NASA Goddard Ocean Tide (GOT)
+  <https://earth.gsfc.nasa.gov/geo/data/ocean-tide-models>`_ series, providing
+  empirical fits derived from altimeter data for both short-period
+  (diurnal/semidiurnal) and long-period tides.
+* `DTU10 <https://www.space.dtu.dk/english/research/scientific_data_and_models/global-ocean-tide-model>`_
+  global ocean tide model from the Technical University of Denmark, based on
+  multi-mission satellite altimetry extending into coastal regions.
+* `EOT20 <https://doi.org/10.17882/79489>`_, the global empirical ocean tide
+  model developed by the German Geodetic Research Institute, Technical
+  University of Munich (DGFI-TUM), utilizing multi-mission altimetry data.
+
+The resultant water surface elevation raster is computed by adding MSS (or MSL
+converted to ellipsoid heights) and the tide values extracted for the satellite
+image area of interest, at their exact acquisition date and time.
+
+The ASP bathymetry module underwent extensive validation using water surface
+elevations derived from AVISO+ MSS and extrapolated FES22 data for geocentric
+tides. The FES22 geocentric tide model consists of two elements: (a) ocean tide
+extrapolated into coastal and shallow waters, illustrating vertical displacement
+due to tidal forces relative to the ocean floor, and (b) tidal loading,
+reflecting Earth's elastic response to ocean water redistribution during tidal
+events.
 
 .. _bathy_plane_def:
 
@@ -417,6 +454,9 @@ raster format to the plain-text format.
 See :numref:`cam_test_bathy` for how to quickly test such a bathy plane (in
 either format), or for comparing the same surface specified in different
 formats.
+
+See :numref:`global_tides` for global tide models and how to combine them with
+mean sea surface to produce a water surface elevation raster.
 
 Command-line options for bathy_plane_calc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
