@@ -344,6 +344,19 @@ point in latitude/longitude besides the height of the point.
 Export your data to a CSV file with a header containing ID, longitude, latitude, and
 WGS_1984 height measurements.
 
+Global tide models and water surface elevation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ASP bathymetry module requires a water surface elevation plane corresponding to the date and time of satellite image acquisition. This input may be provided either as a text file containing water plane model parameters or as a water surface elevation raster. The georeferenced water surface raster is commonly sourced externally by combining the global mean sea surface with the appropriate global tide raster model, matched to the relevant date and time for the processed satellite images.
+Typically, the global tide model expresses water surface elevations in meters (or centimeters) above mean sea surface (MSS), referenced to the Earth's ellipsoid based on satellite altimetry, or above mean sea level (MSL) derived from tide-gauge measurements, and aligned to land-based vertical datums (usually orthometric). Several global tide services are available, including:
+AVISO FES22 (Finite Element Solution), which leverages finite-element hydrodynamics, altimeter and tide gauge measurements, and loading data, accessed through the Archiving, Validation and Interpretation of Satellite Oceanographic (AVISO+) portal https://www.aviso.altimetry.fr/en/home.html 
+Tidal Prediction eXpanded and Ocean Tides Inversion System, TPXO10 / OTIS, a global and regional barotropic tide modeling system developed by Oregon State University https://www.tpxo.net/global/tpxo10 
+NASA Goddard Ocean Tide (GOT) series, providing empirical fits derived from altimeter data for both short-period (diurnal/semidiurnal) and long-period tides https://earth.gsfc.nasa.gov/geo/data/ocean-tide-models 
+DTU10 global ocean tide model from the Technical University of Denmark, based on multi-mission satellite altimetry extending into coastal regions https://www.space.dtu.dk/english/research/scientific_data_and_models/global-ocean-tide-model 
+The EOT20 global empirical ocean tide model, developed by the German Geodetic Research Institute, Technical University of Munich (DGFI-TUM), utilizing multi-mission altimetry data https://doi.org/10.17882/79489 
+The resultant water surface elevation raster is computed by adding MSS (or MSL converted to ellipsoid heights) and the tide values extracted for the satellite image area of interest, at their exact acquisition date and time. 
+The ASP bathymetry module underwent extensive validation using water surface elevations derived from AVISO+ MSS and extrapolated FES22 data for geocentric tides. The FES22 geocentric tide model consists of two elements: (a) ocean tide extrapolated into coastal and shallow waters, illustrating vertical displacement due to tidal forces relative to the ocean floor, and (b) tidal loading, reflecting Earth's elastic response to ocean water redistribution during tidal events.
+
 .. _bathy_plane_def:
 
 Bathy plane definition and format
