@@ -327,6 +327,8 @@ format (the output of ``parallel_stereo``, :numref:`outputfiles`), DEMs as
 GeoTIFF or ISIS cub files, LAS files (including LAZ and COPC), or plain-text CSV
 files (with .csv or .txt extension).
 
+.. _pc_align_csv:
+
 CSV
 ^^^
 
@@ -572,16 +574,20 @@ The ``geodiff`` tool can take the difference between a DEM and a CSV file as
 well. The obtained error differences can be visualized in ``stereo_gui``
 (:numref:`plot_csv`).
 
+.. _pc_align_output_clouds:
+
 Output point clouds and convergence history
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The transformed input point clouds (the source transformed to match
 the reference, and the reference transformed to match the source) can
-also be saved to disk if desired. If an input point cloud is in CSV,
-ASP point cloud format, or LAS format, the output transformed cloud
-will be in the same format. If the input is a DEM, the output will be
-an ASP point cloud, since a gridded point cloud may not stay so after
-a 3D transform. 
+also be saved to disk if desired. 
+
+If an input point cloud is in CSV (:numref:`pc_align_csv`), ASP point cloud
+format (:numref:`triangulation_files`), or LAS format
+(:numref:`pc_align_las`), the output transformed cloud will be in the same
+format. If the input is a DEM, the output will be an ASP point cloud, since
+a gridded point cloud may not stay so after a 3D transform.
 
 As an example, assume that ``pc_align`` is run as::
 
@@ -653,17 +659,22 @@ Regrid a DEM
 
 Given a DEM, if one invokes ``pc_align`` as follows::
 
-    pc_align dem.tif dem.tif --max-displacement -1 --num-iterations 0 \
-       --save-transformed-source-points -o run/run
+    pc_align                           \
+      --max-displacement -1            \
+      --num-iterations 0               \
+      --save-transformed-source-points \
+      dem.tif dem.tif                  \
+      -o run/run
 
-this will create a point cloud out of the DEM. This cloud can then be re-gridded
-using ``point2dem`` (:numref:`point2dem`), with desired grid size and projection. 
+this will create a point cloud out of the DEM without moving it. This cloud can
+then be re-gridded using ``point2dem`` (:numref:`point2dem`), with desired grid
+size and projection. 
 
 Alternatively, the ``gdalwarp`` program (:numref:`gdal_tools`) can be employed
 for regridding, with an option such as ``-r cubic``. 
 
 The ``point2dem`` approach is preferable if the output grid size is very coarse,
-as this tool does binning in a neighborhood, rather than interpolation.
+as this tool does a weighted average in a neighborhood rather than interpolation.
 
 .. _ba_pc_align:
 
@@ -857,11 +868,13 @@ Command-line options for pc_align
 --save-transformed-source-points
     Apply the obtained transform to the source points so they match the
     reference points and save them. The transformed point cloud can be
-    gridded with ``point2dem`` (:numref:`point2dem`).
+    gridded with ``point2dem`` (:numref:`point2dem`). See
+    :numref:`pc_align_output_clouds` for the output cloud format.
 
 --save-inv-transformed-reference-points
     Apply the inverse of the obtained transform to the reference
-    points so they match the source points and save them.
+    points so they match the source points and save them. See
+    :numref:`pc_align_output_clouds` for the output cloud format.
 
 --initial-transform <string>
     The file containing the transform to be used as an initial
