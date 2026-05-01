@@ -853,12 +853,8 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
       Vector2 observation = (**fiter).m_location;
       Vector2 pixel_sigma = (**fiter).m_scale;
 
-      // This is a bugfix
-      if (pixel_sigma != pixel_sigma) // nan check
-        pixel_sigma = Vector2(1, 1);
-
-      if (pixel_sigma[0] <= 0.0 || pixel_sigma[1] <= 0.0) {
-        // Cannot add a cost function term with non-positive pixel sigma
+      // NaN -> (1,1). Non-positive -> mark as outlier and skip.
+      if (!asp::sanitizePixelSigma(pixel_sigma)) {
         param_storage.set_point_outlier(ipt, true);
         continue;
       }

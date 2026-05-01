@@ -20,7 +20,20 @@
 
 #include <asp/Camera/BaseCostFuns.h>
 
+#include <cmath>
+
 namespace asp {
+
+// Sanitize a per-interest-point pixel sigma. NaN -> (1, 1). Non-positive in
+// either component returns false so the caller can mark the point as an
+// outlier. Shared by bundle_adjust and jitter_solve.
+bool sanitizePixelSigma(vw::Vector2 & pixel_sigma) {
+  if (std::isnan(pixel_sigma[0]) || std::isnan(pixel_sigma[1]))
+    pixel_sigma = vw::Vector2(1, 1);
+  if (pixel_sigma[0] <= 0.0 || pixel_sigma[1] <= 0.0)
+    return false;
+  return true;
+}
 
 // Factory to hide the construction of the CostFunction object from
 // the client code.

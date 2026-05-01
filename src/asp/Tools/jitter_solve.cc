@@ -34,6 +34,7 @@
 #include <asp/Camera/BundleAdjustIsis.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
+#include <asp/Camera/BaseCostFuns.h>
 #include <asp/Rig/RigConfig.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
 #include <asp/Camera/LinescanUtils.h>
@@ -956,11 +957,18 @@ void createProblemStructure(Options                      const& opt,
       // the camera with index icam.
       Vector2 observation = (**fiter).m_location;
 
-      // Unlike in bundle adjustment, the weight of a pixel is 1.0, rather
-      // than 1.0 / pixel_sigma.
-      double weight = 1.0;
+      // Per-IP pixel sigma. Default match files store (1, 1). NaN -> (1, 1).
+      // Non-positive -> mark as outlier and skip (matches bundle_adjust).
+      // The jitter cost functor uses a scalar weight applied to both axes,
+      // so anisotropic sigma collapses to weight = 2 / (sigma_x + sigma_y).
+      Vector2 pixel_sigma = (**fiter).m_scale;
+      if (!asp::sanitizePixelSigma(pixel_sigma)) {
+        outliers.insert(ipt);
+        continue;
+      }
+      double weight = 2.0 / (pixel_sigma[0] + pixel_sigma[1]);
 
-      // If we have a weight image, use it to set the weight
+      // If we have a weight image, use it to scale the weight
       if (have_weight_image) {
         const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
         Vector3 ecef(tri_point[0], tri_point[1], tri_point[2]);
@@ -973,7 +981,7 @@ void createProblemStructure(Options                      const& opt,
           continue;
         }
 
-        weight = img_wt.child();
+        weight *= img_wt.child();
       }
 
       pixel_vec[icam].push_back(observation);

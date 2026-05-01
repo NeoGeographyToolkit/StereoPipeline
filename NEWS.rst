@@ -77,6 +77,9 @@ bundle_adjust (:numref:`bundle_adjust`):
 jitter_solve (:numref:`jitter_solve`):
   * Added ``--save-cnet-as-gcp`` to save the optimized control network in
     GCP format, after outlier filtering (:numref:`bagcp`).
+  * Per-interest-point pixel sigma values from input match files are now
+    honored, matching the behavior of ``bundle_adjust``. Points with
+    non-positive sigma are treated as outliers (:numref:`jitter_solve`).
 
 ipfind (:numref:`ipfind`):
   * Added the option ``--binary-to-txt`` to convert .vwip files to text.

@@ -2388,7 +2388,14 @@ Command-line options for jitter_solve
     reprojection errors in the cameras for this point by this weight value. The
     solver will focus more on optimizing points with a higher weight. Points
     that fall outside the image and weights that are non-positive, NaN, or equal
-    to nodata will be ignored. See :numref:`limit_ip` for details. 
+    to nodata will be ignored. See :numref:`limit_ip` for details.
+
+    Per-interest-point pixel sigma values stored in the input match files (or
+    control network) are also honored: each reprojection residual is multiplied
+    by ``1 / mean(col_sigma, row_sigma)``, on top of any weight from
+    ``--weight-image``. A point with non-positive sigma is treated as an
+    outlier. Default match files store ``sigma = (1, 1)``, in which case this
+    has no effect.
 
 --anchor-weight-image <string (default: "")>
     Weight image for anchor points. Limits where anchor points are placed and
