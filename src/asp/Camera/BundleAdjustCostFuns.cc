@@ -853,7 +853,8 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
       Vector2 observation = (**fiter).m_location;
       Vector2 pixel_sigma = (**fiter).m_scale;
 
-      // NaN -> (1,1). Non-positive -> mark as outlier and skip.
+      // A NaN sigma is treated as a sigma of 1.0. A non-positive sigma is
+      // skipped (the point is marked as an outlier).
       if (!asp::sanitizePixelSigma(pixel_sigma)) {
         param_storage.set_point_outlier(ipt, true);
         continue;
