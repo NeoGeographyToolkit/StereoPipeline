@@ -301,11 +301,16 @@ int main(int argc, char *argv[]) {
     vw_out() << "Reading maximally-lit image mosaic: " << opt.max_lit_image_mosaic << std::endl;
     DiskImageView<float> image_mosaic(opt.max_lit_image_mosaic);
 
+    std::string err_msg = " As a fallback solution, gdalwarp with bicubic "
+                          "interpolation may be used to reconcile these.";
+
     if (sfs_dem.cols() != lola_dem.cols() || sfs_dem.rows() != lola_dem.rows())
-      vw_throw(ArgumentErr() << "The SfS DEM and LOLA DEM must have the same dimensions.");
+      vw_throw(ArgumentErr() << "The SfS DEM and LOLA DEM must have the same "
+               << "dimensions." << err_msg);
 
     if (sfs_dem.cols() != image_mosaic.cols() || sfs_dem.rows() != image_mosaic.rows())
-      vw_throw(ArgumentErr() << "The SfS DEM and image mosaic must have the same dimensions.");
+      vw_throw(ArgumentErr() << "The SfS DEM and image mosaic must have the same "
+               << "dimensions." << err_msg);
 
     GeoReference sfs_georef   = read_georef(opt.sfs_dem);
     GeoReference lola_georef  = read_georef(opt.lola_dem);
@@ -313,7 +318,7 @@ int main(int argc, char *argv[]) {
     if (sfs_georef.proj4_str() != lola_georef.proj4_str() ||
         sfs_georef.proj4_str() != image_georef.proj4_str())
       vw_throw(ArgumentErr() << "The SfS DEM, LOLA DEM, and image mosaic "
-               << "must have the same PROJ4 string.");
+               << "must have the same PROJ4 string." << err_msg);
 
     // All these must be on the same grid, or else the blending will be wrong.
     // Allow some tolerance here as sometimes products created with different
@@ -323,7 +328,7 @@ int main(int argc, char *argv[]) {
     vw::Vector2 image_corner = image_georef.pixel_to_point(Vector2(0, 0));
     if (norm_2(sfs_corner - lola_corner) > 1e-10 || norm_2(sfs_corner - image_corner) > 1e-10)
       vw_throw(ArgumentErr() << "The SfS DEM, LOLA DEM, and image mosaic "
-               << "must be on the same grid.");
+               << "must be on the same grid." << err_msg);
 
     float sfs_nodata = -1.0, lola_nodata = -1.0, image_nodata = -1.0;
     DiskImageResourceGDAL sfs_rsrc(opt.sfs_dem);
