@@ -79,7 +79,7 @@ jitter_solve (:numref:`jitter_solve`):
     GCP format, after outlier filtering (:numref:`bagcp`).
   * Per-interest-point pixel sigma values from input match files are now
     honored, matching the behavior of ``bundle_adjust``. Points with
-    non-positive sigma are treated as outliers (:numref:`jitter_solve`).
+    non-positive sigma are treated as outliers.
 
 ipfind (:numref:`ipfind`):
   * Added the option ``--binary-to-txt`` to convert .vwip files to text.

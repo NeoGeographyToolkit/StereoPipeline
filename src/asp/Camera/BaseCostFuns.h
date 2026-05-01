@@ -38,10 +38,10 @@ namespace asp {
 // (x-x0)^2/sigma^2, with x starting as x0 and kept fixed.
 const double FIXED_GCP_SIGMA = 1e-10;
 
-// Sanitize a per-interest-point pixel sigma. NaN values are reset to (1, 1).
-// If either component is non-positive, return false so the caller can mark the
-// point as an outlier. Otherwise return true with sigma unchanged. Shared by
-// bundle_adjust and jitter_solve.
+// Sanitize a per-interest-point pixel sigma. A NaN sigma is treated as a
+// sigma of 1.0 (component reset in place). A non-positive sigma is skipped
+// (return false so the caller can mark the point as an outlier). Otherwise
+// return true with sigma unchanged. Shared by bundle_adjust and jitter_solve.
 bool sanitizePixelSigma(vw::Vector2 & pixel_sigma);
 
 /// A ceres cost function. The residual is the difference between the

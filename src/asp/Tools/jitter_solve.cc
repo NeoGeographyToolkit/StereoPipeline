@@ -957,8 +957,9 @@ void createProblemStructure(Options                      const& opt,
       // the camera with index icam.
       Vector2 observation = (**fiter).m_location;
 
-      // Per-IP pixel sigma. Default match files store (1, 1). NaN -> (1, 1).
-      // Non-positive -> mark as outlier and skip (matches bundle_adjust).
+      // Per-IP pixel sigma. Default match files store (1, 1). A NaN sigma
+      // is treated as a sigma of 1.0. A non-positive sigma is skipped
+      // (matches bundle_adjust).
       // The jitter cost functor uses a scalar weight applied to both axes,
       // so anisotropic sigma collapses to weight = 2 / (sigma_x + sigma_y).
       Vector2 pixel_sigma = (**fiter).m_scale;
