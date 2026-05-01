@@ -113,6 +113,10 @@ parallel_stereo (:numref:`parallel_stereo`):
     stage (:numref:`entrypoints`).
   * The DEM for mapprojected images can be set with ``--dem`` instead of as the
     last positional argument (:numref:`mapproj-example`).
+  * The ``libelas`` stereo algorithm (:numref:`libelas`) is now supported on
+    Mac ARM64. The SSE2/SSE3 intrinsics in libelas are mapped to NEON via
+    ``sse2neon`` (https://github.com/DLTcollab/sse2neon). Disparities match
+    the x86 SSE build to within float-rounding noise.
 
 point2dem (:numref:`point2dem`):
   * The default grid size is now 4x the estimated ground sample distance,
