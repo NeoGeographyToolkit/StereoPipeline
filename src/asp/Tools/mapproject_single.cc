@@ -320,13 +320,13 @@ void calc_target_geom(// Inputs
       std::swap(cam_box.min().y(), cam_box.max().y());
   }
 
-  // When projwin is set without --gdal-tap, convert pixel edges to centers,
-  // then round to nearest grid multiples. When edges are at half-grid points
-  // (the normal case from a previous mapproject), the inset lands exactly on
-  // grid centers and round is a no-op. Unlike floor/ceil, round tolerates
-  // float noise without overshooting by a grid step.
-  // For auto-computed bbox (no projwin), use floor/ceil to expand outward.
-  if (opt.target_projwin != BBox2() && !opt.gdal_tap) {
+  // Convert pixel edges to centers, then round to nearest grid multiples.
+  // When edges are at half-grid points (the normal case from a previous
+  // mapproject, or from a DEM whose centers align with --tr), the inset lands
+  // exactly on grid centers and round is a no-op. Unlike floor/ceil, round
+  // tolerates float noise without overshooting by a grid step. With
+  // --gdal-tap, min and max stay as pixel edges, so use floor/ceil snap.
+  if (!opt.gdal_tap) {
     vw::Vector2 half(0.5 * current_resolution, 0.5 * current_resolution);
     cam_box.min() += half;
     cam_box.max() -= half;
