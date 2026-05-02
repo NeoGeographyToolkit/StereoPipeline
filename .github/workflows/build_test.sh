@@ -99,6 +99,27 @@ fi
 echo cc_comp=$cc_comp
 echo cxx_comp=$cxx_comp
 
+# Build libelas from source. The asp_deps tarball does not ship elas on Mac
+# ARM64 (the old code used x86 SSE intrinsics).
+mkdir -p $baseDir
+cd $baseDir
+git clone https://github.com/NeoGeographyToolkit/libelas.git
+cd libelas
+mkdir -p build
+cd build
+$envPath/bin/cmake ..                                      \
+  -DTIFF_LIBRARY_RELEASE=$envPath/lib/libtiff.dylib        \
+  -DTIFF_INCLUDE_DIR=$envPath/include                      \
+  -DCMAKE_CXX_FLAGS=-I$envPath/include
+make -j10
+ans=$?
+if [ "$ans" -ne 0 ]; then
+    echo "Error: libelas build failed"
+    build_failed=1
+fi
+mkdir -p $envPath/plugins/stereo/elas/bin
+/bin/cp -fv elas $envPath/plugins/stereo/elas/bin/elas
+
 # Build visionworkbench
 mkdir -p $baseDir
 cd $baseDir
