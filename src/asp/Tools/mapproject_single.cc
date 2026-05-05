@@ -230,7 +230,7 @@ Vector2 demPixToCamPix(Vector2i const& dem_pixel,
 void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
                                             ImageViewRef<DemPixelT> const& dem,
                                             GeoReference const &dem_georef,
-                                            Vector2i const& image_size,
+                                            Vector2i const& input_size,
                                             BBox2 & bbox_on_ground) {
   // Each of the corners of the DEM
   std::vector<Vector2> dem_pixel_list(4);
@@ -250,7 +250,7 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
 
       // If there was in intersection
       if (cam_pixel.x() >= 0 && cam_pixel.y() > 0 &&
-          cam_pixel.x() < image_size.x() && cam_pixel.y() < image_size.y()) {
+          cam_pixel.x() < input_size.x() && cam_pixel.y() < input_size.y()) {
         bbox_on_ground.grow(groundLoc);
       }
     } catch(...) {} // projection failed
@@ -262,7 +262,7 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
 /// Compute output georeference to use
 void calc_target_geom(// Inputs
                       bool calc_target_res,
-                      Vector2i const& image_size,
+                      Vector2i const& input_size,
                       vw::CamPtr const& camera_model,
                       ImageViewRef<DemPixelT> const& dem,
                       GeoReference const& dem_georef,
@@ -270,7 +270,7 @@ void calc_target_geom(// Inputs
                       asp::MapprojOptions const & opt,
                       // Outputs
                       BBox2 & cam_box, GeoReference & target_georef,
-                      int & outCols, int & outRows) {
+                      int & out_width, int & out_height) {
 
   // Find the camera bbox and the target resolution unless user-supplied.
   // - This call returns the bounding box of the camera view on the ground.
@@ -290,7 +290,7 @@ void calc_target_geom(// Inputs
   if (opt.target_projwin == BBox2() || calc_target_res) {
     try {
       cam_box = camera_bbox(dem, dem_georef, target_georef, camera_model,
-                            image_size.x(), image_size.y(), auto_res, quick);
+                            input_size.x(), input_size.y(), auto_res, quick);
     } catch (std::exception const& e) {
       vw_throw(ArgumentErr()
                 << e.what() << "\n"
@@ -306,28 +306,28 @@ void calc_target_geom(// Inputs
     cam_box = asp::occlusionEstim(cam_box, dem, dem_georef, target_georef, camera_model);
 
   // Use auto-calculated ground resolution if that option was selected
-  double current_resolution;
+  double out_gsd;
   if (calc_target_res) {
-    current_resolution = auto_res;
+    out_gsd = auto_res;
   } else {
     // Set the resolution from input options
     if (target_georef.is_projected()) {
-      current_resolution = opt.mpp; // Use units of meters
+      out_gsd = opt.mpp; // Use units of meters
     } else { // Not projected, GDC coordinates only.
       // Use units of degrees. Lat/lon degrees are different so, this should be avoided.
-      current_resolution = 1/opt.ppd;
+      out_gsd = 1/opt.ppd;
     }
   }
 
   // Important sanity checks
-  if (current_resolution < 0.001 * auto_res)
+  if (out_gsd < 0.001 * auto_res)
         vw::vw_throw(vw::ArgumentErr() 
           << "The user-set grid size (option --tr) is so small that likely it is in degrees, "
           << "while meters are expected.\n");
   // For a lesser discrepancy, just print a warning.
-  if (current_resolution < 0.1 * auto_res)
+  if (out_gsd < 0.1 * auto_res)
     vw_out(vw::WarningMessage) 
-          << "The user-provided grid size (--tr) is " << current_resolution << ", "
+          << "The user-provided grid size (--tr) is " << out_gsd << ", "
           << "which is smaller than the auto-estimated grid size of " 
           << auto_res << ". Likely the resulting mapprojected image will not be accurate.\n";
 
@@ -348,14 +348,14 @@ void calc_target_geom(// Inputs
   // tolerates float noise without overshooting by a grid step. With
   // --gdal-tap, min and max stay as pixel edges, so use floor/ceil snap.
   if (!opt.gdal_tap) {
-    vw::Vector2 half(0.5 * current_resolution, 0.5 * current_resolution);
+    vw::Vector2 half(0.5 * out_gsd, 0.5 * out_gsd);
     cam_box.min() += half;
     cam_box.max() -= half;
-    double s = current_resolution;
+    double s = out_gsd;
     cam_box.min() = s * round(cam_box.min() / s);
     cam_box.max() = s * round(cam_box.max() / s);
   } else {
-    asp::snapBBox2ToGrid(cam_box, current_resolution);
+    asp::snapBBox2ToGrid(cam_box, out_gsd);
   }
 
   // Compute output image dimensions directly from the snapped extent.
@@ -363,10 +363,10 @@ void calc_target_geom(// Inputs
   // so +1 to include both endpoints. With --gdal-tap, min and max are pixel
   // edges, so the count is (max - min) / res with no +1.
   int endpointAdj = opt.gdal_tap ? 0 : 1;
-  outCols = (int)round((cam_box.max().x() - cam_box.min().x()) / current_resolution)
-            + endpointAdj;
-  outRows = (int)round((cam_box.max().y() - cam_box.min().y()) / current_resolution)
-            + endpointAdj;
+  out_width  = (int)round((cam_box.max().x() - cam_box.min().x()) / out_gsd)
+               + endpointAdj;
+  out_height = (int)round((cam_box.max().y() - cam_box.min().y()) / out_gsd)
+               + endpointAdj;
 
   // Set the geotransform. Pixel centers are at integer multiples of the grid
   // size (PixelAsArea convention). The GDAL geotransform origin is the upper-left
@@ -374,13 +374,13 @@ void calc_target_geom(// Inputs
   double delta = 0.0;
   if (target_georef.pixel_interpretation() == GeoReference::PixelAsArea &&
       !opt.gdal_tap)
-    delta = 0.5 * current_resolution;
+    delta = 0.5 * out_gsd;
 
   Matrix3x3 T = target_georef.transform();
   // Check polarity before overwriting T(0,0)
   bool x_flipped = (T(0, 0) < 0);
-  T(0,0) = current_resolution;
-  T(1,1) = -current_resolution;
+  T(0,0) = out_gsd;
+  T(1,1) = -out_gsd;
   if (x_flipped)
     T(0,2) = cam_box.max().x() + delta;
   else
@@ -389,7 +389,7 @@ void calc_target_geom(// Inputs
   target_georef.set_transform(T);
 
   // cam_box stays as the snapped projected extent (pixel-center grid).
-  // Downstream code uses outCols/outRows for image dimensions.
+  // Downstream code uses out_width/out_height for image dimensions.
 
   return;
 }
@@ -397,7 +397,7 @@ void calc_target_geom(// Inputs
 // Automatic projection determination
 void calcAutoProj(GeoReference const& dem_georef,
                   vw::CamPtr camera_model,
-                  Vector2i const& image_size,
+                  Vector2i const& input_size,
                   bool proj_on_datum,
                   vw::ImageViewRef<DemPixelT> const& dem,
                   GeoReference& target_georef) {
@@ -407,7 +407,7 @@ void calcAutoProj(GeoReference const& dem_georef,
   std::vector<vw::Vector3> *coords = NULL;
   int num_samples = 100; // enough for projection center determination
   BBox2 cam_box = camera_bbox(dem, dem_georef, target_georef, camera_model,
-                    image_size.x(), image_size.y(), auto_res, quick, coords, num_samples);
+                    input_size.x(), input_size.y(), auto_res, quick, coords, num_samples);
   
   BBox2 ll_box = target_georef.point_to_lonlat_bbox(cam_box);
   if (ll_box.empty())
@@ -522,7 +522,7 @@ int main(int argc, char* argv[]) {
     }
     // Finished setting up the datum
 
-    Vector2i image_size = vw::file_image_size(opt.image_file);
+    Vector2i input_size = vw::file_image_size(opt.image_file);
 
     // Read projection. Work out output bounding box in points using original camera model.
     GeoReference target_georef = dem_georef;
@@ -530,7 +530,7 @@ int main(int argc, char* argv[]) {
     if ((opt.target_srs_string.empty() && !target_georef.is_projected()) ||
         boost::to_lower_copy(opt.target_srs_string) == "auto") {
        // Automatic projection determination
-       calcAutoProj(dem_georef, opt.camera_model, image_size, proj_on_datum, dem, 
+       calcAutoProj(dem_georef, opt.camera_model, input_size, proj_on_datum, dem, 
                     target_georef); // output
     } else if (!opt.target_srs_string.empty()) {
       // Use specified proj4 string for the output georeference
@@ -572,37 +572,38 @@ int main(int argc, char* argv[]) {
     BBox2 cam_box;
     // Output image dimensions. The full image is never realized in memory
     // because it is written in tiles.
-    int outCols = 0, outRows = 0;
+    int out_width = 0, out_height = 0;
     calc_target_geom(// Inputs
-                     calc_target_res, image_size, opt.camera_model,
+                     calc_target_res, input_size, opt.camera_model,
                      dem, dem_georef, proj_on_datum, opt,
                      // Outputs
-                     cam_box, target_georef, outCols, outRows);
+                     cam_box, target_georef, out_width, out_height);
+    Vector2i out_size(out_width, out_height);
 
     // Set a high precision, as the numbers can come out big for UTM
     vw_out() << std::setprecision(17) << "Projected space bounding box: " << cam_box << "\n";
 
     // Shrink output image BB if an output image BB was passed in
-    GeoReference crop_georef = target_georef;
-    BBox2i crop_bbox(0, 0, outCols, outRows);
+    GeoReference out_georef = target_georef;
+    BBox2i crop_bbox(0, 0, out_size.x(), out_size.y());
     if (opt.target_pixelwin != BBox2()) {
       // Replace with passed-in bounding box
       crop_bbox = opt.target_pixelwin;
 
       // Update output georeference to match the reduced image size
-      crop_georef = vw::cartography::crop(target_georef, crop_bbox);
+      out_georef = vw::cartography::crop(target_georef, crop_bbox);
     }
 
     // Print an explanation for a potential problem.
-    if (outCols <= 0 || outRows <= 0)
+    if (out_size.x() <= 0 || out_size.y() <= 0)
       vw_throw(ArgumentErr() << "Computed output image size is not positive. "
-                << "This can happen if the projection is in meters while the "
-                << "grid size is either in degrees or too large for the given input.\n");
+                             << "This can happen if the projection is in meters while the "
+                             << "grid size is either in degrees or too large for the given input.\n");
 
     // Form the lon-lat bounding box of the output image. This helps with
     // geotransform operations and should be done any time a georef is modified.
-    BBox2 image_bbox(0, 0, outCols, outRows);
-    crop_georef.ll_box_from_pix_box(image_bbox);
+    BBox2 image_bbox(0, 0, out_size.x(), out_size.y());
+    out_georef.ll_box_from_pix_box(image_bbox);
 
     if (opt.query_projection) {
 
@@ -614,7 +615,7 @@ int main(int argc, char* argv[]) {
         if (!ofs.good())
           vw_throw(ArgumentErr() << "Failed to open for writing: "
                    << wkt_file << "\n");
-        ofs << crop_georef.get_wkt() << "\n";
+        ofs << out_georef.get_wkt() << "\n";
         ofs.close();
       }
 
@@ -628,14 +629,14 @@ int main(int argc, char* argv[]) {
       // The comma separator must be in sync with the Python side.
       vw_out() << std::setprecision(17)
                << "Query results:\n"
-               << "image_width," << outCols << "\n"
-               << "image_height," << outRows << "\n"
-               << "pixel_size," << crop_georef.transform()(0, 0) << "\n"
-               << "proj_box_xmin," << cam_box.min().x() << "\n"
-               << "proj_box_ymin," << cam_box.min().y() << "\n"
-               << "proj_box_xmax," << cam_box.max().x() << "\n"
-               << "proj_box_ymax," << cam_box.max().y() << "\n"
-               << "model_occlusion," << (occluded_corner ? 1 : 0) << "\n";
+               << "image_width,"      << out_size.x() << "\n"
+               << "image_height,"     << out_size.y() << "\n"
+               << "pixel_size,"       << out_georef.transform()(0, 0) << "\n"
+               << "proj_box_xmin,"    << cam_box.min().x() << "\n"
+               << "proj_box_ymin,"    << cam_box.min().y() << "\n"
+               << "proj_box_xmax,"    << cam_box.max().x() << "\n"
+               << "proj_box_ymax,"    << cam_box.max().y() << "\n"
+               << "model_occlusion,"  << (occluded_corner ? 1 : 0) << "\n";
       if (opt.write_wkt)
         vw_out() << "projection_wkt_file," << wkt_file << "\n";
 
@@ -658,8 +659,8 @@ int main(int argc, char* argv[]) {
       opt.camera_model = boost::make_shared<asp::OcclusionCam>(opt.camera_model);
 
     // Project the image depending on image format.
-    project_image(opt, dem_georef, target_georef, crop_georef, image_size,
-                  outCols, outRows, crop_bbox);
+    project_image(opt, dem_georef, target_georef, out_georef,
+                  input_size, out_size, crop_bbox);
 
   } ASP_STANDARD_CATCHES;
 

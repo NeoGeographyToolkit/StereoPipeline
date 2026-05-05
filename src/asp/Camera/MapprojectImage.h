@@ -53,10 +53,11 @@ struct MapprojOptions: vw::GdalWriteOptions {
 // Project the image depending on image format.
 void project_image(asp::MapprojOptions & opt,
                    vw::cartography::GeoReference const& dem_georef,
-                   vw::cartography::GeoReference const& target_georef, vw::cartography::GeoReference const& croppedGeoRef,
-                   vw::Vector2i const& image_size,
-                   int virtual_image_width, int virtual_image_height,
-                   vw::BBox2i const& croppedImageBB);
+                   vw::cartography::GeoReference const& target_georef,
+                   vw::cartography::GeoReference const& out_georef,
+                   vw::Vector2i const& input_size,
+                   vw::Vector2i const& out_size,
+                   vw::BBox2i const& out_bbox);
 
 // DEM pixel type used by mapproject's visibility helpers. Matches the local
 // typedef in mapproject_single.cc so callers can pass the same view.

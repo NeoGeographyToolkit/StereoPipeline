@@ -350,9 +350,9 @@ void write_parallel_type_multichannel(std::string              const& filename,
 /// only caller uses float).
 template <class Map2CamTransT>
 void project_image_nodata(asp::MapprojOptions & opt,
-                          GeoReference  const& croppedGeoRef,
-                          Vector2i      const& virtual_image_size,
-                          BBox2i        const& croppedImageBB,
+                          GeoReference  const& out_georef,
+                          Vector2i      const& out_size,
+                          BBox2i        const& out_bbox,
                           Map2CamTransT const& transform) {
 
     typedef PixelMask<float> ImageMaskPixelT;
@@ -396,13 +396,13 @@ void project_image_nodata(asp::MapprojOptions & opt,
         crop(apply_mask
               (transform_nodata(masked_input,
                                 transform,
-                                virtual_image_size[0],
-                                virtual_image_size[1],
+                                out_size[0],
+                                out_size[1],
                                 ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
                                 NearestPixelInterpolation(), nodata_mask),
               opt.nodata_value),
-              croppedImageBB),
-        croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+              out_bbox),
+        out_georef, has_img_nodata, opt.nodata_value, opt,
         TerminalProgressCallback("",""));
     } else {
       write_parallel_type
@@ -410,13 +410,13 @@ void project_image_nodata(asp::MapprojOptions & opt,
         crop(apply_mask
               (transform_nodata(masked_input,
                                 transform,
-                                virtual_image_size[0],
-                                virtual_image_size[1],
+                                out_size[0],
+                                out_size[1],
                                 ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
                                 BicubicInterpolation(), nodata_mask),
               opt.nodata_value),
-              croppedImageBB),
-        croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+              out_bbox),
+        out_georef, has_img_nodata, opt.nodata_value, opt,
         TerminalProgressCallback("",""));
     }
 }
@@ -429,9 +429,9 @@ void project_image_nodata(asp::MapprojOptions & opt,
 template <class Map2CamTransT>
 void project_image_alpha(asp::MapprojOptions & opt,
                          ImageViewRef<PixelRGBA<float32>> const& input_image,
-                         GeoReference const& croppedGeoRef,
-                         Vector2i     const& virtual_image_size,
-                         BBox2i       const& croppedImageBB,
+                         GeoReference const& out_georef,
+                         Vector2i     const& out_size,
+                         BBox2i       const& out_bbox,
                          Map2CamTransT const& transform) {
 
     const bool has_img_nodata = false;
@@ -442,24 +442,24 @@ void project_image_alpha(asp::MapprojOptions & opt,
         (opt.output_file,
         crop(transform_nodata(input_image,
                               transform,
-                              virtual_image_size[0],
-                              virtual_image_size[1],
+                              out_size[0],
+                              out_size[1],
                               ConstantEdgeExtension(),
                               NearestPixelInterpolation(), transparent_pixel),
-              croppedImageBB),
-        croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+              out_bbox),
+        out_georef, has_img_nodata, opt.nodata_value, opt,
         TerminalProgressCallback("",""));
     } else {
       write_parallel_type_multichannel
         (opt.output_file,
         crop(transform_nodata(input_image,
                               transform,
-                              virtual_image_size[0],
-                              virtual_image_size[1],
+                              out_size[0],
+                              out_size[1],
                               ConstantEdgeExtension(),
                               BicubicInterpolation(), transparent_pixel),
-              croppedImageBB),
-        croppedGeoRef, has_img_nodata, opt.nodata_value, opt,
+              out_bbox),
+        out_georef, has_img_nodata, opt.nodata_value, opt,
         TerminalProgressCallback("",""));
     }
 }
@@ -471,27 +471,27 @@ void project_image_alpha(asp::MapprojOptions & opt,
 void project_image_nodata_pick_transform(asp::MapprojOptions & opt,
                           GeoReference const& dem_georef,
                           GeoReference const& target_georef,
-                          GeoReference const& croppedGeoRef,
-                          Vector2i     const& image_size,
-                          Vector2i     const& virtual_image_size,
-                          BBox2i       const& croppedImageBB,
+                          GeoReference const& out_georef,
+                          Vector2i     const& input_size,
+                          Vector2i     const& out_size,
+                          BBox2i       const& out_bbox,
                           vw::CamPtr const& camera_model) {
   const bool call_from_mapproject = true;
   if (fs::path(opt.dem_file).extension() != "") {
     // A DEM file was provided
-    return project_image_nodata(opt, croppedGeoRef,
-                                virtual_image_size, croppedImageBB,
+    return project_image_nodata(opt, out_georef,
+                                out_size, out_bbox,
                                 Map2CamTrans(camera_model.get(), target_georef,
-                                             dem_georef, opt.dem_file, image_size,
+                                             dem_georef, opt.dem_file, input_size,
                                              call_from_mapproject,
                                              opt.nearest_neighbor));
   } else {
     // A constant datum elevation was provided
-    return project_image_nodata(opt, croppedGeoRef,
-                                virtual_image_size, croppedImageBB,
+    return project_image_nodata(opt, out_georef,
+                                out_size, out_bbox,
                                 Datum2CamTrans(camera_model.get(), target_georef,
                                                dem_georef, opt.datum_offset,
-                                               image_size, call_from_mapproject,
+                                               input_size, call_from_mapproject,
                                                opt.nearest_neighbor));
   }
 }
@@ -500,43 +500,45 @@ void project_image_alpha_pick_transform(asp::MapprojOptions & opt,
                                         ImageViewRef<PixelRGBA<float32>> const& input_image,
                                         GeoReference const& dem_georef,
                                         GeoReference const& target_georef,
-                                        GeoReference const& croppedGeoRef,
-                                        Vector2i     const& image_size,
-                                        Vector2i     const& virtual_image_size,
-                                        BBox2i       const& croppedImageBB,
+                                        GeoReference const& out_georef,
+                                        Vector2i     const& input_size,
+                                        Vector2i     const& out_size,
+                                        BBox2i       const& out_bbox,
                                         vw::CamPtr const&
                                         camera_model) {
 
   const bool call_from_mapproject = true;
   if (fs::path(opt.dem_file).extension() != "") {
     // A DEM file was provided
-    return project_image_alpha(opt, input_image, croppedGeoRef,
-                               virtual_image_size, croppedImageBB,
+    return project_image_alpha(opt, input_image, out_georef,
+                               out_size, out_bbox,
                                Map2CamTrans(camera_model.get(), target_georef,
-                                            dem_georef, opt.dem_file, image_size,
+                                            dem_georef, opt.dem_file, input_size,
                                             call_from_mapproject,
                                             opt.nearest_neighbor));
   } else {
     // A constant datum elevation was provided
-    return project_image_alpha(opt, input_image, croppedGeoRef,
-                               virtual_image_size, croppedImageBB,
+    return project_image_alpha(opt, input_image, out_georef,
+                               out_size, out_bbox,
                                Datum2CamTrans(camera_model.get(), target_georef,
                                               dem_georef, opt.datum_offset,
-                                              image_size, call_from_mapproject,
+                                              input_size, call_from_mapproject,
                                               opt.nearest_neighbor));
   }
 }
 
 // Project the image depending on image format.
-void project_image(asp::MapprojOptions & opt, GeoReference const& dem_georef,
-                   GeoReference const& target_georef, GeoReference const& croppedGeoRef,
-                   Vector2i const& image_size, 
-                   int virtual_image_width, int virtual_image_height,
-                   BBox2i const& croppedImageBB) {
+void project_image(asp::MapprojOptions & opt,
+                   GeoReference const& dem_georef,
+                   GeoReference const& target_georef,
+                   GeoReference const& out_georef,
+                   Vector2i const& input_size,
+                   Vector2i const& out_size,
+                   BBox2i const& out_bbox) {
 
   // Prepare output directory
   vw::create_out_dir(opt.output_file);
-  
+
   // Determine the pixel type of the input image
   boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(opt.image_file);
   ImageFormat image_fmt = image_rsrc->format();
@@ -571,21 +573,19 @@ void project_image(asp::MapprojOptions & opt, GeoReference const& dem_georef,
     }
 
     project_image_alpha_pick_transform(opt, float_image, dem_georef,
-      target_georef, croppedGeoRef, image_size,
-      Vector2i(virtual_image_width, virtual_image_height),
-      croppedImageBB, opt.camera_model);
-    
+                                       target_georef, out_georef, input_size,
+                                       out_size, out_bbox, opt.camera_model);
+
   } else {
     // If the input image is not RGB, only single channel images are supported.
     if (num_input_channels != 1 || image_fmt.planes != 1)
       //vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
       vw_out() << "Detected multi-band image. Only the first band will be used. The pixels will be interpreted as float.\n";
     // Read as float with rescaling disabled, so integer values are preserved.
-    project_image_nodata_pick_transform(opt, dem_georef, target_georef, croppedGeoRef,
-                                        image_size, 
-                          Vector2i(virtual_image_width, virtual_image_height),
-                          croppedImageBB, opt.camera_model);
-  } 
+    project_image_nodata_pick_transform(opt, dem_georef, target_georef, out_georef,
+                                        input_size, out_size, out_bbox,
+                                        opt.camera_model);
+  }
   // Done map projecting
 }
 
