@@ -428,16 +428,31 @@ def main(argsIn):
     # When mapproject_single sees both --t_projwin and --tr it skips the
     # full-DEM camera_bbox call. Drop any user-supplied values first so we
     # do not pass them twice.
+    #
+    # Query-projection reports proj_box_* AFTER the snap pass in
+    # calc_target_geom. In default (non-gdal-tap) mode, that snap converts
+    # pixel-edge bounds to pixel-center bounds. The per-tile mapproject_single
+    # snaps again, expecting edges, so passing centers back in unchanged
+    # would shift the grid by half a pixel. Convert centers back to edges
+    # by widening the bbox by half a pixel on each side. In gdal-tap mode
+    # the snap (snapBBox2ToGrid) keeps bounds at edges already and is
+    # idempotent, so no widening is needed.
     asp_cmd_utils.wipe_option(options.extraArgs, '--tr',         1)
     asp_cmd_utils.wipe_option(options.extraArgs, '--mpp',        1)
     asp_cmd_utils.wipe_option(options.extraArgs, '--ppd',        1)
     asp_cmd_utils.wipe_option(options.extraArgs, '--t_projwin',  4)
+
+    pixel_size = float(querySettings['pixel_size'][0])
+    gdal_tap   = ('--gdal-tap' in options.extraArgs)
+    half       = 0.0 if gdal_tap else 0.5 * pixel_size
+    xmin = float(querySettings['proj_box_xmin'][0]) - half
+    ymin = float(querySettings['proj_box_ymin'][0]) - half
+    xmax = float(querySettings['proj_box_xmax'][0]) + half
+    ymax = float(querySettings['proj_box_ymax'][0]) + half
+
     options.extraArgs += ['--tr', querySettings['pixel_size'][0]]
     options.extraArgs += ['--t_projwin',
-                          querySettings['proj_box_xmin'][0],
-                          querySettings['proj_box_ymin'][0],
-                          querySettings['proj_box_xmax'][0],
-                          querySettings['proj_box_ymax'][0]]
+                          repr(xmin), repr(ymin), repr(xmax), repr(ymax)]
 
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)
