@@ -461,8 +461,6 @@ def main(argsIn):
     if 'model_occlusion' in querySettings and \
        querySettings['model_occlusion'][0] == '1':
         options.extraArgs += ['--model-occlusion']
-        print('Per-pixel back-of-body occlusion check enabled '
-              '(corner test detected occlusion).')
 
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)

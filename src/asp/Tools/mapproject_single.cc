@@ -99,12 +99,8 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     ("nearest-neighbor", po::bool_switch(&opt.nearest_neighbor)->default_value(false),
      "Use nearest neighbor interpolation.  Useful for classification images.")
     ("model-occlusion", po::bool_switch(&opt.model_occlusion)->default_value(false),
-     "Reject ground points whose camera projection is back-of-body occluded "
-     "by adding an explicit visibility test in the per-pixel rasterization "
-     "loop. Costs an extra pixel_to_vector + dot product per output pixel. "
-     "Set automatically by the parallel mapproject wrapper when the "
-     "query-projection 4-corner test detects occlusion in the camera "
-     "bounding box.")
+     "Model occlusion by the planetary body, by comparing the local "
+     "vertical direction with the ray from the camera.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
      "Do not write metadata information in the geoheader. See the doc for more info.")
