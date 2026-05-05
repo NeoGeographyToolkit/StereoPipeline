@@ -355,16 +355,13 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
       bool treat_nodata_as_zero = false;
       bool has_intersection = false;
       double height_error_tol = 0.001; // 1 mm should be enough
-      double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
-      double max_rel_tol      = 1e-14;
-      int num_max_iter        = 25;   // Using many iterations can be very slow
       int icam = cnet[ipt][m].image_id();
       Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
         (camera_models[icam]->camera_center(observation),
          camera_models[icam]->pixel_to_vector(observation),
          vw::pixel_cast<vw::PixelMask<float>>(masked_dem),
          dem_georef, treat_nodata_as_zero, has_intersection,
-         height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+         height_error_tol, xyz_guess);
 
       if (!has_intersection)
         continue;

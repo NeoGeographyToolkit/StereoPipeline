@@ -112,14 +112,11 @@ void updateTriPtsFromDem(std::vector<rig::CameraParameters> const& cam_params,
       bool treat_nodata_as_zero = false;
       bool has_intersection = false;
       double height_error_tol = 0.001; // 1 mm
-      double max_abs_tol      = 1e-14;
-      double max_rel_tol      = 1e-14;
-      int num_max_iter        = 25;
       vw::Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
         (cam_ctr_vw, ray_dir_vw,
          vw::pixel_cast<vw::PixelMask<float>>(masked_dem),
          dem_georef, treat_nodata_as_zero, has_intersection,
-         height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+         height_error_tol, xyz_guess);
 
       if (!has_intersection)
         continue;

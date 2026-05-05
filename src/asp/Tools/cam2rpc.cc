@@ -253,24 +253,19 @@ void sample_dem_perim_diag(BBox2 const& image_box,
     // Use xyz_guess as initial guess and overwrite it with the new value
     bool treat_nodata_as_zero = false;
     bool has_intersection = false;
-    double max_abs_tol = 1e-14;
-    double max_rel_tol = max_abs_tol;
     double dem_height_error_tol = 1e-3; // 1 mm
-    int num_max_iter = 100;
     vw::Vector3 xyz;
     try {
-      
+
       // Intersect with the DEM
       xyz = vw::cartography::
-        camera_pixel_to_dem_xyz(cam->camera_center(pix), 
+        camera_pixel_to_dem_xyz(cam->camera_center(pix),
                                 cam->pixel_to_vector(pix),
                                 dem,
-                                dem_geo, 
+                                dem_geo,
                                 treat_nodata_as_zero,
-                                has_intersection, 
-                                dem_height_error_tol, 
-                                max_abs_tol, max_rel_tol, 
-                                num_max_iter, 
+                                has_intersection,
+                                dem_height_error_tol,
                                 xyz_guess, 
                                 height_guess);
     } catch (...) {

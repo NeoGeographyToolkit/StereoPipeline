@@ -62,16 +62,12 @@ void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
   bool treat_nodata_as_zero = false;
   bool has_intersection = false;
   double dem_height_error_tol = 1e-3; // 1 mm
-  double max_abs_tol = std::min(dem_height_error_tol, 1e-14);
-  double max_rel_tol = max_abs_tol;
-  int num_max_iter = 100;
   vw::Vector3 xyz_guess(0, 0, 0);
   vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
     (cam_ctr, cam_dir, masked_dem,
       dem_georef, treat_nodata_as_zero,
-      has_intersection, dem_height_error_tol, 
-      max_abs_tol, max_rel_tol, 
-      num_max_iter, xyz_guess, height_guess);
+      has_intersection, dem_height_error_tol,
+      xyz_guess, height_guess);
   
   double nan = std::numeric_limits<double>::quiet_NaN();
   vw::Vector3 llh(nan, nan, nan);

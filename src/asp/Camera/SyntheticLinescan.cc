@@ -102,18 +102,14 @@ bool intersectDemWithRay(SatSimOptions const& opt,
     // Find the intersection of this ray with the ground
     bool treat_nodata_as_zero = false;
     bool has_intersection = false;
-    double max_abs_tol = std::min(opt.dem_height_error_tol, 1e-14);
-    double max_rel_tol = max_abs_tol;
-    int num_max_iter = 100;
 
-    vw::Vector3 local_xyz 
+    vw::Vector3 local_xyz
       = vw::cartography::camera_pixel_to_dem_xyz
-        (cam_ctr, cam_dir, dem, dem_georef, treat_nodata_as_zero, has_intersection, 
-        // Below we use a prudent approach. Try to make the solver work
-        // hard. It is not clear if this is needed.
-        std::min(opt.dem_height_error_tol, 1e-8),
-        max_abs_tol, max_rel_tol, 
-        num_max_iter, xyz, height_guess);
+        (cam_ctr, cam_dir, dem, dem_georef, treat_nodata_as_zero, has_intersection,
+         // Below we use a prudent approach. Try to make the solver work
+         // hard. It is not clear if this is needed.
+         std::min(opt.dem_height_error_tol, 1e-8),
+         xyz, height_guess);
 
     if (!has_intersection)
       return false;

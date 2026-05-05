@@ -809,15 +809,11 @@ void dem_or_datum_intersect(Options const& opt, vw::cartography::GeoReference co
   bool treat_nodata_as_zero = false;
   bool has_intersection = false;
   double height_error_tol = 0.01; // error in DEM height, in meters
-  double max_abs_tol = 1e-20; // this will not be reached due to height_error_tol
-  double max_rel_tol = 1e-20;
-  int num_max_iter   = 100;
   Vector3 xyz_guess  = Vector3();
 
   xyz = vw::cartography::camera_pixel_to_dem_xyz(camera_ctr, camera_vec,
                                                  interp_dem, geo, treat_nodata_as_zero,
                                                  has_intersection, height_error_tol,
-                                                 max_abs_tol, max_rel_tol, num_max_iter,
                                                  xyz_guess);
 
   // If we could not intersect the DEM, use the datum to estimate the height

@@ -809,9 +809,6 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     bool treat_nodata_as_zero = false;
     bool has_intersection = false;
     double height_error_tol = 0.001; // 1 mm should be enough
-    double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
-    double max_rel_tol      = 1e-14;
-    int num_max_iter        = 50;   // Using many iterations can be very slow
     Vector3 xyz_guess;
 
     Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
@@ -820,7 +817,7 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
        optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
        vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef,
        treat_nodata_as_zero, has_intersection,
-       height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+       height_error_tol, xyz_guess);
     if (!has_intersection)
       continue;
 
@@ -832,7 +829,7 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
        optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
        vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef,
        treat_nodata_as_zero, has_intersection,
-       height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+       height_error_tol, xyz_guess);
     if (!has_intersection)
       continue;
 

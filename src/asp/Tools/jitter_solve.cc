@@ -763,16 +763,13 @@ void calcAnchorPoints(Options                         const & opt,
         bool treat_nodata_as_zero = false;
         bool has_intersection = false;
         double height_error_tol = 0.001; // 1 mm should be enough
-        double max_abs_tol      = 1e-14; // abs cost fun change b/w iterations
-        double max_rel_tol      = 1e-14;
-        int num_max_iter        = 50;   // Using many iterations can be very slow
 
         Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
           (opt.camera_models[icam]->camera_center(pix),
            opt.camera_models[icam]->pixel_to_vector(pix),
            vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem), anchor_georef,
            treat_nodata_as_zero, has_intersection,
-           height_error_tol, max_abs_tol, max_rel_tol, num_max_iter, xyz_guess);
+           height_error_tol, xyz_guess);
 
         if (!has_intersection || dem_xyz == Vector3())
           continue;

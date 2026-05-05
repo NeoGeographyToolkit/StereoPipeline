@@ -83,17 +83,8 @@ IsisInterfaceFrame::pixel_to_vector(Vector2 const& px) const {
   m_focalmap->SetDetector(m_detectmap->DetectorSample(), m_detectmap->DetectorLine());
   m_distortmap->SetFocalPlane(m_focalmap->FocalPlaneX(), m_focalmap->FocalPlaneY());
 
-  // Read the undistorted focal-plane direction. Normalize, rotate to the
-  // J2000 inertial frame, then to the target body frame, then return.
-  // This used to use a VectorProxy that aliased the std::vector's buffer,
-  // but reassigning the std::vector (look = J2000Vector(look)) can swap
-  // the buffer underneath, leaving the proxy pointing at freed memory.
-  // That made camera_bbox non-deterministic on this scene: about 1/3 of
-  // runs returned a partially-uninitialized Vector3 with subnormal
-  // garbage in two components, which propagated into datum_intersection
-  // and changed which perimeter samples succeeded. Now we read components
-  // out of the std::vector at the end and construct a fresh Vector3, so
-  // there is no aliasing of a buffer that gets reassigned.
+  // Read the undistorted focal-plane direction, normalize, rotate to
+  // J2000, then to the target body frame, return.
   std::vector<double> look(3);
   look[0] = m_distortmap->UndistortedFocalPlaneX();
   look[1] = m_distortmap->UndistortedFocalPlaneY();

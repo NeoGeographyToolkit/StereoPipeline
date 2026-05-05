@@ -73,16 +73,12 @@ lowResPixToDemXyz(Vector2 const& left_lowres_pix,
   }
   
   double height_error_tol = 1e-3; // abs height error
-  double max_abs_tol      = 1e-14; // abs cost function change
-  double max_rel_tol      = 1e-14; // rel cost function change
-  int    num_max_iter     = 50;
   bool   treat_nodata_as_zero = false;
   xyz = camera_pixel_to_dem_xyz(left_camera_ctr, left_camera_vec,
                                 dem, dem_georef,
                                 treat_nodata_as_zero,
                                 has_intersection,
-                                height_error_tol, max_abs_tol,
-                                max_rel_tol, num_max_iter,
+                                height_error_tol,
                                 prev_xyz, height_guess);
   if (!has_intersection || xyz == Vector3()) 
     return false;
