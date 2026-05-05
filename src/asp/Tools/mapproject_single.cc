@@ -279,10 +279,10 @@ void calc_target_geom(// Inputs
   bool quick = proj_on_datum; // Quick mode when no actual DEM
 
   // Skip the costly camera_bbox call when both --t_projwin and --tr are
-  // supplied. The projected bbox comes from --t_projwin and the resolution
-  // from --tr (or --mpp/--ppd). The parallel mapproject wrapper relies on
-  // this so that per-tile invocations do not redo camera_bbox over the
-  // whole DEM.
+  // supplied. The projected bbox comes from --t_projwin (set by the
+  // override block further down) and the resolution from --tr (or
+  // --mpp/--ppd). The parallel mapproject wrapper relies on this so
+  // that per-tile invocations do not redo camera_bbox over the whole DEM.
   if (opt.target_projwin == BBox2() || calc_target_res) {
     try {
       cam_box = camera_bbox(dem, dem_georef, target_georef, camera_model,
@@ -292,8 +292,6 @@ void calc_target_geom(// Inputs
                 << e.what() << "\n"
                 << "Check your inputs. Or try specifying --t_projwin and --tr values.\n");
     }
-  } else {
-    cam_box = opt.target_projwin; // line 317 override re-affirms this
   }
 
   // Shrink cam_box to exclude back-of-body occluded regions. Skip for the
