@@ -43,6 +43,168 @@ namespace asp {
 using namespace vw;
 using namespace vw::cartography;
 
+// ===== Per-pixel and bbox-level back-of-body occlusion helpers =====
+//
+// usgscsm's UsgsAstroFrameSensorModel::groundToImage is a pure perspective
+// divide with no body-occlusion test, so a far-side ground point can land
+// at an in-detector pixel whose actual line-of-sight hits the near-side
+// limb. The helpers below detect that case via a sign test on
+// dot_prod(xyz/|xyz|, ray) where ray = pixel_to_vector(point_to_pixel(xyz)).
+// For a visible point the camera ray points roughly inward, dot is
+// negative; for a back-of-body point the ray hits the near-side limb whose
+// outward direction lines up with the far-side xyz, dot is positive. A
+// small grazing margin is used in OcclusionAwareCameraModel so DEM noise
+// near the limb does not produce ghost-survivor pixels.
+
+// Reject when the camera ray is within this many degrees of grazing
+// (i.e., perpendicular to the local outward normal) at the ground point.
+// Anything in the band gets nodata. 1 degree corresponds to a dot-product
+// threshold of -sin(1 degree) = -0.0174524.
+static constexpr double OCCLUSION_GRAZING_DEG = 1.0;
+static constexpr double OCCLUSION_DOT_THRESH  = -0.01745240643728351;
+
+OcclusionAwareCameraModel::OcclusionAwareCameraModel(
+    boost::shared_ptr<vw::camera::CameraModel> inner)
+  : m_inner(inner) {}
+
+vw::Vector2 OcclusionAwareCameraModel::point_to_pixel(vw::Vector3 const& point) const {
+  vw::Vector2 pix = m_inner->point_to_pixel(point);
+  double n = vw::math::norm_2(point);
+  if (n > 0.0) {
+    vw::Vector3 ray = m_inner->pixel_to_vector(pix);
+    if (vw::math::dot_prod(point / n, ray) > OCCLUSION_DOT_THRESH)
+      vw::vw_throw(vw::camera::PointToPixelErr() << "Back-of-body occluded.");
+  }
+  return pix;
+}
+
+vw::Vector3 OcclusionAwareCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
+  return m_inner->pixel_to_vector(pix);
+}
+
+vw::Vector3 OcclusionAwareCameraModel::camera_center(vw::Vector2 const& pix) const {
+  return m_inner->camera_center(pix);
+}
+
+vw::Quat OcclusionAwareCameraModel::camera_pose(vw::Vector2 const& pix) const {
+  return m_inner->camera_pose(pix);
+}
+
+std::string OcclusionAwareCameraModel::type() const {
+  return m_inner->type();
+}
+
+bool isOccluded(vw::Vector2 const& proj_pt,
+                vw::ImageViewRef<MapprojDemPixel> const& dem,
+                vw::cartography::GeoReference const& dem_georef,
+                vw::cartography::GeoReference const& target_georef,
+                boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
+
+  Vector2 lonlat  = target_georef.point_to_lonlat(proj_pt);
+  Vector2 dem_pix = dem_georef.lonlat_to_pixel(lonlat);
+
+  if (dem_pix.x() < 0 || dem_pix.y() < 0 ||
+      dem_pix.x() > dem.cols() - 1 || dem_pix.y() > dem.rows() - 1)
+    return false; // outside DEM extent
+
+  auto interp_dem = interpolate(dem); // bilinear, constant edge extension
+  MapprojDemPixel h = interp_dem(dem_pix.x(), dem_pix.y());
+  if (!is_valid(h))
+    return false; // DEM nodata at this point
+
+  Vector3 xyz = dem_georef.datum().geodetic_to_cartesian
+                  (Vector3(lonlat[0], lonlat[1], h.child()));
+  if (xyz == Vector3())
+    return false;
+
+  Vector2 cam_pix;
+  try {
+    cam_pix = camera_model->point_to_pixel(xyz);
+  } catch (...) {
+    return false;
+  }
+
+  Vector3 ray;
+  try {
+    ray = camera_model->pixel_to_vector(cam_pix);
+  } catch (...) {
+    return false;
+  }
+
+  double n = norm_2(xyz);
+  if (n == 0.0)
+    return false;
+  return dot_prod(xyz / n, ray) > OCCLUSION_DOT_THRESH;
+}
+
+bool anyCornerOccluded(vw::BBox2 const& cam_box,
+                       vw::ImageViewRef<MapprojDemPixel> const& dem,
+                       vw::cartography::GeoReference const& dem_georef,
+                       vw::cartography::GeoReference const& target_georef,
+                       boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
+  if (cam_box.empty())
+    return false;
+  Vector2 corners[4] = {
+    cam_box.min(),
+    Vector2(cam_box.max().x(), cam_box.min().y()),
+    cam_box.max(),
+    Vector2(cam_box.min().x(), cam_box.max().y())
+  };
+  for (int i = 0; i < 4; i++) {
+    if (isOccluded(corners[i], dem, dem_georef, target_georef, camera_model))
+      return true;
+  }
+  return false;
+}
+
+vw::BBox2 estimUnoccludedBbox(vw::BBox2 const& cam_box,
+                              vw::ImageViewRef<MapprojDemPixel> const& dem,
+                              vw::cartography::GeoReference const& dem_georef,
+                              vw::cartography::GeoReference const& target_georef,
+                              boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
+
+  if (cam_box.empty())
+    return cam_box;
+
+  if (!anyCornerOccluded(cam_box, dem, dem_georef, target_georef, camera_model))
+    return cam_box;
+
+  vw_out() << "At least one corner of the camera bounding box is back-of-body "
+           << "occluded. Sampling edges to estimate an unoccluded sub-box.\n";
+
+  const int N = 100;
+  BBox2 unocc_box;
+  double xmin = cam_box.min().x();
+  double ymin = cam_box.min().y();
+  double xmax = cam_box.max().x();
+  double ymax = cam_box.max().y();
+
+  for (int i = 0; i < N; i++) {
+    double t = double(i) / double(N - 1);
+    double x = xmin + t * (xmax - xmin);
+    double y = ymin + t * (ymax - ymin);
+    Vector2 pts[4] = {
+      Vector2(x, ymin), Vector2(x, ymax),  // bottom and top edges
+      Vector2(xmin, y), Vector2(xmax, y)   // left and right edges
+    };
+    for (int k = 0; k < 4; k++) {
+      if (!isOccluded(pts[k], dem, dem_georef, target_georef, camera_model))
+        unocc_box.grow(pts[k]);
+    }
+  }
+
+  if (unocc_box.empty()) {
+    vw_out(WarningMessage)
+      << "No unoccluded sample found on the camera bounding box perimeter. "
+      << "Falling back to the original bbox.\n";
+    return cam_box;
+  }
+
+  vw_out() << "Estimated unoccluded camera bounding box: " << unocc_box
+           << " (was: " << cam_box << ")\n";
+  return unocc_box;
+}
+
 template <class ImageT>
 void write_parallel_cond(std::string              const& filename,
                          ImageViewBase<ImageT>    const& image,

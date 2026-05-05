@@ -25,6 +25,8 @@
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/PixelMask.h>
 
 #include <string>
 
@@ -49,12 +51,70 @@ struct MapprojOptions: vw::GdalWriteOptions {
 };
 
 // Project the image depending on image format.
-void project_image(asp::MapprojOptions & opt, 
+void project_image(asp::MapprojOptions & opt,
                    vw::cartography::GeoReference const& dem_georef,
                    vw::cartography::GeoReference const& target_georef, vw::cartography::GeoReference const& croppedGeoRef,
-                   vw::Vector2i const& image_size, 
+                   vw::Vector2i const& image_size,
                    int virtual_image_width, int virtual_image_height,
                    vw::BBox2i const& croppedImageBB);
+
+// DEM pixel type used by mapproject's visibility helpers. Matches the local
+// typedef in mapproject_single.cc so callers can pass the same view.
+typedef vw::PixelMask<float> MapprojDemPixel;
+
+// CameraModel wrapper that throws PointToPixelErr from point_to_pixel when
+// the ground point is back-of-body occluded (the camera ray landing at the
+// would-be pixel points outward from the body where the ground point sits).
+// Map2CamTrans (in VW) already turns that exception into a nodata pixel in
+// the output, so wrapping the camera is all that is needed to opt into
+// per-pixel occlusion rejection. Costs an extra pixel_to_vector + dot
+// product per output pixel that the camera was going to project.
+class OcclusionAwareCameraModel: public vw::camera::CameraModel {
+  boost::shared_ptr<vw::camera::CameraModel> m_inner;
+public:
+  explicit OcclusionAwareCameraModel(boost::shared_ptr<vw::camera::CameraModel> inner);
+
+  vw::Vector2 point_to_pixel (vw::Vector3 const& point) const override;
+  vw::Vector3 pixel_to_vector(vw::Vector2 const& pix)  const override;
+  vw::Vector3 camera_center  (vw::Vector2 const& pix)  const override;
+  vw::Quat    camera_pose    (vw::Vector2 const& pix)  const override;
+  std::string type           ()                        const override;
+};
+
+// Test whether a projected (x, y) point is occluded by the body when seen
+// by the camera. Looks up the DEM height (bilinear) at proj_pt, forms an
+// ECEF ground point, projects through the camera, back-projects the
+// resulting pixel, then checks whether the ray's direction points outward
+// from the body where the ground point sits. Returns false when the DEM
+// has no data, when projection fails, or when the ground point is
+// visible. Used by anyCornerOccluded() and estimUnoccludedBbox().
+bool isOccluded(vw::Vector2 const& proj_pt,
+                vw::ImageViewRef<MapprojDemPixel> const& dem,
+                vw::cartography::GeoReference const& dem_georef,
+                vw::cartography::GeoReference const& target_georef,
+                boost::shared_ptr<vw::camera::CameraModel> const& camera_model);
+
+// True if any of the four corners of cam_box is back-of-body occluded.
+// The query-projection phase emits this as model_occlusion,1/0 in its
+// structured output so the parallel mapproject wrapper can opt every
+// per-tile invocation into per-pixel occlusion rejection.
+bool anyCornerOccluded(vw::BBox2 const& cam_box,
+                       vw::ImageViewRef<MapprojDemPixel> const& dem,
+                       vw::cartography::GeoReference const& dem_georef,
+                       vw::cartography::GeoReference const& target_georef,
+                       boost::shared_ptr<vw::camera::CameraModel> const& camera_model);
+
+// Try to shrink cam_box to exclude regions where the camera's groundToImage
+// produces back-of-body ghost projections. If all four corners are visible
+// (the common case), returns cam_box unchanged with no work. Otherwise
+// samples the four edges densely and returns the bbox of unoccluded
+// samples. Conservative (always contained in cam_box). Falls back to
+// cam_box with a warning when no sample is unoccluded.
+vw::BBox2 estimUnoccludedBbox(vw::BBox2 const& cam_box,
+                              vw::ImageViewRef<MapprojDemPixel> const& dem,
+                              vw::cartography::GeoReference const& dem_georef,
+                              vw::cartography::GeoReference const& target_georef,
+                              boost::shared_ptr<vw::camera::CameraModel> const& camera_model);
 
 } // end namespace asp
 

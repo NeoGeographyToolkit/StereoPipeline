@@ -160,6 +160,13 @@ mapproject (:numref:`mapproject`):
     option, which uses the same per-pixel projection algorithm
     (:numref:`mapproj_isis`).
   * Consistently handle ISIS special pixels in ``.cub`` input images.
+  * Reject back-of-body ground points whose camera projection would otherwise
+    produce a mirrored copy of the visible disk past the planetary limb.
+    Per-pixel visibility check is enabled automatically when the projected
+    bounding box reaches into the body's far hemisphere.
+  * Skip the per-tile camera bounding-box recomputation in the parallel
+    wrapper, propagating the query-projection result via ``--t_projwin`` and
+    ``--tr`` to every tile invocation.
 
 Misc:
   * Greatly improved the speed of parsing WorldView and SPOT5 XML camera files.

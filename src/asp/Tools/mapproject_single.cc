@@ -258,189 +258,6 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
 
 }
 
-/// CameraModel wrapper that throws PointToPixelErr from point_to_pixel
-/// when the ground point is back-of-body occluded. Same dot-product test
-/// used by isOccluded() / estimUnoccludedBbox(): if the back-projected
-/// ray at the would-be pixel points outward from the body where xyz
-/// sits, it cannot actually see xyz - that pixel is showing the
-/// near-side limb instead. Wrapping the camera with this class is how
-/// mapproject opts into per-pixel occlusion rejection without touching
-/// VW's Map2CamTrans (which already handles point_to_pixel exceptions
-/// by writing nodata for the output pixel).
-class OcclusionAwareCameraModel: public vw::camera::CameraModel {
-  boost::shared_ptr<vw::camera::CameraModel> m_inner;
-public:
-  explicit OcclusionAwareCameraModel(boost::shared_ptr<vw::camera::CameraModel> inner)
-    : m_inner(inner) {}
-
-  vw::Vector2 point_to_pixel(vw::Vector3 const& point) const override {
-    vw::Vector2 pix = m_inner->point_to_pixel(point);
-    double n = vw::math::norm_2(point);
-    if (n > 0.0) {
-      vw::Vector3 ray = m_inner->pixel_to_vector(pix);
-      if (vw::math::dot_prod(point / n, ray) > 0.0)
-        vw::vw_throw(vw::camera::PointToPixelErr() << "Back-of-body occluded.");
-    }
-    return pix;
-  }
-
-  vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const override {
-    return m_inner->pixel_to_vector(pix);
-  }
-
-  vw::Vector3 camera_center(vw::Vector2 const& pix) const override {
-    return m_inner->camera_center(pix);
-  }
-
-  vw::Quat camera_pose(vw::Vector2 const& pix) const override {
-    return m_inner->camera_pose(pix);
-  }
-
-  std::string type() const override {
-    return m_inner->type();
-  }
-};
-
-/// Test whether a projected (x, y) point is occluded by the body when seen
-/// by the camera. Looks up the DEM height (bilinear), forms an ECEF point,
-/// projects into the camera, and checks whether the back-projected ray at
-/// that pixel points outward from the body where the ground point sits.
-///
-/// Geometric invariant: at any visible ground point, the camera is "above"
-/// the local outward direction, regardless of how steep the terrain is.
-/// Equivalently, the camera ray (camera->ground) at the imaged pixel is
-/// roughly aligned with -xyz/|xyz| (inward), so dot_prod(xyz/|xyz|, ray)
-/// is negative. For a back-of-body ground point, groundToImage's pure
-/// perspective divide may still produce an in-detector pixel; the ray
-/// from camera through that pixel actually hits the near-side limb,
-/// which sits in roughly the same outward direction as the far-side
-/// xyz, so dot is positive. That sign flip is the test.
-///
-/// If the DEM has no data at this lon/lat, or if the camera projection
-/// or back-projection fails, the point is treated as NOT occluded so the
-/// bbox is not shrunk on its account.
-bool isOccluded(vw::Vector2 const& proj_pt,
-                vw::ImageViewRef<DemPixelT> const& dem,
-                vw::cartography::GeoReference const& dem_georef,
-                vw::cartography::GeoReference const& target_georef,
-                boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
-
-  Vector2 lonlat = target_georef.point_to_lonlat(proj_pt);
-  Vector2 dem_pix = dem_georef.lonlat_to_pixel(lonlat);
-
-  if (dem_pix.x() < 0 || dem_pix.y() < 0 ||
-      dem_pix.x() > dem.cols() - 1 || dem_pix.y() > dem.rows() - 1)
-    return false; // outside DEM extent
-
-  auto interp_dem = interpolate(dem); // bilinear, constant edge extension
-  DemPixelT h = interp_dem(dem_pix.x(), dem_pix.y());
-  if (!is_valid(h))
-    return false; // DEM nodata at this point
-
-  Vector3 xyz = dem_georef.datum().geodetic_to_cartesian
-                  (Vector3(lonlat[0], lonlat[1], h.child()));
-  if (xyz == Vector3())
-    return false;
-
-  Vector2 cam_pix;
-  try {
-    cam_pix = camera_model->point_to_pixel(xyz);
-  } catch (...) {
-    return false;
-  }
-
-  Vector3 ray;
-  try {
-    ray = camera_model->pixel_to_vector(cam_pix);
-  } catch (...) {
-    return false;
-  }
-
-  double n = norm_2(xyz);
-  if (n == 0.0)
-    return false;
-  Vector3 outward = xyz / n;
-
-  return dot_prod(outward, ray) > 0.0;
-}
-
-/// True if any of the four corners of cam_box is back-of-body occluded.
-/// Cheap (4 isOccluded calls). Used both as the auto-trigger for
-/// per-pixel occlusion checking and as the gate for estimUnoccludedBbox.
-bool anyCornerOccluded(vw::BBox2 const& cam_box,
-                       vw::ImageViewRef<DemPixelT> const& dem,
-                       vw::cartography::GeoReference const& dem_georef,
-                       vw::cartography::GeoReference const& target_georef,
-                       boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
-  if (cam_box.empty())
-    return false;
-  std::vector<Vector2> corners(4);
-  corners[0] = cam_box.min();
-  corners[1] = Vector2(cam_box.max().x(), cam_box.min().y());
-  corners[2] = cam_box.max();
-  corners[3] = Vector2(cam_box.min().x(), cam_box.max().y());
-  for (int i = 0; i < 4; i++) {
-    if (isOccluded(corners[i], dem, dem_georef, target_georef, camera_model))
-      return true;
-  }
-  return false;
-}
-
-/// Try to shrink cam_box to exclude regions where the camera's
-/// groundToImage produces back-of-body ghost projections. Cheap test:
-/// check the four corners of cam_box. If all are visible (the common
-/// case), return cam_box unchanged - no work done. Otherwise sample the
-/// four edges densely and return the bbox of unoccluded samples. The
-/// resulting box is conservative (always contained in cam_box and always
-/// contains every unoccluded edge sample). If no sample is unoccluded,
-/// the original box is returned with a warning.
-BBox2 estimUnoccludedBbox(BBox2 const& cam_box,
-                          vw::ImageViewRef<DemPixelT> const& dem,
-                          vw::cartography::GeoReference const& dem_georef,
-                          vw::cartography::GeoReference const& target_georef,
-                          boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
-
-  if (cam_box.empty())
-    return cam_box;
-
-  if (!anyCornerOccluded(cam_box, dem, dem_georef, target_georef, camera_model))
-    return cam_box;
-
-  vw_out() << "At least one corner of the camera bounding box is back-of-body "
-           << "occluded. Sampling edges to estimate an unoccluded sub-box.\n";
-
-  const int N = 100;
-  BBox2 unocc_box;
-  double xmin = cam_box.min().x();
-  double ymin = cam_box.min().y();
-  double xmax = cam_box.max().x();
-  double ymax = cam_box.max().y();
-
-  for (int i = 0; i < N; i++) {
-    double t = double(i) / double(N - 1);
-    double x = xmin + t * (xmax - xmin);
-    double y = ymin + t * (ymax - ymin);
-    Vector2 pts[4] = {
-      Vector2(x, ymin), Vector2(x, ymax),  // bottom and top edges
-      Vector2(xmin, y), Vector2(xmax, y)   // left and right edges
-    };
-    for (int k = 0; k < 4; k++) {
-      if (!isOccluded(pts[k], dem, dem_georef, target_georef, camera_model))
-        unocc_box.grow(pts[k]);
-    }
-  }
-
-  if (unocc_box.empty()) {
-    vw_out(WarningMessage)
-      << "No unoccluded sample found on the camera bounding box perimeter. "
-      << "Falling back to the original bbox.\n";
-    return cam_box;
-  }
-
-  vw_out() << "Estimated unoccluded camera bounding box: " << unocc_box
-           << " (was: " << cam_box << ")\n";
-  return unocc_box;
-}
 
 /// Compute output georeference to use
 void calc_target_geom(// Inputs
@@ -489,8 +306,8 @@ void calc_target_geom(// Inputs
   // query phase already shrank. Almost all the time the four corners are
   // visible and the original bbox is returned without work.
   if (opt.target_projwin == BBox2()) {
-    cam_box = estimUnoccludedBbox(cam_box, dem, dem_georef, target_georef,
-                                  camera_model);
+    cam_box = asp::estimUnoccludedBbox(cam_box, dem, dem_georef, target_georef,
+                                       camera_model);
   }
 
   // Use auto-calculated ground resolution if that option was selected
@@ -811,8 +628,8 @@ int main(int argc, char* argv[]) {
       // every per-tile invocation, so the per-pixel visibility check in
       // OcclusionAwareCameraModel only fires when there is an actual
       // back-of-body region in the bbox.
-      bool occluded_corner = anyCornerOccluded(cam_box, dem, dem_georef,
-                                               target_georef, opt.camera_model);
+      bool occluded_corner = asp::anyCornerOccluded(cam_box, dem, dem_georef,
+                                                    target_georef, opt.camera_model);
 
       // Structured output for the Python mapproject wrapper to parse.
       // The comma separator must be in sync with the Python side.
@@ -845,7 +662,7 @@ int main(int argc, char* argv[]) {
     // exception into a nodata pixel in the output. Costs an extra
     // pixel_to_vector + dot product per output pixel.
     if (opt.model_occlusion) {
-      opt.camera_model = boost::make_shared<OcclusionAwareCameraModel>(opt.camera_model);
+      opt.camera_model = boost::make_shared<asp::OcclusionAwareCameraModel>(opt.camera_model);
       vw_out() << "Per-pixel back-of-body occlusion check enabled.\n";
     }
 
