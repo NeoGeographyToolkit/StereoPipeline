@@ -271,17 +271,25 @@ void calc_target_geom(// Inputs
   //   This is in a unit defined by dem_georef and also might not be meters.
   // - This call WILL intersect pixels outside the dem valid area!
   // - TODO: Modify this function to optionally disable intersection outside the DEM
-  float auto_res = -1.0;  // will be updated
+  float auto_res = -1.0;  // will be updated by camera_bbox if called
   bool quick = proj_on_datum; // Quick mode when no actual DEM
-  try {
-    cam_box = camera_bbox(dem, dem_georef, target_georef, camera_model,
-                          image_size.x(), image_size.y(), auto_res, quick);
-  } catch (std::exception const& e) {
-    if (opt.target_projwin == BBox2() || calc_target_res) {
+
+  // Skip the costly camera_bbox call when both --t_projwin and --tr are
+  // supplied. The projected bbox comes from --t_projwin and the resolution
+  // from --tr (or --mpp/--ppd). The parallel mapproject wrapper relies on
+  // this so that per-tile invocations do not redo camera_bbox over the
+  // whole DEM.
+  if (opt.target_projwin == BBox2() || calc_target_res) {
+    try {
+      cam_box = camera_bbox(dem, dem_georef, target_georef, camera_model,
+                            image_size.x(), image_size.y(), auto_res, quick);
+    } catch (std::exception const& e) {
       vw_throw(ArgumentErr()
                 << e.what() << "\n"
                 << "Check your inputs. Or try specifying --t_projwin and --tr values.\n");
     }
+  } else {
+    cam_box = opt.target_projwin; // line 317 override re-affirms this
   }
 
   // Use auto-calculated ground resolution if that option was selected

@@ -423,6 +423,22 @@ def main(argsIn):
     fullHeight = int(querySettings['image_height'][0])
     print('Output image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
 
+    # Pin the canonical projection bbox and ground resolution from the
+    # query-projection result and propagate them to every per-tile invocation.
+    # When mapproject_single sees both --t_projwin and --tr it skips the
+    # full-DEM camera_bbox call. Drop any user-supplied values first so we
+    # do not pass them twice.
+    asp_cmd_utils.wipe_option(options.extraArgs, '--tr',         1)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--mpp',        1)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--ppd',        1)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--t_projwin',  4)
+    options.extraArgs += ['--tr', querySettings['pixel_size'][0]]
+    options.extraArgs += ['--t_projwin',
+                          querySettings['proj_box_xmin'][0],
+                          querySettings['proj_box_ymin'][0],
+                          querySettings['proj_box_xmax'][0],
+                          querySettings['proj_box_ymax'][0]]
+
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)
     numTiles = numTilesX * numTilesY
