@@ -20,6 +20,7 @@
 #include <asp/IsisIO/IsisInterfaceFrame.h>
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include <Camera.h>
@@ -81,16 +82,29 @@ IsisInterfaceFrame::pixel_to_vector(Vector2 const& px) const {
   m_detectmap->SetParent(m_alphacube.AlphaSample(px[0] + 1), m_alphacube.AlphaLine(px[1] + 1));
   m_focalmap->SetDetector(m_detectmap->DetectorSample(), m_detectmap->DetectorLine());
   m_distortmap->SetFocalPlane(m_focalmap->FocalPlaneX(), m_focalmap->FocalPlaneY());
-  
+
+  // Read the undistorted focal-plane direction. Normalize, rotate to the
+  // J2000 inertial frame, then to the target body frame, then return.
+  // This used to use a VectorProxy that aliased the std::vector's buffer,
+  // but reassigning the std::vector (look = J2000Vector(look)) can swap
+  // the buffer underneath, leaving the proxy pointing at freed memory.
+  // That made camera_bbox non-deterministic on this scene: about 1/3 of
+  // runs returned a partially-uninitialized Vector3 with subnormal
+  // garbage in two components, which propagated into datum_intersection
+  // and changed which perimeter samples succeeded. Now we read components
+  // out of the std::vector at the end and construct a fresh Vector3, so
+  // there is no aliasing of a buffer that gets reassigned.
   std::vector<double> look(3);
   look[0] = m_distortmap->UndistortedFocalPlaneX();
   look[1] = m_distortmap->UndistortedFocalPlaneY();
   look[2] = m_distortmap->UndistortedFocalPlaneZ();
-  VectorProxy<double,3> result(&look[0]);
-  result = normalize(result);
+  double n = std::sqrt(look[0]*look[0] + look[1]*look[1] + look[2]*look[2]);
+  if (n > 0.0) {
+    look[0] /= n; look[1] /= n; look[2] /= n;
+  }
   look = m_camera->instrumentRotation()->J2000Vector(look);
   look = m_camera->bodyRotation()->ReferenceVector(look);
-  return result;
+  return Vector3(look[0], look[1], look[2]);
 }
 
 Vector3
