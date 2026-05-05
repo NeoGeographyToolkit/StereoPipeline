@@ -437,10 +437,17 @@ def main(argsIn):
     # by widening the bbox by half a pixel on each side. In gdal-tap mode
     # the snap (snapBBox2ToGrid) keeps bounds at edges already and is
     # idempotent, so no widening is needed.
+    # Wipe values that will be superseded below.
+    # --ref-map: resolved into --tr and --t_srs during the query phase;
+    #   keeping it would conflict with the injected --tr since
+    #   mapproject_single forbids both --ref-map and --tr together.
+    # --model-occlusion: re-added conditionally below based on the
+    #   4-corner back-of-body test result from the query phase.
     asp_cmd_utils.wipe_option(options.extraArgs, '--tr',              1)
     asp_cmd_utils.wipe_option(options.extraArgs, '--mpp',             1)
     asp_cmd_utils.wipe_option(options.extraArgs, '--ppd',             1)
     asp_cmd_utils.wipe_option(options.extraArgs, '--t_projwin',       4)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--ref-map',         1)
     asp_cmd_utils.wipe_option(options.extraArgs, '--model-occlusion', 0)
 
     pixel_size = float(querySettings['pixel_size'][0])
