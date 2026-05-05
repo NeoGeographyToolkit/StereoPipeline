@@ -98,6 +98,13 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "multi-channel images, when the output type is set to be the same as the input type.")
     ("nearest-neighbor", po::bool_switch(&opt.nearest_neighbor)->default_value(false),
      "Use nearest neighbor interpolation.  Useful for classification images.")
+    ("model-occlusion", po::bool_switch(&opt.model_occlusion)->default_value(false),
+     "Reject ground points whose camera projection is back-of-body occluded "
+     "by adding an explicit visibility test in the per-pixel rasterization "
+     "loop. Costs an extra pixel_to_vector + dot product per output pixel. "
+     "Set automatically by the parallel mapproject wrapper when the "
+     "query-projection 4-corner test detects occlusion in the camera "
+     "bounding box.")
     ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
      "Do not write metadata information in the geoheader. See the doc for more info.")
@@ -251,6 +258,49 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
 
 }
 
+/// CameraModel wrapper that throws PointToPixelErr from point_to_pixel
+/// when the ground point is back-of-body occluded. Same dot-product test
+/// used by isOccluded() / estimUnoccludedBbox(): if the back-projected
+/// ray at the would-be pixel points outward from the body where xyz
+/// sits, it cannot actually see xyz - that pixel is showing the
+/// near-side limb instead. Wrapping the camera with this class is how
+/// mapproject opts into per-pixel occlusion rejection without touching
+/// VW's Map2CamTrans (which already handles point_to_pixel exceptions
+/// by writing nodata for the output pixel).
+class OcclusionAwareCameraModel: public vw::camera::CameraModel {
+  boost::shared_ptr<vw::camera::CameraModel> m_inner;
+public:
+  explicit OcclusionAwareCameraModel(boost::shared_ptr<vw::camera::CameraModel> inner)
+    : m_inner(inner) {}
+
+  vw::Vector2 point_to_pixel(vw::Vector3 const& point) const override {
+    vw::Vector2 pix = m_inner->point_to_pixel(point);
+    double n = vw::math::norm_2(point);
+    if (n > 0.0) {
+      vw::Vector3 ray = m_inner->pixel_to_vector(pix);
+      if (vw::math::dot_prod(point / n, ray) > 0.0)
+        vw::vw_throw(vw::camera::PointToPixelErr() << "Back-of-body occluded.");
+    }
+    return pix;
+  }
+
+  vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const override {
+    return m_inner->pixel_to_vector(pix);
+  }
+
+  vw::Vector3 camera_center(vw::Vector2 const& pix) const override {
+    return m_inner->camera_center(pix);
+  }
+
+  vw::Quat camera_pose(vw::Vector2 const& pix) const override {
+    return m_inner->camera_pose(pix);
+  }
+
+  std::string type() const override {
+    return m_inner->type();
+  }
+};
+
 /// Test whether a projected (x, y) point is occluded by the body when seen
 /// by the camera. Looks up the DEM height (bilinear), forms an ECEF point,
 /// projects into the camera, and checks whether the back-projected ray at
@@ -314,6 +364,28 @@ bool isOccluded(vw::Vector2 const& proj_pt,
   return dot_prod(outward, ray) > 0.0;
 }
 
+/// True if any of the four corners of cam_box is back-of-body occluded.
+/// Cheap (4 isOccluded calls). Used both as the auto-trigger for
+/// per-pixel occlusion checking and as the gate for estimUnoccludedBbox.
+bool anyCornerOccluded(vw::BBox2 const& cam_box,
+                       vw::ImageViewRef<DemPixelT> const& dem,
+                       vw::cartography::GeoReference const& dem_georef,
+                       vw::cartography::GeoReference const& target_georef,
+                       boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
+  if (cam_box.empty())
+    return false;
+  std::vector<Vector2> corners(4);
+  corners[0] = cam_box.min();
+  corners[1] = Vector2(cam_box.max().x(), cam_box.min().y());
+  corners[2] = cam_box.max();
+  corners[3] = Vector2(cam_box.min().x(), cam_box.max().y());
+  for (int i = 0; i < 4; i++) {
+    if (isOccluded(corners[i], dem, dem_georef, target_georef, camera_model))
+      return true;
+  }
+  return false;
+}
+
 /// Try to shrink cam_box to exclude regions where the camera's
 /// groundToImage produces back-of-body ghost projections. Cheap test:
 /// check the four corners of cam_box. If all are visible (the common
@@ -331,20 +403,7 @@ BBox2 estimUnoccludedBbox(BBox2 const& cam_box,
   if (cam_box.empty())
     return cam_box;
 
-  std::vector<Vector2> corners(4);
-  corners[0] = cam_box.min();
-  corners[1] = Vector2(cam_box.max().x(), cam_box.min().y());
-  corners[2] = cam_box.max();
-  corners[3] = Vector2(cam_box.min().x(), cam_box.max().y());
-
-  bool any_occluded = false;
-  for (int i = 0; i < 4; i++) {
-    if (isOccluded(corners[i], dem, dem_georef, target_georef, camera_model)) {
-      any_occluded = true;
-      break;
-    }
-  }
-  if (!any_occluded)
+  if (!anyCornerOccluded(cam_box, dem, dem_georef, target_georef, camera_model))
     return cam_box;
 
   vw_out() << "At least one corner of the camera bounding box is back-of-body "
@@ -747,6 +806,14 @@ int main(int argc, char* argv[]) {
         ofs.close();
       }
 
+      // Detect whether any corner of the projected bbox is back-of-body
+      // occluded. The Python wrapper turns this into --model-occlusion for
+      // every per-tile invocation, so the per-pixel visibility check in
+      // OcclusionAwareCameraModel only fires when there is an actual
+      // back-of-body region in the bbox.
+      bool occluded_corner = anyCornerOccluded(cam_box, dem, dem_georef,
+                                               target_georef, opt.camera_model);
+
       // Structured output for the Python mapproject wrapper to parse.
       // The comma separator must be in sync with the Python side.
       vw_out() << std::setprecision(17)
@@ -757,7 +824,8 @@ int main(int argc, char* argv[]) {
                << "proj_box_xmin," << cam_box.min().x() << "\n"
                << "proj_box_ymin," << cam_box.min().y() << "\n"
                << "proj_box_xmax," << cam_box.max().x() << "\n"
-               << "proj_box_ymax," << cam_box.max().y() << "\n";
+               << "proj_box_ymax," << cam_box.max().y() << "\n"
+               << "model_occlusion," << (occluded_corner ? 1 : 0) << "\n";
       if (opt.write_wkt)
         vw_out() << "projection_wkt_file," << wkt_file << "\n";
 
@@ -771,6 +839,15 @@ int main(int argc, char* argv[]) {
     auto pinhole_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_model);
     if (pinhole_ptr)
       pinhole_ptr->set_do_point_to_pixel_check(false);
+
+    // When --model-occlusion is set, wrap the camera so that point_to_pixel
+    // throws on back-of-body ground points. Map2CamTrans already turns that
+    // exception into a nodata pixel in the output. Costs an extra
+    // pixel_to_vector + dot product per output pixel.
+    if (opt.model_occlusion) {
+      opt.camera_model = boost::make_shared<OcclusionAwareCameraModel>(opt.camera_model);
+      vw_out() << "Per-pixel back-of-body occlusion check enabled.\n";
+    }
 
     // Project the image depending on image format.
     project_image(opt, dem_georef, target_georef, crop_georef, image_size,

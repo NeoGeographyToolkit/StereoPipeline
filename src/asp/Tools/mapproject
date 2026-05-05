@@ -437,10 +437,11 @@ def main(argsIn):
     # by widening the bbox by half a pixel on each side. In gdal-tap mode
     # the snap (snapBBox2ToGrid) keeps bounds at edges already and is
     # idempotent, so no widening is needed.
-    asp_cmd_utils.wipe_option(options.extraArgs, '--tr',         1)
-    asp_cmd_utils.wipe_option(options.extraArgs, '--mpp',        1)
-    asp_cmd_utils.wipe_option(options.extraArgs, '--ppd',        1)
-    asp_cmd_utils.wipe_option(options.extraArgs, '--t_projwin',  4)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--tr',              1)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--mpp',             1)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--ppd',             1)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--t_projwin',       4)
+    asp_cmd_utils.wipe_option(options.extraArgs, '--model-occlusion', 0)
 
     pixel_size = float(querySettings['pixel_size'][0])
     gdal_tap   = ('--gdal-tap' in options.extraArgs)
@@ -453,6 +454,15 @@ def main(argsIn):
     options.extraArgs += ['--tr', querySettings['pixel_size'][0]]
     options.extraArgs += ['--t_projwin',
                           repr(xmin), repr(ymin), repr(xmax), repr(ymax)]
+
+    # If the query-projection corner test detected a back-of-body occluded
+    # corner, propagate --model-occlusion to every tile so the per-pixel
+    # visibility check rejects ghost projections in the output.
+    if 'model_occlusion' in querySettings and \
+       querySettings['model_occlusion'][0] == '1':
+        options.extraArgs += ['--model-occlusion']
+        print('Per-pixel back-of-body occlusion check enabled '
+              '(corner test detected occlusion).')
 
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)
