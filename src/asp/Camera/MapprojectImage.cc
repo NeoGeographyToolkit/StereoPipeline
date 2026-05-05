@@ -43,31 +43,17 @@ namespace asp {
 using namespace vw;
 using namespace vw::cartography;
 
-// ===== Per-pixel and bbox-level back-of-body occlusion helpers =====
-//
-// usgscsm's UsgsAstroFrameSensorModel::groundToImage is a pure perspective
-// divide with no body-occlusion test, so a far-side ground point can land
-// at an in-detector pixel whose actual line-of-sight hits the near-side
-// limb. The helpers below detect that case via a sign test on
-// dot_prod(xyz/|xyz|, ray) where ray = pixel_to_vector(point_to_pixel(xyz)).
-// For a visible point the camera ray points roughly inward, dot is
-// negative; for a back-of-body point the ray hits the near-side limb whose
-// outward direction lines up with the far-side xyz, dot is positive. A
-// small grazing margin is used in OcclusionAwareCameraModel so DEM noise
-// near the limb does not produce ghost-survivor pixels.
-
-// Reject when the camera ray is within this many degrees of grazing
-// (i.e., perpendicular to the local outward normal) at the ground point.
-// Anything in the band gets nodata. 1 degree corresponds to a dot-product
-// threshold of -sin(1 degree) = -0.0174524.
+// Detect occlusion as a sign test on dot_prod(xyz/|xyz|, ray) where ray =
+// pixel_to_vector(point_to_pixel(xyz)). For a visible point the camera ray
+// points roughly inward, dot is negative. A small grazing margin is used in
+// OcclusionCam so DEM noise near the limb does not produce
+// ghost-survivor pixels.
 static constexpr double OCCLUSION_GRAZING_DEG = 1.0;
 static constexpr double OCCLUSION_DOT_THRESH  = -0.01745240643728351;
 
-OcclusionAwareCameraModel::OcclusionAwareCameraModel(
-    boost::shared_ptr<vw::camera::CameraModel> inner)
-  : m_inner(inner) {}
+OcclusionCam::OcclusionCam(vw::CamPtr inner): m_inner(inner) {}
 
-vw::Vector2 OcclusionAwareCameraModel::point_to_pixel(vw::Vector3 const& point) const {
+vw::Vector2 OcclusionCam::point_to_pixel(vw::Vector3 const& point) const {
   vw::Vector2 pix = m_inner->point_to_pixel(point);
   double n = vw::math::norm_2(point);
   if (n > 0.0) {
@@ -78,27 +64,28 @@ vw::Vector2 OcclusionAwareCameraModel::point_to_pixel(vw::Vector3 const& point) 
   return pix;
 }
 
-vw::Vector3 OcclusionAwareCameraModel::pixel_to_vector(vw::Vector2 const& pix) const {
+vw::Vector3 OcclusionCam::pixel_to_vector(vw::Vector2 const& pix) const {
   return m_inner->pixel_to_vector(pix);
 }
 
-vw::Vector3 OcclusionAwareCameraModel::camera_center(vw::Vector2 const& pix) const {
+vw::Vector3 OcclusionCam::camera_center(vw::Vector2 const& pix) const {
   return m_inner->camera_center(pix);
 }
 
-vw::Quat OcclusionAwareCameraModel::camera_pose(vw::Vector2 const& pix) const {
+vw::Quat OcclusionCam::camera_pose(vw::Vector2 const& pix) const {
   return m_inner->camera_pose(pix);
 }
 
-std::string OcclusionAwareCameraModel::type() const {
+std::string OcclusionCam::type() const {
   return m_inner->type();
 }
 
+// Estimate occlusion with some threshold for grazing angle
 bool isOccluded(vw::Vector2 const& proj_pt,
                 vw::ImageViewRef<MapprojDemPixel> const& dem,
                 vw::cartography::GeoReference const& dem_georef,
                 vw::cartography::GeoReference const& target_georef,
-                boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
+                vw::CamPtr const& camera_model) {
 
   Vector2 lonlat  = target_georef.point_to_lonlat(proj_pt);
   Vector2 dem_pix = dem_georef.lonlat_to_pixel(lonlat);
@@ -112,12 +99,12 @@ bool isOccluded(vw::Vector2 const& proj_pt,
   if (!is_valid(h))
     return false; // DEM nodata at this point
 
-  Vector3 xyz = dem_georef.datum().geodetic_to_cartesian
-                  (Vector3(lonlat[0], lonlat[1], h.child()));
+  vw::Vector3 llh = Vector3(lonlat[0], lonlat[1], h.child());
+  vw::Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
   if (xyz == Vector3())
     return false;
 
-  Vector2 cam_pix;
+  vw::Vector2 cam_pix;
   try {
     cam_pix = camera_model->point_to_pixel(xyz);
   } catch (...) {
@@ -141,7 +128,7 @@ bool anyCornerOccluded(vw::BBox2 const& cam_box,
                        vw::ImageViewRef<MapprojDemPixel> const& dem,
                        vw::cartography::GeoReference const& dem_georef,
                        vw::cartography::GeoReference const& target_georef,
-                       boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
+                       vw::CamPtr const& camera_model) {
   if (cam_box.empty())
     return false;
   Vector2 corners[4] = {
@@ -157,11 +144,12 @@ bool anyCornerOccluded(vw::BBox2 const& cam_box,
   return false;
 }
 
-vw::BBox2 estimUnoccludedBbox(vw::BBox2 const& cam_box,
-                              vw::ImageViewRef<MapprojDemPixel> const& dem,
-                              vw::cartography::GeoReference const& dem_georef,
-                              vw::cartography::GeoReference const& target_georef,
-                              boost::shared_ptr<vw::camera::CameraModel> const& camera_model) {
+// Estimate the camera bbox taking into account occlusion by planetary body.
+vw::BBox2 occlusionEstim(vw::BBox2 const& cam_box,
+                         vw::ImageViewRef<MapprojDemPixel> const& dem,
+                         vw::cartography::GeoReference const& dem_georef,
+                         vw::cartography::GeoReference const& target_georef,
+                         vw::CamPtr const& camera_model) {
 
   if (cam_box.empty())
     return cam_box;
@@ -173,7 +161,7 @@ vw::BBox2 estimUnoccludedBbox(vw::BBox2 const& cam_box,
            << "occluded. Sampling edges to estimate an unoccluded sub-box.\n";
 
   const int N = 100;
-  BBox2 unocc_box;
+  BBox2 box_sans_occl;
   double xmin = cam_box.min().x();
   double ymin = cam_box.min().y();
   double xmax = cam_box.max().x();
@@ -189,20 +177,14 @@ vw::BBox2 estimUnoccludedBbox(vw::BBox2 const& cam_box,
     };
     for (int k = 0; k < 4; k++) {
       if (!isOccluded(pts[k], dem, dem_georef, target_georef, camera_model))
-        unocc_box.grow(pts[k]);
+        box_sans_occl.grow(pts[k]);
     }
   }
 
-  if (unocc_box.empty()) {
-    vw_out(WarningMessage)
-      << "No unoccluded sample found on the camera bounding box perimeter. "
-      << "Falling back to the original bbox.\n";
-    return cam_box;
-  }
+  if (box_sans_occl.empty())
+    return cam_box; // Fall back to original box
 
-  vw_out() << "Estimated unoccluded camera bounding box: " << unocc_box
-           << " (was: " << cam_box << ")\n";
-  return unocc_box;
+  return box_sans_occl;
 }
 
 template <class ImageT>
@@ -493,7 +475,7 @@ void project_image_nodata_pick_transform(asp::MapprojOptions & opt,
                           Vector2i     const& image_size,
                           Vector2i     const& virtual_image_size,
                           BBox2i       const& croppedImageBB,
-                          boost::shared_ptr<camera::CameraModel> const& camera_model) {
+                          vw::CamPtr const& camera_model) {
   const bool call_from_mapproject = true;
   if (fs::path(opt.dem_file).extension() != "") {
     // A DEM file was provided
@@ -522,7 +504,7 @@ void project_image_alpha_pick_transform(asp::MapprojOptions & opt,
                                         Vector2i     const& image_size,
                                         Vector2i     const& virtual_image_size,
                                         BBox2i       const& croppedImageBB,
-                                        boost::shared_ptr<camera::CameraModel> const&
+                                        vw::CamPtr const&
                                         camera_model) {
 
   const bool call_from_mapproject = true;
@@ -600,7 +582,7 @@ void project_image(asp::MapprojOptions & opt, GeoReference const& dem_georef,
       vw_out() << "Detected multi-band image. Only the first band will be used. The pixels will be interpreted as float.\n";
     // Read as float with rescaling disabled, so integer values are preserved.
     project_image_nodata_pick_transform(opt, dem_georef, target_georef, croppedGeoRef,
-                                                image_size, 
+                                        image_size, 
                           Vector2i(virtual_image_width, virtual_image_height),
                           croppedImageBB, opt.camera_model);
   } 

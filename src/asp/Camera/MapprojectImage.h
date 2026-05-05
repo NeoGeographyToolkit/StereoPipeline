@@ -41,7 +41,7 @@ struct MapprojOptions: vw::GdalWriteOptions {
   bool multithreaded_model; // This is set based on the session type
   
   // Keep a copy of the model here to not have to pass it around separately
-  boost::shared_ptr<vw::camera::CameraModel> camera_model;
+  vw::CamPtr camera_model;
   
   // Settings
   std::string target_srs_string, output_type, metadata;
@@ -69,10 +69,10 @@ typedef vw::PixelMask<float> MapprojDemPixel;
 // the output, so wrapping the camera is all that is needed to opt into
 // per-pixel occlusion rejection. Costs an extra pixel_to_vector + dot
 // product per output pixel that the camera was going to project.
-class OcclusionAwareCameraModel: public vw::camera::CameraModel {
-  boost::shared_ptr<vw::camera::CameraModel> m_inner;
+class OcclusionCam: public vw::camera::CameraModel {
+  vw::CamPtr m_inner;
 public:
-  explicit OcclusionAwareCameraModel(boost::shared_ptr<vw::camera::CameraModel> inner);
+  explicit OcclusionCam(vw::CamPtr inner);
 
   vw::Vector2 point_to_pixel (vw::Vector3 const& point) const override;
   vw::Vector3 pixel_to_vector(vw::Vector2 const& pix)  const override;
@@ -87,12 +87,12 @@ public:
 // resulting pixel, then checks whether the ray's direction points outward
 // from the body where the ground point sits. Returns false when the DEM
 // has no data, when projection fails, or when the ground point is
-// visible. Used by anyCornerOccluded() and estimUnoccludedBbox().
+// visible. Used by anyCornerOccluded() and occlusionEstim().
 bool isOccluded(vw::Vector2 const& proj_pt,
                 vw::ImageViewRef<MapprojDemPixel> const& dem,
                 vw::cartography::GeoReference const& dem_georef,
                 vw::cartography::GeoReference const& target_georef,
-                boost::shared_ptr<vw::camera::CameraModel> const& camera_model);
+                vw::CamPtr const& camera_model);
 
 // True if any of the four corners of cam_box is back-of-body occluded.
 // The query-projection phase emits this as model_occlusion,1/0 in its
@@ -102,19 +102,14 @@ bool anyCornerOccluded(vw::BBox2 const& cam_box,
                        vw::ImageViewRef<MapprojDemPixel> const& dem,
                        vw::cartography::GeoReference const& dem_georef,
                        vw::cartography::GeoReference const& target_georef,
-                       boost::shared_ptr<vw::camera::CameraModel> const& camera_model);
+                       vw::CamPtr const& camera_model);
 
-// Try to shrink cam_box to exclude regions where the camera's groundToImage
-// produces back-of-body ghost projections. If all four corners are visible
-// (the common case), returns cam_box unchanged with no work. Otherwise
-// samples the four edges densely and returns the bbox of unoccluded
-// samples. Conservative (always contained in cam_box). Falls back to
-// cam_box with a warning when no sample is unoccluded.
-vw::BBox2 estimUnoccludedBbox(vw::BBox2 const& cam_box,
-                              vw::ImageViewRef<MapprojDemPixel> const& dem,
-                              vw::cartography::GeoReference const& dem_georef,
-                              vw::cartography::GeoReference const& target_georef,
-                              boost::shared_ptr<vw::camera::CameraModel> const& camera_model);
+// Estimate the camera bbox taking into account occlusion by planetary body.
+vw::BBox2 occlusionEstim(vw::BBox2 const& cam_box,
+                         vw::ImageViewRef<MapprojDemPixel> const& dem,
+                         vw::cartography::GeoReference const& dem_georef,
+                         vw::cartography::GeoReference const& target_georef,
+                         vw::CamPtr const& camera_model);
 
 } // end namespace asp
 

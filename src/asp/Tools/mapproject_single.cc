@@ -212,7 +212,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
 
 /// Compute which camera pixel observes a DEM pixel.
 Vector2 demPixToCamPix(Vector2i const& dem_pixel,
-                      boost::shared_ptr<camera::CameraModel> const& camera_model,
+                      vw::CamPtr const& camera_model,
                       ImageViewRef<DemPixelT> const& dem,
                       GeoReference const &dem_georef) {
   Vector2 lonlat = dem_georef.point_to_lonlat(dem_georef.pixel_to_point(dem_pixel));
@@ -263,7 +263,7 @@ void expandBboxToContainCornerIntersections(vw::CamPtr camera_model,
 void calc_target_geom(// Inputs
                       bool calc_target_res,
                       Vector2i const& image_size,
-                      boost::shared_ptr<camera::CameraModel> const& camera_model,
+                      vw::CamPtr const& camera_model,
                       ImageViewRef<DemPixelT> const& dem,
                       GeoReference const& dem_georef,
                       bool proj_on_datum,
@@ -301,14 +301,9 @@ void calc_target_geom(// Inputs
   }
 
   // Shrink cam_box to exclude back-of-body occluded regions. Skip for the
-  // --t_projwin path: that bbox is trusted user input, and tile invocations
-  // (which carry the wrapper-injected --t_projwin) inherit whatever the
-  // query phase already shrank. Almost all the time the four corners are
-  // visible and the original bbox is returned without work.
-  if (opt.target_projwin == BBox2()) {
-    cam_box = asp::estimUnoccludedBbox(cam_box, dem, dem_georef, target_georef,
-                                       camera_model);
-  }
+  // --t_projwin path: that bbox is trusted prior input.
+  if (opt.target_projwin == BBox2())
+    cam_box = asp::occlusionEstim(cam_box, dem, dem_georef, target_georef, camera_model);
 
   // Use auto-calculated ground resolution if that option was selected
   double current_resolution;
@@ -625,11 +620,9 @@ int main(int argc, char* argv[]) {
 
       // Detect whether any corner of the projected bbox is back-of-body
       // occluded. The Python wrapper turns this into --model-occlusion for
-      // every per-tile invocation, so the per-pixel visibility check in
-      // OcclusionAwareCameraModel only fires when there is an actual
-      // back-of-body region in the bbox.
-      bool occluded_corner = asp::anyCornerOccluded(cam_box, dem, dem_georef,
-                                                    target_georef, opt.camera_model);
+      // every per-tile invocation.
+      bool occluded_corner 
+        = asp::anyCornerOccluded(cam_box, dem, dem_georef, target_georef, opt.camera_model);
 
       // Structured output for the Python mapproject wrapper to parse.
       // The comma separator must be in sync with the Python side.
@@ -661,10 +654,8 @@ int main(int argc, char* argv[]) {
     // throws on back-of-body ground points. Map2CamTrans already turns that
     // exception into a nodata pixel in the output. Costs an extra
     // pixel_to_vector + dot product per output pixel.
-    if (opt.model_occlusion) {
-      opt.camera_model = boost::make_shared<asp::OcclusionAwareCameraModel>(opt.camera_model);
-      vw_out() << "Per-pixel back-of-body occlusion check enabled.\n";
-    }
+    if (opt.model_occlusion)
+      opt.camera_model = boost::make_shared<asp::OcclusionCam>(opt.camera_model);
 
     // Project the image depending on image format.
     project_image(opt, dem_georef, target_georef, crop_georef, image_size,
