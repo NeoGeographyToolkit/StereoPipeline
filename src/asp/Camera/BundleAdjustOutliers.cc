@@ -91,9 +91,7 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
                                       asp::BaParams & param_storage) {
 
   std::vector<vw::CamPtr> optimized_cams;
-  std::vector<vw::Vector3> opt_cam_positions;
   asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
-  asp::calcCameraCenters(optimized_cams, opt_cam_positions);
   int num_outliers_by_conv_angle = 0;
 
   for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
@@ -102,30 +100,31 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
       continue; // don't filter out GCP
     if (param_storage.get_point_outlier(ipt))
       continue; // skip outliers
-    
+
     // The GCC coordinate of this point
     const double * point = param_storage.get_point_ptr(ipt);
     Vector3 xyz(point[0], point[1], point[2]);
-    
-    // Control point
+
+    // Control point. Use the per-pixel camera_center, since linescan
+    // cameras have a different center for each line.
     auto const& cp = cnet[ipt];
     double max_angle = 0;
     for (size_t j = 0; j < cp.size(); j++) {
       size_t j_cam_id = cp[j].image_id();
-      vw::Vector3 P1 = opt_cam_positions[j_cam_id];
+      vw::Vector3 P1 = optimized_cams[j_cam_id]->camera_center(cp[j].position());
       vw::Vector3 dir1 = xyz - P1;
-      if (norm_2(dir1) > 1e-8) 
+      if (norm_2(dir1) > 1e-8)
         dir1 = normalize(dir1);
-      
+
       for (size_t k = j + 1; k < cp.size(); k++) {
         size_t k_cam_id = cp[k].image_id();
-        vw::Vector3 P2 = opt_cam_positions[k_cam_id];
+        vw::Vector3 P2 = optimized_cams[k_cam_id]->camera_center(cp[k].position());
         vw::Vector3 dir2 = xyz - P2;
-        if (norm_2(dir2) > 1e-8) 
+        if (norm_2(dir2) > 1e-8)
           dir2 = normalize(dir2);
-        
+
         double angle = (180.0 / M_PI) * acos(dot_prod(dir1, dir2));
-        if (std::isnan(angle) || std::isinf(angle)) 
+        if (std::isnan(angle) || std::isinf(angle))
           continue;
         max_angle = std::max(max_angle, angle);
       }

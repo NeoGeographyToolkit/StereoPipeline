@@ -81,6 +81,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     network is now saved after optimization and outlier filtering, with
     optimized triangulated point positions, including any input GCP.
   * Added bathymetry support (:numref:`ba_bathy`).
+  * Bugfix for ``--min-triangulation-angle`` filter for linescan cameras.
 
 jitter_solve (:numref:`jitter_solve`):
   * Added ``--save-cnet-as-gcp`` to save the optimized control network in
