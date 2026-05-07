@@ -8,15 +8,73 @@ orbiter <https://en.wikipedia.org/wiki/Chandrayaan-2>`_ data. We will work with
 the *Orbiter High Resolution Camera* (OHRC). A *Terrain Mapping Camera-2* (TMC-2)
 example will be added at a later time.
 
-For the moment this exercise works only much additional work. It needs ASP
-3.6.0 (:numref:`release`), `ISIS <https://github.com/DOI-USGS/ISIS3>`_ 9.0.0, 
-`ALE <https://github.com/DOI-USGS/ale>`_ (compiled and installed
-from source to a separate location), SPICE kernels from the `ISRO Science Data
-Archive <https://pradan.issdc.gov.in/ch2/protected/browse.xhtml?id=spice>`_, and
-custom addendum (``iak``) directories for ISIS data be set up.
+This workflow uses the Community Sensor Model (:numref:`csm`). It needs ASP
+3.6.0 or later (:numref:`release`), `ISIS
+<https://github.com/DOI-USGS/ISIS3>`_ 10.0.0_RC2 (or a later release-candidate
+or stable version), `ALE <https://github.com/DOI-USGS/ale>`_ 1.1.3 or later, and
+`USGSCSM <https://github.com/DOI-USGS/usgscsm>`_ 2.0.2 or later. All are available as
+public conda packages (see below). 
 
-This is *not ready for general use* until the kernels are released in the ISIS
-data area, but is provided for reference.
+Chandrayaan-2 ISIS data should be downloaded as documented further down.
+
+Environment setup
+~~~~~~~~~~~~~~~~~
+
+Fetch, ISIS, ALE, and USGSCSM and install in a conda environment::
+
+    conda create -n isis10rc2                     \
+       -c usgs-astrogeology/label/RC              \
+       -c conda-forge                             \
+       isis=10.0.0_RC2 ale=1.1.3 usgscsm=2.0.2 rclone
+
+Activate the environment::
+
+    conda activate isis10rc2
+    export ISISROOT=$CONDA_PREFIX
+
+The ``usgscsm_cam_test`` in this USGSCSM version requires a custom fix to help
+it find its dynamic library. On Mac:::
+
+    cd $ISISROOT/lib
+    ln -sfv csmplugins/libusgscsm.1.dylib libusgscsm.1.dylib
+
+Adjust the extension from ``.dylib`` to ``.so`` on Linux.
+
+Set the location of ISIS data (to be downloaded later):
+
+    export ISISDATA=$HOME/projects/isisdata
+    export ALESPICEROOT=$ISISDATA
+
+Install ASP (:numref:`release`) and set the path as documented there.
+
+Downloading the Chandrayaan-2 ISIS data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The mission directory is fetched with ``downloadIsisData``, which is shipped
+with ISIS::
+
+    downloadIsisData chandrayaan2 $ISISDATA
+
+Note that the full ``chandrayaan2`` directory is large (about 200 GiB), of
+which essentially all is reconstructed attitude (``ck/``) covering the entire
+mission since 2019. For a single OHRC image only one or two ``ck`` files are
+needed, plus all of the small directories. Pulling everything except ``ck``
+takes only a few hundred MiB::
+
+    downloadIsisData chandrayaan2 $ISISDATA --exclude="kernels/ck/**"
+
+The ``ck`` files matching the orbit dates of interest can then be fetched
+individually with ``rclone``, such as::
+
+    rclone --config $ISISROOT/etc/isis/rclone.conf copy            \
+      chandrayaan2:kernels/ck/ $ISISDATA/chandrayaan2/kernels/ck/  \
+      --include="ch2_att_27Jul2020_04Sep2020_v1.bc"                \
+      --include="ch2_att_27Aug2020_04Oct2020_v1.bc"                \
+      --no-traverse -P
+
+Use ``rclone --config $ISISROOT/etc/isis/rclone.conf ls
+chandrayaan2:kernels/ck/`` to list available ``ck`` files and pick the ones
+that span the acquisition time of the products to be processed.
 
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,37 +125,26 @@ one.
 
 The `isisimport <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/isisimport/isisimport.html>`_ command converts the raw image to a .cub file::
 
-    isisimport                 \
-      from     = ohrc/img1.xml \
-      to       = ohrc/img1.cub \
-      template = ${template}
+    isisimport from = ohrc/img1.xml to = ohrc/img1.cub
 
-(and same for the second image). Here, the ``template`` variable is set such
-as::
-
-    template=/path/to/ISIS3/isis/appdata/import/PDS4/Chandrayaan2OHRC.tpl
-
-In ISIS 9.0.0 likely the template parameter is optional and the template should
-be auto-detected.
+(and same for the second image). The PDS4 template is auto-detected in ISIS
+10.
 
 The ``isisimport`` command only works with raw images and not with ortho images.
-
-If this command fails with a message about not being able to find a field in the
-input xml file, it is suggested to edit that file and add a made-up entry for
-that field. This is a temporary workaround for the problem of Chandrayaan-2 xml
-files being rather diverse in what fields they record.
 
 The SPICE kernels are attached with `spiceinit <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_::
 
     spiceinit from = ohrc/img1.cub
 
-This expects the SPICE kernels for Chandrayaan-2 to exist locally (see the download link
-above). For more information on ISIS data, see :numref:`planetary_images` and the
-links from there.
+This expects the SPICE kernels for Chandrayaan-2 to exist locally under
+``$ISISDATA/chandrayaan2/`` (see the download instructions above). For more
+information on ISIS data, see :numref:`planetary_images` and the links from
+there.
 
-Next, the CSM cameras are created (:numref:`csm`). This makes use of the `isd_generate <https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_ program installed with the latest ALE built from source (link above). The command is::
+Next, the CSM cameras are created (:numref:`csm`). This makes use of the
+`isd_generate <https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_
+program shipped with ALE in the conda environment::
 
-    export ALESPICEROOT=$ISISDATA
     isd_generate -k ohrc/img1.cub ohrc/img1.cub
 
 and same for ``img2.cub``. Here the .cub file is specified twice, with the

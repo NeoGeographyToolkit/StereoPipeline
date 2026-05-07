@@ -423,12 +423,9 @@ def main(argsIn):
     fullHeight = int(querySettings['image_height'][0])
     print('Output image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
 
-    # Pin the canonical projection bbox and ground resolution from the
-    # query-projection result and propagate them to every per-tile invocation.
-    # When mapproject_single sees both --t_projwin and --tr it skips the
-    # full-DEM camera_bbox call. Drop any user-supplied values first so we
-    # do not pass them twice.
-    #
+    # Propagate the projection box and ground resolution obtained by the
+    # query-projection call. Drop any redundant or conflicting options.
+    
     # Query-projection reports proj_box_* AFTER the snap pass in
     # calc_target_geom. In default (non-gdal-tap) mode, that snap converts
     # pixel-edge bounds to pixel-center bounds. The per-tile mapproject_single
