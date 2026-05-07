@@ -3,26 +3,24 @@
 Chandrayaan-2 lunar orbiter
 ---------------------------
 
-The example here shows how to create a 3D terrain model with `Chandrayaan-2 lunar
-orbiter <https://en.wikipedia.org/wiki/Chandrayaan-2>`_ data. We will work with
-the *Orbiter High Resolution Camera* (OHRC). A *Terrain Mapping Camera-2* (TMC-2)
-example will be added at a later time.
+The example here shows how to create a 3D terrain model with `Chandrayaan-2
+lunar orbiter <https://en.wikipedia.org/wiki/Chandrayaan-2>`_ data, using both
+the *Orbiter High Resolution Camera* (OHRC) and the *Terrain Mapping Camera-2*
+(TMC-2).
 
 This workflow uses the Community Sensor Model (:numref:`csm`). It needs ASP
 3.6.0 or later (:numref:`release`), `ISIS
 <https://github.com/DOI-USGS/ISIS3>`_ 10.0.0_RC2 (or a later release-candidate
 or stable version), `ALE <https://github.com/DOI-USGS/ale>`_ 1.1.3 or later, and
 `USGSCSM <https://github.com/DOI-USGS/usgscsm>`_ 2.0.2 or later. All are available as
-public conda packages (see below). 
+public conda packages (see below).
 
 Chandrayaan-2 ISIS data should be downloaded as documented further down.
 
 Environment setup
 ~~~~~~~~~~~~~~~~~
 
-Fetch ISIS, ALE, and USGSCSM into a fresh conda environment. The ISIS 10
-release-candidate lives on the ``RC`` label of the ``usgs-astrogeology``
-channel; ALE and USGSCSM are on ``conda-forge``::
+Fetch ISIS, ALE, USGSCSM, and ``rclone`` into a fresh conda environment::
 
     conda create -n isis10rc2                     \
        -c usgs-astrogeology/label/RC              \
@@ -41,6 +39,9 @@ Set the location of the ISIS data area (to be downloaded next)::
 
 Install ASP (:numref:`release`) and set its path as documented there.
 
+See also the `USGS ISIS TMC documentation
+<https://astrogeology.usgs.gov/docs/getting-started/csm-stack/ingesting-tmc2/>`_.
+
 Downloading the Chandrayaan-2 ISIS data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -49,26 +50,32 @@ with ISIS::
 
     downloadIsisData chandrayaan2 $ISISDATA
 
-Note that the full ``chandrayaan2`` directory is large (about 200 GiB), of
-which essentially all is reconstructed attitude (``ck/``) covering the entire
+Note that the full ``chandrayaan2`` directory is large (about 200 GB), of which
+essentially all is reconstructed attitude kernels (``ck``) covering the entire
 mission since 2019. For a single OHRC image only one or two ``ck`` files are
-needed, plus all of the small directories. Pulling everything except ``ck``
-takes only a few hundred MiB::
+needed. Fetching everything except ``ck`` takes only a few hundred MB::
 
     downloadIsisData chandrayaan2 $ISISDATA --exclude="kernels/ck/**"
+
+The command::
+
+    rclone --config $ISISROOT/etc/isis/rclone.conf \
+      ls chandrayaan2:kernels/ck/
+
+lists all available ``ck`` files. This can help pick the ones that span the
+acquisition time of the products to be processed.
 
 The ``ck`` files matching the orbit dates of interest can then be fetched
 individually with ``rclone``, such as::
 
-    rclone --config $ISISROOT/etc/isis/rclone.conf copy            \
-      chandrayaan2:kernels/ck/ $ISISDATA/chandrayaan2/kernels/ck/  \
-      --include="ch2_att_27Jul2020_04Sep2020_v1.bc"                \
-      --include="ch2_att_27Aug2020_04Oct2020_v1.bc"                \
+    rclone                                          \
+      --config $ISISROOT/etc/isis/rclone.conf       \
+      copy                                          \
+      chandrayaan2:kernels/ck/                      \
+      $ISISDATA/chandrayaan2/kernels/ck/            \
+      --include="ch2_att_27Jul2020_04Sep2020_v1.bc" \
+      --include="ch2_att_27Aug2020_04Oct2020_v1.bc" \
       --no-traverse -P
-
-Use ``rclone --config $ISISROOT/etc/isis/rclone.conf ls
-chandrayaan2:kernels/ck/`` to list available ``ck`` files and pick the ones
-that span the acquisition time of the products to be processed.
 
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -135,20 +142,15 @@ This expects the SPICE kernels for Chandrayaan-2 to exist locally under
 information on ISIS data, see :numref:`planetary_images` and the links from
 there.
 
-Next, the CSM cameras are created (:numref:`csm`). This makes use of the
-`isd_generate <https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_
-program shipped with ALE in the conda environment::
+Next, CSM cameras are created with ``isd_generate`` from the ALE package,
+following the linescan recipe in :numref:`create_csm_linescan`::
 
     isd_generate -k ohrc/img1.cub ohrc/img1.cub
-
-and same for ``img2.cub``. Here the .cub file is specified twice, with the
-first file needed to read the SPICE kernels.
+    isd_generate -k ohrc/img2.cub ohrc/img2.cub
 
 This expects ``$ISISDATA`` and ``$ALESPICEROOT`` to be set as described in
-the environment setup section above.
-
-It is suggested to do a quick check on the produced ``ohrc/img1.json`` camera
-with ``cam_test`` (:numref:`cam_test`).
+the environment setup section above. Check each produced JSON with
+``cam_test`` (:numref:`cam_test`) before proceeding.
 
 The images can be inspected with ``stereo_gui`` (:numref:`stereo_gui`), as::
 
@@ -183,7 +185,7 @@ We found that these images have notable pointing error, so bundle adjustment
       --ip-per-image 30000                  \
       -o ba/run
 
-This stereo pair was seen to have a decent convergence angle of 25 degrees
+This stereo pair has a convergence angle of about 25 degrees
 (:numref:`ba_conv_angle`).
 
 .. figure:: ../images/chandrayaan2_ohrc_interest_points.png
@@ -230,7 +232,7 @@ projection.
 Alignment
 ^^^^^^^^^
 
-We will align the produced OHRC DEM to `LOLA
+We aligned the produced OHRC DEM to `LOLA
 <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_, which is the
 usual global reference coordinate system for the Moon.
 
@@ -256,8 +258,113 @@ transform from that alignment was used for aligning the full clouds as::
 
   The difference between the aligned OHRC DEM and LOLA point cloud. Blue: -5 m,
   red = 5 m. Given that the DEM, in principle, should have a vertical
-  uncertainty of under 1 m, this could be better, but at least one is in the
+  uncertainty of under 1 m, this could be better, but at least we are in the
   ballpark.
 
 A terrain model created with the lower-resolution TMC-2 images would likely be
 easier to align to LOLA, as it would have a much bigger extent.
+
+Terrain Mapping Camera-2
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The TMC-2 instrument is a 3-line pushbroom camera, with separate forward (fwd),
+nadir-pointing, and backward (aft) detectors mounted on the same focal plane.
+The fwd detector looks ~25 degrees ahead of nadir and the aft detector looks
+~25 degrees behind, giving a fwd-aft convergence angle of ~50 degrees, which is
+well-suited to stereo. The ground sample distance is about 5 meters at 100 km
+altitude.
+
+This produces three product files with the prefixes
+``ch2_tmc_ncf_*`` (fwd), ``ch2_tmc_ncn_*`` (nadir), and ``ch2_tmc_nca_*``
+(aft). The example below uses the fwd/aft pair, for maximum convergence.
+
+All three detectors record simultaneously as the spacecraft moves, so a notable
+ground portion is imaged in all three sensors.
+
+The images are extremely long (~190,000 lines) and the overlap area is notably
+smaller than the full extent, which makes them difficult to process. The
+resulting products can also show up as a narrow diagonal of data in a mostly
+empty GeoTiff image, due to the orbit inclination and the high ratio of image
+height to width.
+
+For these reasons, below we only process a small portion.
+
+
+Two practical considerations distinguish TMC-2 from OHRC:
+
+1. The native ISIS Chandrayaan-2 TMC-2 camera model in ISIS 10.0.0_RC2
+   supports only nadir. Calling ``spiceinit`` on a fwd or aft cube errors
+   with a message pointing to the CSM camera model. The fix is to skip
+   ``spiceinit`` entirely and run ``isd_generate`` directly.
+
+2. ALE 1.1.3 (without ``spiceinit``-attached kernels) needs a metakernel
+   file under ``$ALESPICEROOT`` to locate SPICE kernels, but the USGS
+   Chandrayaan-2 ISIS data area currently does not ship one. The
+   workaround is to create a small metakernel locally at
+   ``$ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm`` listing the lsk, fk,
+   ik, iak, pck, sclk, spk, ck and tspk files matching the orbit dates of
+   interest. The filename pattern ``ch2_v01.tm`` (no embedded year)
+   matches any image year. See the NAIF
+   `Metakernel reference
+   <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_
+   for the file format.
+
+With the metakernel in place, the workflow follows
+:numref:`create_csm_linescan`::
+
+    isisimport from = tmc/fwd.xml to = tmc/fwd.cub
+    isisimport from = tmc/aft.xml to = tmc/aft.cub
+    isd_generate tmc/fwd.cub
+    isd_generate tmc/aft.cub
+
+(no ``spiceinit``, no ``-k`` since kernels come from the metakernel rather
+than the cube). Check each JSON with ``cam_test`` (:numref:`cam_test`).
+
+Bundle adjustment for TMC-2
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Bundle-adjust the fwd/aft pair with the JSONs as cameras::
+
+    bundle_adjust                                 \
+      tmc/fwd.cub tmc/aft.cub                     \
+      tmc/fwd.json tmc/aft.json                   \
+      --num-iterations 100 --num-passes 2         \
+      --camera-weight 0 --tri-weight 0.1          \
+      --remove-outliers-params "75 3 50 50"       \
+      --ip-per-image 100000                       \
+      --max-pairwise-matches 50000                \
+      -o ba/run
+
+The output ``ba/run-convergence_angles.txt`` reports the convergence
+angle distribution for the pair. For TMC-2 fwd/aft on the same orbit
+(B/H ~ 1) the median should land near 52 degrees, matching the
+detector's design fwd/aft tilt of about +/-25 degrees about nadir.
+
+The bundle-adjusted CSM cameras are at
+``ba/run-tmc_fwd.adjusted_state.json`` and the corresponding aft file,
+to be used in stereo below.
+
+Stereo
+^^^^^^
+
+Stereo on the fwd/aft pair requires mapprojection first, because at the
+same scan time the fwd and aft strips view different ground. The
+spacecraft has to travel ~93 km along the orbit before the aft detector,
+looking back, sees a ground point that the fwd detector saw earlier, so
+fwd-line-X and aft-line-(X + ~17,000-18,000) image the same ground. A
+naive interest-point matcher applied to the raw cubs is unlikely to span
+that line offset and will find spurious matches at small line offsets
+where the rays are effectively parallel.
+
+The TMC-2 strips are also extremely long (~190,000 lines, ~30 degrees of
+latitude). The combination of length and geometry makes interest-point
+matching on raw cubs unreliable. The robust path is to mapproject fwd
+and aft onto a prior DEM, then run ``bundle_adjust`` with
+``--mapprojected-data`` so that interest points are matched in ground
+space. The ISRO-shipped TMC-2 DTM derived from the same orbit
+(``ch2_tmc_ndn_*_d_dtm_d18``) is one option; LRO NAC stereo DEMs or the
+LOLA gridded polar products are alternatives. See
+:numref:`sfs_initial_terrain` for a catalogue of south-polar DEM products
+suitable as mapprojection references. After mapprojection, the standard
+bundle_adjust + parallel_stereo + point2dem flow proceeds exactly as for
+OHRC (:numref:`mapproj-example`).
