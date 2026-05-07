@@ -117,6 +117,8 @@ parallel_stereo (:numref:`parallel_stereo`):
     Mac ARM64. The SSE2/SSE3 intrinsics in libelas are mapped to NEON via
     ``sse2neon``. Disparities match the x86 SSE build to within
     float-rounding noise.
+  * Updated the Chandrayaan-2 example (:numref:`chandrayaan2`). USGS now
+    ships the Chandrayaan-2 SPICE kernels and software support improved.
 
 point2dem (:numref:`point2dem`):
   * The default grid size is now 4x the estimated ground sample distance,

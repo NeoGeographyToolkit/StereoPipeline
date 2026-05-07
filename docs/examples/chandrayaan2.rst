@@ -20,7 +20,9 @@ Chandrayaan-2 ISIS data should be downloaded as documented further down.
 Environment setup
 ~~~~~~~~~~~~~~~~~
 
-Fetch, ISIS, ALE, and USGSCSM and install in a conda environment::
+Fetch ISIS, ALE, and USGSCSM into a fresh conda environment. The ISIS 10
+release-candidate lives on the ``RC`` label of the ``usgs-astrogeology``
+channel; ALE and USGSCSM are on ``conda-forge``::
 
     conda create -n isis10rc2                     \
        -c usgs-astrogeology/label/RC              \
@@ -32,20 +34,12 @@ Activate the environment::
     conda activate isis10rc2
     export ISISROOT=$CONDA_PREFIX
 
-The ``usgscsm_cam_test`` in this USGSCSM version requires a custom fix to help
-it find its dynamic library. On Mac:::
-
-    cd $ISISROOT/lib
-    ln -sfv csmplugins/libusgscsm.1.dylib libusgscsm.1.dylib
-
-Adjust the extension from ``.dylib`` to ``.so`` on Linux.
-
-Set the location of ISIS data (to be downloaded later):
+Set the location of the ISIS data area (to be downloaded next)::
 
     export ISISDATA=$HOME/projects/isisdata
     export ALESPICEROOT=$ISISDATA
 
-Install ASP (:numref:`release`) and set the path as documented there.
+Install ASP (:numref:`release`) and set its path as documented there.
 
 Downloading the Chandrayaan-2 ISIS data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -149,6 +143,9 @@ program shipped with ALE in the conda environment::
 
 and same for ``img2.cub``. Here the .cub file is specified twice, with the
 first file needed to read the SPICE kernels.
+
+This expects ``$ISISDATA`` and ``$ALESPICEROOT`` to be set as described in
+the environment setup section above.
 
 It is suggested to do a quick check on the produced ``ohrc/img1.json`` camera
 with ``cam_test`` (:numref:`cam_test`).
