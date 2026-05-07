@@ -1,31 +1,39 @@
 Changes since last release
 --------------------------
 
-Added a new program for distributed stereo processing across computing nodes
-(:numref:`stereo_dist`).
+General improvements:
 
-Added a new program to study parameter sensitivity by running stereo on small
-patches with different parameter combinations (:numref:`stereo_sweep`).
+  * Added a new program for distributed stereo processing across computing
+    nodes (:numref:`stereo_dist`).
+  * Added a new program to study parameter sensitivity by running stereo on
+    small patches with different parameter combinations
+    (:numref:`stereo_sweep`).
+  * Added the ``asp_plot`` package for generating diagnostic plots and PDF
+    reports from ASP outputs (:numref:`asp_plot`).
+  * Added cloud-optimized GeoTIFF (COG) support via the ``--cog`` option to
+    ``point2dem``, ``mapproject``, etc. (:numref:`cog_output`).
+  * Added support for plain-text match files (:numref:`txt_match`).
+  * Added support for SPOT 6 and 7 exact linescan camera models
+    (:numref:`spot67`).
+  * Migrated SPOT 5 to a CSM linescan camera model (:numref:`spot5`). This
+    enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
+  * Migrated PeruSat-1 to a CSM linescan camera model (:numref:`perusat1`).
+    This enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
+  * For the ASTER camera (:numref:`aster`), removed the ``--aster-use-csm``
+    option as that is the default. Removed the use of the helper RPC model
+    for interest point matching.
 
-Added the ``asp_plot`` package for generating diagnostic plots and PDF reports
-from ASP outputs (:numref:`asp_plot`).
-
-Added cloud-optimized GeoTIFF (COG) support via the ``--cog`` option to
-``point2dem``, ``mapproject``, etc. (:numref:`cog_output`).
-
-Added support for plain-text match files (:numref:`txt_match`).
-
-Added support for SPOT 6 and 7 exact linescan camera models (:numref:`spot67`).
-
-Migrated SPOT 5 to a CSM linescan camera model (:numref:`spot5`). This enables
-use of ``jitter_solve`` (:numref:`jitter_pleiades`).
-
-Migrated PeruSat-1 to a CSM linescan camera model (:numref:`perusat1`). This
-enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
-
-For the ASTER camera (:numref:`aster`), removed the ``--aster-use-csm`` option
-as that is the default. Removed the use of the helper RPC model for interest
-point matching.
+parallel_stereo (:numref:`parallel_stereo`):
+  * Updated the Chandrayaan-2 example (:numref:`chandrayaan2`). USGS now
+    ships the Chandrayaan-2 SPICE kernels and software support improved.
+  * Added the option ``--proj-win`` to limit stereo to a projection window for
+    mapprojected images (:numref:`stereodefault`).
+  * The logic for consolidating the output directory has been given its own
+    stage (:numref:`entrypoints`).
+  * The DEM for mapprojected images can be set with ``--dem`` instead of as the
+    last positional argument (:numref:`mapproj-example`).
+  * The ``libelas`` stereo algorithm (:numref:`libelas`) is now supported on
+    Mac ARM64. 
 
 sfm_view (:numref:`sfm_view`):
   * Brought the source code into the ASP repository from the external
@@ -106,20 +114,6 @@ pc_align (:numref:`pc_align`):
   * Changed the default for ``--diff-rotation-error`` from 1e-8 to 1e-5 degrees,
     to avoid slow convergence in some cases due to numerical precision issues.
 
-parallel_stereo (:numref:`parallel_stereo`):
-  * Added the option ``--proj-win`` to limit stereo to a projection window for
-    mapprojected images (:numref:`stereodefault`).
-  * The logic for consolidating the output directory has been given its own
-    stage (:numref:`entrypoints`).
-  * The DEM for mapprojected images can be set with ``--dem`` instead of as the
-    last positional argument (:numref:`mapproj-example`).
-  * The ``libelas`` stereo algorithm (:numref:`libelas`) is now supported on
-    Mac ARM64. The SSE2/SSE3 intrinsics in libelas are mapped to NEON via
-    ``sse2neon``. Disparities match the x86 SSE build to within
-    float-rounding noise.
-  * Updated the Chandrayaan-2 example (:numref:`chandrayaan2`). USGS now
-    ships the Chandrayaan-2 SPICE kernels and software support improved.
-
 point2dem (:numref:`point2dem`):
   * The default grid size is now 4x the estimated ground sample distance,
     using a robust average of the 25%-75% percentile range instead of
@@ -196,6 +190,10 @@ Misc:
   * Removed the unused ``PixelHSV`` and ``PixelLuv`` pixel types from
     VisionWorkbench.
   * Updated from Qt5 to Qt6.
+  * Images with integer pixel types (``uint8``, ``int16``, ``uint16``) are no
+    longer automatically rescaled to the ``[0, 1]`` (or ``[-1, 1]``) range when
+    read as float. This was inconsistent with GDAL and was a source of silent
+    bugs in tools such as ``hillshade`` and ``colormap``.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------
