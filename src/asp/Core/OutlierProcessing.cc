@@ -16,6 +16,7 @@
 // __END_LICENSE__
 
 #include <asp/Core/OutlierProcessing.h>
+#include <asp/Core/PointUtils.h> // for setupSampleRate
 
 #include <vw/Image/Statistics.h>
 #include <vw/Math/Statistics.h>
@@ -189,15 +190,9 @@ double estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const& pro
     if (subsample_amt < 1)
       subsample_amt = 1;
 
-    // Use separate x and y subsample factors so very wide aspect ratios
-    // (e.g. long thin TMC-2 strips) do not zero out one axis of sub_image.
-    // No-op for moderate aspect ratios (subsample_amt < min_dim/4).
-    int32 sub_x = subsample_amt;
-    int32 sub_y = subsample_amt;
-    sub_x = std::min(sub_x, int32(proj_points.cols() / 4));
-    sub_x = std::max(sub_x, int32(1));
-    sub_y = std::min(sub_y, int32(proj_points.rows() / 4));
-    sub_y = std::max(sub_y, int32(1));
+    int32 sub_x = 0, sub_y = 0;
+    asp::setupSampleRate(proj_points.cols(), proj_points.rows(),
+                         subsample_amt, sub_x, sub_y);
 
     PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
     if (error_image.cols() > 0 && error_image.rows() > 0) {

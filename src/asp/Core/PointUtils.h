@@ -337,10 +337,17 @@ namespace asp {
 
 
 // Determine if we should be using a longitude range between
+// Compute per-axis subsample factors so very-wide point clouds (e.g. long
+// thin TMC strips at ~1:37 aspect) don't end up with zero-row sub-images.
+// For moderate aspect ratios (subsample_amt <= min_dim/4) this is a no-op
+// and sub_x = sub_y = subsample_amt, preserving prior behavior.
+void setupSampleRate(vw::int32 cols, vw::int32 rows, vw::int32 subsample_amt,
+                     vw::int32 & sub_x, vw::int32 & sub_y);
+
 // [-180, 180] or [0,360]. The former is used, unless the latter
 // results in a tighter range of longitudes, such as when crossing
 // the international date line.
-vw::BBox2 estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image, 
+vw::BBox2 estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image,
                            vw::cartography::Datum const& datum);
 
 // Find the median longitude and latitude for a subset of the point cloud

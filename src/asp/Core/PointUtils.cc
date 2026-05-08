@@ -851,6 +851,20 @@ vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
   return result;
 }
 
+// Compute per-axis subsample factors so very-wide point clouds (e.g. long
+// thin TMC strips at ~1:37 aspect) don't end up with zero-row sub-images.
+// For moderate aspect ratios (subsample_amt <= min_dim/4) this is a no-op
+// and sub_x = sub_y = subsample_amt, preserving prior behavior.
+void asp::setupSampleRate(vw::int32 cols, vw::int32 rows, vw::int32 subsample_amt,
+                          vw::int32 & sub_x, vw::int32 & sub_y) {
+  sub_x = subsample_amt;
+  sub_y = subsample_amt;
+  sub_x = std::min(sub_x, vw::int32(cols / 4));
+  sub_x = std::max(sub_x, vw::int32(1));
+  sub_y = std::min(sub_y, vw::int32(rows / 4));
+  sub_y = std::max(sub_y, vw::int32(1));
+}
+
 // Determine if we should be using a longitude range between
 // [-180, 180] or [0,360]. The former is used, unless the latter
 // results in a tighter range of longitudes, such as when crossing
@@ -885,18 +899,9 @@ vw::BBox2 asp::estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image
     if (subsample_amt < 1)
       subsample_amt = 1;
 
-    // Use separate x and y subsample factors. For very large aspect ratios
-    // (e.g. long thin TMC-2 strips), the single-factor based on the
-    // diagonal would zero out the rows of sub_image and yield no samples.
-    // Clamp each axis so at least 4 samples per axis are available; for
-    // moderate aspect ratios this is a no-op (subsample_amt < min_dim/4),
-    // preserving the prior behavior.
-    int32 sub_x = subsample_amt;
-    int32 sub_y = subsample_amt;
-    sub_x = std::min(sub_x, int32(point_image.cols() / 4));
-    sub_x = std::max(sub_x, int32(1));
-    sub_y = std::min(sub_y, int32(point_image.rows() / 4));
-    sub_y = std::max(sub_y, int32(1));
+    int32 sub_x = 0, sub_y = 0;
+    asp::setupSampleRate(point_image.cols(), point_image.rows(),
+                         subsample_amt, sub_x, sub_y);
 
     ImageViewRef<Vector3> sub_image = subsample(point_image, sub_x, sub_y);
 
@@ -964,19 +969,9 @@ void asp::median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
     if (subsample_amt < 1)
       subsample_amt = 1;
 
-    // Use separate x and y subsample factors. For very large aspect ratios
-    // (e.g. long thin TMC-2 strips, ~37:1), the single-factor based on the
-    // diagonal would zero out the rows of sub_image and yield no samples,
-    // throwing "Could not find a valid median longitude and latitude".
-    // Clamp each axis so at least 4 samples per axis are available; for
-    // moderate aspect ratios this is a no-op (subsample_amt < min_dim/4),
-    // preserving the prior behavior.
-    int32 sub_x = subsample_amt;
-    int32 sub_y = subsample_amt;
-    sub_x = std::min(sub_x, int32(point_image.cols() / 4));
-    sub_x = std::max(sub_x, int32(1));
-    sub_y = std::min(sub_y, int32(point_image.rows() / 4));
-    sub_y = std::max(sub_y, int32(1));
+    int32 sub_x = 0, sub_y = 0;
+    asp::setupSampleRate(point_image.cols(), point_image.rows(),
+                         subsample_amt, sub_x, sub_y);
 
     ImageViewRef<Vector3> sub_image = subsample(point_image, sub_x, sub_y);
 
