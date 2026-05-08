@@ -37,7 +37,9 @@ Set the location of the ISIS data area (to be downloaded next)::
     export ISISDATA=$HOME/projects/isisdata
     export ALESPICEROOT=$ISISDATA
 
-Install ASP (:numref:`release`) and set its path as documented there.
+Install ASP, build 2026/5 or newer (:numref:`release`), as some
+bugfixes for the Chandrayaan-2 cameras were incorporated at that
+time. Set its path as documented there.
 
 See also the `USGS ISIS TMC documentation
 <https://astrogeology.usgs.gov/docs/getting-started/csm-stack/ingesting-tmc2/>`_.
@@ -45,7 +47,7 @@ See also the `USGS ISIS TMC documentation
 Downloading the Chandrayaan-2 ISIS data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The mission directory is fetched with ``downloadIsisData``, which is shipped
+The mission kernels are fetched with ``downloadIsisData``, which is shipped
 with ISIS::
 
     downloadIsisData chandrayaan2 $ISISDATA
@@ -276,19 +278,14 @@ altitude.
 
 This produces three product files with the prefixes
 ``ch2_tmc_ncf_*`` (fwd), ``ch2_tmc_ncn_*`` (nadir), and ``ch2_tmc_nca_*``
-(aft). The example below uses the fwd/aft pair, for maximum convergence.
+(aft). The example below uses the fwd/aft pair.
 
-All three detectors record simultaneously as the spacecraft moves, so a notable
-ground portion is imaged in all three sensors.
+All three detectors record simultaneously as the spacecraft moves. A notable
+ground portion is imaged in all of them.
 
-The images are extremely long (~190,000 lines) and the overlap area is notably
-smaller than the full extent, which makes them difficult to process. The
-resulting products can also show up as a narrow diagonal of data in a mostly
-empty GeoTiff image, due to the orbit inclination and the high ratio of image
-height to width.
-
-For these reasons, below we only process a small portion.
-
+Below we use only the CSM camera models (:numref:`csm`), as it appears that
+the non-nadir TMC ISIS camera models in the .cub files are still problematic
+(as of May, 2026).
 
 Two practical considerations distinguish TMC-2 from OHRC:
 
@@ -303,8 +300,13 @@ Two practical considerations distinguish TMC-2 from OHRC:
    workaround is to create a small metakernel locally at
    ``$ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm`` listing the lsk, fk,
    ik, iak, pck, sclk, spk, ck and tspk files matching the orbit dates of
-   interest. The filename pattern ``ch2_v01.tm`` (no embedded year)
-   matches any image year. See the NAIF
+   interest. The filename pattern ``ch2_v01.tm`` matches any image year.
+   The ``PATH_VALUES`` keyword in this file must use absolute paths
+   (e.g. ``/path/to/$ISISDATA/chandrayaan2/kernels``), since SPICE
+   resolves any ``..`` style path relative to the current working
+   directory at ``furnsh`` time, not relative to the metakernel
+   location, and ALE does not ``chdir`` to the metakernel directory
+   before loading. See the NAIF
    `Metakernel reference
    <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_
    for the file format.
