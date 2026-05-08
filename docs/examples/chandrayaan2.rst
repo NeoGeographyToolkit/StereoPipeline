@@ -278,40 +278,44 @@ downward-pointing (nadir), and backward (aft) detectors. The fwd detector looks
 setup which is well-suited to stereo with any of these image pairs. The ground
 sample distance is about 5 meters at 100 km altitude.
 
-This produces three product files with the prefixes
-``ch2_tmc_ncf_*`` (fwd), ``ch2_tmc_ncn_*`` (nadir), and ``ch2_tmc_nca_*``
-(aft). The example below uses the fwd/aft pair.
-
 All three detectors record simultaneously, so a substantial ground swath is
 imaged by all of them.
 
-Below we use only the CSM camera models (:numref:`csm`), as it appears that
-the non-nadir TMC ISIS camera models in the .cub files are still problematic
-(as of 5/2026).
+Input data
+^^^^^^^^^^
 
-Practical considerations:
+We use the fwd/aft pair::
 
-   The native ISIS Chandrayaan-2 TMC-2 camera model in ISIS 10.0.0_RC2
-   supports only nadir cameras. Calling ``spiceinit`` on a fwd or aft cube errors
-   with a message pointing to the CSM camera model. The fix is to skip
-   ``spiceinit`` entirely and run ``isd_generate`` directly.
+    ch2_tmc_ncf_20231101T0125121344_d_img_d18
+    ch2_tmc_nca_20231101T0125121377_d_img_d18
 
-   ALE 1.1.3 (without ``spiceinit``-attached kernels) needs a metakernel file
-   under ``$ALESPICEROOT`` to locate SPICE kernels, but the USGS Chandrayaan-2
-   ISIS data area (as of 5/2026) does not ship one. The workaround is to create
-   a small metakernel locally at
+The corresponding pre-existing DTM (``ch2_tmc_ndn_20231101T0125121377``,
+mentioned earlier) covers the same orbit pass. These images include the
+footprint of the OHRC images from earlier but extend well beyond them.
 
-   ``$ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm``
+Creation of cameras
+^^^^^^^^^^^^^^^^^^^
 
-   listing the kernel files. The entry in ``PATH_VALUES`` in this file should be
-   absolute due to limitations in ALE, and it should be correct for the local
-   file system. See the NAIF `Metakernel reference
-   <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_
-   for the file format and compare with existing ``.tm`` files for other
-   missions.
+We use only the CSM camera models (:numref:`csm`), as it appears that the
+non-nadir TMC ISIS camera models in the .cub files are still problematic (as of
+5/2026). The fix is to skip ``spiceinit`` entirely and run ``isd_generate``
+directly.
 
-With the metakernel in place, the workflow is as follows
-(per :numref:`create_csm_linescan`)::
+ALE 1.1.3 (without ``spiceinit``-attached kernels) needs a metakernel file
+under ``$ALESPICEROOT`` to locate SPICE kernels, but the USGS Chandrayaan-2
+ISIS data area (as of 5/2026) does not ship one. The workaround is to create
+a small metakernel locally at::
+
+    $ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm
+
+listing the kernel files. The values in ``PATH_VALUES`` should be absolute
+due to limitations in ALE, and should be correct for the local file system.
+See the NAIF `Metakernel reference
+<https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_
+for the file format and compare with existing ``.tm`` files for other
+missions.
+
+With the metakernel in place, the workflow is as follows::
 
     export ALESPICEROOT=$ISISDATA
     isisimport from = tmc/fwd.xml to = tmc/fwd.cub
@@ -321,8 +325,8 @@ With the metakernel in place, the workflow is as follows
 
 Check each JSON with ``cam_test`` (:numref:`cam_test`).
 
-Bundle adjustment for TMC-2
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Bundle adjustment
+^^^^^^^^^^^^^^^^^
 
 Bundle-adjust (:numref:`bundle_adjust`) the fwd/aft pair with the JSONs as
 cameras::
@@ -371,7 +375,7 @@ DEM extent was overestimated, likely due to the extreme aspect ratio of TMC
 strips (about 190,000 lines x 4636 samples) and outliers due to shadow. This
 extent can be set explicitly with ``--t_projwin`` if known.
 
-It is suggested to also run stereo with mapprojected images
+Consider also running stereo on mapprojected images
 (:numref:`mapproj-example`). The initial DEM used for mapprojection can be
 either:
 
@@ -403,6 +407,5 @@ stereo pairs. The ``--alignment-method local_epipolar`` option
 per-tile epipolar refinement does not handle the large change in perspective
 well), but may work better on the other stereo pair combinations.
 
-For preliminary investigations, it is suggested to run stereo on a
-smaller region first, by mapprojecting onto a cropped version of a
-prior DEM.
+For preliminary investigations, run stereo on a smaller region first
+by mapprojecting onto a cropped version of a prior DEM.
