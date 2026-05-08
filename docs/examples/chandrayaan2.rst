@@ -286,29 +286,24 @@ Below we use only the CSM camera models (:numref:`csm`), as it appears that
 the non-nadir TMC ISIS camera models in the .cub files are still problematic
 (as of May, 2026).
 
-Two practical considerations distinguish TMC-2 from OHRC:
+Practical considerations:
 
-1. The native ISIS Chandrayaan-2 TMC-2 camera model in ISIS 10.0.0_RC2
-   supports only nadir. Calling ``spiceinit`` on a fwd or aft cube errors
+   The native ISIS Chandrayaan-2 TMC-2 camera model in ISIS 10.0.0_RC2
+   supports only nadir cameras. Calling ``spiceinit`` on a fwd or aft cube errors
    with a message pointing to the CSM camera model. The fix is to skip
    ``spiceinit`` entirely and run ``isd_generate`` directly.
 
-2. ALE 1.1.3 (without ``spiceinit``-attached kernels) needs a metakernel
-   file under ``$ALESPICEROOT`` to locate SPICE kernels, but the USGS
-   Chandrayaan-2 ISIS data area currently does not ship one. The
-   workaround is to create a small metakernel locally at
-   ``$ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm`` listing the lsk, fk,
-   ik, iak, pck, sclk, spk, ck and tspk files matching the orbit dates of
-   interest. The filename pattern ``ch2_v01.tm`` matches any image year.
-   The ``PATH_VALUES`` keyword in this file must use absolute paths
-   (e.g. ``/path/to/$ISISDATA/chandrayaan2/kernels``), since SPICE
-   resolves any ``..`` style path relative to the current working
-   directory at ``furnsh`` time, not relative to the metakernel
-   location, and ALE does not ``chdir`` to the metakernel directory
-   before loading. See the NAIF
-   `Metakernel reference
+   ALE 1.1.3 (without ``spiceinit``-attached kernels) needs a metakernel file
+   under ``$ALESPICEROOT`` to locate SPICE kernels, but the USGS Chandrayaan-2
+   ISIS data area (as of 5/2026) does not ship one. The workaround is to create
+   a small metakernel locally at
+
+   $ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm
+
+   listing the kernel files. The paths in this file should be absolute due to
+   limitations in ALE. See the NAIF `Metakernel reference
    <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_
-   for the file format.
+   for the file format and compare with existing ``.tm`` files for other missions.
 
 With the metakernel in place, the workflow follows
 :numref:`create_csm_linescan`::
@@ -318,90 +313,76 @@ With the metakernel in place, the workflow follows
     isd_generate tmc/fwd.cub
     isd_generate tmc/aft.cub
 
-(no ``spiceinit``, no ``-k`` since kernels come from the metakernel rather
-than the cube). Check each JSON with ``cam_test`` (:numref:`cam_test`).
+Check each JSON with ``cam_test`` (:numref:`cam_test`).
 
 Bundle adjustment for TMC-2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Bundle-adjust the fwd/aft pair with the JSONs as cameras::
+Bundle-adjust (:numref:`bundle_adjust`) the fwd/aft pair with the JSONs as
+cameras::
 
-    bundle_adjust                                 \
-      tmc/fwd.cub tmc/aft.cub                     \
-      tmc/fwd.json tmc/aft.json                   \
-      --num-iterations 100 --num-passes 2         \
-      --camera-weight 0 --tri-weight 0.1          \
-      --remove-outliers-params "75 3 50 50"       \
-      --ip-per-image 100000                       \
-      --max-pairwise-matches 50000                \
+    bundle_adjust                           \
+      tmc/fwd.cub tmc/aft.cub               \
+      tmc/fwd.json tmc/aft.json             \
+      --num-iterations 100 --num-passes 2   \
+      --camera-weight 0 --tri-weight 0.1    \
+      --remove-outliers-params "75 3 50 50" \
+      --ip-per-image 100000                 \
+      --max-pairwise-matches 50000          \
       -o ba/run
 
-The output ``ba/run-convergence_angles.txt`` reports the convergence
-angle distribution for the pair. For TMC-2 fwd/aft on the same orbit
-(B/H ~ 1) the median should land near 52 degrees, matching the
-detector's design fwd/aft tilt of about +/-25 degrees about nadir.
-
-The bundle-adjusted CSM cameras are at
-``ba/run-tmc_fwd.adjusted_state.json`` and the corresponding aft file,
-to be used in stereo below.
+It is suggested to inspect the produced report files (:numref:`ba_out_files`).
 
 Stereo
 ^^^^^^
 
-With bundle-adjusted cameras (above), stereo on the raw fwd/aft cubs
-runs with ``affineepipolar`` alignment (:numref:`image_alignment`)::
+Run stereo with the bundle-adjusted cameras and ``affineepipolar`` alignment
+(:numref:`tutorial`) and DEM creation::
 
-    parallel_stereo                              \
-      --alignment-method affineepipolar          \
-      --stereo-algorithm asp_mgm                 \
-      --subpixel-mode 9                          \
-      tmc/fwd.cub tmc/aft.cub                    \
-      ba/run-tmc_fwd.adjusted_state.json         \
-      ba/run-tmc_aft.adjusted_state.json         \
+    parallel_stereo                      \
+      --alignment-method affineepipolar  \
+      --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                  \
+      tmc/fwd.cub tmc/aft.cub            \
+      ba/run-tmc_fwd.adjusted_state.json \
+      ba/run-tmc_aft.adjusted_state.json \
       stereo/run
 
-    point2dem --errorimage --tr 20                 \
-      --stereographic --auto-proj-center           \
+    point2dem --tr 20    \
+      --errorimage       \
+      --stereographic    \
+      --auto-proj-center \
       stereo/run-PC.tif
 
-The ``--tr 20`` choice grids at about 4 x the ~5 m TMC ground sample
-distance, which is the common rule of thumb for stereo DEMs (gridding
-at 1 x GSD would amplify per-pixel correlation noise into the DEM).
-The ``--stereographic --auto-proj-center`` options pick a local
-stereographic projection centered on the cloud, which is appropriate
-for TMC's polar orbits (a UTM-like default would distort heavily near
-the poles).
+The ``--tr 20`` grid size is about 4 x the 5 m TMC ground sample distance. The
+``--stereographic --auto-proj-center`` options pick a local stereographic
+projection centered on the cloud, which is appropriate for TMC's polar orbits (a
+UTM-like default would distort heavily near the poles).
 
 The produced DEM looked reasonably good. No jitter was observed in the
-triangulation error image (``stereo/run-IntersectionErr.tif``). Some
-minor artifacts in the triangulation error are likely due to the
-extreme aspect ratio of TMC strips (about 41:1 length-to-width, e.g.
-~190,000 lines x 4636 samples).
+triangulation error image (:numref:`point2dem_ortho_err`). The DEM extent was
+overestimated, likely due to the extreme aspect ratio of TMC strips (about
+190,000 lines x 4636 samples) and outliers due to shadow. This extent can be set
+explicitly with ``--t_projwin`` if known.
 
-For TMC stereo it is suggested to also run with mapprojected images
-(:numref:`mapproj-example`), which regularizes the very long, thin
-strip geometry up front rather than leaving the rectification to
-absorb the full perspective spread.
+It is suggested to also run stereo with mapprojected images
+(:numref:`mapproj-example`). The initial DEM used for mapprojection can be
+either:
 
-The initial DEM used for mapprojection can be either:
-
-- A prior TMC DTM as provided by ISRO (``ch2_tmc_ndn_*_d_dtm_d18``),
-- A LOLA gridded DEM (see :numref:`sfs_initial_terrain`), or
+- A prior TMC DTM as provided by ISRO (``ch2_tmc_ndn_*_d_dtm_d18``)
+- A LOLA gridded DEM (see :numref:`sfs_initial_terrain`)
 - A DEM gridded from LOLA CSV samples with ``point2dem``
   (:numref:`point2dem_csv`).
 
-In either case, the input DEM should first be grown outward to cover
-the full footprint of the mapprojected images
-(:numref:`dem_mosaic_extrapolate`) and then mildly blurred
-(``dem_mosaic --dem-blur-sigma 5``, :numref:`dem_mosaic_blur`) before
-being used as the mapprojection reference.
+In either case, the input DEM should first be grown to fill in any holes
+(:numref:`dem_mosaic_extrapolate`) and then blurred (``dem_mosaic
+--dem-blur-sigma 5``, :numref:`dem_mosaic_blur`) before being used as the
+mapprojection reference.
 
-With mapprojection, results were somewhat better, though some
-staircasing remains with ``asp_mgm`` and ``--subpixel-mode 9``. We
-believe this is due to the large difference in perspective between
-the fwd and aft cameras (each looks ~25 degrees off nadir, so the
-fwd-aft convergence is ~50 degrees, which is well-suited for stereo
-but asks a lot of the matcher).
+With mapprojection, results were somewhat better, though some staircasing
+remains with ``asp_mgm`` and ``--subpixel-mode 9``. We believe this is due to
+the large difference in perspective between the fwd and aft cameras and extreme
+aspect ratio.
 
 .. figure:: ../images/chandrayaan2_tmc_dem_err.png
 
@@ -410,37 +391,17 @@ but asks a lot of the matcher).
   meters. Right: triangulation error image (:numref:`point2dem_ortho_err`), with
   the color range from 0 to 5 meters (the image ground sample distance).
 
-It is suggested to also run stereo between the fwd and nadir cameras
-for comparison. The fwd-nadir baseline-to-height ratio is about half
-of the fwd-aft case (B/H ~ 0.5 vs ~1.0, with convergence ~25 degrees
-vs ~52 degrees), so per-pixel height precision is roughly halved -
-but the gentler perspective change typically yields cleaner matches
-with fewer staircase artifacts. The two pairs are complementary;
-which one wins on a given site is best decided by inspection.
+No jitter pattern was observed in the triangulation error image for this dataset
+(see :numref:`jitter_solve`).
+
+It is suggested to also run stereo between the fwd/nadir and nadir/aft
+stereo pairs.
 
 For preliminary investigations, it is suggested to run stereo on a
 smaller region first, by mapprojecting onto a cropped version of a
-prior DEM. This shortens the iteration loop while flag and parameter
-choices are being tuned.
+prior DEM.
 
-The ``--alignment-method local_epipolar`` option
-(:numref:`image_alignment`) is **not** recommended for the TMC fwd/aft
-pair: the per-tile epipolar refinement does not handle the large
-fwd-aft perspective spread well on TMC's extreme-aspect strips, and
-returns a cloud too sparse for ``point2dem`` to grid into a usable
-DEM. ``affineepipolar`` on raw cubs (above) or stereo on mapprojected
-images is the working path.
-
-Two additional practical notes:
-
-- The ``point2dem`` auto-extent can be stretched by a few outlier
-  triangulations on these very long strips. Constraining the output
-  with ``--t_projwin`` (in the projection of choice) gives a cleaner
-  result.
-
-- ``run-IntersectionErr.tif`` (produced by ``--errorimage``) is a
-  useful sanity-check artifact - open it next to the DEM in
-  ``stereo_gui``. A clean run shows uniform error magnitudes across
-  the strip, with no banding or along-track drift; banding usually
-  points to a jitter problem in the cameras
-  (see :numref:`jitter_solve`).
+The ``--alignment-method local_epipolar`` option (:numref:`image_alignment`) is
+not recommended for the TMC fwd/aft pair: the per-tile epipolar refinement does
+not handle the large change in perspective well. It may work better for
+fwd/nadir and nadir/aft image pairs.
