@@ -91,9 +91,15 @@ jitter_solve (:numref:`jitter_solve`):
     non-positive sigma are treated as outliers.
 
 ipfind (:numref:`ipfind`):
+  * Input images are now always normalized to [0, 1] before interest point
+    detection, regardless of input pixel type. The ``--normalize`` option is
+    obsolete.
   * Added the option ``--binary-to-txt`` to convert .vwip files to text.
 
 ipmatch (:numref:`ipmatch`):
+  * Default inlier threshold increased from 10 to 30, and default RANSAC
+    iterations from 100 to 1000, for consistency with other ASP tools
+    (:numref:`ipmatch`).
   * Added options for converting match files between binary and text formats
     (:numref:`ipmatch_convert`).
   * Added an option for merging match files (:numref:`ipmatch_merge`).

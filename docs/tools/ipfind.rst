@@ -60,8 +60,8 @@ Command-line options for ipfind:
     Turn off rotational invariance.
 
 --normalize
-    Normalize the input. Use for images that have non-standard
-    values such as ISIS cube files.
+    Obsolete. Normalization is always performed. Kept for backward
+    compatibility.
 
 --per-tile-normalize
     Individually normalize each processing tile.

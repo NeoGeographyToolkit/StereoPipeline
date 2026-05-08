@@ -106,10 +106,10 @@ Command-line options for ipmatch:
 --ransac-constraint <similarity|homography|fundamental|none>
     RANSAC constraint type.
 
---inlier-threshold <float (default: 10)>
-    RANSAC inlier threshold.
+--inlier-threshold <float (default: 30)>
+    RANSAC inlier threshold (in pixels).
 
---ransac-iterations <integer (default: 100)>
+--ransac-iterations <integer (default: 1000)>
     Number of RANSAC iterations.
 
 --flann-method <string (default = "kmeans")>
