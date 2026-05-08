@@ -24,8 +24,9 @@ General improvements:
     for interest point matching.
 
 parallel_stereo (:numref:`parallel_stereo`):
-  * Updated the Chandrayaan-2 example (:numref:`chandrayaan2`). USGS now
-    ships the Chandrayaan-2 SPICE kernels and software support improved.
+  * Updated the Chandrayaan-2 OHRC example and added a TMC example
+    (:numref:`chandrayaan2`). USGS now ships the Chandrayaan-2 SPICE kernels and
+    the software support improved.
   * Added the option ``--proj-win`` to limit stereo to a projection window for
     mapprojected images (:numref:`stereodefault`).
   * The logic for consolidating the output directory has been given its own

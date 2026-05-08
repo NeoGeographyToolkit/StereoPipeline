@@ -270,11 +270,10 @@ Terrain Mapping Camera-2
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The TMC-2 instrument is a 3-line pushbroom camera, with separate forward (fwd),
-nadir-pointing, and backward (aft) detectors mounted on the same focal plane.
-The fwd detector looks ~25 degrees ahead of nadir and the aft detector looks
-~25 degrees behind, giving a fwd-aft convergence angle of ~50 degrees, which is
-well-suited to stereo. The ground sample distance is about 5 meters at 100 km
-altitude.
+downward (nadir-pointing), and backward (aft) detectors. The fwd detector looks
+~25 degrees ahead of nadir and the aft detector looks ~25 degrees behind, a
+setup which is well-suited to stereo with any of these image pairs. The ground
+sample distance is about 5 meters at 100 km altitude.
 
 This produces three product files with the prefixes
 ``ch2_tmc_ncf_*`` (fwd), ``ch2_tmc_ncn_*`` (nadir), and ``ch2_tmc_nca_*``
@@ -349,24 +348,99 @@ to be used in stereo below.
 Stereo
 ^^^^^^
 
-Stereo on the fwd/aft pair requires mapprojection first, because at the
-same scan time the fwd and aft strips view different ground. The
-spacecraft has to travel ~93 km along the orbit before the aft detector,
-looking back, sees a ground point that the fwd detector saw earlier, so
-fwd-line-X and aft-line-(X + ~17,000-18,000) image the same ground. A
-naive interest-point matcher applied to the raw cubs is unlikely to span
-that line offset and will find spurious matches at small line offsets
-where the rays are effectively parallel.
+With bundle-adjusted cameras (above), stereo on the raw fwd/aft cubs
+runs with ``affineepipolar`` alignment (:numref:`image_alignment`)::
 
-The TMC-2 strips are also extremely long (~190,000 lines, ~30 degrees of
-latitude). The combination of length and geometry makes interest-point
-matching on raw cubs unreliable. The robust path is to mapproject fwd
-and aft onto a prior DEM, then run ``bundle_adjust`` with
-``--mapprojected-data`` so that interest points are matched in ground
-space. The ISRO-shipped TMC-2 DTM derived from the same orbit
-(``ch2_tmc_ndn_*_d_dtm_d18``) is one option; LRO NAC stereo DEMs or the
-LOLA gridded polar products are alternatives. See
-:numref:`sfs_initial_terrain` for a catalogue of south-polar DEM products
-suitable as mapprojection references. After mapprojection, the standard
-bundle_adjust + parallel_stereo + point2dem flow proceeds exactly as for
-OHRC (:numref:`mapproj-example`).
+    parallel_stereo                              \
+      --alignment-method affineepipolar          \
+      --stereo-algorithm asp_mgm                 \
+      --subpixel-mode 9                          \
+      tmc/fwd.cub tmc/aft.cub                    \
+      ba/run-tmc_fwd.adjusted_state.json         \
+      ba/run-tmc_aft.adjusted_state.json         \
+      stereo/run
+
+    point2dem --errorimage --tr 20                 \
+      --stereographic --auto-proj-center           \
+      stereo/run-PC.tif
+
+The ``--tr 20`` choice grids at about 4 x the ~5 m TMC ground sample
+distance, which is the common rule of thumb for stereo DEMs (gridding
+at 1 x GSD would amplify per-pixel correlation noise into the DEM).
+The ``--stereographic --auto-proj-center`` options pick a local
+stereographic projection centered on the cloud, which is appropriate
+for TMC's polar orbits (a UTM-like default would distort heavily near
+the poles).
+
+The produced DEM looked reasonably good. No jitter was observed in the
+triangulation error image (``stereo/run-IntersectionErr.tif``). Some
+minor artifacts in the triangulation error are likely due to the
+extreme aspect ratio of TMC strips (about 41:1 length-to-width, e.g.
+~190,000 lines x 4636 samples).
+
+For TMC stereo it is suggested to also run with mapprojected images
+(:numref:`mapproj-example`), which regularizes the very long, thin
+strip geometry up front rather than leaving the rectification to
+absorb the full perspective spread.
+
+The initial DEM used for mapprojection can be either:
+
+- A prior TMC DTM as provided by ISRO (``ch2_tmc_ndn_*_d_dtm_d18``),
+- A LOLA gridded DEM (see :numref:`sfs_initial_terrain`), or
+- A DEM gridded from LOLA CSV samples with ``point2dem``
+  (:numref:`point2dem_csv`).
+
+In either case, the input DEM should first be grown outward to cover
+the full footprint of the mapprojected images
+(:numref:`dem_mosaic_extrapolate`) and then mildly blurred
+(``dem_mosaic --dem-blur-sigma 5``, :numref:`dem_mosaic_blur`) before
+being used as the mapprojection reference.
+
+With mapprojection, results were somewhat better, though some
+staircasing remains with ``asp_mgm`` and ``--subpixel-mode 9``. We
+believe this is due to the large difference in perspective between
+the fwd and aft cameras (each looks ~25 degrees off nadir, so the
+fwd-aft convergence is ~50 degrees, which is well-suited for stereo
+but asks a lot of the matcher).
+
+.. figure:: ../images/chandrayaan2_tmc_dem_err.png
+
+  Left: a portion of the colorized hillshaded DEM produced with mapprojected TMC
+  images. Color range corresponds to elevations of approximately -1130 to 2400
+  meters. Right: triangulation error image (:numref:`point2dem_ortho_err`), with
+  the color range from 0 to 5 meters (the image ground sample distance).
+
+It is suggested to also run stereo between the fwd and nadir cameras
+for comparison. The fwd-nadir baseline-to-height ratio is about half
+of the fwd-aft case (B/H ~ 0.5 vs ~1.0, with convergence ~25 degrees
+vs ~52 degrees), so per-pixel height precision is roughly halved -
+but the gentler perspective change typically yields cleaner matches
+with fewer staircase artifacts. The two pairs are complementary;
+which one wins on a given site is best decided by inspection.
+
+For preliminary investigations, it is suggested to run stereo on a
+smaller region first, by mapprojecting onto a cropped version of a
+prior DEM. This shortens the iteration loop while flag and parameter
+choices are being tuned.
+
+The ``--alignment-method local_epipolar`` option
+(:numref:`image_alignment`) is **not** recommended for the TMC fwd/aft
+pair: the per-tile epipolar refinement does not handle the large
+fwd-aft perspective spread well on TMC's extreme-aspect strips, and
+returns a cloud too sparse for ``point2dem`` to grid into a usable
+DEM. ``affineepipolar`` on raw cubs (above) or stereo on mapprojected
+images is the working path.
+
+Two additional practical notes:
+
+- The ``point2dem`` auto-extent can be stretched by a few outlier
+  triangulations on these very long strips. Constraining the output
+  with ``--t_projwin`` (in the projection of choice) gives a cleaner
+  result.
+
+- ``run-IntersectionErr.tif`` (produced by ``--errorimage``) is a
+  useful sanity-check artifact - open it next to the DEM in
+  ``stereo_gui``. A clean run shows uniform error magnitudes across
+  the strip, with no banding or along-track drift; banding usually
+  points to a jitter problem in the cameras
+  (see :numref:`jitter_solve`).
