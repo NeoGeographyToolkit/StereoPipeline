@@ -36,8 +36,9 @@ parallel_stereo (:numref:`parallel_stereo`):
     Mac ARM64. 
 
 sfm_view (:numref:`sfm_view`):
-  * Brought the source code into the ASP repository from the external
-    MultiView dependency.
+  * Brought the source code into the ASP repository from the external MultiView
+    repo. Greatly reorganized and integrated. Removed unneeded logic and
+    dependencies.
   * Input images are no longer required. Only camera files are needed.
 
 aster2asp (:numref:`aster2asp`):
