@@ -144,9 +144,12 @@ This expects the SPICE kernels for Chandrayaan-2 to exist locally under
 information on ISIS data, see :numref:`planetary_images` and the links from
 there.
 
-Next, CSM cameras are created with ``isd_generate`` from the ALE package,
-following the linescan recipe in :numref:`create_csm_linescan`::
+Next, CSM cameras are created with `isd_generate
+<https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_
+from the ALE package, following the linescan recipe in
+:numref:`create_csm_linescan`::
 
+    export ALESPICEROOT=$ISISDATA
     isd_generate -k ohrc/img1.cub ohrc/img1.cub
     isd_generate -k ohrc/img2.cub ohrc/img2.cub
 
@@ -258,7 +261,7 @@ transform from that alignment was used for aligning the full clouds as::
 
 .. figure:: ../images/chandrayaan2_ohrc_lola.png
 
-  The difference between the aligned OHRC DEM and LOLA point cloud. Blue: -5 m,
+  The difference between the aligned OHRC DEM and LOLA point cloud. Blue = -5 m,
   red = 5 m. Given that the DEM, in principle, should have a vertical
   uncertainty of under 1 m, this could be better, but at least we are in the
   ballpark.
@@ -270,7 +273,7 @@ Terrain Mapping Camera-2
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The TMC-2 instrument is a 3-line pushbroom camera, with separate forward (fwd),
-downward (nadir-pointing), and backward (aft) detectors. The fwd detector looks
+downward-pointing (nadir), and backward (aft) detectors. The fwd detector looks
 ~25 degrees ahead of nadir and the aft detector looks ~25 degrees behind, a
 setup which is well-suited to stereo with any of these image pairs. The ground
 sample distance is about 5 meters at 100 km altitude.
@@ -279,12 +282,12 @@ This produces three product files with the prefixes
 ``ch2_tmc_ncf_*`` (fwd), ``ch2_tmc_ncn_*`` (nadir), and ``ch2_tmc_nca_*``
 (aft). The example below uses the fwd/aft pair.
 
-All three detectors record simultaneously as the spacecraft moves. A notable
-ground portion is imaged in all of them.
+All three detectors record simultaneously, so a substantial ground swath is
+imaged by all of them.
 
 Below we use only the CSM camera models (:numref:`csm`), as it appears that
 the non-nadir TMC ISIS camera models in the .cub files are still problematic
-(as of May, 2026).
+(as of 5/2026).
 
 Practical considerations:
 
@@ -298,16 +301,19 @@ Practical considerations:
    ISIS data area (as of 5/2026) does not ship one. The workaround is to create
    a small metakernel locally at
 
-   $ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm
+   ``$ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm``
 
-   listing the kernel files. The paths in this file should be absolute due to
-   limitations in ALE. See the NAIF `Metakernel reference
+   listing the kernel files. The entry in ``PATH_VALUES`` in this file should be
+   absolute due to limitations in ALE, and it should be correct for the local
+   file system. See the NAIF `Metakernel reference
    <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_
-   for the file format and compare with existing ``.tm`` files for other missions.
+   for the file format and compare with existing ``.tm`` files for other
+   missions.
 
-With the metakernel in place, the workflow follows
-:numref:`create_csm_linescan`::
+With the metakernel in place, the workflow is as follows
+(per :numref:`create_csm_linescan`)::
 
+    export ALESPICEROOT=$ISISDATA
     isisimport from = tmc/fwd.xml to = tmc/fwd.cub
     isisimport from = tmc/aft.xml to = tmc/aft.cub
     isd_generate tmc/fwd.cub
@@ -336,8 +342,8 @@ It is suggested to inspect the produced report files (:numref:`ba_out_files`).
 Stereo
 ^^^^^^
 
-Run stereo with the bundle-adjusted cameras and ``affineepipolar`` alignment
-(:numref:`tutorial`) and DEM creation::
+Run stereo with the bundle-adjusted cameras using ``affineepipolar`` alignment
+(:numref:`tutorial`), then create a DEM::
 
     parallel_stereo                      \
       --alignment-method affineepipolar  \
@@ -359,18 +365,18 @@ The ``--tr 20`` grid size is about 4 x the 5 m TMC ground sample distance. The
 projection centered on the cloud, which is appropriate for TMC's polar orbits (a
 UTM-like default would distort heavily near the poles).
 
-The produced DEM looked reasonably good. No jitter was observed in the
-triangulation error image (:numref:`point2dem_ortho_err`). The DEM extent was
-overestimated, likely due to the extreme aspect ratio of TMC strips (about
-190,000 lines x 4636 samples) and outliers due to shadow. This extent can be set
-explicitly with ``--t_projwin`` if known.
+The produced DEM looked reasonably good. No jitter (:numref:`jitter_solve`) was
+observed in the triangulation error image (:numref:`point2dem_ortho_err`). The
+DEM extent was overestimated, likely due to the extreme aspect ratio of TMC
+strips (about 190,000 lines x 4636 samples) and outliers due to shadow. This
+extent can be set explicitly with ``--t_projwin`` if known.
 
 It is suggested to also run stereo with mapprojected images
 (:numref:`mapproj-example`). The initial DEM used for mapprojection can be
 either:
 
-- A prior TMC DTM as provided by ISRO (``ch2_tmc_ndn_*_d_dtm_d18``)
-- A LOLA gridded DEM (see :numref:`sfs_initial_terrain`)
+- A prior TMC DTM as provided by ISRO (``ch2_tmc_ndn_*_d_dtm_d18``).
+- A LOLA gridded DEM (see :numref:`sfs_initial_terrain`).
 - A DEM gridded from LOLA CSV samples with ``point2dem``
   (:numref:`point2dem_csv`).
 
@@ -391,17 +397,12 @@ aspect ratio.
   meters. Right: triangulation error image (:numref:`point2dem_ortho_err`), with
   the color range from 0 to 5 meters (the image ground sample distance).
 
-No jitter pattern was observed in the triangulation error image for this dataset
-(see :numref:`jitter_solve`).
-
 It is suggested to also run stereo between the fwd/nadir and nadir/aft
-stereo pairs.
+stereo pairs. The ``--alignment-method local_epipolar`` option
+(:numref:`image_alignment`) is not recommended for the TMC fwd/aft pair (the
+per-tile epipolar refinement does not handle the large change in perspective
+well), but may work better on the other stereo pair combinations.
 
 For preliminary investigations, it is suggested to run stereo on a
 smaller region first, by mapprojecting onto a cropped version of a
 prior DEM.
-
-The ``--alignment-method local_epipolar`` option (:numref:`image_alignment`) is
-not recommended for the TMC fwd/aft pair: the per-tile epipolar refinement does
-not handle the large change in perspective well. It may work better for
-fwd/nadir and nadir/aft image pairs.
