@@ -885,7 +885,20 @@ vw::BBox2 asp::estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image
     if (subsample_amt < 1)
       subsample_amt = 1;
 
-    ImageViewRef<Vector3> sub_image = subsample(point_image, subsample_amt);
+    // Use separate x and y subsample factors. For very large aspect ratios
+    // (e.g. long thin TMC-2 strips), the single-factor based on the
+    // diagonal would zero out the rows of sub_image and yield no samples.
+    // Clamp each axis so at least 4 samples per axis are available; for
+    // moderate aspect ratios this is a no-op (subsample_amt < min_dim/4),
+    // preserving the prior behavior.
+    int32 sub_x = subsample_amt;
+    int32 sub_y = subsample_amt;
+    sub_x = std::min(sub_x, int32(point_image.cols() / 4));
+    sub_x = std::max(sub_x, int32(1));
+    sub_y = std::min(sub_y, int32(point_image.rows() / 4));
+    sub_y = std::max(sub_y, int32(1));
+
+    ImageViewRef<Vector3> sub_image = subsample(point_image, sub_x, sub_y);
 
     for (int32 col = 0; col < sub_image.cols(); col++) {
       for (int32 row = 0; row < sub_image.rows(); row++) {
@@ -951,7 +964,21 @@ void asp::median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
     if (subsample_amt < 1)
       subsample_amt = 1;
 
-    ImageViewRef<Vector3> sub_image = subsample(point_image, subsample_amt);
+    // Use separate x and y subsample factors. For very large aspect ratios
+    // (e.g. long thin TMC-2 strips, ~37:1), the single-factor based on the
+    // diagonal would zero out the rows of sub_image and yield no samples,
+    // throwing "Could not find a valid median longitude and latitude".
+    // Clamp each axis so at least 4 samples per axis are available; for
+    // moderate aspect ratios this is a no-op (subsample_amt < min_dim/4),
+    // preserving the prior behavior.
+    int32 sub_x = subsample_amt;
+    int32 sub_y = subsample_amt;
+    sub_x = std::min(sub_x, int32(point_image.cols() / 4));
+    sub_x = std::max(sub_x, int32(1));
+    sub_y = std::min(sub_y, int32(point_image.rows() / 4));
+    sub_y = std::max(sub_y, int32(1));
+
+    ImageViewRef<Vector3> sub_image = subsample(point_image, sub_x, sub_y);
 
     // Accumulate valid values
     std::vector<double> lons, lats;

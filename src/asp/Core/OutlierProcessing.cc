@@ -183,31 +183,41 @@ double estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const& pro
   for (int attempt = 8; attempt <= 18; attempt++) {
     
     double sample = (1 << attempt);
-    int32 subsample_amt = int32(norm_2(Vector2(proj_points.cols(), 
+    int32 subsample_amt = int32(norm_2(Vector2(proj_points.cols(),
                                                proj_points.rows()))/sample);
-    
+
     if (subsample_amt < 1)
       subsample_amt = 1;
-    
+
+    // Use separate x and y subsample factors so very wide aspect ratios
+    // (e.g. long thin TMC-2 strips) do not zero out one axis of sub_image.
+    // No-op for moderate aspect ratios (subsample_amt < min_dim/4).
+    int32 sub_x = subsample_amt;
+    int32 sub_y = subsample_amt;
+    sub_x = std::min(sub_x, int32(proj_points.cols() / 4));
+    sub_x = std::max(sub_x, int32(1));
+    sub_y = std::min(sub_y, int32(proj_points.rows() / 4));
+    sub_y = std::max(sub_y, int32(1));
+
     PixelAccumulator<asp::ErrorRangeEstimAccum> error_accum;
     if (error_image.cols() > 0 && error_image.rows() > 0) {
       //Stopwatch sw2;
       //sw2.start();
-      for_each_pixel(subsample(error_image, subsample_amt),
+      for_each_pixel(subsample(error_image, sub_x, sub_y),
                     error_accum,
                     TerminalProgressCallback
                     ("asp","Bounding box and triangulation error range estimation: ") );
-      if (error_accum.size() > 0) 
+      if (error_accum.size() > 0)
         estim_max_error = error_accum.value(remove_outliers_params);
       else
         success = false;
-        
+
       //sw2.stop();
       //vw_out(DebugMessage,"asp") << "Elapsed time: " << sw2.elapsed_seconds() << std::endl;
     }
 
-    asp::estimate_points_bdbox(subsample(proj_points, subsample_amt),
-                               subsample(error_image, subsample_amt),
+    asp::estimate_points_bdbox(subsample(proj_points, sub_x, sub_y),
+                               subsample(error_image, sub_x, sub_y),
                                remove_outliers_params,  estim_max_error,
                                estim_proj_box);
 
