@@ -11,7 +11,7 @@ roughly the same resolution as the images, and returns a refined DEM.
 The modeling approach is described in :cite:`alexandrov2018multiview`.
 
 The ``sfs`` program works with any cameras supported by ASP, for Earth and other
-planets. The option ``--sun-angles`` can be used to to specify the Sun
+planets. The option ``--sun-angles`` can be used to specify the Sun
 information for each image. For ISIS and CSM cameras, if this option is not set,
 the needed information is read from the camera files.
 
@@ -156,8 +156,8 @@ two. Those (together with one of the first two images) can be used for
 SfS.
 
 To locate the area of spatial overlap, the images can be map-projected
-(either with ``cam2map`` with a coarse resolution) or with
-``mapproject``, using for example the LOLA DEM as the terrain to
+(either with ``cam2map`` at a coarse resolution, or with
+``mapproject``), using for example the LOLA DEM as the terrain to
 project onto, or the DEM obtained from running ``parallel_stereo`` on
 those images. Then the images can be overlaid as georeferenced images
 in ``stereo_gui`` (:numref:`stereo_gui`). A good sanity check is to
@@ -254,7 +254,7 @@ done as follows::
     reduce from = ${f}.cal.echo.cub to = ${f}.cal.echo.sub10.cub  \
       sscale = 10 lscale = 10
 
-For simplicity, we create we create shorter aliases for these images::
+For simplicity, we create shorter aliases for these images::
 
     ln -s M139939938LE.cal.echo.cub A.cub
     ln -s M139946735RE.cal.echo.cub B.cub
@@ -270,7 +270,7 @@ The first step is to run bundle adjustment (:numref:`bundle_adjust`) and stereo
 (:numref:`parallel_stereo`) to create an initial guess DEM. We picked for this
 the first two of these images. These form a stereo pair
 (:numref:`stereo_pairs`), that is, they have a reasonable baseline and
-sufficiently close times of acquisition hence very similar illuminations). These
+sufficiently close times of acquisition hence very similar illuminations. These
 conditions are necessary to obtain a good stereo result.
 
 Below we assume CSM cameras are used (:numref:`sfs_isis_vs_csm`).
@@ -744,7 +744,7 @@ Handling borderline areas
 With the option ``--allow-borderline-data``, ``sfs`` is able to do a
 better job at resolving the terrain at the border of regions that have
 no lit pixels in any images. It works by not letting the image
-blending weights decay to 0 at at this boundary, which is normally the
+blending weights decay to 0 at this boundary, which is normally the
 case when ``--blending-dist`` is used. These weights still decrease
 to 0 at other image boundaries.
 
@@ -753,13 +753,13 @@ In the example in
 portion was lit, and in some the bottom portion. With this option, as
 it can be seen, the blur in the transition zone is removed. The
 craters are still too shallow, but that is a known issue with weak
-illumination, and something to to be addressed at a future time.
+illumination, and something to be addressed at a future time.
 
 The value of ``--blending-dist`` should be set to 10 or so. A smaller
 value may result in seams. Increasing this will allow the seams to be
 attenuated, but may result in more erosion.
 
-The tool ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
+The ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
 the areas in complete shadow after doing SfS.
 
 .. figure:: images/sfs_borderline.png
@@ -968,7 +968,7 @@ Any spikes or other artifacts should be blurred, such as by running::
 
     dem_mosaic --dem-blur-sigma 2 ref_dem.tif -o ref_blur.tif
     
-Any holes can also be filled ``dem_mosaic`` (:numref:`dem_mosaic_extrapolate`,
+Any holes can also be filled with ``dem_mosaic`` (:numref:`dem_mosaic_extrapolate`,
 :numref:`dem_mosaic_fill`). A subsequent blur with a sigma of 2 pixels is
 suggested (:numref:`dem_mosaic_blur`).
 
@@ -1040,7 +1040,7 @@ region. Example::
      --t_projwin -7050.500 -10890.500 -1919.500 -5759.500  \
      M*.map.lowres.tif -o tmp.tif | tee pixel_sum_list.txt
 
-Eliminate the images that are not relevant to the area. Having them in 
+Eliminate the images that are not relevant to the area. Keeping them in
 impacts reliability and performance.
 
 The obtained subset of images *must* be sorted by illumination conditions, that
@@ -1180,10 +1180,10 @@ with.
 
 Here more bundle adjustment iterations are desirable,
 but this step takes too long. A large ``--ip-per-image`` can make a
-difference in images with rather different different illumination
+difference in images with rather different illumination
 conditions but it can also slow down the process a lot. Note that the
 value of ``--max-pairwise-matches`` was set to 2000. That should
-hopefully create enough matches among any two images. A higher value
+create enough matches among any two images. A higher value
 here will make bundle adjustment run slower and use more memory.
 
 Towards the poles the Sun may describe a full loop in the sky, and
@@ -1191,16 +1191,16 @@ hence the earliest images (sorted by Sun azimuth angle) may become
 similar to the latest ones. That is the reason above we used the
 option ``--match-first-to-last``.
 
-If having an estimate how how accurate initial camera positions are, the option
-``--camera-position-uncertainty`` is suggested. If this uncertainty is is too
+If having an estimate of how accurate initial camera positions are, the option
+``--camera-position-uncertainty`` is suggested. If this uncertainty is too
 small, it can prevent convergence. For LRO NAC, perhaps 100 - 500 m is a good
 value. See also :numref:`ba_camera_offsets`.
 
-Note that this invocation may run for more than a day, or even
-more. And it may be necessary to get good convergence. If the process
-gets interrupted, or the user gives up on waiting, the adjustments
-obtained so far can still be usable, if invoking bundle adjustment,
-as above, with ``--save-intermediate-cameras``. 
+Note that this invocation may run for over a day, and may be necessary
+for good convergence. If the process gets interrupted, or the user
+gives up on waiting, the adjustments obtained so far can still be
+usable, if invoking bundle adjustment, as above, with
+``--save-intermediate-cameras``.
 
 As before, using the CSM model can result in much-improved performance. 
 
@@ -1235,9 +1235,9 @@ latest optimized cameras, if in CSM format.
 
 Reuse the match files with the option ``--match-files-prefix``.
 
-It is best to avoid throwing out images at this stage. More images means a
+It is best to avoid throwing out images at this stage. More images mean a
 higher chance that the images will be tied together. The images that have a zero
-count in the stats file can be thrown out. 
+count in the stats file can be thrown out.
 
 .. _sfs_ground_align:
 
@@ -1334,9 +1334,9 @@ The resulting transformed cloud ``run_align/run-trans_reference.tif``
 needs to be regridded with ``point2dem`` with the same projection
 and grid size as before.
 
-This DEM should be hillshaded (:numref:`hillshade`) and overladed on top of the
-LOLA DEM and see if there is any noticeable shift, which would be a sign of
-alignment not being successful. 
+This DEM should be hillshaded (:numref:`hillshade`) and overlaid on top of the
+LOLA DEM to see if there is any noticeable shift, which would be a sign of
+alignment not being successful.
 
 If no luck, and visually the misalignment looks small horizontally, alignment
 could be skipped, for now, and one could continue with the next step, of using a
@@ -1425,7 +1425,7 @@ The value used for ``--heights-from-dem-uncertainty`` can be larger, such as
 100, if it is believed that the stereo DEM mosaic produced so far is too
 different from LOLA.  See also :numref:`heights_from_dem`.
 
-The switch ``--save-intermediate cameras`` is helpful, as before, if
+The switch ``--save-intermediate-cameras`` is helpful, as before, if
 desired to stop if things take too long.
 
 .. _sfs_reg_valid:
@@ -1885,7 +1885,7 @@ One can use the ``--absolute`` option for this tool and then invoke
 ``colormap`` to colorize the difference map. By and large, the SfS
 DEM should not differ from the reference DEM by more than 1-2 meters.
 
-It is also suggested to produce produce a maximally-list mosaic, as in
+It is also suggested to produce a maximally-lit mosaic, as in
 :numref:`sfs_reg_valid`. This should not look too
 different if projecting on the initial guess DEM or on the refined one
 created with SfS.
