@@ -2238,7 +2238,7 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --overlap-limit 10000                          \
       --parameter-tolerance 1e-20                    \
       --heights-from-dem ref_dem.tif                 \
-      --heights-from-dem-uncertainty 10.0            \
+      --heights-from-dem-uncertainty 20.0            \
       --anchor-dem ref_dem_extra.tif                 \
       --num-anchor-points-per-tile 4                 \
       --num-anchor-points-extra-lines 40000          \
@@ -2280,8 +2280,10 @@ prevents wild oscillations. This is a soft constraint and in practice the
 camera positions can move somewhat beyond that.
 
 GCP were produced as earlier (:numref:`sfs_gcp`), with ``dem2gcp``
-(:numref:`dem2gcp`). The GCP sigma was set to 10 meters. The option
-``--max-gcp-reproj-err`` was used to filter GCP outliers.
+(:numref:`dem2gcp`). The GCP sigma was set to 10 meters. Decreasing this to 1.0
+should be considered if the pull of the GCP is not adequate. The GCP sigma
+uncertainty should be less than the value of ``--heights-from-dem-uncertainty``.
+The option ``--max-gcp-reproj-err`` was used to filter GCP outliers.
 
 Clean matches from bundle adjustment were reused. The number of pairwise
 matches can be adjusted to balance quality and problem size. Too many matches
@@ -2295,10 +2297,16 @@ named::
 
   jitter_align_ref/run-mapproj_match_offset_stats.txt
 
-that can be compared with the one from bundle adjustment. Hopefully
-the median registration errors go down somewhat.
+that can be compared with the one from bundle adjustment. The median
+registration errors should decrease.
 
-The validation can proceed as earlier, in :numref:`sfs_reg_valid`.
+Inspect the produced report files (:numref:`jitter_out_files`). In particular,
+study how much the camera positions moved, how the triangulated points shifted,
+and the reprojection errors per camera and per triangulated point (both those
+constrained by GCP and by DEM). This shows whether the problem is too
+constrained or not constrained enough.
+
+Further validation can proceed as earlier, in :numref:`sfs_reg_valid`.
 
 .. _sfsinsights:
 
