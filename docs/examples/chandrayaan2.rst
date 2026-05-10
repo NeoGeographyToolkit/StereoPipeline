@@ -79,6 +79,18 @@ individually with ``rclone``, such as::
       --include="ch2_att_27Aug2020_04Oct2020_v1.bc" \
       --no-traverse -P
 
+.. _isro_download:
+
+Downloading images from ISRO
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Images, orthoimages, and DEMs for the OHRC and TMC-2 cameras can be
+downloaded from `ISRO <https://chmapbrowse.issdc.gov.in/>`_.
+
+Each download is a zip. After unzipping, locate the ``.img`` and ``.xml``
+files and move them into a working directory. Keep the original ISRO
+filenames; a rename can break ``isisimport``.
+
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -86,21 +98,13 @@ The OHRC instrument is a high-resolution camera with a 0.25 m ground sample
 distance (GSD). It can adjust its look angle and acquire stereo pairs
 (:numref:`stereo_pairs`).
 
-Fetching the data
-^^^^^^^^^^^^^^^^^
+Input data
+^^^^^^^^^^
 
-Raw and calibrated images for OHRC and TMC-2 cameras, as well as orthoimages and
-Digital Elevation Models (DEMs) produced from TMC-2 camera data, can be
-downloaded from `ISRO <https://chmapbrowse.issdc.gov.in/>`_.
-
-The first step when using that portal is selecting the appropriate projection
-for displaying the image footprints. Then, choose the instrument (OHRC or
-TMC-2), data type (calibrated is suggested, but raw may do), and the area of
-interest.
-
-We selected the region of interest to be between 20 and 21 degrees in longitude,
-and -70 to -67 degrees in latitude. The OHRC stereo pair we downloaded consisted
-of images with the prefixes::
+Download the OHRC stereo pair from ISRO as described in
+:numref:`isro_download`. We selected the region of interest to be
+between 20 and 21 degrees in longitude, and -70 to -67 degrees in latitude.
+The prefixes are::
 
     ch2_ohr_nrp_20200827T0030107497_d_img_d18
     ch2_ohr_nrp_20200827T0226453039_d_img_d18
@@ -122,16 +126,26 @@ Preprocessing
 ^^^^^^^^^^^^^
 
 Each calibrated image dataset has ``.img`` and ``.xml`` files, with raw data and
-a PDS-4 label. It will be convenient to rename these to ``ohrc/img1.img`` and
-``ohrc/img1.xml`` for the first OHRC dataset, and analogously for the second
-one.
+a PDS-4 label.
 
 The `isisimport <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/isisimport/isisimport.html>`_ command converts the raw image to a .cub file::
 
-    isisimport from = ohrc/img1.xml to = ohrc/img1.cub
+    isisimport \
+      from = ch2_ohr_nrp_20200827T0030107497_d_img_d18.xml \
+      to   = ch2_ohr_nrp_20200827T0030107497_d_img_d18.cub
 
 (and same for the second image). The PDS4 template is auto-detected in ISIS
 10.
+
+For simplicity, the output cub files are renamed to ``ohrc/img1.cub`` and
+``ohrc/img2.cub``.
+
+ISIS 10 is required for correct OHRC line exposure handling. Older
+versions wrote a ``LineExposureDuration`` value 1000 times too large into
+the cub label (the ISRO PDS4 label tags the field as ``unit="ms"`` but the
+value is in microseconds), which then propagated into the CSM camera and
+broke its time-vs-line mapping. Cubs and CSM JSONs created with older
+ISIS should be rebuilt.
 
 The ``isisimport`` command only works with raw images and not with ortho images.
 
@@ -284,10 +298,15 @@ imaged by all of them.
 Input data
 ^^^^^^^^^^
 
-We use the fwd/aft pair::
+Download the TMC-2 forward, nadir, and aft stereo triplet from ISRO as
+described in :numref:`isro_download`. The three acquisitions
+cover a shared ground swath on the same orbit pass::
 
     ch2_tmc_ncf_20231101T0125121344_d_img_d18
+    ch2_tmc_ncn_20231101T0125121377_d_img_d18
     ch2_tmc_nca_20231101T0125121377_d_img_d18
+
+We use only the fwd/aft pair below for the largest stereo convergence angle.
 
 The corresponding pre-existing DTM (``ch2_tmc_ndn_20231101T0125121377``,
 mentioned earlier) covers the same orbit pass. These images include the
@@ -318,8 +337,18 @@ missions.
 With the metakernel in place, the workflow is as follows::
 
     export ALESPICEROOT=$ISISDATA
-    isisimport from = tmc/fwd.xml to = tmc/fwd.cub
-    isisimport from = tmc/aft.xml to = tmc/aft.cub
+
+    isisimport \
+      from = ch2_tmc_ncf_20231101T0125121344_d_img_d18.xml \
+      to   = ch2_tmc_ncf_20231101T0125121344_d_img_d18.cub
+
+    isisimport \
+      from = ch2_tmc_nca_20231101T0125121377_d_img_d18.xml \
+      to   = ch2_tmc_nca_20231101T0125121377_d_img_d18.cub
+
+For simplicity, the output cub files are renamed to ``tmc/fwd.cub`` and
+``tmc/aft.cub``. Then run::
+
     isd_generate tmc/fwd.cub
     isd_generate tmc/aft.cub
 
