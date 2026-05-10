@@ -342,15 +342,16 @@ With the metakernel in place, the workflow is as follows::
       from = ch2_tmc_ncf_20231101T0125121344_d_img_d18.xml \
       to   = ch2_tmc_ncf_20231101T0125121344_d_img_d18.cub
 
-    isisimport \
-      from = ch2_tmc_nca_20231101T0125121377_d_img_d18.xml \
-      to   = ch2_tmc_nca_20231101T0125121377_d_img_d18.cub
+and same for the other ones.
 
 For simplicity, the output cub files are renamed to ``tmc/fwd.cub`` and
 ``tmc/aft.cub``. Then run::
 
     isd_generate tmc/fwd.cub
     isd_generate tmc/aft.cub
+
+We skipped the ``-k`` option here given the current issue with ``spiceinit``
+mentioned earlier.
 
 Check each JSON with ``cam_test`` (:numref:`cam_test`).
 
