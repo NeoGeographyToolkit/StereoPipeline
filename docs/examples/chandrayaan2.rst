@@ -218,6 +218,7 @@ Stereo
 Next, we invoked ``parallel_stereo`` (:numref:`parallel_stereo`) to create a point cloud::
 
     parallel_stereo                     \
+      --alignment-method affineepipolar \
       --stereo-algorithm asp_mgm        \
       --clean-match-files-prefix ba/run \
       ohrc/img1_crop.cub                \
@@ -312,8 +313,8 @@ The corresponding pre-existing DTM (``ch2_tmc_ndn_20231101T0125121377``,
 mentioned earlier) covers the same orbit pass. These images include the
 footprint of the OHRC images from earlier but extend well beyond them.
 
-Creation of cameras
-^^^^^^^^^^^^^^^^^^^
+Preprocessing
+^^^^^^^^^^^^^
 
 We use only the CSM camera models (:numref:`csm`), as it appears that the
 non-nadir TMC ISIS camera models in the .cub files are still problematic (as of
@@ -350,8 +351,8 @@ For simplicity, the output cub files are renamed to ``tmc/fwd.cub`` and
     isd_generate tmc/fwd.cub
     isd_generate tmc/aft.cub
 
-We skipped the ``-k`` option here given the current issue with ``spiceinit``
-mentioned earlier.
+We skipped the ``-k`` option (read kernels from a cub) here given the current
+issue with ``spiceinit`` mentioned earlier. This may be rectified in ISIS 10.
 
 Check each JSON with ``cam_test`` (:numref:`cam_test`).
 
@@ -405,14 +406,15 @@ DEM extent was overestimated, likely due to the extreme aspect ratio of TMC
 strips (about 190,000 lines x 4636 samples) and outliers due to shadow. This
 extent can be set explicitly with ``--t_projwin`` if known.
 
-Consider also running stereo on mapprojected images
-(:numref:`mapproj-example`). The initial DEM used for mapprojection can be
-either:
+Stereo with mapprojected images (:numref:`mapproj-example`) is very strongly
+suggested for TMC data, given the extreme image aspect ratio. The initial DEM
+used for mapprojection can be either:
 
 - A prior TMC DTM as provided by ISRO (``ch2_tmc_ndn_*_d_dtm_d18``).
 - A LOLA gridded DEM (see :numref:`sfs_initial_terrain`).
 - A DEM gridded from LOLA CSV samples with ``point2dem``
-  (:numref:`point2dem_csv`).
+  (:numref:`point2dem_csv`). This should be created with a local projection and
+  a large grid size (DEM spacing) especially when the LOLA samples are sparse.
 
 In either case, the input DEM should first be grown to fill in any holes
 (:numref:`dem_mosaic_extrapolate`) and then blurred (``dem_mosaic
@@ -436,6 +438,7 @@ stereo pairs. The ``--alignment-method local_epipolar`` option
 (:numref:`image_alignment`) is not recommended for the TMC fwd/aft pair (the
 per-tile epipolar refinement does not handle the large change in perspective
 well), but may work better on the other stereo pair combinations.
+Stereo with mapprojected images is preferred in either case.
 
 For preliminary investigations, run stereo on a smaller region first
 by mapprojecting onto a cropped version of a prior DEM.
