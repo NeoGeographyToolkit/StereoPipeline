@@ -1157,10 +1157,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     }
   }
   if (!success) {
-    // Surface the underlying exception on the warning channel. Silently
-    // swallowing it (the prior behavior used vw_out() with no channel,
-    // mixed into normal stdout among 2249+ tile log lines) is how every
-    // tile of Chandrayaan-2 TMC fwd+nadir got an empty D.tif unnoticed.
+    // Surface the underlying exception so a swallowed throw does not
+    // silently write empty disparity per tile.
     vw_out(vw::WarningMessage)
       << "local_alignment threw for tile " << tile_crop_win
       << "; writing empty disparity and continuing. Exception: "

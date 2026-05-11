@@ -34,7 +34,17 @@ parallel_stereo (:numref:`parallel_stereo`):
   * The DEM for mapprojected images can be set with ``--dem`` instead of as the
     last positional argument (:numref:`mapproj-example`).
   * The ``libelas`` stereo algorithm (:numref:`libelas`) is now supported on
-    Mac ARM64. 
+    Mac ARM64.
+  * For ``--alignment-method local_epipolar``, per-tile workers now honor
+    ``--clean-match-files-prefix`` / ``--match-files-prefix`` when looking
+    up the unaligned match file. This fixes a silent failure where every
+    tile would write empty disparity when no per-tile match file existed.
+    Per-tile local affine epipolar is now fit on the IPs un-projected back
+    to raw cub coordinates. Default ``--local-alignment-threshold`` raised
+    from 2 to 5 pixels (:numref:`stereodefault`).
+  * Surface as a warning the exception thrown by ``local_alignment`` in
+    ``stereo_corr`` when a per-tile fit fails. Previously it was printed
+    unflagged and easy to miss in long parallel runs.
 
 sfm_view (:numref:`sfm_view`):
   * Brought the source code into the ASP repository from the external MultiView

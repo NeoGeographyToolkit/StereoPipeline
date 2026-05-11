@@ -121,10 +121,7 @@ namespace asp {
     vw_out() << "\t--> Reading unaligned interest points.\n";
     std::vector<vw::ip::InterestPoint> left_unaligned_ip, right_unaligned_ip;
     // Honor --clean-match-files-prefix / --match-files-prefix so per-tile
-    // workers can load the global BA match file when no per-tile match
-    // file exists. Without this, parallel_stereo with local_epipolar bails
-    // each tile via the catch-and-write-empty-disparity in
-    // stereo_corr.cc:1140-1163.
+    // workers can find the global match file when no per-tile copy exists.
     std::string match_filename
       = asp::matchFileMultiPrefix(stereo_settings().clean_match_files_prefix,
                                   stereo_settings().match_files_prefix,
@@ -514,24 +511,9 @@ namespace asp {
     right_crop_mat(0, 2) = -right_trans_crop_win.min().x();
     right_crop_mat(1, 2) = -right_trans_crop_win.min().y();
 
-    // Find the local alignment.
-    //
-    // Fit affine_epipolar on IPs in RAW cub coords (not in the post-global
-    // tile-local coords). Reason: when the global rectification has bad
-    // anisotropic scale (e.g. Chandrayaan-2 TMC fwd+nadir), the post-global
-    // L.tif/R.tif tile is itself distorted. Fitting the local affine on
-    // post-global IPs inherits that distortion. Fitting on raw-coord IPs
-    // gives a clean local-to-tile map regardless of global health.
-    //
-    // Mechanics: log_localepi_sentinel.
-    static bool localepi_sentinel = false;
-    if (!localepi_sentinel) {
-      vw_out() << "[NEW SCHOOL local-epi] fit local affine on raw-cub IPs.\n";
-      localepi_sentinel = true;
-    }
-
-    // Convert tile-local IPs to raw cub coords:
-    //   raw_pixel = inv(global_trans).reverse(tile_local + tile_min)
+    // Fit the local affine on IPs un-projected back to raw cub coords
+    // (not the post-global tile-local coords they come in as). Decouples
+    // the local fit from any distortion baked into the global rectification.
     std::vector<vw::ip::InterestPoint> left_local_ip_raw  = left_local_ip;
     std::vector<vw::ip::InterestPoint> right_local_ip_raw = right_local_ip;
     for (size_t i = 0; i < left_local_ip_raw.size(); i++) {
@@ -545,9 +527,8 @@ namespace asp {
       right_local_ip_raw[i].x = rraw.x(); right_local_ip_raw[i].y = rraw.y();
     }
 
-    // Bbox of raw IPs per side - shift to (0,0) so affine_epipolar's bbox
-    // computation (which transforms the four corners of the input dims)
-    // produces a tile-sized output, not a full-cub-sized output.
+    // Shift raw IPs so their bbox starts at (0,0); otherwise affine_epipolar's
+    // output bbox would span the full cub instead of just this tile region.
     BBox2 left_raw_bbox, right_raw_bbox;
     for (size_t i = 0; i < left_local_ip_raw.size(); i++) {
       left_raw_bbox.grow(Vector2(left_local_ip_raw[i].x,  left_local_ip_raw[i].y));
@@ -564,7 +545,6 @@ namespace asp {
     Vector2i right_raw_size(int(std::ceil(right_raw_bbox.width())),
                             int(std::ceil(right_raw_bbox.height())));
 
-    // Fit local affine on shifted-raw IPs.
     std::vector<size_t> ip_inlier_indices;
     bool crop_to_shared_area = false;
     Matrix<double> left_local_mat_raw, right_local_mat_raw;
@@ -577,8 +557,10 @@ namespace asp {
                                     left_local_mat_raw, right_local_mat_raw,
                                     &ip_inlier_indices);
 
-    // Absorb the (0,0)-shift back into the matrices: local_mat_full maps
-    // raw_cub_pixel -> tile_L_local_pixel.
+    // Absorb the (0,0)-shift back into the matrices, then re-express in
+    // tile_local -> tile_L coords so the existing combined =
+    // left_local_mat * left_crop_mat * left_global_mat formula below still
+    // recovers the raw -> tile_L map.
     Matrix<double> left_shift  = math::identity_matrix<3>();
     Matrix<double> right_shift = math::identity_matrix<3>();
     left_shift (0, 2) = -left_raw_bbox.min().x();
@@ -588,15 +570,13 @@ namespace asp {
     Matrix<double> local_mat_full_left  = left_local_mat_raw  * left_shift;
     Matrix<double> local_mat_full_right = right_local_mat_raw * right_shift;
 
-    // Express in OLD downstream semantics (tile_local -> tile_L_local) so
-    // existing combined = local * crop * global recovers local_mat_full.
     left_local_mat  = local_mat_full_left
                       * inverse(left_global_mat)  * inverse(left_crop_mat);
     right_local_mat = local_mat_full_right
                       * inverse(right_global_mat) * inverse(right_crop_mat);
 
-    vw_out() << "Per-tile local-epi: " << left_local_ip.size()
-             << " IPs in tile, " << ip_inlier_indices.size() << " RANSAC inliers.\n";
+    vw_out() << "Local epi tile IPs: " << left_local_ip.size()
+             << " total, " << ip_inlier_indices.size() << " RANSAC inliers.\n";
 
     // Combination of global alignment, crop to current tile, and local alignment
     Matrix<double> combined_left_mat  = left_local_mat * left_crop_mat * left_global_mat;

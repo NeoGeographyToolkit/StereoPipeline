@@ -170,7 +170,7 @@ global-alignment-threshold (*float*) (default = 10)
     epipolar line when calculating the global affine epipolar
     alignment.
 
-local-alignment-threshold (*float*) (default = 2)
+local-alignment-threshold (*float*) (default = 5)
     Maximum distance from inlier interest point matches to the
     epipolar line when calculating the local affine epipolar
     alignment.

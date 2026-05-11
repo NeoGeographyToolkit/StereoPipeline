@@ -189,7 +189,7 @@ PreProcessingDescription::PreProcessingDescription():
       "If the current run is part of a larger multiview run.")
     ("global-alignment-threshold", po::value(&global.global_alignment_threshold)->default_value(10),
       "Maximum distance from inlier interest point matches to the epipolar line when calculating the global affine epipolar alignment.")
-    ("local-alignment-threshold", po::value(&global.local_alignment_threshold)->default_value(2),
+    ("local-alignment-threshold", po::value(&global.local_alignment_threshold)->default_value(5),
       "Maximum distance from inlier interest point matches to the epipolar line when calculating the local affine epipolar alignment.")
     ("alignment-num-ransac-iterations", 
      po::value(&global.alignment_num_ransac_iterations)->default_value(1000),
