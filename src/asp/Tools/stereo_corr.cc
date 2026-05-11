@@ -1160,8 +1160,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     // Surface the underlying exception so a swallowed throw does not
     // silently write empty disparity per tile.
     vw_out(vw::WarningMessage)
-      << "local_alignment threw for tile " << tile_crop_win
-      << "; writing empty disparity and continuing. Exception: "
+      << "Local alignment failed for tile: " << tile_crop_win
+      << ". Writing empty disparity. Exception: "
       << err_msg << "\n";
     save_empty_disparity(opt, tile_crop_win, out_disp_file);
     return;

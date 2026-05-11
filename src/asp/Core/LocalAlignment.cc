@@ -120,8 +120,7 @@ namespace asp {
 
     vw_out() << "\t--> Reading unaligned interest points.\n";
     std::vector<vw::ip::InterestPoint> left_unaligned_ip, right_unaligned_ip;
-    // Honor --clean-match-files-prefix / --match-files-prefix so per-tile
-    // workers can find the global match file when no per-tile copy exists.
+    // Handle --clean-match-files-prefix / --match-files-prefix.
     std::string match_filename
       = asp::matchFileMultiPrefix(stereo_settings().clean_match_files_prefix,
                                   stereo_settings().match_files_prefix,
@@ -570,10 +569,8 @@ namespace asp {
     right_local_mat = local_mat_full_right
                       * inverse(right_global_mat) * inverse(right_crop_mat);
 
-    vw_out() << "Local epi tile IPs: " << left_local_ip.size()
-             << " total, " << ip_inlier_indices.size() << " RANSAC inliers.\n";
-    // SANITY: per-tile binary-freshness probe (do not commit)
-    vw_out() << "LOCAL-EPI-FRESH-2026-05-11-v2\n";
+    vw_out() << "Per tile interest points: " << left_local_ip.size()
+             << ", inliers: " << ip_inlier_indices.size() << ".\n";
 
     // Combination of global alignment, crop to current tile, and local alignment
     Matrix<double> combined_left_mat  = left_local_mat * left_crop_mat * left_global_mat;

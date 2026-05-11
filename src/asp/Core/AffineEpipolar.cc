@@ -282,7 +282,6 @@ namespace asp {
     return ransac_instance(p1,p2);
   }
     
-
   // Main function that other parts of ASP should use
   Vector2i affine_epipolar_rectification(Vector2i const& left_image_dims,
                                          Vector2i const& right_image_dims,
