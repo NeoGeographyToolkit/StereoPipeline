@@ -120,10 +120,18 @@ namespace asp {
 
     vw_out() << "\t--> Reading unaligned interest points.\n";
     std::vector<vw::ip::InterestPoint> left_unaligned_ip, right_unaligned_ip;
-    std::string match_filename = vw::ip::match_filename(opt.out_prefix,
-                                                        left_unaligned_file,
-                                                        right_unaligned_file,
-                                                        matches_as_txt);
+    // Honor --clean-match-files-prefix / --match-files-prefix so per-tile
+    // workers can load the global BA match file when no per-tile match
+    // file exists. Without this, parallel_stereo with local_epipolar bails
+    // each tile via the catch-and-write-empty-disparity in
+    // stereo_corr.cc:1140-1163.
+    std::string match_filename
+      = asp::matchFileMultiPrefix(stereo_settings().clean_match_files_prefix,
+                                  stereo_settings().match_files_prefix,
+                                  opt.out_prefix,
+                                  left_unaligned_file,
+                                  right_unaligned_file,
+                                  matches_as_txt);
     if (!fs::exists(match_filename))
       vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
 
