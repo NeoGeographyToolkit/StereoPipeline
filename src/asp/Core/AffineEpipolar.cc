@@ -30,6 +30,7 @@
 
 #include <opencv2/calib3d.hpp>
 
+#include <cstdlib>
 #include <vector>
 
 using namespace vw;
@@ -186,11 +187,39 @@ namespace asp {
       right_matrix(1, 0) = epipole_prime[1]/Hr;
       right_matrix(1, 1) = epipole_prime[0]/Hr;
 
-      // Solve for ideal scaling and translation
-      solve_y_scaling(ip1, ip2, left_matrix, right_matrix);
+      // Default solve_y_scaling/solve_x_shear allow non-uniform scale on
+      // L vs R for tighter Y residual. That is harmful for windowed
+      // correlation when the geometry forces the two scales far apart
+      // (e.g. Chandrayaan-2 TMC fwd+nadir, scale_R ~ 0.9 vs scale_L = 1).
+      // ASP_FORCE_UNIFORM_SCALE=1 substitutes translation-only fits so
+      // both sides keep scale = 1; Y residual gets larger but correlation
+      // can absorb that via its search range.
+      bool force_uniform_scale = (std::getenv("ASP_FORCE_UNIFORM_SCALE") != NULL);
+      if (force_uniform_scale) {
+        // Print once - operator() is called many times by RANSAC.
+        static bool printed_once = false;
+        if (!printed_once) {
+          vw_out() << "ASP_FORCE_UNIFORM_SCALE set; using uniform-scale "
+                   << "rectification (rotation + translation only).\n";
+          printed_once = true;
+        }
+        double sum_x_off = 0, sum_y_off = 0;
+        for (size_t i = 0; i < ip1.size(); i++) {
+          Vector3 lpt = left_matrix  * Vector3(ip1[i].x, ip1[i].y, 1);
+          Vector3 rpt = right_matrix * Vector3(ip2[i].x, ip2[i].y, 1);
+          sum_x_off += lpt(0) - rpt(0);
+          sum_y_off += lpt(1) - rpt(1);
+        }
+        double n = double(ip1.size());
+        right_matrix(0, 2) = sum_x_off / n;
+        right_matrix(1, 2) = sum_y_off / n;
+      } else {
+        // Solve for ideal scaling and translation
+        solve_y_scaling(ip1, ip2, left_matrix, right_matrix);
 
-      // Solve for ideal shear, scale, and translation of X axis
-      solve_x_shear(ip1, ip2, left_matrix, right_matrix);
+        // Solve for ideal shear, scale, and translation of X axis
+        solve_x_shear(ip1, ip2, left_matrix, right_matrix);
+      }
 
       // Work out the ideal render size
       BBox2i left_bbox, right_bbox;
@@ -284,6 +313,160 @@ namespace asp {
     return ransac_instance(p1,p2);
   }
     
+  // Try a Hartley-style homography-based epipolar rectification using
+  // OpenCV's stereoRectifyUncalibrated. Per-side homography (8 DoF each,
+  // vs 6 for affine) gives enough flexibility to satisfy BOTH epipolar Y
+  // alignment AND ground-pixel-size equalization on asymmetric-tilt
+  // geometries (e.g. TMC fwd+nadir, where the off-nadir camera's ground
+  // pixel is ~10% larger than the nadir camera's, which pure affine
+  // can't fully equalize without breaking Y-rectification).
+  //
+  // Returns true if the homography fit passes a battery of sanity
+  // checks (det in range, det ratio close to 1, perspective denominators
+  // small, sub-pixel-ish Y-residual on inliers, output bbox not blowing
+  // up). Returns false otherwise; the caller falls back to the existing
+  // affine path. For typical near-conformal pairs (LRO NAC, CTX,
+  // TMC fwd+aft) the homography reduces to near-affine and the checks
+  // pass with very similar matrices to what the affine path produces.
+  bool try_homography_epipolar_rectification(
+      Vector2i const& left_image_dims,
+      Vector2i const& right_image_dims,
+      double inlier_threshold,
+      std::vector<ip::InterestPoint> const& ip1,
+      std::vector<ip::InterestPoint> const& ip2,
+      // Outputs
+      Matrix<double>& left_matrix,
+      Matrix<double>& right_matrix,
+      Vector2i& trans_crop_box,
+      std::vector<size_t>& inlier_indices) {
+
+    if (ip1.size() < 8 || ip1.size() != ip2.size())
+      return false;
+
+    // Build OpenCV point arrays
+    std::vector<cv::Point2f> pts1, pts2;
+    pts1.reserve(ip1.size());
+    pts2.reserve(ip2.size());
+    for (size_t i = 0; i < ip1.size(); i++) {
+      pts1.push_back(cv::Point2f(ip1[i].x, ip1[i].y));
+      pts2.push_back(cv::Point2f(ip2[i].x, ip2[i].y));
+    }
+
+    // Robust fundamental matrix via RANSAC
+    std::vector<uchar> inlier_mask;
+    cv::Mat F = cv::findFundamentalMat(pts1, pts2, cv::FM_RANSAC,
+                                       inlier_threshold, 0.99, inlier_mask);
+    if (F.empty()) return false;
+
+    // Filter to inliers
+    std::vector<cv::Point2f> in1, in2;
+    inlier_indices.clear();
+    for (size_t i = 0; i < pts1.size(); i++) {
+      if (inlier_mask[i]) {
+        in1.push_back(pts1[i]);
+        in2.push_back(pts2[i]);
+        inlier_indices.push_back(i);
+      }
+    }
+    if (in1.size() < 8) return false;
+
+    // Recompute F using inliers only (8-point method, more accurate)
+    F = cv::findFundamentalMat(in1, in2, cv::FM_8POINT);
+    if (F.empty()) return false;
+
+    // Hartley uncalibrated rectification
+    cv::Mat H_L_cv, H_R_cv;
+    cv::Size img_size(std::max(left_image_dims.x(), right_image_dims.x()),
+                      std::max(left_image_dims.y(), right_image_dims.y()));
+    bool ok = cv::stereoRectifyUncalibrated(in1, in2, F, img_size,
+                                            H_L_cv, H_R_cv, inlier_threshold);
+    if (!ok) return false;
+
+    // Convert to vw::Matrix<double, 3, 3>
+    Matrix<double> H_L(3, 3), H_R(3, 3);
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 3; j++) {
+        H_L(i, j) = H_L_cv.at<double>(i, j);
+        H_R(i, j) = H_R_cv.at<double>(i, j);
+      }
+    }
+
+    // SANITY CHECKS - all failures fall back to affine
+    auto reject = [&](std::string const& why) {
+      vw_out() << "Homography epipolar fit rejected: " << why
+               << "; falling back to affine.\n";
+      return false;
+    };
+
+    // (a) det of upper-left 2x2 in reasonable range
+    double det_L = H_L(0, 0) * H_L(1, 1) - H_L(0, 1) * H_L(1, 0);
+    double det_R = H_R(0, 0) * H_R(1, 1) - H_R(0, 1) * H_R(1, 0);
+    if (std::abs(det_L) < 0.1 || std::abs(det_L) > 10.0)
+      return reject("|det_L|=" + std::to_string(det_L) + " out of [0.1,10]");
+    if (std::abs(det_R) < 0.1 || std::abs(det_R) > 10.0)
+      return reject("|det_R|=" + std::to_string(det_R) + " out of [0.1,10]");
+
+    // (b) det ratio close - this is the equalization sanity check
+    double ratio = std::max(std::abs(det_L), std::abs(det_R)) /
+                   std::min(std::abs(det_L), std::abs(det_R));
+    if (ratio > 2.0)
+      return reject("det ratio " + std::to_string(ratio) + " > 2.0");
+
+    // (c) perspective denominators (last row of H) small
+    if (std::abs(H_L(2, 0)) > 1e-3 || std::abs(H_L(2, 1)) > 1e-3 ||
+        std::abs(H_R(2, 0)) > 1e-3 || std::abs(H_R(2, 1)) > 1e-3)
+      return reject("perspective denominators too large");
+
+    // (d) Y-residual on inliers sub-pixel-ish
+    double max_y_resid = 0;
+    for (size_t i = 0; i < in1.size(); i++) {
+      Vector3 lp(in1[i].x, in1[i].y, 1);
+      Vector3 rp(in2[i].x, in2[i].y, 1);
+      Vector3 lpt = H_L * lp;
+      Vector3 rpt = H_R * rp;
+      if (lpt.z() != 0) lpt /= lpt.z();
+      if (rpt.z() != 0) rpt /= rpt.z();
+      max_y_resid = std::max(max_y_resid, std::abs(lpt.y() - rpt.y()));
+    }
+    if (max_y_resid > 5.0)
+      return reject("max Y-residual " + std::to_string(max_y_resid) + " px > 5");
+
+    // (e) output bbox not catastrophic
+    BBox2 left_bbox;
+    Vector3 left_corners[4] = {
+      Vector3(0, 0, 1),
+      Vector3(left_image_dims.x(), 0, 1),
+      Vector3(left_image_dims.x(), left_image_dims.y(), 1),
+      Vector3(0, left_image_dims.y(), 1)
+    };
+    for (int i = 0; i < 4; i++) {
+      Vector3 q = H_L * left_corners[i];
+      if (q.z() != 0) q /= q.z();
+      left_bbox.grow(Vector2(q.x(), q.y()));
+    }
+    int max_dim = std::max(left_image_dims.x(), left_image_dims.y());
+    if (left_bbox.width() > 4.0 * max_dim || left_bbox.height() > 4.0 * max_dim)
+      return reject("output bbox blew up");
+
+    // Translate matrices so output bbox starts at origin (matches the
+    // existing affine code's bbox handling).
+    H_L(0, 2) -= left_bbox.min().x();
+    H_L(1, 2) -= left_bbox.min().y();
+    H_R(0, 2) -= left_bbox.min().x();
+    H_R(1, 2) -= left_bbox.min().y();
+
+    // Outputs
+    left_matrix = H_L;
+    right_matrix = H_R;
+    trans_crop_box = Vector2i(int(left_bbox.width()), int(left_bbox.height()));
+
+    vw_out() << "Used homography-epipolar rectification (Hartley/Zisserman). "
+             << inlier_indices.size() << " / " << ip1.size() << " inliers, "
+             << "det_L=" << det_L << ", det_R=" << det_R
+             << ", max Y-resid=" << max_y_resid << " px.\n";
+    return true;
+  }
+
   // Main function that other parts of ASP should use
   Vector2i affine_epipolar_rectification(Vector2i const& left_image_dims,
                                          Vector2i const& right_image_dims,
@@ -296,7 +479,23 @@ namespace asp {
                                          Matrix<double>& right_matrix,
                                          // optionally return the inliers
                                          std::vector<size_t> * inliers_ptr) {
-  
+
+    // Try homography-based epipolar rectification first. It handles
+    // asymmetric-tilt geometries (e.g. TMC fwd+nadir) that pure affine
+    // can't fully equalize. Falls back to the existing affine RANSAC
+    // path if any sanity check fails.
+    {
+      Vector2i hom_trans_crop_box;
+      std::vector<size_t> hom_inliers;
+      if (try_homography_epipolar_rectification(
+            left_image_dims, right_image_dims, inlier_threshold,
+            ip1, ip2,
+            left_matrix, right_matrix, hom_trans_crop_box, hom_inliers)) {
+        if (inliers_ptr) *inliers_ptr = hom_inliers;
+        return hom_trans_crop_box;
+      }
+    }
+
     int  min_num_output_inliers = ip1.size() / 2;
     bool reduce_min_num_output_inliers_if_no_fit = true;
 

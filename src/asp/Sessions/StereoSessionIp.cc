@@ -363,9 +363,11 @@ void StereoSession::imageAlignment(// Inputs
                                       left_ip,           right_ip,
                                       crop_to_shared_area,
                                       align_left_matrix, align_right_matrix);
-    vw_out() << "\t--> Aligning left and right images using affine matrices:\n"
-             << "\t      " << submatrix(align_left_matrix, 0,0,2,3) << "\n"
-             << "\t      " << submatrix(align_right_matrix,0,0,2,3) << "\n";
+    // Print the full 3x3. The last row may be non-trivial when the
+    // homography-epipolar path engaged inside affine_epipolar_rectification.
+    vw_out() << "\t--> Aligning left and right images using rectification matrices:\n"
+             << "\t      " << align_left_matrix  << "\n"
+             << "\t      " << align_right_matrix << "\n";
   }
   // Write out both computed matrices to disk
   write_matrix_as_txt(out_prefix + "-align-L.txt", align_left_matrix);
