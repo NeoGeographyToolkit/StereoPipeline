@@ -1157,8 +1157,14 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     }
   }
   if (!success) {
-    // If this tile fails, write an empty disparity
-    vw_out() << err_msg << std::endl;
+    // Surface the underlying exception on the warning channel. Silently
+    // swallowing it (the prior behavior used vw_out() with no channel,
+    // mixed into normal stdout among 2249+ tile log lines) is how every
+    // tile of Chandrayaan-2 TMC fwd+nadir got an empty D.tif unnoticed.
+    vw_out(vw::WarningMessage)
+      << "local_alignment threw for tile " << tile_crop_win
+      << "; writing empty disparity and continuing. Exception: "
+      << err_msg << "\n";
     save_empty_disparity(opt, tile_crop_win, out_disp_file);
     return;
   }
