@@ -157,37 +157,26 @@ namespace asp {
                                    left_ip_from_dsub, right_ip_from_dsub);
       }
 
-      // Append the ip from D_sub which are in the box
+      // Collect D_sub IPs in the box (no bbox grow yet, filter first).
       int num_ip_from_d_sub = 0;
       for (size_t i = 0; i < left_ip_from_dsub.size(); i++) {
         Vector2 left_pt(left_ip_from_dsub[i].x, left_ip_from_dsub[i].y);
         if (!ip_crop_win.contains(left_pt))
           continue;
-
-        // Grow the right box
-        Vector2 right_pt(right_ip_from_dsub[i].x, right_ip_from_dsub[i].y);
-        right_trans_crop_win.grow(right_pt);
-
         left_trans_ip.push_back(left_ip_from_dsub[i]);
         right_trans_ip.push_back(right_ip_from_dsub[i]);
         num_ip_from_d_sub++;
       }
 
-      // Append the regular ip which are in the box
+      // Collect global match IPs in the box (project to aligned coords).
       int num_global_ip_in_tile = 0;
       for (size_t i = 0; i < left_unaligned_ip.size(); i++) {
         Vector2 left_pt (left_unaligned_ip [i].x, left_unaligned_ip [i].y);
         Vector2 right_pt(right_unaligned_ip[i].x, right_unaligned_ip[i].y);
-
         left_pt  = left_global_trans.forward(left_pt);
         right_pt = right_global_trans.forward(right_pt);
-
         if (!ip_crop_win.contains(left_pt))
           continue;
-
-        right_trans_crop_win.grow(right_pt);
-
-        // Apply the alignment transforms to these ip
         left_trans_ip.push_back(left_unaligned_ip[i]);
         right_trans_ip.push_back(right_unaligned_ip[i]);
         left_trans_ip.back().x  = left_pt.x();
@@ -197,9 +186,16 @@ namespace asp {
         num_global_ip_in_tile++;
       }
 
-      // TODO(oalexan1): if the right box is way too big, so if there
-      // are outliers, it needs to be shrank by finding the median of
-      // of the ip and shrinking the box around it.
+      // Outlier filter per tile
+      bool quiet = false;
+      vw::Vector2 params = stereo_settings().outlier_removal_params;
+      asp::filter_ip_by_disparity(params[0], params[1], quiet,
+                                  left_trans_ip, right_trans_ip);
+
+      // Grow the right box from filtered IP
+      for (size_t i = 0; i < right_trans_ip.size(); i++)
+        right_trans_crop_win.grow(Vector2(right_trans_ip[i].x,
+                                          right_trans_ip[i].y));
 
       if (stereo_settings().local_alignment_debug) {
         std::cout << "Attempt: " << pass << std::endl;
@@ -215,7 +211,6 @@ namespace asp {
       // disparity. After ip are found, filtered, and local alignment
       // is applied, the aligned tiles will be shrunk (as I recall)
       // before running correlation.
-      // TODO(oalexan1): Filter out outliers by median and bound before growing!
       // TODO(oalexan1): Allow the right box to be bigger than left box,
       // perhaps by a factor of 1.5.
       right_trans_crop_win = grow_box_to_square_with_constraint
@@ -577,6 +572,8 @@ namespace asp {
 
     vw_out() << "Local epi tile IPs: " << left_local_ip.size()
              << " total, " << ip_inlier_indices.size() << " RANSAC inliers.\n";
+    // SANITY: per-tile binary-freshness probe (do not commit)
+    vw_out() << "LOCAL-EPI-FRESH-2026-05-11-v2\n";
 
     // Combination of global alignment, crop to current tile, and local alignment
     Matrix<double> combined_left_mat  = left_local_mat * left_crop_mat * left_global_mat;
