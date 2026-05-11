@@ -44,8 +44,8 @@ time. Set its path as documented there.
 See also the `USGS ISIS TMC documentation
 <https://astrogeology.usgs.gov/docs/getting-started/csm-stack/ingesting-tmc2/>`_.
 
-Downloading the Chandrayaan-2 ISIS data
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ISIS kernels download 
+~~~~~~~~~~~~~~~~~~~~~
 
 The mission kernels are fetched with ``downloadIsisData``, which is shipped
 with ISIS::
@@ -81,8 +81,8 @@ individually with ``rclone``, such as::
 
 .. _isro_download:
 
-Downloading images from ISRO
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Fetching images
+~~~~~~~~~~~~~~~
 
 Images, orthoimages, and DEMs for the OHRC and TMC-2 cameras can be
 downloaded from `ISRO <https://chmapbrowse.issdc.gov.in/>`_.
@@ -215,7 +215,10 @@ This stereo pair has a convergence angle of about 25 degrees
 Stereo
 ^^^^^^
 
-Next, we invoked ``parallel_stereo`` (:numref:`parallel_stereo`) to create a point cloud::
+Just as for TMC (:numref:`chandra2_tmc`), it is suggested to run stereo with mapprojected
+images (:numref:`mapproj-example`) for most reliable results.
+
+Here we do a preliminary ``parallel_stereo`` (:numref:`parallel_stereo`) run on the crops from above without mapprojected images::
 
     parallel_stereo                     \
       --alignment-method affineepipolar \
@@ -237,9 +240,6 @@ A DEM, orthoimage, and triangulation error image are made with ``point2dem``
       --orthoimage      \
       stereo/run-L.tif
 
-In a recent version of ASP these will, by default, have a local stereographic
-projection.
-
 .. figure:: ../images/chandrayaan2_ohrc_dem_ortho_err.png
 
   From left to right: Produced OHRC DEM (range of heights is 304 to 650 meters),
@@ -249,8 +249,8 @@ projection.
   unmodeled lens distortion also seems evident, which could be solved for
   (:numref:`kaguya_ba`).
 
-Alignment
-^^^^^^^^^
+Alignment to LOLA
+^^^^^^^^^^^^^^^^^
 
 We aligned the produced OHRC DEM to `LOLA
 <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_, which is the
@@ -283,6 +283,8 @@ transform from that alignment was used for aligning the full clouds as::
 
 A terrain model created with the lower-resolution TMC-2 images would likely be
 easier to align to LOLA, as it would have a much bigger extent.
+
+.. _chandra2_tmc:
 
 Terrain Mapping Camera-2
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -377,68 +379,76 @@ It is suggested to inspect the produced report files (:numref:`ba_out_files`).
 Stereo
 ^^^^^^
 
-Run stereo with the bundle-adjusted cameras using ``affineepipolar`` alignment
-(:numref:`tutorial`), then create a DEM::
+Stereo with mapprojected images (:numref:`mapproj-example`) is strongly
+suggested for TMC. Using raw images with alignment-method ``affineepipolar`` or
+``local_epipolar`` (:numref:`image_alignment`) is not recommended given the
+extreme image aspect ratio (the images are about :math:`4000 \times 180000`
+pixels) and the large change in perspective between the images.
 
-    parallel_stereo                      \
-      --alignment-method affineepipolar  \
-      --stereo-algorithm asp_mgm         \
-      --subpixel-mode 9                  \
-      tmc/fwd.cub tmc/aft.cub            \
-      ba/run-tmc_fwd.adjusted_state.json \
-      ba/run-tmc_aft.adjusted_state.json \
-      stereo/run
+The reference DEM for mapprojection can be a prior TMC DTM provided by ISRO
+(``ch2_tmc_ndn_*_d_dtm_d18``), a LOLA gridded DEM
+(:numref:`sfs_initial_terrain`), or a DEM gridded from LOLA samples with
+``point2dem`` (:numref:`point2dem_csv`). Fill in holes
+(:numref:`dem_mosaic_extrapolate`) and blur (``dem_mosaic --dem-blur-sigma 5``,
+:numref:`dem_mosaic_blur`) such a DEM. Call it ``ref.tif``.
 
-    point2dem --tr 20    \
-      --errorimage       \
-      --stereographic    \
-      --auto-proj-center \
-      stereo/run-PC.tif
+We employ a south polar stereographic projection given the location of the site.
 
-The ``--tr 20`` grid size is about 4 x the 5 m TMC ground sample distance. The
-``--stereographic --auto-proj-center`` options pick a local stereographic
-projection centered on the cloud, which is appropriate for TMC's polar orbits (a
-UTM-like default would distort heavily near the poles).
+::
 
-The produced DEM looked reasonably good. No jitter (:numref:`jitter_solve`) was
-observed in the triangulation error image (:numref:`point2dem_ortho_err`). The
-DEM extent was overestimated, likely due to the extreme aspect ratio of TMC
-strips (about 190,000 lines x 4636 samples) and outliers due to shadow. This
-extent can be set explicitly with ``--t_projwin`` if known.
+    proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
 
-Stereo with mapprojected images (:numref:`mapproj-example`) is very strongly
-suggested for TMC data, given the extreme image aspect ratio. The initial DEM
-used for mapprojection can be either:
+Mapproject each cub at the native ~5 m/pixel resolution::
 
-- A prior TMC DTM as provided by ISRO (``ch2_tmc_ndn_*_d_dtm_d18``).
-- A LOLA gridded DEM (see :numref:`sfs_initial_terrain`).
-- A DEM gridded from LOLA CSV samples with ``point2dem``
-  (:numref:`point2dem_csv`). This should be created with a local projection and
-  a large grid size (DEM spacing) especially when the LOLA samples are sparse.
+    mapproject --tr 5 --t_srs "$proj"    \
+      ref.tif                            \
+      tmc/fwd.cub                        \
+      ba/run-fwd.adjusted_state.json     \
+      tmc/fwd.map.tif
 
-In either case, the input DEM should first be grown to fill in any holes
-(:numref:`dem_mosaic_extrapolate`) and then blurred (``dem_mosaic
---dem-blur-sigma 5``, :numref:`dem_mosaic_blur`) before being used as the
-mapprojection reference.
+    mapproject --tr 5 --t_srs "$proj"    \
+      ref.tif                            \
+      tmc/aft.cub                        \
+      ba/run-aft.adjusted_state.json     \
+      tmc/aft.map.tif
 
-With mapprojection, results were somewhat better, though some staircasing
-remains with ``asp_mgm`` and ``--subpixel-mode 9``. We believe this is due to
-the large difference in perspective between the fwd and aft cameras and extreme
-aspect ratio.
+Run stereo with ``--alignment-method none`` on the mapprojected pair,
+the bundle-adjusted JSON state files, and the reference DEM as the last
+argument::
+
+    parallel_stereo                       \
+      --alignment-method none             \
+      --stereo-algorithm asp_mgm          \
+      --subpixel-mode 9                   \
+      tmc/fwd.map.tif tmc/aft.map.tif     \
+      ba/run-fwd.adjusted_state.json      \
+      ba/run-aft.adjusted_state.json      \
+      stereo/run                          \
+      ref.tif
+
+See :numref:`pbs_slurm` for running on multiple nodes.
+
+Produce a DEM at 20 m / pixel (4x input image resolution,
+:numref:`post-spacing`) with ``point2dem`` (:numref:`point2dem`). The
+``--errorimage`` flag writes the triangulation error image
+(:numref:`point2dem_ortho_err`). This useful for inspecting along-track jitter
+(:numref:`jitter_solve`).
+
+::
+
+    point2dem --tr 20 --t_srs "$proj"  \
+      --errorimage --orthoimage       \
+      stereo/run-L.tif stereo/run-PC.tif
 
 .. figure:: ../images/chandrayaan2_tmc_dem_err.png
 
-  Left: a portion of the colorized hillshaded DEM produced with mapprojected TMC
-  images. Color range corresponds to elevations of approximately -1130 to 2400
-  meters. Right: triangulation error image (:numref:`point2dem_ortho_err`), with
-  the color range from 0 to 5 meters (the image ground sample distance).
+   Left: portion of the colorized hillshaded DEM produced with
+   mapprojected TMC images. Color range -1130 to 2400 m. Right:
+   triangulation error image, range 0 to 5 m (the ground sample
+   distance).
 
-It is suggested to also run stereo between the fwd/nadir and nadir/aft
-stereo pairs. The ``--alignment-method local_epipolar`` option
-(:numref:`image_alignment`) is not recommended for the TMC fwd/aft pair (the
-per-tile epipolar refinement does not handle the large change in perspective
-well), but may work better on the other stereo pair combinations.
-Stereo with mapprojected images is preferred in either case.
+The same recipe applies to fwd/nadir and nadir/aft once a triplet bundle
+adjustment has produced ``run-nadir.adjusted_state.json``.
 
-For preliminary investigations, run stereo on a smaller region first
-by mapprojecting onto a cropped version of a prior DEM.
+For preliminary investigations, run stereo with images mapprojected onto a
+small cropped version of the reference DEM.
