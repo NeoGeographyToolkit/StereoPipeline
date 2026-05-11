@@ -17,7 +17,6 @@
 
 #include <asp/IsisIO/IsisInterfaceLineScan.h>
 
-#include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/CameraModel.h>
 
@@ -70,162 +69,26 @@ void IsisInterfaceLineScan::SetTime(Vector2 const& px, bool calc_pose) const {
   }
 }
 
-class EphemerisLMA : public vw::math::LeastSquaresModelBase<EphemerisLMA> {
-  vw::Vector3 m_point;
-  Isis::Camera* m_camera;
-  Isis::CameraDistortionMap *m_distortmap;
-  Isis::CameraFocalPlaneMap *m_focalmap;
-public:
-  typedef vw::Vector<double> result_type; // Back project result
-  typedef vw::Vector<double> domain_type; // Ephemeris time
-  typedef vw::Matrix<double> jacobian_type;
-
-  inline EphemerisLMA(vw::Vector3 const& point,
-                      Isis::Camera* camera,
-                      Isis::CameraDistortionMap* distortmap,
-                      Isis::CameraFocalPlaneMap* focalmap) : m_point(point), m_camera(camera), m_distortmap(distortmap), m_focalmap(focalmap) {}
-
-  inline result_type operator()(domain_type const& x) const;
-};
-
-// LMA for projecting point to linescan camera
-EphemerisLMA::result_type
-EphemerisLMA::operator()(EphemerisLMA::domain_type const& x) const {
-
-  // Setting Ephemeris Time
-  m_camera->setTime(Isis::iTime(x[0]));
-
-  // Calculating the look direction in camera frame
-  Vector3 instr_pos;
-  m_camera->instrumentPosition(&instr_pos[0]);
-  instr_pos *= 1000;  // Spice gives in km
-  Vector3 lookB = normalize(m_point - instr_pos);
-  std::vector<double> lookB_copy(3);
-  std::copy(lookB.begin(), lookB.end(), lookB_copy.begin());
-  std::vector<double> lookJ = m_camera->bodyRotation()->J2000Vector(lookB_copy);
-  std::vector<double> lookC = m_camera->instrumentRotation()->ReferenceVector(lookJ);
-  Vector3 look;
-  std::copy(lookC.begin(), lookC.end(), look.begin());
-
-  // Projecting to mm focal plane
-  look = m_camera->FocalLength() * (look / look[2]);
-  m_distortmap->SetUndistortedFocalPlane(look[0], look[1]);
-  m_focalmap->SetFocalPlane(m_distortmap->FocalPlaneX(),
-                            m_distortmap->FocalPlaneY());
-  result_type result(1);
-  // Not exactly sure about lineoffset .. but ISIS does it
-  result[0] = m_focalmap->DetectorLineOffset() - m_focalmap->DetectorLine();
-  return result;
-}
-
-// The secant method for solving the equation model(t) = 0 with given
-// absolute tolerance. Do not use a smaller tol than 1e-8, as this can
-// result in numerical instability for some high focal length and a junk
-// solution. This method does implement some safeguards against divergence. 
-// It is assumed that the model function takes as input and returns the output
-// as a Vector<double> of size 1.
-// Thoroughly validated with MOC, CTX, LRO NAC. Old LMA approach is commented
-// out.
-// TODO(oalexan1): Move this to a more general place and test with Earth cameras.
-namespace asp {
-template<class ModelT>
-double secant_method(ModelT const& model, double start, double tol) {
-      
-  Vector<double> t0(1), t1(1);
-  double dt = 0.1;
-  t0[0] = start;
-  t1[0] = start + dt;
-  Vector<double> f0 = model(t0);
-  Vector<double> f1 = model(t1);
-
-  // Do at most 10 iterations. This method usually converges in 5 iterations
-  // or less. If it does not converge, it is probably because there is a problem.
-  for (int i = 0; i < 10; i++) {
-    
-    // If the function is close to 0, or function values are too small,
-    // stop iterating, as bad things will happen.
-    if (std::abs(f1[0]) < tol || std::abs(f1[0] - f0[0]) < tol)
-      break;
-
-    // If the function is close to 0, but stops getting closer to it, that is
-    // a sign of divergence, most likely due to numerical precision issues.
-    // Stop iterating. Note how we use here a larger value than tol.
-    if (std::abs(f0[0]) < std::abs(f1[0]) && std::abs(f0[0]) < 100 * tol) {
-      f1 = f0;
-      t1 = t0;
-      break;
-    }
-    
-    Vector<double> t2(1);
-    t2[0] = t1[0] - f1[0]*(t1[0]-t0[0])/(f1[0]-f0[0]);
-    t0 = t1;
-    t1 = t2;
-    f0 = f1;
-    f1 = model(t1);
-  }
-
-  return t1[0];
-}
-} // end namespace asp
 
 Vector2
 IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
 
-  // First seed LMA with an ephemeris time in the middle of the image
-  // TODO(oalexan1): Can create an affine function that fits a 
-  // ground location to best-guess ephemeris time. This is how
-  // it is done for CSM. This may save a few iterations.
-  double middle = lines() / 2;
-  m_detectmap->SetParent(1, m_alphacube.AlphaLine(middle));
-  double start_e = m_camera->time().Et();
+  // Delegate to Isis::Camera::SetGround. Internally that uses
+  // LineScanCameraGroundMap with secant + quadratic fallback + cache-bound
+  // check, which handles ill-conditioned cases (corner pixels on long
+  // linescans, e.g. Chandrayaan-2 TMC at 190000 lines) where the prior
+  // ASP-side custom secant could converge to a wrong root.
+  Isis::SurfacePoint sp(
+      Isis::Displacement(point[0], Isis::Displacement::Meters),
+      Isis::Displacement(point[1], Isis::Displacement::Meters),
+      Isis::Displacement(point[2], Isis::Displacement::Meters));
+  if (!m_camera->SetGround(sp))
+    vw_throw(vw::camera::PointToPixelErr()
+             << " ISIS Camera::SetGround failed for point " << point);
 
-  // Build LMA
-  EphemerisLMA model(point, m_camera.get(), m_distortmap, m_focalmap);
-  int status;
-  Vector<double> objective(1), start(1);
-  start[0] = start_e;
-  objective[0] = 0;
-
-  // Use the secant method to find the ideal time  
-  Vector<double> solution_e(1);
-  double tol = 1e-8; // Do not use a smaller tol to avoid numerical instability
-  solution_e[0] = asp::secant_method(model, start[0], tol);
-
-  // Old approach, based on LMA. About 2.2-2.6 times slower than secant method.
-  // solution_e = math::levenberg_marquardt(model, start, objective, status);
-  // // Make sure we found ideal time
-  // VW_ASSERT(status > 0, vw::camera::PointToPixelErr()
-  //           << " Unable to project point into ISIS linescan camera ");
-
-  // Converting now to pixel
-  m_camera->setTime(Isis::iTime(solution_e[0]));
-
-  // Working out pointing
-  m_camera->instrumentPosition(&m_center[0]);
-  m_center *= 1000;
-  Vector3 look = normalize(point-m_center);
-
-  // Calculating rotation to camera frame
-  std::vector<double> rot_inst = m_camera->instrumentRotation()->Matrix();
-  std::vector<double> rot_body = m_camera->bodyRotation()->Matrix();
-  MatrixProxy<double,3,3> R_inst(&(rot_inst[0]));
-  MatrixProxy<double,3,3> R_body(&(rot_body[0]));
-  m_pose = Quat(R_body*transpose(R_inst));
-
-  look = inverse(m_pose).rotate(look);
-  look = m_camera->FocalLength() * (look / look[2]);
-  m_distortmap->SetUndistortedFocalPlane(look[0], look[1]);
-  m_focalmap->SetFocalPlane(m_distortmap->FocalPlaneX(),
-                            m_distortmap->FocalPlaneY());
-  m_detectmap->SetDetector(m_focalmap->DetectorSample(),
-                           m_focalmap->DetectorLine());
-  Vector2 pixel(m_detectmap->ParentSample(),
-                m_detectmap->ParentLine());
-  pixel[0] = m_alphacube.BetaSample(pixel[0]);
-  pixel[1] = m_alphacube.BetaLine(pixel[1]);
-  SetTime(pixel, false);
-
-  pixel -= Vector2(1,1);
+  Vector2 pixel(m_camera->Sample(), m_camera->Line());
+  pixel -= Vector2(1, 1); // ISIS 1-based -> ASP 0-based
+  SetTime(pixel, false);  // refresh m_center cache
   return pixel;
 }
 
