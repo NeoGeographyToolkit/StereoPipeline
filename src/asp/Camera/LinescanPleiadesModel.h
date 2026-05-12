@@ -25,7 +25,6 @@
 #define __STEREO_CAMERA_LINESCAN_PLEIADES_MODEL_H__
 
 #include <vw/Math/Matrix.h>
-#include <vw/Camera/LinescanModel.h>
 #include <vw/Camera/PinholeModel.h>
 #include <asp/Camera/CsmModel.h>
 

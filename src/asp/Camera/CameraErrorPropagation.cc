@@ -22,6 +22,8 @@
 #include <asp/Camera/LinescanPleiadesModel.h>
 #include <asp/Camera/RPCModel.h>
 
+#include <vw/Core/Log.h>
+
 namespace asp {
 
   // Read the horizontal error from some camera models
