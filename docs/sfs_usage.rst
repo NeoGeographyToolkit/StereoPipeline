@@ -2261,8 +2261,8 @@ oscillations in dark or low-match regions.
 
 The number of triangulated points, GCP, and anchor points should be kept
 relatively balanced. This program prints the number of triangulated non-GCP
-points and the number of GCP. The uncertainties and weights for these should
-also be chosen carefully.
+points, the number of GCP, and the total number of anchor points. The
+uncertainties and weights for these should also be chosen carefully.
 
 Normally a much larger value of ``--max-pairwise-matches`` is preferred,
 but given the very large number of input images this had to be drastically
