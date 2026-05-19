@@ -714,6 +714,7 @@ void calcAnchorPoints(Options                         const & opt,
       anchor_weight_image_nodata, anchor_weight_image_georef, anchor_weight_image);
 
   int num_cams = opt.camera_models.size();
+  int totalAnchorPoints = 0;
   for (int icam = 0; icam < num_cams; icam++) {
 
     vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
@@ -843,9 +844,11 @@ void calcAnchorPoints(Options                         const & opt,
     tpc.report_finished();
     vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
     vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
+    totalAnchorPoints += numAnchorPoints;
   }
 
   sw.stop();
+  vw::vw_out() << "Total number of anchor points: " << totalAnchorPoints << "\n";
   vw::vw_out() << "Elapsed time in calculating anchor points: " << sw.elapsed_seconds()
                << " seconds.\n";
 }

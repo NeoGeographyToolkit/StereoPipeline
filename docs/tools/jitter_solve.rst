@@ -307,7 +307,8 @@ interest points, to avoid these dominating the problem.
 Resampling the camera poses very finely may require more anchor points.
 
 A report file that has the residuals at anchor points is written down
-(:numref:`anchor_point_files`).
+(:numref:`anchor_point_files`). The per-image counts and total number of
+anchor points are printed on the terminal.
 
 The relevant options are ``--num-anchor-points``,
 ``--num-anchor-points-per-tile``, ``--anchor-weight``, ``--anchor-dem``, and

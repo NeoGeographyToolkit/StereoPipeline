@@ -91,6 +91,8 @@ Each download is a zip. After unzipping, locate the ``.img`` and ``.xml``
 files and move them into a working directory. Keep the original ISRO
 filenames; a rename can break ``isisimport``.
 
+.. _chandra_ohrc:
+
 Orbiter High Resolution Camera
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -224,11 +226,14 @@ Here we do a preliminary ``parallel_stereo`` (:numref:`parallel_stereo`) run on 
       --alignment-method affineepipolar \
       --stereo-algorithm asp_mgm        \
       --clean-match-files-prefix ba/run \
+      --nodes-list nodes.txt            \
       ohrc/img1_crop.cub                \
       ohrc/img2_crop.cub                \
       ba/run-img1.adjusted_state.json   \
       ba/run-img2.adjusted_state.json   \
       stereo/run
+
+See :numref:`pbs_slurm` for running on multiple nodes.
 
 A DEM, orthoimage, and triangulation error image are made with ``point2dem``
 (:numref:`point2dem`), as::
@@ -400,30 +405,31 @@ We employ a south polar stereographic projection given the location of the site.
 
 Mapproject each cub at the native ~5 m/pixel resolution::
 
-    mapproject --tr 5 --t_srs "$proj"    \
-      ref.tif                            \
-      tmc/fwd.cub                        \
-      ba/run-fwd.adjusted_state.json     \
+    mapproject --tr 5 --t_srs "$proj" \
+      ref.tif                         \
+      tmc/fwd.cub                     \
+      ba/run-fwd.adjusted_state.json  \
       tmc/fwd.map.tif
 
-    mapproject --tr 5 --t_srs "$proj"    \
-      ref.tif                            \
-      tmc/aft.cub                        \
-      ba/run-aft.adjusted_state.json     \
+    mapproject --tr 5 --t_srs "$proj" \
+      ref.tif                         \
+      tmc/aft.cub                     \
+      ba/run-aft.adjusted_state.json  \
       tmc/aft.map.tif
 
 Run stereo with ``--alignment-method none`` on the mapprojected pair,
 the bundle-adjusted JSON state files, and the reference DEM as the last
 argument::
 
-    parallel_stereo                       \
-      --alignment-method none             \
-      --stereo-algorithm asp_mgm          \
-      --subpixel-mode 9                   \
-      tmc/fwd.map.tif tmc/aft.map.tif     \
-      ba/run-fwd.adjusted_state.json      \
-      ba/run-aft.adjusted_state.json      \
-      stereo/run                          \
+    parallel_stereo                   \
+      --alignment-method none         \
+      --stereo-algorithm asp_mgm      \
+      --subpixel-mode 9               \
+      --nodes-list nodes.txt          \
+      tmc/fwd.map.tif tmc/aft.map.tif \
+      ba/run-fwd.adjusted_state.json  \
+      ba/run-aft.adjusted_state.json  \
+      stereo/run                      \
       ref.tif
 
 See :numref:`pbs_slurm` for running on multiple nodes.
@@ -442,10 +448,9 @@ Produce a DEM at 20 m / pixel (4x input image resolution,
 
 .. figure:: ../images/chandrayaan2_tmc_dem_err.png
 
-   Left: portion of the colorized hillshaded DEM produced with
-   mapprojected TMC images. Color range -1130 to 2400 m. Right:
-   triangulation error image, range 0 to 5 m (the ground sample
-   distance).
+   Left: portion of the colorized hillshaded DEM produced with mapprojected TMC
+   images. Color range -1130 to 2400 m. Right: triangulation error image, range
+   0 to 5 m (the ground sample distance).
 
 The same recipe applies to fwd/nadir and nadir/aft once a triplet bundle
 adjustment has produced ``run-nadir.adjusted_state.json``.
