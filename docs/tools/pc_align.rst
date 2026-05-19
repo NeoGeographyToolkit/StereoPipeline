@@ -159,7 +159,9 @@ follows, for any input DEM::
   gdal_translate -r average -outsize 50% 50% input.tif output.tif
 
 Any produced transform with lower-resolution DEMs can be applied to the original
-DEMs (:numref:`prevtrans`).
+DEMs (:numref:`prevtrans`). When that is done, the value of
+``--max-displacement`` should be somewhat larger than the expected remaining
+displacement.
 
 Additional options can be passed in via ``--nuth-options``
 (:numref:`nuth_options`).
@@ -225,10 +227,14 @@ saved in the output directory and can be inspected
 (:numref:`manual-align`).
 
 If the two clouds look too different for interest point matching to work, or
-they are not DEMs to start with, they can be gridded to use the same
-(usually coarser) grid, as described in :numref:`regrid`. The clouds can be cropped to
-a shared area as well. The produced transform will be applicable to the original
-clouds (a translation transform may be more reliable if cropping happens).
+they are not DEMs to start with, they can be gridded to use the same (usually
+coarser) grid, as described in :numref:`regrid`. The clouds can be cropped to a
+shared area as well.
+
+The produced transform will be applicable to the original clouds (a translation
+transform may be more reliable if cropping happens). When that is done, the
+value of ``--max-displacement`` should be somewhat larger than the expected
+remaining displacement.
 
 .. _pc_corr:
 

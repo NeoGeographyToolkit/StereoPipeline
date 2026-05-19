@@ -27,7 +27,7 @@ Examples
       --camera-image camera_image.tif \
       --ortho-image ortho_image.tif   \
       --dem dem.tif                   \
-      --individual-normalize          \
+      --individually-normalize        \
       --gcp-sigma 1.0                 \
       --output-prefix run/run         \
       --output-gcp gcp.gcp
@@ -37,7 +37,7 @@ for each image, thus creating several GCP files.
 
 For certain datasets, the SIFT interest point detection (method 1) and a smaller
 RANSAC threshold turned out to work better. Here's an alternative invocation,
-also with more interest points per tile, and individually normalizing the images::
+also with more interest points per tile::
 
     gcp_gen                           \
       --ip-detect-method 1            \
@@ -45,6 +45,7 @@ also with more interest points per tile, and individually normalizing the images
       --gcp-sigma 1.0                 \
       --ip-per-tile 1000              \
       --ip-per-image 0                \
+      --individually-normalize        \
       --camera-image camera_image.tif \
       --ortho-image ortho_image.tif   \
       --dem dem.tif                   \
@@ -76,7 +77,7 @@ If needed, both the mapprojected image and orthoimage can be cropped first to a
 shared area.
 
 If the camera image and orthoimage have very different ranges of pixel values,
-use the option ``--individual-normalize``. 
+use the option ``--individually-normalize``. 
 
 It is preferred that these images have similar lighting conditions and
 similar-enough resolutions.
