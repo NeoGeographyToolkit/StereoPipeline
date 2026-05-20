@@ -19,14 +19,17 @@ General improvements:
     enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
   * Migrated PeruSat-1 to a CSM linescan camera model (:numref:`perusat1`).
     This enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
-  * For the ASTER camera (:numref:`aster`), removed the ``--aster-use-csm``
-    option as that is the default. Removed the use of the helper RPC model
-    for interest point matching.
+  * Added a draft processing example for KPLO ShadowCam (:numref:`shadowcam`).
+    This will require releases of ASP, ISIS, ISIS, ALE, USGSCSM, and SpiceQL
+    that expose ShadowCam support.
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Updated the Chandrayaan-2 OHRC example and added a TMC example
     (:numref:`chandrayaan2`). USGS now ships the Chandrayaan-2 SPICE kernels and
     the software support improved.
+  * For the ASTER camera (:numref:`aster`), removed the ``--aster-use-csm``
+    option as that is the default. Removed the use of the helper RPC model
+    for interest point matching.
   * Added the option ``--proj-win`` to limit stereo to a projection window for
     mapprojected images (:numref:`stereodefault`).
   * The logic for consolidating the output directory has been given its own
