@@ -198,7 +198,7 @@ namespace asp {
     // Ensure the linescan model quaternions are always normalized and do not
     // suddenly flip sign
     void normalizeLinescanQuaternions();
-    
+
     // Get the datum from the CSM model. It is suggested to use if possible
     // the function StereoSessionCsm::get_datum() which calls this one, as
     // that one also knows about the image and can find the datum name.

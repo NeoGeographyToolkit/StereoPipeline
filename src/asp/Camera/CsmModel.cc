@@ -483,7 +483,7 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
   // This must happen after gm model is set
   readCsmSunPosition(m_gm_model, m_sun_position);
 
-  // This is a bug fix.
+  // Bug fix.
   normalizeLinescanQuaternions();
 }
 
@@ -621,7 +621,7 @@ void CsmModel::setModelFromStateString(std::string const& model_state,
   // This must happen after gm model is set
   readCsmSunPosition(m_gm_model, m_sun_position);
 
-  // This is a bug fix.
+  // Bug fix.
   normalizeLinescanQuaternions();
 }
 

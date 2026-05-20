@@ -522,16 +522,20 @@ void calcFirstLastPositionLines(UsgsAstroLsSensorModel const* ls_model,
   beg_position_line = (bt - earlier_line_time) / dt_per_line;
   end_position_line = (et - earlier_line_time) / dt_per_line;
 
-  // Sanity checks
-  if (beg_position_line > 1e-3) // allow for rounding errors 
-    vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated position is "
+  // Warn (do not throw) if the tabulated range does not cover the image
+  // extent. ALE-generated ISDs often end a small fraction of a line short
+  // (sub-sample rounding); USGSCSM's lagrangeInterp drops to order 2 at
+  // the boundary and silently linearly extrapolates, which is safe for
+  // sub-sample gaps. A larger gap deserves a closer look.
+  if (beg_position_line > 1e-3) // allow for rounding errors
+    vw::vw_out(vw::WarningMessage) << "Line of first tabulated position is "
                  << beg_position_line << ", which is after first image line, which is "
-                 << 0 << ".\n");
+                 << 0 << ".\n";
   int numLines = ls_model->m_nLines;
   if (end_position_line < numLines - 1 - 1e-3)  // allow for rounding errors
-    vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated position is "
+    vw::vw_out(vw::WarningMessage) << "Line of last tabulated position is "
                  << end_position_line << ", which is before last image line, which is "
-                 << numLines - 1 << ".\n");
+                 << numLines - 1 << ".\n";
 }
   
 // Calculate the line index for first and last tabulated orientation.
@@ -553,16 +557,18 @@ void calcFirstLastOrientationLines(UsgsAstroLsSensorModel const* ls_model,
   beg_orientation_line = (bt - earlier_line_time) / dt_per_line;
   end_orientation_line = (et - earlier_line_time) / dt_per_line;
 
-  // Sanity checks
-  if (beg_orientation_line > 1e-3) // allow for rounding errors 
-    vw::vw_throw(vw::ArgumentErr() << "Line of first tabulated orientation is "
+  // Warn (do not throw). Same rationale as calcFirstLastPositionLines:
+  // USGSCSM's lagrangeInterp linearly extrapolates past the boundary at
+  // order 2, which is safe for the sub-sample ALE rounding gaps we see.
+  if (beg_orientation_line > 1e-3) // allow for rounding errors
+    vw::vw_out(vw::WarningMessage) << "Line of first tabulated orientation is "
                  << beg_orientation_line << ", which is after first image line, which is "
-                   << 0 << ".\n");
+                   << 0 << ".\n";
   int numLines = ls_model->m_nLines;
   if (end_orientation_line < numLines - 1 - 1e-3)  // allow for rounding errors
-    vw::vw_throw(vw::ArgumentErr() << "Line of last tabulated orientation is "
+    vw::vw_out(vw::WarningMessage) << "Line of last tabulated orientation is "
                  << end_orientation_line << ", which is before last image line, which is "
-                   << numLines - 1 << ".\n");
+                   << numLines - 1 << ".\n";
 }
 
 // Resample Vector3 data to a denser uniform grid using Lagrange interpolation.
