@@ -3,7 +3,7 @@
 KPLO ShadowCam 
 --------------
 
-*ShadowCam* instrument is an instrument on the `Korea Pathfinder Lunar Orbiter
+*ShadowCam* is an instrument on the `Korea Pathfinder Lunar Orbiter
 <https://en.wikipedia.org/wiki/Korea_Pathfinder_Lunar_Orbiter>`_ (KPLO). It is a
 high-sensitivity push-broom imager, about 200 times more sensitive than the Lunar
 Reconnaissance Orbiter Narrow Angle Camera (LRO NAC, :numref:`lronac-example`).
@@ -14,8 +14,8 @@ walls. As a consequence, sunlit terrain typically saturates in ShadowCam images.
 A more complete description is given in :cite:`humm2023shadowcam`.
 
 *This processing example is work in progress and not reproducible*, as of
-5/2026. Releases of ASP, ISIS, ISIS, ALE, USGSCSM, and SpiceQL, are required
-before this can be replicated.
+5/2026. New releases of ASP, ISIS, ALE, USGSCSM, and SpiceQL are required
+before it can be replicated.
  
 Data and software
 ~~~~~~~~~~~~~~~~~
@@ -29,19 +29,19 @@ ships:
   - ``<id>SC.cub`` -- full calibrated cube (about 1 GB)
   - ``<id>SE.cub`` -- the shadowed extract, a calibrated cube cropped to the
     portion of the strip that contains useful signal (about 255 MB)
-  - ``<id>S_map_raw.tif`` -- map projected raw cube
-  - ``<id>S_map_stretched.tif`` -- map projected cube with a visual stretch
+  - ``<id>S_map_raw.tif`` -- mapprojected raw cube
+  - ``<id>S_map_stretched.tif`` -- mapprojected cube with a visual stretch
     (for display only, not for measurement)
   - PDS4 XML labels for each product.
 
 The ``SC.cub`` and ``SE.cub`` files are radiometrically calibrated and can be
-used directly as ASP inputs. The PDS images are already organized by
-acquisition date. 
+used directly as ASP inputs. The archive is organized by acquisition date,
+with each observation in its own subdirectory.
 
 The example below uses the south-polar pair acquired on 2024-12-11
 (day 346): ``M074289249SE`` and ``M074296291SE``. The calibrated
 shadowed-extract cubes, their PDS4 labels, and the map-projected stretched
-orthoimages can be fetched as::
+orthoimages can be fetched with::
 
     base=https://pds.shadowcam.im-ldi.com/observation/2024/346
 
@@ -58,16 +58,16 @@ SPICE kernels
 
 The KPLO kernels are not yet hosted in the `ISIS data area
 <https://astrogeology.usgs.gov/docs/how-to-guides/environment-setup-and-maintenance/isis-data-area/>`_.
-They can be downloaded with ``rsync`` module from the ShadowCam Science
-Operations Center.
+They can be fetched via the ``rsync`` modules at the ShadowCam Science
+Operations Center (``rsync.im-ldi.com::kplo``).
 
-The ``kplo/kernels/`` tree below this endpoint mirrors the layout other missions
-use under ``$ISISDATA``. Only the kernel files spanning the acquisition date of
-interest are needed; a single day of reconstructed attitude and trajectory data
-is typically only a few tens of MB.
+The ``kplo/kernels/`` tree below mirrors the layout other missions use under
+``$ISISDATA``. Only the kernel files spanning the acquisition date of interest
+are needed; a single day of reconstructed attitude and trajectory data is
+typically only a few tens of MB.
 
-To fetch the minimal set of kernels for the 2024-12-11 pair into the local
-ISIS data area::
+Fetch the minimal set of kernels for the 2024-12-11 pair into the local ISIS
+data area::
 
     mkdir -p $ISISDATA/kplo/kernels/{ck,spk,sclk,fk,ik,iak,pck,tspk}
     rsync rsync.im-ldi.com::kplo/kernels/ck/    \
@@ -90,8 +90,7 @@ ISIS data area::
       -P $ISISDATA/kplo/kernels/tspk/
 
 The full ``ck`` tree is several GB and grows daily; pull only the date range
-of interest. The combined kernel size for a single observation day is about
-25 MB.
+of interest.
 
 The lunar planetary constants and base body ephemeris are shared with other
 ISIS lunar missions; ensure the standard ``base/kernels/`` files (such as
@@ -100,7 +99,7 @@ ISIS lunar missions; ensure the standard ``base/kernels/`` files (such as
 Preprocessing
 ~~~~~~~~~~~~~
 
-Attach the SPICE kernels to a calibrated extract cube::
+Attach the SPICE kernels to a calibrated cube::
 
     spiceinit from = M074289249SE.cub
 
@@ -109,8 +108,7 @@ using the ``-k`` flag so kernels are pulled from the cube itself::
 
     isd_generate -k M074289249SE.cub M074289249SE.cub
 
-This produces ``M074289249SE.json``. Repeat for the second observation. Each
-JSON is a USGS line-scanner ISD that ASP can use as a camera model.
+This produces ``M074289249SE.json``. Repeat for the second observation. 
 
 Validate the CSM camera against the ISIS camera with ``cam_test``
 (:numref:`cam_test`)::
@@ -129,12 +127,12 @@ Sanity check against the PDS ortho
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A quick way to verify the kernels and the CSM model is to compare a locally
-mapprojected version of the cube against the PDS-shipped map projected ortho.
-Set up a South Polar projection::
+mapprojected version of the cube against the PDS-shipped mapprojected
+orthoimage. Set up a south-polar stereographic projection::
 
     proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
 
-Mapproject (:numref:`mapproject`)::
+Mapproject at a deliberately very coarse resolution (:numref:`mapproject`)::
     
     mapproject          \
       --tr 50           \
@@ -150,30 +148,17 @@ stereo frame, so a reprojection is required)::
     gdalwarp -t_srs "$proj" -tr 50 50 -r bilinear \
        M074289249S_map_stretched.tif M074289249SE.pds50.tif
 
-The two GeoTiff images should agree when overlaid in ``stereo_gui``
-(:numref:`stereo_gui`) up to some minor horizontal shift and radiometric
+The two GeoTIFF images should agree when overlaid in ``stereo_gui``
+(:numref:`stereo_gui`), up to a small horizontal shift and a radiometric
 stretch.
 
 The reference DEM ``ref.tif`` can be an existing LOLA gridded product
-(:numref:`sfs_initial_terrain`). Or can be gridded with ``point2dem`` from `LOLA
+(:numref:`sfs_initial_terrain`), or one produced with ``point2dem`` from `LOLA
 RDR <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_ samples
 (:numref:`point2dem_csv`).
 
 Bundle adjustment
 ~~~~~~~~~~~~~~~~~
-
-.. figure:: ../images/shadowcam_interest_points.png
-
-   Portions of the left and right ShadowCam images
-   ``M074289249SE.cub`` and ``M074296291SE.cub``, with interest point
-   matches overlaid in red. ShadowCam images tend to be saturated in
-   well-lit areas and show texture only in shadowed pixels.
-
-ShadowCam strips are pure pushbroom, and the kernels available at acquisition
-have notable absolute pointing error. Interest point matching on the raw cubs
-typically fails because the very low signal in PSR areas mixes with the
-saturated stripes from sunlit ground, and SIFT descriptors do not survive the
-left/right consistency check.
 
 Run ``bundle_adjust`` (:numref:`bundle_adjust`) on the cubs and the CSM
 JSONs, with a large interest-point budget so enough survive the matching
@@ -185,18 +170,22 @@ stage on the few well-textured (shadowed) parts of the strip::
       M074289249SE.json M074296291SE.json \
       -o ba/run
 
-We chose to ask for a large number of interest points, as these images may not
-have a lot of features. 
+If interest point matching fails, or if a specific region is of interest,
+consider mapprojecting the left and right images onto a DEM clip with a
+local projection and the same ground sample distance (GSD) for both
+(:numref:`dg-mapproj`). The nominal GSD for ShadowCam is 1.7 m/pixel.
 
-If interest point matching fails or it is desired to process a specific region,
-consider mapprojecting the left and right images on a DEM clip with a local
-projection and the same ground sample distance (GSD) for both images
-(:numref:`dg-mapproj`). The nominal GSD for ShadowCam is 1.7 m/pixel. 
+Then add these mapprojected images to the ``bundle_adjust`` command
+(:numref:`mapip`)::
 
-Then, can add these mapprojected images to the ``bundle_adjust``
-command as (:numref:`mapip`)::
+    --mapprojected-data 'M074289249SE.map.tif M074296291SE.map.tif'
 
-  --mapprojected-data 'M074289249SE.map.tif M074296291SE.map.tif'
+.. figure:: ../images/shadowcam_interest_points.png
+
+   Portions of the left and right ShadowCam images
+   ``M074289249SE.cub`` and ``M074296291SE.cub``, with interest point
+   matches overlaid in red. ShadowCam images tend to be saturated in
+   well-lit areas and show texture only in shadowed pixels.
 
 Stereo 
 ~~~~~~
@@ -206,22 +195,22 @@ approximately 24 degrees, which is well-suited to stereo.
 
 A quick preview run can be done with ``stereo_gui`` (:numref:`stereo_gui`) as::
 
-  stereo_gui                                \
-    --stereo-algorithm asp_mgm              \
-    --subpixel-mode 9                       \
-    --alignment-method local_epipolar       \
-    M074289249SE.cub                        \
-    M074296291SE.cub                        \
-    ba/run-M074289249SE.adjusted_state.json \
-    ba/run-M074296291SE.adjusted_state.json \
-    stereo_nomap/run
+    stereo_gui                                \
+      --stereo-algorithm asp_mgm              \
+      --subpixel-mode 9                       \
+      --alignment-method local_epipolar       \
+      M074289249SE.cub                        \
+      M074296291SE.cub                        \
+      ba/run-M074289249SE.adjusted_state.json \
+      ba/run-M074296291SE.adjusted_state.json \
+      stereo_nomap/run
 
-Then one can select two clips with Control-Mouse drag and run
-``parallel_stereo`` from the menu. The full images can be run without the GUI
-help.
+Two clips can be selected with Control-Mouse drag and processed via the
+``parallel_stereo`` entry in the menu. The full images can be processed
+directly with ``parallel_stereo`` from the command line.
 
-Here we made use of the using the bundle-adjusted CSM state files
-(:numref:`csm_state`) produced earlier.
+This uses the bundle-adjusted CSM state files (:numref:`csm_state`) produced
+earlier.
 
 Set the same south-polar stereographic projection as before::
 
@@ -231,23 +220,25 @@ Produce a DEM (:numref:`point2dem`) at a grid size coarser than the image GSD.
 Here we use 5 m, which is about 3x the 1.7 m image GSD
 (:numref:`post-spacing`)::
 
-    point2dem --tr 5 --t_srs "$proj" \
-      --errorimage --orthoimage      \
+    point2dem --tr 5         \
+      --t_srs "$proj"        \
+      --errorimage           \
+      --orthoimage           \
       stereo_nomap/run-L.tif \
       stereo_nomap/run-PC.tif
 
 .. figure:: ../images/shadowcam_dem_ortho_tri.png
 
    A small DEM clip (left), the corresponding orthoimage (middle), and the
-   triangulation error image (right) produced by ``point2dem``
-   (:numref:`point2dem`). Seam artifacts are visible across all three panels
-   and are likely an effect of input data processing.
+   triangulation error image (right) produced by ``point2dem``. Seam artifacts
+   are visible across all three panels and are likely an effect of input data
+   processing.
 
-For datasets with steep terrain it is suggested to run ``parallel_stereo`` with
-mapprojected images (:numref:`mapproj-example`). Here the DEM can be from the
-earlier run, or a prior one, as earlier in the page, that is well-registered to
-this data. In either case some hole-filling and blurring is suggested before
-use.
+For datasets with steep terrain it is suggested to run ``parallel_stereo`` on
+mapprojected images (:numref:`mapproj-example`). The reference DEM for
+mapprojection can be the one just produced, or a prior LOLA-derived product that
+is well-registered to this data. In either case, some hole-filling and blurring
+of the DEM before use are recommended (:numref:`dem_mosaic_extrapolate`).
 
 Mapproject onto a DEM called ``ref.tif``, at the native ShadowCam ground sample
 distance of 1.7 m::
@@ -282,7 +273,7 @@ Alignment to LOLA
 ~~~~~~~~~~~~~~~~~
 
 The produced DEM can be aligned to LOLA with ``pc_align`` (:numref:`pc_align`),
-following the same procedure as :numref:`lronac_align`. 
+following the same procedure as :numref:`lronac_align`.
 
-LOLA produces measured in permanently-shadowed areas, which is especially
-valuable with ShadowCam.
+LOLA returns measurements in permanently-shadowed areas, which is especially
+valuable for ShadowCam.
