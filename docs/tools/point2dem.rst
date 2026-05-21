@@ -201,7 +201,7 @@ CSV files
 ^^^^^^^^^
 
 The ``point2dem`` program can grid CSV files having longitude, latitude, and 
-height (or radius) values as::
+height values as::
 
      point2dem -r moon                               \
        --dem-spacing 10                              \
@@ -210,8 +210,11 @@ height (or radius) values as::
        -o run/run
 
 Ensure the ``--csv-format`` fields agree with what exists in the CSV file.
-This option is described in :numref:`point2dem_options`. The planetary body
-(option ``-r``) should be set appropriately, and the DEM spacing as well.
+This option is described in :numref:`point2dem_options`, where examples
+of other CSV formats are shown as well.
+
+The planetary body (option ``-r``) should be set appropriately, and the DEM
+spacing as well.
 
 This will produce a DEM in projected coordinates (in meters, rather than
 degrees), unless the option ``--geographic`` is passed in and the

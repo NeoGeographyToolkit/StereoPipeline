@@ -154,10 +154,10 @@ The two GeoTiff images should agree when overlaid in ``stereo_gui``
 (:numref:`stereo_gui`) up to some minor horizontal shift and radiometric
 stretch.
 
-The reference DEM ``ref.tif`` is a LOLA-derived south-polar DEM, gridded
-with ``point2dem`` from `LOLA RDR
-<https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_ samples or
-it can be an existing LOLA gridded product (:numref:`sfs_initial_terrain`).
+The reference DEM ``ref.tif`` can be an existing LOLA gridded product
+(:numref:`sfs_initial_terrain`). Or can be gridded with ``point2dem`` from `LOLA
+RDR <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_ samples
+(:numref:`point2dem_csv`).
 
 Bundle adjustment
 ~~~~~~~~~~~~~~~~~
@@ -198,23 +198,59 @@ command as (:numref:`mapip`)::
 
   --mapprojected-data 'M074289249SE.map.tif M074296291SE.map.tif'
 
-Stereo
+Stereo 
 ~~~~~~
 
 The reported stereo convergence angle (:numref:`ba_conv_angle`) for this pair is
 approximately 24 degrees, which is well-suited to stereo.
 
-Run ``parallel_stereo`` (:numref:`parallel_stereo`) on the mapprojected pair
-(:numref:`mapproj-example`) using the bundle-adjusted CSM state files
-(:numref:`csm_state`). It is suggested to re-mapproject with the adjusted state
-files before running stereo, at the native ShadowCam ground sample distance of
-1.7 m. 
+A quick preview run can be done with ``stereo_gui`` (:numref:`stereo_gui`) as::
 
-Use the same south-polar stereographic projection as in the sanity-check step::
+  stereo_gui                                \
+    --stereo-algorithm asp_mgm              \
+    --subpixel-mode 9                       \
+    --alignment-method local_epipolar       \
+    M074289249SE.cub                        \
+    M074296291SE.cub                        \
+    ba/run-M074289249SE.adjusted_state.json \
+    ba/run-M074296291SE.adjusted_state.json \
+    stereo_nomap/run
+
+Then one can select two clips with Control-Mouse drag and run
+``parallel_stereo`` from the menu. The full images can be run without the GUI
+help.
+
+Here we made use of the using the bundle-adjusted CSM state files
+(:numref:`csm_state`) produced earlier.
+
+Set the same south-polar stereographic projection as before::
 
     proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
 
-Mapproject onto a DEM called ``ref.tif``::
+Produce a DEM (:numref:`point2dem`) at a grid size coarser than the image GSD.
+Here we use 5 m, which is about 3x the 1.7 m image GSD
+(:numref:`post-spacing`)::
+
+    point2dem --tr 5 --t_srs "$proj" \
+      --errorimage --orthoimage      \
+      stereo_nomap/run-L.tif \
+      stereo_nomap/run-PC.tif
+
+.. figure:: ../images/shadowcam_dem_ortho_tri.png
+
+   A small DEM clip (left), the corresponding orthoimage (middle), and the
+   triangulation error image (right) produced by ``point2dem``
+   (:numref:`point2dem`). Seam artifacts are visible across all three panels
+   and are likely an effect of input data processing.
+
+For datasets with steep terrain it is suggested to run ``parallel_stereo`` with
+mapprojected images (:numref:`mapproj-example`). Here the DEM can be from the
+earlier run, or a prior one, as earlier in the page, that is well-registered to
+this data. In either case some hole-filling and blurring is suggested before
+use.
+
+Mapproject onto a DEM called ``ref.tif``, at the native ShadowCam ground sample
+distance of 1.7 m::
 
     for f in M074289249SE M074296291SE; do
       mapproject --tr 1.7               \
@@ -225,7 +261,7 @@ Mapproject onto a DEM called ``ref.tif``::
         ${f}.ba.map.tif
     done
 
-Stereo::
+Stereo with mapprojected images::
 
     parallel_stereo                           \
       --alignment-method none                 \
@@ -235,66 +271,18 @@ Stereo::
       M074296291SE.ba.map.tif                 \
       ba/run-M074289249SE.adjusted_state.json \
       ba/run-M074296291SE.adjusted_state.json \
-      stereo/run                              \
+      stereo_map/run                          \
       ref.tif
 
 Note the last argument is the reference DEM used at the mapproject stage.
 
-Produce a DEM (:numref:`point2dem`) at a grid size coarser than the image GSD.
-Here we use 5 m, which is about 3x the 1.7 m image GSD
-(:numref:`post-spacing`)::
-
-    point2dem --tr 5 --t_srs "$proj" \
-      --errorimage --orthoimage      \
-      stereo/run-L.tif stereo/run-PC.tif
-
-For the 2024-12-11 pair, this produces a DEM spanning a height range of
-about 4400 m with a triangulation-error median around 9 m (5x the GSD), and
-about 8 percent of the overlap region carries valid pixels. The remainder of
-the strip falls into PSR floor with too little texture or saturated rim
-regions that drop out at the error-filtering stage. Use the triangulation
-error image (:numref:`triangulation_error`) to gauge local quality.
-
-Notes on radiometry and image content
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-ShadowCam cubes contain a wide dynamic range: PSR floors are at the dim end,
-illuminated rims and any sunlit terrain are typically saturated. For the IP
-detection step, an image-wise stretch is unhelpful because saturated zones
-dominate; a local stretch (or simply working with a small crop over the dark
-region of interest) usually gives the IP detector more usable texture. Refer
-to :numref:`mapproj-example` for further guidance.
-
-For purely image-based correlation that does not rely on a camera model, see
-``parallel_stereo --correlator-mode`` (:numref:`correlator-mode`) and the
-SAR recipe in :numref:`umbra_sar`, which also deals with high-noise inputs.
+A DEM can be made as before.
 
 Alignment to LOLA
 ~~~~~~~~~~~~~~~~~
 
-The produced DEM can be aligned to LOLA with ``pc_align``
-(:numref:`pc_align`), following the same procedure as
-:numref:`lronac_align`. LOLA is the natural reference at the lunar poles; it
-returns a return regardless of illumination and so reaches into PSRs.
+The produced DEM can be aligned to LOLA with ``pc_align`` (:numref:`pc_align`),
+following the same procedure as :numref:`lronac_align`. 
 
-Version requirements
-~~~~~~~~~~~~~~~~~~~~
-
-The workflow above depends on the following upstream support:
-
-  - ISIS with the ShadowCam camera class (DOI-USGS/ISIS3, PR #6011, merged on
-    the development branch on 2026-04-27). This will appear in an ISIS
-    release after 10.0.0_RC3.
-  - ALE with the ShadowCam driver (``kplo_drivers.py``) and the
-    ``KPLOSHADOWCAM`` distortion type. This requires a release after
-    DOI-USGS/ale 1.1.3.
-  - USGSCSM with the ``KPLOSHADOWCAM`` distortion model registered in the
-    state ISD parser. This requires a release after DOI-USGS/usgscsm 2.0.2.
-  - SpiceQL configured with the ``kplo.json`` mission file. The file is on
-    the SpiceQL development branch; the conda-forge package will need a
-    rebuild that picks it up.
-
-Until all four packages ship a release containing the above, users will need
-to build ALE and USGSCSM from source against an ISIS that has PR #6011, and
-copy the SpiceQL ``kplo.json`` into ``$ISISROOT/etc/SpiceQL/db/`` by hand.
-This page will be updated when public packages become available.
+LOLA produces measured in permanently-shadowed areas, which is especially
+valuable with ShadowCam.
