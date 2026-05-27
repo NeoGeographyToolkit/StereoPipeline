@@ -1265,6 +1265,32 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
                << "--allow-different-mapproject-gsd, but is not recommended.\n");
   }
 
+  // Same check for correlator mode with georeferenced images. Even a small
+  // GSD mismatch accumulates over large images and corrupts the disparity.
+  // See also the map-projected GSD check above.
+  if (stereo_settings().correlator_mode &&
+      !stereo_settings().allow_different_gsd_in_correlator_mode &&
+      has_georef1 && has_georef2) {
+    auto M1 = georef1.transform();
+    auto M2 = georef2.transform();
+    for (int k = 0; k < 2; k++) {
+      int i = k, j = k; // diagonal elements (0,0) and (1,1)
+      double v1 = M1(i, j);
+      double v2 = M2(i, j);
+      if (v1 == 0 || v2 == 0)
+        vw::vw_throw(vw::ArgumentErr()
+          << "Unexpected zero GSD in the georeference transform.\n");
+      double ratio = std::abs(v1 / v2);
+      if (std::abs(1.0 - ratio) > 1e-8)
+        vw::vw_throw(vw::ArgumentErr()
+          << "The input georeferenced images have different ground sample "
+          << "distances (GSD). Left transform diagonal: " << v1
+          << ", right: " << v2 << ". This causes disparity drift and poor "
+          << "correlation. Use --allow-different-gsd-in-correlator-mode "
+          << "to override.\n");
+    }
+  }
+
   // Read the mapprojection metadata to identify the DEM used. This is safe
   // to call on any image; outputs stay empty if the metadata is absent.
   bool corr_only = stereo_settings().correlator_mode;

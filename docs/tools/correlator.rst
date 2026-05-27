@@ -54,3 +54,7 @@ assumed to be aligned, the program will set the alignment method to ``none``.
 
 To skip preprocessing (if invoked previously), or to avoid subpixel refinement
 or filtering, use the options ``--entry-point`` and ``--stop-point``.
+
+If the input images are georeferenced and have different ground sample distances
+(GSD), the program will throw an error, as GSD mismatch causes drift in the
+disparity. Use ``--allow-different-gsd-in-correlator-mode`` to override.

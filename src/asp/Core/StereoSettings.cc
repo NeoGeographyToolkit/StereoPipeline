@@ -237,6 +237,11 @@ PreProcessingDescription::PreProcessingDescription():
       po::bool_switch(&global.allow_different_mapproject_gsd)->default_value(false)->implicit_value(true),
       "Allow the left and right mapprojected images to have different GSD. This is "
       "for backward compatibility, and is not recommended.")
+    ("allow-different-gsd-in-correlator-mode",
+      po::bool_switch(&global.allow_different_gsd_in_correlator_mode)->default_value(false)->implicit_value(true),
+      "Allow the left and right georeferenced images to have different GSD in "
+      "correlator mode. Not recommended, as GSD mismatch causes drift in "
+      "the disparity.")
     ("ortho-heights",
       po::value(&global.ortho_heights)->default_value(Vector2(g_nan_val, g_nan_val),
       "nan nan"),

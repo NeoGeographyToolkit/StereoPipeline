@@ -121,6 +121,7 @@ namespace asp {
     vw::Vector2i matches_per_tile_params;
     int band;
     bool allow_different_mapproject_gsd;
+    bool allow_different_gsd_in_correlator_mode;
     vw::Vector2 ortho_heights;
     std::string output_prefix_override; // override the output prefix with this 
     std::string flann_method; // The method to use for FLANN matching
