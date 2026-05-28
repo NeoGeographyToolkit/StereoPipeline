@@ -1781,6 +1781,11 @@ bundle adjustment, with or without the ``--heights-from-dem`` option. See
 Then, SfS must be rerun with the new cameras. Misalignment can be evaluated
 as before.
 
+If the horizontal misregistration got fixed, but some local inconsistencies in
+the max-lit mosaic are observed, a subsequent pass of bundle adjustment with
+latest cameras, without GCP this time, with the ``--heights-from-dem`` option as
+usual, can repair this.
+
 The created SfS terrain can be employed to improve the registration of 
 any problematic images (:numref:`sfs_sim`).
 
