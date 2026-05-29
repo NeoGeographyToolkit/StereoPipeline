@@ -64,7 +64,7 @@ refr_index (:numref:`refr_index`):
     response CSV is reduced to a single effective wavelength:
     ``weighted_mean`` (default, response-weighted average) or
     ``peak_response`` (wavelength at peak response).
-    
+
 bathy_plane_calc (:numref:`bathy_plane_calc`):
   * Refined the algorithm by taking into account that given a mask of land
     pixels, the true water interface is somewhere half way between those and the
@@ -76,7 +76,7 @@ bathy_plane_calc (:numref:`bathy_plane_calc`):
     (:numref:`bathy_plane_lonlat`).
   * Removed the option ``--use-ecef-water-surface``. It is now always assumed
     that the bathy plane is computed in local projected coordinates.
-    
+
 cam_test (:numref:`cam_test`):
   * Added the options ``--cam1-bathy-plane``, ``--cam2-bathy-plane``, and
     ``--refraction-index`` to model bathymetry correction with ray bending
@@ -90,6 +90,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     optimized triangulated point positions, including any input GCP.
   * Added bathymetry support (:numref:`ba_bathy`).
   * Bugfix for ``--min-triangulation-angle`` filter for linescan cameras.
+  * Reorganized the command-line options, grouping them by functionality
+    (interest point detection, matching, optimization, outlier filtering,
+    constraints, etc.) for easier reference (:numref:`ba_options`).
 
 jitter_solve (:numref:`jitter_solve`):
   * Added ``--save-cnet-as-gcp`` to save the optimized control network in
@@ -139,7 +142,7 @@ sfs (:numref:`sfs`):
   * Added the option ``--save-covariances`` (:numref:`sfs_opt`).
 
 rig_calibrator (:numref:`rig_calibrator`):
-  * Replaced ``--camera-position-weight`` with ``--camera-position-uncertainty``. 
+  * Replaced ``--camera-position-weight`` with ``--camera-position-uncertainty``.
   * Added the option ``--heights-from-dem`` to constrain triangulated points
     relative to a DEM.
   * Added an example of an orbital rig with a DEM constraint (:numref:`orbital_rig`).
@@ -161,7 +164,7 @@ camera_solve (:numref:`camera_solve`):
 parse_match_file.py (:numref:`parse_match_file`):
   * When converting from binary to text, descriptors are no longer saved by
     default. Use the ``--save-descriptors`` option to include them.
-    
+
 stereo_gui (:numref:`stereo_gui`):
   * The ``--colorize`` and ``--colorbar`` options now work with overlaid and
     georeferenced images. Added ``--no-colorize`` (:numref:`colorize`).
@@ -242,7 +245,7 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Determination of interest point matches is optional when either
     ``--corr-search`` or ``--seed-mode 2`` are set
     (:numref:`stereodefault`).
-    
+
 parallel_sfs (:numref:`parallel_sfs`):
   * When albedo and / or haze is modeled, initial estimates for these are
     produced for the full site (:numref:`parallel_sfs_usage`).
@@ -252,16 +255,16 @@ sfs (:numref:`sfs`):
     (and albedo variance, if albedo is floated).
   * Added a method for removing seams in the SfS terrain (:numref:`sfs_seams`).
   * Improved the documentation for how to measure and repair the misalignment
-    between the input DEM and output SfS DEM (:numref:`sfs_align_refine`). 
+    between the input DEM and output SfS DEM (:numref:`sfs_align_refine`).
   * Added a documentation section for how to do registration based on an SfS
     terrain to refine the alignment of this SfS DEM and the images
     (:numref:`sfs_sim`).
   * Options ``--albedo-constraint-weight`` and ``--albedo-robust-threshold`` are
     respected when low-resolution initial albedo is estimated (with option
     ``--estimate-exposure-haze-albedo``).
-  * Replaced ``--save-computed-intensity-only`` with ``--save-sim-intensity-only`` 
+  * Replaced ``--save-computed-intensity-only`` with ``--save-sim-intensity-only``
     and ``--save-meas-intensity-only``.
-  * Renamed ``comp-albedo-final.tif`` to ``albedo-final.tif``, for consistency with 
+  * Renamed ``comp-albedo-final.tif`` to ``albedo-final.tif``, for consistency with
     other output files.
   * Unused option ``--estimate-slope-errors`` got removed.
 
@@ -273,7 +276,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     reprojection error.
   * Changed the implementation of the camera position constraint
     (:numref:`ba_cam_constraints`).
-  * Added the option ``--fixed-distortion-indices`` to control which lens 
+  * Added the option ``--fixed-distortion-indices`` to control which lens
     distortion parameters are kept fixed.
   * The option ``--auto-overlap-params`` accepts an optional third argument (all
     in quotes) that has the number of subsequent images that overlap to use in
@@ -281,24 +284,24 @@ bundle_adjust (:numref:`bundle_adjust`):
   * For the option ``--mapprojected-data``, the DEM specified at the end is
     optional, if it can be looked up from the geoheader of the mapprojected
     images.
-    
+
 point2dem (:numref:`point2dem`):
   * Added support for LAS COPC files (:numref:`point2dem_las`).
   * Added the option ``--gdal-tap``.
-  * Removed unused options: ``--phi-rotation``, ``--omega-rotation``, 
+  * Removed unused options: ``--phi-rotation``, ``--omega-rotation``,
     ``--kappa-rotation``. A rotation matrix can be applied with ``pc_align``
     instead.
-    
+
 pc_align (:numref:`pc_align`):
   * Added support for LAS COPC files (:numref:`pc_align_las`).
   * The hillshade-based alignment uses by default ``gdaldem hillshade``
     (:numref:`pc_hillshade`).
-  
+
 cam_gen (:numref:`cam_gen`):
   * Can fit a CSM linescan camera to an OpticalBar camera
     (:numref:`opticalbar2csm`).
-  * Can fit a CSM frame camera model with radial distortion.  
-  * Support pixel pitch that is not just 1 in CSM cameras. 
+  * Can fit a CSM frame camera model with radial distortion.
+  * Support pixel pitch that is not just 1 in CSM cameras.
   * If the input is an ISIS cube and the output is a CSM camera, save the
     ephemeris time, sun position, serial number, and target (planet) name.
   * Added the option ``--camera-center-llh``.
@@ -307,7 +310,7 @@ mapproject (:numref:`mapproject`):
   * Added the option ``--gdal-tap``.
   * Bugfix for erosion during mapprojection at DEM boundary when the DEM and
     output image have the same grid size.
-  
+
 dem2gcp (:numref:`dem2gcp`):
   * Added the options ``--max-num-gcp``, ``--max-disp``, ``--gcp-sigma-image``.
   * Added the options ``--image-list``, ``--camera-list``,
@@ -331,7 +334,7 @@ dem_mosaic (:numref:`dem_mosaic`):
   * Added the option ``--gdal-tap``.
 
 camera_footprint (:numref:`camera_footprint`):
-  * Added the option ``--output-shp`` to save the convex hull of the camera 
+  * Added the option ``--output-shp`` to save the convex hull of the camera
     footprint as a shapefile.
 
 stereo_gui (:numref:`stereo_gui`):
@@ -371,7 +374,7 @@ Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
 
 *New platform*: An experimental native Mac M1/M2 Arm64 build is available
 (:numref:`release`).
-  
+
 bundle_adjust (:numref:`bundle_adjust`):
   * Replaced the algorithm for creating control networks when there are more
     than two images. Notably more features in more than two images now can be
@@ -382,22 +385,22 @@ bundle_adjust (:numref:`bundle_adjust`):
     get optimized.
   * Added the option ``--max-triangulation-angle``.
   * Compensate for the images in the input nvm being potentially in different
-    order than the images specified on the command line.  
+    order than the images specified on the command line.
   * The report file measuring statistics of registration errors on the ground
     got broken up into errors per image and per image pair
     (:numref:`ba_mapproj_dem`).
-  
+
 parallel_bundle_adjust (:numref:`parallel_bundle_adjust`):
    * The default number of processes per node is 1/4 of the number of cores on
      the head node, and the default number of threads per process is the number
      of cores on the head node over the number of processes.
    * The number of launched jobs is number of nodes times number of processes
-     per node. This appears best for load balancing.  
+     per node. This appears best for load balancing.
    * Create interest points (before matching) once per image, not each time per
      image pair. This speeds up the processing.
-     
+
 mapproject (:numref:`mapproject`):
-  * If the input DEM is in the ``longlat`` projection, a projection 
+  * If the input DEM is in the ``longlat`` projection, a projection
     in meters is auto-determined (:numref:`mapproj_auto_proj`).
   * Added the option ``--ref-map`` to borrow the grid size and projection from
     an existing mapprojected image (:numref:`mapproj_refmap`).
@@ -420,7 +423,7 @@ stereo_gui (:numref:`stereo_gui`):
   * Changing the image threshold updates the display correctly.
   * When creating GCP, ask before quitting without saving them. Save the IP as
     well when GCP are saved.
-  * Added the option ``--gcp-sigma`` for creating GCP.  
+  * Added the option ``--gcp-sigma`` for creating GCP.
   * Big speedup when rendering a stack of georeferenced images.
 
 image_calc (:numref:`image_calc`):
@@ -436,7 +439,7 @@ sat_sim (:numref:`sat_sim`):
 
   * Added the option ``--blur-sigma``, to blur the simulated images. This can
     help simulate the effect of degraded images due to fog, motion, etc.
-  
+
 parallel_stereo (:numref:`parallel_stereo`):
   * Added an example of processing Umbra SAR images (:numref:`umbra_sar`).
   * Added an example of refining intrinsics and stereo with Chang'e 3 images
@@ -447,8 +450,8 @@ parallel_stereo (:numref:`parallel_stereo`):
     (:numref:`existing_terrain`).
   * If the number of matches from disparity is much less than requested, try to
     find more matches. This usually brings their number in the ballpark.
-  * The option ``--num-matches-from-disparity`` was made equivalent to   
-    ``--num-matches-from-disp-triplets``, and the triplet logic now works 
+  * The option ``--num-matches-from-disparity`` was made equivalent to
+    ``--num-matches-from-disp-triplets``, and the triplet logic now works
     with mapprojected images (:numref:`dense_ip`).
   * It is possible to mapproject either with ``dg`` or ``rpc`` cameras
     when using mapprojected images in stereo with DigitalGlobe / Maxar
@@ -459,7 +462,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     multispectral images (:numref:`stereodefault`).
   * With alignment methods ``none`` and ``epipolar``, the option
     ``--corr-search`` will work even when interest point matching fails
-    (:numref:`corr_section`).    
+    (:numref:`corr_section`).
   * Skip tiles for which there is no valid low-resolution disparity.
   * Throw an error if the left and right mapprojected images have different
     resolutions, as this can lead to incorrect results.
@@ -473,7 +476,7 @@ parallel_stereo (:numref:`parallel_stereo`):
 sfm (:numref:`sfm`):
   * Added an example for processing data acquired with an UAS, with known
     metadata (:numref:`sfm_uas`).
-    
+
 sfs (:numref:`sfs`):
   * Added an SfS example for Earth (:numref:`sfs_earth`).
   * Added a CTX Mars example (:numref:`sfs_ctx`).
@@ -489,10 +492,10 @@ sfs (:numref:`sfs`):
   * Removed the RPC approximation logic. Use instead the option
     ``--use-approx-camera-models`` with ISIS cameras.
   * Removed the option ``--float-cameras``. It is more reliable to optimize
-    the cameras beforehand, in bundle adjustment. 
+    the cameras beforehand, in bundle adjustment.
   * Removed obsolete options ``--float-dem-at-boundary``,
     ``--float-sun-position``, ``--coarse-levels``.
-  * Have option ``--crop-input-images`` be always on. 
+  * Have option ``--crop-input-images`` be always on.
 
 pc_align (:numref:`pc_align`):
   * Added the Nuth and Kaab algorithm (:numref:`nuth`).
@@ -513,7 +516,7 @@ point2las (:numref:`point2las`):
   * Added the options ``--save-intensity-from-image`` and ``--save-stddev``.
 
 point2dem (:numref:`point2dem`):
-  * The default projection for WGS84 is now UTM / polar stereographic. 
+  * The default projection for WGS84 is now UTM / polar stereographic.
     For other datums it is local stereographic (:numref:`point2dem_proj`).
   * Adjust the region passed in via the option ``--t_projwin`` so that, as
     usual, the DEM grid coordinates are integer multiples of the grid size.
@@ -522,9 +525,9 @@ point2dem (:numref:`point2dem`):
   * Bugfix for slow performance with dynamic CRS.
   * Changed the default output nodata-value to -1e+6, as the smallest float
     may not be displayed accurately by some software.
-  
+
 gcp_gen (:numref:`gcp_gen`):
-  * Make the interest point matching work better by invoking the full 
+  * Make the interest point matching work better by invoking the full
     machinery and options from ``bundle_adjust``.
 
 image_align (:numref:`image_align`):
@@ -533,7 +536,7 @@ image_align (:numref:`image_align`):
 cam_gen (:numref:`cam_gen`):
   * Added the option ``--camera-center``.
   * Can export an RPC camera model to .xml format (:numref:`cam_gen_rpc`).
-   
+
 dem_mosaic (:numref:`dem_mosaic`):
   * Added the option ``--weight-list`` for blending DEMs given external weights
     (:numref:`dem_mosaic_external_weights`).
@@ -562,7 +565,7 @@ misc:
   * When creating dense interest point matches from disparity and mapprojected
     images, the match file reflects the name of the original unprojected images
     (:numref:`dense_ip`).
-  * Bugfix for a crash with the ``asp_sgm`` and ``asp_mgm`` algorithms when the 
+  * Bugfix for a crash with the ``asp_sgm`` and ``asp_mgm`` algorithms when the
     disparity search range is large.
   * Print the stereo convergence angle in ``stereo_pprc`` with mapprojected
     images and with epipolar alignment. These are the remaining cases that were
@@ -583,7 +586,7 @@ misc:
   * Have the OpenCV interest point detectors respect the ``--threads`` option.
   * Have ``bundle_adjust`` and ``parallel_stereo`` use same
     ``--ip-inlier-factor`` value by default.
-  * Bugfix for loading camera adjustments when mapprojected images are passed 
+  * Bugfix for loading camera adjustments when mapprojected images are passed
     in, rather than the raw ones.
   * Can read Airbus Pleiades RPC XML files that have both a "global" and a
     "partial" camera model. The global one will be used.
@@ -605,10 +608,10 @@ New tools:
     camera orientations along an orbit (contributed by Shashank Bhushan).
   * Added ``gcp_gen`` (:numref:`gcp_gen`), a program for generating ground
     control points (GCP) based on ortho images. Helps create camera models from
-    scratch.  
+    scratch.
   * Added ``dem2gcp`` (:numref:`dem2gcp`), a tool that can greatly help solve
     for lens distortion that manifests itself as large horizontal warping in the
-    DEM. 
+    DEM.
 
 New camera support:
   * Added the ability to use the CSM camera model with ASTER images
@@ -622,7 +625,7 @@ WorldView (DigitalGlobe) cameras (:numref:`dg_tutorial`):
   * The WorldView linescan model got moved to a CSM implementation. The
     transitional option ``--dg-use-csm`` was removed. The new implementation is
     about 5x faster for ground-to-image projections.
-  * Re-enabled correcting velocity aberration and atmospheric refraction.  
+  * Re-enabled correcting velocity aberration and atmospheric refraction.
     These corrections are now implemented in the CSM camera model, and, unlike
     before, play nicely with bundle adjustment (:numref:`dg_csm`).
   * The options ``--enable-correct-velocity-aberration`` and
@@ -632,21 +635,21 @@ WorldView (DigitalGlobe) cameras (:numref:`dg_tutorial`):
 
 jitter_solve (:numref:`jitter_solve`):
   * Added an example for ASTER cameras (:numref:`jitter_aster`).
-  * Added an example with 27 CTX images (:numref:`jitter_multiple_images`).  
+  * Added an example with 27 CTX images (:numref:`jitter_multiple_images`).
   * Added the option ``--weight-image``, to weigh observations based on
     geographic location of triangulated points (:numref:`limit_ip`).
   * Can handle several sensors with very similar positions and orientations
     (:numref:`jitter_rig`).
   * Support reading the ISIS ``jigsaw`` binary control network
     format (:numref:`jitter_ip`).
-  * Can read and write CSM model state embedded in ISIS .cub files   
+  * Can read and write CSM model state embedded in ISIS .cub files
     (:numref:`embedded_csm`).
   * Replaced the option ``--translation-weight`` with
     ``--camera-position-weight``, which is off by default, as it may affect the
     convergence. The new option adapts appropriately to the number of interest
     points and the ground sample distance (:numref:`jitter_camera`).
   * The ``--tri-weight`` constraint is now the default, with a positive value of
-    0.1. This is adjusted for GSD (:numref:`jitter_tri_constraint`). 
+    0.1. This is adjusted for GSD (:numref:`jitter_tri_constraint`).
   * Added report files having the change in camera positions
     (:numref:`jitter_cam_offsets`), triangulated points
     (:numref:`jitter_tri_offsets`), and stats of pixel reprojection errors per
@@ -666,17 +669,17 @@ jitter_solve (:numref:`jitter_solve`):
   * The roll and yaw constraints no longer assume linescan camera positions and
     orientations are one-to-one.
   * Order of images in each interest point match file need not be the same
-    as for input images.  
+    as for input images.
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added the ability to refine the camera intrinsics for several groups of
     cameras, with each group sharing intrinsics (:numref:`kaguya_ba`).
-  * Can mix frame and linescan cameras, while controlling for each 
+  * Can mix frame and linescan cameras, while controlling for each
     group of cameras which intrinsics should be optimized
     (:numref:`ba_frame_linescan`).
   * Support reading and writing the ISIS ``jigsaw`` binary control network
     format (:numref:`jigsaw_cnet`).
-  * Can read and write CSM model state embedded in ISIS .cub files   
+  * Can read and write CSM model state embedded in ISIS .cub files
     (:numref:`embedded_csm`).
   * Support reading and writing the NVM format for control networks
     (:numref:`ba_nvm`).
@@ -700,12 +703,12 @@ bundle_adjust (:numref:`bundle_adjust`):
     meaningful (as a rule of thumb, use the inverse of what was previously the
     weight value).
   * Integrated the logic behind ``--reference-dem`` into ``--heights-from-dem``,
-    with an approach that combines the strength of both. Removed 
+    with an approach that combines the strength of both. Removed
     ``--reference-dem``.
   * Added the option ``--propagate-errors`` to propagate the uncertainties from
-    input cameras to triangulated points (:numref:`ba_error_propagation`).  
+    input cameras to triangulated points (:numref:`ba_error_propagation`).
   * Added the option ``--weight-image``, to weigh observations based on
-    geographic location of triangulated points. (:numref:`limit_ip`). 
+    geographic location of triangulated points. (:numref:`limit_ip`).
   * For ASTER cameras, use the RPC model to find interest points. This does
     not affect the final results but is much faster.
   * When optimizing intrinsics, cameras that do not share distortion can
@@ -720,7 +723,7 @@ bundle_adjust (:numref:`bundle_adjust`):
     the report files (:numref:`ba_errors_per_camera`, :numref:`ba_err_per_point`).
   * The default outlier removal parameters are more generous, to avoid removing
     valid interest point matches when the input images have distortion (option
-    ``--remove-outliers-params``). 
+    ``--remove-outliers-params``).
   * The combination of options ``--mapprojected-data`` and
     ``--auto-overlap-params`` will restrict the interest point matching to the
     region of overlap (expanded by the percentage in the latter option). This
@@ -728,9 +731,9 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Made the Tsai lens distortion agree precisely with OpenCV's implementation
     (:numref:`pinholemodels`). There was a small numerical problem and the K3
     coefficient was not part of the distortion model.
-  * Replaced the Tsai lens undistortion implementation, for a 10x speedup.  
+  * Replaced the Tsai lens undistortion implementation, for a 10x speedup.
   * Added the OpenCV fisheye lens distortion model and also the FOV model
-    (:numref:`pinholemodels`). These are for wide-angle lenses. 
+    (:numref:`pinholemodels`). These are for wide-angle lenses.
   * Bugfix: points for which initial triangulation failed are flagged as
     outliers right away. See ``--forced-triangulation-distance`` for
     fine-grained control.
@@ -744,26 +747,26 @@ bundle_adjust (:numref:`bundle_adjust`):
   * RPC undistortion is now done with a solver rather than using separate
     undistortion coefficients. This much more accurate but slower
     (:numref:`pinholemodels`).
-  * Added an example of using RPC distortion for KH-7 cameras, for which 
+  * Added an example of using RPC distortion for KH-7 cameras, for which
     an exact model is not available (:numref:`kh7_fig`).
   * Ensure that outlier filtering with ``--min-triangulation-angle`` is done
     after each pass with refined cameras and for all ways of reading a control
     network.
   * Load and save the camera models in parallel, for speed (except for ISIS).
   * Bugfix: if some intrinsics are shared, sync them up before optimization.
-  
+
 parallel_stereo (:numref:`parallel_stereo`):
   * Added Kaguya processing example (:numref:`kaguya_tc`).
   * When a run finished successfully, combine the data from subdirectories and
     delete these. See ``--keep-only`` for more options.
   * Made the tiles for the ``asp_mgm`` / ``asp_sgm`` algorithms bigger, with
     smaller padding, which should be about 2x faster (:numref:`ps_tiling`).
-  * Added an illustration of several stereo algorithms (:numref:`stereo_alg_fig`).  
+  * Added an illustration of several stereo algorithms (:numref:`stereo_alg_fig`).
   * Fixed a failure when processing images that have very large blocks (on the
     order of several tens of thousands of pixels along some dimension, as shown
     by ``gdalinfo``). A warning, progress bar, and timing info is displayed.
   * For the ``asp_sgm`` and ``asp_mgm`` algorithms allow ``cost-mode`` to
-    have the value 3 or 4 only, as other values produce bad results. 
+    have the value 3 or 4 only, as other values produce bad results.
   * Fix a failure when the working directory has a space in its name.
   * Bugfix for memory usage with very large images.
 
@@ -779,19 +782,19 @@ point2dem (:numref:`point2dem`):
   * Can read a ground-level point cloud stored as a tif file with 3 bands,
     representing the x, y, and z coordinates of the points, with z being
     vertical (option ``--input-is-projected``).
-  * Bugfix for when all heights are equal. A valid DEM is produced.  
+  * Bugfix for when all heights are equal. A valid DEM is produced.
   * Do not assume the datum is WGS84 by default, as this can result in
-    incorrect DEMs. The datum, projection, or semi-axes must be set    
+    incorrect DEMs. The datum, projection, or semi-axes must be set
     (or read from the input PC/LAS file).
-    
+
 gdal (:numref:`gdal_tools`):
    * Full support for WKT and GeoJSON for the projection string (option
      ``--t_srs``) in ``point2dem``, ``point2las``, ``mapproject``,
-     ``dem_mosaic``, ``cam2rpc``. Can still use PROJ.4 strings. 
+     ``dem_mosaic``, ``cam2rpc``. Can still use PROJ.4 strings.
    * Georeferenced images with different datums cannot be used together. Use
      ``gdalwarp`` to convert them to a common datum.
    * Upgraded to GDAL 3.8.0 and PROJ 9.3.0.
-   
+
 csm (:numref:`csm`):
    * Upgraded to USGSCSM 2.0.1.
    * Fixed several problems in generation of CSM cameras for MSL Curiosity Nav
@@ -803,9 +806,9 @@ csm (:numref:`csm`):
      with 3 radial distortion parameters and 2 tangential ones. Tested
      that it agrees with the OpenCV implementation.
    * Fixed a small bug in radial distortion implementation.
-      
+
 stereo_gui (:numref:`stereo_gui`):
-  * Can show scattered data with a colorbar and axes 
+  * Can show scattered data with a colorbar and axes
     (:numref:`scattered_points_colorbar`).
   * Renamed ``--colorize-image`` to ``--colorbar``.
   * Right-click on a colorized image to set the range of intensities to
@@ -818,7 +821,7 @@ stereo_gui (:numref:`stereo_gui`):
 
 colormap (:numref:`colormap`):
   * Added the option ``--hillshade`` to create a hillshaded colormap.
-   
+
 image_calc (:numref:`image_calc`):
   * When adding new keywords to metadata geoheader, do not erase the existing
     ones (if a keyword already exists, its value will be modified).
@@ -826,7 +829,7 @@ image_calc (:numref:`image_calc`):
 
 pc_align (:numref:`pc_align`):
   * Add the option ``--skip-shared-box-estimation``.
-   
+
 historical_helper.py (:numref:`historical_helper`):
   * Added the ability to set a custom path to the needed ``convert``
     executable and described how that tool can be installed.
@@ -838,11 +841,11 @@ sfs (:numref:`sfs`):
 
 isis (:numref:`moc_tutorial`):
   * The ISIS libraries are compiled from source, and reflect the code after
-    the ISIS 8.0.3 release (:numref:`conda_intro`). 
+    the ISIS 8.0.3 release (:numref:`conda_intro`).
   * Made the operation of projecting into an ISIS linescan camera 2.2-2.6 times
     faster by using the secant method to find the best sensor line.
-  * Expanded the ``jigsaw`` documentation (:numref:`jigsaw`). This is the 
-    ISIS bundle adjustment tool. 
+  * Expanded the ``jigsaw`` documentation (:numref:`jigsaw`). This is the
+    ISIS bundle adjustment tool.
 
 cam_gen (:numref:`cam_gen`):
    * Can fit a CSM frame camera to a given input camera, including distortion
@@ -856,39 +859,39 @@ rig_calibrator (:numref:`rig_calibrator`):
      distortion model for use with ``bundle_adjust`` (:numref:`rc_ba`).
    * Added documentation for how to register the produced cameras to the ground
      for a planet (:numref:`msl_registration`).
-   * Can fix the translation and/or rotation component of a rig configuration.  
+   * Can fix the translation and/or rotation component of a rig configuration.
    * Can constrain camera positions with ``--camera_position_weight``.
    * Added two more naming conventions, to help process existing data
      out-of-the-box. Also for ``theia_sfm`` and ``sfm_merge``.
-     :numref:`rig_data_conv`. 
-   * Thoroughly validated with an orbital rig (in addition to indoor rigs).   
-     
+     :numref:`rig_data_conv`.
+   * Thoroughly validated with an orbital rig (in addition to indoor rigs).
+
 lronac2mosaic.py (:numref:`lronac2mosaic`):
   * Run ``spiceinit`` before calling ``lronaccal``, and re-enable all
     options for the latter command, which were disabled due to a bug
     in ISIS that was fixed in version 7.2.
-  * Invoke ``spiceinit`` with ``spksmithed=true``. 
+  * Invoke ``spiceinit`` with ``spksmithed=true``.
   * Add the option ``--spiceinit-options``.
 
 camera_solve (:numref:`camera_solve`):
   * Switched to cascade matching from brute force matching, which is much faster.
   * Always reuse the Theia SfM matches.
- 
+
 dem_mosaic (:numref:`dem_mosaic`):
-  * Bugfix for option ``--use-centerline-weights``. 
-    
+  * Bugfix for option ``--use-centerline-weights``.
+
 misc:
   * Made all tools that spawn processes in parallel use the option
     ``--parallel-options``, with default ``--sshdelay 0.2``, to avoid
     failure on certain architectures.
   * For ASTER (:numref:`aster`), the model loaded by default is now linescan
     rather than RPC.
-  * Fixed a bug in outlier filtering when the interest points are very noisy.   
+  * Fixed a bug in outlier filtering when the interest points are very noisy.
   * Fixed a couple of runtime errors when using conda packages on OSX.
   * Eliminated a procedure for cleaning the name of an input path that was
     replacing two slashes with one slash, resulting in inconsistencies.
   * Robustly handle 360 degree longitude offsets without classifying
-    georeferenced images into [-180, 180] or [0, 360] types.  
+    georeferenced images into [-180, 180] or [0, 360] types.
   * Fix an error in conversion between projections for non-Earth images.
   * The North-East-Down coordinate system assumes an ellipsoid, not a sphere,
     and takes into account the point elevation. This fixes some small
@@ -903,21 +906,21 @@ misc:
     directory and proper names.
   * Ensure any sequence of quaternions in a CSM linescan model is normalized
     and there is no sign flip along the sequence. Such a flip was resulting
-    in incorrectly interpolated camera orientations.  
-  * Auto-guess the planet for Pinhole cameras (For Earth, Moon, Mars).   
+    in incorrectly interpolated camera orientations.
+  * Auto-guess the planet for Pinhole cameras (For Earth, Moon, Mars).
   * Documented the program ``view_reconstruction``
-    (:numref:`view_reconstruction`), with a figure.  
+    (:numref:`view_reconstruction`), with a figure.
   * Switched by default to a slower but deterministic method for matching
     interest points in ``bundle_adjust`` and ``parallel_stereo``. Normally this
     is not a bottleneck. See ``--flann-method`` in :numref:`stereodefault-pprc`.
   * Made RANSAC multi-threaded. This speeds up interest point matching.
-  * Added a sanity check: If the user sets ``--t_srs`` to any tool, it 
+  * Added a sanity check: If the user sets ``--t_srs`` to any tool, it
     must not be empty.
   * Added sanity checks to ensure no mix-up of datums from different planets in
     different inputs for the stereo tools, ``bundle_adjust``, ``jitter_solve``,
     ``mapproject``, ``cam_test``, and ``cam_gen``.
   * Upgraded to Boost 1.82.0.
-  
+
 RELEASE 3.3.0, August 16, 2023
 ------------------------------
 
@@ -928,8 +931,8 @@ Stable release doc: https://stereopipeline.readthedocs.io/en/stable/index.html
 New tools:
   * Added ``sfm_merge`` (:numref:`sfm_merge`), a tool to merge several
     SfM reconstructions that may or may not have shared images.
-  * Added ``sfm_submap`` (:numref:`sfm_submap`), a tool to extract  
-    a submap from a Structure-from-Motion map in .nvm format, 
+  * Added ``sfm_submap`` (:numref:`sfm_submap`), a tool to extract
+    a submap from a Structure-from-Motion map in .nvm format,
     as produced by ``theia_sfm`` (:numref:`theia_sfm`) or refined
     with ``rig_calibrator`` (:numref:`rig_calibrator`).
   * Added a couple of small Python scripts for handling ROS bags
@@ -938,9 +941,9 @@ New tools:
     (:numref:`pleiades_neo`).
   * Added ``sat_sim`` (:numref:`sat_sim`), a tool to create simulated
     satellite images camera models for pinhole or linescan sensors.
-  * Added ``sfm_view`` (:numref:`sfm_view`), a tool for viewing orbital 
+  * Added ``sfm_view`` (:numref:`sfm_view`), a tool for viewing orbital
     Pinhole camera models. It is a modification of the ``umve`` program.
-   
+
 csm (:numref:`csm`):
   * Added initial support for using CSM camera models with MSL Curiosity
     (:numref:`csm_msl`).
@@ -948,7 +951,7 @@ csm (:numref:`csm`):
 parallel_stereo (:numref:`parallel_stereo`):
   * Can propagate horizontal ground plane standard deviations (stddev)
     specified for each camera through triangulation, obtaining the
-    horizontal and vertical stddev for each triangulated point. 
+    horizontal and vertical stddev for each triangulated point.
     For DigitalGlobe RPC and Pleiades linescan cameras the input
     horizontal stddev can be read from camera files. A formula to go
     from known CE90 to input horizontal stddev is provided
@@ -984,7 +987,7 @@ bundle_adjust (:numref:`bundle_adjust`):
 jitter_solve (:numref:`jitter_solve`):
   * Added the options ``--roll-weight`` and ``--yaw-weight`` to control the
     amount of change in these angles relative to the along-track direction. To
-    be used with synthetic cameras created with ``sat_sim`` (:numref:`sat_sim`). 
+    be used with synthetic cameras created with ``sat_sim`` (:numref:`sat_sim`).
   * Added a section discussing solving for jitter with synthetic camera models
     (:numref:`jitter_sat_sim`).
   * The solver can mix and match linescan and pinhole (frame) camera images if
@@ -996,8 +999,8 @@ jitter_solve (:numref:`jitter_solve`):
   * Bugfix for reverse scan direction.
   * Added an example for Pleiades cameras (:numref:`jitter_pleiades`),
     comparing two ways of setting ground constraints.
-    
-sfs (:numref:`sfs`): 
+
+sfs (:numref:`sfs`):
   * Created an SfS DEM of size 14336 x 11008 pixels, at 1 m pixel with
     420 LRO NAC images with various illuminations and orientations.
     Reliably bundle-adjusted 814 LRO NAC images in which the shadows
@@ -1017,7 +1020,7 @@ rig_calibrator (:numref:`rig_calibrator`):
   * Added an example for the MSL Curiosity rover (:numref:`rig_msl`).
   * Allow multiple rigs to be jointly optimized (the rig constraint
     applies within individual rigs and not between them).
-  * Added the option ``--extra_list`` to insert additional images 
+  * Added the option ``--extra_list`` to insert additional images
     close in time to some of the images already on the rig (for
     the same or different rig sensor). Helps easily grow a map and
     complete a rig.
@@ -1027,7 +1030,7 @@ rig_calibrator (:numref:`rig_calibrator`):
     be used in registration (but all must be for same sensor).
   * Added the ``--save_pinhole_cameras`` option to save the optimized
     cameras in ASP's Pinhole format (with no distortion for now).
-  * Absorb ``--rig_transforms_to_float`` into ``--camera_poses_to_float``. 
+  * Absorb ``--rig_transforms_to_float`` into ``--camera_poses_to_float``.
   * Save alongside an .nvm file a separate file having the values of
     optical center point that are subtracted from each interest point
     (for plotting in ``stereo_gui``).
@@ -1048,26 +1051,26 @@ multi_stereo (:numref:`multi_stereo`):
 
 texrecon (:numref:`texrecon`):
   * Can create a texture with images from multiple sensors.
- 
-point2dem (:numref:`point2dem`): 
+
+point2dem (:numref:`point2dem`):
   * Added the option ``--propagate-errors`` to grid the stddev values
     computed during stereo triangulation.
   * Added the option ``--input-is-projected`` to specify that the input
     coordinates are already in the projected coordinate system.
 
-stereo_gui (:numref:`stereo_gui`): 
+stereo_gui (:numref:`stereo_gui`):
   * Can read, write, edit, and overlay on top of images polygons in
     plain text format in addition to the .shp format. Per-polygon
     colors are supported.
-  * Can read nvm files whose features are shifted relative to the 
+  * Can read nvm files whose features are shifted relative to the
     optical center, if an ``.nvm`` file is accompanied by an
     ``_offsets.txt`` file.
-  * Added the option ``--preview`` to load one image at a time, 
+  * Added the option ``--preview`` to load one image at a time,
     and quickly cycle through them with the 'n' and 'p' keys.
   * Added the option ``--view-several-side-by-side``
     to view several images side-by-side with a dialog to choose which
     images to show (also accessible from the View menu).
-  * Added the option ``--font-size``, with the default of 9. 
+  * Added the option ``--font-size``, with the default of 9.
   * Added the option ``--lowest-resolution-subimage-num-pixels`` to
     control the behavior of the pyramid of subimages.
   * Noticeable speedup in loading images.
@@ -1080,7 +1083,7 @@ image_align (:numref:`image_align`):
     (:numref:`image_align_ecef_trans`).
 
 dem_mosaic (:numref:`dem_mosaic`):
-  * Added the option ``--fill-search-radius`` to fill nodata pixels in 
+  * Added the option ``--fill-search-radius`` to fill nodata pixels in
     a DEM with nearby valid values. This is different from
     ``--hole-fill-length``. See an example in :numref:`dem_mosaic_examples`.
 
@@ -1095,21 +1098,21 @@ wv_correct (:numref:`wv_correct`):
     printed). This applies to both PAN and multi-spectral images.
 
 corr_eval (:numref:`corr_eval`):
-  * Remove an excessive check. The refined/filtered disparity can be such 
+  * Remove an excessive check. The refined/filtered disparity can be such
     that left image pixel plus disparity may be outside the right image.
-    Don't fail in that case, but just skip the pixel, resulting in empty 
+    Don't fail in that case, but just skip the pixel, resulting in empty
     correlation for that pixel.
 
 cam_test (:numref:`cam_test`):
-  * Added the option ``--datum``. Useful for Pinhole cameras as those don't 
-    know their datum. 
-  * Added a warning if the camera center is below the datum. 
+  * Added the option ``--datum``. Useful for Pinhole cameras as those don't
+    know their datum.
+  * Added a warning if the camera center is below the datum.
 
-misc: 
+misc:
   * Upgraded to ISIS 8.0.0 and USGSCSM 1.7.
   * Throw an error for WorldView products that are not Stereo1B or Basic1B.
     That because ASP does not support orthorectified Maxar products.
-  * Changed the "pretend" height of the RPC cameras from 10 km 
+  * Changed the "pretend" height of the RPC cameras from 10 km
     above ground to around 100 km. RPC camera models do not store this
     number and it does not make a difference normally, as only ray
     directions to the ground matter. Yet, .adjust
@@ -1121,7 +1124,7 @@ misc:
   * Added back the tool ``view_reconstruction``, for examining
     Theia's SfM solution (:numref:`sfm`).
   * The ``theia_sfm`` tool can write the optical offsets for a given
-    nvm file which can be used in plotting such files in ``stereo_gui``. 
+    nvm file which can be used in plotting such files in ``stereo_gui``.
   * Added to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`) the option
     ``--web`` to invoke ``spiceinit`` with ``web=True``. Contributed
     by Giacomo Nodjoumi.
@@ -1130,7 +1133,7 @@ misc:
   * Fixed a failure in ``mapproject`` with a small DEM.
   * Bugfix for exporting the TheiaSfM matches in ``camera_solve``.
   * The documentation of the examples chapter was broken up into
-    individual pages (:numref:`examples`). 
+    individual pages (:numref:`examples`).
 
 RELEASE 3.2.0, December 30, 2022
 --------------------------------
@@ -1146,7 +1149,7 @@ New tools:
     intrinsics of camera images acquired with N sensors with no rig
     constraint (:numref:`rig_calibrator`).
   * ``multi_stereo``: Runs multiple stereo pairs and produces
-    a fused mesh. Uses ``parallel_stereo``, ``pc_filter``, and 
+    a fused mesh. Uses ``parallel_stereo``, ``pc_filter``, and
     ``voxblox_mesh`` (:numref:`multi_stereo`).
   * ``voxblox_mesh``: Fuses point clouds into a seamless oriented
     mesh, with each input point given a weight according to its
@@ -1159,15 +1162,15 @@ New tools:
     (:numref:`pc_filter`).
   * Added CGAL-based tools for mesh smoothing, hole-filling, remeshing,
     and removal of small connected components (:numref:`cgal_tools`).
-  * ``jitter_solve``: A tool for solving for jitter in CSM camera 
-    models (:numref:`jitter_solve`). It gives promising results 
+  * ``jitter_solve``: A tool for solving for jitter in CSM camera
+    models (:numref:`jitter_solve`). It gives promising results
     for CTX, Pleiades, and DigitalGlobe data. Examples are provided.
 
 Removed tools:
   * ``datum_convert``: This was an attempt at having a tool applying
     a transform between datums. It is suggested to use GDAL/PROJ instead.
     Note that a datum transform may require fetching transformation grids,
-    and without them PROJ will quietly return incorrect results. 
+    and without them PROJ will quietly return incorrect results.
 
 New sensors:
   * Support the Pleiades exact sensor (for 1A/1B). See :numref:`pleiades`.
@@ -1187,7 +1190,7 @@ parallel_stereo (:numref:`parallel_stereo`):
     with bathymetry modeling at the triangulation stage while
     reusing the previous stages of a run without such modeling
     (the needed aligned bathy masks are created, if needed,
-    at the triangulation stage, if not done, as usual, at the 
+    at the triangulation stage, if not done, as usual, at the
     preprocessing stage).
   * For SGM and MGM use by default 8 threads and number of processes
     equal to number of cores divided by number of threads. Less likely
@@ -1218,42 +1221,42 @@ bundle_adjust (:numref:`bundle_adjust`):
     points close to their initial values. This looks more promising
     than other weighing used so far at preventing the cameras from
     moving when optimizing them. This assumes input cameras are
-    not grossly inaccurate. This adds a robust cost function 
+    not grossly inaccurate. This adds a robust cost function
     with the threshold given by ``--tri-robust-threshold``.
-  * Added the options ``--image-list``, ``--camera-list``, 
+  * Added the options ``--image-list``, ``--camera-list``,
     ``--mapprojected-data-list``, for when the inputs are too many to
     specify on the command line.
-  * Added the option ``--fixed-image-list`` to specify a file having a 
+  * Added the option ``--fixed-image-list`` to specify a file having a
     list of image names whose cameras should be fixed during
     optimization.
   * Pinhole cameras are no longer automatically reinitialized or
     transformed based on GCP, but only refined given GCP. So, option
     ``--disable-pinhole-gcp-init`` is the default. Use one of the
     options ``--init-camera-using-gcp`` (:numref:`camera_solve_gcp`),
-    ``--transform-cameras-with-shared-gcp``, 
+    ``--transform-cameras-with-shared-gcp``,
     ``--transform-cameras-using-gcp`` (:numref:`sfm_world_coords`) for
     manipulating cameras using GCP.
   * Bugfix in initializing pinhole cameras based on GCP for off-nadir
-    cameras. 
+    cameras.
   * When doing multiple passes (which is the default) at each pass
     resume not only with clean matches but also with the cameras
     optimized so far, rather than going to the originals.
   * Can do multiple passes with ``--heights-from-dem``. One should
-    be generous with outlier removal thresholds if not sure of 
+    be generous with outlier removal thresholds if not sure of
     the input DEM accuracy (option ``--remove-outliers-params``).
   * Remove outliers based on spatial distribution of triangulated
     points.
   * Bugfix when the number of interest points is 4 million or more.
     The algorithm would just stall. It is now replaced by an OpenMVG
     algorithm.
-  * Fold ``--remove-outliers-by-disparity-params`` into 
+  * Fold ``--remove-outliers-by-disparity-params`` into
     ``--remove-outliers-params``.
   * Bugfix in ``residuals_stats.txt``; the mean was correct but the
     median was wrong.
   * Let the default ``--heights-from-dem-weight`` be 1.0, and the
     default ``--heights-from-dem-robust-threshold`` be 0.5. These
     normally need tuning.
-  * Added the option ``--mapproj-dem``. If specified, evaluate 
+  * Added the option ``--mapproj-dem``. If specified, evaluate
     the disagreement of interest point matches after mapprojecting
     onto this DEM, per interest point match pair, per matching image
     pair, and per image. Useful at evaluating registration without
@@ -1287,7 +1290,7 @@ bathymetry (:numref:`bathy_intro`):
 
 mapproject (:numref:`mapproject`):
   * Exposed and documented the ``--query-projection`` option.
- 
+
 stereo_gui (:numref:`stereo_gui`):
   * Can plot, overlay on top of images, and colorize scattered points
     stored in a CSV file (:numref:`plot_csv`). Many colormap styles
@@ -1300,7 +1303,7 @@ stereo_gui (:numref:`stereo_gui`):
     ``--pairwise-matches`` and ``--pairwise-clean-matches``, also
     accessible from the top menu).
   * Visualize pairwise matches read from an nvm file, as created by
-    ``rig_calibrator --save_nvm_no_shift``. 
+    ``rig_calibrator --save_nvm_no_shift``.
   * Zoom to given proj win from the View menu. Useful for
     reproducibility. Also accessible with the command-line option
     ``--zoom-proj-win``.
@@ -1309,18 +1312,18 @@ stereo_gui (:numref:`stereo_gui`):
 
 corr_eval (:numref:`corr_eval`):
   * Bugfix for excessive memory usage with positive ``--prefilter-mode``.
-  * Added a note saying that the user should ensure that this tool uses 
+  * Added a note saying that the user should ensure that this tool uses
     the same ``--corr-kernel`` and ``--prefilter-mode`` as
     ``parallel_stereo``.
   * Added the option ``--sample-rate``.
 
 cam_gen (:numref:`cam_gen`):
   * Can read Planet's pinhole.json files. Then no further changes
-    are made to the produced pinhole camera. 
+    are made to the produced pinhole camera.
   * Fix a bug in output camera center determination, when an input
     camera is provided.
   * Bugfix in initializing pinhole cameras based on GCP for off-nadir
-    cameras given image corners and no prior camera. 
+    cameras given image corners and no prior camera.
   * Added the options ``--cam-height`` and ``--cam-weight`` to try
     to keep the camera at a given height above ground.
   * Added the option ``--cam-ctr-weight``, to help fix the camera
@@ -1333,11 +1336,11 @@ pc_align (:numref:`pc_align`):
   * Fix a bug with loading very large DEMs; it was failing because of
     a 32-bit integer overflow.
 
-colormap (:numref:`colormap`): 
+colormap (:numref:`colormap`):
   * Added six colormaps: ``black-body``, ``viridis``, ``plasma``,
-    ``kindlmann``, ``rainbow``, ``turbo``. Sources: 
+    ``kindlmann``, ``rainbow``, ``turbo``. Sources:
     http://www.kennethmoreland.com/color-advice/ and matplotlib.
- 
+
 misc:
   * Upgrade to C++-14, Python 3.9, latest libLAS, OpenCV 4, PCL 1.11,
     Boost 1.72, ISIS 7.1.0, GDAL 3.5, and PROJ 9.1.0. The latter has a
@@ -1347,7 +1350,7 @@ misc:
     an earlier ISIS version if this is needed.
   * Replaced in some locations ASP's homegrown coordinate transformation
     logic with what is in PROJ.
-  * Added the option of using the CSM camera with DigitalGlobe WorldView 
+  * Added the option of using the CSM camera with DigitalGlobe WorldView
     images in bundle adjustment, stereo, and mapprojection (use with
     ``--t dg``). Option name is ``--dg-use-csm`` and must be set
     consistently for all tools. This speeds up ground-to-image
@@ -1359,8 +1362,8 @@ misc:
     The ``cam_test`` option ``--dg-vs-csm`` can be
     used for evaluating this discrepancy. Each of these methods is
     consistent with itself to within 2e-8 when it comes to projecting
-    from camera to ground and back. 
-  * Increased the cache size to 1 GB per process for each ASP tool. 
+    from camera to ground and back.
+  * Increased the cache size to 1 GB per process for each ASP tool.
     Added the option ``--cache-size-mb``, to set this. Made the
     warning message refer to this option when the limit is
     hit. Documented this for all tools.
@@ -1370,7 +1373,7 @@ misc:
     other duplicated and mutated code for various sessions at the
     preprocessing stage.
   * Bugfix for D.tif VRTs as created by ``parallel_stereo``.
-  * Allow whitespaces in stereo.default before option names. 
+  * Allow whitespaces in stereo.default before option names.
   * Fix a crash in ISIS for international users by setting for all ASP
     programs the environmental variables LC_ALL and LANG to en_US.UTF-8.
   * parallel_stereo will accept (but ignore) Unicode in stereo.default.
@@ -1381,14 +1384,14 @@ misc:
   * The ``historical_helper.py`` program expects a local installation
     of ImageMagick and the ``convert`` tool (available on most systems
     normally).
-  
+
 RELEASE 3.1.0, May 18, 2022
 ----------------------------
 DOI: `10.5281/zenodo.6562267 <https://doi.org/10.5281/zenodo.6562267>`_
 
 New camera additions:
   * Added support for the USGSCSM Frame, SAR, and PushFrame sensors
-    (until now just the Linescan sensor was supported), together 
+    (until now just the Linescan sensor was supported), together
     with documentation and examples (for Dawn, MiniRF, and WAC,
     respectively).
   * Added support for ISIS SAR cameras, together with an example in
@@ -1420,11 +1423,11 @@ csm:
     single-line and multiple-line formats are accepted.
   * Bundle adjustment, mapproject, and SfS with the CSM model can be
     7-15 times faster than done with the corresponding ISIS mode
-    for linescan cameras (the latter as reimplemented in ASP itself). 
+    for linescan cameras (the latter as reimplemented in ASP itself).
     It is strongly suggested to use CSM for large-scale processing.
   * Bugfix in CSM linescan implementation for some LRO NAC sensors.
-    Also replaced the fixed-point method with the secant method in the 
-    ground-to-image logic for CSM linescan cameras, which is faster. 
+    Also replaced the fixed-point method with the secant method in the
+    ground-to-image logic for CSM linescan cameras, which is faster.
 
 parallel_stereo:
   * Many fixes for reliability of stereo with local epipolar alignment.
@@ -1481,25 +1484,25 @@ parallel_stereo:
   * Filtering of interest points based on percentiles (using also
     ``--outlier-removal-params``).
   * Folded ``--remove-outliers-by-disparity-params`` into
-    ``--outlier-removal-params``. 
-  * Bugfix in disparity search range handling when it is large. 
+    ``--outlier-removal-params``.
+  * Bugfix in disparity search range handling when it is large.
   * For Linux, in each tile's directory write the elapsed runtime and
     memory usage to ``<tile prefix>-<prog name>-resource-usage.txt``.
-  * Removed the ``--local-homography`` option, as it is superseded by 
+  * Removed the ``--local-homography`` option, as it is superseded by
     ``--alignment-method local_epipolar``, which blends the local results.
   * The stereo tool is deprecated, and can be used only with the
     ASP_BM classical block-matching algorithm when invoked without
-    local epipolar alignment. Use parallel_stereo instead. 
+    local epipolar alignment. Use parallel_stereo instead.
   * Added the experimental ``--gotcha-disparity-refinement`` option, under
     NASA proposal 19-PDART19_2-0094.
- 
+
 bundle_adjust:
   * Added the option ``--apply-initial-transform-only`` to apply an initial
     transform to cameras while skipping image matching and other
     steps, making the process much faster.
   * Added the option ``--auto-overlap-params`` to automatically compute
     which camera images overlap, if a DEM and camera footprint
-    expansion percentage are given. 
+    expansion percentage are given.
   * Added the option ``--max-pairwise-matches`` to put an upper limit on
     the number of matches, as a large number can slow down bundle
     adjustment. The default is 10000, likely a large overestimate (but
@@ -1510,9 +1513,9 @@ bundle_adjust:
     goes over 100.
   * Rename verbose ``final_residuals_no_loss_function_pointmap_point_log.csv``
     to ``final_residuals_pointmap.csv`` and
-    ``final_residuals_no_loss_function_raw_pixels.txt`` to 
+    ``final_residuals_no_loss_function_raw_pixels.txt`` to
     ``final_residuals_raw_pixels.txt``, etc.
-  * Document the useful initial and final ``residuals_stats.txt`` files. 
+  * Document the useful initial and final ``residuals_stats.txt`` files.
   * Added new options for reusing a previous run:
     ``--match-files-prefix`` and ``--clean-match-files-prefix``.
 
@@ -1522,8 +1525,8 @@ sfs:
     ``--sun-positions`` should be used.
   * Exhaustively tested with the CSM model. It is very recommended to
     use that one instead of ISIS .cub cameras, to get a very large
-    speedup and multithreading. 
-  * Added a new ``--gradient-weight`` parameter, constraining the 
+    speedup and multithreading.
+  * Added a new ``--gradient-weight`` parameter, constraining the
     first-order derivatives. Can be used in combination with the
     ``--smoothness-weight`` parameter which constrains the second-order
     derivatives. The goal is to avoid a noisy solution without losing
@@ -1534,7 +1537,7 @@ mapproject:
   * If the input image file has an embedded RPC camera model, append
     it to the output mapprojected file. (Which makes stereo with
     mapprojected images work correctly in this case.)
-  * Always start a process for each tile. The default tile size 
+  * Always start a process for each tile. The default tile size
     is set to 5120 for non-ISIS cameras and to 1024 for ISIS. Use
     a large value of ``--tile-size`` to use fewer processes.
 
@@ -1544,10 +1547,10 @@ bathymetry:
   * ``bathy_plane_calc`` can use a mask of pixels above water to find the
     water-land interface, and also a set of actual ``lon, lat, height``
     measurements.
-  * Added documentation for how to find water level heights at given 
+  * Added documentation for how to find water level heights at given
     times and coordinates using National Ocean Service's tidal zoning
     map.
- 
+
 pc_align:
   * Add alignment method similarity-point-to-plane. It works better
     than similarity-point-to-point at finding a scale between the
@@ -1575,7 +1578,7 @@ dem_mosaic:
     input parameters have different effects on each.
   * Bugfix for hole-filling and blurring. Tile artifacts got removed.
 
-stereo_gui: 
+stereo_gui:
   * Can cycle through given images from the View menu, or with the 'n'
     and 'p' keys, when all images are in the same window.
   * Can save a shapefile having points, segments, or polygons. (These
@@ -1606,7 +1609,7 @@ Misc:
   * Added the tool ``parse_match_file.py`` to convert a binary match file
     to text and vice-versa.
   * Add the tool ``cam_test`` to compare two different camera models
-    for the same image. 
+    for the same image.
   * Stereo and bundle adjustment with RPC cameras now query the RPC
     model for the datum.
   * The ``cam2rpc`` program saves its datum which is read when needed by
@@ -1618,9 +1621,9 @@ Misc:
   * Make symlinks relative in ``parallel_bundle_adjust`` for portability.
   * The mapprojected image saves as metadata the adjustments it was
     created with.
-  * Save the low-resolution triangulated point cloud (``PC_sub.tif``) in 
+  * Save the low-resolution triangulated point cloud (``PC_sub.tif``) in
     stereo_corr (based on filtered ``D_sub.tif``).
-  * The ``ipmatch`` program can take as input just images, with the 
+  * The ``ipmatch`` program can take as input just images, with the
     .vwip files looked up by extension.
   * Bugfix in handling projections specified via an EPSG code.
   * Bugfix when some environmental variables or the path to ASP
@@ -1637,7 +1640,7 @@ DOI: `10.5281/zenodo.5140581 <https://doi.org/10.5281/zenodo.5140581>`_
 
 New functionality:
   * Added new stereo algorithms: MGM (original author implementation),
-    OpenCV SGBM, LIBELAS, MSMW, MSMW2, and OpenCV BM to complement  
+    OpenCV SGBM, LIBELAS, MSMW, MSMW2, and OpenCV BM to complement
     the existing ASP block matching, SGM, and MGM algorithms. See
     https://stereopipeline.readthedocs.io/en/latest/next_steps.html
     for usage. These will be further refined in subsequent releases.
@@ -1672,7 +1675,7 @@ csm:
     cameras.
   * Export the state of a CSM camera after bundle adjustment and
     pc_align (only for linescan cameras supported by ISIS).
- 
+
 parallel_stereo
   * Will now throw an error if ``--threads`` is passed in, whose behavior
     was not defined.
@@ -1689,7 +1692,7 @@ bundle_adjust:
 point2las
   * Remove outliers by using a percentile times a factor, in a way
     analogous to point2dem.
-   
+
 convert_pinhole_model:
   * Improve the accuracy of the RPC approximation distortion and
     undistortion.
@@ -1700,7 +1703,7 @@ sfs:
     ``--custom-shadow-threshold-list``.
   * Added the option ``--robust-threshold`` for situations when the
     measured image intensity is unreliable.
-  * Added the option ``--estimate-height-errors`` to estimate the 
+  * Added the option ``--estimate-height-errors`` to estimate the
     uncertainty in height at each computed SfS DEM pixel.
     It can be customized via ``--height-error-params``.
   * Added an auxiliary tool named sfs_blend to replace SfS
@@ -1709,46 +1712,46 @@ sfs:
 
 stereo_gui:
   * Added the ability to find the contour of a georeferenced image at
-    a given threshold. (It can be later edited, saved to disk, etc.) 
+    a given threshold. (It can be later edited, saved to disk, etc.)
   * Bugifxes for polygon drawing logic.
   * Much more responsive for overlaying many images.
 
 image_calc:
   * Support the sign function (can help in creating masks).
 
-pc_align: 
+pc_align:
   * Bugifx for ``--initial-transform-from-hillshading`` with outlier
     removal.
   * Add the ``--initial-transform-outlier-removal-params`` to control
     outlier removal when finding matches between DEMs to align
     using features detected in hillshaded images or selected
-    manually. 
+    manually.
   * Added ``--initial-rotation-angle``, to initialize the alignment
     transform as the rotation with this angle (in degrees) around
     the axis going from the planet center to the centroid of the point
     cloud.
 
 Misc
- * Moved the daily build to the release area on GitHub, at 
+ * Moved the daily build to the release area on GitHub, at
    https://github.com/NeoGeographyToolkit/StereoPipeline/releases
  * Upgraded to GDAL 2.4 and PROJ4 5.2.0. (ISIS constrains updating to
    newer versions of these.)
  * Added the option ``--ip-per-image`` to bundle adjustment and stereo, to
    detect roughly how many interest points should be found per image
    (only a small fraction of them may eventually match across images).
- * The ``--min-triangulation-angle`` in stereo must be always positive if 
+ * The ``--min-triangulation-angle`` in stereo must be always positive if
    set by the user. Can be set to something very small if desired.
    This is a bug fix for this rarely used option (before, when set to
-   0 it would just reset itself to some internal non-small value).  
+   0 it would just reset itself to some internal non-small value).
  * Bugifx for the VisionWorkbench implementation of the
    Levenberg-Marquardt algorithm, it was giving up prematurely in
    challenging situations.
- * Bugifx for affine epipolar alignment. Use the OpenCV function 
+ * Bugifx for affine epipolar alignment. Use the OpenCV function
    for finding the alignment matrix instead of the ASP one as OpenCV
-   can filter outliers which cause issues on rare occasions. 
+   can filter outliers which cause issues on rare occasions.
  * Bugfix: Do not allow a full run to take place in a directory
    where a clip was run, as that will produce incorrect results.
- 
+
 RELEASE 2.7.0, July 27, 2020
 ----------------------------
 
@@ -1760,7 +1763,7 @@ New functionality
    * Ability to install ASP with conda. See INSTALLGUIDE.rst for details.
    * Moved the documentation to ReStructured Text, and Sphinx-Doc. See
      the documentation at: https://stereopipeline.readthedocs.io
-   * As of this release, we have transitioned to the 
+   * As of this release, we have transitioned to the
      `Semantic Versioning 2.0.0 standard <https://semver.org>`_ for ASP.
 
 bundle_adjust
@@ -1768,7 +1771,7 @@ bundle_adjust
      (automatically or manually) and use those to create matches among
      the unprojected images when the latter are so dissimilar in
      perspective that the direct approach fails. See ``--mapprojected-data``.
-  
+
 stereo_gui
    * Bug fix when zooming all images to same region when the region is
      such that all images are seen fully.
@@ -1803,7 +1806,7 @@ point2mesh
      in Meshlab, Blender, or some other mesh viewer.
    * The osgviewer program is no longer shipped.
    * Fixed a bug with invalid points not being filtered.
-   * Fixed a bug with insufficient precision (now it can be set 
+   * Fixed a bug with insufficient precision (now it can be set
      by the user and defaults to 17 digits).
    * Added the option ``--texture-step-size`` to control the sampling
      rate for the texture, in addition to the -s option that controls
@@ -1821,15 +1824,15 @@ DOI: https://doi.org/10.5281/zenodo.3247734
 New satellites
    * Added support for SkySat, together with a detailed example,
      including how to jointly align and optimize cameras in respect
-     to a reference DEM, while optionally refining the intrinsics. 
+     to a reference DEM, while optionally refining the intrinsics.
      This approach may be helpful for other images obtained with frame
      cameras and uncertain positioning information.
    * Added support for CORONA KH-4B, KH-7, and KH-9 declassified images
      and their panoramic (optical bar) camera models, as well as using
      and optimizing camera models with RPC distortion (only RPC is
      supported for KH-7 because it is a linescan camera). An example
-     is in the documentation. 
-   
+     is in the documentation.
+
 New tools
    * Added parallel_bundle_adjust which computes image statistics and
      IP matching in a parallel manner similar to parallel_stereo.
@@ -1841,7 +1844,7 @@ New tools
      via ``--input-camera`` and create a most-similar pinhole camera
      model with given intrinsics.
    * Added the coverage_fraction tool to provide a coverage estimate
-     of the results of a stereo call. 
+     of the results of a stereo call.
    * Added the image_mosaic tool which merges together images based on
      interest point matches.  Can be used to stitch together Corona
      scanned images.
@@ -1869,7 +1872,7 @@ pc_align
      cloud.
    * Bug fix: intersection of bounding boxes of the clouds takes
      into account the initial transform applied to the source points.
-   * Added a new alignment algorithm, based on 
+   * Added a new alignment algorithm, based on
      https://github.com/IntelVCL/FastGlobalRegistration
      It can be invoked with ``--alignment-method fgr``. It can perform
      better than ICP when the clouds are close enough to each
@@ -1879,17 +1882,17 @@ pc_align
 
 bundle_adjust
    * Two passes of bundle adjustment (with outlier filtering after
-   * first pass) is now the default. 
-   * The flag ``--skip-rough-homography`` is on by default as it usually 
+   * first pass) is now the default.
+   * The flag ``--skip-rough-homography`` is on by default as it usually
      gives more reliable results. Use ``--enable-rough-homography``
-     to turn this option back on (useful when the footprint on the 
+     to turn this option back on (useful when the footprint on the
      ground and difference in perspective are large).
    * The flag ``--disable-tri-ip-filter`` is also the default as input
-     cameras may not be reliable enough for this filter. Can be 
+     cameras may not be reliable enough for this filter. Can be
      enabled back with ``--enable-tri-ip-filter``.
-   * Added the ``--intrinsics-limits`` option to manually specify 
+   * Added the ``--intrinsics-limits`` option to manually specify
      intrinsic parameter limits.
-   * Added the ``--num-random-passes`` option to allow repeat solving 
+   * Added the ``--num-random-passes`` option to allow repeat solving
      attempts with randomly distorted initial parameters.
    * Added option to automatically guess overlapping images from
      Worldview style XML camera files.
@@ -1902,29 +1905,29 @@ bundle_adjust
      present. After this bundle adjustment, pairwise stereo and DEM
      creation, the DEMs are well-aligned to the ground truth.
    * Added the flag ``--reference-terrain-weight`` which, when increased,
-     helps align better camera images to a given reference terrain. 
-   * Added the option ``--heights-from-dem``. It is very helpful in 
+     helps align better camera images to a given reference terrain.
+   * Added the option ``--heights-from-dem``. It is very helpful in
      determining an unknown focal length and distortion parameters
      for pinhole cameras.
      It can be used together with ``---heights-from-dem-weight``.
    * Bug fix in outlier filtering for n images.
-   * Updated Ceres version from 1.11 to 1.14. When optimizing with 
+   * Updated Ceres version from 1.11 to 1.14. When optimizing with
      multiple threads, results now vary slightly from run to run.
      Results from single threaded runs are deterministic.
    * Added a new ``--parameter-tolerance`` option. Stop when the relative
      error in the variables being optimized is less than this.
-   * Documented the ability to create a roughly positioned 
-     pinhole camera model from an image if its intrinsics and the 
+   * Documented the ability to create a roughly positioned
+     pinhole camera model from an image if its intrinsics and the
      longitude and latitude (and optionally height) of its corners
      (or some other pixels) are known.
    * When multiple passes happen with outliers removed, match files
      are not over-written, but a new clean copy of them gets saved.
-   * Renamed ``--create-pinhole-cameras`` to ``--inline-adjustments``, and 
+   * Renamed ``--create-pinhole-cameras`` to ``--inline-adjustments``, and
      distortion_params to other_intrinsics. This is needed since
      for the panoramic model there will be other intrinsic
      parameters as well.
    * Added the option ``--forced-triangulation-distance`` for when one
-     really needs to triangulate with poor cameras. Can be used with 
+     really needs to triangulate with poor cameras. Can be used with
      a very small but positive value of ``--min-triangulation-angle``.
    * Added the option ``--transform-cameras-using-gcp``. If there
      are at least two images with each having at least 3 GCP
@@ -1935,7 +1938,7 @@ bundle_adjust
      so that the solver tries harder to find a fit.
      Increased default ``--ip-inlier-factor`` from 1/15 to 0.2 to help
      with getting more interest points for steep terrain.
-   * Increased the default ``--ip-uniqueness-threshold`` from 0.7 
+   * Increased the default ``--ip-uniqueness-threshold`` from 0.7
      to 0.8 to allow for more interest points.
    * Option to filter interest points by elevation limit and lon-lat limit
      after each pass of bundle adjustment except the last.
@@ -1950,15 +1953,15 @@ stereo_gui
    * Can now show non-synchronous .match files (that is, each IP
      need not be present in all images).
    * Added basic functionality for drawing/editing/merging polygons on
-   * top of georeferenced images or DEMs. The polygons can be saved as 
+   * top of georeferenced images or DEMs. The polygons can be saved as
      shape files, and then used to cut out portions of images with GDAL.
-   * Added the option ``--nodata-value``. Pixels with value less than 
+   * Added the option ``--nodata-value``. Pixels with value less than
      or equal to this are shown as transparent.
    * Added the ability to view .vwip files (specify one per image).
    * Can view (but not edit) GCP files, via ``--gcp-file`` (creating
      GCP is supported in a separate mode, per the doc).
    * The option ``--dem-file`` specifies a DEM to use when creating
-     manually picked GCP and ``--gcp-file`` specifies the name of 
+     manually picked GCP and ``--gcp-file`` specifies the name of
      the GCP file to use upon saving such GCP.
 
 mapproject
@@ -1975,7 +1978,7 @@ convert_pinhole_model
 
 Misc
    * Compiled against USGS ISIS version 3.6.0.
-   * Expanded the documentation explaining how to align cameras 
+   * Expanded the documentation explaining how to align cameras
      to a DEM manually (or initialize such cameras) by selecting
      matching points between the images and the DEM.
    * The stereo tools and bundle_adjust will now cache image
@@ -1996,8 +1999,8 @@ Misc
      alternatives to ``--datum`` and ``--dem-file``.
    * Add option ``--theia-overrides`` to camera_solve to make it easier
      to customize its behavior via flags.
-   * Added an explanation for how the pinhole model works. 
-   
+   * Added an explanation for how the pinhole model works.
+
 RELEASE 2.6.1, August 13, 2018
 ------------------------------
 
@@ -2006,12 +2009,12 @@ New satellites
 
 New tools
    * Added convert_pinhole_model, to convert between various
-     existing such models. 
+     existing such models.
    * Added camera_footprint as a helpful utility to show where
      images will project on to the ground.
    * Documented and improved the ipfind and ipmatch tools.
      ipfind is used to detect interest points in input images,
-     either to generate .vwip files for other tools or to 
+     either to generate .vwip files for other tools or to
      experiment with different IP finding settings.
      ipmatch matches the IPs contained in .vwip files to
      create .match files.
@@ -2048,26 +2051,26 @@ bundle_adjust
      parameters, with and without having a LIDAR or DEM ground truth
      to be used as reference (the latter is recommended though).
    * The tool is a lot more sensitive now to ``--camera-weight``,
-     existing results may change a lot. 
+     existing results may change a lot.
    * Added the parameters ``--rotation-weight`` and ``--translation-weight``
      to penalize large rotation and translation changes.
    * Added the option ``--fixed-camera-indices`` to keep some cameras
-     fixed while optimizing others. 
+     fixed while optimizing others.
    * Can read the adjustments from a previous invocation of this
      program via ``--input-adjustments-prefix``.
    * Can read each of pc_align's output transforms and apply it
-     to the input cameras via ``--initial-transform``, to be able to 
+     to the input cameras via ``--initial-transform``, to be able to
      bring the cameras in the same coordinate system as the aligned
      terrain (the initial transform can have a rotation, translation,
      and scale). If ``--input-adjustments-prefix`` is specified as well,
-     the input adjustments are read first, and the pc_align 
+     the input adjustments are read first, and the pc_align
      transform is applied on top.
    * Renamed ``--local-pinhole`` to ``--create-pinhole-cameras``.
    * Added the parameter ``--nodata-value`` to ignore pixels at and below
      a threshold.
    * Added the ability to transfer interest points manually picked in
      mapprojected images to the the original unprojected images via
-     ``--mapprojected-data``.  
+     ``--mapprojected-data``.
    * Added the flag ``--use-lon-lat-height-gcp-error``. Then, if using
      GCP, the three standard deviations are interpreted as applying
      not to x, y, z but to latitude, longitude, and height above
@@ -2084,7 +2087,7 @@ bundle_adjust
      network containing all interest points in the format used by
      ground control points, so it can be inspected.
    * If ``--datum`` is specified, bundle_adjust will save to disk
-     the reprojection errors before and after optimization. 
+     the reprojection errors before and after optimization.
 
 stereo_gui
    * Can view SPOT5 .BIL files.
@@ -2107,9 +2110,9 @@ pc_align
 
 dem_mosaic
    * If the -o option value is specified as filename.tif, all mosaic will be
-     written to this exact file, rather than creating tiles. 
+     written to this exact file, rather than creating tiles.
 
-point2dem 
+point2dem
    * Added the ability to apply a filter to the cloud points in each circular
      neighborhood before gridding. In addition to the current weighted average
      option, it supports min, max, mean, median, stddev, count, nmad,
@@ -2117,7 +2120,7 @@ point2dem
      control the neighborhood size.
    * Sped up hole-filling in ortho image generation. If this creates
      more holes than before, it is suggested to relax all outlier filtering,
-     including via ``--remove-outliers-params``, median filtering, and erosion. 
+     including via ``--remove-outliers-params``, median filtering, and erosion.
    * Added the option ``--orthoimage-hole-fill-extra-len`` to make hole-filling
      more aggressive by first extrapolating the cloud.
 
@@ -2141,10 +2144,10 @@ Misc
    * The tools mapproject and image_calc support the ``--mo`` option to
      add metadata to the geoheader in the format 'VAR1=VAL1 VAR2=VAL2',
      etc.
-   * Handle properly in bundle_adjust, orbitviz, and stereo 
+   * Handle properly in bundle_adjust, orbitviz, and stereo
      with mapprojected images the case when, for RPC cameras,
      these coefficients are stored in _RPC.TXT files.
-   * Support for web-based PROJ.4 strings, e.g., 
+   * Support for web-based PROJ.4 strings, e.g.,
      point2dem ``--t_srs`` http://spatialreference.org/ref/iau2000/49900/
    * Added ``--max-output-size`` option to point2dem to prevent against
      creation of too large DEMs.
@@ -2153,30 +2156,30 @@ Misc
    * Added support for running sparse_disp with your own Python installation.
    * Bug fix for image cropping with epipolar aligned images.
    * The sfs tool supports the integrability constraint weight from Horn 1990.
-   * The software works with both Python versions >= 2.6 and 3. 
+   * The software works with both Python versions >= 2.6 and 3.
 
 RELEASE 2.6.0, May 15, 2017
 ---------------------------
 
 New stereo algorithms
-   * ASP now supports the Semi Global Matching (SGM) and 
-     More Global Matching (MGM) stereo algorithms. 
-     They do particularly well for Earth imagery, better 
-     than the present approaches. They can be invoked with 
-     ``--stereo-algorithm`` 1 and 2 respectively. 
+   * ASP now supports the Semi Global Matching (SGM) and
+     More Global Matching (MGM) stereo algorithms.
+     They do particularly well for Earth imagery, better
+     than the present approaches. They can be invoked with
+     ``--stereo-algorithm`` 1 and 2 respectively.
 
 New tools
     * Added cam2rpc, a tool to create an RPC model from any
       ASP-supported camera. Such cameras can be used with ASP for
       Earth and planetary data (stereo's ``--datum`` option must be set),
-      or passed to third-party stereo tools S2P and SETSM. 
+      or passed to third-party stereo tools S2P and SETSM.
     * Added correct_icebridge_l3_dem for IceBridge.
     * Added fetch_icebridge_data for IceBridge.
 
 parallel_stereo
    * By default, use as many processes as there are cores, and one
      thread per processes.
-     
+
 stereo_pprc
    * Large speedup in epipolar alignment.
    * Improved epipolar alignment quality with standard pinhole cameras.
@@ -2184,10 +2187,10 @@ stereo_pprc
      for finer-grained control over interest point generation.
    * Fix a bug with interest point matching the camera model is RPC
      and the RPC approximation domain does not intersect the datum.
-  
+
 stereo_corr
    * Added new option ``--stereo-algorithm``.  Choices 1 and 2 replaces
-     the standard integer correlator with a new semi-global matching 
+     the standard integer correlator with a new semi-global matching
      (SGM) correlator or an MGM correlator respectively.  SGM/MGM is
      slow and memory intensive but it can produce better results
      for some challenging input images, especially for IceBridge.
@@ -2195,14 +2198,14 @@ stereo_corr
 
 stereo_tri
   * Added the option ``--min-triangulation-angle`` to not triangulate
-    when rays have an angle less than this. 
- 
+    when rays have an angle less than this.
+
 stereo_gui
   * Zooming in one image can trigger all other side-by-side images to
     zoom to same region.
-  * Clicking on a pixel prints image pixel indices, value, and image 
-    name. Selecting a region with Control+Mouse prints its bounds in 
-    pixels, and, if georeferenced, in projected and degree units. 
+  * Clicking on a pixel prints image pixel indices, value, and image
+    name. Selecting a region with Control+Mouse prints its bounds in
+    pixels, and, if georeferenced, in projected and degree units.
   * Added a 1D profile tool for DEMs.
   * Can visualize the pixel locations for a GCP file (by interpreting
     them as interest points).
@@ -2210,16 +2213,16 @@ stereo_gui
   * If all images are in the same window, can show a given image above
     or below all others. Also can zoom to bring any image in full view
     (from the list of images on the left).
-  * Options to set the azimuth and elevation when showing hillshaded 
+  * Options to set the azimuth and elevation when showing hillshaded
     images.
 
 dem_mosaic
    * Added the option ``--dem-blur-sigma`` to blur the output DEM.
    * Use by default ``--weights-exponent 2`` to improve the blending,
      and increase this to 3 if ``--priority-blending-length`` is specified.
-   * Added the options ``--tile-list``, ``--block-max``, and ``--nodata-threshold``. 
-   * Display the number of valid pixels written. 
-   * Do not write empty tiles. 
+   * Added the options ``--tile-list``, ``--block-max``, and ``--nodata-threshold``.
+   * Display the number of valid pixels written.
+   * Do not write empty tiles.
 
 geodiff
    * One of the two input files can be in CSV format.
@@ -2229,7 +2232,7 @@ dg_mosaic
       and a few more.
 
 point2dem
-     * Added the parameter ``--gaussian-sigma-factor`` to control the 
+     * Added the parameter ``--gaussian-sigma-factor`` to control the
        Gaussian kernel width when creating a DEM (to be used together
        with ``--search-radius-factor``).
 
@@ -2253,14 +2256,14 @@ bundle_adjust
       compute matches.
     * Added the option ``--initial-transform`` to initialize the adjustments
       based on a 4x4 rotation + translation transform, such as coming
-      from pc_align. 
+      from pc_align.
     * Added the options ``--ip-inlier-threshold`` and ``--ip-uniqueness-threshold``
       for finer-grained control over interest point generation.
 
 pc_align
    * Can solve for a rotation + translation or for rotation +
      translation + scale using least squares instead of ICP, if the
-     first cloud is a DEM. It is suggested that the input clouds be 
+     first cloud is a DEM. It is suggested that the input clouds be
      very close or otherwise the ``--initial-transform`` option be used,
      for the method to converge. The option is:
      ``--alignment-method`` [ least-squares | similarity-least-squares ]
@@ -2270,14 +2273,14 @@ Misc
   * Minimum supported OS versions are OSX 10.11, RHEL 6, SUSE 12, and
     Ubuntu 14.
   * Ship with GDAL's gdalwarp and gdaldem.
-  * Added integration with Zenodo so that this and all future ASP 
+  * Added integration with Zenodo so that this and all future ASP
 	releases will have a DOI.  More info in the asp_book.pdf
 
 RELEASE 2.5.3, August 24, 2016
 ------------------------------
 
 Highlights:
- 
+
  - Added the ability to process ASTER L1A VNIR images via the tool
    aster2asp that creates image files and both RPC and rigorous
    linescan camera models that can then be passed to stereo.
@@ -2289,7 +2292,7 @@ Highlights:
  - Added the add_spot_rpc tool to create RPC models for SPOT5
    which allows them to be mapprojected with the RPC model.
 
-pc_align 
+pc_align
    * Can solve for a scale change in addition to a rotation and
      translation to best align two clouds, hence for a similarity
      transform, using option: ``--alignment-method similarity-point-to-point``.
@@ -2307,7 +2310,7 @@ dem_mosaic
    * Fix a bug with mosaicking of DEMs over very large extent.
    * Fix a bug with 360 degree longitude offset.
    * Added the option ``--use-centerline-weights``. It will compute
-     blending weights based on a DEM centerline algorithm. Produces 
+     blending weights based on a DEM centerline algorithm. Produces
      smoother weights if the input DEMs don't have holes or complicated
      boundary.
 
@@ -2323,13 +2326,13 @@ stereo_gui
 Misc
    * Make ASP handle gracefully georeferenced images with some pixels
      having projected coordinates outside of the range expected by PROJ.4.
-   * Removed the deprecated orthoproject tool. Now mapproject should be used. 
+   * Removed the deprecated orthoproject tool. Now mapproject should be used.
    * Fixed a bug in ``pc_align`` which caused the ``--max-displacement``
      argument to be misread in some situations.
    * Removed some extraneous code slowing down the datum_convert tool.
    * Fixed a bug in point2dem handling the Albers Conic Equal Area projection.
    * Added standard thread/bigtiff/LZW options to image_calc.
- 
+
 RELEASE 2.5.2, Feb 29, 2016
 ---------------------------
 
@@ -2338,16 +2341,16 @@ Highlights:
 Added a constellation of features and tools to support solving for
 the positions of input images lacking position information.  Can be used
 for aerial imagery with inaccurate or incomplete pose information,
-images from low cost drones, historical images lacking metadata, 
+images from low cost drones, historical images lacking metadata,
 and images taken with handheld cameras.
 
 camera_solve
    * New tool which adds support for aerial imagery etc as described above.
    * Uses the THEIA library (http://www.theia-sfm.org/index.html)
-     to compute camera positions and orientations where no metadata is available. 
+     to compute camera positions and orientations where no metadata is available.
    * Ground control points and estimated camera positions
      can be used to find absolute camera positions.
-   * Added section to documentation describing ways to use ASP to 
+   * Added section to documentation describing ways to use ASP to
      process imagery from NASA's IceBridge program.
 
 camera_calibrate
@@ -2365,25 +2368,25 @@ orbitviz
     * Added option to load results from camera_solve.
 
 wv_correct
-    * Now corrects TDI 8 (Reverse) of WV01 and TDI 8 (Forward 
+    * Now corrects TDI 8 (Reverse) of WV01 and TDI 8 (Forward
       and Reverse) and TDI 32 (Forward) of WV02.  Other correction
       behavior is unchanged.
 
 stereo_corr
-   * Added the ability to filter large disparities from D_sub that 
+   * Added the ability to filter large disparities from D_sub that
      can greatly slow down a run. The options are ``--rm-quantile-percentile``
-     and ``--rm-quantile-multiple``. 
+     and ``--rm-quantile-multiple``.
 
 undistort_image
     * A new tool to test out pinhole model lens distortion parameters.
-    
+
 Lens distortion models:
     * Switched from binary .pinhole file format to updated version of
       the old plain text .tsai file format.
     * Added support for Photometrix camera calibration parameters.
     * New appendix to the documentation describing the .tsai file format
       and supported lens distortion models.
-    
+
 Other:
 
 Tools
@@ -2397,7 +2400,7 @@ point2las
 
 point2dem
     * Increased speed of erode option.
-   
+
 docs
     * Mention DERT, a tool for exploring large DEMs.
     * Added new section describing camera_solve tool in detail.
@@ -2423,13 +2426,13 @@ point2dem, point2las, and pc_align
      projection) from the input images if present. This can be useful
      for bodies that are not Moon, Mars, or Earth. The datum and
      projection can still be overridden with ``--reference-spheroid`` (or
-     ``--datum``) and ``--t_srs``. 
+     ``--datum``) and ``--t_srs``.
 
 dem_mosaic
-   * Introduce ``--priority-blending-length``, measured in input pixels. 
+   * Introduce ``--priority-blending-length``, measured in input pixels.
      If positive, keep unmodified values from the earliest available
      DEM at the current location except a band this wide near its
-     boundary where blending will happen. Meant to be used with 
+     boundary where blending will happen. Meant to be used with
      smaller high-resolution "foreground" DEMs and larger
      lower-resolution "background" DEMs that should be specified later
      in the list. Changing ``--weights-exponent`` can improve transition.
@@ -2448,12 +2451,12 @@ stereo_gui
 Other:
 
 stereo
-    * If the input images are map-projected (georeferenced) and 
+    * If the input images are map-projected (georeferenced) and
       alignment method is none, all image outputs of stereo are
       georeferenced as well, such as GoodPixelMap, D_sub, disparity,
       etc. As such, all these data can be overlaid in stereo_gui.
     * The output point cloud saves datum info from input images
-      (even when the inputs are not georeferenced). 
+      (even when the inputs are not georeferenced).
     * Increased reliability of interest point detection.
     * Decreased the default timeout to 900 seconds. This still needs
       tuning and a permanent solution is necessary.
@@ -2463,7 +2466,7 @@ point2dem, point2las, and pc_align
      radius 3,396,000 meters.
 
 dem_mosaic
-   * Fix an issue with minor jumps across tiles. 
+   * Fix an issue with minor jumps across tiles.
    * Introduce ``--save-dem-weight`` <index>. Saves the weight image that
      tracks how much the input DEM with given index contributed to the
      output mosaic at each pixel (smallest index is 0).
@@ -2471,9 +2474,9 @@ dem_mosaic
      index of the input DEM it came from (applicable only for
      ``--first``, ``--last``, ``--min``, and ``--max``). A text file with the index
      assigned to each input DEM is saved as well.
-   * Rename ``--blending-length`` to ``--extra-crop-length``, for clarity. 
+   * Rename ``--blending-length`` to ``--extra-crop-length``, for clarity.
 
-dg_mosaic 
+dg_mosaic
    * Added the switch ``--fix-seams`` to use interest point matching
      to fix seams in the output mosaic due to inconsistencies between
      image and camera data. Such artifacts may show up in older
@@ -2486,7 +2489,7 @@ stereo_gui
    * Can read the georeference of map-projected ISIS cubes.
 
 point2dem
-   * Respect ``--t_projwin`` to the letter. 
+   * Respect ``--t_projwin`` to the letter.
    * Can create simultaneously DEMs at multiple resolutions (by
      passing multiple values in quotes to ``--dem-spacing``).
    * Fix minor discrepancies in the minor semi-axis for the WGS84,
@@ -2508,7 +2511,7 @@ geodiff
    * Bug fix when the two DEMs have longitudes offset by 360 degrees.
 
 colormap
-   * Default style is binary-red-blue. Works better than jet when 
+   * Default style is binary-red-blue. Works better than jet when
      data goes out of range.
 
 pc_merge
@@ -2534,7 +2537,7 @@ New tools:
       Features:
 
       - View extremely large images using a pyramid approach.
-      - If invoked with the same interface as stereo, can run stereo on 
+      - If invoked with the same interface as stereo, can run stereo on
         selected clips.
       - Load images with int, float, and RGB pixels, including ISIS
         cubes, DEMs, NTF, TIF, and other formats.
@@ -2545,7 +2548,7 @@ New tools:
       - View/add/delete interest points.
       - Create shadow thresholds by clicking on shadow pixels (needed
         for sfs).
-      - Based on Michael Broxton's vwv tool. 
+      - Based on Michael Broxton's vwv tool.
 
    * Added sfs, a tool to refine DEMs using shape-from-shading. Can
      optimize the DEM, albedo per pixel, image exposures and camera
@@ -2559,17 +2562,17 @@ New tools:
      grayscale image and a low resolution color image.
    * Added datum_convert, a tool to transform a DEM to a different
      datum (e.g., NAD27 to WGS84).
-   * Added geodiff, a tool for taking the (absolute) difference of two 
+   * Added geodiff, a tool for taking the (absolute) difference of two
      DEMs.
-   * Documented the colormap tool. Added a new colormap option based 
-     on the paper "Diverging Color Maps for Scientific Visualization" 
+   * Documented the colormap tool. Added a new colormap option based
+     on the paper "Diverging Color Maps for Scientific Visualization"
      (http://www.sandia.gov/~kmorel/documents/ColorMaps/).
    * Added gdalinfo, gdal_translate, and gdalbuildvrt to the bin
      directory. These executables are compiled with JPEG2000 and
      BigTIFF support, and  can handle NTF images.
 
 docs
-   * Added a documentation section on 'tips and tricks', summarizing 
+   * Added a documentation section on 'tips and tricks', summarizing
      in one place practices for getting the most out of ASP.
 
 stereo
@@ -2579,25 +2582,25 @@ stereo
      not just at triangulation.
    * Added ``--right-image-crop-win`` in addition to ``--left-image-crop-win``.
      If both are specified, stereo crops both images to desired regions
-     before running stereo (this is different from when only 
-     ``--left-image-crop-win`` is specified, as then no actual cropping 
+     before running stereo (this is different from when only
+     ``--left-image-crop-win`` is specified, as then no actual cropping
      happens, the domain of computation is just restricted to the desired
-     area). 
+     area).
    * Bug fix, remove outliers during search range determination.
-   * Added the option ``--ip-per-tile``, to search for more interest points 
+   * Added the option ``--ip-per-tile``, to search for more interest points
      if the default is insufficient.
    * If the input images are georeferenced, the good pixel map will be
      written with a georeference.
- 
+
 point2dem
    * Fixed a slight discrepancy in the value of the semi-minor axis in
      the WGS84 and NAD83 datum implementations.
    * Added the option ``--median-filter-params`` <window size> <threshold> to
      remove spikes using a median filter.
-   * Added the option ``--erode-length`` <num> to erode pixels from point cloud 
+   * Added the option ``--erode-length`` <num> to erode pixels from point cloud
      boundary (after outliers are removed, but before filling in holes).
-   * Improved hole-filling, and removed the ``--hole-fill-mode`` and 
-     ``--hole-fill-num-smooth-iter``, as there's only one algorithm now. 
+   * Improved hole-filling, and removed the ``--hole-fill-mode`` and
+     ``--hole-fill-num-smooth-iter``, as there's only one algorithm now.
    * Improved performance when large holes are to be filled.
    * Can create a DEM from point clouds stored in CSV files containing
      easting, northing, and height above datum (the PROJ.4 string
@@ -2605,22 +2608,22 @@ point2dem
    * Fixed a bug in creating DEMs from CSV files when different projections
      are used on input and output.
    * Expose to user gnomonic and oblique stereographic projections,
-     as well as false easting and false northing (where applicable). 
+     as well as false easting and false northing (where applicable).
      This is a shortcut from using explicitly ``--t_srs`` for the PROJ.4 string.
    * The default no-data value is set to the smallest float.
- 
+
 pc_align
    * Can ingest CSV files containing easting, northing, and height
      above datum (the PROJ.4 string needed to interpret these numbers
      should be set with ``--csv-proj4``).
    * If the reference point cloud is a DEM, the initial and final errors
      in the statistics, as well as gross outlier removal, are done using
-     a new distance function. Instead of finding the distance from a 3D 
-     point to the closest point in the cloud, the 3D point is projected 
+     a new distance function. Instead of finding the distance from a 3D
+     point to the closest point in the cloud, the 3D point is projected
      onto DEM's datum, its longitude and latitude are found, the
-     height in the DEM is interpolated, and and the obtained point on the 
+     height in the DEM is interpolated, and and the obtained point on the
      DEM is declared to be the closest point. This is more accurate
-     than the original implementation for coarse DEMs. The old 
+     than the original implementation for coarse DEMs. The old
      approach is available using the ``--no-dem-distances`` flag.
    * Fix a bug with a 360 degree longitude offset.
 
@@ -2643,12 +2646,12 @@ bundle_adjust
     * Added new parameters, ``--ip-per-tile`` and ``--min-triangulation-angle``.
     * Bug fix in handling situations when a point cannot get projected
       into the camera.
-    * Bug fix in the camera adjustment logic. Any .adjust files may 
+    * Bug fix in the camera adjustment logic. Any .adjust files may
       need to be regenerated.
 
 image2qtree
    * Bug fixes.
- 
+
 cam2map4stereo.py
    * Create temporary files in current directory, to avoid access
      issues to system directories.
@@ -2660,9 +2663,9 @@ mapproject
      it is mapprojected onto (where it would have no valid pixels).
 
 dg_mosaic
-   * Default penalty weight produces a more accurate fit when creating an 
+   * Default penalty weight produces a more accurate fit when creating an
      RPC model from a DG model.
-   * Handle the situation when two images to be mosaicked start at the 
+   * Handle the situation when two images to be mosaicked start at the
      same output row number.
    * Added ``--target-resolution`` option to specify the output resolution in meters.
 
@@ -2676,23 +2679,23 @@ RELEASE 2.4.2, October 6, 2014
 
 ASP can perform multi-view triangulation (using both the
 stereo and parallel_stereo tools). The first image is set
-as reference, disparities are computed from it to the other 
+as reference, disparities are computed from it to the other
 ones, and joint triangulation is performed.
 
-Added a new tool, dem_mosaic, for mosaicking a large number of 
+Added a new tool, dem_mosaic, for mosaicking a large number of
 DEMs, with erosion at boundary, smooth blending, and tiled output.
 Instead of blending, the tool can do the first, last, min, max,
-mean, median, or count of encountered DEM values.   
+mean, median, or count of encountered DEM values.
 
 dg_mosaic
    * Support for multi-band (multi-spectral) images. Use ``--band`` <num>
      to pick a band to mosaic.
-      
+
 stereo
    * Bug fix in interest point matching in certain circumstances.
    * Set the correlation timeout to 600 seconds. This is generous
-     and ensures runs don't stall. 
- 
+     and ensures runs don't stall.
+
 point2dem
    * Take as input n clouds and optionally n texture files, create a
      single DEM/orthoimage.
@@ -2703,12 +2706,12 @@ point2dem
      grid size. This way, two DEMs with overlapping grids of the same
      size will be exactly on top of each other, minimizing interpolation
      error in subsequent mosaicking.
-   * Outlier removal is on by default. Can be disabled by setting 
+   * Outlier removal is on by default. Can be disabled by setting
      the percentage in ``--remove-outliers-params`` to 100.
- 
+
 bundle_adjust
    * Use multiple-threads for non-ISIS sessions.
-   * Added the parameter ``--overlap-limit`` <num> to limit the number 
+   * Added the parameter ``--overlap-limit`` <num> to limit the number
      of subsequent images to search for matches to the current image.
    * Added the parameter ``--camera-weight`` <val>, to set the weight to
      give to the constraint that the camera positions/orientations
@@ -2720,7 +2723,7 @@ dem_geoid
      values generated by harmonic synthesis. A 2.5 x 2.5 minute grid
      is used.
    * Converted the EGM geoids shipped with ASP to INT16 and JPEG2000,
-     resulting in size reduction of more than 10x. 
+     resulting in size reduction of more than 10x.
 
 wv_correct
     * Corrects TDI of 16, 48, 56, and 64 (forward and reverse scan
@@ -2729,7 +2732,7 @@ wv_correct
       WV02. Returns uncorrected images in other cases.
 
 pc_align
-    * Fix a crash for very large clouds.  
+    * Fix a crash for very large clouds.
     * Use a progress bar when loading data.
     * Support LAS files on input and output.
 
@@ -2746,14 +2749,14 @@ RELEASE 2.4.1, 12 July, 2014
 
 Added a new tool, bundle_adjust, which uses Google's ceres-solver
 to solve for adjusted camera positions and orientations. Works
-for n images and cameras, for all camera types supported by ASP. 
+for n images and cameras, for all camera types supported by ASP.
 
 wv_correct
     * Improved corrections for WV01 images of TDI 16.
 
 stereo_rfne
     * Performance bugfix when the integer disparity is noisy.
- 
+
 stereo_fltr
     * Fix for large memory usage when removing small islands from
       disparity with ``--erode-max-size``.
@@ -2767,9 +2770,9 @@ stereo_tri and mapproject
       this output prefix.
 
 point2las
-    * LAS files can be saved in geo-referenced format in respect 
+    * LAS files can be saved in geo-referenced format in respect
       to a specified datum (option ``--reference-spheroid``).
- 
+
 point2dem
     * Bug fix, longitude could be off by 360 degrees.
     * Robustness to large jumps in point cloud values.
@@ -2785,7 +2788,7 @@ RELEASE 2.4.0, 28 April, 2014
 Added wv_correct, a tool for correcting artifacts in Digital Globe
 WorldView-1 and WorldView-2 images with TDI of 16.
 
-Added logging to a file for stereo, pc_align, point2dem, 
+Added logging to a file for stereo, pc_align, point2dem,
 point2mesh, point2las, and dem_geoid.
 
 Added a tutorial for processing Digital Globe Earth imagery
@@ -2799,10 +2802,10 @@ parallel_stereo
        and threads for each stage of stereo.
 
 stereo_pprc
-     * Added the ``--skip-image-normalization`` option (for non-ISIS 
+     * Added the ``--skip-image-normalization`` option (for non-ISIS
        images and alignment-method none), it can help with reducing
        the size of data on disk and performance.
-       
+
 stereo_rfne
      * Added new affine subpixel refinement mode,
        ``--subpixel-mode 3``. This mode sacrifices the error resistance
@@ -2811,7 +2814,7 @@ stereo_rfne
        about one fifth the time.
 
 stereo_fltr:
-     * Hole-filling is disabled by default in stereo_fltr. It is 
+     * Hole-filling is disabled by default in stereo_fltr. It is
        suggested to use instead point2dem's analogous functionality.
        It can be re-enabled using ``--enable-fill-holes``.
      * Added the option ``--erode-max-size`` to remove isolated blobs.
@@ -2822,12 +2825,12 @@ stereo_fltr:
 stereo_tri:
     * Added ability to save triangulation error for a DEM as a 3D
       North-East-Down vector rather than just its magnitude.
-    * When acting on map-projected images, handle the case when the 
-      DEM used for map-projection does not completely encompass the 
+    * When acting on map-projected images, handle the case when the
+      DEM used for map-projection does not completely encompass the
       images.
- 
+
 pc_align:
-    * Read and write CSV files in a wide variety of formats, using 
+    * Read and write CSV files in a wide variety of formats, using
       the ``--csv-format`` option.
     * Display the translation component of the rigid alignment
       transform in the local North-East-Down coordinate system, as
@@ -2850,16 +2853,16 @@ point2dem:
        Gaussian can be controlled using the ``--search-radius-factor``
        option. The old algorithm is still available (but obsoleted)
        using the ``--use-surface-sampling`` option. The new algorithm
-       makes the ``--fsaa`` option redundant. 
+       makes the ``--fsaa`` option redundant.
      * Added the ability to remove outliers by triangulation error,
-       either automatically (--remove-outliers) or manually, with 
+       either automatically (--remove-outliers) or manually, with
        given error threshold (--max-valid-triangulation-error).
-     * Added two algorithms to fill holes in the output DEM and 
+     * Added two algorithms to fill holes in the output DEM and
        orthoimage (--hole-fill-mode).
-     * The way the default DEM spacing is computed was modified, 
+     * The way the default DEM spacing is computed was modified,
        to make dependent only on the local distribution of points
-       in the cloud and robust to outliers. 
-     * Can handle highly noisy input point clouds without spikes in 
+       in the cloud and robust to outliers.
+     * Can handle highly noisy input point clouds without spikes in
        memory usage and processing time.
      * Improved memory usage and performance for large point clouds.
      * Bug fix, the DEM was shifted by 1 pixel from true location.
@@ -2883,10 +2886,10 @@ TOOLS:
 
 - rpc_maprpoject and orthoproject are combined into a single tool
   for projecting a camera image onto a DEM for any camera model
-  supported by Stereo Pipeline. The old orthoproject is kept for 
+  supported by Stereo Pipeline. The old orthoproject is kept for
   backward compatibility for a while.
 
-GENERAL: 
+GENERAL:
 
 - Stereo Pipeline (almost) daily and fully verified builds for all
   platforms are available for the adventurous user
@@ -2899,7 +2902,7 @@ GENERAL:
   smaller.  Better encoding is used, output data is rounded (up to 1
   mm), and point clouds are offset and saved as float instead of
   double.
-  
+
 - Timeout option added for stereo correlation, preventing
   unreasonably long correlation times for certain image tiles.
 
@@ -2908,14 +2911,14 @@ GENERAL:
   situations.
 
 - dg_mosaic can generate a combined RPC model in addition to the
-  combined DG model. It accepts flags for specifying input and 
+  combined DG model. It accepts flags for specifying input and
   output nodata values.
 
 - point2dem with the ``--fsaa`` option for reducing aliasing at
   low-resolution DEM generation has been improved as to remove the
   erosion of of valid data close to no-data values.
 
-- Bug fixes for parallel_stereo, point2dem, etc. 
+- Bug fixes for parallel_stereo, point2dem, etc.
 
 RELEASE 2.2.2, 17 MAY 2013
 --------------------------
@@ -2924,7 +2927,7 @@ RELEASE 2.2.2, 17 MAY 2013
 TOOLS:
 
 - stereo_mpi renamed to parallel_stereo and made to work
-  on any machines with shared storage, rather than just on 
+  on any machines with shared storage, rather than just on
   supercomputers using Intel's MPI library. Bug fixes for
   homography and affine epipolar alignment modes, etc.
 
@@ -2961,7 +2964,7 @@ TOOLS:
 - Added the ``--use-local-homography`` option to stereo_corr. Homography
   transform is applied per tile.
 - Fix point2dem where for certain projections we were setting K=0.
-- Stereo can now operate using command-line arguments only, without 
+- Stereo can now operate using command-line arguments only, without
   stereo.default.
 
 RELEASE 2.1.0, 8 JANUARY 2013

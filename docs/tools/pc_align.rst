@@ -9,7 +9,7 @@ Global Registration (:numref:`fgr`), and feature-based alignment
 (:numref:`pc_hillshade`).
 
 Some of the provided ICP implementations can handle a scale change, in addition
-to rotations and translations. 
+to rotations and translations.
 
 Usage::
 
@@ -54,13 +54,13 @@ In many typical applications, the source and reference point clouds are
 already roughly aligned, but the source point cloud may cover a larger
 area than the reference. The user should provide to ``pc_align`` the
 expected maximum distance (displacement) source points may move by as
-result of alignment, using the option ``--max-displacement``. 
+result of alignment, using the option ``--max-displacement``.
 
 This number will help remove source points too far from the reference point
 cloud which may not match successfully and may degrade the accuracy. If
 in doubt, this value can be set to something large but still reasonable,
 as the tool is able to throw away a certain number of unmatched
-outliers. 
+outliers.
 
 At the end of alignment, ``pc_align`` will display the
 *observed* maximum displacement, a multiple of which can be used to seed
@@ -95,7 +95,7 @@ ASP provides several flavors of the Iterative Closest Point (ICP) algorithm,
 with the implementation given by the `libpointmatcher
 <https://github.com/ethz-asl/libpointmatcher>`_ library
 (:cite:`Pomerleau12comp`).
-    
+
 The default alignment method is Point-to-Plane ICP, which may be more
 robust to large translations than Point-to-Point ICP, though the latter
 can be good enough if the input point clouds have small alignment errors
@@ -150,7 +150,7 @@ transform around the planet center (ECEF coordinates), for consistency with the
 other alignment methods. It will be an ECEF translation if the option
 ``--compute-translation-only`` is set.
 
-The DEMs should fit fully in memory, with a solid margin. 
+The DEMs should fit fully in memory, with a solid margin.
 
 Large DEMs with good relief could be regridded (with cubic interpolation) to a
 2x coarser grid, which would still result in a good alignment. That goes as
@@ -184,7 +184,7 @@ called with ``--alignment-method fgr``, and is customizable via
 This approach can perform better than ICP when the clouds are close enough to
 each other but there is a large number of outliers, since it does a cross-check.
 
-When the clouds are far, another algorithm can be employed to bring them 
+When the clouds are far, another algorithm can be employed to bring them
 closer first (:numref:`prevtrans`).
 
 .. _pc_hillshade:
@@ -199,7 +199,7 @@ DEMs, find interest point matches between them, and use that to compute an initi
 transform between the clouds, which may or may not contain scale.
 
 This transform can be passed as an initial guess to the other alignment
-algorithms (:numref:`prevtrans`). See an example in :numref:`kh4_align`. 
+algorithms (:numref:`prevtrans`). See an example in :numref:`kh4_align`.
 
 The related correlation-based alignment method is described in
 :numref:`pc_corr`.
@@ -207,10 +207,10 @@ The related correlation-based alignment method is described in
 In the latest ASP (10/2025 and later), hillshading is done with ``gdaldem
 hillshade`` (:numref:`gdal_hill`). ASP's own ``hillshade`` program
 (:numref:`hillshade`) is also supported. See the option ``--hillshade-command``
-in :numref:`pc_align_options`. 
+in :numref:`pc_align_options`.
 
 Inspect the produced hillshaded images and, if needed, change the hillshade
-command or its options to get visually good results. 
+command or its options to get visually good results.
 
 The interest point finding and matching are performed with ASP's ``ipfind``
 (:numref:`ipfind`) and ``ipmatch`` (:numref:`ipmatch`) programs. These can be
@@ -250,7 +250,7 @@ For that, first produce the hillshades, either with ``gdaldem hillshade``
 (:numref:`hillshade`). Call these outputs ``ref_hill.tif`` and ``src_hill.tif``.
 
 Consider increasing the hillshaded image contrast and range of intensities with
-``hillshade`` by decreasing the ``--elevation`` option value. 
+``hillshade`` by decreasing the ``--elevation`` option value.
 
 Carefully inspect the produced hillshaded images. Washed out and textureless
 regions are likely not going to work well.
@@ -268,7 +268,7 @@ images::
 
 Stereo correlation can take a long time. It can be run over several nodes
 (:numref:`pbs_slurm`). The option ``--max-disp-spread`` can help with reducing
-the search range (:numref:`corr_section`). A value like 50 is likely adequate. 
+the search range (:numref:`corr_section`). A value like 50 is likely adequate.
 
 Increasing the correlation kernel size, such as ``--corr-kernel 9 9`` (from the
 default of ``5 5`` for the ``aspm_mgm`` algorithm) may help with noisy DEMs.
@@ -298,7 +298,7 @@ disparity map ``run_corr/run-F.tif`` can help with that
 
 The resulting aligned cloud ``run_align/run-trans_source.tif`` can be regridded
 with ``point2dem`` and same grid size and projection as the input DEMs, and
-evaluate if it moved as expected. 
+evaluate if it moved as expected.
 
 This method will fail if the input DEMs do not overlap a lot when overlaid with
 georeference information. If the usable overlap is small, consider running this
@@ -364,7 +364,7 @@ LAS and COPC
 
 The ``pc_align`` program supports clouds in the LAS format, including compressed
 (LAZ) and cloud-optimized (`COPC <https://copc.io/>`_) data. The processing is
-done with `PDAL <https://pdal.io/en/latest/>`_, which is shipped with ASP. 
+done with `PDAL <https://pdal.io/en/latest/>`_, which is shipped with ASP.
 
 If the reference / source cloud is in the COPC format, the option
 ``--ref-copc-win`` / ``--src-copc-win`` is required, so that the program can
@@ -374,7 +374,7 @@ description of these options in :numref:`pc_align_options`.
 
 For COPC files, the corresponding output cloud with the transform applied to it
 will be in the LAZ format, and will be restricted to the region used in
-processing. 
+processing.
 
 .. _alignmenttransform:
 
@@ -391,10 +391,10 @@ This transform, if applied to the source point cloud,
 will bring it in alignment with the reference point cloud.  The
 transform assumes the 3D Cartesian coordinate system with the origin
 at the planet center (known as ECEF). This matrix can be supplied
-back to the tool as an initial guess (:numref:`prevtrans`). 
+back to the tool as an initial guess (:numref:`prevtrans`).
 
 The inverse transform, from the reference cloud to the source cloud is saved
-as well, as ``<output prefix>-inverse-transform.txt``. 
+as well, as ``<output prefix>-inverse-transform.txt``.
 
 These two transforms can be used to move cameras from one cloud's coordinate
 system to another one's, as shown in :numref:`ba_pc_align`.
@@ -447,7 +447,7 @@ output transform produced by such an invocation will be from the source
 points *before* the initial transform, hence the output alignment
 transform will incorporate the initial transform.
 
-Using ``--max-displacement -1`` should be avoided, as that will do 
+Using ``--max-displacement -1`` should be avoided, as that will do
 no outlier filtering in the source cloud. Here that is not necessary,
 as this invocation simply moves the DEM according to the specified
 transform.
@@ -457,7 +457,7 @@ value for ``--max-displacement`` to refine the alignment, as the
 clouds will already be mostly on top of each other after the initial
 transform is applied.
 
-Applying an initial specified translation or rotation 
+Applying an initial specified translation or rotation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 One can apply to the source cloud an initial shift, expressed in the
@@ -524,7 +524,7 @@ alignment computed by the tool. They are named
 ``<output prefix>-beg_errors.csv`` and
 ``<output prefix>-end_errors.csv``. An error is defined as the distance
 from a source point used in alignment to the closest reference point
-(measured in meters). 
+(measured in meters).
 
 The format of output CSV files is the same as of input CSV files, or as
 given by ``--csv-format``, although any columns of extraneous data in
@@ -564,14 +564,14 @@ Evaluation of aligned clouds
 
 The ``pc_align`` program can save the source cloud after being aligned to the
 reference cloud and vice-versa, via ``--save-transformed-source-points`` and
-``--save-inv-transformed-reference-points``. 
+``--save-inv-transformed-reference-points``.
 
 To validate that the aligned source cloud is very close to the reference cloud,
 DEMs can be made out of them with ``point2dem`` (:numref:`point2dem`), and those
 can be overlaid as georeferenced images in ``stereo_gui`` (:numref:`stereo_gui`)
 for inspection. A GIS tool can be used as well.
 
-Alternatively, the ``geodiff`` program (:numref:`geodiff`) can 
+Alternatively, the ``geodiff`` program (:numref:`geodiff`) can
 compute the (absolute) difference between aligned DEMs, which can
 be colorized with ``colormap`` (:numref:`colormap`), or colorized on-the-fly
 and displayed with a colorbar in ``stereo_gui`` (:numref:`colorize`).
@@ -587,7 +587,7 @@ Output point clouds and convergence history
 
 The transformed input point clouds (the source transformed to match
 the reference, and the reference transformed to match the source) can
-also be saved to disk if desired. 
+also be saved to disk if desired.
 
 If an input point cloud is in CSV (:numref:`pc_align_csv`), ASP point cloud
 format (:numref:`triangulation_files`), or LAS format
@@ -602,7 +602,7 @@ As an example, assume that ``pc_align`` is run as::
       --save-transformed-source-points           \
       --save-inv-transformed-reference-points    \
       ref_dem.tif source.csv                     \
-      -o run/run 
+      -o run/run
 
 This will save ``run/run-trans_reference.tif`` which is a point cloud
 in the coordinate system of the source dataset, and
@@ -618,7 +618,7 @@ The convergence history for ``pc_align`` (the translation and rotation
 change at each iteration) is saved to disk with a name like::
 
     <output prefix>-iterationInfo.csv
- 
+
 and can be used to fine-tune the stopping criteria.
 
 .. _manual-align:
@@ -629,14 +629,14 @@ Manual alignment
 If automatic alignment fails, for example, if the clouds are too
 different, or they differ by a scale factor, a manual alignment can be
 computed as an initial guess transform (and one can stop there if
-``pc_align`` is invoked with 0 iterations). 
+``pc_align`` is invoked with 0 iterations).
 
 For that, the input point clouds should be first converted to DEMs using
 ``point2dem``, unless in that format already. Then, ``stereo_gui`` can be called
 to create manual point correspondences (interest point matches) from the
 reference to the source DEM (:numref:`stereo_gui_edit_ip`). The DEMs should be
 displayed in the GUI with the reference DEM on the left, and should be
-hillshaded. 
+hillshaded.
 
 Once the match file is saved to disk, it can be passed to ``pc_align`` via the
 ``--match-file`` option, which will compute an initial transform (whose type is
@@ -674,10 +674,10 @@ Given a DEM, if one invokes ``pc_align`` as follows::
 
 this will create a point cloud out of the DEM without moving it. This cloud can
 then be re-gridded using ``point2dem`` (:numref:`point2dem`), with desired grid
-size and projection. 
+size and projection.
 
 Alternatively, the ``gdalwarp`` program (:numref:`gdal_tools`) can be employed
-for regridding, with an option such as ``-r cubic``. 
+for regridding, with an option such as ``-r cubic``.
 
 The ``point2dem`` approach is preferable if the output grid size is very coarse,
 as this tool does a weighted average in a neighborhood rather than interpolation.
@@ -693,7 +693,7 @@ the cameras used to create the ASP DEM, so the cameras then become aligned with
 the reference. That is accomplished by running bundle adjustment with the
 options ``--initial-transform`` and ``--apply-initial-transform-only``.
 
-Please note that the way this transform is applied depends on the 
+Please note that the way this transform is applied depends on the
 order of clouds in ``pc_align`` and on whether the cameras have
 been bundle-adjusted or not. Precise commands are given below.
 
@@ -723,7 +723,7 @@ transform::
 
      ba_align/run-left.adjust, ba_align/run-right.adjust
 
-(see :numref:`adjust_files` for discussion of .adjust files). 
+(see :numref:`adjust_files` for discussion of .adjust files).
 
 For CSM cameras, this will also create stand-alone ``model state`` cameras with
 adjustments already applied to them (:numref:`csm_state`).
@@ -749,7 +749,7 @@ with no registration error, as::
 
 and in the same way for the right image. Overlaying the produced
 images is a very useful sanity check.
-    
+
 If, the initial stereo was done with cameras that already
 were bundle-adjusted, with output prefix ``initial_ba/run``,
 so the stereo command had the option::
@@ -861,7 +861,7 @@ Command-line options for pc_align
     2:northing 3:height_above_datum'`` (for the latter need to also set
     ``--csv-srs``). The height above datum is in meters. Can also use
     ``radius_km`` for ``column_type``, when it is again measured from planet
-    center.
+    center. See :numref:`csv_format` for details.
 
 --csv-srs <string>
     The PROJ or WKT string to use to interpret the entries in input CSV
@@ -919,7 +919,7 @@ Command-line options for pc_align
     Options to pass to the ``hillshade`` program when computing the
     transform from hillshading. This is for backward compatibility.
     Use instead the ``--hillshade-command`` option.
-    
+
 --ipfind-options
     Options to pass to the ``ipfind`` program when computing the
     transform from hillshading. Default: ``--ip-per-image 1000000
@@ -933,7 +933,7 @@ Command-line options for pc_align
 --initial-transform-ransac-params <num_iter factor (default: 10000 1.0)>
     When computing an initial transform based on hillshading, use
     this number of RANSAC iterations and outlier factor. A smaller
-    factor will reject more outliers. 
+    factor will reject more outliers.
 
 --match-file
     Compute an initial transform from the source to the reference point cloud
@@ -944,9 +944,9 @@ Command-line options for pc_align
     and ``--initial-transform-ransac-params``.
 
 --nuth-options <string (default: "")>
-    Options to pass to the Nuth and Kaab algorithm. Set in quotes. 
+    Options to pass to the Nuth and Kaab algorithm. Set in quotes.
     See :ref:`nuth_options` for more details.
-    
+
 --fgr-options <string>
     Options to pass to the Fast Global Registration (FGR) algorithm. Set in
     quotes. Default: "div_factor: 1.4 use_absolute_scale: 0 max_corr_dist: 0.025
@@ -969,10 +969,10 @@ Command-line options for pc_align
 
 --ref-copc-read-all
     Read the full reference COPC file, ignoring the ``--ref-copc-win`` option.
-    
+
 --src-copc-read-all
     Read the full source COPC file, ignoring the ``--src-copc-win`` option.
-        
+
 --diff-rotation-error <float (default: 1e-5)>
     Change in rotation amount below which the algorithm will stop
     (if translation error is also below bound), in degrees. A small
@@ -987,15 +987,15 @@ Command-line options for pc_align
     of the fact that it is possible to interpolate into this DEM
     when finding the closest distance to it from a point in the
     source cloud (the text above has more detailed information).
-    
+
 --skip-shared-box-estimation
     Do not estimate the shared bounding box of the two clouds. This estimation
     can be costly for large clouds but helps with eliminating outliers.
-    
+
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
- 
+
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 
@@ -1016,7 +1016,7 @@ Command-line options for pc_align
 
 .. _nuth_options:
 
-Options for Nuth and Kaab 
+Options for Nuth and Kaab
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Nuth and Kaab algorithm (:numref:`nuth`) accepts the regular ``pc_align``
@@ -1024,7 +1024,7 @@ options ``--max-displacement``, ``--num-iterations``,
 ``--compute-translation-only``, ``--threads``.
 
 In addition, it can be tuned via the ``--nuth-options`` argument. Its value is a
-string in quotes, with spaces as separators. Example:: 
+string in quotes, with spaces as separators. Example::
 
     --nuth-options "--slope-lim 0.1 40.0 --tol 0.01"
 
@@ -1032,7 +1032,7 @@ Default values will be used for any unspecified options. The options are:
 
 --slope-lim <float float (default: 0.1 40.0)>
     Minimum and maximum surface slope limits to consider (degrees).
-    
+
 --tol <float (default: 0.01)>
     Stop when the addition to the alignment translation at given iteration has
     magnitude below this tolerance (meters).
@@ -1048,5 +1048,5 @@ Default values will be used for any unspecified options. The options are:
 --num-inner-iter <integer (default: 10)>
     Maximum number of iterations for the inner loop, when finding the best fit
     parameters for the current translation.
-    
+
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

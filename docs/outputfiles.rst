@@ -5,7 +5,7 @@ Guide to output files
 
 The ``parallel_stereo`` program (:numref:`parallel_stereo`) generates a variety
 of intermediate files that are useful for debugging. These are listed below,
-along with brief descriptions about the contents of each file. 
+along with brief descriptions about the contents of each file.
 
 Some of these files are stored at the location given by the specified
 output prefix, while others are in subdirectories of that location
@@ -17,17 +17,17 @@ The files are listed based on the stereo stage they are created at
 Files created in preprocessing
 ------------------------------
 
-\*-cropped\*.tif 
+\*-cropped\*.tif
     Cropped versions of the input images, before alignment, when options
     ``--left-image-crop-win`` and/or ``--right-image-crop-win`` are used.
 
-\*.vwip 
+\*.vwip
     Interest point matches per image, before matching.
-    
+
     If the images are ``left.cub`` and ``right.cub``, these files end in
     ``left.vwip`` and ``right.vwip``. Several interest point detection modes are
     available (see ``--ip-detect-method`` in :numref:`stereodefault`).
-    
+
     The ``.vwip`` files can be visualized in ``stereo_gui``
     (:numref:`stereo_gui_vwip_gcp`).
 
@@ -43,9 +43,9 @@ Files created in preprocessing
     skip over the interest point alignment stage and instead use the cached
     tie-points contained in the ``*.match`` files, unless the images or cameras
     are newer, or if invoked with the options ``--left-image-crop-win`` or
-    ``--right-image-crop-win``. In the rare case that these files get 
+    ``--right-image-crop-win``. In the rare case that these files get
     corrupted, they should be deleted and ``parallel_stereo`` should be rerun.
-    
+
     The ``.match`` files can be visualized in ``stereo_gui``
     (:numref:`stereo_gui_view_ip`), and can be converted to plain text for
     inspection with ``parse_match_file.py`` (:numref:`parse_match_file`).
@@ -75,9 +75,9 @@ Files created in preprocessing
     left and right images to roughly align them. These are only generated if
     ``alignment-method`` is not ``none`` or ``epipolar``
     (:numref:`stereodefault`).
-    
+
     The older .exr format for these is still supported on reading but will be
-    removed in the future. 
+    removed in the future.
 
 \*bathy_mask\*.tif - data related to water-land masks, for stereo with
     shallow water (:numref:`bathy_intro`).
@@ -96,14 +96,14 @@ Files created in preprocessing
 Files created during correlation
 --------------------------------
 
-\*-D_sub.tif - Low-resolution initial disparity (:numref:`d_sub`). 
+\*-D_sub.tif - Low-resolution initial disparity (:numref:`d_sub`).
     Computed at the correlation stage. Not recomputed when a run is
     resumed. The options ``--corr-seed-mode 2`` and ``3`` also produce
-    \*-D_sub_spread.tif, which has the spread of this disparity. It is 
+    \*-D_sub_spread.tif, which has the spread of this disparity. It is
     in the same format as ``D.tif`` (below).
-    
+
 \*-D.tif - Full-resolution disparity map produced from the low-resolution disparity
-    
+
     The disparity shows the amount of horizontal and vertical shift between left
     and right images, in units of pixel (:numref:`stereo_corr`). The ``D.tif``
     file contains a preliminary disparity that is used to seed the subsequent
@@ -113,7 +113,7 @@ Files created during correlation
     Disparity map files are stored in TIF format as 3-channel, 32-bit
     floating point images. Channel 0 = horizontal disparity, channel 1 =
     vertical disparity, and channel 2 = good pixel mask.
-    
+
     The ``disparitydebug`` program (:numref:`disparitydebug`) can help inspect
     scaled versions of these. Or the raw bands can be extracted and visualized
     as in :numref:`mask_disparity`.
@@ -130,8 +130,8 @@ Files created during correlation
 Files created during blending
 -----------------------------
 
-\*-B.tif - disparity map blending the D.tif results from all tiles. Will be 
-    produced unless using the ``asp_bm`` stereo algorithm without local 
+\*-B.tif - disparity map blending the D.tif results from all tiles. Will be
+    produced unless using the ``asp_bm`` stereo algorithm without local
     epipolar alignment.  It is in the same format as ``D.tif`` (above).
 
 Files created during refinement
@@ -140,7 +140,7 @@ Files created during refinement
 \*-RD.tif - disparity map after sub-pixel correlation
     This file contains the disparity map after sub-pixel refinement.
     Pixel values now have sub-pixel precision, and some outliers have
-    been rejected by the sub-pixel matching process.  It is 
+    been rejected by the sub-pixel matching process.  It is
     in the same format as ``D.tif`` (above).
 
 File created during filtering
@@ -153,10 +153,10 @@ File created during filtering
 \*-F.tif - filtered disparity map
     The filtered, sub-pixel disparity map with outliers removed (and
     holes filled with the inpainting algorithm if ``FILL_HOLES`` is
-    on). This is the final version of the disparity map. It is 
+    on). This is the final version of the disparity map. It is
     in the same format as ``D.tif`` (above).
 
-\*-GoodPixelMap.tif - map of good pixels. 
+\*-GoodPixelMap.tif - map of good pixels.
     An image showing which pixels were matched by the stereo
     correlator (gray pixels), and which were filled in by the hole filling
     algorithm (red pixels).
@@ -174,7 +174,7 @@ Files created at triangulation
     point, and the last one has the intersection error of the two rays
     which created that point (:numref:`triangulation_error`). By default,
     the origin of the Cartesian coordinate system being used is a
-    point in the neighborhood of the point cloud. 
+    point in the neighborhood of the point cloud.
     This makes the values of the points in the cloud
     relatively small, and we save them in single precision (32 bits).
     This origin is saved in the point cloud as well using the tag
@@ -189,7 +189,7 @@ Files created at triangulation
     the point cloud will have 6 channels. The first 3 channels store,
     as before, the triangulated points.
 
-\*-PC-center.txt - the point cloud local origin (add this to cloud points 
+\*-PC-center.txt - the point cloud local origin (add this to cloud points
     to convert them to ECEF). Stored in plain text. Has the same information as
     the ``POINT_OFFSET`` header in ``PC.tif``.
 
@@ -205,7 +205,7 @@ Diagnostics files
     total number of tiles (both for the current step). See :numref:`ps_tiling`
     for more details on tiling.
 
-    For the preprocessing and filtering stages tiling is not done. Then, the number 
+    For the preprocessing and filtering stages tiling is not done. Then, the number
     of tiles is set to 1, and the number of done tiles is 0 if this stage is
     in progress, and 1 if it is done.
 
@@ -221,19 +221,19 @@ Diagnostics files
 
     A file named ``*-tiles.qml`` is also created. With this one present, when
     the shapefile is opened in QGIS, the tile index (an integer starting with
-    zero) will be printed inside each tile. 
-    
+    zero) will be printed inside each tile.
+
     The ``stereo_gui`` program (:numref:`plot_poly`) can also read and display
     this shapefile and the indices.
-    
+
     Note that the actual tile list is saved in ``*-dirList.txt``.
 
     When the images are mapprojected, the shapefile is saved in the projection
     of the ``L.tif`` image and can be overlaid on top ``L.tif`` and ``R.tif`` in
-    QGIS and ``stereo_gui``. 
-    
+    QGIS and ``stereo_gui``.
+
     Otherwise the shapefile is in pixel units. The y coordinate is then written
-    with the negative sign, so that the shapefile appears correctly on top of 
+    with the negative sign, so that the shapefile appears correctly on top of
     ``L.tif`` and ``R.tif`` in QGIS and ``stereo_gui``.
 
 .. _out_log_files:
@@ -245,12 +245,12 @@ Other files created at all stages
     Each program invoked by ``parallel_stereo`` writes a log file containing the
     command name, build information, and various messages output by that
     program. Those are saved to the output prefix location, or to tile
-    subdirectories, depending on the stage of processing. 
-    
+    subdirectories, depending on the stage of processing.
+
     The tiles are deleted after a successful run, which makes the log files in
     subdirectories go away. See the ``--keep-only`` option
     (:numref:`ps_options`) for how to keep all data, including the log files.
-    
+
 \*-<program name>-resource-usage.txt - resource usage files
     For Linux, write such a file for each ``parallel_stereo`` subprocess. It
     contains the elapsed time and memory usage, as output by ``/usr/bin/time``.
@@ -288,7 +288,7 @@ Plain text match files
 ASP programs store interest point matches between two images as a match file, in
 either binary format with a ``.match`` extension, or in plain text format, with a
 ``.txt`` extension. The latter is supported as of build 2026/02
-(:numref:`release`). 
+(:numref:`release`).
 
 Plain text matches are provided for use with external logic for interest point
 matching. The next sections describe how to use such files and their format.
@@ -323,7 +323,7 @@ Binary match files will have the same format but will end in ``.match``.
 The ``bundle_adjust`` program needs to be invoked with the input images and::
 
   --match-files-prefix out/run
-  
+
 to read the above file. The same option is also available for
 ``parallel_stereo`` and ``jitter_solve``.
 
@@ -349,7 +349,7 @@ adjustment each pixel is weighted by the inverse of its uncertainty. The
 uncertainties must be positive.
 
 Note that this is not the same format as in ``parse_match_file.py``
-(:numref:`parse_match_file`). 
+(:numref:`parse_match_file`).
 
 Inspection
 ~~~~~~~~~~
@@ -362,13 +362,79 @@ as::
       image1.tif image2.tif  \
       --match-file out/run-image1__image2.txt
 
+.. _csv_format:
+
+Format of CSV files
+-------------------
+
+Several ASP tools read and write point data as plain text CSV files, with
+the entries separated by commas or spaces. This includes ``pc_align``
+(:numref:`pc_align`), ``bundle_adjust`` (:numref:`bundle_adjust`), ``geodiff``
+(:numref:`geodiff`), ``point2dem`` (:numref:`point2dem`), and others.
+
+The columns are described with the ``--csv-format`` option, in quotes, as a
+list of entries ``column_index:column_type``, with the index starting from 1.
+The columns can be in any order, and any extra columns are ignored. The
+recognized column types are:
+
+- ``x``, ``y``, ``z``: Cartesian (ECEF) coordinates, in meters, with the origin
+  at the planet center.
+- ``lon``, ``lat``: longitude and latitude, in degrees.
+- ``height_above_datum``: height above the datum, in meters. The datum is set
+  by the tool or via ``--datum`` (and ``--semi-major-axis`` /
+  ``--semi-minor-axis``).
+- ``radius_m``, ``radius_km``: distance from the planet center, in meters or
+  kilometers.
+- ``easting``, ``northing``: projected coordinates, in meters. A PROJ or WKT
+  string must then be set via ``--csv-srs``.
+
+The same format applies to all tools, and to the CSV files these tools write on
+output.
+
+What follows are several concrete examples.
+
+Longitude, latitude, height above datum
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Find the difference between a DEM and a CSV file with ``geodiff``
+(:numref:`geodiff`)::
+
+    geodiff dem.tif file.csv                          \
+      --csv-format '1:lon 2:lat 3:height_above_datum' \
+      -o run
+
+Easting, northing, height above datum
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Align a DEM to a CSV file of projected measurements with ``pc_align``
+(:numref:`pc_align`). A PROJ or WKT string is required to interpret the easting
+and northing values::
+
+    pc_align --max-displacement 100                            \
+      --csv-format '1:easting 2:northing 3:height_above_datum' \
+      --csv-srs 'EPSG:32610'                                   \
+      dem.tif meas.csv                                         \
+      -o run/run
+
+LOLA, with radius in km
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Use a LOLA point cloud as a reference terrain in ``bundle_adjust``
+(:numref:`bundle_adjust`). LOLA measurements are given as longitude, latitude,
+and radius from the planet center, in km::
+
+    bundle_adjust <images> <cameras>         \
+      --reference-terrain lola.csv           \
+      --csv-format '1:lon 2:lat 3:radius_km' \
+      -o ba/run
+
 .. _poly_files:
 
 Format of polygon files
 -----------------------
 
 The ``stereo_gui`` program can read and write polygons in the shapefile format,
-and also in in plain text with a ``.txt`` or ``.csv`` extension
+and also in plain text with a ``.txt`` or ``.csv`` extension
 (:numref:`plot_poly`). Here the plain text format is described.
 
 The x and y coordinates are stored as columns side-by side. Individual polygons

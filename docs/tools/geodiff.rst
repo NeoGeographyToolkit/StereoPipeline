@@ -6,7 +6,7 @@ geodiff
 The ``geodiff`` program takes as input two DEMs, or a DEM and a CSV file, and
 subtracts the second from the first. The grid is from the first DEM, so the
 second one is interpolated into it using bilinear interpolation. When one file
-is a CSV, the grid from the DEM is used, regardless of the order of inputs. 
+is a CSV, the grid from the DEM is used, regardless of the order of inputs.
 
 It is important to note that ``geodiff`` is very sensitive to the order of
 the two DEMs, due to the fact that the grid comes from the first one.
@@ -23,7 +23,7 @@ Examples
 Take the absolute difference of two DEMs::
 
     geodiff --absolute dem1.tif dem2.tif -o run
- 
+
 This will create ``run-diff.tif``.
 
 The ``stereo_gui`` program (:numref:`colorize`) can colorize on-the-fly and
@@ -65,12 +65,12 @@ Command-line options
     ``1:x 2:y 3:z`` (a Cartesian coordinate system with origin at
     planet center is assumed, with the units being in meters),
     ``5:lon 6:lat 7:radius_m`` (longitude and latitude are in degrees,
-    the radius is measured in meters from planet center), 
+    the radius is measured in meters from planet center),
     ``3:lat 2:lon 1:height_above_datum``,
     ``1:easting 2:northing 3:height_above_datum``
     (need to set ``--csv-srs``; the height above datum is in
     meters).  Can also use radius_km for column_type, when it is
-    again measured from planet center.
+    again measured from planet center. See :numref:`csv_format` for details.
 
 --csv-srs <proj string>
     The PROJ or WKT string to use to interpret the entries in input CSV
@@ -83,7 +83,7 @@ Command-line options
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
- 
+
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 

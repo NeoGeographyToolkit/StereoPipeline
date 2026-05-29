@@ -6,7 +6,7 @@ bundle_adjust
 The ``bundle_adjust`` program performs bundle adjustment on a given
 set of images and cameras. An introduction to bundle adjustment, and
 some advanced usage, including solving for intrinsics, can be found in
-:numref:`bundle_adjustment`. 
+:numref:`bundle_adjustment`.
 
 If it is desired to process a large number of images, consider using
 ``parallel_bundle_adjust`` (:numref:`parallel_bundle_adjust`).
@@ -16,22 +16,25 @@ uses Google's `Ceres Solver <http://ceres-solver.org/>`_.
 
 Usage::
 
-     bundle_adjust <images> <cameras> <optional ground control points> \
-       -o <output prefix> [options]
+     bundle_adjust [options]             \
+        <images> <cameras>               \
+        <optional ground control points> \
+        -o <output prefix>
 
 .. _ba_examples:
 
 Examples
 ~~~~~~~~
 
-ISIS cameras 
+ISIS cameras
 ^^^^^^^^^^^^
 
 See :numref:`moc_tutorial` for an introduction to these cameras.
 
 ::
 
-     bundle_adjust --camera-weight 0 \
+     bundle_adjust                   \
+       --camera-weight 0             \
        --tri-weight 0.1              \
        --tri-robust-threshold 0.1    \
        file1.cub file2.cub file3.cub \
@@ -60,7 +63,7 @@ control points (:numref:`bagcp`)::
       file1.xml file2.xml        \
       gcp1.gcp gcp2.gcp gcp3.gcp \
       --fix-gcp-xyz              \
-      -o run_ba/run 
+      -o run_ba/run
 
 How to use the adjusted cameras is shown in :numref:`ba_use`.
 
@@ -86,18 +89,22 @@ RPC cameras and image lists
 
 Examples for RPC cameras (:numref:`rpc`). With the cameras stored separately::
 
-    bundle_adjust -t rpc left.tif right.tif left.xml right.xml \
+    bundle_adjust -t rpc \
+      left.tif right.tif \
+      left.xml right.xml \
       -o run_ba/run
 
 With the cameras embedded in the images::
 
-    bundle_adjust -t rpc left.tif right.tif -o run_ba/run
+    bundle_adjust -t rpc \
+      left.tif right.tif \
+      -o run_ba/run
 
 How to use the adjusted cameras is shown in :numref:`ba_use`. How to produce RPC
 cameras with the adjustments applied to them is discussed in
 :numref:`rpc_and_ba`.
 
-The images can be also passed in via ``--image-list`` and cameras with 
+The images can be also passed in via ``--image-list`` and cameras with
 ``--camera-list``. When the cameras are embedded in the images, the
 ``--camera-list`` option accepts the image files instead.
 
@@ -108,17 +115,17 @@ Pinhole cameras
 
      bundle_adjust -t nadirpinhole \
        --inline-adjustments        \
-        --camera-weight 0          \
-        --tri-weight 0.1           \
-        --tri-robust-threshold 0.1 \
-        --datum WGS_1984           \
-        file1.JPG file2.JPG        \
-        file1.tsai file2.tsai      \
-        -o run_ba/run
+       --camera-weight 0           \
+       --tri-weight 0.1            \
+       --tri-robust-threshold 0.1  \
+       --datum WGS_1984            \
+       file1.JPG file2.JPG         \
+       file1.tsai file2.tsai       \
+       -o run_ba/run
 
 See :numref:`pinholemodels` for the pinhole camera model format.
 
-Here we assumed that the cameras point towards planet's surface and used the
+Here we assumed that the cameras point towards the planet's surface and used the
 ``nadirpinhole`` session. If this assumption is not true, one should use the
 ``pinhole`` session or the ``--no-datum`` option.
 
@@ -132,18 +139,21 @@ with adjustments already applied to them. These can be passed directly to
 ``parallel_stereo``, without using the original cameras and the adjustments as in
 :numref:`ba_use`.
 
-CSM cameras
-^^^^^^^^^^^
+.. _ba_csm:
+
+CSM cameras and outlier removal
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
-     bundle_adjust                \
-       file1.cub file2.cub        \
-       file1.json file2.json      \
-       -t csm                     \
-       --camera-weight 0          \
-       --tri-weight 0.1           \
-       --tri-robust-threshold 0.1 \
+     bundle_adjust                                 \
+       file1.cub file2.cub                         \
+       file1.json file2.json                       \
+       -t csm                                      \
+       --camera-weight 0                           \
+       --tri-weight 0.1                            \
+       --tri-robust-threshold 0.1                  \
+       --remove-outliers-params '75.0 3.0 3.0 5.0' \
        -o run_ba/run
 
 CSM cameras (:numref:`csm`) can be stored in .json files or in .cub files. After
@@ -154,6 +164,23 @@ Later, use either the original cameras with the computed adjustments
 (:numref:`ba_use`), or the updated cameras without the adjustments.
 
 The datum will be read from the camera files.
+
+The option ``--remove-outliers-params`` controls how interest points with large
+reprojection errors are filtered between optimization passes (it takes effect
+only when ``--num-passes`` is more than 1; the default is 2 passes). It expects
+four values, ``'pct factor err1 err2'``. A triangulated point (that is not a
+GCP) is removed when its reprojection error, in pixels, exceeds::
+
+    min(max(pct-th percentile * factor, err1), err2)
+
+With the values ``'75.0 3.0 3.0 5.0'`` above, points with reprojection error
+below ``err1`` = 3 pixels are always kept, those above ``err2`` = 5 pixels are
+always removed, and in between the cutoff is data-driven (three times the 75th
+percentile of all reprojection errors). Increase these values to keep more
+points, or decrease them to filter more aggressively.
+
+For outlier removal in GCP files, see the option ``--max-gcp-reproj-err`` in
+:numref:`ba_options`.
 
 .. _ba_bathy:
 
@@ -214,15 +241,15 @@ For example::
        --bundle-adjust-prefix run_ba/run
 
 The same option can be used with mapprojection (:numref:`mapproject`) and some
-other tools. 
+other tools.
 
-Example (for .cub files that contain both the image and the camera):: 
+Example (for .cub files that contain both the image and the camera)::
 
     mapproject --bundle-adjust-prefix run_ba/run \
-      input-DEM.tif input.cub output.tif 
+      input-DEM.tif input.cub output.tif
 
 Example (for cameras in .xml format, so the image and camera are in separate
-files):: 
+files)::
 
     mapproject --bundle-adjust-prefix run_ba/run \
       input-DEM.tif image.tif camera.xml mapped_image.tif
@@ -251,16 +278,16 @@ Camera adjustments and applying a transform
 
 The ``bundle_adjust`` program can read camera adjustments from a previous run,
 via ``--input-adjustments-prefix string``. Their format is described in
-:numref:`adjust_files`. 
+:numref:`adjust_files`.
 
 It can also apply to the input cameras a transform as output by ``pc_align``,
 via ``--initial-transform string``. This is useful if a DEM produced by ASP was
 aligned to a ground truth, and it is desired to apply the same alignment to the
-cameras that were used to create that DEM. 
+cameras that were used to create that DEM.
 
 The initial transform can have a rotation, translation, and scale, and it is
 applied after the input adjustments are read, if those are present. An example
-is shown in (:numref:`ba_pc_align`). 
+is shown in :numref:`ba_pc_align`.
 
 .. _ba_validation:
 
@@ -276,7 +303,7 @@ reprojection error for each camera, and their count.
 
 The errors should be under 1 pixel, ideally under 0.5 pixels. The count must
 be at least a dozen, and ideally more. Otherwise bundle adjustment did
-not work well. 
+not work well.
 
 A fine-grained metric is the *triangulation error*, computed densely across the
 images with stereo (:numref:`triangulation_error`). A systematic pattern in this
@@ -291,13 +318,13 @@ Handling failures
 This program will fail if the illumination changes too much between images (see
 also :numref:`sfs_azimuth`).
 
-Various approaches of creation of interest point matches are presented in 
+Various approaches of creation of interest point matches are presented in
 :numref:`ba_ip` (the existing ones should be deleted first). Use ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`) to inspect the matches.
 
 To make the program work harder at reducing big pixel reprojection errors, the
-``--robust-threshold`` can be increased, perhaps to 2.0. This may result in the 
-smallest reprojection errors increasing. 
+``--robust-threshold`` can be increased, perhaps to 2.0. This may result in the
+smallest reprojection errors increasing.
 
 .. _ba_constraints:
 
@@ -306,7 +333,7 @@ Constraints
 
 The primary goal of bundle adjustment is to minimize the pixel reprojection
 errors, so that the cameras are consistent with each other and with triangulated
-points. 
+points.
 
 To ensure the cameras and triangulated points do not drift, ground constraints
 are set by default. They are meant to be rather soft, to not prevent the
@@ -330,7 +357,7 @@ saved to a file (:numref:`ba_tri_offsets`) and should be inspected. Also check
 the pixel reprojection errors per camera (:numref:`ba_errors_per_camera`).
 
 The implementation is as follows. The distances between initially triangulated
-points and those being optimized points are computed, then divided by the local
+points and those being optimized are computed, then divided by the local
 averaged ground sample distance (GSD) (to make them into pixel units, like the
 reprojection errors). These are multiplied by ``--tri-weight``. Then, the robust
 threshold given by ``--tri-robust-threshold`` is applied, with a value of 0.1,
@@ -353,7 +380,7 @@ Camera constraints
 
 The option ``--camera-position-uncertainty`` constrains the camera position
 horizontally and vertically, with given uncertainties, in the local
-North-East-Down coordinate system of each camera. 
+North-East-Down coordinate system of each camera.
 
 The input to this option is a file with one line per image. Each line has the
 image name, horizontal uncertainty, and the vertical one, separated by spaces.
@@ -362,7 +389,7 @@ Example::
     image1.tif 5.0 10.0
     image2.tif 3.0 2.0
 
-All quantities are measured in meters. 
+All quantities are measured in meters.
 
 To have the same uncertainties for all cameras, pass instead of a file name two
 values separated by a comma (no spaces). Example: ``5.0,10.0`` (post 10/2025 build).
@@ -372,18 +399,18 @@ the problem from converging to a good solution.*
 
 It is suggested to examine the camera change report
 (:numref:`ba_camera_offsets`) and pixel reprojection report
-(:numref:`ba_errors_per_camera`) to see the effect of this constraint. 
+(:numref:`ba_errors_per_camera`) to see the effect of this constraint.
 
 In the latest build (:numref:`release`, post 10/2025), the implementation of
 this was changed. A sum of squares of quantities such as::
 
   (curr_position - init_position) / uncertainty
-  
+
 is added to the cost function (:numref:`how_ba_works`) for each camera. The
 horizontal and vertical components result in separate terms.
-  
+
 This performs better than prior alternatives, but the camera motion may be perhaps
-1-10 times more than expected. 
+1-10 times more than expected.
 
 For the jitter solver (:numref:`jitter_solve`) and a linescan camera, such a
 term exists for each position sample in the camera, and then each is divided
@@ -391,12 +418,12 @@ term exists for each position sample in the camera, and then each is divided
 
 The advanced option ``--camera-position-uncertainty-power`` can be used to change
 the power to which the normalized position difference is raised before being
-added to the cost function. The default value is 2. A value such as 4 may result 
+added to the cost function. The default value is 2. A value such as 4 may result
 in stricter enforcement of this constraint, but may also make the problem harder to
 solve. The default behavior is preferred.
 
 It is suggested to avoid the older options ``--camera-position-weight``
-and ``--rotation-weight``, which will be removed in the future. 
+and ``--rotation-weight``, which will be removed in the future.
 
 Use cases
 ~~~~~~~~~
@@ -405,12 +432,12 @@ Large-scale bundle adjustment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Bundle adjustment has been tested extensively and used successfully with
-thousands of frame (pinhole) cameras and with close to 1000 linescan cameras. 
+thousands of frame (pinhole) cameras and with close to 1000 linescan cameras.
 
 Large-scale usage of bundle adjustment is illustrated in the SkySat
 processing example (:numref:`skysat`), with many Pinhole cameras, and
 with a large number of linescan Lunar images with variable illumination
-(:numref:`sfs-lola`). 
+(:numref:`sfs-lola`).
 
 Attention to choices of parameters and solid validation is needed in
 such cases. The tool creates report files with various metrics
@@ -442,13 +469,13 @@ uniformly. For that, use the option ``--matches-per-tile``::
         --max-pairwise-matches 20000          \
         --camera-weight 0 --tri-weight 0.1    \
         --remove-outliers-params '75 3 10 10' \
-        -o run_ba/run 
+        -o run_ba/run
 
 For very large images, the number of interest points and matches per tile (whose
-size is 1024 pixels on the side) should be decreased from the above. 
+size is 1024 pixels on the side) should be decreased from the above.
 
 If the images have very different perspectives, it is suggested to create the
-interest points based on mapprojected images (:numref:`mapip`.)
+interest points based on mapprojected images (:numref:`mapip`).
 
 Uniformly distributed interest points can be produced from stereo disparity. See
 :numref:`custom_ip` for more details.
@@ -459,7 +486,7 @@ Controlling where interest points are placed
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A custom image or mask can be used to define a region where interest points
-are created (:numref:`limit_ip`). 
+are created (:numref:`limit_ip`).
 
 Using mapprojected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -482,7 +509,7 @@ sum of squares of differences (also called residuals) between the
 pixel coordinates of the features and the locations where the
 projections in the cameras occur is minimized. To not let outliers
 dominate, a robust "loss" function is applied to each error term to
-attenuate the residuals if they are too big. 
+attenuate the residuals if they are too big.
 See the `Google Ceres <http://ceres-solver.org/nnls_modeling.html>`_
 documentation on robust cost functions.
 
@@ -519,7 +546,7 @@ pixel locations in one or more images. Their use is to refine, initialize, or
 transform to desired coordinates the camera poses (:numref:`ba_use_gcp`).
 
 GCP can be created with ``stereo_gui`` (:numref:`creatinggcp`), ``gcp_gen``
-(:numref:`gcp_gen`),  and ``dem2gcp`` (:numref:`dem2gcp`). They can 
+(:numref:`gcp_gen`), and ``dem2gcp`` (:numref:`dem2gcp`). They can
 be inspected with ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 
 GCP file format
@@ -570,7 +597,7 @@ camera poses.  The option ``--datum`` must be set correctly to interpret the GCP
 
 GCP can also be employed to initialize the cameras (:numref:`camera_solve_gcp`), or
 to transform them as a group, with the ``bundle_adjust`` options
-``--transform-cameras-with-shared-gcp`` and ``--transform-cameras-using-gcp``. 
+``--transform-cameras-with-shared-gcp`` and ``--transform-cameras-using-gcp``.
 For use with SfM, see :numref:`sfm_world_coords`.
 
 The option ``--fix-gcp-xyz`` fixes the GCP coordinates during optimization. This
@@ -605,10 +632,10 @@ added to the cost function:
 
 Here, :math:`(x_0, y_0, z_0)` is the input GCP, :math:`(x, y, z)` is its version
 being optimized, and the sigma values are the standard deviations from
-above. No robust cost function is applied to these error terms (see below). 
+above. No robust cost function is applied to these error terms (see below).
 
 Note that the cost function normally contains sums of squares of
-pixel differences (:numref:`how_ba_works`), 
+pixel differences (:numref:`how_ba_works`),
 while these terms are dimensionless, if the
 numerators and denominators are assumed to be in meters. Care should
 be taken that these terms not be allowed to dominate the cost function
@@ -645,12 +672,12 @@ By default, ``bundle_adjust`` will create interest point matches between all
 pairs of images (see also ``--auto-overlap-params``). These matches are
 assembled into a *control network*, in which a triangulated point is associated
 with features in two or more images. The match files are saved with the
-specified output prefix and a ``.match`` extension. 
+specified output prefix and a ``.match`` extension.
 
 The naming convention for the match files is::
 
     <output prefix>-<image1>__<image2>.match
-  
+
 where the image names are without the directory name and extension. Excessively
 long image names will be truncated.  For example, for two images named
 ``input/image1.tif`` and ``input/image2.tif``, and given the output prefix
@@ -672,8 +699,8 @@ end with ``-clean.match``. These can be used with the option
 the outlier filtering.
 
 Any such files can be inspected with ``stereo_gui``
-(:numref:`stereo_gui_pairwise_matches`) and converted to text with 
-``parse_match_file.py`` (:numref:`parse_match_file`) or ``ipmatch`` 
+(:numref:`stereo_gui_pairwise_matches`) and converted to text with
+``parse_match_file.py`` (:numref:`parse_match_file`) or ``ipmatch``
 (:numref:`ipmatch_convert`).
 
 .. _jigsaw_cnet:
@@ -683,29 +710,29 @@ ISIS control network
 
 This program can read and write ISIS ``jigsaw`` binary control networks. Example::
 
-    bundle_adjust               \
-    --image-list image_list.txt \
-    --isis-cnet controlNet.net  \
-    -o ba/run
+    bundle_adjust                 \
+      --image-list image_list.txt \
+      --isis-cnet controlNet.net  \
+      -o ba/run
 
-This format makes it possible to handle a very large number of control points. 
+This format makes it possible to handle a very large number of control points.
 
 It is very important that the images in the list be in the order as expected in
-the control network. A copy of this list will be saved, for the record, in the 
+the control network. A copy of this list will be saved, for the record, in the
 output directory.
 
 In this mode, ``bundle_adjust`` will also write the updated control network in
-the ISIS format, with the name ``<output prefix>.net`` (instead of match files). 
+the ISIS format, with the name ``<output prefix>.net`` (instead of match files).
 
 If GCP are provided via a .gcp file (:numref:`bagcp`), these will be added to
 the optimization and to the output control network.
 
-The option  ``--output-cnet-type`` explicitly sets the output format for
+The option ``--output-cnet-type`` explicitly sets the output format for
 interest point matches. This allows for the input and output formats to be
-different. 
+different.
 
 The ``stereo_gui`` program (:numref:`stereo_gui_isis_cnet`) can visualize
-such a control network file. 
+such a control network file.
 
 See :numref:`jigsaw_cnet_details` for more technical details. See also ASP's
 ``jigsaw`` tutorial (:numref:`jigsaw`).
@@ -763,7 +790,7 @@ camera, and their count, are written to::
 
   {output-prefix}-initial_residuals_stats.txt
   {output-prefix}-final_residuals_stats.txt
- 
+
 It is very important to ensure all cameras have a small final reprojection
 error, ideally under 1 pixel, as otherwise this means that the cameras are not
 well-registered to each other, or that systematic effects exist, such as
@@ -814,7 +841,7 @@ triangulated points (:numref:`ba_ground_constraints`).
 Convergence angles
 ^^^^^^^^^^^^^^^^^^
 
-The convergence angle percentiles for rays emanating from matching 
+The convergence angle percentiles for rays emanating from matching
 interest points and intersecting on the ground (:numref:`stereo_pairs`)
 are saved to::
 
@@ -851,7 +878,7 @@ Such files can be plotted and overlaid with ``stereo_gui``
 reprojection errors are large and their geographic locations.
 
 Pixel reprojection errors corresponding to GCP will be printed at the end of
-these files and flagged with the string ``# GCP``. 
+these files and flagged with the string ``# GCP``.
 
 During the optimization the pixel differences are divided by pixel sigma.
 This is undone when the pixel reprojection errors are later computed.
@@ -883,7 +910,7 @@ GCP report
 
 If GCP are present, the file ``{output-prefix}-gcp_report.txt`` will be saved to
 disk, having the initial and optimized GCP coordinates, and their difference,
-both in ECEF and longitude-latitude-height above datum. 
+both in ECEF and longitude-latitude-height above datum.
 
 The reprojection error file may be more helpful than this GCP report file
 (:numref:`ba_err_per_point`). The GCP are flagged with the string ``# GCP`` at
@@ -968,7 +995,7 @@ acquired in quick succession (such as for SkySat data,
 orientation in NED coordinates. A conversion to geodetic coordinates
 for the position and to Euler angles for the orientation may help
 with this data's interpretation.
-     
+
 .. _ba_mapproj_dem:
 
 Registration errors on the ground
@@ -988,11 +1015,11 @@ The file::
 will have the percentiles (25%, 50%, 75%, 85%, 95%) of these distances for all
 matches in each image against all other images, in meters, and their count.
 
-Do *not* use this option for any initial evaluation of bundle adjustment. 
-Inspect instead the files mentioned earlier in :numref:`ba_out_files`. 
+Do *not* use this option for any initial evaluation of bundle adjustment.
+Inspect instead the files mentioned earlier in :numref:`ba_out_files`.
 
-This very advanced metric is only helpful if the images are expected to be 
-well-registered to each other and to the DEM, which is not the case without 
+This very advanced metric is only helpful if the images are expected to be
+well-registered to each other and to the DEM, which is not the case without
 explicit prior alignment. This also expects a rather accurate DEM, and
 for bundle adjustment to be invoked with the option ``--heights-from-dem``
 (:numref:`heights_from_dem`).
@@ -1003,10 +1030,9 @@ The file::
 
     {output-prefix}-mapproj_match_offset_pair_stats.txt
 
-saves such measurements for every pair of images. 
+saves such measurements for every pair of images.
 
 The full report will be saved to::
-
 
     {output-prefix}-mapproj_match_offsets.txt
 
@@ -1026,7 +1052,7 @@ Format of .adjust files
 
 The ``bundle_adjust`` program normally saves external adjustments to the input
 cameras, or in some cases it creates standalone cameras with adjustments applied
-internally (:numref:`ba_use`). 
+internally (:numref:`ba_use`).
 
 An external adjustment is stored in a ``.adjust`` file. It has a translation *T*
 as *x, y, z* (measured in meters) and a rotation *R* as a quaternion in the
@@ -1035,12 +1061,12 @@ order *w, x, y, z*. The rotation is around the camera center *C* for pixel (0,
 applied on top of initial cameras.
 
 Hence, if *P* is a point in ECEF, that is, the world in which the camera
-exists, and an adjustment is applied to the camera, projecting *P* 
+exists, and an adjustment is applied to the camera, projecting *P*
 in the original camera gives the same result as projecting::
 
     P' = R * (P - C) + C + T
 
-in the adjusted camera. 
+in the adjusted camera.
 
 Note that currently the camera center *C* is not exposed in the
 ``.adjust`` file, so external tools cannot recreate this
@@ -1048,28 +1074,38 @@ transform. This will be rectified at a future time.
 
 Adjustments are relative to the initial cameras, so a nominal
 adjustment has the zero translation and identity rotation (quaternion
-1, 0, 0, 0).  
+1, 0, 0, 0).
 
 .. _ba_options:
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
--h, --help
-    Display the help message.
+General
+^^^^^^^
 
--o, --output-prefix <filename>
-    Prefix for output filenames.
+-o, --output-prefix <string (default: "")>
+    Prefix for output filenames (see :numref:`ba_examples` for examples).
 
---cost-function <string (default: Cauchy)>
-    Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2
+-t, --session-type <string (default: "")>
+    Select the stereo session type to use for processing. Usually
+    the program can select this automatically by the file extension,
+    except for xml cameras. See :numref:`ps_options` for
+    options.
 
---robust-threshold <double (default:0.5)>
-    Set the threshold for the robust reprojection error cost function.
-    Increasing this makes the solver focus harder on the larger errors while
-    becoming more sensitive to outliers. See the `Google Ceres
-    <http://ceres-solver.org/nnls_modeling.html>`_ documentation on robust cost
-    functions.
+--image-list <string (default: "")>
+    A file containing the list of images, when they are too many to specify on
+    the command line. Use in the file a space or newline as separator. When
+    solving for intrinsics for several sensors, pass to this option several
+    lists, with comma as separator between the file names (no space). An example
+    is in :numref:`kaguya_ba`. See also ``--camera-list`` and
+    ``--mapprojected-data-list``.
+
+--camera-list <string (default: "")>
+    A file containing the list of cameras, when they are too many to
+    specify on the command line. If the images have embedded camera
+    information, such as for ISIS, this file may be omitted, or
+    specify the image names instead of camera names.
 
 --datum <string (default: "")>
     Set the datum. This will override the datum from the input images and also
@@ -1094,11 +1130,103 @@ Command-line options
 --semi-minor-axis <float (default: 0)>
     Explicitly set the datum semi-minor axis in meters.
 
--t, --session-type <string>
-    Select the stereo session type to use for processing. Usually
-    the program can select this automatically by the file extension, 
-    except for xml cameras. See :numref:`ps_options` for
-    options.
+--csv-format <string (default: "")>
+    Specify the format of input CSV files as a list of entries
+    column_index:column_type (indices start from 1).  Examples:
+    ``1:x 2:y 3:z`` (a Cartesian coordinate system with origin at
+    planet center is assumed, with the units being in meters),
+    ``5:lon 6:lat 7:radius_m`` (longitude and latitude are in degrees,
+    the radius is measured in meters from planet center),
+    ``3:lat 2:lon 1:height_above_datum``,
+    ``1:easting 2:northing 3:height_above_datum``
+    (need to set ``--csv-srs``; the height above datum is in
+    meters).  Can also use radius_km for column_type, when it is
+    again measured from planet center. See :numref:`csv_format` for details.
+
+--csv-srs <string (default: "")>
+    The PROJ or WKT string for interpreting the entries in input CSV
+    files.
+
+--threads <integer (default: 0)>
+    Set the number threads to use. 0 means use the default defined
+    in the program or in ``~/.vwrc``. Note that when using more
+    than one thread and the Ceres option the results will vary
+    slightly each time the tool is run.
+
+--cache-size-mb <integer (default: 1024)>
+    Set the system cache size, in MB, for each process.
+
+-h, --help
+    Display the help message.
+
+-v, --version
+    Display the version of software.
+
+Interest point detection
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+--ip-detect-method <integer (default: 0)>
+    Choose an interest point detection method from: 0 = OBAloG
+    (:cite:`jakkula2010efficient`), 1 = SIFT (from OpenCV), 2 = ORB (from
+    OpenCV). The SIFT method, unlike OBALoG, produces interest points that are
+    accurate to subpixel level. Remove any existing ``.vwip`` files before
+    recomputing interest points with a different method. See also
+    :numref:`custom_ip`.
+
+--ip-per-tile <integer (default: unspecified)>
+    How many interest points to detect in each :math:`1024^2` image
+    tile (default: automatic determination). This is before matching.
+    Not all interest points will have a match. See also ``--matches-per-tile``.
+
+--ip-per-image <integer (default: unspecified)>
+    How many interest points to detect in each image (default:
+    automatic determination). Can set either this or ``--ip-per-tile``.
+
+--ip-num-ransac-iterations <iterations (default: 1000)>
+    How many RANSAC iterations to do in interest point matching.
+
+--ip-inlier-factor <double (default: 0.2)>
+    Inlier factor used to remove outliers with homography filtering and RANSAC.
+    A higher factor will result in more interest points, but perhaps also more
+    outliers.
+
+--ip-uniqueness-threshold <double (default: 0.8)>
+    A higher threshold will result in more interest points, but
+    perhaps less unique ones.
+
+--epipolar-threshold <double (default: -1)>
+    Maximum distance from the epipolar line to search for IP matches.
+    If this option isn't given, it will default to an automatic determination.
+
+--ip-triangulation-max-error <float (default: -1)>
+    When matching IP, filter out any pairs with a triangulation error higher
+    than this. The triangulation error is the shortest distance between rays.
+    This gets used only when the usual triangulation error filtering fails.
+
+--ip-nodata-radius <integer (default: 4)>
+    Remove IP near nodata with this radius, in pixels.
+
+--nodata-value <double (default: NaN)>
+    Pixels with values less than or equal to this number are treated
+    as no-data. This overrides the no-data values from input images.
+
+--individually-normalize
+    Individually normalize the input images instead of using common
+    values.
+
+--flann-method <string (default: "auto")>
+    Choose the FLANN method for matching interest points. Options: ``kmeans``:
+    slower but deterministic, ``kdtree``: faster (up to 6x) but not
+    deterministic (starting with FLANN 1.9.2). The default (``auto``) is to use
+    ``kmeans`` for 25,000 features or less and ``kdtree`` otherwise. This does
+    not apply to ORB feature matching.
+
+--save-vwip
+    Save ``.vwip`` files (interest point matches per image, before matching).
+    This option is currently ignored as ``.vwip`` are always saved.
+
+Interest point matching
+^^^^^^^^^^^^^^^^^^^^^^^
 
 --min-matches <integer (default: 5)>
     Set the minimum number of matches between images that will be considered.
@@ -1108,22 +1236,28 @@ Command-line options
     number, by selecting a random subset, if needed. This happens
     when setting up the optimization, and before outlier filtering.
 
---num-iterations <integer (default: 1000)>
-    Set the maximum number of iterations.
+--matches-per-tile <int (default: unspecified)>
+    How many interest point matches to compute in each image tile (of size
+    normally :math:`1024^2` pixels). Use a value of ``--ip-per-tile`` a few
+    times larger than this. See an example in :numref:`ba_examples`. See also
+    ``--matches-per-tile-params``.
 
---parameter-tolerance <double (default: 1e-8)>
-    Stop when the relative error in the variables being optimized is less than
-    this. When ``--solve-intrinsics`` is used, the default is 1e-12.
+--matches-per-tile-params <int int (default: 1024 1280)>
+    To be used with ``--matches-per-tile``. The first value is the image tile
+    size for both images. A larger second value allows each right tile to
+    further expand to this size, resulting in the tiles overlapping. This may be
+    needed if the homography alignment between these images is not great, as
+    this transform is used to pair up left and right image tiles.
 
 --overlap-limit <integer (default: 0)>
     Limit the number of subsequent images to search for matches to
     the current image to this value.  By default try to match all
     images. See also ``--auto-overlap-params``.
 
---overlap-list <string>
+--overlap-list <string (default: "")>
     A file containing a list of image pairs, one pair per line,
     separated by a space, which are expected to overlap. Matches
-    are then computed only among the images in each pair. The order 
+    are then computed only among the images in each pair. The order
     in which pairs are specified is not important.
 
 --auto-overlap-params <string (default: "")>
@@ -1148,7 +1282,196 @@ Command-line options
     Match the first several images to last several images by extending
     the logic of ``--overlap-limit`` past the last image to the earliest
     ones. As of the 10/2025 build, this works also with
-    ``--auto-overlap-params``. 
+    ``--auto-overlap-params``.
+
+--position-filter-dist <max_dist (default: -1.0)>
+    If estimated camera positions are used, this option can be used
+    to set a threshold distance in meters between the cameras.  If
+    any pair of cameras is farther apart than this distance, the
+    tool will not attempt to find matching interest points between
+    those two cameras.
+
+--enable-rough-homography
+    Enable the step of performing datum-based rough homography for
+    interest point matching. This is best used with reasonably
+    reliable input cameras and a wide footprint on the ground.
+
+--skip-rough-homography
+    Skip the step of performing datum-based rough homography.  This
+    obsolete option is ignored as it is the default.
+
+--enable-tri-ip-filter
+    Enable triangulation-based interest points filtering. This is
+    best used with reasonably reliable input cameras.
+
+--disable-tri-ip-filter
+    Disable triangulation-based interest points filtering. This
+    obsolete option is ignored as is the default.
+
+--no-datum
+    Do not assume a reliable datum exists, such as for irregularly shaped bodies
+    or when at the ground level. This is also helpful when the input cameras are
+    not very accurate, as the datum is used to do some camera-based filtering of
+    interest points.
+
+Match files and control networks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+--force-reuse-match-files
+    Force reusing the match files even if older than the images or cameras. Then
+    the order of images in each interest point match file need not be the same
+    as for input images. Additional match files will be created if needed.
+
+--skip-matching
+    Only use the match files that be loaded from disk. This implies ``--force-reuse-match-files``.
+
+--matches-as-txt
+    Read and write match files as plain text instead of binary. See
+    :numref:`txt_match`.
+
+--match-files-prefix <string (default: "")>
+    Use the match files from this prefix instead of the current output prefix.
+    See the naming convention in :numref:`ba_match_files`. This implies
+    ``--skip-matching``. The order of images in each interest point match file
+    need not be the same as for input images. See also
+    ``--clean-match-files-prefix``.
+
+--clean-match-files-prefix <string (default: "")>
+    Use as input the ``*-clean.match`` files from this prefix.
+    This implies ``--skip-matching``. The order of images in each interest
+    point match file need not be the same as for input images.
+    Only one of ``--match-files-prefix`` and ``--clean-match-files-prefix``
+    can be set.
+
+--isis-cnet <string (default: "")>
+    Read a control network having interest point matches from this binary file
+    in the ISIS control network format. This can be used with any images and
+    cameras supported by ASP. See also ``--output-cnet-type``.
+
+--nvm <string (default: "")>
+    Read a control network having interest point matches from this file in the
+    NVM format. This can be used with any images and cameras supported by ASP.
+    For Pinhole or CSM frame cameras, the (optimized) camera poses will be
+    read from / written to NVM as well (:numref:`ba_nvm`). See also
+    ``--output-cnet-type``, ``--no-poses-from-nvm``.
+
+--output-cnet-type <string (default: "")>
+    The format in which to save the control network of interest point matches.
+    Options: ``match-files`` (match files in ASP's format), ``isis-cnet`` (ISIS
+    jigsaw format), ``nvm`` (plain text VisualSfM NVM format). If not set, the same
+    format as for the input is used.
+
+--no-poses-from-nvm
+    Do not read the camera poses from the NVM file or write them to such a file.
+    Applicable only with the option ``--nvm`` and Pinhole camera models.
+
+--save-cnet-as-gcp
+    Save the optimized control network, after outlier filtering, in the format
+    used by ground control points (:numref:`bagcp`), including any input GCP.
+    The xyz sigma is 1 meter for regular non-GCP triangulated points and the
+    value of ``--heights-from-dem-uncertainty`` for DEM-constrained points.
+    Can be inspected with ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
+
+Optimization
+^^^^^^^^^^^^
+
+--cost-function <string (default: Cauchy)>
+    Choose a cost function from: Cauchy, PseudoHuber, Huber, L1, L2
+
+--robust-threshold <double (default: 0.5)>
+    Set the threshold for the robust reprojection error cost function.
+    Increasing this makes the solver focus harder on the larger errors while
+    becoming more sensitive to outliers. See the `Google Ceres
+    <http://ceres-solver.org/nnls_modeling.html>`_ documentation on robust cost
+    functions.
+
+--num-iterations <integer (default: 1000)>
+    Set the maximum number of iterations.
+
+--parameter-tolerance <double (default: 1e-8)>
+    Stop when the relative error in the variables being optimized is less than
+    this. When ``--solve-intrinsics`` is used, the default is 1e-12.
+
+--num-passes <integer (default: 2)>
+    How many passes of bundle adjustment to do, with given number
+    of iterations in each pass. For more than one pass, outliers will
+    be removed between passes using ``--remove-outliers-params``,
+    and re-optimization will take place. Residual files and a copy of
+    the match files with the outliers removed (``*-clean.match``) will
+    be written to disk.
+
+--num-random-passes <integer (default: 0)>
+    After performing the normal bundle adjustment passes, do this
+    many more passes using the same matches but adding random offsets
+    to the initial parameter values with the goal of avoiding local
+    minima that the optimizer may be getting stuck in. Only the
+    results for the optimization pass with the lowest error are
+    kept.
+
+--save-intermediate-cameras
+    Save the values for the cameras at each iteration.
+
+Outlier filtering
+^^^^^^^^^^^^^^^^^
+
+--remove-outliers-params <'pct factor err1 err2' (default: '75.0 3.0 5.0 8.0')>
+    Outlier removal based on percentage, when more than one bundle adjustment
+    pass is used.  Triangulated points (that are not GCP) with reprojection
+    error in pixels larger than::
+
+        min(max(pct-th percentile * factor, err1), err2)
+
+    will be removed as outliers.  Hence, never remove pixel
+    reprojection errors smaller than ``err1`` but always remove those bigger
+    than ``err2``. Specify as a list in quotes. Also remove outliers based on
+    distribution of interest point matches and triangulated points. See
+    :numref:`ba_csm` for an example.
+
+--elevation-limit <min max (default: auto)>
+    Remove as outliers interest points (that are not GCP) for which
+    the elevation of the triangulated position (after cameras are
+    optimized) is outside of this range. Specify as two values.
+
+--lon-lat-limit <min_lon min_lat max_lon max_lat (default: auto)>
+    Remove as outliers interest points (that are not GCP) for which
+    the longitude and latitude of the triangulated position (after
+    cameras are optimized) are outside of this range.  Specify as
+    four values.
+
+--max-gcp-reproj-err <double (default: -1.0)>
+    If positive, after each pass remove GCPs whose mean reprojection
+    error (averaged over all cameras seeing that point) is more than
+    this value (in pixels).
+
+--min-triangulation-angle <degrees (default: 0.1)>
+    Filter as outlier any triangulation point for which all rays converging to
+    it have an angle less than this (measured in degrees). This happens on
+    loading the match files and after each optimization pass. This should be
+    used cautiously with very uncertain input cameras. See also
+    ``--forced-triangulation-distance`` and ``--max-triangulation-angle``.
+
+--max-triangulation-angle <double (default: -1.0)>
+    Filter as outlier any triangulation points for which the maximum angle of
+    rays converging to it are more than this (measured in degrees). Set to a
+    positive value. See also ``--min-triangulation-angle``.
+
+--forced-triangulation-distance <meters (default: -1)>
+    When triangulation fails, for example, when input cameras are inaccurate or
+    the triangulation angle is too small, artificially create a triangulation
+    point this far ahead of the camera, in units of meters. Some of these may
+    later be filtered as outliers. Can also set a very small value for
+    ``--min-triangulation-angle`` in this case.
+
+--proj-win <xmin ymin xmax ymax (default: auto)>
+    Flag as outliers input triangulated points not in this proj
+    win (box in projected units as provided by ``--proj_str``). This
+    should be generous if the input cameras have significant errors.
+
+--proj-str <string (default: "")>
+    To be used in conjunction with ``--proj-win``.
+
+Camera and ground constraints
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 --tri-weight <double (default: 0.1)>
     The weight to give to the constraint that optimized triangulated points stay
@@ -1158,7 +1481,7 @@ Command-line options
     distance (GSD) to convert this constraint to pixel units, since the
     reprojection errors are in pixels. See also ``--tri-robust-threshold``. Does
     not apply to GCP or points constrained by a DEM.
-    
+
 --tri-robust-threshold <double (default: 0.1)>
     The robust threshold to attenuate large differences between initial and
     optimized triangulation points, after multiplying them by ``--tri-weight``
@@ -1188,7 +1511,7 @@ Command-line options
     attenuated with ``--camera-position-robust-threshold``. It is suggested to
     use instead ``--camera-position-uncertainty``. See
     :numref:`ba_cam_constraints` for details.
- 
+
 --camera-position-robust-threshold <double (default: 0.1)>
     The robust threshold to attenuate large discrepancies between initial and
     optimized camera positions with the option ``--camera-position-weight``.
@@ -1196,7 +1519,7 @@ Command-line options
     pixel reprojection errors, even if that results in big differences in the
     camera positions. It is suggested to not modify this value, and adjust
     instead ``--camera-position-weight``.
-       
+
 --rotation-weight <double (default: 0.0)>
     A higher weight will penalize more camera rotation deviations from the
     original configuration.  This adds to the cost function
@@ -1209,85 +1532,61 @@ Command-line options
     stay close to the original values. A higher weight means that the values will
     change less. This option is deprecated. Use instead ``--camera-position-weight``
     and ``--tri-weight``.
-        
---ip-per-tile <integer (default: unspecified)>
-    How many interest points to detect in each :math:`1024^2` image
-    tile (default: automatic determination). This is before matching. 
-    Not all interest points will have a match. See also ``--matches-per-tile``.
 
---ip-per-image <integer>
-    How many interest points to detect in each image (default:
-    automatic determination). Can set either this or ``--ip-per-tile``.
+--heights-from-dem <string (default: "")>
+    Assuming the cameras have already been bundle-adjusted and aligned to a
+    known DEM, constrain the triangulated points to be close to the DEM. See
+    also ``--heights-from-dem-uncertainty`` and :numref:`heights_from_dem`.
 
---ip-detect-method <integer (default: 0)>
-    Choose an interest point detection method from: 0 = OBAloG
-    (:cite:`jakkula2010efficient`), 1 = SIFT (from OpenCV), 2 = ORB (from
-    OpenCV). The SIFT method, unlike OBALoG, produces interest points that are
-    accurate to subpixel level. Remove any existing ``.vwip`` files before
-    recomputing interest points with a different method. See also
-    :numref:`custom_ip`.
+--heights-from-dem-uncertainty <double (default: -1.0)>
+    The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value
+    constrains more the triangulated points to the DEM specified via
+    ``--heights-from-dem``. The discrepancy between a triangulated point and
+    corresponding point on the DEM is divided by this uncertainty to make it
+    dimensionless, before being added to the cost function
+    (:numref:`how_ba_works`). See also ``--heights-from-dem-robust-threshold``.
 
---matches-per-tile <int (default: unspecified)>
-    How many interest point matches to compute in each image tile (of size
-    normally :math:`1024^2` pixels). Use a value of ``--ip-per-tile`` a few
-    times larger than this. See an example in :numref:`ba_examples`. See also
-    ``--matches-per-tile-params``.
+--heights-from-dem-robust-threshold <double (default: 0.1)>
+    The robust threshold to use to keep the triangulated points close to the DEM if
+    specified via ``--heights-from-dem``. This is applied after the point
+    differences are divided by ``--heights-from-dem-uncertainty``. It will
+    attenuate large height difference outliers. It is suggested to not modify
+    this value, and adjust instead ``--heights-from-dem-uncertainty``.
 
---matches-per-tile-params <int int (default: 1024 1280)>
-    To be used with ``--matches-per-tile``. The first value is the image tile
-    size for both images. A larger second value allows each right tile to
-    further expand to this size, resulting in the tiles overlapping. This may be
-    needed if the homography alignment between these images is not great, as
-    this transform is used to pair up left and right image tiles.
+--weight-image <string (default: "")>
+    Given a georeferenced image with float values, for each initial triangulated
+    point find its location in the image and closest pixel value. Multiply the
+    reprojection errors in the cameras for this point by this weight value. The
+    solver will focus more on optimizing points with a higher weight. Points
+    that fall outside the image and weights that are non-positive, NaN, or equal
+    to nodata will be ignored. See :numref:`limit_ip` for details.
 
---inline-adjustments
-    If this is set, and the input cameras are of the pinhole or
-    panoramic type, apply the adjustments directly to the cameras,
-    rather than saving them separately as .adjust files.
+--reference-terrain <filename (default: "")>
+    An externally provided trustworthy reference terrain to use as a constraint.
+    It can be either a DEM or a point cloud in CSV format. It must be
+    well-aligned with the input cameras (:numref:`reference_terrain`).
 
---input-adjustments-prefix <string (default: "")>
-    Prefix to read initial adjustments from, written by a previous
-    invocation of this program.
+--reference-terrain-weight <double (default: 1)>
+    How much weight to give to the cost function terms involving
+    the reference terrain. See :numref:`reference_terrain`.
 
---isis-cnet <string (default: "")>
-    Read a control network having interest point matches from this binary file
-    in the ISIS control network format. This can be used with any images and
-    cameras supported by ASP. See also ``--output-cnet-type``.
+--max-num-reference-points <integer (default: 100000000)>
+    Maximum number of (randomly picked) points from the reference
+    terrain to use. See :numref:`reference_terrain`.
 
---nvm <string (default: "")>
-    Read a control network having interest point matches from this file in the
-    NVM format. This can be used with any images and cameras supported by ASP.
-    For Pinhole or CSM frame cameras, the (optimized) camera poses will be
-    read from / written to NVM as well (:numref:`ba_nvm`). See also
-    ``--output-cnet-type``, ``--no-poses-from-nvm``.
+--disparity-list <'filename12 filename23 ...' (default: "")>
+    The unaligned disparity files to use when optimizing the
+    intrinsics based on a reference terrain. Specify them as a list
+    in quotes separated by spaces.  First file is for the first two
+    images, second is for the second and third images, etc. If an
+    image pair has no disparity file, use 'none'. See :numref:`reference_terrain` for an example.
 
---output-cnet-type <string (default: "")>
-    The format in which to save the control network of interest point matches.
-    Options: ``match-files`` (match files in ASP's format), ``isis-cnet`` (ISIS
-    jigsaw format), ``nvm`` (plain text VisualSfM NVM format). If not set, the same
-    format as for the input is used.
-
---no-poses-from-nvm
-    Do not read the camera poses from the NVM file or write them to such a file.
-    Applicable only with the option ``--nvm`` and Pinhole camera models.
-    
---initial-transform <string>
-    Before optimizing the cameras, apply to them the 4 |times| 4 rotation
-    + translation transform from this file. The transform is in
-    respect to the planet center, such as written by pc_align's
-    source-to-reference or reference-to-source alignment transform.
-    Set the number of iterations to 0 to stop at this step. If
-    ``--input-adjustments-prefix`` is specified, the transform gets
-    applied after the adjustments are read.
-
---fixed-camera-indices <string>
-    A list of indices, in quotes and starting from 0, with space
-    as separator, corresponding to cameras to keep fixed during the
-    optimization process.
-
---fixed-image-list
-    A file having a list of images (separated by spaces or newlines)
-    whose cameras should be fixed during optimization. 
+--max-disp-error <double (default: -1)>
+    When using a reference terrain as an external control, ignore
+    as outliers xyz points which projected in the left image and
+    transported by disparity to the right image differ by the
+    projection of xyz in the right image by more than this value
+    in pixels. See :numref:`reference_terrain`.
 
 --fix-gcp-xyz
     If the GCP are highly accurate, use this option to not float
@@ -1297,6 +1596,9 @@ Command-line options
     When having GCP (or a DEM constraint), constrain the triangulated points in the
     longitude, latitude, and height space, instead of ECEF. The standard deviations
     in the GCP file (or DEM uncertainty) are applied accordingly.
+
+Solving for intrinsics
+^^^^^^^^^^^^^^^^^^^^^^
 
 --solve-intrinsics
     Optimize intrinsic camera parameters. Only used for pinhole, optical bar,
@@ -1320,7 +1622,7 @@ Command-line options
     intrinsics per sensor, this option is ignored, as then the sharing is more
     fine-grained (:numref:`kaguya_ba`).
 
---intrinsics-limits <arg>
+--intrinsics-limits <string (default: "")>
     Set a string in quotes that contains min max ratio pairs for intrinsic
     parameters. For example, "0.8 1.2" limits the parameter to changing by no
     more than 20 percent. The first pair is for focal length, the next two are
@@ -1331,130 +1633,60 @@ Command-line options
     camera model unless it is specified otherwise in :numref:`pinholemodels`.
     Setting limits can greatly slow down the solver.
 
---num-passes <integer (default: 2)>
-    How many passes of bundle adjustment to do, with given number
-    of iterations in each pass. For more than one pass, outliers will
-    be removed between passes using ``--remove-outliers-params``, 
-    and re-optimization will take place. Residual files and a copy of
-    the match files with the outliers removed (``*-clean.match``) will
-    be written to disk.
+--min-distortion <double (default: 1e-7)>
+    Distortion parameters that are optimized and that are smaller in magnitude
+    than this value are set to this value. This is to ensure the parameters are
+    big enough to be optimized. Can be negative. This is affected by
+    ``--fixed-distortion-indices``. Applies to Pinhole cameras (all distortion
+    models) and CSM (radial-tangential distortion only). Does not apply to
+    optical bar models.
 
---num-random-passes <integer (default: 0)>
-    After performing the normal bundle adjustment passes, do this
-    many more passes using the same matches but adding random offsets
-    to the initial parameter values with the goal of avoiding local
-    minima that the optimizer may be getting stuck in. Only the
-    results for the optimization pass with the lowest error are
-    kept.
+--fixed-distortion-indices <string (default: "")>
+    A sequence of indices, separated by commas (with no spaces) starting from 0,
+    corresponding to lens distortion parameters to keep fixed, if
+    ``--solve-intrinsics`` is invoked. These will not be changed by the
+    ``--min-distortion`` setting. Sample input: ``0,3,4``. The order of
+    distortion parameters is as saved in output camera files. For example, for
+    radial-tangential distortion, the order is ``k1, k2, p1, p2, k3``
+    (:numref:`pinhole_distortion`).
 
---remove-outliers-params <'pct factor err1 err2' (default: '75.0 3.0 5.0 8.0')>
-    Outlier removal based on percentage, when more than one bundle adjustment
-    pass is used.  Triangulated points (that are not GCP) with reprojection
-    error in pixels larger than::
-    
-        min(max(pct-th percentile * factor, err1), err2)
-    
-    will be removed as outliers.  Hence, never remove pixel
-    reprojection errors smaller than ``err1`` but always remove those bigger
-    than ``err2``. Specify as a list in quotes. Also remove outliers based on
-    distribution of interest point matches and triangulated points.
+Camera initialization and transforms
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
---elevation-limit <min max>
-    Remove as outliers interest points (that are not GCP) for which
-    the elevation of the triangulated position (after cameras are
-    optimized) is outside of this range. Specify as two values.
+--inline-adjustments
+    If this is set, and the input cameras are of the pinhole or
+    panoramic type, apply the adjustments directly to the cameras,
+    rather than saving them separately as .adjust files.
 
---lon-lat-limit <min_lon min_lat max_lon max_lat>
-    Remove as outliers interest points (that are not GCP) for which
-    the longitude and latitude of the triangulated position (after
-    cameras are optimized) are outside of this range.  Specify as
-    four values.
+--input-adjustments-prefix <string (default: "")>
+    Prefix to read initial adjustments from, written by a previous
+    invocation of this program.
 
---max-gcp-reproj-err <double (default: -1.0)>
-    If positive, after each pass remove GCPs whose mean reprojection
-    error (averaged over all cameras seeing that point) is more than
-    this value (in pixels).
+--initial-transform <string (default: "")>
+    Before optimizing the cameras, apply to them the 4 |times| 4 rotation
+    + translation transform from this file. The transform is in
+    respect to the planet center, such as written by pc_align's
+    source-to-reference or reference-to-source alignment transform.
+    Set the number of iterations to 0 to stop at this step. If
+    ``--input-adjustments-prefix`` is specified, the transform gets
+    applied after the adjustments are read.
 
---heights-from-dem <string (default: "")>
-    Assuming the cameras have already been bundle-adjusted and aligned to a
-    known DEM, constrain the triangulated points to be close to the DEM. See
-    also ``--heights-from-dem-uncertainty`` and :numref:`heights_from_dem`.
+--apply-initial-transform-only
+    Apply to the cameras the transform given by ``--initial-transform``.
+    No iterations, GCP loading, image matching, or report generation
+    take place. Using ``--num-iterations 0`` and without this option
+    will create those.
 
---heights-from-dem-uncertainty <double (default: -1.0)>
-    The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value
-    constrains more the triangulated points to the DEM specified via
-    ``--heights-from-dem``. The discrepancy between a triangulated point and
-    corresponding point on the DEM is divided by this uncertainty to make it
-    dimensionless, before being added to the cost function
-    (:numref:`how_ba_works`). See also ``--heights-from-dem-robust-threshold``.
+--fixed-camera-indices <string (default: "")>
+    A list of indices, in quotes and starting from 0, with space
+    as separator, corresponding to cameras to keep fixed during the
+    optimization process.
 
---heights-from-dem-robust-threshold <double (default: 0.1)> 
-    The robust threshold to use to keep the triangulated points close to the DEM if
-    specified via ``--heights-from-dem``. This is applied after the point
-    differences are divided by ``--heights-from-dem-uncertainty``. It will
-    attenuate large height difference outliers. It is suggested to not modify
-    this value, and adjust instead ``--heights-from-dem-uncertainty``.
+--fixed-image-list <string (default: "")>
+    A file having a list of images (separated by spaces or newlines)
+    whose cameras should be fixed during optimization.
 
---mapproj-dem <string (default: "")>
-    If specified, mapproject every pair of matched interest points onto this DEM
-    and compute their distance, then percentiles of such distances for each
-    image vs the rest and each image pair. This is done after bundle adjustment
-    and outlier removal. Measured in meters. See :numref:`ba_mapproj_dem` for
-    more details. Not related to ``--mapprojected-data``.
-
---csv-format <string>
-    Specify the format of input CSV files as a list of entries
-    column_index:column_type (indices start from 1).  Examples:
-    ``1:x 2:y 3:z`` (a Cartesian coordinate system with origin at
-    planet center is assumed, with the units being in meters),
-    ``5:lon 6:lat 7:radius_m`` (longitude and latitude are in degrees,
-    the radius is measured in meters from planet center), 
-    ``3:lat 2:lon 1:height_above_datum``,
-    ``1:easting 2:northing 3:height_above_datum``
-    (need to set ``--csv-srs``; the height above datum is in
-    meters).  Can also use radius_km for column_type, when it is
-    again measured from planet center.
-
---csv-srs <string>
-    The PROJ or WKT string for interpreting the entries in input CSV
-    files.
-
---update-isis-cubes-with-csm-state
-    Save the model state of optimized CSM cameras as part of the .cub
-    files. Any prior version and any SPICE data will be deleted.
-    Mapprojected images obtained with prior version of the cameras
-    must no longer be used in stereo.
-
---save-adjusted-rpc
-    In addition to external adjustments to the input cameras, save RPC cameras
-    with the adjustments applied to them, in XML format. This recomputes the RPC
-    models (:numref:`rpc_and_ba`).
-            
---min-triangulation-angle <degrees (default: 0.1)>
-    Filter as outlier any triangulation point for which all rays converging to
-    it have an angle less than this (measured in degrees). This happens on
-    loading the match files and after each optimization pass. This should be
-    used cautiously with very uncertain input cameras. See also
-    ``--forced-triangulation-distance`` and ``--max-triangulation-angle``.
-
---forced-triangulation-distance <meters>
-    When triangulation fails, for example, when input cameras are inaccurate or
-    the triangulation angle is too small, artificially create a triangulation
-    point this far ahead of the camera, in units of meters. Some of these may
-    later be filtered as outliers. Can also set a very small value for
-    ``--min-triangulation-angle`` in this case.
-
---ip-num-ransac-iterations <iterations (default: 1000)>
-    How many RANSAC iterations to do in interest point matching.
-
---save-cnet-as-gcp
-    Save the optimized control network, after outlier filtering, in the format
-    used by ground control points (:numref:`bagcp`), including any input GCP.
-    The xyz sigma is 1 meter for regular non-GCP triangulated points and the
-    value of ``--heights-from-dem-uncertainty`` for DEM-constrained points.
-    Can be inspected with ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
-
---camera-positions <filename>
+--camera-positions <filename (default: "")>
     CSV file containing estimated position of each camera, in ECEF
     coordinates. For this to work well the camera must travel not along linear
     path, as this data will be used to find an alignment transform. Only used
@@ -1486,61 +1718,19 @@ Command-line options
     GCP coordinates. This is ignored as it is now the default. See also:
     ``--init-camera-using-gcp``.
 
---position-filter-dist <max_dist (default: -1.0)>
-    If estimated camera positions are used, this option can be used
-    to set a threshold distance in meters between the cameras.  If
-    any pair of cameras is farther apart than this distance, the
-    tool will not attempt to find matching interest points between
-    those two cameras.
+--update-isis-cubes-with-csm-state
+    Save the model state of optimized CSM cameras as part of the .cub
+    files. Any prior version and any SPICE data will be deleted.
+    Mapprojected images obtained with prior version of the cameras
+    must no longer be used in stereo.
 
---force-reuse-match-files
-    Force reusing the match files even if older than the images or cameras. Then
-    the order of images in each interest point match file need not be the same
-    as for input images. Additional match files will be created if needed.
+--save-adjusted-rpc
+    In addition to external adjustments to the input cameras, save RPC cameras
+    with the adjustments applied to them, in XML format. This recomputes the RPC
+    models (:numref:`rpc_and_ba`).
 
---skip-matching
-    Only use the match files that be loaded from disk. This implies ``--force-reuse-match-files``.
-
---matches-as-txt
-    Read and write match files as plain text instead of binary. See
-    :numref:`txt_match`.
-
---match-files-prefix <string (default: "")>
-    Use the match files from this prefix instead of the current output prefix.
-    See the naming convention in :numref:`ba_match_files`. This implies
-    ``--skip-matching``. The order of images in each interest point match file
-    need not be the same as for input images. See also
-    ``--clean-match-files-prefix``.
-
---clean-match-files-prefix <string (default: "")>
-    Use as input the ``*-clean.match`` files from this prefix.
-    This implies ``--skip-matching``. The order of images in each interest
-    point match file need not be the same as for input images.
-    Only one of ``--match-files-prefix`` and ``--clean-match-files-prefix``
-    can be set.
-
---enable-rough-homography
-    Enable the step of performing datum-based rough homography for
-    interest point matching. This is best used with reasonably
-    reliable input cameras and a wide footprint on the ground.
-
---skip-rough-homography
-    Skip the step of performing datum-based rough homography.  This
-    obsolete option is ignored as it is the default.
-
---enable-tri-ip-filter
-    Enable triangulation-based interest points filtering. This is
-    best used with reasonably reliable input cameras.
-
---disable-tri-ip-filter
-    Disable triangulation-based interest points filtering. This
-    obsolete option is ignored as is the default.
-
---no-datum
-    Do not assume a reliable datum exists, such as for irregularly shaped bodies
-    or when at the ground level. This is also helpful when the input cameras are
-    not very accurate, as the datum is used to do some camera-based filtering of
-    interest points.
+Mapprojection
+^^^^^^^^^^^^^
 
 --mapprojected-data <string (default: "")>
     Given map-projected versions of the input images and the DEM they were
@@ -1554,51 +1744,27 @@ Command-line options
     suggested to use this with ``--auto-overlap-params.`` See also
     ``--mapprojected-data-list``.
 
---save-intermediate-cameras
-    Save the values for the cameras at each iteration.
-
---apply-initial-transform-only
-    Apply to the cameras the transform given by ``--initial-transform``.
-    No iterations, GCP loading, image matching, or report generation
-    take place. Using ``--num-iterations 0`` and without this option
-    will create those.
-
---image-list
-    A file containing the list of images, when they are too many to specify on
-    the command line. Use in the file a space or newline as separator. When
-    solving for intrinsics for several sensors, pass to this option several
-    lists, with comma as separator between the file names (no space). An example
-    is in :numref:`kaguya_ba`. See also ``--camera-list`` and
-    ``--mapprojected-data-list``.
-
---camera-list
-    A file containing the list of cameras, when they are too many to
-    specify on the command line. If the images have embedded camera
-    information, such as for ISIS, this file may be omitted, or
-    specify the image names instead of camera names.
-
---mapprojected-data-list
+--mapprojected-data-list <string (default: "")>
     A file containing the list of mapprojected images and the DEM (see
     ``--mapprojected-data``), when they are too many to specify on the command
     line. The order must be the same as for input images. The DEM is optional
     (since the 1/2026 build) if it can be looked up in the geoheaders of the
     mapprojected images. If provided, the DEM must be the last entry.
 
---proj-win
-    Flag as outliers input triangulated points not in this proj
-    win (box in projected units as provided by ``--proj_str``). This
-    should be generous if the input cameras have significant errors.
+--mapproj-dem <string (default: "")>
+    If specified, mapproject every pair of matched interest points onto this DEM
+    and compute their distance, then percentiles of such distances for each
+    image vs the rest and each image pair. This is done after bundle adjustment
+    and outlier removal. Measured in meters. See :numref:`ba_mapproj_dem` for
+    more details. Not related to ``--mapprojected-data``.
 
---proj-str
-    To be used in conjunction with  ``--proj-win``.
+--accept-provided-mapproj-dem
+    Accept the DEM provided on the command line as the one mapprojection was
+    done with, even if it disagrees with the DEM recorded in the geoheaders of
+    input images.
 
---weight-image <string (default: "")>
-    Given a georeferenced image with float values, for each initial triangulated
-    point find its location in the image and closest pixel value. Multiply the
-    reprojection errors in the cameras for this point by this weight value. The
-    solver will focus more on optimizing points with a higher weight. Points
-    that fall outside the image and weights that are non-positive, NaN, or equal
-    to nodata will be ignored. See :numref:`limit_ip` for details.
+Error propagation
+^^^^^^^^^^^^^^^^^
 
 --propagate-errors
     Propagate the errors from the input cameras to the triangulated
@@ -1610,71 +1776,9 @@ Command-line options
     If positive, propagate this stddev of horizontal ground plane camera
     uncertainty through triangulation for all cameras. To be used with
     ``--propagate-errors``.
-   
---epipolar-threshold <double (default: -1)>
-    Maximum distance from the epipolar line to search for IP matches.
-    If this option isn't given, it will default to an automatic determination.
 
---ip-inlier-factor <double (default: 0.2)>
-    Inlier factor used to remove outliers with homography filtering and RANSAC.
-    A higher factor will result in more interest points, but perhaps also more
-    outliers.
-
---ip-uniqueness-threshold <double (default: 0.8)>
-    A higher threshold will result in more interest points, but
-    perhaps less unique ones.
-
---nodata-value <double(=NaN)>
-    Pixels with values less than or equal to this number are treated
-    as no-data. This overrides the no-data values from input images.
-
---individually-normalize
-    Individually normalize the input images instead of using common
-    values.
-
---min-distortion <double (default: 1e-7)>
-    Distortion parameters that are optimized and that are smaller in magnitude
-    than this value are set to this value. This is to ensure the parameters are
-    big enough to be optimized. Can be negative. This is affected by
-    ``--fixed-distortion-indices``. Applies to Pinhole cameras (all distortion
-    models) and CSM (radial-tangential distortion only). Does not apply to
-    optical bar models.
-
---fixed-distortion-indices <string (default: "")>
-    A sequence of indices, separated by commas (with no spaces) starting from 0,
-    corresponding to lens distortion parameters to keep fixed, if
-    ``--solve-intrinsics`` is invoked. These will not be changed by the
-    ``--min-distortion`` setting. Sample input: ``0,3,4``. The order of
-    distortion parameters is as saved in output camera files. For example, for
-    radial-tangential distortion, the order is ``k1, k2, p1, p2, k3``
-    (:numref:`pinhole_distortion`). 
-    
---reference-terrain <filename>
-    An externally provided trustworthy reference terrain to use as a constraint.
-    It can be either a DEM or a point cloud in CSV format. It must be
-    well-aligned with the input cameras (:numref:`reference_terrain`).
-
---reference-terrain-weight <double (default: 1)>
-    How much weight to give to the cost function terms involving
-    the reference terrain.
-
---max-num-reference-points <integer (default: 100000000)>
-    Maximum number of (randomly picked) points from the reference
-    terrain to use.
-
---disparity-list <'filename12 filename23 ...'>
-    The unaligned disparity files to use when optimizing the
-    intrinsics based on a reference terrain. Specify them as a list
-    in quotes separated by spaces.  First file is for the first two
-    images, second is for the second and third images, etc. If an
-    image pair has no disparity file, use 'none'.
-
---max-disp-error <double (default: -1)>
-    When using a reference terrain as an external control, ignore
-    as outliers xyz points which projected in the left image and
-    transported by disparity to the right image differ by the
-    projection of xyz in the right image by more than this value
-    in pixels.
+Bathymetry correction
+^^^^^^^^^^^^^^^^^^^^^
 
 --bathy-plane <string (default: "")>
     Path to a file containing a plane approximating the water surface, for
@@ -1702,46 +1806,5 @@ Command-line options
     1.333 to 1.341 depending on wavelength and temperature. Must be used with
     ``--bathy-plane``. See :numref:`refr_index` to compute the effective
     refraction index for a specific satellite band and water conditions.
-
---max-triangulation-angle <double (default: -1.0)>
-    Filter as outlier any triangulation points for which the maximum angle of
-    rays converging to it are more than this (measured in degrees). Set to a
-    positive value. See also ``--min-triangulation-angle``.
-    
---ip-triangulation-max-error <float>
-    When matching IP, filter out any pairs with a triangulation error higher
-    than this. The triangulation error is the shortest distance between rays.
-    This gets used only when the usual triangulation error filtering fails.
-
---flann-method <string (default = "auto")>
-    Choose the FLANN method for matching interest points. Options: ``kmeans``:
-    slower but deterministic, ``kdtree``: faster (up to 6x) but not
-    deterministic (starting with FLANN 1.9.2). The default (``auto``) is to use
-    ``kmeans`` for 25,000 features or less and ``kdtree`` otherwise. This does
-    not apply to ORB feature matching.
-
---ip-nodata-radius <integer (default: 4)>
-    Remove IP near nodata with this radius, in pixels.
-
---accept-provided-mapproj-dem
-    Accept the DEM provided on the command line as the one mapprojection was
-    done with, even if it disagrees with the DEM recorded in the geoheaders of
-    input images.
-
---save-vwip
-    Save ``.vwip`` files (interest point matches per image, before matching).
-    This option is currently ignored as ``.vwip`` are always saved.
-
---threads <integer (default: 0)>
-    Set the number threads to use. 0 means use the default defined
-    in the program or in ``~/.vwrc``. Note that when using more
-    than one thread and the Ceres option the results will vary
-    slightly each time the tool is run.
-
---cache-size-mb <integer (default = 1024)>
-    Set the system cache size, in MB, for each process.
-
--v, --version
-    Display the version of software.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

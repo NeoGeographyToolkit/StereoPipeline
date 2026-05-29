@@ -6,9 +6,9 @@ point2dem
 The ``point2dem`` program produces a digital elevation model (DEM) in the
 GeoTIFF format and/or an orthographic image from a set of point clouds. The
 clouds can be created by ``parallel_stereo`` (:numref:`parallel_stereo`), or be
-in CSV (:numref:`point2dem_csv`) or LAS (:numref:`point2dem_las`) format. 
+in CSV (:numref:`point2dem_csv`) or LAS (:numref:`point2dem_las`) format.
 
-The heights in the produced DEM are relative to a datum (ellipsoid). 
+The heights in the produced DEM are relative to a datum (ellipsoid).
 They are calculated by weighted averaging around each grid point
 of the heights of points in the cloud (see ``--search-radius-factor``).
 
@@ -46,16 +46,16 @@ If this is not set:
 
  - The ``point2dem`` program inherits the projection from the input images, if
    those are mapprojected (:numref:`mapproj-example`) and the projection is not
-   geographic. 
+   geographic.
 
  - If the input is a LAS file having a projection that is not geographic, that
-   will be used. 
-   
- - If the input is a CSV file, the projection from ``--csv-srs`` will be used. 
+   will be used.
+
+ - If the input is a CSV file, the projection from ``--csv-srs`` will be used.
 
 If none of these are applicable, in the latest ASP (:numref:`release`),
 ``point2dem`` automatically finds a good local projection in meters. For ASP
-3.4.0 and earlier, the default projection was geographic. 
+3.4.0 and earlier, the default projection was geographic.
 
 For Earth, with the WGS84 datum, the auto-determined projection is UTM
 with an auto-computed zone, except for latitudes above 84° North and below 80°
@@ -95,7 +95,7 @@ datum and projection are saved in the geoheader and can be seen with ``gdalinfo
 -proj4`` (:numref:`gdal_tools`).
 
 ASP normally auto-guesses the planet (datum), otherwise the option ``-r`` can be
-used. 
+used.
 
 If desired to change the output no-data value (which can also be inspected with
 ``gdalinfo``), use the options ``--nodata-value``.
@@ -200,7 +200,7 @@ See the options ``--sinusoidal``, ``--mercator``, etc., in
 CSV files
 ^^^^^^^^^
 
-The ``point2dem`` program can grid CSV files having longitude, latitude, and 
+The ``point2dem`` program can grid CSV files having longitude, latitude, and
 height values as::
 
      point2dem -r moon                               \
@@ -225,7 +225,7 @@ format::
 
   proj="+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs"
   format="1:easting,2:northing,3:height_above_datum"
-  
+
 then run::
 
     point2dem -r Earth       \
@@ -243,8 +243,8 @@ LAS and COPC
 
 The ``point2dem`` program can grid LAS files, including compressed
 (LAZ) and cloud-optimized (`COPC <https://copc.io/>`_) data. The processing is
-done with `PDAL <https://pdal.io/en/latest/>`_, which is shipped with ASP. 
- 
+done with `PDAL <https://pdal.io/en/latest/>`_, which is shipped with ASP.
+
 For example, to create a DEM from a LAS file, run::
 
     point2dem -r Earth --tr 10 in.las -o run/run
@@ -260,16 +260,16 @@ process, in projected coordinates. Example::
     point2dem --tr 2.0                       \
       --copc-win 636400 852260 638180 849990 \
       cloud.laz                              \
-      -o run/run 
+      -o run/run
 
-To process the full file, use the option ``--copc-read-all``. 
+To process the full file, use the option ``--copc-read-all``.
 
 The determination of whether an input file is COPC or plain LAZ is done
 by peeking at the relevant bits with PDAL.
 
 This program can process LAS files created with ``point2las``
 (:numref:`point2las`).
-    
+
 Multiple clouds
 ^^^^^^^^^^^^^^^
 
@@ -278,10 +278,10 @@ Several point clouds of different types can be passed in on input::
      point2dem -r earth                              \
        --dem-spacing 10                              \
        --csv-format 1:lon,2:lat,3:height_above_datum \
-       in1.las in2.csv run/run-PC.tif -o combined 
+       in1.las in2.csv run/run-PC.tif -o combined
 
 Here LAS, CSV, and TIF point clouds (the latter obtained with
-``parallel_stereo``) are fused together into a single DEM. 
+``parallel_stereo``) are fused together into a single DEM.
 
 The CSV file is in longitude, latitude, and height above datum format, but the
 produced DEM will be in a projection in meters, unless borrowed from the LAS
@@ -432,7 +432,7 @@ Command-line options for point2dem
     to generate multiple output files.
 
 -o, --output-prefix <string (default: "")>
-    Specify the output prefix. The output DEM will be 
+    Specify the output prefix. The output DEM will be
     ``<output prefix>-DEM.tif``.
 
 --t_projwin <xmin ymin xmax ymax>
@@ -475,7 +475,7 @@ Command-line options for point2dem
 --nodata-value <float (default: -1e+6)>
     Set the nodata value.
 
---reference-spheroid <string (default: "")> 
+--reference-spheroid <string (default: "")>
     This is identical to the datum option.
 
 --semi-major-axis <float (default: 0)>
@@ -563,7 +563,7 @@ Command-line options for point2dem
     ``1:easting 2:northing 3:height_above_datum``
     (need to set ``--csv-srs``; the height above datum is in
     meters). Can also use radius_km for column_type, when it is
-    again measured from planet center.
+    again measured from planet center. See :numref:`csv_format` for details.
 
 --csv-srs <string (default: "")>
     The PROJ or WKT string to use to interpret the entries in input CSV files.
@@ -596,7 +596,7 @@ Command-line options for point2dem
     times the grid size. When ``--t_projwin`` is set and its entries are integer
     multiples of the grid size, that precise extent will be produced on output.
     This functions as the GDAL ``-tap`` option.
-    
+
 --propagate-errors
     Write files with names ``<output prefix>-HorizontalStdDev.tif``
     and ``<output prefix>-VerticalStdDev.tif`` having the gridded
@@ -625,7 +625,7 @@ Command-line options for point2dem
     If the point cloud has a vector triangulation error, ensure that the
     intersection error produced by this program is the rasterized norm of
     that vector. See also ``--error-image``.
-     
+
 -t, --output-filetype <string (default: tif)>
     Specify the output file type.
 
@@ -644,11 +644,11 @@ Command-line options for point2dem
    organized. If both a top and bottom surface exists (such as indoors), one of
    them must be cropped out. Point (0, 0, 0) is considered invalid. Must specify
    a projection to interpret the data and the output grid size.
-    
+
 --rounding-error <float (default: 1/2^{10}=0.0009765625)>
     How much to round the output DEM and errors, in meters (more
     rounding means less precision but potentially smaller size on
-    disk). The inverse of a power of 2 is suggested. See also 
+    disk). The inverse of a power of 2 is suggested. See also
     ``--point-cloud-rounding-error`` and ``--save-double-precision-point-cloud``
     for when the input point cloud is created (:numref:`triangulation_options`).
 
@@ -690,7 +690,7 @@ Command-line options for point2dem
 
 --copc-read-all
     Read the full COPC file, ignoring the ``--copc-win`` option.
-        
+
 --x-offset <float (default: 0)>
     Add a longitude offset (in degrees) to the DEM.
 

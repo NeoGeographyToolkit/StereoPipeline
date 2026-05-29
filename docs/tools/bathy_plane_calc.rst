@@ -39,13 +39,13 @@ follows::
     image_calc -c "gt(var_0, $thresh, 1, 0)" image.tif -o mask.tif
 
 The mask has values of 1 for land and 0 for water.
- 
+
 The image must be raw, not projected, and if the image is part of a stereo pair,
 the corresponding camera for that image must be used. In particular, if the image is
 multispectral, the camera must be for this dataset, not for the PAN one.
 
 For the DEM, it is suggested to use the one obtained from PAN images,
-as it is more accurate, or otherwise from the Green band images. 
+as it is more accurate, or otherwise from the Green band images.
 The NIR1 band is good for finding the masks, as the water is dark in them,
 but the DEM with NIR1 images may not be that accurate to use in this context.
 
@@ -81,8 +81,8 @@ The output file format is described in :numref:`bathy_plane_def`.
 Handling adjusted cameras and alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The DEM and camera to be passed to ``bathy_plane_calc`` must be 
-in the same coordinate system. 
+The DEM and camera to be passed to ``bathy_plane_calc`` must be
+in the same coordinate system.
 
 That is the case, for example, for Digital Globe images, when no
 bundle adjustment or alignment is performed by the user. Without
@@ -125,7 +125,7 @@ values on land. The bathy plane is found as follows::
           --dem dem.tif                        \
           --outlier-threshold 0.5              \
           --bathy-plane plane.txt              \
-          --output-inlier-shapefile inliers.shp 
+          --output-inlier-shapefile inliers.shp
 
 An input mask can be created, for example, with ``image_calc``
 (:numref:`image_calc_create_mask`). The orthoimage itself, before masking, can
@@ -137,7 +137,7 @@ Using a DEM and shapefile
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This example uses a DEM and a shapefile whose vertices sample the water edge as
-inputs::    
+inputs::
 
      bathy_plane_calc                        \
        --shapefile shape.shp                 \
@@ -161,7 +161,7 @@ same stereo pair. The commands for that can be as follows::
        run/run
      point2dem --auto-proj-center \
        --orthoimage run/run-L.tif \
-       run/run-PC.tif 
+       run/run-PC.tif
 
 See :numref:`nextsteps` for a discussion about various speed-vs-quality choices
 in stereo, and the ``point2dem`` documentation in :numref:`point2dem`.
@@ -234,7 +234,7 @@ commas or spaces used as separators. A procedure for collecting such
 data is outlined further down this document
 (:numref:`water_meas_collection`). Here is an sample file, named
 ``meas.csv``, for Florida Keys::
-    
+
    FID,Lon,Lat,WGS84_m
    0,-81.59864018,24.58775288,-23.86539
    1,-81.62377319,24.58180388,-23.84653
@@ -275,7 +275,7 @@ Pick a sample set of points at the water-land boundary
 In this example, instead of computing the best-fitting plane,
 ``bathy_plane_calc`` finds a set of samples (given by ``--num-samples``) at the
 water-land interface and saves them as a shapefile of points, having
-longitude-latitude pairs relative to the WGS_1984 datum (ellipsoid). 
+longitude-latitude pairs relative to the WGS_1984 datum (ellipsoid).
 
 Example::
 
@@ -302,10 +302,10 @@ this data is given in :numref:`bathy_plane_water_meas`.
 
 Absent direct measurements of water surface level at the date and time of
 satellite image acquisition, it is suggested to use the
-discrete tidal zoning information provided by the 
-`National Ocean Service 
+discrete tidal zoning information provided by the
+`National Ocean Service
 <https://noaa.maps.arcgis.com/home/webmap/viewer.html?webmap=21d7b399e6fa42e18a72ee30be9aa5c9>`_
-, while for the metadata use the  
+, while for the metadata use the
 `CO-OPS Discrete Tidal Zoning Map <https://noaa.maps.arcgis.com/home/item.html?id=21d7b399e6fa42e18a72ee30be9aa5c9>`_. An organizational Esri GIS online login is needed to access the data.
 
 Each polygon on the map is a discrete tidal zone, within which NOAA
@@ -324,16 +324,16 @@ station (ControlStn) for that zone, average time corrector
    divided by that at the control station.
 
 The user can access tidal gauge data for
-the satellite day and time of acquisition at the 
-`Center for Operational Oceanographic Products and Services 
+the satellite day and time of acquisition at the
+`Center for Operational Oceanographic Products and Services
 <https://opendap.co-ops.nos.noaa.gov/axis/>`_. Choose Verified Data->
-Six Minutes Data->Try me. 
+Six Minutes Data->Try me.
 
 The user can download tide data in any reference as long as the value is
 expressed in meters. This value needs to be transformed into an ellipsoid
 heights value relative to the WGS_1984 datum. For this the `NOAA VDATUM Java
 program <https://vdatum.noaa.gov/>`_ can be used, or the `NOAA online app
-<https://www.vdatum.noaa.gov/vdatumweb/>`_. 
+<https://www.vdatum.noaa.gov/vdatumweb/>`_.
 
 Please note that even if lots of points on the land/water limit belong to the
 same tidal zone polygon, so they will have same elevation value, the
@@ -471,14 +471,14 @@ Command-line options for bathy_plane_calc
 --mask <string (default: "")>
     An input mask, created from a raw camera image and hence having the
     same dimensions, with values of 1 on land and 0 on water, or
-    positive values on land and nodata values on water. The larger 
+    positive values on land and nodata values on water. The larger
     of the nodata value and zero is used as the water value. The
     heights will be looked up in the DEM with bilinear interpolation.
 
 --camera <string (default: "")>
     The camera file to use with the mask.
 
---bathy-plane arg                     
+--bathy-plane arg
     The output file storing the computed plane (:numref:`bathy_plane_def`).
 
 --output-inlier-shapefile <string (default: "")>
@@ -495,13 +495,13 @@ Command-line options for bathy_plane_calc
 
 -t, --session-type <string (default: "")>
     Select the stereo session type to use for processing. Usually
-    the program can select this automatically by the file extension, 
+    the program can select this automatically by the file extension,
     except for xml cameras. See :numref:`ps_options` for
     options.
 
 --outlier-threshold <double>
     A value, in meters, to determine the distance from a sampled point
-    on the DEM to the best-fit plane to determine if it will be marked as 
+    on the DEM to the best-fit plane to determine if it will be marked as
     outlier and not included in the calculation of that plane. The default
     is 0.5. Its value should be roughly the expected vertical uncertainty
     of the DEM.
@@ -536,7 +536,7 @@ Command-line options for bathy_plane_calc
     have a list of entries with syntax column_index:column_type
     (indices start from 1). Example: '2:lon 3:lat 4:height_above_datum'.
     Note that this option must be enclosed in quotes so it is
-    parsed correctly by the shell.
+    parsed correctly by the shell. See :numref:`csv_format` for details.
 
 --mask-boundary-shapefile <string (default: "")>
     If specified, save the extracted points (before RANSAC) to this
@@ -565,7 +565,7 @@ Command-line options for bathy_plane_calc
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
- 
+
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 

@@ -17,7 +17,7 @@ This program can be invoked just as ``parallel_stereo``::
     stereo_gui [options] <images> [<cameras>] output_prefix [dem]
 
 Here is an example when using RPC cameras::
- 
+
     stereo_gui -t rpc left.tif right.tif left.xml right.xml run/run
 
 One can zoom with the mouse wheel, or by dragging the mouse from
@@ -95,7 +95,7 @@ Other features
 The ``stereo_gui`` program can:
 
   - Create and show hillshaded DEMs (:numref:`stereo_gui_hillshade`).
-   
+
   - Colorize images on-the-fly (``--colorize``) and optionally show a
     colorbar with axes (``--colorbar``). See :numref:`colorize`.
 
@@ -112,7 +112,7 @@ The ``stereo_gui`` program can:
     interest point matches displayed on top of images.
 
   - Load .nvm files having an SfM solution (:numref:`stereo_gui_nvm`).
-   
+
   - View ISIS ``jigsaw`` control network files (:numref:`stereo_gui_isis_cnet`).
 
   - View GCP and .vwip files (:numref:`stereo_gui_vwip_gcp`).
@@ -122,7 +122,7 @@ The ``stereo_gui`` program can:
   - Create interest point matches using mapprojected images (:numref:`mapip`).
 
   - Threshold images (:numref:`thresh`).
-   
+
   - Cycle through images, showing one at a time (:numref:`gui_cycle`).
 
   - Save a screenshot to disk in the BMP or XPM format.
@@ -137,7 +137,7 @@ The ``stereo_gui`` program can create and display hillshaded DEMs. Example::
     stereo_gui --hillshade dem.tif
 
 Or, after the DEM is open, select from the GUI View menu the ``Hillshaded
-images`` option. 
+images`` option.
 
 Right-click to change the azimuth and elevation angles, hence the direction and
 height of the light source. Then toggle hillshading off and then on again.
@@ -218,7 +218,7 @@ residuals created by ``bundle_adjust`` for each interest point
 This will use the longitude and latitude as the position, and will
 determine a color based on the 4th field in this file (the error) and
 the min and max values specified above (which correspond to blue
-and red in the colorized plot, respectively). 
+and red in the colorized plot, respectively).
 
 Files whose name contain the strings ``match_offsets`` and ``anchor_points``
 (created by ``bundle_adjust`` and ``jitter_solve``, :numref:`jitter_solve`), and
@@ -300,7 +300,7 @@ images, such as::
         poly1.txt poly2.txt image.tif
 
 if each of these has georeference (and csv format) information. That is the
-case when the polygons were created in the GUI and saved to disk. 
+case when the polygons were created in the GUI and saved to disk.
 This polygon format is described in :numref:`poly_files`.
 
 To display polygons from any text file, additional options should be specified,
@@ -314,8 +314,8 @@ to the ones desired to plot. Files having Easting-Northing information
 can be loaded as in :numref:`plot_csv`, while omitting the third
 column in the csv format string.
 
-If no georeference information exists, the CSV format can be 
-set to ``1:x,2:y`` if it is desired to have the y axis point up, and 
+If no georeference information exists, the CSV format can be
+set to ``1:x,2:y`` if it is desired to have the y axis point up, and
 ``1:pix_x,2:pix_y`` if it should point down, so that such polygons
 can be overlaid on top of images.
 
@@ -426,7 +426,7 @@ image pair if the output prefix was specified. For that, run::
    stereo_gui --pairwise-matches image1.tif ... imageN.tif run/run
 
 then select a couple of images to view using the checkboxes on the
-left, and their match file will be displayed automatically. 
+left, and their match file will be displayed automatically.
 
 This mode is available also from the *View* menu.
 
@@ -455,7 +455,7 @@ Run::
     stereo_gui image1.tif ... imageN.tif run/run
 
 (the last string is the output prefix). Select viewing of interest
-point matches. 
+point matches.
 
 If one of the match files fails to load or does not contain
 enough match points, the missing points will be added to an
@@ -480,7 +480,7 @@ file is auto-loaded along with the .nvm file.
 
 An .nvm file having features that are not shifted can be loaded as
 well. Such files are created by ``rig_calibrator`` with the
-``--save_nvm_no_shift`` option (:numref:`rig_calibrator`). 
+``--save_nvm_no_shift`` option (:numref:`rig_calibrator`).
 In this case, call ``stereo_gui`` with the additional option
 ``--nvm-no-shift``.
 
@@ -499,7 +499,7 @@ usual, to avoid creating small files.  See
    :name: asp_gui_nvm
    :alt: stereo_gui_nvm.
 
-   An illustration of ``stereo_gui`` displaying an .nvm file. 
+   An illustration of ``stereo_gui`` displaying an .nvm file.
    Pairs of images can be chosen on the left, and matches will be shown.
    The images were created with the MSL Curiosity rover (:numref:`rig_msl`).
 
@@ -519,7 +519,7 @@ This file format does not keep track of the image names.
 
 ASP's ``bundle_adjust`` can also create and update such files
 (:numref:`control_network`). Then, non-ISIS images can be used as well, and this
-tool can load the resulting control network. 
+tool can load the resulting control network.
 
 .. _stereo_gui_vwip_gcp:
 
@@ -534,7 +534,7 @@ Example::
 This works even for a single image. If ``--gcp-file`` is not specified
 but the GCP file is provided, this file will still be loaded.
 
-Creating GCP is described in :numref:`creatinggcp`. 
+Creating GCP is described in :numref:`creatinggcp`.
 
 The ``stereo_gui`` program can also display ``.vwip`` files. Those are
 interest points created by ``ipfind``, ``bundle_adjust``, or
@@ -589,7 +589,7 @@ Creating GCP with with an orthoimage and a DEM
 
 There exist situations when one has one or more images for which the camera
 files are either inaccurate or, for Pinhole camera models, just the intrinsics
-may be known. 
+may be known.
 
 Given a DEM of the area of interest, and optionally an orthoimage (mapprojected
 image, georeferenced image), these an be used to create GCP files
@@ -640,10 +640,10 @@ creating several GCP files that can then be passed together to ``bundle_adjust``
 The sigmas for the GCP should be set via the option ``--gcp-sigma``. Or use
 ``bundle_adjust`` with the option ``--fix-gcp-xyz`` to ensure GCP are kept
 fixed during optimization.
- 
+
 GCP can be visualized in ``stereo_gui`` (:numref:`stereo_gui_vwip_gcp`).
 
-If the input images and the orthoimage are very similar visually, one can 
+If the input images and the orthoimage are very similar visually, one can
 try to automatically detect and load interest point matches as follows::
 
     ipfind img.tif ortho.tif
@@ -700,7 +700,7 @@ and transfer them to the original images. Run::
 
     bundle_adjust A.tif B.tif C.tif A.tsai B.tsai C.tsai          \
       --mapprojected-data 'A.map.tif B.map.tif C.map.tif dem.tif' \
-      --min-matches 0 -o run/run 
+      --min-matches 0 -o run/run
 
 This will not recreate any existing match files either for
 mapprojected images or for unprojected ones. If that is
@@ -709,23 +709,23 @@ desired, existing match files need to be deleted first.
 Add options such as ``--ip-per-tile 250 --matches-per-tile 250`` if needed to
 increase the number of interest point matches.
 
-If these images become too many to set on the command line, use the 
+If these images become too many to set on the command line, use the
 options ``--image-list``, ``--camera-list``, ``--mapprojected-data-list``
 (:numref:`ba_options`).
 
-The DEM at the end of this option is optional in the latest builds, 
+The DEM at the end of this option is optional in the latest builds,
 if it can be looked up from the geoheader of the mapprojected images.
 
 Each mapprojected image stores in its metadata the name of the original
 image, the camera model, the bundle-adjust prefix, if any, and the DEM it
 was mapprojected onto. Hence, the above command will succeed even if invoked
-with different cameras than the ones used for mapprojection, as long as the 
-original cameras are still present and did not change. 
+with different cameras than the ones used for mapprojection, as long as the
+original cameras are still present and did not change.
 
 If the mapprojected images are still too different for interest point
 matching among them to succeed, one can try to bring in more images that
 are intermediate in appearance or illumination between the existing
-ones, so bridging the gap. 
+ones, so bridging the gap.
 
 Alternatively, interest point matching can be done *manually* in the GUI as
 follows::
@@ -744,17 +744,17 @@ images.
 Run::
 
      stereo_gui --view-matches A.tif B.tif C.tif run/run
-     
+
 to check if the interest point matches, that were created using mapprojected
 images, were correctly transferred to the original images. Consider using instead
 the option ``--pairwise-matches`` if some features are not seen in all images.
 
 See :numref:`sfs3` for an illustration of this process.
 
-It is suggested to use ``--mapprojected-data`` with ``--auto-overlap-params.`` 
+It is suggested to use ``--mapprojected-data`` with ``--auto-overlap-params.``
 Then, the interest point matching will be restricted to the region of overlap
 (expanded by the percentage in the latter option).
-    
+
 .. figure:: ../images/sfs3.jpg
    :name: sfs3
    :alt: interest points picked manually
@@ -774,7 +774,7 @@ shape-from-shading, see :numref:`sfs_usage`). This can be done by turning on
 from the menu the ``Threshold detection`` mode, and then
 clicking on pixels in the image. The largest of the chosen pixel
 values will be set to the threshold for each image and printed
-to the screen.  
+to the screen.
 
 From the same menu it is possible to see or change the current threshold.
 
@@ -839,7 +839,7 @@ accept all other ``parallel_stereo`` options as well.
 
 --use-georef
     Plot the images in the projected coordinate system given by
-    the image georeferences. This is currently the default, and 
+    the image georeferences. This is currently the default, and
     can be turned off with ``--no-georef`` or from the View menu.
 
 --nodata-value <double (default: NaN)>
@@ -882,11 +882,11 @@ accept all other ``parallel_stereo`` options as well.
 --nvm-no-shift
     Assume that the image features in the input nvm file were saved without
     being shifted to be relative to the optical center of the camera.
-    
+
 --isis-cnet <string (default="")>
     Load a control network having interest point matches from this binary file
     in the ISIS jigsaw format. See also ``--nvm``.
-        
+
 --gcp-file
     Display the GCP pixel coordinates for this GCP file (implies
     ``--view-matches``).  Also save here GCP if created from the
@@ -966,7 +966,7 @@ accept all other ``parallel_stereo`` options as well.
     ``1:easting 2:northing 3:height_above_datum``
     (need to set ``--csv-srs``; the height above datum is in
     meters). Can also use radius_km for column_type, when it is
-    again measured from planet center.
+    again measured from planet center. See :numref:`csv_format` for details.
 
 --csv-datum <string (default="")>
     The datum to use to to use when plotting a CSV file. Options:
@@ -976,7 +976,7 @@ accept all other ``parallel_stereo`` options as well.
 
 --csv-srs <string (default="")>
     The PROJ or WKT string to use when plotting a CSV
-    file. If not specified, try to use the ``--datum`` option. 
+    file. If not specified, try to use the ``--datum`` option.
 
 --lowest-resolution-subimage-num-pixels <integer (default: -1)>
     When building a pyramid of lower-resolution versions of an image,
@@ -1005,7 +1005,7 @@ accept all other ``parallel_stereo`` options as well.
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
- 
+
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 

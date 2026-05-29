@@ -6,7 +6,7 @@ n_align
 This tool can be used to jointly align a set of two or more point
 clouds, hence it extends the functionality of ``pc_align``
 (:numref:`pc_align`). It implements the ICP flavor from
-:cite:`toldo2010global`, more exactly, 
+:cite:`toldo2010global`, more exactly,
 `this MATLAB algorithm <https://searchcode.com/file/13619767/Code/matlab/GlobalProcrustesICP/globalProcrustes.m>`_.
 
 This program does not scale well for large clouds. In practice, ``pc_align`` is
@@ -59,12 +59,12 @@ Command-line options for n_align:
     ``1:x 2:y 3:z`` (a Cartesian coordinate system with origin at
     planet center is assumed, with the units being in meters),
     ``5:lon 6:lat 7:radius_m`` (longitude and latitude are in degrees,
-    the radius is measured in meters from planet center), 
+    the radius is measured in meters from planet center),
     ``3:lat 2:lon 1:height_above_datum``,
     ``1:easting 2:northing 3:height_above_datum``
     (need to set ``--csv-srs``; the height above datum is in
     meters).  Can also use radius_km for column_type, when it is
-    again measured from planet center.
+    again measured from planet center. See :numref:`csv_format` for details.
 
 --csv-srs <proj string>
     The PROJ or WKT string to use to interpret the entries in input CSV
@@ -122,7 +122,7 @@ Command-line options for n_align:
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
- 
+
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 
