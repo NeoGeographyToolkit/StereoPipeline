@@ -300,7 +300,11 @@ Command-line options
     Set the system cache size, in MB.
 
 --tile-size <integer (default: 256 256)>
-    Image tile size used for multi-threaded processing.
+    The block size used by GDAL when writing the output images, for
+    multi-threaded processing. This is an internal parameter and is not the
+    tile into which the input images are split for parallel processing. To
+    control the latter, use ``--job-size-w`` and ``--job-size-h``
+    (:numref:`ps_tiling`).
 
 --no-bigtiff
     Tell GDAL to not create BigTiff files.
