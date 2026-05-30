@@ -123,8 +123,11 @@ Usage
 See also
 ~~~~~~~~
 
-To export an existing RPC camera to a file in XML format, use ``cam_gen``
-(:numref:`cam_gen_rpc`).
+To export an existing RPC camera to a file in XML format, or to create a
+Pinhole camera, use ``cam_gen`` (:numref:`cam_gen`).
+
+To simulate a linescan (or frame) camera together with synthetic images,
+use ``sat_sim`` (:numref:`sat_sim`).
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
