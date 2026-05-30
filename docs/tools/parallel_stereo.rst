@@ -85,12 +85,13 @@ are blended.
 
 The size of the tiles can be set with the ``--job-size-w`` and ``--job-size-h``
 options. The default is 2048 x 2048 pixels, unless local alignment
-(:numref:`stereo_alg_overview`) is used, in which case it is 512 x 512 pixels
-(local alignment works better with smaller tiles).
+(:numref:`stereo_alg_overview`) or an external algorithm
+(:numref:`stereo_algos_full`) is used, in which case it is 512 x 512 pixels
+(these work better with smaller tiles).
 
 The size of the padding is set with ``--sgm-collar-size``. The default is 0
-for the ``asp_bm`` algorithm, 256 for ``asp_sgm``/``asp_mgm``, and 128 
-with local alignment.
+for the ``asp_bm`` algorithm, 256 for ``asp_sgm``/``asp_mgm``, and 128
+with local alignment or an external algorithm.
 
 The padding can be increased if artifacts at tile boundary are noticed.
 
