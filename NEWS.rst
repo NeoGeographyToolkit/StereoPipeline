@@ -214,8 +214,7 @@ Misc:
     bugs in tools such as ``hillshade`` and ``colormap``.
   * GDAL VRT files (``.vrt``) are now accepted as image inputs.
   * The option ``--compute-low-res-disparity-only`` is now respected by
-    ``parallel_stereo`` and ``stereo``; they compute the low-resolution
-    disparity ``D_sub``, then stop.
+    ``parallel_stereo`` and ``stereo``.
 
 RELEASE 3.6.0, December 26, 2025
 --------------------------------

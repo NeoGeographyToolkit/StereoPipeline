@@ -901,9 +901,8 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
 
-            # Do low-res correlation, this happens just once. Reuse an
-            # existing valid D_sub (cache) rather than recompute, both when
-            # resuming and when only the low-res disparity is wanted.
+            # Do low-res correlation. This happens just once, not per process.
+            # Reuse an existing valid D_sub if it exists.
             calc_lowres_disp(args, opt, sep,
                              resume = (opt.resume_at_corr or compute_low_res_only))
 

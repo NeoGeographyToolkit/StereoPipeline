@@ -167,8 +167,8 @@ if __name__ == '__main__':
             if (opt.stop_point <= step): sys.exit()
 
             if compute_low_res_only:
-                # Compute only the low-resolution disparity, reusing an
-                # existing valid D_sub (cache), then stop.
+                # Compute only the low-resolution disparity, then stop.
+                # Reuse an existing valid D_sub if it exists.
                 calc_lowres_disp(args, opt, sep, resume = True)
                 print("Computed the low-resolution disparity. Stopping, as " + \
                       "--compute-low-res-disparity-only is set.")
