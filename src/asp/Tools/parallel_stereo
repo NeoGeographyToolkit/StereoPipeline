@@ -841,9 +841,14 @@ if __name__ == '__main__':
     if '--compute-point-cloud-center-only' in parallel_args:
       raise Exception('Option --compute-point-cloud-center-only is not ' + \
                       'supported in parallel_stereo. Use stereo_tri instead.')
-    if '--compute-low-res-disparity-only' in parallel_args:
+    # If set, compute the low-resolution disparity D_sub, then stop, without
+    # running the full-resolution tiled correlation. This is handled in the
+    # correlation step below. It is not compatible with an entry point past
+    # correlation, as then the low-resolution disparity step is not reached.
+    compute_low_res_only = ('--compute-low-res-disparity-only' in parallel_args)
+    if compute_low_res_only and opt.entry_point > Step.corr:
         raise Exception('Option --compute-low-res-disparity-only is not ' + \
-                        'supported in parallel_stereo. Use stereo_corr instead.')
+                        'compatible with an entry point past the correlation stage.')
 
     # See if to resume at triangulation. This logic must happen after we figured
     # if we need padded tiles, otherwise the bookkeeping will be wrong.
@@ -896,11 +901,20 @@ if __name__ == '__main__':
             if (opt.stop_point <= step):
                 sys.exit()
 
-            # Do low-res correlation, this happens just once.
-            calc_lowres_disp(args, opt, sep, resume = opt.resume_at_corr)
+            # Do low-res correlation, this happens just once. Reuse an
+            # existing valid D_sub (cache) rather than recompute, both when
+            # resuming and when only the low-res disparity is wanted.
+            calc_lowres_disp(args, opt, sep,
+                             resume = (opt.resume_at_corr or compute_low_res_only))
 
             # symlink D_sub, D_sub_spread, etc.
             subdirs = create_subdirs_symlink(opt, args, settings)
+
+            # Stop here if only the low-resolution disparity was requested.
+            if compute_low_res_only:
+                print("Computed the low-resolution disparity. Stopping, as " + \
+                      "--compute-low-res-disparity-only is set.")
+                sys.exit(0)
 
             # Run full-res stereo using multiple processes.
             check_system_memory(opt, args, settings)

@@ -267,6 +267,11 @@ Command-line options
    and full-res disparities for that stage. Do not change
    ``--left-image-crop-win``, etc, when running this.
 
+--compute-low-res-disparity-only
+   Compute only the low-resolution disparity ``D_sub``
+   (:numref:`corr_section`), then stop, without running the
+   full-resolution correlation.
+
 --prev-run-prefix
     Start at the triangulation stage while reusing the data from this 
     prefix. The new run can use different cameras, bundle adjustment

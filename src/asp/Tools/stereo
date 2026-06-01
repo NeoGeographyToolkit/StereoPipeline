@@ -133,12 +133,19 @@ if __name__ == '__main__':
 
     try:
 
-        # These can be stray options if pasting the stereo command
-        # from a log file where these particular operations
-        # happened, and they will result in the overall stereo
-        # command misbehaving. They are needed only at a certain stage.
-        asp_cmd_utils.wipe_option(args, '--compute-low-res-disparity-only', 0)
+        # This can be a stray option if pasting the stereo command from a
+        # log file where that operation happened, and it would result in the
+        # overall stereo command misbehaving. It is needed only at a certain
+        # stage.
         asp_cmd_utils.wipe_option(args, '--compute-point-cloud-center-only', 0)
+
+        # If set, compute the low-resolution disparity D_sub, then stop. This
+        # is handled in the correlation step below. It is not compatible with
+        # an entry point past correlation, as then that step is not reached.
+        compute_low_res_only = ('--compute-low-res-disparity-only' in args)
+        if compute_low_res_only and opt.entry_point > Step.corr:
+            raise Exception('Option --compute-low-res-disparity-only is not ' + \
+                            'compatible with an entry point past the correlation stage.')
 
         # Invoke itself for multiview if appropriate
         num_pairs = int(settings['num_stereo_pairs'][0])
@@ -158,6 +165,14 @@ if __name__ == '__main__':
         step = Step.corr
         if (opt.entry_point <= step):
             if (opt.stop_point <= step): sys.exit()
+
+            if compute_low_res_only:
+                # Compute only the low-resolution disparity, reusing an
+                # existing valid D_sub (cache), then stop.
+                calc_lowres_disp(args, opt, sep, resume = True)
+                print("Computed the low-resolution disparity. Stopping, as " + \
+                      "--compute-low-res-disparity-only is set.")
+                sys.exit(0)
 
             if (opt.seed_mode == 0):
                 # No low resolution seed, go straight to full resolution correlation
