@@ -97,6 +97,10 @@ void loadValidateBaOptions(po::variables_map const& vm,
   if (opt.image_files.empty())
     vw::vw_throw(vw::ArgumentErr() << "Missing input image files.\n");
 
+  if (opt.ip_per_image > 0 && opt.ip_per_tile > 0)
+    vw::vw_throw(vw::ArgumentErr()
+              << "Can set only one of --ip-per-image and --ip-per-tile.\n");
+
   // Guess the session if not provided. Do this as soon as we have
   // the cameras figured out.
   asp::SessionPtr session(NULL);
