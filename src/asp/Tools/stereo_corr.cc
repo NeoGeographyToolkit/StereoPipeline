@@ -146,12 +146,10 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
   if (stereo_settings().seed_mode == 1) {
 
-    // For D_sub always use a cross-check even if it takes more time.
-    // The user-specified xcorr_threshold will be restored at the end.
-    int orig_xcorr_threshold = stereo_settings().xcorr_threshold;
-    if (orig_xcorr_threshold < 0) 
-      stereo_settings().xcorr_threshold = 2;
-    
+    // D_sub respects the user's --xcorr-threshold, including a negative
+    // value, which disables the left-right cross-check (forward-only).
+    // Previously this was forced to a minimum of 2 for D_sub.
+
     // Use low-res correlation to get the low-res disparity
     Vector2 expansion(search_range.width(), search_range.height());
     expansion *= stereo_settings().seed_percent_pad / 2.0f;
@@ -237,10 +235,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     // Check elapsed time
     sw.stop();
     vw_out() << "Low-resolution disparity computation took " << sw.elapsed_seconds() << " s.\n";
-    
-    // Restore the user xcorr_threshold
-    stereo_settings().xcorr_threshold = orig_xcorr_threshold;
-    
+
     // Read D_sub back from disk, filter it, and write it back.
     // Avoid the pinhole session as that one has no datum which we need.
     // Avoid the correlator mode as then there are no cameras.

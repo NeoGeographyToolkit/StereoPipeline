@@ -519,6 +519,11 @@ xcorr-threshold (*float*) (default = 2.0)
     signal the correlator to only use the forward correlation result.
     This will drastically improve speed at the cost of additional noise.
 
+    This applies to both the full-resolution disparity and the
+    low-resolution disparity ``D_sub.tif`` (:numref:`d_sub`). Before build
+    2026/6 (:numref:`release`) the cross-check was forced for ``D_sub``
+    regardless of this setting.
+
 min-xcorr-level (*integer*) (default = 0)
     When using the cross-correlation check controlled by
     xcorr-threshold, this parameter sets the minimum pyramid resolution
