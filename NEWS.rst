@@ -41,6 +41,9 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Bugfix for ``--alignment-method local_epipolar`` with
     ``--clean-match-files-prefix``. Default ``--local-alignment-threshold``
     raised from 2 to 5 pixels (:numref:`stereodefault`).
+  * The ``--rm-half-kernel`` option now also controls the low confidence pixel
+    removal for the low-resolution disparity ``D_sub.tif``
+    (:numref:`filter_options`).
 
 sfm_view (:numref:`sfm_view`):
   * Brought the source code into the ASP repository from the external MultiView

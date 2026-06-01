@@ -164,7 +164,14 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     stereo::CostFunctionType cost_mode = get_cost_mode_value();
     Vector2i kernel_size  = stereo_settings().corr_kernel;
     int corr_timeout      = 5*stereo_settings().corr_timeout; // 5x, so try hard
-    const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
+    // Half kernel size used by CorrelationView for low-confidence pixel
+    // removal at each pyramid level of the low-resolution disparity D_sub.
+    // This is the same --rm-half-kernel option that controls the
+    // full-resolution disparity filtering. Its default (5 5) matches the
+    // value previously hard-coded here, so this is non-breaking. Set
+    // --rm-half-kernel 0 0 to turn off this removal. Only the x component
+    // is used, as the kernel is square here.
+    const int rm_half_kernel = stereo_settings().rm_half_kernel[0];
     double seconds_per_op = 0.0;
     if (corr_timeout > 0)
       seconds_per_op = calc_seconds_per_op(cost_mode, kernel_size);

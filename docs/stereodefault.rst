@@ -721,10 +721,14 @@ rm-half-kernel (*integer integer*) (default = 5 5)
     that "erodes" isolated regions of pixels in the disparity map that
     are in disagreement with their neighbors.
 
-    The two parameters determine the size of the half kernel that is used
-    to perform the automatic removal of low confidence pixels. A
-    5 |times| 5 half kernel would result in an
-    11 |times| 11 kernel with 121 pixels in it.
+    The two parameters determine the size of the half kernel that is used to
+    perform the automatic removal of low confidence pixels. A 5 |times| 5 half
+    kernel would result in an 11 |times| 11 kernel with 121 pixels in it.
+
+    This kernel is applied both to the full-resolution disparity (during
+    filtering) and to the initial low-resolution disparity ``D_sub.tif``
+    (:numref:`d_sub`). The default is 5 5 in both cases, as of build 2026/6
+    (:numref:`release`). Set it to 0 0 to turn this off.
 
 max-mean-diff (*integer*) (default = 3)
     This parameter sets the *maximum difference* between the current

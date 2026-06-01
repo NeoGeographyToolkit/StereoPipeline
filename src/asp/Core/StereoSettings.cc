@@ -745,6 +745,13 @@ void StereoSettings::validate() {
       asp::stereo_settings().ip_per_tile > 0)
     vw::vw_throw(vw::ArgumentErr()
       << "Cannot set both --ip-per-image and --ip-per-tile.\n");
+
+  // The low-confidence pixel removal kernel must be square and non-negative.
+  // Only the x component is used for the low-resolution disparity D_sub.
+  if (rm_half_kernel[0] != rm_half_kernel[1] || rm_half_kernel[0] < 0)
+    vw::vw_throw(vw::ArgumentErr()
+      << "The value of --rm-half-kernel must have two equal non-negative "
+      << "entries.\n");
 }
 
 void StereoSettings::write_copy(int argc, char *argv[],
