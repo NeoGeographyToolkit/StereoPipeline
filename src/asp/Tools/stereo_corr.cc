@@ -204,22 +204,21 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
        blob_filter_area, lr_disp_diff, region_ul, stereo_settings().stereo_debug);
 
     if (stereo_settings().rm_quantile_multiple <= 0.0) {
-      // Filter D_sub using thresholds (the default)
+      // Filter D_sub using thresholds (the default). As of build 2026/6 the
+      // pixel threshold and rejection fraction come from --rm-threshold and
+      // --rm-min-matches (previously these were scaled by 2/3 and 0.5/0.6 for
+      // D_sub). The half-kernel is --rm-half-kernel divided by 5, because
+      // D_sub is low-resolution and needs a smaller window than the
+      // full-resolution disparity (filtered in stereo_fltr). With the default
+      // --rm-half-kernel of 5 this is a half-kernel of 1 (the historical
+      // value); a value below 5 gives 0, which disables this removal for
+      // D_sub. Integer division, so the half-kernel is always an integer.
+      int dsub_half_kernel = stereo_settings().rm_half_kernel.x() / 5;
       d_sub = rm_outliers_using_thresh
         (d_sub,
-         // To do: all these hard-coded values must be replaced with
-         // appropriate params from user's stereo.default, for
-         // consistency with how disparity is filtered in stereo_fltr,
-         // when invoking disparity_cleanup_using_thresh.
-         1, 1, // in stereo.default we have 5 5
-         // Changing below the hard-coded value from 2.0 to using a
-          // param.  The default value will still be 2.0 but is now
-          // modifiable. Need to get rid of the 2.0/3.0 factor and
-          // study how it affects the result.
-         stereo_settings().rm_threshold*2.0/3.0,
-         // Another change of hard-coded value to param. Get rid of 0.5/0.6
-          // and study the effect.
-         (stereo_settings().rm_min_matches/100.0)*0.5/0.6);
+         dsub_half_kernel, dsub_half_kernel,
+         stereo_settings().rm_threshold,
+         stereo_settings().rm_min_matches/100.0);
     } else {
       // Filter D_sub using quantiles
       d_sub = rm_outliers_using_quantiles

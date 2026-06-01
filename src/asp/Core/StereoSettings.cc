@@ -307,7 +307,8 @@ CorrelationDescription::CorrelationDescription():
     ("cost-mode", po::value(&global.cost_mode)->default_value(2),
       "Correlation cost metric. [0 Absolute, 1 Squared, 2 Normalized Cross Correlation, 3 Census Transform (SGM only), 4 Ternary Census Transform (SGM only)]")
     ("xcorr-threshold", po::value(&global.xcorr_threshold)->default_value(2.0),
-      "L-R vs R-L agreement threshold in pixels.")
+      "L-R vs R-L agreement threshold in pixels. A negative value disables this "
+      "check, including for the low-resolution disparity D_sub.")
     ("min-xcorr-level", po::value(&global.min_xcorr_level)->default_value(0),
       "Minimum level to run xcorr check on (SGM only).")
     ("save-left-right-disparity-difference",
@@ -435,13 +436,17 @@ FilteringDescription::FilteringDescription(): po::options_description("Filtering
     ("filter-mode", po::value(&global.filter_mode)->default_value(1),
       "Disparity filter mode. [0 None, 1 Use mean difference to neighbors (invalidates fewer pixels), 2 Use thresholds (invalidates more pixels)]")
     ("rm-half-kernel", po::value(&global.rm_half_kernel)->default_value(Vector2i(5,5), "5 5"),
-      "Low confidence pixel removal kernel (half sized).")
+      "Low confidence pixel removal kernel (half sized). The two values must be "
+      "equal and non-negative. For the low-resolution disparity D_sub the "
+      "outlier removal uses this value divided by 5.")
     ("max-mean-diff", po::value(&global.max_mean_diff)->default_value(3),
       "Maximum difference between current pixel disparity and mean disparity of neighbors to still keep current disparity (for filter mode 1).")
     ("rm-min-matches", po::value(&global.rm_min_matches)->default_value(60),
-      "Minimum number of pixels to be matched to keep sample (for filter mode 2).")
+      "Minimum number of pixels to be matched to keep sample (for filter mode 2). "
+      "Also applied to the low-resolution disparity D_sub.")
     ("rm-threshold", po::value(&global.rm_threshold)->default_value(3),
-      "Maximum distance between samples to be considered still matched (for filter mode 2).")
+      "Maximum distance between samples to be considered still matched (for filter "
+      "mode 2). Also applied to the low-resolution disparity D_sub.")
     ("rm-cleanup-passes", po::value(&global.rm_cleanup_passes)->default_value(1),
       "Number of passes for cleanup during the post-processing phase.")
     ("enable-fill-holes", po::bool_switch(&global.enable_fill_holes)->default_value(false)->implicit_value(true),

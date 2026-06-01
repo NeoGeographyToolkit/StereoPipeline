@@ -725,10 +725,11 @@ rm-half-kernel (*integer integer*) (default = 5 5)
     perform the automatic removal of low confidence pixels. A 5 |times| 5 half
     kernel would result in an 11 |times| 11 kernel with 121 pixels in it.
 
-    This kernel is applied both to the full-resolution disparity (during
-    filtering) and to the initial low-resolution disparity ``D_sub.tif``
-    (:numref:`d_sub`). The default is 5 5 in both cases, as of build 2026/6
-    (:numref:`release`). Set it to 0 0 to turn this off.
+    This kernel filters the full-resolution disparity directly. As of build
+    2026/6 (:numref:`release`) the ``D_sub.tif`` (:numref:`d_sub`) outlier
+    removal also uses it, but divided by 5, as ``D_sub`` is lower resolution.
+    So the default of 5 gives 1 for ``D_sub``, and a value below 5 gives 0,
+    which disables it. Set this option to 0 0 to turn off filtering entirely.
 
 max-mean-diff (*integer*) (default = 3)
     This parameter sets the *maximum difference* between the current
@@ -740,12 +741,20 @@ rm-min-matches (*integer*) (default = 60)
     values that must fall within the inlier threshold in order for a
     given disparity value to be retained (for ``filter-mode`` 2).
 
+    As of build 2026/6 (:numref:`release`) this also applies to the outlier
+    removal for the low-resolution disparity ``D_sub.tif`` (:numref:`d_sub`).
+    Earlier this value was scaled internally for ``D_sub``.
+
 rm-threshold (*double*) (default = 3)
     This parameter sets the inlier threshold for the outlier rejection
     scheme. This option works in conjunction with ``rm-min-matches`` above.
     A disparity value is rejected if it differs by more than
     ``rm_threshold`` disparity values from ``rm-min-matches`` percent of pixels
     in the region being considered (for ``filter-mode`` 2).
+
+    As of build 2026/6 (:numref:`release`) this also applies to the outlier
+    removal for the low-resolution disparity ``D_sub.tif`` (:numref:`d_sub`).
+    Earlier this value was scaled internally for ``D_sub``.
 
 rm-cleanup-passes (*integer*) (default = 1)
     Select the number of outlier removal passes that are carried out.
