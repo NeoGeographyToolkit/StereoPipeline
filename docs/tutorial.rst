@@ -384,12 +384,12 @@ filter out valid steep terrain.
 
 If a run failed because of a large disparity search range,
 ``D_sub.tif`` should be deleted, parameters adjusted as above, and one
-should run ``stereo_corr`` with the same arguments that
-``parallel_stereo`` was run before (except those used for tiling and
-number of processes, etc.), while adding the option
-``--compute-low-res-disparity-only``. Then examine the re-created
-``D_sub.tif`` with ``disparitydebug`` (:numref:`disparitydebug`) 
-and the various search ranges printed on screen.
+should re-run ``parallel_stereo`` (or ``stereo``) with the same
+arguments as before, while adding the option
+``--compute-low-res-disparity-only``. This recomputes ``D_sub.tif`` and
+then stops. Then examine the re-created ``D_sub.tif`` with
+``disparitydebug`` (:numref:`disparitydebug`) and the various search
+ranges printed on screen.
 
 The ``D_sub.tif`` file can be created from a DEM (:numref:`d_sub_dem`).
 

@@ -704,17 +704,12 @@ filter-mode (*integer*) (default = 1)
     hard-coded for filtering the low-resolution disparity
     ``D_sub.tif``. Options:
 
-    0
-       No filtering.
-
-    1
-       Filter by discarding pixels at which disparity differs from mean
-       disparity of neighbors by more than ``max-mean-diff``.
-
-    2
-       Filter by discarding pixels at which percentage of neighboring
-       disparities that are within ``rm-threshold`` of current disparity
-       is less than ``rm-min-matches``.
+    * ``0``: no filtering.
+    * ``1``: discard pixels at which disparity differs from the mean
+      disparity of neighbors by more than ``max-mean-diff``.
+    * ``2``: discard pixels at which the percentage of neighboring
+      disparities within ``rm-threshold`` of the current disparity is less
+      than ``rm-min-matches``.
 
 rm-half-kernel (*integer integer*) (default = 5 5)
     This setting adjusts the behavior of an outlier rejection scheme
