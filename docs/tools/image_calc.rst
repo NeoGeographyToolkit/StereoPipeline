@@ -11,7 +11,7 @@ and data type. Input images are restricted to one channel (band). For images wit
 more than one channel, only the first channel will be read.
 
 The pixel in the first image is referred to as ``var_0``, the second as
-``var_1``, and so on. 
+``var_1``, and so on.
 
 The following symbols are allowed in the arithmetic string: ``+``, ``-``,
 ``\*``, ``/``, ``()``, ``min()``, ``max()``, ``pow()``, ``abs()``, ``sign()``.
@@ -39,8 +39,10 @@ Apply operation and save pixels as float32
 
 ::
 
-     image_calc -c "pow(var_0/3.0, 1.1)" input_image.tif \
-      -o output_image.tif -d float32
+    image_calc -c "pow(var_0/3.0, 1.1)" \
+      -d float32                        \
+      input_image.tif                   \
+      -o output_image.tif
 
 .. _image_calc_mask:
 
@@ -51,9 +53,10 @@ Masking applies an existing binary mask to an image, keeping the pixels where
 the mask is 1 and setting the rest to nodata. Use a conditional operator (see
 the list above) with a nodata value chosen outside the valid data range::
 
-    image_calc -c "eq(var_1, 0, -9999, var_0)" -d float32 \
-        --output-nodata-value -9999                       \
-        input.tif mask.tif -o output.tif
+    image_calc -c "eq(var_1, 0, -9999, var_0)" \
+      --output-nodata-value -9999              \
+      -d float32                               \
+      input.tif mask.tif -o output.tif
 
 Here, where the mask is 0 the output becomes -9999 (nodata), otherwise the
 input value is kept. The image and mask must have the same dimensions.
@@ -74,8 +77,8 @@ decisions. This creates a mask with values of 1 and 0::
 
     thresh=0.27
     image_calc -c "gte(var_0, $thresh, 1, 0)" \
-      -d float32                              \
       --output-nodata-value -1e+6             \
+      -d float32                              \
       input.tif -o output.tif
 
 Here, values greater or equal than the threshold become 1, and the rest become
@@ -88,9 +91,10 @@ Threshold and invalidate pixels below a value
 This sets pixels below a threshold to nodata::
 
     thresh=5.2
-    image_calc -c "max($thresh, var_0)" -d float32 \
-        --output-nodata-value $thresh              \
-        input.tif -o output.tif
+    image_calc -c "max($thresh, var_0)" \
+      --output-nodata-value $thresh     \
+      -d float32                        \
+      input.tif -o output.tif
 
 Pixels with values at or below the threshold become nodata (set to the threshold
 value), while pixels strictly above the threshold retain their original values.
@@ -105,8 +109,8 @@ This sets pixels at or above a threshold to nodata::
     thresh=1000
     nodata=-10000
     image_calc -c "gte(var_0, $thresh, $nodata, var_0)" \
-      -d float32                                        \
       --output-nodata-value $nodata                     \
+      -d float32                                        \
       input.tif -o output.tif
 
 Pixels at or above the threshold become nodata, while pixels below retain their
@@ -118,7 +122,7 @@ Create an image with random values
 ::
 
     image_calc -c "rand(var_0)" -d float32 \
-        input.tif -o output.tif
+      input.tif -o output.tif
 
 The produced values will be between 0 and 1. Other operations
 can be combined with this one. For example, one could
@@ -131,8 +135,8 @@ Add a value to the geoheader metadata
 
 ::
 
-     image_calc -c "var_0" --mo 'VAR1=VAL1' -d float32 \
-       input.tif -o output.tif
+    image_calc -c "var_0" --mo 'VAR1=VAL1' -d float32 \
+      input.tif -o output.tif
 
 If this variable already exists, its value will be overwritten. Other
 existing variables will be preserved. Use ``gdalinfo`` to view the
@@ -163,9 +167,10 @@ Subtract 360 degrees from the longitudes in a GeoTiff file
 
 ::
 
-    image_calc -c "var_0" input.tif -o output.tif \
-      --longitude-offset -360 -d float32 
-
+    image_calc -c "var_0"     \
+      --longitude-offset -360 \
+      -d float32              \
+      input.tif -o output.tif
 
 .. _mask_disparity:
 
@@ -178,15 +183,15 @@ horizontal and vertical disparity, and mask of pixels showing the valid disparit
 Extracting one disparity band with ``gdal_translate`` (:numref:`gdal_tools`)
 makes it hard to see where the disparity is zero but valid, and where it is
 invalid. This can be disambiguated with ``image_calc``, by using the mask from
-the third band to set the invalid disparities in a band to nodata. 
+the third band to set the invalid disparities in a band to nodata.
 
 For that, first extract the three bands from a disparity produced by ASP
 (:numref:`out_corr_files`), such as ``F.tif``::
 
-    for b in 1 2 3; do 
+    for b in 1 2 3; do
       gdal_translate -b $b F.tif F_b${b}.tif
     done
-      
+
 Then consider a value ``t`` that is larger than any disparity, such as
 ``t=1e+6``. Add this value to all disparities, apply the mask from the third
 band, then subtract that value. Invalid values will become equal to ``-t``,
@@ -195,13 +200,13 @@ which is set as the nodata value.
 ::
 
     t=1e+6
-    for b in 1 2; do 
+    for b in 1 2; do
       image_calc -c "(var_0 + $t)*var_1 - $t" \
       --output-nodata-value -$t               \
       F_b${b}.tif F_b3.tif                    \
       -o F_b${b}_nodata.tif
     done
-    
+
 The obtained disparity bands can be inspected (and colorized) with
 ``stereo_gui`` (:numref:`stereo_gui`).
 
@@ -262,7 +267,7 @@ Command-line options
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
- 
+
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 
