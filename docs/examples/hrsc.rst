@@ -41,18 +41,18 @@ Fetch the two stereo channels using ``wget`` from::
 See :numref:`planetary_images` for how to set up ISIS and download the needed
 kernels. For HRSC, they are part of the ``mex`` dataset.
 
-It appears that ``hrsc2isis`` is not able to read the level 3 images that were
-downloaded above, and PDS no longer offers level 2 images. What seems to work is
-edit the .img files and change level 3 to level 2. That can be done with::
-
-    perl -pi -e 's#(PROCESSING_LEVEL_ID\s+=) 3#$1 2#g' *.img
-
-Then run::
+Run::
 
     hrsc2isis from=h1995_0000_s13.img to=h1995_0000_s13.cub
     hrsc2isis from=h1995_0000_s23.img to=h1995_0000_s23.cub
     spiceinit from=h1995_0000_s13.cub ckpredicted=true
     spiceinit from=h1995_0000_s23.cub ckpredicted=true
+
+For ISIS prior to version 8.3.0, ``hrsc2isis`` cannot read the level 3 images
+served by PDS. If ingestion fails, edit the .img files to change the level from
+3 to 2, then rerun ``hrsc2isis``::
+
+    perl -pi -e 's#(PROCESSING_LEVEL_ID\s+=) 3#$1 2#g' *.img
 
 Here we added the ``ckpredicted=true`` flag to ``spiceinit``. Adding
 ``web=true`` can help avoid downloading the kernels, if this works. See the
