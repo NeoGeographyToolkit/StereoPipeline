@@ -74,7 +74,9 @@ experiment running stereo on a small region with ``stereo_gui``
       --cost-mode 3                         \
       mgm/out
 
-Then select a clip in the GUI, and run ``parallel_stereo`` from the menu.
+Then select a clip in each image in the GUI, and run ``parallel_stereo`` from
+the menu. The clips should be reasonably large, overlap well, and have notable
+texture, to ensure enough interest point matches are found.
 
 To run on the full images, replace ``stereo_gui`` with ``parallel_stereo`` in
 the command above.
