@@ -8,7 +8,7 @@ consisting of multiple channels pointed in different directions plus
 another super resolution channel. The best option to create DEMs is to
 use the two dedicated stereo channels. These are pointed ahead of and
 behind the nadir channel and collect a stereo observation in a single
-pass of the satellite. 
+pass of the satellite.
 
 Since each observation contains both stereo channels, one observation is
 sufficient to create a DEM.
@@ -39,7 +39,7 @@ Fetch the two stereo channels using ``wget`` from::
    mode 3.
 
 See :numref:`planetary_images` for how to set up ISIS and download the needed
-kernels. For HRSC, they are part of the ``mex`` dataset. 
+kernels. For HRSC, they are part of the ``mex`` dataset.
 
 It appears that ``hrsc2isis`` is not able to read the level 3 images that were
 downloaded above, and PDS no longer offers level 2 images. What seems to work is
@@ -53,7 +53,7 @@ Then run::
     hrsc2isis from=h1995_0000_s23.img to=h1995_0000_s23.cub
     spiceinit from=h1995_0000_s13.cub ckpredicted=true
     spiceinit from=h1995_0000_s23.cub ckpredicted=true
-     
+
 Here we added the ``ckpredicted=true`` flag to ``spiceinit``. Adding
 ``web=true`` can help avoid downloading the kernels, if this works. See the
 (`spiceinit documentation <https://isis.astrogeology.usgs.gov/8.1.0/Application/presentation/Tabbed/spiceinit/spiceinit.html>`_).
@@ -61,16 +61,23 @@ Here we added the ``ckpredicted=true`` flag to ``spiceinit``. Adding
 Running stereo
 ~~~~~~~~~~~~~~
 
-HRSC images are large and may have compression artifacts so you should
+Consider running bundle adjustment before stereo (:numref:`bundle_adjust`).
+This is not done here.
+
+HRSC images are large and may have compression artifacts. It is suggested to
 experiment running stereo on a small region with ``stereo_gui``
-(:numref:`stereo_gui`). 
+(:numref:`stereo_gui`). Invoke it as follows::
 
-The suggested command to run on the full images is::
-
-    parallel_stereo h1995_0000_s13.cub h1995_0000_s23.cub \
-      --stereo-algorithm asp_mgm                          \
-      --cost-mode 3                                       \
+    stereo_gui                              \
+      h1995_0000_s13.cub h1995_0000_s23.cub \
+      --stereo-algorithm asp_mgm            \
+      --cost-mode 3                         \
       mgm/out
+
+Then select a clip in the GUI, and run ``parallel_stereo`` from the menu.
+
+To run on the full images, replace ``stereo_gui`` with ``parallel_stereo`` in
+the command above.
 
 See :numref:`nextsteps` for other stereo algorithms, and information on
 tradeoffs between them.
@@ -79,5 +86,6 @@ A DEM is created with ``point2dem`` (:numref:`point2dem`)::
 
     point2dem                            \
       --stereographic --auto-proj-center \
-      mgm/out-PC.tif 
+      mgm/out-PC.tif
 
+Alignment to MOLA can be done with ``pc_align`` (:numref:`pc_align`).
