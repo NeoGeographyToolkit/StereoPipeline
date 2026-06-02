@@ -47,15 +47,22 @@ Apply operation and save pixels as float32
 Apply a mask to an image
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Masking applies an existing binary mask to an image, where mask values of 1 keep
-pixels and 0 discards them::
+Masking applies an existing binary mask to an image, keeping the pixels where
+the mask is 1 and setting the rest to nodata. Use a conditional operator (see
+the list above) with a nodata value chosen outside the valid data range::
 
-    image_calc -c "var_0 * var_1" -d float32 \
-        --output-nodata-value 0              \
+    image_calc -c "eq(var_1, 0, -9999, var_0)" -d float32 \
+        --output-nodata-value -9999                       \
         input.tif mask.tif -o output.tif
 
-Here it is assumed that the image and the mask have the same
-dimensions, and that the output pixels with value 0 are invalid.
+Here, where the mask is 0 the output becomes -9999 (nodata), otherwise the
+input value is kept. The image and mask must have the same dimensions.
+
+Setting the masked pixels to a dedicated nodata value, rather than 0, takes care
+of not mixing up masked pixels with pixels whose value is legitimately 0 (such
+as sea-level elevation). For this reason, avoid masking by multiplying the image
+by the mask with a nodata value of 0, as that marks every legitimate 0 as
+invalid.
 
 .. _image_calc_create_mask:
 
