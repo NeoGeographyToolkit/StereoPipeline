@@ -201,21 +201,20 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
       continue;
     vw::Vector2 ref_pix = dem_pix + disp.child();
 
-    // Find height at the reference pixel
-    double ref_height = interp_ref_dem(ref_pix.x(), ref_pix.y());
+    // Find the interpolated masked height at the reference pixel. Skip invalid.
+    vw::PixelMask<double> ref_height = interp_ref_dem(ref_pix.x(), ref_pix.y());
     if (!vw::is_valid(ref_height))
       continue;
 
     // Find lon-lat-height at the reference pixel
     vw::Vector2 ref_lonlat = ref_dem_georef.pixel_to_lonlat(ref_pix);
-    vw::Vector3 ref_llh(ref_lonlat.x(), ref_lonlat.y(), ref_height);
+    vw::Vector3 ref_llh(ref_lonlat.x(), ref_lonlat.y(), ref_height.child());
 
     // The case when the GCP sigma comes from a file
     double local_gcp_sigma = gcp_sigma;
     if (have_gcp_sigma_image) {
       vw::PixelMask<float> img_gcp_sigma
-        = vw::cartography::closestPixelVal(gcp_sigma_image,
-                                           gcp_sigma_image_georef, xyz);
+        = vw::cartography::closestPixelVal(gcp_sigma_image, gcp_sigma_image_georef, xyz);
 
       // Flag bad gcp_sigmas as outliers
       if (!is_valid(img_gcp_sigma) || std::isnan(img_gcp_sigma.child()) ||

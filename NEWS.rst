@@ -149,6 +149,10 @@ point2dem (:numref:`point2dem`):
     using a robust average of the 25%-75% percentile range instead of
     a raw median. This can be adjusted with ``--default-grid-size-multiplier``.
 
+dem2gcp (:numref:`dem2gcp`):
+  * Fixed a bug where interest points at invalid (nodata) reference DEM pixels
+    produced GCP with a height of 0.
+
 sfs (:numref:`sfs`):
   * Recommend the variance-based uncertainty estimation (:numref:`sfs_unc`).
   * Added the option ``--save-covariances`` (:numref:`sfs_opt`).
