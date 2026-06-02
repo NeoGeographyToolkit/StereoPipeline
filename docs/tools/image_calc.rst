@@ -219,8 +219,10 @@ Usage
 
      image_calc [options] -c <arithmetic formula> <inputs> -o <output>
 
-Command-line options
-~~~~~~~~~~~~~~~~~~~~
+.. _image_calc_opts:
+
+Command-line options for image_calc
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -c, --calc <string>
     The arithmetic string, in quotes. For a single input image, if
@@ -236,9 +238,12 @@ Command-line options
     the images, if present.
 
 --output-nodata-value <double>
-    Manually specify a nodata value for the output image. By default
-    it is read from the first input which has it, or, if missing, it
-    is set to data type min.
+    Manually specify a nodata value for the output image. By default it is read
+    from the first input which has it. If missing, a type-aware default is set:
+    -1e6 for float32 and float64, the smallest int32 for int32, -32768 for
+    int16, and 0 for unsigned types. For floating-point output, -1e6 is set
+    rather than the most negative float value, as that one often prints with
+    reduced precision.
 
 -o, --output-file <string>
     Output file name.

@@ -310,34 +310,34 @@ struct calc_grammar: b_s::qi::grammar<ITER, calc_operation(), b_s::ascii::space_
       (term [push_back(at_c<IN>(_val), _1)])
         >> *((
     // Addition
-    '+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add]) |  
-    // Subtraction         
-    ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract]));    
+    '+' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_add]) |
+    // Subtraction
+    ('-' >> expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_subtract]));
 
     // Middle priority
     term =
         (factor [push_back(at_c<IN>(_val), _1)])
         >> *((
     // Multiplication
-    '*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply]) |  
+    '*' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_multiply]) |
     // Division
-    ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ]));    
+    ('/' >> term [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_divide  ]));
 
     // The highest priority
     // TODO: An additional layer to prevent double signs?
     factor =
       // Just a number
-      (double_ [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]) | 
+      (double_ [at_c<NUM>(_val)=_1, at_c<OP>(_val)=OP_number]) |
       // Handle all operations specified in func_map
       (func_map [at_c<OP>(_val)=_1] > '(' > expression [push_back(at_c<IN>(_val), _1)] % ',' > ')') |
       // Power function
       (("pow(" > expression > ',' > expression > ')')
-        [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2), 
+        [push_back(at_c<IN>(_val), _1), push_back(at_c<IN>(_val), _2),
          at_c<OP>(_val)= OP_power]) |
       // Something in parenthesis
-      ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') | 
+      ('(' > expression [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_pass] > ')') |
       // Negative sign
-      ('-' >> factor [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]) | 
+      ('-' >> factor [push_back(at_c<IN>(_val), _1), at_c<OP>(_val)=OP_negate]) |
       // Variable
       ("var_" > int_ [at_c<VAR>(_val)=_1, at_c<OP>(_val)=OP_variable]);
 
@@ -479,7 +479,7 @@ public: // Functions
 }; // End class ImageCalcView
 
 struct Options: vw::GdalWriteOptions {
-  Options(): out_nodata_value(-1), percentile_stretch(false), 
+  Options(): out_nodata_value(-1), percentile_stretch(false),
     percentile_range(vw::Vector2(2, 98)) {}
   // Input
   std::vector<std::string> input_files;
@@ -497,6 +497,32 @@ struct Options: vw::GdalWriteOptions {
   std::string calc_string;
   std::string output_file, metadata;
 };
+
+// Pick an in-range default nodata for the output channel type for when no output
+// nodata is specified. GDAL stores the nodata as a double tag, but the masked
+// pixel is written in the band type, so the default must be representable in
+// that type or the tag and the pixels would disagree. For floating-point
+// output, -1e6 is set rather than the most negative float (-FLT_MAX): the
+// latter can often print with reduced precision. -1e6 is exact in float32, is
+// well below any real elevation, and matches the point2dem default. For int32
+// the smallest int32 is set (exactly representable in float32), for int16 its
+// type min, and for unsigned types 0 (no usable negative sentinel).
+double get_type_aware_nodata(int output_data_type) {
+  switch (output_data_type) {
+  case vw::VW_CHANNEL_INT32:
+    return std::numeric_limits<vw::int32>::min();
+  case vw::VW_CHANNEL_INT16:
+    return -32768.0;
+  case vw::VW_CHANNEL_UINT8:
+  case vw::VW_CHANNEL_UINT16:
+  case vw::VW_CHANNEL_UINT32:
+    return 0.0;
+  case vw::VW_CHANNEL_FLOAT32:
+  case vw::VW_CHANNEL_FLOAT64:
+  default:
+    return -1e6;
+  }
+}
 
 // Handling input
 void handle_arguments(int argc, char * argv[], Options & opt) {
@@ -532,7 +558,10 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
     ("input-nodata-value",  po::value(&opt.in_nodata_value), "Set the nodata value for the input images, overriding the value in the images, if present.")
     ("output-nodata-value", po::value(&opt.out_nodata_value),
      "Manually specify a nodata value for the output image. By default it is read from the "
-     "first input which has it, or, if missing, it is set to data type min.")
+     "first input which has it. If missing, a type-aware default is set: -1e6 for float32 "
+     "and float64, the smallest int32 for int32, -32768 for int16, and 0 for unsigned "
+     "types. For floating-point output, -1e6 is set rather than the most negative float "
+     "value, as that one often prints with reduced precision.")
     ("mo",  po::value(&opt.metadata)->default_value(""),
      "Write metadata to the output file. Provide as a string in quotes if more than one "
      "item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable "
@@ -542,7 +571,7 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
     ("stretch", po::bool_switch(&opt.percentile_stretch)->default_value(false),
      "Linearly stretch, round, and clamp the input values to the 0 - 255 range (uint8) "
      "based on the specified percentiles. See --percentile-range.")
-    ("percentile-range", 
+    ("percentile-range",
      po::value(&opt.percentile_range)->default_value(vw::Vector2(2, 98), "2 98"),
      "The percentiles to use for stretching the image to 8-bit. These are double values.")
     ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan),
@@ -571,10 +600,10 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
     vw::vw_throw(vw::ArgumentErr() << "Missing input files.\n" << usage << general_options);
 
   if (opt.percentile_stretch && opt.input_files.size() != 1)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
              << "The --stretch option works only with a single input image.\n");
 
-  if (opt.percentile_range[0] < 0.0 || opt.percentile_range[0] >= opt.percentile_range[1] || 
+  if (opt.percentile_range[0] < 0.0 || opt.percentile_range[0] >= opt.percentile_range[1] ||
       opt.percentile_range[1] > 100.0)
     vw::vw_throw(vw::ArgumentErr() << "The --percentile-range values must be between 0 and 100, "
              << "and the first value must be less than the second.\n");
@@ -609,7 +638,7 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
 
   if (!vm.count("output-nodata-value")) {
     opt.has_out_nodata   = false;
-    opt.out_nodata_value = vw::get_default_nodata(opt.output_data_type);
+    opt.out_nodata_value = get_type_aware_nodata(opt.output_data_type);
   } else
     opt.has_out_nodata = true;
 
@@ -624,12 +653,12 @@ void image_calc_stretch(Options const& opt, bool have_georef,
                         vw::cartography::GeoReference const& georef,
                         std::map<std::string, std::string> const& keywords,
                         bool has_nodata, double nodata_val) {
-  
+
   // Check that the input image has only one channel
   const std::string firstFile = opt.input_files[0];
   auto rsrc = vw::DiskImageResourcePtr(firstFile);
   if (rsrc->channels() != 1)
-    vw::vw_throw(vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr()
              << "The --stretch option works only with single-channel images.\n");
 
   // Read the image
@@ -649,7 +678,7 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   vw::math::CDFAccumulator<double> accumulator;
   vw::int64 num_valid_pixels = 0;
   vw::ImageView<vw::PixelMask<double>> sub_image = vw::subsample(masked_image, stat_scale);
-  vw::vw_out() << "Computing image percentiles with subsampled image size: " 
+  vw::vw_out() << "Computing image percentiles with subsampled image size: "
     << sub_image.cols() << " x " << sub_image.rows() << "\n";
   vw::TerminalProgressCallback tp("asp", ": ");
   for (vw::int64 col = 0; col < sub_image.cols(); col++) {
@@ -677,7 +706,7 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   // 0. Pixels above max_val are clamped to 255. Round, then cast to uint8.
   vw::ImageViewRef<double> normalized_image
     = vw::normalize(vw::apply_mask(masked_image, min_val), min_val, max_val, 0.0, 255.0);
-  vw::ImageViewRef<vw::uint8> cast_image 
+  vw::ImageViewRef<vw::uint8> cast_image
     = vw::channel_cast_round_and_clamp<vw::uint8>(normalized_image);
 
   bool has_out_nodata = false;
@@ -685,7 +714,7 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   auto tpc = vw::TerminalProgressCallback("asp", ": ");
   vw::vw_out() << "Writing: " << opt.output_file << "\n";
   vw::cartography::block_write_gdal_image(opt.output_file, cast_image, have_georef, georef,
-                                          has_out_nodata, out_nodata, opt, tpc, 
+                                          has_out_nodata, out_nodata, opt, tpc,
                                           keywords);
 }
 
@@ -712,7 +741,7 @@ void write_out(std::string const& output_file,
   }
 
   if (opt.percentile_stretch) {
-    image_calc_stretch(opt, have_georef, georef, keywords, 
+    image_calc_stretch(opt, have_georef, georef, keywords,
                        has_nodata_vec[0], nodata_vec[0]);
   } else {
     if (opt.has_out_nodata)
@@ -727,7 +756,7 @@ void write_out(std::string const& output_file,
   }
 }
 
-void handleGeoref(Options const& opt, bool & have_georef, 
+void handleGeoref(Options const& opt, bool & have_georef,
                   vw::cartography::GeoReference & georef) {
   have_georef = false;
   size_t numInputFiles = opt.input_files.size();
@@ -749,7 +778,7 @@ void handleGeoref(Options const& opt, bool & have_georef,
               T(0, 2) += opt.lon_offset;
               georef.set_transform(T);
             } else {
-              vw::vw_throw(vw::ArgumentErr() 
+              vw::vw_throw(vw::ArgumentErr()
                 << "Can apply a longitude offset only to georeferenced "
                 << "images in the longitude-latitude projection.\n");
             }

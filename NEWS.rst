@@ -132,6 +132,7 @@ image_calc (:numref:`image_calc`):
   * For a single input image, the option ``-c`` (calculation operation) defaults
     to ``var_0`` (identity operation).
   * The default output data type is now ``float32`` (previously ``float64``).
+  * The default output nodata value is now type-aware (:numref:`image_calc_opts`).
 
 disparitydebug (:numref:`disparitydebug`):
   * Added the option ``--raw`` to extract the horizontal and vertical
