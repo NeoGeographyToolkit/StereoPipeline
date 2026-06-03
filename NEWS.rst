@@ -462,9 +462,10 @@ sat_sim (:numref:`sat_sim`):
     a rig to desired specifications (:numref:`sat_sim_rig_adjust`).
   * Can apply a periodic or random perturbation to given cameras
     (:numref:`sat_sim_perturb`).
-
   * Added the option ``--blur-sigma``, to blur the simulated images. This can
     help simulate the effect of degraded images due to fog, motion, etc.
+  * Do not unnecessarily require the satellite velocity when an existing
+    linescan camera is passed via ``--camera-list`` (:numref:`sat_sim_prior`).
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added an example of processing Umbra SAR images (:numref:`umbra_sar`).

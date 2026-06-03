@@ -52,7 +52,31 @@ output prefix. Hence, if the input camera is ``path/to/camera.tsai``, the output
 image will be ``run/run-camera.tif``.
 
 The value of ``--image-size`` should be chosen so that the ground sample
-distance of the produced images is close to the one of the input ortho image. 
+distance of the produced images is close to the one of the input ortho image.
+
+This approach can unproject an ortho image into a given camera. That is, it
+produces the raw (camera view) image that corresponds to a mapprojected input,
+in the spirit of ISIS ``map2cam``. The satellite velocity is not needed in this
+mode, as the cameras already exist (as of build 2026/06, :numref:`release`).
+
+Both the image width and height are used as given by ``--image-size``.
+Hence, these should be carefully set to ensure approximately square pixels.
+
+Unlike for when cameras are created from scratch, as described further down
+(:numref:`sat_sim_linescan`), the image height (number of lines) is not
+auto-adjusted for square pixels, and ``--non-square-pixels`` has no effect.
+
+Hence, to reproduce the geometry of a known existing camera, set
+``--image-size`` to the number of samples and lines of that camera (CSM cameras
+store this information, but other camera models may not). 
+
+For a linescan camera, each image line corresponds to a moment in time along the
+orbit. Hence, the number of lines determines how much of the orbit is sampled,
+and so the extent of the produced image on the ground in the along-track
+direction. Specifying fewer lines covers a shorter ground strip, and more lines
+a longer one. Going beyond the number of lines of the camera will sample the
+orbit beyond the imaged range, by extrapolation, which may produce invalid
+pixels.
 
 To see how a created image projects onto the ground, run ``mapproject``
 (:numref:`mapproject`) as::

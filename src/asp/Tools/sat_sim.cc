@@ -412,9 +412,11 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
   if (opt.velocity <= 0)
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be positive.\n");
 
-  // Checks for linescan cameras
+  // Checks for linescan cameras. The velocity is needed only when creating
+  // cameras, not when using external cameras (--camera-list), as then the
+  // camera positions and times are read from the camera files.
   bool have_linescan = (opt.sensor_type.find("linescan") != std::string::npos);
-  if (have_linescan && std::isnan(opt.velocity))
+  if (have_linescan && opt.camera_list == "" && std::isnan(opt.velocity))
     vw::vw_throw(vw::ArgumentErr() << "The satellite velocity must be specified "
       << "in order to create linescan cameras.\n");
   if (opt.non_square_pixels && !have_linescan)
