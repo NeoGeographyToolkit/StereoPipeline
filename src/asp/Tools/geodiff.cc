@@ -37,7 +37,7 @@ struct Options: vw::GdalWriteOptions {
   std::string dem1_file, dem2_file, output_prefix, csv_format_str, csv_srs, csv_proj4_str;
   double nodata_value;
 
-  bool use_float, use_absolute;
+  bool use_float, use_absolute, reverse;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -52,6 +52,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "the default, and this option is obsolete.")
     ("absolute", po::bool_switch(&opt.use_absolute)->default_value(false),
      "Output the absolute difference as opposed to just the difference.")
+    ("reverse", po::bool_switch(&opt.reverse)->default_value(false),
+     "Reverse the sign of the difference while keeping the output on the same grid.")
     ("csv-format", po::value(&opt.csv_format_str)->default_value(""),
      asp::csv_opt_caption().c_str())
     ("csv-srs", po::value(&opt.csv_srs)->default_value(""), 
@@ -168,11 +170,13 @@ void dem2dem_diff(Options& opt) {
     = asp::warpCrop(dem2_disk_image_view, dem2_nodata, dem2_georef,
                     dem1_georef, dem1_crop_box, "bilinear");
   
-  ImageViewRef<double> difference;
+  ImageViewRef<PixelMask<double>> difference = dem1_crop - dem2_trans;
+  if (opt.reverse)
+    difference = -difference;
   if (opt.use_absolute)
-    difference = apply_mask(abs(dem1_crop - dem2_trans), opt.nodata_value);
-  else
-    difference = apply_mask(dem1_crop - dem2_trans, opt.nodata_value);
+    difference = abs(difference);
+
+  ImageViewRef<double> masked_difference = apply_mask(difference, opt.nodata_value);
     
   GeoReference crop_georef = crop(dem1_georef, dem1_crop_box);
     
@@ -184,22 +188,22 @@ void dem2dem_diff(Options& opt) {
   auto tpc = TerminalProgressCallback("asp", "\t--> Differencing: ");
     
   if (opt.use_float) {
-    ImageViewRef<float> difference_float = channel_cast<float>(difference);
+    ImageViewRef<float> difference_float = channel_cast<float>(masked_difference);
     vw::cartography::block_write_gdal_image(output_file, difference_float,
                                             has_georef, crop_georef,
                                             has_nodata, opt.nodata_value,
                                             opt, tpc);
   } else {
-    vw::cartography::block_write_gdal_image(output_file, difference,
+    vw::cartography::block_write_gdal_image(output_file, masked_difference,
                                             has_georef, crop_georef,
                                             has_nodata, opt.nodata_value,
                                             opt, tpc);
   }
 }
 
-// From a DEM, subtract a csv file. Reverse the sign is 'reverse' is true.
+// From a DEM, subtract a csv file. Reverse the sign if 'reverse_csv' is true.
 void dem2csv_diff(Options & opt, std::string const& dem_file,
-                  std::string const & csv_file, bool reverse){
+                  std::string const & csv_file, bool reverse_csv){
   
   if (opt.csv_format_str == "")
     vw_throw(ArgumentErr() << "CSV files were passed in, but the "
@@ -289,7 +293,9 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
       continue;
 
     double diff = dem_ht.child() - llh[2];
-    if (reverse) 
+    if (reverse_csv)
+      diff *= -1;
+    if (opt.reverse)
       diff *= -1;
     if (opt.use_absolute)
       diff = std::abs(diff);
@@ -364,13 +370,13 @@ int main(int argc, char *argv[]) {
                << "Cannot do the diff of two csv files. One of them "
                << "can be converted to a DEM using point2dem fist.\n");
     
-    bool reverse = false; // true if first DEM is a csv
+    bool reverse_csv = false; // true if first DEM is a csv
     if (is_dem1_csv) {
-      reverse = true;
-      dem2csv_diff(opt, opt.dem2_file, opt.dem1_file, reverse);
+      reverse_csv = true;
+      dem2csv_diff(opt, opt.dem2_file, opt.dem1_file, reverse_csv);
     }else if (is_dem2_csv){
-      reverse = false;
-      dem2csv_diff(opt, opt.dem1_file, opt.dem2_file, reverse);
+      reverse_csv = false;
+      dem2csv_diff(opt, opt.dem1_file, opt.dem2_file, reverse_csv);
     }else{
       // Both are regular DEMs
       dem2dem_diff(opt);
