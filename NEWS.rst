@@ -44,6 +44,9 @@ parallel_stereo (:numref:`parallel_stereo`):
   * The ``--rm-half-kernel`` option now also controls the low confidence pixel
     removal for the low-resolution disparity ``D_sub.tif``
     (:numref:`filter_options`).
+  * The ``--rm-half-kernel`` option now also controls the full-resolution
+    per-tile correlation filtering, which was previously hard-coded. See
+    :numref:`filter_options`.
   * The outlier removal for the low-resolution disparity ``D_sub.tif`` is now
     controlled by ``--rm-half-kernel``, ``--rm-threshold``, and
     ``--rm-min-matches``, rather than hardcoded values. See

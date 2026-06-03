@@ -214,11 +214,10 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       // value); a value below 5 gives 0, which disables this removal for
       // D_sub. Integer division, so the half-kernel is always an integer.
       int dsub_half_kernel = stereo_settings().rm_half_kernel.x() / 5;
-      d_sub = rm_outliers_using_thresh
-        (d_sub,
-         dsub_half_kernel, dsub_half_kernel,
-         stereo_settings().rm_threshold,
-         stereo_settings().rm_min_matches/100.0);
+      if (dsub_half_kernel > 0) // a zero half-kernel disables this removal
+        d_sub = rm_outliers_using_thresh(d_sub, dsub_half_kernel, dsub_half_kernel,
+                                         stereo_settings().rm_threshold,
+                                         stereo_settings().rm_min_matches/100.0);
     } else {
       // Filter D_sub using quantiles
       d_sub = rm_outliers_using_quantiles
@@ -756,8 +755,11 @@ public:
     SemiGlobalMatcher::SgmSubpixelMode sgm_subpixel_mode = get_sgm_subpixel_mode();
     Vector2i sgm_search_buffer = stereo_settings().sgm_search_buffer;
 
-    // Now we are ready to actually perform correlation. 
-    const int rm_half_kernel = 5; // Filter kernel size used by CorrelationView
+    // Now we are ready to actually perform correlation.
+    // Half kernel for the per-tile correlation filtering. Respect the user's
+    // --rm-half-kernel (previously hard-coded to 5). The low-res D_sub filter
+    // uses it divided by 5, as D_sub is lower resolution.
+    const int rm_half_kernel = stereo_settings().rm_half_kernel[0];
     vw::stereo::PrefilterModeType prefilter_mode =
       static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
     DispImageRef disparity_map

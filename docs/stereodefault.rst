@@ -718,18 +718,21 @@ filter-mode (*integer*) (default = 1)
 
 rm-half-kernel (*integer integer*) (default = 5 5)
     This setting adjusts the behavior of an outlier rejection scheme
-    that "erodes" isolated regions of pixels in the disparity map that
+    that erodes isolated regions of pixels in the disparity map that
     are in disagreement with their neighbors.
 
     The two parameters determine the size of the half kernel that is used to
     perform the automatic removal of low confidence pixels. A 5 |times| 5 half
     kernel would result in an 11 |times| 11 kernel with 121 pixels in it.
 
-    This kernel filters the full-resolution disparity directly. As of build
-    2026/6 (:numref:`release`) the ``D_sub.tif`` (:numref:`d_sub`) outlier
-    removal also uses it, but divided by 5, as ``D_sub`` is lower resolution.
-    So the default of 5 gives 1 for ``D_sub``, and a value below 5 gives 0,
-    which disables it. Set this option to 0 0 to turn off filtering entirely.
+    This kernel is used to filter the full-resolution disparity, both during the
+    per-tile correlation and in the subsequent filtering stage. As of build
+    2026/6 (:numref:`release`) it governs the per-tile correlation filtering as
+    well (previously hard-coded to 5). The ``D_sub.tif`` (:numref:`d_sub`)
+    outlier removal also uses it, but divided by 5, as ``D_sub`` is lower
+    resolution. So the default of 5 gives 1 for ``D_sub``, and a value below 5
+    gives 0, which disables it. Set this option to 0 0 to turn off this
+    filtering entirely, at all stages.
 
 max-mean-diff (*integer*) (default = 3)
     This parameter sets the *maximum difference* between the current

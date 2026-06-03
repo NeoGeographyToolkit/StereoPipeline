@@ -212,12 +212,14 @@ struct MultipleDisparityCleanUp {
     result_type out = input;
     for (int i = 0; i < N; i++){
       int mode = stereo_settings().filter_mode;
-      if (mode == 1){
-        out = stereo::disparity_cleanup_using_mean
-          (out.impl(),
-           stereo_settings().rm_half_kernel.x(),
-           stereo_settings().rm_half_kernel.y(),
-           stereo_settings().max_mean_diff);
+      if (stereo_settings().rm_half_kernel.x() <= 0 ||
+          stereo_settings().rm_half_kernel.y() <= 0){
+        // A zero filter half-kernel disables this disparity cleanup stage.
+      }else if (mode == 1){
+        out = stereo::disparity_cleanup_using_mean(out.impl(),
+                                                   stereo_settings().rm_half_kernel.x(),
+                                                   stereo_settings().rm_half_kernel.y(),
+                                                   stereo_settings().max_mean_diff);
       }else if (mode == 2){
         out = stereo::disparity_cleanup_using_thresh
           (out.impl(),
