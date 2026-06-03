@@ -95,6 +95,11 @@ cam_test (:numref:`cam_test`):
     its own bathy plane, so this also serves as an equivalence test
     between two representations of the same water surface.
 
+cam_gen (:numref:`cam_gen`):
+  * For optical bar cameras, setting the pixel pitch on the command line now
+    results in an error, as it is read from the sample file (like the focal
+    length, optical center, and distortion).
+
 bundle_adjust (:numref:`bundle_adjust`):
   * Replaced ``--save-cnet-as-csv`` with ``--save-cnet-as-gcp``. The control
     network is now saved after optimization and outlier filtering, with

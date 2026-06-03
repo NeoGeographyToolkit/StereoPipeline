@@ -83,8 +83,10 @@ Optical bar cameras
 ^^^^^^^^^^^^^^^^^^^
 
 For creating optical bar cameras, the camera parameters must be passed in using
-the ``--sample-file`` option instead of specifying them all manually. An example
-is in :numref:`kh9`.
+the ``--sample-file`` option instead of specifying them all manually. Setting the
+focal length, optical center, pixel pitch, or distortion on the command line for
+an optical bar camera results in an error, as these are read from the sample
+file. An example is in :numref:`kh9`.
 
 For fitting a CSM linescan camera to an Optical Bar camera, see
 :numref:`opticalbar2csm`.

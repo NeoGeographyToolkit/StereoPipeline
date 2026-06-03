@@ -646,6 +646,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "Cannot specify both a sample file and "
               << "focal length, optical center, or distortion.\n");
 
+  // For an optical bar camera all intrinsics, including the pixel pitch, come
+  // from the sample file. (The pixel pitch can be set together with a sample
+  // file for other camera types, to specify pixel units, so it is not in the
+  // check above.) Reject it here rather than silently ignoring it.
+  if (opt.camera_type == "opticalbar" && !vm["pixel-pitch"].defaulted())
+    vw_throw(ArgumentErr() << "The pixel pitch is read from the sample file for "
+             << "optical bar cameras and cannot be set separately.\n");
+
   if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar")
     vw_throw(ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
 
