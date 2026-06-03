@@ -209,24 +209,24 @@ struct MultipleDisparityCleanUp {
 
   inline result_type operator()( ImageViewBase<ViewT> const& input, int N) {
 
+    auto const& opts = asp::stereo_settings();
     result_type out = input;
     for (int i = 0; i < N; i++){
-      int mode = stereo_settings().filter_mode;
-      if (stereo_settings().rm_half_kernel.x() <= 0 ||
-          stereo_settings().rm_half_kernel.y() <= 0){
+      int mode = opts.filter_mode;
+      if (opts.rm_half_kernel.x() <= 0 ||
+          opts.rm_half_kernel.y() <= 0){
         // A zero filter half-kernel disables this disparity cleanup stage.
       }else if (mode == 1){
         out = stereo::disparity_cleanup_using_mean(out.impl(),
-                                                   stereo_settings().rm_half_kernel.x(),
-                                                   stereo_settings().rm_half_kernel.y(),
-                                                   stereo_settings().max_mean_diff);
+                                                   opts.rm_half_kernel.x(),
+                                                   opts.rm_half_kernel.y(),
+                                                   opts.max_mean_diff);
       }else if (mode == 2){
-        out = stereo::disparity_cleanup_using_thresh
-          (out.impl(),
-           stereo_settings().rm_half_kernel.x(),
-           stereo_settings().rm_half_kernel.y(),
-           stereo_settings().rm_threshold,
-           stereo_settings().rm_min_matches/100.0);
+        out = stereo::disparity_cleanup_using_thresh(out.impl(),
+                                                     opts.rm_half_kernel.x(),
+                                                     opts.rm_half_kernel.y(),
+                                                     opts.rm_threshold,
+                                                     opts.rm_min_matches/100.0);
       }else
         vw_throw( ArgumentErr() << "\nExpecting value of 1 or 2 for filter-mode. "
                   << "Got: " << mode << "\n" );
