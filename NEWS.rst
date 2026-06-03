@@ -116,6 +116,8 @@ jitter_solve (:numref:`jitter_solve`):
   * Per-interest-point pixel sigma values from input match files are now
     honored, matching the behavior of ``bundle_adjust``. Points with
     non-positive sigma are treated as outliers.
+  * Added ``--anchor-dem-uncertainty`` to set the anchor points constraint
+    strength as an uncertainty in meters (:numref:`jitter_anchor_points`).
 
 ipfind (:numref:`ipfind`):
   * Input images are now always normalized to [0, 1] before interest point

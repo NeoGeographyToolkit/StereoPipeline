@@ -279,19 +279,21 @@ Solving for jitter::
     ba/run-TC1W2B0_01_05324N054E2169.adjusted_state.json \
     ba/run-TC2W2B0_01_05324N056E2169.adjusted_state.json \
     --max-pairwise-matches 20000                         \
-    --num-lines-per-position 300                         \
-    --num-lines-per-orientation 300                      \
+    --num-lines-per-position 1000                        \
+    --num-lines-per-orientation 500                      \
     --max-initial-reprojection-error 20                  \
     --match-files-prefix dense_matches/run               \
+    --camera-position-uncertainty 2000,2000              \
     --heights-from-dem lola-DEM.tif                      \
-    --heights-from-dem-uncertainty 10                    \
+    --heights-from-dem-uncertainty 20                    \
     --anchor-dem lola-DEM.tif                            \
     --num-anchor-points 5000                             \
-    --num-anchor-points-extra-lines 1000                 \
-    --anchor-weight 0.01                                 \
+    --num-anchor-points-extra-lines 5000                 \
+    --anchor-dem-uncertainty 100                         \
     --num-iterations 20                                  \
     -o jitter/run
 
-The value of ``--anchor-weight`` can be increased to 0.1 - 0.5, if oscillations
-are seen at the starting and ending image lines.
-
+The value of ``--anchor-dem-uncertainty`` should be higher than that of
+``--heights-from-dem-uncertainty``, to ensure the ground points are not prevented
+from moving. See :numref:`jitter_anchor_points` for a full discussion of anchor
+points.

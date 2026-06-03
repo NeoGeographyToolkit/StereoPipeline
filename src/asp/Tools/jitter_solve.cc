@@ -88,7 +88,8 @@ struct Options: public asp::BaBaseOptions {
   int num_anchor_points_extra_lines;
   bool initial_camera_constraint, fix_rig_translations, fix_rig_rotations,
     use_initial_rig_transforms;
-  double quat_norm_weight, anchor_weight, roll_weight, yaw_weight, smoothness_weight;
+  double quat_norm_weight, anchor_weight, anchor_dem_uncertainty, roll_weight,
+    yaw_weight, smoothness_weight;
   std::map<int, int> cam2group;
 };
 
@@ -202,18 +203,31 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
       "difference outliers. It is suggested to not modify this value, and adjust instead "
       "--heights-from-dem-uncertainty.")
     ("num-anchor-points", po::value(&opt.num_anchor_points_per_image)->default_value(0),
-     "How many anchor points to create per image. They will be uniformly distributed.")
+     "How many anchor points to create per image. They will be uniformly distributed. "
+     "Anchor points are strongly recommended (together with --anchor-dem and "
+     "--anchor-dem-uncertainty) to keep the solution stable, especially for linescan "
+     "cameras. Mutually exclusive with --num-anchor-points-per-tile.")
     ("num-anchor-points-per-tile",
      po::value(&opt.num_anchor_points_per_tile)->default_value(0),
      "How many anchor points to create per 1024 x 1024 image tile. They will be uniformly "
      "distributed. Useful when images of vastly different sizes (such as frame and "
-     "linescan) are used together.")
+     "linescan) are used together. Mutually exclusive with --num-anchor-points.")
+    ("anchor-dem-uncertainty", po::value(&opt.anchor_dem_uncertainty)->default_value(-1.0),
+     "The uncertainty of anchor points (1 sigma, in meters). This controls how much the "
+     "ground points where rays through the anchor points meet the anchor DEM are allowed "
+     "to move. A smaller value constrains the cameras more. This is the preferred way of "
+     "setting the strength of the anchor constraint, instead of --anchor-weight, which is "
+     "harder to interpret. It should normally be notably larger than "
+     "--heights-from-dem-uncertainty, as otherwise convergence may be prevented. Mutually "
+     "exclusive with --anchor-weight. Set also --num-anchor-points and --anchor-dem.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(0.0),
      "How much weight to give to each anchor point. Anchor points are "
      "obtained by intersecting rays from initial cameras with the DEM given by "
-     "--heights-from-dem. A larger weight will make it harder for "
-     "the cameras to move, hence preventing unreasonable changes. "
-     "Set also --anchor-weight and --anchor-dem.")
+     "--anchor-dem. A larger weight will make it harder for "
+     "the cameras to move, hence preventing unreasonable changes. This option is harder to "
+     "interpret than --anchor-dem-uncertainty (the latter is in meters), so the latter is "
+     "preferred. The two are mutually exclusive, and an anchor weight w corresponds to an "
+     "anchor DEM uncertainty of 1/w. Set also --num-anchor-points and --anchor-dem.")
     ("anchor-dem",  po::value(&opt.anchor_dem)->default_value(""),
      "Use this DEM to create anchor points.")
     ("num-anchor-points-extra-lines",
@@ -636,6 +650,20 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   if (opt.anchor_weight < 0)
     vw_throw(ArgumentErr() << "The anchor weight must be non-negative.\n");
+
+  // The anchor uncertainty (in meters) is the preferred way to set the anchor
+  // constraint strength, instead of the harder-to-interpret anchor weight. The
+  // two are mutually exclusive. Internally the uncertainty is converted to a
+  // weight (weight = 1/uncertainty), so the anchor cost is effectively divided
+  // by the uncertainty, as is done for the height-from-dem uncertainty.
+  if (!vm["anchor-weight"].defaulted() && !vm["anchor-dem-uncertainty"].defaulted())
+    vw_throw(ArgumentErr() << "Cannot set both --anchor-weight and "
+             << "--anchor-dem-uncertainty. The latter is preferred.\n");
+  if (!vm["anchor-dem-uncertainty"].defaulted()) {
+    if (opt.anchor_dem_uncertainty <= 0)
+      vw_throw(ArgumentErr() << "The value of --anchor-dem-uncertainty must be positive.\n");
+    opt.anchor_weight = 1.0 / opt.anchor_dem_uncertainty;
+  }
 
   if ((opt.anchor_weight > 0  || opt.num_anchor_points_per_image > 0 ||
        opt.num_anchor_points_per_tile > 0 || opt.num_anchor_points_extra_lines > 0) &&

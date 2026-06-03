@@ -2247,7 +2247,7 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --anchor-dem ref_dem_extra.tif                 \
       --num-anchor-points-per-tile 4                 \
       --num-anchor-points-extra-lines 40000          \
-      --anchor-weight 0.1                            \
+      --anchor-dem-uncertainty 50.0                  \
       --mapproj-dem ref_dem.tif                      \
       --max-gcp-reproj-err 30                        \
       --camera-position-uncertainty 500,500          \
@@ -2258,20 +2258,23 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
 It is important to compare this with the bundle adjustment command
 in :numref:`sfs_ba_refine`.
 
+Normally a much larger value of ``--max-pairwise-matches`` is preferred,
+but given the very large number of input images this had to be drastically
+reduced.
+
 The camera position constraints prevented the cameras from moving far. The
-anchor points constrained the ground points. These together implicitly
-constrained the orientations as well. Adding more anchor points per tile
-and increasing the anchor weight helped reduce pose interpolation
-oscillations in dark or low-match regions.
+anchor points constrained the ground points (:numref:`jitter_anchor_points`).
+These together implicitly constrained the orientations as well. Adding more
+anchor points per tile and decreasing the anchor DEM uncertainty helped reduce
+pose interpolation oscillations in dark or low-match regions.
 
 The number of triangulated points, GCP, and anchor points should be kept
 relatively balanced. This program prints the number of triangulated non-GCP
 points, the number of GCP, and the total number of anchor points. The
-uncertainties and weights for these should also be chosen carefully.
-
-Normally a much larger value of ``--max-pairwise-matches`` is preferred,
-but given the very large number of input images this had to be drastically
-reduced.
+uncertainties and weights for these should also be chosen carefully. GCP
+uncertainty should be smaller than the value of
+``--heights-from-dem-uncertainty``, which should be smaller than the
+``--anchor-dem-uncertainty``.
 
 The anchor DEM (``ref_dem_extra.tif``) went 40 km beyond the site of interest to
 ensure we constrain oscillations in the cameras even outside the main DEM

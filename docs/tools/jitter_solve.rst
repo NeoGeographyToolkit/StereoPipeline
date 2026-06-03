@@ -45,9 +45,9 @@ GCP files produced from a prior DEM of good quality can help increase the accura
 A larger number of images (more than two, ideally with scan lines notably
 crossing each other) can improve the results.
 
-It is suggested to use this solver with carefully set camera position constraints
-and with anchor points, to prevent oscillations in the solution. An example
-is in :numref:`sfs_jitter`.
+It is strongly recommended to use this solver with carefully set camera position
+constraints and with anchor points, to prevent oscillations in the solution
+(:numref:`jitter_ground`). An example is in :numref:`sfs_jitter`.
 
 More research is needed about how to set up parameters for this solver in
 various situations.
@@ -64,9 +64,25 @@ Optimizing the cameras to reduce the jitter and make them self-consistent can
 result in the camera system moving away from the initial location or warping of
 any eventually produced DEM.
 
-Hence, ground and camera constraints are very important. This tool uses
-several kinds of constraints. They are described below, and an example of
-comparing different ground constraints is given in :numref:`jitter_pleiades`.
+Hence, ground and camera constraints are very important. In fact, it is *strongly
+recommended* to always use both the camera position uncertainty
+(``--camera-position-uncertainty``, :numref:`jitter_camera`) and anchor points
+(``--num-anchor-points`` or ``--num-anchor-points-per-tile``, together
+with ``--anchor-dem`` and ``--anchor-dem-uncertainty``,
+:numref:`jitter_anchor_points`). These two together constrain the camera position
+and orientation, respectively. Without them the problem can be under-constrained
+and the solution can become unstable, especially for linescan cameras and where
+there are no interest point matches (such as over clouds and shadows).
+
+All the ground constraints in this tool are specified as an uncertainty
+(1-sigma) in meters, so they can be reasoned about and balanced against each
+other: the GCP sigma (:numref:`bagcp`), ``--heights-from-dem-uncertainty``,
+``--anchor-dem-uncertainty``. Then, there is the triangulation constraint
+(``--tri-weight``, internally divided by the GSD, so this is dimensionless).
+
+This tool uses several kinds of constraints. They are described below, and an
+example of comparing different ground constraints is given in
+:numref:`jitter_pleiades`.
 
 .. _jitter_tri_constraint:
 
@@ -285,34 +301,58 @@ very minor ways. Camera poses from NVM files are not read either.
 Anchor points
 ~~~~~~~~~~~~~
 
-The anchor points constraint uses a well-aligned external DEM, but with
-important differences, as compared to interest point matches. 
-
 The anchor points are created based on pixels that are uniformly distributed
 over each image, not just where the images overlap, and can even go beyond the
 first and last image line. This ensures that the optimized poses do not
-oscillate where the images overlap very little or not at all.
+oscillate where the images overlap very little or not at all, such as over
+clouds and shadows, where there may be no interest point matches.
 
 This constraint works by projecting rays to the ground from the chosen
-uniformly distributed pixels, finding the *anchor points* where the
-rays intersect the DEM, then adding to the cost function to optimize
-reprojection errors (:numref:`bundle_adjustment`) for the anchor
-points. This complements the reprojection errors from triangulated
-interest point matches, and the external DEM constraint (if used).
+uniformly distributed pixels, finding the *anchor points* where the rays
+intersect the anchor DEM, then adding to the cost function the reprojection
+errors (:numref:`bundle_adjustment`) for the anchor points. This complements the
+reprojection errors from triangulated interest point matches, and the external
+DEM constraint (if used).
+
+The purpose of the anchor points is to control the camera orientation, by
+constraining how much the ground points, where the rays meet the anchor DEM, are
+allowed to move. The strength of this constraint is set with
+``--anchor-dem-uncertainty``, the uncertainty of the anchor points, as a 1-sigma
+value in meters. A smaller value constrains the cameras more. This option was
+introduced in build 2026/6 (:numref:`release`).
+
+This constraint is normally used together with the camera position uncertainty
+(``--camera-position-uncertainty``, :numref:`jitter_camera`). These two together
+fully constrain the problem: the camera position uncertainty controls where the
+cameras are, while the anchor points control the orientation by holding the
+ground points in place. It is important to normally set both, as otherwise the
+problem is under-constrained, especially when there are no interest point matches
+in certain areas, such as over clouds and shadows.
+
+The anchor uncertainty should normally be notably larger than
+``--heights-from-dem-uncertainty`` (:numref:`jitter_dem_constraint`). Otherwise
+the anchor constraint is too strong and convergence may be prevented.
+
+Specifying the uncertainty in meters is preferred to the older ``--anchor-weight``
+option, which is harder to interpret. This way all the ground constraints
+(ground control points, the DEM constraint, the triangulation constraint, and the
+anchor points constraint) are in the same units of meters, which makes them
+easier to reason about and to balance against each other. The two options are
+mutually exclusive; an anchor weight ``w`` corresponds to an anchor DEM
+uncertainty of ``1/w``.
 
 Anchor points are strongly encouraged either with an intrinsic constraint or an
-external DEM constraint. Their number and weights should be less than for the
-interest points, to avoid these dominating the problem.
-
-Resampling the camera poses very finely may require more anchor points.
+external DEM constraint. Their number should be less than for the interest
+points, to avoid these dominating the problem. Resampling the camera poses very
+finely may require more anchor points.
 
 A report file that has the residuals at anchor points is written down
 (:numref:`anchor_point_files`). The per-image counts and total number of
 anchor points are printed on the terminal.
 
 The relevant options are ``--num-anchor-points``,
-``--num-anchor-points-per-tile``, ``--anchor-weight``, ``--anchor-dem``, and
-``--num-anchor-points-extra-lines``.  An example is given in
+``--num-anchor-points-per-tile``, ``--anchor-dem-uncertainty``, ``--anchor-dem``,
+and ``--num-anchor-points-extra-lines``.  An example is given in
 :numref:`jitter_dg`.
 
 Solving for intrinsics 
@@ -499,24 +539,29 @@ Solving for jitter
 Then, jitter was solved for, using the *original cameras*, with the adjustments prefix
 having the latest refinements and alignment::
 
-    jitter_solve                               \
-      img/J03_045820_1915_XN_11N210W.cal.cub   \
-      img/K05_055472_1916_XN_11N210W.cal.cub   \
-      img/J03_045820_1915_XN_11N210W.cal.json  \
-      img/K05_055472_1916_XN_11N210W.cal.json  \
-      --input-adjustments-prefix ba_align/run  \
-      --max-pairwise-matches 100000            \
-      --match-files-prefix stereo/run-disp     \
-      --num-lines-per-position    1000         \
-      --num-lines-per-orientation 1000         \
-      --max-initial-reprojection-error 20      \
-      --heights-from-dem ref_dem.tif           \
-      --heights-from-dem-uncertainty 20.0      \
-      --num-iterations 50                      \
-      --num-anchor-points 0                    \
-      --anchor-weight 0                        \
-      --tri-weight 0.1                         \
+    jitter_solve                              \
+      img/J03_045820_1915_XN_11N210W.cal.cub  \
+      img/K05_055472_1916_XN_11N210W.cal.cub  \
+      img/J03_045820_1915_XN_11N210W.cal.json \
+      img/K05_055472_1916_XN_11N210W.cal.json \
+      --input-adjustments-prefix ba_align/run \
+      --max-pairwise-matches 100000           \
+      --match-files-prefix stereo/run-disp    \
+      --num-lines-per-position    1000        \
+      --num-lines-per-orientation 1000        \
+      --max-initial-reprojection-error 20     \
+      --camera-position-uncertainty 2000,2000 \
+      --heights-from-dem ref_dem.tif          \
+      --heights-from-dem-uncertainty 20.0     \
+      --num-iterations 50                     \
+      --anchor-dem ref_dem.tif                \
+      --num-anchor-points 1000                \
+      --anchor-dem-uncertainty 50.0           \
+      --tri-weight 0.1                        \
       -o jitter/run
+
+It can be preferable to specify here the cameras after bundle adjustment, and
+then omit ``--input-adjustments-prefix``.
 
 It was found that using about 1000 lines per pose (position and
 orientation) sample gave good results, and if using too few lines, the
@@ -526,8 +571,8 @@ Either dense and *uniformly distributed* interest point matches or sufficiently
 dense *subpixel-level accurate sparse matches* are necessary to solve for jitter
 (:numref:`jitter_ip`).
 
-Here *anchor points* were not used. They can be necessary to stabilize the
-solution (:numref:`jitter_anchor_points`).
+Here *anchor points* were used. They can be necessary to stabilize the
+orientations (:numref:`jitter_anchor_points`).
 
 The constraint relative to the reference DEM is needed, to make sure
 the DEM produced later agrees with the reference one.  Otherwise, the
@@ -535,7 +580,7 @@ final solution may not be unique, as a long-wavelength perturbation
 consistently applied to all obtained camera trajectories may work just
 as well.
 
-If using camera position constraints (:numref:`jitter_camera`), it is
+We used camera position constraints (:numref:`jitter_camera`), it is
 suggested to be generous with the uncertainties. For CTX they are likely
 rather large.
 
@@ -887,16 +932,17 @@ Solve for jitter. This commands expects raw (not mapprojected) images::
       --num-iterations 50                     \
       --max-pairwise-matches 100000           \
       --max-initial-reprojection-error 20     \
+      --camera-position-uncertainty 1000,1000 \
       --tri-weight 0.1                        \
       --tri-robust-threshold 0.1              \
       --num-lines-per-position    400         \
       --num-lines-per-orientation 400         \
       --heights-from-dem ref.tif              \
-      --heights-from-dem-uncertainty 20       \
+      --heights-from-dem-uncertainty 10       \
       --num-anchor-points 10000               \
       --num-anchor-points-extra-lines 500     \
       --anchor-dem ref.tif                    \
-      --anchor-weight 0.1                     \
+      --anchor-dem-uncertainty 50             \
     -o jitter/run
 
 The value of ``--heights-from-dem-uncertainty`` is very important. See
@@ -1157,21 +1203,22 @@ cameras were accurate enough, so these steps were skipped.
 
 :: 
 
-    jitter_solve                               \
-      1.tif 2.tif                              \
-      1.xml 2.xml                              \
-      --match-files-prefix matches/run         \
-      --num-iterations 50                      \
-      --max-pairwise-matches 100000            \
-      --max-initial-reprojection-error 20      \
-      --tri-weight 0.1                         \
-      --tri-robust-threshold 0.1               \
-      --num-lines-per-position    500          \
-      --num-lines-per-orientation 500          \
-      --num-anchor-points 10000                \
-      --num-anchor-points-extra-lines 500      \
-      --anchor-dem ref-adj.tif                 \
-      --anchor-weight 0.1                      \
+    jitter_solve                              \
+      1.tif 2.tif                             \
+      1.xml 2.xml                             \
+      --match-files-prefix matches/run        \
+      --num-iterations 50                     \
+      --max-pairwise-matches 100000           \
+      --max-initial-reprojection-error 20     \
+      --camera-position-uncertainty 1000,1000 \
+      --tri-weight 0.1                        \
+      --tri-robust-threshold 0.1              \
+      --num-lines-per-position    500         \
+      --num-lines-per-orientation 500         \
+      --num-anchor-points 10000               \
+      --num-anchor-points-extra-lines 500     \
+      --anchor-dem ref-adj.tif                \
+      --anchor-dem-uncertainty 50             \
       -o jitter_tri/run
 
 See :numref:`jitter_camera` for a discussion of camera constraints.
@@ -1404,7 +1451,6 @@ Solve for jitter with the aligned cameras::
       --heights-from-dem ref.tif                      \
       --heights-from-dem-uncertainty 20               \
       --num-anchor-points 0                           \
-      --anchor-weight 0.0                             \
       -o jitter/run
 
 The DEM uncertainty constraint was set to 20, as the image GSD is 15 meters. A
@@ -1672,26 +1718,26 @@ camera position constraint is also on (:numref:`jitter_camera`).
 Solve for jitter with a ground constraint. Use roll and yaw constraints, to
 ensure movement only for the pitch angle:: 
 
-    jitter_solve                                 \
-        --num-iterations 50                      \
-        --max-pairwise-matches 3000              \
-        --clean-match-files-prefix               \
-          ba/run                                 \
-        --roll-weight 10000                      \
-        --yaw-weight 10000                       \
-        --max-initial-reprojection-error 100     \
-        --tri-weight 0.1                         \
-        --tri-robust-threshold 0.1               \
-        --num-anchor-points 10000                \
-        --num-anchor-points-extra-lines 500      \
-        --anchor-dem dem.tif                     \
-        --anchor-weight 0.05                     \
-        --heights-from-dem dem.tif               \
-        --heights-from-dem-uncertainty 10        \
-        jitter0.0/f.tif                          \
-        jitter0.0/n-images.txt                   \
-        jitter2.0/f.json                         \
-        jitter0.0/n-cameras.txt                  \
+    jitter_solve                             \
+        --num-iterations 50                  \
+        --max-pairwise-matches 3000          \
+        --clean-match-files-prefix           \
+          ba/run                             \
+        --roll-weight 10000                  \
+        --yaw-weight 10000                   \
+        --max-initial-reprojection-error 100 \
+        --tri-weight 0.1                     \
+        --tri-robust-threshold 0.1           \
+        --num-anchor-points 10000            \
+        --num-anchor-points-extra-lines 500  \
+        --anchor-dem dem.tif                 \
+        --anchor-dem-uncertainty 20          \
+        --heights-from-dem dem.tif           \
+        --heights-from-dem-uncertainty 10    \
+        jitter0.0/f.tif                      \
+        jitter0.0/n-images.txt               \
+        jitter2.0/f.json                     \
+        jitter0.0/n-cameras.txt              \
         -o jitter_solve/run
 
 The value of ``--heights-from-dem-uncertainty`` should be chosen with care.
@@ -1866,25 +1912,25 @@ images and cameras are created with ``sat_sim`` (:numref:`sat_sim_rig`).
 
 ::
 
-    jitter_solve                                \
-        --rig-config rig.txt                    \
-        --forced-triangulation-distance 500000  \
-        --min-matches 1                         \
-        --min-triangulation-angle 1e-10         \
-        --num-iterations 50                     \
-        --max-pairwise-matches 50000            \
-        --match-files-prefix ba/run             \
-        --max-initial-reprojection-error 100    \
-        --num-anchor-points-per-tile 100        \
-        --num-anchor-points-extra-lines 500     \
-        --anchor-dem dem.tif                    \
-        --anchor-weight 0.01                    \
-        --heights-from-dem dem.tif              \
-        --heights-from-dem-uncertainty 10       \
-        data/nadir_linescan.tif                 \
-        data/nadir_frame_images.txt             \
-        data/nadir_linescan.json                \
-        data/nadir_frame_cameras.txt            \
+    jitter_solve                               \
+        --rig-config rig.txt                   \
+        --forced-triangulation-distance 500000 \
+        --min-matches 1                        \
+        --min-triangulation-angle 1e-10        \
+        --num-iterations 50                    \
+        --max-pairwise-matches 50000           \
+        --match-files-prefix ba/run            \
+        --max-initial-reprojection-error 100   \
+        --num-anchor-points-per-tile 100       \
+        --num-anchor-points-extra-lines 500    \
+        --anchor-dem dem.tif                   \
+        --anchor-dem-uncertainty 100           \
+        --heights-from-dem dem.tif             \
+        --heights-from-dem-uncertainty 10      \
+        data/nadir_linescan.tif                \
+        data/nadir_frame_images.txt            \
+        data/nadir_linescan.json               \
+        data/nadir_frame_cameras.txt           \
         -o jitter/run
 
 The options ``--use-initial-rig-transforms``, ``--fix-rig-rotations``,
@@ -1972,7 +2018,7 @@ Example usage::
     --stereo-prefix-list stereo_list.txt          \
     --num-anchor-points-per-tile 50               \
     --num-anchor-points-extra-lines 1000          \
-    --anchor-weight 0.1                           \
+    --anchor-dem-uncertainty 10                   \
     --anchor-dem anchor_dem.tif                   \
     left.tif right.tif                            \
     left.json right.json                          \
@@ -2280,23 +2326,35 @@ Command-line options for jitter_solve
     this value (in pixels).
 
 --num-anchor-points <integer (default: 0)>
-    How many anchor points to create tying each pixel to a point on a DEM along
-    the ray from that pixel to the ground. These points will be uniformly
-    distributed across each input image. Only applies to linescan cameras. See
-    also ``--anchor-weight`` and ``--anchor-dem``.
+    How many anchor points to create per image, tying each chosen pixel to the
+    point where its ray meets the anchor DEM (:numref:`jitter_anchor_points`).
+    These points are uniformly distributed across each input image. Anchor points
+    are strongly recommended (with ``--anchor-dem`` and
+    ``--anchor-dem-uncertainty``) to keep the solution stable. Mutually exclusive
+    with ``--num-anchor-points-per-tile``.
 
 --num-anchor-points-per-tile <integer (default: 0)>
     How many anchor points to create per 1024 x 1024 image tile. They will be
     uniformly distributed. Useful when images of vastly different sizes (such as
-    frame and linescan) are used together. See also ``--anchor-weight`` and
-    ``--anchor-dem``.
-    
+    frame and linescan) are used together. Mutually exclusive with
+    ``--num-anchor-points``.
+
+--anchor-dem-uncertainty <double (default: -1.0)>
+    The uncertainty of anchor points (1 sigma, in meters). This controls how much
+    the ground points, where rays through the anchor points meet the anchor DEM,
+    are allowed to move. A smaller value constrains the cameras more. This is the
+    preferred way of setting the strength of the anchor constraint, instead of
+    ``--anchor-weight``, which is harder to interpret. It should normally be
+    notably larger than ``--heights-from-dem-uncertainty``, as otherwise
+    convergence may be prevented. Mutually exclusive with ``--anchor-weight``.
+    See :numref:`jitter_anchor_points` for the full discussion.
+
 --anchor-weight <double (default: 0.0)>
-    How much weight to give to each anchor point. Anchor points are
-    obtained by intersecting rays from initial cameras with the DEM
-    given by ``--heights-from-dem``. A larger weight will make it
-    harder for the cameras to move, hence preventing unreasonable
-    changes.
+    How much weight to give to each anchor point. A larger weight will make it
+    harder for the cameras to move, hence preventing unreasonable changes. This is
+    harder to interpret than ``--anchor-dem-uncertainty`` (which is in meters), so
+    the latter is preferred. An anchor weight ``w`` corresponds to an anchor DEM
+    uncertainty of ``1/w``. Mutually exclusive with ``--anchor-dem-uncertainty``.
 
 --anchor-dem <string (default: "")>
     Use this DEM to create anchor points.
