@@ -21,29 +21,56 @@ Usage::
 Examples
 ~~~~~~~~
 
-Take the absolute difference of two DEMs::
+Absolute difference of two DEMs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
 
     geodiff --absolute dem1.tif dem2.tif -o run
 
-This will create ``run-diff.tif``.
+This creates ``run-diff.tif``, with values equal to ``|dem1 - dem2|`` on the
+grid of ``dem1``.
 
 The ``stereo_gui`` program (:numref:`colorize`) can colorize on-the-fly and
 display the difference image. The ``colormap`` program (:numref:`colormap`) can
 write a colorized image.
 
-Take the difference of two DEMs in the first DEM's grid, but with the sign
-reversed::
+DEM 1 minus DEM 2
+^^^^^^^^^^^^^^^^^
+
+Subtract the second DEM from the first DEM. This is the default::
+
+    geodiff dem1.tif dem2.tif -o run
+
+This creates ``run-diff.tif``, with values equal to ``dem1 - dem2`` on the
+grid of ``dem1``.
+
+DEM 2 minus DEM 1
+^^^^^^^^^^^^^^^^^
+
+Use ``--reverse`` to flip the sign, while still using the grid of the first
+DEM::
 
     geodiff --reverse dem1.tif dem2.tif -o run
 
-This will create ``run-diff.tif`` with values equal to ``dem2 - dem1`` on the
+This creates ``run-diff.tif``, with values equal to ``dem2 - dem1`` on the
 grid of ``dem1``.
+
+Difference of a DEM and a CSV file
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Take the difference of a DEM and a CSV file::
 
     geodiff dem1.tif file.csv                         \
       --csv-format '1:lon 2:lat 3:height_above_datum' \
       -o run
+
+The ``--csv-format`` option specifies the meaning of the CSV columns. See
+:numref:`csv_format` for the full description of the supported formats.
+
+This creates ``run-diff.csv``, holding the DEM height minus the CSV height,
+sampled on the DEM's grid. The grid comes from the DEM regardless of the input
+order. Add ``--reverse`` to flip the sign.
 
 The produced ``run-diff.csv`` file can be visualized and colorized with
 ``stereo_gui`` (:numref:`plot_csv`), as::
