@@ -75,6 +75,10 @@ ipmatch (:numref:`ipmatch`):
     (:numref:`ipmatch_convert`).
   * Added an option for merging match files (:numref:`ipmatch_merge`).
 
+geodiff (:numref:`geodiff`):
+  * Added the option ``--reverse`` to flip the sign of the difference while
+    keeping the output on the first DEM's grid.
+
 image_calc (:numref:`image_calc`):
   * Added the option ``--stretch`` to stretch an image and save it with 8-bit
     pixels, for visualization purposes (:numref:`image_calc_stretch`).

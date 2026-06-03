@@ -6,7 +6,8 @@ geodiff
 The ``geodiff`` program takes as input two DEMs, or a DEM and a CSV file, and
 subtracts the second from the first. The grid is from the first DEM, so the
 second one is interpolated into it using bilinear interpolation. When one file
-is a CSV, the grid from the DEM is used, regardless of the order of inputs. 
+is a CSV, the grid from the DEM is used, regardless of the order of inputs. Use
+``--reverse`` to flip the sign of the output while keeping the same grid.
 
 It is important to note that ``geodiff`` is very sensitive to the order of
 the two DEMs, due to the fact that the grid comes from the first one.
@@ -29,6 +30,14 @@ This will create ``run-diff.tif``.
 The ``stereo_gui`` program (:numref:`colorize`) can colorize on-the-fly and
 display the difference image. The ``colormap`` program (:numref:`colormap`) can
 write a colorized image.
+
+Take the difference of two DEMs in the first DEM's grid, but with the sign
+reversed::
+
+    geodiff --reverse dem1.tif dem2.tif -o run
+
+This will create ``run-diff.tif`` with values equal to ``dem2 - dem1`` on the
+grid of ``dem1``.
 
 Take the difference of a DEM and a CSV file::
 
@@ -58,6 +67,10 @@ Command-line options
 
 --absolute
     Output the absolute difference as opposed to just the difference.
+
+--reverse
+    Reverse the sign of the difference while keeping the output on the same
+    grid.
 
 --csv-format <string>
     Specify the format of input CSV files as a list of entries
