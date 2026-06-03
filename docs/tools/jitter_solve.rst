@@ -86,8 +86,8 @@ example of comparing different ground constraints is given in
 
 .. _jitter_tri_constraint:
 
-Intrinsic constraint
-^^^^^^^^^^^^^^^^^^^^
+Triangulated point constraint
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Triangulated ground points obtained from interest point matches are kept, during
 optimization, close to their initial values. This works well when the images
@@ -116,8 +116,8 @@ full description of this option.
 
 .. _jitter_dem_constraint:
 
-Extrinsic constraint
-^^^^^^^^^^^^^^^^^^^^
+Reference DEM constraint
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 This ties the triangulated ground points obtained from interest point matches to
 an external DEM, which may be at a lower resolution than the images. It is
@@ -128,8 +128,8 @@ This option is named ``--heights-from-dem``, and it is controlled via
 ``--heights-from-dem-uncertainty`` and ``--heights-from-dem-robust-threshold``.
 The use of these options is shown in :numref:`jitter_ctx`.
 
-The previously mentioned intrinsic constraint will be employed where the
-triangulated points are not close to the DEM given by this option. 
+The previously mentioned triangulated point constraint will be employed where the
+triangulated points are not close to the DEM given by this option.
 
 The DEM constraint is preferred, if a decent DEM that is well-aligned with the
 cameras is available.
@@ -196,8 +196,8 @@ to use the experimental ``--rotation-weight`` option.
 Smoothness constraint
 ^^^^^^^^^^^^^^^^^^^^^
 
-The option ``--smoothness-weight`` constraints how much each sequence of
-linescan poses can change in curvature relative to the initial values. 
+The option ``--smoothness-weight`` constrains how much each sequence of
+linescan poses can change in curvature relative to the initial values.
 This can prevent convergence. 
 
 A range of values is suggested in :numref:`jitter_options`.
@@ -242,7 +242,7 @@ and DEM differences after solving for jitter
 Interest point matches
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Since solving for jitter is a fine-grained operation, modifying many positions
+Solving for jitter is a fine-grained operation, modifying many positions
 and orientations along the satellite track. Hence, many dense and
 well-distributed interest points are necessary. It is suggested to create these
 with *pairwise stereo*, with the option ``--num-matches-from-disparity``
@@ -334,17 +334,25 @@ The anchor uncertainty should normally be notably larger than
 the anchor constraint is too strong and convergence may be prevented.
 
 Specifying the uncertainty in meters is preferred to the older ``--anchor-weight``
-option, which is harder to interpret. This way all the ground constraints
-(ground control points, the DEM constraint, the triangulation constraint, and the
+option, which is harder to interpret. This way the ground constraints that are
+expressed as uncertainties (ground control points, the DEM constraint, and the
 anchor points constraint) are in the same units of meters, which makes them
-easier to reason about and to balance against each other. The two options are
-mutually exclusive; an anchor weight ``w`` corresponds to an anchor DEM
-uncertainty of ``1/w``.
+easier to reason about and to balance against each other. (The triangulation
+constraint, ``--tri-weight``, is the exception, being a weight, not an
+uncertainty.) The two options are mutually exclusive; an anchor weight ``w``
+corresponds to an anchor DEM uncertainty of ``1/w``.
 
-Anchor points are strongly encouraged either with an intrinsic constraint or an
-external DEM constraint. Their number should be less than for the interest
-points, to avoid these dominating the problem. Resampling the camera poses very
-finely may require more anchor points.
+Anchor points are strongly encouraged either with a triangulated point constraint
+or a reference DEM constraint. To avoid the anchor points dominating the problem,
+their number should be less than the number of interest point matches (and of the
+triangulated and DEM-constrained points), and their uncertainty
+(``--anchor-dem-uncertainty``) should be larger than
+``--heights-from-dem-uncertainty``. Resampling the camera poses very finely may
+require more anchor points.
+
+The solver prints to the terminal the total number of triangulated points, anchor
+points, and ground control points. This helps check that these counts are
+balanced.
 
 A report file that has the residuals at anchor points is written down
 (:numref:`anchor_point_files`). The per-image counts and total number of
