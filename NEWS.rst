@@ -386,6 +386,7 @@ image_subset (:numref:`image_subset`):
 
 misc:
   * Added minimum system requirements for running ASP (:numref:`system_rec`).
+  * Bugfix for the ``--mo`` metadata parser in ``image_calc`` and ``mapproject`` so values can contain ``=`` characters.
   * Made the OpticalBar model 3x faster by switching from minimization in 3D
     to root-finding in 2D with the Newton-Raphson method.
   * Turned off experimental ``--subpixel-mode 6`` as it is failing to run
