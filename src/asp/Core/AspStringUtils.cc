@@ -82,19 +82,18 @@ void parseKeysVals(std::string const& file,
 
 /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
 /// so it may have some items there beforehand.
-// TODO(oalexan1): This will fail if VAL1 has equal signs.
 void parse_append_metadata(std::string const& metadata,
                            std::map<std::string, std::string> & keywords) {
-  
+
   std::istringstream is(metadata);
-  std::string meta, var, val;
-  while (is >> meta){
-    
-    // TODO(oalexan1): Replace only first equal, to allow for equal signs in values.
-    boost::replace_all(meta, "=", " ");  // replace equal with space
-    std::istringstream is2(meta);
-    if (!(is2 >> var >> val)) 
+  std::string meta;
+  while (is >> meta) {
+    size_t equal_pos = meta.find('=');
+    if (equal_pos == std::string::npos || equal_pos == 0 || equal_pos + 1 >= meta.size())
       vw::vw_throw(vw::ArgumentErr() << "Could not parse: " << meta << "\n");
+
+    std::string var = meta.substr(0, equal_pos);
+    std::string val = meta.substr(equal_pos + 1);
     keywords[var] = val;
   }
 }
