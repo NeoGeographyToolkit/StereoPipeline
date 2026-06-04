@@ -203,6 +203,8 @@ This will produce ``left.json`` and ``right.json``.
 See the `isd_generate manual
 <https://astrogeology.usgs.gov/docs/getting-started/using-ale/isd-generate/>`_.
 
+.. _csm_linescan_stereo:
+
 Running stereo
 ^^^^^^^^^^^^^^
 
@@ -219,9 +221,6 @@ going to be great.
 
 See :numref:`nextsteps` for a discussion about various stereo
 algorithms and speed-vs-quality choices. 
-
-The fancier MGM algorithm could be used by running this example with
-``--stereo-algorithm asp_mgm``.
 
 The actual stereo session used is ``csm``, and here it will be
 auto-detected based on the extension of the camera files.
@@ -258,9 +257,9 @@ followed by mapprojecting onto it and redoing stereo::
       left.map.tif right.map.tif left.json right.json  \
       run_map/run run/run-smooth-DEM.tif
 
-Notice how we used the same resolution for both images when
-mapprojecting. That helps making the resulting images more similar and
-reduces the processing time (:numref:`mapproj-res`).
+Notice how we used the same grid size (ground sample distance) for both images
+when mapprojecting. The ground sample distance is sensor-dependent. It can be
+auto-computed by ``mapproject`` if not known (:numref:`mapproj-res`).
 
 .. _csm_wac:
 

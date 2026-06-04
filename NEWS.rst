@@ -30,6 +30,7 @@ parallel_stereo (:numref:`parallel_stereo`):
   * For the ASTER camera (:numref:`aster`), removed the ``--aster-use-csm``
     option as that is the default. Removed the use of the helper RPC model
     for interest point matching.
+  * Added documentation for how to produce HRSC CSM cameras (:numref:`hrsc_csm`).
   * Added the option ``--proj-win`` to limit stereo to a projection window for
     mapprojected images (:numref:`stereodefault`).
   * The logic for consolidating the output directory has been given its own

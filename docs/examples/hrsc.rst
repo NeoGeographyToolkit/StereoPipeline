@@ -91,3 +91,36 @@ A DEM is created with ``point2dem`` (:numref:`point2dem`)::
       mgm/out-PC.tif
 
 Alignment to MOLA can be done with ``pc_align`` (:numref:`pc_align`).
+
+.. _hrsc_csm:
+
+CSM cameras
+~~~~~~~~~~~
+
+To create CSM cameras (:numref:`csm`) for HRSC, install the ASP custom build of ALE from
+the ``nasa-ames-stereo-pipeline`` channel, in a dedicated environment::
+
+    conda create -n ale_asp        \
+      -c nasa-ames-stereo-pipeline \
+      -c conda-forge               \
+      'ale=1.2.0=*asp*'
+    conda activate ale_asp
+
+This is necessary (as of 2026/6) to avoid a bug in ALE. Once a higher version
+of ALE is officially released, likely can use that one.
+
+Point ``ISISDATA`` at the ISIS data directory (:numref:`planetary_images`)::
+
+    export ISISDATA=/path/to/isisdata
+
+Create an ISD for each stereo channel. The ``-k`` option tells ``isd_generate``
+which cube's attached SPICE kernels to use; here each cube supplies its own,
+set earlier by ``spiceinit``::
+
+    isd_generate -k h1995_0000_s13.cub h1995_0000_s13.cub
+    isd_generate -k h1995_0000_s23.cub h1995_0000_s23.cub
+
+This writes ``h1995_0000_s13.json`` and ``h1995_0000_s23.json``. Each ``.json``
+is the CSM camera for the corresponding ``.cub`` image.
+
+Then, stereo processing can happen as in :numref:`csm_linescan_stereo`.
