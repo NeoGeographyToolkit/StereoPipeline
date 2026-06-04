@@ -242,8 +242,9 @@ void write_parallel_cond(std::string              const& filename,
 
     keywords["DEM_FILE"] = opt.dem_file;
     
-    // Parse keywords from the --mo option.
-    asp::parse_append_metadata(opt.metadata, keywords);
+    // Parse keywords from the --mo option (it may be repeated, GDAL-style).
+    for (size_t i = 0; i < opt.metadata.size(); i++)
+      asp::parse_append_metadata(opt.metadata[i], keywords);
   }
   
   bool has_georef = true;

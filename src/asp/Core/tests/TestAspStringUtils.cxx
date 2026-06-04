@@ -36,3 +36,29 @@ TEST(AspStringUtils, ParseAppendMetadataRejectsMissingValue) {
   std::map<std::string, std::string> keywords;
   EXPECT_THROW(parse_append_metadata("A=", keywords), vw::ArgumentErr);
 }
+
+// As with GDAL -mo, a value keeps everything after the first equal sign,
+// including spaces. A token without an equal sign extends the current value.
+TEST(AspStringUtils, ParseAppendMetadataPreservesSpacesInValues) {
+  std::map<std::string, std::string> keywords;
+
+  parse_append_metadata("VAR1=value with spaces VAR2=plain", keywords);
+  EXPECT_EQ("value with spaces", keywords["VAR1"]);
+  EXPECT_EQ("plain", keywords["VAR2"]);
+
+  // Spaces and equal signs together in one value.
+  keywords.clear();
+  parse_append_metadata("VAR3=a = b c", keywords);
+  EXPECT_EQ("a = b c", keywords["VAR3"]);
+
+  // A single pair with spaces, as from a repeated --mo option.
+  keywords.clear();
+  parse_append_metadata("VAR4=value with spaces", keywords);
+  EXPECT_EQ("value with spaces", keywords["VAR4"]);
+}
+
+// A leading token with no equal sign cannot start a value.
+TEST(AspStringUtils, ParseAppendMetadataRejectsLeadingValueWord) {
+  std::map<std::string, std::string> keywords;
+  EXPECT_THROW(parse_append_metadata("word A=1", keywords), vw::ArgumentErr);
+}

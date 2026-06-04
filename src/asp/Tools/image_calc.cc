@@ -495,7 +495,8 @@ struct Options: vw::GdalWriteOptions {
   vw::Vector2 percentile_range;
   double      out_nodata_value;
   std::string calc_string;
-  std::string output_file, metadata;
+  std::string output_file;
+  std::vector<std::string> metadata;
 };
 
 // Pick an in-range default nodata for the output channel type for when no output
@@ -562,10 +563,12 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
      "and float64, the smallest int32 for int32, -32768 for int16, and 0 for unsigned "
      "types. For floating-point output, -1e6 is set rather than the most negative float "
      "value, as that one often prints with reduced precision.")
-    ("mo",  po::value(&opt.metadata)->default_value(""),
-     "Write metadata to the output file. Provide as a string in quotes if more than one "
-     "item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable "
-     "names nor the values should contain spaces.")
+    ("mo",  po::value(&opt.metadata)->composing(),
+     "Write metadata to the output file. Set as a string in quotes, such as "
+     "'VAR1=VALUE1 VAR2=VALUE2'. As with the GDAL -mo option, a value is everything "
+     "after the first equal sign, so it may contain spaces and further equal signs "
+     "(for example, 'VAR=value with spaces'). The option can be repeated, with "
+     "one VAR=VALUE pair each time.")
     ("no-georef", po::bool_switch(&opt.no_georef)->default_value(false),
      "Remove any georeference information (useful with subsequent GDAL-based processing).")
     ("stretch", po::bool_switch(&opt.percentile_stretch)->default_value(false),
@@ -732,12 +735,14 @@ void write_out(std::string const& output_file,
   // Read previous keywords and append any new keywords from --mo. Overwrite
   // any previous value of a keyword.
   std::map<std::string, std::string> keywords;
-  if (opt.metadata != "") {
+  if (!opt.metadata.empty()) {
     if (!opt.input_files.empty()) {
       auto rsrc = vw::DiskImageResourcePtr(opt.input_files[0]);
       vw::cartography::read_header_strings(*rsrc.get(), keywords);
     }
-    asp::parse_append_metadata(opt.metadata, keywords);
+    // Parse each --mo occurrence (a value may contain spaces, like GDAL -mo).
+    for (size_t i = 0; i < opt.metadata.size(); i++)
+      asp::parse_append_metadata(opt.metadata[i], keywords);
   }
 
   if (opt.percentile_stretch) {

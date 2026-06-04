@@ -171,6 +171,22 @@ are not available.
 These fields are editable with ``image_calc`` (:numref:`image_calc_metadata`),
 but this is not recommended.
 
+.. _mapproj_custom_metadata:
+
+Custom metadata
+~~~~~~~~~~~~~~~
+
+Custom metadata can be added to the geoheader with the ``--mo`` option. As with
+the GDAL ``-mo`` option, a value is everything after the first equal sign, so it
+may contain spaces and further equal signs. Pass several items in one quoted
+string, or repeat the option, with one ``VAR=VALUE`` pair each time::
+
+    mapproject                      \
+      --mo 'VAR1=value with spaces' \
+      --mo 'VAR2=second value'      \
+      dem.tif image.tif camera.xml  \
+      output.tif
+
 .. _mapproj_isis:
 
 ISIS compatibility
@@ -430,10 +446,9 @@ Command-line options
     is not recommended, as it can result in artifacts.*
 
 --mo <string>
-    Write metadata to the output file. Provide as a string in quotes
-    if more than one item, separated by a space, such as
-    ``VAR1=VALUE1 VAR2=VALUE2``.  Neither the variable names nor
-    the values should contain spaces.
+    Write metadata to the output file, as with the GDAL ``-mo`` option. The
+    option can be repeated. See :numref:`mapproj_custom_metadata` for details
+    and examples.
 
 --query-projection
     Display the computed projection information, estimated ground sample

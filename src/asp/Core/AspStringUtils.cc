@@ -81,20 +81,38 @@ void parseKeysVals(std::string const& file,
 }
 
 /// Parse 'VAR1=VAL1 VAR2=VAL2' into a map. Note that we append to the map,
-/// so it may have some items there beforehand.
+/// so it may have some items there beforehand. The value is everything after
+/// the first equal sign, including any further equal signs and spaces, just as
+/// GDAL handles its -mo option. A whitespace-separated token that has an equal
+/// sign starts a new key; one without an equal sign extends the value of the
+/// current key. So 'VAR1=value with spaces VAR2=plain' yields VAR1="value with
+/// spaces" and VAR2="plain". Pass several pairs in one quoted string, or repeat
+/// the option.
 void parse_append_metadata(std::string const& metadata,
                            std::map<std::string, std::string> & keywords) {
 
   std::istringstream is(metadata);
-  std::string meta;
-  while (is >> meta) {
-    size_t equal_pos = meta.find('=');
-    if (equal_pos == std::string::npos || equal_pos == 0 || equal_pos + 1 >= meta.size())
-      vw::vw_throw(vw::ArgumentErr() << "Could not parse: " << meta << "\n");
+  std::string token, var;
+  bool have_var = false;
+  while (is >> token) {
+    size_t equal_pos = token.find('=');
 
-    std::string var = meta.substr(0, equal_pos);
-    std::string val = meta.substr(equal_pos + 1);
-    keywords[var] = val;
+    // A token with no equal sign, or with one only at the start (so it has
+    // no variable name), continues the value of the current key.
+    if (equal_pos == std::string::npos || equal_pos == 0) {
+      if (!have_var)
+        vw::vw_throw(vw::ArgumentErr() << "Could not parse metadata: " << metadata << "\n");
+      keywords[var] += " " + token;
+      continue;
+    }
+
+    // This token starts a new key=value pair. The value must be non-empty.
+    if (equal_pos + 1 >= token.size())
+      vw::vw_throw(vw::ArgumentErr() << "Could not parse: " << token << "\n");
+
+    var = token.substr(0, equal_pos);
+    keywords[var] = token.substr(equal_pos + 1);
+    have_var = true;
   }
 }
 

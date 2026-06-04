@@ -101,7 +101,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     ("model-occlusion", po::bool_switch(&opt.model_occlusion)->default_value(false),
      "Model occlusion by the planetary body, by comparing the local "
      "vertical direction with the ray from the camera.")
-    ("mo",  po::value(&opt.metadata)->default_value(""), "Write metadata to the output file. Provide as a string in quotes if more than one item, separated by a space, such as 'VAR1=VALUE1 VAR2=VALUE2'. Neither the variable names nor the values should contain spaces.")
+    ("mo",  po::value(&opt.metadata)->composing(), "Write metadata to the output file. Set as a string in quotes, such as 'VAR1=VALUE1 VAR2=VALUE2'. As with the GDAL -mo option, a value is everything after the first equal sign, so it may contain spaces and further equal signs (for example, 'VAR=value with spaces'). The option can be repeated, with one VAR=VALUE pair each time.")
     ("no-geoheader-info", po::bool_switch(&opt.noGeoHeaderInfo)->default_value(false),
      "Do not write metadata information in the geoheader. See the doc for more info.")
     ("query-pixel", po::value(&opt.query_pixel)->default_value(vw::Vector2(NaN, NaN)),

@@ -29,6 +29,7 @@
 #include <vw/Image/PixelMask.h>
 
 #include <string>
+#include <vector>
 
 namespace asp {
   
@@ -44,7 +45,8 @@ struct MapprojOptions: vw::GdalWriteOptions {
   vw::CamPtr camera_model;
   
   // Settings
-  std::string target_srs_string, output_type, metadata;
+  std::string target_srs_string, output_type;
+  std::vector<std::string> metadata;
   double nodata_value, tr, mpp, ppd, datum_offset;
   vw::BBox2 target_projwin, target_pixelwin;
   vw::Vector2 query_pixel;

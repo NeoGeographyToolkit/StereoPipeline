@@ -135,12 +135,29 @@ Add a value to the geoheader metadata
 
 ::
 
-    image_calc -c "var_0" --mo 'VAR1=VAL1' -d float32 \
-      input.tif -o output.tif
+    image_calc         \
+      -c "var_0"       \
+      --mo 'VAR1=VAL1' \
+      -d float32       \
+      input.tif        \
+      -o output.tif
 
 If this variable already exists, its value will be overwritten. Other
 existing variables will be preserved. Use ``gdalinfo`` to view the
 metadata.
+
+As with the GDAL ``-mo`` option, a value is everything after the first
+equal sign, so it may contain spaces and further equal signs. Pass several
+items in one quoted string, or repeat the option, with one ``VAR=VALUE``
+pair each time::
+
+    image_calc                      \
+      -c "var_0"                    \
+      --mo 'VAR1=value with spaces' \
+      --mo 'VAR2=second value'      \
+      -d float32                    \
+      input.tif                     \
+      -o output.tif
 
 .. _image_calc_stretch:
 
@@ -249,10 +266,9 @@ Command-line options for image_calc
     Output file name.
 
 --mo <string>
-    Write metadata to the output file.  Provide as a string in quotes
-    if more than one item, separated by a space, such as
-    ``'VAR1=VALUE1 VAR2=VALUE2'``.  Neither the variable names nor the
-    values should contain spaces.
+    Write metadata to the output file, as with the GDAL ``-mo`` option. The
+    option can be repeated. See :numref:`image_calc_metadata` for details and
+    examples.
 
 --longitude-offset <double (default: not specified)>
     Add this value to the longitudes in the geoheader (can be used to

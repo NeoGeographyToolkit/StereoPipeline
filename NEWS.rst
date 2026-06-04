@@ -207,6 +207,10 @@ mapproject (:numref:`mapproject`):
   * Bug fix for occlusion by the planetary body.
 
 Misc:
+  * The ``--mo`` option in ``image_calc`` and ``mapproject`` now sets metadata
+    like the GDAL ``-mo`` option, so values may contain spaces and equal signs,
+    and it can be repeated (:numref:`image_calc_metadata`,
+    :numref:`mapproj_custom_metadata`).
   * Greatly improved the speed of parsing WorldView and SPOT5 XML camera files.
   * Removed the unused and undocumented option ``--use-least-squares`` for ray
     triangulation in stereo and bundle adjustment.
