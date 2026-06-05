@@ -21,8 +21,8 @@ from:
 No installation steps or administrative rights are necessary.  Extract
 the archive, and run the executables in the ``bin`` subdirectory as::
 
-    tar xvf StereoPipeline-3.6.0-2025-12-26-x86_64-Linux.tar.bz2
-    ./StereoPipeline-3.6.0-2025-12-26-x86_64-Linux/bin/stereo --help
+    tar xvf StereoPipeline-3.7.0-2026-06-04-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.7.0-2026-06-04-x86_64-Linux/bin/stereo --help
 
 The result of the last command should be a help message.
 
@@ -70,15 +70,18 @@ the same as for Linux.
 Conda-based installation
 ------------------------
 
-The ASP 3.6.0 release (December 26, 2025) can be installed via conda, together with
-ISIS 9.0.0 (:numref:`planetary_images`) for Linux, Mac Intel, and Mac Arm.
+The ASP 3.7.0 release (June 2026) can be installed via conda, together with
+ISIS 10.0.0 (:numref:`planetary_images`) for Linux, Mac Intel, and Mac Arm.
 
-The Mac Arm release is experimental but was tested rather thoroughly. Since USGS
-did not release an ISIS version for Mac Arm (as of 12/2025), this is shipped
-with an unofficial ISIS Arm conda package, hosted on the
-``nasa-ames-stereo-pipeline`` channel. This one lacks the Kakadu JPEG2000
-library support. Consider using the Intel release under Rosetta 2 for
-mission-critical work.
+ASP ships with custom-built conda packages of ISIS (``isis=10.0.0=asp*``),
+ALE, USGSCSM, and SpiceQL, hosted on the ``nasa-ames-stereo-pipeline`` channel.
+These provide fixes for bugs that are not yet part of the official releases of
+those packages. The ``asp`` build string distinguishes them from the stock USGS
+and conda-forge builds. This custom ISIS is barebones; in particular, it lacks
+the Kakadu JPEG2000 library support.
+
+The Mac Arm release is experimental but was tested rather thoroughly. Consider
+using the Intel release under Rosetta 2 for mission-critical work.
 
 To install ``conda``, see:
 
@@ -124,11 +127,10 @@ Install ASP with the commands::
       -c nasa-ames-stereo-pipeline \
       -c usgs-astrogeology         \
       -c conda-forge               \
-      -c defaults                  \
-      stereo-pipeline=3.6.0
+      stereo-pipeline=3.7.0
 
-This will create a new environment named ``asp`` and install ASP 3.6.0 together 
-with ISIS 9.0.0 and all other dependencies.   
+This will create a new environment named ``asp`` and install ASP 3.7.0 together
+with ISIS 10.0.0 and all other dependencies.
 
 The priority setting is set to ``flexible``, as otherwise conda can get confused 
 if the same package (even with old versions) exists in more than one channel.

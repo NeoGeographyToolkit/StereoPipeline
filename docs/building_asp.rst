@@ -13,7 +13,7 @@ in :numref:`installation`.
 Building ASP from source
 ------------------------
 
-All dependencies for the *latest development version* of ASP are a available as
+All dependencies for the *latest development version* of ASP are available as
 a `binary tarball
 <https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/>`_.
 
@@ -29,7 +29,7 @@ Create a work directory::
     workDir=$HOME/build_asp
     mkdir -p $workDir
 
-Build VisionWorkbench and Stereo Pipeline version 3.6.0::
+Build VisionWorkbench and Stereo Pipeline version <asp version>::
 
     cd $workDir
     envPath=$HOME/miniconda3/envs/asp_deps
@@ -37,12 +37,12 @@ Build VisionWorkbench and Stereo Pipeline version 3.6.0::
         git@github.com:visionworkbench/visionworkbench.git
     cd visionworkbench
     # Build a specific version
-    git checkout 3.6.0
+    git checkout <asp version>
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \
       -DASP_DEPS_DIR=$envPath                         \
-      -DCMAKE_INSTALL_PREFIX=$workDir/install         \
+      -DCMAKE_INSTALL_PREFIX=$workDir/install
     make -j10 && make install
 
     cd $workDir
@@ -51,16 +51,16 @@ Build VisionWorkbench and Stereo Pipeline version 3.6.0::
     git@github.com:NeoGeographyToolkit/StereoPipeline.git
     cd StereoPipeline
     # Build a specific version
-    git checkout 3.6.0
+    git checkout <asp version>
     mkdir -p build
     cd build
     $envPath/bin/cmake ..                             \
       -DASP_DEPS_DIR=$envPath                         \
       -DCMAKE_INSTALL_PREFIX=$workDir/install         \
-      -DVISIONWORKBENCH_INSTALL_DIR=$workDir/install  \
+      -DVISIONWORKBENCH_INSTALL_DIR=$workDir/install
     make -j10 && make install
 
-Check if the compilers are picked up correctly.
+Check that the compilers were picked up correctly.
 
 .. _conda_build:
 
@@ -81,13 +81,13 @@ Search for the latest available ISIS conda package::
   
     conda search -c usgs-astrogeology --override-channels isis
 
-Here it was found that ISIS version 9.0.0 was the latest, which we
-will assume throughout the rest of this document. 
+Use the latest version found above. See :numref:`planetary_images` for more
+about ISIS and how to fetch its data.
 
-Create a conda environment for this version of ISIS::
+Create and activate a conda environment for ISIS::
 
-     conda create -n isis9.0.0
-     conda activate isis9.0.0
+     conda create -n isis
+     conda activate isis
 
 Add these channels to conda::
 
@@ -102,39 +102,31 @@ and verify that ``usgs-astrogeology`` and ``conda-forge`` are in this
 order and above all other channels, except perhaps the
 ``nasa-ames-stereo-pipeline`` channel.
 
-Install the desired version of ISIS::
+Install ISIS::
 
     conda install                 \
       -c usgs-astrogeology        \
       -c conda-forge              \
-      -c defaults                 \
       --channel-priority flexible \
-      isis==9.0.0
+      isis
 
-For ISIS 9.0.0, it appears that ensuring flexible channel priority is necessary
-for successful installation.
+Flexible channel priority may be necessary for successful installation.
 
 Install the version of PDAL that is compatible with current ISIS
 (may already exist as part of latest ISIS)::
 
-  conda install -c conda-forge --channel-priority flexible libpdal-core 
+  conda install -c conda-forge --channel-priority flexible libpdal-core
 
 Save the current environment for reference as follows::
 
-    conda env export > isis9.0.0.yaml
-
-Note: As of 12/2025 any recent PDAL is incompatible with ISIS 9.0.0 and needs to
-be built from source. Also, ISIS 9.0.0 is not available for Mac Arm. An
-unofficial version of this (``9.0.0_asp``) is available in the
-``nasa-ames-stereo-pipeline`` channel. 
+    conda env export > isis.yaml
 
 Fetching the build tools
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 We will create a new ``tools`` environment to have all the tools we
-will need. These could be appended to the earlier environment, but it
-is less likely to to have issues with dependency conflicts if these
-are kept separate.
+will need. These could be appended to the earlier environment, but
+keeping them separate is less likely to cause dependency conflicts.
 
 ::
 
@@ -150,15 +142,14 @@ Build recipe
 ASP has many dependencies that are source code, rather than pre-existing
 packages.
 
-The approach of producing a conda package for each turned out to be laborious,
-because conda is slow and fragile. The latest approach is to build all these
-packages and ASP itself in one single script, available at
+Producing a separate conda package for each turned out to be laborious,
+because conda is slow and fragile. The current approach is to build all these
+packages and ASP itself in a single script, available at
 
   https://github.com/NeoGeographyToolkit/stereopipeline-feedstock
 
-To ensure this does not result in failures, the process is first tested
-by building these manually, as done in the script, with the environment
-specified there. 
+To reduce the chance of failures, the process is first tested by building these
+packages manually, using the same steps and environment as in the script.
 
 That environment is produced by adding dependencies to the installed ISIS
 package. 
@@ -222,7 +213,7 @@ with `Sphinx <https://www.sphinx-doc.org>`_ and
 See the `online ASP documentation
 <https://stereopipeline.readthedocs.io/en/latest/>`_.
 
-To build the documentation locally, install these packages such as::
+To build the documentation locally, install the required packages, for example::
 
     conda create -n sphinx -c conda-forge sphinx sphinxcontrib-bibtex
     conda activate sphinx
@@ -230,8 +221,8 @@ To build the documentation locally, install these packages such as::
 Note that we used a separate conda environment to minimize the chance
 of conflict with other dependencies.
 
-The ``docs`` directory contains the root of the documentation. Running there
-``make html`` will create the HTML version of the documentation in the
+The ``docs`` directory contains the root of the documentation. Running
+``make html`` there will create the HTML version of the documentation in the
 ``_build`` subdirectory.
 
 Building the PDF documentation is no longer supported. 
@@ -245,7 +236,7 @@ If the documentation builds well locally but fails to update on the web, see the
 Releasing a new version of ASP
 ------------------------------
 
-This is reading for ASP maintainers.
+This section is for ASP maintainers.
 
 Update the version number
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -260,9 +251,9 @@ bugfix release. See https://semver.org for guidance.
 Update the documentation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Search all documentation for the old version number for ASP (such as 3.5.0) and
-ISIS (such as 8.3.0) and replace it with the new version numbers (such as 3.6.0
-and 9.0.0). This includes files in the base directory, not just in ``docs``.
+Search all documentation for the old version numbers for ASP and ISIS and
+replace them with the new version numbers. This includes files in the base
+directory, not just in ``docs``.
 
 Update NEWS.rst. Add the release date on top, along the lines of prior releases
 (see further down in that file). This file must have a detailed log of all
@@ -277,19 +268,19 @@ Commit and tag
 Commit all changes. Tag the release in *both* the VisionWorkbench and
 StereoPipeline repos. Example:: 
 
-  git tag 3.6.0
-  git push origin 3.6.0 # commit to your branch
-  git push god    3.6.0 # commit to main branch
+  git tag <asp version>
+  git push origin <asp version> # commit to your branch
+  git push god    <asp version> # commit to main branch
 
 (Here it is assumed that ``origin`` points to your own fork and ``god``
 points to the parent repository.)
 
 If more commits were made and it is desired to apply this tag to a
-different commit, first remove the exiting tag with::
+different commit, first remove the existing tag with::
 
-  git tag -d 3.6.0
-  git push origin :refs/tags/3.6.0
-  git push god    :refs/tags/3.6.0
+  git tag -d <asp version>
+  git push origin :refs/tags/<asp version>
+  git push god    :refs/tags/<asp version>
 
 Build ASP with conda
 ~~~~~~~~~~~~~~~~~~~~
@@ -335,14 +326,14 @@ Go to the directory ``BinaryBuilder``, and run::
 This will fetch and build the latest VisionWorkbench and Stereo Pipeline in
 ``build_asp/build``, and will install them in ``build_asp/install``.
 
-See :numref:`helper_scripts` for scrips illustrating this process.
+See :numref:`helper_scripts` for scripts illustrating this process.
 
 Create a conda environment having Python and numpy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ISIS expects a full Python distribution to be shipped. To avoid shipping
 the entire ``asp_deps`` environment, we create a separate environment
-having only Python, numpy, with versions as expected by current ISIS.
+having only Python and numpy, with versions as expected by current ISIS.
 Run, for example::
 
     conda create -c conda-forge -n python_isis_v python=x.y.z numpy=a.b.c
@@ -399,11 +390,11 @@ Example::
 
   cd BinaryBuilder/asp_tarballs
   for file in                                            \
-    StereoPipeline-3.6.0-2025-12-26-x86_64-Linux.tar.bz2 \
-    StereoPipeline-3.6.0-2025-12-26-x86_64-OSX.tar.bz2   \
-    StereoPipeline-3.6.0-2025-12-26-arm64-OSX.tar.bz2; do
+    StereoPipeline-<asp version>-<date>-x86_64-Linux.tar.bz2 \
+    StereoPipeline-<asp version>-<date>-x86_64-OSX.tar.bz2   \
+    StereoPipeline-<asp version>-<date>-arm64-OSX.tar.bz2; do
 
-    gh release upload 3.6.0 $file \
+    gh release upload <asp version> $file \
       -R git@github.com:NeoGeographyToolkit/StereoPipeline.git
   done
 
@@ -453,10 +444,6 @@ a link to the NEWS section for the current release from the documentation.
 Post-release work
 ~~~~~~~~~~~~~~~~~
 
-Update the version number in ``src/CMakeLists.txt`` in boh the VisionWorkbench
-and ASP repositories.  
-
-If version 3.6.0 just got released, we expect that the next feature release will
-likely be be 3.7.0. The version tag should be updated to 3.7.0-alpha in
-anticipation in *both* the VisionWorkbench and ASP repositories.
-See https://semver.org for guidance on versions.
+In anticipation of the next feature release, increment the version number in
+``src/CMakeLists.txt`` in *both* the VisionWorkbench and ASP repositories, and
+append ``-alpha`` to it. See https://semver.org for guidance on versions.

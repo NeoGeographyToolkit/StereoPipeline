@@ -1,5 +1,11 @@
-Changes since last release
---------------------------
+RELEASE 3.7.0, June 2026
+------------------------
+
+This release is built against and ships with custom-built conda packages of
+ISIS 10.0.0 (build ``asp_0``), ALE, USGSCSM, and SpiceQL, on the
+``nasa-ames-stereo-pipeline`` channel. The ``asp`` build string marks these as
+our builds, which include fixes not yet in the official releases of those
+packages. Note that this ISIS is a custom build, not the stock USGS ISIS 10.0.0.
 
 General improvements:
 
