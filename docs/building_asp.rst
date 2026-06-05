@@ -112,17 +112,12 @@ Install ISIS::
 
 Flexible channel priority may be necessary for successful installation.
 
-Install the version of PDAL that is compatible with current ISIS
-(may already exist as part of latest ISIS)::
-
-  conda install -c conda-forge --channel-priority flexible libpdal-core
-
 Save the current environment for reference as follows::
 
     conda env export > isis.yaml
 
-Fetching the build tools
-~~~~~~~~~~~~~~~~~~~~~~~~
+Build tools
+~~~~~~~~~~~
 
 We will create a new ``tools`` environment to have all the tools we
 will need. These could be appended to the earlier environment, but
@@ -198,8 +193,8 @@ Helper scripts
 ~~~~~~~~~~~~~~
 
 The ``.github/workflows`` directory in the ``StereoPipeline`` repository has a
-few scripts that show in detail the commands that are run to build ASP and its
-dependencies.
+few scripts that show in detail the commands that are run to build ASP daily (on
+Mac, in the cloud).
 
 .. _build_asp_doc:
 
@@ -336,7 +331,8 @@ the entire ``asp_deps`` environment, we create a separate environment
 having only Python and numpy, with versions as expected by current ISIS.
 Run, for example::
 
-    conda create -c conda-forge -n python_isis_v python=x.y.z numpy=a.b.c
+    conda create -c conda-forge -n python_isis \
+      python=x.y.z numpy=a.b.c
 
 Note that different versions of these may be needed for Linux and OSX.
 The ``conda list`` command within the ``asp_deps`` environment 
@@ -350,7 +346,7 @@ Run in ``BinaryBuilder`` the command::
     /path/to/python3                                  \
       ./make-dist.py build_asp/install                \
       --asp-deps-dir $HOME/miniconda3/envs/asp_deps   \
-      --python-env $HOME/miniconda3/envs/python_isis_v
+      --python-env $HOME/miniconda3/envs/python_isis
 
 Building and packaging should be done separately for Linux and OSX.
 
@@ -389,7 +385,7 @@ The GitHub ``gh`` program can be invoked to push the binaries to the release.
 Example::
 
   cd BinaryBuilder/asp_tarballs
-  for file in                                            \
+  for file in                                                \
     StereoPipeline-<asp version>-<date>-x86_64-Linux.tar.bz2 \
     StereoPipeline-<asp version>-<date>-x86_64-OSX.tar.bz2   \
     StereoPipeline-<asp version>-<date>-arm64-OSX.tar.bz2; do

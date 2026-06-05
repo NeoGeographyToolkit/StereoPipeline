@@ -36,14 +36,13 @@ effect.
 
 The latest additions are documented in :numref:`news`.
 
+See note on custom-built packages for ASP 3.7.0 in :numref:`conda_intro`.
+
 MacOS
 ~~~~~
 
-ASP is available for the Mac Intel and Mac Arm architectures. The Mac Arm
-package was tested thoroughly and has all of ASP's functionality.
-
-The installation steps are the same as for Linux. It is important to 
-note that:
+ASP is available for the Mac Intel and Mac Arm architectures. The installation
+steps are the same as for Linux. It is important to note that:
 
 - An error may be shown about not being able to verify the developers. That can
   be overridden in the Privacy & Security settings of the system. Consider using 
@@ -71,15 +70,12 @@ Conda-based installation
 The ASP 3.7.0 release (June 2026) can be installed via conda, together with
 ISIS 10.0.0 (:numref:`planetary_images`) for Linux, Mac Intel, and Mac Arm.
 
-ASP ships with custom-built conda packages of ISIS (``isis=10.0.0=asp*``),
-ALE, USGSCSM, and SpiceQL, hosted on the ``nasa-ames-stereo-pipeline`` channel.
-These provide fixes for bugs that are not yet part of the official releases of
-those packages. The ``asp`` build string distinguishes them from the stock USGS
-and conda-forge builds. This custom ISIS is barebones; in particular, it lacks
-the Kakadu JPEG2000 library support.
-
-The Mac Arm release was tested rather thoroughly. Consider using the Intel
-release under Rosetta 2 for mission-critical work.
+This ASP release ships with *custom-built conda packages* of ISIS
+(``isis=10.0.0=asp*``), ALE, USGSCSM, and SpiceQL, hosted on the
+``nasa-ames-stereo-pipeline`` channel. These provide fixes for bugs that are not
+yet part of the official releases of those packages. These are based on the
+latest dev source as of 2026-06-04. The ``asp`` build string distinguishes them
+from the official USGS and conda-forge releases.
 
 To install ``conda``, see:
 
@@ -128,7 +124,7 @@ Install ASP with the commands::
       stereo-pipeline=3.7.0
 
 This will create a new environment named ``asp`` and install ASP 3.7.0 together
-with ISIS 10.0.0 and all other dependencies.
+with *custom-built* ISIS 10.0.0 and all other dependencies.
 
 The priority setting is set to ``flexible``, as otherwise conda can get confused 
 if the same package (even with old versions) exists in more than one channel.

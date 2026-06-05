@@ -441,18 +441,11 @@ bool csv_input_requires_explicit_georef(asp::DemOptions const& opt,
   if (!has_csv_input)
     return false;
 
-  switch (csv_conv.get_format()) {
-    case asp::CsvConv::HEIGHT_LAT_LON:
-    case asp::CsvConv::LAT_LON_RADIUS_M:
-    case asp::CsvConv::LAT_LON_RADIUS_KM:
-    case asp::CsvConv::EASTING_HEIGHT_NORTHING:
-      return true;
-    case asp::CsvConv::XYZ:
-    case asp::CsvConv::PIXEL_XYVAL:
-      return false;
-  }
-
-  return false;
+  // Pixel coordinates carry no geographic meaning. Every other format yields a
+  // DEM whose heights are relative to a datum (including XYZ and lon/lat/radius,
+  // which are absolute on input but still need a datum for the output DEM), so
+  // the datum must be set explicitly rather than defaulting silently to WGS84.
+  return csv_conv.get_format() != asp::CsvConv::PIXEL_XYVAL;
 }
 
 } // end namespace

@@ -1,11 +1,9 @@
 RELEASE 3.7.0, June 2026
 ------------------------
 
-This release is built against and ships with custom-built conda packages of
-ISIS 10.0.0 (build ``asp_0``), ALE, USGSCSM, and SpiceQL, on the
-``nasa-ames-stereo-pipeline`` channel. The ``asp`` build string marks these as
-our builds, which include fixes not yet in the official releases of those
-packages. Note that this ISIS is a custom build, not the stock USGS ISIS 10.0.0.
+This release is built against and ships with custom-built conda packages of ISIS
+10.0.0, ALE, USGSCSM, and SpiceQL, on the ``nasa-ames-stereo-pipeline`` channel
+(:numref:`conda_intro`).
 
 General improvements:
 
@@ -214,6 +212,10 @@ mapproject (:numref:`mapproject`):
   * Bug fix for occlusion by the planetary body.
 
 Misc:
+  * ``point2dem`` now requires an explicit datum or SRS for all CSV point cloud
+    formats except raw pixel values, rather than silently defaulting to WGS84.
+    Set it via ``--csv-srs``, ``--t_srs``, ``--datum``, ``--reference-spheroid``,
+    or the semi-axes (:numref:`point2dem`).
   * The ``--mo`` option in ``image_calc`` and ``mapproject`` now sets metadata
     like the GDAL ``-mo`` option, so values may contain spaces and equal signs,
     and it can be repeated (:numref:`image_calc_metadata`,
