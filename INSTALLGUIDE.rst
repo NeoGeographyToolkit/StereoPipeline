@@ -39,10 +39,8 @@ The latest additions are documented in :numref:`news`.
 MacOS
 ~~~~~
 
-ASP is available for the Mac Intel and Mac Arm architectures. The latter is
-somewhat experimental but was shown to work well in testing. The Mac Arm package
-has all ASP logic except the minor ``libelas`` stereo algorithm
-(:numref:`libelas`).
+ASP is available for the Mac Intel and Mac Arm architectures. The Mac Arm
+package was tested thoroughly and has all of ASP's functionality.
 
 The installation steps are the same as for Linux. It is important to 
 note that:
@@ -80,8 +78,8 @@ those packages. The ``asp`` build string distinguishes them from the stock USGS
 and conda-forge builds. This custom ISIS is barebones; in particular, it lacks
 the Kakadu JPEG2000 library support.
 
-The Mac Arm release is experimental but was tested rather thoroughly. Consider
-using the Intel release under Rosetta 2 for mission-critical work.
+The Mac Arm release was tested rather thoroughly. Consider using the Intel
+release under Rosetta 2 for mission-critical work.
 
 To install ``conda``, see:
 
