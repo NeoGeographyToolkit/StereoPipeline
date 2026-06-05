@@ -34,7 +34,8 @@ if (APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DFMT_USE_CHAR8_T=0")
 else()
     # On Linux need to link to additional libraries
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lm -lrt -lgcc_s")
+    # Link fmt for spdlog (used by usgscsm headers)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lm -lrt -lgcc_s -lfmt")
 endif()
 
 # Tell cmake to look in the /cmake folder.
