@@ -420,6 +420,43 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
 } // end function handle_arguments()
 
+namespace {
+
+bool csv_input_requires_explicit_georef(asp::DemOptions const& opt,
+                                        asp::CsvConv const& csv_conv,
+                                        bool have_user_datum) {
+  if (opt.csv_srs != "" || have_user_datum)
+    return false;
+
+  if (!csv_conv.is_configured())
+    return false;
+
+  bool has_csv_input = false;
+  for (auto const& file: opt.pointcloud_files) {
+    if (asp::is_csv(file)) {
+      has_csv_input = true;
+      break;
+    }
+  }
+  if (!has_csv_input)
+    return false;
+
+  switch (csv_conv.get_format()) {
+    case asp::CsvConv::HEIGHT_LAT_LON:
+    case asp::CsvConv::LAT_LON_RADIUS_M:
+    case asp::CsvConv::LAT_LON_RADIUS_KM:
+    case asp::CsvConv::EASTING_HEIGHT_NORTHING:
+      return true;
+    case asp::CsvConv::XYZ:
+    case asp::CsvConv::PIXEL_XYVAL:
+      return false;
+  }
+
+  return false;
+}
+
+} // end namespace
+
 // Wrapper for rasterize_cloud that goes through all spacing values
 void rasterize_cloud_multi_spacing(const ImageViewRef<Vector3>& proj_points,
                                    DemOptions& opt,
@@ -491,6 +528,14 @@ int main(int argc, char *argv[]) {
     // Configure a CSV converter object according to the input parameters
     asp::CsvConv csv_conv;
     csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs); // Modifies csv_conv
+
+    if (csv_input_requires_explicit_georef(opt, csv_conv, have_user_datum)) {
+      vw_throw(ArgumentErr()
+               << "CSV point clouds with geographic or projected coordinates require "
+               << "an explicit datum or SRS. Set one of --csv-srs, --t_srs, --datum, "
+               << "--reference-spheroid, or both --semi-major-axis and --semi-minor-axis.\n");
+    }
+
     vw::cartography::GeoReference csv_georef;
     // TODO(oalexan1): The logic below is fragile. Check all locations
     // where parse_georef is called and see if a datum is always set before being used.
