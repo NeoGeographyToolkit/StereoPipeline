@@ -497,7 +497,7 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
         result = template_matcher(low_res_image)
         if result is None:
             #warnings.warn('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
-            return(-3., Xc, Yc, 0., np.NaN, np.NaN)
+            return(-3., Xc, Yc, 0., np.nan, np.nan)
 
         result = result[int(template_size/4):int(search_range_y/2-template_size/4), int(template_size/4):int(search_range_x/2-template_size/4)]
         ijC    = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
@@ -849,7 +849,7 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
     biggest_vec = vecs[:,np.argmax(abs(vals)) ]
     return biggest_vec, dxy_ctr
 
-def img_interpolate_linear( x, y, I, GT, nodata_val=np.NaN):
+def img_interpolate_linear( x, y, I, GT, nodata_val=np.nan):
     result=np.zeros_like(x)+nodata_val
     # get the col and row in the image
     col  = (x-GT[0])/GT[1]
@@ -903,7 +903,7 @@ def grid_disp(xg, yg, xy, dx, dy, ex, ey, L_valid, N_coarse, dispDs, spreadDs, d
     xg1   = xg1[mask1==0]
     yg1   = yg1[mask1==0]
     for count, z in enumerate((dx, dy)):
-        zi = griddata(np.append(xy, np.c_[xg1, yg1], 0), np.append(z, np.NaN+np.zeros([len(xg1),1]),0), (xg, yg), method='linear')
+        zi = griddata(np.append(xy, np.c_[xg1, yg1], 0), np.append(z, np.nan+np.zeros([len(xg1),1]),0), (xg, yg), method='linear')
         zi_smooth = convolve1d(convolve1d(np.nan_to_num(zi), kernel_sm, axis=0, mode='constant'), kernel_sm, axis=1, mode='constant')
         if count<1:
             mask_smooth=convolve1d(convolve1d((~np.isnan(zi)).astype('float32'), kernel_sm, axis=0, mode='constant'), kernel_sm, axis=1, mode='constant')
@@ -918,10 +918,10 @@ def grid_disp(xg, yg, xy, dx, dy, ex, ey, L_valid, N_coarse, dispDs, spreadDs, d
         if count==1:
             dy_g = zi
     dispDs.GetRasterBand(3).WriteArray(dist_mask.astype('float32'), int(cr_out[0]), int(cr_out[1]))
-    zi = np.nan_to_num(griddata(np.append(xy, np.c_[xg1, yg1], 0), np.append(ex, np.NaN+np.zeros([len(xg1),1]),0), (xg, yg), method='linear'))
+    zi = np.nan_to_num(griddata(np.append(xy, np.c_[xg1, yg1], 0), np.append(ex, np.nan+np.zeros([len(xg1),1]),0), (xg, yg), method='linear'))
     zi[dist_mask==0] = 0
     spreadDs.GetRasterBand(1).WriteArray(zi[:,:,0], int(cr_out[0]), int(cr_out[1]))
-    zi = np.nan_to_num(griddata(np.append(xy, np.c_[xg1, yg1], 0), np.append(ey, np.NaN+np.zeros([len(xg1),1]),0), (xg, yg), method='linear'))
+    zi = np.nan_to_num(griddata(np.append(xy, np.c_[xg1, yg1], 0), np.append(ey, np.nan+np.zeros([len(xg1),1]),0), (xg, yg), method='linear'))
     zi[dist_mask==0] = 0
     spreadDs.GetRasterBand(2).WriteArray(zi[:,:,0],                   int(cr_out[0]), int(cr_out[1]))
     spreadDs.GetRasterBand(3).WriteArray(dist_mask.astype('float32'), int(cr_out[0]), int(cr_out[1]))
