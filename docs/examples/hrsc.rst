@@ -13,6 +13,13 @@ pass of the satellite.
 Since each observation contains both stereo channels, one observation is
 sufficient to create a DEM.
 
+.. note::
+
+   This example requires ASP 3.7.0 or later, installed via ``conda`` with the
+   custom-built ISIS 10 packages (:numref:`conda_intro`). Those ship the ALE and
+   ISIS fixes needed for HRSC. The stereo workflow below is validated by an
+   automated regression test.
+
 Data can be downloaded from the `HRSC node <http://pds-geosciences.wustl.edu/missions/mars_express/hrsc.htm>`_ in the Planetary Data System (PDS).
 
 HRSC data is organized into categories. Level 2 is radiometrically
@@ -97,17 +104,11 @@ Alignment to MOLA can be done with ``pc_align`` (:numref:`pc_align`).
 CSM cameras
 ~~~~~~~~~~~
 
-To create CSM cameras (:numref:`csm`) for HRSC, install the ASP custom build of ALE from
-the ``nasa-ames-stereo-pipeline`` channel, in a dedicated environment::
-
-    conda create -n ale_asp        \
-      -c nasa-ames-stereo-pipeline \
-      -c conda-forge               \
-      'ale=1.2.0=*asp*'
-    conda activate ale_asp
-
-This is necessary (as of 2026/6) to avoid a bug in ALE. Once a higher version
-of ALE is officially released, likely can use that one.
+To create CSM cameras (:numref:`csm`) for HRSC, the ASP custom build of ALE is
+required, to avoid a bug in the official ALE. As of ASP 3.7.0, this custom ALE
+is already included in the ASP ``conda`` environment (:numref:`conda_intro`), so
+no separate environment is needed. Once a higher version of ALE is officially
+released, the stock one will likely work as well.
 
 Point ``ISISDATA`` at the ISIS data directory (:numref:`planetary_images`)::
 
