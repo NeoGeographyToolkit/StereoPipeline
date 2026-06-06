@@ -253,10 +253,14 @@ if __name__ == "__main__":
 
     base_dir = asp_system_utils.findTheiaInstallDir()
     
-    # TODO(oalexan1): Setting the dynamic library path this way is fragile, but
-    # I can't think of any better solution, and otherwise it fails to find the lib.
+    # Help build_reconstruction find its libraries. Use the fallback path, not
+    # DYLD_LIBRARY_PATH, so it is consulted only when a library is not already
+    # found via the binary's rpath. Setting DYLD_LIBRARY_PATH overrides the
+    # rpath and, in the conda package, loads conflicting duplicate libraries,
+    # which makes build_reconstruction crash. The fallback variant is also what
+    # the tarball wrappers use.
     if 'Darwin' in platform.system():
-        key = 'DYLD_LIBRARY_PATH'
+        key = 'DYLD_FALLBACK_LIBRARY_PATH'
         if key not in os.environ:
             os.environ[key] = base_dir + '/lib'
         else:
