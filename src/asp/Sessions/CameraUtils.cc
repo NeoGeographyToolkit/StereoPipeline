@@ -212,7 +212,21 @@ bool datum_from_camera(std::string const& image_file,
   bool use_sphere_for_non_earth = true;
   auto cam = session->camera_model(image_file, camera_file);
   datum = session->get_datum(cam.get(), use_sphere_for_non_earth);
-  success = session->have_datum(); 
+  success = session->have_datum();
+
+  // For pinhole cameras have_datum() does not consult the camera (it is true
+  // unless --no-datum or correlator mode), and get_datum() then silently falls
+  // back to WGS84 when it cannot determine the body. So when have_datum() is
+  // true, do not trust it. Resetting success to false here is not giving up: it
+  // signals that the code must keep trying, via the re-derivation block below
+  // that guesses the datum from the camera center and succeeds only if it is
+  // near a known planetary radius (Earth, Mars, Moon). If that also fails,
+  // success stays false and the caller can require the user to set a datum
+  // rather than silently assuming Earth. When --no-datum is set, success is
+  // already false here, so this is a no-op.
+  bool is_pinhole = (stereo_session.find("pinhole") != std::string::npos);
+  if (success && is_pinhole)
+    success = false; // not a verdict; forces the re-derivation below
 
   // TODO(oalexan1): Must have the function get_datum() return success or not.
   // That must be checked at each location. then the block below can be removed.

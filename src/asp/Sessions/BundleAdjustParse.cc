@@ -468,6 +468,13 @@ void loadValidateBaOptions(po::variables_map const& vm,
     if (opt.elevation_limit[0] < opt.elevation_limit[1])
       vw::vw_throw(vw::ArgumentErr()
                 << "When filtering by elevation limit, option --datum must be specified.\n");
+    // A CSV reference terrain has no georeference of its own, unlike a DEM, so
+    // the datum cannot be inferred from it. Require it explicitly rather than
+    // silently assuming WGS84.
+    if (opt.reference_terrain != "" &&
+        asp::get_cloud_type(opt.reference_terrain) == "CSV")
+      vw::vw_throw(vw::ArgumentErr() << "When the reference terrain is a CSV file, "
+               << "option --datum must be specified.\n");
   }
 
   if (have_datum)
