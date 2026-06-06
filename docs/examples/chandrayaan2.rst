@@ -359,7 +359,23 @@ For simplicity, the output cub files are renamed to ``tmc/fwd.cub`` and
     isd_generate tmc/aft.cub
 
 We skipped the ``-k`` option (read kernels from a cub) here given the current
-issue with ``spiceinit`` mentioned earlier. This may be rectified in ISIS 10.
+issue with ``spiceinit`` mentioned earlier.
+
+As of ASP 3.7.0 (June 2026), with the custom-built ISIS 10.0.0, ALE 1.2.0, and
+USGSCSM 2.0.2 shipped with it (:numref:`conda_intro`), this is resolved.
+``spiceinit`` can be run on the TMC cubes and ``isd_generate`` invoked with the
+``-k`` option, as done for OHRC above (:numref:`csm`). The alternative workflow
+is then::
+
+    spiceinit from = tmc/fwd.cub
+    spiceinit from = tmc/aft.cub
+
+    isd_generate -k tmc/fwd.cub tmc/fwd.cub
+    isd_generate -k tmc/aft.cub tmc/aft.cub
+
+For the non-nadir fwd channel, the resulting CSM camera agrees with the ISIS
+camera to about 0.0001 pixels, and is equivalent to the metakernel-based ISD
+above. Either workflow can be used.
 
 Check each JSON with ``cam_test`` (:numref:`cam_test`).
 

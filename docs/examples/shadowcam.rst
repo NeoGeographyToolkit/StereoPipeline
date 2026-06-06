@@ -13,9 +13,11 @@ walls. As a consequence, sunlit terrain typically saturates in ShadowCam images.
 
 A more complete description is given in :cite:`humm2023shadowcam`.
 
-*This processing example is work in progress and not reproducible*, as of
-5/2026. New releases of ASP, ISIS, ALE, USGSCSM, and SpiceQL are required
-before it can be replicated.
+This example is reproducible with ASP 3.7.0 (June 2026), which ships
+custom-built ``conda`` packages of ISIS, ALE, USGSCSM, and SpiceQL that carry
+the KPLO ShadowCam support that the official ISIS release (as of June 2026)
+does not yet provide. See the install notes in :numref:`conda_intro`. With the
+official ISIS release this example cannot yet be reproduced.
  
 Data and software
 ~~~~~~~~~~~~~~~~~
@@ -103,12 +105,18 @@ Attach the SPICE kernels to a calibrated cube::
 
     spiceinit from = M074289249SE.cub
 
-Create a CSM (:numref:`csm`) camera with ``isd_generate`` from the ALE package,
-using the ``-k`` flag so kernels are pulled from the cube itself::
+Create a CSM (:numref:`csm`) camera with ``isd_generate`` from the ALE package.
+As with HRSC (:numref:`hrsc_csm`), this requires the ASP custom build of ALE
+(and ISIS), which is already included in the ASP 3.7.0 ``conda`` environment
+(:numref:`conda_intro`); the official ISIS release (as of June 2026) does not
+yet support ShadowCam.
+
+The ``-k`` flag tells ``isd_generate`` which cube's attached SPICE kernels to
+use; here the cube supplies its own, set earlier by ``spiceinit``::
 
     isd_generate -k M074289249SE.cub M074289249SE.cub
 
-This produces ``M074289249SE.json``. Repeat for the second observation. 
+This produces ``M074289249SE.json``. Repeat for the second observation.
 
 Validate the CSM camera against the ISIS camera with ``cam_test``
 (:numref:`cam_test`)::
