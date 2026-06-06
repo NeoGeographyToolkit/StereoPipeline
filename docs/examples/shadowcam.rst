@@ -188,6 +188,10 @@ Then add these mapprojected images to the ``bundle_adjust`` command
 
     --mapprojected-data 'M074289249SE.map.tif M074296291SE.map.tif'
 
+To get reproducible results across runs, add ``--threads 1 --flann-method
+kmeans`` to ``bundle_adjust`` and ``--threads 1`` to ``parallel_stereo``.
+This is notably slower.
+
 .. figure:: ../images/shadowcam_interest_points.png
 
    Portions of the left and right ShadowCam images
