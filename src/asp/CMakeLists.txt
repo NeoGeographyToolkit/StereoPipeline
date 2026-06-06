@@ -172,7 +172,10 @@ find_external_library(QWT ${ASP_DEPS_DIR} "" "qwt" REQUIRED)
 # TODO(oalexan1): Figure out why clang does not find OpenMP
 # Also try to to understand why OpenMP cannot be found
 # without all the "set" logic below.
-if (APPLE)
+# On Linux aarch64 find_package(OpenMP) also fails: the CMAKE_EXE_LINKER_FLAGS
+# carried into the try_compile probe make the OpenMP_CXX detection fail (the C
+# probe still passes). Set the gomp library by hand there too, like on Mac.
+if (APPLE OR CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
     set(OpenMP_C_LIB_NAMES "gomp")
     set(OPENMP_INCLUDES "${ASP_DEPS_DIR}/include")
     set(OpenMP_C_FLAGS "-fopenmp")
