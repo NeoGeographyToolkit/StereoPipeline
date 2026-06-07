@@ -133,7 +133,7 @@ source "$envPath/bin/activate"
 cmake_opts=""
 asp_isis_libs=""
 if [ "$isArm64" = "" ]; then
-    asp_isis_libs="$envPath/lib/libcore.dylib $envPath/lib/libisis.dylib $envPath/lib/libusgscsm.dylib"
+    asp_isis_libs="$envPath/lib/libcore.dylib $envPath/lib/libisis.dylib $envPath/lib/csmplugins/libusgscsm.dylib"
     cmake_opts="-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup -DCMAKE_EXE_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup"
 fi
 
