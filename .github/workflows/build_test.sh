@@ -189,6 +189,18 @@ make install > $out_build_vw 2>&1
 tail -n 500 $out_build_vw
 echo Log of VW build will be saved with the artifacts in $(basename $out_build_vw)
 
+# Intel only: conda isis 10 split core symbols (Isis::PvlKeyword/PvlContainer/
+# FileName::expanded -> libcore; Displacement/PvlObject -> libisis) which ASP
+# references but libisis only imports. The strict Intel-runner ld does not
+# resolve them transitively (the arm runner's ld does, so arm needs nothing).
+# Link libcore + libisis explicitly (full paths = two-level resolution, NOT flat
+# -undefined dynamic_lookup - so usgscsm symbols stay two-level and resolve at
+# runtime instead of crashing in flat-namespace lookup).
+asp_link=""
+if [ "$isArm64" = "" ]; then
+    asp_link="$envPath/lib/libcore.dylib $envPath/lib/libisis.dylib"
+fi
+
 # Build StereoPipeline
 cd $aspRepoDir
 mkdir -p build
@@ -200,6 +212,8 @@ $envPath/bin/cmake ..                             \
   -DVISIONWORKBENCH_INSTALL_DIR=$installDir       \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp   \
+  -DCMAKE_SHARED_LINKER_FLAGS="$asp_link"         \
+  -DCMAKE_EXE_LINKER_FLAGS="$asp_link"            \
    $cmake_opts
 echo Building StereoPipeline
 make -j10 install > /dev/null 2>&1 # this is too verbose
