@@ -68,7 +68,10 @@ source "$envPath/bin/activate"
 # explicitly (belt-and-suspenders) plus -lfmt -lm -L for the ASP cmake ABI probe.
 # No forced linker (the Mac Intel strictness issue does not apply on Linux).
 LF="-Wl,--allow-shlib-undefined -lfmt -lm -L$envPath/lib"
-cmake_opts="-DCMAKE_SHARED_LINKER_FLAGS=$LF -DCMAKE_EXE_LINKER_FLAGS=$LF"
+# Use a bash array so the multi-word $LF survives as ONE value per -D flag.
+# (A plain string expanded unquoted splits on spaces and cmake rejects the
+# stray "-L.../lib" as an unknown argument.)
+cmake_opts=(-DCMAKE_SHARED_LINKER_FLAGS="$LF" -DCMAKE_EXE_LINKER_FLAGS="$LF")
 
 # Compiler (conda aarch64 gcc)
 cc_comp=aarch64-conda-linux-gnu-gcc
@@ -111,7 +114,7 @@ $envPath/bin/cmake ..                             \
   -DCMAKE_INSTALL_PREFIX=$installDir              \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp   \
-  $cmake_opts
+  "${cmake_opts[@]}"
 echo Building VisionWorkbench
 make -j$(nproc) install > /dev/null 2>&1
 out_build_vw=$(pwd)/output_build_vw.txt
@@ -129,7 +132,7 @@ $envPath/bin/cmake ..                             \
   -DVISIONWORKBENCH_INSTALL_DIR=$installDir       \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp   \
-   $cmake_opts
+   "${cmake_opts[@]}"
 echo Building StereoPipeline
 make -j$(nproc) install > /dev/null 2>&1
 ans=$?
