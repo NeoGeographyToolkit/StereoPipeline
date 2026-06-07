@@ -75,6 +75,13 @@ if [ "$isArm64" != "" ]; then
         find "$envParent/$e/bin" -type f -perm +111 -print0 2>/dev/null \
             | xargs -0 -P8 codesign --force -s - 2>/dev/null
     done
+    # conda-pack drops the unversioned libopenblas.dylib symlink that VW's cmake
+    # requires (only the versioned libopenblas.0.dylib survives the pack).
+    # Recreate it so find_external_library(OPENBLAS) succeeds.
+    if [ ! -e "$envParent/asp_deps/lib/libopenblas.dylib" ] && \
+       [ -e "$envParent/asp_deps/lib/libopenblas.0.dylib" ]; then
+        ln -sf libopenblas.0.dylib "$envParent/asp_deps/lib/libopenblas.dylib"
+    fi
 else
     # Intel x64: conda-pack tarballs (relocatable; the bundled conda-unpack
     # rewrites the baked prefix on this runner). asp_deps is one part (~1.6 GB
