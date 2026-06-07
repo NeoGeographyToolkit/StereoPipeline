@@ -79,7 +79,9 @@ else
     # < 2 GB after conda-pack); the cat-glob handles 1 or 2 parts if it ever
     # grows past the GitHub 2 GB asset limit. The python env is a separate
     # conda-pack tarball.
-    envParent="$(conda info --base)/envs"
+    # conda is not on PATH this early in build_test.sh, so derive the envs dir
+    # from $HOME (the env-discovery glob below also expects $HOME/*conda3/envs).
+    envParent="$HOME/miniconda3/envs"
     wget ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
     wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
     mkdir -p "$envParent/asp_deps"
