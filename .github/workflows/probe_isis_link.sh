@@ -40,7 +40,7 @@ echo "PROBE: conda ld = $CONDA_LD ($($CONDA_LD -v 2>&1 | head -1))"
 
 link_test () { # $1=desc  rest=extra clang/link args
   local desc="$1"; shift
-  $CXX /tmp/isistest.o -L$envPath/lib -lisis $envPath/lib/libcore.dylib "$@" -Wl,-undefined,error -o /tmp/t_$desc 2>/tmp/e_$desc
+  $CXX /tmp/isistest.o -L$envPath/lib -lisis $envPath/lib/libcore.dylib $envPath/lib/libQt6Core.dylib "$@" -Wl,-undefined,error -o /tmp/t_$desc 2>/tmp/e_$desc
   local rc=$?
   echo "PROBE link[$desc] rc=$rc"
   [ $rc -ne 0 ] && grep -iE 'Undefined symbols|symbol.* not found|unknown|unsupported' /tmp/e_$desc | head -2
