@@ -58,7 +58,9 @@ if [ "$isArm64" != "" ]; then
     # their code signature, and Apple Silicon SIGKILLs binaries with a bad
     # signature (exit 137). An ad-hoc codesign fixes it. (Intel does not need
     # this; x86_64 macOS does not enforce signatures.)
-    envParent="$(conda info --base)/envs"
+    # conda is not on PATH this early in build_test.sh, so derive the envs dir
+    # from $HOME (the env-discovery glob below also expects $HOME/*conda3/envs).
+    envParent="$HOME/miniconda3/envs"
     wget ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
     wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
     mkdir -p "$envParent/asp_deps"
