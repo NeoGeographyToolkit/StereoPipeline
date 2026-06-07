@@ -50,9 +50,29 @@ fi
 # Fetch and unzip the ASP dependencies
 bbUrl=https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}
 if [ "$isArm64" != "" ]; then
-    # ARM64: single tarball
-    wget ${bbUrl}/asp_deps.tar.gz > /dev/null 2>&1
-    /usr/bin/time tar xzf asp_deps.tar.gz -C $HOME > /dev/null 2>&1
+    # ARM64: conda-pack tarballs (relocatable; the bundled conda-unpack rewrites
+    # the baked prefix on this runner). asp_deps is one part (< 2 GB after
+    # conda-pack); the cat-glob handles 1 or 2 parts if it ever grows past the
+    # GitHub 2 GB asset limit. The python env is a separate conda-pack tarball.
+    # Then re-sign all Mach-O: conda-unpack patches binaries, which invalidates
+    # their code signature, and Apple Silicon SIGKILLs binaries with a bad
+    # signature (exit 137). An ad-hoc codesign fixes it. (Intel does not need
+    # this; x86_64 macOS does not enforce signatures.)
+    envParent="$(conda info --base)/envs"
+    wget ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
+    wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
+    mkdir -p "$envParent/asp_deps"
+    cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps"
+    "$envParent/asp_deps/bin/conda-unpack"
+    mkdir -p "$envParent/python_isis10"
+    tar xzf python_isis10.tar.gz -C "$envParent/python_isis10"
+    "$envParent/python_isis10/bin/conda-unpack"
+    for e in asp_deps python_isis10; do
+        find "$envParent/$e" -type f \( -name '*.dylib' -o -name '*.so' \) -print0 2>/dev/null \
+            | xargs -0 -P8 codesign --force -s - 2>/dev/null
+        find "$envParent/$e/bin" -type f -perm +111 -print0 2>/dev/null \
+            | xargs -0 -P8 codesign --force -s - 2>/dev/null
+    done
 else
     # Intel x64: conda-pack tarballs (relocatable; the bundled conda-unpack
     # rewrites the baked prefix on this runner). asp_deps is one part (~1.6 GB
