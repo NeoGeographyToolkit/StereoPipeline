@@ -331,7 +331,7 @@ the entire ``asp_deps`` environment, we create a separate environment
 having only Python and numpy, with versions as expected by current ISIS.
 Run, for example::
 
-    conda create -c conda-forge -n python_isis \
+    conda create -c conda-forge -n python_isis10 \
       python=x.y.z numpy=a.b.c
 
 Note that different versions of these may be needed for Linux and OSX.
@@ -346,7 +346,7 @@ Run in ``BinaryBuilder`` the command::
     /path/to/python3                                  \
       ./make-dist.py build_asp/install                \
       --asp-deps-dir $HOME/miniconda3/envs/asp_deps   \
-      --python-env $HOME/miniconda3/envs/python_isis
+      --python-env $HOME/miniconda3/envs/python_isis10
 
 Building and packaging should be done separately for Linux and OSX.
 
