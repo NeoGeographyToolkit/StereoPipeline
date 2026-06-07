@@ -110,6 +110,20 @@ if [ ! -d "$envPath" ]; then
     echo "Error: Directory: $envPath does not exist"
     exit 1
 fi
+
+# Sanity check the deps arch. Packaging mac-intel vs mac-arm is easy to mix up;
+# a wrong-arch dylib is silently ignored by ld and later looks like undefined
+# symbols. Fail early if libcore is not the host arch.
+wantArch=$(uname -m); [ "$wantArch" = "arm64" ] || wantArch="x86_64"
+gotArch=$(lipo -archs "$envPath/lib/libcore.dylib" 2>/dev/null)
+case " $gotArch " in
+    *" $wantArch "*) echo "Deps arch OK: libcore=[$gotArch], host=$wantArch" ;;
+    *) echo "Error: DEPS TARBALL ARCH MISMATCH - libcore is [$gotArch] but host is $wantArch."
+       echo "The asp_deps_mac_* tarball was packed with wrong-arch libs (shared conda"
+       echo "pkgs-cache collision). Re-pack with an isolated CONDA_PKGS_DIRS for this arch."
+       exit 1 ;;
+esac
+
 export PATH=$envPath/bin:$PATH
 
 # Activate the env. conda may not be on PATH this early (the workflow does not run
