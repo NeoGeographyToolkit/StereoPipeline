@@ -120,21 +120,21 @@ export PATH=$envPath/bin:$PATH
 # cannot configure.
 source "$envPath/bin/activate"
 
-# Intel: conda isis 10 split the old monolithic libisis - the isis symbols ASP
-# references (Pvl*, FileName::expanded, Displacement, Buffer, ...) now live in
-# libcore (libisis only imports them; the many mission libs sit ABOVE libisis).
-# ASP historically linked only libisis, which "just worked" with the old monolith
-# and still works with lenient linkers (conda-build, arm runner, recent macOS).
-# The macos-15-intel runner's strict ld errors on the now-unresolved imports.
-# Fix: explicitly give ASP the base libs that DEFINE those symbols (libcore +
-# libisis) via CMAKE_CXX_STANDARD_LIBRARIES, which APPENDS them to every link line
-# (two-level - usgscsm safe) WITHOUT touching *_LINKER_FLAGS (so conda's -L/-rpath
-# are preserved; setting *_LINKER_FLAGS clobbered -L before -> 100 undef). Arm
-# needs nothing - its runner ld resolves these.
+# Intel: conda isis 10 split the old monolithic libisis into libcore + ~140
+# sublibs, so the isis symbols ASP references (Cube/Camera/Pvl/FileName/...) are
+# scattered; linking libisis no longer resolves them and the macos-15-intel
+# runner's STRICT system ld errors. conda-build/arm/recent-macOS use lenient lds
+# that allow the undefined and resolve at runtime - that is why only this runner
+# breaks. Mirror that: -undefined dynamic_lookup lets the link succeed (flat
+# namespace), and CMAKE_CXX_STANDARD_LIBRARIES force-loads the libs that hold the
+# flat-resolved symbols at RUNTIME (libcore/libisis for isis; libusgscsm for
+# usgscsm _SENSOR_MODEL_NAME, which crashed under bare dynamic_lookup because it
+# was not a loaded dependency). Arm needs none - its runner ld resolves these.
 cmake_opts=""
 asp_isis_libs=""
 if [ "$isArm64" = "" ]; then
-    asp_isis_libs="$envPath/lib/libcore.dylib $envPath/lib/libisis.dylib"
+    asp_isis_libs="$envPath/lib/libcore.dylib $envPath/lib/libisis.dylib $envPath/lib/libusgscsm.dylib"
+    cmake_opts="-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup -DCMAKE_EXE_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup"
 fi
 
 # Set up the compiler
