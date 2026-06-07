@@ -121,7 +121,13 @@ if [ "$isArm64" = "" ]; then
         exit 1
     fi
     ln -sf "$CONDA_LINKER" "$envPath/bin/ld" # Force the use of conda linker
-    cmake_opts="-DCMAKE_LINKER=$envPath/bin/ld"
+    # Conda ISIS defines some symbols ASP references (e.g. Isis::FileName::
+    # expanded()) in libcore.dylib, which libisis only imports. The forced ld64
+    # is strict about that unresolved import, so allow dynamic (runtime) lookup -
+    # the symbol is present in libcore, loaded transitively. (Linux nightly uses
+    # the GNU equivalent --allow-shlib-undefined; ld64 uses -undefined
+    # dynamic_lookup.) Intel only; arm and the feedstock link clean by default.
+    cmake_opts="-DCMAKE_LINKER=$envPath/bin/ld -DCMAKE_SHARED_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup -DCMAKE_EXE_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup"
 fi
 
 # Set up the compiler
