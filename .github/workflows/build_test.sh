@@ -102,10 +102,13 @@ if [ ! -d "$envPath" ]; then
 fi
 export PATH=$envPath/bin:$PATH
 
-# These are of help in interactive mode but are not strictly needed in batch mode
-conda init
-source ~/.bash_profile
-conda activate $envName
+# Activate the env. conda may not be on PATH this early (the workflow does not run
+# setup-miniconda before build_test.sh), and the deps env is conda-pack relocated,
+# so use the env's own activate script. This sets CONDA_PREFIX and the compiler
+# environment - the conda clang wrapper needs CONDA_PREFIX to find its sysroot and
+# headers, otherwise cmake's compiler checks (exp2, log2, ...) fail and the build
+# cannot configure.
+source "$envPath/bin/activate"
 
 # Must use the linker from the conda environment to avoid issues with recent Intel Mac.
 # The linker can be installed with conda as package ld64_osx-64 on conda forge.
