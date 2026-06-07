@@ -120,24 +120,21 @@ export PATH=$envPath/bin:$PATH
 # cannot configure.
 source "$envPath/bin/activate"
 
-# Intel: force clang++ to use the conda ld64 via -fuse-ld. conda isis 10 split
-# its core so ASP references isis symbols that live in libcore (libisis only
-# imports them). The modern conda ld64 (ld64-954.x) resolves these transitively
-# and keeps TWO-LEVEL namespace; the macos-15 runner's *system* ld (which
-# clang++ uses by default) is older/stricter and errors on them. The old
-# -DCMAKE_LINKER force was ineffective (clang++ drives the link and ignores
-# CMAKE_LINKER), and -undefined dynamic_lookup "fixed" the link but forced flat
-# namespace -> usgscsm _SENSOR_MODEL_NAME crashed at runtime. -fuse-ld=<conda ld>
-# is the correct mechanism: lenient link + two-level (usgscsm safe). Arm's runner
-# ld already resolves these, so arm needs nothing.
+# Intel: conda isis 10 split the old monolithic libisis - the isis symbols ASP
+# references (Pvl*, FileName::expanded, Displacement, Buffer, ...) now live in
+# libcore (libisis only imports them; the many mission libs sit ABOVE libisis).
+# ASP historically linked only libisis, which "just worked" with the old monolith
+# and still works with lenient linkers (conda-build, arm runner, recent macOS).
+# The macos-15-intel runner's strict ld errors on the now-unresolved imports.
+# Fix: explicitly give ASP the base libs that DEFINE those symbols (libcore +
+# libisis) via CMAKE_CXX_STANDARD_LIBRARIES, which APPENDS them to every link line
+# (two-level - usgscsm safe) WITHOUT touching *_LINKER_FLAGS (so conda's -L/-rpath
+# are preserved; setting *_LINKER_FLAGS clobbered -L before -> 100 undef). Arm
+# needs nothing - its runner ld resolves these.
 cmake_opts=""
+asp_isis_libs=""
 if [ "$isArm64" = "" ]; then
-    CONDA_LINKER="$(ls $envPath/bin/x86_64-apple-darwin*ld | head -n 1)"
-    if [ ! -f "$CONDA_LINKER" ]; then
-        echo "Error: File: $CONDA_LINKER does not exist"
-        exit 1
-    fi
-    cmake_opts="-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=$CONDA_LINKER -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=$CONDA_LINKER"
+    asp_isis_libs="$envPath/lib/libcore.dylib $envPath/lib/libisis.dylib"
 fi
 
 # Set up the compiler
@@ -207,6 +204,7 @@ $envPath/bin/cmake ..                             \
   -DVISIONWORKBENCH_INSTALL_DIR=$installDir       \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp   \
+  -DCMAKE_CXX_STANDARD_LIBRARIES="$asp_isis_libs" \
    $cmake_opts
 echo Building StereoPipeline
 make -j10 install > /dev/null 2>&1 # this is too verbose
