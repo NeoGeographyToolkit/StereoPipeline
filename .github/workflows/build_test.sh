@@ -228,6 +228,20 @@ for lib in $installDir/lib/*dylib; do
 done
 export DYLD_LIBRARY_PATH=$installDir/lib:$DYLD_LIBRARY_PATH
 
+# ===== TEMP PROBE (mac-intel usgscsm debug; remove after) =====
+if [ "$isArm64" = "" ]; then
+  PB=$installDir/bin/stereo
+  export DYLD_FALLBACK_LIBRARY_PATH=$envPath/lib
+  echo "PROBE: otool -L stereo (usgscsm/isis deps?):"; otool -L "$PB" 2>&1 | grep -iE 'usgscsm|libcore|libisis|csmplugin' || echo "  PROBE: none of usgscsm/libcore/libisis are deps of stereo"
+  echo "PROBE: which ASP lib references _SENSOR_MODEL_NAME:"; for l in $installDir/lib/libAsp*.dylib; do nm -u "$l" 2>/dev/null | grep -q SENSOR_MODEL_NAME && echo "  $(basename $l)"; done
+  echo "PROBE: that lib's deps + rpaths:"; for l in $installDir/lib/libAsp*.dylib; do nm -u "$l" 2>/dev/null | grep -q SENSOR_MODEL_NAME && { otool -L "$l" 2>&1 | grep -iE 'usgscsm|csmplugin'; otool -l "$l" 2>&1 | grep -A2 LC_RPATH | grep path; }; done
+  echo "PROBE: baseline stereo --version:"; ISISROOT=$envPath "$PB" --version 2>&1 | head -4; echo "PROBE baseline rc=${PIPESTATUS[0]}"
+  echo "PROBE: DYLD_INSERT libusgscsm --version:"; ISISROOT=$envPath DYLD_INSERT_LIBRARIES=$envPath/lib/csmplugins/libusgscsm.dylib "$PB" --version 2>&1 | head -4; echo "PROBE insert rc=${PIPESTATUS[0]}"
+  echo "PROBE: fallback-incl-csmplugins --version:"; ISISROOT=$envPath DYLD_FALLBACK_LIBRARY_PATH=$envPath/lib:$envPath/lib/csmplugins "$PB" --version 2>&1 | head -4; echo "PROBE fallback rc=${PIPESTATUS[0]}"
+  echo "PROBE DONE"; exit 0
+fi
+# ===== END PROBE =====
+
 # Package with BinaryBuilder. The Mac Arm and Mac x64 use
 # different paths to the python environment.
 echo Packaging the build
