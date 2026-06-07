@@ -1,0 +1,24 @@
+name: build_test_linux_arm
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04-arm
+    steps:
+    - uses: actions/checkout@v3
+    # No caching of dependencies. See build_test_linux_arm.sh for how to fetch
+    # an offline conda-pack tarball with dependencies (BinaryBuilder release
+    # asp_deps_linux_arm_v1), and save_linux_arm_deps.sh for how to update it.
+    - name: build_test
+      # Build and test ASP on Linux aarch64
+      run: ./.github/workflows/build_test_linux_arm.sh
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+         # This must be in sync with BinaryBuilder/auto_build
+         name: StereoPipeline-Artifact-build_test_linux_arm
+         path: ~/work/StereoPipeline/packages
+         retention-days: 2
+      continue-on-error: true
