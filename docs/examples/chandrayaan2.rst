@@ -169,9 +169,16 @@ from the ALE package, following the linescan recipe in
     isd_generate -k ohrc/img1.cub ohrc/img1.cub
     isd_generate -k ohrc/img2.cub ohrc/img2.cub
 
-This expects ``$ISISDATA`` and ``$ALESPICEROOT`` to be set as described in
-the environment setup section above. Check each produced JSON with
-``cam_test`` (:numref:`cam_test`) before proceeding.
+It is expected that the environment is activated with ``conda activate``, with
+``ISISROOT`` set to ``$CONDA_PREFIX``, and ``$ISISDATA`` and ``$ALESPICEROOT``
+set, as described in the environment setup section above (not just the
+environment's ``bin`` directory added to the path). Chandrayaan-2 uses the
+SpiceQL mission database, and skipping ``conda activate`` can make
+``isd_generate`` crash instead of printing a clear error, as SpiceQL then
+cannot find its configuration under ``$CONDA_PREFIX``.
+
+Check each produced CSM camera file with ``cam_test`` (:numref:`cam_test`),
+against itself and against the ``.cub`` camera, before proceeding.
 
 The images can be inspected with ``stereo_gui`` (:numref:`stereo_gui`), as::
 
