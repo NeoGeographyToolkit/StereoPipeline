@@ -120,18 +120,25 @@ export PATH=$envPath/bin:$PATH
 # cannot configure.
 source "$envPath/bin/activate"
 
-# Do NOT force the conda ld via -DCMAKE_LINKER on Intel. The env's activate
-# (above) already sets the conda compiler+linker environment, so clang++ links
-# with the conda toolchain - exactly like the stereopipeline-feedstock and the
-# arm nightly, both of which link AND run clean. Forcing the raw ld64 made it
-# strict about ISIS symbols that live in libcore.dylib (libisis only imports
-# them, e.g. Isis::FileName::expanded()), breaking the IsisIO link; and working
-# around that with -undefined dynamic_lookup forced flat namespace, which then
-# broke runtime resolution of other two-level symbols (usgscsm
-# _SENSOR_MODEL_NAME -> "symbol not found in flat namespace", stereo crashed at
-# make-dist's version check). Matching the feedstock (no forced linker) avoids
-# both. See env_update_06_2026_coordination.sh.
+# Intel: force clang++ to use the conda ld64 via -fuse-ld. conda isis 10 split
+# its core so ASP references isis symbols that live in libcore (libisis only
+# imports them). The modern conda ld64 (ld64-954.x) resolves these transitively
+# and keeps TWO-LEVEL namespace; the macos-15 runner's *system* ld (which
+# clang++ uses by default) is older/stricter and errors on them. The old
+# -DCMAKE_LINKER force was ineffective (clang++ drives the link and ignores
+# CMAKE_LINKER), and -undefined dynamic_lookup "fixed" the link but forced flat
+# namespace -> usgscsm _SENSOR_MODEL_NAME crashed at runtime. -fuse-ld=<conda ld>
+# is the correct mechanism: lenient link + two-level (usgscsm safe). Arm's runner
+# ld already resolves these, so arm needs nothing.
 cmake_opts=""
+if [ "$isArm64" = "" ]; then
+    CONDA_LINKER="$(ls $envPath/bin/x86_64-apple-darwin*ld | head -n 1)"
+    if [ ! -f "$CONDA_LINKER" ]; then
+        echo "Error: File: $CONDA_LINKER does not exist"
+        exit 1
+    fi
+    cmake_opts="-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=$CONDA_LINKER -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=$CONDA_LINKER"
+fi
 
 # Set up the compiler
 if [ "$(uname)" = "Darwin" ]; then
