@@ -43,7 +43,7 @@ link_test () { # $1=desc  rest=extra clang/link args
   $CXX /tmp/isistest.o -L$envPath/lib -lisis $envPath/lib/libcore.dylib $envPath/lib/libQt6Core.dylib "$@" -Wl,-undefined,error -o /tmp/t_$desc 2>/tmp/e_$desc
   local rc=$?
   echo "PROBE link[$desc] rc=$rc"
-  [ $rc -ne 0 ] && grep -iE 'Undefined symbols|symbol.* not found|unknown|unsupported' /tmp/e_$desc | head -2
+  [ $rc -ne 0 ] && grep -aE '_ZN|_ZNK|unknown|unsupported|ld:' /tmp/e_$desc | sed 's/^/PROBE   undef: /' | head -8
 }
 
 # explicit libcore+libisis, default (new) ld:
@@ -53,11 +53,13 @@ link_test "ld_classic" -Wl,-ld_classic
 # force conda classic ld64 via -fuse-ld:
 [ -n "$CONDA_LD" ] && link_test "fuse_conda_ld" -fuse-ld="$CONDA_LD"
 
-echo "PROBE: install + try lld"
-conda install -y -c conda-forge lld > /dev/null 2>&1
-LLD=$(ls $envPath/bin/ld64.lld $envPath/bin/lld 2>/dev/null | head -1)
-echo "PROBE: lld = ${LLD:-none}"
+echo "PROBE: install + try lld (into the env prefix)"
+"$envParent/../bin/conda" install -y -p "$envPath" -c conda-forge lld > /tmp/lldinst 2>&1 || conda install -y -p "$envPath" -c conda-forge lld > /tmp/lldinst 2>&1
+LLD=$(ls $envPath/bin/ld64.lld 2>/dev/null | head -1)
+echo "PROBE: lld = ${LLD:-none}"; tail -2 /tmp/lldinst | sed 's/^/PROBE   lldinst: /'
 [ -n "$LLD" ] && link_test "lld" -fuse-ld="$LLD"
+# also try plain -fuse-ld=lld (clang resolves it)
+link_test "fuse_lld_name" -fuse-ld=lld
 
 echo "PROBE DONE"
 exit 0
