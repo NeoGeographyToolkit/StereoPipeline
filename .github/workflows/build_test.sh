@@ -117,25 +117,18 @@ export PATH=$envPath/bin:$PATH
 # cannot configure.
 source "$envPath/bin/activate"
 
-# Must use the linker from the conda environment to avoid issues with recent Intel Mac.
-# The linker can be installed with conda as package ld64_osx-64 on conda forge.
-# Put it in the asp_deps env.
+# Do NOT force the conda ld via -DCMAKE_LINKER on Intel. The env's activate
+# (above) already sets the conda compiler+linker environment, so clang++ links
+# with the conda toolchain - exactly like the stereopipeline-feedstock and the
+# arm nightly, both of which link AND run clean. Forcing the raw ld64 made it
+# strict about ISIS symbols that live in libcore.dylib (libisis only imports
+# them, e.g. Isis::FileName::expanded()), breaking the IsisIO link; and working
+# around that with -undefined dynamic_lookup forced flat namespace, which then
+# broke runtime resolution of other two-level symbols (usgscsm
+# _SENSOR_MODEL_NAME -> "symbol not found in flat namespace", stereo crashed at
+# make-dist's version check). Matching the feedstock (no forced linker) avoids
+# both. See env_update_06_2026_coordination.sh.
 cmake_opts=""
-if [ "$isArm64" = "" ]; then
-    CONDA_LINKER="$(ls $envPath/bin/x86_64-apple-darwin*ld | head -n 1)"
-    if [ ! -f "$CONDA_LINKER" ]; then
-        echo "Error: File: $CONDA_LINKER does not exist"
-        exit 1
-    fi
-    ln -sf "$CONDA_LINKER" "$envPath/bin/ld" # Force the use of conda linker
-    # Conda ISIS defines some symbols ASP references (e.g. Isis::FileName::
-    # expanded()) in libcore.dylib, which libisis only imports. The forced ld64
-    # is strict about that unresolved import, so allow dynamic (runtime) lookup -
-    # the symbol is present in libcore, loaded transitively. (Linux nightly uses
-    # the GNU equivalent --allow-shlib-undefined; ld64 uses -undefined
-    # dynamic_lookup.) Intel only; arm and the feedstock link clean by default.
-    cmake_opts="-DCMAKE_LINKER=$envPath/bin/ld -DCMAKE_SHARED_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup -DCMAKE_EXE_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup"
-fi
 
 # Set up the compiler
 if [ "$(uname)" = "Darwin" ]; then
