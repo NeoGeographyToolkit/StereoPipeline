@@ -120,22 +120,13 @@ export PATH=$envPath/bin:$PATH
 # cannot configure.
 source "$envPath/bin/activate"
 
-# Intel: conda isis 10 split the old monolithic libisis into libcore + ~140
-# sublibs, so the isis symbols ASP references (Cube/Camera/Pvl/FileName/...) are
-# scattered; linking libisis no longer resolves them and the macos-15-intel
-# runner's STRICT system ld errors. conda-build/arm/recent-macOS use lenient lds
-# that allow the undefined and resolve at runtime - that is why only this runner
-# breaks. Mirror that: -undefined dynamic_lookup lets the link succeed (flat
-# namespace), and CMAKE_CXX_STANDARD_LIBRARIES force-loads the libs that hold the
-# flat-resolved symbols at RUNTIME (libcore/libisis for isis; libusgscsm for
-# usgscsm _SENSOR_MODEL_NAME, which crashed under bare dynamic_lookup because it
-# was not a loaded dependency). Arm needs none - its runner ld resolves these.
+# No special linker flags needed. The deps tarball provides x86_64 isis libs and
+# ASP links them with the default toolchain. (The earlier "undefined isis symbol"
+# failures were an ARCH MISMATCH: the deps tarball had arm64 isis libs that ld
+# silently ignores on this x86_64 runner - caused by a shared conda pkgs-cache
+# collision at pack time. Fixed by packing the deps with an isolated x86_64
+# pkgs cache. See env_update_06_2026_mac_intel.sh.)
 cmake_opts=""
-asp_isis_libs=""
-if [ "$isArm64" = "" ]; then
-    asp_isis_libs="$envPath/lib/libcore.dylib $envPath/lib/libisis.dylib $envPath/lib/csmplugins/libusgscsm.dylib"
-    cmake_opts="-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup -DCMAKE_EXE_LINKER_FLAGS=-Wl,-undefined,dynamic_lookup"
-fi
 
 # Set up the compiler
 if [ "$(uname)" = "Darwin" ]; then
@@ -204,7 +195,6 @@ $envPath/bin/cmake ..                             \
   -DVISIONWORKBENCH_INSTALL_DIR=$installDir       \
   -DCMAKE_C_COMPILER=${envPath}/bin/$cc_comp      \
   -DCMAKE_CXX_COMPILER=${envPath}/bin/$cxx_comp   \
-  -DCMAKE_CXX_STANDARD_LIBRARIES="$asp_isis_libs" \
    $cmake_opts
 echo Building StereoPipeline
 make -j10 install > /dev/null 2>&1 # this is too verbose
