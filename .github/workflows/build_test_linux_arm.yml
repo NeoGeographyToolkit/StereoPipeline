@@ -4,7 +4,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04-arm
+    # ubuntu-24.04-arm has glibc 2.39; the conda deps + binaries were built in a
+    # glibc-2.39 container and require GLIBC_2.38, which ubuntu-22.04-arm (glibc
+    # 2.35) lacks ("GLIBC_2.38 not found"). Must match/exceed the build glibc.
+    runs-on: ubuntu-24.04-arm
     steps:
     - uses: actions/checkout@v3
     # No caching of dependencies. See build_test_linux_arm.sh for how to fetch
