@@ -4,6 +4,8 @@ Changes since last release
 RELEASE 3.7.0, June 2026
 ------------------------
 
+DOI: https://doi.org/10.5281/zenodo.20596670
+
 General improvements:
 
   * Added support for Linux ARM64 (aarch64). Pre-built binaries are available
