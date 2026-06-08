@@ -12,18 +12,20 @@ Precompiled binaries
 
 Linux
 ~~~~~
- 
-Choose either the latest build (recommended) or a stable release
-from:
+
+Binaries are available for both Intel (x86_64) and ARM64 (aarch64) architectures.
+
+Choose either the latest build (recommended) or a stable release from:
 
 - `<https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
 
 No installation steps or administrative rights are necessary.  Extract
 the archive, and run the executables in the ``bin`` subdirectory as::
 
-    tar xvf StereoPipeline-3.7.0-2026-06-04-x86_64-Linux.tar.bz2
-    ./StereoPipeline-3.7.0-2026-06-04-x86_64-Linux/bin/stereo --help
+    tar xvf StereoPipeline-3.7.0-2026-06-07-x86_64-Linux.tar.bz2
+    ./StereoPipeline-3.7.0-2026-06-07-x86_64-Linux/bin/stereo --help
 
+Adjust the tarball name for your OS and architecture (Intel or Arm).
 The result of the last command should be a help message.
 
 To permanently add the ASP executable subdirectory to your PATH, add to your
@@ -58,20 +60,22 @@ Windows
 
 ASP does not offer Windows binaries. However, the Linux build can be run on
 Windows using the `Windows Subsystem for Linux
-<https://learn.microsoft.com/en-us/windows/wsl/install>`_ (WSL). Once a recent
-Linux distribution is installed and verified to work, the installation steps are
-the same as for Linux.
+<https://learn.microsoft.com/en-us/windows/wsl/install>`_ (WSL). Use the x86_64
+build for Intel/AMD processors and the ARM64 build for ARM-based Windows devices.
+Once a recent Linux distribution is installed and verified to work, the
+installation steps are the same as for Linux.
 
 .. _conda_intro:
 
 Conda-based installation
 ------------------------
 
-The ASP 3.7.0 release (June 2026) can be installed via conda, together with
-ISIS 10.0.0 (:numref:`planetary_images`) for Linux, Mac Intel, and Mac Arm.
+The ASP 3.7.0 release (June 2026) can be installed via conda, together with ISIS
+10.0.0 (:numref:`planetary_images`) for Linux Intel, Linux Arm, Mac Intel,
+and Mac Arm.
 
 This ASP release ships with *custom-built conda packages* of ISIS
-(``isis=10.0.0=asp*``), ALE, USGSCSM, and SpiceQL, hosted on the
+(``isis=10.0.0=asp*``), and also for ALE, USGSCSM, and SpiceQL, hosted on the
 ``nasa-ames-stereo-pipeline`` channel. These provide fixes for bugs that are not
 yet part of the official releases of those packages. These are based on the
 latest dev source as of 2026-06-04. The ``asp`` build string distinguishes them

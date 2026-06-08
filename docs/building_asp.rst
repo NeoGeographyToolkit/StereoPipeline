@@ -193,8 +193,8 @@ Helper scripts
 ~~~~~~~~~~~~~~
 
 The ``.github/workflows`` directory in the ``StereoPipeline`` repository has a
-few scripts that show in detail the commands that are run to build ASP daily (on
-Mac, in the cloud).
+few scripts that show in detail the commands that are run to build ASP daily in
+the cloud (macOS Intel, macOS ARM64, and Linux ARM64).
 
 .. _build_asp_doc:
 
@@ -348,7 +348,8 @@ Run in ``BinaryBuilder`` the command::
       --asp-deps-dir $HOME/miniconda3/envs/asp_deps   \
       --python-env $HOME/miniconda3/envs/python_isis10
 
-Building and packaging should be done separately for Linux and OSX.
+Building and packaging should be done separately for each platform (Linux
+x86_64, Linux ARM64, macOS Intel, macOS ARM64).
 
 Test ASP
 ~~~~~~~~
@@ -385,9 +386,10 @@ The GitHub ``gh`` program can be invoked to push the binaries to the release.
 Example::
 
   cd BinaryBuilder/asp_tarballs
-  for file in                                                \
-    StereoPipeline-<asp version>-<date>-x86_64-Linux.tar.bz2 \
-    StereoPipeline-<asp version>-<date>-x86_64-OSX.tar.bz2   \
+  for file in                                                  \
+    StereoPipeline-<asp version>-<date>-x86_64-Linux.tar.bz2   \
+    StereoPipeline-<asp version>-<date>-aarch64-Linux.tar.bz2  \
+    StereoPipeline-<asp version>-<date>-x86_64-OSX.tar.bz2     \
     StereoPipeline-<asp version>-<date>-arm64-OSX.tar.bz2; do
 
     gh release upload <asp version> $file \

@@ -1,12 +1,14 @@
 RELEASE 3.7.0, June 2026
 ------------------------
 
-This release is built against and ships with custom-built conda packages of ISIS
-10.0.0, ALE, USGSCSM, and SpiceQL, on the ``nasa-ames-stereo-pipeline`` channel
-(:numref:`conda_intro`).
-
 General improvements:
 
+  * Added support for Linux ARM64 (aarch64). Pre-built binaries are available
+    for Linux Intel, Linux ARM64, macOS Intel, and macOS ARM64
+    (:numref:`release`). Also available via conda (:numref:`conda_intro`).
+  * Ships with custom-built conda packages for ISIS 10.0.0, ALE, USGSCSM, and
+    SpiceQL, on the ``nasa-ames-stereo-pipeline`` channel
+    (:numref:`conda_intro`).
   * Added a new program for distributed stereo processing across computing
     nodes (:numref:`stereo_dist`).
   * Added a new program to study parameter sensitivity by running stereo on
