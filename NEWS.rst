@@ -169,6 +169,8 @@ point2dem (:numref:`point2dem`):
   * The default grid size is now 4x the estimated ground sample distance,
     using a robust average of the 25%-75% percentile range instead of
     a raw median. This can be adjusted with ``--default-grid-size-multiplier``.
+  * Fixed a bug that could produce an enormous output DEM extent (and a
+    "size too large" error) when reading a projected TIF or PCD point cloud.
 
 dem2gcp (:numref:`dem2gcp`):
   * Fixed a bug where interest points at invalid (nodata) reference DEM pixels

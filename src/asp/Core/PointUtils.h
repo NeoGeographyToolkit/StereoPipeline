@@ -301,8 +301,8 @@ namespace asp {
   // not imitate the old LAS reader in libLAS.
   class BaseReader {
   public:
-    std::int64_t m_num_points;
-    bool         m_has_georef; // if the dataset has a georeference
+    std::int64_t m_num_points = 0;
+    bool         m_has_georef = false; // if the dataset has a georeference
     vw::cartography::GeoReference m_georef;
     
     virtual bool        ReadNextPoint() = 0;
