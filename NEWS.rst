@@ -1,6 +1,13 @@
 Changes since last release
 --------------------------
 
+point2dem (:numref:`point2dem`):
+  * Fixed a bug that could produce an enormous output DEM extent (and a
+    "size too large" error) when reading a projected TIF or PCD point cloud.
+
+Misc:
+  * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
+
 RELEASE 3.7.0, June 2026
 ------------------------
 
