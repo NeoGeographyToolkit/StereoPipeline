@@ -21,6 +21,7 @@ General improvements:
   * Ships with custom-built conda packages for ISIS 10.0.0, ALE, USGSCSM, and
     SpiceQL, on the ``nasa-ames-stereo-pipeline`` channel
     (:numref:`conda_intro`).
+  * Added a new sensor: KPLO ShadowCam (:numref:`shadowcam`).
   * Added a new program for distributed stereo processing across computing
     nodes (:numref:`stereo_dist`).
   * Added a new program to study parameter sensitivity by running stereo on
@@ -37,9 +38,6 @@ General improvements:
     enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
   * Migrated PeruSat-1 to a CSM linescan camera model (:numref:`perusat1`).
     This enables use of ``jitter_solve`` (:numref:`jitter_pleiades`).
-  * Added a draft processing example for KPLO ShadowCam (:numref:`shadowcam`).
-    This will require releases of ASP, ISIS, ISIS, ALE, USGSCSM, and SpiceQL
-    that expose ShadowCam support.
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Updated the Chandrayaan-2 OHRC example and added a TMC example
