@@ -31,6 +31,7 @@ import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
 
 job_pool = []
+g_dry_run = False
 
 def man(option, opt, value, parser):
     print(parser.usage, file=sys.stderr)
@@ -74,19 +75,25 @@ class CCDs(dict):
 
 
 def add_job( cmd, num_working_threads=4 ):
+    print(cmd)
+    if g_dry_run:
+        return
     if len(job_pool) >= num_working_threads:
         job_pool[0].wait()
         job_pool.pop(0)
-    print(cmd)
     job_pool.append( subprocess.Popen(cmd, shell=True) )
 
 def wait_on_all_jobs():
+    if g_dry_run:
+        return
     print("Waiting for jobs to finish")
     while len(job_pool) > 0:
         job_pool[0].wait()
         job_pool.pop(0)
 
 def read_flatfile( flat ):
+    if g_dry_run:
+        return [0.0, 0.0]
     f = open(flat,'r')
     averages = [0.0,0.0]
     try:
@@ -113,6 +120,8 @@ def read_flatfile( flat ):
 
 def check_output_files(file_list):
     '''Verify the output files were created.'''
+    if g_dry_run:
+        return
     for f in file_list:
         if not os.path.exists(f):
             raise Exception('Failed to generate file: ' + f)
@@ -145,7 +154,7 @@ def hical( cub_files, threads, delete=False ):
         hical_cubs.append( to_cub )
     wait_on_all_jobs()
     check_output_files(hical_cubs)
-    if delete:
+    if delete and not g_dry_run:
         for cub in cub_files: os.remove( cub )
         hical_log_files = glob.glob( os.path.commonprefix(cub_files) + '*.hical.log' )
         for file in hical_log_files: os.remove( file )
@@ -198,7 +207,7 @@ def histitch( cub_files, threads, delete=False ):
 
     wait_on_all_jobs()
     check_output_files(histitch_cubs)
-    if delete:
+    if delete and not g_dry_run:
         for cub in to_del_cubs: os.remove( cub )
     return histitch_cubs
 
@@ -234,7 +243,7 @@ def noproj( CCD_object, threads, delete=False ):
             # os.system(cmd)
         noproj_CCDs.append( to_cub )
     wait_on_all_jobs()
-    if delete:
+    if delete and not g_dry_run:
         for cub in CCD_object.values(): os.remove( cub )
     return CCDs( noproj_CCDs, CCD_object.match )
 
@@ -256,14 +265,15 @@ def hijitreg( noproj_CCDs, threads, delete=False ):
         if( j not in noproj_CCDs ): continue
         flat_file = 'flat_'+str(i)+'_'+str(j)+'.txt'
         averages[i] = read_flatfile( flat_file )
-        if delete:
+        if delete and not g_dry_run:
             os.remove( flat_file )
 
     return averages
 
 def mosaic( noprojed_CCDs, averages ):
     mosaic = noprojed_CCDs.prefix+'.mos_hijitreged.cub'
-    shutil.copy( noprojed_CCDs.matchcube(), mosaic )
+    if not g_dry_run:
+        shutil.copy( noprojed_CCDs.matchcube(), mosaic )
     sample_sum = 1
     line_sum   = 1
     for i in range( noprojed_CCDs.match-1, noprojed_CCDs.min()-1, -1):
@@ -292,15 +302,18 @@ def handmos( fromcub, tocub, outsamp, outline ):
             +' outsample= '+ outsamp \
             +' outline= '+   outline \
             +' priority= beneath'
-    os.system(cmd)
+    print(cmd)
+    if not g_dry_run:
+        os.system(cmd)
     return
 
 def cubenorm( fromcub, delete=False ):
     tocub = os.path.splitext(fromcub)[0] + '.norm.cub'
     cmd   = 'cubenorm from= '+ fromcub+' to= '+ tocub
     print(cmd)
-    os.system(cmd)
-    if delete:
+    if not g_dry_run:
+        os.system(cmd)
+    if delete and not g_dry_run:
         os.remove( fromcub )
     return tocub
 
@@ -386,13 +399,20 @@ def main():
             parser.add_option("-k", "--keep", action="store_false",
                               dest="delete",
                               help="Will not delete intermediate files.")
+            parser.add_option("-n", "--dry-run", dest="dryrun",
+                              action="store_true", default=False,
+                              help="Print the commands that would be run, "
+                              "but do not execute them.")
             parser.add_option("--download-folder", dest="download_folder", default=None,
                               help="Download files to this folder. Hence the second argument to this is the URL of the page to download the files from.")
             
 
             (options, args) = parser.parse_args()
 
-            if not args: 
+            global g_dry_run
+            g_dry_run = options.dryrun
+
+            if not args:
                 parser.error("need .IMG files or a URL")
             
             if options.download_folder:
@@ -451,7 +471,7 @@ def main():
         mosaicked = mosaic( noprojed_CCDs, averages )
 
         # Clean up noproj files
-        if options.delete:
+        if options.delete and not g_dry_run:
           for cub in noprojed_CCDs.values():
               os.remove( cub )
 

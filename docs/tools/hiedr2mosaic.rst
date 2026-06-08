@@ -44,3 +44,6 @@ Command-line options for hiedr2mosaic.py:
 
 -k, --keep
     Keep all intermediate files.
+
+-n, --dry-run
+    Print the commands that would be run, but do not execute them.
