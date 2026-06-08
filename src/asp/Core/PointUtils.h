@@ -317,13 +317,13 @@ namespace asp {
  class PcdReader: public BaseReader{
   private:
     std::string  m_pcd_file;
-    bool         m_has_valid_point;
-    bool         m_binary_format;
-    int          m_size_bytes;
-    char         m_type;
-    size_t       m_header_length_bytes;
+    bool         m_has_valid_point = false;
+    bool         m_binary_format = false;
+    int          m_size_bytes = 0;
+    char         m_type = 0;
+    size_t       m_header_length_bytes = 0;
     vw::Vector3  m_curr_point;
-    std::ifstream * m_ifs;
+    std::ifstream * m_ifs = nullptr;
     
     /// Read the text header of the PCD file
     void read_header();
