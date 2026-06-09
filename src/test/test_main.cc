@@ -21,9 +21,11 @@
 #include <vw/Core/Settings.h>
 
 #include <boost/filesystem/operations.hpp>
+
 #include <cerrno>
 #include <climits>
 #include <cstdlib>
+
 namespace fs = boost::filesystem;
 
 namespace {
