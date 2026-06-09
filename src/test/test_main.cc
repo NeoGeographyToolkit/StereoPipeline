@@ -21,10 +21,31 @@
 #include <vw/Core/Settings.h>
 
 #include <boost/filesystem/operations.hpp>
+#include <cerrno>
+#include <climits>
+#include <cstdlib>
 namespace fs = boost::filesystem;
 
 namespace {
   vw::uint32 SEED;
+  char const* TEST_SEED_ENV = "ASP_TEST_SEED";
+
+  vw::uint32 get_seed_from_env_or_clock() {
+    char const* seed_value = std::getenv(TEST_SEED_ENV);
+    if (seed_value == NULL || seed_value[0] == '\0')
+      return boost::numeric_cast<unsigned int>(clock());
+
+    errno = 0;
+    char* end = NULL;
+    unsigned long parsed_seed = std::strtoul(seed_value, &end, 10);
+
+    VW_ASSERT(errno == 0 && end != seed_value && *end == '\0' &&
+              parsed_seed <= static_cast<unsigned long>(UINT_MAX),
+              vw::ArgumentErr() << "Environment variable " << TEST_SEED_ENV
+                                << " must be an unsigned 32-bit integer.\n");
+
+    return static_cast<vw::uint32>(parsed_seed);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -41,12 +62,12 @@ int main(int argc, char **argv) {
     vw::vw_log().console_log().rule_set().add_rule(vw::VerboseDebugMessage, "*");
   }
 
-  // TODO: Make it so the seed is settable so we can reproduce failures in
-  // probabilistic algorithms. This uses clock() instead of time() because
+  // Use clock() instead of time() because
   // clock() (being measured in "processor ticks" instead of seconds) is likely
-  // to exhibit more variation when tests are run many times in a short time
-  // span.
-  SEED = boost::numeric_cast<unsigned int>(clock());
+  // to exhibit more variation when tests are run many times in a short time span.
+  // The seed can also be overridden to reproduce failures in probabilistic
+  // algorithms.
+  SEED = get_seed_from_env_or_clock();
   std::srand(SEED);
 
   fs::path start_dir(TEST_SRCDIR);
