@@ -111,14 +111,9 @@ if [ ! -d "$envPath" ]; then
     exit 1
 fi
 
-# Sanity check the deps arch. Packaging mac-intel vs mac-arm is easy to mix up;
-# a wrong-arch dylib is silently ignored by ld and later looks like undefined
-# symbols. Fail early if any representative dep lib is not the host arch. Check
-# one lib from EACH colliding asp_* package, not just isis: the asp_* packages
-# share a build string across arches, so the shared conda pkgs-cache can flip any
-# one of them to the wrong arch at pack time. Checking only libcore (isis) once
-# let arm64 texrecon/mve slip into the x86_64 tarball and only surfaced as an
-# "undefined symbols" link failure of libAspRig. See env_update_06_2026_mac_intel.sh.
+# Check a representative lib from each asp_* dep package is the host arch (a
+# wrong-arch dylib is silently ignored by ld and later looks like undefined
+# symbols). Check all, not just isis - they share a build string across arches.
 wantArch=$(uname -m); [ "$wantArch" = "arm64" ] || wantArch="x86_64"
 archCheckLibs="lib/libcore.dylib lib/libtexture_reconstruction.dylib lib/libmveCore.dylib lib/libtheia.dylib lib/libale.dylib lib/csmplugins/libusgscsm.dylib"
 for rel in $archCheckLibs; do
@@ -127,10 +122,7 @@ for rel in $archCheckLibs; do
     case " $gotArch " in
         *" $wantArch "*) echo "Deps arch OK: $rel=[$gotArch], host=$wantArch" ;;
         *) echo "Error: DEPS TARBALL ARCH MISMATCH - $rel is [$gotArch] but host is $wantArch."
-           echo "The asp_deps_mac_* tarball was packed with wrong-arch libs (shared conda"
-           echo "pkgs-cache collision). Re-pack with an isolated CONDA_PKGS_DIRS for this arch,"
-           echo "force-reinstalling ALL asp_* packages (isis/ale/usgscsm/spiceql/texrecon/"
-           echo "theia/voxblox/cgal_tools), not just isis."
+           echo "Re-pack with an isolated CONDA_PKGS_DIRS, force-reinstalling all asp_* packages."
            exit 1 ;;
     esac
 done
