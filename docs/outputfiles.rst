@@ -391,13 +391,19 @@ recognized column types are:
 The same format applies to all tools, and to the CSV files these tools write on
 output.
 
-What follows are several concrete examples.
+What follows are several concrete examples. Each is shown with one tool, but the
+same ``--csv-format`` value applies to that kind of data in any tool that reads
+CSV files.
 
 Longitude, latitude, height above datum
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Find the difference between a DEM and a CSV file with ``geodiff``
-(:numref:`geodiff`)::
+For a CSV file with longitude, latitude (in degrees), and height above the datum
+(in meters) as the first three entries, in this order, the format is
+``'1:lon 2:lat 3:height_above_datum'``.
+
+As an illustration, find the difference between a DEM and such a file with
+``geodiff`` (:numref:`geodiff`)::
 
     geodiff dem.tif file.csv                          \
       --csv-format '1:lon 2:lat 3:height_above_datum' \
@@ -406,9 +412,13 @@ Find the difference between a DEM and a CSV file with ``geodiff``
 Easting, northing, height above datum
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Align a DEM to a CSV file of projected measurements with ``pc_align``
-(:numref:`pc_align`). A PROJ or WKT string is required to interpret the easting
-and northing values::
+For projected measurements, the format is along the lines of ``'1:easting
+2:northing 3:height_above_datum'`` (in meters), and a PROJ or WKT string must be
+set via ``--csv-srs`` to interpret the easting and northing values. This may
+need to be adjusted for your specific fields and their order.
+
+As an illustration, align a DEM to such a file with ``pc_align``
+(:numref:`pc_align`)::
 
     pc_align --max-displacement 100                            \
       --csv-format '1:easting 2:northing 3:height_above_datum' \
@@ -419,14 +429,50 @@ and northing values::
 LOLA, with radius in km
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Use a LOLA point cloud as a reference terrain in ``bundle_adjust``
-(:numref:`bundle_adjust`). LOLA measurements are given as longitude, latitude,
-and radius from the planet center, in km::
+For a LOLA RDR PointPerRow table, as fetched from the `ODE web tool
+<https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_, the measurements
+are longitude, latitude (in degrees), and radius from the planet center (in km),
+in columns 2, 3, and 4. The format is then ``'2:lon 3:lat 4:radius_km'`` (the
+first column in a LOLA RDR file is the observation time, in UTC).
+
+As an illustration, use a LOLA cloud as a reference terrain in ``bundle_adjust``
+(:numref:`bundle_adjust`)::
 
     bundle_adjust <images> <cameras>         \
       --reference-terrain lola.csv           \
-      --csv-format '1:lon 2:lat 3:radius_km' \
+      --csv-format '2:lon 3:lat 4:radius_km' \
       -o ba/run
+
+The ``pc_align`` program (:numref:`pc_align`) auto-detects the LOLA RDR
+PointPerRow format, so for an unmodified file from that tool the
+``--csv-format`` option can be omitted.
+
+.. _mola_csv:
+
+MOLA, with radius in m
+~~~~~~~~~~~~~~~~~~~~~~
+
+MOLA point data for Mars can be downloaded for a given longitude-latitude extent
+from the `ODE web tool <https://ode.rsl.wustl.edu/mars/datapointsearch.aspx>`_,
+as a CSV file. The measurements include longitude, latitude (in degrees), and
+radius from the planet center, in meters.
+
+Unlike the LOLA RDR table above, the column order is not fixed, as it depends on
+the fields selected in the query. Inspect the downloaded file and set
+``--csv-format`` to match it, for example ``'1:lon 2:lat 3:radius_m'`` or
+``'1:lon 2:lat 5:radius_m'``.
+
+As an illustration, grid a MOLA cloud into a DEM with ``point2dem``
+(:numref:`point2dem`)::
+
+    point2dem -r mars                       \
+      --stereographic                       \
+      --auto-proj-center                    \
+      --csv-format '1:lon 2:lat 5:radius_m' \
+      mola.csv
+
+The Mars datum and the MOLA data flavors (Topography, Radius, Areoid) carry some
+subtleties; these are discussed in :numref:`molacmp`.
 
 .. _poly_files:
 

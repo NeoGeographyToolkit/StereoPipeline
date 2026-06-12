@@ -1131,10 +1131,11 @@ a tool named ``pc_align`` (:numref:`pc_align`).
 This program aligns a 3D terrain to a much more accurately positioned (if
 potentially sparser) dataset. Such datasets can be made up of GPS measurements
 (in the case of Earth), or from laser altimetry instruments on satellites, such
-as ICESat/GLASS for Earth, LRO/LOLA on the Moon, and MGS/MOLA on Mars. Under the
-hood, ``pc_align`` uses the Iterative Closest Point algorithm (ICP) (both the
-point-to-plane and point-to-point flavors are supported, and with point-to-point
-ICP it is also possible to solve for a scale change).
+as ICESat/GLASS for Earth, LRO/LOLA on the Moon, and MGS/MOLA on Mars
+(:numref:`mola_csv`). Under the hood, ``pc_align`` uses the Iterative Closest
+Point algorithm (ICP) (both the point-to-plane and point-to-point flavors are
+supported, and with point-to-point ICP it is also possible to solve for a scale
+change).
 
 The ``pc_align`` tool requires another input, an a priori guess for the
 maximum displacement we expect to see as result of alignment, i.e., by

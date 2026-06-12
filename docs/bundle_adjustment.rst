@@ -750,8 +750,8 @@ Create a blended average DEM from the produced DEMs using the
 
      dem_mosaic stereo*/run-DEM.tif -o mosaic_ba.tif
 
-Alternatively, such a DEM can be created from LOLA RDR data, if dense enough, 
-as::
+Alternatively, such a DEM can be created from LOLA RDR data
+(:numref:`csv_format`), if dense enough, as::
 
   point2dem                               \
     --csv-format 2:lon,3:lat,4:radius_km  \
@@ -889,9 +889,9 @@ Then, the same alignment transform should be applied to the cameras
 (:numref:`ba_pc_align`). Then the intrinsics optimization can happen as before. 
 
 We use the sparse `LOLA RDR
-<https://ode.rsl.wustl.edu/moon/lrololadatapointsearch.aspx>`_ dataset for
-final validation. This works well enough because the ground footprint of Kaguya TC is
-rather large. 
+<https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_ dataset
+(:numref:`csv_format`) for final validation. This works well enough because the
+ground footprint of Kaguya TC is rather large.
 
 Each stereo DEM, before and after intrinsics refinement, is individually aligned to 
 LOLA, and the signed difference to LOLA is found.

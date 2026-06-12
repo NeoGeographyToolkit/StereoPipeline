@@ -410,8 +410,10 @@ The MOLA dataset from:
     https://ode.rsl.wustl.edu/mars/datapointsearch.aspx
 
 is used for alignment. The data for the following (very generous)
-longitude-latitude extent was fetched: 146E to 152E, and 7N to 15N.
-The obtained CSV file was saved as ``mola.csv``.
+longitude-latitude extent was fetched: 146E to 152E, and 7N to 15N. The obtained
+CSV file was saved as ``mola.csv``. See :numref:`mola_csv` for the
+``--csv-format`` to use, and :numref:`molacmp` for the MOLA data flavors and
+datums.
 
 A gridded DEM produced from this unorganized set of points
 is shipped with the ISIS data. It is gridded at 463 meters

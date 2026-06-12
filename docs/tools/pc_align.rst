@@ -348,7 +348,7 @@ northing and height above datum (in meters), in this case a PROJ or WKT string
 must be set via ``--csv-srs``, (d) Cartesian coordinates :math:`(x, y, z)`
 measured from planet center (in meters). The precise syntax is in
 :numref:`pc_align_options`. The tool can also auto-detect the LOLA RDR
-PointPerRow format.
+PointPerRow format (:numref:`csv_format`).
 
 Any line in a CSV file starting with the pound character (#) is ignored.
 

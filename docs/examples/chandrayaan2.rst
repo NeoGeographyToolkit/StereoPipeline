@@ -265,8 +265,9 @@ Alignment to LOLA
 ^^^^^^^^^^^^^^^^^
 
 We aligned the produced OHRC DEM to `LOLA
-<https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_, which is the
-usual global reference coordinate system for the Moon.
+<https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_
+(:numref:`csv_format`), which is the usual global reference coordinate system
+for the Moon.
 
 The OHRC DEM turned out to be shifted relative to LOLA by about 4 km along the
 satellite track, which resulted in failure to align with ``pc_align``

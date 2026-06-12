@@ -311,6 +311,11 @@ More examples are shown in :numref:`builddem`.
 Comparing with MOLA
 ~~~~~~~~~~~~~~~~~~~
 
+MOLA point data can be downloaded as a CSV file and gridded with ``point2dem``.
+See :numref:`mola_csv` for obtaining it and for the specific ``--csv-format`` to
+use with ``point2dem``. The rest of this section covers the Mars datums and the
+MOLA data flavors.
+
 When comparing the output of ``point2dem`` to laser altimeter data, like
 MOLA, it is important to understand the different kinds of data that are
 being discussed. By default, ``point2dem`` returns planetary radius

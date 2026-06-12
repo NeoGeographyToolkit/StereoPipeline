@@ -97,7 +97,8 @@ A DEM is created with ``point2dem`` (:numref:`point2dem`)::
       --stereographic --auto-proj-center \
       mgm/out-PC.tif
 
-Alignment to MOLA can be done with ``pc_align`` (:numref:`pc_align`).
+Alignment to MOLA can be done with ``pc_align`` (:numref:`pc_align`). See
+:numref:`mola_csv` for how to download MOLA and the ``--csv-format`` to use.
 
 .. _hrsc_csm:
 

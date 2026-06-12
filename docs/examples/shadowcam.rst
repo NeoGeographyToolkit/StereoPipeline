@@ -162,8 +162,8 @@ stretch.
 
 The reference DEM ``ref.tif`` can be an existing LOLA gridded product
 (:numref:`sfs_initial_terrain`), or one produced with ``point2dem`` from `LOLA
-RDR <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_ samples
-(:numref:`point2dem_csv`).
+RDR <https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_ samples
+(:numref:`csv_format`).
 
 Bundle adjustment
 ~~~~~~~~~~~~~~~~~

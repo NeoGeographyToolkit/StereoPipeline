@@ -132,9 +132,9 @@ and also can help solve for jitter (:numref:`jitter_solve`).
 Validation and alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-A `LOLA <https://ode.rsl.wustl.edu/moon/lrololadataPointSearch.aspx>`_ point
-cloud can be downloaded for the area of interest. Download the RDR
-``PointPerRow`` product.
+A `LOLA <https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_ point cloud
+can be downloaded for the area of interest. Download the RDR data as a
+``PointPerRow`` CSV table.
 
 The produced DEM can be aligned to LOLA with ``pc_align`` (:numref:`pc_align`),
 with a command as::

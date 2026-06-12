@@ -100,7 +100,7 @@ Alignment
 ~~~~~~~~~
 
 The produced DEM can be aligned with ``pc_align`` (:numref:`pc_align`) to the
-LOLA RDR product. 
+LOLA RDR product (:numref:`csv_format`).
 
 .. _sfs_kaguya:
 
@@ -260,7 +260,8 @@ The DEM and cameras were aligned to LOLA, and lens distortion was solved
 for as in :numref:`kaguya_ba` (using additional overlapping images).
 The resulting optimized cameras were passed in to the jitter solver.
 
-The DEM to constrain against was produced from LOLA, with a command as::
+The DEM to constrain against was produced from LOLA RDR data
+(:numref:`csv_format`), with a command as::
 
   point2dem                              \
     -r moon                              \
