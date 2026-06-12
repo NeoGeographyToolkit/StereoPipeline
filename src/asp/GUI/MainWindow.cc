@@ -1729,18 +1729,28 @@ void MainWindow::overlayGeoreferencedImages() {
       }
     }
 
-    if (m_view_type != VIEW_IN_SINGLE_WINDOW) m_view_type_old = m_view_type; // back this up
+    if (m_view_type != VIEW_IN_SINGLE_WINDOW)
+      m_view_type_old = m_view_type; // back this up
     m_view_type = VIEW_IN_SINGLE_WINDOW;
+
+    // Collapsing all images into a single overlay window. Cannot show matches
+    // or be in a side-by-side mode, otherwise createLayout() will override
+    // the single-window view and switch back to side-by-side.
+    asp::stereo_settings().view_matches = false;
+    setNoSideBySideWithDialog();
+    updateViewMenuEntries();
 
     // Turn off zooming all images to same region if all are in the same window
     if (asp::stereo_settings().zoom_all_to_same_region) {
       asp::stereo_settings().zoom_all_to_same_region = false;
       setZoomAllToSameRegionAux(asp::stereo_settings().zoom_all_to_same_region);
     }
-    
+
   }else{
-    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW) m_view_type = m_view_type_old; // restore this
-    else m_view_type = VIEW_SIDE_BY_SIDE; 
+    if (m_view_type_old != VIEW_IN_SINGLE_WINDOW)
+      m_view_type = m_view_type_old; // restore this
+    else
+      m_view_type = VIEW_SIDE_BY_SIDE;
   }
 
   createLayout();
