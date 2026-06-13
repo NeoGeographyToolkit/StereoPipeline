@@ -297,7 +297,11 @@ void matchIp(std::string const& out_prefix,
              asp::SessionPtr session,
              std::string const& image1_path,  std::string const& image2_path,
              vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
-             std::string const& match_filename);
+             std::string const& match_filename,
+             // True only when matching the actual --mapprojected-data orthos.
+             // The overlap-region restriction is applied only then, never for
+             // raw images (which may carry a non-orthorectified georef).
+             bool have_mapproj_images = false);
 
 // Compute list of matched IP between two images with no cameras
 void matchIpNoCams(std::string const& image1, 

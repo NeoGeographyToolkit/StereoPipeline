@@ -246,18 +246,40 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      bool use_cached_ip,
                      double nodata1,
                      double nodata2,
-                     std::string const& match_file) {
+                     std::string const& match_file,
+                     vw::BBox2i const& bbox1,
+                     vw::BBox2i const& bbox2) {
 
-  // Detect interest points in the two images
+  // Detect interest points in the two images. This is done on the full image,
+  // so the per-image vwip files are full-image and pair-independent (cacheable).
   vw::ip::InterestPointList ip1, ip2;
-  detect_ip_pair(ip1, ip2, image1, image2, 
+  detect_ip_pair(ip1, ip2, image1, image2,
                  asp::stereo_settings().ip_per_image, ip_per_tile,
                  left_vwip_file, right_vwip_file, nodata1, nodata2,
                  use_cached_ip);
 
+  // If overlap boxes are given (e.g. the overlap region of mapprojected
+  // images), confine matching to them by dropping interest points outside the
+  // boxes before correspondence. Detection above was full-image, so this does
+  // not affect the cached vwip and is correct for every pair the image is in.
+  if (!bbox1.empty()) {
+    vw::ip::InterestPointList kept1;
+    for (auto const& ip : ip1)
+      if (bbox1.contains(vw::Vector2i(int(ip.x), int(ip.y))))
+        kept1.push_back(ip);
+    ip1 = kept1;
+  }
+  if (!bbox2.empty()) {
+    vw::ip::InterestPointList kept2;
+    for (auto const& ip : ip2)
+      if (bbox2.contains(vw::Vector2i(int(ip.x), int(ip.y))))
+        kept2.push_back(ip);
+    ip2 = kept2;
+  }
+
   // Match the ip and save the match file. No epipolar constraint
   // is used in this mode.
-  match_ip_no_datum(ip1, ip2, image1, image2, number_of_jobs, 
+  match_ip_no_datum(ip1, ip2, image1, image2, number_of_jobs,
                     matched_ip1, matched_ip2, match_file); // outputs
 
 } // End function detect_match_ip
@@ -1222,41 +1244,24 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             vw::BBox2i const& bbox2) {
 
   vw_out() << "\t--> Matching interest points using homography.\n";
-  // See if to restrict cropping to smaller regions
-  vw::ImageViewRef<float> local_image1 = image1;
-  vw::ImageViewRef<float> local_image2 = image2;
-  vw::BBox2i local_bbox1 = bbox1;
-  vw::BBox2i local_bbox2 = bbox2;
-  bool crop = (!bbox1.empty() && !bbox2.empty());
-  if (crop) {
-    local_bbox1.crop(bounding_box(image1));
-    local_bbox2.crop(bounding_box(image2));
-    local_image1 = vw::crop(image1, local_bbox1);
-    local_image2 = vw::crop(image2, local_bbox2);
-    use_cached_ip = false; // cannot use cached ip when cropping
-  }
 
+  // Detect interest points on the FULL image (so the per-image vwip is cacheable
+  // and pair-independent) and, if overlap boxes are given (mapprojected images),
+  // confine the matching to those boxes by dropping interest points outside them
+  // before correspondence. This is done inside detect_match_ip. The earlier
+  // approach cropped the image before detection, which made the cached vwip
+  // pair-dependent and caused most pairs in a multi-image run to find no matches.
   std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
   detect_match_ip(matched_ip1, matched_ip2,
-                  local_image1, local_image2,
+                  image1, image2,
                   ip_per_tile, number_of_jobs,
                   left_vwip_file, right_vwip_file,
                   use_cached_ip,
-                  nodata1, nodata2);
+                  nodata1, nodata2,
+                  "", // match_file: written below after homography filtering
+                  bbox1, bbox2);
   if (matched_ip1.size() == 0 || matched_ip2.size() == 0)
     return false;
-
-  // If we cropped, must shift the interest points back to the original image coordinates
-  if (crop) {
-    for (size_t i = 0; i < matched_ip1.size(); i++) {
-      matched_ip1[i].x += local_bbox1.min().x();
-      matched_ip1[i].y += local_bbox1.min().y();
-    }
-    for (size_t i = 0; i < matched_ip2.size(); i++) {
-      matched_ip2[i].x += local_bbox2.min().x();
-      matched_ip2[i].y += local_bbox2.min().y();
-    }
-  }
 
   // Filter the interest points using a homography constraint
   Stopwatch sw;

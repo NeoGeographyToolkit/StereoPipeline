@@ -78,7 +78,8 @@ void matchesFromMapprojImages(int i, int j,
     asp::matchIp(opt.out_prefix, opt.enable_rough_homography, opt.pct_for_overlap,
                  session, map_files[i], map_files[j],
                  NULL, NULL, // no cameras
-                 map_match_file);
+                 map_match_file,
+                 true); // have_mapproj_images: confine matching to overlap region
   } catch (const std::exception& e) {
     vw_out() << "Could not find interest points between images "
              << map_files[i] << " and " << map_files[j] << std::endl;

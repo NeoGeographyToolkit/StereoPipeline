@@ -248,7 +248,12 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      bool use_cached_ip = false,
                      double nodata1 = std::numeric_limits<double>::quiet_NaN(),
                      double nodata2 = std::numeric_limits<double>::quiet_NaN(),
-                     std::string const& match_file = "");
+                     std::string const& match_file = "",
+                     // If non-empty, confine matching to these boxes. Detection
+                     // stays full-image so the per-image vwip is cacheable. Used
+                     // for the overlap region of mapprojected images.
+                     vw::BBox2i const& bbox1 = vw::BBox2i(),
+                     vw::BBox2i const& bbox2 = vw::BBox2i());
 
 // A debug routine to save images with matches on top of them.
 void write_match_image(std::string const& out_file_name,

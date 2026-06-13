@@ -376,7 +376,8 @@ void matchIp(std::string const& out_prefix,
              asp::SessionPtr session,
              std::string const& image1_path,  std::string const& image2_path,
              vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
-             std::string const& match_filename) {
+             std::string const& match_filename,
+             bool have_mapproj_images) {
 
   boost::shared_ptr<DiskImageResource>
     rsrc1(vw::DiskImageResourcePtr(image1_path)),
@@ -428,7 +429,7 @@ void matchIp(std::string const& out_prefix,
   // For mapprojected images and given the overlap params,
   // can restrict the matching to a smaller region.
   vw::BBox2 bbox1, bbox2;
-  if (pct_for_overlap >= 0 && cam1 == NULL && cam2 == NULL) {
+  if (pct_for_overlap >= 0 && have_mapproj_images && cam1 == NULL && cam2 == NULL) {
     vw::cartography::GeoReference georef1, georef2;
     bool has_georef1 = vw::cartography::read_georeference(georef1, image1_path);
     bool has_georef2 = vw::cartography::read_georeference(georef2, image2_path);
