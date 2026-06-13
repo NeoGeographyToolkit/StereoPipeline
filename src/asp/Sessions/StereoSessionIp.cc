@@ -66,7 +66,8 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                 std::string const  left_ip_file,
                                 std::string const  right_ip_file,
                                 vw::BBox2i const& bbox1,
-                                vw::BBox2i const& bbox2) {
+                                vw::BBox2i const& bbox2,
+                                bool have_mapproj_images) {
 
   vw_out() << "\t--> Matching interest points in StereoSession.\n";
 
@@ -265,6 +266,21 @@ bool StereoSession::ip_matching(std::string const& input_file1,
 
     vw_out() << "\t    Not using a datum in interest point matching.\n";
     bool use_cached_ip = true; // When ip should not be cached they were already wiped
+
+    // For mapprojected images, optionally drop interest points with no
+    // counterpart within --ip-match-radius pixels in the other image, before
+    // matching. Read the georeferences here to relate the two pixel frames.
+    bool gate_by_radius = false;
+    vw::cartography::GeoReference gr1, gr2;
+    if (have_mapproj_images && asp::stereo_settings().ip_match_radius > 0) {
+      bool ok1 = vw::cartography::read_georeference(gr1, input_file1);
+      bool ok2 = vw::cartography::read_georeference(gr2, input_file2);
+      gate_by_radius = (ok1 && ok2);
+      if (!gate_by_radius)
+        vw_out() << "\t    --ip-match-radius set but a georeference is missing; "
+                 << "skipping the radius gate.\n";
+    }
+
     inlier = homography_ip_matching(apply_mask(masked_image1, nodata1),
                                     apply_mask(masked_image2, nodata2),
                                     asp::stereo_settings().ip_per_tile,
@@ -272,7 +288,8 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                     match_filename, number_of_jobs,
                                     left_ip_file, right_ip_file,
                                     use_cached_ip,
-                                    nodata1, nodata2, bbox1, bbox2);
+                                    nodata1, nodata2, bbox1, bbox2,
+                                    gate_by_radius, gr1, gr2);
   }
 
   } catch (std::exception const& e) {
@@ -459,7 +476,7 @@ void matchIp(std::string const& out_prefix,
                        Vector2(masked_image1.cols(), masked_image1.rows()),
                        image1_stats, image2_stats,
                        nodata1, nodata2, cam1, cam2, match_filename,
-                       vwip_file1, vwip_file2, bbox1, bbox2);
+                       vwip_file1, vwip_file2, bbox1, bbox2, have_mapproj_images);
 }
 
 // Compute list of matched IP between two images with no cameras

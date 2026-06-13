@@ -102,7 +102,8 @@ public:
                     std::string const left_ip_file = "",
                     std::string const right_ip_file = "",
                     vw::BBox2i const& bbox1 = vw::BBox2i(),
-                    vw::BBox2i const& bbox2 = vw::BBox2i());
+                    vw::BBox2i const& bbox2 = vw::BBox2i(),
+                    bool have_mapproj_images = false);
 
   // Returns the target datum to use for a given camera model.
   // Can be overridden by derived classes.

@@ -32,7 +32,7 @@ namespace asp {
 struct BaOptions: public asp::BaBaseOptions {
   std::string cnet_file,
     cost_function, mapprojected_data, gcp_from_mapprojected;
-  int ip_per_tile, ip_per_image, matches_per_tile;
+  int ip_per_tile, ip_per_image, matches_per_tile, ip_match_radius;
   double overlap_exponent, ip_triangulation_max_error;
   int num_parallel_jobs, job_id, num_random_passes, ip_num_ransac_iterations;
   bool save_intermediate_cameras, approximate_pinhole_intrinsics,
@@ -65,8 +65,8 @@ struct BaOptions: public asp::BaBaseOptions {
   
   // Make sure all values are initialized, even though they will be
   // over-written later.
-  BaOptions(): ip_per_tile(0), ip_per_image(0), 
-             overlap_exponent(0), 
+  BaOptions(): ip_per_tile(0), ip_per_image(0), ip_match_radius(0),
+             overlap_exponent(0),
              save_intermediate_cameras(false),
              solve_intrinsics(false), 
              semi_major(0), semi_minor(0), position_filter_dist(-1),

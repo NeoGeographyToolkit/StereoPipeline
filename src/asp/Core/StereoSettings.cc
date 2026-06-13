@@ -136,6 +136,8 @@ PreProcessingDescription::PreProcessingDescription():
       "How many interest points to detect in each 1024^2 image tile (default: automatic determination). This is before matching. Not all interest points will have a match. See also --matches-per-tile.")
     ("ip-per-image", po::value(&global.ip_per_image)->default_value(0),
       "How many interest points to detect in each image, before matching (default: automatic determination). Can set either this or --ip-per-tile.")
+    ("ip-match-radius", po::value(&global.ip_match_radius)->default_value(0),
+      "For mapprojected images only, before descriptor matching, drop interest points that have no counterpart in the other image within this many pixels (after transforming to the other image's pixel frame via the georeferences). Removes gross far-apart candidates that otherwise yield spatially-plausible but wrong matches. Both images must share the same ground sample distance. The default (0) disables this.")
     ("matches-per-tile", po::value(&global.matches_per_tile)->default_value(0),
       "How many interest point matches to compute in each image tile (of size "
       "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "

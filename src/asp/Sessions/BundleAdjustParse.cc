@@ -725,6 +725,12 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("ip-per-image", po::value(&opt.ip_per_image)->default_value(0),
      "How many interest points to detect in each image (default: automatic determination). "
      "Can set either this or --ip-per-tile.")
+    ("ip-match-radius", po::value(&opt.ip_match_radius)->default_value(0),
+     "For mapprojected images only, before descriptor matching, drop interest points that "
+     "have no counterpart in the other image within this many pixels (after transforming to "
+     "the other image's pixel frame via the georeferences). Removes gross far-apart candidates "
+     "that otherwise yield spatially-plausible but wrong matches. Both images must share the "
+     "same ground sample distance. The default (0) disables this.")
     ("ip-num-ransac-iterations", po::value(&opt.ip_num_ransac_iterations)->default_value(1000),
      "How many RANSAC iterations to do in interest point matching.")
     ("ip-inlier-factor",        po::value(&opt.ip_inlier_factor)->default_value(0.2),

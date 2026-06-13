@@ -47,6 +47,7 @@ void BaOptions::copy_to_asp_settings() const {
   asp::stereo_settings().nodata_value            = nodata_value;
   asp::stereo_settings().ip_per_tile             = ip_per_tile;
   asp::stereo_settings().ip_per_image            = ip_per_image;
+  asp::stereo_settings().ip_match_radius         = ip_match_radius;
   asp::stereo_settings().matches_per_tile        = matches_per_tile;
   asp::stereo_settings().matches_per_tile_params = matches_per_tile_params;
   asp::stereo_settings().no_datum                = no_datum;

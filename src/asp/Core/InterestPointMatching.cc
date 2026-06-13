@@ -27,6 +27,8 @@
 #include <vw/Math/RANSAC.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/GeoTransform.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/Image/AlgorithmFunctions.h>
@@ -39,6 +41,7 @@
 
 #include <cmath>
 #include <set>
+#include <unordered_map>
 
 // Some of the implementation is in InterestPointMatching2.cc
 
@@ -236,6 +239,101 @@ bool detect_ip_pair(vw::ip::InterestPointList& ip1,
 
 /// Detect interest points and use a simple matching technique.
 /// This is not meant to be used directly. Use ip_matching().
+namespace {
+
+// A uniform spatial hash of 2D points into square cells of side 'radius'. Lets
+// us answer "does this point have any neighbor within radius?" in O(1) average,
+// so the left<->right gating below is O(N) rather than O(N^2).
+class PointGrid {
+public:
+  PointGrid(double radius, std::vector<vw::Vector2> const& pts)
+    : m_r(radius), m_pts(pts) {
+    for (size_t i = 0; i < pts.size(); i++)
+      m_cells[key(cellx(pts[i]), celly(pts[i]))].push_back((int)i);
+  }
+  bool has_neighbor(vw::Vector2 const& p) const {
+    int cx = cellx(p), cy = celly(p);
+    double r2 = m_r * m_r;
+    for (int dx = -1; dx <= 1; dx++) {
+      for (int dy = -1; dy <= 1; dy++) {
+        std::unordered_map<long long, std::vector<int>>::const_iterator it
+          = m_cells.find(key(cx + dx, cy + dy));
+        if (it == m_cells.end())
+          continue;
+        for (size_t k = 0; k < it->second.size(); k++) {
+          vw::Vector2 d = m_pts[it->second[k]] - p;
+          if (d.x()*d.x() + d.y()*d.y() <= r2)
+            return true;
+        }
+      }
+    }
+    return false;
+  }
+private:
+  int cellx(vw::Vector2 const& p) const { return (int)std::floor(p.x() / m_r); }
+  int celly(vw::Vector2 const& p) const { return (int)std::floor(p.y() / m_r); }
+  long long key(int cx, int cy) const {
+    return (long long)cx * 4294967311LL + (long long)cy;
+  }
+  double m_r;
+  std::vector<vw::Vector2> const& m_pts;
+  std::unordered_map<long long, std::vector<int>> m_cells;
+};
+
+// For mapprojected images, drop interest points with no counterpart in the
+// other image within 'radius' pixels. Both ip lists are detected on the full
+// image; here the left ip are transformed into the right image's pixel frame
+// (via the georeferences) so both sets share one frame, then we keep only ip
+// that have a nearby ip in the other set. Many-to-many within the radius is
+// fine - this only removes gross far-apart candidates that produce spatially
+// plausible but wrong matches; descriptor matching does the one-to-one work.
+// Both images must share the same ground sample distance (so a pixel radius is
+// meaningful in the common frame).
+void gate_ip_by_radius(vw::ip::InterestPointList & ip1,
+                       vw::ip::InterestPointList & ip2,
+                       vw::cartography::GeoReference const& georef1,
+                       vw::cartography::GeoReference const& georef2,
+                       double radius) {
+
+  if (radius <= 0 || ip1.empty() || ip2.empty())
+    return;
+
+  vw::cartography::GeoTransform left_to_right(georef1, georef2); // left pix -> right pix
+
+  std::vector<vw::ip::InterestPoint> v1(ip1.begin(), ip1.end());
+  std::vector<vw::ip::InterestPoint> v2(ip2.begin(), ip2.end());
+  std::vector<vw::Vector2> p1(v1.size()), p2(v2.size());
+  double const FAR = 1e20;
+  for (size_t i = 0; i < v1.size(); i++) {
+    try {
+      p1[i] = left_to_right.forward(vw::Vector2(v1[i].x, v1[i].y));
+    } catch (...) {
+      p1[i] = vw::Vector2(FAR, FAR); // unmappable -> treated as having no neighbor
+    }
+  }
+  for (size_t j = 0; j < v2.size(); j++)
+    p2[j] = vw::Vector2(v2[j].x, v2[j].y);
+
+  PointGrid grid2(radius, p2), grid1(radius, p1);
+
+  vw::ip::InterestPointList keep1, keep2;
+  for (size_t i = 0; i < v1.size(); i++)
+    if (grid2.has_neighbor(p1[i]))
+      keep1.push_back(v1[i]);
+  for (size_t j = 0; j < v2.size(); j++)
+    if (grid1.has_neighbor(p2[j]))
+      keep2.push_back(v2[j]);
+
+  vw::vw_out() << "\t    ip-match-radius " << radius << " px: kept "
+               << keep1.size() << "/" << v1.size() << " left, "
+               << keep2.size() << "/" << v2.size() << " right interest points.\n";
+
+  ip1 = keep1;
+  ip2 = keep2;
+}
+
+} // end anonymous namespace
+
 void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      std::vector<vw::ip::InterestPoint>& matched_ip2,
                      vw::ImageViewRef<float> const& image1,
@@ -248,7 +346,10 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      double nodata2,
                      std::string const& match_file,
                      vw::BBox2i const& bbox1,
-                     vw::BBox2i const& bbox2) {
+                     vw::BBox2i const& bbox2,
+                     bool gate_by_radius,
+                     vw::cartography::GeoReference const& georef1,
+                     vw::cartography::GeoReference const& georef2) {
 
   // Detect interest points in the two images. This is done on the full image,
   // so the per-image vwip files are full-image and pair-independent (cacheable).
@@ -257,6 +358,12 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                  asp::stereo_settings().ip_per_image, ip_per_tile,
                  left_vwip_file, right_vwip_file, nodata1, nodata2,
                  use_cached_ip);
+
+  // For mapprojected images, drop interest points with no geographically close
+  // counterpart in the other image (--ip-match-radius), before correspondence.
+  if (gate_by_radius)
+    gate_ip_by_radius(ip1, ip2, georef1, georef2,
+                      asp::stereo_settings().ip_match_radius);
 
   // If overlap boxes are given (e.g. the overlap region of mapprojected
   // images), confine matching to them by dropping interest points outside the
@@ -1241,7 +1348,10 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             bool use_cached_ip,
                             double nodata1, double nodata2,
                             vw::BBox2i const& bbox1,
-                            vw::BBox2i const& bbox2) {
+                            vw::BBox2i const& bbox2,
+                            bool gate_by_radius,
+                            vw::cartography::GeoReference const& georef1,
+                            vw::cartography::GeoReference const& georef2) {
 
   vw_out() << "\t--> Matching interest points using homography.\n";
 
@@ -1259,7 +1369,8 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                   use_cached_ip,
                   nodata1, nodata2,
                   "", // match_file: written below after homography filtering
-                  bbox1, bbox2);
+                  bbox1, bbox2,
+                  gate_by_radius, georef1, georef2);
   if (matched_ip1.size() == 0 || matched_ip2.size() == 0)
     return false;
 

@@ -23,6 +23,7 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/InterestPoint/InterestPoint.h>
 #include <vw/Cartography/Datum.h>
+#include <vw/Cartography/GeoReference.h>
 #include <vw/Math/Transform.h>
 
 namespace asp {
@@ -183,7 +184,10 @@ void write_match_image(std::string const& out_file_name,
                               bool use_cached_ip,
                               double nodata1, double nodata2,
                               vw::BBox2i const& bbox1 = vw::BBox2i(),
-                              vw::BBox2i const& bbox2 = vw::BBox2i());
+                              vw::BBox2i const& bbox2 = vw::BBox2i(),
+                              bool gate_by_radius = false,
+                              vw::cartography::GeoReference const& georef1 = vw::cartography::GeoReference(),
+                              vw::cartography::GeoReference const& georef2 = vw::cartography::GeoReference());
 
 // Match the ip and save the match file. No epipolar constraint
 // is used in this mode.
@@ -253,7 +257,13 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      // stays full-image so the per-image vwip is cacheable. Used
                      // for the overlap region of mapprojected images.
                      vw::BBox2i const& bbox1 = vw::BBox2i(),
-                     vw::BBox2i const& bbox2 = vw::BBox2i());
+                     vw::BBox2i const& bbox2 = vw::BBox2i(),
+                     // If true (mapprojected images), drop interest points with
+                     // no counterpart within --ip-match-radius pixels in the
+                     // other image, using the georeferences to relate them.
+                     bool gate_by_radius = false,
+                     vw::cartography::GeoReference const& georef1 = vw::cartography::GeoReference(),
+                     vw::cartography::GeoReference const& georef2 = vw::cartography::GeoReference());
 
 // A debug routine to save images with matches on top of them.
 void write_match_image(std::string const& out_file_name,
