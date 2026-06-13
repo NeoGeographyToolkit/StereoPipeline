@@ -1114,12 +1114,20 @@ vw::camera::PinholeModel CsmModel::pinhole() const {
       success = true;                                             \
     }                                                             \
   }                                                               \
-  /* Fail otherwise. There's no chance we will need this */       \
-  /* with SAR or pushbroom models */                              \
+  /* Try pushframe: it shares these member names with linescan */ \
+  {                                                               \
+    UsgsAstroPushFrameSensorModel const* pf_model                 \
+      = dynamic_cast<UsgsAstroPushFrameSensorModel const*>(gm_model); \
+    if (!success && pf_model != NULL) {                           \
+      VAL = pf_model->PARAM;                                      \
+      success = true;                                             \
+    }                                                             \
+  }                                                               \
+  /* Fail otherwise (e.g., SAR models). */                       \
   if (!success)                                                   \
     vw_throw(vw::ArgumentErr()                                    \
          << "CSM model " << NAME << " can be handled only "       \
-         << "for linescan and frame cameras.\n");
+         << "for frame, linescan, and pushframe cameras.\n");
 
 #define CSM_LINESCAN_SET(PARAM, NAME, VAL)                  \
   /* Try linescan */                                        \
@@ -1132,12 +1140,20 @@ vw::camera::PinholeModel CsmModel::pinhole() const {
       success = true;                                       \
     }                                                       \
   }                                                         \
-  /* Fail otherwise. There's no chance we will need this */ \
-  /* with SAR or pushbroom models. */                       \
+  /* Try pushframe: shares these member names with linescan */ \
+  {                                                         \
+    UsgsAstroPushFrameSensorModel * pf_model               \
+      = dynamic_cast<UsgsAstroPushFrameSensorModel*>(gm_model); \
+    if (!success && pf_model != NULL) {                     \
+      pf_model->PARAM = VAL;                                \
+      success = true;                                       \
+    }                                                       \
+  }                                                         \
+  /* Fail otherwise (e.g., SAR models). */                 \
   if (!success)                                             \
     vw_throw(vw::ArgumentErr()                              \
          << "CSM model " << NAME << " can be handled only " \
-         << "for linescan and frame cameras.\n");
+         << "for frame, linescan, and pushframe cameras.\n");
 
 // Get distortion
 std::vector<double> CsmModel::distortion() const {
