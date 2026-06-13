@@ -602,7 +602,7 @@ It is simpler to first run a clip with ``stereo_gui``
     parallel_stereo --ip-per-tile 3500             \
       --left-image-crop-win 0 3531 3716 10699      \
       --right-image-crop-win -513 22764 3350 10783 \
-      --stereo-algorithm asp_mgm --min-num-ip 10   \
+      --stereo-algorithm asp_mgm --min-matches 10  \
       left_b1_clamp.tif right_b1_clamp.tif         \
       left.json right.json run/run  
 

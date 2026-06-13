@@ -143,7 +143,13 @@ namespace asp {
                                       // 3 = Use low-res disparity produced by sparse_disp
                                       //     (in development)
 
-    int   min_num_ip;                 ///< Minimum number of IP's needed for search range estimation.
+    // min_matches and min_num_ip are alternative names for the same thing: the
+    // minimum number of IP's needed for search range estimation. min_matches is
+    // the primary name (for consistency with other tools), min_num_ip is a
+    // backward-compatible alias. Only one may be set; the value is resolved into
+    // min_matches in StereoSettings::validate().
+    int   min_matches;                ///< Minimum number of IP matches needed for search range estimation.
+    int   min_num_ip;                 ///< Backward-compatible alias for min_matches.
 
     float seed_percent_pad;           ///< Pad amount towards the IP found
     float disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment

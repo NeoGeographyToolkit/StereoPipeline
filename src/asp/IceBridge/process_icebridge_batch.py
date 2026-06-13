@@ -869,7 +869,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
     # - This epipolar threshold is post camera model based alignment so it can be quite restrictive.
     # - Note that the base level memory usage ignoring the SGM buffers is about 2 GB so this memory
     #   usage is in addition to that.
-    minIpString = '--min-num-ip 40'
+    minIpString = '--min-matches 40'
     stereoCmd = (('stereo %s %s %s %s -t nadirpinhole --alignment-method epipolar ' +
                   '--skip-rough-homography --corr-blob-filter 50 --corr-seed-mode 0 ' +
                   '--outlier-removal-params 90.0 3.0 --epipolar-threshold 10 %s ') %
@@ -928,7 +928,7 @@ def createDem(i, options, inputPairs, prefixes, demFiles, projString,
         # With the .match file copied we can retry with the same parameters.
         # - Remove some filtering steps we don't need.
         # - Exception is the height limit string, which we can remove if using existing IP.
-        stereoCmd = stereoCmd.replace(minIpString, '--min-num-ip 10')
+        stereoCmd = stereoCmd.replace(minIpString, '--min-matches 10')
         m = re.match("^\s*$", heightLimitString)
         if not m: # This is a bugfix, check for empty heightLimitString
             stereoCmd = stereoCmd.replace(heightLimitString, ' ')

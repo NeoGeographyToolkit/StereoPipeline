@@ -399,14 +399,14 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   }
   
   // Quit if we don't have the requested number of IP.
-  if (static_cast<int>(matched_left_ip.size()) < stereo_settings().min_num_ip)
-    vw_throw(ArgumentErr() << "Number of IPs left after filtering is " 
+  if (static_cast<int>(matched_left_ip.size()) < stereo_settings().min_matches)
+    vw_throw(ArgumentErr() << "Number of IPs left after filtering is "
              << matched_left_ip.size()
-             << " which is less than the required amount of " 
-             << stereo_settings().min_num_ip << ". Aborting stereo_corr.\n"
+             << " which is less than the required amount of "
+             << stereo_settings().min_matches << ". Aborting stereo_corr.\n"
              << " - Consider removing the run directory and restarting stereo,\n"
              << "   while setting --ip-per-tile 200 or some other larger number.\n"
-             << " - Consider decreasing --min-num-ip to accept these matches.\n"
+             << " - Consider decreasing --min-matches to accept these matches.\n"
              << " - Check if your input images are similar enough in illumination\n"
              << "   and if they have enough overlap.\n");
   

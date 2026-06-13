@@ -405,9 +405,15 @@ corr-sub-seed-percent (*float*) (default=0.25)
     search range is grown by this factor for the purpose of computing
     the low-resolution disparity.
 
+min-matches (*integer*) (default = 20)
+    The minimum number of interest point matches which must be found to
+    estimate the search range. If fewer matches are found, the correlation
+    is aborted. This option is named for consistency with other tools, such
+    as ``bundle_adjust`` and ``jitter_solve``.
+
 min-num-ip (*integer*) (default = 20)
-    Automatic search range estimation will quit if at least this many
-    interest points are not detected.
+    Alias for ``min-matches``, kept for backward compatibility. Only one of
+    the two may be set.
 
 cost-mode (= 0, 1, 2, 3, 4)
     The default is 2 for the ``asp_bm`` algorithm and 4 for ``asp_sgm`` and

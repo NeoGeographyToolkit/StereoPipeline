@@ -298,8 +298,12 @@ CorrelationDescription::CorrelationDescription():
       "Sigma value for Gaussian kernel used with prefilter modes 1 and 2.")
     ("corr-seed-mode", po::value(&global.seed_mode)->default_value(1),
       "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
-    ("min-num-ip", po::value(&global.min_num_ip)->default_value(20),
-      "The minimum number of interest points which must be found to estimate the search range.")
+    ("min-matches", po::value(&global.min_matches)->default_value(0),
+      "The minimum number of interest point matches which must be found to estimate the "
+      "search range. If fewer are found, the correlation is aborted. The default is 20.")
+    ("min-num-ip", po::value(&global.min_num_ip)->default_value(0),
+      "Alias for --min-matches, kept for backward compatibility. Only one of the two may "
+      "be set.")
     ("corr-sub-seed-percent", po::value(&global.seed_percent_pad)->default_value(0.25),
       "Expand the search range by this factor when computing the low-resolution disparity.")
     ("disparity-range-expansion-percent", po::value(&global.disparity_range_expansion_percent)->default_value(20.0),
@@ -750,6 +754,18 @@ void StereoSettings::validate() {
       asp::stereo_settings().ip_per_tile > 0)
     vw::vw_throw(vw::ArgumentErr()
       << "Cannot set both --ip-per-image and --ip-per-tile.\n");
+
+  // min-matches and min-num-ip are alternative names for the same thing. Resolve
+  // them into min_matches. Only one may be set. If neither is set, use the
+  // default of 20.
+  if (min_matches != 0 && min_num_ip != 0)
+    vw::vw_throw(vw::ArgumentErr()
+      << "Cannot set both --min-matches and --min-num-ip. They are alternative "
+      << "names for the same option.\n");
+  if (min_num_ip != 0)
+    min_matches = min_num_ip;
+  if (min_matches == 0)
+    min_matches = 20;
 
   // The low-confidence pixel removal kernel must be square and non-negative.
   // Only the x component is used for the low-resolution disparity D_sub.

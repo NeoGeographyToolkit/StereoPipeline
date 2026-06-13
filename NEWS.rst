@@ -5,6 +5,12 @@ point2dem (:numref:`point2dem`):
   * Fixed a bug that could produce an enormous output DEM extent (and a
     "size too large" error) when reading a projected TIF or PCD point cloud.
 
+parallel_stereo (:numref:`parallel_stereo`):
+  * The minimum number of interest point matches is now set with
+    ``--min-matches``, for consistency with other tools. The older option
+    ``--min-num-ip`` is kept for backward compatibility
+    (:numref:`stereodefault`).
+
 Misc:
   * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
 
