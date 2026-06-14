@@ -1074,117 +1074,76 @@ vw::camera::PinholeModel CsmModel::pinhole() const {
   return pin;
 }
 
-// Must have some macros here to avoid a lot of boilerplate code
-#define CSM_FRAME_GET(PARAM, NAME, VAL)                           \
-  /* Try frame */                                                 \
-  success = false;                                                \
-  csm::RasterGM const* gm_model                                   \
-    = dynamic_cast<csm::RasterGM const*>(this->m_gm_model.get()); \
-  {                                                               \
-    UsgsAstroFrameSensorModel const* frame_model                  \
-      = dynamic_cast<UsgsAstroFrameSensorModel const*>(gm_model); \
-    if (!success && frame_model != NULL) {                        \
-      VAL = frame_model->PARAM;                                   \
-      success = true;                                             \
-    }                                                             \
-  }
+// Helpers to read or write a field of a CSM sensor model, trying the frame,
+// linescan, and pushframe model types in turn. Pushframe shares the linescan
+// member names. This avoids a lot of boilerplate.
+namespace {
 
-#define CSM_FRAME_SET(PARAM, NAME, VAL)                     \
-  success = false;                                          \
-  csm::RasterGM * gm_model                                  \
-    = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get()); \
-  /* Try frame */                                           \
-  {                                                         \
-    UsgsAstroFrameSensorModel * frame_model                 \
-      = dynamic_cast<UsgsAstroFrameSensorModel*>(gm_model); \
-    if (!success && frame_model != NULL) {                  \
-      frame_model->PARAM = VAL;                             \
-      success = true;                                       \
-   }                                                        \
-  }
+// Short aliases for the long USGSCSM model type names.
+typedef UsgsAstroFrameSensorModel     FrameModel;
+typedef UsgsAstroLsSensorModel        LsModel;
+typedef UsgsAstroPushFrameSensorModel PushFrameModel;
 
-#define CSM_LINESCAN_GET(PARAM, NAME, VAL)                        \
-  /* Try linescan */                                              \
-  success = false;                                                \
-  {                                                               \
-    UsgsAstroLsSensorModel const* ls_model                        \
-      = dynamic_cast<UsgsAstroLsSensorModel const*>(gm_model);    \
-    if (!success && ls_model != NULL) {                           \
-      VAL = ls_model->PARAM;                                      \
-      success = true;                                             \
-    }                                                             \
-  }                                                               \
-  /* Try pushframe: it shares these member names with linescan */ \
-  {                                                               \
-    UsgsAstroPushFrameSensorModel const* pf_model                 \
-      = dynamic_cast<UsgsAstroPushFrameSensorModel const*>(gm_model); \
-    if (!success && pf_model != NULL) {                           \
-      VAL = pf_model->PARAM;                                      \
-      success = true;                                             \
-    }                                                             \
-  }                                                               \
-  /* Fail otherwise (e.g., SAR models). */                       \
-  if (!success)                                                   \
-    vw_throw(vw::ArgumentErr()                                    \
-         << "CSM model " << NAME << " can be handled only "       \
-         << "for frame, linescan, and pushframe cameras.\n");
+// Read a field if the model is of type ModelT, else return false.
+template<class ModelT, class T, class U>
+bool csmGetField(csm::RasterGM const* gm, T ModelT::* field, U& val) {
+  ModelT const* m = dynamic_cast<ModelT const*>(gm);
+  if (m == NULL)
+    return false;
+  val = m->*field;
+  return true;
+}
 
-#define CSM_LINESCAN_SET(PARAM, NAME, VAL)                  \
-  /* Try linescan */                                        \
-  success = false;                                          \
-  {                                                         \
-    UsgsAstroLsSensorModel * ls_model                       \
-      = dynamic_cast<UsgsAstroLsSensorModel*>(gm_model);    \
-    if (!success && ls_model != NULL) {                     \
-      ls_model->PARAM = VAL;                                \
-      success = true;                                       \
-    }                                                       \
-  }                                                         \
-  /* Try pushframe: shares these member names with linescan */ \
-  {                                                         \
-    UsgsAstroPushFrameSensorModel * pf_model               \
-      = dynamic_cast<UsgsAstroPushFrameSensorModel*>(gm_model); \
-    if (!success && pf_model != NULL) {                     \
-      pf_model->PARAM = VAL;                                \
-      success = true;                                       \
-    }                                                       \
-  }                                                         \
-  /* Fail otherwise (e.g., SAR models). */                 \
-  if (!success)                                             \
-    vw_throw(vw::ArgumentErr()                              \
-         << "CSM model " << NAME << " can be handled only " \
-         << "for frame, linescan, and pushframe cameras.\n");
+// Write a field if the model is of type ModelT, else return false.
+template<class ModelT, class T, class U>
+bool csmSetField(csm::RasterGM* gm, T ModelT::* field, U const& val) {
+  ModelT* m = dynamic_cast<ModelT*>(gm);
+  if (m == NULL)
+    return false;
+  m->*field = val;
+  return true;
+}
+
+// No model type matched the requested field.
+void csmFieldThrow(std::string const& name) {
+  vw_throw(vw::ArgumentErr() << "CSM model " << name << " can be handled only "
+           << "for frame, linescan, and pushframe cameras.\n");
+}
+
+} // end anonymous namespace
 
 // Get distortion
 std::vector<double> CsmModel::distortion() const {
+  csm::RasterGM const* gm = m_gm_model.get();
   std::vector<double> dist;
-  bool success = false;
-  CSM_FRAME_GET(m_opticalDistCoeffs, "distortion", dist)
-  if (success)
+  if (csmGetField(gm, &FrameModel::m_opticalDistCoeffs,     dist) ||
+      csmGetField(gm, &LsModel::m_opticalDistCoeffs,        dist) ||
+      csmGetField(gm, &PushFrameModel::m_opticalDistCoeffs, dist))
     return dist;
-  CSM_LINESCAN_GET(m_opticalDistCoeffs, "distortion", dist)
+  csmFieldThrow("distortion");
   return dist;
 }
 
 // Get distortion type
 DistortionType CsmModel::distortion_type() const {
+  csm::RasterGM const* gm = m_gm_model.get();
   DistortionType dist_type;
-  bool success = false;
-  CSM_FRAME_GET(m_distortionType, "distortion type", dist_type)
-  if (success)
+  if (csmGetField(gm, &FrameModel::m_distortionType,     dist_type) ||
+      csmGetField(gm, &LsModel::m_distortionType,        dist_type) ||
+      csmGetField(gm, &PushFrameModel::m_distortionType, dist_type))
     return dist_type;
-  CSM_LINESCAN_GET(m_distortionType, "distortion type", dist_type)
+  csmFieldThrow("distortion type");
   return dist_type;
 }
 
 // Set distortion type
 void CsmModel::set_distortion_type(DistortionType dist_type) {
-  bool success = false;
-  CSM_FRAME_SET(m_distortionType, "distortion type", dist_type)
-  if (success)
+  csm::RasterGM* gm = m_gm_model.get();
+  if (csmSetField(gm, &FrameModel::m_distortionType,     dist_type) ||
+      csmSetField(gm, &LsModel::m_distortionType,        dist_type) ||
+      csmSetField(gm, &PushFrameModel::m_distortionType, dist_type))
     return;
-  CSM_LINESCAN_SET(m_distortionType, "distortion type", dist_type)
-  return;
+  csmFieldThrow("distortion type");
 }
 
 // Set camera position in ECEF (only for frame cameras)
@@ -1292,43 +1251,47 @@ void CsmModel::set_linescan_quaternions(std::vector<double> const& quaternions) 
 
   throw_if_not_init();
 
-  csm::RasterGM * gm_model = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get());
+  csm::RasterGM* gm = m_gm_model.get();
 
   int num_quaternions = quaternions.size(); // total number of coefficients
-  bool success = false;
-  CSM_LINESCAN_SET(m_numQuaternions, "num quaternions", num_quaternions)
-  CSM_LINESCAN_SET(m_quaternions, "quaternions", quaternions)
+  if (!csmSetField(gm, &LsModel::m_numQuaternions, num_quaternions) &&
+      !csmSetField(gm, &PushFrameModel::m_numQuaternions, num_quaternions))
+    csmFieldThrow("num quaternions");
+  if (!csmSetField(gm, &LsModel::m_quaternions, quaternions) &&
+      !csmSetField(gm, &PushFrameModel::m_quaternions, quaternions))
+    csmFieldThrow("quaternions");
 }
 
 // Set the distortion. Need to consider each model type separately.
 void CsmModel::set_distortion(std::vector<double> const& dist) {
-  bool success = false;
-  CSM_FRAME_SET(m_opticalDistCoeffs, "distortion", dist)
-  if (success)
+  csm::RasterGM* gm = m_gm_model.get();
+  if (csmSetField(gm, &FrameModel::m_opticalDistCoeffs,     dist) ||
+      csmSetField(gm, &LsModel::m_opticalDistCoeffs,        dist) ||
+      csmSetField(gm, &PushFrameModel::m_opticalDistCoeffs, dist))
     return;
-  CSM_LINESCAN_SET(m_opticalDistCoeffs, "distortion", dist)
-  return;
+  csmFieldThrow("distortion");
 }
 
 // Get the focal length
 double CsmModel::focal_length() const {
+  csm::RasterGM const* gm = m_gm_model.get();
   double focal_length = 0.0;
-  bool success = false;
-  CSM_FRAME_GET(m_focalLength, "focal length", focal_length)
-  if (success)
+  if (csmGetField(gm, &FrameModel::m_focalLength,     focal_length) ||
+      csmGetField(gm, &LsModel::m_focalLength,        focal_length) ||
+      csmGetField(gm, &PushFrameModel::m_focalLength, focal_length))
     return focal_length;
-  CSM_LINESCAN_GET(m_focalLength, "focal length", focal_length)
+  csmFieldThrow("focal length");
   return focal_length;
 }
 
 // Set the focal length
 void CsmModel::set_focal_length(double focal_length) {
-  bool success = false;
-  CSM_FRAME_SET(m_focalLength, "focal length", focal_length)
-  if (success)
+  csm::RasterGM* gm = m_gm_model.get();
+  if (csmSetField(gm, &FrameModel::m_focalLength,     focal_length) ||
+      csmSetField(gm, &LsModel::m_focalLength,        focal_length) ||
+      csmSetField(gm, &PushFrameModel::m_focalLength, focal_length))
     return;
-  CSM_LINESCAN_SET(m_focalLength, "focal length", focal_length)
-  return;
+  csmFieldThrow("focal length");
 }
 
 // Get the optical center as sample, line. Different logic is needed for frame
@@ -1336,16 +1299,20 @@ void CsmModel::set_focal_length(double focal_length) {
 // and (m_detectorSampleOrigin, m_detectorLineOrigin) for linescan.
 // This is always in units of pixels, not mm.
 vw::Vector2 CsmModel::optical_center() const {
+  csm::RasterGM const* gm = m_gm_model.get();
   vw::Vector2 optical_center;
 
   std::vector<double> ccd_center;
-  bool success = false;
-  CSM_FRAME_GET(m_ccdCenter, "optical center", ccd_center)
-  if (success)
+  if (csmGetField(gm, &FrameModel::m_ccdCenter, ccd_center))
     return vw::Vector2(ccd_center[1], ccd_center[0]); // note the order (sample, line)
 
-  CSM_LINESCAN_GET(m_detectorSampleOrigin, "detector sample", optical_center[0])
-  CSM_LINESCAN_GET(m_detectorLineOrigin,   "detector line",   optical_center[1])
+  // Linescan and pushframe store the sample and line origins separately.
+  if (!csmGetField(gm, &LsModel::m_detectorSampleOrigin, optical_center[0]) &&
+      !csmGetField(gm, &PushFrameModel::m_detectorSampleOrigin, optical_center[0]))
+    csmFieldThrow("detector sample");
+  if (!csmGetField(gm, &LsModel::m_detectorLineOrigin, optical_center[1]) &&
+      !csmGetField(gm, &PushFrameModel::m_detectorLineOrigin, optical_center[1]))
+    csmFieldThrow("detector line");
 
   return optical_center;
 }
@@ -1353,27 +1320,30 @@ vw::Vector2 CsmModel::optical_center() const {
 // Set the optical center as sample, line. Different logic is needed for frame
 // and linescan cameras.
 void CsmModel::set_optical_center(vw::Vector2 const& optical_center) {
-  bool success = false;
-  auto ccd_center = std::vector<double>({optical_center[1], optical_center[0]});
-  CSM_FRAME_SET(m_ccdCenter, "optical center", ccd_center)
-  if (success)
+  csm::RasterGM* gm = m_gm_model.get();
+  std::vector<double> ccd_center({optical_center[1], optical_center[0]});
+  if (csmSetField(gm, &FrameModel::m_ccdCenter, ccd_center))
     return;
 
-  CSM_LINESCAN_SET(m_detectorSampleOrigin, "detector sample", optical_center[0])
-  CSM_LINESCAN_SET(m_detectorLineOrigin,   "detector line",   optical_center[1])
-
-  return;
+  // Linescan and pushframe store the sample and line origins separately.
+  if (!csmSetField(gm, &LsModel::m_detectorSampleOrigin, optical_center[0]) &&
+      !csmSetField(gm, &PushFrameModel::m_detectorSampleOrigin, optical_center[0]))
+    csmFieldThrow("detector sample");
+  if (!csmSetField(gm, &LsModel::m_detectorLineOrigin, optical_center[1]) &&
+      !csmSetField(gm, &PushFrameModel::m_detectorLineOrigin, optical_center[1]))
+    csmFieldThrow("detector line");
 }
 
 // Get quaternions (only for linescan cameras)
 std::vector<double> CsmModel::linescan_quaternions() const {
 
   throw_if_not_init();
-  csm::RasterGM * gm_model = dynamic_cast<csm::RasterGM*>(this->m_gm_model.get());
+  csm::RasterGM const* gm = m_gm_model.get();
 
   std::vector<double> quaternions;
-  bool success = false;
-  CSM_LINESCAN_GET(m_quaternions, "quaternions", quaternions)
+  if (!csmGetField(gm, &LsModel::m_quaternions, quaternions) &&
+      !csmGetField(gm, &PushFrameModel::m_quaternions, quaternions))
+    csmFieldThrow("quaternions");
   return quaternions;
 }
 

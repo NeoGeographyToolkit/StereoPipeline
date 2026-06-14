@@ -773,10 +773,8 @@ initial_transform_from_match_file(std::string const& ref_file,
   double source_nodata = -std::numeric_limits<double>::max();
   vw::read_nodata_val(source_file, source_nodata);
 
-  // Mask nodata honestly with create_mask, which compares to the EXACT nodata.
-  // An "h <= nodata" comparison is wrong when nodata is a high value (e.g. 65535
-  // with negative elevations) - it then voids every valid pixel. NaN pixels are
-  // handled explicitly in the loop below (create_mask cannot catch NaN nodata).
+  // Mask nodata with create_mask, which compares to the exact nodata. NaN pixels
+  // are handled explicitly in the loop below (create_mask cannot catch NaN nodata).
   ImageViewRef<vw::PixelMask<float>> ref_masked    = vw::create_mask(ref, ref_nodata);
   ImageViewRef<vw::PixelMask<float>> source_masked = vw::create_mask(source, source_nodata);
 

@@ -1214,6 +1214,11 @@ Interest point detection
     Individually normalize the input images instead of using common
     values.
 
+--ip-match-radius <integer (default: 0)>
+    For mapprojected images, before matching, drop interest points that have no
+    counterpart in the other image within this many pixels (after transforming
+    the interest point to the other image's pixel frame via the georeferences).
+
 --flann-method <string (default: "auto")>
     Choose the FLANN method for matching interest points. Options: ``kmeans``:
     slower but deterministic, ``kdtree``: faster (up to 6x) but not

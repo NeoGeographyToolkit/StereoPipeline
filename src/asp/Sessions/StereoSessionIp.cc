@@ -270,15 +270,15 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     // For mapprojected images, optionally drop interest points with no
     // counterpart within --ip-match-radius pixels in the other image, before
     // matching. Read the georeferences here to relate the two pixel frames.
-    bool gate_by_radius = false;
+    bool filter_by_ground_loc = false;
     vw::cartography::GeoReference gr1, gr2;
     if (have_mapproj_images && asp::stereo_settings().ip_match_radius > 0) {
       bool ok1 = vw::cartography::read_georeference(gr1, input_file1);
       bool ok2 = vw::cartography::read_georeference(gr2, input_file2);
-      gate_by_radius = (ok1 && ok2);
-      if (!gate_by_radius)
+      filter_by_ground_loc = (ok1 && ok2);
+      if (!filter_by_ground_loc)
         vw_out() << "\t    --ip-match-radius set but a georeference is missing; "
-                 << "skipping the radius gate.\n";
+                 << "skipping the ground filter.\n";
     }
 
     inlier = homography_ip_matching(apply_mask(masked_image1, nodata1),
@@ -289,7 +289,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                     left_ip_file, right_ip_file,
                                     use_cached_ip,
                                     nodata1, nodata2, bbox1, bbox2,
-                                    gate_by_radius, gr1, gr2);
+                                    filter_by_ground_loc, gr1, gr2);
   }
 
   } catch (std::exception const& e) {

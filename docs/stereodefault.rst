@@ -38,7 +38,7 @@ ip-per-tile <integer (default: unspecified)>
     Not all interest points will have a match. See also ``--matches-per-tile``.
 
 ip-per-image <integer (default: unspecified)>
-    How many interest points to detect in each image (default: automatic 
+    How many interest points to detect in each image (default: automatic
     determination, usually 5000). Can set either this or ``--ip-per-tile``.
 
 ip-detect-method <integer (default: 0)>
@@ -197,7 +197,12 @@ flann-method (*string*) (default = "auto")
     deterministic (starting with FLANN 1.9.2). The default (``auto``) is to use
     ``kmeans`` for 25,000 features or less and ``kdtree`` otherwise. This does
     not apply to ORB feature matching.
-    
+
+ip-match-radius <integer (default: 0)>
+    For mapprojected images, before matching, drop interest points that have no
+    counterpart in the other image within this many pixels (after transforming
+    the interest point to the other image's pixel frame via the georeferences).
+
 Other pre-processing options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

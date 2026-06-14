@@ -81,7 +81,7 @@ namespace asp {
                                             ///         own hi's and lo's
     int   ip_per_tile;                      ///< How many ip to find in each 1024^2 tile
     int   ip_per_image;                     ///< How many ip to find in each image
-    int   ip_match_radius;                  ///< Mapproj images only: drop ip with no counterpart within this many pixels before matching (0 = off).
+    int   ip_match_radius;                  // Mapproj ip match radius (0 = off)
     int   matches_per_tile;                 ///< How many ip matches to find in each 1024^2 tile
     int   ip_detect_method;                 ///< Method used for matching interest points
                                             /// 0 = Zack's integral Obalog method

@@ -185,7 +185,7 @@ void write_match_image(std::string const& out_file_name,
                               double nodata1, double nodata2,
                               vw::BBox2i const& bbox1 = vw::BBox2i(),
                               vw::BBox2i const& bbox2 = vw::BBox2i(),
-                              bool gate_by_radius = false,
+                              bool filter_by_ground_loc = false,
                               vw::cartography::GeoReference const& georef1 = vw::cartography::GeoReference(),
                               vw::cartography::GeoReference const& georef2 = vw::cartography::GeoReference());
 
@@ -261,7 +261,7 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      // If true (mapprojected images), drop interest points with
                      // no counterpart within --ip-match-radius pixels in the
                      // other image, using the georeferences to relate them.
-                     bool gate_by_radius = false,
+                     bool filter_by_ground_loc = false,
                      vw::cartography::GeoReference const& georef1 = vw::cartography::GeoReference(),
                      vw::cartography::GeoReference const& georef2 = vw::cartography::GeoReference());
 
