@@ -15,9 +15,9 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file StereoSettings.h
-/// This a class with minimal dependencies having stereo setings that is
-/// included in many places. 
+// \file StereoSettings.h
+// This a class with minimal dependencies having stereo setings that is
+// included in many places. 
 
 #ifndef __ASP_CORE_STEREO_SETTINGS_H__
 #define __ASP_CORE_STEREO_SETTINGS_H__
@@ -28,7 +28,7 @@ namespace asp {
 
   class StereoSession; // Forward declaration
 
-  /// 'Global scoped' variables
+  // 'Global scoped' variables
   struct ASPGlobalOptions: vw::GdalWriteOptions {
     // Input
     std::string in_file1, in_file2, cam_file1, cam_file2, input_dem,
@@ -46,7 +46,7 @@ namespace asp {
     static int tri_tile_size() { return 256;  } // Tile size for tri/point cloud
   };
 
-  /// Structure holding variables
+  // Structure holding variables
   class StereoSettings {
   public:
     StereoSettings();
@@ -62,7 +62,7 @@ namespace asp {
     // ----------------
 
     // Preprocessing options
-    std::string alignment_method;           /// Valid options are: [Homography, Epipolar, None]
+    std::string alignment_method;           // Valid options are: [Homography, Epipolar, None]
 
     // Note: Below we use BBox2 rather than BBox2i to not choke on float inputs.
     // Do stereo in given regions only.
@@ -75,49 +75,49 @@ namespace asp {
     std::string bathy_plane, bathy_plane_list, output_cloud_type;
     double refraction_index;
 
-    bool   force_use_entire_range;          /// Use entire dynamic range of image
-    bool   individually_normalize;          /// If > 1, normalize the images
-                                            ///         individually with their
-                                            ///         own hi's and lo's
-    int   ip_per_tile;                      ///< How many ip to find in each 1024^2 tile
-    int   ip_per_image;                     ///< How many ip to find in each image
+    bool   force_use_entire_range;          // Use entire dynamic range of image
+    bool   individually_normalize;          // If > 1, normalize the images
+                                            //         individually with their
+                                            //         own hi's and lo's
+    int   ip_per_tile;                      // How many ip to find in each 1024^2 tile
+    int   ip_per_image;                     // How many ip to find in each image
     int   ip_match_radius;                  // Mapproj ip match radius (0 = off)
-    int   matches_per_tile;                 ///< How many ip matches to find in each 1024^2 tile
-    int   ip_detect_method;                 ///< Method used for matching interest points
-                                            /// 0 = Zack's integral Obalog method
-                                            /// 1 = OpenCV SIFT method
-                                            /// 2 = OpenCV ORB method
-    double epipolar_threshold;              /// Max distance from epipolar line to search for IP matches.
-    double ip_inlier_factor;                /// General scaling factor for IP finding, a larger value allows more IPs to match.
-    double ip_uniqueness_thresh;            /// Min percentage distance between closest and second closest IP descriptors.
-    double ip_nodata_radius;                /// Remove IP near nodata with this radius, in pixels.
-    double ip_triangulation_max_error;      ///< Remove IP matches with triangulation error higher than this.
-    int    ip_num_ransac_iterations;        ///< How many ransac iterations to do in ip matching.
-    bool   disable_tri_filtering;           ///< Turn of tri-ip filtering.
+    int   matches_per_tile;                 // How many ip matches to find in each 1024^2 tile
+    int   ip_detect_method;                 // Method used for matching interest points
+                                            // 0 = Zack's integral Obalog method
+                                            // 1 = OpenCV SIFT method
+                                            // 2 = OpenCV ORB method
+    double epipolar_threshold;              // Max distance from epipolar line to search for IP matches.
+    double ip_inlier_factor;                // General scaling factor for IP finding, a larger value allows more IPs to match.
+    double ip_uniqueness_thresh;            // Min percentage distance between closest and second closest IP descriptors.
+    double ip_nodata_radius;                // Remove IP near nodata with this radius, in pixels.
+    double ip_triangulation_max_error;      // Remove IP matches with triangulation error higher than this.
+    int    ip_num_ransac_iterations;        // How many ransac iterations to do in ip matching.
+    bool   disable_tri_filtering;           // Turn of tri-ip filtering.
 
-    int num_scales;                         /// How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used.
-    int    ip_edge_buffer_percent;          ///< When detecting IP, throw out points within this many % of pixels
-                                            ///  of the left/right edges of the images being matched.
-    bool   ip_normalize_tiles;              ///< Individually normalize tiles for IP detection.
-    std::string dem;                        ///< Input DEM for map-projected images
-    bool   matches_as_txt;                  ///< Read and write match files as plain text
-    bool   ip_debug_images;                 ///< Write debug interest point images.
+    int num_scales;                         // How many scales to use if detecting interest points with OBALoG. If not specified, 8 will be used.
+    int    ip_edge_buffer_percent;          // When detecting IP, throw out points within this many % of pixels
+                                            //  of the left/right edges of the images being matched.
+    bool   ip_normalize_tiles;              // Individually normalize tiles for IP detection.
+    std::string dem;                        // Input DEM for map-projected images
+    bool   matches_as_txt;                  // Read and write match files as plain text
+    bool   ip_debug_images;                 // Write debug interest point images.
 
-    double nodata_value;                    ///< Pixels with values less than or equal to this number are treated as no-data.
+    double nodata_value;                    // Pixels with values less than or equal to this number are treated as no-data.
                                             //  This overrides the nodata values from input images.
-    double nodata_stddev_thresh;            ///
-    int    nodata_stddev_kernel;            ///< Kernel size of the nodata stddev calculation
-    bool   skip_rough_homography;           ///< Use this if datum-based rough homography fails.
-    bool   no_datum;                        ///< Do not assume a reliable datum exists
-    bool   skip_image_normalization;        ///< Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
-    bool   force_reuse_match_files;         ///< Force reusing the match files even if older than the images or cameras
-    bool   part_of_multiview_run;           ///< If this run is part of a larger multiview run
-    std::string datum;                      ///< The datum to use with RPC camera models
+    double nodata_stddev_thresh;            //
+    int    nodata_stddev_kernel;            // Kernel size of the nodata stddev calculation
+    bool   skip_rough_homography;           // Use this if datum-based rough homography fails.
+    bool   no_datum;                        // Do not assume a reliable datum exists
+    bool   skip_image_normalization;        // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
+    bool   force_reuse_match_files;         // Force reusing the match files even if older than the images or cameras
+    bool   part_of_multiview_run;           // If this run is part of a larger multiview run
+    std::string datum;                      // The datum to use with RPC camera models
     std::string match_files_prefix, clean_match_files_prefix; // Load matches from here
     std::string left_image_clip, right_image_clip;
-    double global_alignment_threshold;        /// Max distance from the epipolar line when doing global affine epipolar alignment
-    double local_alignment_threshold;         /// Max distance from the epipolar line when doing local affine epipolar alignment
-    int    alignment_num_ransac_iterations;   ///< How many ransac iterations to do in global or local epipolar alignment transform computation
+    double global_alignment_threshold;        // Max distance from the epipolar line when doing global affine epipolar alignment
+    double local_alignment_threshold;         // Max distance from the epipolar line when doing local affine epipolar alignment
+    int    alignment_num_ransac_iterations;   // How many ransac iterations to do in global or local epipolar alignment transform computation
     vw::Vector2 outlier_removal_params;
     vw::Vector2i matches_per_tile_params;
     int band;
@@ -132,7 +132,7 @@ namespace asp {
     bool stereo_dist_mode;   // Distributed stereo mode
 
     // Correlation options
-    float slogW;                      ///< Preprocessing filter width
+    float slogW;                      // Preprocessing filter width
     vw::uint16 pre_filter_mode;       // 0 = None
                                       // 1 = Gaussian Blur
                                       // 2 = Log Filter
@@ -149,11 +149,11 @@ namespace asp {
     // the primary name (for consistency with other tools), min_num_ip is a
     // backward-compatible alias. Only one may be set; the value is resolved into
     // min_matches in StereoSettings::validate().
-    int   min_matches;                ///< Minimum number of IP matches needed for search range estimation.
-    int   min_num_ip;                 ///< Backward-compatible alias for min_matches.
+    int   min_matches;                // Minimum number of IP matches needed for search range estimation.
+    int   min_num_ip;                 // Backward-compatible alias for min_matches.
 
-    float seed_percent_pad;           ///< Pad amount towards the IP found
-    float disparity_range_expansion_percent; ///< Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
+    float seed_percent_pad;           // Pad amount towards the IP found
+    float disparity_range_expansion_percent; // Expand the estimated disparity range by this percentage before computing the stereo correlation with local alignment
 
     vw::uint16 cost_mode;             // 0 = absolute difference
                                       // 1 = squared difference
@@ -287,9 +287,9 @@ namespace asp {
     bool initialized_stereo_settings;
   };
 
-  /// Return the singleton instance of the stereo setting structure.
-  /// The stereo settings struct is created the first time this method
-  /// is invoked.  You must *always* access the stereo settings through this function.
+  // Return the singleton instance of the stereo setting structure.
+  // The stereo settings struct is created the first time this method
+  // is invoked.  You must *always* access the stereo settings through this function.
   StereoSettings& stereo_settings();
 }
 
