@@ -773,6 +773,13 @@ initial_transform_from_match_file(std::string const& ref_file,
   double source_nodata = -std::numeric_limits<double>::max();
   vw::read_nodata_val(source_file, source_nodata);
 
+  // Mask nodata honestly with create_mask, which compares to the EXACT nodata.
+  // An "h <= nodata" comparison is wrong when nodata is a high value (e.g. 65535
+  // with negative elevations) - it then voids every valid pixel. NaN pixels are
+  // handled explicitly in the loop below (create_mask cannot catch NaN nodata).
+  ImageViewRef<vw::PixelMask<float>> ref_masked    = vw::create_mask(ref, ref_nodata);
+  ImageViewRef<vw::PixelMask<float>> source_masked = vw::create_mask(source, source_nodata);
+
   if (!has_ref_geo || !has_source_geo)
     vw_throw(ArgumentErr() << "One of the inputs is not a valid DEM.\n");
 
@@ -789,17 +796,19 @@ initial_transform_from_match_file(std::string const& ref_file,
     int ref_y = ref_ip[match_id].y;
     if (ref_x < 0 || ref_x >= ref.cols()) continue;
     if (ref_y < 0 || ref_y >= ref.rows()) continue;
-    double ref_h = ref(ref_x, ref_y);
-    // Check for no-data and NaN pixels
-    if (ref_h <= ref_nodata || ref_h != ref_h) continue;
+    vw::PixelMask<float> ref_pix = ref_masked(ref_x, ref_y);
+    if (!vw::is_valid(ref_pix)) continue; // nodata (exact mask, any nodata value)
+    double ref_h = ref_pix.child();
+    if (ref_h != ref_h) continue; // NaN
 
     int source_x = source_ip[match_id].x;
     int source_y = source_ip[match_id].y;
     if (source_x < 0 || source_x >= source.cols()) continue;
     if (source_y < 0 || source_y >= source.rows()) continue;
-    double source_h = source(source_x, source_y);
-    // Check for no-data and NaN pixels
-    if (source_h <= source_nodata || source_h != source_h) continue;
+    vw::PixelMask<float> source_pix = source_masked(source_x, source_y);
+    if (!vw::is_valid(source_pix)) continue; // nodata (exact mask, any nodata value)
+    double source_h = source_pix.child();
+    if (source_h != source_h) continue; // NaN
 
     Vector2 ref_ll  = ref_geo.pixel_to_lonlat(Vector2(ref_x, ref_y));
     Vector3 ref_xyz = ref_geo.datum()
