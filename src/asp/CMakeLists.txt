@@ -492,8 +492,9 @@ add_subdirectory(Tools)
 add_subdirectory(WVCorrect)
 add_subdirectory(IceBridge)
 
-# On macOS the Apple linker auto-adds rpaths that duplicate the ones CMake
-# sets via CMAKE_INSTALL_RPATH. Remove duplicates and re-sign after install.
+# On macOS the linker auto-adds the conda env lib rpath ahead of install/lib,
+# so a stale libAsp*/libVw* there can shadow our build. Delete every copy and
+# re-add one at the end, below install/lib. Re-sign after. Idempotent.
 if (APPLE)
   install(CODE "
     file(GLOB asp_libs \"\${CMAKE_INSTALL_PREFIX}/lib/libAsp*.dylib\")
@@ -504,13 +505,19 @@ if (APPLE)
       execute_process(
         COMMAND otool -l \${f}
         OUTPUT_VARIABLE otool_out ERROR_QUIET)
+      # Trailing space leaves the csmplugins subdir rpath untouched.
       string(REGEX MATCHALL \"path [^\n]*[^ ]*conda[^ ]*/envs/[^\n]*/lib \"
              matches \"\${otool_out}\")
       list(LENGTH matches count)
-      if (count GREATER 1)
+      if (count GREATER 0)
         string(REGEX MATCH \"[^ ]*conda[^ ]*/envs/[^/]*/lib\" rpath \"\${matches}\")
+        foreach(i RANGE 1 \${count})
+          execute_process(
+            COMMAND install_name_tool -delete_rpath \${rpath} \${f}
+            ERROR_QUIET)
+        endforeach()
         execute_process(
-          COMMAND install_name_tool -delete_rpath \${rpath} \${f}
+          COMMAND install_name_tool -add_rpath \${rpath} \${f}
           ERROR_QUIET)
         execute_process(
           COMMAND codesign --force --sign - \${f}
