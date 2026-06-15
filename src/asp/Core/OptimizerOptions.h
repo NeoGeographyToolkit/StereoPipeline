@@ -32,18 +32,19 @@ namespace asp {
 
 struct OptimizerOptions: public vw::GdalWriteOptions {
   std::string out_prefix, nvm, heights_from_dem,
-    camera_position_uncertainty_str, fixed_image_list_str;
+    camera_position_uncertainty_str, fixed_image_list_str, cost_function;
   int num_iterations, num_passes;
   double robust_threshold, tri_weight, tri_robust_threshold,
     min_triangulation_angle,
     parameter_tolerance, heights_from_dem_uncertainty,
-    heights_from_dem_robust_threshold;
+    heights_from_dem_robust_threshold, gcp_robust_threshold;
   std::vector<vw::Vector2> camera_position_uncertainty;
 
   OptimizerOptions():
+    cost_function("Cauchy"),
     num_iterations(0), num_passes(0),
     robust_threshold(0.5), tri_weight(0.1), tri_robust_threshold(0.1),
-    min_triangulation_angle(0.01) {}
+    min_triangulation_angle(0.01), gcp_robust_threshold(-1.0) {}
 };
 
 } // namespace asp

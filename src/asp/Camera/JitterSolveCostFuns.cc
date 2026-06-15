@@ -22,6 +22,7 @@
 #include <asp/Camera/BaseCostFuns.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveRigCostFuns.h>
+#include <asp/Camera/BundleAdjustCostFuns.h> // for get_loss_function
 #include <asp/Rig/TransformUtils.h>
 #include <asp/Rig/RigConfig.h>
 #include <asp/Core/EigenTransformUtils.h>
@@ -954,8 +955,16 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
       cost_function = LLHError::Create(observation, llh_sigma, opt.datum);
     }
 
-    // No soft cost function for GCP. These are assumed to be accurate.
-    ceres::LossFunction* loss_function  = new ceres::TrivialLoss();
+    // By default GCP get a non-robust loss, as they are assumed to be accurate.
+    // With --gcp-robust-threshold, a robust loss (of type --cost-function) is
+    // applied instead, to down-weight noisy or blunder GCP (such as some
+    // produced with dem2gcp). The robust threshold acts on the GCP residual
+    // already normalized by the GCP sigma (see XYZError / LLHError).
+    ceres::LossFunction* loss_function = NULL;
+    if (opt.gcp_robust_threshold > 0)
+      loss_function = get_loss_function(opt.cost_function, opt.gcp_robust_threshold);
+    else
+      loss_function = new ceres::TrivialLoss();
     double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
     problem.AddResidualBlock(cost_function, loss_function, tri_point);
 

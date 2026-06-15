@@ -31,7 +31,7 @@ namespace asp {
   
 struct BaOptions: public asp::BaBaseOptions {
   std::string cnet_file,
-    cost_function, mapprojected_data, gcp_from_mapprojected;
+    mapprojected_data, gcp_from_mapprojected;
   int ip_per_tile, ip_per_image, matches_per_tile, ip_match_radius;
   double overlap_exponent, ip_triangulation_max_error;
   int num_parallel_jobs, job_id, num_random_passes, ip_num_ransac_iterations;

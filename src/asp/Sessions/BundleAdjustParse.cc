@@ -897,6 +897,14 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("max-gcp-reproj-err", po::value(&opt.max_gcp_reproj_err)->default_value(-1.0),
      "If positive, after each pass remove GCP whose mean reprojection error "
      "(averaged over all cameras seeing that point) is more than this, in pixels.")
+    ("gcp-robust-threshold", po::value(&opt.gcp_robust_threshold)->default_value(-1.0),
+     "If positive, apply a robust cost function (of type --cost-function) to the "
+     "ground control point (GCP) residuals, with this threshold. The GCP residual "
+     "is the difference between the optimized and measured GCP position, divided "
+     "by the GCP sigma from the GCP file. The threshold should be comparable to "
+     "the largest such normalized residual to expect from a good GCP, so that noisy "
+     "or blunder GCP are down-weighted. If not positive (the default), GCP get a "
+     "non-robust (quadratic) loss, as before.")
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "Filter as outlier any triangulation point for which all rays converging to "
       "it have an angle less than this (measured in degrees). This happens on "

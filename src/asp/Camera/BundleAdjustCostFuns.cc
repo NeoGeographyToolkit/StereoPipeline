@@ -1199,14 +1199,20 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
       cost_function = LLHError::Create(observation, llh_sigma, opt.datum);
     }
 
-    // For GCP a robust cost function is not used, as those are assumed to be
-    // accurate. This may need to change for GCP produced with dem2gcp. With the
-    // --heights-from-dem option, a robust cost function is used, with its own
-    // robust threshold.
+    // By default GCP get a non-robust loss, as those are assumed to be accurate.
+    // With --gcp-robust-threshold, a robust cost function (of type
+    // --cost-function) is applied to the GCP, to down-weight noisy or blunder
+    // GCP (such as some produced with dem2gcp). For from-DEM points (not GCP),
+    // the --heights-from-dem option uses a robust cost function with its own
+    // robust threshold. The threshold acts on the residual already normalized
+    // by the sigma (see XYZError / LLHError).
+    bool is_gcp = (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
     ceres::LossFunction* loss_function = NULL;
-    if (opt.heights_from_dem != ""           &&
-        opt.heights_from_dem_uncertainty > 0 &&
-        opt.heights_from_dem_robust_threshold > 0) {
+    if (is_gcp && opt.gcp_robust_threshold > 0) {
+      loss_function = get_loss_function(cost_function_str, opt.gcp_robust_threshold);
+    } else if (opt.heights_from_dem != ""           &&
+               opt.heights_from_dem_uncertainty > 0 &&
+               opt.heights_from_dem_robust_threshold > 0) {
       loss_function
       = get_loss_function(cost_function_str, opt.heights_from_dem_robust_threshold);
     } else {

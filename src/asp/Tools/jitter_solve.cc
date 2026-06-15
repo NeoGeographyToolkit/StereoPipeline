@@ -157,6 +157,20 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      po::value(&opt.max_gcp_reproj_err)->default_value(-1.0),
      "If positive, after each pass remove GCPs whose mean reprojection error "
      "(averaged over all cameras seeing that point) is more than this, in pixels.")
+    ("gcp-robust-threshold",
+     po::value(&opt.gcp_robust_threshold)->default_value(-1.0),
+     "If positive, apply a Cauchy robust cost function to the ground control point "
+     "(GCP) residuals, with this threshold. The GCP residual is the difference "
+     "between the optimized and measured GCP position, divided by the GCP sigma "
+     "from the GCP file. The threshold should be comparable to the largest such "
+     "normalized residual to expect from a good GCP, so that noisy or blunder GCP "
+     "are down-weighted. If not positive (the default), GCP get a non-robust "
+     "(quadratic) loss, as before.")
+    ("cost-function", po::value(&opt.cost_function)->default_value("Cauchy"),
+     "Choose the robust cost function to use, as in bundle_adjust. Options: Cauchy, "
+     "PseudoHuber, Huber, L1, L2, Trivial. This selects the loss applied to the "
+     "robust residuals, including the GCP residuals when --gcp-robust-threshold "
+     "is set. The default reproduces the prior behavior.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for the Cauchy robust cost function. Increasing this makes "
      "the solver focus harder on the larger errors.")
@@ -450,6 +464,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   // This must be done early
   boost::to_lower(opt.stereo_session);
+
+  // Normalize the cost function name, as get_loss_function expects it lower case
+  boost::to_lower(opt.cost_function);
 
   // Separate out GCP files
   bool rm_from_input_list = true;
