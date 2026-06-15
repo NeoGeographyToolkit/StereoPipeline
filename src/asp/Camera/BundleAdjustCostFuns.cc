@@ -1201,8 +1201,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
 
     // By default GCP get a non-robust loss, as those are assumed to be accurate.
     // With --gcp-robust-threshold, a robust cost function (of type
-    // --cost-function) is applied to the GCP, to down-weight noisy or blunder
-    // GCP (such as some produced with dem2gcp). For from-DEM points (not GCP),
+    // --cost-function) is applied to the GCP. For from-DEM points (not GCP),
     // the --heights-from-dem option uses a robust cost function with its own
     // robust threshold. The threshold acts on the residual already normalized
     // by the sigma (see XYZError / LLHError).

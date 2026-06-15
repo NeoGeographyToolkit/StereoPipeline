@@ -159,18 +159,16 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "(averaged over all cameras seeing that point) is more than this, in pixels.")
     ("gcp-robust-threshold",
      po::value(&opt.gcp_robust_threshold)->default_value(-1.0),
-     "If positive, apply a Cauchy robust cost function to the ground control point "
-     "(GCP) residuals, with this threshold. The GCP residual is the difference "
-     "between the optimized and measured GCP position, divided by the GCP sigma "
-     "from the GCP file. The threshold should be comparable to the largest such "
-     "normalized residual to expect from a good GCP, so that noisy or blunder GCP "
-     "are down-weighted. If not positive (the default), GCP get a non-robust "
-     "(quadratic) loss, as before.")
+     "If positive, apply a robust cost function (of type --cost-function) to the "
+     "ground control point (GCP) residuals, with this threshold. The GCP residual "
+     "is the difference between the optimized and measured GCP position, divided "
+     "by the GCP sigma from the GCP file. The threshold should be comparable to "
+     "the largest such normalized residual to expect from reasonable GCP. This "
+     "attenuates the contribution of noisy GCP. See also --max-gcp-reproj-err.")
     ("cost-function", po::value(&opt.cost_function)->default_value("Cauchy"),
-     "Choose the robust cost function to use, as in bundle_adjust. Options: Cauchy, "
-     "PseudoHuber, Huber, L1, L2, Trivial. This selects the loss applied to the "
-     "robust residuals, including the GCP residuals when --gcp-robust-threshold "
-     "is set. The default reproduces the prior behavior.")
+     "Choose the robust cost function to use, as in bundle_adjust, from: Cauchy, "
+     "PseudoHuber, Huber, L1, L2. This selects the loss applied to the robust "
+     "residuals.")
     ("robust-threshold", po::value(&opt.robust_threshold)->default_value(0.5),
      "Set the threshold for the Cauchy robust cost function. Increasing this makes "
      "the solver focus harder on the larger errors.")

@@ -941,66 +941,57 @@ scanned and cropped).
 
 Since dense GCP from ``dem2gcp`` can have blunders, it is suggested to add
 ``--gcp-robust-threshold`` to ``bundle_adjust``, with a gentle (large) value,
-such as 3. This down-weights only the GCP whose optimized position is pulled
-far from the measured one (normalized by the GCP sigma), while leaving the bulk
-of good GCP unaffected. Afterwards, a new stereo DEM can be created as before.
+such as 3. This attenuates the contribution of GCP whose optimized position is
+pulled far from the measured one (normalized by the GCP sigma).
 
 If happy enough with results at a given resolution, the cameras can be rescaled
 to a finer resolution and the process continued. See :numref:`resizing_images`
 for how a camera model can be modified to work at a different resolution.
 
-Refining with CSM and jitter_solve
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _kh9_csm:
 
-The panoramic (OpticalBar) model assumes a single rigid camera pose for the
-whole scan (about 0.5 seconds). It is not flexible enough to absorb both the
+Refining with CSM cameras
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The panoramic (OpticalBar) model is not flexible enough to absorb both the
 true camera trajectory during the scan and the local warping that arises during
 film storage and digitization. The result is a long-wavelength height error (a
-tilt or dishing) in the stereo DEM that bundle adjustment cannot remove.
+tilt or warping) in the stereo DEM that bundle adjustment cannot remove.
 
 The fix is to convert the cameras to the CSM linescan format (with the images
 rotated by 90 degrees, :numref:`opticalbar2csm`), then run the jitter solver
 (:numref:`jitter_solve`). The CSM linescan model carries a per-line pose, so
 ``jitter_solve`` can correct both the trajectory and the warp. In our tests this
 reduced the DEM error from about 120 - 150 m to about 7 m (NMAD, over stable
-terrain), with the dishing removed.
+terrain), with the warping removed.
 
-Ground control points. Rather than transforming the earlier OpticalBar-frame
-GCP into the rotated CSM frame (error-prone, and a mismatch silently loads no
-GCP), it is cleaner, once in CSM, to create a stereo DEM with the current
-cameras, evaluate it against the reference DEM, and produce fresh GCP with
-``dem2gcp`` (:numref:`dem2gcp`) in the CSM image frame. All inputs are then
-self-consistent.
+Rather than transforming the earlier OpticalBar-frame GCP into the rotated CSM
+frame it is suggested to create a stereo DEM with the converted CSM cameras,
+evaluate it against the reference DEM, and produce fresh GCP with ``dem2gcp``
+(:numref:`dem2gcp`) in the CSM image frame. All inputs are then self-consistent.
 
-Pose samples (knots). Set ``--num-lines-per-position`` and
-``--num-lines-per-orientation`` so there are roughly 10 - 40 position and
-orientation samples along the scan. We needed about 21 orientation samples at
-1/16 resolution to resolve the warp. Do not reduce the number of orientation
-samples to fill coverage gaps: fewer knots make a stiffer pose that brings the
-dishing back.
+Set ``--num-lines-per-position`` and ``--num-lines-per-orientation`` so there
+are roughly 10 - 40 position and orientation samples along the scan. We needed
+about 21 orientation samples at 1/16 resolution to resolve the warp.
 
-Anchor points. The per-line pose is unconstrained where there are no matches
-(ocean, ice, image corners) and can swing wildly there, smearing the
-mapprojected image so stereo cannot correlate. Add anchor points
-(``--num-anchor-points``, ``--anchor-dem``, ``--anchor-dem-uncertainty``) and a
-camera position constraint (``--camera-position-uncertainty``) to hold the pose
-in those regions. The anchor count and uncertainty need care: too loose and they
-have no effect, too tight and they fight the solution. The anchor weight controls
-the coverage (the swirl), while the number of orientation samples controls the
-dishing removal; these are largely independent.
+The pose samples are unconstrained where there are no matches (ocean, ice, image
+corners) and can swing wildly there, smearing the mapprojected image so stereo
+cannot correlate. Add anchor points (:numref:`jitter_anchor_points`) and a
+camera position constraint (:numref:`jitter_camera`) to constrain the poses
+in those regions. 
 
-Uncertainties. Make ``--heights-from-dem-uncertainty`` at least about twice the
-GCP sigma, so the DEM constraint does not over-constrain the points at their
-initial positions and the GCP can still move them horizontally. The anchor
-uncertainty should be looser than the heights-from-dem uncertainty.
+The number and uncertainty of anchor points need care. If too loose and they
+have no effect, if too tight they prevent the convergence. 
 
-Match points. Generate dense matches (:numref:`dense_ip`) for every overlapping
-pair, including the along-track pairs (aft-aft and forward-forward), not just the
-convergent fore/aft stereo pairs. The along-track pairs have little convergence
-and are not for a DEM, but they tie the strips together so adjacent strips do not
-drift independently, which would otherwise show as seams in the mosaic. Some
-pairs overlap only slightly, especially at the corners, but even those help
-ensure no seam appears.
+Set ``--heights-from-dem-uncertainty`` to be at least twice the GCP sigma, so
+the DEM constraint does not over-constrain the points at their initial positions
+and the GCP can still move them horizontally. The anchor uncertainty should be
+looser than the heights-from-dem uncertainty.
+
+Generate dense matches (:numref:`dense_ip`) for every overlapping pair,
+including the aft-aft and fore-fore pairs, not just the fore/aft stereo pairs.
+The additional ones may have only little overlap and will not produce a DEM, but
+they tie the strips together. 
 
 A sample invocation::
 
@@ -1028,17 +1019,23 @@ DEM pulls the heights. The ``--gcp-robust-threshold`` value is gentle (large),
 so it down-weights only blunder GCP. At higher resolution, and if confident in
 the GCP, the GCP sigma can be reduced further.
 
-Inspect the results every time. Read both the initial and the final residual
-reports, split by point type (match, from-DEM, GCP). A healthy solve keeps most
-points and the residuals drop to a few pixels. A setup error (wrong
-image-to-camera pairing, or matches not in the rotated CSM frame) shows up as the
-combination of about 90% or more of the points removed and residuals above a
-million; stop and fix it. Aggregate statistics can miss a localized per-line
-swing, so also overlay the mapprojected images and look for smearing.
+Inspect the report files produced by this program, including the statistics for
+GCP, anchor points and other triangulated points (:numref:`jitter_out_files`).
+These can suggest problems before the costly stereo DEM creation step.
 
-If stereo still reconstructs only a thin band, the limit is stereo coverage, not
-jitter. Widen ``--max-disp-spread`` (and recover any failed low-overlap match
-pairs) rather than reducing the number of pose samples.
+If the resulting stereo DEMs exhibit unreasonably large changes, that suggests
+the anchor points are too loose and/or the GCP are too noisy. Conversely,
+if the produced DEM preserves some of the distortions, that may suggest relaxing
+anchor point and/or camera position constraints, and tightening the DEM uncertainty
+constraints.
+
+If the results at least go the right way, consider using these cameras as the initial
+guess for a subsequent pass of solving for jitter.
+
+When creating the stereo DEMs, the variable per-line geometry can make the
+disparity exceed the default spread away from the centerline, so the swath may
+reconstruct as only a thin band. Widen ``--max-disp-spread`` in that case,
+rather than reducing the number of pose samples.
 
 After one pass of ``jitter_solve`` and stereo DEM creation, it may help to create
 new GCP with ``dem2gcp`` and run bundle adjustment again to refine all the
@@ -1046,6 +1043,8 @@ intrinsics (including focal length and lens distortion) with the CSM linescan
 model, then invoke ``jitter_solve`` once more. Each step should offer a further
 improvement.
 
-The linescan cameras are not as easy to convert to a different resolution as the
-OpticalBar cameras. An `experimental program <https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/src/asp/Python/scale_linescan.py>`_
-for this is available.
+When it appears that the results at given subsampled resolution (here sub16) do
+not improve any more, it is suggested to continue the work at sub4 (for
+example). This requires making use of a `program for resampling CSM cameras
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/src/asp/Python/scale_linescan.py>`_ 
+to the finer resolution.

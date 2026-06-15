@@ -2228,9 +2228,7 @@ Command-line options for jitter_solve
 --cost-function <string (default: Cauchy)>
     Choose the robust cost function to use, as in ``bundle_adjust``
     (:numref:`bundle_adjust`), from: Cauchy, PseudoHuber, Huber, L1, L2. This
-    selects the loss applied to the robust residuals, including the GCP
-    residuals when ``--gcp-robust-threshold`` is set. The default reproduces the
-    prior behavior.
+    selects the loss applied to the robust residuals.
 
 --robust-threshold <double (default:0.5)>
     Set the threshold for the robust reprojection error cost function, in
@@ -2343,16 +2341,13 @@ Command-line options for jitter_solve
     this value (in pixels).
 
 --gcp-robust-threshold <double (default: -1.0)>
-    If positive, apply a Cauchy robust cost function to the ground control
-    point (GCP) residuals, with this threshold. The GCP residual is the
-    difference between the optimized and measured GCP position, divided by the
-    GCP sigma from the GCP file. The threshold should be comparable to the
-    largest such normalized residual to expect from a good GCP, so that noisy
-    or blunder GCP (such as some produced with ``dem2gcp``, :numref:`dem2gcp`)
-    are down-weighted. If not positive (the default), GCP get a non-robust
-    (quadratic) loss. Unlike ``--max-gcp-reproj-err``, which removes a GCP whose
-    image reprojection error is too large, this attenuates a GCP whose
-    optimized ground position is pulled too far from its measured value.
+    If positive, apply a robust cost function (of type ``--cost-function``) to
+    the ground control point (GCP) residuals, with this threshold. The GCP
+    residual is the difference between the optimized and measured GCP position,
+    divided by the GCP sigma from the GCP file. The threshold should be
+    comparable to the largest such normalized residual to expect from reasonable
+    GCP. This attenuates the contribution of noisy GCP. See also
+    ``--max-gcp-reproj-err``.
 
 --num-anchor-points <integer (default: 0)>
     How many anchor points to create per image, tying each chosen pixel to the

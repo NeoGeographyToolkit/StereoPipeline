@@ -957,9 +957,8 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
 
     // By default GCP get a non-robust loss, as they are assumed to be accurate.
     // With --gcp-robust-threshold, a robust loss (of type --cost-function) is
-    // applied instead, to down-weight noisy or blunder GCP (such as some
-    // produced with dem2gcp). The robust threshold acts on the GCP residual
-    // already normalized by the GCP sigma (see XYZError / LLHError).
+    // applied instead. The robust threshold acts on the GCP residual already
+    // normalized by the GCP sigma (see XYZError / LLHError).
     ceres::LossFunction* loss_function = NULL;
     if (opt.gcp_robust_threshold > 0)
       loss_function = get_loss_function(opt.cost_function, opt.gcp_robust_threshold);

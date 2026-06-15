@@ -3,11 +3,11 @@ Changes since last release
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
-    ground control point (GCP) residuals, to down-weight noisy or blunder GCP.
+    ground control point (GCP) residuals.
 
 jitter_solve (:numref:`jitter_solve`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
-    ground control point (GCP) residuals, to down-weight noisy or blunder GCP.
+    ground control point (GCP) residuals.
   * Added ``--cost-function``, to choose the robust cost function type, as in
     ``bundle_adjust``.
 
@@ -16,6 +16,9 @@ point2dem (:numref:`point2dem`):
     "size too large" error) when reading a projected TIF or PCD point cloud.
 
 parallel_stereo (:numref:`parallel_stereo`):
+  * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
+    recent processing best practices (addition of anchor points, gcp robust
+    threshold, camera position controls with CSM cameras).
   * The minimum number of interest point matches is now set with
     ``--min-matches``, for consistency with other tools. The older option
     ``--min-num-ip`` is kept for backward compatibility
@@ -23,8 +26,6 @@ parallel_stereo (:numref:`parallel_stereo`):
 
 Misc:
   * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
-  * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
-    recent processing practice (CSM linescan conversion and ``jitter_solve``).
 
 RELEASE 3.7.0, June 2026
 ------------------------

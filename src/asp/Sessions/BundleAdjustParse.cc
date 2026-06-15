@@ -902,9 +902,8 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "ground control point (GCP) residuals, with this threshold. The GCP residual "
      "is the difference between the optimized and measured GCP position, divided "
      "by the GCP sigma from the GCP file. The threshold should be comparable to "
-     "the largest such normalized residual to expect from a good GCP, so that noisy "
-     "or blunder GCP are down-weighted. If not positive (the default), GCP get a "
-     "non-robust (quadratic) loss, as before.")
+     "the largest such normalized residual to expect from reasonable GCP. This "
+     "attenuates the contribution of noisy GCP. See also --max-gcp-reproj-err.")
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "Filter as outlier any triangulation point for which all rays converging to "
       "it have an angle less than this (measured in degrees). This happens on "
