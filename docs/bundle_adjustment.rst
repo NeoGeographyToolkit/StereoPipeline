@@ -1189,13 +1189,117 @@ A detailed example of using dense matches for bundle adjustment is in
 
 These options are formally described in :numref:`triangulation_options`. 
 
-Interest points from mapprojected images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _mapip:
 
-Interest point matches can be found between mapprojected images first, and those
-can be unprojected and used in bundle adjustment. This can produce many more
-interest points when the difference of perspective or scale between images is
-large. See :numref:`mapip`.
+Creating interest point matches using mapprojected images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To make it easier to create interest point matches in situations when the images
+are very different or taken from very diverse perspectives, the images can be
+first mapprojected onto a DEM, as then they look a lot more similar. The
+interest points are created among the mapprojected images, and the matches are
+transferred to the original images.
+
+This can produce many more interest points when the difference of perspective or
+scale between images is large. This is done with automatic or manual (GUI) means,
+as described below.
+
+Given three images ``A.tif``, ``B.tif``, and ``C.tif``,
+cameras ``A.tsai``, ``B.tsai``, and ``C.tsai``, and a DEM named ``dem.tif``,
+mapproject the images onto this DEM (:numref:`mapproject`), obtaining the images
+``A.map.tif``, ``B.map.tif``, and ``C.map.tif``.
+
+::
+
+    for f in A B C; do
+        mapproject --tr 1.0 dem.tif $f.tif $f.tsai $f.map.tif
+    done
+
+The same resolution (option ``--tr``) should be used for all images, which should
+be a compromise between the ground sample distance values for these images.
+
+See :numref:`mapproj-example` how how to find a DEM for mapprojection and other
+details.
+
+Automatic matching
+""""""""""""""""""
+
+Bundle adjustment will find interest point matches among the mapprojected images,
+and transfer them to the original images. Run::
+
+    bundle_adjust A.tif B.tif C.tif A.tsai B.tsai C.tsai          \
+      --mapprojected-data 'A.map.tif B.map.tif C.map.tif dem.tif' \
+      --min-matches 0 -o run/run
+
+This will not recreate any existing match files either for
+mapprojected images or for unprojected ones. If that is
+desired, existing match files need to be deleted first.
+
+Add options such as ``--ip-per-tile 250 --matches-per-tile 250`` if needed to
+increase the number of interest point matches.
+
+If these images become too many to set on the command line, use the
+options ``--image-list``, ``--camera-list``, ``--mapprojected-data-list``
+(:numref:`ba_options`).
+
+The DEM at the end of this option is optional in the latest builds,
+if it can be looked up from the geoheader of the mapprojected images.
+
+Each mapprojected image stores in its metadata the name of the original
+image, the camera model, the bundle-adjust prefix, if any, and the DEM it
+was mapprojected onto. Hence, the above command will succeed even if invoked
+with different cameras than the ones used for mapprojection, as long as the
+original cameras are still present and did not change.
+
+If the mapprojected images are still too different for interest point
+matching among them to succeed, one can try to bring in more images that
+are intermediate in appearance or illumination between the existing
+ones, so bridging the gap.
+
+It is suggested to use ``--mapprojected-data`` with ``--auto-overlap-params.``
+Then, the interest point matching will be restricted to the region of overlap
+(expanded by the percentage in the latter option).
+
+Adding ``--matches-as-txt`` (:numref:`txt_match`) makes both the match file among
+the mapprojected images and the unprojected camera-level match file be read and
+written in plain text. Externally computed matches among the mapprojected images
+can be provided this way, as long as ``--mapprojected-data`` is set, so they get
+unprojected to the cameras. See :numref:`map_matches_as_txt` for more details.
+
+Manual matching in the GUI
+""""""""""""""""""""""""""
+
+Alternatively, interest point matching can be done *manually* in the GUI as
+follows::
+
+     stereo_gui --view-matches A.map.tif B.map.tif C.map.tif run/run
+
+Interest points can be picked by right-clicking on the same feature in each
+image, from left to right, and selecting ``Add match point``. Repeat this
+process for a different feature. The matches can be saved to disk from the menu.
+
+The bundle adjustment command from above can be invoked to unproject the
+matches. Do not forget to first delete first the match files among unprojected
+images so that ``bundle_adjust`` can recreate them based on the projected
+images.
+
+Run::
+
+     stereo_gui --view-matches A.tif B.tif C.tif run/run
+
+to check if the interest point matches, that were created using mapprojected
+images, were correctly transferred to the original images. Consider using instead
+the option ``--pairwise-matches`` if some features are not seen in all images.
+
+See :numref:`sfs3` for an illustration of this process.
+
+.. figure:: images/sfs3.jpg
+   :name: sfs3
+   :alt: interest points picked manually
+
+   An illustration of how interest points are picked manually for the
+   purpose of bundle adjustment. This is normally not necessary
+   if there exist images with intermediate illumination.
 
 .. _limit_ip:
 

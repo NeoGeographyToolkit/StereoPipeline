@@ -306,12 +306,16 @@ instead. In that case, all existing ``.match`` files will be ignored.
 This applies to :ref:`bundle_adjust`, :ref:`parallel_stereo`,
 :ref:`jitter_solve`, :ref:`image_align`, :ref:`gcp_gen`, and :ref:`ipmatch`.
 
-Conversions between these formats can be done with ``ipmatch``
-(:numref:`ipmatch_convert`). Do not use the ``parse_match_file.py``
-(:numref:`parse_match_file`) program as that one has a different purpose.
+Conversions between plain text match files and binary match files (ending in
+``.match``) can be done with ``ipmatch`` (:numref:`ipmatch_convert`). Do not use
+the ``parse_match_file.py`` (:numref:`parse_match_file`) program as that one has
+a different purpose.
 
 Naming convention
 ~~~~~~~~~~~~~~~~~
+
+The general match-file naming convention, with examples, is described in
+:numref:`ba_match_files`. For plain text, the only difference is the extension.
 
 Given two images ``input/image1.tif`` and ``input/image2.tif``, and given an
 output prefix such as ``out/run``, the plain-text match file name will be::
@@ -361,6 +365,24 @@ as::
       --matches-as-txt       \
       image1.tif image2.tif  \
       --match-file out/run-image1__image2.txt
+
+.. _map_matches_as_txt:
+
+Mapprojected images and plain text match files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When ``bundle_adjust`` creates interest point matches from mapprojected images
+(:numref:`mapip`), both the match files among the mapprojected images and the
+unprojected camera-level match files are read and written in plain text as well.
+Both follow the usual match-file naming convention (:numref:`ba_match_files`),
+with a ``.txt`` extension rather than ``.match``.
+
+An externally computed match file among mapprojected images can be provided this
+way. For it to be picked up, in addition to ``--matches-as-txt``, the option
+``--mapprojected-data`` must be set (as described in :numref:`mapip`), as this is
+what makes ``bundle_adjust`` look at the mapprojected match files and unproject
+them to the cameras. Without it, mapprojected match files are not consulted, with
+or without ``--matches-as-txt``.
 
 .. _csv_format:
 
