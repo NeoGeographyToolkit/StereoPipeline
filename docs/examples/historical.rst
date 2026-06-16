@@ -927,7 +927,7 @@ Fixing horizontal registration errors
 
 It is quite likely that the mapprojected images after the last bundle adjustment
 are much improved, but the stereo terrain model still shows systematic issues
-relative to the reference terrain. 
+relative to the reference terrain.
 
 Then, the ``dem2gcp`` program (:numref:`dem2gcp`) can be invoked to create GCP
 that can fix this misregistration. Pass to this program the option
@@ -940,9 +940,11 @@ center, at least, must be unique for each individual image due to how they are
 scanned and cropped).
 
 Since dense GCP from ``dem2gcp`` can have blunders, it is suggested to add
-``--gcp-robust-threshold`` to ``bundle_adjust``, with a gentle (large) value,
-such as 3. This attenuates the contribution of GCP whose optimized position is
-pulled far from the measured one (normalized by the GCP sigma).
+``--gcp-robust-threshold`` to ``bundle_adjust``. This attenuates the
+contribution of GCP whose optimized position is pulled far from the measured
+one (normalized by the GCP sigma). As described for this option
+(:numref:`bundle_adjust`), set it proportional to the largest motion a good GCP
+may legitimately need, divided by its sigma.
 
 If happy enough with results at a given resolution, the cameras can be rescaled
 to a finer resolution and the process continued. See :numref:`resizing_images`
@@ -966,7 +968,7 @@ reduced the DEM error from about 120 - 150 m to about 7 m (NMAD, over stable
 terrain), with the warping removed.
 
 Rather than transforming the earlier OpticalBar-frame GCP into the rotated CSM
-frame it is suggested to create a stereo DEM with the converted CSM cameras,
+frame, it is suggested to create a stereo DEM with the converted CSM cameras,
 evaluate it against the reference DEM, and produce fresh GCP with ``dem2gcp``
 (:numref:`dem2gcp`) in the CSM image frame. All inputs are then self-consistent.
 
@@ -978,10 +980,10 @@ The pose samples are unconstrained where there are no matches (ocean, ice, image
 corners) and can swing wildly there, smearing the mapprojected image so stereo
 cannot correlate. Add anchor points (:numref:`jitter_anchor_points`) and a
 camera position constraint (:numref:`jitter_camera`) to constrain the poses
-in those regions. 
+in those regions.
 
-The number and uncertainty of anchor points need care. If too loose and they
-have no effect, if too tight they prevent the convergence. 
+The number and uncertainty of anchor points need care. If too loose, they
+have no effect; if too tight, they prevent convergence.
 
 Set ``--heights-from-dem-uncertainty`` to be at least twice the GCP sigma, so
 the DEM constraint does not over-constrain the points at their initial positions
@@ -990,8 +992,8 @@ looser than the heights-from-dem uncertainty.
 
 Generate dense matches (:numref:`dense_ip`) for every overlapping pair,
 including the aft-aft and fore-fore pairs, not just the fore/aft stereo pairs.
-The additional ones may have only little overlap and will not produce a DEM, but
-they tie the strips together. 
+The additional ones may have little overlap and will not produce a DEM, but
+they tie the strips together.
 
 A sample invocation::
 
@@ -1014,10 +1016,13 @@ A sample invocation::
       -o jitter_sub16/run
 
 Here the GCP sigma (in the GCP file) was about 50, less than the
-heights-from-dem uncertainty, so the GCP win the horizontal placement while the
-DEM pulls the heights. The ``--gcp-robust-threshold`` value is gentle (large),
-so it down-weights only blunder GCP. At higher resolution, and if confident in
-the GCP, the GCP sigma can be reduced further.
+heights-from-dem uncertainty, so the GCP, which provide horizontal control, are
+given more priority than the DEM constraint, which acts mostly vertically. We
+chose to set ``--gcp-robust-threshold`` to 3 because that is the largest motion
+a good GCP may legitimately need (here on the order of the heights-from-dem
+uncertainty of 150 m) divided by the GCP sigma of about 50 m, so it down-weights
+only blunder GCP. At higher resolution, and if confident in the GCP, the GCP
+sigma can be reduced further (and ``--gcp-robust-threshold`` adjusted, if used).
 
 Inspect the report files produced by this program, including the statistics for
 GCP, anchor points and other triangulated points (:numref:`jitter_out_files`).
@@ -1026,8 +1031,8 @@ These can suggest problems before the costly stereo DEM creation step.
 If the resulting stereo DEMs exhibit unreasonably large changes, that suggests
 the anchor points are too loose and/or the GCP are too noisy. Conversely,
 if the produced DEM preserves some of the distortions, that may suggest relaxing
-anchor point and/or camera position constraints, and tightening the DEM uncertainty
-constraints.
+the anchor point and/or camera position constraints, and tightening the DEM
+uncertainty.
 
 If the results at least go the right way, consider using these cameras as the initial
 guess for a subsequent pass of solving for jitter.
@@ -1043,8 +1048,8 @@ intrinsics (including focal length and lens distortion) with the CSM linescan
 model, then invoke ``jitter_solve`` once more. Each step should offer a further
 improvement.
 
-When it appears that the results at given subsampled resolution (here sub16) do
+When it appears that the results at a given subsampled resolution (here sub16) do
 not improve any more, it is suggested to continue the work at sub4 (for
 example). This requires making use of a `program for resampling CSM cameras
-<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/src/asp/Python/scale_linescan.py>`_ 
+<https://github.com/NeoGeographyToolkit/StereoPipeline/blob/master/src/asp/Python/scale_linescan.py>`_
 to the finer resolution.
