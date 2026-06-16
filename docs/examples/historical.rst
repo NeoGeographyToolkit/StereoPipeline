@@ -1029,13 +1029,15 @@ GCP, anchor points and other triangulated points (:numref:`jitter_out_files`).
 These can suggest problems before the costly stereo DEM creation step.
 
 If the resulting stereo DEMs exhibit unreasonably large changes, that suggests
-the anchor points are too loose and/or the GCP are too noisy. Conversely,
-if the produced DEM preserves some of the distortions, that may suggest relaxing
-the anchor point and/or camera position constraints, and tightening the DEM
-uncertainty.
+the anchor points are too loose and/or the GCP are too noisy. Conversely, if the
+produced DEM preserves some of the distortions, that may suggest relaxing the
+anchor point and/or camera position constraints. Tighten the GCP sigma if more
+horizontal improvement is needed, or the heights-from-dem uncertainty if more
+vertical improvement is wanted. Note that these two can conflict; it is likely
+better to prioritize the GCP sigma.
 
-If the results at least go the right way, consider using these cameras as the initial
-guess for a subsequent pass of solving for jitter.
+If the results at least go the right way, consider using these cameras as the
+initial guess for a subsequent pass of solving for jitter.
 
 When creating the stereo DEMs, the variable per-line geometry can make the
 disparity exceed the default spread away from the centerline, so the swath may
