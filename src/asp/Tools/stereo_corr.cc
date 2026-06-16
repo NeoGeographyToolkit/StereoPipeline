@@ -407,6 +407,8 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
              << " - Consider removing the run directory and restarting stereo,\n"
              << "   while setting --ip-per-tile 200 or some other larger number.\n"
              << " - Consider decreasing --min-matches to accept these matches.\n"
+             << " - To skip this interest-point-based search range estimation,\n"
+             << "   set the search range explicitly with --corr-search.\n"
              << " - Check if your input images are similar enough in illumination\n"
              << "   and if they have enough overlap.\n");
   

@@ -300,10 +300,14 @@ CorrelationDescription::CorrelationDescription():
       "Sigma value for Gaussian kernel used with prefilter modes 1 and 2.")
     ("corr-seed-mode", po::value(&global.seed_mode)->default_value(1),
       "Correlation seed strategy. [0 None, 1 Use low-res disparity from stereo, 2 Use low-res disparity from provided DEM (see disparity-estimation-dem), 3 Use low-res disparity produced by sparse_disp (in development)]")
-    ("min-matches", po::value(&global.min_matches)->default_value(0),
+    ("min-matches", po::value(&global.min_matches)->default_value(-1),
       "The minimum number of interest point matches which must be found to estimate the "
-      "search range. If fewer are found, the correlation is aborted. The default is 20.")
-    ("min-num-ip", po::value(&global.min_num_ip)->default_value(0),
+      "search range. If fewer matches are found, the correlation is aborted. This option "
+      "is named for consistency with other tools, such as bundle_adjust and jitter_solve. "
+      "The default is 20. A value of 0 disables this check. To skip the interest-point-based "
+      "search range estimation altogether, set the search range explicitly with "
+      "--corr-search.")
+    ("min-num-ip", po::value(&global.min_num_ip)->default_value(-1),
       "Alias for --min-matches, kept for backward compatibility. Only one of the two may "
       "be set.")
     ("corr-sub-seed-percent", po::value(&global.seed_percent_pad)->default_value(0.25),
@@ -758,15 +762,16 @@ void StereoSettings::validate() {
       << "Cannot set both --ip-per-image and --ip-per-tile.\n");
 
   // min-matches and min-num-ip are alternative names for the same thing. Resolve
-  // them into min_matches. Only one may be set. If neither is set, use the
-  // default of 20.
-  if (min_matches != 0 && min_num_ip != 0)
+  // them into min_matches. They default to -1 ("not set"), so a user can
+  // explicitly request 0 (no minimum) without it being confused with the
+  // default. Only one may be set. If neither is set, use the default of 20.
+  if (min_matches >= 0 && min_num_ip >= 0)
     vw::vw_throw(vw::ArgumentErr()
       << "Cannot set both --min-matches and --min-num-ip. They are alternative "
       << "names for the same option.\n");
-  if (min_num_ip != 0)
+  if (min_num_ip >= 0)
     min_matches = min_num_ip;
-  if (min_matches == 0)
+  if (min_matches < 0)
     min_matches = 20;
 
   // The low-confidence pixel removal kernel must be square and non-negative.

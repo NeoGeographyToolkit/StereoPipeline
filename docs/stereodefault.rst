@@ -414,7 +414,9 @@ min-matches (*integer*) (default = 20)
     The minimum number of interest point matches which must be found to
     estimate the search range. If fewer matches are found, the correlation
     is aborted. This option is named for consistency with other tools, such
-    as ``bundle_adjust`` and ``jitter_solve``.
+    as ``bundle_adjust`` and ``jitter_solve``. A value of 0 disables this
+    check. To skip the interest-point-based search range estimation
+    altogether, set the search range explicitly with ``corr-search``.
 
 min-num-ip (*integer*) (default = 20)
     Alias for ``min-matches``, kept for backward compatibility. Only one of

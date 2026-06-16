@@ -41,13 +41,17 @@
 #include <vw/Math/RANSAC.h>
 #include <vw/FileIO/FileUtils.h>
 
+#include <ogrsf_frmts.h>
+#include <boost/filesystem.hpp>
+
 using namespace vw;
 namespace po = boost::program_options;
 
 struct Options: vw::GdalWriteOptions {
   std::vector<std::string> input_images;
   std::string alignment_transform, output_image, output_prefix, output_data_string,
-    input_transform, disparity_params, ecef_transform_type, dem1, dem2;
+    input_transform, disparity_params, ecef_transform_type, dem1, dem2,
+    match_points_gpkg;
   int output_data_type, min_matches;
   Options(): output_data_type(0){}
 };
@@ -243,7 +247,10 @@ calc_alignment_transform(std::string const& image_file1,
                          std::vector<ip::InterestPoint> &matched_ip1,
                          std::vector<ip::InterestPoint> &matched_ip2,
                          Options const& opt,
-                         Matrix<double> & ecef_transform) { // potential output
+                         // Outputs
+                         Matrix<double> & ecef_transform,
+                         std::vector<ip::InterestPoint> & inlier_ip1,
+                         std::vector<ip::InterestPoint> & inlier_ip2) {
   
   // Convert to 3D points with the third coordinate being 1, obtaining
   // homogeneous coordinates.
@@ -282,7 +289,8 @@ calc_alignment_transform(std::string const& image_file1,
   }
     
   // Keeping only inliers
-  std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
+  inlier_ip1.clear();
+  inlier_ip2.clear();
   for (size_t i = 0; i < indices.size(); i++) {
     inlier_ip1.push_back(matched_ip1[indices[i]]);
     inlier_ip2.push_back(matched_ip2[indices[i]]);
@@ -382,6 +390,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Find the alignment transform by using, instead of interest points, a disparity, such "
      "as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, "
      "in the format: 'disparity.tif num_samples'.")
+    ("match-points-geopackage", po::value(&opt.match_points_gpkg)->default_value(""),
+     "Write the inlier interest point matches to this GeoPackage (.gpkg) file, in the units "
+     "of the georeference (meters or degrees). In this mode the actual alignment is skipped "
+     "(but the aligned image can still be produced by also setting -o).")
     ("nodata-value", 
      po::value(&ip_opt.nodata_value)->default_value(g_nan_val),
      "Pixels with values less than or equal to this number are treated as no-data. This "
@@ -408,8 +420,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.input_images.size() != 2)
     vw_throw(ArgumentErr() << "Expecting two input images.\n" << usage << general_options);
 
-  if (opt.output_image.empty())
-    vw_throw(ArgumentErr() << "Missing output image name.\n" << usage << general_options);
+  if (opt.output_image.empty() && opt.match_points_gpkg.empty())
+    vw_throw(ArgumentErr() << "Must set the output image (-o) or "
+             << "--match-points-geopackage.\n" << usage << general_options);
+
+  if (!opt.match_points_gpkg.empty() && !opt.input_transform.empty())
+    vw_throw(ArgumentErr() << "Cannot use --match-points-geopackage together with "
+             << "--input-transform, as the latter does not produce interest point matches.\n");
 
   if (ip_opt.ip_per_image > 0 && ip_opt.ip_per_tile > 0)
     vw_throw(ArgumentErr() << "Can set only one of --ip-per-image and --ip-per-tile.\n");
@@ -455,13 +472,16 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << ".\n");
   
   // Create the output directory
-  vw::create_out_dir(opt.output_image);
+  if (!opt.output_image.empty())
+    vw::create_out_dir(opt.output_image);
 
   if (opt.output_prefix != "") // for saving match files, etc.
     vw::create_out_dir(opt.output_prefix);
 
-  // Turn on logging to file
-  asp::log_to_file(argc, argv, "", opt.output_image);
+  // Turn on logging to file. Use the output image prefix if set, otherwise the
+  // output prefix (the latter is always set).
+  std::string log_prefix = (!opt.output_image.empty()) ? opt.output_image : opt.output_prefix;
+  asp::log_to_file(argc, argv, "", log_prefix);
   
   return;  
 }
@@ -506,6 +526,88 @@ void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
 #undef WRITE_ALIGNED_INT
 #undef WRITE_ALIGNED_FLOAT
 
+// Write inlier interest point matches to a GeoPackage, in the units of the
+// georeference (meters or degrees). The point geometry is the source-image
+// location. Each feature records the reference and source coordinates, their
+// offset (dx, dy, as source minus reference), the pixel locations, and a
+// match quality value. No alignment transform is applied. This only reports
+// where matched features land in each image.
+void write_match_geopackage(std::string const& gpkg_file,
+                            std::vector<ip::InterestPoint> const& inlier_ip1,
+                            std::vector<ip::InterestPoint> const& inlier_ip2,
+                            vw::cartography::GeoReference const& ref_georef,
+                            vw::cartography::GeoReference const& src_georef) {
+
+  vw::create_out_dir(gpkg_file);
+
+  // Overwrite any existing file
+  if (boost::filesystem::exists(gpkg_file))
+    boost::filesystem::remove(gpkg_file);
+
+  const char *pszDriverName = "GPKG";
+  GDALAllRegister();
+  GDALDriver *poDriver = GetGDALDriverManager()->GetDriverByName(pszDriverName);
+  if (poDriver == NULL)
+    vw_throw(ArgumentErr() << "Could not find GDAL driver: " << pszDriverName << ".\n");
+
+  GDALDataset *poDS = poDriver->Create(gpkg_file.c_str(), 0, 0, 0, GDT_Unknown, NULL);
+  if (poDS == NULL)
+    vw_throw(ArgumentErr() << "Failed writing file: " << gpkg_file << ".\n");
+
+  // The geometry is in the source image georeferenced coordinates
+  OGRSpatialReference spatial_ref;
+  std::string srs_string = src_georef.get_wkt();
+  if (spatial_ref.SetFromUserInput(srs_string.c_str()))
+    vw_throw(ArgumentErr() << "Failed to parse: \"" << srs_string << "\".\n");
+
+  OGRLayer *layer = poDS->CreateLayer("match_points", &spatial_ref, wkbPoint, NULL);
+  if (layer == NULL)
+    vw_throw(ArgumentErr() << "Failed creating layer in: " << gpkg_file << ".\n");
+
+  // Create the attribute fields. All are real-valued.
+  const char* real_fields[] = {"ref_x", "ref_y", "src_x", "src_y", "dx", "dy",
+                               "ref_col", "ref_row", "src_col", "src_row", "quality"};
+  for (auto const& fname: real_fields) {
+    OGRFieldDefn field(fname, OFTReal);
+    if (layer->CreateField(&field) != OGRERR_NONE)
+      vw_throw(ArgumentErr() << "Failed creating field: " << fname << ".\n");
+  }
+
+  vw_out() << "Writing match points to GeoPackage: " << gpkg_file << "\n";
+  for (size_t i = 0; i < inlier_ip1.size(); i++) {
+    vw::Vector2 ref_pix(inlier_ip1[i].x, inlier_ip1[i].y);
+    vw::Vector2 src_pix(inlier_ip2[i].x, inlier_ip2[i].y);
+    vw::Vector2 ref_pt = ref_georef.pixel_to_point(ref_pix);
+    vw::Vector2 src_pt = src_georef.pixel_to_point(src_pix);
+    double dx = src_pt.x() - ref_pt.x();
+    double dy = src_pt.y() - ref_pt.y();
+
+    OGRFeature *feature = OGRFeature::CreateFeature(layer->GetLayerDefn());
+    feature->SetField("ref_x", ref_pt.x());
+    feature->SetField("ref_y", ref_pt.y());
+    feature->SetField("src_x", src_pt.x());
+    feature->SetField("src_y", src_pt.y());
+    feature->SetField("dx", dx);
+    feature->SetField("dy", dy);
+    feature->SetField("ref_col", ref_pix.x());
+    feature->SetField("ref_row", ref_pix.y());
+    feature->SetField("src_col", src_pix.x());
+    feature->SetField("src_row", src_pix.y());
+    feature->SetField("quality", (double)inlier_ip2[i].interest);
+
+    // The geometry is the source georeferenced location
+    OGRPoint pt(src_pt.x(), src_pt.y());
+    feature->SetGeometry(&pt);
+
+    if (layer->CreateFeature(feature) != OGRERR_NONE)
+      vw_throw(ArgumentErr() << "Failed creating feature in: " << gpkg_file << ".\n");
+
+    OGRFeature::DestroyFeature(feature);
+  }
+
+  GDALClose(poDS);
+}
+
 int main(int argc, char *argv[]) {
 
   Options opt;
@@ -533,6 +635,7 @@ int main(int argc, char *argv[]) {
    }
    
     Matrix<double> tf, ecef_transform;
+    std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
     if (opt.input_transform.empty()) {
       std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
       if (opt.disparity_params == "")
@@ -540,15 +643,16 @@ int main(int argc, char *argv[]) {
                            matched_ip1, matched_ip2);
       else
         find_matches_from_disp(matched_ip1, matched_ip2, opt);
-      
+
       // Must have at least a minimum number of matches to ensure accurate transform
       if ((int)matched_ip1.size() < opt.min_matches)
         vw_throw(ArgumentErr() << "Found only " << matched_ip1.size()
                  << " matches, which is less than the minimum of "
                  << opt.min_matches << " (option --min-matches).\n");
 
-      tf = calc_alignment_transform(image_file1, image_file2,  
-                                    matched_ip1, matched_ip2, opt, ecef_transform);
+      tf = calc_alignment_transform(image_file1, image_file2,
+                                    matched_ip1, matched_ip2, opt, ecef_transform,
+                                    inlier_ip1, inlier_ip2);
     } else {
       vw_out() << "Reading the alignment transform from: " << opt.input_transform << "\n";
       read_matrix_as_txt(opt.input_transform, tf);
@@ -570,7 +674,22 @@ int main(int argc, char *argv[]) {
         << ecef_transform_inv_file << "\n";
       write_matrix_as_txt(ecef_transform_inv_file, vw::math::inverse(ecef_transform));
     }
-    
+
+    // Write the match points to a GeoPackage, in georeference units. This uses the
+    // original (un-borrowed) source georeference, so it must happen before the
+    // alignment block below overwrites georef2.
+    if (!opt.match_points_gpkg.empty()) {
+      if (!has_georef1 || !has_georef2)
+        vw_throw(ArgumentErr() << "Both input images must have a georeference to write "
+                 << "the match points GeoPackage.\n");
+      write_match_geopackage(opt.match_points_gpkg, inlier_ip1, inlier_ip2,
+                             georef1, georef2);
+    }
+
+    // Without an output image, no alignment is applied; we are done.
+    if (opt.output_image.empty())
+      return 0;
+
     // Any transforms supported by this tool fit in a homography transform object
     vw::HomographyTransform T(tf);
 

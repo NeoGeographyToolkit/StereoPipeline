@@ -3,7 +3,7 @@
 pc_align
 --------
 
-The ``pc_align`` programs aligns two point clouds. The supported algorithms are
+The ``pc_align`` program aligns two point clouds. The supported algorithms are
 Iterative Closest Point (:numref:`pc_icp`), Nuth and Kaab (:numref:`nuth`), Fast
 Global Registration (:numref:`fgr`), and feature-based alignment
 (:numref:`pc_hillshade`).
@@ -14,7 +14,7 @@ to rotations and translations.
 Usage::
 
      pc_align --max-displacement <float> [other options]    \
-       <reference cloud> <source cloud> -o <output prefix>}
+       <reference cloud> <source cloud> -o <output prefix>
 
 The denser cloud must be the first one to be passed to this tool. This
 program is very sensitive to the value of ``--max-displacement``
@@ -159,8 +159,8 @@ follows, for any input DEM::
   gdal_translate -r average -outsize 50% 50% input.tif output.tif
 
 Any produced transform with lower-resolution DEMs can be applied to the original
-DEMs (:numref:`prevtrans`). When that is done, the value of
-``--max-displacement`` should be somewhat larger than the expected remaining
+DEMs (:numref:`prevtrans`). When that is done, the value of ``--max-displacement``
+becomes very important, and should be somewhat larger than the expected remaining
 displacement.
 
 Additional options can be passed in via ``--nuth-options``
@@ -232,9 +232,9 @@ coarser) grid, as described in :numref:`regrid`. The clouds can be cropped to a
 shared area as well.
 
 The produced transform will be applicable to the original clouds (a translation
-transform may be more reliable if cropping happens). When that is done, the
-value of ``--max-displacement`` should be somewhat larger than the expected
-remaining displacement.
+transform may be more reliable if cropping happens). When that is done, the value
+of ``--max-displacement`` becomes very important, and should be somewhat larger
+than the expected remaining displacement (:numref:`prevtrans`).
 
 .. _pc_corr:
 
@@ -245,9 +245,26 @@ Given two DEMs with the same grid size that look visually similar when
 hillshaded, the dense image correlation can be found between the hillshaded
 images, and that can be employed to align the clouds.
 
-For that, first produce the hillshades, either with ``gdaldem hillshade``
-(:numref:`gdal_hill`) or with the ASP ``hillshade`` program
-(:numref:`hillshade`). Call these outputs ``ref_hill.tif`` and ``src_hill.tif``.
+For correlation and hillshading to work well, both DEMs must be on the same
+local projection and grid size. Otherwise the hillshades may not match, and the
+correlation may fail. Regrid the DEMs with ``gdalwarp`` (:numref:`gdal_tools`),
+using cubic spline interpolation. Example (adjust the projection center and grid
+size)::
+
+    proj='+proj=stere +lat_0=27.9 +lon_0=102.2 +datum=WGS84 +units=m +no_defs'
+    gdalwarp -tr 20 20 -t_srs "$proj" -r cubicspline ref_in.tif ref.tif
+    gdalwarp -tr 20 20 -t_srs "$proj" -r cubicspline src_in.tif src.tif
+
+A local projection, such as UTM or stereographic, is strongly preferred. It is
+also advised that the two DEMs have the same extent, which can be set with the
+``gdalwarp`` ``-te`` option. See also :numref:`regrid`.
+
+The shared grid size could be a compromise between the grid sizes of the
+individual input DEMs.
+
+Produce the hillshades, either with ``gdaldem hillshade`` (:numref:`gdal_hill`)
+or with the ASP ``hillshade`` program (:numref:`hillshade`). Call these outputs
+``ref_hill.tif`` and ``src_hill.tif``.
 
 Consider increasing the hillshaded image contrast and range of intensities with
 ``hillshade`` by decreasing the ``--elevation`` option value.
@@ -271,10 +288,18 @@ Stereo correlation can take a long time. It can be run over several nodes
 the search range (:numref:`corr_section`). A value like 50 is likely adequate.
 
 Increasing the correlation kernel size, such as ``--corr-kernel 9 9`` (from the
-default of ``5 5`` for the ``aspm_mgm`` algorithm) may help with noisy DEMs.
-Also running this for lower-resolution versions of the input DEMs.
+default of ``5 5`` for the ``asp_mgm`` algorithm) may help with noisy DEMs.
+Also consider running this for lower-resolution versions of the input DEMs.
 
 ASP supports many stereo correlation algorithms (:numref:`stereo_alg_overview`).
+
+Before extracting matches from the disparity, inspect the disparity map
+``run_corr/run-F.tif``. Its horizontal and vertical bands can be extracted and
+colorized as described in :numref:`raw_disp`. Smoothly varying bands suggest a
+good correlation, while noisy or patchy bands suggest the hillshades did not
+correlate well and the resulting alignment will be unreliable. The bands also
+help decide if the transform should be rigid or translation-only
+(:numref:`mask_disparity`).
 
 This produces a dense match file (:numref:`dense_ip`) that should be inspected
 (:numref:`stereo_gui_view_ip`), and then passed to ``pc_align``::
@@ -292,13 +317,22 @@ This produces a dense match file (:numref:`dense_ip`) that should be inspected
       -o run_align/run
 
 One has to consider carefully if the transform to be solved for should be rigid
-(rotation + translation) or a translation only. Inspecting the bands of the
-disparity map ``run_corr/run-F.tif`` can help with that
-(:numref:`mask_disparity`).
+(rotation + translation) or a translation only, as informed by the disparity
+bands inspected above.
 
 The resulting aligned cloud ``run_align/run-trans_source.tif`` can be regridded
-with ``point2dem`` and same grid size and projection as the input DEMs, and
+with ``point2dem``, using the same grid size and projection as the input DEMs, to
 evaluate if it moved as expected.
+
+The number of iterations was set to 0 to stop after this alignment, rather than
+continuing with ICP or other methods.
+
+Here, ``--max-displacement -1`` is acceptable because a match file is provided,
+so no outlier filtering based on displacement is needed. The produced transform
+can then be used as an initial guess to align the original clouds, if these were
+regridded for this application. In that case, the value of ``--max-displacement``
+becomes very important (:numref:`prevtrans`). It should be positive, somewhat
+larger than the expected remaining displacement, rather than ``-1``.
 
 This method will fail if the input DEMs do not overlap a lot when overlaid with
 georeference information. If the usable overlap is small, consider running this
@@ -465,9 +499,8 @@ North-East-Down coordinate system at the centroid of the source
 points, before the alignment algorithm is invoked. Hence, if it is
 desired to first move the source cloud North by 5 m, East by 10 m, and
 down by 15 m relative to the point on planet surface which is the
-centroid of the source points, the continue with alignment, one can
+centroid of the source points, then continue with alignment, one can
 invoke ``pc_align`` with::
-
 
     --initial-ned-translation "5 10 15"
 

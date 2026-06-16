@@ -7,8 +7,10 @@ This tool can be used to perform simple, per-pixel arithmetic on one or
 more input images. An arithmetic operation specified on the command line
 is parsed and applied to each pixel, then the result is written to disk.
 The tool supports multiple input images but each must be the same size
-and data type. Input images are restricted to one channel (band). For images with
-more than one channel, only the first channel will be read.
+and data type. 
+
+Input images are restricted to one channel (band). For images with more than one
+channel, only the first channel will be read.
 
 The pixel in the first image is referred to as ``var_0``, the second as
 ``var_1``, and so on.
@@ -59,13 +61,15 @@ the list above) with a nodata value chosen outside the valid data range::
       input.tif mask.tif -o output.tif
 
 Here, where the mask is 0 the output becomes -9999 (nodata), otherwise the
-input value is kept. The image and mask must have the same dimensions.
+input value is kept.
 
 Setting the masked pixels to a dedicated nodata value, rather than 0, takes care
 of not mixing up masked pixels with pixels whose value is legitimately 0 (such
 as sea-level elevation). For this reason, avoid masking by multiplying the image
 by the mask with a nodata value of 0, as that marks every legitimate 0 as
 invalid.
+
+The image and the mask must have the same dimensions.
 
 .. _image_calc_create_mask:
 

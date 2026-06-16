@@ -944,17 +944,12 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
     vw_throw(ArgumentErr() << "Invalid region for doing stereo.\n\n");
   }
 
-  // For time being the crop wins are not taken into account when
-  // matches are produced from disparity, and the results are wrong.
-  // Therefore, disable this.
-  if ((crop_left || crop_right) &&
-      (stereo_settings().num_matches_from_disparity > 0 ||
-       stereo_settings().num_matches_from_disp_triplets > 0))
-    vw_throw(ArgumentErr() << "Cannot use --num-matches-from-disparity or "
-              << "--num-matches-from-disp-triplets with --left-image-crop-win, "
-              << "--right-image-crop-win, or --proj-win. The alternative is to "
-              << "manually crop the left and right images while keeping the "
-              << "upper-left corner. Otherwise the results would be incorrect.\n");
+  // Crop windows are now supported with matches from disparity. The matches are
+  // computed in the cropped-image domain and then shifted to full-image
+  // coordinates by adding the crop origin (see matchesFromDisp in
+  // DisparityProcessing.cc). This lets the crop windows be used purely to
+  // restrict where matching happens, which is useful for tying together image
+  // pairs that only overlap in a thin band.
 
   // This does not work because tx_left() and tx_right() return the identity for
   // this alignment method. See StereoSessionPinhole::tx_left() for more

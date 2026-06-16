@@ -1302,7 +1302,30 @@ void matchesFromDisp(ASPGlobalOptions const& opt,
                         multiplier, left_ip, right_ip);
     }
   }
-  
+
+  // When crop windows are used (--left-image-crop-win / --right-image-crop-win),
+  // the disparity and the matches above are computed in the cropped-image domain.
+  // The transforms do not add the crop origin, so shift the matches to full-image
+  // coordinates by adding the crop origin. This makes the matches valid for the
+  // original uncropped images, so the crop can be used purely to restrict where
+  // matching happens. See the corresponding logic in stereo.cc.
+  vw::BBox2 const& lcrop = asp::stereo_settings().left_image_crop_win;
+  vw::BBox2 const& rcrop = asp::stereo_settings().right_image_crop_win;
+  if (lcrop.width() > 0 && lcrop.height() > 0) {
+    double ox = lcrop.min().x(), oy = lcrop.min().y();
+    for (size_t i = 0; i < left_ip.size(); i++) {
+      left_ip[i].x  += ox;                   left_ip[i].y  += oy;
+      left_ip[i].ix += (vw::int32)round(ox); left_ip[i].iy += (vw::int32)round(oy);
+    }
+  }
+  if (rcrop.width() > 0 && rcrop.height() > 0) {
+    double ox = rcrop.min().x(), oy = rcrop.min().y();
+    for (size_t i = 0; i < right_ip.size(); i++) {
+      right_ip[i].x  += ox;                   right_ip[i].y  += oy;
+      right_ip[i].ix += (vw::int32)round(ox); right_ip[i].iy += (vw::int32)round(oy);
+    }
+  }
+
   vw_out() << "Writing: " << match_file << "\n";
   ip::write_match_file(match_file, left_ip, right_ip, matches_as_txt);
 }

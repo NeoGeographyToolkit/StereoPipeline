@@ -195,6 +195,63 @@ Note that this transform is an approximation. It is not possible to
 precisely convert a 2D transform between images to a 3D transform
 in ECEF unless the underlying terrain is perfectly flat.
 
+.. _image_align_match_points:
+
+Evaluating matches between orthoimages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This program can evaluate the geolocation agreement between two georeferenced
+orthoimages, such as a reference basemap and a source image. In this mode the
+actual alignment is skipped. The interest point matches are found and saved to a
+GeoPackage, recording where each matched feature lands in each image, in the
+units of the georeference in the input images (meters or degrees), and the
+offset between them.
+
+::
+
+    image_align reference.tif source.tif         \
+      --output-prefix run/run                    \
+      --match-points-geopackage run/matches.gpkg \
+      --individually-normalize                   \
+      --ip-per-image 0 --ip-per-tile 200         \
+      --matches-per-tile 100
+
+Here, the output image (``-o``) is not set, so no alignment transform is
+applied. If ``-o`` is also set, the aligned image is produced as well.
+
+The matching uses the same interest point engine as for alignment, so the
+options ``--individually-normalize`` (helpful for images of differing modality
+or wavelength), ``--ip-per-tile``, ``--matches-per-tile``, and the RANSAC
+filtering controls (``--num-ransac-iterations``, ``--inlier-threshold``) all
+apply. Both images must be georeferenced.
+
+The matches are filtered with RANSAC. The option ``--inlier-threshold``
+(default: 50 pixels) sets how far a match may deviate from the best-fit
+transform and still be kept as an inlier. When the two images are already
+approximately co-registered, a smaller value (a few pixels) is recommended, as
+it rejects spurious matches caused by illumination or content differences
+between the images. A larger value should be used when a substantial
+misregistration between the images is expected.
+
+GeoPackage format
+^^^^^^^^^^^^^^^^^
+
+The output is a GeoPackage (``.gpkg``) with one point feature per inlier match.
+The point geometry is the source-image location, in the coordinate system of the
+source image. All coordinates and offsets are in the units of the georeference
+(meters or degrees). Each feature has the following fields:
+
+- ``ref_x``, ``ref_y``: the coordinates of the match in the reference image.
+- ``src_x``, ``src_y``: the coordinates of the match in the source image.
+- ``dx``, ``dy``: the offset, as source minus reference. This is the local
+  geolocation discrepancy between the two images.
+- ``ref_col``, ``ref_row``, ``src_col``, ``src_row``: the pixel locations of
+  the match in each image.
+- ``quality``: a match quality value (the interest point strength).
+
+The GeoPackage can be inspected or converted with ``ogrinfo`` and ``ogr2ogr``
+(:numref:`gdal_tools`), or opened in QGIS.
+
 Usage
 ~~~~~
 
@@ -276,8 +333,8 @@ Command-line options for image_align
     a disparity, such as produced by ``parallel_stereo --correlator-mode``. 
     Specify as a string in quotes, in the format: "disparity.tif num_samples".
 
---input-transform <string (default: "")>    
-    Instead of computing an alignment transform, read and apply the one from 
+--input-transform <string (default: "")>
+    Instead of computing an alignment transform, read and apply the one from
     this file. Must be stored as a 3x3 matrix.
 
 --ecef-transform-type <string (default: "")>
@@ -298,6 +355,12 @@ Command-line options for image_align
 --nodata-value <float (default: NaN)>
     Pixels with values less than or equal to this number are treated
     as no-data. This overrides the no-data values from input images.
+
+--match-points-geopackage <string (default: "")>
+    Write the inlier interest point matches to this GeoPackage (``.gpkg``) file,
+    in the units of the georeference (meters or degrees). In this mode the actual
+    alignment is skipped, unless ``-o`` is set. See
+    :numref:`image_align_match_points` for details.
     
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

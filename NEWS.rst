@@ -15,6 +15,11 @@ point2dem (:numref:`point2dem`):
   * Fixed a bug that could produce an enormous output DEM extent (and a
     "size too large" error) when reading a projected TIF or PCD point cloud.
 
+image_align (:numref:`image_align`):
+  * Added ``--match-points-geopackage``, giving the ability to find interest
+    point matches between two georeferenced images and save them to a GeoPackage
+    in projected units (:numref:`image_align_match_points`).
+
 parallel_stereo (:numref:`parallel_stereo`):
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
     recent processing best practices (addition of anchor points, gcp robust

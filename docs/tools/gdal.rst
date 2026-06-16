@@ -14,22 +14,22 @@ ASP distributes in the ``bin`` directory the following `GDAL
 - gdaltransform (transforms between coordinate systems)
 - gdalwarp (convert to another projection and interpolate)
 - gdaladdo (create multi-resolution pyramids)
+- ogrinfo (show information about vector data, such as a GeoPackage)
+- ogr2ogr (convert between vector formats)
 
 and a handful of other ones.
 
-These executables are compiled with JPEG2000 and BigTiff support, and
-can handle NTF images in addition to most image formats. They can be
-used to see image statistics, crop and scale images, build virtual
-mosaics, reproject DEMs, etc.
+These executables are compiled with JPEG2000 and BigTiff support, and can handle
+NTF images in addition to most image formats. They can be used to see image
+statistics, crop and scale images, build virtual mosaics, reproject DEMs, etc.
 
 If ASP was installed via conda, rather than using the release tarball
-(:numref:`installation`), make sure to activate that conda environment
-before using these tools or set the ``PROJ_LIB`` and/or ``PROJ_DATA``
-environmental variable to points to the ``share/proj`` subdirectory of
-the ASP conda environment. Otherwise there will be warnings about
-failing to find such a directory. This is a known PROJ issue.
+(:numref:`installation`), make sure to activate that conda environment before
+using these tools or set the ``PROJ_LIB`` and/or ``PROJ_DATA`` environmental
+variable to points to the ``share/proj`` subdirectory of the ASP conda
+environment. Otherwise there will be warnings about failing to find such a
+directory. This is a known PROJ issue.
 
-Certain conversion between datums using the GDAL/PROJ tools may need
-additional data, which can be stored either locally or fetched via a
-network (see the `PROJ documentation
-<https://proj.org/usage/network.html>`_).
+Certain conversion between datums using the GDAL/PROJ tools may need additional
+data, which can be stored either locally or fetched via a network (see the `PROJ
+documentation <https://proj.org/usage/network.html>`_).

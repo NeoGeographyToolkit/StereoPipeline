@@ -53,7 +53,23 @@ normalization, run a command such as::
 Invalid values are set to a no-data value (-1e+6) that is saved in the geoheader
 of the output files.
 
+This shows the actual disparity values (not normalized), and whether they vary
+smoothly or are noisy. It is useful for inspecting the disparity before
+extracting interest point matches from it, such as in correlation-based
+alignment (:numref:`pc_corr`).
+
 This option is available in build 1/2026 and later.
+
+View the obtained horizontal and vertical bands, colorized by value, with
+``stereo_gui`` (:numref:`stereo_gui`, :numref:`colorize`)::
+
+    stereo_gui --colorbar              \
+      --min -50 --max 50               \
+      run/run-F-H.tif run/run-F-V.tif
+
+The ``--min`` and ``--max`` options set the range of values for the colormap.
+Adjust them to bracket the actual disparity range, which is printed by
+``disparitydebug``.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
