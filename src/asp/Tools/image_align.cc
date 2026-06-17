@@ -529,9 +529,10 @@ void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
 // Write inlier interest point matches to a GeoPackage, in the units of the
 // georeference (meters or degrees). The point geometry is the source-image
 // location. Each feature records the reference and source coordinates, their
-// offset (dx, dy, as source minus reference), the pixel locations, and a
-// match quality value. No alignment transform is applied. This only reports
-// where matched features land in each image.
+// offset (dx, dy, as source minus reference), the pixel locations, and the
+// per-match sigma (the interest point scale, in pixels, as used by
+// bundle_adjust for the pixel sigma). No alignment transform is applied. This
+// only reports where matched features land in each image.
 void write_match_geopackage(std::string const& gpkg_file,
                             std::vector<ip::InterestPoint> const& inlier_ip1,
                             std::vector<ip::InterestPoint> const& inlier_ip2,
@@ -566,7 +567,7 @@ void write_match_geopackage(std::string const& gpkg_file,
 
   // Create the attribute fields. All are real-valued.
   const char* real_fields[] = {"ref_x", "ref_y", "src_x", "src_y", "dx", "dy",
-                               "ref_col", "ref_row", "src_col", "src_row", "quality"};
+                               "ref_col", "ref_row", "src_col", "src_row", "sigma"};
   for (auto const& fname: real_fields) {
     OGRFieldDefn field(fname, OFTReal);
     if (layer->CreateField(&field) != OGRERR_NONE)
@@ -593,7 +594,7 @@ void write_match_geopackage(std::string const& gpkg_file,
     feature->SetField("ref_row", ref_pix.y());
     feature->SetField("src_col", src_pix.x());
     feature->SetField("src_row", src_pix.y());
-    feature->SetField("quality", (double)inlier_ip2[i].interest);
+    feature->SetField("sigma", (double)inlier_ip2[i].scale);
 
     // The geometry is the source georeferenced location
     OGRPoint pt(src_pt.x(), src_pt.y());

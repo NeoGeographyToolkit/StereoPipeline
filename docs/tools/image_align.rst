@@ -247,7 +247,9 @@ source image. All coordinates and offsets are in the units of the georeference
   geolocation discrepancy between the two images.
 - ``ref_col``, ``ref_row``, ``src_col``, ``src_row``: the pixel locations of
   the match in each image.
-- ``quality``: a match quality value (the interest point strength).
+- ``sigma``: the per-match sigma, in pixels. This is the interest point scale,
+  the same quantity ``bundle_adjust`` uses for the pixel sigma. It is a measure
+  of how precisely the match is localized.
 
 The GeoPackage can be inspected or converted with ``ogrinfo`` and ``ogr2ogr``
 (:numref:`gdal_tools`), or opened in QGIS.
