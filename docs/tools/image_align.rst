@@ -254,6 +254,10 @@ source image. All coordinates and offsets are in the units of the georeference
 The GeoPackage can be inspected or converted with ``ogrinfo`` and ``ogr2ogr``
 (:numref:`gdal_tools`), or opened in QGIS.
 
+The same interest point matches are also written as a match file under the
+output prefix (binary, or plain text with ``--matches-as-txt``); see
+:numref:`txt_match` for that format.
+
 Usage
 ~~~~~
 
