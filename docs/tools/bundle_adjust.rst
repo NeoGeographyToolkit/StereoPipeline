@@ -1339,14 +1339,17 @@ Match files and control networks
     See the naming convention in :numref:`ba_match_files`. This implies
     ``--skip-matching``. The order of images in each interest point match file
     need not be the same as for input images. See also
-    ``--clean-match-files-prefix``.
+    ``--clean-match-files-prefix``. Cannot be used together with
+    ``--mapprojected-data`` or ``--mapprojected-data-list``. Match files among
+    mapprojected images are read only from the output prefix (:numref:`mapip`).
 
 --clean-match-files-prefix <string (default: "")>
     Use as input the ``*-clean.match`` files from this prefix.
     This implies ``--skip-matching``. The order of images in each interest
     point match file need not be the same as for input images.
     Only one of ``--match-files-prefix`` and ``--clean-match-files-prefix``
-    can be set.
+    can be set. Cannot be used together with ``--mapprojected-data`` or
+    ``--mapprojected-data-list`` (:numref:`mapip`).
 
 --isis-cnet <string (default: "")>
     Read a control network having interest point matches from this binary file

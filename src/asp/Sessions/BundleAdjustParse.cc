@@ -87,6 +87,14 @@ void loadValidateBaOptions(po::variables_map const& vm,
     vw::vw_throw(vw::ArgumentErr() << "Cannot specify both --mapprojected-data and "
              << "--mapprojected-data-list.\n");
 
+  // Forcing reuse of match files is incompatible with creating matches from
+  // mapprojected images.
+  if (opt.force_reuse_match_files &&
+      (!opt.mapprojected_data.empty() || !opt.mapprojected_data_list.empty()))
+    vw::vw_throw(vw::ArgumentErr()
+             << "Cannot specify --force-reuse-match-files together with "
+             << "--mapprojected-data or --mapprojected-data-list.\n");
+
   // Sanity checks
   asp::check_for_duplicates(opt.image_files, opt.camera_files, opt.out_prefix);
   if (opt.image_files.size() != (int)opt.camera_files.size()) {
@@ -590,6 +598,15 @@ void loadValidateBaOptions(po::variables_map const& vm,
     vw::vw_throw(vw::ArgumentErr()
               << "Cannot specify both --match-files-prefix and "
               << "--clean-match-files-prefix.\n");
+
+  // Match files among mapprojected images are read only from the output prefix.
+  // These prefixes apply to raw camera match files and would bypass the
+  // unprojection logic, so forbid combining them with mapprojected data.
+  if ((opt.match_files_prefix != "" || opt.clean_match_files_prefix != "") &&
+      (!opt.mapprojected_data.empty() || !opt.mapprojected_data_list.empty()))
+    vw::vw_throw(vw::ArgumentErr()
+              << "Cannot specify --match-files-prefix or --clean-match-files-prefix "
+              << "together with --mapprojected-data or --mapprojected-data-list.\n");
 
   if (int(opt.proj_win != vw::BBox2(0, 0, 0, 0)) + int(!opt.proj_str.empty()) == 1)
     vw::vw_throw(vw::ArgumentErr()

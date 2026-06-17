@@ -296,6 +296,8 @@ matching. The next sections describe how to use such files and their format.
 When there are multiple images, one may use pairwise match files or a control
 network format. See :numref:`control_network`.
 
+If the match files are in mapprojected coordinates, see :numref:`txt_map_match`.
+
 Turn on plain text matches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -366,7 +368,7 @@ as::
       image1.tif image2.tif  \
       --match-file out/run-image1__image2.txt
 
-.. _map_matches_as_txt:
+.. _txt_map_match:
 
 Mapprojected images and plain text match files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -383,6 +385,11 @@ way. For it to be picked up, in addition to ``--matches-as-txt``, the option
 what makes ``bundle_adjust`` look at the mapprojected match files and unproject
 them to the cameras. Without it, mapprojected match files are not consulted, with
 or without ``--matches-as-txt``.
+
+If there exist match files between both raw (camera-level) and mapprojected
+images, the raw ones will be read. Match files between raw images should be
+deleted in order for them to be recreated from match files between mapprojected
+images.
 
 .. _csv_format:
 

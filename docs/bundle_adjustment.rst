@@ -1264,7 +1264,9 @@ Adding ``--matches-as-txt`` (:numref:`txt_match`) makes both the match file amon
 the mapprojected images and the unprojected camera-level match file be read and
 written in plain text. Externally computed matches among the mapprojected images
 can be provided this way, as long as ``--mapprojected-data`` is set, so they get
-unprojected to the cameras. See :numref:`map_matches_as_txt` for more details.
+unprojected to the cameras. Such a match file should follow the naming
+convention (:numref:`ba_match_files`). See :numref:`txt_map_match` for more
+details.
 
 Manual matching in the GUI
 """"""""""""""""""""""""""
