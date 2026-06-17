@@ -1101,6 +1101,15 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
                                         input_camera_ptr, cam_heights, estim_cam_ctr);
   }
 
+  // Converting a CSM camera to a Pinhole (.tsai) camera is not supported yet.
+  // The current logic re-fits the camera pose to ground points, which does not
+  // respect the precise pose and intrinsics of the input CSM camera.
+  if (vw::get_extension(opt.out_camera) == ".tsai" && input_camera_ptr.get() != NULL &&
+      asp::csm_model(vw::camera::unadjusted_model(input_camera_ptr)) != NULL)
+    vw_throw(ArgumentErr()
+             << "Converting a CSM camera to a Pinhole (.tsai) camera is not "
+             << "supported.\n");
+
   // Overwrite the estimated center with what is parsed from vendor's data,
   // if this data exists.
   if (known_cam_ctr != Vector3(0, 0, 0))
