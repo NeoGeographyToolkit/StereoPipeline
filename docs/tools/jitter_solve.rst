@@ -767,7 +767,7 @@ because:
    using 50 image lines for each position and orientation to optimize
    rather than 1000.
  - Many dense interest point matches and anchor points are needed
-   to capture the high-frequency jitter Many anchor points are needed
+   to capture the high-frequency jitter. Many anchor points are needed
    to prevent the solution from becoming unstable at earlier and later
    image lines.
  - The terrain is very steep, which introduces some extraneous signal
@@ -800,7 +800,7 @@ This command expects raw (not mapprojected) images::
       -o ba/run
 
 A lot of interest points were used, and the outlier filter threshold
-was generous, since because of trees and shadows in the images likely
+was generous, since, because of trees and shadows in the images, likely
 some interest points may not be too precise but they could still be
 good.
 
@@ -845,7 +845,7 @@ Stereo
 Stereo was done with the ``asp_mgm`` algorithm. We found that the option
 ``--subpixel-mode 1`` may result in somewhat more accurate interest point
 matches from disparity (for use later) but ``--subpixel-mode 9`` could produce a
-terrain model with less artifacts. This likely needs more study. We will proceed
+terrain model with fewer artifacts. This likely needs more study. We will proceed
 with ``--subpixel-mode 1`` here. Subpixel mode 3 (or 2) would likely be better
 than any of these, but are a lot slower. 
 
@@ -932,7 +932,7 @@ from mapprojected images.
 See :numref:`jitter_ip` for a longer explanation regarding dense and sparse
 interest point matches.
 
-Solve for jitter. This commands expects raw (not mapprojected) images::
+Solve for jitter. This command expects raw (not mapprojected) images::
 
     jitter_solve                              \
       1.tif 2.tif                             \
@@ -1433,7 +1433,7 @@ for unprojected (original) images::
       jitter/run-out-Band3N__out-Band3B.match
 
 In ASP 3.4.0 or later, that file to be copied is named instead
-``run_1_2_map/run-disp-Band3N__out-Band3B.match``, or so, reflecting the names
+``run_1_2_map/run-disp-out-Band3N__out-Band3B.match``, or so, reflecting the names
 of the raw images.
 
 The *naming convention for the match files* is::
@@ -1529,7 +1529,7 @@ with the images not having jitter and the cameras having the jitter.
 It is suggested to use the roll and yaw constraints (``--roll-weight`` and
 ``--yaw-weight``, with values on the order of 1e+4), to keep these angles in
 check while correcting the pitch jitter. Note that with non-synthetic cameras,
-need to add the ``--initial-camera-constraint`` option.
+one needs to add the ``--initial-camera-constraint`` option.
 
 The ``--heights-from-dem`` option should be used as well, to tie the solution to
 the reference DEM. 
@@ -1677,7 +1677,7 @@ This assumes that the DEM is in a local projection in units of meter. Otherwise
 the ``--t_srs`` option should be set.
 
 Create the lists of images, cameras, then a list for the mapprojected images and
-the DEM. We use individual ``ls`` command to avoid the inputs being reordered::
+the DEM. We use individual ``ls`` commands to avoid the inputs being reordered::
 
     dir=ba
     mkdir -p $dir
@@ -1751,7 +1751,7 @@ ensure movement only for the pitch angle::
         -o jitter_solve/run
 
 The value of ``--heights-from-dem-uncertainty`` should be chosen with care.
-For non-synthetic cameras, need to add the option ``--initial-camera-constraint``.
+For non-synthetic cameras, one needs to add the option ``--initial-camera-constraint``.
 
 We used ``--max-pairwise-matches 3000`` as the linescan camera has many
 matches with each frame camera image, and there are many such frame camera
@@ -2437,7 +2437,7 @@ Command-line options for jitter_solve
     in the linescan cameras being optimized. This is internally adjusted based
     on the initial curvature of the sequence of orientations. A value of 0.01 to
     0.1 is recommended. This may impede convergence if high. Use with
-    ``--camera-position-weight 1e+6`` or so, to tightly constrain the cameras
+    ``--camera-position-weight 1e+6`` or so, to tightly constrain the camera
     positions.
 
 --roll-weight <double (default: 0.0)>
