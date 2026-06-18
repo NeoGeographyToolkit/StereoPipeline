@@ -104,9 +104,15 @@ outputs are produced.
      in ``<output prefix>-albedo-variance.tif``. Values within 3 pixels of the
      boundary are set to nodata. See :numref:`sfs_unc`.
 
- - ``run/run-DEM-{left,right,top,bottom}-covariance.tif``
-     If ``--save-covariances`` was set, the "-dr1_dcn1" file stores the uncalibrated covariance
-     of each DEM pixel with its top-left neighbor ("+1" row and "-1" column away).
+ - ``run/run-DEM-dr0_dc2-covariance.tif`` (and ``-dr1_dcn1``, ``-dr1_dc1``, ``-dr2_dc0``)
+     If ``--save-covariances`` was set, these four files store the uncalibrated
+     covariance of each DEM pixel with the neighbor at a given row and column
+     offset. The ``dr`` and ``dc`` values in each name are the row and column
+     offsets, with ``n`` denoting a negative one, so the offsets are
+     (row 0, col +2), (row +1, col -1), (row +1, col +1), and (row +2, col 0).
+     These are the pixel pairs that enter the central-difference (three-point)
+     slope, so together with the variance they allow propagating the height
+     uncertainty into a slope uncertainty.
      If ``--float-albedo`` is also on, the albedo covariances with analogous
      names are saved as well. Values within 3 pixels of the boundary are set to
      nodata. See :numref:`sfs_unc`.
@@ -262,9 +268,10 @@ Command-line options for sfs
 --save-covariances
     In addition to saving the uncalibrated variance of the DEM (and albedo) at each pixel (as
     for ``--save-variances``), also save the covariance between each DEM pixel
-    and its four immediate neighbors (left, right, top, bottom), and the same
-    for the albedo if ``--float-albedo`` is on. See :numref:`sfs_outputs` for
-    output filenames and :numref:`sfs_unc` for usage.
+    and four nearby neighbors, at row and column offsets (0, +2), (+1, -1),
+    (+1, +1), and (+2, 0), the pixel pairs that enter the central-difference
+    slope. The same is saved for the albedo if ``--float-albedo`` is on. See
+    :numref:`sfs_outputs` for output filenames and :numref:`sfs_unc` for usage.
 
 --use-approx-camera-models
     Use approximate camera models for speed. Only with ISIS .cub

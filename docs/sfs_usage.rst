@@ -2187,9 +2187,11 @@ optimized parameters, using the `Ceres Covariance Estimation
 
 The ``--save-covariances`` option (:numref:`sfs_opt`), available in build 2026/2
 or later (:numref:`release`), saves the covariance between each DEM pixel and
-its four immediate neighbors (left, right, top, bottom). This can be
-useful for understanding spatial correlation of errors. See
-:numref:`sfs_outputs` for the output files.
+four nearby neighbors, at row and column offsets (0, +2), (+1, -1), (+1, +1),
+and (+2, 0). These are the pixel pairs that enter the central-difference
+(three-point) slope, so with the variance they let the height uncertainty be
+propagated into a slope uncertainty, and they help reveal the spatial
+correlation of errors. See :numref:`sfs_outputs` for the output files.
 
 Previously, the option ``--estimate-height-errors`` was employed, with a
 different implementation. This is now obsolete. See :numref:`sfs_opt` for
