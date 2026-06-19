@@ -746,9 +746,13 @@ void computeCamStats(std::vector<vw::Vector2> const& pixels,
 void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        std::vector<vw::Vector3> const& xyz,
                        std::string const& refine_intrinsics,
-                       asp::CsmModel & csm_model) { // output
+                       asp::CsmModel & csm_model, // output
+                       bool fix_pose) {
 
-  vw::vw_out() << "Refining camera intrinsics and pose.\n";
+  if (fix_pose)
+    vw::vw_out() << "Refining camera intrinsics with the pose held fixed.\n";
+  else
+    vw::vw_out() << "Refining camera intrinsics and pose.\n";
 
   // See which intrinsics to fix
   bool fix_focal_length = true, fix_optical_center = true, fix_other_intrinsics = true;
@@ -820,6 +824,12 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
     problem.SetParameterBlockConstant(&optical_center[0]);
   if (fix_other_intrinsics)
     problem.SetParameterBlockConstant(&distortion[0]);
+  if (fix_pose) {
+    // Keep the exact input pose. Needed for thin off-axis sensors where re-fitting
+    // the pose is degenerate (it would absorb the distortion into a pose error).
+    problem.SetParameterBlockConstant(&position[0]);
+    problem.SetParameterBlockConstant(&rotation[0]);
+  }
    
   // Solve the problem  
   ceres::Solver::Summary summary;

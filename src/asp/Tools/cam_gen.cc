@@ -318,11 +318,11 @@ struct Options : public vw::GdalWriteOptions {
   std::vector<double> lon_lat_values, pixel_values, distortion;
   bool refine_camera, parse_eci, parse_ecef, planet_pinhole;
   int num_pixel_samples;
-  bool exact_tsai_to_csm_conv;
+  bool exact_tsai_to_csm_conv, csm_refit_distortion;
   vw::cartography::Datum datum;
   Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0),
   planet_pinhole(false), parse_eci(false), parse_ecef(false), num_pixel_samples(0),
-  exact_tsai_to_csm_conv(false) {}
+  exact_tsai_to_csm_conv(false), csm_refit_distortion(false) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -386,6 +386,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Refine the camera intrinsics together with the camera pose. Specify, in quotes, or as comma as separator, one or more of: focal_length, optical_center, other_intrinsics (distortion). Also can set as 'all' or 'none'. In the latter mode only the camera pose is optimized. Applicable only with option --input-camera and when creating a CSM Frame camera model.")
     ("num-pixel-samples", po::value(&opt.num_pixel_samples)->default_value(10000),
      "Number of uniformly distributed pixel samples to use with option --refine-intrinsics.")
+    ("csm-refit-distortion", po::bool_switch(&opt.csm_refit_distortion)->default_value(false)->implicit_value(true),
+     "Given a CSM Frame camera model state (passed via --input-camera) and a CSM "
+     "Frame (.json) output, keep the exact input pose, focal length, and optical "
+     "center, and refit only the lens distortion to the type set by --distortion-type "
+     "(for example, transverse). The pose is held fixed, which is needed for thin "
+     "off-axis sensors (such as CaSSIS framelets) where re-fitting the pose is "
+     "degenerate. Use --refine-intrinsics distortion. Distortion can be shared across "
+     "cameras by passing a fitted camera via --sample-file with --refine-intrinsics none.")
     ("frame-index", po::value(&opt.frame_index)->default_value(""),
      "A file used to look up the longitude and latitude of image corners based on the image name, in the format provided by the SkySat video product.")
     ("gcp-file", po::value(&opt.gcp_file)->default_value(""),
@@ -512,6 +520,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
    vw_throw(ArgumentErr() << "The option for refining the intrinsics cannot, "
             "for the time being, constrain either the camera height or camera center.\n");
 
+  if (opt.csm_refit_distortion) {
+    if (opt.input_camera.empty())
+      vw_throw(ArgumentErr() << "Option --csm-refit-distortion requires --input-camera "
+               "(a CSM Frame camera model state).\n");
+    if (opt.distortion_type.empty())
+      vw_throw(ArgumentErr() << "Option --csm-refit-distortion requires --distortion-type "
+               "(for example, transverse).\n");
+    if (opt.refine_intrinsics.empty())
+      vw_throw(ArgumentErr() << "Option --csm-refit-distortion requires --refine-intrinsics "
+               "(use 'distortion' to fit only the distortion).\n");
+    if (vw::get_extension(opt.out_camera) != ".json")
+      vw_throw(ArgumentErr() << "Option --csm-refit-distortion requires a CSM Frame "
+               "(.json) output camera.\n");
+  }
+
   // Set the datum from the string
   if (!opt.datum_str.empty())
     opt.datum.set_well_known_datum(opt.datum_str);
@@ -628,7 +651,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   }
 
   // Note that optical center can be negative (for some SkySat products).
+  // With --csm-refit-distortion the focal length, optical center, and pixel pitch
+  // all come from the input CSM model state, so they need not be set here.
   if (!opt.planet_pinhole &&
+      !opt.csm_refit_distortion &&
       opt.sample_file == "" &&
       (opt.focal_length <= 0 || opt.pixel_pitch <= 0)) {
 
@@ -942,7 +968,8 @@ vw::Matrix<double> vec2matrix(int rows, int cols, std::vector<double> const& val
 void refineIntrinsics(Options const& opt, vw::cartography::GeoReference const& geo,
                       ImageViewRef<PixelMask<float>> & interp_dem,
                       vw::CamPtr const& input_camera_ptr,
-                      int width, int height, asp::CsmModel & csm) {
+                      int width, int height, asp::CsmModel & csm,
+                      bool fix_pose = false) {
 
   // Sanity checks
   if (opt.reference_dem.empty() && opt.datum_str.empty())
@@ -972,7 +999,7 @@ void refineIntrinsics(Options const& opt, vw::cartography::GeoReference const& g
   if (pix_samples.empty())
     vw_throw(ArgumentErr() << "Could not find any valid pixel samples.\n");
 
-  asp::refineCsmFrameFit(pix_samples, xyz_samples, opt.refine_intrinsics, csm);
+  asp::refineCsmFrameFit(pix_samples, xyz_samples, opt.refine_intrinsics, csm, fix_pose);
 }
 
 // Read a matrix in json format. This will throw an error if the json object
@@ -1100,6 +1127,12 @@ void form_camera(Options & opt, vw::cartography::GeoReference & geo,
                                         // Outputs
                                         input_camera_ptr, cam_heights, estim_cam_ctr);
   }
+
+  // With --csm-refit-distortion the output CSM keeps the exact input pose and
+  // intrinsics, so no manufactured camera is built. The georeference, interpolated
+  // DEM, and input camera are now set, which is all the distortion refit needs.
+  if (opt.csm_refit_distortion)
+    return;
 
   // Converting a CSM camera to a Pinhole (.tsai) camera is not supported yet.
   // The current logic re-fits the camera pose to ground points, which does not
@@ -1452,12 +1485,33 @@ void save_pinhole(Options const& opt,
     isisCubMetadata(input_camera_ptr,
                     ephem_time, sun_pos, serial_number, target_name);
     
-    csm.createFrameModel(*pin, width, height,
-                          geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(),
-                          opt.distortion_type, opt.distortion,
-                          ephem_time, sun_pos, serial_number, target_name);
+    if (opt.csm_refit_distortion) {
+      // Keep the exact input CSM pose, focal length, and optical center. Replace the
+      // distortion with the requested type (zero-initialized) and refit only it, with
+      // the pose held fixed. The fit samples are ray-cast from the input camera below,
+      // so the new distortion learns to reproduce the input camera at its exact pose.
+      csm.load_model(opt.input_camera);
+      if (opt.distortion_type == "transverse")
+        csm.set_distortion_type(TRANSVERSE);
+      else if (opt.distortion_type == "radtan")
+        csm.set_distortion_type(RADTAN);
+      else if (opt.distortion_type == "radial")
+        csm.set_distortion_type(RADIAL);
+      else
+        vw_throw(ArgumentErr() << "Unsupported --distortion-type for "
+                  << "--csm-refit-distortion: " << opt.distortion_type << ".\n");
+      int num_dist = (opt.distortion_type == "transverse") ? 20 :
+                     (opt.distortion_type == "radtan")     ? 5  : 3;
+      csm.set_distortion(std::vector<double>(num_dist, 0.0));
+    } else {
+      csm.createFrameModel(*pin, width, height,
+                            geo.datum().semi_major_axis(), geo.datum().semi_minor_axis(),
+                            opt.distortion_type, opt.distortion,
+                            ephem_time, sun_pos, serial_number, target_name);
+    }
     if (opt.refine_intrinsics != "")
-      refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm);
+      refineIntrinsics(opt, geo, interp_dem, input_camera_ptr, width, height, csm,
+                       opt.csm_refit_distortion);
 
     vw::Vector3 llh = geo.datum().cartesian_to_geodetic(csm.camera_center(Vector2()));
     vw_out() << "Output camera center lon, lat, and height above datum: "

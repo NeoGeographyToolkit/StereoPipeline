@@ -485,6 +485,16 @@ Command-line options
     Set the distortion type. Options: ``radtan``, ``radial``, ``transverse``.
     Only applicable when creating CSM Frame cameras (:numref:`cam_gen_frame`).
 
+--csm-refit-distortion
+    Given a CSM Frame camera model state (passed via ``--input-camera``) and a
+    CSM Frame (``.json``) output, keep the exact input pose, focal length, and
+    optical center, and refit only the lens distortion to the type set by
+    ``--distortion-type`` (for example, ``transverse``). The pose is held fixed,
+    which is needed for thin off-axis sensors (such as CaSSIS framelets) where
+    re-fitting the pose is degenerate. Use with ``--refine-intrinsics distortion``.
+    A shared distortion can be propagated across cameras by passing a fitted
+    camera via ``--sample-file`` with ``--refine-intrinsics none``.
+
 --camera-center <double double double (default: NaN NaN NaN)>
     The camera center in ECEF coordinates. If not set, the program will solve
     for it. If setting ``--refine-camera``, consider using ``--cam-ctr-weight``.

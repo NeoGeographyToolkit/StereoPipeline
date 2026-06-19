@@ -64,11 +64,16 @@ void fitCsmLinescan(
 void createPixelSamples(int width, int height, int num_pixel_samples,
                         std::vector<vw::Vector2> & pix_samples);
  
-// Refine a CSM frame camera model using a a set of ground points projecting at given pixels
+// Refine a CSM frame camera model using a a set of ground points projecting at given pixels.
+// If fix_pose is true, the camera position and orientation are held constant (only the
+// intrinsics allowed by refine_intrinsics are floated). This is needed for thin off-axis
+// sensors (e.g. CaSSIS framelets), where re-fitting the pose is degenerate; there we keep
+// the exact input pose and fit only the distortion.
 void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        std::vector<vw::Vector3> const& directions,
                        std::string const& refine_intrinsics,
-                       asp::CsmModel & csm_model); // output
+                       asp::CsmModel & csm_model, // output
+                       bool fix_pose = false);
 
 // Fit a CSM camera to an optical bar camera. The .cc file has more details.
 void fitCsmLinescanToOpticalBar(std::string const& camFile,
