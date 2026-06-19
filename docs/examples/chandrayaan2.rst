@@ -297,6 +297,25 @@ transform from that alignment was used for aligning the full clouds as::
 A terrain model created with the lower-resolution TMC-2 images would likely be
 easier to align to LOLA, as it would have a much bigger extent.
 
+Alignment to a prior DEM
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+For sites sufficiently close to the poles, a gridded LOLA product is available.
+Some examples are given in :numref:`sfs_initial_terrain`. Alternatively, one
+could try aligning to a DEM produced with LRO NAC or TMC-2 images.
+
+In either case, the large misalignment mentioned earlier will make ICP-based
+alignment methods fail.
+
+It is suggested to try the correlation-based alignment (:numref:`pc_corr`). This
+requires gridding the input DEMs with cubic spline interpolation (``gdalwarp -r
+cubicspline``) to a shared grid size and projection (the chosen grid size should
+likely be closer to the grid size of the coarser DEM). Inspect the hillshades
+visually for similarity before trying this method.
+
+If this method succeeds, the produced alignment transform can be used to seed
+the alignment to LOLA (:numref:`prevtrans`).
+
 .. _chandra2_tmc:
 
 Terrain Mapping Camera-2
