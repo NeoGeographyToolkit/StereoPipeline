@@ -29,6 +29,11 @@ parallel_stereo (:numref:`parallel_stereo`):
     ``--min-num-ip`` is kept for backward compatibility
     (:numref:`stereodefault`).
 
+cam_gen (:numref:`cam_gen`):
+  * Added ``--csm-refit-distortion`` to refit the lens distortion of a CSM
+    Frame camera to a chosen type while keeping the pose and other intrinsics
+    fixed (:numref:`cam_gen_refit`).
+
 Misc:
   * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
 

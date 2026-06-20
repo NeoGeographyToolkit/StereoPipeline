@@ -387,13 +387,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("num-pixel-samples", po::value(&opt.num_pixel_samples)->default_value(10000),
      "Number of uniformly distributed pixel samples to use with option --refine-intrinsics.")
     ("csm-refit-distortion", po::bool_switch(&opt.csm_refit_distortion)->default_value(false)->implicit_value(true),
-     "Given a CSM Frame camera model state (passed via --input-camera) and a CSM "
-     "Frame (.json) output, keep the exact input pose, focal length, and optical "
-     "center, and refit only the lens distortion to the type set by --distortion-type "
-     "(for example, transverse). The pose is held fixed, which is needed for thin "
-     "off-axis sensors (such as CaSSIS framelets) where re-fitting the pose is "
-     "degenerate. Use --refine-intrinsics distortion. Distortion can be shared across "
-     "cameras by passing a fitted camera via --sample-file with --refine-intrinsics none.")
+     "Refit only the lens distortion of an input CSM Frame camera to the type set "
+     "by --distortion-type, keeping the pose and other intrinsics fixed. See the "
+     "documentation for details.")
     ("frame-index", po::value(&opt.frame_index)->default_value(""),
      "A file used to look up the longitude and latitude of image corners based on the image name, in the format provided by the SkySat video product.")
     ("gcp-file", po::value(&opt.gcp_file)->default_value(""),

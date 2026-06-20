@@ -45,11 +45,19 @@ Pinhole cameras
 To create a Pinhole (:numref:`pinholemodels`) camera, given the longitude and
 and latitude of the image corners and camera intrinsics, run::
 
-     cam_gen --refine-camera --lon-lat-values                             \
-       '-122.389 37.627,-122.354 37.626,-122.358 37.612,-122.393 37.613'  \
-        --reference-dem dem.tif --focal-length 553846.153846              \
-        --optical-center 1280 540 --pixel-pitch 1                         \
-        img.tif -o img.tsai --gcp-file img.gcp --gcp-std 1e-2
+     cam_gen                             \
+       --refine-camera                   \
+       --lon-lat-values                  \
+       '-122.389 37.627 -122.354 37.626 
+        -122.358 37.612 -122.393 37.613' \
+       --reference-dem dem.tif           \
+       --focal-length 553846.153846      \
+       --optical-center 1280 540         \
+       --pixel-pitch 1                   \
+       img.tif                           \
+       -o img.tsai                       \
+       --gcp-file img.gcp                \
+       --gcp-std 1e-2
 
 The image corners corresponding to the lon-lat values are traversed
 in the order (0, 0) (w, 0) (w, h), (0, h) where w and h are the
@@ -142,6 +150,7 @@ extension.
 
 In addition, ``cam_gen`` can create a CSM Frame camera that approximates any
 given camera supported by ASP. In this mode, lens distortion is modeled as well.
+When the input camera is of CSM type to start with, see :numref:`cam_gen_refit`.
 
 If the input camera is Pinhole with radial-tangential (Tsai) distortion, or no
 distortion at all (:numref:`pinholemodels`), it can be converted exactly to a CSM
@@ -211,6 +220,35 @@ Several lens distortion models are supported (option ``--distortion-type``,
 :numref:`cam_gen_options`).
  
 See :numref:`cam_gen_validation` for how to validate the created cameras.
+
+.. _cam_gen_refit:
+
+CSM Frame cameras distortion refit
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the input camera is already a CSM Frame model, this program can refit only
+its lens distortion to a different model type, keeping the pose, focal length,
+and optical center exactly as in the input.
+
+This is useful when it is desired to create a lens distortion model with more
+degrees of freedom, which can later be optimized (:numref:`floatingintrinsics`).
+
+A reference surface is needed to relate pixels to ground points. Pass a
+reference DEM with ``--reference-dem`` or, for a flat surface, a datum with
+``--datum`` (such as ``D_MARS``). The DEM option will work on any body, while
+the datum option is restricted to a few well-known types.
+
+Example::
+
+    cam_gen image.tif                \
+      --input-camera camera.json     \
+      --csm-refit-distortion         \
+      --distortion-type transverse   \
+      --refine-intrinsics distortion \
+      --datum D_MARS                 \
+      -o refit_camera.json
+
+See :numref:`cam_gen_validation` for how to validate the produced model.
 
 .. _cam_gen_linescan:
 
@@ -432,6 +470,7 @@ Command-line options
 --datum <string (default: "")>
     Use this datum to interpret the longitude and latitude, unless a
     DEM is given.
+    
     Options:
 
     * WGS_1984
@@ -486,14 +525,9 @@ Command-line options
     Only applicable when creating CSM Frame cameras (:numref:`cam_gen_frame`).
 
 --csm-refit-distortion
-    Given a CSM Frame camera model state (passed via ``--input-camera``) and a
-    CSM Frame (``.json``) output, keep the exact input pose, focal length, and
-    optical center, and refit only the lens distortion to the type set by
-    ``--distortion-type`` (for example, ``transverse``). The pose is held fixed,
-    which is needed for thin off-axis sensors (such as CaSSIS framelets) where
-    re-fitting the pose is degenerate. Use with ``--refine-intrinsics distortion``.
-    A shared distortion can be propagated across cameras by passing a fitted
-    camera via ``--sample-file`` with ``--refine-intrinsics none``.
+    Refit only the lens distortion of an input CSM Frame camera to the type set
+    by ``--distortion-type``, keeping the pose and other intrinsics fixed. See
+    :numref:`cam_gen_refit` for details.
 
 --camera-center <double double double (default: NaN NaN NaN)>
     The camera center in ECEF coordinates. If not set, the program will solve
