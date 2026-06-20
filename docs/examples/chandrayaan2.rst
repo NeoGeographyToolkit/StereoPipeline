@@ -267,7 +267,8 @@ Alignment to LOLA
 We aligned the produced OHRC DEM to `LOLA
 <https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_
 (:numref:`csv_format`), which is the usual global reference coordinate system
-for the Moon.
+for the Moon. See :numref:`ohrc_dem_align` for a strategy for alignment to a
+prior DEM.
 
 The OHRC DEM turned out to be shifted relative to LOLA by about 4 km along the
 satellite track, which resulted in failure to align with ``pc_align``
@@ -296,6 +297,8 @@ transform from that alignment was used for aligning the full clouds as::
 
 A terrain model created with the lower-resolution TMC-2 images would likely be
 easier to align to LOLA, as it would have a much bigger extent.
+
+.. _ohrc_dem_align:
 
 Alignment to a prior DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^

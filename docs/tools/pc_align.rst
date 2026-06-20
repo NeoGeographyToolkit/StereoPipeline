@@ -460,8 +460,6 @@ Then, the command::
     pc_align                                    \
       --max-displacement -1                     \
       --num-iterations 0                        \
-      --max-num-reference-points 1000           \
-      --max-num-source-points 1000              \
       --save-transformed-source-points          \
       --save-inv-transformed-reference-points   \
       --initial-transform run/run-transform.txt \
@@ -470,9 +468,15 @@ Then, the command::
       -o run_full/run
 
 will transform the full ``dem.tif`` into the coordinate system of ``meas.csv``,
-and ``meas.csv`` into the coordinate system of ``ref.tif`` with no further
-iterations. The number of input points here is small, for speed, as they will
-not be used.
+and ``meas.csv`` into the coordinate system of ``ref.tif`` with *no further
+iterations* and *no outlier filtering*.
+
+If instead the alignment is to be refined further, rather than just applying the
+transform, set ``--max-displacement`` to a value somewhat larger than the
+remaining misalignment after the initial transform is applied, and use a
+positive number of iterations. This is because the outlier filtering is
+controlled by ``--max-displacement``, and this happens after the initial
+transform is applied.
 
 See also :numref:`ba_pc_align` for how to use such transforms with cameras.
 
@@ -480,16 +484,6 @@ If an initial transform is used, with zero or more iterations, the
 output transform produced by such an invocation will be from the source
 points *before* the initial transform, hence the output alignment
 transform will incorporate the initial transform.
-
-Using ``--max-displacement -1`` should be avoided, as that will do
-no outlier filtering in the source cloud. Here that is not necessary,
-as this invocation simply moves the DEM according to the specified
-transform.
-
-If a good initial alignment is found, it is suggested to use a smaller
-value for ``--max-displacement`` to refine the alignment, as the
-clouds will already be mostly on top of each other after the initial
-transform is applied.
 
 Applying an initial specified translation or rotation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
