@@ -35,6 +35,26 @@
 
 namespace fs = boost::filesystem;
 
+// The file system limit on the length of a single path component is 255 bytes
+// on most file systems. If the output prefix basename, combined with the given
+// suffix, would exceed this, shorten the basename (keeping the directory). The
+// log file suffix already carries a timestamp and pid, so a truncated basename
+// stays unique. This mirrors the shortening of match and vwip file names. Only
+// triggers for an extremely long output prefix.
+namespace {
+  std::string cap_prefix_for_suffix(std::string const& out_prefix, size_t suffix_len) {
+    const size_t budget = 250; // a margin below the 255-byte limit
+    fs::path p(out_prefix);
+    std::string base = p.filename().string();
+    size_t max_base = (budget > suffix_len) ? (budget - suffix_len) : 0;
+    if (base.size() <= max_base)
+      return out_prefix;
+    base = base.substr(0, max_base);
+    fs::path dir = p.parent_path();
+    return dir.empty() ? base : (dir / base).string();
+  }
+}
+
 std::string asp::current_posix_time_string() {
   return boost::posix_time::to_simple_string(boost::posix_time::second_clock::local_time());
 }
@@ -84,9 +104,11 @@ void asp::log_to_file(int argc, char *argv[],
   std::string clean_timestamp = timestamp.substr(4, 9); // Trim off the year
   clean_timestamp.replace(4, 1, 1, '-'); // Replace T with -
   clean_timestamp.insert (2, 1,    '-'); // Insert - between month and day
-  os << out_prefix << "-log-" << prog_name << "-"
-     << clean_timestamp << "-" << pid << ".txt";
-  std::string log_file = os.str();
+  os << "-log-" << prog_name << "-" << clean_timestamp << "-" << pid << ".txt";
+  std::string suffix = os.str();
+  // Shorten an extremely long prefix so the log file name fits the file system
+  // limit, the same way match and vwip names are handled.
+  std::string log_file = cap_prefix_for_suffix(out_prefix, suffix.size()) + suffix;
   vw::vw_out() << "Writing log: " << log_file << std::endl;
   std::ofstream lg(log_file.c_str());
 
