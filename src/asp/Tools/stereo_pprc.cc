@@ -43,9 +43,39 @@
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <vw/Image/Manipulation.h>
+#include <vw/Image/Grassfire.h>
 
 using namespace vw;
 using namespace asp;
+
+// Dilate the valid region of a mask by 'radius' pixels. A pixel is marked valid
+// if the input mask has a valid pixel within 'radius' (4-connected) pixels, found
+// via a grassfire distance transform. Used to add geolocation slack to the
+// mapprojected overlap intersection, so shifted-but-real overlap is preserved.
+// The whole mask is materialized in memory, so this is opt-in (radius > 0).
+vw::ImageView<vw::PixelMask<vw::uint8>>
+dilate_mask(vw::ImageViewRef<vw::PixelMask<vw::uint8>> const& mask, int radius) {
+  vw::ImageView<vw::PixelMask<vw::uint8>> rast = mask; // rasterize once
+
+  // is_invalid is 1 where the mask is invalid, 0 where valid. Grassfire then
+  // gives, at every pixel, the distance to the nearest valid pixel (0 at valid).
+  vw::ImageView<vw::uint8> is_invalid(rast.cols(), rast.rows());
+  for (int row = 0; row < rast.rows(); row++)
+    for (int col = 0; col < rast.cols(); col++)
+      is_invalid(col, row) = is_valid(rast(col, row)) ? 0 : 1;
+
+  vw::ImageView<vw::int32> dist = vw::grassfire(is_invalid);
+
+  vw::ImageView<vw::PixelMask<vw::uint8>> out(rast.cols(), rast.rows());
+  for (int row = 0; row < rast.rows(); row++) {
+    for (int col = 0; col < rast.cols(); col++) {
+      out(col, row) = vw::PixelMask<vw::uint8>(255);
+      if (dist(col, row) > radius)
+        out(col, row).invalidate();
+    }
+  }
+  return out;
+}
 
 // Check that the images in file1 and file2 have same size, and throw
 // an exception if they don't.
@@ -302,6 +332,17 @@ void createImageMasks(ASPGlobalOptions & opt,
   vw_out() << "Writing masks: " << left_mask_file << ' ' << right_mask_file << ".\n";
   if (has_left_georef && has_right_georef && opt.session->isMapProjected()) {
 
+    // This intersection assumes the two mapprojected images are co-registered
+    // (the same ground feature at the same projected coordinate). When the
+    // mapprojection DEM is offset from the camera frame the images slide
+    // relative to each other and the exact intersection can wrongly empty out,
+    // starving correlation. The opt-in --mapproj-geolocation-uncertainty dilates
+    // the warped mask by that many pixels, so a pixel survives if the other
+    // image has valid data within that distance. This is only needed for the
+    // degenerate small-overlap case (such as thin CaSSIS framelets on an offset
+    // drape); normal large-overlap images do not set it.
+    int geoloc_unc = stereo_settings().mapproj_geoloc_uncertainty;
+
     // Write with big blocks. Small blocks results in slow writing and great
     // memory usage. The latter is likely because there's a memory leak
     // somewhere or the bookkeeping for small tiles takes too much memory.
@@ -318,6 +359,8 @@ void createImageMasks(ASPGlobalOptions & opt,
               (right_mask, right_georef, left_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()),
               bounding_box(left_mask));
+      if (geoloc_unc > 0)
+        warped_right_mask = dilate_mask(warped_right_mask, geoloc_unc);
       vw::cartography::block_write_gdal_image(left_mask_file,
                                apply_mask(intersect_mask(left_mask, warped_right_mask)),
                                has_left_georef, left_georef,
@@ -332,6 +375,8 @@ void createImageMasks(ASPGlobalOptions & opt,
               (left_mask, left_georef, right_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()),
               bounding_box(right_mask));
+      if (geoloc_unc > 0)
+        warped_left_mask = dilate_mask(warped_left_mask, geoloc_unc);
       vw::cartography::block_write_gdal_image(right_mask_file,
                                   apply_mask(intersect_mask(right_mask, warped_left_mask)),
                                   has_right_georef, right_georef,

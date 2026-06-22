@@ -320,6 +320,16 @@ allow-different-mapproject-gsd
     for backward compatibility and is not recommended, as it can produce worse
     results.
 
+mapproj-geolocation-uncertainty <integer (default: 0)>
+    For stereo with mapprojected images, set this to be a little larger than the
+    estimated geolocation disagreement (in pixels on the ground) between the two
+    images, for example due to the mapprojection DEM being misregistered with
+    the cameras. This expands the shared region both images are restricted to
+    for processing. This is needed only for the rare case of small overlap (such
+    as thin CaSSIS framelets). If set much larger than needed, the shared region
+    grows to include areas seen in only one image, which can add spurious
+    matches and widen the search range.
+
 threads (*integer*) (default = 0)
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
