@@ -445,10 +445,11 @@ display all those points at the same time.
 For image i, the match file must contain the matches from image i-1 to
 i, or from image 0 to i. You can provide these match files to
 ``stereo_gui`` by conforming to its naming convention
-(``output-prefix-fname1__fname2.match``) or by selecting them from the
-GUI when prompted. All match files must describe the same set of
-interest points. The tool will check the positions of loaded points
-and discard any that do not correspond to the already loaded points.
+(``output-prefix-fname1__fname2.match``, :numref:`ba_match_files`) or
+by selecting them from the GUI when prompted. All match files must
+describe the same set of interest points. The tool will check the
+positions of loaded points and discard any that do not correspond to
+the already loaded points.
 
 Run::
 

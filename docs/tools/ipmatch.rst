@@ -78,7 +78,8 @@ The naming convention for the output binary files is::
     <output prefix>-<image1>__<image2>.match
     
 where the image names are without the directory name and extension. See
-:numref:`ba_match_files` for more details.
+:numref:`ba_match_files` for more details, and :numref:`match_file_naming` for
+how very long file names are shortened.
 
 Usage
 ~~~~~

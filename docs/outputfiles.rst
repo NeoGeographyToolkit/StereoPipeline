@@ -14,6 +14,8 @@ corresponding to individual tiles created by ``parallel_stereo``.
 The files are listed based on the stereo stage they are created at
 (:numref:`parallel_stereo`).
 
+.. _pprc_files:
+
 Files created in preprocessing
 ------------------------------
 
@@ -26,7 +28,8 @@ Files created in preprocessing
 
     If the images are ``left.cub`` and ``right.cub``, these files end in
     ``left.vwip`` and ``right.vwip``. Several interest point detection modes are
-    available (see ``--ip-detect-method`` in :numref:`stereodefault`).
+    available (see ``--ip-detect-method`` in :numref:`stereodefault`). Very long
+    image names are shortened (:numref:`match_file_naming`).
 
     The ``.vwip`` files can be visualized in ``stereo_gui``
     (:numref:`stereo_gui_vwip_gcp`).
@@ -35,7 +38,8 @@ Files created in preprocessing
     The match file lists a select group of unique points out of the previous
     ``.vwip`` files that have been identified and matched in a pair of images.
     For example, if the input images are ``left.cub`` and ``right.cub``, the
-    match file will end in ``left__right.match``.
+    match file will end in ``left__right.match``. Very long image names are
+    shortened (:numref:`match_file_naming`).
 
     The ``.vwip`` and ``.match`` files are meant to serve as cached tie-point
     information, and they help speed up the pre-processing phase of the Stereo
@@ -333,10 +337,9 @@ The ``bundle_adjust`` program needs to be invoked with the input images and::
 to read the above file. The same option is also available for
 ``parallel_stereo`` and ``jitter_solve``.
 
-Individual image names (without the path and extension) will be truncated to 60
-characters to avoid excessively long file names and problems with some
-libraries. It is suggested to avoid using such long file names in the first
-place.
+If the image names are long enough that the resulting file name would exceed the
+file system limit, the long parts are shortened in a reproducible way. See
+:numref:`match_file_naming`.
 
 .. _txt_format:
 
@@ -390,6 +393,56 @@ If there exist match files between both raw (camera-level) and mapprojected
 images, the raw ones will be read. Match files between raw images should be
 deleted in order for them to be recreated from match files between mapprojected
 images.
+
+.. _match_file_naming:
+
+Shortening of long file names
+-----------------------------
+
+The ``.vwip`` files (having interest points before matching) and ``.match``
+files (having interest point matches) are defined in :numref:`pprc_files`. Their
+naming convention is described in :numref:`ba_match_files`.
+
+If, combined with the output prefix, such a name would exceed the maximum length
+a file system allows for a single file name (255 bytes on most systems,
+including ext4, XFS, and APFS), the long parts are shortened. This avoids
+failures when working with very long image names, such as the per-framelet
+products of some push-frame cameras.
+
+The two image names in a ``.match`` file, and the single name in a ``.vwip``
+file, are shortened independently. Each name that is too long is reduced to a
+leading portion of itself followed by a 64-bit hash (16 hexadecimal digits) of
+the full original name. A fixed FNV-1a hash is used, not a standard-library
+hash, so the result is identical across platforms (Linux, macOS) and across
+runs. Distinct inputs therefore map to distinct names, with collisions being
+negligibly unlikely (below one in a billion for over 100,000 names). Most data,
+including names of about 100 characters, is well under the limit and is left
+unchanged.
+
+The same rule is applied whenever a name is generated, both when these files are
+written and when they are later looked up (including with ``--match-files-prefix``
+and ``--clean-match-files-prefix``, :numref:`bundle_adjust`). Hence the names
+stay consistent and the files are found without any user action. The
+``-clean.match`` files (:numref:`ba_match_files`) use the same shortened base,
+differing only by the ending.
+
+This applies to all ASP programs handling interest points, including
+:ref:`parallel_stereo`, :ref:`bundle_adjust`, :ref:`ipmatch`, etc.
+
+As an example, consider the image file names below. These are inspired by the
+CaSSIS mission, whose products have unusually long names, and are made
+intentionally longer here so that, combined with the output prefix, the result
+exceeds the file system limit and the hashing is triggered::
+
+    cas_cal_sc_20180506T223500-20180506T223504-2014-16-PAN-272560849-stack_deband_norm_radcor_destripe-frame00000of01000-band0.cub
+    cas_cal_sc_20180506T223500-20180506T223504-2014-16-PAN-272560849-stack_deband_norm_radcor_destripe-frame00001of01000-band0.cub
+
+With the output prefix ``out/run``, the produced match file name is::
+
+    out/run-cas_cal_sc_20180506T223500-20180506T223504-2014-16-PAN-272560849-stack_deband_norm_radcor_destrip_2392540bc8f7935e__cas_cal_sc_20180506T223500-20180506T223504-2014-16-PAN-272560849-stack_deband_norm_radcor_destrip_d92f863fa99371d7.match
+
+where each long name was reduced to a leading part plus a 16-digit hash of its
+full name (here ``2392540bc8f7935e`` and ``d92f863fa99371d7``).
 
 .. _csv_format:
 

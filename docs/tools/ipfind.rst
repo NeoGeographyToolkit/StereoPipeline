@@ -21,11 +21,13 @@ Usage::
 
      ipfind [options] <images>
 
-Exaple::
+Example::
 
     ipfind image1.tif image2.tif image3.tif
 
-This will write ``image1.vwip``, ``image2.vwip``, ``image3.vwip``.
+This will write ``image1.vwip``, ``image2.vwip``, ``image3.vwip``, each named
+after its input image. See :numref:`match_file_naming` for how very long file
+names are handled.
 
 Command-line options for ipfind:
 

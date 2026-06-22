@@ -678,12 +678,16 @@ The naming convention for the match files is::
 
     <output prefix>-<image1>__<image2>.match
 
-where the image names are without the directory name and extension. Excessively
-long image names will be truncated.  For example, for two images named
-``input/image1.tif`` and ``input/image2.tif``, and given the output prefix
-``out/run``, the match file will be::
+where the image names are without the directory name and extension. For example,
+for two images named ``input/image1.tif`` and ``input/image2.tif``, and given the
+output prefix ``out/run``, the match file will be::
 
     out/run-image1__image2.match
+
+If the image names are long enough that, combined with the output prefix, the
+resulting file name would exceed the length a file system allows for a single
+file name, the long parts are shortened in a reproducible, cross-platform way.
+See the discussion and example in :numref:`match_file_naming`.
 
 If such files have been already produced by a different invocation of
 ``bundle_adjust`` or by other means, they can be loaded by ``bundle_adjust``,
@@ -696,7 +700,9 @@ Plain-text match files are supported as well (:numref:`txt_match`).
 Bundle adjustment also produces outlier-filtered versions of these files, that
 end with ``-clean.match``. These can be used with the option
 ``--clean-match-files-prefix``. The option ``--remove-outliers-params`` controls
-the outlier filtering.
+the outlier filtering. These share the same base name as the corresponding
+``.match`` files, including any shortening of long names
+(:numref:`match_file_naming`), and differ only by ending in ``-clean.match``.
 
 Any such files can be inspected with ``stereo_gui``
 (:numref:`stereo_gui_pairwise_matches`) and converted to text with

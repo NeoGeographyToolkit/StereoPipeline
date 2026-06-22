@@ -1440,8 +1440,9 @@ The *naming convention for the match files* is::
 
   <prefix>-<image1>__<image2>.match
   
-where the image names are without the directory name and extension. See
-:numref:`jitter_ip` for more information on interest point matches.
+where the image names are without the directory name and extension
+(:numref:`ba_match_files`). See :numref:`jitter_ip` for more information on
+interest point matches.
 
 Here it is important to use a lot of match points and a low 
 value for ``--num-lines-per-orientation`` and same for position,

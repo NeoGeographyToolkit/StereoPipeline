@@ -843,5 +843,8 @@ and::
 
     stereo_gui <tile>-left-aligned-tile.tif               \
       <tile>-right-aligned-tile.tif                       \
-      <tile>-left-aligned-tile__right-aligned-tile.match 
+      <tile>-left-aligned-tile__right-aligned-tile.match
+
+These follow the usual match-file naming convention
+(:numref:`ba_match_files`).
 
