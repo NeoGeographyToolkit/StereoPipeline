@@ -710,9 +710,9 @@ alignment transform must be applied to the cameras (:numref:`ba_pc_align`).
 Then, jitter was solved for, as earlier, but for the entire set at once. Dense
 pairwise matches were used (:numref:`dense_ip`). They were copied from
 individual stereo directories to a single directory. It is important to use the
-proper naming convention (:numref:`ba_match_files`). Care is needed with any
-renaming when the input image names are very long, as that can be error-prone
-(:numref:`match_file_naming`).
+proper naming convention (:numref:`ba_match_files`). Care is needed when
+renaming the match files if the input image names are very long, as that can be
+error-prone (:numref:`match_file_naming`).
 
 One could augment or substitute the dense matches with *subpixel-level accurate*
 sparse matches from bundle adjustment if renamed to the proper convention
