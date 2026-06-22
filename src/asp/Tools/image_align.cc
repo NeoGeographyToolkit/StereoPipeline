@@ -40,6 +40,7 @@
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/FileIO/FileUtils.h>
+#include <vw/Cartography/GeoTransform.h>
 
 #include <ogrsf_frmts.h>
 #include <boost/filesystem.hpp>
@@ -391,9 +392,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, "
      "in the format: 'disparity.tif num_samples'.")
     ("match-points-geopackage", po::value(&opt.match_points_gpkg)->default_value(""),
-     "Write the inlier interest point matches to this GeoPackage (.gpkg) file, in the units "
-     "of the georeference (meters or degrees). In this mode the actual alignment is skipped "
-     "(but the aligned image can still be produced by also setting -o).")
+     "Write the inlier interest point matches to this GeoPackage (.gpkg) file, in the "
+     "reference image's projection (meters or degrees). In this mode the actual alignment is "
+     "skipped (but the aligned image can still be produced by also setting -o).")
     ("nodata-value", 
      po::value(&ip_opt.nodata_value)->default_value(g_nan_val),
      "Pixels with values less than or equal to this number are treated as no-data. This "
@@ -555,9 +556,11 @@ void write_match_geopackage(std::string const& gpkg_file,
   if (poDS == NULL)
     vw_throw(ArgumentErr() << "Failed writing file: " << gpkg_file << ".\n");
 
-  // The geometry is in the source image georeferenced coordinates
+  // All coordinates are written in the reference image's projection. The source
+  // match locations are reprojected into it below, so the dx/dy offset is valid
+  // even when the two images use different projections.
   OGRSpatialReference spatial_ref;
-  std::string srs_string = src_georef.get_wkt();
+  std::string srs_string = ref_georef.get_wkt();
   if (spatial_ref.SetFromUserInput(srs_string.c_str()))
     vw_throw(ArgumentErr() << "Failed to parse: \"" << srs_string << "\".\n");
 
@@ -574,12 +577,18 @@ void write_match_geopackage(std::string const& gpkg_file,
       vw_throw(ArgumentErr() << "Failed creating field: " << fname << ".\n");
   }
 
+  // Transform source-image points into the reference projection (projected units
+  // to projected units), so dx/dy is valid even when the two images use
+  // different projections. A no-op when they share a projection.
+  vw::cartography::GeoTransform src_to_ref(src_georef, ref_georef);
+
   vw_out() << "Writing match points to GeoPackage: " << gpkg_file << "\n";
   for (size_t i = 0; i < inlier_ip1.size(); i++) {
     vw::Vector2 ref_pix(inlier_ip1[i].x, inlier_ip1[i].y);
     vw::Vector2 src_pix(inlier_ip2[i].x, inlier_ip2[i].y);
     vw::Vector2 ref_pt = ref_georef.pixel_to_point(ref_pix);
-    vw::Vector2 src_pt = src_georef.pixel_to_point(src_pix);
+    // Source point in its own projected units, reprojected to the reference
+    vw::Vector2 src_pt = src_to_ref.point_to_point(src_georef.pixel_to_point(src_pix));
     double dx = src_pt.x() - ref_pt.x();
     double dy = src_pt.y() - ref_pt.y();
 
@@ -596,7 +605,7 @@ void write_match_geopackage(std::string const& gpkg_file,
     feature->SetField("src_row", src_pix.y());
     feature->SetField("sigma", (double)inlier_ip2[i].scale);
 
-    // The geometry is the source georeferenced location
+    // The geometry is the source feature location, in the reference projection
     OGRPoint pt(src_pt.x(), src_pt.y());
     feature->SetGeometry(&pt);
 

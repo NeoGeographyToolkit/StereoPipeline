@@ -278,12 +278,16 @@ GeoPackage format
 ^^^^^^^^^^^^^^^^^
 
 The output is a GeoPackage (``.gpkg``) with one point feature per inlier match.
-The point geometry is the source-image location, in the coordinate system of the
-source image. All coordinates and offsets are in the units of the georeference
-(meters or degrees). Each feature has the following fields:
+The point geometry is the source-image location, expressed in the projection of
+the reference image. When the two images are in different projections, the source
+coordinates are reprojected into the reference one, so the ``dx``, ``dy`` offset
+is always a valid difference within a single coordinate system. All coordinates
+and offsets are in the units of the reference projection (meters or degrees).
+Each feature has the following fields:
 
-- ``ref_x``, ``ref_y``: the coordinates of the match in the reference image.
-- ``src_x``, ``src_y``: the coordinates of the match in the source image.
+- ``ref_x``, ``ref_y``: the coordinates of the match in the reference image projection.
+- ``src_x``, ``src_y``: the source-image match location, in the reference
+  projection as well.
 - ``dx``, ``dy``: the offset, as source minus reference. This is the local
   geolocation discrepancy between the two images.
 - ``ref_col``, ``ref_row``, ``src_col``, ``src_row``: the pixel locations of
