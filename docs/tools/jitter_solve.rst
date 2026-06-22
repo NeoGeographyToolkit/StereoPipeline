@@ -261,10 +261,10 @@ asp_bm`` and ``--subpixel-mode 1``. The ``asp_mgm`` algorithm
 somewhat the interest points which makes solving for subpixel-level accurate
 jitter less accurate.
 
-All interest point matches from disparity must be copied to a single directory
-and *renamed according to the naming convention* (:numref:`ba_match_files`).
-The jitter solver is passed the prefix of these files with the option
-``--match-files-prefix``.
+Pass these disparity-based matches to the jitter solver with
+``--match-files-prefix``, using their ``run-disp`` prefix. Renaming them is
+error-prone when the image names are long, as that can invalidate the shortening
+of long match file names (:numref:`match_file_naming`).
 
 If having more than two images, one can do pairwise stereo to get dense matches.
 For a large number of images this is prohibitive.
@@ -710,7 +710,9 @@ alignment transform must be applied to the cameras (:numref:`ba_pc_align`).
 Then, jitter was solved for, as earlier, but for the entire set at once. Dense
 pairwise matches were used (:numref:`dense_ip`). They were copied from
 individual stereo directories to a single directory. It is important to use the
-proper naming convention (:numref:`ba_match_files`).
+proper naming convention (:numref:`ba_match_files`). Care is needed with any
+renaming when the input image names are very long, as that can be error-prone
+(:numref:`match_file_naming`).
 
 One could augment or substitute the dense matches with *subpixel-level accurate*
 sparse matches from bundle adjustment if renamed to the proper convention
@@ -927,7 +929,12 @@ Copy the produced dense interest point matches for use in solving for jitter::
 In ASP 3.4.0 or later, that file to be copied is named instead
 ``run_1_2_map/run-disp-1__2.match``, or so, reflecting the names of the raw
 images, as these matches are between the *original images*, even if produced
-from mapprojected images. 
+from mapprojected images.
+
+Instead of copying and renaming, these matches can be passed with
+``--match-files-prefix run_1_2_map/run-disp``, reusing the existing prefix. It is
+suggested to not rename match files when the image names are long, as that can
+invalidate the shortening of long match file names (:numref:`match_file_naming`).
 
 See :numref:`jitter_ip` for a longer explanation regarding dense and sparse
 interest point matches.
@@ -1200,7 +1207,10 @@ Copy the dense interest point matches found in stereo, using the convention
 
 In ASP 3.4.0 or later, that file to be copied is named instead
 ``run_1_2_map/run-disp-1__2.match``, or so, reflecting the names of the raw
-images.
+images. Then, instead of copying and renaming, these matches can be passed with
+``--match-files-prefix stereo_map_12/run-disp``, reusing the existing prefix. It
+is suggested to not rename match files when the image names are long, as that can
+invalidate the shortening of long match file names (:numref:`match_file_naming`).
 
 See :numref:`jitter_ip` for a longer explanation regarding dense interest point
 matches.
@@ -1434,7 +1444,11 @@ for unprojected (original) images::
 
 In ASP 3.4.0 or later, that file to be copied is named instead
 ``run_1_2_map/run-disp-out-Band3N__out-Band3B.match``, or so, reflecting the names
-of the raw images.
+of the raw images. Then, instead of copying and renaming, these matches can be
+passed with ``--match-files-prefix stereo_bm/run-disp``, reusing the existing
+prefix. It is suggested to not rename match files when the image names are long,
+as that can invalidate the shortening of long match file names
+(:numref:`match_file_naming`).
 
 The *naming convention for the match files* is::
 

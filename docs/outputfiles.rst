@@ -419,6 +419,11 @@ negligibly unlikely (below one in a billion for over 100,000 names). Most data,
 including names of about 100 characters, is well under the limit and is left
 unchanged.
 
+If the output prefix itself is extremely long (specifically the part after the
+last directory separator), that part is shortened as well, so the resulting
+match file name stays within the limit. The directory portion of the prefix is
+left unchanged.
+
 The same rule is applied whenever a name is generated, both when these files are
 written and when they are later looked up (including with ``--match-files-prefix``
 and ``--clean-match-files-prefix``, :numref:`bundle_adjust`). Hence the names
