@@ -1,12 +1,15 @@
 .. _image_align:
 
 image_align
-------------
+-----------
 
 The program ``image_align`` aligns a second image to a first image. In
 the produced aligned second image, each feature has the same row and
 column coordinates as in the first image. It can return a transform
-in pixel space and one in planet's coordinate system.
+in pixel space and one in the planet's ECEF coordinate system.
+
+Overview
+~~~~~~~~
 
 Several alignment transforms are supported, including ``rigid``,
 ``translation``, ``similarity``,  etc. The alignment transform is determined
@@ -19,12 +22,6 @@ If the first image is georeferenced, the second aligned image will use
 the same georeference as the first one.  The first image and second
 aligned image can then be blended with ``dem_mosaic``
 (:numref:`dem_mosaic`).
-
-The images are expected to have a single band and have float or
-integer values. If the images have more than one band, only the first
-one will be read. The processing is done in double precision. The
-default output pixel value value is ``float32``, as casting to integer
-may result in precision loss.
 
 Since the first image is kept fixed, if portions of the second aligned
 image move higher or more to the left than the upper-left corner of
@@ -39,38 +36,83 @@ well.
 This tool extends the co-registration functionality of CASP-GO
 (:numref:`casp_go`).
 
-Examples
-~~~~~~~~
+Assumptions
+~~~~~~~~~~~
 
-Interest point based alignment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The images should be at a similar enough resolution and projection (if
+georeferenced). Otherwise, regrid the second image onto the grid of the first
+(the reference), for example with ``gdalwarp`` and cubic spline interpolation.
 
+If the level of detail or illumination in the two images is too different, the
+alignment will fail.
+
+When the images are notably different, an approach based on dense pyramid
+correlation is recommended (:numref:`disp_align`).
+
+Use the option ``--individually-normalize`` if the range of pixel values
+in the input images differs.
+
+The images are expected to have a single band and have float or
+integer values. If the images have more than one band, only the first
+one will be read. The processing is done in double precision. The
+default output pixel value is ``float32``, as casting to integer
+may result in precision loss.
+
+Interest point-based alignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this mode, features found based on interest points are matched.
 ::
-   
+
     image_align                           \
       --alignment-transform rigid         \
+      --ip-detect-method 0                \
       --ip-per-image 20000                \
+      --individually-normalize            \
       image1.tif image2.tif               \
       --output-prefix out_image_align/run \
       -o image2_align.tif
 
-The directory ``out_image_align`` will contain the interest point matches
-(that are cached for future runs), the computed transform, and other
-auxiliary data.
+ASP supports 3 interest point detection methods: OBALoG (0), SIFT (1), and
+ORB (2) (:numref:`stereodefault-pprc`).
 
-This program supports plain-text match files (:numref:`txt_match`).
+The directory ``out_image_align`` will contain the interest point matches (that
+are cached for future runs), the computed transform, and other auxiliary data.
 
-Disparity based alignment
-^^^^^^^^^^^^^^^^^^^^^^^^^
+This program can read externally produced match files in binary or plain-text
+format (:numref:`txt_match`), if they already exist and respect the naming
+convention (:numref:`match_file_naming`).
+
+.. _disp_align:
+
+Disparity-based alignment
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Alternatively, instead of using interest points for alignment, use a (dense)
 disparity produced from correlation (:numref:`correlator-mode`). This method can
 be more robust to differences in illumination.
 
-::
+For this path the two images must be on the same grid (same projection, extent,
+and ground sample distance). Otherwise ``parallel_stereo --correlator-mode``
+stops with an error. Regrid them first if they differ (see the Assumptions
+above).
 
-    parallel_stereo --correlator-mode --stereo-algorithm asp_mgm \
-      --subpixel-mode 9 image1.tif image2.tif run/run-corr
+Example::
+
+    parallel_stereo              \
+      --correlator-mode          \
+      --stereo-algorithm asp_mgm \
+      --cost-mode 4              \
+      --subpixel-mode 9          \
+      image1.tif image2.tif      \
+      run/run-corr
+
+The disparity will be computed from the first to second image, but the
+alignment transform is from the second to first image, so the disparity
+and this transform will show opposite trends.
+
+Run image alignment with the produced filtered disparity
+``run/run-corr-F.tif`` (:numref:`out_fltr_files`)::
 
     image_align                                       \
       image1.tif image2.tif                           \
@@ -78,19 +120,18 @@ be more robust to differences in illumination.
       --output-prefix run/run                         \
       --output-image image2_align.tif
 
-The file ending in ``F.tif`` has the disparity.
-
 For very precise subpixel alignment, use ``--subpixel-mode 2`` above, but this
 is very slow. See :numref:`running-stereo` for the choices when it comes to
 stereo algorithms and subpixel methods, and :numref:`correlator-mode` for the
-image correlator functionality. 
+image correlator functionality.
+
+When the images are very different, the choice of ``--cost-mode`` to use with
+the ``asp_mgm`` algorithm can be quite important. The ternary census cost
+(``--cost-mode 4``) has performed better than normalized cross-correlation in
+our experiments.
 
 For noisy images the ``asp_bm`` algorithm should also be considered. It has a
 larger correlation window size.
-
-The disparity will be computed from the first to second image, but the
-alignment transform is from the second to first image, so the disparity
-and this transform will show opposite trends.
 
 Application for alignment of DEMs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -114,7 +155,7 @@ to the first, as::
     image_align dem1.tif dem2.tif             \
       --input-transform run/run-transform.txt \
       --output-prefix run/run                 \
-      -o dem2_align.tif 
+      -o dem2_align.tif
 
 It appears that applying this tool on the DEMs themselves may result
 in more accurate results than if applied on their hillshaded images.
@@ -124,7 +165,7 @@ in more accurate results than if applied on their hillshaded images.
 If the DEMs have very different grids and projections, regridding them with
 ``gdalwarp`` may make them more similar and easier to align (invoke this tool
 with cubic spline interpolation).
-  
+
 Note that the alignment transform is a 3x3 matrix and can be examined
 and edited.  Its inputs and outputs are 2D pixels in *homogeneous
 coordinates*, that is, of the form (*x*, *y*, *1*). It is able to model
@@ -132,7 +173,7 @@ affine and homography transforms in the pixel plane.
 
 See the related tool ``pc_align`` (:numref:`pc_align`) for alignment
 of point clouds. That one is likely to perform better than
-``image_align``, as it makes use of the 3D nature of of point clouds,
+``image_align``, as it makes use of the 3D nature of point clouds,
 the inputs need not be gridded, and one of the clouds can be sparse.
 
 .. _image_align_ecef_trans:
@@ -156,7 +197,7 @@ Example::
       --dem1 dem1.tif             \
       --dem2 dem2.tif             \
       --output-prefix run/run
- 
+
 This will save ``run/run-ecef-transform.txt`` in the ``pc_align`` format
 (rotation + translation + scale, :numref:`alignmenttransform`). This transform
 can be passed to ``pc_align`` in order to transform a point cloud
@@ -178,7 +219,7 @@ datum in meters. The ``image_calc`` program (:numref:`image_calc`)
 can modify these values before the DEMs are passed to ``image_align``.
 
 If only DEMs exist, their hillshaded versions (:numref:`hillshade`) can be
-used as images. As earlier, the more similar visually the images are, the 
+used as images. As earlier, the more similar visually the images are, the
 better the results.
 
 It is suggested to use ``--alignment-transform rigid`` and
@@ -294,7 +335,7 @@ Command-line options for image_align
     Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB).
 
 --ip-per-image <integer (default: 20000)>
-    How many interest points to detect in each image (the resulting number of 
+    How many interest points to detect in each image (the resulting number of
     matches will be much less).
 
 --ip-per-tile <integer (default: 0)>
@@ -322,7 +363,7 @@ Command-line options for image_align
     :numref:`txt_match`.
 
 --num-ransac-iterations <integer (default: 1000)>
-    How many iterations to perform in RANSAC when finding interest point 
+    How many iterations to perform in RANSAC when finding interest point
     matches.
 
 --inlier-threshold <double (default: 50.0)>
@@ -336,7 +377,7 @@ Command-line options for image_align
 
 --disparity-params <string (default: "")>
     Find the alignment transform by using, instead of interest points,
-    a disparity, such as produced by ``parallel_stereo --correlator-mode``. 
+    a disparity, such as produced by ``parallel_stereo --correlator-mode``.
     Specify as a string in quotes, in the format: "disparity.tif num_samples".
 
 --input-transform <string (default: "")>
@@ -367,11 +408,11 @@ Command-line options for image_align
     in the units of the georeference (meters or degrees). In this mode the actual
     alignment is skipped, unless ``-o`` is set. See
     :numref:`image_align_match_points` for details.
-    
+
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
- 
+
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.
 

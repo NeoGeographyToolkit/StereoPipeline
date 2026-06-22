@@ -147,6 +147,8 @@ Files created during refinement
     been rejected by the sub-pixel matching process.  It is
     in the same format as ``D.tif`` (above).
 
+.. _out_fltr_files:
+
 File created during filtering
 -----------------------------
 
