@@ -36,10 +36,8 @@ cam_gen (:numref:`cam_gen`):
 
 Misc:
   * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
-  * Fixed a bug with very long input image names resulting in colliding
-    ``.match`` and ``.vwip`` file names (:numref:`match_file_naming`). An
-    extremely long output prefix is now also shortened in the log and match
-    file names so they fit the file system limit.
+  * Fixed a bug with very long input image names when creating ``.match`` and
+    ``.vwip`` file names (:numref:`match_file_naming`).
   * Added ``--mapproj-geolocation-uncertainty``, to keep stereo from failing on
     mapprojected images with some misregistration and very little overlap
     (:numref:`stereodefault-pprc`).
