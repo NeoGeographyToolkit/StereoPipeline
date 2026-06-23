@@ -133,6 +133,9 @@ our experiments.
 For noisy images the ``asp_bm`` algorithm should also be considered. It has a
 larger correlation window size.
 
+See :numref:`image_align_uncertainty` for attaching a per-match uncertainty to
+the dense matches.
+
 Application for alignment of DEMs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -274,6 +277,42 @@ it rejects spurious matches caused by illumination or content differences
 between the images. A larger value should be used when a substantial
 misregistration between the images is expected.
 
+For images of differing modality or wavelength, finding matches from a dense
+disparity (:numref:`disp_align`) rather than sparse interest points is often more
+robust, and it can attach a per-match uncertainty to each GeoPackage feature
+(:numref:`image_align_uncertainty`).
+
+.. _image_align_uncertainty:
+
+Per-match uncertainty
+~~~~~~~~~~~~~~~~~~~~~
+
+To create dense matches with an uncertainty, run the ``parallel_stereo``
+disparity step above (:numref:`disp_align`) with the extra option::
+
+  --save-left-right-disparity-difference
+
+This writes ``run/run-corr-L-R-disp-diff.tif``, an integer per-pixel reliability
+measure (:numref:`correlation_uncertainty`). Then pass that file as the third
+entry of ``--disparity-params``::
+
+    image_align                          \
+      reference.tif source.tif           \
+      --disparity-params                 \
+        "run/run-corr-F.tif 1000000
+         run/run-corr-L-R-disp-diff.tif" \
+      --output-prefix run/run            \
+      --match-points-geopackage run/matches.gpkg
+
+Each match's ``sigma`` in the GeoPackage (:numref:`image_align_gpkg`) is then the
+left-right disparity difference at that match, floored at 0.5 pixels (so it is
+never 0). A larger value means a less self-consistent, less reliable match. One
+tool cannot enable that option in the other, so ``--save-left-right-disparity-difference``
+must be set explicitly on the ``parallel_stereo`` run and the resulting file
+passed here.
+
+.. _image_align_gpkg:
+
 GeoPackage format
 ^^^^^^^^^^^^^^^^^
 
@@ -292,9 +331,11 @@ Each feature has the following fields:
   geolocation discrepancy between the two images.
 - ``ref_col``, ``ref_row``, ``src_col``, ``src_row``: the pixel locations of
   the match in each image.
-- ``sigma``: the per-match sigma, in pixels. This is the interest point scale,
-  the same quantity ``bundle_adjust`` uses for the pixel sigma. It is a measure
-  of how precisely the match is localized.
+- ``sigma``: the per-match sigma, in pixels. For disparity-based matches given a
+  left-right disparity difference (:numref:`image_align_uncertainty`), this is
+  that difference, with a minimum of 0.5 pixels: a per-match uncertainty, larger
+  where the match is less self-consistent. Otherwise it is the interest point
+  detector scale, a feature size rather than a co-registration uncertainty.
 
 The GeoPackage can be inspected or converted with ``ogrinfo`` and ``ogr2ogr``
 (:numref:`gdal_tools`), or opened in QGIS.
@@ -383,6 +424,9 @@ Command-line options for image_align
     Find the alignment transform by using, instead of interest points,
     a disparity, such as produced by ``parallel_stereo --correlator-mode``.
     Specify as a string in quotes, in the format: "disparity.tif num_samples".
+    An optional third entry, the left-right disparity difference (from
+    ``parallel_stereo --save-left-right-disparity-difference``), sets each match's
+    ``sigma`` to that value (:numref:`correlation_uncertainty`).
 
 --input-transform <string (default: "")>
     Instead of computing an alignment transform, read and apply the one from

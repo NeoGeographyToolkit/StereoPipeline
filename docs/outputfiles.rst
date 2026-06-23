@@ -124,7 +124,8 @@ Files created during correlation
 
 \*-L-R-disp-diff.tif - the discrepancy between left-to-right and right-to-left
     disparities. See option ``--save-left-right-disparity-difference``
-    in :numref:`stereodefault` for more details.
+    in :numref:`stereodefault`, and :numref:`correlation_uncertainty` for how to
+    interpret and use this value.
 
 \*-PC_sub.tif - triangulated point cloud image.
    Made from the low-resolution disparity ``D_sub.tif`` (created after

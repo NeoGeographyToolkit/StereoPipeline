@@ -535,8 +535,9 @@ xcorr-threshold (*float*) (default = 2.0)
     the first filtering steps to insure that we have indeed converged
     to a global minimum for an individual pixel. The
     ``xcorr-threshold`` parameter defines an agreement threshold in
-    pixels between the forward and backward result. See also 
-    ``--save-left-right-disparity-difference``.
+    pixels between the forward and backward result. See also
+    ``--save-left-right-disparity-difference`` and
+    :numref:`correlation_uncertainty`.
 
     Optionally, this parameter can be set to a negative number. This will
     signal the correlator to only use the forward correlation result.
@@ -564,9 +565,10 @@ save-left-right-disparity-difference
     Save the discrepancy between left-to-right and right-to-left
     disparities, defined as ``max(abs(left_disp_x - right_disp_x),
     abs(left_disp_y - right_disp_y))``. Assumes a non-negative value of
-    ``--xcorr-threshold`` and stereo algorithms ``asp_bm``, ``asp_sgm``, ``asp_mgm``, 
+    ``--xcorr-threshold`` and stereo algorithms ``asp_bm``, ``asp_sgm``, ``asp_mgm``,
     or ``asp_final_mgm``. Missing values are set to no-data. This is saved
-    to ``<output prefix>-L-R-disp-diff.tif``.
+    to ``<output prefix>-L-R-disp-diff.tif``. See :numref:`correlation_uncertainty`
+    for how to interpret this value and use it as a per-match uncertainty.
 
 rm-quantile-percentile (*double*) (default = 0.85)
     See rm-quantile-multiple for details.

@@ -19,6 +19,9 @@ image_align (:numref:`image_align`):
   * Added ``--match-points-geopackage``, giving the ability to find interest
     point matches between two georeferenced images and save them to a GeoPackage
     in projected units (:numref:`image_align_match_points`).
+  * ``--disparity-params`` accepts an optional third entry, the left-right
+    disparity difference, used to populate the GeoPackage ``sigma`` column with a
+    per-match uncertainty (:numref:`correlation_uncertainty`).
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of

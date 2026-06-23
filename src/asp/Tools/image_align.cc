@@ -66,13 +66,32 @@ void find_matches_from_disp(std::vector<ip::InterestPoint> &matched_ip1,
   matched_ip1.clear();
   matched_ip2.clear();
   
-  std::string disp_file;
+  std::string disp_file, lr_diff_file;
   int num_samples;
   std::istringstream iss(opt.disparity_params);
-  if (!(iss >> disp_file >> num_samples)) 
+  if (!(iss >> disp_file >> num_samples))
     vw_throw(ArgumentErr() << "Could not parse correctly the option --disparity-params.\n");
+  iss >> lr_diff_file; // optional 3rd token: left-right disparity difference
 
   DiskImageView<PixelMask<Vector2f>> disp(disp_file);
+
+  // Optionally load the left-right disparity difference (a per-pixel uncertainty,
+  // in pixels, from 'parallel_stereo --save-left-right-disparity-difference').
+  // When present, each match's sigma (interest point scale, written to the
+  // GeoPackage 'sigma' column) is set to this value. Across tools this is
+  // explicit: the user runs parallel_stereo with that option and passes the
+  // resulting file as the third token of --disparity-params.
+  bool have_lr = !lr_diff_file.empty();
+  ImageView<float> lr_diff;
+  if (have_lr) {
+    DiskImageView<float> lr_disk(lr_diff_file);
+    if (lr_disk.cols() != disp.cols() || lr_disk.rows() != disp.rows())
+      vw_throw(ArgumentErr() << "The left-right disparity difference must have the "
+               << "same dimensions as the disparity.\n");
+    lr_diff = lr_disk; // rasterize for fast per-pixel sampling
+    vw_out() << "Using the left-right disparity difference for match uncertainty: "
+             << lr_diff_file << ".\n";
+  }
 
   if (num_samples <= 0) 
     vw_throw(ArgumentErr() 
@@ -104,7 +123,21 @@ void find_matches_from_disp(std::vector<ip::InterestPoint> &matched_ip1,
       
       vw::ip::InterestPoint lip(left_pix.x(), left_pix.y());
       vw::ip::InterestPoint rip(right_pix.x(), right_pix.y());
-      matched_ip1.push_back(lip); 
+      if (have_lr) {
+        // The difference is a non-negative magnitude; a negative value is no-data.
+        // Floor the uncertainty at 0.5 pixels (the integer check cannot resolve a
+        // finer disagreement), as in matchesFromDisp, so a 0 never reaches the
+        // GeoPackage, where a consumer may use the sigma as a weight. The sigma
+        // then takes the values 0.5, 1, 2, ..., never 0. See the correlation
+        // uncertainty section of the docs.
+        float u = lr_diff(col, row);
+        if (u >= 0) {
+          float s = std::max(u, 0.5f);
+          lip.scale = s;
+          rip.scale = s;
+        }
+      }
+      matched_ip1.push_back(lip);
       matched_ip2.push_back(rip);
     }
 
@@ -390,7 +423,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("disparity-params", po::value(&opt.disparity_params)->default_value(""),
      "Find the alignment transform by using, instead of interest points, a disparity, such "
      "as produced by 'parallel_stereo --correlator-mode'. Specify as a string in quotes, "
-     "in the format: 'disparity.tif num_samples'.")
+     "in the format: 'disparity.tif num_samples'. An optional third entry, the left-right "
+     "disparity difference (from 'parallel_stereo --save-left-right-disparity-difference'), "
+     "sets each match's sigma to that value.")
     ("match-points-geopackage", po::value(&opt.match_points_gpkg)->default_value(""),
      "Write the inlier interest point matches to this GeoPackage (.gpkg) file, in the "
      "reference image's projection (meters or degrees). In this mode the actual alignment is "

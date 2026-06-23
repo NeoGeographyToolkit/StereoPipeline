@@ -446,6 +446,45 @@ But note that for very steep terrains and no use of mapprojection a
 large search range is expected, and tightening it too much may result
 in an inaccurate disparity.
 
+.. _correlation_uncertainty:
+
+Correlation uncertainty
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A measure of how reliable each correlated pixel is can be obtained from the
+left-right (forward-backward) disparity consistency check, which is on by
+default. The disparity is computed both from the left image to the right and
+from the right image to the left. Where the two agree, the match is reliable;
+weak or repetitive texture makes them disagree.
+
+Pixels whose left-right disparity difference exceeds ``--xcorr-threshold``
+(default 2.0, :numref:`corr_section`) are filtered out as unreliable. Setting
+this to a negative value disables the check, which is not recommended.
+
+The difference itself, a per-pixel uncertainty in units of pixels, can be saved
+with ``--save-left-right-disparity-difference`` (:numref:`corr_section`),
+producing ``<output_prefix>-L-R-disp-diff.tif``. Smaller values mean a more
+self-consistent, more trustworthy match.
+
+This difference is integer-valued for all algorithms, including the semi-global
+ones (``asp_mgm``, ``asp_sgm``; see :numref:`stereo_alg_overview`). The
+consistency check is performed on the integer disparity, before sub-pixel
+refinement, because the reverse (right-to-left) disparity is only computed at
+integer resolution. The difference is therefore best read as a coarse per-pixel
+reliability flag: 0 means the forward and backward integer disparities agree,
+while 1 or 2 means they disagree by that many pixels.
+
+A difference of 0 does not mean the disparity is exact. Because the check is
+done at integer resolution, it cannot resolve a left-right disagreement smaller
+than about half a pixel, so an integer-consistent match may still be off by that
+much. A genuinely continuous per-match uncertainty would have to come from a
+different source, such as the curvature of the correlation cost surface at its
+optimum, which is not currently produced.
+
+This per-pixel difference can also be turned into a per-match uncertainty by
+``image_align`` (:numref:`image_align_uncertainty`), which can populate the
+``sigma`` column of its output GeoPackage with it (floored at 0.5 pixels).
+
 .. _subpixel:
 
 Sub-pixel refinement
