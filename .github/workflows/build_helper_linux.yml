@@ -48,7 +48,7 @@ jobs:
 
         # Create the Python env (needed for ASP packaging later).
         # Must match the Python version in asp_deps.
-        conda create -n python_isis9 -c conda-forge -y python=3.13 numpy
+        conda create -n python_isis9 -c conda-forge -y python=3.13 numpy scipy gdal=3.12.2
 
         # Set up compiler
         cc_comp=x86_64-conda-linux-gnu-gcc

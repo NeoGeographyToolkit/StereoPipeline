@@ -323,20 +323,26 @@ This will fetch and build the latest VisionWorkbench and Stereo Pipeline in
 
 See :numref:`helper_scripts` for scripts illustrating this process.
 
-Create a conda environment having Python and numpy
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Create a conda environment for the bundled Python
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-ISIS expects a full Python distribution to be shipped. To avoid shipping
-the entire ``asp_deps`` environment, we create a separate environment
-having only Python and numpy, with versions as expected by current ISIS.
-Run, for example::
+ISIS expects a full Python distribution to be shipped. Rather than ship the
+entire ``asp_deps`` environment, which is large, we create a small separate
+environment with only the modules that ASP's Python tools need, and ship that.
+Letting ``conda`` build this self-contained mini environment, which is then
+archived with ``conda pack`` and bundled by ``make-dist.py``, is more reliable
+than having the packaging script hunt for a standalone Python's dependencies.
+
+The needed modules are ``numpy``, ``scipy``, and ``gdal``. The latter two are
+used by ``sparse_disp`` (:numref:`sparse_disp`). Use the same versions as in
+``asp_deps``. In particular, ``gdal`` must match, so its Python bindings agree
+with the shipped ``gdal`` library. Run, for example::
 
     conda create -c conda-forge -n python_isis10 \
-      python=x.y.z numpy=a.b.c
+      python=3.13.13 numpy=2.4.6 scipy=1.17.1 gdal=3.12.2
 
-Note that different versions of these may be needed for Linux and OSX.
-The ``conda list`` command within the ``asp_deps`` environment 
-can be used to look up the desired versions.
+Note that different versions may be needed for Linux and OSX. The ``conda list``
+command within the ``asp_deps`` environment looks up the desired versions.
 
 Package the build
 ~~~~~~~~~~~~~~~~~

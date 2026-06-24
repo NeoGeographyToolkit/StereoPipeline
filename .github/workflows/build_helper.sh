@@ -529,7 +529,7 @@ make -j${CPU_COUNT} install
 # Make the python env
 echo Creating a new python_isis10 env
 /bin/rm -rf /usr/local/miniconda/envs/python_isis10
-conda create -n python_isis10 python=3.13.13 numpy=2.4.6 -y
+conda create -n python_isis10 python=3.13.13 numpy=2.4.6 scipy=1.17.1 gdal=3.12.2 -y
 
 # Build visionworkbench
 cd 
@@ -707,7 +707,7 @@ conda build -c nasa-ames-stereo-pipeline -c usgs-astrogeology \
 
 # Prepare for packaging the tarball
 conda install -c conda-forge pbzip2 chrpath cmake parallel
-conda create -c conda-forge -n python_isis10 python=3.13.13 numpy=2.4.6
+conda create -c conda-forge -n python_isis10 python=3.13.13 numpy=2.4.6 scipy=1.17.1 gdal=3.12.2
 
 # Package with BinaryBuilder. The Mac Arm and Mac x84 use
 # different paths to the python environment.
