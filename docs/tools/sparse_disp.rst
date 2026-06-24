@@ -20,6 +20,10 @@ For a worked example, see :numref:`sparse_disp_example`.
 Installation
 ~~~~~~~~~~~~
 
+As of the 2026-06 ASP build, the needed Python modules ship with ASP, so no
+separate environment or ``ASP_PYTHON_MODULES_PATH`` is required. The steps below
+are needed only for earlier releases.
+
 To use this tool, the ``numpy``, ``scipy``, and ``gdal`` Python modules must be
 available. It is important to use the same version of ``python``, ``numpy``, and
 ``gdal`` as in ASP. Make adjustments below and then run::

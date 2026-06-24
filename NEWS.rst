@@ -42,6 +42,9 @@ sparse_disp (:numref:`sparse_disp`):
     of the optional ``pyFFTW`` module. Measurements showed identical results and
     no speed gain from ``pyFFTW``, so it is no longer a dependency. This removes
     a package that was awkward to install.
+  * The ``scipy`` and ``gdal`` Python modules that ``sparse_disp`` needs are now
+    shipped with ASP, so the tool works out of the box. A separate Python
+    environment and ``ASP_PYTHON_MODULES_PATH`` are no longer required.
 
 Misc:
   * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
