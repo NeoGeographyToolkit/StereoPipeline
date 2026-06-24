@@ -4,15 +4,16 @@ sparse_disp
 -----------
 
 The ``sparse_disp`` program creates a low-resolution initial disparity
-(``output_prefix-D_sub.tif``) from the full-resolution stereo images, computed
-at a sparse set of pixels for speed. This is meant for difficult terrain, such
-as snow or ice, where the subsampled images used by the default seed approach
-appear blank (:numref:`d_sub_corr`).
+(``D_sub.tif``, :numref:`out_corr_files`) from the full-resolution stereo
+images, computed at a sparse set of pixels for speed. This is meant for
+difficult terrain, such as snow or ice, where the subsampled images used by the
+default seed approach appear blank (:numref:`d_sub_corr`).
 
-It is invoked automatically by ``parallel_stereo`` with ``--corr-seed-mode 3``,
-and is customized with the ``parallel_stereo`` option ``--sparse-disp-options``.
+This program is invoked automatically by :ref:`parallel_stereo` with the option
+``--corr-seed-mode 3``, and is customized with the ``parallel_stereo`` option
+``--sparse-disp-options``.
 
-For a worked example, see :numref:`sparse_disp_example`.
+An example is in :numref:`sparse_disp_example`.
 
 ``sparse_disp`` is written in Python and uses the ``numpy``, ``scipy``, and
 ``gdal`` modules.
@@ -20,11 +21,10 @@ For a worked example, see :numref:`sparse_disp_example`.
 Installation
 ~~~~~~~~~~~~
 
-As of the 2026-06 ASP build, the needed Python modules ship with ASP, so no
-separate environment or ``ASP_PYTHON_MODULES_PATH`` is required. The steps below
-are needed only for earlier releases.
+As of the 2026/06 build (:numref:`release`), the needed Python modules ship with
+ASP, so no separate installation or environment setup are required.
 
-To use this tool, the ``numpy``, ``scipy``, and ``gdal`` Python modules must be
+For older builds, the ``numpy``, ``scipy``, and ``gdal`` Python modules must be
 available. It is important to use the same version of ``python``, ``numpy``, and
 ``gdal`` as in ASP. Make adjustments below and then run::
 
