@@ -287,8 +287,9 @@ robust, and it can attach a per-match uncertainty to each GeoPackage feature
 Per-match uncertainty
 ~~~~~~~~~~~~~~~~~~~~~
 
-To create dense matches with an uncertainty, run the ``parallel_stereo``
-disparity step above (:numref:`disp_align`) with the extra option::
+To create dense matches with an uncertainty, while producing a GeoPackage report
+as in :numref:`image_align_match_points`, run the ``parallel_stereo`` disparity
+step from :numref:`disp_align` with the extra option::
 
   --save-left-right-disparity-difference
 
@@ -304,12 +305,10 @@ entry of ``--disparity-params``::
       --output-prefix run/run            \
       --match-points-geopackage run/matches.gpkg
 
-Each match's ``sigma`` in the GeoPackage (:numref:`image_align_gpkg`) is then the
-left-right disparity difference at that match, floored at 0.5 pixels (so it is
-never 0). A larger value means a less self-consistent, less reliable match. One
-tool cannot enable that option in the other, so ``--save-left-right-disparity-difference``
-must be set explicitly on the ``parallel_stereo`` run and the resulting file
-passed here.
+The ``sigma`` for each match in the GeoPackage (:numref:`image_align_gpkg`) is
+set to the corresponding left-right disparity difference, with a lower bound of
+0.5 pixels (so it is never 0). A larger value means a less self-consistent
+(so less reliable) match.
 
 .. _image_align_gpkg:
 
