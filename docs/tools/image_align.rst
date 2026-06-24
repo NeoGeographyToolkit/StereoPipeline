@@ -425,7 +425,8 @@ Command-line options for image_align
     Specify as a string in quotes, in the format: "disparity.tif num_samples".
     An optional third entry, the left-right disparity difference (from
     ``parallel_stereo --save-left-right-disparity-difference``), sets each match's
-    ``sigma`` to that value (:numref:`correlation_uncertainty`).
+    ``sigma`` to that value, with a lower bound of 0.5 pixels
+    (:numref:`image_align_uncertainty`).
 
 --input-transform <string (default: "")>
     Instead of computing an alignment transform, read and apply the one from
