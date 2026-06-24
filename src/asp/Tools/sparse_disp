@@ -164,17 +164,9 @@ def match_range(s0, ns, d0, nd):
     return (si0, si1, di0, di1, any_valid)
 
 
-# Try and use the faster Fourier transform functions from the pyFFTW
-# module if available. Otherwise use the normal scipy fftpack ones
-# instead (~2-3x slower!).
-try:
-    from pyfftw.interfaces.scipy_fftpack import fftn, ifftn
-
-except ImportError:
-    print("Module 'pyfftw' (FFTW Python bindings) could not be imported.\n"\
-          "To install it, try running 'easy_install anfft' from the terminal.\n"\
-          "Falling back on the slower 'fftpack' module for ND Fourier transforms.")
-    from scipy.fftpack import fftn, ifftn
+# Fourier transforms via scipy.fft (the pocketfft backend). Measurements showed
+# identical results to pyFFTW with no speed gain, so pyFFTW is not used.
+from scipy.fft import fftn, ifftn
 
 class TemplateMatch(object):
     """
@@ -264,8 +256,8 @@ def norm_xcorr(t, a, trim=True):
     outdims = np.array([a.shape[dd]+t.shape[dd]-1 for dd in range(a.ndim)])
     # hack by BS 1/15/2013-- the direct method appears not to work
 
-    af = fftn(a,shape=outdims)
-    tf = fftn(ndflip(t),shape=outdims)
+    af = fftn(a, s=outdims)
+    tf = fftn(ndflip(t), s=outdims)
     # 'non-normalized' cross-correlation
     xcorr = np.real(ifftn(tf*af))
 

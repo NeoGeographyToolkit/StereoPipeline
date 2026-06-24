@@ -220,7 +220,7 @@ As an example, invoke ``parallel_stereo`` with options along the lines of::
    --disparity-estimation-dem-error 5 
 
 When features are washed out at low resolution, consider also adding the option
-``--corr-max-levels 2``, or see :numref:`sparse_disp`.
+``--corr-max-levels 2``, or see :numref:`sparse_disp_example`.
 
 See :numref:`stereodefault` for more information on these options.
 
@@ -229,7 +229,7 @@ It is suggested to extract the produced low-resolution disparity bands with
 (:numref:`disparitydebug`). Inspect them  in ``stereo_gui``
 (:numref:`stereo_gui`).
 
-.. _sparse_disp:
+.. _sparse_disp_example:
 
 Sparse disparity from full-resolution images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -270,30 +270,8 @@ Here is an example:
 This tool can be customized with the ``parallel_stereo`` switch
 ``--sparse-disp-options``. 
 
-Installation of sparse_disp
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The ``sparse_disp`` tool is written in Python, and makes use of the ``gdal``,
-``numpy``, and ``scipy`` packages. To use it, these packages must be installed
-with ``conda``. 
-
-It is very important to use the same version of ``python``, ``numpy``, and
-``gdal`` as in ASP. Hence, make adjustments below and then run::
-
-    conda create -n sparse_disp c conda-forge      \
-      python=3.12.2 numpy=1.26.4 gdal=3.8.1 scipy
-      
-ASP can be told where to look for these packages with a line such as::
-      
-    export ASP_PYTHON_MODULES_PATH=$HOME/miniconda3/envs/sparse_disp/lib/python3.1/site-packages
-    
-Here, also need to adjust appropriately the ``conda`` installation location 
-and ``python`` version.
-
-If ASP is installed with ``conda`` (:numref:`conda_intro`), and ISIS version is
-at least 9.0.0, it will already have all the needed dependencies. Hence, can
-adjust ``ASP_PYTHON_MODULES_PATH`` to point to the ``site-packages`` directory
-of the ASP conda environment.
+For installation and the full list of command-line options, see
+:numref:`sparse_disp`.
 
 .. _d_sub_skip:
 
@@ -310,7 +288,7 @@ This should only be considered in cases where the texture in an image is
 completely lost when subsampled.  An example would be satellite images of fresh
 snow in the Arctic. Alternatively, ``output_prefix-D_sub.tif`` can be computed
 at a sparse set of pixels at full resolution, as described in
-:numref:`sparse_disp`.
+:numref:`sparse_disp_example`.
 
 More on the correlation process
 -------------------------------

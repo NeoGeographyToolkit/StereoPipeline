@@ -413,7 +413,7 @@ corr-seed-mode (=0,1,2,3)
        
     3 - Disparity from full-resolution images at a sparse number of points.
        This is an advanced option for terrain having snow and no
-       large-scale features. This is described in :numref:`sparse_disp`.
+       large-scale features. This is described in :numref:`sparse_disp_example`.
 
 corr-sub-seed-percent (*float*) (default=0.25)
     When using ``corr-seed-mode 1``, the solved-for or user-provided

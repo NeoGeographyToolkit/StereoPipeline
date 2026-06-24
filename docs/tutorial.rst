@@ -438,7 +438,7 @@ example of using it is in :numref:`ccd-artifact-example`.
 Images lacking large-scale features
 -----------------------------------
 
-See :numref:`d_sub_dem` and :numref:`sparse_disp` for suggestions on
+See :numref:`d_sub_dem` and :numref:`sparse_disp_example` for suggestions on
 how to deal with images that lack large-scale features, such as 
 when the images have a lot of snow.
 

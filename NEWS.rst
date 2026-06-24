@@ -37,6 +37,12 @@ cam_gen (:numref:`cam_gen`):
     Frame camera to a chosen type while keeping the pose and other intrinsics
     fixed (:numref:`cam_gen_refit`).
 
+sparse_disp (:numref:`sparse_disp`):
+  * The Fourier transforms used in correlation now go through ``scipy`` instead
+    of the optional ``pyFFTW`` module. Measurements showed identical results and
+    no speed gain from ``pyFFTW``, so it is no longer a dependency. This removes
+    a package that was awkward to install.
+
 Misc:
   * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
   * Fixed a bug with very long input image names when creating ``.match`` and
