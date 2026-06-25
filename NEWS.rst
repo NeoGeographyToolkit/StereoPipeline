@@ -32,6 +32,13 @@ parallel_stereo (:numref:`parallel_stereo`):
     ``--min-num-ip`` is kept for backward compatibility
     (:numref:`stereodefault`).
 
+mapproject (:numref:`mapproject`):
+  * A log file is now written by default next to the output image, named
+    ``<output image>-log-mapproject-<timestamp>-<pid>.txt``. It records the
+    command, the software version, system information, and the projection
+    information, similar to the logs of ``bundle_adjust`` and
+    ``parallel_stereo``. This can be turned off with ``--no-log``.
+
 cam_gen (:numref:`cam_gen`):
   * Added ``--csm-refit-distortion`` to refit the lens distortion of a CSM
     Frame camera to a chosen type while keeping the pose and other intrinsics

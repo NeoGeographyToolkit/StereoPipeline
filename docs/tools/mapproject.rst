@@ -469,6 +469,15 @@ Command-line options
     the rotation and translation from the .adjust file, the DEM it
     mapprojected onto, and the value of the ``--mo`` option.
 
+--no-log
+    Do not write a log file. By default, a file named
+    ``<output image>-log-mapproject-<timestamp>-<pid>.txt`` is written next
+    to the output image, recording the command that was run, the software
+    version, system information, and the projection information (grid size
+    and projected bounding box), similar to the log files produced by
+    ``bundle_adjust`` and ``parallel_stereo``. Such a log is not written
+    when only ``--query-projection`` or ``--query-pixel`` is invoked.
+
 --nodata-value <float (default: -32768)>
     No-data value to use unless specified in the input image.
 

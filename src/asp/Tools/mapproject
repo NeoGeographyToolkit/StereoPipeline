@@ -222,6 +222,86 @@ def maybe_copy_rpc(inputPath, outputPath):
             print("Copied " + input_rpc + " to " + output_rpc)
             shutil.copy(input_rpc, output_rpc)
 
+class Tee(object):
+    """A file-like object that writes to a console stream and a log handle."""
+    def __init__(self, stream, logHandle):
+        self.stream    = stream
+        self.logHandle = logHandle
+    def write(self, data):
+        self.stream.write(data)
+        try:
+            self.logHandle.write(data)
+        except Exception:
+            pass # Never let logging break the run
+    def flush(self):
+        self.stream.flush()
+        try:
+            self.logHandle.flush()
+        except Exception:
+            pass
+
+def getAspVersionHeader():
+    """
+    Return header lines mirroring the C++ asp::log_to_file output:
+    'ASP <version>', and, if available, 'Build ID: ...' and 'Build date: ...'.
+    """
+    out = ""
+    try:
+        p = subprocess.Popen(['mapproject_single', '--version'],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             universal_newlines=True)
+        out, err = p.communicate()
+    except OSError:
+        pass
+
+    version = ""; build_id = ""; build_date = ""
+    for line in out.split("\n"):
+        if not version:
+            m = re.search(r"(\d[\w.\-]*)", line) # first numeric token is the version
+            if m:
+                version = m.group(1)
+        if (not build_id) and ("Build ID:" in line):
+            build_id = line.split("Build ID:")[1].strip()
+        if (not build_date) and ("Build date:" in line):
+            build_date = line.split("Build date:")[1].strip()
+
+    lines = ["ASP " + version + "\n"]
+    if build_id != "":
+        lines.append("Build ID: " + build_id + "\n")
+    if build_date != "":
+        lines.append("Build date: " + build_date + "\n")
+    return lines
+
+def logSystemInfo(lg):
+    """Append basic system info to the open log handle, mirroring asp::log_to_file."""
+    def appendCmd(cmd):
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 universal_newlines=True, shell=True)
+            out, err = p.communicate()
+            lg.write(out)
+        except Exception:
+            pass
+    appendCmd("uname -a")
+    if os.path.exists("/proc/meminfo"):
+        appendCmd("cat /proc/meminfo 2>/dev/null | grep MemTotal")
+    if os.path.exists("/proc/cpuinfo"):
+        appendCmd("cat /proc/cpuinfo 2>/dev/null | tail -n 25")
+    # The line below is for MacOSX
+    appendCmd("sysctl -a hw 2>/dev/null | grep -E "
+              "\"ncpu|byteorder|memsize|cpufamily|cachesize|mmx|sse|machine|model\" "
+              "| grep -v ipv6")
+    lg.write("\n")
+
+def formatCommand(progName, argsIn):
+    """Reconstruct the command line, quoting tokens that contain spaces."""
+    tokens = [progName]
+    for tok in argsIn:
+        if (" " in tok) or ("\t" in tok):
+            tok = '"' + tok + '"'
+        tokens.append(tok)
+    return " ".join(tokens)
+
 def main(argsIn):
 
     relOutputPath = ""
@@ -284,6 +364,13 @@ def main(argsIn):
     parser.add_argument("--no-geoheader-info", action="store_true", default=False,
       dest="noGeoHeaderInfo",
       help="Suppress writing some auxiliary information in geoheaders.")
+
+    parser.add_argument("--no-log", action="store_true", default=False,
+      dest="noLog",
+      help="Do not write a log file. By default, a file named "         + \
+      "<output image>-log-mapproject-<timestamp>-<pid>.txt is written "  + \
+      "next to the output image, recording the command, the software "   + \
+      "version, and the projection information.")
 
     # DEBUG options
     parser.add_argument("--keep", action="store_true", dest="keep", default=False,
@@ -422,6 +509,56 @@ def main(argsIn):
     fullWidth  = int(querySettings['image_width'][0])
     fullHeight = int(querySettings['image_height'][0])
     print('Output image size is ' + str(fullWidth) + ' by ' + str(fullHeight) + ' pixels.')
+
+    # Write a log file, similar to other ASP tools, so that the command, the
+    # software version, and the projection information are recorded for
+    # documentation and for tools such as asp_plot to parse. The spawned
+    # per-tile copies and the query-only modes return before reaching this
+    # point, so only the main process writes a log. Console output of this
+    # script (but not of the per-tile sub-processes) is teed into the log too.
+    logHandle = None
+    origStdout = sys.stdout
+    origStderr = sys.stderr
+    if not options.noLog:
+        outputName = os.path.basename(options.outputPath)
+        timestamp  = time.strftime("%m-%d-%H%M%S")
+        logName    = os.path.splitext(outputName)[0] + \
+                     "-log-mapproject-" + timestamp + "-" + str(os.getpid()) + ".txt"
+        logPath    = os.path.join(outputFolder, logName)
+        try:
+            logHandle = open(logPath, "w")
+        except Exception as e:
+            print("Warning: Could not open log file: " + logPath + ". " + str(e))
+            logHandle = None
+
+    if logHandle is not None:
+        print("Writing log: " + logPath)
+        # Version and build info
+        for line in getAspVersionHeader():
+            logHandle.write(line)
+        logHandle.write("\n")
+        # The command being run
+        logHandle.write(formatCommand('mapproject', argsIn) + "\n\n")
+        # System info
+        logSystemInfo(logHandle)
+        # Inputs. The 'Input DEM' line is recognized by asp_plot.
+        logHandle.write(time.strftime("%Y-%m-%d %H:%M:%S") + " -- Started mapproject\n")
+        logHandle.write("Input DEM: "    + options.demPath    + "\n")
+        logHandle.write("Input image: "  + options.imagePath  + "\n")
+        logHandle.write("Input camera: " + options.cameraPath + "\n")
+        logHandle.write("Output image: " + options.outputPath + "\n\n")
+        # Projection information from the query-projection pass
+        logHandle.write("Output image size is " + str(fullWidth) + " by " +
+                        str(fullHeight) + " pixels.\n")
+        for key in ['pixel_size', 'proj_box_xmin', 'proj_box_ymin',
+                    'proj_box_xmax', 'proj_box_ymax']:
+            if key in querySettings:
+                logHandle.write(key + "," + querySettings[key][0] + "\n")
+        logHandle.write("\n")
+        logHandle.flush()
+        # Tee further console output of this script into the log as well.
+        sys.stdout = Tee(origStdout, logHandle)
+        sys.stderr = Tee(origStderr, logHandle)
 
     # Propagate the projection box and ground resolution obtained by the
     # query-projection call. Drop any redundant or conflicting options.
@@ -628,6 +765,14 @@ def main(argsIn):
 
     endTime = time.time()
     print("Finished in " + str(endTime - startTime) + " seconds.")
+
+    # Close the log, restoring the original console streams first so no further
+    # writes reach a closed handle.
+    if logHandle is not None:
+        print(time.strftime("%Y-%m-%d %H:%M:%S") + " -- Finished mapproject")
+        sys.stdout = origStdout
+        sys.stderr = origStderr
+        logHandle.close()
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
