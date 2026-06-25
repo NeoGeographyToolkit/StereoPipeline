@@ -285,6 +285,10 @@ def main(argsIn):
       dest="noGeoHeaderInfo",
       help="Suppress writing some auxiliary information in geoheaders.")
 
+    parser.add_argument("--log", action="store_true", default=False, dest="log",
+      help="Write a log file next to the output image, recording the command, "
+      "the software version, and system information. Off by default.")
+
     # DEBUG options
     parser.add_argument("--keep", action="store_true", dest="keep", default=False,
       help="Do not delete the temporary files.")
@@ -466,16 +470,17 @@ def main(argsIn):
        querySettings['model_occlusion'][0] == '1':
         options.extraArgs += ['--model-occlusion']
 
-    # Write a log file recording this run (the command, software version, and
-    # system information), the same way other ASP tools log. This is done once,
-    # here in the main process, by calling mapproject_single with --log, which
-    # writes the log and exits. The per-tile calls below do not pass --log, so
-    # they do not each write a log. The resolved --t_projwin and --tr are part
-    # of the recorded command, so the projected box and grid size are logged.
-    logCmd = ['mapproject_single',
-              options.demPath, options.imagePath, options.cameraPath,
-              options.outputPath] + options.extraArgs + ['--log']
-    asp_system_utils.executeCommand(logCmd, suppressOutput = options.suppressOutput)
+    # If the user passed --log, write a log file recording this run (the command,
+    # software version, and system information), the same way other ASP tools log.
+    # This is off by default. It is done once, in the main process, before per
+    # tile work, by calling mapproject_single with --log, which writes the log and
+    # exits. The resolved --t_projwin and --tr are part of the recorded command,
+    # so the projected box and grid size are logged.
+    if options.log:
+        logCmd = ['mapproject_single',
+                  options.demPath, options.imagePath, options.cameraPath,
+                  options.outputPath] + options.extraArgs + ['--log']
+        asp_system_utils.executeCommand(logCmd, suppressOutput = options.suppressOutput)
 
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)

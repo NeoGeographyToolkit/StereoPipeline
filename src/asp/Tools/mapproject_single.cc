@@ -113,8 +113,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "Parse the options and print the results. Used by the mapproject script.")
     ("log", po::bool_switch(&opt.log)->default_value(false),
      "Write a log file (the command, software version, and system information), "
-     "then exit. Used by the mapproject script to log the run, as the per-tile "
-     "calls do not log.")
+     "then exit. Used by the mapproject script.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
