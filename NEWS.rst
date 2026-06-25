@@ -1,6 +1,13 @@
 Changes since last release
 --------------------------
 
+mapproject (:numref:`mapproject`):
+  * A log file is now written next to the output image, via the same
+    ``asp::log_to_file`` mechanism used by other ASP tools. It records the
+    command (including the resolved projection and grid size), the software
+    version, and system information. The wrapper triggers it once, with a new
+    ``mapproject_single --log`` option; the per-tile calls do not log.
+
 bundle_adjust (:numref:`bundle_adjust`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
     ground control point (GCP) residuals.

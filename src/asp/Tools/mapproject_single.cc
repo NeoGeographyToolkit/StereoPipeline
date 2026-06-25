@@ -31,6 +31,7 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/DemUtils.h>
 #include <asp/Core/CartographyUtils.h>
+#include <asp/Core/AspLog.h>
 
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/DatumUtils.h>
@@ -110,6 +111,10 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
      "as DEM column, row, height. Quit afterwards.")
     ("parse-options", po::bool_switch(&opt.parseOptions)->default_value(false),
      "Parse the options and print the results. Used by the mapproject script.")
+    ("log", po::bool_switch(&opt.log)->default_value(false),
+     "Write a log file (the command, software version, and system information), "
+     "then exit. Used by the mapproject script to log the run, as the per-tile "
+     "calls do not log.")
     ;
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -159,6 +164,15 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
     vw_out() << "image," << opt.image_file << "\n";
     vw_out() << "camera," << opt.camera_file << "\n";
     vw_out() << "output_file," << opt.output_file << "\n";
+    exit(0);
+  }
+
+  // Write a log file and exit, as done by other ASP tools (for example
+  // image_mosaic), via the shared asp::log_to_file helper. The mapproject
+  // wrapper triggers this once in the main process; the per-tile calls do not
+  // pass --log, so they do not each write a log.
+  if (opt.log) {
+    asp::log_to_file(argc, argv, "", opt.output_file);
     exit(0);
   }
 

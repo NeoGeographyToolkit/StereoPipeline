@@ -466,6 +466,17 @@ def main(argsIn):
        querySettings['model_occlusion'][0] == '1':
         options.extraArgs += ['--model-occlusion']
 
+    # Write a log file recording this run (the command, software version, and
+    # system information), the same way other ASP tools log. This is done once,
+    # here in the main process, by calling mapproject_single with --log, which
+    # writes the log and exits. The per-tile calls below do not pass --log, so
+    # they do not each write a log. The resolved --t_projwin and --tr are part
+    # of the recorded command, so the projected box and grid size are logged.
+    logCmd = ['mapproject_single',
+              options.demPath, options.imagePath, options.cameraPath,
+              options.outputPath] + options.extraArgs + ['--log']
+    asp_system_utils.executeCommand(logCmd, suppressOutput = options.suppressOutput)
+
     # For now we just break up the image into a user-specified tile size (default 1000x1000)
     numTilesX, numTilesY, tileList = generateTileList(fullWidth, fullHeight, options.tileSize)
     numTiles = numTilesX * numTilesY

@@ -38,6 +38,7 @@ struct MapprojOptions: vw::GdalWriteOptions {
   std::string dem_file, image_file, camera_file, output_file, stereo_session,
     bundle_adjust_prefix, ref_map;
   bool query_projection, write_wkt, noGeoHeaderInfo, nearest_neighbor, parseOptions, gdal_tap;
+  bool log; // Write a log file and exit. Triggered by the mapproject wrapper.
   bool model_occlusion; // Per-pixel back-of-body visibility check
   bool multithreaded_model; // This is set based on the session type
   
