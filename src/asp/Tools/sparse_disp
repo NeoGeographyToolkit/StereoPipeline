@@ -1524,13 +1524,16 @@ def main():
     # END IF (if options.Debug)
 
     # Optionally write the matches before the disparity is rescaled below for the
-    # low-resolution seed. The columns of out are x, y, dx, dy, C, R_dx, R_dy, all
-    # in full-resolution left-pixel coordinates, so a match is the left point
-    # (x, y) and the right point (x+dx, y+dy).
+    # low-resolution seed. An ASP .match file stores pixel coordinates, so use
+    # all_pts (the full-resolution left-image pixel centers) for the left point,
+    # not out[:, 0:2], which has already been transformed to map coordinates
+    # above. The disparities out[:, 2:4] are in pixels and include the origin
+    # offset between the two images, so the right point is the left pixel plus
+    # the disparity.
     if options.save_match_file:
         match_file = asp_match_filename(output_prefix, template_file, search_file)
-        mx  = np.asarray(out[:, 0]).ravel()
-        my  = np.asarray(out[:, 1]).ravel()
+        mx  = np.asarray(all_pts[:, 0]).ravel()
+        my  = np.asarray(all_pts[:, 1]).ravel()
         mdx = np.asarray(out[:, 2]).ravel()
         mdy = np.asarray(out[:, 3]).ravel()
         write_match_file(match_file, mx, my, mx+mdx, my+mdy)
