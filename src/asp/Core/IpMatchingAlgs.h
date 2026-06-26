@@ -104,8 +104,7 @@ std::string matchFileMultiPrefix(std::string const& clean_match_files_prefix,
                                  bool matches_as_txt);
 
 /// The unwarped disparity file name.
-std::string unwarped_disp_file(std::string const& prefix, std::string const& left_image,
-                               std::string const& right_image, bool matches_as_txt);
+std::string unwarped_disp_file(std::string const& prefix);
 
 // Find and sort the convergence angles for given cameras and interest points
 void convergence_angles(vw::camera::CameraModel const * left_cam,

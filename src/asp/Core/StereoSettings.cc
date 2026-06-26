@@ -524,7 +524,7 @@ TriangulationDescription::TriangulationDescription():
       "Multiply the satellite quaternion covariances by this number before propagating them to the triangulated point cloud. Applicable only to Maxar(DigitalGlobe) linescan cameras.")
 
     ("unalign-disparity", po::bool_switch(&global.unalign_disparity)->default_value(false)->implicit_value(true),
-      "Take the computed disparity, and compute the disparity between unaligned images.")
+    "Unalign the F.tif disparity to be between the raw images (before mapprojection or alignment). The result is saved to a file named <output prefix>-unaligned-D.tif.")
     ("num-matches-from-disparity", po::value(&global.num_matches_from_disparity)->default_value(0), "Create a match file with this many points uniformly sampled from the stereo disparity. The matches are between original images (that is, before any alignment or map-projection). See also num-matches-from-disp-triplets.")
     ("num-matches-from-disp-triplets", po::value(&global.num_matches_from_disp_triplets)->default_value(0),
       "Create a match file with this many points uniformly sampled from the stereo "

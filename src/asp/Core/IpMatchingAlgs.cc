@@ -383,14 +383,8 @@ std::string matchFileMultiPrefix(std::string const& clean_match_files_prefix,
 }
 
 /// The unwarped disparity file name
-std::string unwarped_disp_file(std::string const& prefix, std::string const& left_image,
-                               std::string const& right_image, bool matches_as_txt) {
-
-  std::string match_file = vw::ip::match_filename(prefix, left_image, right_image,
-                                                  matches_as_txt);
-
-  std::string disp_file = boost::filesystem::path(match_file).replace_extension("").string();
-  return disp_file + "-unaligned-D.tif";
+std::string unwarped_disp_file(std::string const& prefix) {
+  return prefix + "-unaligned-D.tif";
 }
   
 // Find and sort the convergence angles for given cameras and interest points

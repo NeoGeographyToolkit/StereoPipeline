@@ -614,11 +614,7 @@ void disp_or_matches_work(std::string const& output_prefix,
 
   // Create a disparity map with between the original unaligned images
   if (stereo_settings().unalign_disparity) {
-    bool matches_as_txt = stereo_settings().matches_as_txt;
-    std::string unaligned_disp_file = asp::unwarped_disp_file(output_prefix,
-                                                              opt.in_file1,
-                                                              opt.in_file2,
-                                                              matches_as_txt);
+    std::string unaligned_disp_file = asp::unwarped_disp_file(output_prefix);
     unalign_disparity(is_map_projected, disparity_maps[0], left_trans, right_trans,
                       opt, unaligned_disp_file);
   }

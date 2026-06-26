@@ -437,38 +437,55 @@ Here we will discuss an approach that works when the ground truth can
 be sparse, and we make use of the stereo disparity. It requires more
 work to set up than the earlier one.
 
-We will need to create a disparity from the left and right images
-that we will use during bundle adjustment. For that we will take the
-disparity obtained in stereo and remove any intermediate transforms
-stereo applied to the images and the disparity. This can be done as
-follows::
+We will create a disparity between the left and right image by taking the
+disparity obtained in stereo and removing any mapprojection or alignment (option
+``--unalign-disparity`` :numref:`triangulation_options`). The same command also
+creates dense and uniformly distributed interest point matches
+(``--num-matches-from-disp-triplets``), which will be used in bundle adjustment
+(:numref:`dense_ip`)::
 
-     stereo_tri -t nadirpinhole --alignment-method epipolar \
-       --unalign-disparity                                  \
-       left.tif right.tif                                   \
-       run_ba/run-left.tsai run_ba/run-right.tsai           \
-       run_stereo/run               
+     stereo_tri -t nadirpinhole               \
+       --alignment-method epipolar            \
+       --unalign-disparity                    \
+       --num-matches-from-disp-triplets 10000 \
+       left.tif right.tif                     \
+       run_ba/run-left.tsai                   \
+       run_ba/run-right.tsai                  \
+       run_stereo/run
 
-and then bundle adjustment can be invoked with this disparity and the
-DEM/lidar file. Note that we use the cameras obtained after alignment::
+These options can be added to the original ``parallel_stereo`` command, or, as
+shown here, the triangulation stage (``stereo_tri``) can be re-run by itself on
+an existing stereo run, reusing the ``run_stereo/run-F.tif`` disparity. The
+preferred alignment method should be set above (:numref:`image_alignment`).
 
-     bundle_adjust -t nadirpinhole --inline-adjustments         \
-       --solve-intrinsics --camera-position-weight 0            \
-       --max-disp-error 50                                      \
-       --max-num-reference-points 1000000                       \
-       --max-pairwise-matches 20000                             \
-       --parameter-tolerance 1e-12                              \
-       --robust-threshold 2                                     \
-       --reference-terrain lidar.csv                            \
-       --reference-terrain-weight 5                             \
-       --disparity-list run_stereo/run-unaligned-D.tif          \
-       left.tif right.tif                                       \
-       run_align/run-run-left.tsai run_align/run-run-right.tsai \
+The bundle adjustment can be invoked with this disparity, the dense matches, and
+the DEM/lidar file. Note that we use the cameras obtained after alignment::
+
+     bundle_adjust -t nadirpinhole                     \
+       --inline-adjustments                            \
+       --solve-intrinsics                              \
+       --camera-position-weight 0                      \
+       --max-disp-error 50                             \
+       --max-num-reference-points 1000000              \
+       --max-pairwise-matches 20000                    \
+       --parameter-tolerance 1e-12                     \
+       --robust-threshold 2                            \
+       --reference-terrain lidar.csv                   \
+       --reference-terrain-weight 5                    \
+       --disparity-list run_stereo/run-unaligned-D.tif \
+       --match-files-prefix run_stereo/run-disp        \
+       left.tif right.tif                              \
+       run_align/run-run-left.tsai                     \
+       run_align/run-run-right.tsai                    \
        -o run_ba_intr_lidar/run
 
-Here we set the camera weight all the way to 0, since it is hoped that
-having a reference terrain is a sufficient constraint to prevent
-over-fitting.
+The dense matches created above are saved with the prefix ``run_stereo/run-disp``
+(:numref:`dense_ip`), hence the value of ``--match-files-prefix``.
+
+Here we set the camera position weight all the way to 0, since it is hoped that
+having a reference terrain is a sufficient constraint to prevent over-fitting.
+The newer option ``--camera-position-uncertainty`` is a suggested control, which
+should be set leniently.
 
 We used ``--robust-threshold 2`` to make the solver work harder
 where the errors are larger. This may be increased somewhat if the
@@ -504,7 +521,7 @@ ground truth (the later can be evaluated by invoking
 ``geodiff --absolute`` on the ASP-created aligned DEM and the reference
 lidar/DEM file).
 
-Here we assumed all intrinsics are shared. See 
+Here we assumed all intrinsics are shared. See
 :numref:`kaguya_ba` for how to have several groups of
 intrinsics. See also the option ``--intrinsics-to-share``.
 
@@ -530,17 +547,20 @@ follows (the example here is for 4 images)::
      disp1=run_stereo12/run-unaligned-D.tif
      disp2=run_stereo23/run-unaligned-D.tif
      disp3=run_stereo34/run-unaligned-D.tif
-     bundle_adjust -t nadirpinhole --inline-adjustments       \
-       --solve-intrinsics  --camera-position-weight 0         \
-       img1.tif img2.tif img3.tif img4.tif                    \
-       run_align_12/run-img1.tsai run_align12/run-img2.tsai   \
-       run_align_34/run-img3.tsai run_align34/run-img4.tsai   \
-       --reference-terrain lidar.csv                          \
-       --disparity-list "$disp1 $disp2 $disp3"                \
-       --robust-threshold 2                                   \
-       --max-disp-error 50 --max-num-reference-points 1000000 \
-       --overlap-limit 1 --parameter-tolerance 1e-12          \
-       --reference-terrain-weight 5                           \
+     bundle_adjust -t nadirpinhole --inline-adjustments \
+       --solve-intrinsics --camera-position-weight 0    \
+       img1.tif img2.tif img3.tif img4.tif              \
+       run_align12/run-img1.tsai                        \
+       run_align12/run-img2.tsai                        \
+       run_align34/run-img3.tsai                        \
+       run_align34/run-img4.tsai                        \
+       --reference-terrain lidar.csv                    \
+       --disparity-list "$disp1 $disp2 $disp3"          \
+       --robust-threshold 2                             \
+       --max-disp-error 50                              \
+       --max-num-reference-points 1000000               \
+       --overlap-limit 1 --parameter-tolerance 1e-12    \
+       --reference-terrain-weight 5                     \
        -o run_ba_intr_lidar/run
 
 In case it is desired to omit the disparity between one pair of images,

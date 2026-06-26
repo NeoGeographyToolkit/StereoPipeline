@@ -904,8 +904,16 @@ num-matches-from-disp-triplets (*integer*) (default = 0)
 num-matches-from-disparity (*integer*) (default = 0)
     Create a match file with roughly this many points uniformly sampled from the
     stereo disparity. The matches are between original images (that is, before
-    any alignment or map-projection). These can be used in bundle adjustment
+    any alignment or map-projection). These can be used in bundle adjustment.
     See also ``num-matches-from-disp-triplets``.
+
+unalign-disparity
+    Unalign the ``F.tif`` disparity so that it is between the raw images, that
+    is, before any map-projection or alignment. The result is saved to a file
+    named ``<output prefix>-unaligned-D.tif``. Such a disparity can be passed to
+    ``bundle_adjust`` via ``--disparity-list`` when refining intrinsics against
+    a reference terrain (:numref:`floatingintrinsics`). See also
+    ``--num-matches-from-disparity`` (:numref:`triangulation_options`).
 
 compute-point-cloud-center-only
     Only compute the center of triangulated point cloud and exit. Hence,
