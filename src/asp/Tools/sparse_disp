@@ -41,9 +41,9 @@ import asp_system_utils
 asp_system_utils.verify_python_version_is_supported()
 
 try:
-    from osgeo import gdal, gdalconst
-except ImportError:    
-    import gdal, gdalconst
+    from osgeo import gdal, gdalconst, ogr, osr
+except ImportError:
+    import gdal, gdalconst, ogr, osr
 gdal.UseExceptions()
     
 import numpy as np
@@ -474,11 +474,17 @@ def parabola_subpixel(result, ij):
     # vertex, each clamped to [-1, 1]. The neighbors are adjacent disparities in
     # the same correlation surface, already computed by the caller. Falls back to
     # 0 when the peak is on a border or the parabola is degenerate.
+    # Also return the peak sharpness (k_r, k_c) along each axis, which is the
+    # curvature magnitude 2b - a - d (>= 0 at a maximum). A sharp peak has a large
+    # k; a flat peak has k near 0. The caller turns this into the localization
+    # uncertainty sigma = 1/sqrt(k). k is 0 when the peak is on a border.
 
     r, c   = int(ij[0]), int(ij[1])
     nr, nc = result.shape
     d_r = 0.0
     d_c = 0.0
+    k_r = 0.0
+    k_c = 0.0
     if 0 < r < nr-1:
         a = result[r-1, c]
         b = result[r,   c]
@@ -486,6 +492,7 @@ def parabola_subpixel(result, ij):
         denom = a - 2.0*b + d
         if denom != 0.0:
             d_r = 0.5*(a - d)/denom
+        k_r = -denom
     if 0 < c < nc-1:
         a = result[r, c-1]
         b = result[r, c]
@@ -493,15 +500,17 @@ def parabola_subpixel(result, ij):
         denom = a - 2.0*b + d
         if denom != 0.0:
             d_c = 0.5*(a - d)/denom
+        k_c = -denom
     d_r = max(-1.0, min(1.0, d_r))
     d_c = max(-1.0, min(1.0, d_c))
-    return d_r, d_c
+    return d_r, d_c, k_r, k_c
 
-def asp_match_filename(out_prefix, file1, file2):
+def asp_match_filename(out_prefix, file1, file2, ext='.match'):
 
-    # Form an ASP match file name, <out_prefix>-<name1>__<name2>.match, following
+    # Form an ASP match file name, <out_prefix>-<name1>__<name2><ext>, following
     # the ASP convention. Each name is the input image base name, without the
     # directory and extension, with a leading "out_prefix-" removed if present.
+    # The extension is '.match' for binary matches and '.txt' for plain text.
     # The hashing that ASP uses for excessively long names is not reproduced here,
     # so such names should be avoided.
 
@@ -518,12 +527,25 @@ def asp_match_filename(out_prefix, file1, file2):
 
     name1  = strip(file1)
     name2  = strip(file2)
-    suffix = name1 + "__" + name2 + ".match"
+    suffix = name1 + "__" + name2 + ext
     if out_prefix == "":
         return suffix
     return out_prefix + "-" + suffix
 
-def write_match_file(match_file, xl, yl, xr, yr):
+def write_match_file_txt(match_file, xl, yl, xr, yr, unc):
+
+    # Write matches as a plain text match file, six numbers per line:
+    # x1 y1 unc1 x2 y2 unc2, at 9 significant digits, mirroring the ASP convention
+    # (see the txt_match format in the documentation). The per-match localization
+    # uncertainty sigma is used as the uncertainty for both points.
+
+    with open(match_file, 'w') as f:
+        for i in range(len(xl)):
+            f.write("%.9g %.9g %.9g %.9g %.9g %.9g\n" %
+                    (float(xl[i]), float(yl[i]), float(unc[i]),
+                     float(xr[i]), float(yr[i]), float(unc[i])))
+
+def write_match_file(match_file, xl, yl, xr, yr, scale=None, interest=None):
 
     # Write matches to an ASP binary .match file. The byte layout mirrors
     # VisionWorkbench write_binary_match_file: two uint64 counts, then one record
@@ -533,17 +555,87 @@ def write_match_file(match_file, xl, yl, xr, yr):
     # and a uint64 descriptor length. We carry no descriptor, so the length is 0.
     # Coordinates are full-resolution pixels. The hash logic that ASP uses for
     # long auto-derived match names is not reproduced here, as the name is given.
+    # The per-match localization uncertainty sigma goes in the scale field (the
+    # same field bundle_adjust reads as the pixel sigma); the correlation peak
+    # value (match quality) goes in the interest field. Defaults keep the prior
+    # behavior (scale 1, interest 0) when these are not provided.
 
     n   = len(xl)
+    if scale is None:
+        scale = np.ones(n)
+    if interest is None:
+        interest = np.zeros(n)
     rec = struct.Struct('<ffiifff?IIQ')
     with open(match_file, 'wb') as f:
         f.write(struct.pack('<QQ', n, n))
         for i in range(n):
             f.write(rec.pack(float(xl[i]), float(yl[i]), int(xl[i]), int(yl[i]),
-                             0.0, 1.0, 0.0, False, 0, 0, 0))
+                             0.0, float(scale[i]), float(interest[i]), False, 0, 0, 0))
         for i in range(n):
             f.write(rec.pack(float(xr[i]), float(yr[i]), int(xr[i]), int(yr[i]),
-                             0.0, 1.0, 0.0, False, 0, 0, 0))
+                             0.0, float(scale[i]), float(interest[i]), False, 0, 0, 0))
+
+def write_match_geopackage(gpkg_file, mx, my, sx, sy, t_gt, s_gt,
+                           ref_wkt, src_wkt, sigma, quality):
+
+    # Write the matches as a GeoPackage of points, using the same fields and the
+    # same convention as image_align (write_match_geopackage in image_align.cc).
+    # The reference is the template (first) image, the source is the search
+    # (second) image. Each match carries the reference and source projected
+    # coordinates, their difference dx, dy, the pixel columns and rows, the
+    # localization uncertainty sigma (from the parabola, see --uncertainty-mode),
+    # and the correlation peak value as quality. The point geometry is the source
+    # location, in the reference projection. As in image_align, the source point
+    # is reprojected into the reference projection, so dx, dy and the geometry are
+    # all in the reference frame. This is a no-op when the two images share a
+    # projection (the usual case, since pixel-disparity matching needs a common
+    # grid).
+
+    out_dir = os.path.dirname(gpkg_file)
+    if out_dir and not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    driver = ogr.GetDriverByName('GPKG')
+    if os.path.exists(gpkg_file):
+        driver.DeleteDataSource(gpkg_file)
+    ds  = driver.CreateDataSource(gpkg_file)
+    ref_srs = osr.SpatialReference()
+    if ref_wkt:
+        ref_srs.ImportFromWkt(ref_wkt)
+    src_srs = osr.SpatialReference()
+    if src_wkt:
+        src_srs.ImportFromWkt(src_wkt)
+    # Reproject source projected coordinates into the reference projection.
+    transform = None
+    if ref_wkt and src_wkt and not ref_srs.IsSame(src_srs):
+        ref_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        src_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        transform = osr.CoordinateTransformation(src_srs, ref_srs)
+    layer = ds.CreateLayer('matches', ref_srs, ogr.wkbPoint)
+    for name in ['ref_x', 'ref_y', 'src_x', 'src_y', 'dx', 'dy',
+                 'ref_col', 'ref_row', 'src_col', 'src_row', 'sigma', 'quality']:
+        layer.CreateField(ogr.FieldDefn(name, ogr.OFTReal))
+    defn = layer.GetLayerDefn()
+    for i in range(len(mx)):
+        rx  = t_gt[0] + t_gt[1]*mx[i] + t_gt[2]*my[i]
+        ry  = t_gt[3] + t_gt[4]*mx[i] + t_gt[5]*my[i]
+        sxp = s_gt[0] + s_gt[1]*sx[i] + s_gt[2]*sy[i]
+        syp = s_gt[3] + s_gt[4]*sx[i] + s_gt[5]*sy[i]
+        if transform is not None:
+            sxp, syp, _ = transform.TransformPoint(sxp, syp)
+        feat = ogr.Feature(defn)
+        feat.SetField('ref_x',   rx);  feat.SetField('ref_y',   ry)
+        feat.SetField('src_x',   sxp); feat.SetField('src_y',   syp)
+        feat.SetField('dx', sxp - rx); feat.SetField('dy', syp - ry)
+        feat.SetField('ref_col', float(mx[i])); feat.SetField('ref_row', float(my[i]))
+        feat.SetField('src_col', float(sx[i])); feat.SetField('src_row', float(sy[i]))
+        feat.SetField('sigma',   float(sigma[i]))
+        feat.SetField('quality', float(quality[i]))
+        pt = ogr.Geometry(ogr.wkbPoint)
+        pt.AddPoint_2D(sxp, syp)
+        feat.SetGeometry(pt)
+        layer.CreateFeature(feat)
+        feat = None
+    ds = None
 
 def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
                   search_range_x, search_range_y, dx0, dy0, T_img, S_img, noData,
@@ -556,7 +648,7 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
     std_T  = np.std(T_filt)
     if min_template_sigma is not None:
         if std_T <= min_template_sigma:
-            return(-2, Xc, Yc, -1, 0, 0)
+            return(-2, Xc, Yc, -1, 0, 0, 0.0)
 
     # Run the feature match.
     TT = T_filt[KW:template_size+KW,  KW:template_size+KW ]
@@ -569,7 +661,7 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
         result = template_matcher(low_res_image)
         if result is None:
             #warnings.warn('run_one_block: TemplateMatch returned None at xc=%d, yc=%d' % (Xc, Yc))
-            return(-3., Xc, Yc, 0., np.nan, np.nan)
+            return(-3., Xc, Yc, 0., np.nan, np.nan, 0.0)
 
         result = result[int(template_size/4):int(search_range_y/2-template_size/4), int(template_size/4):int(search_range_x/2-template_size/4)]
         ijC    = 2*(np.array(np.unravel_index(np.argmax(result), result.shape))-[result.shape[0]/2., result.shape[1]/2.]).astype(int)
@@ -594,12 +686,26 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
     # Sub-pixel refinement of the correlation peak. Mode 0 keeps the integer
     # argmax (the historical behavior, used for the low-res seed). Mode 1 fits a
     # parabola to the peak and uses its vertex, giving a fractional offset.
+    # The same parabola gives a per-match localization uncertainty sigma from the
+    # peak sharpness k: a sharp peak pins the offset tightly (small sigma), a flat
+    # peak is ambiguous (large sigma). sigma = 1/sqrt(k) per axis, combined. It is
+    # an uncalibrated localization proxy. Cap at the template size when the peak
+    # is flat or on a border (k <= 0). sigma is 0 when sub-pixel mode is off.
     sub_r = 0.0
     sub_c = 0.0
+    sigma_loc = 0.0
     if subpixel_mode >= 1:
-        sub_r, sub_c = parabola_subpixel(result, ij)
+        sub_r, sub_c, k_r, k_c = parabola_subpixel(result, ij)
+        max_sigma = float(template_size)
+        var = 0.0
+        for k in (k_r, k_c):
+            if k > 0.0:
+                var += 1.0/k
+            else:
+                var += max_sigma*max_sigma
+        sigma_loc = min(np.sqrt(var), max_sigma)
 
-    return (result[ij], Xc, Yc, std_T, ijC[1]+sub_c+dx0, ijC[0]+sub_r+dy0)
+    return (result[ij], Xc, Yc, std_T, ijC[1]+sub_c+dx0, ijC[0]+sub_r+dy0, sigma_loc)
 
 def run_blocks(param):
 
@@ -623,7 +729,7 @@ def run_blocks(param):
                             s_x_bounds[:,1].max()-s_x_bounds[:,0].min(),
                             s_y_bounds[:,1].max()-s_y_bounds[:,0].min(),
                             update=1)
-    indices = []; c = []; x = []; y = []; sigma = []; dx = []; dy = [];
+    indices = []; c = []; x = []; y = []; sigma = []; dx = []; dy = []; unc = [];
 
     # loop over the sub-blocks
 
@@ -667,8 +773,9 @@ def run_blocks(param):
         sigma.append(out[3])
         dx.append(out[4])
         dy.append(out[5])
+        unc.append(out[6])
 
-    return(indices[:], c[:], x[:], y[:], sigma[:], dx[:], dy[:])
+    return(indices[:], c[:], x[:], y[:], sigma[:], dx[:], dy[:], unc[:])
 
 class fft_matcher(object):
     """
@@ -745,6 +852,7 @@ class fft_matcher(object):
         # loop over pixel centers
         self.C   = np.zeros([XYc_i.shape[0], 1])-1
         self.sigma_template = (self.C).copy()
+        self.unc = (self.C).copy() # per-match localization uncertainty (pixels)
         self.dxy = np.zeros([XYc_i.shape[0], 2])
         self.xyC = np.zeros([XYc_i.shape[0], 2])
 
@@ -775,16 +883,17 @@ class fft_matcher(object):
             Out = [run_blocks(TP) for TP in TaskParams]
 
         for out in Out:
-            (indices, c, x, y, sigma, dx, dy) = out
+            (indices, c, x, y, sigma, dx, dy, unc) = out
 
             for i in range(len(indices)):
                 ind = indices[i]
                 self.C[ind] = c[i]
                 self.xyC[ind] = [x[i], y[i]]
                 self.sigma_template[ind] = sigma[i]
+                self.unc[ind] = unc[i]
                 self.dxy[ind,:] = [dx[i], dy[i]]
 
-        return (self.xyC).copy(), (self.dxy).copy(), (self.C).copy(), (self.sigma_template).copy()
+        return (self.xyC).copy(), (self.dxy).copy(), (self.C).copy(), (self.sigma_template).copy(), (self.unc).copy()
 
 def make_pt_2_neighbors(tri):
     """ make a dictionary of the neighbors of each point in triangulation tri """
@@ -832,22 +941,23 @@ def search_new_pts(xy, dxy, t_size, matcher, min_template_sigma=0., mask=None):
         good_pts = img_interpolate_linear(x_geo, y_geo, mask['Z'], mask['GT'])
         good_pts = (~np.isnan(good_pts)) & (good_pts > 0)
         if ~np.any(good_pts):
-            return np.zeros(0), np.zeros(0), np.zeros(0), np.zeros(0)
+            return np.zeros(0), np.zeros(0), np.zeros(0), np.zeros(0), np.zeros(0)
         xy  = xy [good_pts,:]
         dxy = dxy[good_pts,:]
 
     dxy0 = np.c_[dxy[:,0]+dxy[:,1], dxy[:,2]+dxy[:,3]]/2.
     dxyR = np.c_[dxy[:,1]-dxy[:,0], dxy[:,3]-dxy[:,2]]
     sw   = np.array(2.**np.ceil(np.log2(np.maximum(dxyR+t_size, t_size+16))))
-    xy_new, dxy_new, C_new, Pt_new = matcher(t_size, sw, dxy0, xy,
-                                             min_template_sigma=min_template_sigma)
+    xy_new, dxy_new, C_new, Pt_new, unc_new = matcher(t_size, sw, dxy0, xy,
+                                                      min_template_sigma=min_template_sigma)
     xy_bad_mask = xy_new [C_new.ravel()==-2,:]
     good        = C_new>0
     xy_new      = xy_new [good.ravel(),:]
     dxy_new     = dxy_new[good.ravel(),:]
     C_new       = C_new  [good.ravel()  ]
     Pt_new      = Pt_new [good.ravel()  ]
-    return xy_new, dxy_new, C_new, xy_bad_mask
+    unc_new     = unc_new[good.ravel()  ]
+    return xy_new, dxy_new, C_new, xy_bad_mask, unc_new
 
 def neighborhood_range(pt_list, dx_mat, dy_mat, tri, pt_dict, max_dist=None, calc_min_slope=None):
     """
@@ -1086,8 +1196,14 @@ def main():
                       help="The number of processes to use (%default)")
     parser.add_option("--subpixel-mode",        dest="subpixel_mode", default=0, type="int",
                       help="Sub-pixel refinement of the correlation peak. 0 = none, the peak stays at the integer argmax (default, as used for the low-resolution seed). 1 = fit a parabola to the peak and use its vertex, giving sub-pixel matches (%default)")
+    parser.add_option("--uncertainty-mode",     dest="uncertainty_mode", default=2, type="int",
+                      help="How to compute the per-match localization uncertainty sigma written to the match file (with --subpixel-mode 1). 1 = sharpness: sigma = 1/sqrt(peak sharpness), from the parabola curvature only. 2 = Cramer-Rao: sigma = sqrt((1-C)/peak sharpness), which also downweights low-correlation matches via the residual (1-C). Both are uncalibrated localization proxies (%default)")
     parser.add_option("--save-match-file",      dest="save_match_file", action="store_true", default=False,
                       help="In addition to the disparity, write the matches to an ASP .match file, in full-resolution left and right pixel coordinates. The name is formed automatically from the output prefix and the input image names. Intended for standalone use to produce sparse sub-pixel matches (see --subpixel-mode and --coarse/--fine)")
+    parser.add_option("--matches-as-txt",       dest="matches_as_txt", action="store_true", default=False,
+                      help="With --save-match-file, write the matches as a plain text file (six numbers per line: x1 y1 unc1 x2 y2 unc2) instead of a binary .match file, with the same name but ending in .txt. The uncertainty is the per-match sigma (see --uncertainty-mode)")
+    parser.add_option("--match-points-geopackage", dest="match_points_gpkg", default="", type="string",
+                      help="In addition to the disparity, write the matches to this GeoPackage (.gpkg) file, as projected points with the same fields as image_align: ref_x, ref_y, src_x, src_y, dx, dy, ref_col, ref_row, src_col, src_row, sigma, and quality (the correlation peak value). The point geometry is the source location. Intended for the standalone sub-pixel match use (see --subpixel-mode and --uncertainty-mode)")
     parser.add_option("--no_epipolar_fltr",     action="store_false", dest="epipolar_fltr",
                       help="Disable filtering of disparities by distance from epipolar vector")
     parser.add_option("-e", "--epipolar_axis",  dest="epipolar_axis", default=None,  type="int",
@@ -1215,7 +1331,7 @@ def main():
                       dxy0[:,0]+search_range_x/2, 
                       dxy0[:,1]-search_range_y/2, 
                       dxy0[:,1]+search_range_y/2]
-    xy, dxy, corr_scores, xy_bad_mask = search_new_pts(xy_centers0, dxy_score, template_size, matcher,
+    xy, dxy, corr_scores, xy_bad_mask, unc_scores = search_new_pts(xy_centers0, dxy_score, template_size, matcher,
                                              min_template_sigma=options.sigma_t_min, mask=in_mask)
 
     if options.epipolar_fltr:
@@ -1255,9 +1371,11 @@ def main():
     im_shape     = [matcher.Ny, matcher.Nx]
     dx_mat       = coo_matrix((dxy[good_indices,0], (xy[good_indices,1], xy[good_indices,0])), shape=im_shape).tocsr()
     dy_mat       = coo_matrix((dxy[good_indices,1], (xy[good_indices,1], xy[good_indices,0])), shape=im_shape).tocsr()
-    score_mat    = coo_matrix(((corr_scores[good_indices]).ravel(), 
+    score_mat    = coo_matrix(((corr_scores[good_indices]).ravel(),
                                (xy[good_indices,1], xy[good_indices,0])), shape=im_shape).tocsr()
-    bad_mask_mat = coo_matrix((np.ones_like(xy_bad_mask[:,0]), 
+    unc_mat      = coo_matrix(((unc_scores[good_indices]).ravel(),
+                               (xy[good_indices,1], xy[good_indices,0])), shape=im_shape).tocsr()
+    bad_mask_mat = coo_matrix((np.ones_like(xy_bad_mask[:,0]),
                               (xy_bad_mask[:,1], xy_bad_mask[:,0])), shape=im_shape).tocsr()
     xy_list = xy[good_indices,:]
     
@@ -1324,7 +1442,7 @@ def main():
         N_search      = new_xy.shape[0]
 
         # Search for the best image correlation matches around our new points
-        new_xy, new_dxy, new_corr_scores, new_xy_bad = search_new_pts(new_xy, new_dxy_score, template_size, matcher, 
+        new_xy, new_dxy, new_corr_scores, new_xy_bad, new_unc_scores = search_new_pts(new_xy, new_dxy_score, template_size, matcher,
                                                                       min_template_sigma=options.sigma_t_min, mask=in_mask)
         if len(new_xy)==0:
             print("    no new points found")
@@ -1344,8 +1462,10 @@ def main():
                                           [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
         dy_mat       = dy_mat+coo_matrix((new_dxy[good_indices,1], 
                                           [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
-        score_mat    = score_mat+coo_matrix(((new_corr_scores[good_indices]).ravel(), 
+        score_mat    = score_mat+coo_matrix(((new_corr_scores[good_indices]).ravel(),
                                              [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
+        unc_mat      = unc_mat+coo_matrix(((new_unc_scores[good_indices]).ravel(),
+                                           [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
         bad_mask_mat = bad_mask_mat + coo_matrix((1*np.ones_like(new_xy_bad[:,0]), (new_xy_bad[:,1], new_xy_bad[:,0])), shape=im_shape).tocsr()
         bad_indices  = ~good_indices
         bad_mask_mat = bad_mask_mat + coo_matrix((2*np.ones_like(new_xy[bad_indices,1]), 
@@ -1462,9 +1582,15 @@ def main():
     dx = dx_mat   [all_pts[:,1], all_pts[:,0]].transpose()
     dy = dy_mat   [all_pts[:,1], all_pts[:,0]].transpose()
     C  = score_mat[all_pts[:,1], all_pts[:,0]].transpose()
+    # Per-match localization uncertainty sigma (pixels), aligned with all_pts and
+    # the out array. Kept separate from out so the out column layout, the rescale
+    # below, and the seed raster path stay unchanged. Used only for the match file.
+    unc = unc_mat [all_pts[:,1], all_pts[:,0]].transpose()
 
     # transform the pixel centers to map coordinates
     geotransform = matcher.search_geotransform
+    template_geotransform = matcher.template_geotransform # for the match GeoPackage
+    search_projection     = matcher.S_sub.source.GetProjection() # for the GeoPackage
     driver       = matcher.T_ds.GetDriver()
     projection   = matcher.T_ds.GetProjection()
     xy           = np.c_[geotransform[0]+all_pts[:,0]*geotransform[1]+all_pts[:,1]*geotransform[2], 
@@ -1530,14 +1656,36 @@ def main():
     # above. The disparities out[:, 2:4] are in pixels and include the origin
     # offset between the two images, so the right point is the left pixel plus
     # the disparity.
+    if options.save_match_file or options.match_points_gpkg != "":
+        mx   = np.asarray(all_pts[:, 0]).ravel()
+        my   = np.asarray(all_pts[:, 1]).ravel()
+        mdx  = np.asarray(out[:, 2]).ravel()
+        mdy  = np.asarray(out[:, 3]).ravel()
+        # The plumbed quantity unc is the sharpness-based sigma sqrt(1/kx + 1/ky).
+        # Mode 1 uses it directly. Mode 2 (Cramer-Rao) multiplies by sqrt(1 - C),
+        # the residual, so a low-correlation match also gets a larger sigma:
+        # sqrt((1-C)/k) = sqrt(1-C) * sqrt(1/k). C is the correlation peak value.
+        sharp_sig = np.asarray(unc).ravel()
+        mC        = np.asarray(out[:, 4]).ravel() # correlation peak (match quality)
+        if options.uncertainty_mode == 2:
+            msig = np.sqrt(np.clip(1.0 - mC, 0.0, 1.0)) * sharp_sig
+        else:
+            msig = sharp_sig
+
     if options.save_match_file:
-        match_file = asp_match_filename(output_prefix, template_file, search_file)
-        mx  = np.asarray(all_pts[:, 0]).ravel()
-        my  = np.asarray(all_pts[:, 1]).ravel()
-        mdx = np.asarray(out[:, 2]).ravel()
-        mdy = np.asarray(out[:, 3]).ravel()
-        write_match_file(match_file, mx, my, mx+mdx, my+mdy)
+        if options.matches_as_txt:
+            match_file = asp_match_filename(output_prefix, template_file, search_file, ext='.txt')
+            write_match_file_txt(match_file, mx, my, mx+mdx, my+mdy, msig)
+        else:
+            match_file = asp_match_filename(output_prefix, template_file, search_file)
+            write_match_file(match_file, mx, my, mx+mdx, my+mdy, scale=msig, interest=mC)
         print(" wrote %d matches to %s" % (len(mx), match_file))
+
+    if options.match_points_gpkg != "":
+        write_match_geopackage(options.match_points_gpkg, mx, my, mx+mdx, my+mdy,
+                               template_geotransform, geotransform,
+                               projection, search_projection, msig, mC)
+        print(" wrote %d matches to %s" % (len(mx), options.match_points_gpkg))
 
     if options.output_scale > 0.:
         out = out/options.output_scale

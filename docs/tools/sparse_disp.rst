@@ -48,19 +48,23 @@ Producing sub-pixel matches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By default ``sparse_disp`` creates only the low-resolution seed disparity. It
-can instead be run as a standalone tool to produce sub-pixel *matches* on a
-uniform coarse grid, at the full resolution of the input images. This is useful
-when sparse but accurate correspondences are needed, without the cost of full
-dense correlation.
+can instead be run as a standalone tool to produce sub-pixel *matches*, with
+uncertainty, on a uniform coarse grid, at the full resolution of the input
+images. This is useful when sparse but accurate correspondences are needed,
+without the cost of full dense correlation.
 
-Example, for full-resolution sub-pixel matches on a uniform grid (one out of 100
-pixels gets picked, in each dimension)::
+Sample invocation
+^^^^^^^^^^^^^^^^^
 
-    sparse_disp left.tif right.tif \
-      output/run                   \
-      --coarse 100 --fine 100      \
-      --subpixel-mode 1            \
-      --save-match-file
+::
+
+    sparse_disp left.tif right.tif      \
+      output/run                        \
+      --coarse 100 --fine 100           \
+      --subpixel-mode 1                 \
+      --uncertainty-mode 2              \
+      --save-match-file                 \
+      --match-points-geopackage out.gpkg
 
 Here, ``left.tif`` and ``right.tif`` are full-resolution images, such as the
 ``L.tif`` and ``R.tif`` produced by :ref:`parallel_stereo`. For best results,
@@ -69,18 +73,9 @@ same grid size and projection.
 
 The option ``--subpixel-mode 1`` fits a parabola around the correlation peak, so
 each offset is computed to sub-pixel accuracy. This is not the best subpixel
-method but is rather fast  (:numref:`subpixel_options`). The default,
+method but is rather fast (:numref:`subpixel_options`). The default,
 ``--subpixel-mode 0``, leaves the offset at the integer peak, which is the
 behavior used for the seed disparity.
-
-The option ``--save-match-file`` writes the matches to an ASP ``.match`` file, in
-full-resolution left and right pixel coordinates. The file name is formed
-automatically from the output prefix and the input image names. This file can be
-examined with :ref:`ipmatch` (option ``--binary-to-txt``).
-
-The match file naming convention in :numref:`ba_match_files` is respected, though
-this program does not have the implementation as in :numref:`match_file_naming`
-for excessively long input image files, which should be avoided.
 
 The sampling rate is set with ``--coarse`` and ``--fine``. These are the coarsest
 and finest *spacing* between search points, in pixels. They are a spacing, not a
@@ -95,7 +90,87 @@ the smaller dimension. On a small image a value such as 100 may therefore be
 lowered, with a printed message.
 
 The usual outputs, ``D_sub.tif`` and ``D_sub_spread.tif``, are still written,
-unchanged, unaffected by any of these additional options. 
+unchanged, unaffected by any of these additional options.
+
+.. _sparse_disp_match:
+
+Match files
+^^^^^^^^^^^
+
+The above invocation saves the produced correspondences as interest point
+matches, in several formats. Each matched pair carries a localization uncertainty
+(:numref:`sparse_disp_uncertainty`).
+
+The option ``--save-match-file`` writes the matches to an ASP ``.match`` file, in
+full-resolution left and right pixel coordinates. The file name is formed
+automatically from the output prefix and the input image names. This file can be
+examined with :ref:`ipmatch` (option ``--binary-to-txt``).
+
+The match file naming convention in :numref:`ba_match_files` is respected, though
+this program does not implement the name-shortening of :numref:`match_file_naming`,
+so excessively long input image file names should be avoided.
+
+Using ``--matches-as-txt`` saves the matches instead as a plain text file
+(:numref:`txt_match`), with the same naming convention but ending in ``.txt``.
+Each line is ``x1 y1 unc1 x2 y2 unc2`` (:numref:`txt_format`), where the
+uncertainty is the per-match ``sigma``.
+
+The option ``--match-points-geopackage`` writes the matches to a GeoPackage
+(``.gpkg``) of projected points, using the same fields and convention as
+:ref:`image_align` (:numref:`image_align_match_points`): ``ref_x``, ``ref_y``,
+``src_x``, ``src_y``, ``dx``, ``dy``, the pixel columns and rows, the
+localization uncertainty ``sigma``, and the correlation peak value as
+``quality``. The reference is the first (template) image and the source is the
+second (search) image.
+
+As in :ref:`image_align`, the source point in the GeoPackage is reprojected into
+the reference projection, so ``dx``, ``dy`` and the point geometry (the source
+location) are all in the reference frame. This file can be inspected or
+converted with ``ogrinfo`` and ``ogr2ogr``.
+
+.. _sparse_disp_uncertainty:
+
+Match localization uncertainty
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With ``--subpixel-mode 1``, the parabola fit to the correlation peak also yields a
+per-match localization uncertainty ``sigma``, in pixels. It is written to the
+``scale`` field of the ``.match`` file (the field :ref:`bundle_adjust` reads as
+the per-pixel sigma) and to the ``sigma`` field of the GeoPackage. The correlation
+peak value, a match-quality score, is written to the ``interest`` and ``quality``
+fields, respectively. Two ways of computing ``sigma`` are available, selected with
+``--uncertainty-mode``:
+
+- *Sharpness* (mode 1): ``sigma = 1/sqrt(k)``, where ``k`` is the curvature
+  (sharpness) of the correlation peak from the parabola fit. A sharp,
+  well-defined peak gives a small ``sigma``; a flat peak gives a large one. This
+  uses the peak geometry only.
+
+- *Cramer-Rao* (mode 2): ``sigma = sqrt((1-C)/k)``, where ``C`` is the
+  correlation peak value. This is the Cramer-Rao estimate for locating the vertex
+  of a noisy parabola :cite:`robinson2004fundamental,rao1945information`: the
+  residual ``1-C`` (the unexplained mismatch) divided by the curvature ``k``. It
+  additionally downweights low-correlation matches, so a match that is locally
+  sharp but agrees poorly between the images still gets a larger ``sigma``.
+
+Both are uncalibrated localization proxies, useful for *ranking* match reliability
+rather than as absolute error bars (the same caveat as the detector scale used for
+sparse interest points in :ref:`image_align`). A sharper, higher-correlation peak
+corresponds to a more unique, better-pinned match.
+
+The two measures were evaluated on a well-textured Mars CTX pair and on a
+cross-modal desert pair (airborne lidar intensity versus NAIP imagery), the
+latter containing both textured vegetation and smooth, textureless sand. On the
+uniformly textured CTX pair the two measures agree and vary little, as every
+match is about equally good.
+
+On the desert pair both correctly flag the textureless areas (smooth sand,
+roads) with a large ``sigma`` and the textured areas (shrubs, washes) with a
+small one. The Cramer-Rao measure has roughly twice the dynamic range and tracks
+the local image texture more closely, since it also accounts for the lower
+correlation over textureless ground.
+
+The Cramer-Rao measure is the default, as it is the more sensitive of the two.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -150,12 +225,34 @@ Command-line options
     integer location (as used for the low-resolution seed). 1 = fit a parabola to
     the peak and use its vertex, giving sub-pixel matches.
 
+--uncertainty-mode <integer (default: 2)>
+    How to compute the per-match localization uncertainty ``sigma`` (with
+    ``--subpixel-mode 1``; see :numref:`sparse_disp_uncertainty`). 1 = sharpness,
+    ``sigma = 1/sqrt(k)``, from the parabola curvature ``k`` only. 2 = Cramer-Rao,
+    ``sigma = sqrt((1-C)/k)``, which also downweights low-correlation matches via
+    the residual ``1-C``. Both are uncalibrated localization proxies.
+
 --save-match-file
     In addition to the disparity, write the matches to an ASP ``.match`` file, in
     full-resolution left and right pixel coordinates. The name is formed
     automatically from the output prefix and the input image names. Intended for
     standalone use to produce sparse sub-pixel matches (see ``--subpixel-mode``
     and ``--coarse`` / ``--fine``).
+
+--matches-as-txt
+    With ``--save-match-file``, write the matches as a plain text file
+    (:numref:`txt_match`), with the format ``x1 y1 unc1 x2 y2 unc2``
+    (:numref:`txt_format`), instead of a binary ``.match`` file. The name is the
+    same but ends in ``.txt``. The uncertainty is the per-match ``sigma`` (see
+    ``--uncertainty-mode``).
+
+--match-points-geopackage <string>
+    In addition to the disparity, write the matches to this GeoPackage (``.gpkg``)
+    file, as projected points with the same fields as :ref:`image_align`:
+    ``ref_x``, ``ref_y``, ``src_x``, ``src_y``, ``dx``, ``dy``, ``ref_col``,
+    ``ref_row``, ``src_col``, ``src_row``, ``sigma``, and ``quality`` (the
+    correlation peak value). The point geometry is the source location. See
+    :numref:`sparse_disp_uncertainty`.
 
 --no_epipolar_fltr
     Disable filtering of disparities by distance from the epipolar vector.
