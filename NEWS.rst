@@ -38,6 +38,9 @@ cam_gen (:numref:`cam_gen`):
     fixed (:numref:`cam_gen_refit`).
 
 sparse_disp (:numref:`sparse_disp`):
+  * Added the ability to produce subpixel-level match files (parabola subpixel)
+    that are still sparse (while on a grid) but at full image resolution
+    (:numref:`dsub_match`).
   * The Fourier transforms used in correlation now go through ``scipy`` instead
     of the optional ``pyFFTW`` module. Measurements showed identical results and
     no speed loss.

@@ -55,6 +55,7 @@ from scipy.sparse import coo_matrix
 from scipy.interpolate import griddata
 from multiprocessing import Pool, cpu_count
 from optparse import OptionParser
+import struct
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -466,8 +467,87 @@ def log_filter(img, noData):
 # Start of sparse_disp functions
 #==============================================================================
 
+def parabola_subpixel(result, ij):
+
+    # Fit a 1D parabola along each axis to the three correlation values centered
+    # on the peak cell ij, and return the sub-pixel offset (drow, dcol) of the
+    # vertex, each clamped to [-1, 1]. The neighbors are adjacent disparities in
+    # the same correlation surface, already computed by the caller. Falls back to
+    # 0 when the peak is on a border or the parabola is degenerate.
+
+    r, c   = int(ij[0]), int(ij[1])
+    nr, nc = result.shape
+    d_r = 0.0
+    d_c = 0.0
+    if 0 < r < nr-1:
+        a = result[r-1, c]
+        b = result[r,   c]
+        d = result[r+1, c]
+        denom = a - 2.0*b + d
+        if denom != 0.0:
+            d_r = 0.5*(a - d)/denom
+    if 0 < c < nc-1:
+        a = result[r, c-1]
+        b = result[r, c]
+        d = result[r, c+1]
+        denom = a - 2.0*b + d
+        if denom != 0.0:
+            d_c = 0.5*(a - d)/denom
+    d_r = max(-1.0, min(1.0, d_r))
+    d_c = max(-1.0, min(1.0, d_c))
+    return d_r, d_c
+
+def asp_match_filename(out_prefix, file1, file2):
+
+    # Form an ASP match file name, <out_prefix>-<name1>__<name2>.match, following
+    # the ASP convention. Each name is the input image base name, without the
+    # directory and extension, with a leading "out_prefix-" removed if present.
+    # The hashing that ASP uses for excessively long names is not reproduced here,
+    # so such names should be avoided.
+
+    def strip(fname):
+        tag = out_prefix + "-"
+        idx = fname.find(tag)
+        if out_prefix != "" and idx != -1:
+            fname = fname[:idx] + fname[idx+len(tag):]
+        fname = os.path.basename(fname)
+        dot = fname.rfind(".")
+        if dot == -1:
+            dot = len(fname)
+        return fname[:dot]
+
+    name1  = strip(file1)
+    name2  = strip(file2)
+    suffix = name1 + "__" + name2 + ".match"
+    if out_prefix == "":
+        return suffix
+    return out_prefix + "-" + suffix
+
+def write_match_file(match_file, xl, yl, xr, yr):
+
+    # Write matches to an ASP binary .match file. The byte layout mirrors
+    # VisionWorkbench write_binary_match_file: two uint64 counts, then one record
+    # per left point followed by one record per right point. Each record is
+    # byte-packed (little-endian) as x, y (float32), ix, iy (int32), orientation,
+    # scale, interest (float32), polarity (1 byte), octave, scale_lvl (uint32),
+    # and a uint64 descriptor length. We carry no descriptor, so the length is 0.
+    # Coordinates are full-resolution pixels. The hash logic that ASP uses for
+    # long auto-derived match names is not reproduced here, as the name is given.
+
+    n   = len(xl)
+    rec = struct.Struct('<ffiifff?IIQ')
+    with open(match_file, 'wb') as f:
+        f.write(struct.pack('<QQ', n, n))
+        for i in range(n):
+            f.write(rec.pack(float(xl[i]), float(yl[i]), int(xl[i]), int(yl[i]),
+                             0.0, 1.0, 0.0, False, 0, 0, 0))
+        for i in range(n):
+            f.write(rec.pack(float(xr[i]), float(yr[i]), int(xr[i]), int(yr[i]),
+                             0.0, 1.0, 0.0, False, 0, 0, 0))
+
 def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
-                  search_range_x, search_range_y, dx0, dy0, T_img, S_img, noData):
+                  search_range_x, search_range_y, dx0, dy0, T_img, S_img, noData,
+                  subpixel_mode=0):
 
     # Do template matching for a single block in the left image.
     # LOG filter the images
@@ -511,7 +591,15 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
     ij  = np.unravel_index(np.argmax(result), result.shape)
     ijC = ij-np.array([result.shape[0]/2, result.shape[1]/2])
 
-    return (result[ij], Xc, Yc, std_T, ijC[1]+dx0, ijC[0]+dy0)
+    # Sub-pixel refinement of the correlation peak. Mode 0 keeps the integer
+    # argmax (the historical behavior, used for the low-res seed). Mode 1 fits a
+    # parabola to the peak and uses its vertex, giving a fractional offset.
+    sub_r = 0.0
+    sub_c = 0.0
+    if subpixel_mode >= 1:
+        sub_r, sub_c = parabola_subpixel(result, ij)
+
+    return (result[ij], Xc, Yc, std_T, ijC[1]+sub_c+dx0, ijC[0]+sub_r+dy0)
 
 def run_blocks(param):
 
@@ -519,7 +607,7 @@ def run_blocks(param):
     # distributed across multiple processors.
 
     (Tfile, Sfile, processes, xgi, ygi, these_ind, template_size, search_range_xy_i,
-     dxy0_i, XYc_i, min_template_sigma, user_nodata) = param
+     dxy0_i, XYc_i, min_template_sigma, user_nodata, subpixel_mode) = param
     matcher = fft_matcher(Tfile, Sfile, processes, user_nodata)
 
     KW=matcher.KW
@@ -569,7 +657,8 @@ def run_blocks(param):
         if np.mean(S_img<=S_buffer.noData) > .25: # bail if > 25% 0
             continue
         out = run_one_block(template_size, KW, min_template_sigma, Xc, Yc, int(search_range_x),
-                            int(search_range_y), dx0, dy0, T_img, S_img, T_buffer.noData)
+                            int(search_range_y), dx0, dy0, T_img, S_img, T_buffer.noData,
+                            subpixel_mode)
 
         indices.append(these_ind[count])
         c.append(out[0])
@@ -610,6 +699,7 @@ class fft_matcher(object):
         self.Tfile  = Tfile
         self.Sfile  = Sfile
         self.processes = processes
+        self.subpixel_mode = 0 # off by default; main sets it from the option
         self.T_ds   = gdal.Open(Tfile, gdalconst.GA_ReadOnly)
         self.T_band = self.T_ds.GetRasterBand(1)
         self.S_ds   = gdal.Open(Sfile, gdalconst.GA_ReadOnly)
@@ -675,7 +765,7 @@ class fft_matcher(object):
             these_ind = np.array(np.nonzero(these)).ravel()
             param = (self.Tfile, self.Sfile, self.processes, xgi.copy(), ygi.copy(), these_ind.copy(),
                      template_size, search_range_xy.copy(), dxy0.copy(), XYc.copy(), min_template_sigma,
-                     self.user_nodata)
+                     self.user_nodata, self.subpixel_mode)
             TaskParams.append(param)
 
         if self.processes > 1: # Run using multiple processes
@@ -994,6 +1084,10 @@ def main():
                        help="Un-scaled disparity range in output limited to this value (%default)")
     parser.add_option("-P", "--processes",      dest="processes",     default=cpu_count(), type="int",
                       help="The number of processes to use (%default)")
+    parser.add_option("--subpixel-mode",        dest="subpixel_mode", default=0, type="int",
+                      help="Sub-pixel refinement of the correlation peak. 0 = none, the peak stays at the integer argmax (default, as used for the low-resolution seed). 1 = fit a parabola to the peak and use its vertex, giving sub-pixel matches (%default)")
+    parser.add_option("--save-match-file",      dest="save_match_file", action="store_true", default=False,
+                      help="In addition to the disparity, write the matches to an ASP .match file, in full-resolution left and right pixel coordinates. The name is formed automatically from the output prefix and the input image names. Intended for standalone use to produce sparse sub-pixel matches (see --subpixel-mode and --coarse/--fine)")
     parser.add_option("--no_epipolar_fltr",     action="store_false", dest="epipolar_fltr",
                       help="Disable filtering of disparities by distance from epipolar vector")
     parser.add_option("-e", "--epipolar_axis",  dest="epipolar_axis", default=None,  type="int",
@@ -1090,6 +1184,7 @@ def main():
 
     # Initialize the matcher object
     matcher = fft_matcher(template_file, search_file, options.processes, options.user_nodata)
+    matcher.subpixel_mode = options.subpixel_mode
 
     # Define the initial search points
     # ??
@@ -1427,6 +1522,19 @@ def main():
         out_bad  = None
         bad_flag = None
     # END IF (if options.Debug)
+
+    # Optionally write the matches before the disparity is rescaled below for the
+    # low-resolution seed. The columns of out are x, y, dx, dy, C, R_dx, R_dy, all
+    # in full-resolution left-pixel coordinates, so a match is the left point
+    # (x, y) and the right point (x+dx, y+dy).
+    if options.save_match_file:
+        match_file = asp_match_filename(output_prefix, template_file, search_file)
+        mx  = np.asarray(out[:, 0]).ravel()
+        my  = np.asarray(out[:, 1]).ravel()
+        mdx = np.asarray(out[:, 2]).ravel()
+        mdy = np.asarray(out[:, 3]).ravel()
+        write_match_file(match_file, mx, my, mx+mdx, my+mdy)
+        print(" wrote %d matches to %s" % (len(mx), match_file))
 
     if options.output_scale > 0.:
         out = out/options.output_scale

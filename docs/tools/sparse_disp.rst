@@ -42,6 +42,54 @@ is at least 9.0.0, the ASP environment already has all the needed modules. Then
 ``ASP_PYTHON_MODULES_PATH`` can point to the ``site-packages`` directory of the
 ASP conda environment.
 
+.. _dsub_match:
+
+Producing sub-pixel matches
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default ``sparse_disp`` creates only the low-resolution seed disparity. It
+can instead be run as a standalone tool to produce sub-pixel *matches* on a
+uniform coarse grid, at the full resolution of the input images. This is useful
+when sparse but accurate correspondences are needed, without the cost of full
+dense correlation.
+
+Example, for full-resolution sub-pixel matches on a uniform 100 x 100 pixel
+grid::
+
+    sparse_disp left.tif right.tif \
+      output/run                   \
+      --coarse 100 --fine 100      \
+      --subpixel-mode 1            \
+      --save-match-file
+
+Here, ``left.tif`` and ``right.tif`` are full-resolution images, such as the
+``L.tif`` and ``R.tif`` produced by :ref:`parallel_stereo`. For best results,
+the input images should be in reasonable alignment, or mapprojected with the
+same grid size and projection.
+
+The option ``--subpixel-mode 1`` fits a parabola around the correlation peak, so
+each offset is computed to sub-pixel accuracy. This is not the best subpixel
+method but is rather fast  (:numref:`subpixel_options`). The default,
+``--subpixel-mode 0``, leaves the offset at the integer peak, which is the
+behavior used for the seed disparity.
+
+The option ``--save-match-file`` writes the matches to an ASP ``.match`` file, in
+full-resolution left and right pixel coordinates. The file name is formed
+automatically from the output prefix and the input image names. This file can be
+examined with :ref:`ipmatch` (option ``--binary-to-txt``).
+
+The match file naming convention in :numref:`ba_match_files` is respected, though
+this program does not have the implementation as in :numref:`match_file_naming`
+for excessively long input image files, which should be avoided.
+
+The sampling rate is set with ``--coarse`` and ``--fine``, the coarsest and
+finest search-point spacing in pixels. The grid is refined from the coarse to the
+fine spacing only where neighboring disparities disagree. To produce a *uniform*
+grid at a chosen spacing of ``N`` pixels, set both to ``N``.
+
+The usual outputs, ``D_sub.tif`` and ``D_sub_spread.tif``, are still written,
+unchanged, unaffected by any of these additional options. 
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -89,6 +137,18 @@ Command-line options
 
 -P, --processes <integer (default: number of CPUs)>
     The number of processes to use.
+
+--subpixel-mode <integer (default: 0)>
+    Sub-pixel refinement of the correlation peak. 0 = none, the peak stays at the
+    integer location (as used for the low-resolution seed). 1 = fit a parabola to
+    the peak and use its vertex, giving sub-pixel matches.
+
+--save-match-file
+    In addition to the disparity, write the matches to an ASP ``.match`` file, in
+    full-resolution left and right pixel coordinates. The name is formed
+    automatically from the output prefix and the input image names. Intended for
+    standalone use to produce sparse sub-pixel matches (see ``--subpixel-mode``
+    and ``--coarse`` / ``--fine``).
 
 --no_epipolar_fltr
     Disable filtering of disparities by distance from the epipolar vector.
