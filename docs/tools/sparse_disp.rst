@@ -53,8 +53,8 @@ uniform coarse grid, at the full resolution of the input images. This is useful
 when sparse but accurate correspondences are needed, without the cost of full
 dense correlation.
 
-Example, for full-resolution sub-pixel matches on a uniform 100 x 100 pixel
-grid::
+Example, for full-resolution sub-pixel matches on a uniform grid (one out of 100
+pixels gets picked, in each dimension)::
 
     sparse_disp left.tif right.tif \
       output/run                   \
@@ -82,10 +82,17 @@ The match file naming convention in :numref:`ba_match_files` is respected, thoug
 this program does not have the implementation as in :numref:`match_file_naming`
 for excessively long input image files, which should be avoided.
 
-The sampling rate is set with ``--coarse`` and ``--fine``, the coarsest and
-finest search-point spacing in pixels. The grid is refined from the coarse to the
-fine spacing only where neighboring disparities disagree. To produce a *uniform*
-grid at a chosen spacing of ``N`` pixels, set both to ``N``.
+The sampling rate is set with ``--coarse`` and ``--fine``. These are the coarsest
+and finest *spacing* between search points, in pixels. They are a spacing, not a
+count of points. A value of ``N`` means one point every ``N`` pixels, so about
+``(width / N)`` by ``(height / N)`` points across the image. The grid is refined
+from the coarse to the fine spacing only where neighboring disparities disagree.
+To produce a *uniform* grid, set both to the same value ``N``.
+
+The spacing is reduced automatically, that is, made finer, when the requested
+value is too large for the image. This keeps a minimum number of points across
+the smaller dimension. On a small image a value such as 100 may therefore be
+lowered, with a printed message.
 
 The usual outputs, ``D_sub.tif`` and ``D_sub_spread.tif``, are still written,
 unchanged, unaffected by any of these additional options. 
