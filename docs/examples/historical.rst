@@ -312,20 +312,25 @@ stereographic projection (:numref:`point2dem`)::
      point2dem --auto-proj-center \
        --tr 30 stereo_small_mgm/run-PC.tif
 
-The grid size (``--tr``) is in meters. 
+The grid size (``--tr``) is in meters.
 
-The produced DEM could be rough. It is sufficient however to align to the SRTM
-DEM by hillshading the two and finding matching features
-(:numref:`pc_hillshade`)::
+The produced DEM could be rough. It is sufficient, however, to align to the SRTM
+DEM ``dem.tif`` by hillshading the two and finding matching features
+(:numref:`pc_hillshade`).
+
+This requires regridding ``dem.tif`` to have the same projection and grid size as
+the stereo DEM. That can be done with ``gdalwarp`` (:numref:`gdal_tools`) using
+``cubicspline`` interpolation, creating ``dem_warp.tif``. See :numref:`pc_corr`
+for specific commands. Then run::
 
      pc_align --max-displacement -1                    \
        --initial-transform-from-hillshading similarity \
        --save-transformed-source-points                \
        --num-iterations 0                              \
-       dem.tif stereo_small_mgm/run-DEM.tif            \
+       dem_warp.tif stereo_small_mgm/run-DEM.tif       \
        -o stereo_small_mgm/run
 
-Here one should choose carefully the transform type. The options are
+Here, choose the transform type carefully. The options are
 ``translation``, ``rigid``, and ``similarity`` (:numref:`pc_align_options`).
 
 The resulting aligned cloud can be regridded as::
@@ -336,7 +341,7 @@ The resulting aligned cloud can be regridded as::
 
 Consider examining in ``stereo_gui`` the left and right hillshaded files produced
 by ``pc_align`` and the match file among them, to ensure tie points among
-the two DEMs were found properly (:numref:`stereo_gui_view_ip`). 
+the two DEMs were found properly (:numref:`stereo_gui_view_ip`).
 
 There is a chance that this may fail as the two DEMs to align could be too
 different. In that case, the two DEMs can be regridded as in :numref:`regrid`,
@@ -446,8 +451,9 @@ fit as in :numref:`dem2gcp`. See a figure in :numref:`kh7_fig`.
 *This produces an approximate solution, which goes the right way but is likely
 not good enough.*
 
-For the latest suggested processing workflow, see the section on KH-9 images
-(:numref:`kh9`).
+For the *latest suggested processing workflow*, see the section on KH-9 images
+(:numref:`kh9`). That one uses CSM cameras, which are more accurate than RPC.
+That approach would require fitting a CSM model to KH-7 cameras.
 
 For this example we find the following images in Earth Explorer
 declassified collection 2::
@@ -833,7 +839,7 @@ The produced cameras should be verified by mapprojection (:numref:`mapproject`):
       fwd_sub16.tsai \
       fwd_sub16.map.tif
 
-The grid size (``--tr``) is in meters. Here, it was known from existing information 
+The grid size (``--tr``) is in meters. Here, it was known from existing information
 that the ground sample distance at full resolution was about 0.75 m / pixel.
 This was multiplied by 16 given the lower resolution used here. If not known,
 the grid size can be auto-guessed by this program.
@@ -1033,7 +1039,7 @@ the anchor points are too loose and/or the GCP are too noisy. Conversely, if the
 produced DEM preserves some of the distortions, that may suggest relaxing the
 anchor point and/or camera position constraints. Tighten the GCP sigma if more
 horizontal improvement is needed, or the heights-from-dem uncertainty if more
-vertical improvement is wanted. Note that these two can conflict; it is likely
+vertical improvement is wanted. Note that these two can conflict. It is likely
 better to prioritize the GCP sigma.
 
 If the results at least go the right way, consider using these cameras as the

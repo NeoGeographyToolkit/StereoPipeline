@@ -11,15 +11,17 @@ including lens distortion.
 The approach is as follows. The dense disparity from an ASP-produced
 misregistered or warped DEM to a correct reference DEM is found. This program
 will take as input that disparity and interest point matches between the raw
-images, and will produce GCP with correct ground positions based on the
-reference DEM.
+images. It will find the ground point on the warped DEM (the approach is described
+in :numref:`heights_from_dem`). The disparity then maps this position to the
+reference DEM, creating GCP.
 
 Bundle adjustment with intrinsics optimization
 (:numref:`intrinsics_ground_truth`) or the jitter solver
 (:numref:`jitter_solve`) can then be invoked with the GCP to correct the issues.
 
-This program was motivated by the processing of historical images
-(:numref:`kh4`), particularly the KH-7 and KH-9 panoramic images.
+This program was motivated by the processing of historical images, particularly
+the KH-7 and KH-9 panoramic images. See :numref:`kh9` for a recent example
+that uses this program.
 
 ASP DEM creation
 ~~~~~~~~~~~~~~~~
@@ -281,7 +283,7 @@ reduced but not eliminated.
 
 We further improved the results for KH-7 and KH-9 cameras by creating
 linescan cameras (:numref:`opticalbar2csm`) and running ``jitter_solve``
-with GCP (:numref:`jitter_solve`).
+with GCP (:numref:`kh9`).
 
 .. _gcp_vs_tri:
 

@@ -29,6 +29,7 @@
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/GCP.h>
+#include <asp/Core/BundleAdjustUtils.h>
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Camera/CameraModel.h>
@@ -137,6 +138,7 @@ DpixT find_disparity(vw::ImageViewRef<DpixT> disparity,
 
 void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
                  vw::ba::ControlNetwork const& cnet,
+                 std::vector<vw::Vector3> const& dem_xyz_vec,
                  vw::ImageViewRef<DpixT> const& disparity,
                  vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
                  vw::cartography::GeoReference const& warped_dem_georef,
@@ -188,8 +190,12 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
 
     vw::ba::ControlPoint const& cp = cnet[ipt]; // alias
 
-    // Find the pixel in the warped DEM
-    vw::Vector3 xyz = cnet[ipt].position();
+    // Find the pixel in the warped DEM. Use the ray-to-DEM intersection (convergence-
+    // free), NOT the triangulated position, so near-parallel same-look observations do
+    // not produce a mislocated point (see updateTriPtsFromDem).
+    vw::Vector3 xyz = dem_xyz_vec[ipt];
+    if (xyz == vw::Vector3(0, 0, 0))
+      continue; // ray-to-DEM intersection failed for this point
     vw::Vector3 llh;
     llh = warped_dem_georef.datum().cartesian_to_geodetic(xyz);
     vw::Vector2 dem_pix = warped_dem_georef.lonlat_to_pixel(vw::Vector2(llh.x(), llh.y()));
@@ -578,7 +584,23 @@ int run_dem2gcp(int argc, char * argv[]) {
                  << " file(s) in " << opt.input_gcp_list << ".\n";
   }
 
-  genWriteGcp(ref_dem_georef, cnet, disparity,
+  // Robust point positions via ray-to-DEM intersection against the warped DEM. This
+  // replaces the degenerate triangulation for the GCP ground positions: each observation's
+  // ray is intersected with the DEM and averaged (convergence-free), so near-parallel
+  // same-look (e.g. consecutive push-frame framelet) observations no longer mislocate the
+  // point. The triangulated cnet positions seed the intersection search.
+  std::vector<vw::Vector3> dem_xyz_vec;
+  {
+    vw::cartography::GeoReference masked_georef;
+    vw::ImageViewRef<vw::PixelMask<double>> masked_warped_dem;
+    asp::create_masked_dem(opt.warped_dem_file, masked_georef, masked_warped_dem);
+    std::set<int> no_outliers;
+    asp::updateTriPtsFromDem(cnet, no_outliers, camera_models,
+                             masked_georef, masked_warped_dem,
+                             dem_xyz_vec); // output
+  }
+
+  genWriteGcp(ref_dem_georef, cnet, dem_xyz_vec, disparity,
               interp_ref_dem, warped_dem_georef, image_files,
               opt.gcp_sigma, opt.search_len, opt.max_num_gcp,
               opt.num_threads,

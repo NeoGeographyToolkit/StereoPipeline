@@ -193,18 +193,26 @@ Feature-based alignment
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 If the clouds differ by a large translation or scale factor, alignment can fail.
-If the clouds are DEMs, one may specify the option
-``--initial-transform-from-hillshading`` which will hillshade the two
-DEMs, find interest point matches between them, and use that to compute an initial
-transform between the clouds, which may or may not contain scale.
+If they are DEMs, the option ``--initial-transform-from-hillshading`` hillshades
+the two DEMs, finds interest point matches between them, and uses these to compute
+an initial transform (which may include scale).
 
-This transform can be passed as an initial guess to the other alignment
-algorithms (:numref:`prevtrans`). See an example in :numref:`kh4_align`.
+For best results, the input DEMs should be at the same resolution and projection.
+Otherwise they can be gridded to the same (usually coarser) grid, as described in
+:numref:`regrid`. The clouds can be cropped to a shared area as well.
+
+If the data are point clouds or CSV, first grid them to DEMs with ``point2dem``
+with the same grid size and projection.
+
+In either case, the transform found between the processed versions of the inputs
+can be applied to the original clouds (:numref:`prevtrans`).
+
+See an example in :numref:`kh4_align`.
 
 The related correlation-based alignment method is described in
 :numref:`pc_corr`.
 
-In the latest ASP (10/2025 and later), hillshading is done with ``gdaldem
+In recent ASP (10/2025 and later), hillshading is done with ``gdaldem
 hillshade`` (:numref:`gdal_hill`). ASP's own ``hillshade`` program
 (:numref:`hillshade`) is also supported. See the option ``--hillshade-command``
 in :numref:`pc_align_options`.
@@ -226,41 +234,48 @@ saved in the output directory and can be inspected
 (:numref:`stereo_gui_view_ip`). It can also be created or edited manually
 (:numref:`manual-align`).
 
-If the two clouds look too different for interest point matching to work, or
-they are not DEMs to start with, they can be gridded to use the same (usually
-coarser) grid, as described in :numref:`regrid`. The clouds can be cropped to a
-shared area as well.
-
-The produced transform will be applicable to the original clouds (a translation
-transform may be more reliable if cropping happens). When that is done, the value
-of ``--max-displacement`` becomes very important, and should be somewhat larger
-than the expected remaining displacement (:numref:`prevtrans`).
-
 .. _pc_corr:
 
 Correlation-based alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Given two DEMs with the same grid size that look visually similar when
-hillshaded, the dense image correlation can be found between the hillshaded
-images, and that can be employed to align the clouds.
+hillshaded, dense image correlation between the hillshaded images can be used to
+align the clouds.
 
-For correlation and hillshading to work well, both DEMs must be on the same
-local projection and grid size. Otherwise the hillshades may not match, and the
+The inputs must be DEMs. To align point clouds or CSV, grid them to DEMs first,
+with the same grid size and projection. Then find the transform between the
+resulting DEMs and apply it to the originals (:numref:`prevtrans`). Any CSV file
+should be reasonably dense.
+
+For correlation and hillshading to work well, both DEMs must have the same
+projection and grid size. Otherwise the hillshades may not match, and the
 correlation may fail. Regrid the DEMs with ``gdalwarp`` (:numref:`gdal_tools`),
-using cubic spline interpolation. Example (adjust the projection center and grid
-size)::
+using cubic spline interpolation. Here is an example.
+
+Set the projection::
 
     proj='+proj=stere +lat_0=27.9 +lon_0=102.2 +datum=WGS84 +units=m +no_defs'
-    gdalwarp -tr 20 20 -t_srs "$proj" -r cubicspline ref_in.tif ref.tif
-    gdalwarp -tr 20 20 -t_srs "$proj" -r cubicspline src_in.tif src.tif
 
-A local projection, such as UTM or stereographic, is strongly preferred. It is
-also advised that the two DEMs have the same extent, which can be set with the
-``gdalwarp`` ``-te`` option. See also :numref:`regrid`.
+A local projection, such as UTM or stereographic, is strongly preferred. Adjust
+the projection center above as needed.
+
+Warp::
+
+    gdalwarp -tr 20 20 -t_srs "$proj" -r cubicspline \
+        ref_in.tif ref_dem.tif
+    gdalwarp -tr 20 20 -t_srs "$proj" -r cubicspline \
+        src_in.tif src_dem.tif
 
 The shared grid size could be a compromise between the grid sizes of the
 individual input DEMs.
+
+See also :numref:`regrid`.
+
+It is also advised that the two DEMs have the same extent, which can be set with
+the ``gdalwarp`` ``-te`` option. That makes the resulting disparity easier to
+evaluate, since a small alignment transform then shows up as a disparity near
+zero.
 
 Produce the hillshades, either with ``gdaldem hillshade`` (:numref:`gdal_hill`)
 or with the ASP ``hillshade`` program (:numref:`hillshade`). Call these outputs
@@ -313,12 +328,11 @@ This produces a dense match file (:numref:`dense_ip`) that should be inspected
       --initial-transform-from-hillshading rigid       \
       --initial-transform-ransac-params 1000 3         \
       --save-transformed-source-points                 \
-      ref.tif src.tif                                  \
+      ref_dem.tif src_dem.tif                          \
       -o run_align/run
 
-One has to consider carefully if the transform to be solved for should be rigid
-(rotation + translation) or a translation only, as informed by the disparity
-bands inspected above.
+Consider carefully whether the transform should be rigid (rotation + translation)
+or translation-only, as informed by the disparity bands above.
 
 The resulting aligned cloud ``run_align/run-trans_source.tif`` can be regridded
 with ``point2dem``, using the same grid size and projection as the input DEMs, to
