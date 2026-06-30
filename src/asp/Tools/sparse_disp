@@ -20,6 +20,16 @@
 # installed following the instructions in the documentation where the
 # use of this tool is shown.
 
+# Dev note: a packaged ASP release wraps this tool to use its bundled
+# Python. A dev build has no such wrapper, so the "python" on PATH must
+# carry numpy, scipy, and gdal. Put the dev install/bin ahead of the
+# conda deps env on PATH, for example:
+#   export PATH=.../StereoPipeline/install/bin:.../envs/asp_deps/bin:$PATH
+# The ASP tools (including this one) then resolve from install/bin, while
+# "python", which install/bin does not provide, falls through to asp_deps.
+# Do not point PYTHONPATH at the deps env with a different interpreter:
+# numpy and friends are built for one Python ABI and will fail to import.
+
 # The purpose of this program is to generate a good initial disparity
 # estimate for stereo processing by matching interest points taken
 # full resolution at sampled regions across the input images.  This
