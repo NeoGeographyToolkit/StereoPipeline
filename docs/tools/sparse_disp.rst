@@ -187,7 +187,9 @@ The Cramer-Rao measure is the default, as it is the more sensitive of the two.
 
 The same two estimators are available densely, per pixel, from the ``--metric``
 option of :ref:`corr_eval`, applied to a dense disparity rather than to these
-sparse matches.
+sparse matches. These programs give very similar results when the sparse grid is
+fine enough and the dense ``corr_eval`` output image is sampled at the same grid
+points.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
