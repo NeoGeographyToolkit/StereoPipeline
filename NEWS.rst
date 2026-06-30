@@ -48,6 +48,17 @@ sparse_disp (:numref:`sparse_disp`):
   * The ``scipy`` and ``gdal`` Python modules that ``sparse_disp`` needs are now
     shipped with ASP, so this program works out of the box.
 
+corr_eval (:numref:`corr_eval`):
+  * Added the ``parabola_curvature`` and ``cramer_rao`` metrics, a per-pixel
+    localization uncertainty from the curvature of the correlation peak. These
+    are the dense version of the two estimators in ``sparse_disp``.
+
+dem2gcp (:numref:`dem2gcp`):
+  * The ground position of each interest point is now found by intersecting its
+    camera rays with the DEM (as for the ``--heights-from-dem`` constraint in
+    ``bundle_adjust``, :numref:`heights_from_dem`), rather than by triangulation.
+    This is more robust when the rays meet at a small convergence angle.
+
 Misc:
   * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
   * Fixed a bug with very long input image names when creating ``.match`` and

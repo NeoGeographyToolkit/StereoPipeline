@@ -352,7 +352,8 @@ stereo-algorithm (*string*) (default = "asp_bm")
 
 prefilter-mode (= 0,1,2) (default = 2)
     Filter used to prepare images before performing correlation. Used
-    only with the ``asp_bm`` algorithm. Options:
+    only with the ``asp_bm`` algorithm, and ignored by the other
+    algorithms. Options:
 
     0 - None
 

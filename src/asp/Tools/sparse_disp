@@ -576,14 +576,13 @@ def write_match_file(match_file, xl, yl, xr, yr, scale=None, interest=None):
                              0.0, float(scale[i]), float(interest[i]), False, 0, 0, 0))
 
 def write_match_geopackage(gpkg_file, mx, my, sx, sy, t_gt, s_gt,
-                           ref_wkt, src_wkt, sigma, quality):
+                           ref_wkt, src_wkt, metric, quality):
 
-    # Write the matches as a GeoPackage of points, using the same fields and the
-    # same convention as image_align (write_match_geopackage in image_align.cc).
-    # The reference is the template (first) image, the source is the search
-    # (second) image. Each match carries the reference and source projected
-    # coordinates, their difference dx, dy, the pixel columns and rows, the
-    # localization uncertainty sigma (from the parabola, see --uncertainty-mode),
+    # Write the matches as a GeoPackage of points, with fields modeled on
+    # image_align (write_match_geopackage in image_align.cc). The reference is the
+    # template (first) image, the source is the search (second) image. Each match
+    # carries the reference and source projected coordinates, their difference dx,
+    # dy, the pixel columns and rows, the chosen metric value (see --metric),
     # and the correlation peak value as quality. The point geometry is the source
     # location, in the reference projection. As in image_align, the source point
     # is reprojected into the reference projection, so dx, dy and the geometry are
@@ -611,8 +610,12 @@ def write_match_geopackage(gpkg_file, mx, my, sx, sy, t_gt, s_gt,
         src_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
         transform = osr.CoordinateTransformation(src_srs, ref_srs)
     layer = ds.CreateLayer('matches', ref_srs, ogr.wkbPoint)
+    # An integer id (the match index) is written first, as a stable key for
+    # joining several runs (for example with different --metric values) after the
+    # fact, for example with ogr2ogr.
+    layer.CreateField(ogr.FieldDefn('id', ogr.OFTInteger))
     for name in ['ref_x', 'ref_y', 'src_x', 'src_y', 'dx', 'dy',
-                 'ref_col', 'ref_row', 'src_col', 'src_row', 'sigma', 'quality']:
+                 'ref_col', 'ref_row', 'src_col', 'src_row', 'metric', 'quality']:
         layer.CreateField(ogr.FieldDefn(name, ogr.OFTReal))
     defn = layer.GetLayerDefn()
     for i in range(len(mx)):
@@ -623,12 +626,13 @@ def write_match_geopackage(gpkg_file, mx, my, sx, sy, t_gt, s_gt,
         if transform is not None:
             sxp, syp, _ = transform.TransformPoint(sxp, syp)
         feat = ogr.Feature(defn)
+        feat.SetField('id', i)
         feat.SetField('ref_x',   rx);  feat.SetField('ref_y',   ry)
         feat.SetField('src_x',   sxp); feat.SetField('src_y',   syp)
         feat.SetField('dx', sxp - rx); feat.SetField('dy', syp - ry)
         feat.SetField('ref_col', float(mx[i])); feat.SetField('ref_row', float(my[i]))
         feat.SetField('src_col', float(sx[i])); feat.SetField('src_row', float(sy[i]))
-        feat.SetField('sigma',   float(sigma[i]))
+        feat.SetField('metric',  float(metric[i]))
         feat.SetField('quality', float(quality[i]))
         pt = ogr.Geometry(ogr.wkbPoint)
         pt.AddPoint_2D(sxp, syp)
@@ -1196,14 +1200,14 @@ def main():
                       help="The number of processes to use (%default)")
     parser.add_option("--subpixel-mode",        dest="subpixel_mode", default=0, type="int",
                       help="Sub-pixel refinement of the correlation peak. 0 = none, the peak stays at the integer argmax (default, as used for the low-resolution seed). 1 = fit a parabola to the peak and use its vertex, giving sub-pixel matches (%default)")
-    parser.add_option("--uncertainty-mode",     dest="uncertainty_mode", default=2, type="int",
-                      help="How to compute the per-match localization uncertainty sigma written to the match file (with --subpixel-mode 1). 1 = sharpness: sigma = 1/sqrt(peak sharpness), from the parabola curvature only. 2 = Cramer-Rao: sigma = sqrt((1-C)/peak sharpness), which also downweights low-correlation matches via the residual (1-C). Both are uncalibrated localization proxies (%default)")
+    parser.add_option("--metric",               dest="metric", default="cramer_rao", type="string",
+                      help="The per-match metric written to the match file (with --subpixel-mode 1). parabola_curvature: sigma = 1/sqrt(peak sharpness), from the parabola curvature only. cramer_rao: sigma = sqrt((1-C)/peak sharpness), which also downweights low-correlation matches via the residual (1-C). Both are uncalibrated localization proxies (%default)")
     parser.add_option("--save-match-file",      dest="save_match_file", action="store_true", default=False,
                       help="In addition to the disparity, write the matches to an ASP .match file, in full-resolution left and right pixel coordinates. The name is formed automatically from the output prefix and the input image names. Intended for standalone use to produce sparse sub-pixel matches (see --subpixel-mode and --coarse/--fine)")
     parser.add_option("--matches-as-txt",       dest="matches_as_txt", action="store_true", default=False,
-                      help="With --save-match-file, write the matches as a plain text file (six numbers per line: x1 y1 unc1 x2 y2 unc2) instead of a binary .match file, with the same name but ending in .txt. The uncertainty is the per-match sigma (see --uncertainty-mode)")
+                      help="With --save-match-file, write the matches as a plain text file (six numbers per line: x1 y1 unc1 x2 y2 unc2) instead of a binary .match file, with the same name but ending in .txt. The uncertainty is the per-match sigma (see --metric)")
     parser.add_option("--match-points-geopackage", dest="match_points_gpkg", default="", type="string",
-                      help="In addition to the disparity, write the matches to this GeoPackage (.gpkg) file, as projected points with the same fields as image_align: ref_x, ref_y, src_x, src_y, dx, dy, ref_col, ref_row, src_col, src_row, sigma, and quality (the correlation peak value). The point geometry is the source location. Intended for the standalone sub-pixel match use (see --subpixel-mode and --uncertainty-mode)")
+                      help="In addition to the disparity, write the matches to this GeoPackage (.gpkg) file, as projected points with fields modeled on image_align, plus an integer id: id, ref_x, ref_y, src_x, src_y, dx, dy, ref_col, ref_row, src_col, src_row, metric, and quality (the correlation peak value). The metric column holds the value of the chosen --metric. The point geometry is the source location. Intended for the standalone sub-pixel match use (see --subpixel-mode and --metric)")
     parser.add_option("--no_epipolar_fltr",     action="store_false", dest="epipolar_fltr",
                       help="Disable filtering of disparities by distance from epipolar vector")
     parser.add_option("-e", "--epipolar_axis",  dest="epipolar_axis", default=None,  type="int",
@@ -1219,6 +1223,11 @@ def main():
     if len(args) < 3:
         parser.print_help()
         asp_system_utils.raise_error('Missing input files or output prefix', code=2)
+
+    if options.metric not in ['parabola_curvature', 'cramer_rao']:
+        asp_system_utils.raise_error('Invalid value for --metric: %s. '
+                                     'Expecting parabola_curvature or cramer_rao.'
+                                     % options.metric, code=2)
 
     if options.mask_file is not None:
         mask_file=gdal.Open(options.mask_file)
@@ -1662,12 +1671,12 @@ def main():
         mdx  = np.asarray(out[:, 2]).ravel()
         mdy  = np.asarray(out[:, 3]).ravel()
         # The plumbed quantity unc is the sharpness-based sigma sqrt(1/kx + 1/ky).
-        # Mode 1 uses it directly. Mode 2 (Cramer-Rao) multiplies by sqrt(1 - C),
+        # parabola_curvature uses it directly. cramer_rao multiplies by sqrt(1 - C),
         # the residual, so a low-correlation match also gets a larger sigma:
         # sqrt((1-C)/k) = sqrt(1-C) * sqrt(1/k). C is the correlation peak value.
         sharp_sig = np.asarray(unc).ravel()
         mC        = np.asarray(out[:, 4]).ravel() # correlation peak (match quality)
-        if options.uncertainty_mode == 2:
+        if options.metric == "cramer_rao":
             msig = np.sqrt(np.clip(1.0 - mC, 0.0, 1.0)) * sharp_sig
         else:
             msig = sharp_sig

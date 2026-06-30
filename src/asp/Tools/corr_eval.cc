@@ -72,7 +72,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("kernel-size", po::value(&opt.kernel_size)->default_value(vw::Vector2i(21, 21),"21 21"),
      "The dimensions of image patches. These must be positive odd numbers.")
     ("metric", po::value(&opt.metric)->default_value("ncc"),
-     "The metric to use to evaluate the quality of correlation. Options: ncc, stddev.")
+     "The metric to use to evaluate the quality of correlation. Options: ncc (the correlation peak value), stddev, and parabola_curvature and cramer_rao (the per-pixel localization uncertainty sigma from the peak curvature, the same two estimators as the --metric option of sparse_disp).")
     ("prefilter-mode", po::value(&opt.prefilter_mode)->default_value(0),
      "Prefilter mode. This is the same prefilter as in stereo correlation with "
      "the asp_bm method. Options: 0 (none), 1 (subtracted mean), 2 (LoG).")
@@ -115,9 +115,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "Not all required arguments were specified.\n\n"
                  << usage << general_options);
 
-  if (opt.metric != "ncc" && opt.metric != "stddev") 
+  if (opt.metric != "ncc" && opt.metric != "stddev" &&
+      opt.metric != "parabola_curvature" && opt.metric != "cramer_rao")
     vw::vw_throw(vw::ArgumentErr() << "Invalid value provided for --metric.\n\n"
                  << usage << general_options);
+
+  // The localization-uncertainty metrics measure the curvature of the
+  // correlation peak, which is only meaningful on the band-passed (LoG)
+  // correlation surface, so they require --prefilter-mode 2. See the
+  // documentation.
+  if ((opt.metric == "parabola_curvature" || opt.metric == "cramer_rao") &&
+      opt.prefilter_mode != 2)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "The " << opt.metric << " metric requires --prefilter-mode 2 "
+                 << "(the LoG band-pass).\n");
 
   if (opt.sample_rate < 1)
     vw::vw_throw(vw::ArgumentErr() << "The value of --sample-rate must be positive.\n"

@@ -62,7 +62,7 @@ Sample invocation
       output/run                        \
       --coarse 100 --fine 100           \
       --subpixel-mode 1                 \
-      --uncertainty-mode 2              \
+      --metric cramer_rao               \
       --save-match-file                 \
       --match-points-geopackage out.gpkg
 
@@ -115,13 +115,25 @@ Using ``--matches-as-txt`` saves the matches instead as a plain text file
 Each line is ``x1 y1 unc1 x2 y2 unc2`` (:numref:`txt_format`), where the
 uncertainty is the per-match ``sigma``.
 
+.. _sparse_disp_geopackage:
+
+Matches as a GeoPackage
+^^^^^^^^^^^^^^^^^^^^^^^
+
 The option ``--match-points-geopackage`` writes the matches to a GeoPackage
-(``.gpkg``) of projected points, using the same fields and convention as
-:ref:`image_align` (:numref:`image_align_match_points`): ``ref_x``, ``ref_y``,
-``src_x``, ``src_y``, ``dx``, ``dy``, the pixel columns and rows, the
-localization uncertainty ``sigma``, and the correlation peak value as
-``quality``. The reference is the first (template) image and the source is the
-second (search) image.
+(``.gpkg``) of projected points, with fields modeled on :ref:`image_align`
+(:numref:`image_align_match_points`). 
+
+The fields are an integer ``id``, then ``ref_x``, ``ref_y`` (reference point
+projected coordinates), ``src_x``, ``src_y`` (corresponding source point
+projected coordinates), ``dx``, ``dy`` (source minus reference offsets), the
+pixel columns and rows (``ref_col``, ``ref_row``, ``src_col``, ``src_row``), the
+``metric`` field (the value of the chosen ``--metric``, see
+:numref:`sparse_disp_uncertainty`), and the correlation peak value as
+``quality``.
+
+Here, the reference is the first (template) image and the source is the second
+(search) image.
 
 As in :ref:`image_align`, the source point in the GeoPackage is reprojected into
 the reference projection, so ``dx``, ``dy`` and the point geometry (the source
@@ -136,22 +148,23 @@ Match localization uncertainty
 With ``--subpixel-mode 1``, the parabola fit to the correlation peak also yields a
 per-match localization uncertainty ``sigma``, in pixels. It is written to the
 ``scale`` field of the ``.match`` file (the field :ref:`bundle_adjust` reads as
-the per-pixel sigma) and to the ``sigma`` field of the GeoPackage. The correlation
+the per-pixel sigma) and to the ``metric`` field of the GeoPackage. The correlation
 peak value, a match-quality score, is written to the ``interest`` and ``quality``
 fields, respectively. Two ways of computing ``sigma`` are available, selected with
-``--uncertainty-mode``:
+``--metric``:
 
-- *Sharpness* (mode 1): ``sigma = 1/sqrt(k)``, where ``k`` is the curvature
+- ``parabola_curvature``: ``sigma = 1/sqrt(k)``, where ``k`` is the curvature
   (sharpness) of the correlation peak from the parabola fit. A sharp,
   well-defined peak gives a small ``sigma``; a flat peak gives a large one. This
   uses the peak geometry only.
 
-- *Cramer-Rao* (mode 2): ``sigma = sqrt((1-C)/k)``, where ``C`` is the
-  correlation peak value. This is the Cramer-Rao estimate for locating the vertex
-  of a noisy parabola :cite:`robinson2004fundamental,rao1945information`: the
-  residual ``1-C`` (the unexplained mismatch) divided by the curvature ``k``. It
-  additionally downweights low-correlation matches, so a match that is locally
-  sharp but agrees poorly between the images still gets a larger ``sigma``.
+- ``cramer_rao``: ``sigma = sqrt((1-C)/k)``, where ``C`` is the correlation peak
+  value. This is the Cramer-Rao estimate for locating the vertex of a noisy
+  parabola :cite:`robinson2004fundamental,rao1945information`: the residual
+  ``1-C`` (the unexplained mismatch) divided by the curvature ``k``. It
+  additionally reduces the weight of low-correlation matches, so a match that is
+  locally sharp but agrees poorly between the images still gets a larger
+  ``sigma``.
 
 Both are uncalibrated localization proxies, useful for *ranking* match reliability
 rather than as absolute error bars (the same caveat as the detector scale used for
@@ -171,6 +184,10 @@ the local image texture more closely, since it also accounts for the lower
 correlation over textureless ground.
 
 The Cramer-Rao measure is the default, as it is the more sensitive of the two.
+
+The same two estimators are available densely, per pixel, from the ``--metric``
+option of :ref:`corr_eval`, applied to a dense disparity rather than to these
+sparse matches.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -225,12 +242,14 @@ Command-line options
     integer location (as used for the low-resolution seed). 1 = fit a parabola to
     the peak and use its vertex, giving sub-pixel matches.
 
---uncertainty-mode <integer (default: 2)>
+--metric <string (default: cramer_rao)>
     How to compute the per-match localization uncertainty ``sigma`` (with
-    ``--subpixel-mode 1``; see :numref:`sparse_disp_uncertainty`). 1 = sharpness,
-    ``sigma = 1/sqrt(k)``, from the parabola curvature ``k`` only. 2 = Cramer-Rao,
-    ``sigma = sqrt((1-C)/k)``, which also downweights low-correlation matches via
-    the residual ``1-C``. Both are uncalibrated localization proxies.
+    ``--subpixel-mode 1``; see :numref:`sparse_disp_uncertainty`).
+    ``parabola_curvature`` = ``sigma = 1/sqrt(k)``, from the parabola curvature
+    ``k`` only. ``cramer_rao`` = ``sigma = sqrt((1-C)/k)``, which also downweights
+    low-correlation matches via the residual ``1-C``. The same names are used by
+    the ``--metric`` option of :ref:`corr_eval`. Both are uncalibrated
+    localization proxies.
 
 --save-match-file
     In addition to the disparity, write the matches to an ASP ``.match`` file, in
@@ -244,15 +263,12 @@ Command-line options
     (:numref:`txt_match`), with the format ``x1 y1 unc1 x2 y2 unc2``
     (:numref:`txt_format`), instead of a binary ``.match`` file. The name is the
     same but ends in ``.txt``. The uncertainty is the per-match ``sigma`` (see
-    ``--uncertainty-mode``).
+    ``--metric``).
 
 --match-points-geopackage <string>
     In addition to the disparity, write the matches to this GeoPackage (``.gpkg``)
-    file, as projected points with the same fields as :ref:`image_align`:
-    ``ref_x``, ``ref_y``, ``src_x``, ``src_y``, ``dx``, ``dy``, ``ref_col``,
-    ``ref_row``, ``src_col``, ``src_row``, ``sigma``, and ``quality`` (the
-    correlation peak value). The point geometry is the source location. See
-    :numref:`sparse_disp_uncertainty`.
+    file, as projected points. See :numref:`sparse_disp_geopackage` for the
+    format.
 
 --no_epipolar_fltr
     Disable filtering of disparities by distance from the epipolar vector.
