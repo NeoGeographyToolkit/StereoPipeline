@@ -122,7 +122,7 @@ Matches as a GeoPackage
 
 The option ``--match-points-geopackage`` writes the matches to a GeoPackage
 (``.gpkg``) of projected points, with fields modeled on :ref:`image_align`
-(:numref:`image_align_match_points`). 
+(:numref:`image_align_match_points`).
 
 The fields are an integer ``id``, then ``ref_x``, ``ref_y`` (reference point
 projected coordinates), ``src_x``, ``src_y`` (corresponding source point
@@ -224,7 +224,7 @@ Command-line options
     Lower bound on the minimum-neighbor-disparity parameter, used to reject
     points whose neighbors have too large a disparity range.
 
--l, --R_limax_disp_range <float (default: 128)>
+-l, --R_lim_max <float (default: 128)>
     Upper bound on the minimum-neighbor-disparity parameter.
 
 -m, --mask_file <string>

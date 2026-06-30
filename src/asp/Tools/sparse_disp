@@ -45,7 +45,7 @@ try:
 except ImportError:
     import gdal, gdalconst, ogr, osr
 gdal.UseExceptions()
-    
+
 import numpy as np
 import scipy.ndimage as sf
 import scipy.stats as ss
@@ -229,13 +229,7 @@ def norm_xcorr(t, a, trim=True):
 
         <http://en.wikipedia.org/wiki/Cross-correlation#Normalized_cross-correlation>
 
-    Alistair Muldal
-    Department of Pharmacology
-    University of Oxford
-    <alistair.muldal@pharm.ox.ac.uk>
-
-    Sept 2012
-
+    Implementation by Alistair Muldal, University of Oxford.
     """
 
     if t.size < 2:
@@ -291,13 +285,11 @@ def norm_xcorr(t, a, trim=True):
     nxcorr = np.zeros(numer.shape)
     good   = denom>tol
     nxcorr[good]=numer[good]/denom[good]
-    #nxcorr = np.where(denom < tol,0,numer/denom)
 
-    # if any of the coefficients are outside the range [-1 1], they will be
-    # unstable to small variance in a or t, so set them to zero to reflect
-    # the undefined 0/0 condition
-    bad = nxcorr-1. >  np.sqrt(np.finfo(nxcorr.dtype).eps);
-    nxcorr[bad] = 0.
+    # Clamp values that slightly exceed the maximum possible NCC of 1.0 due to
+    # numerical error. Otherwise a near-perfect match is flagged as out of range
+    # and zeroed, which deletes the best peak and shifts the match by a pixel.
+    nxcorr = np.minimum(nxcorr, 1.0)
 
     if trim:
         nxcorr  = procrustes(nxcorr,a.shape,side='both')
@@ -323,15 +315,12 @@ def local_sum(a, tshape, padval):
     # take the cumsum along each dimension and subtracting a shifted version
     # from itself. this reduces the number of computations to 2*N additions
     # and 2*N subtractions for an N-dimensional array, independent of its
-    # size.
-    #
-    # See:
-    # <http://www.idiom.com/~zilla/Papers/nvisionInterface/nip.html>
+    # size. http://www.idiom.com/~zilla/Papers/nvisionInterface/nip.html
+
     for dd in range(a.ndim):
         a = np.cumsum(a,dd)
         a = shiftdiff(a,tshape,dd)
     return a
-
 
 def ndpad(a,npad=None,padval=0):
     """
@@ -826,17 +815,17 @@ class fft_matcher(object):
         search_geotransform      = self.S_sub.source.GetGeoTransform()
         self.search_geotransform = search_geotransform
         self.UL_S = np.array([search_geotransform[0], search_geotransform[3]])
-        LL_S      = np.array([search_geotransform[0], 
+        LL_S      = np.array([search_geotransform[0],
                               search_geotransform[3]+self.S_sub.Nr*search_geotransform[5]])
-        UR_S      = np.array([search_geotransform[0]+self.S_sub.Nc*search_geotransform[1], 
+        UR_S      = np.array([search_geotransform[0]+self.S_sub.Nc*search_geotransform[1],
                               search_geotransform[3]])
 
         template_geotransform      = self.T_sub.source.GetGeoTransform()
         self.template_geotransform = template_geotransform
         self.UL_T = np.array([template_geotransform[0], template_geotransform[3]])
-        LL_T      = np.array([template_geotransform[0], 
+        LL_T      = np.array([template_geotransform[0],
                               template_geotransform[3]+self.T_sub.Nr*template_geotransform[5]])
-        UR_T      = np.array([template_geotransform[0]+self.T_sub.Nc*template_geotransform[1],  
+        UR_T      = np.array([template_geotransform[0]+self.T_sub.Nc*template_geotransform[1],
                               template_geotransform[3]])
 
         XR = [np.max([LL_S[0], LL_T[0]]), np.min([UR_S[0], UR_T[0]])]
@@ -929,7 +918,7 @@ def unique_rows(data):
         new_ind.append(udict[key])
 
     new_rows = data[new_ind, :]
-    
+
     return new_ind, new_rows
 
 def search_new_pts(xy, dxy, t_size, matcher, min_template_sigma=0., mask=None):
@@ -970,13 +959,13 @@ def neighborhood_range(pt_list, dx_mat, dy_mat, tri, pt_dict, max_dist=None, cal
         pt_list:  list of points to be searched
         dx_mat: sparse matrix with x disparity values for each pixel in the
                 template image
-        dy_may: ditto, but for y
+        dy_mat: ditto, but for y
         tri:    a triangulation.  th points field in this triangulation is
                 used to get the x and y offsets for the point indices
         pt_dict:  a dictionary giving the neighbor point numbers for each
                   point in tri
     output:
-        dx_range: an Nx4 martix.  columns 0 and 1 give the min and max x
+        dx_range: an Nx4 matrix.  columns 0 and 1 give the min and max x
         offsets around each point, columns 2 and 3 give the min and max y.
     """
     dxy_range = np.zeros([len(pt_list), 4])
@@ -1031,9 +1020,9 @@ def est_epipolar_vec(dxy, C, C_tol, ep_vec_initial, F_use):
         return ep_vec_initial, np.zeros([1,2])
 
     P_use   =100*np.array([(1-F_use)/2., (F_use+1.)/2.])
-    ctr_vals=((dxy[:,0] >= np.percentile(dxy[:,0], P_use[0])) & 
-              (dxy[:,0] <= np.percentile(dxy[:,0], P_use[1])) & 
-              (dxy[:,1] >= np.percentile(dxy[:,1], P_use[0])) & 
+    ctr_vals=((dxy[:,0] >= np.percentile(dxy[:,0], P_use[0])) &
+              (dxy[:,0] <= np.percentile(dxy[:,0], P_use[1])) &
+              (dxy[:,1] >= np.percentile(dxy[:,1], P_use[0])) &
               (dxy[:,1] <= np.percentile(dxy[:,1], P_use[1]))  )
     good        = ctr_vals & np.array(C.ravel()>C_tol, dtype=bool)
     dxy1        = np.array(dxy[good.ravel(),:])
@@ -1083,11 +1072,11 @@ def grid_disp(xg, yg, xy, dx, dy, ex, ey, L_valid, N_coarse, dispDs, spreadDs, d
 
     row  = np.floor((xy[:,1]-yg[0,0])/(yg[1,0]-yg[0,0])).astype('int')
     col  = np.floor((xy[:,0]-xg[0,0])/(xg[0,1]-xg[0,0])).astype('int')
-    
+
     good = (row>=0) & (row < xg.shape[0]-1) & (col >=0) & (col < xg.shape[1]-1)
     dist_mask = np.zeros_like(xg)
     dist_mask[row[good], col[good]] = 1.
-    dist_mask = convolve1d(convolve1d(dist_mask, kernel_valid, axis=0, mode='constant'), 
+    dist_mask = convolve1d(convolve1d(dist_mask, kernel_valid, axis=0, mode='constant'),
                            kernel_valid, axis=1, mode='constant')
     dist_mask = dist_mask > np.exp(-0.5*(L_valid/sigma_valid)**2)
 
@@ -1135,31 +1124,29 @@ def main():
     over a wide search window (size xsearch by ysearch).  Based on matches from
     this coarse grid, estimate an epipolar vector (the largest eigenvector of
     the disparity vectors) and a tolerance for disparities to be parallel to
-    this vector (use max (16 pix, 90th percentile of differeces)).
+    this vector (use max (16 pix, 90th percentile of differences)).
 
     Next, refine points for which the range of disparities among the
     neighbors are larger than tolerance refine_tol.  Refinement consists
     of adding the eight grid neighbors of a point, at half the previous
-    point spacing.  During refinment, the search windows are selected to span
+    point spacing.  During refinement, the search windows are selected to span
     the neighbors' x and y disparities, and are padded by 16 pixels and padded
     again to give a power-of-two search size.
 
-    After each refinement, the new matches are checked againt the epipolar
-    vector, and all the matched points are checked for convergence.  Refinment
+    After each refinement, the new matches are checked against the epipolar
+    vector, and all the matched points are checked for convergence.  Refinement
     continues until the point spacing reaches fine_skip, or until no points
     need to be refined.
 
     Writes the output disparity image files:
-      [output_prefix]/-D_sub.tif
-      [output_prefix]/-D_sub_spread.tif
+      output_prefix-D_sub.tif
+      output_prefix-D_sub_spread.tif
 
-    ???
-    Results are written to oufile:
+    If --Debug is set, results are also written to output_prefix.csv:
         pixel_x
         pixel_y
         x_disparity
-        y_diparity
-        correlation value
+        y_disparity        correlation value
         (max-min) neighbor x disparity
         (max-min) neighbor y disparity
      """
@@ -1190,7 +1177,7 @@ def main():
                        help="matches will not be calculated if the standard deviation of the template is less than this value (%default)")
     parser.add_option("-R", "--R_lim_min", dest="R_lim_min",  default=32., type="float",
                        help="The minimum-neighbor-disparity parameter is set to the maximum of this parameter and the 98th percentile of all minimum neighbor disparities.\n  Points whose neighbors have a minimum disparity range larger than this parameter will be removed (%default)")
-    parser.add_option("-l", "--R_limax_disp_range", dest="R_limax_disp_range",  default=128., type="float",
+    parser.add_option("-l", "--R_lim_max", dest="R_lim_max",  default=128., type="float",
                        help="The minimum-neighbor-disparity parameter is set to the minimum of this parameter and the 98th percentile of all minimum neighbor disparities.\n  Points whose neighbors have a minimum disparity range larger than this parameter will be removed (%default)")
     parser.add_option("-m", "--mask_file", dest="mask_file", default=None, type="string",
                       help="if specified, use this geotif mask file to reject template-image points that should not be searched (1=search, 0=don't)")
@@ -1217,7 +1204,7 @@ def main():
     parser.add_option("-w", "--fill-dist",      dest="fill_dist",     default=1000., type="float",
                       help="Fill in gaps of this size or more with smoothed values. (%default)")
     parser.add_option("-D", "--Debug",          dest="Debug",         default=False, action="store_true",
-                      help="Output deugging info and text file of correlation-estimate points")
+                      help="Output debugging info and text file of correlation-estimate points")
     (options, args) = parser.parse_args()
 
     if len(args) < 3:
@@ -1298,9 +1285,9 @@ def main():
 
     # Create the output directory
     out_dir = os.path.dirname(output_prefix)
-    if len(out_dir) == 0: 
+    if len(out_dir) == 0:
         out_dir = '.'
-    if not os.path.exists(out_dir): 
+    if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
     # Generate a list of skip distances from the course level to the fine level.
@@ -1313,13 +1300,13 @@ def main():
 
     # Define the initial search points
     # ??
-    edge_pad = np.array([search_range_x/4.+template_size/2, 
+    edge_pad = np.array([search_range_x/4.+template_size/2,
                          search_range_y/4.+template_size/2])
-    x_centers = np.arange(matcher.T_c0c1[0]+edge_pad[0], 
+    x_centers = np.arange(matcher.T_c0c1[0]+edge_pad[0],
                           matcher.T_c0c1[1]-edge_pad[0], options.coarse_skip)
     if x_centers[-1] < matcher.T_c0c1[1]:
         x_centers = np.append(x_centers, int((x_centers[-1]+matcher.T_c0c1[1])/2.))
-    y_centers = np.arange(matcher.T_r0r1[0]+edge_pad[1], 
+    y_centers = np.arange(matcher.T_r0r1[0]+edge_pad[1],
                           matcher.T_r0r1[1]-edge_pad[1], options.coarse_skip)
     if y_centers[-1] < matcher.T_r0r1[1]:
         y_centers = np.append(y_centers, int((y_centers[-1]+matcher.T_r0r1[1])/2.))
@@ -1336,38 +1323,38 @@ def main():
     # Find best correlation matches in the search image for each center in the template image
     # ???
     dxy0      = np.dot(np.c_[np.ones_like(xy_centers0[:,0])], origin_diff*[1, -1])
-    dxy_score = np.c_[dxy0[:,0]-search_range_x/2., 
-                      dxy0[:,0]+search_range_x/2, 
-                      dxy0[:,1]-search_range_y/2, 
+    dxy_score = np.c_[dxy0[:,0]-search_range_x/2.,
+                      dxy0[:,0]+search_range_x/2,
+                      dxy0[:,1]-search_range_y/2,
                       dxy0[:,1]+search_range_y/2]
     xy, dxy, corr_scores, xy_bad_mask, unc_scores = search_new_pts(xy_centers0, dxy_score, template_size, matcher,
                                              min_template_sigma=options.sigma_t_min, mask=in_mask)
 
     if options.epipolar_fltr:
         # Throw out disparity results which are too far from the epipolar line
-        
+
         # Fit an epipolar line to the detected offsets
-        ep_vec, dxy_ctr = est_epipolar_vec(dxy, corr_scores, corr_score_tolerance, 
+        ep_vec, dxy_ctr = est_epipolar_vec(dxy, corr_scores, corr_score_tolerance,
                                            ep_vec_initial, F_ep_pts_to_use)
         # Compare the offsets to the fit line
         tolerance = 32
         good_indices, ep_dist = test_epipolar(dxy_ctr, ep_vec, dxy, tolerance)
-        
+
         # Get the 90th percentile distance from the epipolar line
         ep_f90 = np.percentile(ep_dist[corr_scores.ravel() > corr_score_tolerance], 90)
         # Use the 90th percentile dist as the tolerance unless it falls out of bounds
         ep_tol = np.minimum(ep_tol_max, np.maximum(ep_tol_min, ep_f90))
-        
+
         # If any points were marked as bad in the first epipolar test...
         if (ep_vec_initial is not None) and np.any(~good_indices):
             # Run the fit again with just good points and recompute the epipolar tolerance.
-            ep_vec, dxy_ctr = est_epipolar_vec(dxy        [good_indices,:], 
-                                               corr_scores[good_indices,:], 
+            ep_vec, dxy_ctr = est_epipolar_vec(dxy        [good_indices,:],
+                                               corr_scores[good_indices,:],
                                                corr_score_tolerance, None, F_ep_pts_to_use)
             ep_f90          = np.percentile(ep_dist[corr_scores.ravel() > corr_score_tolerance], 90)
             ep_tol          = np.minimum(ep_tol_max,np.maximum(ep_tol_min, ep_f90))
             good_indices, ep_dist   = test_epipolar(dxy_ctr, ep_vec, dxy, ep_tol)
-        print(" --- ep vec estimated at(%f,%f), tolerance=%f, ep_dist_f90=%f" 
+        print(" --- ep vec estimated at(%f,%f), tolerance=%f, ep_dist_f90=%f"
               % (ep_vec[0], ep_vec[1], ep_tol, ep_f90))
     else:
         # Create boolean array with True for all values in dx, don't filter the points.
@@ -1387,28 +1374,28 @@ def main():
     bad_mask_mat = coo_matrix((np.ones_like(xy_bad_mask[:,0]),
                               (xy_bad_mask[:,1], xy_bad_mask[:,0])), shape=im_shape).tocsr()
     xy_list = xy[good_indices,:]
-    
+
     # Points tested so far are the nozero members of score_mat
     all_pts = np.c_[score_mat.nonzero()];
     all_pts = all_pts[:,[1,0]];
-    
+
     # ???
     # Perform triangulation of points, then get min/max dx and dy differences with the neighboring points.
     tri        = spatial.Delaunay(all_pts)
     pt_dict    = make_pt_2_neighbors(tri)
     dxy_score  = neighborhood_range(np.arange(0, all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict)
     indices_to_refine = np.arange(0, xy_list.shape[0] )
-       
-    # Indices into the vales in the dxy_score variable
+
+    # Indices into the values in the dxy_score variable
     OFFSET_MIN_X = 0
     OFFSET_MAX_X = 1
     OFFSET_MIN_Y = 2
     OFFSET_MAX_Y = 3
-    
+
     # Define the pattern of pixel centers to refine at each step.  Duplicates will be deleted.
     refine_x = np.array([-1.,  0.,  1., -1.,  1., -1., 0., 1.])
     refine_y = np.array([-1., -1., -1.,  0.,  0.,  1., 1., 1.]);
-    
+
     # Iterate through our disparity search coarseness levels, low to high res.
     recalc_neighborhood_range = False
     for delta_x in skip_vals:
@@ -1418,13 +1405,13 @@ def main():
             print("    No refinement points for scale: %d" % delta_x)
             recalc_neighborhood_range=True
             break
-        
+
         # Add neighbors of the last set of points to the list
         #sc=plt.scatter(all_pts[indices_to_refine,0], all_pts[indices_to_refine,1], c=dxy_score[:,1]-dxy_score[:,0]); plt.axis('equal'); plt.colorbar(sc)
         new_x = (np.tile(all_pts[indices_to_refine, 0], [8,1]).transpose()+refine_x*delta_x).ravel()
         new_y = (np.tile(all_pts[indices_to_refine, 1], [8,1]).transpose()+refine_y*delta_x).ravel()
-        
-        # The search range for the new points is set based on the 
+
+        # The search range for the new points is set based on the
         #  min and max of the dxy_scores of the refine points
         new_dxy_score = np.array([np.tile(dxy_score[:,OFFSET_MIN_X], [8,1]).transpose().ravel(),
                                   np.tile(dxy_score[:,OFFSET_MAX_X], [8,1]).transpose().ravel(),
@@ -1467,9 +1454,9 @@ def main():
 
         # TODO: Make a function out of this code?
         # Add the new points to the sparse matrix of tested points
-        dx_mat       = dx_mat+coo_matrix((new_dxy[good_indices,0], 
+        dx_mat       = dx_mat+coo_matrix((new_dxy[good_indices,0],
                                           [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
-        dy_mat       = dy_mat+coo_matrix((new_dxy[good_indices,1], 
+        dy_mat       = dy_mat+coo_matrix((new_dxy[good_indices,1],
                                           [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
         score_mat    = score_mat+coo_matrix(((new_corr_scores[good_indices]).ravel(),
                                              [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
@@ -1477,7 +1464,7 @@ def main():
                                            [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
         bad_mask_mat = bad_mask_mat + coo_matrix((1*np.ones_like(new_xy_bad[:,0]), (new_xy_bad[:,1], new_xy_bad[:,0])), shape=im_shape).tocsr()
         bad_indices  = ~good_indices
-        bad_mask_mat = bad_mask_mat + coo_matrix((2*np.ones_like(new_xy[bad_indices,1]), 
+        bad_mask_mat = bad_mask_mat + coo_matrix((2*np.ones_like(new_xy[bad_indices,1]),
                                                   (new_xy[bad_indices,1], new_xy[bad_indices,0])), shape=im_shape).tocsr()
 
         #ID_new_pts=lil_matrix((np.ones_like(new_dxy[good_indices,0]), [new_xy[good_indices,1], new_xy[good_indices,0]]), im_shape).tocsr()
@@ -1485,7 +1472,7 @@ def main():
         all_pts = np.c_[score_mat.nonzero()];
         all_pts = all_pts[:,[1,0]];
         # Extract the dx and dy values, re-estimate the ep vector
-        dxy = np.array(np.c_[dx_mat[all_pts[:,1], all_pts[:,0]].transpose(), 
+        dxy = np.array(np.c_[dx_mat[all_pts[:,1], all_pts[:,0]].transpose(),
                              dy_mat[all_pts[:,1], all_pts[:,0]].transpose()])
         C   = np.array(score_mat[all_pts[:,1], all_pts[:,0]].transpose())
 
@@ -1499,16 +1486,16 @@ def main():
         # - ie, delete points with too rapid rate of disparity change.
         dxy_score, min_dxy_slope = neighborhood_range(range(all_pts.shape[0]), dx_mat, dy_mat, tri, pt_dict, calc_min_slope=True)
         bad_indices = np.max(min_dxy_slope, axis=1) > dxy_slope_tol
-        
+
         if options.Debug:
             print("---deleting %d points that failed the d(disparity)/d(dist) test" % np.sum(bad_indices))
-            
+
         if (bad_indices is not None) and np.any(bad_indices):
             # ???
             score_mat    = score_mat.tolil()
             score_mat[all_pts[bad_indices,1], all_pts[bad_indices,0]] = 0
             score_mat    = score_mat.tocsr()
-            bad_mask_mat = bad_mask_mat + coo_matrix((4*np.ones_like(all_pts[bad_indices,1]), 
+            bad_mask_mat = bad_mask_mat + coo_matrix((4*np.ones_like(all_pts[bad_indices,1]),
                                                       (all_pts[bad_indices,1], all_pts[bad_indices,0])), shape=im_shape).tocsr()
 
             all_pts   = np.c_[score_mat.nonzero()]
@@ -1521,10 +1508,10 @@ def main():
         # Don't refine if we're on the last value of the refinement list
         if delta_x == skip_vals[-1]:
             continue
-            
+
         test_pts  = np.arange(0, all_pts.shape[0])
         # Test the new points and their neighbors for convergence
-        to_refine = np.logical_or(((dxy_score[:,OFFSET_MAX_X]-dxy_score[:,OFFSET_MIN_X]) > options.refine_tol), 
+        to_refine = np.logical_or(((dxy_score[:,OFFSET_MAX_X]-dxy_score[:,OFFSET_MIN_X]) > options.refine_tol),
                                   ((dxy_score[:,OFFSET_MAX_Y]-dxy_score[:,OFFSET_MIN_Y]) > options.refine_tol))
         indices_to_refine = test_pts [to_refine]
         dxy_score         = dxy_score[to_refine,:]
@@ -1546,17 +1533,17 @@ def main():
     R_dx_mat     = coo_matrix((R_dx, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
     R_dy_mat     = coo_matrix((R_dy, [all_pts[:,1], all_pts[:,0]]), im_shape).tocsr()
     R_dxy_score  = neighborhood_range(range(all_pts.shape[0]), R_dx_mat, R_dy_mat, tri, pt_dict)
-    P99          = (np.percentile(R_dxy_score[:,OFFSET_MIN_X], 99), 
+    P99          = (np.percentile(R_dxy_score[:,OFFSET_MIN_X], 99),
                     np.percentile(R_dxy_score[:,OFFSET_MIN_Y], 99))
     R_max        = np.maximum(P99,   options.R_lim_min)
-    R_max        = np.minimum(R_max, options.R_limax_disp_range)
-    bad_xy       = all_pts[np.logical_or((R_dxy_score[:,OFFSET_MIN_X] > R_max[0]),  
+    R_max        = np.minimum(R_max, options.R_lim_max)
+    bad_xy       = all_pts[np.logical_or((R_dxy_score[:,OFFSET_MIN_X] > R_max[0]),
                                          (R_dxy_score[:,OFFSET_MIN_Y] > R_max[1])),:]
     bad_mask_mat = bad_mask_mat + coo_matrix((8*np.ones_like(bad_xy[:,1]), (bad_xy[:,1], bad_xy[:,0])), shape=im_shape).tocsr()
     if options.Debug:
-        print("rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f" 
+        print("rejecting %d detected outliers using the minimum-disparity-difference test with R_max = %f, %f"
               % (bad_xy.shape[0], R_max[0], R_max[1]))
-        
+
     # Delete the bad value, convert dx dy, and C to lil matrices
     score_mat = score_mat.tolil()
     dx_mat    = dx_mat.tolil()
@@ -1573,7 +1560,7 @@ def main():
     if len(all_pts) == 0:
         print('No points remaining after outlier rejection!')
         return -1
-    
+
     # Triangulate all the good points so far
     tri       = spatial.Delaunay(all_pts)
     pt_dict   = make_pt_2_neighbors(tri)
@@ -1586,7 +1573,7 @@ def main():
     print("--------output stats------")
     for pct in (99, 95, 90, 84):
         P = (pct, np.percentile(R_dx, pct), np.percentile(R_dy, pct))
-        print("%dth percetiles (rx,ry) = (%5.2f %5.2f)" % P)
+        print("%dth percentiles (rx,ry) = (%5.2f %5.2f)" % P)
 
     dx = dx_mat   [all_pts[:,1], all_pts[:,0]].transpose()
     dy = dy_mat   [all_pts[:,1], all_pts[:,0]].transpose()
@@ -1602,18 +1589,18 @@ def main():
     search_projection     = matcher.S_sub.source.GetProjection() # for the GeoPackage
     driver       = matcher.T_ds.GetDriver()
     projection   = matcher.T_ds.GetProjection()
-    xy           = np.c_[geotransform[0]+all_pts[:,0]*geotransform[1]+all_pts[:,1]*geotransform[2], 
+    xy           = np.c_[geotransform[0]+all_pts[:,0]*geotransform[1]+all_pts[:,1]*geotransform[2],
                          geotransform[3]+all_pts[:,0]*geotransform[4]+all_pts[:,1]*geotransform[5]]
-    out          = np.c_[xy, dx , dy , C, dxy_score[:,OFFSET_MAX_X]-dxy_score[:,OFFSET_MIN_X]+options.output_pad, 
+    out          = np.c_[xy, dx , dy , C, dxy_score[:,OFFSET_MAX_X]-dxy_score[:,OFFSET_MIN_X]+options.output_pad,
                                           dxy_score[:,OFFSET_MAX_Y]-dxy_score[:,OFFSET_MIN_Y]+options.output_pad]
     # spit out the good and bad masks
     good_xy = np.c_[score_mat.nonzero()][:,[1, 0]]
-    good_xy = np.c_[geotransform[0]+good_xy[:,0]*geotransform[1]+good_xy[:,1]*geotransform[2], 
+    good_xy = np.c_[geotransform[0]+good_xy[:,0]*geotransform[1]+good_xy[:,1]*geotransform[2],
                     geotransform[3]+good_xy[:,0]*geotransform[4]+good_xy[:,1]*geotransform[5]]
     bad_xy  = np.c_[bad_mask_mat.nonzero()][:,[1, 0]]
     if np.min(bad_xy.shape) > 0:
         bad_flag = bad_mask_mat[bad_xy[:,1], bad_xy[:,0]]
-        bad_xy   = np.c_[geotransform[0]+bad_xy[:,0]*geotransform[1]+bad_xy[:,1]*geotransform[2], 
+        bad_xy   = np.c_[geotransform[0]+bad_xy[:,0]*geotransform[1]+bad_xy[:,1]*geotransform[2],
                          geotransform[3]+bad_xy[:,0]*geotransform[4]+bad_xy[:,1]*geotransform[5]]
     else:
         bad_flag = None
@@ -1639,7 +1626,7 @@ def main():
         outfile.write('%x, y, dx, dy, C, R_dx, R_dy\n')
         for line in out:
             outfile.write("%7.0f, %7.0f, %7.0f, %7.0f, %4.2f, %7.0f, %7.0f\n" %  tuple(x for x in line.tolist()[0]))
-        outfile.close
+        outfile.close()
         print(" writing bad points to file: %s" % output_prefix+'_bad_pts.csv')
         print(" bad matches are flagged:")
         print("  1: failed signal strength test")
@@ -1653,7 +1640,7 @@ def main():
             out_bad = np.c_[bad_xy[:,0], bad_xy[:,1], bad_flag.transpose()]
             for line in out_bad:
                 outfile.write("%7.2f, %7.2f, %3d\n" %  tuple(x for x in line.tolist()[0]))
-        outfile.close
+        outfile.close()
         out_bad  = None
         bad_flag = None
     # END IF (if options.Debug)
@@ -1730,8 +1717,8 @@ def main():
         for c0 in c0_out:
             for r0 in r0_out:
                 if options.Debug:
-                    print("     gridding output for col %d out of %d, row %d out of %d" % 
-                          (int(c0/OutBlocksize)+1, int(c0_out[-1]/OutBlocksize)+1, 
+                    print("     gridding output for col %d out of %d, row %d out of %d" %
+                          (int(c0/OutBlocksize)+1, int(c0_out[-1]/OutBlocksize)+1,
                            int(r0/OutBlocksize)+1, int(r0_out[-1]/OutBlocksize)+1))
                 cols = np.arange(c0, np.minimum(c0+OutBlocksize, len(xg)))
                 rows = np.arange(r0, np.minimum(r0+OutBlocksize, len(yg)))
@@ -1742,15 +1729,15 @@ def main():
                 YR_out = np.array([np.amin(yg[rows])-grid_pad, np.amax(yg[rows])+grid_pad])
                 cr_out = [cols[0], rows[0]]
                 # make a 1-d array to populate with the truth values we'll use to select data points
-                ii     = np.zeros(out.shape[0]).astype('bool')  
-                ii[:] = ((out[:,0] > XR_out[0]) & (out[:,0] < XR_out[1]) & 
+                ii     = np.zeros(out.shape[0]).astype('bool')
+                ii[:] = ((out[:,0] > XR_out[0]) & (out[:,0] < XR_out[1]) &
                          (out[:,1] > YR_out[0]) & (out[:,1] < YR_out[1])).ravel()
                 if np.sum(ii) < 4:
                     continue
                 if options.Debug:
                     print(" ...based on %d points" % np.sum(ii))
                 if (np.amax(out[ii,0])-np.amin(out[ii,0]) > 0) and (np.amax(out[ii,1])-np.amin(out[ii,1]) > 0 ) :
-                    grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6], 
+                    grid_disp(xg_sub, yg_sub, out[ii,0:2], out[ii,2], out[ii,3], out[ii,5], out[ii,6],
                               options.fill_dist, int(search_range_x), dispDs, spreadDs, options.output_scale, cr_out)
 
         for Ds in (dispDs, spreadDs):
