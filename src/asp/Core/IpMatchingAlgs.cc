@@ -26,6 +26,7 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Math/Statistics.h>
+#include <vw/Cartography/GeoReference.h>
 
 #include <boost/filesystem.hpp>
 
@@ -164,13 +165,24 @@ void compute_ip_LR(std::string const & out_prefix) {
   const int inlier_threshold = 1000.0 * thresh_factor; // 200 by default
   size_t number_of_jobs = 1;
   bool use_cached_ip = false;
+
+  // For mapprojected images, if --ip-match-radius is set, filter with 
+  // --ip-match-radius before matching, with help of georeferences.
+  vw::cartography::GeoReference georef1, georef2;
+  bool has_georef1 = vw::cartography::read_georeference(georef1, left_aligned_image_file);
+  bool has_georef2 = vw::cartography::read_georeference(georef2, right_aligned_image_file);
+  bool filter_by_ground_loc = (has_georef1 && has_georef2 &&
+                               asp::stereo_settings().ip_match_radius > 0);
+
   bool success = asp::homography_ip_matching(left_image, right_image,
                                              asp::stereo_settings().ip_per_tile,
                                              inlier_threshold, match_filename,
                                              number_of_jobs,
                                              left_ip_filename, right_ip_filename,
                                              use_cached_ip,
-                                             left_nodata_value, right_nodata_value);
+                                             left_nodata_value, right_nodata_value,
+                                             vw::BBox2i(), vw::BBox2i(),
+                                             filter_by_ground_loc, georef1, georef2);
 
   if (!success)
     vw_throw(ArgumentErr() << "Could not find interest points.\n");
