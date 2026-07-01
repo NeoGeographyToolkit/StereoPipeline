@@ -47,6 +47,8 @@ sparse_disp (:numref:`sparse_disp`):
     no speed loss.
   * The ``scipy`` and ``gdal`` Python modules that ``sparse_disp`` needs are now
     shipped with ASP, so this program works out of the box.
+  * Added the ``peak_ratio`` and ``snr`` match-quality metrics
+    (:numref:`sparse_disp_quality_metrics`).
 
 corr_eval (:numref:`corr_eval`):
   * Added the ``parabola_curvature`` and ``cramer_rao`` metrics, a per-pixel

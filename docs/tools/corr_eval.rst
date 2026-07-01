@@ -108,7 +108,7 @@ correlation peak. These are the dense version of the two estimators in the
   sharp peak gives a small ``sigma``, a flat (low-texture) peak a large one. This
   uses the peak geometry only.
 
-- ``cramer_rao``: ``sigma = sqrt((1-C)/k)``. This additionally downweights
+- ``cramer_rao``: ``sigma = sqrt((1-C)/k)``. This additionally gives less weight to
   low-correlation matches via the residual ``1-C``, so a match that is locally
   sharp but agrees poorly between the images still gets a larger ``sigma``.
 

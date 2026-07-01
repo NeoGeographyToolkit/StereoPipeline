@@ -153,18 +153,21 @@ peak value, a match-quality score, is written to the ``interest`` and ``quality`
 fields, respectively. Two ways of computing ``sigma`` are available, selected with
 ``--metric``:
 
-- ``parabola_curvature``: ``sigma = 1/sqrt(k)``, where ``k`` is the curvature
-  (sharpness) of the correlation peak from the parabola fit. A sharp,
-  well-defined peak gives a small ``sigma``; a flat peak gives a large one. This
-  uses the peak geometry only.
+- ``parabola_curvature``: ``sigma = sqrt(1/k_x + 1/k_y)``. Here ``k_x`` and
+  ``k_y`` are the sharpness (curvature) of the correlation peak along the two
+  image axes. Each is the discrete second derivative at the peak,
+  ``k = 2*C - C(-1) - C(+1)``. Here ``C`` is the peak value. ``C(-1)`` and
+  ``C(+1)`` are the correlation one pixel to each side along that axis. A sharp,
+  well-defined peak gives a large ``k`` and a small ``sigma``. A flat peak gives
+  a small ``k`` and a large ``sigma``. This uses the peak geometry only.
 
-- ``cramer_rao``: ``sigma = sqrt((1-C)/k)``, where ``C`` is the correlation peak
-  value. This is the Cramer-Rao estimate for locating the vertex of a noisy
-  parabola :cite:`robinson2004fundamental,rao1945information`: the residual
-  ``1-C`` (the unexplained mismatch) divided by the curvature ``k``. It
-  additionally reduces the weight of low-correlation matches, so a match that is
-  locally sharp but agrees poorly between the images still gets a larger
-  ``sigma``.
+- ``cramer_rao``: ``sigma = sqrt((1-C) * (1/k_x + 1/k_y))``, where ``C`` is the
+  correlation peak value. This is the Cramer-Rao estimate for locating the vertex
+  of a noisy parabola :cite:`robinson2004fundamental,rao1945information`. The
+  parabola variance ``1/k_x + 1/k_y`` is scaled by the residual ``1-C``, the
+  unexplained mismatch. This reduces the weight of low-correlation matches. A
+  match that is locally sharp but agrees poorly between the images still gets a
+  larger ``sigma``.
 
 Both are uncalibrated localization proxies, useful for *ranking* match reliability
 rather than as absolute error bars (the same caveat as the detector scale used for
@@ -190,6 +193,53 @@ option of :ref:`corr_eval`, applied to a dense disparity rather than to these
 sparse matches. These programs give very similar results when the sparse grid is
 fine enough and the dense ``corr_eval`` output image is sampled at the same grid
 points.
+
+.. _sparse_disp_quality_metrics:
+
+Other quality metrics
+^^^^^^^^^^^^^^^^^^^^^
+
+Two further ``--metric`` values measure match quality from the whole correlation
+surface, rather than from the peak curvature alone. These are not localization
+uncertainties. They need the full correlation surface. So they are available only
+in ``sparse_disp``. They are not in the dense :ref:`corr_eval`, which samples the
+correlation only at the disparity.
+
+The first is ``peak_ratio``. It is the highest competing correlation peak divided
+by the main peak value. The competing peak is the largest value outside a small
+neighborhood of the main peak. A small value means a unique match. A large value
+means a near-tie with another location. That happens with repetitive texture or an
+ambiguous match. This is the correlation-surface analog of the ratio test of Lowe
+(2004).
+
+The second is ``snr``. It is a signal-to-noise ratio of the correlation peak. It
+measures how far the peak rises above the background level of the surface. A large
+value means a sharp, isolated peak well above the noise. A small value means the
+peak barely stands out, so the match is unreliable.
+
+It is important to note that the COSI-Corr correlator reports a similar quantity
+to ``snr`` as implemented here. The natural definition is the peak minus the
+mean background, divided by the peak. That is ``(Cmax - mean_background) /
+Cmax``. When applied to the normalized cross-correlation image, that definition
+saturates near one. The reason is that the mean background is close to zero.
+Then the ratio is close to ``Cmax / Cmax``, which is one almost everywhere. It
+carries little information.
+
+The definition of ``snr`` implemented here divides by the standard deviation of
+the background instead. That is ``(Cmax - mean_background) / std_background``.
+This is the peak height in units of the background noise. It has a useful range.
+It discriminates well between sharp and ambiguous matches.
+
+These were tested on a desert data pair. All four metrics broadly agree on which
+matches are reliable.
+
+Note that for ``parabola_curvature``, ``cramer_rao``, and ``peak_ratio`` a small
+value suggests a more reliable match. The opposite is the case with
+``snr``.
+
+The ``peak_ratio`` and ``snr`` metrics are *not* localization sigmas. Their
+value in the ``.match`` ``scale`` field is not meaningful to
+:ref:`bundle_adjust`.
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -245,13 +295,16 @@ Command-line options
     the peak and use its vertex, giving sub-pixel matches.
 
 --metric <string (default: cramer_rao)>
-    How to compute the per-match localization uncertainty ``sigma`` (with
-    ``--subpixel-mode 1``; see :numref:`sparse_disp_uncertainty`).
-    ``parabola_curvature`` = ``sigma = 1/sqrt(k)``, from the parabola curvature
-    ``k`` only. ``cramer_rao`` = ``sigma = sqrt((1-C)/k)``, which also downweights
-    low-correlation matches via the residual ``1-C``. The same names are used by
-    the ``--metric`` option of :ref:`corr_eval`. Both are uncalibrated
-    localization proxies.
+    The per-match quality metric, written with ``--subpixel-mode 1``
+    (see :numref:`sparse_disp_uncertainty` and
+    :numref:`sparse_disp_quality_metrics`). ``parabola_curvature`` =
+    ``sigma = 1/sqrt(k)``, from the parabola curvature ``k`` (small = good).
+    ``cramer_rao`` = ``sigma = sqrt((1-C)/k)``, which also gives less weight to
+    low-correlation matches (small = good). The same two are in :ref:`corr_eval`.
+    ``peak_ratio`` = highest competing peak over the main peak, a uniqueness test
+    (small = good). ``snr`` = peak height above the mean background in background
+    standard deviations (large = good). ``peak_ratio`` and ``snr`` are
+    for ``sparse_disp`` only.
 
 --save-match-file
     In addition to the disparity, write the matches to an ASP ``.match`` file, in

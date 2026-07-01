@@ -504,6 +504,48 @@ def parabola_subpixel(result, ij):
     d_c = max(-1.0, min(1.0, d_c))
     return d_r, d_c, k_r, k_c
 
+def background_box(result, ij, radius=3):
+    # Return a boolean mask of the correlation surface with a (2*radius+1) box
+    # around the peak ij set to False, so the rest is the "background" (the peak's
+    # own shoulders are excluded). Used by snr and peak_ratio.
+    r, c = int(ij[0]), int(ij[1])
+    nr, nc = result.shape
+    mask = np.ones(result.shape, dtype=bool)
+    mask[max(0, r-radius):min(nr, r+radius+1),
+         max(0, c-radius):min(nc, c+radius+1)] = False
+    return mask
+
+def peak_ratio_metric(result, ij):
+    # Uniqueness: the highest competing peak (outside a box around the main peak)
+    # over the main peak. Low = unique = good. This is the correlation-surface
+    # analog of Lowe's ratio test (Lowe 2004). Range about [0, 1].
+    Cmax = result[int(ij[0]), int(ij[1])]
+    if Cmax <= 0.0:
+        return 1.0 # degenerate peak, treat as fully ambiguous
+    bg = result[background_box(result, ij)]
+    if bg.size == 0:
+        return 0.0
+    C_second = bg.max()
+    if C_second < 0.0:
+        C_second = 0.0 # no positive competitor, fully unique
+    return float(min(C_second / Cmax, 1.0))
+
+def snr_metric(result, ij):
+    # Correlation signal-to-noise ratio: how far the peak rises above the mean
+    # background, in units of the background standard deviation (a peak-detection
+    # SNR). High = good (a sharp, isolated peak well above the noise floor). In
+    # the spirit of COSI-Corr's SNR, computed independently here. Unbounded.
+    # Note: the (Cmax - mean)/Cmax form saturates near 1 on NCC surfaces (the
+    # background mean is ~0), so the background-std form is used instead.
+    Cmax = result[int(ij[0]), int(ij[1])]
+    bg = result[background_box(result, ij)]
+    if bg.size == 0:
+        return 0.0
+    sd = bg.std()
+    if sd <= 0.0:
+        return 0.0
+    return float(max((Cmax - bg.mean()) / sd, 0.0))
+
 def asp_match_filename(out_prefix, file1, file2, ext='.match'):
 
     # Form an ASP match file name, <out_prefix>-<name1>__<name2><ext>, following
@@ -642,7 +684,7 @@ def write_match_geopackage(gpkg_file, mx, my, sx, sy, t_gt, s_gt,
 
 def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
                   search_range_x, search_range_y, dx0, dy0, T_img, S_img, noData,
-                  subpixel_mode=0):
+                  subpixel_mode=0, metric="cramer_rao"):
 
     # Do template matching for a single block in the left image.
     # LOG filter the images
@@ -688,27 +730,44 @@ def run_one_block(template_size, KW, min_template_sigma, Xc, Yc,
 
     # Sub-pixel refinement of the correlation peak. Mode 0 keeps the integer
     # argmax (the historical behavior, used for the low-res seed). Mode 1 fits a
-    # parabola to the peak and uses its vertex, giving a fractional offset.
-    # The same parabola gives a per-match localization uncertainty sigma from the
-    # peak sharpness k: a sharp peak pins the offset tightly (small sigma), a flat
-    # peak is ambiguous (large sigma). sigma = 1/sqrt(k) per axis, combined. It is
-    # an uncalibrated localization proxy. Cap at the template size when the peak
-    # is flat or on a border (k <= 0). sigma is 0 when sub-pixel mode is off.
+    # parabola to the peak and uses its vertex, giving a fractional offset, and
+    # also yields the per-match --metric value below. The metric is 0 when
+    # sub-pixel mode is off (the seed disparity writes no metric).
     sub_r = 0.0
     sub_c = 0.0
-    sigma_loc = 0.0
+    metric_val = 0.0
     if subpixel_mode >= 1:
+        # The parabola always gives the sub-pixel offset (sub_r, sub_c) and the
+        # per-axis peak sharpness (k_r, k_c). The chosen --metric is computed here,
+        # where the full correlation surface `result` is available (snr and
+        # peak_ratio need the whole surface, not just the peak). Computing all
+        # metrics here keeps the output stage metric-agnostic.
         sub_r, sub_c, k_r, k_c = parabola_subpixel(result, ij)
-        max_sigma = float(template_size)
-        var = 0.0
-        for k in (k_r, k_c):
-            if k > 0.0:
-                var += 1.0/k
-            else:
-                var += max_sigma*max_sigma
-        sigma_loc = min(np.sqrt(var), max_sigma)
+        C = result[ij]
+        if metric == "peak_ratio":
+            metric_val = peak_ratio_metric(result, ij)
+        elif metric == "snr":
+            metric_val = snr_metric(result, ij)
+        else:
+            # parabola_curvature and cramer_rao both start from the parabola
+            # localization sigma = sqrt(1/kx + 1/ky), capped at the template size.
+            max_sigma = float(template_size)
+            var = 0.0
+            for k in (k_r, k_c):
+                if k > 0.0:
+                    var += 1.0/k
+                else:
+                    var += max_sigma*max_sigma
+            sigma_loc = min(np.sqrt(var), max_sigma)
+            if metric == "cramer_rao":
+                # give less weight to low-correlation matches by the residual (1 - C):
+                # sigma = sqrt((1-C)/k) = sqrt(1-C) * sqrt(1/k).
+                resid = min(max(1.0 - C, 0.0), 1.0)
+                metric_val = np.sqrt(resid) * sigma_loc
+            else: # parabola_curvature
+                metric_val = sigma_loc
 
-    return (result[ij], Xc, Yc, std_T, ijC[1]+sub_c+dx0, ijC[0]+sub_r+dy0, sigma_loc)
+    return (result[ij], Xc, Yc, std_T, ijC[1]+sub_c+dx0, ijC[0]+sub_r+dy0, metric_val)
 
 def run_blocks(param):
 
@@ -716,7 +775,7 @@ def run_blocks(param):
     # distributed across multiple processors.
 
     (Tfile, Sfile, processes, xgi, ygi, these_ind, template_size, search_range_xy_i,
-     dxy0_i, XYc_i, min_template_sigma, user_nodata, subpixel_mode) = param
+     dxy0_i, XYc_i, min_template_sigma, user_nodata, subpixel_mode, metric) = param
     matcher = fft_matcher(Tfile, Sfile, processes, user_nodata)
 
     KW=matcher.KW
@@ -767,7 +826,7 @@ def run_blocks(param):
             continue
         out = run_one_block(template_size, KW, min_template_sigma, Xc, Yc, int(search_range_x),
                             int(search_range_y), dx0, dy0, T_img, S_img, T_buffer.noData,
-                            subpixel_mode)
+                            subpixel_mode, metric)
 
         indices.append(these_ind[count])
         c.append(out[0])
@@ -810,6 +869,7 @@ class fft_matcher(object):
         self.Sfile  = Sfile
         self.processes = processes
         self.subpixel_mode = 0 # off by default; main sets it from the option
+        self.metric = "cramer_rao" # main sets it from the --metric option
         self.T_ds   = gdal.Open(Tfile, gdalconst.GA_ReadOnly)
         self.T_band = self.T_ds.GetRasterBand(1)
         self.S_ds   = gdal.Open(Sfile, gdalconst.GA_ReadOnly)
@@ -876,7 +936,7 @@ class fft_matcher(object):
             these_ind = np.array(np.nonzero(these)).ravel()
             param = (self.Tfile, self.Sfile, self.processes, xgi.copy(), ygi.copy(), these_ind.copy(),
                      template_size, search_range_xy.copy(), dxy0.copy(), XYc.copy(), min_template_sigma,
-                     self.user_nodata, self.subpixel_mode)
+                     self.user_nodata, self.subpixel_mode, self.metric)
             TaskParams.append(param)
 
         if self.processes > 1: # Run using multiple processes
@@ -1198,7 +1258,7 @@ def main():
     parser.add_option("--subpixel-mode",        dest="subpixel_mode", default=0, type="int",
                       help="Sub-pixel refinement of the correlation peak. 0 = none, the peak stays at the integer argmax (default, as used for the low-resolution seed). 1 = fit a parabola to the peak and use its vertex, giving sub-pixel matches (%default)")
     parser.add_option("--metric",               dest="metric", default="cramer_rao", type="string",
-                      help="The per-match metric written to the match file (with --subpixel-mode 1). parabola_curvature: sigma = 1/sqrt(peak sharpness), from the parabola curvature only. cramer_rao: sigma = sqrt((1-C)/peak sharpness), which also downweights low-correlation matches via the residual (1-C). Both are uncalibrated localization proxies (%default)")
+                      help="The per-match quality metric written with --subpixel-mode 1. parabola_curvature: localization sigma = 1/sqrt(peak sharpness) (small = good). cramer_rao: sigma = sqrt((1-C)/peak sharpness), also giving less weight to low-correlation matches (small = good). peak_ratio: highest competing peak over the main peak, a uniqueness / Lowe-ratio test (small = good). snr: (peak - mean background) / background std, a correlation signal-to-noise ratio in the spirit of COSI-Corr (large = good). See the manual (%default)")
     parser.add_option("--save-match-file",      dest="save_match_file", action="store_true", default=False,
                       help="In addition to the disparity, write the matches to an ASP .match file, in full-resolution left and right pixel coordinates. The name is formed automatically from the output prefix and the input image names. Intended for standalone use to produce sparse sub-pixel matches (see --subpixel-mode and --coarse/--fine)")
     parser.add_option("--matches-as-txt",       dest="matches_as_txt", action="store_true", default=False,
@@ -1221,9 +1281,9 @@ def main():
         parser.print_help()
         asp_system_utils.raise_error('Missing input files or output prefix', code=2)
 
-    if options.metric not in ['parabola_curvature', 'cramer_rao']:
-        asp_system_utils.raise_error('Invalid value for --metric: %s. '
-                                     'Expecting parabola_curvature or cramer_rao.'
+    if options.metric not in ['parabola_curvature', 'cramer_rao', 'peak_ratio', 'snr']:
+        asp_system_utils.raise_error('Invalid value for --metric: %s. Expecting '
+                                     'parabola_curvature, cramer_rao, peak_ratio, or snr.'
                                      % options.metric, code=2)
 
     if options.mask_file is not None:
@@ -1307,6 +1367,7 @@ def main():
     # Initialize the matcher object
     matcher = fft_matcher(template_file, search_file, options.processes, options.user_nodata)
     matcher.subpixel_mode = options.subpixel_mode
+    matcher.metric        = options.metric
 
     # Define the initial search points
     # ??
@@ -1667,16 +1728,11 @@ def main():
         my   = np.asarray(all_pts[:, 1]).ravel()
         mdx  = np.asarray(out[:, 2]).ravel()
         mdy  = np.asarray(out[:, 3]).ravel()
-        # The plumbed quantity unc is the sharpness-based sigma sqrt(1/kx + 1/ky).
-        # parabola_curvature uses it directly. cramer_rao multiplies by sqrt(1 - C),
-        # the residual, so a low-correlation match also gets a larger sigma:
-        # sqrt((1-C)/k) = sqrt(1-C) * sqrt(1/k). C is the correlation peak value.
-        sharp_sig = np.asarray(unc).ravel()
-        mC        = np.asarray(out[:, 4]).ravel() # correlation peak (match quality)
-        if options.metric == "cramer_rao":
-            msig = np.sqrt(np.clip(1.0 - mC, 0.0, 1.0)) * sharp_sig
-        else:
-            msig = sharp_sig
+        # unc carries the chosen --metric value, already finalized per match in
+        # run_one_block (where the full correlation surface is available). mC is
+        # the correlation peak value, written as the match quality.
+        msig = np.asarray(unc).ravel()
+        mC   = np.asarray(out[:, 4]).ravel() # correlation peak (match quality)
 
     if options.save_match_file:
         if options.matches_as_txt:
