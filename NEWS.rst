@@ -4,6 +4,10 @@ Changes since last release
 bundle_adjust (:numref:`bundle_adjust`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
     ground control point (GCP) residuals.
+  * The ``--ip-match-radius`` option, for mapprojected images, drops interest
+    points with no ground-consistent counterpart before matching, removing
+    spurious matches when the overlap is small (:numref:`bundle_adjust`). This
+    is now honored in ``parallel_stereo`` as well.
 
 jitter_solve (:numref:`jitter_solve`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
@@ -31,6 +35,10 @@ parallel_stereo (:numref:`parallel_stereo`):
     ``--min-matches``, for consistency with other tools. The older option
     ``--min-num-ip`` is kept for backward compatibility
     (:numref:`stereodefault`).
+  * The ``--ip-match-radius`` option is now honored for mapprojected images in
+    stereo, as it already is in ``bundle_adjust``. It drops interest points
+    with no ground-consistent counterpart before matching, removing spurious
+    matches when the overlap is small (:numref:`stereodefault`).
 
 cam_gen (:numref:`cam_gen`):
   * Added ``--csm-refit-distortion`` to refit the lens distortion of a CSM
