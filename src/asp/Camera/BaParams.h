@@ -194,11 +194,6 @@ public:
       ptr[i] = pt[i];
   }
 
-  /// Print stats for optimized ground control points.
-  void print_gcp_stats(std::string const& out_prefix, 
-                       vw::ba::ControlNetwork const& cnet,
-                       vw::cartography::Datum const& d) const;
-
   /// Create a KML file containing the positions of the given points.
   /// - Points are stored as x,y,z in the points vector up to num_points.
   /// - Only every skip'th point is recorded to the file.

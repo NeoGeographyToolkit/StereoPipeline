@@ -1003,22 +1003,22 @@ they tie the strips together.
 
 A sample invocation::
 
-    jitter_solve                           \
-      fwd_sub16.tif aft_sub16.tif          \
-      fwd_sub16.json aft_sub16.json        \
-      fwd_sub16.gcp aft_sub16.gcp          \
-      --match-files-prefix ba/run          \
-      --num-lines-per-position 1000        \
-      --num-lines-per-orientation 1000     \
-      --heights-from-dem ref.tif           \
-      --heights-from-dem-uncertainty 150   \
-      --num-anchor-points 60000            \
-      --anchor-dem ref.tif                 \
-      --anchor-dem-uncertainty 75          \
-      --camera-position-uncertainty 2000   \
-      --gcp-robust-threshold 3             \
-      --max-initial-reprojection-error 100 \
-      --num-iterations 100                 \
+    jitter_solve                              \
+      fwd_sub16.tif aft_sub16.tif             \
+      fwd_sub16.json aft_sub16.json           \
+      fwd_sub16.gcp aft_sub16.gcp             \
+      --match-files-prefix ba/run             \
+      --num-lines-per-position 1000           \
+      --num-lines-per-orientation 1000        \
+      --heights-from-dem ref.tif              \
+      --heights-from-dem-uncertainty 150      \
+      --num-anchor-points 60000               \
+      --anchor-dem ref.tif                    \
+      --anchor-dem-uncertainty 75             \
+      --camera-position-uncertainty 2000,2000 \
+      --gcp-robust-threshold 3                \
+      --max-initial-reprojection-error 100    \
+      --num-iterations 100                    \
       -o jitter_sub16/run
 
 Here the GCP sigma (in the GCP file) was about 50, less than the
@@ -1041,6 +1041,12 @@ anchor point and/or camera position constraints. Tighten the GCP sigma if more
 horizontal improvement is needed, or the heights-from-dem uncertainty if more
 vertical improvement is wanted. Note that these two can conflict. It is likely
 better to prioritize the GCP sigma.
+
+If horizontal misregistration persistently fails to correct, consider setting the
+option ``--fix-gcp-xyz`` and increasing ``--robust-threshold`` to the magnitude
+of desired movement, measured in camera pixels. See the GCP report
+(:numref:`jitter_gcp_report`) if optimized GCP move too much from their intended
+initial positions. This could, however, destabilize the problem. 
 
 If the results at least go the right way, consider using these cameras as the
 initial guess for a subsequent pass of solving for jitter.

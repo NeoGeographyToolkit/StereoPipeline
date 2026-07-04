@@ -677,10 +677,69 @@ void saveCameraOffsets(vw::cartography::Datum                const& datum,
 
     ofs << image_files[icam] << " " << horiz_change << " " << vert_change << "\n";
   }
-  
+
   ofs.close();
 
   return;
+}
+
+// Write a report with, for each ground control point, the offset of its
+// optimized position from its input (surveyed) position, split into a
+// ground-plane component and a height component (meters). This is analogous to
+// how the camera and triangulation offsets are measured.
+void saveGcpReport(std::string            const& out_prefix,
+                   vw::ba::ControlNetwork const& cnet,
+                   std::vector<double>    const& tri_points_vec,
+                   std::set<int>          const& outliers,
+                   vw::cartography::Datum const& datum) {
+
+  int num_points = cnet.size();
+
+  // Do not write anything if there are no ground control points
+  int num_gcp = 0;
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      num_gcp++;
+  }
+  if (num_gcp == 0)
+    return;
+
+  std::string output_path = out_prefix + "-gcp-report.csv";
+  vw_out() << "Writing: " << output_path << std::endl;
+
+  std::ofstream ofs(output_path.c_str());
+  ofs.precision(8);
+  ofs << "# GCP offset from initial to optimized GCP (meters)\n";
+  ofs << "# lon, lat, ground_offset_m, height_offset_m\n";
+  ofs << "# " << datum << std::endl;
+
+  for (int ipt = 0; ipt < num_points; ipt++) {
+
+    if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
+      continue; // only ground control points
+
+    if (outliers.find(ipt) != outliers.end())
+      continue; // skip outliers
+
+    // Input (surveyed) and optimized positions, in ECEF
+    Vector3 input_xyz = cnet[ipt].position();
+    const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+    Vector3 opt_xyz(tri_point[0], tri_point[1], tri_point[2]);
+
+    // Decompose the offset into a ground-plane and a height component, in the
+    // local tangent frame, as is done for the camera offsets.
+    Vector3 llh = datum.cartesian_to_geodetic(opt_xyz);
+    Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
+    Matrix3x3 EcefToNed = vw::math::inverse(NedToEcef);
+    Vector3 NedDir = EcefToNed * (opt_xyz - input_xyz);
+    double ground_offset = norm_2(subvector(NedDir, 0, 2));
+    double height_offset = std::abs(NedDir[2]);
+
+    ofs << llh[0] << ", " << llh[1] << ", "
+        << ground_offset << ", " << height_offset << std::endl;
+  }
+
+  ofs.close();
 }
 
 // This is used in jitter_solve

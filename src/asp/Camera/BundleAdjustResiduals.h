@@ -119,6 +119,17 @@ void saveCameraOffsets(vw::cartography::Datum                const& datum,
                        std::vector<std::vector<vw::Vector3>> const& opt_cam_positions,
                        std::string                           const& camera_offset_file);
 
+// Write a report with, for each ground control point, the offset of its
+// optimized position from its input (surveyed) position, split into a
+// ground-plane component and a height component (meters). This is analogous to
+// how the camera and triangulation offsets are measured. Used by both
+// bundle_adjust and jitter_solve.
+void saveGcpReport(std::string            const& out_prefix,
+                   vw::ba::ControlNetwork const& cnet,
+                   std::vector<double>    const& tri_points_vec,
+                   std::set<int>          const& outliers,
+                   vw::cartography::Datum const& datum);
+
 // This is used in jitter_solve
 void saveJitterResiduals(ceres::Problem                             & problem,
                          std::string                           const& residual_prefix,

@@ -2118,6 +2118,15 @@ This is helpful in understanding how much the triangulated points move. An
 unreasonable amount of movement may suggest imposing stronger constraints on the
 triangulated points (option ``--tri-weight``).
 
+.. _jitter_gcp_report:
+
+GCP report
+^^^^^^^^^^
+
+If ground control points are present, this program writes, just like
+``bundle_adjust``, a report with the ground-plane and height offset of each
+optimized GCP from its input position (:numref:`ba_gcp_report`).
+
 .. _jitter_tri_err:
 
 Reprojection errors per triangulated point

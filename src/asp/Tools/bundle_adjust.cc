@@ -715,10 +715,6 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   if (opt.apply_initial_transform_only)
     return;
 
-  // Write the GCP stats to a file
-  if (num_gcp > 0)
-    param_storage.print_gcp_stats(opt.out_prefix, cnet, opt.datum);
-
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
   std::vector<vw::CamPtr> optimized_cams;
@@ -731,6 +727,17 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   // Fetch the latest outliers from param_storage and put them in the 'outliers' set
   std::set<int> outliers;
   updateOutliers(cnet, param_storage, outliers);
+
+  // Write the ground control point offset report
+  if (num_gcp > 0) {
+    std::vector<double> tri_points_vec(param_storage.num_points() * 3);
+    for (int ipt = 0; ipt < param_storage.num_points(); ipt++) {
+      vw::Vector3 pt = param_storage.get_point(ipt);
+      for (int q = 0; q < 3; q++)
+        tri_points_vec[ipt*3 + q] = pt[q];
+    }
+    asp::saveGcpReport(opt.out_prefix, cnet, tri_points_vec, outliers, opt.datum);
+  }
 
   // Write clean matches and many types of stats. These are done together as
   // they rely on reloading interest point matches, which is expensive.

@@ -911,16 +911,37 @@ obtained by the intersection of three rays, with some
 of those rays having an angle of at least this while some a much
 smaller angle.)
 
+.. _ba_gcp_report:
+
 GCP report
 ^^^^^^^^^^
 
-If GCP are present, the file ``{output-prefix}-gcp_report.txt`` will be saved to
-disk, having the initial and optimized GCP coordinates, and their difference,
-both in ECEF and longitude-latitude-height above datum.
+If ground control points are present (:numref:`bagcp`), the file::
 
-The reprojection error file may be more helpful than this GCP report file
-(:numref:`ba_err_per_point`). The GCP are flagged with the string ``# GCP`` at
-the end of that file.
+    {output-prefix}-gcp-report.csv
+
+will be written. For each GCP it stores the offset between its input (surveyed)
+and optimized position, split into a ground-plane component and a height
+component, in meters. This is analogous to the camera position changes
+(:numref:`ba_camera_offsets`) and the changes in triangulated points
+(:numref:`ba_tri_offsets`).
+
+Here is a sample file::
+
+    # GCP offset from initial to optimized GCP (meters)
+    # lon, lat, ground_offset_m, height_offset_m
+    # <datum information>
+    77.478407, 18.567131, 109.36, 0.53
+
+The ``ground_offset_m`` field is the norm of the offset in the local ground
+(tangent) plane, and ``height_offset_m`` is the offset along the datum normal.
+Both are absolute values, computed in the local North-East-Down coordinate
+system at each GCP.
+
+If the GCP are held fixed with ``--fix-gcp-xyz``, these offsets will be zero.
+
+The reprojection error file (:numref:`ba_err_per_point`) can also be helpful.
+The GCP are flagged there with the string ``# GCP``.
 
 .. _ba_out_cams:
 

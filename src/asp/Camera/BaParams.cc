@@ -310,49 +310,6 @@ void BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits)
   } // End camera loop
 }
 
-/// Print stats for optimized ground control points.
-void BaParams::print_gcp_stats(std::string const& out_prefix,
-                       vw::ba::ControlNetwork const& cnet,
-                       vw::cartography::Datum const& d) const {
-
-  std::string gcp_report = out_prefix + "-gcp-report.txt";
-  vw::vw_out() << "Writing: " << gcp_report << std::endl;
-
-  std::ofstream gfs(gcp_report.c_str());
-  gfs.precision(17);
-
-  gfs << "# Ground control point report\n";
-  // TODO(oalexan1): Print this to report file! Compare with existing report!
-  gfs << "# input_gcp optimized_gcp diff\n";
-
-  int gcp_count = 0;
-  for (int ipt = 0; ipt < num_points(); ipt++) {
-
-    if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
-      continue;
-
-    if (get_point_outlier(ipt))
-      continue; // skip outliers
-
-    vw::Vector3 input_gcp = cnet[ipt].position();
-    vw::Vector3 opt_gcp   = get_point(ipt);
-
-    gfs << "GCP count: " << gcp_count << std::endl;
-    gfs << "ECEF: " << input_gcp << ' ' << opt_gcp << ' '
-        << input_gcp - opt_gcp << std::endl;
-
-    // Now convert to llh
-    input_gcp = d.cartesian_to_geodetic(input_gcp);
-    opt_gcp   = d.cartesian_to_geodetic(opt_gcp);
-
-    gfs << "Lon-lat-height: " << input_gcp << ' ' << opt_gcp << ' '
-       << input_gcp - opt_gcp << std::endl;
-    gfs << "\n";
-    gcp_count++;
-  }
-  gfs.close();
-}
-
 void BaParams::record_points_to_kml(const std::string &kml_path,
                             const vw::cartography::Datum& datum,
                             size_t skip, const std::string name) {

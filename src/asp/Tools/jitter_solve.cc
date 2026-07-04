@@ -1366,6 +1366,9 @@ void jitterSolvePass(int                                 pass,
                                orig_tri_points_vec, tri_points_vec,
                                crn, tri_offsets_file);
 
+  // Write the ground control point offset report
+  asp::saveGcpReport(opt.out_prefix, cnet, tri_points_vec, outliers, opt.datum);
+
   // Save the optimized control network in GCP format, after outlier filtering
   if (opt.save_cnet_as_gcp) {
     std::string gcp_file = opt.out_prefix + "-cnet.gcp";
