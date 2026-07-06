@@ -64,17 +64,6 @@ CameraAdjustment::CameraAdjustment(double const* array) {
 vw::Vector3 CameraAdjustment::position() const { return m_position_data; }
 vw::Quat    CameraAdjustment::pose    () const { return m_pose_data;     }
 
-// Apply an orbital group rigid pose (axis_angle + translation, rotation about the
-// group centroid) to a camera's original position. See the header for the formula.
-vw::Vector3 applyOrbitalGroupPose(double const* pose,
-                                  vw::Vector3 const& orig_position,
-                                  vw::Vector3 const& centroid) {
-  vw::Vector3 axis_angle(pose[0], pose[1], pose[2]);
-  vw::Vector3 translation(pose[3], pose[4], pose[5]);
-  vw::Quat rot = vw::math::axis_angle_to_quaternion(axis_angle);
-  return centroid + rot.rotate(orig_position - centroid) + translation;
-}
-
 /// Populate from a six element array.
 void CameraAdjustment::read_from_array(double const* array) {
   m_position_data = vw::Vector3(array[0], array[1], array[2]);

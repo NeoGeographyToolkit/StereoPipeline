@@ -1190,6 +1190,79 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
   }
 }
 
+// Add the position-uncertainty residual for one camera not in an orbital group.
+void addCamUncertaintyResidual(int icam,
+                               asp::BaOptions          const& opt,
+                               std::vector<vw::CamPtr> const& orig_cams,
+                               asp::BaParams           const& orig_parameters,
+                               asp::BaParams                & param_storage,
+                               ceres::Problem               & problem) {
+
+  // orig_ctr has the actual camera center, but orig_cam_ptr may have only an
+  // adjustment. For linescan camera, pick the camera center from the middle of
+  // the array of centers. It will be used to determine horizontal and vertical
+  // components.
+  vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
+  double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
+  double * cam_ptr  = param_storage.get_camera_ptr(icam);
+  int param_len = 6; // bundle_adjust and jitter_solve expect different lengths
+  double weight = 1.0;
+  ceres::CostFunction* cost_function
+    = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, param_len,
+                                  opt.camera_position_uncertainty[icam],
+                                  weight, opt.datum,
+                                  opt.camera_position_uncertainty_power);
+  ceres::LossFunction* loss_function = new ceres::TrivialLoss();
+  problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
+}
+
+// Add the position-uncertainty residual for one camera in an orbital group. The
+// position is derived from the shared group pose. Apply the same uncertainty penalty
+// (initial minus current position) but to that group pose block, so it constrains
+// the rigid orbit.
+void addGroupCamUncertaintyResidual(int icam,
+                                    asp::BaOptions     const& opt,
+                                    asp::OrbitalGroups      & orbital_groups,
+                                    ceres::Problem          & problem) {
+
+  double weight = 1.0;
+  ceres::CostFunction* cost_function
+    = GroupCamUncertaintyError::Create(orbital_groups.init_pos[icam],
+                                       orbital_groups.centroid_of(icam),
+                                       opt.camera_position_uncertainty[icam],
+                                       weight, opt.datum,
+                                       opt.camera_position_uncertainty_power);
+  ceres::LossFunction* loss_function = new ceres::TrivialLoss();
+  problem.AddResidualBlock(cost_function, loss_function,
+                           orbital_groups.pose_ptr(icam));
+}
+
+// Add a soft constraint keeping each camera position near its original value.
+void addCamPositionUncertaintyCostFun(asp::BaOptions           const& opt,
+                                      std::vector<vw::CamPtr>   const& orig_cams,
+                                      asp::BaParams             const& orig_parameters,
+                                      asp::OrbitalGroups             & orbital_groups,
+                                      asp::BaParams                  & param_storage,
+                                      ceres::Problem                 & problem,
+                                      int                            & num_uncertainty_residuals) {
+
+  num_uncertainty_residuals = 0;
+  if (opt.camera_position_uncertainty.empty())
+    return;
+
+  int num_cameras = param_storage.num_cameras();
+  for (int icam = 0; icam < num_cameras; icam++) {
+    // A grouped camera's position comes from the shared group pose, so constrain
+    // that pose. Otherwise constrain the per-camera block.
+    if (orbital_groups.grouped(icam))
+      addGroupCamUncertaintyResidual(icam, opt, orbital_groups, problem);
+    else
+      addCamUncertaintyResidual(icam, opt, orig_cams, orig_parameters,
+                                param_storage, problem);
+    num_uncertainty_residuals++;
+  }
+}
+
 // Add a ground constraint (GCP or height from DEM)
 void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
                            std::string        const& cost_function_str,

@@ -22,6 +22,7 @@
 
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BundleAdjustOrbital.h>
 #include <asp/Core/BundleAdjustUtils.h>
 
 // Turn off warnings from eigen
@@ -505,6 +506,36 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
                       asp::BaParams                              & param_storage,
                       ceres::Problem                             & problem,
                       int                                        & num_cam_pos_residuals);
+
+// Add a soft constraint keeping each camera position near its original value, per
+// --camera-position-uncertainty. Loops over cameras and adds one residual each,
+// via the grouped or ungrouped helper below.
+void addCamPositionUncertaintyCostFun(asp::BaOptions           const& opt,
+                                      std::vector<vw::CamPtr>   const& orig_cams,
+                                      asp::BaParams             const& orig_parameters,
+                                      asp::OrbitalGroups             & orbital_groups,
+                                      // Outputs
+                                      asp::BaParams                  & param_storage,
+                                      ceres::Problem                 & problem,
+                                      int                            & num_uncertainty_residuals);
+
+// Add the position-uncertainty residual for one camera not in an orbital group,
+// on its per-camera block.
+void addCamUncertaintyResidual(int icam,
+                               asp::BaOptions          const& opt,
+                               std::vector<vw::CamPtr> const& orig_cams,
+                               asp::BaParams           const& orig_parameters,
+                               // Outputs
+                               asp::BaParams                & param_storage,
+                               ceres::Problem               & problem);
+
+// Add the position-uncertainty residual for one camera in an orbital group, on the
+// shared group pose block (its position is derived from that pose).
+void addGroupCamUncertaintyResidual(int icam,
+                                    asp::BaOptions     const& opt,
+                                    asp::OrbitalGroups      & orbital_groups,
+                                    // Outputs
+                                    ceres::Problem          & problem);
 
 } // end namespace asp
 
