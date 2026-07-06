@@ -203,6 +203,20 @@ void loadValidateBaOptions(po::variables_map const& vm,
     vw::vw_throw(vw::ArgumentErr() << "Cannot use --orbital-group-list with "
       << "--num-random-passes.\n");
 
+  // The orbital-group logic is wired up only for CSM frame cameras. For other
+  // camera types the grouped positions would be silently frozen rather than
+  // tied to a shared rigid pose, since only the CSM cost function reads the
+  // group pose. Disallow the combination.
+  if (!opt.orbital_group_list.empty() && opt.camera_type != BaCameraType_CSM)
+    vw::vw_throw(vw::ArgumentErr() << "Option --orbital-group-list is currently "
+      << "supported only for CSM frame cameras.\n");
+
+  // The reference-terrain disparity residual does not use the shared group pose,
+  // so grouped positions would look frozen to it. Disallow the combination.
+  if (!opt.orbital_group_list.empty() && opt.reference_terrain != "")
+    vw::vw_throw(vw::ArgumentErr() << "Cannot use --orbital-group-list with "
+      << "--reference-terrain.\n");
+
   bool external_matches = (!opt.clean_match_files_prefix.empty() ||
                            !opt.match_files_prefix.empty());
   if (external_matches && (opt.isis_cnet != "" || opt.nvm != ""))
