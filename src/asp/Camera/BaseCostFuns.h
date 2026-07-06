@@ -154,6 +154,37 @@ struct CamUncertaintyError {
   double m_camera_position_uncertainty_power;
 };
 
+/// Like CamUncertaintyError, but for a camera in an orbital group. The current camera
+/// position is derived from the shared group pose (6 values, [axis_angle, translation])
+/// applied to the original position init_pos, with rotation about the group centroid.
+struct GroupCamUncertaintyError {
+
+  GroupCamUncertaintyError(vw::Vector3 const& init_pos, vw::Vector3 const& centroid,
+                           vw::Vector2 const& uncertainty, double weight,
+                           vw::cartography::Datum const& datum,
+                           double camera_position_uncertainty_power);
+
+  bool operator()(const double* group_pose, double* residuals) const;
+
+  // Factory to hide the construction of the CostFunction object. 3 residuals,
+  // 6 parameters (the shared group pose block).
+  static ceres::CostFunction*
+    Create(vw::Vector3 const& init_pos, vw::Vector3 const& centroid,
+           vw::Vector2 const& uncertainty, double weight,
+           vw::cartography::Datum const& datum,
+           double camera_position_uncertainty_power) {
+    return (new ceres::NumericDiffCostFunction<GroupCamUncertaintyError, ceres::CENTRAL, 3, 6>
+           (new GroupCamUncertaintyError(init_pos, centroid, uncertainty, weight,
+                                         datum, camera_position_uncertainty_power)));
+  }
+
+  vw::Vector3 m_init_pos, m_centroid;
+  vw::Vector2 m_uncertainty;
+  double m_weight;
+  vw::Matrix3x3 m_EcefToNed;
+  double m_camera_position_uncertainty_power;
+};
+
 } // end namespace asp
 
 #endif //__ASP_CAMERA_BASE_COST_FUNS_H__

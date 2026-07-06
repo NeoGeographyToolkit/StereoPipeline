@@ -195,6 +195,14 @@ void loadValidateBaOptions(po::variables_map const& vm,
         << "--num-random-passes.\n");
   }
 
+  // Random passes randomize the per-camera parameters, but the position of a camera
+  // in an orbital group is derived from the shared group pose, which is not
+  // randomized. So the two together would leave the grouped positions unperturbed,
+  // which is misleading. Disallow the combination.
+  if (!opt.orbital_group_list.empty() && opt.num_random_passes > 0)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot use --orbital-group-list with "
+      << "--num-random-passes.\n");
+
   bool external_matches = (!opt.clean_match_files_prefix.empty() ||
                            !opt.match_files_prefix.empty());
   if (external_matches && (opt.isis_cnet != "" || opt.nvm != ""))
@@ -968,6 +976,13 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "A higher value makes the cost function rise more steeply when "
      "--camera-position-uncertainty is close to being violated. This is an advanced "
       "option. The default should be good enough.")
+    ("orbital-group-list", po::value(&opt.orbital_group_list)->default_value(""),
+     "A comma-separated list of text files (no spaces), one per orbital group. Each "
+     "file lists the images (one per line) of the frame cameras acquired along one "
+     "orbit. The positions of all cameras in a group are then derived from a single "
+     "shared rigid 6-DOF pose (rotation and translation) for that orbit, so they move "
+     "as one rigid trajectory rather than independently. Camera orientations are left "
+     "free per camera. This is experimental and currently supports CSM frame cameras.")
     ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
      "A soft constraint to keep the camera positions close to the original values. "
      "It is meant to prevent a wholesale shift of the cameras. It can impede "

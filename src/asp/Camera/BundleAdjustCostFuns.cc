@@ -243,6 +243,9 @@ std::vector<int> BaCsmCam::get_block_sizes() const {
   result.push_back(asp::NUM_CENTER_PARAMS);
   result.push_back(asp::NUM_FOCUS_PARAMS);
   result.push_back(num_dist_params());
+  // When in an orbital group, one more block: the shared group pose (6 values).
+  if (m_grouped)
+    result.push_back(asp::NUM_CAMERA_PARAMS);
   return result;
 }
 
@@ -262,6 +265,18 @@ vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) co
   // Read the point location and camera information from the raw arrays.
   Vector3          point(raw_point[0], raw_point[1], raw_point[2]);
   CameraAdjustment correction(raw_pose);
+
+  // Position adjustment. Normally it is the per-camera value in raw_pose. But when
+  // this camera is in an orbital group, the position is derived from the shared group
+  // pose (an extra parameter block) applied to the original position, so all cameras
+  // of that orbit move as one rigid trajectory. The orientation stays the per-camera
+  // value in raw_pose either way.
+  Vector3 position_adj = correction.position();
+  if (m_grouped) {
+    double const* raw_group_pose = param_blocks[5];
+    Vector3 derived = applyOrbitalGroupPose(raw_group_pose, m_init_pos, m_centroid);
+    position_adj = derived - m_init_pos; // adjustment relative to the original position
+  }
 
   // We actually solve for scale factors for intrinsic values, so multiply them
   //  by the original intrinsic values to get the updated values.
@@ -291,7 +306,7 @@ vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) co
   // rather than replacing it altogether. The CSM camera can in fact
   // be even linescan, when there would be many pose samples, in fact,
   // so it makes sense to work this way.
-  AdjustedCameraModel adj_cam(copy, correction.position(), correction.pose());
+  AdjustedCameraModel adj_cam(copy, position_adj, correction.pose());
 
   try {
     // Bathy or not
@@ -566,6 +581,7 @@ void addReprojResidual(vw::Vector2 const& observation,
                        asp::BaParams & param_storage,
                        asp::BaOptions const& opt,
                        ceres::SubsetManifold * dist_opts,
+                       asp::OrbitalGroups & orbital_groups,
                        ceres::Problem & problem) {
 
   ceres::LossFunction* loss_function;
@@ -590,6 +606,9 @@ void addReprojResidual(vw::Vector2 const& observation,
     double* center     = param_storage.get_intrinsic_center_ptr    (camera_index);
     double* focus      = param_storage.get_intrinsic_focus_ptr     (camera_index);
     double* distortion = param_storage.get_intrinsic_distortion_ptr(camera_index);
+
+    // Set only for a CSM camera that is in an orbital group (see below).
+    double* group_pose = NULL;
 
     boost::shared_ptr<BaCamBase> ba_cam;
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
@@ -616,15 +635,30 @@ void addReprojResidual(vw::Vector2 const& observation,
       if (csm_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add CSM block with "
                       << "non-CSM camera.");
-      ba_cam = boost::make_shared<BaCsmCam>(csm_model, opt.bathy_data, camera_index);
+      boost::shared_ptr<BaCsmCam> csm_cam
+        = boost::make_shared<BaCsmCam>(csm_model, opt.bathy_data, camera_index);
+      // If this camera is in an orbital group, its position is derived from the
+      // shared group pose applied to its original position, about the group centroid.
+      if (orbital_groups.grouped(camera_index)) {
+        csm_cam->set_group(orbital_groups.init_pos[camera_index],
+                           orbital_groups.centroid_of(camera_index));
+        group_pose = orbital_groups.pose_ptr(camera_index);
+      }
+      ba_cam = csm_cam;
     } else {
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.");
     }
 
     ceres::CostFunction* cost_function =
       BaReprojErr::Create(observation, pixel_sigma, ba_cam);
-    problem.AddResidualBlock(cost_function, loss_function, point, camera,
-                             center, focus, distortion);
+    // The group pose, when present, is an extra parameter block shared by all
+    // cameras of the orbit (Ceres couples them because it is the same pointer).
+    if (group_pose != NULL)
+      problem.AddResidualBlock(cost_function, loss_function, point, camera,
+                               center, focus, distortion, group_pose);
+    else
+      problem.AddResidualBlock(cost_function, loss_function, point, camera,
+                               center, focus, distortion);
 
     // Apply the residual limits
     size_t num_limits = opt.intrinsics_limits.size() / 2;
@@ -773,6 +807,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            std::vector<vw::Vector3>               const& dem_xyz_vec,
                            bool have_weight_image,
                            bool have_dem,
+                           asp::OrbitalGroups                      & orbital_groups,
                            // Outputs
                            vw::ba::ControlNetwork                  & cnet,
                            asp::BaParams                           & param_storage,
@@ -882,7 +917,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
 
       // Call function to add the appropriate Ceres residual block.
       addReprojResidual(observation, pixel_sigma, ipt, icam,
-                                      param_storage, opt, dist_opts, problem);
+                        param_storage, opt, dist_opts, orbital_groups, problem);
       cam_residual_counts[icam]++; // Track the number of residual blocks for each camera
       num_pixels_per_cam[icam]++;  // Track the number of pixels for each camera
 

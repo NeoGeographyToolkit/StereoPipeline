@@ -191,7 +191,8 @@ public:
   BaCsmCam(boost::shared_ptr<asp::CsmModel> cam,
            vw::BathyData const& bathy_data,
            int camera_index):
-   m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
+   m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index),
+   m_grouped(false) {}
 
   /// The number of lens distortion parameters.
   int num_dist_params() const {
@@ -204,13 +205,24 @@ public:
   }
 
   /// Return the number of Ceres input parameter blocks.
-  /// - (camera), (point), (center), (focus), (lens distortion)
-  virtual int num_parameter_blocks() const {return 5;}
+  /// - (camera), (point), (center), (focus), (lens distortion), and, when the
+  ///   camera is in an orbital group, one more block: the shared group pose.
+  virtual int num_parameter_blocks() const {return m_grouped ? 6 : 5;}
 
   virtual std::vector<int> get_block_sizes() const;
 
   /// Read in all of the parameters and compute the residuals.
   virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const;
+
+  /// Mark this camera as belonging to an orbital group. Its position will then be
+  /// derived from the shared group pose (passed as an extra parameter block) applied
+  /// to its original position init_pos, with rotation about the group centroid. Its
+  /// orientation stays the per-camera free block, unchanged.
+  void set_group(vw::Vector3 const& init_pos, vw::Vector3 const& centroid) {
+    m_grouped  = true;
+    m_init_pos = init_pos;
+    m_centroid = centroid;
+  }
 
 private:
 
@@ -221,6 +233,11 @@ private:
   boost::shared_ptr<asp::CsmModel> m_underlying_camera;
   vw::BathyData const& m_bathy_data;
   int m_camera_index;
+
+  // Orbital grouping. When m_grouped, the camera position is derived from a shared
+  // group pose (an extra parameter block) applied to m_init_pos about m_centroid.
+  bool m_grouped;
+  vw::Vector3 m_init_pos, m_centroid;
 
 }; // End class BaCsmCam
 
@@ -426,6 +443,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            std::vector<vw::Vector3>               const& dem_xyz_vec,
                            bool have_weight_image,
                            bool have_dem,
+                           asp::OrbitalGroups                      & orbital_groups,
                            // Outputs
                            vw::ba::ControlNetwork                  & cnet,
                            asp::BaParams                           & param_storage,

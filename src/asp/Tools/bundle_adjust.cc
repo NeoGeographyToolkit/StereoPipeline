@@ -98,6 +98,83 @@ private:
   asp::BaParams const& m_param_storage;
 };
 
+// Build the orbital groups from --orbital-group-list. See that option for more info.
+void buildOrbitalGroups(asp::BaOptions const& opt,
+                        std::vector<vw::CamPtr> const& orig_cams,
+                        asp::OrbitalGroups & groups) {
+
+  groups = asp::OrbitalGroups(); // reset
+  if (opt.orbital_group_list.empty())
+    return;
+
+  int num_cams = opt.image_files.size();
+
+  // Map from image name to camera index
+  std::map<std::string, int> image2cam;
+  for (int i = 0; i < num_cams; i++)
+    image2cam[opt.image_files[i]] = i;
+
+  // Split the comma-separated list of group files
+  std::vector<std::string> group_files;
+  boost::split(group_files, opt.orbital_group_list, boost::is_any_of(","));
+
+  groups.cam2group.assign(num_cams, -1);
+  groups.num_groups = 0;
+  for (size_t g = 0; g < group_files.size(); g++) {
+    std::string group_file = group_files[g];
+    boost::trim(group_file);
+    if (group_file.empty())
+      continue;
+
+    std::vector<std::string> images;
+    asp::read_list(group_file, images);
+    int count = 0;
+    for (size_t j = 0; j < images.size(); j++) {
+      auto it = image2cam.find(images[j]);
+      if (it == image2cam.end())
+        vw::vw_throw(vw::ArgumentErr() << "Orbital group file '" << group_file
+                     << "' has image '" << images[j]
+                     << "' that is not among the input images.\n");
+      int icam = it->second;
+      if (groups.cam2group[icam] >= 0)
+        vw::vw_throw(vw::ArgumentErr() << "Image '" << images[j]
+                     << "' is listed in more than one orbital group.\n");
+      groups.cam2group[icam] = groups.num_groups;
+      count++;
+    }
+    if (count == 0)
+      vw::vw_throw(vw::ArgumentErr() << "Orbital group file '" << group_file
+                   << "' has no valid images.\n");
+    groups.num_groups++;
+  }
+
+  // Original positions per camera, and the per-group centroid of those positions
+  groups.init_pos.resize(num_cams);
+  for (int i = 0; i < num_cams; i++)
+    groups.init_pos[i] = orig_cams[i]->camera_center(vw::Vector2());
+
+  groups.centroid.assign(groups.num_groups, vw::Vector3());
+  std::vector<int> group_count(groups.num_groups, 0);
+  for (int i = 0; i < num_cams; i++) {
+    int g = groups.cam2group[i];
+    if (g < 0)
+      continue;
+    groups.centroid[g] += groups.init_pos[i];
+    group_count[g]++;
+  }
+  for (int g = 0; g < groups.num_groups; g++) {
+    if (group_count[g] > 0)
+      groups.centroid[g] /= double(group_count[g]);
+  }
+
+  // Initialize the group poses to identity (all zeros): the solve starts on the
+  // trusted orbit, and each pose can then move the whole orbit rigidly.
+  groups.group_pose.assign(groups.num_groups * 6, 0.0);
+
+  vw::vw_out() << "Orbital groups: found " << groups.num_groups
+               << " orbit(s). Camera positions in each will move as one rigid pose.\n";
+}
+
 // One pass of bundle adjustment
 int baOnePass(asp::BaOptions                & opt,
               asp::CRN                const & crn,
@@ -107,6 +184,7 @@ int baOnePass(asp::BaOptions                & opt,
               asp::BaParams const           & orig_parameters,
               std::vector<vw::CamPtr>  const& orig_cams,
               std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
+              asp::OrbitalGroups            & orbital_groups,
               bool                          & convergence_reached,
               double                        & final_cost) {
 
@@ -184,7 +262,7 @@ int baOnePass(asp::BaOptions                & opt,
   std::vector<std::vector<vw::Vector3>> tri_points_per_cam;
   std::vector<std::map<int, vw::Vector2>> pixel_sigmas;
   asp::addPixelReprojCostFun(opt, crn, count_map, weight_image, weight_image_georef,
-                             dem_xyz_vec, have_weight_image, have_dem,
+                             dem_xyz_vec, have_weight_image, have_dem, orbital_groups,
                              // Outputs
                              cnet, param_storage, dist_opts, problem, cam_residual_counts,
                              num_pixels_per_cam, pixels_per_cam, tri_points_per_cam,
@@ -228,24 +306,60 @@ int baOnePass(asp::BaOptions                & opt,
     }
   }
 
+  // For cameras in an orbital group, the position is derived from the shared group
+  // pose, so freeze the per-camera translation (components 0,1,2 of the camera block);
+  // the rotation (3,4,5) stays free. Each grouped camera gets its own manifold so
+  // Ceres can own them without a double free.
+  if (orbital_groups.num_groups > 0) {
+    for (int icam = 0; icam < num_cameras; icam++) {
+      if (!orbital_groups.grouped(icam))
+        continue;
+      double * cam_ptr = param_storage.get_camera_ptr(icam);
+      if (!problem.HasParameterBlock(cam_ptr))
+        continue; // no residual references it (e.g. no matches)
+      std::vector<int> constant_translation = {0, 1, 2};
+      ceres::SubsetManifold * trans_manifold
+        = new ceres::SubsetManifold(asp::NUM_CAMERA_PARAMS, constant_translation);
+      problem.SetManifold(cam_ptr, trans_manifold);
+    }
+  }
+
   int num_uncertainty_residuals = 0;
   if (opt.camera_position_uncertainty.size() > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
-      // orig_ctr has the actual camera center, but orig_cam_ptr may have only an adjustment.
-      // For linescan camera, pick the camera center from the middle of the array of 
-      // centers. It will be used to determine horizontal and vertical components.
-      vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
-      double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
-      double * cam_ptr  = param_storage.get_camera_ptr(icam);
-      int param_len = 6; // bundle_adjust and jitter_solve expect different lengths
-      double weight = 1.0;
-      ceres::CostFunction* cost_function
-        = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, param_len,
-                                      opt.camera_position_uncertainty[icam],
-                                      weight, opt.datum,
-                                      opt.camera_position_uncertainty_power);
-      ceres::LossFunction* loss_function = new ceres::TrivialLoss();
-      problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
+
+      // For a camera in an orbital group, the position is derived from the shared
+      // group pose. Apply the same uncertainty penalty (initial minus current
+      // position) but to that group pose block, so it constrains the rigid orbit.
+      if (orbital_groups.grouped(icam)) {
+        double weight = 1.0;
+        ceres::CostFunction* cost_function
+          = GroupCamUncertaintyError::Create(orbital_groups.init_pos[icam],
+                                             orbital_groups.centroid_of(icam),
+                                             opt.camera_position_uncertainty[icam],
+                                             weight, opt.datum,
+                                             opt.camera_position_uncertainty_power);
+        ceres::LossFunction* loss_function = new ceres::TrivialLoss();
+        problem.AddResidualBlock(cost_function, loss_function,
+                                 orbital_groups.pose_ptr(icam));
+      } else {
+        // orig_ctr has the actual camera center, but orig_cam_ptr may have only an
+        // adjustment. For linescan camera, pick the camera center from the middle of
+        // the array of centers. It will be used to determine horizontal and vertical
+        // components.
+        vw::Vector3 orig_ctr = orig_cams[icam]->camera_center(vw::Vector2());
+        double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
+        double * cam_ptr  = param_storage.get_camera_ptr(icam);
+        int param_len = 6; // bundle_adjust and jitter_solve expect different lengths
+        double weight = 1.0;
+        ceres::CostFunction* cost_function
+          = CamUncertaintyError::Create(orig_ctr, orig_cam_ptr, param_len,
+                                        opt.camera_position_uncertainty[icam],
+                                        weight, opt.datum,
+                                        opt.camera_position_uncertainty_power);
+        ceres::LossFunction* loss_function = new ceres::TrivialLoss();
+        problem.AddResidualBlock(cost_function, loss_function, cam_ptr);
+      }
       num_uncertainty_residuals++;
     }
   }
@@ -349,6 +463,25 @@ int baOnePass(asp::BaOptions                & opt,
     convergence_reached = false;
   }
 
+  // For cameras in an orbital group, the optimized position lives in the shared group
+  // pose (the per-camera translation was frozen). Materialize the derived position
+  // back into each camera's translation adjustment, so all downstream code (final
+  // residuals, camera writing) sees the correct positions with no further changes.
+  if (orbital_groups.num_groups > 0) {
+    for (int icam = 0; icam < num_cameras; icam++) {
+      if (!orbital_groups.grouped(icam))
+        continue;
+      vw::Vector3 derived = asp::applyOrbitalGroupPose(orbital_groups.pose_ptr(icam),
+                                                       orbital_groups.init_pos[icam],
+                                                       orbital_groups.centroid_of(icam));
+      vw::Vector3 adj = derived - orbital_groups.init_pos[icam]; // translation adjustment
+      double * cam_ptr = param_storage.get_camera_ptr(icam);
+      cam_ptr[0] = adj[0];
+      cam_ptr[1] = adj[1];
+      cam_ptr[2] = adj[2];
+    }
+  }
+
   // Write the condition files after each pass, as we never know which pass will be the last
   // since we may stop the passes prematurely if no more outliers are present.
   vw_out() << "Writing final condition log files." << "\n";
@@ -396,6 +529,11 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
 
+  // Orbital groups are disallowed with random passes (see handleBaArgs), so pass an
+  // empty groups object here. The randomization would not perturb the shared group
+  // pose, which would make grouped positions look frozen and mislead the search.
+  asp::OrbitalGroups orbital_groups;
+
   // Back up the output prefix
   std::string orig_out_prefix = opt.out_prefix;
 
@@ -418,7 +556,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
     double curr_cost = 0.0; // will be set
     baOnePass(opt, crn, first_pass, remove_outliers,
               param_storage, orig_parameters,
-              orig_cams, orig_cam_positions,
+              orig_cams, orig_cam_positions, orbital_groups,
               convergence_reached, curr_cost);
 
     // Record the parameters of the best result.
@@ -661,6 +799,15 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
 
+  // Build the orbital groups (from --orbital-group-list) once, before the pass loop.
+  // When active, the cameras of each orbit share one rigid 6-DOF pose that derives
+  // their positions. Building it here (not per pass) lets the shared group pose
+  // persist and accumulate across passes, like the per-camera adjustments and the
+  // triangulated points. Its init_pos is the original camera centers, so the pose
+  // holds the total rigid transform from the original orbit.
+  asp::OrbitalGroups orbital_groups;
+  buildOrbitalGroups(opt, orig_cams, orbital_groups);
+
   // For nadirpinhole and pinhole cameras, save a report
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum && opt.stereo_session.find("pinhole") != std::string::npos)
@@ -686,7 +833,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     bool convergence_reached = true; // will change
     baOnePass(opt, crn, first_pass, remove_outliers,
               param_storage, orig_parameters,
-              orig_cams, orig_cam_positions,
+              orig_cams, orig_cam_positions, orbital_groups,
               convergence_reached, final_cost);
     int num_points_remaining = num_points - param_storage.get_num_outliers();
     if (num_points_remaining < opt.min_matches && num_gcp == 0) {

@@ -50,7 +50,7 @@ struct BaBaseOptions: public asp::OptimizerOptions {
   std::string stereo_session, input_prefix, match_files_prefix,
     clean_match_files_prefix, reference_terrain, mapproj_dem, weight_image,
     isis_cnet, nvm_no_shift, output_cnet_type,
-    image_list, camera_list, mapprojected_data_list;
+    image_list, camera_list, mapprojected_data_list, orbital_group_list;
   int overlap_limit, min_matches, max_pairwise_matches,
     ip_edge_buffer_percent, max_num_reference_points;
   std::set<std::pair<std::string, std::string>> overlap_list;

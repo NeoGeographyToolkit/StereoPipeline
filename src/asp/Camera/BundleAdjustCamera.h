@@ -167,6 +167,44 @@ private:
 
 }; // End class CameraAdjustment
 
+// Apply an orbital group rigid pose to a camera's original position. The pose is a
+// 6-element array [axis_angle(3), translation(3)]. The rotation is applied about the
+// group centroid (for conditioning), then the translation is added:
+//   pos = centroid + R(axis_angle) * (orig_position - centroid) + translation.
+// At pose = all zeros this returns orig_position (identity), so the solve starts on
+// the trusted orbit.
+vw::Vector3 applyOrbitalGroupPose(double const* pose,
+                                  vw::Vector3 const& orig_position,
+                                  vw::Vector3 const& centroid);
+
+// Structure describing the orbital grouping of the cameras. Several framelet frame
+// cameras acquired along one orbit are tied together and their positions are all
+// derived from a single shared 6-DOF rigid pose (that group's entry in group_pose).
+// Orientations stay per-camera free (not touched here). This replaces N free framelet
+// positions with one rigid trajectory per orbit.
+struct OrbitalGroups {
+  std::vector<int> cam2group;          // per camera, group id, or -1 if ungrouped
+  int num_groups;                      // number of orbital groups
+  std::vector<double> group_pose;      // num_groups*6, [axis_angle(3), t(3)], optimized
+  std::vector<vw::Vector3> init_pos;   // per camera, original (initial) position, constant
+  std::vector<vw::Vector3> centroid;   // per group, centroid of that group's positions
+
+  OrbitalGroups(): num_groups(0) {}
+
+  // Is this camera part of an orbital group
+  bool grouped(int icam) const {
+    return num_groups > 0 && !cam2group.empty() && cam2group[icam] >= 0;
+  }
+  // Pointer to this camera's group pose block (the shared, optimized 6-DOF)
+  double* pose_ptr(int icam) {
+    return &group_pose[cam2group[icam] * 6];
+  }
+  // The centroid of the group this camera belongs to
+  vw::Vector3 centroid_of(int icam) const {
+    return centroid[cam2group[icam]];
+  }
+};
+
 /// Packs info from various camera models into the provided arrays.
 /// - It is up to the caller to make sure the arrays are properly sized.
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
