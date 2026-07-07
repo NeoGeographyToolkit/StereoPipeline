@@ -36,28 +36,28 @@ namespace asp {
 
 class BaBaseOptions;
 class BaOptions;
-class BaParams;
+class BaState;
 
-// Update the set of outliers based on param_storage
+// Update the set of outliers based on ba_state
 void updateOutliers(vw::ba::ControlNetwork const& cnet, 
-                      asp::BaParams const& param_storage,
+                      asp::BaState const& ba_state,
                       std::set<int> & outliers);
 
 // Filter matches by projection window.
 // TODO(oalexan1): Use this in jitter_solve.
 // TODO(oalexan1): This needs to be done before subsampling the matches
 void filterOutliersProjWin(asp::BaBaseOptions          & opt,
-                           asp::BaParams               & param_storage, 
+                           asp::BaState                & ba_state, 
                            vw::ba::ControlNetwork const& cnet);
 
 void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
                                       vw::ba::ControlNetwork const& cnet,
-                                      asp::BaParams & param_storage);
+                                      asp::BaState & ba_state);
 
 /// Add to the outliers based on the large residuals
 int add_to_outliers(vw::ba::ControlNetwork & cnet,
                     asp::CRN const& crn,
-                    asp::BaParams & param_storage,
+                    asp::BaState & ba_state,
                     asp::BaOptions const& opt,
                     std::vector<size_t> const& cam_residual_counts,
                     std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,

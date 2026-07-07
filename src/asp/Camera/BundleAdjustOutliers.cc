@@ -43,13 +43,13 @@ using namespace vw;
 using namespace vw::camera;
 using namespace vw::ba;
 
-// Update the set of outliers based on param_storage
+// Update the set of outliers based on ba_state
 void updateOutliers(vw::ba::ControlNetwork const& cnet, 
-                    asp::BaParams const& param_storage,
+                    asp::BaState const& ba_state,
                     std::set<int> & outliers) {
   outliers.clear(); 
-  for (int i = 0; i < param_storage.num_points(); i++)
-    if (param_storage.get_point_outlier(i))
+  for (int i = 0; i < ba_state.num_points(); i++)
+    if (ba_state.get_point_outlier(i))
       outliers.insert(i); 
 }
 
@@ -57,7 +57,7 @@ void updateOutliers(vw::ba::ControlNetwork const& cnet,
 // TODO(oalexan1): Use this in jitter_solve.
 // TODO(oalexan1): This needs to be done before subsampling the matches
 void filterOutliersProjWin(asp::BaBaseOptions          & opt,
-                           asp::BaParams               & param_storage, 
+                           asp::BaState                & ba_state, 
                            vw::ba::ControlNetwork const& cnet) {
 
   // Swap y. Sometimes it is convenient to specify these on input in reverse.
@@ -70,39 +70,39 @@ void filterOutliersProjWin(asp::BaBaseOptions          & opt,
   bool have_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   vw::cartography::set_srs_string(opt.proj_str, have_datum, opt.datum, georef);
 
-  int num_points = param_storage.num_points();
+  int num_points = ba_state.num_points();
   for (int i = 0; i < num_points; i++) {
       
-    if (param_storage.get_point_outlier(i))
+    if (ba_state.get_point_outlier(i))
       continue;
       
-    double* point = param_storage.get_point_ptr(i);
+    double* point = ba_state.get_point_ptr(i);
     Vector3 xyz(point[0], point[1], point[2]);
     Vector3 llh = georef.datum().cartesian_to_geodetic(xyz);
     Vector2 proj_pt = georef.lonlat_to_point(subvector(llh, 0, 2));
 
     if (!opt.proj_win.contains(proj_pt))
-      param_storage.set_point_outlier(i, true);
+      ba_state.set_point_outlier(i, true);
   }
 }
 
 void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
                                       vw::ba::ControlNetwork const& cnet,
-                                      asp::BaParams & param_storage) {
+                                      asp::BaState & ba_state) {
 
   std::vector<vw::CamPtr> optimized_cams;
-  asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
+  asp::calcOptimizedCameras(opt, ba_state, optimized_cams);
   int num_outliers_by_conv_angle = 0;
 
-  for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+  for (size_t ipt = 0; ipt < ba_state.num_points(); ipt++) {
 
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
       continue; // don't filter out GCP
-    if (param_storage.get_point_outlier(ipt))
+    if (ba_state.get_point_outlier(ipt))
       continue; // skip outliers
 
     // The GCC coordinate of this point
-    const double * point = param_storage.get_point_ptr(ipt);
+    const double * point = ba_state.get_point_ptr(ipt);
     Vector3 xyz(point[0], point[1], point[2]);
 
     // Control point. Use the per-pixel camera_center, since linescan
@@ -131,17 +131,17 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
     }
     
     if (max_angle < opt.min_triangulation_angle) {
-      param_storage.set_point_outlier(ipt, true);
+      ba_state.set_point_outlier(ipt, true);
       num_outliers_by_conv_angle++;
     }
     
     if (opt.max_triangulation_angle > 0 && max_angle > opt.max_triangulation_angle) {
-      param_storage.set_point_outlier(ipt, true);
+      ba_state.set_point_outlier(ipt, true);
       num_outliers_by_conv_angle++;
     }
   }
   
-  int num_pts = param_storage.num_points();
+  int num_pts = ba_state.num_points();
   vw::vw_out() << std::setprecision(4) 
                << "Removed " << num_outliers_by_conv_angle 
                << " triangulated points out of " << num_pts
@@ -152,7 +152,7 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
 // Add to the outliers based on the large residuals
 int add_to_outliers(vw::ba::ControlNetwork & cnet,
                     asp::CRN const& crn,
-                    asp::BaParams & param_storage,
+                    asp::BaState & ba_state,
                     asp::BaOptions const& opt,
                     std::vector<size_t> const& cam_residual_counts,
                     std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
@@ -165,13 +165,13 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
 
   vw_out() << "Removing outliers.\n";
 
-  size_t num_points  = param_storage.num_points();
-  size_t num_cameras = param_storage.num_cameras();
+  size_t num_points  = ba_state.num_points();
+  size_t num_cameras = ba_state.num_cameras();
 
   // Compute the reprojection error. Adjust for residuals being divided by pixel sigma.
   // Do not use the attenuated residuals due to the loss function.
   std::vector<double> residuals;
-  asp::compute_residuals(opt, crn, param_storage,  cam_residual_counts, pixel_sigmas,
+  asp::compute_residuals(opt, crn, ba_state,  cam_residual_counts, pixel_sigmas,
                          num_gcp_or_dem_residuals, num_uncertainty_residuals,
                          num_tri_residuals, num_cam_pos_residuals,
                          reference_vec, problem,
@@ -180,7 +180,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   // Compute the mean residual at each xyz, and how many times that residual is seen
   std::vector<double> mean_residuals;
   std::vector<int> num_point_observations;
-  asp::compute_mean_residuals_at_xyz(crn, residuals, param_storage,
+  asp::compute_mean_residuals_at_xyz(crn, residuals, ba_state,
                                      mean_residuals, num_point_observations); // outputs
 
   // The number of mean residuals is the same as the number of points,
@@ -196,7 +196,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
       int ipt = (**fiter).m_point_id;
 
       // skip existing outliers
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         continue;
 
       // Skip gcp, those are never outliers no matter what.
@@ -245,7 +245,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
       total++;
 
       // skip existing outliers
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         continue;
 
       // Skip gcp
@@ -253,7 +253,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
         continue;
 
       if (mean_residuals[ipt] > e) {
-        param_storage.set_point_outlier(ipt, true);
+        ba_state.set_point_outlier(ipt, true);
         num_outliers_by_reprojection++;
       }
     }
@@ -266,28 +266,28 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   int num_outliers_by_elev_or_lonlat = 0;
   if (opt.elevation_limit[0] < opt.elevation_limit[1] || !opt.lon_lat_limit.empty()) {
 
-    for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+    for (size_t ipt = 0; ipt < ba_state.num_points(); ipt++) {
 
       if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
         continue; // don't filter out GCP
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         continue; // skip outliers
 
       // The GCC coordinate of this point
-      const double * point = param_storage.get_point_ptr(ipt);
+      const double * point = ba_state.get_point_ptr(ipt);
       Vector3 xyz(point[0], point[1], point[2]);
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
       if (opt.elevation_limit[0] < opt.elevation_limit[1] &&
           (llh[2] < opt.elevation_limit[0] ||
            llh[2] > opt.elevation_limit[1])) {
-        param_storage.set_point_outlier(ipt, true);
+        ba_state.set_point_outlier(ipt, true);
         num_outliers_by_elev_or_lonlat++;
         continue;
       }
 
       Vector2 lon_lat = subvector(llh, 0, 2);
       if (!opt.lon_lat_limit.empty() && !opt.lon_lat_limit.contains(lon_lat)) {
-        param_storage.set_point_outlier(ipt, true);
+        ba_state.set_point_outlier(ipt, true);
         num_outliers_by_elev_or_lonlat++;
         continue;
       }
@@ -299,7 +299,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
 
   // Remove outliers by convergence angle
   if (opt.min_triangulation_angle > 0)
-    asp::filterOutliersByConvergenceAngle(opt, cnet, param_storage);
+    asp::filterOutliersByConvergenceAngle(opt, cnet, ba_state);
 
   // Remove outliers based on spatial extent. Be more generous with
   // leaving data in than what the input parameters suggest, because
@@ -307,15 +307,15 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   double pct_factor = (3.0 + opt.remove_outliers_params[0]/100.0)/4.0; // e.g., 0.9375
   double outlier_factor = 2 * opt.remove_outliers_params[1];           // e.g., 6.0.
   std::vector<double> x_vals, y_vals, z_vals;
-  for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+  for (size_t ipt = 0; ipt < ba_state.num_points(); ipt++) {
 
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
       continue; // don't filter out GCP
-    if (param_storage.get_point_outlier(ipt))
+    if (ba_state.get_point_outlier(ipt))
       continue; // skip outliers
 
     // The GCC coordinate of this point
-    const double * point = param_storage.get_point_ptr(ipt);
+    const double * point = ba_state.get_point_ptr(ipt);
     x_vals.push_back(point[0]);
     y_vals.push_back(point[1]);
     z_vals.push_back(point[2]);
@@ -327,18 +327,18 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
                              estim_box); // output
 
   int num_box_outliers = 0;
-  for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+  for (size_t ipt = 0; ipt < ba_state.num_points(); ipt++) {
 
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
       continue; // don't filter out GCP
-    if (param_storage.get_point_outlier(ipt))
+    if (ba_state.get_point_outlier(ipt))
       continue; // skip outliers
 
     // The GCC coordinate of this point
-    const double * point = param_storage.get_point_ptr(ipt);
+    const double * point = ba_state.get_point_ptr(ipt);
     Vector3 xyz(point[0], point[1], point[2]);
     if (!estim_box.contains(xyz)) {
-      param_storage.set_point_outlier(ipt, true);
+      ba_state.set_point_outlier(ipt, true);
       num_box_outliers++;
     }
   }
@@ -349,13 +349,13 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   // Remove GCP outliers
   if (opt.max_gcp_reproj_err > 0) {
     int num_gcp_outliers = 0;
-    for (size_t ipt = 0; ipt < param_storage.num_points(); ipt++) {
+    for (size_t ipt = 0; ipt < ba_state.num_points(); ipt++) {
       if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
         continue;
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         continue;
       if (mean_residuals[ipt] > opt.max_gcp_reproj_err) {
-        param_storage.set_point_outlier(ipt, true);
+        ba_state.set_point_outlier(ipt, true);
         num_gcp_outliers++;
       }
     }
@@ -363,7 +363,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
              << opt.max_gcp_reproj_err << " pixels.\n";
   }
 
-  int num_remaining_points = num_points - param_storage.get_num_outliers();
+  int num_remaining_points = num_points - ba_state.get_num_outliers();
 
   return num_outliers_by_reprojection + num_outliers_by_elev_or_lonlat;
 }

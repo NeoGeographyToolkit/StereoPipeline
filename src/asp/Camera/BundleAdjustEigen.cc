@@ -26,12 +26,12 @@
 #include <vw/Camera/PinholeModel.h>
 namespace asp {
 
-// Export the latest xyz values from param_storage to a vector of Vector3
-void exportTriPoints(asp::BaParams                const& param_storage, 
+// Export the latest xyz values from ba_state to a vector of Vector3
+void exportTriPoints(asp::BaState                 const& ba_state, 
                      std::vector<Eigen::Vector3d>      & tri_vec) {
-  tri_vec.resize(param_storage.num_points());
-  for (int i = 0; i < param_storage.num_points(); i++) {
-    const double* point = param_storage.get_point_ptr(i);
+  tri_vec.resize(ba_state.num_points());
+  for (int i = 0; i < ba_state.num_points(); i++) {
+    const double* point = ba_state.get_point_ptr(i);
     tri_vec[i] = Eigen::Vector3d(point[0], point[1], point[2]);
   }
 }
@@ -200,19 +200,19 @@ void calcCameraPoses(bool                                no_poses_from_nvm,
 void saveNvm(asp::BaBaseOptions                const& opt, 
              bool                                     no_poses_from_nvm,
              vw::ba::ControlNetwork            const& cnet,
-             asp::BaParams                     const& param_storage,
+             asp::BaState                      const& ba_state,
              std::vector<Eigen::Affine3d>           & world_to_cam,
              std::map<std::string, Eigen::Vector2d> & optical_offsets) {
 
   std::set<int> outliers;
-  asp::updateOutliers(cnet, param_storage, outliers);
+  asp::updateOutliers(cnet, ba_state, outliers);
  
   std::vector<Eigen::Vector3d> tri_vec;
-  exportTriPoints(param_storage, tri_vec);
+  exportTriPoints(ba_state, tri_vec);
 
   // Find latest poses (return the identity for non-pinhole cameras)
   std::vector<vw::CamPtr> optimized_cams;
-  asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
+  asp::calcOptimizedCameras(opt, ba_state, optimized_cams);
   calcCameraPoses(no_poses_from_nvm, optimized_cams, world_to_cam);
 
   // Find the optical centers if not loaded from nvm

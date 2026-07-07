@@ -86,17 +86,17 @@ using namespace vw::ba;
 class BaCallback: public ceres::IterationCallback {
 public:
 
-  BaCallback(asp::BaOptions const& opt, asp::BaParams const& param_storage):
-    m_opt(opt), m_param_storage(param_storage) {}
+  BaCallback(asp::BaOptions const& opt, asp::BaState const& ba_state):
+    m_opt(opt), m_ba_state(ba_state) {}
 
   virtual ceres::CallbackReturnType operator() (const ceres::IterationSummary& summary) {
-    saveUpdatedCameras(m_opt, m_param_storage);
+    saveUpdatedCameras(m_opt, m_ba_state);
     return ceres::SOLVER_CONTINUE;
   }
 
 private:
   asp::BaOptions const& m_opt;
-  asp::BaParams const& m_param_storage;
+  asp::BaState const& m_ba_state;
 };
 
 // One pass of bundle adjustment
@@ -104,8 +104,8 @@ int baOnePass(asp::BaOptions                & opt,
               asp::CRN                const & crn,
               bool                            first_pass,
               bool                            remove_outliers,
-              asp::BaParams                 & param_storage, // output
-              asp::BaParams const           & orig_parameters,
+              asp::BaState                  & ba_state, // output
+              asp::BaState const            & orig_ba_state,
               std::vector<vw::CamPtr>  const& orig_cams,
               std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
               asp::OrbitalGroups            & orbital_groups,
@@ -113,8 +113,8 @@ int baOnePass(asp::BaOptions                & opt,
               double                        & final_cost) {
 
   ControlNetwork & cnet = *opt.cnet;
-  int num_cameras = param_storage.num_cameras();
-  int num_points  = param_storage.num_points();
+  int num_cameras = ba_state.num_cameras();
+  int num_points  = ba_state.num_points();
 
   if ((int)crn.size() != num_cameras)
     vw_throw(ArgumentErr() << "Book-keeping error, the size of CameraRelationNetwork "
@@ -123,12 +123,12 @@ int baOnePass(asp::BaOptions                & opt,
   convergence_reached = true;
 
   if (opt.proj_win != BBox2(0, 0, 0, 0) && (!opt.proj_str.empty()))
-    asp::filterOutliersProjWin(opt, param_storage, cnet);
+    asp::filterOutliersProjWin(opt, ba_state, cnet);
 
   // How many times an xyz point shows up in the problem
   std::vector<int> count_map(num_points);
   for (int i = 0; i < num_points; i++) {
-    if (param_storage.get_point_outlier(i))
+    if (ba_state.get_point_outlier(i))
       count_map[i] = 0; // skip outliers
     else
       count_map[i] = cnet[i].size(); // Get number of observations of this point.
@@ -149,7 +149,7 @@ int baOnePass(asp::BaOptions                & opt,
   std::set<int> outliers;
   if (have_dem) {
     for (int ipt = 0; ipt < num_points; ipt++) {
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         outliers.insert(ipt);
     }
   }
@@ -157,14 +157,14 @@ int baOnePass(asp::BaOptions                & opt,
     vw::vw_out() << "Constraining against DEM: " << opt.heights_from_dem << "\n";
     asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
     // Re-triangulate against the DEM using the current (adjusted) cameras, not the
-    // frozen original ones. In bundle_adjust the adjustments live in param_storage and
+    // frozen original ones. In bundle_adjust the adjustments live in ba_state and
     // are never written back into opt.camera_models, so rebuild the cameras from
-    // param_storage. This lets the DEM points track camera improvements across passes
+    // ba_state. This lets the DEM points track camera improvements across passes
     // (from GCP, intrinsics, etc.) instead of pinning to the pre-adjustment geometry.
     // On the first pass, with no adjustments yet, these equal the original cameras.
     // (jitter_solve does not need this, as it updates its cameras in place each pass.)
     std::vector<vw::CamPtr> curr_cams;
-    asp::calcOptimizedCameras(opt, param_storage, curr_cams);
+    asp::calcOptimizedCameras(opt, ba_state, curr_cams);
     asp::updateTriPtsFromDem(cnet, outliers, curr_cams,
                              dem_georef, masked_dem,
                              dem_xyz_vec); // output
@@ -186,7 +186,7 @@ int baOnePass(asp::BaOptions                & opt,
   // end results in a crash.
   ceres::SubsetManifold *dist_opts = NULL;
   if (!opt.fixed_distortion_indices.empty())
-    dist_opts = new ceres::SubsetManifold(param_storage.m_max_num_dist_params,
+    dist_opts = new ceres::SubsetManifold(ba_state.m_max_num_dist_params,
                                           opt.fixed_distortion_indices);
 
   // Pixel reprojection error
@@ -197,7 +197,7 @@ int baOnePass(asp::BaOptions                & opt,
   asp::addPixelReprojCostFun(opt, crn, count_map, weight_image, weight_image_georef,
                              dem_xyz_vec, have_weight_image, have_dem, orbital_groups,
                              // Outputs
-                             cnet, param_storage, dist_opts, problem, cam_residual_counts,
+                             cnet, ba_state, dist_opts, problem, cam_residual_counts,
                              num_pixels_per_cam, pixels_per_cam, tri_points_per_cam,
                              pixel_sigmas);
 
@@ -206,12 +206,12 @@ int baOnePass(asp::BaOptions                & opt,
   asp::addGcpOrDemConstraint(opt, opt.cost_function, opt.use_llh_error, opt.fix_gcp_xyz,
                              // Outputs
                              cnet, num_gcp, num_gcp_or_dem_residuals,
-                             param_storage, problem);
+                             ba_state, problem);
 
   // Add camera constraints
   if (opt.camera_weight > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
-      double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
+      double const* orig_cam_ptr = orig_ba_state.get_camera_ptr(icam);
       ceres::CostFunction* cost_function = CamError::Create(orig_cam_ptr, opt.camera_weight);
 
       // Don't use the same loss function as for pixels since that one discounts
@@ -219,7 +219,7 @@ int baOnePass(asp::BaOptions                & opt,
       // TODO(oalexan1): This will prevent convergence in some cases!
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
 
-      double * camera  = param_storage.get_camera_ptr(icam);
+      double * camera  = ba_state.get_camera_ptr(icam);
       problem.AddResidualBlock(cost_function, loss_function, camera);
     } // End loop through cameras.
   }
@@ -229,39 +229,39 @@ int baOnePass(asp::BaOptions                & opt,
   // Camera position and tri constraints are suggested instead.
   if (opt.rotation_weight > 0) {
     for (int icam = 0; icam < num_cameras; icam++) {
-      double const* orig_cam_ptr = orig_parameters.get_camera_ptr(icam);
+      double const* orig_cam_ptr = orig_ba_state.get_camera_ptr(icam);
       double translation_weight = 0.0; // This is handled separately
       ceres::CostFunction* cost_function
         = RotTransError::Create(orig_cam_ptr, opt.rotation_weight, translation_weight);
       ceres::LossFunction* loss_function = new ceres::TrivialLoss();
-      double * camera  = param_storage.get_camera_ptr(icam);
+      double * camera  = ba_state.get_camera_ptr(icam);
       problem.AddResidualBlock(cost_function, loss_function, camera);
     }
   }
 
   // For cameras in an orbital group, the position is derived from the shared group
   // pose, so fix the per-camera translation before the solve.
-  asp::fixGroupedCameraTranslations(orbital_groups, param_storage, problem);
+  asp::fixGroupedCameraTranslations(orbital_groups, ba_state, problem);
 
   // Soft constraint keeping each camera position near its original value.
   int num_uncertainty_residuals = 0;
-  asp::addCamPositionUncertaintyCostFun(opt, orig_cams, orig_parameters, orbital_groups,
-                                        param_storage, problem, num_uncertainty_residuals);
+  asp::addCamPositionUncertaintyCostFun(opt, orig_cams, orig_ba_state, orbital_groups,
+                                        ba_state, problem, num_uncertainty_residuals);
 
   // Add a soft constraint to keep the cameras near the original position. Add one
   // constraint per reprojection error.
   int num_cam_pos_residuals = 0;
   if (opt.camera_position_weight > 0)
-    asp::addCamPosCostFun(opt, orig_parameters, pixels_per_cam,
+    asp::addCamPosCostFun(opt, orig_ba_state, pixels_per_cam,
                           tri_points_per_cam, pixel_sigmas, orig_cams,
-                          param_storage, problem, num_cam_pos_residuals);
+                          ba_state, problem, num_cam_pos_residuals);
 
   // Add a cost function meant to tie up to known disparity
   // (option --reference-terrain).
   std::vector<vw::Vector3> reference_vec; // must be persistent
   std::vector<ImageViewRef<DispPixelT>> interp_disp; // must be persistent
   if (opt.reference_terrain != "")
-    asp::addRefTerrainCostFun(opt, param_storage, problem,
+    asp::addRefTerrainCostFun(opt, ba_state, problem,
                               reference_vec, interp_disp);
 
   // Add a ground constraints to keep points close to their initial positions
@@ -270,7 +270,7 @@ int baOnePass(asp::BaOptions                & opt,
     asp::addTriConstraint(opt, cnet, crn, opt.image_files, orig_cams,
                           opt.tri_weight, opt.cost_function, opt.tri_robust_threshold,
                           // Outputs
-                          param_storage, problem, num_tri_residuals);
+                          ba_state, problem, num_tri_residuals);
 
   const size_t MIN_KML_POINTS = 50;
   size_t kmlPointSkip = 30;
@@ -283,7 +283,7 @@ int baOnePass(asp::BaOptions                & opt,
   if (first_pass) {
     vw_out() << "Writing initial condition files." << "\n";
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
-    write_residual_logs(residual_prefix, opt, param_storage,
+    write_residual_logs(residual_prefix, opt, ba_state,
                         cam_residual_counts, pixel_sigmas,
                         num_gcp_or_dem_residuals,
                         num_uncertainty_residuals, num_tri_residuals,
@@ -291,7 +291,7 @@ int baOnePass(asp::BaOptions                & opt,
                         reference_vec, cnet, crn, problem);
 
     std::string point_kml_path  = opt.out_prefix + "-initial_points.kml";
-    param_storage.record_points_to_kml(point_kml_path, opt.datum,
+    ba_state.record_points_to_kml(point_kml_path, opt.datum,
                          kmlPointSkip, "initial_points");
   }
 
@@ -310,7 +310,7 @@ int baOnePass(asp::BaOptions                & opt,
     options.num_threads = opt.num_threads;
 
   // Use a callback function at every iteration, if desired to save the intermediate results
-  BaCallback callback(opt, param_storage);
+  BaCallback callback(opt, ba_state);
   if (opt.save_intermediate_cameras) {
     options.callbacks.push_back(&callback);
     options.update_state_every_iteration = true;
@@ -350,13 +350,13 @@ int baOnePass(asp::BaOptions                & opt,
   // For cameras in an orbital group, the optimized position lives in the shared group
   // pose. Write the derived positions back into each camera's translation adjustment,
   // so all downstream code (final residuals, camera writing) sees the correct positions.
-  asp::updateGroupedCameraPositions(orbital_groups, param_storage);
+  asp::updateGroupedCameraPositions(orbital_groups, ba_state);
 
   // Write the condition files after each pass, as we never know which pass will be the last
   // since we may stop the passes prematurely if no more outliers are present.
   vw_out() << "Writing final condition log files." << "\n";
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
-  write_residual_logs(residual_prefix, opt, param_storage,
+  write_residual_logs(residual_prefix, opt, ba_state,
                       cam_residual_counts, pixel_sigmas,
                       num_gcp_or_dem_residuals,
                       num_uncertainty_residuals, num_tri_residuals,
@@ -364,13 +364,13 @@ int baOnePass(asp::BaOptions                & opt,
                       reference_vec, cnet, crn, problem);
 
   std::string point_kml_path = opt.out_prefix + "-final_points.kml";
-  param_storage.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip,
-                                     "final_points");
+  ba_state.record_points_to_kml(point_kml_path, opt.datum, kmlPointSkip,
+                                "final_points");
 
   // Outlier filtering
   if (remove_outliers)
       add_to_outliers(cnet, crn,
-                      param_storage,   // in-out
+                      ba_state,   // in-out
                       opt, cam_residual_counts, pixel_sigmas, num_gcp_or_dem_residuals,
                       num_uncertainty_residuals, num_tri_residuals,
                       num_cam_pos_residuals, reference_vec, problem);
@@ -380,21 +380,21 @@ int baOnePass(asp::BaOptions                & opt,
 
 // Run several more passes with random initial parameter offsets. This flow is
 // only kicked in if opt.num_random_passes is positive, which is not the
-void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
+void runRandomPasses(asp::BaOptions & opt, asp::BaState & ba_state,
                      double & final_cost, asp::CRN const& crn,
                      bool remove_outliers,
-                     asp::BaParams const& orig_parameters) {
+                     asp::BaState const& orig_ba_state) {
 
   // Record the parameters of the best result so far
   double best_cost = final_cost;
-  boost::shared_ptr<asp::BaParams> best_params_ptr(new asp::BaParams(param_storage));
+  boost::shared_ptr<asp::BaState> best_params_ptr(new asp::BaState(ba_state));
 
-  // Must recompute these, as what is passed in as orig_parameters is actually
+  // Must recompute these, as what is passed in as orig_ba_state is actually
   // the latest parameters after optimization, not the original ones. 
   // TODO(oalexan1): Think of this more. All this runRundomPasses logic
   // may need to go away.
   std::vector<vw::CamPtr> orig_cams;
-  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  asp::calcOptimizedCameras(opt, orig_ba_state, orig_cams); // orig cameras
 
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
@@ -413,9 +413,9 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
              << " with random initial parameter offsets.\n";
 
     // Randomly distort the original inputs.
-    param_storage.randomize_cameras();
+    ba_state.randomize_cameras();
     if (opt.solve_intrinsics)
-      param_storage.randomize_intrinsics(opt.intrinsics_limits);
+      ba_state.randomize_intrinsics(opt.intrinsics_limits);
 
     // Write output files to a temporary prefix
     opt.out_prefix = orig_out_prefix + "_rand";
@@ -425,7 +425,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
     bool convergence_reached = true;
     double curr_cost = 0.0; // will be set
     baOnePass(opt, crn, first_pass, remove_outliers,
-              param_storage, orig_parameters,
+              ba_state, orig_ba_state,
               orig_cams, orig_cam_positions, orbital_groups,
               convergence_reached, curr_cost);
 
@@ -433,7 +433,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
     if (curr_cost < best_cost) {
       vw_out() << "  --> Found a better solution using random passes.\n";
       best_cost = curr_cost;
-      best_params_ptr = boost::make_shared<asp::BaParams>(param_storage);
+      best_params_ptr = boost::make_shared<asp::BaState>(ba_state);
 
       // Get a list of all the files that were generated in the random step.
       std::vector<std::string> rand_files;
@@ -456,7 +456,7 @@ void runRandomPasses(asp::BaOptions & opt, asp::BaParams & param_storage,
   opt.out_prefix = orig_out_prefix; // So the cameras are written to the expected paths.
 
   // Copy back to the original parameters
-  param_storage = *best_params_ptr;
+  ba_state = *best_params_ptr;
 
   // Copy back the best cost
   final_cost = best_cost;
@@ -578,7 +578,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
   // This is needed to ensure distortion coefficients are not so small as to not
   // get optimized. This modifies the cameras and must happen before
-  // param_storage is populated.
+  // ba_state is populated.
   if (opt.solve_intrinsics && !opt.apply_initial_transform_only)
     asp::ensureMinDistortion(opt.camera_models, opt.camera_type,
                              opt.intrinsics_options,
@@ -587,34 +587,34 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                              opt.min_distortion);
 
   // Create the storage arrays for the variables we will adjust.
-  asp::BaParams param_storage(num_points, num_cameras,
-                              // Distinguish when we solve for intrinsics
-                              opt.camera_type != BaCameraType_Other,
-                              max_num_dist_params,
-                              opt.intrinsics_options);
+  asp::BaState ba_state(num_points, num_cameras,
+                        // Distinguish when we solve for intrinsics
+                        opt.camera_type != BaCameraType_Other,
+                        max_num_dist_params,
+                        opt.intrinsics_options);
 
   // Sync up any camera intrinsics that should be shared. Do this before
   // populating the param storage values.
   cameras_changed = cameras_changed ||
-    syncUpInitialSharedParams(opt.camera_type, param_storage, opt.camera_models);
+    syncUpInitialSharedParams(opt.camera_type, ba_state, opt.camera_models);
 
   // Fill in the camera and intrinsic parameters.
   std::vector<vw::CamPtr> new_cam_models;
   bool ans = false;
   switch (opt.camera_type) {
     case BaCameraType_Pinhole:
-      ans = init_cams_pinhole(opt, param_storage,
+      ans = init_cams_pinhole(opt, ba_state,
                               opt.initial_transform_file, opt.initial_transform,
                               new_cam_models); break;
     case BaCameraType_OpticalBar:
-      ans = init_cams_optical_bar(opt, param_storage,
+      ans = init_cams_optical_bar(opt, ba_state,
                                   opt.initial_transform_file, opt.initial_transform,new_cam_models); break;
     case BaCameraType_CSM: // CSM while optimizing intrinsics
-      ans = init_cams_csm(opt, param_storage,
+      ans = init_cams_csm(opt, ba_state,
                           opt.initial_transform_file, opt.initial_transform,
                           new_cam_models); break;
     case BaCameraType_Other:
-      ans = init_cams(opt, param_storage,
+      ans = init_cams(opt, ba_state,
                       opt.initial_transform_file, opt.initial_transform,
                       new_cam_models); break;
     default:
@@ -643,29 +643,29 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
   // Fill in the point vector with the starting values
   for (int ipt = 0; ipt < num_points; ipt++)
-    param_storage.set_point(ipt, cnet[ipt].position());
+    ba_state.set_point(ipt, cnet[ipt].position());
 
   // Flag any outliers read from an isis cnet
   for (auto const& ipt: isisCnetData.isisOutliers) {
     if (ipt < 0 || ipt >= num_points)
       vw_throw(ArgumentErr() << "Invalid point index.\n");
-    param_storage.set_point_outlier(ipt, true);
+    ba_state.set_point_outlier(ipt, true);
   }
 
   // Flag outliers in the cnet
   for (int ipt = 0; ipt < num_points; ipt++) {
     if (cnet[ipt].ignore())
-      param_storage.set_point_outlier(ipt, true);
+      ba_state.set_point_outlier(ipt, true);
   }
 
   // The camera positions and orientations before we float them
   // This includes modifications from any initial transforms that were specified.
-  asp::BaParams orig_parameters(param_storage);
+  asp::BaState orig_ba_state(ba_state);
 
   // TODO(oalexan1): Likely orig_cams have the info as new_cam_models. But need
   // to test this.
   std::vector<vw::CamPtr> orig_cams;
-  asp::calcOptimizedCameras(opt, orig_parameters, orig_cams); // orig cameras
+  asp::calcOptimizedCameras(opt, orig_ba_state, orig_cams); // orig cameras
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, orig_cams, orig_cam_positions);
 
@@ -681,7 +681,7 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   // For nadirpinhole and pinhole cameras, save a report
   bool has_datum = (opt.datum.name() != asp::UNSPECIFIED_DATUM);
   if (has_datum && opt.stereo_session.find("pinhole") != std::string::npos)
-    asp::saveCameraReport(opt, param_storage, opt.datum, "initial");
+    asp::saveCameraReport(opt, ba_state, opt.datum, "initial");
 
   // TODO(oalexan1): Is it possible to avoid using CRNs?
   asp::CRN crn;
@@ -702,10 +702,10 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     bool first_pass = (pass == 0);
     bool convergence_reached = true; // will change
     baOnePass(opt, crn, first_pass, remove_outliers,
-              param_storage, orig_parameters,
+              ba_state, orig_ba_state,
               orig_cams, orig_cam_positions, orbital_groups,
               convergence_reached, final_cost);
-    int num_points_remaining = num_points - param_storage.get_num_outliers();
+    int num_points_remaining = num_points - ba_state.get_num_outliers();
     if (num_points_remaining < opt.min_matches && num_gcp == 0) {
       // Do not throw if there exist gcp, as maybe that's all there is, and there
       // can be just a few of them. Also, do not throw if we are using an ISIS cnet,
@@ -723,10 +723,10 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
   // Running random passes is not the default
   if (!opt.apply_initial_transform_only && opt.num_random_passes > 0)
-    runRandomPasses(opt, param_storage, final_cost, crn, remove_outliers, orig_parameters);
+    runRandomPasses(opt, ba_state, final_cost, crn, remove_outliers, orig_ba_state);
 
   // Always save the updated cameras, even if we are not doing any optimization
-  saveUpdatedCameras(opt, param_storage);
+  saveUpdatedCameras(opt, ba_state);
 
   // If we are only applying an initial transform, we are done
   if (opt.apply_initial_transform_only)
@@ -735,21 +735,21 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   // Find the cameras with the latest adjustments. Note that we do not modify
   // opt.camera_models, but make copies as needed.
   std::vector<vw::CamPtr> optimized_cams;
-  asp::calcOptimizedCameras(opt, param_storage, optimized_cams);
+  asp::calcOptimizedCameras(opt, ba_state, optimized_cams);
 
   // Find the camera centers. For linescan, this will return all samples.
   std::vector<std::vector<vw::Vector3>> opt_cam_positions;
   asp::calcCameraCenters(opt.stereo_session, optimized_cams, opt_cam_positions);
 
-  // Fetch the latest outliers from param_storage and put them in the 'outliers' set
+  // Fetch the latest outliers from ba_state and put them in the 'outliers' set
   std::set<int> outliers;
-  updateOutliers(cnet, param_storage, outliers);
+  updateOutliers(cnet, ba_state, outliers);
 
   // Write the ground control point offset report
   if (num_gcp > 0) {
-    std::vector<double> tri_points_vec(param_storage.num_points() * 3);
-    for (int ipt = 0; ipt < param_storage.num_points(); ipt++) {
-      vw::Vector3 pt = param_storage.get_point(ipt);
+    std::vector<double> tri_points_vec(ba_state.num_points() * 3);
+    for (int ipt = 0; ipt < ba_state.num_points(); ipt++) {
+      vw::Vector3 pt = ba_state.get_point(ipt);
       for (int q = 0; q < 3; q++)
         tri_points_vec[ipt*3 + q] = pt[q];
     }
@@ -776,29 +776,29 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     vw::vw_out() << "Cannot compute camera offsets as the datum is unspecified.\n";
 
   std::string tri_offsets_file = opt.out_prefix + "-triangulation_offsets.txt";
-  asp::saveTriOffsetsPerCamera(opt.image_files, orig_parameters, param_storage, crn,
+  asp::saveTriOffsetsPerCamera(opt.image_files, orig_ba_state, ba_state, crn,
                                tri_offsets_file);
 
   if (has_datum &&
       (opt.stereo_session == "pinhole") || (opt.stereo_session == "nadirpinhole"))
-    saveCameraReport(opt, param_storage, opt.datum, "final");
+    saveCameraReport(opt, ba_state, opt.datum, "final");
 
-  // Save the updated cnet to ISIS or nvm format. Note that param_storage has
+  // Save the updated cnet to ISIS or nvm format. Note that ba_state has
   // the latest triangulated points and outlier info, while the cnet has the
   // initially triangulated points and the interest point matches.
   if (opt.isis_cnet != "" && opt.output_cnet_type == "isis-cnet")
-    asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, param_storage, isisCnetData);
+    asp::saveUpdatedIsisCnet(opt.out_prefix, cnet, ba_state, isisCnetData);
   else if (opt.output_cnet_type == "isis-cnet")
-    asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, param_storage);
+    asp::saveIsisCnet(opt.out_prefix, opt.datum, cnet, ba_state);
   else if (opt.output_cnet_type == "nvm") {
-    asp::saveNvm(opt, opt.no_poses_from_nvm, cnet, param_storage,
+    asp::saveNvm(opt, opt.no_poses_from_nvm, cnet, ba_state,
                   world_to_cam, optical_offsets);
   }
 
   // Save the optimized control network in GCP format, after outlier filtering
   if (opt.save_cnet_as_gcp) {
     std::string gcp_file = opt.out_prefix + "-cnet.gcp";
-    asp::saveCnetAsGcp(cnet, param_storage, opt.datum, opt.image_files, gcp_file);
+    asp::saveCnetAsGcp(cnet, ba_state, opt.datum, opt.image_files, gcp_file);
   }
 
 } // end do_ba_ceres

@@ -142,7 +142,7 @@ void saveMapprojOffsets(
 
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
-void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_storage,
+void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaState const& ba_state,
                       vw::cartography::Datum const& datum,
                       std::string const& prefix) {
 
@@ -165,7 +165,7 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_
     switch(opt.camera_type) {
       case BaCameraType_Pinhole: {
         // Get the camera model from the original one with parameters in
-        // param_storage applied to it (which could be original ones or optimized). 
+        // ba_state applied to it (which could be original ones or optimized). 
         // Note that we do not modify the original camera.
         vw::camera::PinholeModel const* in_cam
           = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
@@ -173,7 +173,7 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
         // Apply current intrinsics and extrinsics to the camera
         vw::camera::PinholeModel out_cam
-          = transformedPinholeCamera(icam, param_storage, *in_cam);
+          = transformedPinholeCamera(icam, ba_state, *in_cam);
         cam_ctr = out_cam.camera_center(vw::Vector2());
         cam2ecef = out_cam.get_rotation_matrix();
         break;
@@ -190,7 +190,7 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_
         // Apply extrinsics adjustments to a pinhole camera
         // TODO(oalexan1): Make this into a function called adjustedPinholeCamera().
         // Use it where needed.
-        CameraAdjustment adjustment(param_storage.get_camera_ptr(icam));
+        CameraAdjustment adjustment(ba_state.get_camera_ptr(icam));
         PinholeModel* in_cam = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
@@ -258,7 +258,7 @@ void saveHorizVertErrors(std::string const& horiz_vert_errors_file,
 /// extrinsics. Return the path to the saved file.
 std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
                            vw::cartography::Datum const& datum,
-                           asp::BaParams const& param_storage) {
+                           asp::BaState const& ba_state) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -267,13 +267,13 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
   cam_file = boost::filesystem::path(cam_file).replace_extension("tsai").string();
 
   // Get the camera model from the original one with parameters in
-  // param_storage applied to it (which could be original ones or optimized). 
+  // ba_state applied to it (which could be original ones or optimized). 
   // Note that we do not modify the original camera.
   vw::camera::PinholeModel const* in_cam
     = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-  vw::camera::PinholeModel out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
+  vw::camera::PinholeModel out_cam = transformedPinholeCamera(icam, ba_state, *in_cam);
 
   #pragma omp critical
   {
@@ -296,7 +296,7 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
 // extrinsics. Return the path to the saved file.
 std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
                               vw::cartography::Datum const& datum,
-                              asp::BaParams const& param_storage) {
+                              asp::BaState const& ba_state) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -312,7 +312,7 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
   vw::camera::OpticalBarModel out_cam
-    = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+    = transformedOpticalBarCamera(icam, ba_state, *in_cam);
 
   #pragma omp critical
   {
@@ -335,7 +335,7 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
 // Return the path to the saved file.
 std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
                                  vw::cartography::Datum const& datum,
-                                 asp::BaParams const& param_storage) {
+                                 asp::BaState const& ba_state) {
 
   // Get the output file path
   std::string cam_file = asp::bundle_adjust_file_name(opt.out_prefix,
@@ -351,7 +351,7 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
   boost::shared_ptr<asp::CsmModel> out_cam
-    = transformedCsmCamera(icam, param_storage, *in_cam);
+    = transformedCsmCamera(icam, ba_state, *in_cam);
 
   #pragma omp critical
   {
@@ -490,10 +490,10 @@ void read_image_cam_lists(std::string const& image_list,
 // Write an updated csm camera state file to disk. Assumes no intrinsics are optimized.
 std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
                            std::string const& adjustFile,
-                           asp::BaParams const& param_storage) {
+                           asp::BaState const& ba_state) {
 
   // Get the unadjusted CSM model and the adjustment as a transform
-  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+  CameraAdjustment cam_adjust(ba_state.get_camera_ptr(icam));
   AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
                               cam_adjust.position(), cam_adjust.pose());
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
@@ -535,13 +535,13 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
 // Write an updated RPC camera file to disk. Assumes no intrinsics are optimized.
 std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
                            std::string const& adjustFile,
-                           asp::BaParams const& param_storage) {
+                           asp::BaState const& ba_state) {
 
   std::string imageFile = opt.image_files[icam];
   vw::DiskImageView<float> image(imageFile);
   BBox2 image_box = vw::bounding_box(image);
 
-  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+  CameraAdjustment cam_adjust(ba_state.get_camera_ptr(icam));
   AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
                               cam_adjust.position(), cam_adjust.pose());
 
@@ -584,7 +584,7 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
 // Write a camera adjustment file to disk, and potentially a camera file with
 // the adjustments applied to it. Return the path to the saved file.
 std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
-                            asp::BaParams const& param_storage) {
+                            asp::BaState const& ba_state) {
 
   std::string adjust_file = asp::bundle_adjust_file_name(opt.out_prefix,
                                                          opt.image_files[icam],
@@ -597,7 +597,7 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
   }
 
   // The cam_file will be overwritten below for CSM cameras
-  CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+  CameraAdjustment cam_adjust(ba_state.get_camera_ptr(icam));
   asp::write_adjustments(adjust_file, cam_adjust.position(),
                                     cam_adjust.pose());
 
@@ -607,16 +607,16 @@ std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
   // adjustment applied to it. This applies when not solving for intrinsics and
   // using CSM. Do something analogous for RPC.
   if (asp::isLinescanCsmSession(opt.stereo_session))
-    cam_file = saveUpdatedCsm(opt, icam, adjust_file, param_storage);
+    cam_file = saveUpdatedCsm(opt, icam, adjust_file, ba_state);
   else if (opt.stereo_session == "rpc" && opt.save_adjusted_rpc)
-    cam_file = saveUpdatedRpc(opt, icam, adjust_file, param_storage);
+    cam_file = saveUpdatedRpc(opt, icam, adjust_file, ba_state);
 
   return cam_file;
 }
 
 // Save the updated camera model to disk. Return the name of the file written.
 std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
-                              asp::BaParams const& param_storage,
+                              asp::BaState const& ba_state,
                               int icam) {
 
   // Must have a try block, as otherwise OpenMP crashes the program
@@ -626,18 +626,18 @@ std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
 
     switch (opt.camera_type) {
     case BaCameraType_Pinhole:
-      cam_file = savePinholeCam(opt, icam, opt.datum, param_storage);
+      cam_file = savePinholeCam(opt, icam, opt.datum, ba_state);
       break;
     case BaCameraType_OpticalBar:
-      cam_file = saveOpticalBarCam(opt, icam, opt.datum, param_storage);
+      cam_file = saveOpticalBarCam(opt, icam, opt.datum, ba_state);
       break;
     case BaCameraType_CSM:
       // When solving for intrinsics and using CSM
-      cam_file = saveCsmCamUpdateIntr(opt, icam, opt.datum, param_storage);
+      cam_file = saveCsmCamUpdateIntr(opt, icam, opt.datum, ba_state);
       break;
     case BaCameraType_Other:
       // This includes the CSM/pinhole/etc cases when not solving for intrinsics
-      cam_file = saveAdjustedCam(opt, icam, param_storage);
+      cam_file = saveAdjustedCam(opt, icam, ba_state);
       break;
     default:
       vw::vw_throw(vw::ArgumentErr() << "Unknown camera type.\n");
@@ -651,7 +651,7 @@ std::string saveUpdatedCamera(asp::BaBaseOptions const& opt,
 
 // Write updated camera models to disk
 void saveUpdatedCameras(asp::BaBaseOptions const& opt,
-                        asp::BaParams const& param_storage) {
+                        asp::BaState const& ba_state) {
 
   int num_cameras = opt.image_files.size();
   std::vector<std::string> cam_files(num_cameras);
@@ -665,10 +665,10 @@ void saveUpdatedCameras(asp::BaBaseOptions const& opt,
       opt.stereo_session.find("pinhole") == std::string::npos) {
     #pragma omp parallel for
     for (int icam = 0; icam < num_cameras; icam++)
-      cam_files[icam] = saveUpdatedCamera(opt, param_storage, icam);
+      cam_files[icam] = saveUpdatedCamera(opt, ba_state, icam);
   } else {
     for (int icam = 0; icam < num_cameras; icam++)
-      cam_files[icam] = saveUpdatedCamera(opt, param_storage, icam);
+      cam_files[icam] = saveUpdatedCamera(opt, ba_state, icam);
   }
 
   sw.stop();

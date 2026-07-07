@@ -55,7 +55,7 @@ namespace vw {
 
 namespace asp {
 
-class BaParams;
+class BaState;
 
 const int NUM_XYZ_PARAMS  = 3;
 const int NUM_QUAT_PARAMS = 4;
@@ -148,9 +148,9 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
 
 
 // Save the control network in GCP format using optimized positions from
-// param_storage, filtering outliers. Includes GCP. For bundle_adjust.
+// ba_state, filtering outliers. Includes GCP. For bundle_adjust.
 void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
-                   asp::BaParams const& param_storage,
+                   asp::BaState const& ba_state,
                    vw::cartography::Datum const& datum,
                    std::vector<std::string> const& image_files,
                    std::string const& filename);

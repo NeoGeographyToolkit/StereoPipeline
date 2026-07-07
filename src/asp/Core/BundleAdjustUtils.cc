@@ -22,7 +22,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/GCP.h>
 #include <asp/Core/ImageUtils.h>
-#include <asp/Camera/BaParams.h>
+#include <asp/Camera/BaState.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>
@@ -746,25 +746,25 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
 } // end function residualsPerRow
 
 // Save the control network in GCP format using optimized positions from
-// param_storage, filtering outliers. For GCP, use the original position
+// ba_state, filtering outliers. For GCP, use the original position
 // from the cnet. For other points, use the optimized position from
-// param_storage. Includes GCP. For bundle_adjust.
+// ba_state. Includes GCP. For bundle_adjust.
 void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
-                   asp::BaParams const& param_storage,
+                   asp::BaState const& ba_state,
                    vw::cartography::Datum const& datum,
                    std::vector<std::string> const& image_files,
                    std::string const& filename) {
 
   std::vector<asp::Gcp> gcp_vec;
   for (int ipt = 0; ipt < (int)cnet.size(); ipt++) {
-    if (param_storage.get_point_outlier(ipt))
+    if (ba_state.get_point_outlier(ipt))
       continue;
     asp::Gcp gcp;
     gcp.cp = cnet[ipt];
     bool is_gcp =
       (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
     vw::Vector3 xyz = is_gcp ? cnet[ipt].position()
-                             : param_storage.get_point(ipt);
+                             : ba_state.get_point(ipt);
     gcp.llh = datum.cartesian_to_geodetic(xyz);
     gcp.sigma = cnet[ipt].sigma();
     gcp_vec.push_back(gcp);

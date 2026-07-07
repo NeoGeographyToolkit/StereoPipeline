@@ -39,7 +39,7 @@ namespace  asp {
 // by their sigmas, to get back the pixel reprojection errors.
 void compute_residuals(asp::BaBaseOptions const& opt,
                        asp::CRN const& crn,
-                       asp::BaParams const& param_storage,
+                       asp::BaState const& ba_state,
                        std::vector<size_t> const& cam_residual_counts,
                        std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                        size_t num_gcp_or_dem_residuals,
@@ -65,11 +65,11 @@ void compute_residuals(asp::BaBaseOptions const& opt,
   
   // Verify our book-keeping is correct
   size_t num_expected_residuals
-    = (num_gcp_or_dem_residuals + num_tri_residuals) * param_storage.params_per_point();
+    = (num_gcp_or_dem_residuals + num_tri_residuals) * ba_state.params_per_point();
 
-  size_t total_num_cam_params = param_storage.num_cameras()*param_storage.params_per_camera();
+  size_t total_num_cam_params = ba_state.num_cameras()*ba_state.params_per_camera();
 
-  for (size_t i = 0; i < param_storage.num_cameras(); i++)
+  for (size_t i = 0; i < ba_state.num_cameras(); i++)
     num_expected_residuals += cam_residual_counts[i]*PIXEL_SIZE;
   if (opt.camera_weight > 0)
     num_expected_residuals += total_num_cam_params;
@@ -77,7 +77,7 @@ void compute_residuals(asp::BaBaseOptions const& opt,
     num_expected_residuals += total_num_cam_params;
   num_expected_residuals += num_uncertainty_residuals * asp::NUM_XYZ_PARAMS;
   num_expected_residuals += reference_vec.size() * PIXEL_SIZE;
-  num_expected_residuals += num_cam_position_residuals * param_storage.params_per_camera();
+  num_expected_residuals += num_cam_position_residuals * ba_state.params_per_camera();
   
   if (num_expected_residuals != num_residuals)
     vw_throw(LogicErr() << "Expected " << num_expected_residuals
@@ -86,13 +86,13 @@ void compute_residuals(asp::BaBaseOptions const& opt,
   // Undo the division by pixel_sigma when computing the residuals, to get
   // the pixel reprojection errors.
   size_t residual_index = 0;
-  for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
+  for (size_t icam = 0; icam < ba_state.num_cameras(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
 
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
 
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         continue; // skip outliers
         
       // Look up the sigma for this point
@@ -113,26 +113,26 @@ void compute_residuals(asp::BaBaseOptions const& opt,
 /// Compute residual map by averaging all the reprojection error at a given point
 void compute_mean_residuals_at_xyz(asp::CRN const& crn,
                                   std::vector<double> const& residuals,
-                                  asp::BaParams const& param_storage,
+                                  asp::BaState const& ba_state,
                                   // outputs
                                   std::vector<double> & mean_residuals,
                                   std::vector<int>  & num_point_observations) {
 
-  mean_residuals.resize(param_storage.num_points());
-  num_point_observations.resize(param_storage.num_points());
+  mean_residuals.resize(ba_state.num_points());
+  num_point_observations.resize(ba_state.num_points());
   
   // Observation residuals are stored at the beginning of the residual vector in the 
   // same order they were originally added to Ceres.
   
   size_t residual_index = 0;
   // Double loop through cameras and crn entries will give us the correct order
-  for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
+  for (size_t icam = 0; icam < ba_state.num_cameras(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
 
       // The index of the 3D point
       int ipt = (**fiter).m_point_id;
 
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         continue; // skip outliers
 
       // Get the residual norm for this observation
@@ -148,8 +148,8 @@ void compute_mean_residuals_at_xyz(asp::CRN const& crn,
   } // End double loop through all the observations
 
   // Do the averaging
-  for (size_t i = 0; i < param_storage.num_points(); i++) {
-    if (param_storage.get_point_outlier(i)) {
+  for (size_t i = 0; i < ba_state.num_points(); i++) {
+    if (ba_state.get_point_outlier(i)) {
       // Skip outliers. But initialize to something.
       mean_residuals        [i] = std::numeric_limits<double>::quiet_NaN();
       num_point_observations[i] = std::numeric_limits<int>::quiet_NaN();
@@ -167,7 +167,7 @@ void write_residual_map(std::string const& output_prefix,
                         std::vector<double> const& mean_residuals,
                         // Num non-outlier pixels per point
                         std::vector<int> const& num_point_observations, 
-                        asp::BaParams const& param_storage,
+                        asp::BaState const& ba_state,
                         vw::ba::ControlNetwork const& cnet,
                         asp::BaBaseOptions const& opt) {
 
@@ -179,10 +179,10 @@ void write_residual_map(std::string const& output_prefix,
       << "Specify: '--datum <planet name>'.\n";
     return;
   }
-  if (mean_residuals.size() != param_storage.num_points())
+  if (mean_residuals.size() != ba_state.num_points())
     vw_throw(LogicErr() << "Point count mismatch in write_residual_map().\n");
 
-  if (cnet.size() != param_storage.num_points()) 
+  if (cnet.size() != ba_state.num_points()) 
     vw_throw(LogicErr()
               << "The number of stored points "
               << "does not agree with number of points in cnet.\n");
@@ -199,13 +199,13 @@ void write_residual_map(std::string const& output_prefix,
   file << "# " << opt.datum << std::endl;
   
   // Now write all the points to the file
-  for (size_t i = 0; i < param_storage.num_points(); i++) {
+  for (size_t i = 0; i < ba_state.num_points(); i++) {
 
-    if (param_storage.get_point_outlier(i))
+    if (ba_state.get_point_outlier(i))
       continue; // skip outliers
     
       // The final GCC coordinate of this point
-      const double * point = param_storage.get_point_ptr(i);
+      const double * point = ba_state.get_point_ptr(i);
       Vector3 xyz(point[0], point[1], point[2]);
 
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
@@ -302,7 +302,7 @@ void write_anchor_residuals(std::string              const& residual_prefix,
 /// in residuals must mirror perfectly the way residuals were created. 
 void write_residual_logs(std::string const& residual_prefix, 
                          asp::BaBaseOptions const& opt,
-                         asp::BaParams const& param_storage,
+                         asp::BaState const& ba_state,
                          std::vector<size_t> const& cam_residual_counts,
                          std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                          size_t num_gcp_or_dem_residuals,
@@ -315,7 +315,7 @@ void write_residual_logs(std::string const& residual_prefix,
                          ceres::Problem &problem) {
 
   std::vector<double> residuals;
-  asp::compute_residuals(opt, crn, param_storage,
+  asp::compute_residuals(opt, crn, ba_state,
                     cam_residual_counts, pixel_sigmas,
                     num_gcp_or_dem_residuals, 
                     num_uncertainty_residuals,
@@ -350,7 +350,7 @@ void write_residual_logs(std::string const& residual_prefix,
   // For each camera, average together all the point observation residuals
   residual_file << "# Pixel reprojection error per camera\n";
   residual_file << "# Image, mean, median, count\n";
-  for (size_t c = 0; c < param_storage.num_cameras(); c++) {
+  for (size_t c = 0; c < ba_state.num_cameras(); c++) {
     size_t num_this_cam_residuals = cam_residual_counts[c];
     
     // Write header for the raw file
@@ -391,11 +391,11 @@ void write_residual_logs(std::string const& residual_prefix,
   if (num_gcp_or_dem_residuals > 0) {
     for (size_t i = 0; i < num_gcp_or_dem_residuals; i++) {
       double mean_residual = 0; // Take average of XYZ error for each point
-      for (size_t j = 0; j < param_storage.params_per_point(); j++) {
+      for (size_t j = 0; j < ba_state.params_per_point(); j++) {
         mean_residual += fabs(residuals[index]);
         index++;
       }
-      mean_residual /= static_cast<double>(param_storage.params_per_point());
+      mean_residual /= static_cast<double>(ba_state.params_per_point());
     }
   }
   
@@ -403,8 +403,8 @@ void write_residual_logs(std::string const& residual_prefix,
   int num_passes = int(opt.camera_weight > 0) +
     int(opt.rotation_weight > 0);
   for (int pass = 0; pass < num_passes; pass++) {
-    const size_t part_size = param_storage.params_per_camera()/2;
-    for (size_t c = 0; c < param_storage.num_cameras(); c++) {
+    const size_t part_size = ba_state.params_per_camera()/2;
+    for (size_t c = 0; c < ba_state.num_cameras(); c++) {
       // Separately compute the mean position and rotation error
       double mean_residual_pos = 0, mean_residual_rot = 0;
       for (size_t j = 0; j < part_size; j++) {
@@ -447,7 +447,7 @@ void write_residual_logs(std::string const& residual_prefix,
 
   // Keep track of number of triangulation constraint residuals but don't save those
   index += asp::PARAMS_PER_POINT * num_tri_residuals;
-  index +=  param_storage.params_per_camera() * num_cam_position_residuals;
+  index +=  ba_state.params_per_camera() * num_cam_position_residuals;
   
   if (index != num_residuals)
     vw_throw( LogicErr() << "Have " << num_residuals << " residuals, but iterated through "
@@ -457,11 +457,11 @@ void write_residual_logs(std::string const& residual_prefix,
   std::string map_prefix = residual_prefix + "_pointmap";
   std::vector<double> mean_residuals;
   std::vector<int> num_point_observations;
-  compute_mean_residuals_at_xyz(crn, residuals, param_storage,
+  compute_mean_residuals_at_xyz(crn, residuals, ba_state,
                                 mean_residuals, num_point_observations);
 
   write_residual_map(map_prefix, mean_residuals, num_point_observations,
-                     param_storage, cnet, opt);
+                     ba_state, cnet, opt);
 
 } // End function write_residual_logs
 
@@ -470,14 +470,14 @@ void write_residual_logs(std::string const& residual_prefix,
 // use the 2nd function called saveTriOffsetsPerCamera instead
 // to reduce code duplication.
 void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
-                             asp::BaParams const& orig_params,
-                             asp::BaParams const& param_storage,
+                             asp::BaState const& orig_params,
+                             asp::BaState const& ba_state,
                              asp::CRN const& crn,
                              std::string const& tri_offsets_file) {
 
   // Number of cameras and points
-  int num_cams = param_storage.num_cameras();
-  int num_points = param_storage.num_points();
+  int num_cams = ba_state.num_cameras();
+  int num_points = ba_state.num_points();
   
   // Need to have a vector of vectors, one for each camera
   std::vector<std::vector<double>> tri_offsets(num_cams);
@@ -494,7 +494,7 @@ void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
         vw_throw(LogicErr() << "Invalid point index " << ipt 
                  << " in saveTriOffsetsPerCamera().\n");
         
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         continue; // skip outliers
       
       // Initial ECEF triangulated point
@@ -502,7 +502,7 @@ void saveTriOffsetsPerCamera(std::vector<std::string> const& image_files,
       vw::Vector3 initial_xyz(orig_point[0], orig_point[1], orig_point[2]);
       
       // Optimized ECEF triangulated point
-      double const* point = param_storage.get_point_ptr(ipt);
+      double const* point = ba_state.get_point_ptr(ipt);
       vw::Vector3 final_xyz(point[0], point[1], point[2]);
      
       // Append the norm of offset

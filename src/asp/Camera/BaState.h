@@ -15,11 +15,11 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file BaParams.h
+/// \file BaState.h
 ///
 
-#ifndef __ASP_CAMERA_BA_PARAMS_H__
-#define __ASP_CAMERA_BA_PARAMS_H__
+#ifndef __ASP_CAMERA_BA_STATE_H__
+#define __ASP_CAMERA_BA_STATE_H__
 
 #include <asp/Core/BaBaseOptions.h>
 #include <vw/Math/Vector.h>
@@ -71,29 +71,29 @@ struct IntrinsicOptions {
 
 /// Class to store parameters as they are being bundle adjusted.
 /// - Currently only supports either one camera or all unique cameras.
-class BaParams {
+class BaState {
 
 public:
 
   // Constructor
-  BaParams(int num_points, int num_cameras,
+  BaState(int num_points, int num_cameras,
           // Parameters below here only apply to pinhole models.
           bool using_intrinsics = false,
           int max_num_dist_params = 0,
           IntrinsicOptions intrinsics_opts = IntrinsicOptions()); 
 
   // Copy constructor
-  BaParams(asp::BaParams const& other);
+  BaState(asp::BaState const& other);
 
   // Set all camera position and pose values to zero.
   void init_cams_as_zero();
 
   // When using the copy functions, the sizes must match!
   /// Copy one set of values from another instance.
-  void copy_points(asp::BaParams const& other);
-  void copy_cameras(asp::BaParams const& other);
-  void copy_intrinsics(asp::BaParams const& other);
-  void copy_outliers(asp::BaParams const& other);
+  void copy_points(asp::BaState const& other);
+  void copy_cameras(asp::BaState const& other);
+  void copy_intrinsics(asp::BaState const& other);
+  void copy_outliers(asp::BaState const& other);
 
   /// Apply a random offset to each camera position.
   void randomize_cameras();
@@ -227,8 +227,8 @@ private: // Variables
   // Raw data storage
   std::vector<double> m_points_vec, m_cameras_vec, m_intrinsics_vec;
   std::vector<bool> m_outlier_points_vec;
-}; // End class BaParams
+}; // End class BaState
 
 } // end namespace asp
 
-#endif // __ASP_CAMERA_BA_PARAMS_H__
+#endif // __ASP_CAMERA_BA_STATE_H__

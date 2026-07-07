@@ -32,7 +32,7 @@
 #include <asp/Core/BaBaseOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/Camera/BaParams.h>
+#include <asp/Camera/BaState.h>
 #include <asp/Core/Bathymetry.h>
 
 #include <vw/Cartography/Datum.h>
@@ -171,57 +171,57 @@ private:
 /// - It is up to the caller to make sure the arrays are properly sized.
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
-                            asp::BaParams & param_storage);
+                            asp::BaState & ba_state);
 void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
-                                asp::BaParams & param_storage);
+                                asp::BaState & ba_state);
 // This does not copy the camera position and orientation
 void pack_csm_to_arrays(asp::CsmModel const& camera,
                         int camera_index,
-                        asp::BaParams & param_storage);
+                        asp::BaState & ba_state);
 
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera.
 vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
-                                                  asp::BaParams const& param_storage,
+                                                  asp::BaState const& ba_state,
                                                   vw::camera::PinholeModel const& in_cam);
 
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.
 vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
-                                                        asp::BaParams const& param_storage,
+                                                        asp::BaState const& ba_state,
                                                         vw::camera::OpticalBarModel const& in_cam);
 
 // Given an input CSM camera and param changes, apply those, returning
 // the new camera.
 boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
-                                                      asp::BaParams const& param_storage,
+                                                      asp::BaState const& ba_state,
                                                       asp::CsmModel const& in_cam);
 
 /// Given a transform with origin at the planet center, like output by pc_align,
 /// read the adjustments from param storage, apply this transform on top of
 /// them, and write the adjustments back to the param storage. Cameras
 /// do not change.
-void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaParams &param_storage,
+void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaState &ba_state,
                                 std::vector<vw::CamPtr>
                                 const& cam_ptrs);
 
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
-//  information as is in param_storage!
+//  information as is in ba_state!
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
-                                        asp::BaParams & param_storage,
+                                        asp::BaState & ba_state,
                                         std::vector<vw::CamPtr>
                                         const& cam_ptrs);
 
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
-//  information as is in param_storage!
+//  information as is in ba_state!
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            asp::BaParams & param_storage,
+                                            asp::BaState & ba_state,
                                             std::vector<vw::CamPtr>
                                             const& cam_ptrs);
 
 void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
-                                    asp::BaParams & param_storage,
+                                    asp::BaState & ba_state,
                                     std::vector<vw::CamPtr>
                                     const& cam_ptrs);
 
@@ -288,27 +288,27 @@ void saveMapprojOffsets(std::string                       const& out_prefix,
 // extrinsics. Return the path to the saved file.
 std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
                            vw::cartography::Datum const& datum,
-                           asp::BaParams const& param_storage);
+                           asp::BaState const& ba_state);
 
 // Write an optical bar camera file to disk after updating the intrinsics and
 // extrinsics. Return the path to the saved file.
 std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
                               vw::cartography::Datum const& datum,
-                              asp::BaParams const& param_storage);
+                              asp::BaState const& ba_state);
 
 // Write a CSM camera file to disk. Assumes that the intrinsics are optimized.
 std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
                                  vw::cartography::Datum const& datum,
-                                 asp::BaParams const& param_storage);
+                                 asp::BaState const& ba_state);
 
 // Write a camera adjustment file to disk, and potentially a camera file with
 // the adjustments applied to it. Return the path to the saved file.
 std::string saveAdjustedCam(asp::BaBaseOptions const& opt, int icam,
-                            asp::BaParams const& param_storage);
+                            asp::BaState const& ba_state);
 
 // Write updated camera models to disk
 void saveUpdatedCameras(asp::BaBaseOptions const& opt,
-                        asp::BaParams const& param_storage);
+                        asp::BaState const& ba_state);
 
 // Save CSM cameras
 void saveCsmCameras(std::string const& out_prefix,
@@ -340,32 +340,32 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
 /// are a rotation/offset that is applied on top of the existing camera model.
 /// First read initial adjustments, if any, and apply perhaps a pc_align transform.
 /// We assume the initial transform was already read and validated.
-bool init_cams(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
+bool init_cams(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
        std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
        std::vector<vw::CamPtr> & new_cam_models);
 
 /// Specialization for pinhole cameras.
-bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
+bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
      std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
      std::vector<vw::CamPtr> & new_cam_models);
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
-bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
+bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
                     std::string const& initial_transform_file,
                     vw::Matrix<double> const& initial_transform,
                     std::vector<vw::CamPtr> &new_cam_models);
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM cameras.
-bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
+bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
                    std::string const& initial_transform_file,
                    vw::Matrix<double> const& initial_transform,
                    std::vector<vw::CamPtr> &new_cam_models);
 
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
-void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaParams const& param_storage,
+void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaState const& ba_state,
                       vw::cartography::Datum const& datum,
                       std::string const& prefix);
 
@@ -405,7 +405,7 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
 // Find the cameras with the latest adjustments. Note that we do not modify
 // opt.camera_models, but make copies as needed.
 void calcOptimizedCameras(asp::BaBaseOptions const& opt,
-                          asp::BaParams const& param_storage,
+                          asp::BaState const& ba_state,
                           std::vector<vw::CamPtr> & optimized_cams);
 
 // Find the average for the gsd for all pixels whose rays intersect at the given
@@ -413,7 +413,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
 void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRN                const& crn,
-                            asp::BaParams            const& param_storage,
+                            asp::BaState             const& ba_state,
                             // Output
                             std::vector<double>     & gsds);
 
@@ -451,7 +451,7 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
 // the same value for all cameras sharing it. This is a bugfix. Return
 // true if the cameras were modified.
 bool syncUpInitialSharedParams(BACameraType camera_type,
-                               asp::BaParams const& param_storage,
+                               asp::BaState const& ba_state,
                                std::vector<vw::CamPtr>& camera_models);
 
 // This is needed to allocate enough storage for the distortion parameters.

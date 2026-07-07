@@ -123,12 +123,12 @@ void CameraAdjustment::pack_to_array(double* array) const {
 
 void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
                             int camera_index,
-                            asp::BaParams & param_storage) {
+                            asp::BaState & ba_state) {
 
-  double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
-  double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
-  double* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
-  double* distortion_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+  double* pos_pose_ptr   = ba_state.get_camera_ptr              (camera_index);
+  double* center_ptr     = ba_state.get_intrinsic_center_ptr    (camera_index);
+  double* focus_ptr      = ba_state.get_intrinsic_focus_ptr     (camera_index);
+  double* distortion_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
 
   // Handle position and pose
   CameraAdjustment pos_pose_info;
@@ -148,12 +148,12 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
 
 void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
                                 int camera_index,
-                                asp::BaParams & param_storage) {
+                                asp::BaState & ba_state) {
 
-  double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
-  double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
-  double* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
-  double* intrinsics_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+  double* pos_pose_ptr   = ba_state.get_camera_ptr              (camera_index);
+  double* center_ptr     = ba_state.get_intrinsic_center_ptr    (camera_index);
+  double* focus_ptr      = ba_state.get_intrinsic_focus_ptr     (camera_index);
+  double* intrinsics_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
 
   // Handle position and pose
   CameraAdjustment pos_pose_info;
@@ -173,12 +173,12 @@ void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
 // This does not copy the camera position and orientation
 void pack_csm_to_arrays(asp::CsmModel const& camera,
                         int camera_index,
-                        asp::BaParams & param_storage) {
+                        asp::BaState & ba_state) {
 
-  double* pos_pose_ptr   = param_storage.get_camera_ptr              (camera_index);
-  double* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
-  double* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
-  double* distortion_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+  double* pos_pose_ptr   = ba_state.get_camera_ptr              (camera_index);
+  double* center_ptr     = ba_state.get_intrinsic_center_ptr    (camera_index);
+  double* focus_ptr      = ba_state.get_intrinsic_focus_ptr     (camera_index);
+  double* distortion_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
 
   // Handle position and pose. We start with 0 pose and identity rotation. Nothing
   // gets copied from camera position and orientation.
@@ -200,13 +200,13 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
 /// read the adjustments from param storage, apply this transform on top of
 /// them, and write the adjustments back to the param storage. Cameras
 /// do not change.
-void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaParams &param_storage,
+void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaState &ba_state,
                                 std::vector<vw::CamPtr> const& cam_ptrs) {
 
-  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
+  for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
 
     // Load the current position/pose of this camera.
-    double* cam_ptr = param_storage.get_camera_ptr(i);
+    double* cam_ptr = ba_state.get_camera_ptr(i);
     CameraAdjustment cam_adjust(cam_ptr);
 
     // Create the adjusted camera model
@@ -222,28 +222,28 @@ void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaParams &param_stor
 } // end function apply_transform_to_cameras
 
 // This function takes advantage of the fact that when it is called the cam_ptrs
-//  have the same information as is in param_storage!
+//  have the same information as is in ba_state!
 void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
-                                        asp::BaParams & param_storage,
+                                        asp::BaState & ba_state,
                                         std::vector<vw::CamPtr>
                                         const& cam_ptrs) {
 
-  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
+  for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
     // Apply the transform
     boost::shared_ptr<camera::PinholeModel> pin_ptr =
       boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cam_ptrs[i]);
     pin_ptr->apply_transform(M);
 
-    // Write out to param_storage
-    pack_pinhole_to_arrays(*pin_ptr, i, param_storage);
+    // Write out to ba_state
+    pack_pinhole_to_arrays(*pin_ptr, i, ba_state);
   }
 
 } // end function apply_transform_to_cameras_pinhole
 
 // This function takes advantage of the fact that when it is called the cam_ptrs have the same
-// information as is in param_storage.
+// information as is in ba_state.
 void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            asp::BaParams & param_storage,
+                                            asp::BaState & ba_state,
                                             std::vector<vw::CamPtr>
                                             const& cam_ptrs) {
 
@@ -258,37 +258,37 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
     for (size_t c = 0; c < R.cols(); c++)
       R(r, c) /= scale;
 
-  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
+  for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
     // Apply the transform
     boost::shared_ptr<vw::camera::OpticalBarModel> bar_ptr =
       boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam_ptrs[i]);
     bar_ptr->apply_transform(R, T, scale);
 
-    // Write out to param_storage
-    pack_optical_bar_to_arrays(*bar_ptr, i, param_storage);
+    // Write out to ba_state
+    pack_optical_bar_to_arrays(*bar_ptr, i, ba_state);
   }
 
 } // end function apply_transform_to_cameras_optical_bar
 
 // This function takes advantage of the fact that when it is called the cam_ptrs
-//  have the same information as is in param_storage.
+//  have the same information as is in ba_state.
 // This applies the transform to the camera inline, but does not copy
 // the camera position and orientation to the arrays.
 void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
-                                    asp::BaParams & param_storage,
+                                    asp::BaState & ba_state,
                                     std::vector<vw::CamPtr>
                                     const& cam_ptrs) {
-  for (unsigned i = 0; i < param_storage.num_cameras(); i++) {
+  for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
     // Apply the transform
     boost::shared_ptr<asp::CsmModel> csm_ptr =
       boost::dynamic_pointer_cast<asp::CsmModel>(cam_ptrs[i]);
     if (csm_ptr == NULL)
         vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
     csm_ptr->applyTransform(M);
-    // Write out to param_storage. This does not copy camera position 
+    // Write out to ba_state. This does not copy camera position 
     // and orientation. The adjustment stays as 0 pose and identity rotation.
     // That is why the transform M does not get applied twice.
-    pack_csm_to_arrays(*csm_ptr, i, param_storage);
+    pack_csm_to_arrays(*csm_ptr, i, ba_state);
   }
 
 } // end function apply_transform_to_cameras_csm
@@ -633,19 +633,19 @@ void init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet
 
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera. Note that all intrinsic parameters are stored as multipliers
-// in asp::BaParams.
+// in asp::BaState.
 vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
-                                                  asp::BaParams const& param_storage,
+                                                  asp::BaState const& ba_state,
                                                   vw::camera::PinholeModel const& in_cam) {
 
   // Start by making a copy of the camera. Note that this does not make a copy of the
   // distortion params, as that's a pointer. So will have to make a copy of it further down.
   vw::camera::PinholeModel out_cam = in_cam;
 
-  double const* pos_pose_ptr   = param_storage.get_camera_ptr(camera_index);
-  double const* center_ptr     = param_storage.get_intrinsic_center_ptr    (camera_index);
-  double const* focus_ptr      = param_storage.get_intrinsic_focus_ptr     (camera_index);
-  double const* distortion_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+  double const* pos_pose_ptr   = ba_state.get_camera_ptr(camera_index);
+  double const* center_ptr     = ba_state.get_intrinsic_center_ptr    (camera_index);
+  double const* focus_ptr      = ba_state.get_intrinsic_focus_ptr     (camera_index);
+  double const* distortion_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
 
   // Update position and pose
   CameraAdjustment pos_pose_info(pos_pose_ptr);
@@ -678,16 +678,16 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
 // the new camera.
 vw::camera::OpticalBarModel
 transformedOpticalBarCamera(int camera_index,
-                            asp::BaParams const& param_storage,
+                            asp::BaState const& ba_state,
                             vw::camera::OpticalBarModel const& in_cam) {
 
   // Start by making a copy of the camera
   vw::camera::OpticalBarModel out_cam = in_cam;
 
-  double const* pos_pose_ptr  = param_storage.get_camera_ptr(camera_index);
-  double const* center_ptr    = param_storage.get_intrinsic_center_ptr    (camera_index);
-  double const* focus_ptr     = param_storage.get_intrinsic_focus_ptr     (camera_index);
-  double const* intrinsic_ptr = param_storage.get_intrinsic_distortion_ptr(camera_index);
+  double const* pos_pose_ptr  = ba_state.get_camera_ptr(camera_index);
+  double const* center_ptr    = ba_state.get_intrinsic_center_ptr    (camera_index);
+  double const* focus_ptr     = ba_state.get_intrinsic_focus_ptr     (camera_index);
+  double const* intrinsic_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
 
   // Update position and pose
   CameraAdjustment pos_pose_info(pos_pose_ptr);
@@ -728,13 +728,13 @@ transformedOpticalBarCamera(int camera_index,
 // Given an input CSM camera, intrinsic and extrinsic param changes, apply
 // those, returning the new camera.
 boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
-                                                      asp::BaParams const& param_storage,
+                                                      asp::BaState const& ba_state,
                                                       asp::CsmModel const& in_cam) {
   // Get the latest version of the camera parameters
-  double const* pos_pose_ptr  = param_storage.get_camera_ptr(camera_index);
-  double const* center_ptr    = param_storage.get_intrinsic_center_ptr    (camera_index);
-  double const* focus_ptr     = param_storage.get_intrinsic_focus_ptr     (camera_index);
-  double const* dist_ptr      = param_storage.get_intrinsic_distortion_ptr(camera_index);
+  double const* pos_pose_ptr  = ba_state.get_camera_ptr(camera_index);
+  double const* center_ptr    = ba_state.get_intrinsic_center_ptr    (camera_index);
+  double const* focus_ptr     = ba_state.get_intrinsic_focus_ptr     (camera_index);
+  double const* dist_ptr      = ba_state.get_intrinsic_distortion_ptr(camera_index);
 
   // Read the position and pose
   CameraAdjustment correction(pos_pose_ptr);

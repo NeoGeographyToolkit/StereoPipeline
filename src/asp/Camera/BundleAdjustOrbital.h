@@ -37,7 +37,7 @@ namespace ceres { class Problem; }
 namespace asp {
 
 struct BaOptions;
-struct BaParams;
+struct BaState;
 
 // Apply an orbital group rigid pose to a camera's original position. The pose is a
 // 6-element array [axis_angle(3), translation(3)]. The rotation is applied about the
@@ -86,7 +86,7 @@ void buildOrbitalGroups(asp::BaOptions const& opt,
 // pose, so fix the per-camera translation (components 0,1,2 of the camera block);
 // the rotation (3,4,5) stays free. Call after residuals are added, before the solve.
 void fixGroupedCameraTranslations(asp::OrbitalGroups const& groups,
-                                  asp::BaParams & param_storage,
+                                  asp::BaState & ba_state,
                                   ceres::Problem & problem);
 
 // After the solve, the optimized position lives in the shared group pose (the
@@ -94,7 +94,7 @@ void fixGroupedCameraTranslations(asp::OrbitalGroups const& groups,
 // camera's translation adjustment, so all downstream code (final residuals, camera
 // writing) sees the correct positions with no further changes.
 void updateGroupedCameraPositions(asp::OrbitalGroups & groups,
-                                  asp::BaParams & param_storage);
+                                  asp::BaState & ba_state);
 
 } // end namespace asp
 

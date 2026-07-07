@@ -32,8 +32,8 @@
 
 namespace asp {
   
-// Export the latest xyz values from param_storage to a vector of Vector3
-void exportTriPoints(asp::BaParams                const& param_storage, 
+// Export the latest xyz values from ba_state to a vector of Vector3
+void exportTriPoints(asp::BaState                 const& ba_state, 
                      std::vector<Eigen::Vector3d>      & tri_vec);
 
 // Once bundle adjustment is done, export the outlier list, camera poses,
@@ -41,7 +41,7 @@ void exportTriPoints(asp::BaParams                const& param_storage,
 void saveNvm(asp::BaBaseOptions                const& opt,
              bool                                     no_poses_from_nvm,   
              vw::ba::ControlNetwork            const& cnet,
-             asp::BaParams                     const& param_storage,
+             asp::BaState                      const& ba_state,
              std::vector<Eigen::Affine3d>           & world_to_cam,
              std::map<std::string, Eigen::Vector2d> & optical_offsets);
 

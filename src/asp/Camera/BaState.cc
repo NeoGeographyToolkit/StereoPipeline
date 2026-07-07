@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file BaParams.cc
+/// \file BaState.cc
 ///
 
-#include <asp/Camera/BaParams.h>
+#include <asp/Camera/BaState.h>
 
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/KML.h>
@@ -70,8 +70,8 @@ bool IntrinsicOptions::float_distortion_params(int cam_index) const {
   return float_distortion[sensor_id];
 }
 
-// BaParams constructor
-BaParams::BaParams(int num_points, int num_cameras,
+// BaState constructor
+BaState::BaState(int num_points, int num_cameras,
           // Parameters below here only apply to pinhole models.
           bool using_intrinsics,
           int max_num_dist_params,
@@ -137,7 +137,7 @@ BaParams::BaParams(int num_points, int num_cameras,
   }
 
 // Copy constructor
-BaParams::BaParams(BaParams const& other):
+BaState::BaState(BaState const& other):
       m_num_points        (other.m_num_points),
       m_num_cameras       (other.m_num_cameras),
       m_params_per_point  (other.m_params_per_point),
@@ -159,32 +159,32 @@ BaParams::BaParams(BaParams const& other):
   }
 
 // Set all camera position and pose values to zero.
-void BaParams::init_cams_as_zero() {
+void BaState::init_cams_as_zero() {
   for (int i = 0; i < m_cameras_vec.size(); i++)
     m_cameras_vec[i] = 0.0;
 }
 
 // When using the copy functions, the sizes must match!
 /// Copy one set of values from another instance.
-void BaParams::copy_points(BaParams const& other) {
+void BaState::copy_points(BaState const& other) {
   for (size_t i = 0; i < m_points_vec.size(); i++)
     m_points_vec[i] = other.m_points_vec[i];
 }
-void BaParams::copy_cameras(BaParams const& other) {
+void BaState::copy_cameras(BaState const& other) {
   for (size_t i = 0; i < m_cameras_vec.size(); i++)
     m_cameras_vec[i] = other.m_cameras_vec[i];
 }
-void BaParams::copy_intrinsics(BaParams const& other) {
+void BaState::copy_intrinsics(BaState const& other) {
   for (size_t i = 0; i < m_intrinsics_vec.size(); i++)
     m_intrinsics_vec[i] = other.m_intrinsics_vec[i];
 }
-void BaParams::copy_outliers(BaParams const& other) {
+void BaState::copy_outliers(BaState const& other) {
   for (size_t i = 0; i < m_outlier_points_vec.size(); i++)
     m_outlier_points_vec[i] = other.m_outlier_points_vec[i];
 }
 
 // Compute the offset in m_intrinsics_vec to the requested data
-size_t BaParams::get_center_offset(int cam_index) const {
+size_t BaState::get_center_offset(int cam_index) const {
   if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
     // Share all or none of the intrinsics
     if (m_intrinsics_opts.center_shared)
@@ -198,7 +198,7 @@ size_t BaParams::get_center_offset(int cam_index) const {
   return sensor_id * m_num_intrinsics_per_camera;
 }
 
-size_t BaParams::get_focus_offset(int cam_index) const {
+size_t BaState::get_focus_offset(int cam_index) const {
   if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
     // Share all or none of the intrinsics
     if (m_intrinsics_opts.focus_shared)
@@ -212,7 +212,7 @@ size_t BaParams::get_focus_offset(int cam_index) const {
   return sensor_id * m_num_intrinsics_per_camera + NUM_CENTER_PARAMS;
 }
 
-size_t BaParams::get_distortion_offset(int cam_index) const {
+size_t BaState::get_distortion_offset(int cam_index) const {
   if (!m_intrinsics_opts.share_intrinsics_per_sensor) {
     // Share all or none of the intrinsics
     if (m_intrinsics_opts.distortion_shared)
@@ -228,7 +228,7 @@ size_t BaParams::get_distortion_offset(int cam_index) const {
 }
 
 /// Apply a random offset to each camera position.
-void BaParams::randomize_cameras() {
+void BaState::randomize_cameras() {
   // These are stored as x,y,z, axis_angle.
   // - We move the position +/- 5 meters.
   // - Currently we don't adjust the angle.
@@ -247,7 +247,7 @@ void BaParams::randomize_cameras() {
 }
 
 /// Randomly scale each intrinsic value.
-void BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits) {
+void BaState::randomize_intrinsics(std::vector<double> const& intrinsic_limits) {
   // Intrinsic values are stored as multipliers, here we 
   //  multiply from 0.5 to 1.5, being careful about shared and constant values.
   // - If intrinsic limits are specified, use that range instead.
@@ -310,7 +310,7 @@ void BaParams::randomize_intrinsics(std::vector<double> const& intrinsic_limits)
   } // End camera loop
 }
 
-void BaParams::record_points_to_kml(const std::string &kml_path,
+void BaState::record_points_to_kml(const std::string &kml_path,
                             const vw::cartography::Datum& datum,
                             size_t skip, const std::string name) {
 

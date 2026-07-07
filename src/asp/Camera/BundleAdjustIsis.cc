@@ -133,21 +133,21 @@ void readIsisCameras(std::vector<std::string> const& image_files,
 // Add a given control point to the ISIS cnet. Update the outlier counter.
 void addIsisControlPoint(Isis::ControlNet & icnet,
                          vw::ba::ControlNetwork const& cnet,
-                         asp::BaParams const& param_storage,
+                         asp::BaState const& ba_state,
                          std::vector<boost::shared_ptr<Isis::Camera>> const& cameras,
                          std::vector<std::string> const& serialNumbers,
                          int ipt, int& numOutliers) {
 
-  // Sanity check for cnet and param_storage
-  if (cnet.size() != param_storage.num_points())
+  // Sanity check for cnet and ba_state
+  if (cnet.size() != ba_state.num_points())
     vw_throw(vw::ArgumentErr() 
-             << "addIsisControlPoint: cnet and param_storage have different sizes.\n");
-  if (ipt >= cnet.size() || ipt >= param_storage.num_points())
+             << "addIsisControlPoint: cnet and ba_state have different sizes.\n");
+  if (ipt >= cnet.size() || ipt >= ba_state.num_points())
     vw_throw(vw::ArgumentErr() 
              << "addIsisControlPoint: ipt is too large.\n");
     
   Isis::ControlPoint *point = new Isis::ControlPoint();
-  if (param_storage.get_point_outlier(ipt)) {
+  if (ba_state.get_point_outlier(ipt)) {
     point->SetIgnored(true); // better set it to ignored as well
     point->SetRejected(true);
     numOutliers++;
@@ -188,7 +188,7 @@ void addIsisControlPoint(Isis::ControlNet & icnet,
   
   // Set the optimized (adjusted) position  
   Isis::SurfacePoint P;
-  const double * asp_point = param_storage.get_point_ptr(ipt); // ecef, meters
+  const double * asp_point = ba_state.get_point_ptr(ipt); // ecef, meters
   P.SetRectangular(Isis::Displacement(asp_point[0], Isis::Displacement::Meters),
                     Isis::Displacement(asp_point[1], Isis::Displacement::Meters),
                     Isis::Displacement(asp_point[2], Isis::Displacement::Meters),
@@ -421,15 +421,15 @@ void loadIsisCnet(std::string const& isisCnetFile,
 // We do not change here if a point is fixed, constrained, or free.
 void saveUpdatedIsisCnet(std::string const& outputPrefix, 
                          vw::ba::ControlNetwork const& cnet,
-                         asp::BaParams const& param_storage,
+                         asp::BaState const& ba_state,
                          IsisCnetData & isisCnetData) {
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
   // Sanity check
-  if (param_storage.num_points() != cnet.size())
+  if (ba_state.num_points() != cnet.size())
     vw::vw_throw(vw::ArgumentErr() 
-             << "saveIsisCnet: number of points in param_storage and cnet do not match.\n");
+             << "saveIsisCnet: number of points in ba_state and cnet do not match.\n");
 
   // Find the serial numbers
   std::vector<std::string> image_files = cnet.get_image_list();
@@ -444,7 +444,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
 
   // The ASP cnet may have more points than the ISIS cnet, as it may have GCP.
   int numControlPoints = icnet->GetNumPoints();
-  if (numControlPoints > param_storage.num_points())
+  if (numControlPoints > ba_state.num_points())
     vw_throw(vw::ArgumentErr() 
              << "saveUpdatedIsisCnet: Book-keeping failure. ASP cnet is too small.\n");
     
@@ -453,7 +453,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
   for (int i = 0; i < numControlPoints; i++) {
 
     Isis::ControlPoint *point = icnet->GetPoint(i);
-    if (point->IsIgnored() || point->IsRejected() || param_storage.get_point_outlier(i)) {
+    if (point->IsIgnored() || point->IsRejected() || ba_state.get_point_outlier(i)) {
       point->SetIgnored(true);
       point->SetRejected(true);
       numOutliers++;
@@ -478,7 +478,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
 
     // Update the triangulated point. Use same sigmas as above. These
     // may have been changed by bundle adjustment.
-    const double * asp_point = param_storage.get_point_ptr(i);
+    const double * asp_point = ba_state.get_point_ptr(i);
     Isis::SurfacePoint P = point->GetAdjustedSurfacePoint();
     P.SetRectangular(Isis::Displacement(asp_point[0], Isis::Displacement::Meters),
                      Isis::Displacement(asp_point[1], Isis::Displacement::Meters),
@@ -508,14 +508,14 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
   
   // Save any GCP that were later added to the ASP cnet. This creates new
   // points rather than updating existing ones.
-  for (int i = numControlPoints; i < param_storage.num_points(); i++) {
+  for (int i = numControlPoints; i < ba_state.num_points(); i++) {
     
     vw::ba::ControlPoint const& cpoint = cnet[i];
     if (cpoint.type() != vw::ba::ControlPoint::GroundControlPoint)
       vw_throw(vw::ArgumentErr() 
                << "saveUpdatedIsisCnet: Book-keeping failure. Expected GCP.\n");
       
-    addIsisControlPoint(*icnet.get(), cnet, param_storage, cameras, serialNumbers, i, 
+    addIsisControlPoint(*icnet.get(), cnet, ba_state, cameras, serialNumbers, i, 
                         numOutliers);    
   }
   
@@ -538,14 +538,14 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
 void saveIsisCnet(std::string const& outputPrefix, 
                   vw::cartography::Datum const& datum,
                   vw::ba::ControlNetwork const& cnet,
-                  asp::BaParams const& param_storage) {
+                  asp::BaState const& ba_state) {
   
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   
   // Sanity check
-  if (param_storage.num_points() != cnet.size())
+  if (ba_state.num_points() != cnet.size())
     vw::vw_throw(vw::ArgumentErr() 
-             << "saveIsisCnet: number of points in param_storage and cnet do not match.\n");
+             << "saveIsisCnet: number of points in ba_state and cnet do not match.\n");
 
   // Find the serial numbers
   std::vector<std::string> image_files = cnet.get_image_list();
@@ -565,7 +565,7 @@ void saveIsisCnet(std::string const& outputPrefix,
   // Add a given control point to the ISIS cnet. Update the outlier counter.
   int numOutliers = 0;
   for (int i = 0; i < cnet.size(); i++)
-    addIsisControlPoint(icnet, cnet, param_storage, cameras, serialNumbers, i, 
+    addIsisControlPoint(icnet, cnet, ba_state, cameras, serialNumbers, i, 
                         numOutliers);    
   
   vw::vw_out() << "Number of points in control network: " << icnet.GetNumPoints() << "\n";

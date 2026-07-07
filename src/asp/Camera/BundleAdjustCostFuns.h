@@ -43,7 +43,7 @@ namespace vw {
 }
 namespace asp {
   struct BaOptions;
-  struct BaParams;
+  struct BaState;
 }
 
 namespace asp {
@@ -307,7 +307,7 @@ struct BaDispXyzErr {
   // TODO: Should this logic live somewhere else?
   /// Create the list of residual pointers when solving for intrinsics.
   /// - Extra logic is needed to avoid duplicate pointers.
-  static void get_residual_pointers(asp::BaParams &param_storage,
+  static void get_residual_pointers(asp::BaState &ba_state,
                                     int left_cam_index, int right_cam_index,
                                     bool solve_intrinsics,
                                     asp::IntrinsicOptions const& intrinsics_opt,
@@ -447,7 +447,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            asp::OrbitalGroups                      & orbital_groups,
                            // Outputs
                            vw::ba::ControlNetwork                  & cnet,
-                           asp::BaParams                           & param_storage,
+                           asp::BaState                            & ba_state,
                            ceres::SubsetManifold                   * dist_opts,
                            ceres::Problem                          & problem,
                            std::vector<size_t>                     & cam_residual_counts,
@@ -467,7 +467,7 @@ void addTriConstraint(asp::BaOptions           const& opt,
                       std::string cost_function_str,
                       double tri_robust_threshold,
                       // Outputs
-                      asp::BaParams  & param_storage,
+                      asp::BaState   & ba_state,
                       ceres::Problem & problem,
                       int            & num_tri_residuals);
 
@@ -480,7 +480,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
                            vw::ba::ControlNetwork & cnet,
                            int                    & num_gcp,
                            int                    & num_gcp_or_dem_residuals,
-                           asp::BaParams          & param_storage,
+                           asp::BaState           & ba_state,
                            ceres::Problem         & problem);
 
 // Add a cost function meant to tie up to known disparity form left to right
@@ -489,7 +489,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
 // stereo with the option --unalign-disparity. If there are n images, there must
 // be n-1 disparities, from each image to the next.
 void addRefTerrainCostFun(asp::BaOptions                            & opt,
-                          asp::BaParams                             & param_storage,
+                          asp::BaState                              & ba_state,
                           ceres::Problem                            & problem,
                           std::vector<vw::Vector3>                  & reference_vec,
                           std::vector<vw::ImageViewRef<DispPixelT>> & interp_disp);
@@ -497,13 +497,13 @@ void addRefTerrainCostFun(asp::BaOptions                            & opt,
 // Add a soft constraint to keep the cameras near the original position. 
 // Add a combined constraint for all reprojection errors in given camera.
 void addCamPosCostFun(asp::BaOptions                          const& opt,
-                      asp::BaParams                           const& orig_parameters,
+                      asp::BaState                            const& orig_ba_state,
                       std::vector<std::vector<vw::Vector2>>   const& pixels_per_cam,
                       std::vector<std::vector<vw::Vector3>>   const& tri_points_per_cam,
                       std::vector<std::map<int, vw::Vector2>> const& pixel_sigmas,
                       std::vector<vw::CamPtr>                 const& orig_cams,
                       // Outputs
-                      asp::BaParams                              & param_storage,
+                      asp::BaState                               & ba_state,
                       ceres::Problem                             & problem,
                       int                                        & num_cam_pos_residuals);
 
@@ -512,10 +512,10 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
 // via the grouped or ungrouped helper below.
 void addCamPositionUncertaintyCostFun(asp::BaOptions           const& opt,
                                       std::vector<vw::CamPtr>   const& orig_cams,
-                                      asp::BaParams             const& orig_parameters,
+                                      asp::BaState              const& orig_ba_state,
                                       asp::OrbitalGroups             & orbital_groups,
                                       // Outputs
-                                      asp::BaParams                  & param_storage,
+                                      asp::BaState                   & ba_state,
                                       ceres::Problem                 & problem,
                                       int                            & num_uncertainty_residuals);
 
@@ -524,9 +524,9 @@ void addCamPositionUncertaintyCostFun(asp::BaOptions           const& opt,
 void addCamUncertaintyResidual(int icam,
                                asp::BaOptions          const& opt,
                                std::vector<vw::CamPtr> const& orig_cams,
-                               asp::BaParams           const& orig_parameters,
+                               asp::BaState            const& orig_ba_state,
                                // Outputs
-                               asp::BaParams                & param_storage,
+                               asp::BaState                 & ba_state,
                                ceres::Problem               & problem);
 
 // Add the position-uncertainty residual for one camera in an orbital group, on the

@@ -19,7 +19,7 @@
 
 #include <asp/Camera/BundleAdjustOrbital.h>
 #include <asp/Camera/BundleAdjustOptions.h>
-#include <asp/Camera/BaParams.h>
+#include <asp/Camera/BaState.h>
 #include <asp/Core/FileUtils.h>
 
 #include <vw/Math/Quaternion.h>
@@ -133,17 +133,17 @@ void buildOrbitalGroups(asp::BaOptions const& opt,
 // of the camera block); the rotation (3,4,5) stays free. Each grouped camera gets
 // its own manifold so Ceres can own them without a double free.
 void fixGroupedCameraTranslations(asp::OrbitalGroups const& groups,
-                                  asp::BaParams & param_storage,
+                                  asp::BaState & ba_state,
                                   ceres::Problem & problem) {
 
   if (groups.num_groups <= 0)
     return;
 
-  int num_cameras = param_storage.num_cameras();
+  int num_cameras = ba_state.num_cameras();
   for (int icam = 0; icam < num_cameras; icam++) {
     if (!groups.grouped(icam))
       continue;
-    double * cam_ptr = param_storage.get_camera_ptr(icam);
+    double * cam_ptr = ba_state.get_camera_ptr(icam);
     if (!problem.HasParameterBlock(cam_ptr))
       continue; // no residual references it (e.g. no matches)
     std::vector<int> constant_translation = {0, 1, 2};
@@ -156,12 +156,12 @@ void fixGroupedCameraTranslations(asp::OrbitalGroups const& groups,
 // After the solve, write each grouped camera's derived position back into its
 // translation adjustment, so all downstream code sees the correct positions.
 void updateGroupedCameraPositions(asp::OrbitalGroups & groups,
-                                  asp::BaParams & param_storage) {
+                                  asp::BaState & ba_state) {
 
   if (groups.num_groups <= 0)
     return;
 
-  int num_cameras = param_storage.num_cameras();
+  int num_cameras = ba_state.num_cameras();
   for (int icam = 0; icam < num_cameras; icam++) {
     if (!groups.grouped(icam))
       continue;
@@ -169,7 +169,7 @@ void updateGroupedCameraPositions(asp::OrbitalGroups & groups,
                                                 groups.init_pos[icam],
                                                 groups.centroid_of(icam));
     vw::Vector3 adj = derived - groups.init_pos[icam]; // translation adjustment
-    double * cam_ptr = param_storage.get_camera_ptr(icam);
+    double * cam_ptr = ba_state.get_camera_ptr(icam);
     cam_ptr[0] = adj[0];
     cam_ptr[1] = adj[1];
     cam_ptr[2] = adj[2];

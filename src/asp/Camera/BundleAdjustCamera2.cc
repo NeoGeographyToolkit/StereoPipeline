@@ -68,31 +68,31 @@ void put_adjustments_in_params(std::string const& input_prefix,
                                std::vector<std::string> const& image_files,
                                std::vector<std::string> const& camera_files,
                                // Output
-                               asp::BaParams & param_storage) {
+                               asp::BaState & ba_state) {
 
-  const size_t num_cameras = param_storage.num_cameras();
+  const size_t num_cameras = ba_state.num_cameras();
 
   for (size_t icam = 0; icam < num_cameras; icam++) {
     std::string adjust_file
       = asp::bundle_adjust_file_name(input_prefix, image_files[icam], camera_files[icam]);
 
-    double * cam_ptr = param_storage.get_camera_ptr(icam);
+    double * cam_ptr = ba_state.get_camera_ptr(icam);
     CameraAdjustment adjustment;
     adjustment.read_from_adjust_file(adjust_file);
     adjustment.pack_to_array(cam_ptr);
   }
 }
 
-// Take input cameras and corrections in param_storage, and create new cameras
+// Take input cameras and corrections in ba_state, and create new cameras
 // incorporating the corrections. 
 void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
-                              asp::BaParams const& param_storage,
+                              asp::BaState const& ba_state,
                               std::vector<vw::CamPtr> & out_cameras) {
-  const size_t num_cameras = param_storage.num_cameras();
+  const size_t num_cameras = ba_state.num_cameras();
   out_cameras.resize(num_cameras);
 
   for (size_t icam = 0; icam < num_cameras; icam++) {
-    CameraAdjustment correction(param_storage.get_camera_ptr(icam));
+    CameraAdjustment correction(ba_state.get_camera_ptr(icam));
     // The pointer is managed by vw::CamPtr
     out_cameras[icam] = vw::CamPtr(new camera::AdjustedCameraModel(input_cameras[icam],
                                    correction.position(), correction.pose()));
@@ -101,15 +101,15 @@ void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
 
 /// Create the param storage. Collect in it any input adjustments and initial transform.
 /// Return a copy of the cameras having these adjustments applied to them.
-bool init_cams(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
+bool init_cams(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
        std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
        std::vector<vw::CamPtr> & new_cam_models) {
 
   bool cameras_changed = false;
 
   // Initialize all of the camera adjustments to zero.
-  param_storage.init_cams_as_zero();
-  const size_t num_cameras = param_storage.num_cameras();
+  ba_state.init_cams_as_zero();
+  const size_t num_cameras = ba_state.num_cameras();
 
   // Sanity check, must have same number of cameras
   if (num_cameras != opt.camera_models.size())
@@ -119,7 +119,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
   // Read the adjustments from a previous run, if present. Put them in params.
   if (opt.input_prefix != "") {
     put_adjustments_in_params(opt.input_prefix, opt.image_files, opt.camera_files,
-                              param_storage); // output
+                              ba_state); // output
     cameras_changed = true;
   }
 
@@ -137,29 +137,29 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
       }
     }
 
-    // Update param_storage with the alignment. This may be on top of any initial adjustment.
-    // from the previous code, already contained in param_storage. Cameras
+    // Update ba_state with the alignment. This may be on top of any initial adjustment.
+    // from the previous code, already contained in ba_state. Cameras
     // do not change.
-    apply_transform_to_params(initial_transform, param_storage, opt.camera_models);
+    apply_transform_to_params(initial_transform, ba_state, opt.camera_models);
     cameras_changed = true;
   }
 
-  // Make a copy of the cameras with given corrections in param_storage, incorporating
+  // Make a copy of the cameras with given corrections in ba_state, incorporating
   // any adjustments and initial transform.
-  create_corrected_cameras(opt.camera_models, param_storage, new_cam_models);
+  create_corrected_cameras(opt.camera_models, ba_state, new_cam_models);
 
   return cameras_changed;
 }
 
 /// Specialization for pinhole cameras
-bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
+bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
      std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
      std::vector<vw::CamPtr> & new_cam_models) {
 
   bool cameras_changed = false;
 
-  // Copy the camera parameters from the models to param_storage
-  const size_t num_cameras = param_storage.num_cameras();
+  // Copy the camera parameters from the models to ba_state
+  const size_t num_cameras = ba_state.num_cameras();
 
   for (int icam = 0; icam < num_cameras; icam++) {
     PinholeModel* pin_ptr = dynamic_cast<PinholeModel*>(opt.camera_models[icam].get());
@@ -193,7 +193,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
       cameras_changed = true;
     }
 
-    pack_pinhole_to_arrays(pin_cam, icam, param_storage);
+    pack_pinhole_to_arrays(pin_cam, icam, ba_state);
   } // End loop through cameras
 
   // Fill out the new camera model vector
@@ -204,7 +204,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
 
     // Start with a deep copy of the input camera. Then overwrite its parameters.
     PinholeModel* out_cam = new PinholeModel(*in_cam); // deep copy, memory managed below
-    *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
+    *out_cam = transformedPinholeCamera(icam, ba_state, *in_cam);
     new_cam_models[icam] = vw::CamPtr(out_cam);
   }
 
@@ -213,7 +213,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaParams & param_stor
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for optical bar cameras.
-bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
+bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
                     std::string const& initial_transform_file,
                     vw::Matrix<double> const& initial_transform,
                     std::vector<vw::CamPtr> &new_cam_models) {
@@ -226,17 +226,18 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_
 
   bool cameras_changed = false;
 
-  // Copy the camera parameters from the models to param_storage
-  const size_t num_cameras = param_storage.num_cameras();
+  // Copy the camera parameters from the models to ba_state
+  const size_t num_cameras = ba_state.num_cameras();
   for (int icam = 0; icam < num_cameras; icam++) {
     vw::camera::OpticalBarModel* bar_ptr
       = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
-    pack_optical_bar_to_arrays(*bar_ptr, icam, param_storage);
+    pack_optical_bar_to_arrays(*bar_ptr, icam, ba_state);
   } // End loop through cameras
 
   // Apply any initial transform to the pinhole cameras
   if (initial_transform_file != "") {
-    apply_transform_to_cameras_optical_bar(initial_transform, param_storage, opt.camera_models);
+    apply_transform_to_cameras_optical_bar(initial_transform, ba_state,
+                                           opt.camera_models);
     cameras_changed = true;
   }
 
@@ -250,7 +251,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_
     // Start with a copy of the input camera, then overwrite its content.
     // The pointer is managed below.
     vw::camera::OpticalBarModel* out_cam = new vw::camera::OpticalBarModel(*in_cam);
-    *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+    *out_cam = transformedOpticalBarCamera(icam, ba_state, *in_cam);
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
   }
 
@@ -259,7 +260,7 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaParams & param_
 
 // TODO: Share more code with the similar pinhole case.
 /// Specialization for CSM
-bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
+bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
                    std::string const& initial_transform_file,
                    vw::Matrix<double> const& initial_transform,
                    std::vector<vw::CamPtr> &new_cam_models) {
@@ -267,9 +268,9 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
   bool cameras_changed = false;
 
   // Apply any adjustments inline. Copy the camera parameters from the models to
-  // param_storage. Do not copy the adjustments, as they are already applied
+  // ba_state. Do not copy the adjustments, as they are already applied
   // to the camera proper.
-  const size_t num_cameras = param_storage.num_cameras();
+  const size_t num_cameras = ba_state.num_cameras();
   for (int icam = 0; icam < num_cameras; icam++) {
     asp::CsmModel* csm_ptr
         = dynamic_cast<asp::CsmModel*>(opt.camera_models[icam].get());
@@ -295,14 +296,14 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
     }
 
     // This does not copy the camera position and orientation, only the intrinsics    
-    pack_csm_to_arrays(*csm_ptr, icam, param_storage);
+    pack_csm_to_arrays(*csm_ptr, icam, ba_state);
   } // End loop through cameras
 
   // Apply any initial transform to the CSM cameras
   if (initial_transform_file != "") {
     // Apply the transform to the cameras inline. This modifies opt.camera_models.
-    // The transform does not get copied to param_storage. Only intrinsics get copied.
-    apply_transform_to_cameras_csm(initial_transform, param_storage, opt.camera_models);
+    // The transform does not get copied to ba_state. Only intrinsics get copied.
+    apply_transform_to_cameras_csm(initial_transform, ba_state, opt.camera_models);
     cameras_changed = true;
   }
 
@@ -315,7 +316,7 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaParams & param_storage,
     if (in_cam == NULL)
       vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
 
-    auto out_cam = transformedCsmCamera(icam, param_storage, *in_cam);
+    auto out_cam = transformedCsmCamera(icam, ba_state, *in_cam);
     new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
   }
 
@@ -863,7 +864,7 @@ void setup_error_propagation(std::string const& session_name,
 // opt.camera_models, but make copies as needed. The optimizations (adjustments)
 // may be inline, or external.
 void calcOptimizedCameras(asp::BaBaseOptions const& opt,
-                          asp::BaParams const& param_storage,
+                          asp::BaState const& ba_state,
                           std::vector<vw::CamPtr> & optimized_cams) {
 
   optimized_cams.clear();
@@ -881,7 +882,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
         vw::camera::PinholeModel * out_cam = new PinholeModel(); // pointer managed below
-        *out_cam = transformedPinholeCamera(icam, param_storage, *in_cam);
+        *out_cam = transformedPinholeCamera(icam, ba_state, *in_cam);
         optimized_cams.push_back(vw::CamPtr(out_cam));
       }
       break;
@@ -892,7 +893,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
         vw::camera::OpticalBarModel * out_cam = new OpticalBarModel(); // pointer managed below
-        *out_cam = transformedOpticalBarCamera(icam, param_storage, *in_cam);
+        *out_cam = transformedOpticalBarCamera(icam, ba_state, *in_cam);
         optimized_cams.push_back(vw::CamPtr(out_cam)); // will manage the memory
       }
       break;
@@ -902,13 +903,13 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
           = dynamic_cast<asp::CsmModel const*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-        auto out_cam = transformedCsmCamera(icam, param_storage, *in_cam);
+        auto out_cam = transformedCsmCamera(icam, ba_state, *in_cam);
         optimized_cams.push_back(out_cam);
       }
       break;
     case BaCameraType_Other:
       {
-        CameraAdjustment cam_adjust(param_storage.get_camera_ptr(icam));
+        CameraAdjustment cam_adjust(ba_state.get_camera_ptr(icam));
         // The pointer is managed by the smart pointer vw::CamPtr
         vw::CamPtr out_cam
           (new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
@@ -924,12 +925,12 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
 
 // Find the average for the gsd for all pixels whose rays intersect at the given
 // triangulated point.
-// TODO(oalexan1): Export points out of param_storage and crn, then use the 
+// TODO(oalexan1): Export points out of ba_state and crn, then use the 
 // other function further down instead.
 void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             std::vector<vw::CamPtr>  const& cameras,
                             asp::CRN                const& crn,
-                            asp::BaParams            const& param_storage,
+                            asp::BaState             const& ba_state,
                             // Output
                             std::vector<double>     & gsds) {
 
@@ -938,7 +939,7 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
     vw_throw(ArgumentErr() << "Expecting the same number of images and crn points.\n");
   if (crn.size() != cameras.size())
     vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
-  if (crn.size() != param_storage.num_cameras())
+  if (crn.size() != ba_state.num_cameras())
     vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
 
   // Image bboxes
@@ -948,8 +949,8 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
     bboxes.push_back(bounding_box(img));
   }
 
-  int num_cameras = param_storage.num_cameras();
-  int num_points  = param_storage.num_points();
+  int num_cameras = ba_state.num_cameras();
+  int num_points  = ba_state.num_points();
 
   // Initialize all gsd to 0
   gsds.resize(num_points, 0.0);
@@ -966,12 +967,12 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       VW_ASSERT(int(ipt)  < num_points,
                 ArgumentErr() << "Out of bounds in the number of points.");
 
-      if (param_storage.get_point_outlier(ipt))
+      if (ba_state.get_point_outlier(ipt))
         continue; // skip outliers
 
       vw::Vector2 pix = (**fiter).m_location;
 
-      double const* point = param_storage.get_point_ptr(ipt);
+      double const* point = ba_state.get_point_ptr(ipt);
       Vector3 xyz(point[0], point[1], point[2]);
 
       // Estimate the GSD at the given pixel given an estimate of the ground point
@@ -1379,7 +1380,7 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
 // the same value for all cameras sharing it. This is a bugfix.
 // Return true if the cameras were changed.
 bool syncUpInitialSharedParams(BACameraType camera_type,
-                               asp::BaParams const& param_storage,
+                               asp::BaState const& ba_state,
                                std::vector<vw::CamPtr>& camera_models) {
 
   bool cameras_changed = false;
@@ -1390,10 +1391,10 @@ bool syncUpInitialSharedParams(BACameraType camera_type,
 
   // Create groups of cameras that share focal length, optical center, and distortion.
   std::map<int, std::set<int>> focal_groups, center_groups, distortion_groups;
-  for (size_t icam = 0; icam < param_storage.num_cameras(); icam++) {
-    int focal_group      = param_storage.get_focus_offset(icam);
-    int center_group     = param_storage.get_center_offset(icam);
-    int distortion_group = param_storage.get_distortion_offset(icam);
+  for (size_t icam = 0; icam < ba_state.num_cameras(); icam++) {
+    int focal_group      = ba_state.get_focus_offset(icam);
+    int center_group     = ba_state.get_center_offset(icam);
+    int distortion_group = ba_state.get_distortion_offset(icam);
     focal_groups     [focal_group].insert(icam);
     center_groups    [center_group].insert(icam);
     distortion_groups[distortion_group].insert(icam);
