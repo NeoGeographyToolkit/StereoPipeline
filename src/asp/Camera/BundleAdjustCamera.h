@@ -232,11 +232,9 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            std::vector<vw::CamPtr> &camera_models,
                            boost::shared_ptr<vw::ba::ControlNetwork> const& cnet);
 
-/// Generate a warning if the GCP's are really far from the IP points
-/// - This is intended to help catch the common lat/lon swap in GCP files.
-void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
-                     boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-                     double forced_triangulation_distance);
+/// Generate a warning if the GCP are really far from the tie points, to catch
+/// the common lat/lon swap in a GCP file. The cnet must already be triangulated.
+void check_gcp_dists(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr);
 
 /// Initialize the position and orientation of each pinhole camera model using
 ///  a least squares error transform to match the provided camera positions.

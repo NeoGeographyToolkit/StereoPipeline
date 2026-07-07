@@ -38,6 +38,7 @@
 #include <vw/Math/Statistics.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Math/Functors.h>
+#include <vw/Math/BBox.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/LensDistortion.h>
@@ -321,51 +322,40 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
   }
 } // End function ApplyRigidTransform
 
-/// Generate a warning if the GCP's are really far from the IP points
-/// - This is intended to help catch the common lat/lon swap in GCP files.
-void check_gcp_dists(std::vector<vw::CamPtr> const& camera_models,
-                     boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
-                     double forced_triangulation_distance) {
+/// Warn if the GCP are far from the tie points, to catch the common lat/lon
+/// swap in a GCP file. Compare the bounding box of the GCP with the bounding
+/// box of the tie points. Warn if these are more than 100 km apart. The cnet
+/// must already be triangulated, which is the case at the call site.
+void check_gcp_dists(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr) {
 
-  // Count the points and triangulate
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
-  const int num_cnet_points = static_cast<int>(cnet.size());
-  double gcp_count = 0, ip_count = 0;
-  Vector3 mean_gcp(0, 0, 0);
-  Vector3 mean_ip (0, 0, 0);
-  for (int ipt = 0; ipt < num_cnet_points; ipt++) {
+
+  // Grow a box over the GCP and another over the triangulated tie points
+  BBox3 gcp_box, ip_box;
+  for (size_t ipt = 0; ipt < cnet.size(); ipt++) {
 
     if (cnet[ipt].position() == Vector3() || cnet[ipt].size() <= 1)
       continue;
 
-    if (cnet[ipt].type() == ControlPoint::GroundControlPoint) {
-      gcp_count += 1.0;
-      mean_gcp += cnet[ipt].position();
-    } else {
-      // Use triangulation to estimate the position of this control point using
-      // the current set of camera models.
-      ControlPoint cp_new = cnet[ipt];
-      double minimum_angle = 0;
-      double ans = vw::ba::triangulate_control_point(cp_new, camera_models, minimum_angle,
-                             forced_triangulation_distance);
-      if (ans < 0 || cp_new.position() == Vector3())
-        continue; // Skip points that fail to triangulate
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+      gcp_box.grow(cnet[ipt].position());
+    else
+      ip_box.grow(cnet[ipt].position());
+  }
 
-      ip_count += 1.0;
-      mean_ip += cp_new.position();
-    }
-  } // End loop through control network points
+  // Can do this check only if we have both point types
+  if (gcp_box.empty() || ip_box.empty())
+    return;
 
-  if (ip_count == 0 || gcp_count == 0)
-    return; // Can't do this check if we don't have both point types.
+  // Distance between the two boxes, per axis. It is zero when they overlap.
+  Vector3 gap;
+  for (int i = 0; i < 3; i++)
+    gap[i] = std::max(0.0, std::max(gcp_box.min()[i] - ip_box.max()[i],
+                                    ip_box.min()[i] - gcp_box.max()[i]));
 
-  // Average the points
-  mean_gcp = mean_gcp / gcp_count;
-  mean_ip = mean_ip / ip_count;
-
-  double dist = norm_2(mean_ip - mean_gcp);
-  if (dist > 100000)
-    vw_out() << "WARNING: GCPs are over 100 km from the other points. Are your lat/lon GCP coordinates swapped?\n";
+  if (norm_2(gap) > 100000.0)
+    vw_out() << "WARNING: GCPs are over 100 km from the other points. "
+             << "Are your lat/lon GCP coordinates swapped?\n";
 }
 
 // Initialize the position and orientation of each pinhole camera model using

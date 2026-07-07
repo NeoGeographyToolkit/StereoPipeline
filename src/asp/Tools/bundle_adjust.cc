@@ -552,11 +552,6 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
             cameras_changed = true;
       }
     }
-
-    // Issue a warning if the GCPs are far away from the camera coordinates.
-    // Do it only if the cameras did not change, as otherwise the cnet is outdated.
-    if (!cameras_changed)
-      check_gcp_dists(opt.camera_models, opt.cnet, opt.forced_triangulation_distance);
   }
 
   int num_points = cnet.size();
@@ -635,10 +630,15 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
                                         opt.min_triangulation_angle*(M_PI/180.0),
                                         opt.forced_triangulation_distance,
                                         opt.bathy_data);
-    check_gcp_dists(new_cam_models, opt.cnet, opt.forced_triangulation_distance);
     if (num_points != cnet.size()) // Must not happen
       vw_throw(ArgumentErr() << "The number of points changed after re-triangulation.\n");
   }
+
+  // Warn if the GCP sit far from the tie points, for example if the lat and lon
+  // are swapped in the GCP file. The cnet is now in its final triangulated
+  // state, whether or not the cameras changed above.
+  if (opt.gcp_files.size() > 0)
+    check_gcp_dists(opt.cnet);
 
   // Fill in the point vector with the starting values
   for (int ipt = 0; ipt < num_points; ipt++)
