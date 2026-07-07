@@ -1030,6 +1030,13 @@ void addRefTerrainCostFun(asp::BaOptions                            & opt,
   tpc.report_progress(0);
   double inc_amount = 1.0/double(input_reference_vec.size());
 
+  // Project with the current cameras (base + ba_state), not the frozen
+  // opt.camera_models, so the reference-point selection and the max_disp_error
+  // gate track the cameras across passes (same reasoning as the heights-from-dem
+  // call in bundle_adjust.cc).
+  std::vector<vw::CamPtr> curr_cams;
+  asp::calcOptimizedCameras(opt, ba_state, curr_cams);
+
   reference_vec.clear();
   for (size_t data_col = 0; data_col < input_reference_vec.size(); data_col++) {
 
@@ -1052,8 +1059,8 @@ void addRefTerrainCostFun(asp::BaOptions                            & opt,
     // Iterate over the cameras, add a residual for each point and each camera pair.
     for (int icam = 0; icam < num_cameras - 1; icam++) {
 
-      boost::shared_ptr<CameraModel> left_cam  = opt.camera_models[icam];
-      boost::shared_ptr<CameraModel> right_cam = opt.camera_models[icam+1];
+      boost::shared_ptr<CameraModel> left_cam  = curr_cams[icam];
+      boost::shared_ptr<CameraModel> right_cam = curr_cams[icam+1];
 
       try {
         left_pred  = left_cam->point_to_pixel (reference_xyz);
