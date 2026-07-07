@@ -156,13 +156,12 @@ int baOnePass(asp::BaOptions                & opt,
   if (opt.heights_from_dem != "") {
     vw::vw_out() << "Constraining against DEM: " << opt.heights_from_dem << "\n";
     asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
-    // Re-triangulate against the DEM using the current (adjusted) cameras, not the
-    // frozen original ones. In bundle_adjust the adjustments live in ba_state and
-    // are never written back into opt.camera_models, so rebuild the cameras from
-    // ba_state. This lets the DEM points track camera improvements across passes
-    // (from GCP, intrinsics, etc.) instead of pinning to the pre-adjustment geometry.
-    // On the first pass, with no adjustments yet, these equal the original cameras.
-    // (jitter_solve does not need this, as it updates its cameras in place each pass.)
+    // Re-triangulate the DEM points against the current cameras, not the frozen
+    // opt.camera_models. In bundle_adjust the base cameras are never updated in the
+    // pass loop; the latest state is base + ba_state, so rebuild them via
+    // calcOptimizedCameras. This keeps the DEM anchors tracking the cameras across
+    // passes instead of pinning to the starting geometry. (jitter_solve updates its
+    // cameras in place each pass, so it does not need this.)
     std::vector<vw::CamPtr> curr_cams;
     asp::calcOptimizedCameras(opt, ba_state, curr_cams);
     asp::updateTriPtsFromDem(cnet, outliers, curr_cams,
