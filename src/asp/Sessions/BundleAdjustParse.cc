@@ -410,6 +410,14 @@ void loadValidateBaOptions(po::variables_map const& vm,
                  << "The value of --heights-from-robust-threshold must be "
                  << "positive.\n");
 
+  // --heights-from-dem and --reference-terrain both tie the solution to a terrain,
+  // by different mechanisms, so using both double-constrains it. Require the user
+  // to choose one.
+  if (!opt.heights_from_dem.empty() && !opt.reference_terrain.empty())
+    vw::vw_throw(vw::ArgumentErr()
+             << "Cannot specify both --heights-from-dem and --reference-terrain. "
+             << "Use one or the other.\n");
+
   bool have_dem = (!opt.heights_from_dem.empty());
 
   // Try to infer the datum from the heights-from-dem
