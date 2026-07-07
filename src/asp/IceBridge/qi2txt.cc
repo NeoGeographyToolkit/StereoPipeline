@@ -87,10 +87,6 @@ static const char define_h_rcsid[] = "$Id: define.h 16072 2010-01-30 19:39:09Z b
 #include <math.h>
 #include <assert.h>
 
-#ifdef DEBUG_MALLOC
-#include "dbmalloc.h"
-#endif
-
 #ifndef FALSE
 #define FALSE 0
 #endif
