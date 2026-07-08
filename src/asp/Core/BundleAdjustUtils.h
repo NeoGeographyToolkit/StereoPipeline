@@ -104,6 +104,18 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
                          // Output
                          std::vector<vw::Vector3> & dem_xyz_vec);
 
+// Update triangulated points using one or more DEMs. These come from
+// --heights-from-dem and --heights-from-dem-list.
+void updateTriPtsFromDemList(vw::ba::ControlNetwork const& cnet,
+                             std::set<int> const& outliers,
+                             std::vector<vw::CamPtr> const& camera_models,
+                             std::string const& heights_from_dem,
+                             std::string const& heights_from_dem_list,
+                             vw::cartography::Datum const* datum,
+                             // Outputs
+                             std::vector<vw::Vector3> & dem_xyz_vec,
+                             vw::cartography::GeoReference & dem_georef);
+
 // Given an xyz point in ECEF coordinates, update its height above datum by
 // interpolating into a DEM. The input must already be prepared for
 // interpolation. The user must check the return status.

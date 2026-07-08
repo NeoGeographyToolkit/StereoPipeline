@@ -31,7 +31,7 @@
 namespace asp {
 
 struct OptimizerOptions: public vw::GdalWriteOptions {
-  std::string out_prefix, nvm, heights_from_dem,
+  std::string out_prefix, nvm, heights_from_dem, heights_from_dem_list,
     camera_position_uncertainty_str, fixed_image_list_str, cost_function;
   int num_iterations, num_passes;
   double robust_threshold, tri_weight, tri_robust_threshold,

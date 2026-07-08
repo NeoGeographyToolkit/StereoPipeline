@@ -2314,7 +2314,15 @@ Command-line options for jitter_solve
 --heights-from-dem <string (default: "")>
     Assuming the cameras have already been bundle-adjusted and aligned to a
     known DEM, constrain the triangulated points to be close to the DEM. See
-    also ``--heights-from-dem-uncertainty`` :numref:`jitter_dem_constraint`.
+    also ``--heights-from-dem-list``, ``--heights-from-dem-uncertainty``, and
+    :numref:`jitter_dem_constraint`.
+
+--heights-from-dem-list <string (default: "")>
+    Specify a list of DEMs to constrain against, one per line, in a plain text
+    file. This is analogous to ``--heights-from-dem``, but for several DEMs.
+    Useful for co-optimizing over multiple sites. The DEMs may overlap. Where
+    they do and disagree on a point's height, the first listed DEM is used and
+    a warning is printed.
 
 --heights-from-dem-uncertainty <double (default: -1.0)>
     The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value

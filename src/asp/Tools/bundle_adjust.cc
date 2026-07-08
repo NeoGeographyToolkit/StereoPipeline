@@ -142,20 +142,15 @@ int baOnePass(asp::BaOptions                & opt,
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
   // below not being slow. It is not clear if the DEM tiles are cached
   // when passing around an ImageViewRef.
-  bool have_dem = (!opt.heights_from_dem.empty());
+  bool have_dem = (!opt.heights_from_dem.empty() || !opt.heights_from_dem_list.empty());
   std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef;
-  ImageViewRef<PixelMask<double>> masked_dem;
   std::set<int> outliers;
   if (have_dem) {
     for (int ipt = 0; ipt < num_points; ipt++) {
       if (ba_state.get_point_outlier(ipt))
         outliers.insert(ipt);
     }
-  }
-  if (opt.heights_from_dem != "") {
-    vw::vw_out() << "Constraining against DEM: " << opt.heights_from_dem << "\n";
-    asp::create_masked_dem(opt.heights_from_dem, dem_georef, masked_dem);
     // Re-triangulate the DEM points against the current cameras, not the frozen
     // opt.camera_models. In bundle_adjust the base cameras are never updated in the
     // pass loop; the latest state is base + ba_state, so rebuild them via
@@ -164,9 +159,11 @@ int baOnePass(asp::BaOptions                & opt,
     // cameras in place each pass, so it does not need this.)
     std::vector<vw::CamPtr> curr_cams;
     asp::calcOptimizedCameras(opt, ba_state, curr_cams);
-    asp::updateTriPtsFromDem(cnet, outliers, curr_cams,
-                             dem_georef, masked_dem,
-                             dem_xyz_vec); // output
+    // The datum was already checked against the DEM at parse time.
+    asp::updateTriPtsFromDemList(cnet, outliers, curr_cams,
+                                 opt.heights_from_dem, opt.heights_from_dem_list,
+                                 NULL,
+                                 dem_xyz_vec, dem_georef); // outputs
   }
 
   // If to use a weight image

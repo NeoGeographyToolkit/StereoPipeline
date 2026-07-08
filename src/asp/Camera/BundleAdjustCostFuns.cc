@@ -1324,7 +1324,8 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
     ceres::LossFunction* loss_function = NULL;
     if (is_gcp && opt.gcp_robust_threshold > 0) {
       loss_function = get_loss_function(cost_function_str, opt.gcp_robust_threshold);
-    } else if (opt.heights_from_dem != ""           &&
+    } else if ((!opt.heights_from_dem.empty() ||
+                !opt.heights_from_dem_list.empty()) &&
                opt.heights_from_dem_uncertainty > 0 &&
                opt.heights_from_dem_robust_threshold > 0) {
       loss_function

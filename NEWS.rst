@@ -12,6 +12,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     for each optimized GCP, the ground-plane and height offset from its input
     position, as done for the camera position and triangulated point changes
     (:numref:`ba_gcp_report`).
+  * Added ``--heights-from-dem-list``, to constrain the triangulated points
+    against several sites.
 
 jitter_solve (:numref:`jitter_solve`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
@@ -21,6 +23,8 @@ jitter_solve (:numref:`jitter_solve`):
   * The GCP report was reorganized to match ``bundle_adjust``, giving the
     ground-plane and height offset of each optimized GCP from its input position
     (:numref:`ba_gcp_report`).
+  * Added ``--heights-from-dem-list``, to constrain the triangulated points
+    against several sites.
 
 point2dem (:numref:`point2dem`):
   * Fixed a bug that could produce an enormous output DEM extent (and a

@@ -202,7 +202,13 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
      "Assuming the cameras have already been bundle-adjusted and aligned to a "
      "known DEM, constrain the triangulated points to be close to this DEM. See also "
-     "--heights-from-dem-uncertainty.")
+     "--heights-from-dem-list and --heights-from-dem-uncertainty.")
+    ("heights-from-dem-list", po::value(&opt.heights_from_dem_list)->default_value(""),
+     "Specify a list of DEMs to constrain against, one per line, in a plain text "
+     "file. This is analogous to --heights-from-dem, but for several DEMs. Useful "
+     "for co-optimizing over multiple sites. The DEMs may overlap. Where they do "
+     "and disagree on a point's height, the first listed DEM is used and a warning "
+     "is printed.")
     ("heights-from-dem-uncertainty",
      po::value(&opt.heights_from_dem_uncertainty)->default_value(-1.0),
      "The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value "
@@ -563,18 +569,31 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
              << "The value of --heights-from-dem is empty. "
              << "Then it must not be set at all.\n");
 
+  if (!vm["heights-from-dem-list"].defaulted() && opt.heights_from_dem_list.empty())
+    vw_throw(ArgumentErr()
+             << "The value of --heights-from-dem-list is empty. "
+             << "Then it must not be set at all.\n");
+
+  if (!opt.heights_from_dem.empty() && !opt.heights_from_dem_list.empty())
+    vw_throw(ArgumentErr()
+             << "Cannot set both --heights-from-dem and --heights-from-dem-list. "
+             << "Use one or the other.\n");
+
+  // Either the single DEM or the list of DEMs enables the height constraint.
+  bool have_heights_from_dem
+    = (!opt.heights_from_dem.empty() || !opt.heights_from_dem_list.empty());
+
    // Same for opt.anchor_dem
    if (!vm["anchor-dem"].defaulted() && opt.anchor_dem.empty())
     vw_throw(ArgumentErr()
              << "The value of --anchor-dem is empty. Then it must not be set at all.\n");
 
-  if (!vm["heights-from-dem-uncertainty"].defaulted() &&
-      vm["heights-from-dem"].defaulted())
+  if (!vm["heights-from-dem-uncertainty"].defaulted() && !have_heights_from_dem)
     vw_throw(ArgumentErr()
-             << "The value of --heights-from-dem-uncertainty is set, "
-             << "but --heights-from-dem is not set.\n");
+             << "The value of --heights-from-dem-uncertainty is set, but neither "
+             << "--heights-from-dem nor --heights-from-dem-list is set.\n");
 
-  if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem_uncertainty <= 0.0)
+  if (have_heights_from_dem && opt.heights_from_dem_uncertainty <= 0.0)
     vw_throw(ArgumentErr()
              << "The value of --heights-from-dem-uncertainty must be positive.\n");
 
@@ -650,9 +669,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   // Handle the roll/yaw constraint DEM
   if ((opt.roll_weight > 0 || opt.yaw_weight > 0) &&
-     opt.heights_from_dem == "" && opt.anchor_dem == "")
+     !have_heights_from_dem && opt.anchor_dem == "")
       vw::vw_throw(ArgumentErr() << "Cannot use the roll/yaw constraint without a DEM. "
-        << "Set either --heights-from-dem or --anchor-dem.\n");
+        << "Set --heights-from-dem, --heights-from-dem-list, or --anchor-dem.\n");
 
   if (opt.num_anchor_points_per_image < 0)
     vw_throw(ArgumentErr() << "The number of anchor points must be non-negative.\n");
@@ -1068,18 +1087,18 @@ void jitterSolvePass(int                                 pass,
   initFrameCameraParams(csm_models, frame_params);
 
   // Update tri points from DEM and create anchor xyz from DEM.
-  bool have_dem = (!opt.heights_from_dem.empty());
+  bool have_dem = (!opt.heights_from_dem.empty() || !opt.heights_from_dem_list.empty());
   std::vector<Vector3> dem_xyz_vec;
   vw::cartography::GeoReference dem_georef, anchor_georef;
-  ImageViewRef<PixelMask<double>>  masked_dem, interp_anchor_dem;
+  ImageViewRef<PixelMask<double>> interp_anchor_dem;
   bool warn_only = false; // for jitter solving we always know well the datum
   if (have_dem) {
-    vw::vw_out() << "Reading the DEM for the --heights-from-dem constraint.\n";
-    asp::create_masked_dem(opt.heights_from_dem, dem_georef,  masked_dem);
-    vw::checkDatumConsistency(opt.datum, dem_georef.datum(), warn_only);
-    asp::updateTriPtsFromDem(cnet, outliers, opt.camera_models,
-                             dem_georef,  masked_dem,
-                             dem_xyz_vec); // output
+    // The DEM datum is checked inside, against opt.datum. This also returns the
+    // first DEM's georef in dem_georef, used below for the roll/yaw constraint.
+    asp::updateTriPtsFromDemList(cnet, outliers, opt.camera_models,
+                                 opt.heights_from_dem, opt.heights_from_dem_list,
+                                 &opt.datum,
+                                 dem_xyz_vec, dem_georef); // outputs
   }
   if (opt.anchor_dem != "") {
     vw::vw_out() << "Reading the DEM for the --anchor-dem constraint.\n";
@@ -1090,7 +1109,8 @@ void jitterSolvePass(int                                 pass,
   // Handle the roll/yaw constraint DEM. We already checked that one of thse cases should work
   vw::cartography::GeoReference roll_yaw_georef;
   if (opt.roll_weight > 0 || opt.yaw_weight > 0) {
-    if (opt.heights_from_dem != "") {
+    if (have_dem) {
+      // dem_georef is the first heights-from-dem DEM's georef
       roll_yaw_georef = dem_georef;
       vw::vw_out() << "Using the DEM from --heights-from-dem "
                    << "for the roll/yaw constraint.\n";

@@ -22,6 +22,7 @@
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/GCP.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/Camera/BaState.h>
 
 #include <vw/Core/Log.h>
@@ -29,6 +30,7 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/DatumUtils.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
@@ -390,6 +392,93 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
   sw.stop();
   vw::vw_out() << "Elapsed time in updating triangulated points from DEM: "
                << sw.elapsed_seconds() << " seconds.\n";
+
+  return;
+}
+
+// Update triangulated points using one or more DEMs. See the declaration in
+// the header for the full contract.
+void updateTriPtsFromDemList(vw::ba::ControlNetwork const& cnet,
+                             std::set<int> const& outliers,
+                             std::vector<vw::CamPtr> const& camera_models,
+                             std::string const& heights_from_dem,
+                             std::string const& heights_from_dem_list,
+                             vw::cartography::Datum const* datum,
+                             // Outputs
+                             std::vector<vw::Vector3> & dem_xyz_vec,
+                             vw::cartography::GeoReference & dem_georef) {
+
+  // Assemble the list of DEM files. At most one of the two options is set,
+  // which is enforced at parse time.
+  std::vector<std::string> dem_files;
+  if (!heights_from_dem_list.empty())
+    asp::read_list(heights_from_dem_list, dem_files);
+  else if (!heights_from_dem.empty())
+    dem_files.push_back(heights_from_dem);
+
+  if (dem_files.empty())
+    vw_throw(ArgumentErr() << "No DEM was provided for the height-from-DEM "
+             << "constraint.\n");
+
+  int num_tri_points = cnet.size();
+  dem_xyz_vec.assign(num_tri_points, Vector3(0, 0, 0));
+
+  // Track points that fall on more than one DEM with disagreeing heights.
+  // Overlapping DEMs rarely agree to this tolerance, so any real overlap
+  // triggers the warning. The max difference tells the user the scale.
+  double conflict_tol = 1e-3; // meters
+  long int num_conflicts = 0;
+  double max_conflict = 0.0;
+
+  for (size_t idem = 0; idem < dem_files.size(); idem++) {
+
+    if (dem_files.size() > 1)
+      vw::vw_out() << "Constraining against DEM " << idem + 1 << " of "
+                   << dem_files.size() << ": " << dem_files[idem] << "\n";
+
+    vw::cartography::GeoReference georef;
+    ImageViewRef<PixelMask<double>> masked_dem;
+    asp::create_masked_dem(dem_files[idem], georef, masked_dem);
+
+    if (datum != NULL) {
+      bool warn_only = false; // the datum is known well
+      vw::checkDatumConsistency(*datum, georef.datum(), warn_only);
+    }
+
+    // Keep the first DEM's georef for callers that need a datum or projection
+    if (idem == 0)
+      dem_georef = georef;
+
+    // Update the tri points from this DEM
+    std::vector<Vector3> local_xyz;
+    asp::updateTriPtsFromDem(cnet, outliers, camera_models,
+                             georef, masked_dem,
+                             local_xyz); // output
+
+    // Merge into the accumulator. The first DEM to cover a point wins. Note
+    // any disagreement where a later DEM also covers the point.
+    for (int ipt = 0; ipt < num_tri_points; ipt++) {
+      if (local_xyz[ipt] == Vector3(0, 0, 0))
+        continue; // this DEM does not cover this point
+      if (dem_xyz_vec[ipt] == Vector3(0, 0, 0)) {
+        dem_xyz_vec[ipt] = local_xyz[ipt]; // first coverage
+      } else {
+        double diff = norm_2(dem_xyz_vec[ipt] - local_xyz[ipt]);
+        if (diff > conflict_tol) {
+          num_conflicts++;
+          max_conflict = std::max(max_conflict, diff);
+        }
+      }
+    }
+  }
+
+  if (num_conflicts > 0)
+    vw::vw_out(vw::WarningMessage)
+      << "Warning: Found " << num_conflicts << " triangulated point(s) covered "
+      << "by more than one DEM from --heights-from-dem-list, with heights "
+      << "differing by up to " << max_conflict << " m. The value from the first "
+      << "listed DEM is used. Overlapping DEMs give an ambiguous height "
+      << "constraint there.\n";
 
   return;
 }

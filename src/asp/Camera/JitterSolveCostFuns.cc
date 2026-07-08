@@ -831,7 +831,7 @@ void addDemConstraint(asp::BaBaseOptions       const& opt,
 
   double xyz_weight = -1.0, xyz_threshold = -1.0;
 
-  if (!opt.heights_from_dem.empty()) {
+  if (!opt.heights_from_dem.empty() || !opt.heights_from_dem_list.empty()) {
     xyz_weight = 1.0/opt.heights_from_dem_uncertainty;
     xyz_threshold = opt.heights_from_dem_robust_threshold;
   } else {

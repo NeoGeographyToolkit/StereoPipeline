@@ -396,12 +396,23 @@ void loadValidateBaOptions(po::variables_map const& vm,
     vw::vw_throw(vw::ArgumentErr()
              << "The value of --heights-from-dem is empty. "
              << "Then it must not be set at all.\n");
-  if (!vm["heights-from-dem-uncertainty"].defaulted() &&
-      vm["heights-from-dem"].defaulted())
+  if (!vm["heights-from-dem-list"].defaulted() && opt.heights_from_dem_list.empty())
     vw::vw_throw(vw::ArgumentErr()
-             << "The value of --heights-from-dem-uncertainty is set, "
-             << "but --heights-from-dem is not set.\n");
-  if (!vm["heights-from-dem"].defaulted() && opt.heights_from_dem_uncertainty <= 0.0)
+             << "The value of --heights-from-dem-list is empty. "
+             << "Then it must not be set at all.\n");
+  if (!opt.heights_from_dem.empty() && !opt.heights_from_dem_list.empty())
+    vw::vw_throw(vw::ArgumentErr()
+             << "Cannot set both --heights-from-dem and --heights-from-dem-list. "
+             << "Use one or the other.\n");
+
+  // Either the single DEM or the list of DEMs enables the height constraint.
+  bool have_dem = (!opt.heights_from_dem.empty() || !opt.heights_from_dem_list.empty());
+
+  if (!vm["heights-from-dem-uncertainty"].defaulted() && !have_dem)
+    vw::vw_throw(vw::ArgumentErr()
+             << "The value of --heights-from-dem-uncertainty is set, but neither "
+             << "--heights-from-dem nor --heights-from-dem-list is set.\n");
+  if (have_dem && opt.heights_from_dem_uncertainty <= 0.0)
     vw::vw_throw(vw::ArgumentErr()
                  << "The value of --heights-from-dem-uncertainty must be "
                  << "positive.\n");
@@ -413,17 +424,22 @@ void loadValidateBaOptions(po::variables_map const& vm,
   // --heights-from-dem and --reference-terrain both tie the solution to a terrain,
   // by different mechanisms, so using both double-constrains it. Require the user
   // to choose one.
-  if (!opt.heights_from_dem.empty() && !opt.reference_terrain.empty())
+  if (have_dem && !opt.reference_terrain.empty())
     vw::vw_throw(vw::ArgumentErr()
-             << "Cannot specify both --heights-from-dem and --reference-terrain. "
-             << "Use one or the other.\n");
+             << "Cannot specify both --heights-from-dem (or --heights-from-dem-list) "
+             << "and --reference-terrain. Use one or the other.\n");
 
-  bool have_dem = (!opt.heights_from_dem.empty());
-
-  // Try to infer the datum from the heights-from-dem
+  // Try to infer the datum from a heights-from-dem DEM. For a list, use the
+  // first DEM in it.
   std::string dem_file;
-  if (opt.heights_from_dem != "")
+  if (!opt.heights_from_dem.empty()) {
     dem_file = opt.heights_from_dem;
+  } else if (!opt.heights_from_dem_list.empty()) {
+    std::vector<std::string> dem_files;
+    asp::read_list(opt.heights_from_dem_list, dem_files);
+    if (!dem_files.empty())
+      dem_file = dem_files[0];
+  }
   if (dem_file != "") {
     std::string file_type = asp::get_cloud_type(dem_file);
     if (file_type == "DEM") {
@@ -1031,7 +1047,13 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("heights-from-dem",   po::value(&opt.heights_from_dem)->default_value(""),
      "Assuming the cameras have already been bundle-adjusted and aligned to a "
      "known DEM, constrain the triangulated points to be close to this DEM. See also "
-     "--heights-from-dem-uncertainty.")
+     "--heights-from-dem-list and --heights-from-dem-uncertainty.")
+    ("heights-from-dem-list", po::value(&opt.heights_from_dem_list)->default_value(""),
+     "Specify a list of DEMs to constrain against, one per line, in a plain text "
+     "file. This is analogous to --heights-from-dem, but for several DEMs. Useful "
+     "for co-optimizing over multiple sites. The DEMs may overlap. Where they do "
+     "and disagree on a point's height, the first listed DEM is used and a warning "
+     "is printed.")
     ("heights-from-dem-uncertainty",
      po::value(&opt.heights_from_dem_uncertainty)->default_value(-1.0),
      "The DEM uncertainty (1 sigma, in meters). Must be positive. A smaller value "
