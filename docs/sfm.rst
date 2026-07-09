@@ -369,6 +369,10 @@ following camera model (icebridge_model.tsai) was used (see
    b1 = 0.0
    b2 = 0.0
 
+Each flight employed a camera with slightly different parameters. For best
+results the camera needed self-calibration with the lidar terrain as a
+constraint (:numref:`reference_terrain`).
+
 Note that these images are RGB format which is not supported by all ASP
 tools. To use the files with ASP, first convert them to single channel
 images using a tool such as ImageMagick's ``convert``,

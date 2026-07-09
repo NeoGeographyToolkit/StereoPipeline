@@ -150,7 +150,7 @@ extension.
 
 In addition, ``cam_gen`` can create a CSM Frame camera that approximates any
 given camera supported by ASP. In this mode, lens distortion is modeled as well.
-When the input camera is of CSM type to start with, see :numref:`cam_gen_refit`.
+When the input camera is of CSM type to start with, see :numref:`csm_refit_dist`.
 
 If the input camera is Pinhole with radial-tangential (Tsai) distortion, or no
 distortion at all (:numref:`pinholemodels`), it can be converted exactly to a CSM
@@ -221,7 +221,7 @@ Several lens distortion models are supported (option ``--distortion-type``,
  
 See :numref:`cam_gen_validation` for how to validate the created cameras.
 
-.. _cam_gen_refit:
+.. _csm_refit_dist:
 
 CSM Frame cameras distortion refit
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -247,6 +247,45 @@ Example::
       --refine-intrinsics distortion \
       --datum D_MARS                 \
       -o refit_camera.json
+
+See :numref:`cam_gen_validation` for how to validate the produced model.
+
+.. _csm_refit_pose:
+
+CSM Frame cameras pose refit
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Sometimes it is desired to replace the lens distortion of a CSM Frame camera with
+a different one, for example a distortion field produced by a solver, which may
+carry a systematic bias. To keep the camera imaging the same ground as the input,
+its pose must be recomputed after the new distortion is transplanted in.
+
+With ``--csm-refit-pose``, the input camera is copied, the new distortion is set
+via ``--distortion`` (with ``--distortion-type``) and held fixed, and only the
+pose is re-solved. The ground points are found by ray-casting the input camera
+onto a reference surface (a DEM, via ``--reference-dem``, or a datum, via
+``--datum``), so the output conforms to the input camera's footprint.
+
+The orientation is free, so most of the effort goes into re-pointing the camera.
+The camera center can be constrained with ``--camera-position-uncertainty``
+(horizontal and vertical values, in meters), so it stays near the input position
+rather than drifting in the projection-neutral gauge. This mode is mutually
+exclusive with ``--csm-refit-distortion``.
+
+Example::
+
+    cam_gen image.tif                                           \
+      --input-camera camera.json                                \
+      --csm-refit-pose                                          \
+      --distortion-type transverse                              \
+      --distortion "0 1.2 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0"  \
+      --camera-position-uncertainty 100,100                     \
+      --reference-dem dem.tif                                   \
+      -o refit_camera.json
+
+Here the transverse distortion (:numref:`csm_frame_def`) is left nominal except
+for one non-trivial term. In practice the 20 coefficients would come from the
+solver whose bias motivated the refit.
 
 See :numref:`cam_gen_validation` for how to validate the produced model.
 
@@ -527,7 +566,21 @@ Command-line options
 --csm-refit-distortion
     Refit only the lens distortion of an input CSM Frame camera to the type set
     by ``--distortion-type``, keeping the pose and other intrinsics fixed. See
-    :numref:`cam_gen_refit` for details.
+    :numref:`csm_refit_dist` for details.
+
+--csm-refit-pose
+    Refit only the pose of an input CSM Frame camera, keeping all the intrinsics
+    fixed. A new lens distortion can be transplanted in via ``--distortion`` (with
+    ``--distortion-type``); the pose is then re-solved so the camera keeps imaging
+    the same ground as the input. The orientation is free, and the position can be
+    constrained with ``--camera-position-uncertainty``. Mutually exclusive with
+    ``--csm-refit-distortion``. See :numref:`csm_refit_pose` for details.
+
+--camera-position-uncertainty <string (default: "")>
+    Constrain the camera position during ``--csm-refit-pose`` to stay within the
+    given horizontal and vertical uncertainty (two values, in meters, as
+    ``horiz,vert``). Without it, the position is free, and may drift in the
+    projection-neutral gauge.
 
 --camera-center <double double double (default: NaN NaN NaN)>
     The camera center in ECEF coordinates. If not set, the program will solve

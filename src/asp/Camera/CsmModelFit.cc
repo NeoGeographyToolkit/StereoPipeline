@@ -17,6 +17,7 @@
 
 #include <asp/Camera/CsmModelFit.h>
 #include <asp/Camera/CsmUtils.h>
+#include <asp/Camera/BaseCostFuns.h>
 
 #include <vw/Math/Quaternion.h>
 #include <vw/Math/Geometry.h>
@@ -747,7 +748,9 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        std::vector<vw::Vector3> const& xyz,
                        std::string const& refine_intrinsics,
                        asp::CsmModel & csm_model, // output
-                       bool fix_pose) {
+                       bool fix_pose,
+                       vw::Vector2 const& camera_position_uncertainty,
+                       vw::cartography::Datum const& datum) {
 
   if (fix_pose)
     vw::vw_out() << "Refining camera intrinsics with the pose held fixed.\n";
@@ -803,11 +806,27 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   
   // Minimize all residuals equally
   ceres::LossFunction* loss_function = NULL;
-  problem.AddResidualBlock(cost_function, loss_function, 
+  problem.AddResidualBlock(cost_function, loss_function,
                            &position[0], &rotation[0], &optical_center[0], &focal_length,
                            &distortion[0]);
 
-  // Set up the solver options 
+  // Optionally constrain the camera position to stay near its initial value, while the
+  // orientation is left free. This is used with --csm-refit-pose so a transplanted
+  // distortion is absorbed mostly by the orientation, not by the position drifting in the
+  // projection-neutral gauge. Skipped when the pose is held fixed.
+  std::vector<double> orig_position = position; // the anchor, before the solve
+  if (!fix_pose &&
+      camera_position_uncertainty[0] > 0 && camera_position_uncertainty[1] > 0) {
+    double weight = 1.0;
+    double power  = 2.0; // plain sum of squares, as in bundle_adjust
+    vw::Vector3 orig_ctr(orig_position[0], orig_position[1], orig_position[2]);
+    ceres::CostFunction* unc_cost
+      = asp::CamUncertaintyError::Create(orig_ctr, &orig_position[0], 3,
+                                         camera_position_uncertainty, weight, datum, power);
+    problem.AddResidualBlock(unc_cost, NULL, &position[0]);
+  }
+
+  // Set up the solver options
   ceres::Solver::Options options;
   options.linear_solver_type = ceres::ITERATIVE_SCHUR;
   options.num_threads = 1; // Use one thread for unique solution

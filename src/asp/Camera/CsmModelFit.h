@@ -22,13 +22,7 @@
 
 #include <vw/Math/Matrix.h>
 #include <vw/Math/Vector.h>
-
-// Forward declaration
-namespace vw {
-  namespace cartography {
-    class Datum;
-  }
-}
+#include <vw/Cartography/Datum.h>
 
 namespace asp {
 
@@ -69,11 +63,17 @@ void createPixelSamples(int width, int height, int num_pixel_samples,
 // intrinsics allowed by refine_intrinsics are floated). This is needed for thin off-axis
 // sensors (e.g. CaSSIS framelets), where re-fitting the pose is degenerate; there we keep
 // the exact input pose and fit only the distortion.
+// If camera_position_uncertainty is positive (horizontal, vertical, in meters), and the
+// pose is being floated, a soft constraint keeps the camera position near its initial
+// value (the orientation stays free). The datum is used to split that position error into
+// horizontal and vertical components.
 void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        std::vector<vw::Vector3> const& directions,
                        std::string const& refine_intrinsics,
                        asp::CsmModel & csm_model, // output
-                       bool fix_pose = false);
+                       bool fix_pose = false,
+                       vw::Vector2 const& camera_position_uncertainty = vw::Vector2(0, 0),
+                       vw::cartography::Datum const& datum = vw::cartography::Datum());
 
 // Fit a CSM camera to an optical bar camera. The .cc file has more details.
 void fitCsmLinescanToOpticalBar(std::string const& camFile,

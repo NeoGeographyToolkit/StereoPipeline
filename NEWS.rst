@@ -54,7 +54,7 @@ parallel_stereo (:numref:`parallel_stereo`):
 cam_gen (:numref:`cam_gen`):
   * Added ``--csm-refit-distortion`` to refit the lens distortion of a CSM
     Frame camera to a chosen type while keeping the pose and other intrinsics
-    fixed (:numref:`cam_gen_refit`).
+    fixed (:numref:`csm_refit_dist`).
 
 sparse_disp (:numref:`sparse_disp`):
   * Added the ability to produce subpixel-level match files (parabola subpixel)
