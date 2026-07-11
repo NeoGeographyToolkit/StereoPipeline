@@ -356,6 +356,17 @@ def main(argsIn):
 
     # Now we are in the main process, not in a spawned copy
 
+    # A JPEG2000 (.jp2) DEM is very slow for the random-access reads mapproject
+    # does in the projection query (ray-DEM intersection), so the tool can
+    # appear to hang. Warn and suggest converting to a tiled GeoTIFF.
+    demExt = os.path.splitext(options.demPath)[1].lower()
+    if demExt in ('.jp2', '.j2k'):
+        print("Warning: DEM " + options.demPath + " is in JPEG2000 format. " +
+              "Random-access reads are very slow and mapproject may appear " +
+              "to hang. Convert it to a tiled GeoTIFF and use that instead:\n" +
+              "  gdal_translate -co TILED=YES -co COMPRESS=LZW " +
+              "-co BIGTIFF=IF_SAFER " + options.demPath + " dem.tif")
+
     # See if this is the ISIS session. The image file or camera file
     # must end in .cub (both are possible), but the camera file must
     # not end in .json, as then the CSM session is used.
