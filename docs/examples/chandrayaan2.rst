@@ -259,7 +259,7 @@ A DEM, orthoimage, and triangulation error image are made with ``point2dem``
   notable jitter, whose magnitude is on the order of image GSD (0.25 m), which
   is rather high, but which could be corrected (:numref:`jitter_solve`). Some
   unmodeled lens distortion also seems evident, which could be solved for
-  (:numref:`kaguya_ba`).
+  (as in :numref:`kaguya_ba`).
 
 Alignment to LOLA
 ^^^^^^^^^^^^^^^^^
@@ -306,6 +306,9 @@ Alignment to a prior DEM
 For sites sufficiently close to the poles, a gridded LOLA product is available.
 Some examples are given in :numref:`sfs_initial_terrain`. Alternatively, one
 could try aligning to a DEM produced with LRO NAC or TMC-2 images.
+
+Another option is a Kaguya TC DTM (~10 m/pixel, near-global; :numref:`kaguya`),
+which is coarser than TMC-2 but finer than LOLA.
 
 In either case, the large misalignment mentioned earlier will make ICP-based
 alignment methods fail.
@@ -438,8 +441,10 @@ pixels) and the large change in perspective between the images.
 
 The reference DEM for mapprojection can be a prior TMC DTM provided by ISRO
 (``ch2_tmc_ndn_*_d_dtm_d18``), a LOLA gridded DEM
-(:numref:`sfs_initial_terrain`), or a DEM gridded from LOLA samples with
-``point2dem`` (:numref:`point2dem_csv`). Fill in holes
+(:numref:`sfs_initial_terrain`), a DEM gridded from LOLA samples with
+``point2dem`` (:numref:`point2dem_csv`), or a Kaguya TC DTM (~10 m/pixel,
+near-global; :numref:`kaguya`), which is finer than LOLA and useful where no
+local TMC DTM exists. Fill in holes
 (:numref:`dem_mosaic_extrapolate`) and blur (``dem_mosaic --dem-blur-sigma 5``,
 :numref:`dem_mosaic_blur`) such a DEM. Call it ``ref.tif``.
 
