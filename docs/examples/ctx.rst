@@ -90,6 +90,23 @@ It is recommended to bundle-adjust the CTX cameras before stereo
 cannot be used, but mapprojection can be done with ``mapproject``
 (:numref:`mapproj-example`).
 
+.. _ctx_dem_products:
+
+Existing CTX DEM products
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Public CTX terrain products already exist. These can serve as a reference for
+alignment (:numref:`pc_align`), a helper DEM for mapprojection
+(:numref:`mapproj-example`) when creating DEMs as above, etc.
+
+- USGS-generated CTX DTMs and orthoimages, produced with the Ames Stereo
+  Pipeline and aligned to MOLA, at 20 m/pixel, each covering the overlap of a
+  CTX stereo pair. See the `Astrogeology catalog
+  <https://stac.astrogeology.usgs.gov/docs/data/mars/ctxdtms/>`_.
+
+- The MGS MOLA global DEM is the standard low-resolution reference for Mars, at
+  about 463 m/pixel, and is a good coarse baseline for alignment.
+
 Further processing
 ~~~~~~~~~~~~~~~~~~
 

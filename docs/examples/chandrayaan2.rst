@@ -307,8 +307,8 @@ For sites sufficiently close to the poles, a gridded LOLA product is available.
 Some examples are given in :numref:`sfs_initial_terrain`. Alternatively, one
 could try aligning to a DEM produced with LRO NAC or TMC-2 images.
 
-Another option is a Kaguya TC DTM (~10 m/pixel, near-global; :numref:`kaguya`),
-which is coarser than TMC-2 but finer than LOLA.
+Another option is a Kaguya TC DTM (~10 m/pixel, near-global,
+:numref:`kaguya_products`), which is coarser than TMC-2 but finer than LOLA.
 
 In either case, the large misalignment mentioned earlier will make ICP-based
 alignment methods fail.
@@ -443,8 +443,8 @@ The reference DEM for mapprojection can be a prior TMC DTM provided by ISRO
 (``ch2_tmc_ndn_*_d_dtm_d18``), a LOLA gridded DEM
 (:numref:`sfs_initial_terrain`), a DEM gridded from LOLA samples with
 ``point2dem`` (:numref:`point2dem_csv`), or a Kaguya TC DTM (~10 m/pixel,
-near-global; :numref:`kaguya`), which is finer than LOLA and useful where no
-local TMC DTM exists. Fill in holes
+near-global, :numref:`kaguya_products`), which is finer than LOLA and useful
+where no local TMC DTM exists. Fill in holes
 (:numref:`dem_mosaic_extrapolate`) and blur (``dem_mosaic --dem-blur-sigma 5``,
 :numref:`dem_mosaic_blur`) such a DEM. Call it ``ref.tif``.
 

@@ -410,7 +410,10 @@ The Copernicus 30 m DEM heights are relative to the EGM96 geoid.
 for any processing to be accurate.* See (:numref:`conv_to_ellipsoid`).
 
 There exist pre-made terrain models for other planets as well, for example the
-Moon LRO LOLA global DEM and the Mars MGS MOLA DEM.
+Moon LRO LOLA global DEM and the Mars MGS MOLA DEM. Higher-resolution stereo
+DEM products also exist. For the Moon, see the Kaguya TC products
+(:numref:`kaguya_products`). For Mars, see the CTX products
+(:numref:`ctx_dem_products`).
 
 Check, as before, if your DEM is relative to the areoid rather than an
 ellipsoid (:numref:`conv_to_ellipsoid`). Some Mars DEMs may have an

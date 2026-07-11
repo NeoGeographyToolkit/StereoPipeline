@@ -917,10 +917,13 @@ significant portion of the South Pole, is available at::
     http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.IMG
     http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/LDEM_80S_20M.LBL
 
+See also the existing Kaguya TC DEM products (:numref:`kaguya_products`),
+for non-polar sites.
+
 Preprocessing the terrain
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The higher-resolution DEMs mentioned above only need regridding.
+The higher-resolution DEMs mentioned above only need regridding to 1 m/pixel.
 
 The ``LDEM_80S_20M`` IMG and LBL files can be fetched with ``wget``. Then, this
 dataset should be converted to a .cub file as::
@@ -932,7 +935,7 @@ the LBL file. We do that with ``image_calc`` (:numref:`image_calc`)::
 
     image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
 
-Resample the DEM to 1 m/pixel using ``gdalwarp`` (:numref:`gdal_tools`),
+Resample an initial DEM to 1 m/pixel using ``gdalwarp`` (:numref:`gdal_tools`),
 creating a DEM named ``ref_dem.tif``::
 
     gdalwarp -overwrite -r cubicspline -tr 1 1              \

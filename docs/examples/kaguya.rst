@@ -102,6 +102,29 @@ Alignment
 The produced DEM can be aligned with ``pc_align`` (:numref:`pc_align`) to the
 LOLA RDR product (:numref:`csv_format`).
 
+.. _kaguya_products:
+
+Existing Kaguya DEM products
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Public Kaguya TC terrain products already exist. These can serve as a reference
+for alignment (:numref:`pc_align`), a helper DEM for mapprojection
+(:numref:`mapproj-example`) when creating DEMs as above, etc.
+
+- `SLDEM2015 <https://pgda.gsfc.nasa.gov/products/54>`_, a merged LOLA and
+  Kaguya TC DEM covering latitudes within +/- 60 degrees, at about 59 m/pixel,
+  already co-registered to LOLA. Also on the PDS LOLA node and the JAXA
+  `DARTS <https://darts.isas.jaxa.jp/planet/pdap/selene/index.html.en>`_ archive.
+
+- USGS-generated Kaguya TC DTMs. Over 127,000 products spanning 70 degrees north
+  to 70 degrees south, produced with the Ames Stereo Pipeline and aligned to
+  LOLA, at about 11 to 37 m/pixel. See the `Astrogeology catalog
+  <https://stac.astrogeology.usgs.gov/docs/data/moon/kaguyatc_dtms/>`_ and the
+  `AWS Open Data
+  <https://registry.opendata.aws/jaxa-usgs-nasa-kaguya-tc-dtms/>`_ registry.
+
+- Native JAXA TC DTM tiles, at about 10 m/pixel, from the DARTS archive above.
+
 .. _sfs_kaguya:
 
 Shape-from-shading with Kaguya TC
