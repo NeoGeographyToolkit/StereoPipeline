@@ -11,10 +11,10 @@ customize ``parallel_stereo``'s settings (:numref:`running-stereo`),
 use ``point2dem`` to create 3D terrain models (:numref:`manipulating_results`),
 visualize the results (:numref:`genhillshade`).
 
-Other topics include bundle adjustment (:numref:`next_steps_ba`), align the
+Other topics include bundle adjustment (:numref:`next_steps_ba`), aligning the
 obtained point clouds to another data source (:numref:`pc-align-example`),
-perform 3D terrain adjustments in respect to a geoid (:numref:`geoid_adj`),
-converted to LAS (:numref:`gen_las`), etc.
+performing 3D terrain adjustments relative to a geoid (:numref:`geoid_adj`),
+converting to LAS (:numref:`gen_las`), etc.
 
 It is suggested to read the tutorial (:numref:`tutorial`) before
 this chapter.
@@ -227,7 +227,7 @@ opencv_bm
 Correlation parameters
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The option ``corr-kernel`` in ``stereo.default`` define what
+The option ``corr-kernel`` in ``stereo.default`` defines what
 correlation metric *(normalized cross correlation)* we'll be using and
 how big the template or kernel size should be *(21 pixels square)*. A
 pixel in the left image will be matched to a pixel in the right image
@@ -238,7 +238,7 @@ Making the kernel sizes smaller, such as 15 |times| 15, or even
 cliffs, at the expense of perhaps introducing more false matches or
 noise.
 
-These options only to the algorithms implemented in ASP (those whose
+These options only apply to the algorithms implemented in ASP (those whose
 name is prefixed with ``asp_``). For externally implemented
 algorithms, any options to them can be passed as part of the
 ``stereo-algorithm`` field, as discussed in
@@ -443,7 +443,7 @@ DEM, which can result in artifacts in mapprojection and stereo.
 
 A DEM relative to a geoid/areoid must be converted so that its heights are
 relative to an ellipsoid. This must be done for any Copernicus and SRTM DEMs.
-For others, consult the documentation of the source of the DEM to see this
+For others, consult the documentation of the source of the DEM to see if this
 operation is needed.
 
 The ``gdalwarp`` program in recent versions of GDAL and our own ``dem_geoid``
@@ -486,10 +486,10 @@ search range issues later in correlation.
 
 Normally, ``mapproject`` is rather good at auto-guessing the resolution,
 so this tool can be invoked with no specification of the resolution 
-for the left image, then then ``gdalinfo`` can be used to find
+for the left image, then ``gdalinfo`` can be used to find
 the obtained pixel size, and that value can be used with the right image.
 
-In the latest build ASP, these quantities can be borrowed from the first 
+In the latest build of ASP, these quantities can be borrowed from the first
 mapprojected image with the option ``--ref-map`` (:numref:`mapproj_refmap`).
 
 Invoking ``mapproject`` with the ``--query-projection`` option will print the
@@ -532,7 +532,7 @@ LRO NAC web site (https://wms.lroc.asu.edu/lroc/search), fetching them as::
 
 We convert them to ISIS cubes using the ISIS program ``lronac2isis``,
 then we use the ISIS tools ``spiceinit``, ``lronaccal``, and
-``lrnonacecho`` to update the SPICE kernels and to do radiometric and
+``lronacecho`` to update the SPICE kernels and to do radiometric and
 echo correction. This process is described in
 :numref:`lro_nac_no_stitch`.  We name the two obtained .cub files
 ``left.cub`` and ``right.cub``.
@@ -600,6 +600,11 @@ with the ``--ref-map`` option::
        --ref-map left_proj.tif  \
        run_nomap/run-smooth.tif \
        right.cub right_proj.tif 
+
+It is *strongly suggested* to inspect the left and right mapprojected images and
+the mapprojection DEM, after overlaying these with georeference information in
+``stereo_gui`` (:numref:`stereo_gui`). Any notable shift or warping will be a
+sign of misalignment and a predictor of some issues in stereo.
 
 Next, we do stereo with these mapprojected images, with the mapprojection
 DEM as the last argument::
@@ -749,6 +754,11 @@ appropriately.
 The complete list of options for ``mapproject`` is described in
 :numref:`mapproject`.
 
+It is *strongly suggested* to inspect the left and right mapprojected images and
+the mapprojection DEM, after overlaying these with georeference information in
+``stereo_gui`` (:numref:`stereo_gui`). Any notable shift or warping will be a
+sign of misalignment and a predictor of some issues in stereo.
+
 Running ``parallel_stereo`` with these mapprojected images, and the 
 DEM used for mapprojection as the last argument::
       
@@ -858,7 +868,7 @@ camera model type, bundle adjust prefix, and even camera names used in
 mapprojection are completely independent of the camera model type, bundle adjust
 prefix, and camera names used later in stereo with these mapprojected images.
 
-Moreover, once stereo is done with one choices of these, the produced run can 
+Moreover, once stereo is done with one choice of these, the produced run can
 be reused with a whole new set of choices, with only the triangulation step 
 needing to be redone. That because the correlation between the images is still
 valid when the cameras change. 
@@ -890,7 +900,7 @@ the reuse of the previous run can be done as::
 
 Under the hood, this will read the metadata from the mapprojected images
 (:numref:`mapproj_metadata`), will look up the original ``left.xml`` and
-``right.xml`` cameras, figure out what camera model was used in mapprojection
+``right.xml`` cameras, figure out what camera model was used in mapprojection,
 will undo the mapprojection with this data, and then will do the triangulation
 with the new cameras.
 
@@ -1078,7 +1088,7 @@ can be very useful (:numref:`corr_section`).
 
 If a run failed partially during correlation, it can be resumed with the
 ``parallel_stereo`` option ``--resume-at-corr`` (:numref:`parallel_stereo`). A
-ran can be started at the triangulation stage after making changes to the
+run can be started at the triangulation stage after making changes to the
 cameras while reusing a previous run with the option ``--prev-run-prefix``.
 
 If a run failed due to running out of memory with
@@ -1175,9 +1185,9 @@ program is very sensitive to the value of ``--max-displacement``
       -o align/run
 
 The cloud ``mola.csv`` will be transformed to the coordinate system 
-of ``stereo-PC.tif`` and saved as ``run/run-trans_source.csv``.
+of ``stereo-PC.tif`` and saved as ``align/run-trans_source.csv``.
 
-The cloud ``stereo-PC.tif`` will be transformed to to the coordinate system of
+The cloud ``stereo-PC.tif`` will be transformed to the coordinate system of
 ``mola.csv`` and saved as ``align/run-trans_reference.tif``. It can 
 then be gridded with ``point2dem`` (:numref:`point2dem`) and compared to
 ``mola.csv`` using ``geodiff`` (:numref:`geodiff`).
@@ -1221,7 +1231,7 @@ Note that this approach will create self-consistent outputs, but which are not
 necessarily aligned with pre-existing ground truth. That can be accomplished as
 follows.
 
-First, need to align the DEM to the ground truth with ``pc_align``
+First, one needs to align the DEM to the ground truth with ``pc_align``
 (:numref:`pc_align`). Then, invoke ``bundle_adjust`` on the two input images and
 cameras, while passing to it the transform obtained from ``pc_align`` via the
 ``--initial-transform`` option. This will move the cameras to be consistent
@@ -1291,11 +1301,11 @@ Running the ``point2dem`` program (:numref:`point2dem`)::
 
      point2dem --auto-proj-center results/output-PC.tif
 
-will creates a Digital Elevation Model (DEM) named ``results/output-DEM.tif``.
+will create a Digital Elevation Model (DEM) named ``results/output-DEM.tif``.
 
 The default projection will be in units of meters. See :numref:`point2dem_proj`
 for how to set a projection or how auto-guessing it works. The planetary 
-body is usually auto-guessed as well, or can be set explicitly with the 
+body is usually auto-guessed as well, or can be set explicitly with
 an option such as ``-r mars``.
 
 The DEM can be transformed into a hill-shaded image for visualization
@@ -1614,7 +1624,7 @@ ASP assumes such data is well-aligned with the input images and cameras. To
 perform such alignment, one may first run bundle adjustment
 (:numref:`bundle_adjust`), followed by stereo (:numref:`parallel_stereo`), DEM
 creation (:numref:`point2dem`), alignment of DEM to existing terrain
-(:numref:`pc-align-example`), and then the aligment can be applied to the
+(:numref:`pc-align-example`), and then the alignment can be applied to the
 bundle-adjusted cameras (:numref:`ba_pc_align`).
 
 Any input terrain is assumed to be relative to a datum ellipsoid,
@@ -1647,7 +1657,7 @@ These are the various approaches of integrating well-aligned prior terrain data.
    external, or from a previous stereo run (:numref:`mapproj-example`).
 
  - GCP files (:numref:`bagcp`) can be incorporated into bundle adjustment and
-   jitter solving. These can also be used for aligment with ``pc_align`` (as the
+   jitter solving. These can also be used for alignment with ``pc_align`` (as the
    *source* cloud).
  
  - Given a prior DEM and an ASP-produced DEM, ASP can create dense correspondences
