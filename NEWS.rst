@@ -80,6 +80,9 @@ dem2gcp (:numref:`dem2gcp`):
     ``bundle_adjust``, :numref:`heights_from_dem`), rather than by triangulation.
     This is more robust when the rays meet at a small convergence angle.
 
+hiedr2mosaic (:numref:`hiedr2mosaic`):
+  * Fixed a crash in the mosaic step when a HiRISE observation is missing a CCD.
+
 Misc:
   * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
   * Fixed a bug with very long input image names when creating ``.match`` and

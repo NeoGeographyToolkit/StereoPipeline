@@ -278,8 +278,11 @@ def mosaic( noprojed_CCDs, averages ):
     line_sum   = 1
     for i in range( noprojed_CCDs.match-1, noprojed_CCDs.min()-1, -1):
         if i not in noprojed_CCDs: continue
-        sample_sum  += averages[i][0]
-        line_sum    += averages[i][1]
+        # A missing CCD (e.g. RED4 absent due to a data gap) leaves no hijitreg
+        # entry for its pair, so contribute zero offset for that link.
+        if i in averages:
+            sample_sum  += averages[i][0]
+            line_sum    += averages[i][1]
         handmos( noprojed_CCDs[i], mosaic,
                  str( int(round( sample_sum )) ),
                  str( int(round( line_sum )) ) )
@@ -288,8 +291,9 @@ def mosaic( noprojed_CCDs, averages ):
     line_sum = 1
     for i in range( noprojed_CCDs.match+1, noprojed_CCDs.max()+1, 1):
         if i not in noprojed_CCDs: continue
-        sample_sum  -= averages[i-1][0]
-        line_sum    -= averages[i-1][1]
+        if i-1 in averages:
+            sample_sum  -= averages[i-1][0]
+            line_sum    -= averages[i-1][1]
         handmos( noprojed_CCDs[i], mosaic,
                  str( int(round( sample_sum )) ),
                  str( int(round( line_sum )) ) )
