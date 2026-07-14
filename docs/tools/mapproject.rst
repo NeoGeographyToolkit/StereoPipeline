@@ -53,15 +53,49 @@ South, where the `NSDIC polar stereographic projections
 are used.
 
 For other Earth datums and other planetary bodies, the automatic determination
-produces a local stereographic projection. The projection center is found
-by a median calculation based on a sample of image pixels.
-Or consider using the cylindrical equal area projection.
+produces a local stereographic projection. The projection center is found by a
+median calculation based on a sample of image pixels. Or consider using the
+cylindrical equal area projection.
 
 To ensure the automatic projection determination is always invoked, overriding
 all other cases from above, use ``--t_srs auto``.
 
 All mapprojected images passed to stereo should use the same projection and grid
 size (:numref:`mapproj-example`).
+
+.. _mapproj_grid:
+
+Grid size convention
+~~~~~~~~~~~~~~~~~~~~
+
+By default (without ``--gdal-tap``), ``mapproject`` produces a grid whose pixel
+centers fall at integer multiples of the grid size (set with ``--tr``). This is
+the ``PixelAsArea`` convention: each output pixel covers a grid cell, with its
+center on a grid node.
+
+A consequence is that the image extent, that is, the bounding box printed by
+``gdalinfo`` (which is measured at the outer pixel edges), is offset by half a
+pixel from the pixel centers. So its values are odd multiples of half the grid
+size.
+
+This convention keeps the grids of separate runs consistent. Two images
+mapprojected with the same projection and grid size land on the exact same grid
+and overlay pixel for pixel, which is required when passing mapprojected images
+to stereo (:numref:`mapproj-example`). The extent is snapped by rounding to the
+nearest grid node, so re-mapprojecting at the same resolution reproduces the same
+grid.
+
+If ``--t_projwin`` is set, the provided bounds are adjusted to this same
+convention, so the pixel centers still fall at integer multiples of the grid
+size.
+
+This is consistent with how :numref:`point2dem` creates a DEM (its default grid),
+and with how :numref:`dem_mosaic` behaves with its ``--tap`` option. It lets
+mapprojected images, DEMs, and mosaics all share one grid phase.
+
+With ``--gdal-tap`` the convention is inverted: the output image bounds, rather
+than the pixel centers, are snapped to integer multiples of the grid size,
+emulating the GDAL ``-tap`` option (:numref:`gdal_tap`).
 
 Examples
 ~~~~~~~~

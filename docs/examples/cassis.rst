@@ -8,7 +8,7 @@ stereo imager on the ESA `ExoMars Trace Gas Orbiter
 <https://en.wikipedia.org/wiki/ExoMars_Trace_Gas_Orbiter>`_ (TGO). It is a
 pushframe instrument, acquiring the surface as a sequence of overlapping
 framelets
-(`Thomas et al. (2017) <https://doi.org/10.1007/s11214-017-0421-1>`_). 
+(`Thomas et al. (2017) <https://doi.org/10.1007/s11214-017-0421-1>`_).
 
 This documents how to create terrain models with CaSSIS images with ASP. The
 resulting `CaSSIS pipeline
@@ -173,8 +173,7 @@ images.
 
 The precise methodology is below. The key observation that made this process
 successful is that one must ensure the framelets are tightly constrained at all
-times. Otherwise they decouple which results in a globally inconsistent
-solution.
+times. Otherwise they decouple which results in local warping.
 
 To handle across-track warping the lens distortion was recalibrated. This was
 done once, jointly for 3 sites (Jezero, Oxia Planum 1, Oxia Planum 2), then kept
@@ -183,8 +182,8 @@ It should be kept fixed for future work.
 
 The ground-sample distance of CaSSIS is about 4.6 m/pixel, which compares to CTX
 (:numref:`ctx_example`) at about 6 m/pixel. These two sensors are close enough
-in resolution to be comparable, and the DEM resolution of 18 m/pixel is about 4x
-the CaSSIS image resolution.
+in resolution to be comparable, and the DEM resolution of 18 m/pixel employed in
+this processing is about 4x the CaSSIS image resolution.
 
 .. _cassis_workflow:
 
@@ -196,6 +195,34 @@ data that is provided in the separate `CaSSIS pipeline
 <https://github.com/NeoGeographyToolkit/CassisPipeline>`_ repository. What
 follows is an overview of key steps.
 
+Prior CaSSIS DEM
+^^^^^^^^^^^^^^^^
+
+The published CaSSIS DEMs are found and downloaded from the CaSSIS DTM archive
+(`cassis.oapd.inaf.it <https://cassis.oapd.inaf.it/archive/cassis/searchdtm.php>`_).
+These are produced by the OAPD/INAF group with its 3D stereo pipeline
+(3DPD, :cite:`simioni2021`).
+
+The products vary in their horizontal projection (equirectangular or
+stereographic) and in their stated vertical datum. In practice the heights are
+referenced to the Mars areoid (the MOLA gravitational equipotential surface),
+even when the accompanying metadata suggests otherwise, so that metadata should
+be read with care and the datum verified. The areoid departs from a sphere by
+more than a kilometer in places, varying with location, so this is not a small
+offset.
+
+For comparison with our results, which use the Mars reference sphere of radius
+3396190 m (the ``D_MARS`` datum), a prior CaSSIS DEM is converted from areoid to
+sphere heights with :numref:`dem_geoid` (option ``--reverse-adjustment`` with
+the MOLA areoid).
+
+It is then regridded to the local stereographic projection
+at 18 m/pixel with ``gdalwarp``, following the same grid convention as ASP
+(:numref:`mapproj_grid`). The command sets the projection with ``-t_srs``, the
+grid size with ``-tr 18 18``, cubic-spline resampling with ``-r cubicspline``,
+and an extent ``-te`` snapped to odd multiples of 9 m (half the grid size). The
+regridded DEM then shares the grid phase of the CTX reference and our CaSSIS DEM.
+
 Preparation of reference CTX DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -206,15 +233,16 @@ USGS Astrogeology STAC catalog (`stac.astrogeology.usgs.gov
 collection, using its query API. A covering set of overlapping DEMs is selected to
 span the CaSSIS footprint with margin.
 
-The reference is placed in a local stereographic projection on a sphere, matching
-the convention of the published CaSSIS DEM for the site, at 18 m/pixel. The box is
-made about six times larger than the CaSSIS footprint, to give ample surrounding
-terrain for the later hillshade-correlation registration to lock onto.
+The box for the reference is taken from the extent of the prior CaSSIS DEM (as
+prepared above, in the local stereographic projection at 18 m/pixel), expanded by
+a factor of six. This wide margin gives ample surrounding terrain for the later
+hillshade correlation to lock onto, despite any misregistration in the prior
+product.
 
-The grid extent is snapped so pixel corners fall on integer multiples of the grid
-spacing (odd multiples of half the grid size). This keeps the CTX and CaSSIS DEMs
-on the same grid phase and avoids a half-pixel offset when they are compared or
-blended.
+The extent is snapped, following the same grid convention (:numref:`mapproj_grid`),
+so its bounds are odd multiples of half the grid size (9 m). The pixel centers then
+fall at integer multiples of the grid size, so the CTX and CaSSIS DEMs share one
+grid phase, with no half-pixel offset when they are compared or blended.
 
 The DEMs are warped to one common stereographic grid and mean-mosaicked with
 :numref:`dem_mosaic`. Each input is then compared to the blend with
@@ -228,11 +256,8 @@ reprocessed.
 Alignment of prior CaSSIS DEMs to CTX
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The published CaSSIS DEMs are found and downloaded from the CaSSIS DTM archive
-(`cassis.oapd.inaf.it <https://cassis.oapd.inaf.it/archive/cassis/searchdtm.php>`_).
-They are converted to be relative to the ellipsoid, regridded with bicubic
-interpolation to the local stereographic projection at 18 m/pixel,
-and horizontally aligned to CTX by dense hillshade correlation (:numref:`pc_corr`).
+The regridded prior DEM is horizontally aligned to CTX by dense hillshade
+correlation (:numref:`pc_corr`).
 This worked better than ICP point-to-plane alignment (:numref:`align-method`),
 which introduced a large lateral slide given the notable warping of the official
 DEMs. This alignment is only for the comparisons above. It is not used in
@@ -243,11 +268,20 @@ Creation of CaSSIS camera files
 
 The calibrated framelet images are downloaded from the ESA Planetary Science
 Archive (`PSA <https://archives.esac.esa.int/psa>`_, the ExoMars ``em16_tgo_cas``
-collection) and ingested to ISIS cubes with ``tgocassis2isis``. A CSM camera model
-is created for each framelet with `ALE <https://github.com/DOI-USGS/ale>`_, which
-reads the SPICE pose and the CaSSIS lens distortion. The camera is written with
-:numref:`cam_gen`; this tool also lets the distortion be set explicitly, which the
-refit below uses. The ALE driver support for CaSSIS still needs to be published.
+collection) and ingested to ISIS cubes with ``tgocassis2isis``. The ingestion
+itself needs no SPICE kernels.
+
+The pose is obtained from the TGO and CaSSIS SPICE kernels. These are the
+``base`` and ``tgo`` kernel sets in the ISIS data area (``$ISISDATA``, populated
+with the ISIS data-download tool). ALE reads them through a per-observation
+metakernel that lists the kernels for that observation date, working directly
+from the NAIF kernels without running ``spiceinit`` on the cubes.
+
+A CSM camera model is created for each framelet with `ALE
+<https://github.com/DOI-USGS/ale>`_, which reads the SPICE pose and the CaSSIS
+lens distortion. The camera is written with :numref:`cam_gen`; this tool also
+lets the distortion be set explicitly, which the refit below uses. The ALE driver
+support for CaSSIS still needs to be published.
 
 Initial registration of CaSSIS images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -311,27 +345,45 @@ blunders without carving holes. The per-pair DEMs are blended into a seamless
 result with :numref:`dem_mosaic` at 18 m/pixel, and the worst per-pair
 triangulation errors are mosaicked as a diagnostic.
 
-The whole sequence, bundle adjustment through stereo, can be run a second time
-starting from the first result. This second stage mainly re-ties the
-weakly-constrained framelets at the two ends of each strip. It otherwise gives
-limited additional payoff.
+Optional refinement
+~~~~~~~~~~~~~~~~~~~
+
+The whole sequence, bundle adjustment through stereo, can be run a second time,
+with the current results as the input. The motivation is that we now have a
+well-registered stereo DEM, rather than the approximation produced with the
+linescan cameras. If this DEM still has residual issues, it can be used to
+produce better ground control points than before, which then help fix those
+issues.
+
+We found limited additional payoff from this refinement, and the results higher
+up this page do not use it. It did help somewhat in reducing the vertical
+discrepancy at the top and bottom of the Oxia Planum 1 DEM.
 
 Evaluation
 ^^^^^^^^^^
 
 The final DEM is compared to CTX with :numref:`geodiff` for the vertical
 difference, and by image correlation of the two hillshades for the horizontal
-registration (:numref:`correlator-mode`, :numref:`raw_disp`). A good result has a
-near-zero median, a small robust spread, and sub-pixel horizontal disparity, with
-no seams and no smeared features.
+registration (:numref:`correlator-mode`, :numref:`raw_disp`). A good result has
+a near-zero median, a small robust spread (under 6 meters), and a sub-pixel
+disparity median and NMAD in each band (at 18 m/pixel), with no systematic
+shifts.
+
+It is strongly suggested not to rely on statistics alone, but to inspect the
+vertical difference map and the colorized disparity bands.
 
 Joint distortion
 ^^^^^^^^^^^^^^^^
 
-The workflow above treats the lens distortion as a single frozen model, refit once
-and then held fixed. Solving the distortion jointly with the camera poses and the
-terrain across the whole collection is a harder, less stable problem, because the
-distortion can trade against pose and height. It is left as an advanced topic and
-is not needed for the results above. Inserting a candidate distortion and
-refitting the camera poses to it is done with :numref:`cam_gen`; making that joint
-solve stable is the hard part.
+The workflow above treats the lens distortion as a single frozen model, refit
+once and then held fixed.
+
+The distortion can instead be solved for. To do this, run the two bundle
+adjustment commands from the workflow not per site, but jointly across the three
+sites (Jezero, Oxia Planum 1, and Oxia Planum 2), with distortion solving enabled
+via ``--intrinsics-to-float other_intrinsics``.
+
+This uses the option ``--heights-from-dem-list`` in :numref:`bundle_adjust`
+(added in the ASP build of July 2026, :numref:`release`), which passes a per-site
+list of reference DEMs. The three sites are widely spaced across Mars, so a single
+merged DEM is not feasible.
