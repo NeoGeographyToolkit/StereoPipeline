@@ -6,29 +6,14 @@ TGO CaSSIS
 The Colour and Stereo Surface Imaging System (*CaSSIS*) is the high-resolution
 imager on the ESA `ExoMars Trace Gas Orbiter
 <https://en.wikipedia.org/wiki/ExoMars_Trace_Gas_Orbiter>`_ (TGO). It is a
-push-frame instrument: it acquires the surface as a sequence of short 2D
-framelets. Each observation carries two looks of the same ground (nadir and
-oblique), so these are amenable for stereo. The instrument is described by
-`Thomas et al. (2017) <https://doi.org/10.1007/s11214-017-0421-1>`_.
+push-frame instrument, acquiring the surface as a sequence of overlapping
+framelets
+(`Thomas et al. (2017) <https://doi.org/10.1007/s11214-017-0421-1>`_). 
+Two views are acquired, so these are amenable for stereo.
 
-This documents how to create terrain models with CaSSIS images with ASP.
-
-Approach
-~~~~~~~~
-
-Our method assumes a CTX (:numref:`ctx_example`) reference DEM already exists
-for a site. A CaSSIS DEM is created by bundle adjustment, pairwise stereo,
-blending of created DEMs, and registration to the CTX DEM by dense correlation
-of hillshaded images.
-
-This corrects the lens distortion that would otherwise warp the DEM across
-track and the satellite pose errors that would otherwise warp it along track. It
-also reduces seams. The details are in :numref:`cassis_workflow`.
-
-The ground-sample distance of CaSSIS is about 4.6 m/pixel, which compares to CTX
-(:numref:`ctx_example`) at about 6 m/pixel. These two sensors are close enough in
-resolution to be comparable, and the DEM resolution of 18 m/pixel is about 4x the
-CaSSIS image resolution.
+This documents how to create terrain models with CaSSIS images with ASP. The
+software that allows reproducible, end-to-end processing is available
+(:numref:`cassis_workflow`).
 
 .. _cassis_vendor:
 
@@ -47,9 +32,9 @@ Here we compare with the prior CaSSIS DEM product ``MY36_016378_162_1``.
    :name: cassis_jezero_hillshade
    :alt: Jezero hillshades: CTX, prior CaSSIS, our CaSSIS
 
-   Left: the CTX DEM reference for Jezero. Middle: the prior aligned CaSSIS DEM.
-   Right: ASP-produced CaSSIS DEM from the same source data. All are gridded at
-   18 m / pixel.
+   Left: the CTX hillshaded DEM reference for Jezero. Middle: the prior aligned
+   CaSSIS DEM. Right: ASP-produced CaSSIS DEM from the same source data. All are
+   gridded at 18 m / pixel.
 
 .. figure:: ../images/cassis_jezero_geodiff.png
    :name: cassis_jezero_geodiff
@@ -65,10 +50,10 @@ Here we compare with the prior CaSSIS DEM product ``MY36_016378_162_1``.
    :alt: Horizontal registration of our DEM to CTX
 
    Evaluation of ground-plane misregistration of our CaSSIS DEM to CTX, measured
-   by image correlation after hillshading (:numref:`correlator-mode`). The plot
-   shows the components of the filtered disparity in pixels
-   (:numref:`raw_disp`). These have a mean within 0.03 px, and the NMAD values
-   are about 0.5 px. The pixel size is 18 m.
+   by image correlation of the DEMs after hillshading
+   (:numref:`correlator-mode`). The plot shows the components of the filtered
+   disparity in pixels (:numref:`raw_disp`). These have a mean within 0.03 px,
+   and the NMAD values are about 0.5 px. The pixel size is 18 m.
 
 Oxia Planum (site 1)
 ^^^^^^^^^^^^^^^^^^^^
@@ -79,7 +64,8 @@ Here we compare with the prior CaSSIS DEM product ``MY34_003806_019_1``.
    :name: cassis_ox1_hillshade
    :alt: Oxia Planum 1 hillshades: CTX, prior CaSSIS, our CaSSIS
 
-   Left: CTX. Middle: the prior aligned CaSSIS DEM. Right: our CaSSIS DEM.
+   Left: Reference CTX DEM. Middle: the prior aligned CaSSIS DEM. Right: our
+   CaSSIS DEM.
 
 .. figure:: ../images/cassis_ox1_geodiff.png
    :name: cassis_ox1_geodiff
@@ -87,15 +73,15 @@ Here we compare with the prior CaSSIS DEM product ``MY34_003806_019_1``.
 
    Elevation difference to CTX, in meters. Left: prior CaSSIS minus CTX, median
    0.6 m, NMAD 8.3 m. Right: our CaSSIS minus CTX, median -0.1 m, NMAD 1.5 m,
-   about 6 times tighter to CTX. Our result is less well controlled at the
+   about 6 times tighter to CTX. Here, our result is less well controlled at the
    starting and ending framelets.
 
 .. figure:: ../images/cassis_ox1_dd.png
    :name: cassis_ox1_dd
    :alt: Oxia Planum 1 registration to CTX
 
-   Registration to CTX, horizontal and vertical disparity: sub-pixel (NMAD 0.5 /
-   0.5 px).
+   Registration to CTX, horizontal and vertical disparity: sub-pixel (NMAD is
+   about 0.5 px).
 
 Oxia Planum (site 2)
 ^^^^^^^^^^^^^^^^^^^^
@@ -106,7 +92,8 @@ Here we compare with the prior CaSSIS DEM product ``MY34_004172_162_1``.
    :name: cassis_ox2_hillshade
    :alt: Oxia Planum 2 hillshades: CTX, prior CaSSIS, our CaSSIS
 
-   Left: CTX. Middle: the prior aligned CaSSIS DEM. Right: our CaSSIS DEM.
+   Left: Hillshaded CTX reference DEM. Middle: the prior aligned CaSSIS DEM.
+   Right: our CaSSIS DEM.
 
 .. figure:: ../images/cassis_ox2_geodiff.png
    :name: cassis_ox2_geodiff
@@ -120,8 +107,8 @@ Here we compare with the prior CaSSIS DEM product ``MY34_004172_162_1``.
    :name: cassis_ox2_dd
    :alt: Oxia Planum 2 registration to CTX
 
-   Registration to CTX, horizontal and vertical disparity: sub-pixel (NMAD 0.3 /
-   0.2 px).
+   Registration to CTX, horizontal and vertical disparity: sub-pixel (NMAD is
+   about 0.3 px).
 
 Gusev crater
 ^^^^^^^^^^^^
@@ -132,7 +119,8 @@ Here we compare with the prior CaSSIS DEM product ``MY34_003860_344_1``.
    :name: cassis_gusev_hillshade
    :alt: Gusev hillshades: CTX, prior CaSSIS, our CaSSIS
 
-   Left: CTX. Middle: the prior aligned CaSSIS DEM. Right: our CaSSIS DEM.
+   Left: Hillshaded CTX reference DEM. Middle: the prior aligned CaSSIS DEM.
+   Right: our CaSSIS DEM.
 
 .. figure:: ../images/cassis_gusev_geodiff.png
    :name: cassis_gusev_geodiff
@@ -145,7 +133,7 @@ Here we compare with the prior CaSSIS DEM product ``MY34_003860_344_1``.
    :name: cassis_gusev_dd
    :alt: Gusev registration to CTX
 
-   Registration to CTX, horizontal and vertical disparity: NMAD 0.9 / 0.8 px.
+   Registration to CTX, horizontal and vertical disparity: NMAD is no more than 0.9 px.
 
 Site 004756
 ^^^^^^^^^^^
@@ -172,13 +160,38 @@ Here we compare with the prior CaSSIS DEM product ``MY34_004756_354_1``.
 
    Registration to CTX: NMAD 0.5 / 0.4 px, sub-pixel.
 
+Approach
+~~~~~~~~
+
+Our method assumes a CTX (:numref:`ctx_example`) reference DEM already exists
+for a site. A wealth of such data exists, such as in the USGS Astrogeology STAC
+catalog (see below).
+
+A CaSSIS DEM is created by bundle adjustment, pairwise stereo, blending of
+created DEMs, and registration to the CTX DEM by dense correlation of hillshaded
+images.
+
+The precise methodology is below. The key observation that made this process
+successful is that one must ensure the framelets are tightly constrained at all
+times. Otherwise they decouple which results in a globally inconsistent
+solution.
+
+To handle across-track warping the lens distortion was recalibrated. This was
+done once, jointly for 3 sites (Jezero, Oxia Planum 1, Oxia Planum 2), then kept
+fixed to the updated value during individual processing of the five sites above.
+
+The ground-sample distance of CaSSIS is about 4.6 m/pixel, which compares to CTX
+(:numref:`ctx_example`) at about 6 m/pixel. These two sensors are close enough
+in resolution to be comparable, and the DEM resolution of 18 m/pixel is about 4x
+the CaSSIS image resolution.
+
 .. _cassis_workflow:
 
 Detailed workflow
 ~~~~~~~~~~~~~~~~~
 
-This is a high-level overview. A complete, runnable log of the exact commands is
-kept in a separate repository.
+This work is reproducible end-to-end by a tool that is provided in the separate
+CaSSIS pipeline repository. What follows is an overview of key steps.
 
 Preparation of reference CTX DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
