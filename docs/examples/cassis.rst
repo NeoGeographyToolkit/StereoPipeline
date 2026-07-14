@@ -4,16 +4,16 @@ TGO CaSSIS
 ----------
 
 The Colour and Stereo Surface Imaging System (*CaSSIS*) is the high-resolution
-imager on the ESA `ExoMars Trace Gas Orbiter
+stereo imager on the ESA `ExoMars Trace Gas Orbiter
 <https://en.wikipedia.org/wiki/ExoMars_Trace_Gas_Orbiter>`_ (TGO). It is a
-push-frame instrument, acquiring the surface as a sequence of overlapping
+pushframe instrument, acquiring the surface as a sequence of overlapping
 framelets
 (`Thomas et al. (2017) <https://doi.org/10.1007/s11214-017-0421-1>`_). 
-Two views are acquired, so these are amenable for stereo.
 
 This documents how to create terrain models with CaSSIS images with ASP. The
-software that allows reproducible, end-to-end processing is available
-(:numref:`cassis_workflow`).
+resulting `CaSSIS pipeline
+<https://github.com/NeoGeographyToolkit/CassisPipeline>`_ that allows
+reproducible, end-to-end processing is made public.
 
 .. _cassis_vendor:
 
@@ -164,8 +164,8 @@ Approach
 ~~~~~~~~
 
 Our method assumes a CTX (:numref:`ctx_example`) reference DEM already exists
-for a site. A wealth of such data exists, such as in the USGS Astrogeology STAC
-catalog (see below).
+for a site. A wealth of such data is available, such as in the USGS Astrogeology
+STAC catalog (see below).
 
 A CaSSIS DEM is created by bundle adjustment, pairwise stereo, blending of
 created DEMs, and registration to the CTX DEM by dense correlation of hillshaded
@@ -179,6 +179,7 @@ solution.
 To handle across-track warping the lens distortion was recalibrated. This was
 done once, jointly for 3 sites (Jezero, Oxia Planum 1, Oxia Planum 2), then kept
 fixed to the updated value during individual processing of the five sites above.
+It should be kept fixed for future work.
 
 The ground-sample distance of CaSSIS is about 4.6 m/pixel, which compares to CTX
 (:numref:`ctx_example`) at about 6 m/pixel. These two sensors are close enough
@@ -190,8 +191,10 @@ the CaSSIS image resolution.
 Detailed workflow
 ~~~~~~~~~~~~~~~~~
 
-This work is reproducible end-to-end by a tool that is provided in the separate
-CaSSIS pipeline repository. What follows is an overview of key steps.
+This work is reproducible *end-to-end* with a collection of scripts and sample
+data that is provided in the separate `CaSSIS pipeline
+<https://github.com/NeoGeographyToolkit/CassisPipeline>`_ repository. What
+follows is an overview of key steps.
 
 Preparation of reference CTX DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

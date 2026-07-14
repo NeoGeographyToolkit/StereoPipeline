@@ -1,6 +1,9 @@
 Changes since last release
 --------------------------
 
+Added a pipeline for creating terrain models from TGO CaSSIS pushframe images
+(:numref:`cassis`).
+
 bundle_adjust (:numref:`bundle_adjust`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
     ground control point (GCP) residuals.

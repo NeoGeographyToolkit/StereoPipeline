@@ -232,6 +232,8 @@ and optical center exactly as in the input.
 
 This is useful when it is desired to create a lens distortion model with more
 degrees of freedom, which can later be optimized (:numref:`floatingintrinsics`).
+This is used to recalibrate the across-track distortion in the TGO CaSSIS
+workflow (:numref:`cassis`).
 
 A reference surface is needed to relate pixels to ground points. Pass a
 reference DEM with ``--reference-dem`` or, for a flat surface, a datum with

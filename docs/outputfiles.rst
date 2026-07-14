@@ -410,7 +410,7 @@ If, combined with the output prefix, such a name would exceed the maximum length
 a file system allows for a single file name (255 bytes on most systems,
 including ext4, XFS, and APFS), the long parts are shortened. This avoids
 failures when working with very long image names, such as the per-framelet
-products of some push-frame cameras.
+products of some pushframe cameras.
 
 The two image names in a ``.match`` file, and the single name in a ``.vwip``
 file, are shortened independently. Each name that is too long is reduced to a

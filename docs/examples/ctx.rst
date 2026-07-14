@@ -119,6 +119,10 @@ CTX cameras can exhibit jitter. How to correct it is discussed in
 
 Shape-from-Shading with CTX images is illustrated in :numref:`sfs_ctx`.
 
+TGO CaSSIS (:numref:`cassis`) is a Mars pushframe camera at similar resolution.
+It can use CTX DEMs as reference, and potentially these two cameras can be
+coregistered.
+
 Automated Processing of HiRISE and CTX
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -126,4 +130,3 @@ While he was at the University of Chicago, David Mayer developed a set of
 scripts for automating Stereo Pipeline for CTX and HiRISE images.  Those
 scripts and more information can now be found at 
 https://github.com/USGS-Astrogeology/asp_scripts.
-

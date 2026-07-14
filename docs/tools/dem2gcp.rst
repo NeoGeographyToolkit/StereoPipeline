@@ -21,7 +21,8 @@ Bundle adjustment with intrinsics optimization
 
 This program was motivated by the processing of historical images, particularly
 the KH-7 and KH-9 panoramic images. See :numref:`kh9` for a recent example
-that uses this program.
+that uses this program. It is also used with a planetary framing camera in the
+TGO CaSSIS workflow (:numref:`cassis`).
 
 ASP DEM creation
 ~~~~~~~~~~~~~~~~

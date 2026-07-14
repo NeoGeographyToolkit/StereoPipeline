@@ -268,9 +268,12 @@ CSM Pushframe sensor
 
 The USGS CSM *Pushframe* sensor models a pushframe camera.  The support for this sensor
 is not fully mature, and some artifacts can be seen in the DEMs (per below).
- 
+
+Such data can also be handled with joint bundle adjustment of the framelets and
+pairwise stereo as done for TGO CaSSIS (:numref:`cassis`).
+
 What follows is an illustration of using this sensor with Lunar Reconnaissance
-Orbiter (LRO) WAC images. 
+Orbiter (LRO) WAC images.
 
 This example, including the inputs, recipe, and produced terrain model
 `can be downloaded <https://github.com/NeoGeographyToolkit/StereoPipelineSolvedExamples/releases/tag/LROWAC>`_.
