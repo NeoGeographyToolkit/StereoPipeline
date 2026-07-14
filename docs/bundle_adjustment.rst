@@ -862,7 +862,7 @@ images overlapping with the current ones.
 Some lens distortion parameters can be kept fixed (option
 ``--fixed-distortion-indices``).
 
-.. figure:: images/kaguya_intrinsics_opt_example.png
+.. figure:: images/kaguya_intrinsics_opt_example.jpg
    :name: kaguya_intrinsics_opt_example
    :alt: kaguya_intrinsics_opt_example
 

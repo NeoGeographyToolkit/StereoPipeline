@@ -650,7 +650,7 @@ Illustration
 
   Four out of the 10 images (5 stereo pairs) used in this example.
 
-.. figure:: ../images/MSL_Kimberly_DEM_DRG.png
+.. figure:: ../images/MSL_Kimberly_DEM_DRG.jpg
   :name: csm_msl_figure2
   :alt:  MSL Kimberly DEM and ortho
 
