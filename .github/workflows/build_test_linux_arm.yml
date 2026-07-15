@@ -10,6 +10,23 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
     - uses: actions/checkout@v3
+    # The ubuntu-24.04-arm image ships a large pre-installed tool cache and SDKs
+    # we never use (Android, .NET, Haskell, cached toolchains, Docker images).
+    # The CaSSIS-capable deps + the ASP build + the test tarball can exhaust the
+    # runner disk, so reclaim that space up front.
+    - name: Free disk space
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        docker-images: true
+        large-packages: false
+        swap-storage: false
+      continue-on-error: true
+    - name: Disk after cleanup
+      run: df -h
     # No caching of dependencies. See build_test_linux_arm.sh for how to fetch
     # an offline conda-pack tarball with dependencies (BinaryBuilder release
     # asp_deps_linux_arm_v1), and save_linux_arm_deps.sh for how to update it.
