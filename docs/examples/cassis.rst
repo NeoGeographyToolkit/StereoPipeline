@@ -7,8 +7,7 @@ The Colour and Stereo Surface Imaging System (*CaSSIS*) is the high-resolution
 stereo imager on the ESA `ExoMars Trace Gas Orbiter
 <https://en.wikipedia.org/wiki/ExoMars_Trace_Gas_Orbiter>`_ (TGO). It is a
 pushframe instrument, acquiring the surface as a sequence of overlapping
-framelets
-(`Thomas et al. (2017) <https://doi.org/10.1007/s11214-017-0421-1>`_).
+framelets (`Thomas et al. (2017) <https://doi.org/10.1007/s11214-017-0421-1>`_).
 
 This documents how to create terrain models with CaSSIS images with ASP. The
 resulting `CaSSIS pipeline
@@ -20,8 +19,8 @@ reproducible, end-to-end processing is made public.
 Results
 ~~~~~~~
 
-The ASP-produced CaSSIS DEMs are notably more accurate than the published
-CaSSIS DEMs as validated with 5 different products.
+The ASP-produced CaSSIS DEMs are notably more accurate than the published CaSSIS
+DEMs as validated with 5 different products.
 
 Jezero site
 ^^^^^^^^^^^
@@ -151,8 +150,8 @@ Here we compare with the prior CaSSIS DEM product ``MY34_004756_354_1``.
    :alt: 004756 elevation difference to CTX
 
    Elevation difference to CTX, in meters. Left: prior CaSSIS minus CTX, median
-   6.2 m, NMAD 21.5 m. Right: our CaSSIS minus CTX, median 0.0 m, NMAD 4.1 m (the
-   wider spread is a blunder tail on steep terrain, not the core surface).
+   6.2 m, NMAD 21.5 m. Right: our CaSSIS minus CTX, median 0.0 m, NMAD 4.1 m
+   (the wider spread is a blunder tail on steep terrain, not the core surface).
 
 .. figure:: ../images/cassis_004756_dd.png
    :name: cassis_004756_dd
@@ -216,22 +215,23 @@ For comparison with our results, which use the Mars reference sphere of radius
 sphere heights with :numref:`dem_geoid` (option ``--reverse-adjustment`` with
 the MOLA areoid).
 
-It is then regridded to the local stereographic projection
-at 18 m/pixel with ``gdalwarp``, following the same grid convention as ASP
+It is then regridded to the local stereographic projection at 18 m/pixel with
+``gdalwarp``, following the same grid convention as ASP
 (:numref:`mapproj_grid`). The command sets the projection with ``-t_srs``, the
 grid size with ``-tr 18 18``, cubic-spline resampling with ``-r cubicspline``,
 and an extent ``-te`` snapped to odd multiples of 9 m (half the grid size). The
-regridded DEM then shares the grid phase of the CTX reference and our CaSSIS DEM.
+regridded DEM then shares the grid phase of the CTX reference and our CaSSIS
+DEM.
 
 Preparation of reference CTX DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The reference is assembled from existing Context Camera (CTX) DEMs over the site,
-rather than produced from raw CTX stereo. They are queried and downloaded from the
-USGS Astrogeology STAC catalog (`stac.astrogeology.usgs.gov
+The reference is assembled from existing Context Camera (CTX) DEMs over the
+site, rather than produced from raw CTX stereo. They are queried and downloaded
+from the USGS Astrogeology STAC catalog (`stac.astrogeology.usgs.gov
 <https://stac.astrogeology.usgs.gov>`_), from the controlled MRO CTX DTM
-collection, using its query API. A covering set of overlapping DEMs is selected to
-span the CaSSIS footprint with margin.
+collection, using its query API. A covering set of overlapping DEMs is selected
+to span the CaSSIS footprint with margin.
 
 The box for the reference is taken from the extent of the prior CaSSIS DEM (as
 prepared above, in the local stereographic projection at 18 m/pixel), expanded by
@@ -308,28 +308,31 @@ Dense matches
 ^^^^^^^^^^^^^
 
 Dense interest-point matches are computed once and reused across the passes.
-Matches within a look, left-to-left and right-to-right, are found in the raw image
-(pixel) domain. Matches across the two looks, left-to-right, are found in the
-mapprojected domain (:numref:`mapproject`), which removes the large cross-look
-convergence and makes the correlation reliable. These matches tie the framelets together for bundle
-adjustment and for stereo.
+Matches within a look, left-to-left and right-to-right, are found in the raw
+image (pixel) domain. Matches across the two looks, left-to-right, are found in
+the mapprojected domain (:numref:`mapproject`), which removes the large
+cross-look convergence and makes the correlation reliable. These matches tie the
+framelets together for bundle adjustment and for stereo.
+
+.. _cassis_refit:
 
 Distortion refit
 ^^^^^^^^^^^^^^^^
 
-The steps up to here assume the published lens distortion is already calibrated. A
-single transverse-distortion model is then refit from the dense matches and set on
-the cameras with :numref:`cam_gen`, frozen and shared across all framelets. This corrects the residual across-track warping
-that a fixed distortion leaves behind.
+The steps up to here assume the published lens distortion is already calibrated.
+A single transverse-distortion model is then refit from the dense matches and
+set on the cameras with :numref:`cam_gen`, frozen and shared across all
+framelets. This corrects the residual across-track warping that a fixed
+distortion leaves behind.
 
 Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
 The framelet frame cameras are then refined with :numref:`bundle_adjust`. This
-uses the CTX DEM as a height constraint (heights-from-dem), ground control points
-generated from it with :numref:`dem2gcp`, and a leash on the camera positions to
-keep the solution from drifting. A single frozen transverse-distortion lens is
-shared across all framelets.
+uses the CTX DEM as a height constraint (heights-from-dem), ground control
+points generated from it with :numref:`dem2gcp`, and a leash on the camera
+positions to keep the solution from drifting. A single frozen
+transverse-distortion lens is shared across all framelets.
 
 Each refinement is done in two passes. The first pass holds the ground control
 fixed, to anchor the horizontal registration. The second pass floats it and leans
@@ -344,6 +347,8 @@ with :numref:`point2dem`, where a per-point triangulation-error cap removes
 blunders without carving holes. The per-pair DEMs are blended into a seamless
 result with :numref:`dem_mosaic` at 18 m/pixel, and the worst per-pair
 triangulation errors are mosaicked as a diagnostic.
+
+.. _cassis_refine:
 
 Optional refinement
 ~~~~~~~~~~~~~~~~~~~
@@ -372,18 +377,30 @@ shifts.
 It is strongly suggested not to rely on statistics alone, but to inspect the
 vertical difference map and the colorized disparity bands.
 
-Joint distortion
-^^^^^^^^^^^^^^^^
+Solving for lens distortion
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The workflow above treats the lens distortion as a single frozen model, refit
-once and then held fixed.
+The workflow above treats the lens distortion as solved once, ahead of time,
+then fixed. It is suggested to run this pipeline with the provided optimized
+distortion.
 
-The distortion can instead be solved for. To do this, run the two bundle
-adjustment commands from the workflow not per site, but jointly across the three
-sites (Jezero, Oxia Planum 1, and Oxia Planum 2), with distortion solving enabled
-via ``--intrinsics-to-float other_intrinsics``.
+To optimize the distortion, starting with the values that are published in the
+ESA Planetary Science Archive, which ASP converts to the transverse distortion
+model in CSM, run the same two bundle adjustment commands from the workflow not
+per site, but jointly, across the three sites (Jezero, Oxia Planum 1, and Oxia
+Planum 2), with distortion solving enabled via ``--intrinsics-to-float
+other_intrinsics``.
 
 This uses the option ``--heights-from-dem-list`` in :numref:`bundle_adjust`
-(added in the ASP build of July 2026, :numref:`release`), which passes a per-site
-list of reference DEMs. The three sites are widely spaced across Mars, so a single
-merged DEM is not feasible.
+(added in the ASP build of 2026/7, :numref:`release`), which passes a
+per-site list of reference DEMs. The three sites are widely spaced across Mars,
+so a single merged DEM is not feasible.
+
+The resulting lens distortion was then refined as in :numref:`cassis_refine`, so
+this joint optimization process was repeated with the current lens distortion as
+input. Validation on the other two sites showed it was good enough.
+
+Note that the provided lens distortion implicitly tilts the camera poses, which
+is compensated for by adjusting the camera pose when this distortion is applied
+(:numref:`cassis_refit`). Presumably a tighter constraint on the camera position
+could be used to rederive this optimized distortion while minimizing the tilt.
