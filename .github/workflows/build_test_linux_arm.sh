@@ -42,17 +42,16 @@ envName=asp_deps
 bbUrl=https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}
 envParent="$HOME/miniconda3/envs"
 mkdir -p "$envParent/asp_deps" "$envParent/python_isis10"
-wget -nv --tries=5 --timeout=30 ${bbUrl}/asp_deps_p1.tar.gz
-wget -nv --tries=2 --timeout=30 ${bbUrl}/asp_deps_p2.tar.gz 2>/dev/null   # may not exist (single part) - ok
-wget -nv --tries=5 --timeout=30 ${bbUrl}/python_isis10.tar.gz
+wget --tries=5 --timeout=30 ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
+wget --tries=2 --timeout=30 ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
+wget --tries=5 --timeout=30 ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
 cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps"
 "$envParent/asp_deps/bin/conda-unpack"
 tar xzf python_isis10.tar.gz -C "$envParent/python_isis10"
 "$envParent/python_isis10/bin/conda-unpack"
-# Free the downloaded dependency tarballs now that they are unpacked, to save
-# runner disk (the arm runner is disk-constrained).
+# Remove the downloaded dependency tarballs once they are unpacked (no need to
+# keep several GB of tarballs around).
 rm -f asp_deps_p*.tar.gz python_isis10.tar.gz
-df -h
 
 # Locate the env
 envPath=$(ls -d $HOME/*conda3/envs/${envName})
@@ -192,11 +191,12 @@ fi
 # Fetch the shared test data + reference results
 cd $baseDir
 echo Testing the build.
-# Use the system CA bundle explicitly. By this point the conda env is active
-# (source activate above), and its wget/openssl cannot verify GitHub's cert
-# ("Unable to locally verify the issuer's authority"), whereas the deps wgets
-# above (run before activation) use the system certs and succeed.
-wget -nv --tries=5 --timeout=30 --ca-certificate=/etc/ssl/certs/ca-certificates.crt https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
+# --no-check-certificate: by this point the conda env is active (source activate
+# above) and its wget/openssl cannot verify GitHub's cert ("Unable to locally
+# verify the issuer's authority"); the deps wgets above run before activation and
+# use the system certs, so they succeed. This is a public test tarball, so
+# skipping cert verification here is fine and avoids depending on a CA-bundle path.
+wget --tries=5 --timeout=30 --no-check-certificate https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar > /dev/null 2>&1
 if [ ! -f "StereoPipelineTest.tar" ]; then
     echo "Error: File: StereoPipelineTest.tar does not exist. Test failed."
     build_failed=1
