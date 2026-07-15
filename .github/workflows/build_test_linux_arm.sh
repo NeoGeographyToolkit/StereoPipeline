@@ -192,8 +192,11 @@ fi
 # Fetch the shared test data + reference results
 cd $baseDir
 echo Testing the build.
-echo "=== disk before fetching the test tarball ==="; df -h
-wget -nv --tries=5 --timeout=30 https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
+# Use the system CA bundle explicitly. By this point the conda env is active
+# (source activate above), and its wget/openssl cannot verify GitHub's cert
+# ("Unable to locally verify the issuer's authority"), whereas the deps wgets
+# above (run before activation) use the system certs and succeed.
+wget -nv --tries=5 --timeout=30 --ca-certificate=/etc/ssl/certs/ca-certificates.crt https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
 if [ ! -f "StereoPipelineTest.tar" ]; then
     echo "Error: File: StereoPipelineTest.tar does not exist. Test failed."
     build_failed=1
