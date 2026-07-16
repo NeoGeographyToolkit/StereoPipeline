@@ -183,7 +183,7 @@ It should be kept fixed for future work.
 
 The ground-sample distance of CaSSIS is about 4.6 m/pixel, which compares to CTX
 (:numref:`ctx_example`) at about 6 m/pixel. These two sensors are close enough
-in resolution to be comparable, and the DEM resolution of 18 m/pixel employed in
+in resolution to be comparable. The DEM resolution of 18 m/pixel employed in
 this processing is about 4x the CaSSIS image resolution.
 
 .. _cassis_workflow:
@@ -191,10 +191,30 @@ this processing is about 4x the CaSSIS image resolution.
 Detailed workflow
 ~~~~~~~~~~~~~~~~~
 
-This work is reproducible *end-to-end* with a collection of scripts and sample
-data that is provided in the separate `CaSSIS pipeline
-<https://github.com/NeoGeographyToolkit/CassisPipeline>`_ repository. What
-follows is an overview of key steps.
+Reproducibility
+^^^^^^^^^^^^^^^^
+
+This work is reproducible *end-to-end* with a collection of scripts that is
+provided in the separate `CaSSIS pipeline
+<https://github.com/NeoGeographyToolkit/CassisPipeline>`_ repository. A
+ready-to-run `sample dataset for the Jezero site
+<https://github.com/NeoGeographyToolkit/CassisPipeline/releases/tag/jezero-reference>`_
+is also available, that has the input CaSSIS data, the reference CTX DEM, the
+distortion-refitted, bundle-adjured and aligned cameras that are ready for
+stereo, and the output DEM and triangulation error mosaics.
+
+.. _cassis_compute:
+
+Compute requirements
+^^^^^^^^^^^^^^^^^^^^
+
+The preparation stages are light and can be run on a local machine. The heavy
+stages, being the distortion refit, dense matches, bundle adjustment, and
+stereo, are meant for a compute node, such as a supercomputer node
+(:numref:`pbs_slurm`). A single node with 28 cores is sufficient. In our run the
+heavy stages took one to two hours of compute, the dense matching and the first
+bundle-adjustment pass being the bulk. The node had 128 GB of memory, far more
+than the pipeline needs.
 
 .. _cassis_published_dem:
 
@@ -254,7 +274,7 @@ The DEMs are warped to this extent and seamlessly blended with
 :numref:`dem_mosaic`. Each input is then compared to the blend with
 :numref:`geodiff`, and any that disagrees badly is dropped (roughly, a mean
 offset over 20 m or a spread over 30 m, against a CTX jitter floor of a few
-meters). The curated set is re-blended and inspected by eye. 
+meters). The curated set is re-blended and inspected by eye.
 
 CTX can be off the true ground by a few meters, and spacecraft jitter or a poor
 pair alignment can show up as smeared craters and other features in the
@@ -271,7 +291,7 @@ ICP-based alignment.
 
 This worked better than ICP point-to-plane alignment (:numref:`align-method`),
 which introduced a large lateral slide given the notable warping of the official
-CaSSIS DEMs. 
+CaSSIS DEMs.
 
 This alignment is only for the comparisons above. It is not used in producing
 our DEMs.
@@ -308,7 +328,7 @@ ISIS 10.0.0 and ``rclone`` (needed by the kernel downloader), from the public
 ``usgs-astrogeology`` channel::
 
     conda config --set channel_priority flexible
-    conda create -n isis10           \
+    conda create -n isis10                \
       -c usgs-astrogeology -c conda-forge \
       isis=10.0.0 csm=3.0.3.3 rclone
     conda activate isis10
@@ -344,7 +364,7 @@ groups orbits into ranges of one hundred, so orbit 16378 is under
     for sid in 838849161 838849162; do
       out=L${n}_$sid
       mkdir -p $out
-      files=$(curl -sL "$base/$sid/PAN/"                   \
+      files=$(curl -sL "$base/$sid/PAN/" \
         | grep -ioE 'cas_cal[^"]*\.(dat|xml)' | grep -vi sti | sort -u)
       for f in $files; do
         curl -sL "$base/$sid/PAN/$f" -o "$out/$f"
@@ -436,7 +456,7 @@ This needs the CaSSIS-capable versions of ALE and `USGSCSM
 <https://github.com/DOI-USGS/usgscsm>`_. These are custom-built conda packages,
 with build string ``cassis``, on the ``nasa-ames-stereo-pipeline`` channel, as
 the official releases of these packages (as of July 2026) do not yet support
-CaSSIS. 
+CaSSIS.
 
 These packages are *newer* than with the ISIS environment above, with some logic
 added specifically for CaSSIS, so care is needed not to mix the two. These go
@@ -496,12 +516,56 @@ carrying the updated, registered poses.
 Dense matches
 ^^^^^^^^^^^^^
 
-Dense interest-point matches are computed once and reused across the passes.
-Matches within a look, left-to-left and right-to-right, are found in the raw
-image (pixel) domain. Matches across the two looks, left-to-right, are found in
-the mapprojected domain (:numref:`mapproject`), which removes the large
-cross-look convergence and makes the correlation reliable. These matches tie the
-framelets together for bundle adjustment and for stereo.
+Dense interest-point matches are computed once and reused across the bundle
+adjustment runs. They are found in two ways, by look. Both use
+``--num-matches-from-disparity``, which runs a dense correlation and then keeps
+that many matches spread across the overlap. The cameras at this stage are not
+yet bundle-adjusted.
+
+Cross-look matches (left-to-right) are found in the mapprojected domain
+(:numref:`mapproject`), which removes the large cross-look convergence and makes
+the correlation reliable. Each framelet is mapprojected onto the blurred CTX
+drape, then the overlapping pairs are correlated. Because the cameras still carry
+error, a search collar is allowed with ``--mapproj-geolocation-uncertainty``
+(about 30 pixels), so the residual disparity is not filtered away::
+
+    parallel_stereo                        \
+      --processes 1                        \
+      --threads-multiprocess 2             \
+      --threads-singleprocess 2            \
+      --alignment-method none              \
+      --stereo-algorithm asp_mgm           \
+      --subpixel-mode 9                    \
+      --corr-seed-mode 1                   \
+      --mapproj-geolocation-uncertainty 30 \
+      --num-matches-from-disparity 20000   \
+      --max-disp-spread 120                \
+      left_map.tif right_map.tif left.json right.json pair/run drape.tif
+
+Same-look matches (left-to-left and right-to-right) are found in the raw image
+domain, with affine-epipolar alignment::
+
+    parallel_stereo                      \
+      --processes 1                      \
+      --threads-multiprocess 2           \
+      --threads-singleprocess 2          \
+      --alignment-method affineepipolar  \
+      --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                  \
+      --corr-seed-mode 1                 \
+      --ip-detect-method 1               \
+      --ip-per-image 12000               \
+      --num-matches-from-disparity 20000 \
+      --min-triangulation-angle 1e-10    \
+      left.cub right.cub left.json right.json pair/run
+
+The option ``--ip-detect-method 1`` (the SIFT detector) is important here. The
+default interest-point detector barely matches CaSSIS imagery, while SIFT finds
+many more matches on the same images. So it is always used for CaSSIS.
+
+The matches from both are written per pair, in original framelet pixel
+coordinates. This is what :numref:`bundle_adjust` reads through
+``--match-files-prefix`` (:numref:`cassis_ba`).
 
 .. _cassis_refit:
 
@@ -509,10 +573,45 @@ Distortion refit
 ^^^^^^^^^^^^^^^^
 
 The steps up to here assume the published lens distortion is already calibrated.
-A single transverse-distortion model is then refit from the dense matches and
-set on the cameras with :numref:`cam_gen`, frozen and shared across all
-framelets. This corrects the residual across-track warping that a fixed
-distortion leaves behind.
+Two :numref:`cam_gen` steps put the corrected distortion on the cameras.
+
+First, each framelet's native distortion is refit to a transverse model with
+``--csm-refit-distortion``, keeping the pose and all other intrinsics exactly.
+Because it is one physical lens, the fitted distortion comes out the same for
+every framelet, so it is effectively one shared model::
+
+    cam_gen framelet.cub             \
+      --input-camera framelet.json   \
+      --csm-refit-distortion         \
+      --distortion-type transverse   \
+      --refine-intrinsics distortion \
+      --datum D_MARS                 \
+      --num-pixel-samples 4000       \
+      -o framelet_refit.json
+
+Then the frozen, optimized distortion (:numref:`cassis_opt_lens_dist`) is applied,
+and the pose is refit to absorb the small tilt this distortion introduces, with
+``--csm-refit-pose``. The reference DEM and a camera-position leash keep the refit
+from drifting::
+
+    cam_gen framelet.cub                               \
+      --input-camera framelet_refit.json               \
+      --csm-refit-pose                                 \
+      --distortion-type transverse                     \
+      --distortion <optimized distortion coefficients> \
+      --reference-dem ctx.tif                          \
+      --camera-position-uncertainty 100,100            \
+      --datum D_MARS                                   \
+      --num-pixel-samples 4000                         \
+      -o framelet_start.json
+
+The full optimized distortion coefficients are a fixed instrument constant, not
+reproduced here. The complete set is in `cassis_common.conf
+<https://github.com/NeoGeographyToolkit/CassisPipeline/blob/main/config/cassis_common.conf>`_
+in the CaSSIS pipeline repository.
+
+These start cameras go into bundle adjustment. This corrects the residual
+across-track warping that a fixed distortion would otherwise leave behind.
 
 .. _cassis_ba:
 
@@ -525,21 +624,139 @@ points generated from it with :numref:`dem2gcp`, and a leash on the camera
 positions to keep the solution from drifting. A single frozen
 transverse-distortion lens is shared across all framelets.
 
-Each refinement is done in two passes. The first pass holds the ground control
-fixed, to anchor the horizontal registration. The second pass floats it and leans
-on the height constraint, to settle the vertical while keeping the horizontal.
+The refinement is done as two bundle adjustment runs. Both use the same three
+inputs: a list of framelet images, the matching list of frame cameras (in the
+same order, one per image), and the dense interest-point matches from
+:numref:`cassis_dense_matches`, passed as a match-files prefix. The height
+constraint in both is the CTX reference DEM.
+
+The first run anchors the horizontal registration. It starts from the frame
+cameras, adds the ground control points made with :numref:`dem2gcp`, and holds
+their coordinates fixed with ``--fix-gcp-xyz``. The height constraint is kept
+loose (uncertainty 200 m), so the fixed ground control drives the horizontal
+fit::
+
+    bundle_adjust                                 \
+      --image-list images.txt                     \
+      --camera-list cameras.txt                   \
+      gcp.gcp                                     \
+      --fix-gcp-xyz                               \
+      --max-gcp-reproj-err 100                    \
+      --inline-adjustments                        \
+      --match-files-prefix dense/matches/run-disp \
+      --heights-from-dem ctx.tif                  \
+      --heights-from-dem-uncertainty 200          \
+      --heights-from-dem-robust-threshold 0.1     \
+      --camera-position-uncertainty 500,500       \
+      --robust-threshold 2                        \
+      --num-iterations 50                         \
+      --num-passes 2                              \
+      --remove-outliers-params "75 3 100 100"     \
+      --min-triangulation-angle 1e-10             \
+      --forced-triangulation-distance 392000      \
+      --max-pairwise-matches 2000                 \
+      -o ba_fixed_gcp/run
+
+The second run settles the vertical. It reuses the cameras from the first run
+through the image and camera lists that run wrote, ``ba_fixed_gcp/run-image_list.txt``
+and ``ba_fixed_gcp/run-camera_list.txt``. It uses no ground control, and tightens the
+height constraint to an uncertainty of 1 m, so the heights lock onto the CTX DEM
+while the matches hold the horizontal in place::
+
+    bundle_adjust                                    \
+      --image-list ba_fixed_gcp/run-image_list.txt   \
+      --camera-list ba_fixed_gcp/run-camera_list.txt \
+      --inline-adjustments                           \
+      --match-files-prefix dense/matches/run-disp    \
+      --heights-from-dem ctx.tif                     \
+      --heights-from-dem-uncertainty 1               \
+      --heights-from-dem-robust-threshold 0.1        \
+      --camera-position-uncertainty 500,500          \
+      --robust-threshold 2                           \
+      --num-iterations 50                            \
+      --num-passes 2                                 \
+      --remove-outliers-params "75 3 100 100"        \
+      --min-triangulation-angle 1e-10                \
+      --forced-triangulation-distance 392000         \
+      --max-pairwise-matches 2000                    \
+      -o ba_tight_dem/run
+
+The ``--inline-adjustments`` option writes each refined camera as a full camera
+file, used directly by the next stage. The ``--camera-position-uncertainty``
+leash keeps the poses from drifting far. The lens distortion is not solved in
+these runs and stays frozen (:numref:`cassis_opt_lens_dist`).
 
 .. _cassis_stereo:
 
 Pairwise stereo and blending
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The cross-look framelet pairs are correlated with :numref:`parallel_stereo` in the
-mapprojected domain at the native image resolution. Each pair yields a small DEM
-with :numref:`point2dem`, where a per-point triangulation-error cap removes
-blunders without carving holes. The per-pair DEMs are blended into a seamless
-result with :numref:`dem_mosaic` at 18 m/pixel, and the worst per-pair
-triangulation errors are mosaicked as a diagnostic.
+The stereo runs on the cameras from the second bundle adjustment run. It has
+three parts: mapproject each framelet, correlate the cross-look pairs into small
+DEMs, and blend those into the frame DEM.
+
+Each framelet is first mapprojected onto the blurred CTX drape, with its refined
+camera, at the native image resolution (about 4.6 m/pixel). The correlation grid
+must stay native. Mapprojecting onto a coarse grid blurs the framelets and yields
+a blocky DEM::
+
+    mapproject --tr 4.59 drape.tif framelet.cub framelet.json framelet_map.tif
+
+Each cross-look pair is then correlated with :numref:`parallel_stereo` in the
+mapprojected domain, with no further alignment, and turned into a small DEM with
+:numref:`point2dem`. The triangulation-error cap removes blunders without carving
+holes. The reference DEM used for mapprojection is passed as the last argument::
+
+    parallel_stereo                       \
+      --processes 1                       \
+      --threads-multiprocess 2            \
+      --threads-singleprocess 2           \
+      --alignment-method none             \
+      --stereo-algorithm asp_mgm          \
+      --subpixel-mode 9                   \
+      --corr-seed-mode 1                  \
+      --min-matches 5                     \
+      --ip-per-tile 2000                  \
+      --ip-match-radius 20                \
+      --mapproj-geolocation-uncertainty 0 \
+      left_map.tif right_map.tif left.json right.json pair/run drape.tif
+
+    point2dem                           \
+      --errorimage                      \
+      --max-valid-triangulation-error 8 \
+      --t_srs "$proj"                   \
+      --tr 18                           \
+      pair/run-PC.tif -o pair/dem
+
+The per-pair DEMs are blended into a seamless result with :numref:`dem_mosaic` at
+18 m/pixel, then regridded onto the exact CTX grid. A blunder check first drops
+any per-pair DEM whose mean elevation is more than 500 m from the median::
+
+    dem_mosaic pair*/dem-DEM.tif \
+      --t_srs "$proj"            \
+      --tr 18                    \
+      -o dem_frame_mosaic.tif
+
+    gdalwarp         \
+      -t_srs "$proj" \
+      -te <extent>   \
+      -tr 18 18      \
+      -r cubicspline \
+      dem_frame_mosaic.tif dem_frame_mosaic_onctx.tif
+
+The ``pair*`` wildcard picks up the DEM from every per-pair directory. The worst
+per-pair triangulation errors are mosaicked as a diagnostic, on the same grid::
+
+    dem_mosaic --max pair*/dem-IntersectionErr.tif \
+      --t_srs "$proj"                              \
+      --tr 18                                      \
+      -o max_tri_err.tif
+
+The ``gdalwarp`` step is what puts the frame DEM on the exact CTX grid. Its
+``$proj`` projection and ``-te`` extent are read from the CTX reference DEM. This
+is done for ease of comparison. The frame DEM and CTX then share one grid, so the
+evaluation (:numref:`cassis_eval`) is a direct difference with no further
+resampling.
 
 .. _cassis_refine:
 
@@ -562,15 +779,53 @@ discrepancy at the top and bottom of the Oxia Planum 1 DEM.
 Evaluation
 ^^^^^^^^^^
 
-The final DEM is compared to CTX with :numref:`geodiff` for the vertical
-difference, and by image correlation of the two hillshades for the horizontal
-registration (:numref:`correlator-mode`, :numref:`raw_disp`). A good result has
-a near-zero median, a small robust spread (under 6 meters), and a sub-pixel
-disparity median and NMAD in each band (at 18 m/pixel), with no systematic
-shifts.
+The final DEM is compared to CTX in two ways.
 
-It is strongly suggested not to rely on statistics alone, but to inspect the
-vertical difference map and the colorized disparity bands.
+The vertical difference is a direct :numref:`geodiff`, as the two are already on
+the same grid (:numref:`cassis_stereo`)::
+
+    geodiff dem_frame_mosaic_onctx.tif ctx.tif -o dz
+
+The horizontal registration is measured by correlating the two hillshades. Both
+DEMs are hillshaded, correlated with :numref:`parallel_stereo` in
+:numref:`correlator-mode`, and the raw disparity is written with
+:numref:`disparitydebug`::
+
+    gdaldem hillshade   \
+      -multidirectional \
+      -compute_edges    \
+      dem_frame_mosaic_onctx.tif dem_hill.tif
+
+    gdaldem hillshade   \
+      -multidirectional \
+      -compute_edges    \
+      ctx.tif ctx_hill.tif
+
+    parallel_stereo                      \
+      --correlator-mode                  \
+      --stereo-algorithm asp_mgm         \
+      --corr-kernel 9 9                  \
+      --ip-per-image 40000               \
+      --subpixel-mode 9                  \
+      --corr-search -25 -25 25 25        \
+      --processes 8                      \
+      --num-matches-from-disparity 40000 \
+      dem_hill.tif ctx_hill.tif run
+
+    disparitydebug --raw run-F.tif --output-prefix run-F
+
+A correlation search range of 25 pixels is enough here, given the small
+misregistration expected between the two hillshades.
+
+The two bands ``run-F-H.tif`` and ``run-F-V.tif`` are the across-track and
+along-track disparity (:numref:`raw_disp`). A good result has a near-zero median
+vertical difference, a small robust spread (under 6 meters), and a sub-pixel
+disparity median and NMAD in each band at 18 m/pixel, with no systematic shifts.
+
+Analyze these raw bands, not ``run-F.tif`` directly. Its third band is a validity
+mask that plain statistics tools ignore, which would let invalid pixels pollute
+the numbers. It is strongly suggested not to rely on statistics alone, but to
+inspect the vertical difference map and the colorized disparity bands.
 
 .. _cassis_opt_lens_dist:
 
