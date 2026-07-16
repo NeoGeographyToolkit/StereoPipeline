@@ -474,7 +474,11 @@ def keepOnlySpecified(keep_only, out_prefix, subdirs, settings):
            continue
 
         print("Keeping: " + f)
-        if isVrt(f):
+        # This converts tile-assembly VRTs (such as RD.tif, D.tif, PC.tif) to
+        # real TIFF files before their per-tile sources are wiped. But the L.tif
+        # and R.tif skip-image-normalization working images are VRTs pointing at
+        # the original inputs, which persist, so leave them virtual (no copy).
+        if isVrt(f) and f != out_prefix + "-L.tif" and f != out_prefix + "-R.tif":
             f_merged = os.path.splitext(f)[0] + "_merged.tif"
             print("Convert " + f + " from VRT to TIF format.")
             cmd = ['gdal_translate', '-co', 'compress=lzw', '-co', 'TILED=yes', '-co',
