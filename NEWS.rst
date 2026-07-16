@@ -89,9 +89,9 @@ dem2gcp (:numref:`dem2gcp`):
 
 hiedr2mosaic (:numref:`hiedr2mosaic`):
   * Fixed a crash in the mosaic step when a HiRISE observation is missing a CCD.
+  * Added ``--dry-run`` option.
 
 Misc:
-  * Added ``--dry-run`` option to ``hiedr2mosaic.py`` (:numref:`hiedr2mosaic`).
   * Fixed a bug with very long input image names when creating ``.match`` and
     ``.vwip`` file names (:numref:`match_file_naming`).
   * Added ``--mapproj-geolocation-uncertainty``, to keep stereo from failing on
