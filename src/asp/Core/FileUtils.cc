@@ -471,14 +471,10 @@ void read_matrix_from_string(std::string const& str,
   convertToVec3(raw, mat);
 }
 
-// For a VRT input, write a re-serialized copy rather than a symlink.
-// The GDAL VRT driver canonicalizes the source paths stored inside the
-// VRT (to absolute) for the new location, which makes the run
-// self-contained and independent of how a given GDAL version resolves
-// relative source paths through a symlink. The copy is metadata-only
-// (VRT XML); no pixels are read or written.
-static void materializeVrt(std::string const& input_file,
-                           std::string const& output_file) {
+// Re-serialize a VRT so it works at a new location. The internal paths are
+// made absolute. No pixels are read or written.
+void serializeVrt(std::string const& input_file,
+                  std::string const& output_file) {
 
   GDALDatasetH in_ds = GDALOpen(input_file.c_str(), GA_ReadOnly);
   if (in_ds == NULL)
@@ -498,43 +494,44 @@ static void materializeVrt(std::string const& input_file,
                << input_file << ")\n";
 }
 
+// Point an output image to an input image for skip_image_normalization mode.
+// A VRT is re-serialized (see serializeVrt); any other input is symlinked with
+// a path relative to the output directory. Nothing is done if the output exists.
+void linkOrSerializeImage(std::string const& input_file,
+                          std::string const& out_prefix,
+                          std::string const& output_file) {
+
+  namespace fs = boost::filesystem;
+
+  if (fs::exists(output_file))
+    return;
+
+  if (vw::has_vrt_extension(input_file)) {
+    serializeVrt(input_file, output_file);
+    return;
+  }
+
+  fs::path out_dir = fs::path(out_prefix).parent_path();
+  fs::path rel = out_dir.empty() ? fs::path(input_file) :
+                 vw::make_file_relative_to_dir(fs::path(input_file), out_dir);
+  fs::create_symlink(rel, output_file);
+  vw::vw_out() << "Created symlink: " << output_file << " -> " << rel << "\n";
+}
+
 // Create symlinks to the input images for skip_image_normalization mode.
 // The symlinks are relative to the output directory. VRT inputs are
-// copied (re-serialized) rather than symlinked; see materializeVrt().
+// re-serialized rather than symlinked (see serializeVrt).
 void createSymLinks(std::string const& left_input_file,
                     std::string const& right_input_file,
                     std::string const& out_prefix,
                     std::string      & left_output_file,
                     std::string      & right_output_file) {
 
-  namespace fs = boost::filesystem;
-
   left_output_file  = out_prefix + "-L.tif";
   right_output_file = out_prefix + "-R.tif";
 
-  if (!fs::exists(left_output_file)) {
-    if (vw::get_extension(left_input_file) == ".vrt") {
-      materializeVrt(left_input_file, left_output_file);
-    } else {
-      fs::path out_dir = fs::path(out_prefix).parent_path();
-      fs::path left_rel = out_dir.empty() ? fs::path(left_input_file) :
-                          vw::make_file_relative_to_dir(fs::path(left_input_file), out_dir);
-      fs::create_symlink(left_rel, left_output_file);
-      vw::vw_out() << "Created symlink: " << left_output_file << " -> " << left_rel << "\n";
-    }
-  }
-
-  if (!fs::exists(right_output_file)) {
-    if (vw::get_extension(right_input_file) == ".vrt") {
-      materializeVrt(right_input_file, right_output_file);
-    } else {
-      fs::path out_dir = fs::path(out_prefix).parent_path();
-      fs::path right_rel = out_dir.empty() ? fs::path(right_input_file) :
-                           vw::make_file_relative_to_dir(fs::path(right_input_file), out_dir);
-      fs::create_symlink(right_rel, right_output_file);
-      vw::vw_out() << "Created symlink: " << right_output_file << " -> " << right_rel << "\n";
-    }
-  }
+  linkOrSerializeImage(left_input_file,  out_prefix, left_output_file);
+  linkOrSerializeImage(right_input_file, out_prefix, right_output_file);
 }
 
 } // end namespace asp

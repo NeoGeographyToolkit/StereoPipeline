@@ -194,7 +194,7 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
   // {prefix}-R.tif outputs are read back through GDAL, which identifies
   // rasters by content rather than by the file name. VRT inputs are
   // re-serialized rather than symlinked, which canonicalizes their
-  // internal source paths for the run directory (see materializeVrt()
+  // internal source paths for the run directory (see serializeVrt()
   // in FileUtils.cc).
   bool is_good = (!crop_left && !crop_right                    &&
                   stereo_settings().alignment_method == "none" &&
