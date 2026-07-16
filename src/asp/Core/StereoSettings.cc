@@ -182,7 +182,7 @@ PreProcessingDescription::PreProcessingDescription():
     ("no-datum", po::bool_switch(&global.no_datum)->default_value(false)->implicit_value(true),
       "Do not assume a reliable datum exists, such as for potato-shaped bodies.")
     ("skip-image-normalization", po::bool_switch(&global.skip_image_normalization)->default_value(false)->implicit_value(true),
-      "Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images. This is a speedup option for mapprojected input images with no alignment.")
+      "Skip normalizing the input image values and removing nodata pixels, avoiding a normalized copy of the inputs. A speedup option for mapprojected input images. Requires no alignment, no crop windows, no bathymetry, a GDAL-supported input format, and --cost-mode 2, 3, or 4.")
     ("force-reuse-match-files", po::bool_switch(&global.force_reuse_match_files)->default_value(false)->implicit_value(true),
       "Force reusing the match files even if older than the images or cameras.")
     ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
