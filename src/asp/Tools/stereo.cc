@@ -190,19 +190,26 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
   bool scale_invariant_cost = (stereo_settings().cost_mode == 2 ||
                                stereo_settings().cost_mode == 3 ||
                                stereo_settings().cost_mode == 4);
+  // Any GDAL-supported image format works here: the {prefix}-L.tif and
+  // {prefix}-R.tif outputs are read back through GDAL, which identifies
+  // rasters by content rather than by the file name. VRT inputs are
+  // re-serialized rather than symlinked, which canonicalizes their
+  // internal source paths for the run directory (see materializeVrt()
+  // in FileUtils.cc).
   bool is_good = (!crop_left && !crop_right                    &&
                   stereo_settings().alignment_method == "none" &&
                   scale_invariant_cost                         &&
                   !asp::doBathy(asp::stereo_settings())        &&
-                  vw::has_tif_or_ntf_extension(opt.in_file1)   &&
-                  vw::has_tif_or_ntf_extension(opt.in_file2));
+                  vw::has_image_extension(opt.in_file1)        &&
+                  vw::has_image_extension(opt.in_file2));
 
   if (!is_good)
     vw_throw(ArgumentErr()
               << "Cannot skip image normalization unless there is no alignment, "
               << "no use of --left-image-crop-win and --right-image-crop-win, "
               << "no bathymetry, --cost-mode is set to 2, 3, or 4, and the input "
-              << "images have .tif or .ntf extension.");
+              << "images have a supported image extension (such as .tif, .ntf, "
+              << "or .vrt).");
 
   return is_good;
 } // End function skip_image_normalization

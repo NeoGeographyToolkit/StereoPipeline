@@ -22,6 +22,8 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Core/Log.h>
 
+#include <gdal.h>
+
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
@@ -469,8 +471,36 @@ void read_matrix_from_string(std::string const& str,
   convertToVec3(raw, mat);
 }
 
+// For a VRT input, write a re-serialized copy rather than a symlink.
+// The GDAL VRT driver canonicalizes the source paths stored inside the
+// VRT (to absolute) for the new location, which makes the run
+// self-contained and independent of how a given GDAL version resolves
+// relative source paths through a symlink. The copy is metadata-only
+// (VRT XML); no pixels are read or written.
+static void materializeVrt(std::string const& input_file,
+                           std::string const& output_file) {
+
+  GDALDatasetH in_ds = GDALOpen(input_file.c_str(), GA_ReadOnly);
+  if (in_ds == NULL)
+    vw::vw_throw(vw::ArgumentErr() << "Cannot open: " << input_file << ".\n");
+
+  GDALDriverH drv = GDALGetDriverByName("VRT");
+  GDALDatasetH out_ds = GDALCreateCopy(drv, output_file.c_str(), in_ds,
+                                       FALSE, NULL, NULL, NULL);
+  if (out_ds == NULL) {
+    GDALClose(in_ds);
+    vw::vw_throw(vw::ArgumentErr() << "Failed to write: " << output_file << ".\n");
+  }
+
+  GDALClose(out_ds);
+  GDALClose(in_ds);
+  vw::vw_out() << "Wrote: " << output_file << " (re-serialized VRT copy of "
+               << input_file << ")\n";
+}
+
 // Create symlinks to the input images for skip_image_normalization mode.
-// The symlinks are relative to the output directory.
+// The symlinks are relative to the output directory. VRT inputs are
+// copied (re-serialized) rather than symlinked; see materializeVrt().
 void createSymLinks(std::string const& left_input_file,
                     std::string const& right_input_file,
                     std::string const& out_prefix,
@@ -483,19 +513,27 @@ void createSymLinks(std::string const& left_input_file,
   right_output_file = out_prefix + "-R.tif";
 
   if (!fs::exists(left_output_file)) {
-    fs::path out_dir = fs::path(out_prefix).parent_path();
-    fs::path left_rel = out_dir.empty() ? fs::path(left_input_file) :
-                        vw::make_file_relative_to_dir(fs::path(left_input_file), out_dir);
-    fs::create_symlink(left_rel, left_output_file);
-    vw::vw_out() << "Created symlink: " << left_output_file << " -> " << left_rel << "\n";
+    if (vw::get_extension(left_input_file) == ".vrt") {
+      materializeVrt(left_input_file, left_output_file);
+    } else {
+      fs::path out_dir = fs::path(out_prefix).parent_path();
+      fs::path left_rel = out_dir.empty() ? fs::path(left_input_file) :
+                          vw::make_file_relative_to_dir(fs::path(left_input_file), out_dir);
+      fs::create_symlink(left_rel, left_output_file);
+      vw::vw_out() << "Created symlink: " << left_output_file << " -> " << left_rel << "\n";
+    }
   }
 
   if (!fs::exists(right_output_file)) {
-    fs::path out_dir = fs::path(out_prefix).parent_path();
-    fs::path right_rel = out_dir.empty() ? fs::path(right_input_file) :
-                         vw::make_file_relative_to_dir(fs::path(right_input_file), out_dir);
-    fs::create_symlink(right_rel, right_output_file);
-    vw::vw_out() << "Created symlink: " << right_output_file << " -> " << right_rel << "\n";
+    if (vw::get_extension(right_input_file) == ".vrt") {
+      materializeVrt(right_input_file, right_output_file);
+    } else {
+      fs::path out_dir = fs::path(out_prefix).parent_path();
+      fs::path right_rel = out_dir.empty() ? fs::path(right_input_file) :
+                           vw::make_file_relative_to_dir(fs::path(right_input_file), out_dir);
+      fs::create_symlink(right_rel, right_output_file);
+      vw::vw_out() << "Created symlink: " << right_output_file << " -> " << right_rel << "\n";
+    }
   }
 }
 
