@@ -168,7 +168,8 @@ void saveRunInfo(ASPGlobalOptions const& opt,
 
 // See if user's request to skip image normalization can be
 // satisfied.  This option is a speedup switch which is only meant
-// to work with with mapprojected images. It is also not documented.
+// to work with mapprojected images. See the skip-image-normalization
+// entry in stereodefault.rst for the supported conditions.
 bool skip_image_normalization(ASPGlobalOptions const& opt) {
 
   if (!stereo_settings().skip_image_normalization)
@@ -179,9 +180,19 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
 
   // Respect user's choice for skipping the normalization of the input
   // images, if feasible.
+  // Cost modes 2 (NCC), 3 (census), and 4 (ternary census) are invariant
+  // to a linear scaling of the inputs: NCC normalizes by construction,
+  // and the SGM/MGM path converts each tile to uint8 with a per-tile
+  // min-max stretch (u8_convert in VW ImageThresh.h) that produces
+  // identical output for any linearly pre-scaled input. Only cost modes
+  // 0/1 (absolute/squared differences) genuinely require the global
+  // normalization performed by stereo_pprc.
+  bool scale_invariant_cost = (stereo_settings().cost_mode == 2 ||
+                               stereo_settings().cost_mode == 3 ||
+                               stereo_settings().cost_mode == 4);
   bool is_good = (!crop_left && !crop_right                    &&
                   stereo_settings().alignment_method == "none" &&
-                  stereo_settings().cost_mode == 2             &&
+                  scale_invariant_cost                         &&
                   !asp::doBathy(asp::stereo_settings())        &&
                   vw::has_tif_or_ntf_extension(opt.in_file1)   &&
                   vw::has_tif_or_ntf_extension(opt.in_file2));
@@ -190,8 +201,8 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
     vw_throw(ArgumentErr()
               << "Cannot skip image normalization unless there is no alignment, "
               << "no use of --left-image-crop-win and --right-image-crop-win, "
-              << "no bathymetry, --cost-mode is set to 2, and the input images have "
-              << ".tif or .ntf extension.");
+              << "no bathymetry, --cost-mode is set to 2, 3, or 4, and the input "
+              << "images have .tif or .ntf extension.");
 
   return is_good;
 } // End function skip_image_normalization

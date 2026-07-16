@@ -43,6 +43,11 @@ image_align (:numref:`image_align`):
     per-match uncertainty (:numref:`correlation_uncertainty`).
 
 parallel_stereo (:numref:`parallel_stereo`):
+  * ``--skip-image-normalization`` now also works with the census cost
+    modes (``--cost-mode`` 3 and 4, as used by ``asp_sgm`` / ``asp_mgm``),
+    which are invariant to a linear scaling of the inputs. Previously the
+    option required ``--cost-mode 2``, making it unusable with the SGM
+    family of algorithms (:numref:`stereodefault`).
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
     recent processing best practices (addition of anchor points, gcp robust
     threshold, camera position controls with CSM cameras).
