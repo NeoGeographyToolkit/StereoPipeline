@@ -250,14 +250,18 @@ skip-image-normalization
     nodata-pixels. Create instead symbolic links to original images. This is a
     speedup option for mapprojected input images. It is supported only with no
     alignment (``alignment-method none``), no crop windows, no bathymetry,
-    ``.tif``/``.ntf`` inputs, and a scale-invariant cost function:
+    inputs in a GDAL-supported image format (such as ``.tif``, ``.ntf``, or
+    ``.vrt``), and a scale-invariant cost function:
     ``--cost-mode 2`` (normalized cross-correlation, ``asp_bm``) or
     ``--cost-mode 3``/``4`` (census / ternary census, ``asp_sgm`` /
     ``asp_mgm``). The SGM/MGM correlator converts each tile to uint8 with a
     per-tile min-max stretch, so skipping the global normalization does not
-    change the integer disparity. Note that with this option an orthoimage
-    produced by ``point2dem --orthoimage`` carries the raw input pixel values
-    rather than normalized values; the DEM geometry is unaffected.
+    change the integer disparity for valid-data tiles. Note that with this
+    option an orthoimage produced by ``point2dem --orthoimage`` carries the
+    raw input pixel values rather than normalized values; the DEM geometry is
+    unaffected. A ``.vrt`` input is copied (re-serialized by the GDAL VRT
+    driver) rather than symlinked, which canonicalizes the source paths
+    stored inside it for the new location and makes the run self-contained.
           
 nodata-value (default = NaN)
     Pixels with values less than or equal to this number are treated as

@@ -43,6 +43,11 @@ image_align (:numref:`image_align`):
     per-match uncertainty (:numref:`correlation_uncertainty`).
 
 parallel_stereo (:numref:`parallel_stereo`):
+  * ``--skip-image-normalization`` now accepts any GDAL-supported input
+    image format, including ``.vrt``, allowing large mapprojected images
+    to be windowed or mosaicked virtually with no pixel copies. VRT
+    inputs are re-serialized rather than symlinked, which canonicalizes
+    their internal source paths (:numref:`stereodefault`).
   * ``--skip-image-normalization`` now also works with the census cost
     modes (``--cost-mode`` 3 and 4, as used by ``asp_sgm`` / ``asp_mgm``),
     which are invariant to a linear scaling of the inputs. Previously the
