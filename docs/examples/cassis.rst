@@ -12,7 +12,7 @@ framelets (`Thomas et al. (2017) <https://doi.org/10.1007/s11214-017-0421-1>`_).
 This documents how to create terrain models with CaSSIS images with ASP. The
 resulting `CaSSIS pipeline
 <https://github.com/NeoGeographyToolkit/CassisPipeline>`_ that allows
-reproducible, end-to-end processing is made public.
+reproducible, end-to-end processing is made public, together with sample data.
 
 This requires a recent build of ASP, from 2026/7 or later (:numref:`release`),
 which has the CaSSIS-capable camera support.
