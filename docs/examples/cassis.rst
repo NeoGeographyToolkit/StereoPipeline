@@ -14,6 +14,9 @@ resulting `CaSSIS pipeline
 <https://github.com/NeoGeographyToolkit/CassisPipeline>`_ that allows
 reproducible, end-to-end processing is made public.
 
+This requires a recent build of ASP, from 2026/7 or later (:numref:`release`),
+which has the CaSSIS-capable camera support.
+
 .. _cassis_vendor:
 
 Results
@@ -202,6 +205,8 @@ ready-to-run `sample dataset for the Jezero site
 is also available, that has the input CaSSIS data, the reference CTX DEM, the
 distortion-refitted, bundle-adjured and aligned cameras that are ready for
 stereo, and the output DEM and triangulation error mosaics.
+
+All of this needs a recent ASP build, from 2026/7 or later (:numref:`release`).
 
 .. _cassis_compute:
 
@@ -524,8 +529,9 @@ yet bundle-adjusted.
 
 Cross-look matches (left-to-right) are found in the mapprojected domain
 (:numref:`mapproject`), which removes the large cross-look convergence and makes
-the correlation reliable. Each framelet is mapprojected onto the blurred CTX
-drape, then the overlapping pairs are correlated. Because the cameras still carry
+the correlation reliable. Each framelet is mapprojected onto a low-resolution
+blurred CTX DEM (:numref:`mapproj-example`), then the overlapping pairs are
+correlated. Because the cameras still carry
 error, a search collar is allowed with ``--mapproj-geolocation-uncertainty``
 (about 30 pixels), so the residual disparity is not filtered away::
 
@@ -540,7 +546,9 @@ error, a search collar is allowed with ``--mapproj-geolocation-uncertainty``
       --mapproj-geolocation-uncertainty 30 \
       --num-matches-from-disparity 20000   \
       --max-disp-spread 120                \
-      left_map.tif right_map.tif left.json right.json pair/run drape.tif
+      left_map.tif right_map.tif           \
+      left.json right.json                 \
+      pair/run mapprojDem.tif
 
 Same-look matches (left-to-left and right-to-right) are found in the raw image
 domain, with affine-epipolar alignment::
@@ -557,7 +565,9 @@ domain, with affine-epipolar alignment::
       --ip-per-image 12000               \
       --num-matches-from-disparity 20000 \
       --min-triangulation-angle 1e-10    \
-      left.cub right.cub left.json right.json pair/run
+      left.cub right.cub                 \
+      left.json right.json               \
+      pair/run
 
 The option ``--ip-detect-method 1`` (the SIFT detector) is important here. The
 default interest-point detector barely matches CaSSIS imagery, while SIFT finds
@@ -695,12 +705,17 @@ The stereo runs on the cameras from the second bundle adjustment run. It has
 three parts: mapproject each framelet, correlate the cross-look pairs into small
 DEMs, and blend those into the frame DEM.
 
-Each framelet is first mapprojected onto the blurred CTX drape, with its refined
-camera, at the native image resolution (about 4.6 m/pixel). The correlation grid
-must stay native. Mapprojecting onto a coarse grid blurs the framelets and yields
+Each framelet is first mapprojected onto the low-resolution blurred CTX DEM, with
+its refined camera, at the native image resolution (about 4.6 m/pixel). The
+correlation grid must stay native. Mapprojecting onto a coarse grid blurs the
+framelets and yields
 a blocky DEM::
 
-    mapproject --tr 4.59 drape.tif framelet.cub framelet.json framelet_map.tif
+    mapproject                   \
+      --tr 4.59                  \
+      mapprojDem.tif             \
+      framelet.cub framelet.json \
+      framelet_map.tif
 
 Each cross-look pair is then correlated with :numref:`parallel_stereo` in the
 mapprojected domain, with no further alignment, and turned into a small DEM with
@@ -719,7 +734,9 @@ holes. The reference DEM used for mapprojection is passed as the last argument::
       --ip-per-tile 2000                  \
       --ip-match-radius 20                \
       --mapproj-geolocation-uncertainty 0 \
-      left_map.tif right_map.tif left.json right.json pair/run drape.tif
+      left_map.tif right_map.tif          \
+      left.json right.json                \
+      pair/run mapprojDem.tif
 
     point2dem                           \
       --errorimage                      \
@@ -735,14 +752,14 @@ any per-pair DEM whose mean elevation is more than 500 m from the median::
     dem_mosaic pair*/dem-DEM.tif \
       --t_srs "$proj"            \
       --tr 18                    \
-      -o dem_frame_mosaic.tif
+      -o cassis_dem.tif
 
     gdalwarp         \
       -t_srs "$proj" \
       -te <extent>   \
       -tr 18 18      \
       -r cubicspline \
-      dem_frame_mosaic.tif dem_frame_mosaic_onctx.tif
+      cassis_dem.tif cassis_dem_on_ctx.tif
 
 The ``pair*`` wildcard picks up the DEM from every per-pair directory. The worst
 per-pair triangulation errors are mosaicked as a diagnostic, on the same grid::
@@ -784,7 +801,7 @@ The final DEM is compared to CTX in two ways.
 The vertical difference is a direct :numref:`geodiff`, as the two are already on
 the same grid (:numref:`cassis_stereo`)::
 
-    geodiff dem_frame_mosaic_onctx.tif ctx.tif -o dz
+    geodiff cassis_dem_on_ctx.tif ctx.tif -o dz
 
 The horizontal registration is measured by correlating the two hillshades. Both
 DEMs are hillshaded, correlated with :numref:`parallel_stereo` in
@@ -794,7 +811,7 @@ DEMs are hillshaded, correlated with :numref:`parallel_stereo` in
     gdaldem hillshade   \
       -multidirectional \
       -compute_edges    \
-      dem_frame_mosaic_onctx.tif dem_hill.tif
+      cassis_dem_on_ctx.tif cassis_hill.tif
 
     gdaldem hillshade   \
       -multidirectional \
@@ -810,7 +827,7 @@ DEMs are hillshaded, correlated with :numref:`parallel_stereo` in
       --corr-search -25 -25 25 25        \
       --processes 8                      \
       --num-matches-from-disparity 40000 \
-      dem_hill.tif ctx_hill.tif run
+      cassis_hill.tif ctx_hill.tif run
 
     disparitydebug --raw run-F.tif --output-prefix run-F
 
