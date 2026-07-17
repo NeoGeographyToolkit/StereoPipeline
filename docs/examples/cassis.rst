@@ -195,7 +195,7 @@ Detailed workflow
 ~~~~~~~~~~~~~~~~~
 
 Reproducibility
-^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
 This work is reproducible *end-to-end* with a collection of scripts that is
 provided in the separate `CaSSIS pipeline
@@ -203,7 +203,7 @@ provided in the separate `CaSSIS pipeline
 ready-to-run `sample dataset for the Jezero site
 <https://github.com/NeoGeographyToolkit/CassisPipeline/releases/tag/jezero-reference>`_
 is also available, that has the input CaSSIS data, the reference CTX DEM, the
-distortion-refitted, bundle-adjured and aligned cameras that are ready for
+distortion-refitted, bundle-adjusted and aligned cameras that are ready for
 stereo, and the output DEM and triangulation error mosaics.
 
 All of this needs a recent ASP build, from 2026/7 or later (:numref:`release`).
@@ -214,12 +214,12 @@ Compute requirements
 ^^^^^^^^^^^^^^^^^^^^
 
 The preparation stages are light and can be run on a local machine. The heavy
-stages, being the distortion refit, dense matches, bundle adjustment, and
-stereo, are meant for a compute node, such as a supercomputer node
-(:numref:`pbs_slurm`). A single node with 28 cores is sufficient. In our run the
-heavy stages took one to two hours of compute, the dense matching and the first
-bundle-adjustment pass being the bulk. The node had 128 GB of memory, far more
-than the pipeline needs.
+stages, that include the distortion refit, creation of pairwise dense matches,
+bundle adjustment, and stereo, are compute-intensive and could be run on a
+supercomputer node (:numref:`pbs_slurm`). On a single node with 28 cores and
+128 GB of memory the heavy stages took one to two hours of compute. Likely a lot
+less memory is actually needed. The dense matching and the first
+bundle-adjustment pass took most of the time.
 
 .. _cassis_published_dem:
 
@@ -241,16 +241,16 @@ offset.
 
 For comparison with our results, which use the Mars reference sphere of radius
 3396190 m (the ``D_MARS`` datum), a prior CaSSIS DEM is converted from areoid to
-sphere heights with :numref:`dem_geoid` (option ``--reverse-adjustment`` with
+sphere heights with :ref:`dem_geoid` (option ``--reverse-adjustment`` with
 the MOLA areoid).
 
-The prior CaSSIS DEM is then regridded to the local stereographic projection at
-18 m/pixel with ``gdalwarp``, following the same grid convention as ASP
-(:numref:`mapproj_grid`). The command sets the projection with ``-t_srs``, the
-grid size with ``-tr 18 18``, cubic-spline resampling with ``-r cubicspline``,
-and an extent ``-te`` snapped to odd multiples of 9 m (half the grid size). The
-regridded DEM then shares the grid phase of the CTX reference and our CaSSIS
-DEM.
+The prior CaSSIS DEM is then regridded to a *local stereographic projection* at
+18 m/pixel with ``gdalwarp`` (:numref:`gdal_tools`), following the same grid
+convention as ASP (:numref:`mapproj_grid`). The command sets the projection with
+``-t_srs``, the grid size with ``-tr 18 18``, cubic-spline resampling with ``-r
+cubicspline``, and an extent ``-te`` snapped to odd multiples of 9 m (half the
+grid size). The regridded DEM then shares the grid phase of the CTX reference
+and of the CaSSIS DEM produced with ASP.
 
 .. _cassis_ctx_ref:
 
@@ -259,8 +259,8 @@ Preparation of reference CTX DEM
 
 The reference is assembled from existing Context Camera (CTX) DEMs over the
 site, rather than produced from raw CTX stereo. They are queried and downloaded
-from the (`USGS Astrogeology STAC catalog
-<https://stac.astrogeology.usgs.gov>`_), from the controlled MRO CTX DTM
+from the `USGS Astrogeology STAC catalog
+<https://stac.astrogeology.usgs.gov>`_, from the controlled MRO CTX DTM
 collection, using its query API. A covering set of overlapping DEMs is selected
 to span the CaSSIS footprint with margin.
 
@@ -276,30 +276,29 @@ fall at integer multiples of the grid size, so the CTX and CaSSIS DEMs share one
 grid phase, with no subpixel offset when they are compared or blended.
 
 The DEMs are warped to this extent and seamlessly blended with
-:numref:`dem_mosaic`. Each input is then compared to the blend with
-:numref:`geodiff`, and any that disagrees badly is dropped (roughly, a mean
-offset over 20 m or a spread over 30 m, against a CTX jitter floor of a few
-meters). The curated set is re-blended and inspected by eye.
+:ref:`dem_mosaic`. Each input is then compared to the blend with :ref:`geodiff`,
+and any that disagrees badly is dropped (roughly, a mean offset over 20 m or a
+spread over 30 m, which is above the few-meters of noise due to CTX jitter). The
+curated set is re-blended and inspected by eye.
 
-CTX can be off the true ground by a few meters, and spacecraft jitter or a poor
-pair alignment can show up as smeared craters and other features in the
-hillshade. Such cases should be caught visually and handled.
+Misalignment between input CTX DEMs may exist, which will manifest itself as
+smeared craters, etc. Offending DEMs should either be taken out or aligned before
+blending.
 
 .. _cassis_prior_align:
 
 Alignment of prior CaSSIS DEMs to CTX
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The regridded prior DEM is horizontally aligned to CTX by dense hillshade
-correlation (:numref:`pc_corr`) with ``--num-iterations 0`` to skip subsequent
-ICP-based alignment.
+The regridded prior CaSSIS DEM is horizontally aligned to the blended reference
+CTX DEM by dense hillshade correlation (:numref:`pc_corr`) with
+``--num-iterations 0`` to skip subsequent ICP-based alignment.
 
 This worked better than ICP point-to-plane alignment (:numref:`align-method`),
-which introduced a large lateral slide given the notable warping of the official
-CaSSIS DEMs.
+which cannot handle well the notable warping of the official CaSSIS DEMs.
 
-This alignment is only for the comparisons above. It is not used in producing
-our DEMs.
+This prior aligned CaSSIS product is only used for the comparisons above and not
+for production of CaSSIS DEMs with ASP.
 
 .. _cassis_cameras:
 
@@ -314,8 +313,8 @@ This is done in two stages, each in its own conda environment. First the
 framelets are downloaded and ingested to ISIS cubes, with ISIS. Then the CSM
 cameras are created from the cubes, with `ALE
 <https://github.com/DOI-USGS/ale>`_ (:numref:`cassis_csm`). The two stages need
-different, and mutually incompatible, versions of the underlying libraries, so
-they are kept in separate environments.
+different versions of the underlying libraries (ALE is newer with some
+additional bugfixes), so they are kept in separate environments.
 
 The commands below are spelled out for the Jezero observation
 ``MY36_016378_162_1`` (evaluated in :numref:`cassis_vendor`), and apply to any
@@ -361,16 +360,21 @@ framelet pairs, under a sequence identifier.
 Observation ``MY36_016378_162_1`` is on orbit 16378, with the left look under
 sequence identifier ``838849161`` and the right under ``838849162``. The PSA
 groups orbits into ranges of one hundred, so orbit 16378 is under
-``Orbit_Range_16300_16399``. Fetch both looks with::
+``Orbit_Range_16300_16399``.
+
+Set::
 
     base=https://archives.esac.esa.int/psa/ftp/ExoMars2016/em16_tgo_cas/data_calibrated/Science_Phase/Orbit_Range_16300_16399/Orbit_16378/Science
+
+Fetch both looks with::
 
     n=1
     for sid in 838849161 838849162; do
       out=L${n}_$sid
       mkdir -p $out
-      files=$(curl -sL "$base/$sid/PAN/" \
-        | grep -ioE 'cas_cal[^"]*\.(dat|xml)' | grep -vi sti | sort -u)
+      files=$(curl -sL "$base/$sid/PAN/"      \
+        | grep -ioE 'cas_cal[^"]*\.(dat|xml)' \
+        | grep -vi sti | sort -u)
       for f in $files; do
         curl -sL "$base/$sid/PAN/$f" -o "$out/$f"
       done
@@ -378,16 +382,16 @@ groups orbits into ranges of one hundred, so orbit 16378 is under
     done
 
 Only the individual ``PAN`` framelets are used. The stitched ``sti`` products
-are skipped. The PSA is slow, roughly one file per second, so this takes a few
-minutes per look.
+are skipped. The PSA is slow, downloading roughly one file per second, so this
+takes a few minutes per look.
 
 .. _cassis_kernels:
 
 Downloading the SPICE kernels
 """""""""""""""""""""""""""""
 
-The pose is obtained from the TGO and CaSSIS SPICE kernels. These are the
-``base`` and ``tgo`` kernel sets in the `ISIS data area
+The camera poses and other metadata are obtained from the TGO and CaSSIS SPICE
+kernels. These are the ``base`` and ``tgo`` kernel sets in the `ISIS data area
 <https://astrogeology.usgs.gov/docs/how-to-guides/environment-setup-and-maintenance/isis-data-area/>`_
 (:numref:`planetary_images`). Download the two sets with ``downloadIsisData``,
 which is shipped with ISIS::
@@ -440,7 +444,8 @@ workaround, to be removed once the corresponding ISIS fix reaches the release::
     for xml in L1_838849161/*.xml L2_838849162/*.xml; do
       cub=${xml%.xml}.cub
       tgocassis2isis from=$xml to=$cub
-      ts=$(grep -ioE '<em16_tgo_cas:exposuretimestamp>[0-9a-fA-F]+' $xml | sed 's/.*>//')
+      ts=$(grep -ioE '<em16_tgo_cas:exposuretimestamp>[0-9a-fA-F]+' \
+           $xml | sed 's/.*>//')
       clk=$(echo $ts | xxd -r -p)
       editlab from=$cub options=addkey grpname=Instrument \
         keyword=SpacecraftClockStartCount value=$clk
@@ -454,8 +459,8 @@ the label parsing reads the leap-second kernel from the ``base`` set.
 Creating the CaSSIS CSM cameras
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-With the cubes in hand, a CSM camera model is created for each framelet, from
-the SPICE pose and the CaSSIS lens distortion.
+A CSM camera model is created for each framelet cube file, from the SPICE pose
+and the CaSSIS lens distortion.
 
 This needs the CaSSIS-capable versions of ALE and `USGSCSM
 <https://github.com/DOI-USGS/usgscsm>`_. These are custom-built conda packages,
@@ -476,14 +481,19 @@ in their own environment::
       'usgscsm=2.1.0=cassis*'      \
       gdal
 
-The camera is then created with ``isd_generate``, from this environment, reading
-the cube and the TGO kernels in the ISIS data area::
+Set up the environment::
 
     conda activate usgscsm_cassis
     export ISISDATA=$HOME/projects/isisdata
     export ALESPICEROOT=$ISISDATA
 
+The cub file names are quite long. Set::
+
     cub=L1_838849161/cas_cal_sc_20210725T202818-20210725T202822-16378-10-PAN-838849161-0-0__4_0.cub
+
+The camera is then created with ``isd_generate``, from this environment, reading
+the cube and the TGO kernels in the ISIS data area::
+
     isd_generate $cub
 
 This writes a camera file with the same name but the ``.json`` extension in the
@@ -504,36 +514,49 @@ published poses are self-consistent, yet the two looks can be misregistered by
 hundreds of meters relative to each other and to the ground.
 
 A simple bundle adjustment of all sixty framelets, especially with the initially
-inaccurate lens distortion, gives an unstable, non-unique solution that is hard to
-recover from. Instead, each look is first merged into a single image, for which a
-CSM linescan model (:numref:`csm_linescan`) is created from the input poses and
-intrinsics.
+inaccurate lens distortion, gives an unstable, non-unique solution that is hard
+to recover from. Instead, in the earliest stage, each look is merged into a
+single image, for which an *approximate* CSM linescan model
+(:numref:`csm_linescan`) is created from the individual poses and intrinsics.
+This results in some seams and pose artifacts, which will be removed later.
 
 These two linescan images are bundle-adjusted and a DEM is made and aligned to
-CTX with :numref:`pc_align`. It still has 10 to 20 pixels of warping (at 18
-m/pixel), but that is close
-enough to proceed. The alignment transform is applied to the bundle-adjusted
-linescan cameras, which are then split back into individual framelet cameras
-carrying the updated, registered poses.
+CTX with :ref:`pc_align`. It still has 10 to 20 pixels of warping (at 18
+m/pixel), but that is close enough to proceed. The alignment transform is
+applied to the bundle-adjusted linescan cameras, which are then split back into
+individual framelet cameras carrying the updated and registered poses, that
+preserve the consistency within each look.
 
 .. _cassis_dense_matches:
 
 Dense matches
 ^^^^^^^^^^^^^
 
-Dense interest-point matches are computed once and reused across the bundle
-adjustment runs. They are found in two ways, by look. Both use
-``--num-matches-from-disparity``, which runs a dense correlation and then keeps
-that many matches spread across the overlap. The cameras at this stage are not
-yet bundle-adjusted.
+Dense interest-point matches (:numref:`dense_ip`) are computed once and reused
+across the bundle adjustment runs. They are found in two ways, by look. Both use
+the option ``--num-matches-from-disparity``, which runs a dense correlation and
+then keeps that many matches spread across the overlap. The cameras at this
+stage are not yet bundle-adjusted.
+
+Creating such matches is computationally intensive, but it is a required step
+that ensures each framelet is tightly coupled with the next framelet in the
+sequence, with which it may have only 50 pixels or so of overlap. Some
+left-right stereo pairs may also overlap very little, and could not be
+controlled otherwise either.
 
 Cross-look matches (left-to-right) are found in the mapprojected domain
-(:numref:`mapproject`), which removes the large cross-look convergence and makes
-the correlation reliable. Each framelet is mapprojected onto a low-resolution
-blurred CTX DEM (:numref:`mapproj-example`), then the overlapping pairs are
-correlated. Because the cameras still carry
-error, a search collar is allowed with ``--mapproj-geolocation-uncertainty``
-(about 30 pixels), so the residual disparity is not filtered away::
+(:numref:`mapip`), which removes the large difference in perspective and makes
+the correlation reliable.
+
+Each framelet is mapprojected onto a low-resolution blurred CTX DEM
+(:numref:`mapproj-example`), which is made from the reference CTX DEM
+(:numref:`cassis_ctx_ref`). This process happens after the earlier alignment
+step, so this DEM is reasonably well-registered with the data (up to some
+warping due to lens distortion).
+
+The overlapping pairs are correlated. Because the cameras still carry error, a
+search collar is allowed with ``--mapproj-geolocation-uncertainty`` (about 30
+pixels)::
 
     parallel_stereo                        \
       --processes 1                        \
@@ -571,24 +594,31 @@ domain, with affine-epipolar alignment::
 
 The option ``--ip-detect-method 1`` (the SIFT detector) is important here. The
 default interest-point detector barely matches CaSSIS imagery, while SIFT finds
-many more matches on the same images. So it is always used for CaSSIS.
+many more matches on the same images.
 
 The matches from both are written per pair, in original framelet pixel
-coordinates. This is what :numref:`bundle_adjust` reads through
+coordinates. This is what :ref:`bundle_adjust` reads through
 ``--match-files-prefix`` (:numref:`cassis_ba`).
+
+Here, ``parallel_stereo`` was called with one process only, because multiple
+such invocations will run in parallel.
 
 .. _cassis_refit:
 
 Distortion refit
 ^^^^^^^^^^^^^^^^
 
-The steps up to here assume the published lens distortion is already calibrated.
-Two :numref:`cam_gen` steps put the corrected distortion on the cameras.
+The published CaSSIS lens distortion model uses separate polynomials for both
+distortion operations. Simultaneous refinement of these is not supported in
+:ref:`bundle_adjust`.
 
-First, each framelet's native distortion is refit to a transverse model with
-``--csm-refit-distortion``, keeping the pose and all other intrinsics exactly.
+For this reason, we convert the cameras with :ref:`cam_gen` to the CSM
+``transverse`` lens distortion mode (:numref:`csm_frame_def`). This preserves the
+existing pose and all other intrinsics.
+
 Because it is one physical lens, the fitted distortion comes out the same for
-every framelet, so it is effectively one shared model::
+every framelet, so it is effectively one shared model, even when this is run
+independently per camera::
 
     cam_gen framelet.cub             \
       --input-camera framelet.json   \
@@ -599,10 +629,10 @@ every framelet, so it is effectively one shared model::
       --num-pixel-samples 4000       \
       -o framelet_refit.json
 
-Then the frozen, optimized distortion (:numref:`cassis_opt_lens_dist`) is applied,
-and the pose is refit to absorb the small tilt this distortion introduces, with
-``--csm-refit-pose``. The reference DEM and a camera-position leash keep the refit
-from drifting::
+Then the lens distortion model is replaced with a new one we optimized
+(:numref:`cassis_opt_lens_dist`). The pose is refit to absorb the small tilt
+this distortion introduces, with ``--csm-refit-pose``. The reference DEM and a
+camera-position control keep the refit from drifting::
 
     cam_gen framelet.cub                               \
       --input-camera framelet_refit.json               \
@@ -628,9 +658,9 @@ across-track warping that a fixed distortion would otherwise leave behind.
 Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
-The framelet frame cameras are then refined with :numref:`bundle_adjust`. This
+The framelet frame cameras are then refined with :ref:`bundle_adjust`. This
 uses the CTX DEM as a height constraint (heights-from-dem), ground control
-points generated from it with :numref:`dem2gcp`, and a leash on the camera
+points generated from it with :ref:`dem2gcp`, and a control on the camera
 positions to keep the solution from drifting. A single frozen
 transverse-distortion lens is shared across all framelets.
 
@@ -641,7 +671,7 @@ same order, one per image), and the dense interest-point matches from
 constraint in both is the CTX reference DEM.
 
 The first run anchors the horizontal registration. It starts from the frame
-cameras, adds the ground control points made with :numref:`dem2gcp`, and holds
+cameras, adds the ground control points made with :ref:`dem2gcp`, and holds
 their coordinates fixed with ``--fix-gcp-xyz``. The height constraint is kept
 loose (uncertainty 200 m), so the fixed ground control drives the horizontal
 fit::
@@ -693,7 +723,7 @@ while the matches hold the horizontal in place::
 
 The ``--inline-adjustments`` option writes each refined camera as a full camera
 file, used directly by the next stage. The ``--camera-position-uncertainty``
-leash keeps the poses from drifting far. The lens distortion is not solved in
+control keeps the poses from drifting far. The lens distortion is not solved in
 these runs and stays frozen (:numref:`cassis_opt_lens_dist`).
 
 .. _cassis_stereo:
@@ -708,8 +738,7 @@ DEMs, and blend those into the frame DEM.
 Each framelet is first mapprojected onto the low-resolution blurred CTX DEM, with
 its refined camera, at the native image resolution (about 4.6 m/pixel). The
 correlation grid must stay native. Mapprojecting onto a coarse grid blurs the
-framelets and yields
-a blocky DEM::
+framelets and yields a blocky DEM::
 
     mapproject                   \
       --tr 4.59                  \
@@ -717,9 +746,9 @@ a blocky DEM::
       framelet.cub framelet.json \
       framelet_map.tif
 
-Each cross-look pair is then correlated with :numref:`parallel_stereo` in the
+Each cross-look pair is then correlated with :ref:`parallel_stereo` in the
 mapprojected domain, with no further alignment, and turned into a small DEM with
-:numref:`point2dem`. The triangulation-error cap removes blunders without carving
+:ref:`point2dem`. The triangulation-error cap removes blunders without carving
 holes. The reference DEM used for mapprojection is passed as the last argument::
 
     parallel_stereo                       \
@@ -745,7 +774,7 @@ holes. The reference DEM used for mapprojection is passed as the last argument::
       --tr 18                           \
       pair/run-PC.tif -o pair/dem
 
-The per-pair DEMs are blended into a seamless result with :numref:`dem_mosaic` at
+The per-pair DEMs are blended into a seamless result with :ref:`dem_mosaic` at
 18 m/pixel, then regridded onto the exact CTX grid. A blunder check first drops
 any per-pair DEM whose mean elevation is more than 500 m from the median::
 
@@ -798,15 +827,15 @@ Evaluation
 
 The final DEM is compared to CTX in two ways.
 
-The vertical difference is a direct :numref:`geodiff`, as the two are already on
+The vertical difference is a direct :ref:`geodiff`, as the two are already on
 the same grid (:numref:`cassis_stereo`)::
 
     geodiff cassis_dem_on_ctx.tif ctx.tif -o dz
 
 The horizontal registration is measured by correlating the two hillshades. Both
-DEMs are hillshaded, correlated with :numref:`parallel_stereo` in
-:numref:`correlator-mode`, and the raw disparity is written with
-:numref:`disparitydebug`::
+DEMs are hillshaded, correlated with :ref:`parallel_stereo` in
+:ref:`correlator-mode`, and the raw disparity is written with
+:ref:`disparitydebug`::
 
     gdaldem hillshade   \
       -multidirectional \
@@ -860,7 +889,7 @@ per site, but jointly, across the three sites (Jezero, Oxia Planum 1, and Oxia
 Planum 2), with distortion solving enabled via ``--intrinsics-to-float
 other_intrinsics``.
 
-This uses the option ``--heights-from-dem-list`` in :numref:`bundle_adjust`
+This uses the option ``--heights-from-dem-list`` in :ref:`bundle_adjust`
 (added in the ASP build of 2026/7, :numref:`release`), which passes a
 per-site list of reference DEMs. The three sites are widely spaced across Mars,
 so a single merged DEM is not feasible.
