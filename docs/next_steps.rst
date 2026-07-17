@@ -396,8 +396,8 @@ on it.
 Choice of initial guess terrain model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For Earth, an existing terrain model can be, for example, the
-Copernicus 30 m DEM from:
+For Earth, an existing lower-resolution initial guess terrain model can be, for
+example, the Copernicus 30 m DEM from:
 
     https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3
 
