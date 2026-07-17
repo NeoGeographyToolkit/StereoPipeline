@@ -76,7 +76,8 @@ Here we compare with the prior CaSSIS DEM product ``MY34_003806_019_1``.
    Elevation difference to CTX, in meters. Left: prior CaSSIS minus CTX, median
    0.6 m, NMAD 8.3 m. Right: our CaSSIS minus CTX, median -0.1 m, NMAD 1.5 m,
    about 6 times tighter to CTX. Here, our result is less well controlled at the
-   starting and ending framelets.
+   starting and ending framelets. This improved after a refinement pass
+   (:numref:`cassis_refine`).
 
 .. figure:: ../images/cassis_ox1_dd.png
    :name: cassis_ox1_dd
@@ -810,15 +811,14 @@ Optional refinement
 ^^^^^^^^^^^^^^^^^^^
 
 The whole sequence, bundle adjustment through stereo, can be run a second time,
-with the current results as the input. The motivation is that we now have a
-well-registered stereo DEM, rather than the approximation produced with the
-linescan cameras. If this DEM still has residual issues, it can be used to
-produce better ground control points than before, which then help fix those
+with the current results as the inputs. The motivation is that we now have a
+well-registered stereo DEM and cameras, rather than the approximations produced
+with the linescan cameras. These can provide better GCP to fix any remaining
 issues.
 
-We found limited additional payoff from this refinement, and the results higher
-up this page do not use it. It did help somewhat in reducing the vertical
-discrepancy at the top and bottom of the Oxia Planum 1 DEM.
+We found additional payoff from this refinement only for the Oxia Planum 1 DEM
+example (:numref:`cassis_vendor`). The results higher up this page do not use
+it.
 
 .. _cassis_eval:
 
