@@ -480,7 +480,10 @@ in their own environment::
       -c conda-forge               \
       'ale=1.2.0=cassis*'          \
       'usgscsm=2.1.0=cassis*'      \
-      gdal
+      gdal numpy scipy
+
+The ``gdal``, ``numpy``, and ``scipy`` packages were added for convenience and
+are needed for some processing steps.
 
 Set up the environment::
 
