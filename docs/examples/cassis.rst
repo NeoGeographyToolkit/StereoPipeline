@@ -15,7 +15,7 @@ resulting `CaSSIS pipeline
 reproducible, end-to-end processing is made public, together with sample data.
 
 This requires a recent build of ASP, from 2026/7 or later (:numref:`release`),
-which has the CaSSIS-capable camera support.
+which has the CaSSIS camera support.
 
 .. _cassis_vendor:
 
@@ -170,7 +170,9 @@ Approach
 
 Our method assumes a CTX (:numref:`ctx_example`) reference DEM already exists
 for a site. A wealth of such data is available, such as in the USGS Astrogeology
-STAC catalog (see below).
+STAC catalog (see below). When not present, such a DEM can be created with
+stereo. We have observed however notable jitter for such products, so
+preliminary jitter solving is suggested (:numref:`jitter_solve`).
 
 A CaSSIS DEM is created by bundle adjustment, pairwise stereo, blending of
 created DEMs, and registration to the CTX DEM by dense correlation of hillshaded
@@ -285,6 +287,10 @@ curated set is re-blended and inspected by eye.
 Misalignment between input CTX DEMs may exist, which will manifest itself as
 smeared craters, etc. Offending DEMs should either be taken out or aligned before
 blending.
+
+The low-resolution DEM used later for mapprojection (:numref:`mapproj-example`)
+is prepared from this reference CTX DEM by blurring it with ``dem_mosaic``
+(:numref:`dem_mosaic_blur`). A blur sigma of 5 is suggested.
 
 .. _cassis_prior_align:
 
