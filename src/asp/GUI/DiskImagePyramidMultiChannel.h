@@ -55,7 +55,8 @@ namespace vw {
 namespace asp {
 
   // The kinds of images we support
-  enum ImgType {UNINIT, CH1_FLOAT, CH2_UINT8, CH3_UINT8, CH4_UINT8};
+  enum ImgType {UNINIT, CH1_FLOAT, CH1_UINT8, CH1_UINT16,
+                CH2_UINT8, CH3_UINT8, CH4_UINT8};
 
   // A global structure to hold all the temporary files we have created
   struct TemporaryFiles {
@@ -73,6 +74,10 @@ namespace asp {
   struct DiskImagePyramidMultiChannel {
     vw::GdalWriteOptions m_opt;
     vw::mosaic::DiskImagePyramid<float>                m_img_ch1_float;
+    // Single-channel integer pyramids, used only with
+    // --preserve-input-pyramid-dtype (see the constructor).
+    vw::mosaic::DiskImagePyramid<vw::uint8>            m_img_ch1_uint8;
+    vw::mosaic::DiskImagePyramid<vw::uint16>           m_img_ch1_uint16;
     vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 2>> m_img_ch2_uint8;
     vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 3>> m_img_ch3_uint8;
     vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 4>> m_img_ch4_uint8;

@@ -120,6 +120,12 @@ n_align (:numref:`n_align`):
   * Added support for LAZ COPC files, with the ``--copc-win`` and
     ``--copc-read-all`` options, as in ``pc_align``.
 
+stereo_gui (:numref:`stereo_gui`):
+  * Added ``--preserve-input-pyramid-dtype``, to build the image pyramid of a
+    single-band UInt8 or UInt16 input with its native data type instead of
+    Float32, so the ``_subN.tif`` files keep the input's semantic type and
+    take less space on disk.
+
 Misc:
   * Fixed a bug with very long input image names when creating ``.match`` and
     ``.vwip`` file names (:numref:`match_file_naming`).

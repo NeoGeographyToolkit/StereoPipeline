@@ -180,7 +180,38 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
     m_valid_min = valid_min;
     m_valid_max = valid_max;
 
-    if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
+    // Opt-in (--preserve-input-pyramid-dtype): for a single-band integer image,
+    // build the pyramid using the native integer pixel type so the subsampled
+    // _subN.tif files keep the input data type (and are smaller) instead of
+    // always being promoted to Float32. Only UInt8 and UInt16 are handled here;
+    // any other single-band type (Int16, UInt32, floating point, ...) falls
+    // through to the Float32 path below. Display still works, as the integer
+    // clip is converted to double in get_image_clip().
+    bool preserve_dtype = asp::stereo_settings().preserve_input_pyramid_dtype;
+
+    if (m_num_channels == 1 && preserve_dtype &&
+        image_fmt.channel_type == VW_CHANNEL_UINT8) {
+      // Single channel image with uint8 pixels.
+      m_img_ch1_uint8 =
+        vw::mosaic::DiskImagePyramid<vw::uint8>(image_file, m_opt, lowres_size,
+                                                2, valid_min, valid_max);
+      m_rows = m_img_ch1_uint8.rows();
+      m_cols = m_img_ch1_uint8.cols();
+      m_type = CH1_UINT8;
+      temporary_files().files.insert(m_img_ch1_uint8.get_temporary_files().begin(),
+                                     m_img_ch1_uint8.get_temporary_files().end());
+    } else if (m_num_channels == 1 && preserve_dtype &&
+               image_fmt.channel_type == VW_CHANNEL_UINT16) {
+      // Single channel image with uint16 pixels.
+      m_img_ch1_uint16 =
+        vw::mosaic::DiskImagePyramid<vw::uint16>(image_file, m_opt, lowres_size,
+                                                 2, valid_min, valid_max);
+      m_rows = m_img_ch1_uint16.rows();
+      m_cols = m_img_ch1_uint16.cols();
+      m_type = CH1_UINT16;
+      temporary_files().files.insert(m_img_ch1_uint16.get_temporary_files().begin(),
+                                     m_img_ch1_uint16.get_temporary_files().end());
+    } else if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
       // Single channel image with float pixels.
 
       m_img_ch1_float =
@@ -237,6 +268,10 @@ double DiskImagePyramidMultiChannel::get_nodata_val() const {
   // Extract the clip, then convert it from VW format to QImage format.
   if (m_type == CH1_FLOAT) {
     return m_img_ch1_float.get_nodata_val();
+  } else if (m_type == CH1_UINT8) {
+    return m_img_ch1_uint8.get_nodata_val();
+  } else if (m_type == CH1_UINT16) {
+    return m_img_ch1_uint16.get_nodata_val();
   } else if (m_type == CH2_UINT8) {
     return m_img_ch2_uint8.get_nodata_val();
   } else if (m_type == CH3_UINT8) {
@@ -248,6 +283,47 @@ double DiskImagePyramidMultiChannel::get_nodata_val() const {
   }
 }
 
+// Shared logic for rendering a single-channel pyramid (float, uint8, or
+// uint16) to a QImage. The extracted clip is converted to double inside
+// formQimageFloat, so integer and float pyramids display identically.
+template<class PyramidT>
+void formSingleChannelQimage(PyramidT const& pyramid,
+                             double scale_in, vw::BBox2i region_in,
+                             bool highlight_nodata,
+                             vw::Colormap const* colormap,
+                             vw::Vector2 const& bounds_override,
+                             float valid_min, float valid_max,
+                             QImage & qimg, double & scale_out,
+                             vw::BBox2i & region_out) {
+
+  vw::Vector2 approx_bounds;
+  if (bounds_override[0] < bounds_override[1]) {
+    // Use the caller-provided bounds (joint min/max or user --min/--max)
+    approx_bounds = bounds_override;
+  } else if (asp::stereo_settings().min < asp::stereo_settings().max) {
+    // If the min and max are set, not NaN, and first is less than the second
+    approx_bounds = vw::Vector2(asp::stereo_settings().min,
+                                asp::stereo_settings().max);
+  } else {
+    // Normally these are auto-estimated rather well, except for images with
+    // most data being very small, like in shadow.
+    approx_bounds = pyramid.approx_bounds();
+  }
+
+  // Ensure the bounds are always distinct
+  if (approx_bounds[0] >= approx_bounds[1] &&
+      approx_bounds[1] > -std::numeric_limits<double>::max())
+    approx_bounds[0] = approx_bounds[1] - 1.0;
+
+  vw::ImageView<typename PyramidT::pixel_type> clip;
+  pyramid.get_image_clip(scale_in, region_in, clip, scale_out, region_out);
+
+  // The clip is converted from its pixel type to double here (implicit).
+  formQimageFloat(highlight_nodata, pyramid.get_nodata_val(),
+                  valid_min, valid_max,
+                  approx_bounds, clip, colormap, qimg);
+}
+
 void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
                   vw::BBox2i region_in,
                   bool highlight_nodata,
@@ -256,48 +332,19 @@ void DiskImagePyramidMultiChannel::get_image_clip(double scale_in,
                   QImage & qimg, double & scale_out,
                   vw::BBox2i & region_out) const {
 
-  vw::Vector2 approx_bounds;
-
   // Extract the clip, then convert it from VW format to QImage format.
   if (m_type == CH1_FLOAT) {
-
-    //Stopwatch sw0;
-    //sw0.start();
-    if (bounds_override[0] < bounds_override[1]) {
-      // Use the caller-provided bounds (joint min/max or user --min/--max)
-      approx_bounds = bounds_override;
-    } else if (asp::stereo_settings().min < asp::stereo_settings().max) {
-      // If the min and max are set, not NaN, and first is less than the second
-      approx_bounds = vw::Vector2(asp::stereo_settings().min,
-                                  asp::stereo_settings().max);
-    } else {
-      // Normally these are auto-estimated rather well, except for images with
-      // most data being very small, like in shadow.
-      approx_bounds = m_img_ch1_float.approx_bounds();
-    }
-
-    // Ensure the bounds are always distinct
-    if (approx_bounds[0] >= approx_bounds[1] &&
-        approx_bounds[1] > -std::numeric_limits<double>::max())
-      approx_bounds[0] = approx_bounds[1] - 1.0;
-
-    //sw0.stop();
-    //vw_out() << "Render time sw0 (seconds): " << sw0.elapsed_seconds() << std::endl;
-
-    ImageView<float> clip;
-    //Stopwatch sw1;
-    //sw1.start();
-    m_img_ch1_float.get_image_clip(scale_in, region_in, clip, scale_out, region_out);
-    //sw1.stop();
-    //vw_out() << "Render time sw1 (seconds): " << sw1.elapsed_seconds() << std::endl;
-
-    //Stopwatch sw2;
-    //sw2.start();
-    formQimageFloat(highlight_nodata, m_img_ch1_float.get_nodata_val(),
-                    m_valid_min, m_valid_max,
-                    approx_bounds, clip, colormap, qimg);
-    //sw2.stop();
-    //vw_out() << "Render time sw2 (seconds): " << sw2.elapsed_seconds() << std::endl;
+    formSingleChannelQimage(m_img_ch1_float, scale_in, region_in,
+                            highlight_nodata, colormap, bounds_override,
+                            m_valid_min, m_valid_max, qimg, scale_out, region_out);
+  } else if (m_type == CH1_UINT8) {
+    formSingleChannelQimage(m_img_ch1_uint8, scale_in, region_in,
+                            highlight_nodata, colormap, bounds_override,
+                            m_valid_min, m_valid_max, qimg, scale_out, region_out);
+  } else if (m_type == CH1_UINT16) {
+    formSingleChannelQimage(m_img_ch1_uint16, scale_in, region_in,
+                            highlight_nodata, colormap, bounds_override,
+                            m_valid_min, m_valid_max, qimg, scale_out, region_out);
   } else if (m_type == CH2_UINT8) {
 
     ImageView<Vector<vw::uint8, 2>> clip;
@@ -355,6 +402,11 @@ std::string DiskImagePyramidMultiChannel::get_value_as_str(int32 x, int32 y) con
   std::ostringstream os;
   if (m_type == CH1_FLOAT) {
     os << m_img_ch1_float.bottom()(x, y, 0);
+  } else if (m_type == CH1_UINT8) {
+    // Cast to int so the uint8 value prints as a number, not a character.
+    os << int(m_img_ch1_uint8.bottom()(x, y, 0));
+  } else if (m_type == CH1_UINT16) {
+    os << m_img_ch1_uint16.bottom()(x, y, 0);
   } else if (m_type == CH2_UINT8) {
     os << Vector2(m_img_ch2_uint8.bottom()(x, y, 0));
   } else if (m_type == CH3_UINT8) {
@@ -371,6 +423,10 @@ std::string DiskImagePyramidMultiChannel::get_value_as_str(int32 x, int32 y) con
 double DiskImagePyramidMultiChannel::get_value_as_double(int32 x, int32 y) const {
   if (m_type == CH1_FLOAT) {
     return m_img_ch1_float.bottom()(x, y, 0);
+  } else if (m_type == CH1_UINT8) {
+    return m_img_ch1_uint8.bottom()(x, y, 0);
+  } else if (m_type == CH1_UINT16) {
+    return m_img_ch1_uint16.bottom()(x, y, 0);
   } else if (m_type == CH2_UINT8) {
     return m_img_ch2_uint8.bottom()(x, y, 0)[0];
   } else {

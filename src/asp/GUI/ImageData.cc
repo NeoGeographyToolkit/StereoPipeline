@@ -516,9 +516,15 @@ vw::Vector2 calcJointBounds(std::vector<imageData> const& images,
       continue;
     }
     auto const& img = images[i].currentImg();
-    if (img.m_type != CH1_FLOAT)
-      continue;
-    vw::Vector2 ab = img.m_img_ch1_float.approx_bounds();
+    vw::Vector2 ab;
+    if (img.m_type == CH1_FLOAT)
+      ab = img.m_img_ch1_float.approx_bounds();
+    else if (img.m_type == CH1_UINT8)
+      ab = img.m_img_ch1_uint8.approx_bounds();
+    else if (img.m_type == CH1_UINT16)
+      ab = img.m_img_ch1_uint16.approx_bounds();
+    else
+      continue; // multi-channel uint8 maps directly to RGB, no min/max stretch
     bounds[0] = std::min(bounds[0], ab[0]);
     bounds[1] = std::max(bounds[1], ab[1]);
   }

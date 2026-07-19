@@ -593,6 +593,8 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
       "Delete any subsampled and other files created by the GUI when exiting.")
     ("create-image-pyramids-only", po::bool_switch(&global.create_image_pyramids_only)->default_value(false)->implicit_value(true),
       "Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.")
+    ("preserve-input-pyramid-dtype", po::bool_switch(&global.preserve_input_pyramid_dtype)->default_value(false)->implicit_value(true),
+      "When building image pyramids for single-band images, write the subsampled levels using the input pixel data type (currently UInt8 or UInt16) instead of always converting to Float32. This preserves the semantic data type and reduces the size of the pyramid files for integer inputs. Has no effect for multi-band or floating-point images.")
     ("pairwise-matches", po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")
     ("pairwise-clean-matches", po::bool_switch(&global.pairwise_clean_matches)->default_value(false)->implicit_value(true), "Same as --pairwise-matches, but use *-clean.match files.")
     ("nvm", po::value(&global.nvm)->default_value(""),
