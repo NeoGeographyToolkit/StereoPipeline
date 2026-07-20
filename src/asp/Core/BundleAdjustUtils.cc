@@ -118,9 +118,14 @@ void camera_footprint(std::string const& dem_file,
    vw::geometry::convexHull(coords, footprint);
 
   } catch (std::exception const& e) {
-    vw_throw(ArgumentErr() << e.what() << "\n"
-              << "Failed to compute the footprint of camera image: " << image_file
-              << " onto DEM: " << dem_file << ".\n");
+    // Skip cameras whose ground footprint cannot be computed. Such an image
+    // will not overlap any other image when the overlap list is built.
+    vw_out(WarningMessage) << "Could not compute the ground footprint of image: "
+      << image_file << " onto DEM: " << dem_file << ". Skipping. Caught error: "
+      << e.what() << "\n";
+    footprint = vw::geometry::dPoly();
+    footprint_bbox = vw::BBox2();
+    return;
   }
 
   vw_out() << "Writing: " << box_path << "\n";
@@ -157,6 +162,10 @@ void buildOverlapList(std::string const& out_prefix,
     // they just need to be loaded.
     asp::camera_footprint(dem_file, image_files[it], camera_models[it], out_prefix,
                           footprints[it], boxes[it]);
+
+    // Skip an image whose footprint could not be computed
+    if (boxes[it].empty())
+      continue;
 
     // Expand the box by the given factor
     expand_box_by_pct(boxes[it], pct_for_overlap);

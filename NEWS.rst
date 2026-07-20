@@ -6,6 +6,10 @@ New sensors:
     (:numref:`cassis`).
 
 bundle_adjust (:numref:`bundle_adjust`):
+  * When building the overlap list from a DEM (``--auto-overlap-params``), an
+    image whose ground footprint cannot be computed, for example because it
+    projects onto nodata in the DEM, is now skipped rather than stopping the
+    program.
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
     ground control point (GCP) residuals.
   * Added the option ``--ip-match-radius``. For mapprojected images, drops
