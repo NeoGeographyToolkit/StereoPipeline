@@ -173,6 +173,43 @@ generated using the command::
 Some grid pattern noise is visible in the image produced using SGM.
 Using ``--stereo-algorithm asp_mgm`` should reduce it. 
 
+
+.. _mgm_multi:
+
+Multiscale MGM
+--------------
+
+ASP also ships ``mgm_multi``, the multiscale flavor of MGM by the same authors
+(:cite:`facciolo2015mgm`) as the original MGM algorithm (which we also ship, see
+:numref:`original_mgm`).
+
+Like the original ``mgm`` algorithm, it is released under the AGPL license and
+is invoked as a separate process, so there are no license compatibility issues.
+It computes the disparity over several image scales, which can help on scenes
+with a wide range of disparities or low texture. It is invoked in the same way
+as ``mgm``, with the local alignment mechanics being identical::
+
+    parallel_stereo --alignment-method local_epipolar \
+      --stereo-algorithm mgm_multi                    \
+      --job-size-w 512 --job-size-h 512               \
+      --sgm-collar-size 128                           \
+      left.tif right.tif left.xml right.xml
+
+As with ``mgm``, options and environmental variables can be passed
+along, for example::
+
+    --stereo-algorithm 'mgm_multi -S 3 CENSUS_NCC_WIN=5'
+
+By default, ASP uses::
+
+    REMOVESMALLCC=25 MINDIFF=1 CENSUS_NCC_WIN=5 SUBPIX=1 \
+      -S 3 -s vfit -t census -O 8
+
+The ``-S`` option sets the number of scales (default 3). ASP finds the
+minimum and maximum estimated disparity and passes them via ``-r`` and
+``-R``, as for ``mgm``. The remaining options and environmental
+variables are as documented in :numref:`original_mgm`.
+
 .. _original_mgm:
 
 Original implementation of MGM

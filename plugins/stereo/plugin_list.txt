@@ -8,7 +8,8 @@
 
 # Name    Executable                       Path to external library dependencies
 
-  mgm      plugins/stereo/mgm/bin/mgm       plugins/stereo/mgm/lib
-  msmw     plugins/stereo/msmw/bin/msmw     plugins/stereo/msmw/lib
-  msmw2    plugins/stereo/msmw2/bin/msmw2   plugins/stereo/msmw2/lib
-  libelas  plugins/stereo/elas/bin/elas     plugins/stereo/elas/lib
+  mgm        plugins/stereo/mgm/bin/mgm              plugins/stereo/mgm/lib
+  mgm_multi  plugins/stereo/mgm_multi/bin/mgm_multi  plugins/stereo/mgm_multi/lib
+  msmw       plugins/stereo/msmw/bin/msmw            plugins/stereo/msmw/lib
+  msmw2      plugins/stereo/msmw2/bin/msmw2          plugins/stereo/msmw2/lib
+  libelas    plugins/stereo/elas/bin/elas            plugins/stereo/elas/lib

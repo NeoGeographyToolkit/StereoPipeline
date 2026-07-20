@@ -205,8 +205,13 @@ asp_final_mgm (or specify the value '3')
 
 **External implementations (shipped with ASP)**
 
+mgm_multi
+   The multiscale flavor of MGM as implemented by its authors. See
+   :numref:`mgm_multi`.
+
 mgm
-   The MGM implementation by its authors. See :numref:`original_mgm`.
+   The original, non-multiscale MGM implementation by its authors. See
+   :numref:`original_mgm`.
 
 opencv_sgbm
    Semi-global block-matching algorithm from OpenCV 3. See

@@ -352,12 +352,12 @@ Correlation
 -----------
 
 stereo-algorithm (*string*) (default = "asp_bm")
-    Use this option to switch between the different stereo 
+    Use this option to switch between the different stereo
     correlation algorithms supported by ASP. Options: ``asp_bm``,
     ``asp_sgm``, ``asp_mgm``, ``asp_final_mgm``, ``mgm`` (original
-    author implementation), ``opencv_sgbm``, ``libelas``, ``msmw``,
-    ``msmw2``, and ``opencv_bm``. See :numref:`stereo_algos` for their
-    description.
+    author implementation), ``mgm_multi`` (multiscale mgm),
+    ``opencv_sgbm``, ``libelas``, ``msmw``, ``msmw2``, and
+    ``opencv_bm``. See :numref:`stereo_algos` for their description.
 
 prefilter-mode (= 0,1,2) (default = 2)
     Filter used to prepare images before performing correlation. Used

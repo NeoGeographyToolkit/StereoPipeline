@@ -6,10 +6,6 @@ New sensors:
     (:numref:`cassis`).
 
 bundle_adjust (:numref:`bundle_adjust`):
-  * When building the overlap list from a DEM (``--auto-overlap-params``), an
-    image whose ground footprint cannot be computed, for example because it
-    projects onto nodata in the DEM, is now skipped rather than stopping the
-    program.
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
     ground control point (GCP) residuals.
   * Added the option ``--ip-match-radius``. For mapprojected images, drops
@@ -22,6 +18,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     (:numref:`ba_gcp_report`).
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
+  * Bug fix for ``--auto-overlap-params`` when a ground footprint cannot be
+    computed.
 
 jitter_solve (:numref:`jitter_solve`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
@@ -47,6 +45,8 @@ image_align (:numref:`image_align`):
     per-match uncertainty (:numref:`correlation_uncertainty`).
 
 parallel_stereo (:numref:`parallel_stereo`):
+  * Added the ``mgm_multi`` stereo algorithm, the multiscale flavor of MGM
+    (:numref:`mgm_multi`).
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
     recent processing best practices (addition of anchor points, gcp robust
     threshold, camera position controls with CSM cameras).

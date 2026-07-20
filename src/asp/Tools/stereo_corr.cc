@@ -1288,11 +1288,19 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     // Set the default options for all algorithms
     std::string default_opts;
     if (alg_name == "mgm") {
-      
+
       default_opts = std::string("MEDIAN=1 CENSUS_NCC_WIN=5 ")
         + "USE_TRUNCATED_LINEAR_POTENTIALS=1 TSGM=3 -s vfit -t census -O 8 "
         + "-r " + vw::num_to_str(min_disp) + " -R " + vw::num_to_str(max_disp);
-      
+
+    } else if (alg_name == "mgm_multi") {
+
+      // Multiscale MGM. The -S option sets the number of scales. The
+      // other defaults follow the multiscale examples of the mgm authors.
+      default_opts = std::string("REMOVESMALLCC=25 MINDIFF=1 CENSUS_NCC_WIN=5 SUBPIX=1 ")
+        + "-S 3 -s vfit -t census -O 8 "
+        + "-r " + vw::num_to_str(min_disp) + " -R " + vw::num_to_str(max_disp);
+
     } else if (alg_name == "opencv_bm") {
       default_opts = std::string("-block_size 21 -texture_thresh 10 -prefilter_cap 31 ") +
         "-uniqueness_ratio 15 -speckle_size 100 -speckle_range 32 -disp12_diff 1";
