@@ -14,10 +14,12 @@
 # (libnabo, libpointmatcher, fgr/FGR, geoid/libegm2008) and the stereo correlation
 # plugins in plugins/stereo (mgm, mgm_multi, msmw, msmw2, elas).
 #
-# --ignore-editable-packages: a dev box (lunokhod1) may have an editable pip
-# install of ale overlaid on the conda ale. The editable python ale is irrelevant
-# to the C++ ASP build the deps tarball serves, so it is safe to ignore. On a
-# clean env this flag is a no-op.
+# asp_deps must NOT contain any editable (pip install -e) package. Editable dev
+# installs of ale/usgscsm/etc. leave the env borrowing the package from a source
+# tree (a dangling .pth) and make conda-pack fail. If you develop such a package,
+# install it honestly and non-editable instead:
+#   pip uninstall -y <pkg>; pip install --no-deps --no-build-isolation ~/projects/<pkg>
+# Do NOT paper over an editable install with --ignore-editable-packages.
 
 set -e
 tag=${1:-asp_deps_linux_v2}
@@ -25,7 +27,7 @@ tag=${1:-asp_deps_linux_v2}
 # conda-pack must be installed (conda install -n base conda-pack, or pip).
 echo "Packing asp_deps (excluding VW/ASP)..."
 conda pack -n asp_deps -o asp_deps.tar.gz --n-threads -1 --force \
-  --ignore-missing-files --ignore-editable-packages \
+  --ignore-missing-files \
   --exclude "lib/libVw*" --exclude "lib/libAsp*" \
   --exclude "include/vw/*" --exclude "include/asp/*"
 
