@@ -895,8 +895,8 @@ To optimize the distortion, starting with the values that are published in the
 ESA Planetary Science Archive, which ASP converts to the transverse distortion
 model in CSM, run the same two bundle adjustment commands from the workflow not
 per site, but jointly, across the three sites (Jezero, Oxia Planum 1, and Oxia
-Planum 2), with distortion solving enabled via ``--intrinsics-to-float
-other_intrinsics``.
+Planum 2), with distortion solving enabled via ``--solve-intrinsics`` and
+``--intrinsics-to-float other_intrinsics``.
 
 This uses the option ``--heights-from-dem-list`` in :ref:`bundle_adjust`
 (added in the ASP build of 2026/7, :numref:`release`), which passes a
