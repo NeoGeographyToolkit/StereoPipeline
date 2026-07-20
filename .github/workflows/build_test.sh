@@ -62,6 +62,7 @@ if [ "$isArm64" != "" ]; then
     # from $HOME (the env-discovery glob below also expects $HOME/*conda3/envs).
     envParent="$HOME/miniconda3/envs"
     wget ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
+    wget ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
     wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
     mkdir -p "$envParent/asp_deps"
     cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps"
@@ -95,6 +96,7 @@ else
     # from $HOME (the env-discovery glob below also expects $HOME/*conda3/envs).
     envParent="$HOME/miniconda3/envs"
     wget ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
+    wget ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
     wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
     mkdir -p "$envParent/asp_deps"
     cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps"

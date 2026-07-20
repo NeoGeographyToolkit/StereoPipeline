@@ -1,41 +1,57 @@
 #!/bin/bash
 
-# SUPERSEDED by conda-pack. Use the commands below instead.
-# The old approach (plain tar of the conda env) did not handle prefix
-# relocation. conda-pack rewrites hardcoded paths so the tarball is
-# portable to any machine.
+# Save the linux-x86_64 ASP dependencies as a BinaryBuilder release, for the
+# Linux Intel cloud nightly. Run on a linux-x86_64 machine (e.g. lunokhod1) that
+# has the asp_deps + python_isis10 conda envs. Analogous to save_linux_arm_deps.sh
+# (aarch64) and save_mac_deps.sh, but for x86_64. Uses conda-pack, since a conda
+# env is NOT relocatable by a plain tar (conda-pack rewrites the baked prefix; the
+# consumer runs the bundled conda-unpack).
+#
+# Usage: ./save_linux_deps.sh [tag]   (default tag: asp_deps_linux_v2)
+#
+# The deps tarball EXCLUDES VW + ASP (lib/libVw*, lib/libAsp*, include/vw,
+# include/asp) - the nightly rebuilds those from source. It KEEPS the inline deps
+# (libnabo, libpointmatcher, fgr/FGR, geoid/libegm2008) and the stereo correlation
+# plugins in plugins/stereo (mgm, mgm_multi, msmw, msmw2, elas).
+#
+# --ignore-editable-packages: a dev box (lunokhod1) may have an editable pip
+# install of ale overlaid on the conda ale. The editable python ale is irrelevant
+# to the C++ ASP build the deps tarball serves, so it is safe to ignore. On a
+# clean env this flag is a no-op.
 
-# First, wipe VW and ASP libs, headers, and tools from asp_deps so only
-# the build dependencies remain (VW/ASP are rebuilt from source by the
-# nightly build). Then conda-pack both envs and upload.
+set -e
+tag=${1:-asp_deps_linux_v2}
 
-# ---- wipe VW/ASP from asp_deps ----
-# conda activate asp_deps
-# rm -f $CONDA_PREFIX/lib/libVw*.so $CONDA_PREFIX/lib/libAsp*.so
-# rm -rf $CONDA_PREFIX/include/vw $CONDA_PREFIX/include/asp
-# # Wipe ASP tools (list from StereoPipeline/install/bin)
-# for t in $(ls ~/projects/StereoPipeline/install/bin/); do
-#   rm -f "$CONDA_PREFIX/bin/$t"
-# done
-# # Wipe VW tools
-# for t in colormap convert_pinhole_model correlate hillshade \
-#          ipfind ipmatch print_exif undistort_image image2qtree; do
-#   rm -f "$CONDA_PREFIX/bin/$t"
-# done
+# conda-pack must be installed (conda install -n base conda-pack, or pip).
+echo "Packing asp_deps (excluding VW/ASP)..."
+conda pack -n asp_deps -o asp_deps.tar.gz --n-threads -1 --force \
+  --ignore-missing-files --ignore-editable-packages \
+  --exclude "lib/libVw*" --exclude "lib/libAsp*" \
+  --exclude "include/vw/*" --exclude "include/asp/*"
 
-# ---- conda-pack ----
-# conda-pack -n asp_deps -o asp_deps_p1.tar.gz --ignore-missing-files
-# conda-pack -n python_isis10 -o python_isis10.tar.gz --ignore-missing-files
-# # Split if over 2 GB (GitHub release asset limit):
-# # split -b 1900m asp_deps_p1.tar.gz asp_deps_p
-# # mv asp_deps_paa asp_deps_p1.tar.gz; mv asp_deps_pab asp_deps_p2.tar.gz
+echo "Packing python_isis10..."
+conda pack -n python_isis10 -o python_isis10.tar.gz --n-threads -1 --force \
+  --ignore-missing-files
 
-# ---- upload ----
-# gh=$(ls -d $HOME/*conda3/envs/gh/bin/gh)
-# repo=NeoGeographyToolkit/BinaryBuilder
-# tag=asp_deps_linux_v2
-# $gh release -R $repo delete $tag --yes
-# $gh api -X DELETE repos/$repo/git/refs/tags/$tag
-# $gh release -R $repo create $tag --title $tag --notes "..."
-# $gh release -R $repo upload $tag asp_deps_p1.tar.gz asp_deps_p2.tar.gz \
-#   python_isis10.tar.gz
+# GitHub release assets cap at 2 GB. Split asp_deps if needed into ~2 GB parts
+# named asp_deps_p1.tar.gz, asp_deps_p2.tar.gz (build_test.sh does
+# `cat asp_deps_p*.tar.gz | tar xzf -`). If it fits, just rename to _p1.
+sz=$(stat -c %s asp_deps.tar.gz 2>/dev/null || stat -f %z asp_deps.tar.gz)
+if [ "$sz" -gt 1900000000 ]; then
+    echo "asp_deps.tar.gz is $sz bytes (> ~1.9 GB) - splitting into 2 GB parts"
+    split -b 1900M -d -a 1 asp_deps.tar.gz asp_deps_p
+    mv asp_deps_p0 asp_deps_p1.tar.gz
+    [ -f asp_deps_p1 ] && mv asp_deps_p1 asp_deps_p2.tar.gz
+else
+    mv -f asp_deps.tar.gz asp_deps_p1.tar.gz
+fi
+
+# Upload to a BinaryBuilder release (full clobber of the same tag).
+gh=$(ls -d $HOME/*conda3/envs/gh/bin/gh 2>/dev/null | head -1)
+repo=NeoGeographyToolkit/BinaryBuilder
+$gh release delete "$tag" -R "$repo" --yes 2>/dev/null || true
+$gh release create "$tag" -R "$repo" -t "$tag" \
+  -n "linux-x86_64 ASP deps (conda-pack; VW/ASP excluded)" \
+  asp_deps_p1.tar.gz python_isis10.tar.gz
+[ -f asp_deps_p2.tar.gz ] && $gh release upload "$tag" -R "$repo" asp_deps_p2.tar.gz
+echo "Uploaded $tag to $repo"
