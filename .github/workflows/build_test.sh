@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This is run by GitHub Actions to build and test the Mac version of ASP.
-# See build_helper.sh for detailed build commands for ASP and its dependencies.
+# See docs/building_asp.rst for detailed build commands for ASP and its dependencies.
 
 # Track infrastructure failures separately from test failures.
 # Infrastructure failures (build, packaging) are fatal.
