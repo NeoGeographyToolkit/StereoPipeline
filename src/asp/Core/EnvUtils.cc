@@ -75,14 +75,20 @@ void set_asp_env_vars() {
                  << getenv("ISISROOT"));
 #endif // ASP_HAVE_PKG_ISIS
   
-  // Set QT_PLUGIN_PATH as the path to /plugins
-  asp::setEnvVar("QT_PLUGIN_PATH", base_dir + "/plugins");
-  if (!fs::exists(std::string(getenv("QT_PLUGIN_PATH")))) {
+  // Set QT_PLUGIN_PATH. Qt6 plugins are in lib/qt6/plugins; keep the older
+  // plugins/ dir as a fallback for Qt5, matching the tarball wrapper in
+  // BinaryBuilder/dist-add/libexec/libexec-funcs.sh. Note that plugins/ also
+  // holds ASP's stereo correlation plugins, which are found separately via the
+  // plugin list, not through QT_PLUGIN_PATH.
+  std::string qt_path = base_dir + "/lib/qt6/plugins:" + base_dir + "/plugins";
+  asp::setEnvVar("QT_PLUGIN_PATH", qt_path);
+  if (!fs::exists(base_dir + "/lib/qt6/plugins")) {
     base_dir = ASP_DEPS_DIR; // This is defined at compile time
-    asp::setEnvVar("QT_PLUGIN_PATH", base_dir + "/plugins");
+    qt_path = base_dir + "/lib/qt6/plugins:" + base_dir + "/plugins";
+    asp::setEnvVar("QT_PLUGIN_PATH", qt_path);
   }
-  if (!fs::exists(std::string(getenv("QT_PLUGIN_PATH"))))
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in " 
+  if (!fs::exists(base_dir + "/lib/qt6/plugins") && !fs::exists(base_dir + "/plugins"))
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in "
                  << getenv("QT_PLUGIN_PATH"));
 
   // Set GDAL_DATA and check for share/gdal
@@ -113,7 +119,7 @@ void set_asp_env_vars() {
   // Force the US English locale as long as ASP is running to avoid
   // ISIS choking on a decimal separator which shows up as a comma for 
   // some reason.
-  asp::setEnvVar("LC_ALL", "en_US.UTF-8");  
+  asp::setEnvVar("LC_ALL", "en_US.UTF-8");
   asp::setEnvVar("LANG", "en_US.UTF-8");
 }
 
