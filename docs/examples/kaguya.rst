@@ -115,6 +115,14 @@ for alignment (:numref:`pc_align`), a helper DEM for mapprojection
   Kaguya TC DEM covering latitudes within +/- 60 degrees, at about 59 m/pixel,
   already co-registered to LOLA. Also on the PDS LOLA node and the JAXA
   `DARTS <https://darts.isas.jaxa.jp/planet/pdap/selene/index.html.en>`_ archive.
+  This DEM is distributed as 512 pixels/degree tiles, in two formats: PDS
+  floating-point ``IMG``, whose values are heights in meters, and JPEG-2000
+  (``.JP2``), a compressed format whose heights are integers with a 0.5 m scale.
+  ASP tools expect a DEM to be a tiled GeoTIFF, for fast random access, and may
+  stall when reading a ``.JP2`` DEM directly. Prefer the floating-point ``IMG``
+  product. If only the ``.JP2`` is at hand, first convert it to a *tiled* GeoTIFF
+  with ``gdal_translate``, cropping to the area of interest to save space, and
+  *account for* the 0.5 m height scale.
 
 - USGS-generated Kaguya TC DTMs. Over 127,000 products spanning 70 degrees north
   to 70 degrees south, produced with the Ames Stereo Pipeline and aligned to
