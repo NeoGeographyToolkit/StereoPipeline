@@ -45,9 +45,19 @@ mkdir -p "$envParent/asp_deps" "$envParent/python_isis10"
 wget --tries=5 --timeout=30 ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
 wget --tries=2 --timeout=30 ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
 wget --tries=5 --timeout=30 ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
-cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps"
+# Silence GNU tar's "Ignoring unknown extended header keyword
+# 'LIBARCHIVE.xattr.com.apple.provenance'" warnings. The deps tarball was packed
+# with macOS tar, which records each file's Apple xattrs as pax headers GNU tar
+# cannot apply. Harmless, but one warning per file floods the log.
+cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps" 2>/dev/null
+# macOS tar also stores AppleDouble sidecar files (._name), which extract as
+# real files on Linux. A stray ._*-DetermineCompiler.cmake in the conda cmake
+# modules matches cmake's compiler-id glob and aborts every configure with a
+# parse error, so VW and ASP never build. Strip all AppleDouble files.
+find "$envParent/asp_deps" -name '._*' -delete 2>/dev/null
 "$envParent/asp_deps/bin/conda-unpack"
-tar xzf python_isis10.tar.gz -C "$envParent/python_isis10"
+tar xzf python_isis10.tar.gz -C "$envParent/python_isis10" 2>/dev/null
+find "$envParent/python_isis10" -name '._*' -delete 2>/dev/null
 "$envParent/python_isis10/bin/conda-unpack"
 # Remove the downloaded dependency tarballs once they are unpacked (no need to
 # keep several GB of tarballs around).

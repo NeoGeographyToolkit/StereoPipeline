@@ -65,10 +65,10 @@ if [ "$isArm64" != "" ]; then
     wget ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
     wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
     mkdir -p "$envParent/asp_deps"
-    cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps"
+    cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps" 2>/dev/null
     "$envParent/asp_deps/bin/conda-unpack"
     mkdir -p "$envParent/python_isis10"
-    tar xzf python_isis10.tar.gz -C "$envParent/python_isis10"
+    tar xzf python_isis10.tar.gz -C "$envParent/python_isis10" 2>/dev/null
     "$envParent/python_isis10/bin/conda-unpack"
     for e in asp_deps python_isis10; do
         find "$envParent/$e" -type f \( -name '*.dylib' -o -name '*.so' \) -print0 2>/dev/null \
@@ -99,10 +99,10 @@ else
     wget ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
     wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
     mkdir -p "$envParent/asp_deps"
-    cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps"
+    cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps" 2>/dev/null
     "$envParent/asp_deps/bin/conda-unpack"
     mkdir -p "$envParent/python_isis10"
-    tar xzf python_isis10.tar.gz -C "$envParent/python_isis10"
+    tar xzf python_isis10.tar.gz -C "$envParent/python_isis10" 2>/dev/null
     "$envParent/python_isis10/bin/conda-unpack"
 fi
 
