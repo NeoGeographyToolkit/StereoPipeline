@@ -36,7 +36,7 @@ Here we compare with the prior CaSSIS DEM product ``MY36_016378_162_1``.
 
    Left: the CTX hillshaded DEM reference for Jezero. Middle: the prior aligned
    CaSSIS DEM. Right: ASP-produced CaSSIS DEM from the same source data. All are
-   gridded at 18 m / pixel.
+   gridded at 18 m/pixel.
 
 .. figure:: ../images/cassis_jezero_geodiff.png
    :name: cassis_jezero_geodiff
@@ -180,7 +180,7 @@ images.
 
 The precise methodology is below. The key observation that made this process
 successful is that one must ensure the framelets are tightly constrained at all
-times. Otherwise they decouple which results in local warping.
+times. Otherwise they decouple, which results in local warping.
 
 To handle across-track warping the lens distortion was recalibrated. This was
 done once, jointly for 3 sites (Jezero, Oxia Planum 1, Oxia Planum 2), then kept
@@ -298,11 +298,16 @@ Alignment of prior CaSSIS DEMs to CTX
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The regridded prior CaSSIS DEM is horizontally aligned to the blended reference
-CTX DEM by dense hillshade correlation (:numref:`pc_corr`) with
-``--num-iterations 0`` to skip subsequent ICP-based alignment.
+CTX DEM. By now both are on the same 18 m/pixel grid and share one projection
+(:numref:`cassis_ctx_ref`), and the CTX is cropped to the prior DEM footprint
+expanded by 20 percent, as for the linescan DEM (:numref:`cassis_init_reg`).
 
-This worked better than ICP point-to-plane alignment (:numref:`align-method`),
-which cannot handle well the notable warping of the official CaSSIS DEMs.
+The prior products can only be brought into approximate registration. A rigid
+transform removes the bulk shift, of up to a hundred pixels, but a horizontal
+residual on the order of ten or more pixels remains, because these products are
+warped non-rigidly. This is the same warping seen in the vertical difference to
+CTX in the results above, where the prior product is several times less tight to
+CTX than the ASP result.
 
 This prior aligned CaSSIS product is only used for the comparisons above and not
 for production of CaSSIS DEMs with ASP.
@@ -530,12 +535,57 @@ single image, for which an *approximate* CSM linescan model
 (:numref:`csm_linescan`) is created from the individual poses and intrinsics.
 This results in some seams and pose artifacts, which will be removed later.
 
-These two linescan images are bundle-adjusted and a DEM is made and aligned to
-CTX with :ref:`pc_align`. It still has 10 to 20 pixels of warping (at 18
-m/pixel), but that is close enough to proceed. The alignment transform is
-applied to the bundle-adjusted linescan cameras, which are then split back into
-individual framelet cameras carrying the updated and registered poses, that
-preserve the consistency within each look.
+These two linescan images are bundle-adjusted and a DEM is made.
+
+This DEM is registered to the reference CTX DEM by dense correlation of the two
+hillshades (:numref:`pc_corr`). It is assumed that both DEMs are already on the
+same 18 m/pixel grid and share the same projection (:numref:`cassis_ctx_ref`).
+
+The reference CTX for this step is first cropped to the linescan DEM footprint,
+expanded by 20 percent, and the linescan DEM is put on that same windowed grid.
+This windowing is essential. On low-texture terrain a correlator that searches a
+wide surrounding area can lock onto a distant, wrong feature and return a
+spurious transform of kilometers. That corrupts the seed cameras and roughens
+the final DEM, while the vertical difference to CTX stays small and hides the
+failure. Cropping to the footprint bounds the search to the region that actually
+overlaps::
+
+    gdalwarp -te <window> -r cubicspline ctx.tif      ctx_win.tif
+    gdalwarp -te <window> -r cubicspline linescan.tif linescan_win.tif
+
+Both windowed DEMs are hillshaded. A dense set of matches is produced by
+correlating the hillshades with :ref:`parallel_stereo` in :ref:`correlator-mode`.
+A rigid transform is then fit from those matches with :ref:`pc_align`, filtered
+with RANSAC, at zero iterations::
+
+    parallel_stereo --correlator-mode --stereo-algorithm asp_mgm \
+      --corr-kernel 9 9 --corr-search -120 -120 120 120         \
+      --num-matches-from-disparity 40000                        \
+      ctx_win_hill.tif linescan_win_hill.tif corr/run
+
+    pc_align --max-displacement -1 --num-iterations 0 \
+      --match-file corr/run-disp-*.match              \
+      --initial-transform-from-hillshading rigid      \
+      --initial-transform-ransac-params 1000 3        \
+      --save-transformed-source-points                \
+      ctx_win.tif linescan_win.tif -o align/run
+
+This dense-correlation approach was found more robust than aligning by sparse
+interest point matches from the hillshades (:numref:`pc_hillshade`). The sparse
+method can do better when there is a large horizontal shift between two visually
+similar DEMs, but it fails when the CTX and CaSSIS hillshades differ in scale, as
+here.
+
+After alignment the residual is checked by correlating the aligned DEM against
+the windowed CTX once more. A near-zero mean horizontal and vertical disparity
+confirms success. A mean over about 10 pixels signals a failed alignment, usually
+an oversized reference or terrain too smooth to lock onto.
+
+Some warping, a few to about ten pixels at 18 m/pixel, can remain, but this is
+close enough to proceed. The alignment transform is applied to the
+bundle-adjusted linescan cameras, which are then split back into individual
+framelet cameras carrying the updated and registered poses, that preserve the
+consistency within each look.
 
 .. _cassis_dense_matches:
 
