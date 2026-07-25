@@ -345,10 +345,22 @@ calc_intensity_residual(SfsOptions const& opt,
                               camera, reflectance, intensity, ground_weight,
                               refl_coeffs, opt);
 
-    if (success && vw::is_valid(intensity) && vw::is_valid(reflectance))
-      residuals[0] = ground_weight * (intensity -
-                      calcSimIntensity(albedo[0], reflectance.child(), exposure[0],
-                                       opt.steepness_factor, haze, opt.num_haze_coeffs));
+    if (success && vw::is_valid(intensity) && vw::is_valid(reflectance)) {
+      // Assume a relative intensity uncertainty of 1%, with the uncertainty
+      // floor evaluated at min_intensity to avoid excessive weights for
+      // very dark pixels.
+      double const min_intensity = 0.01;
+      double const observed_intensity = intensity.child();
+      double const effective_intensity =
+        std::max(observed_intensity, min_intensity);
+      double const intensity_weight =
+        1.0 / (0.01 * effective_intensity);
+
+      residuals[0] = intensity_weight * ground_weight *
+        (observed_intensity -
+         calcSimIntensity(albedo[0], reflectance.child(), exposure[0],
+                          opt.steepness_factor, haze, opt.num_haze_coeffs));
+    }
 
   } catch (...) {
     // To be able to handle robustly DEMs that extend beyond the camera,
