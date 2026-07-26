@@ -44,7 +44,7 @@ Here we compare with the prior CaSSIS DEM product ``MY36_016378_162_1``.
 
    Left: prior CaSSIS minus CTX (median -3.7 m, NMAD 22.4 m). Note the
    large-scale along-track and across-track warping. Right: ASP-produced
-   CaSSIS minus CTX (median 0.09 m, NMAD 1.8 m). Note the different color ranges
+   CaSSIS minus CTX (median 0.0 m, NMAD 1.7 m). Note the different color ranges
    in the two plots. Both are in meters.
 
 .. figure:: ../images/cassis_jezero_dd.png
@@ -54,8 +54,9 @@ Here we compare with the prior CaSSIS DEM product ``MY36_016378_162_1``.
    Evaluation of ground-plane misregistration of our CaSSIS DEM to CTX, measured
    by image correlation of the DEMs after hillshading
    (:numref:`correlator-mode`). The plot shows the components of the filtered
-   disparity in pixels (:numref:`raw_disp`). These have a mean within 0.03 px,
-   and the NMAD values are about 0.5 px. The pixel size is 18 m.
+   disparity in pixels (:numref:`raw_disp`). The horizontal disparity has median
+   -0.1 px and NMAD 0.5 px; the vertical, median 0.1 px and NMAD 0.6 px. The
+   pixel size is 18 m.
 
 Oxia Planum (site 1)
 ^^^^^^^^^^^^^^^^^^^^
@@ -74,7 +75,7 @@ Here we compare with the prior CaSSIS DEM product ``MY34_003806_019_1``.
    :alt: Oxia Planum 1 elevation difference to CTX
 
    Elevation difference to CTX, in meters. Left: prior CaSSIS minus CTX, median
-   0.6 m, NMAD 8.3 m. Right: our CaSSIS minus CTX, median -0.1 m, NMAD 1.5 m,
+   0.6 m, NMAD 8.3 m. Right: our CaSSIS minus CTX, median -0.1 m, NMAD 1.3 m,
    about 6 times tighter to CTX. Here, our result is less well controlled at the
    starting and ending framelets. This improved after a refinement pass
    (:numref:`cassis_refine`).
@@ -83,8 +84,8 @@ Here we compare with the prior CaSSIS DEM product ``MY34_003806_019_1``.
    :name: cassis_ox1_dd
    :alt: Oxia Planum 1 registration to CTX
 
-   Registration to CTX, horizontal and vertical disparity: sub-pixel (NMAD is
-   about 0.5 px).
+   Registration to CTX. Horizontal disparity median -0.1 px and NMAD 0.5 px;
+   vertical median 0.0 px and NMAD 0.5 px.
 
 Oxia Planum (site 2)
 ^^^^^^^^^^^^^^^^^^^^
@@ -110,8 +111,8 @@ Here we compare with the prior CaSSIS DEM product ``MY34_004172_162_1``.
    :name: cassis_ox2_dd
    :alt: Oxia Planum 2 registration to CTX
 
-   Registration to CTX, horizontal and vertical disparity: sub-pixel (NMAD is
-   about 0.3 px).
+   Registration to CTX. Horizontal disparity median -0.3 px and NMAD 0.3 px;
+   vertical median -0.4 px and NMAD 0.2 px.
 
 Gusev crater
 ^^^^^^^^^^^^
@@ -130,13 +131,15 @@ Here we compare with the prior CaSSIS DEM product ``MY34_003860_344_1``.
    :alt: Gusev elevation difference to CTX
 
    Elevation difference to CTX, in meters. Left: prior CaSSIS minus CTX, median
-   3.5 m, NMAD 26.6 m. Right: our CaSSIS minus CTX, median 0.4 m, NMAD 2.6 m.
+   3.5 m, NMAD 26.6 m. Right: our CaSSIS minus CTX, median 0.1 m, NMAD 2.1 m.
 
 .. figure:: ../images/cassis_gusev_dd.png
    :name: cassis_gusev_dd
    :alt: Gusev registration to CTX
 
-   Registration to CTX, horizontal and vertical disparity: NMAD is no more than 0.9 px.
+   Registration to CTX. Horizontal disparity median 0.1 px and NMAD 1.4 px;
+   vertical median 0.1 px and NMAD 1.3 px. Gusev is smooth, so the hillshade
+   correlation is noisier than at the other sites.
 
 Site 004756
 ^^^^^^^^^^^
@@ -154,14 +157,15 @@ Here we compare with the prior CaSSIS DEM product ``MY34_004756_354_1``.
    :alt: 004756 elevation difference to CTX
 
    Elevation difference to CTX, in meters. Left: prior CaSSIS minus CTX, median
-   6.2 m, NMAD 21.5 m. Right: our CaSSIS minus CTX, median 0.0 m, NMAD 4.1 m
+   6.2 m, NMAD 21.5 m. Right: our CaSSIS minus CTX, median -0.2 m, NMAD 3.9 m
    (the wider spread is a blunder tail on steep terrain, not the core surface).
 
 .. figure:: ../images/cassis_004756_dd.png
    :name: cassis_004756_dd
    :alt: 004756 registration to CTX
 
-   Registration to CTX: NMAD 0.5 / 0.4 px, sub-pixel.
+   Registration to CTX. Horizontal disparity median -0.1 px and NMAD 0.5 px;
+   vertical median 0.1 px and NMAD 0.5 px.
 
 .. _cassis_approach:
 
@@ -270,8 +274,8 @@ to span the CaSSIS footprint with margin.
 The box for the reference is taken from the extent of the prior CaSSIS DEM (as
 prepared above, in the local stereographic projection at 18 m/pixel), expanded
 by a factor of six. This wide (and perhaps excessive) margin gives ample
-surrounding terrain for the later hillshade matching to lock onto, despite
-any misregistration in the prior product.
+surrounding terrain to mapproject the framelets for each view that go beyond
+their shared area where they create a terrain model.
 
 The extent is snapped, following the same grid convention (:numref:`mapproj_grid`),
 so its bounds are odd multiples of half the grid size (9 m). The pixel centers then
@@ -543,16 +547,21 @@ DEMs are already on the same 18 m/pixel grid and share the same projection
 (:numref:`cassis_ctx_ref`).
 
 The reference CTX for this step is first cropped to the linescan DEM footprint,
-expanded by 10 percent, and the linescan DEM is put on that same windowed grid.
-This windowing is essential. On low-texture terrain, matching over a wide
-surrounding area can lock onto a distant, wrong feature and return a spurious
-transform of kilometers. That corrupts the seed cameras and roughens the final
-DEM, while the vertical difference to CTX stays small and hides the failure.
-Cropping to the footprint plus a small margin bounds the matching to the region
-that actually overlaps::
+expanded by 10 percent, and the linescan DEM is put on that same grid and
+extent. This shared and rather tight crop extent is essential. On low-texture
+terrain, matching over a wide surrounding area can lock onto a distant, wrong
+feature and return a spurious transform of kilometers. That corrupts the seed
+cameras and roughens the final DEM, while the vertical difference to CTX stays
+small and hides the failure. Cropping to the footprint plus a small margin
+bounds the matching to the region that actually overlaps::
 
-    gdalwarp -te <window> -r cubicspline ctx.tif      ctx_win.tif
-    gdalwarp -te <window> -r cubicspline linescan.tif linescan_win.tif
+    gdalwarp -te <window> -r cubicspline -t_srs "$proj" -tr 18 18 \
+      ctx.tif ctx_win.tif
+    gdalwarp -te <window> -r cubicspline -t_srs "$proj" -tr 18 18 \
+      linescan.tif linescan_win.tif
+
+The projection in ``$proj`` is here for completeness, as by now both sites
+normally already have been regridded to the same local projection.
 
 A rigid transform is fit with :ref:`pc_align`, which hillshades both DEMs,
 matches sparse interest points between them, and fits the transform with RANSAC,
@@ -564,21 +573,16 @@ at zero iterations::
       --save-transformed-source-points                \
       ctx_win.tif linescan_win.tif -o align/run
 
-Putting both DEMs on the same 18 m grid before matching is what makes this sparse
-method reliable, once the earlier scale mismatch is removed (the native CaSSIS DEM
-at about 4.6 m/pixel hillshaded against the coarser CTX).
-
 The alignment is checked by the residual disparity between the two aligned
-hillshades, from a dense correlation (``asp_mgm``, :ref:`correlator-mode`). On
-very smooth terrain the sparse method can lock onto a wrong feature and fail this
-check. When it does, the pipeline falls through to a different method, such as a
-dense ``asp_bm`` block-matching correlation whose robust median disparity is
-applied as a horizontal translation, with the vertical settled by ICP. The first
-method that passes the disparity check is used.
+hillshades, from a dense correlation (``asp_mgm``, :ref:`correlator-mode`). 
 
-The result is also judged by eye, from a red/green overlay of the two hillshades:
-where the aligned CaSSIS sits on the CTX, craters register crater-on-crater and
-read yellow. This overlay is the deciding test.
+On very smooth terrain this sparse method can lock onto a wrong feature and fail
+this check. When it does, the pipeline falls through to the dense method from
+:numref:`pc_corr`. We noticed however for that approach that the stereo
+correlation with the ``asp_bm`` block-matching method is more robust than
+``asp_mgm`` for terrains that have few features.
+
+Careful visual inspection is suggested as well a automated methods can fail. 
 
 Some warping, a few to about ten pixels at 18 m/pixel, can remain, but this is
 close enough to proceed. The alignment transform is applied to the
@@ -747,7 +751,7 @@ fit::
       --heights-from-dem-uncertainty 200          \
       --heights-from-dem-robust-threshold 0.1     \
       --camera-position-uncertainty 500,500       \
-      --robust-threshold 2                        \
+      --robust-threshold 0.5                      \
       --num-iterations 50                         \
       --num-passes 2                              \
       --remove-outliers-params "75 3 100 100"     \
@@ -756,34 +760,41 @@ fit::
       --max-pairwise-matches 2000                 \
       -o ba_fixed_gcp/run
 
+The value ``--heights-from-dem-uncertainty 200`` is likely unnecessarily loose,
+even if the goal is prioritizing GCP.
+
 The second run settles the vertical. It reuses the cameras from the first run
 through the image and camera lists that run wrote, ``ba_fixed_gcp/run-image_list.txt``
 and ``ba_fixed_gcp/run-camera_list.txt``. It uses no ground control, and tightens the
 height constraint to an uncertainty of 1 m, so the heights lock onto the CTX DEM
 while the matches hold the horizontal in place::
 
-    bundle_adjust                                    \
-      --image-list ba_fixed_gcp/run-image_list.txt   \
-      --camera-list ba_fixed_gcp/run-camera_list.txt \
-      --inline-adjustments                           \
-      --match-files-prefix dense/matches/run-disp    \
-      --heights-from-dem ctx.tif                     \
-      --heights-from-dem-uncertainty 1               \
-      --heights-from-dem-robust-threshold 0.1        \
-      --camera-position-uncertainty 500,500          \
-      --robust-threshold 2                           \
-      --num-iterations 50                            \
-      --num-passes 2                                 \
-      --remove-outliers-params "75 3 100 100"        \
-      --min-triangulation-angle 1e-10                \
-      --forced-triangulation-distance 392000         \
-      --max-pairwise-matches 2000                    \
+    bundle_adjust                                     \
+      --image-list ba_fixed_gcp/run-image_list.txt    \
+      --camera-list ba_fixed_gcp/run-camera_list.txt  \
+      --inline-adjustments                            \
+      --match-files-prefix dense/matches/run-disp     \
+      --heights-from-dem ctx.tif                      \
+      --heights-from-dem-uncertainty 10               \
+      --heights-from-dem-robust-threshold 0.1         \
+      --camera-position-uncertainty 500,500           \
+      --robust-threshold 0.5                          \
+      --num-iterations 50                             \
+      --num-passes 2                                  \
+      --remove-outliers-params "75 3 100 100"         \
+      --min-triangulation-angle 1e-10                 \
+      --forced-triangulation-distance 392000          \
+      --max-pairwise-matches 2000                     \
       -o ba_tight_dem/run
 
 The ``--inline-adjustments`` option writes each refined camera as a full camera
 file, used directly by the next stage. The ``--camera-position-uncertainty``
 control keeps the poses from drifting far. The lens distortion is not solved in
 these runs and stays frozen (:numref:`cassis_opt_lens_dist`).
+
+We found that decreasing ``--heights-from-dem-uncertainty`` from 10 to 1, for
+example, does not make the vertical registration better globally. It introduces
+seams and local tilts.
 
 .. _cassis_stereo:
 
