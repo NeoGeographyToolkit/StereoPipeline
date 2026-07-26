@@ -175,8 +175,8 @@ stereo. We have observed however notable jitter for such products, so
 preliminary jitter solving is suggested (:numref:`jitter_solve`).
 
 A CaSSIS DEM is created by bundle adjustment, pairwise stereo, blending of
-created DEMs, and registration to the CTX DEM by dense correlation of hillshaded
-images.
+created DEMs, and registration to the CTX DEM by matching sparse interest points
+on the hillshaded DEMs.
 
 The precise methodology is below. The key observation that made this process
 successful is that one must ensure the framelets are tightly constrained at all
@@ -270,7 +270,7 @@ to span the CaSSIS footprint with margin.
 The box for the reference is taken from the extent of the prior CaSSIS DEM (as
 prepared above, in the local stereographic projection at 18 m/pixel), expanded
 by a factor of six. This wide (and perhaps excessive) margin gives ample
-surrounding terrain for the later hillshade correlation to lock onto, despite
+surrounding terrain for the later hillshade matching to lock onto, despite
 any misregistration in the prior product.
 
 The extent is snapped, following the same grid convention (:numref:`mapproj_grid`),
@@ -537,49 +537,48 @@ This results in some seams and pose artifacts, which will be removed later.
 
 These two linescan images are bundle-adjusted and a DEM is made.
 
-This DEM is registered to the reference CTX DEM by dense correlation of the two
-hillshades (:numref:`pc_corr`). It is assumed that both DEMs are already on the
-same 18 m/pixel grid and share the same projection (:numref:`cassis_ctx_ref`).
+This DEM is registered to the reference CTX DEM by matching sparse interest
+points on the two hillshades (:numref:`pc_hillshade`). It is assumed that both
+DEMs are already on the same 18 m/pixel grid and share the same projection
+(:numref:`cassis_ctx_ref`).
 
 The reference CTX for this step is first cropped to the linescan DEM footprint,
-expanded by 20 percent, and the linescan DEM is put on that same windowed grid.
-This windowing is essential. On low-texture terrain a correlator that searches a
-wide surrounding area can lock onto a distant, wrong feature and return a
-spurious transform of kilometers. That corrupts the seed cameras and roughens
-the final DEM, while the vertical difference to CTX stays small and hides the
-failure. Cropping to the footprint bounds the search to the region that actually
-overlaps::
+expanded by 10 percent, and the linescan DEM is put on that same windowed grid.
+This windowing is essential. On low-texture terrain, matching over a wide
+surrounding area can lock onto a distant, wrong feature and return a spurious
+transform of kilometers. That corrupts the seed cameras and roughens the final
+DEM, while the vertical difference to CTX stays small and hides the failure.
+Cropping to the footprint plus a small margin bounds the matching to the region
+that actually overlaps::
 
     gdalwarp -te <window> -r cubicspline ctx.tif      ctx_win.tif
     gdalwarp -te <window> -r cubicspline linescan.tif linescan_win.tif
 
-Both windowed DEMs are hillshaded. A dense set of matches is produced by
-correlating the hillshades with :ref:`parallel_stereo` in :ref:`correlator-mode`.
-A rigid transform is then fit from those matches with :ref:`pc_align`, filtered
-with RANSAC, at zero iterations::
-
-    parallel_stereo --correlator-mode --stereo-algorithm asp_mgm \
-      --corr-kernel 9 9 --corr-search -120 -120 120 120         \
-      --num-matches-from-disparity 40000                        \
-      ctx_win_hill.tif linescan_win_hill.tif corr/run
+A rigid transform is fit with :ref:`pc_align`, which hillshades both DEMs,
+matches sparse interest points between them, and fits the transform with RANSAC,
+at zero iterations::
 
     pc_align --max-displacement -1 --num-iterations 0 \
-      --match-file corr/run-disp-*.match              \
       --initial-transform-from-hillshading rigid      \
       --initial-transform-ransac-params 1000 3        \
       --save-transformed-source-points                \
       ctx_win.tif linescan_win.tif -o align/run
 
-This dense-correlation approach was found more robust than aligning by sparse
-interest point matches from the hillshades (:numref:`pc_hillshade`). The sparse
-method can do better when there is a large horizontal shift between two visually
-similar DEMs, but it fails when the CTX and CaSSIS hillshades differ in scale, as
-here.
+Putting both DEMs on the same 18 m grid before matching is what makes this sparse
+method reliable, once the earlier scale mismatch is removed (the native CaSSIS DEM
+at about 4.6 m/pixel hillshaded against the coarser CTX).
 
-After alignment the residual is checked by correlating the aligned DEM against
-the windowed CTX once more. A near-zero mean horizontal and vertical disparity
-confirms success. A mean over about 10 pixels signals a failed alignment, usually
-an oversized reference or terrain too smooth to lock onto.
+The alignment is checked by the residual disparity between the two aligned
+hillshades, from a dense correlation (``asp_mgm``, :ref:`correlator-mode`). On
+very smooth terrain the sparse method can lock onto a wrong feature and fail this
+check. When it does, the pipeline falls through to a different method, such as a
+dense ``asp_bm`` block-matching correlation whose robust median disparity is
+applied as a horizontal translation, with the vertical settled by ICP. The first
+method that passes the disparity check is used.
+
+The result is also judged by eye, from a red/green overlay of the two hillshades:
+where the aligned CaSSIS sits on the CTX, craters register crater-on-crater and
+read yellow. This overlay is the deciding test.
 
 Some warping, a few to about ten pixels at 18 m/pixel, can remain, but this is
 close enough to proceed. The alignment transform is applied to the
