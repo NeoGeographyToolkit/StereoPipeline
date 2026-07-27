@@ -45,19 +45,17 @@ The download commands are::
 Creation of cub files
 ~~~~~~~~~~~~~~~~~~~~~
 
-Install ISIS (:numref:`planetary_images`). 
+Install ISIS (:numref:`planetary_images`).
 
 Convert the .IMG files to ISIS .cub files, initialize the metadata (SPICE), and
 calibrate::
 
-    ISIS> mroctx2isis from = P02_001981_1823_XI_02N356W.IMG \
-            to = P02_001981_1823.cub
-    ISIS> mroctx2isis from = P03_002258_1817_XI_01N356W.IMG \
-            to = P03_002258_1817.cub
-    ISIS> spiceinit from = P02_001981_1823.cub web = true
-    ISIS> spiceinit from = P03_002258_1817.cub web = true
-    ISIS> ctxcal from = P02_001981_1823.cub to = P02_001981_1823.cal.cub
-    ISIS> ctxcal from = P03_002258_1817.cub to = P03_002258_1817.cal.cub
+    mroctx2isis from = P02_001981_1823_XI_02N356W.IMG to = P02_001981_1823.cub
+    mroctx2isis from = P03_002258_1817_XI_01N356W.IMG to = P03_002258_1817.cub
+    spiceinit from = P02_001981_1823.cub web = true
+    spiceinit from = P03_002258_1817.cub web = true
+    ctxcal from = P02_001981_1823.cub to = P02_001981_1823.cal.cub
+    ctxcal from = P03_002258_1817.cub to = P03_002258_1817.cal.cub
 
 Optionally run ``ctxevenodd`` on the ``cal.cub`` files.
 
