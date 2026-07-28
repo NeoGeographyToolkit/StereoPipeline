@@ -420,6 +420,12 @@ DEM products also exist. For the Moon, see the Kaguya TC products
 (:numref:`kaguya_products`). For Mars, see the CTX products
 (:numref:`ctx_dem_products`).
 
+For Mars, the `HRSC/MOLA blended global DEM
+<https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/>`_ is a convenient
+initial guess and reference terrain. It is a gap-free 200 m/pixel product that
+fuses MOLA altimetry with HRSC stereo, so it is finer than bare MOLA yet global.
+See :numref:`viking_ref_dem` for an example.
+
 Check, as before, if your DEM is relative to the areoid rather than an
 ellipsoid (:numref:`conv_to_ellipsoid`). Some Mars DEMs may have an
 additional 190 meter vertical offset (such as the dataset

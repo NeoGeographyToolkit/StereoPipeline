@@ -138,6 +138,12 @@ void detect_ip(vw::ip::InterestPointList& ip,
     vw::ip::OpenCvIpDetectorType cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_SIFT;
     if (detect_method == DETECT_IP_METHOD_ORB)
       cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_ORB;
+    else if (detect_method == DETECT_IP_METHOD_AKAZE)
+      cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_AKAZE;
+    else if (detect_method == DETECT_IP_METHOD_BRISK)
+      cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_BRISK;
+    else if (detect_method == DETECT_IP_METHOD_KAZE)
+      cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_KAZE;
 
     // The opencv detector only works if the inputs are normalized, so do it here if it was not done before.
     // - If the images are already normalized most of the data will be in the 0-1 range.

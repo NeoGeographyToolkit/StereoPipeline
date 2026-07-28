@@ -204,7 +204,10 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
   // Choose the method used for IP matching
   enum DetectIpMethod {DETECT_IP_METHOD_INTEGRAL = 0,
                        DETECT_IP_METHOD_SIFT     = 1,
-                       DETECT_IP_METHOD_ORB      = 2};
+                       DETECT_IP_METHOD_ORB      = 2,
+                       DETECT_IP_METHOD_AKAZE    = 3,
+                       DETECT_IP_METHOD_BRISK    = 4,
+                       DETECT_IP_METHOD_KAZE     = 5};
 
 /// Detect interest points
 /// This is not meant to be used directly. Use ip_matching().

@@ -55,8 +55,9 @@ Command-line options for ``ortho2pinhole``:
       
 --ip-detect-method <integer (default: 1)>
       Interest point detection algorithm (0: Integral OBALoG, 1: OpenCV SIFT
-      (default), 2: OpenCV ORB.  Remove any existing ``.vwip`` files before
-      recomputing interest points with a different method.
+      (default), 2: OpenCV ORB, 3: OpenCV AKAZE, 4: OpenCV BRISK, 5: OpenCV
+      KAZE).  Remove any existing ``.vwip`` files before recomputing interest
+      points with a different method.
 
 --minimum-ip <integer (default: 5)>
       Don't create a camera model if fewer than this many interest point matches

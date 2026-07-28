@@ -375,7 +375,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "float32, float64. The values are clamped (and also rounded for integer types) to avoid "
      "overflow.")
     ("ip-detect-method", po::value(&ip_opt.ip_detect_method)->default_value(0),
-     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB, 3: OpenCV AKAZE, 4: OpenCV BRISK, 5: OpenCV KAZE).")
     ("ip-per-image", po::value(&ip_opt.ip_per_image)->default_value(20000),
      "How many interest points to detect in each image (the resulting number of "
       "matches will be much less).")

@@ -924,7 +924,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("ip-per-tile",             po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic determination).")
     ("ip-detect-method",po::value(&opt.ip_detect_method)->default_value(1),
-     "Interest point detection algorithm (0: Integral OBALoG, 1: OpenCV SIFT (default), 2: OpenCV ORB.")
+     "Interest point detection algorithm (0: Integral OBALoG, 1: OpenCV SIFT (default), 2: OpenCV ORB, 3: OpenCV AKAZE, 4: OpenCV BRISK, 5: OpenCV KAZE).")
     ("minimum-ip",             po::value(&opt.min_ip)->default_value(5),
      "Don't create a camera model if fewer than this many interest point matches were found.")
     ("ip-inlier-factor",   po::value(&opt.ip_inlier_factor)->default_value(0.2),

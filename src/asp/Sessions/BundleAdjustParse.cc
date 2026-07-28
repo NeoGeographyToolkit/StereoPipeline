@@ -780,7 +780,7 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
 
     // Interest point detection
     ("ip-detect-method", po::value(&opt.ip_detect_method)->default_value(0),
-     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB.")
+     "Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB, 3: OpenCV AKAZE, 4: OpenCV BRISK, 5: OpenCV KAZE).")
     ("ip-per-tile", po::value(&opt.ip_per_tile)->default_value(0),
      "How many interest points to detect in each 1024^2 image tile (default: automatic "
      "determination). This is before matching. Not all interest points will have a match. "

@@ -44,10 +44,12 @@ ip-per-image <integer (default: unspecified)>
 ip-detect-method <integer (default: 0)>
     What type of interest point detection algorithm to use for image alignment.
     0 = Custom OBAloG (:cite:`jakkula2010efficient`) implementation (default), 1
-    = SIFT implementation from OpenCV, 2 = ORB implementation from OpenCV. The 
+    = SIFT implementation from OpenCV, 2 = ORB implementation from OpenCV, 3 =
+    AKAZE from OpenCV, 4 = BRISK from OpenCV, 5 = KAZE from OpenCV. The
     SIFT method, unlike OBALoG, produces interest points that are accurate
-    to subpixel level. Remove any existing ``.vwip`` files before recomputing
-    interest points with a different method. 
+    to subpixel level. The AKAZE and KAZE methods use nonlinear diffusion and can
+    find more stable interest points on low-contrast imagery. Remove any existing
+    ``.vwip`` files before recomputing interest points with a different method.
 
 epipolar-threshold <double (default: unspecified)>
     Maximum distance in pixels from the epipolar line to search for

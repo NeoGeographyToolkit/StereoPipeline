@@ -376,7 +376,7 @@ Command-line options for image_align
     overflow.
 
 --ip-detect-method <integer (default: 0)>
-    Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB).
+    Interest point detection algorithm (0: Integral OBALoG (default), 1: OpenCV SIFT, 2: OpenCV ORB, 3: OpenCV AKAZE, 4: OpenCV BRISK, 5: OpenCV KAZE).
 
 --ip-per-image <integer (default: 20000)>
     How many interest points to detect in each image (the resulting number of

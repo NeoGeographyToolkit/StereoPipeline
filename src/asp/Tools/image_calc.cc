@@ -48,6 +48,9 @@
 
 #include <vector>
 #include <random>
+#include <algorithm>
+#include <cmath>
+#include <sstream>
 
 namespace po = boost::program_options;
 namespace b_s = boost::spirit;
@@ -497,6 +500,10 @@ struct Options: vw::GdalWriteOptions {
   std::string calc_string;
   std::string output_file;
   std::vector<std::string> metadata;
+  bool        has_median_filter;
+  std::string median_filter; // "min max win"
+  double      mf_min, mf_max;
+  int         mf_win;
 };
 
 // Pick an in-range default nodata for the output channel type for when no output
@@ -524,6 +531,100 @@ double get_type_aware_nodata(int output_data_type) {
     return -1e6;
   }
 }
+
+// A global windowed median filter for denoising and small-hole infill. Every
+// pixel is replaced by the median of the "good" pixels (valid, not an ISIS
+// special / huge value, and in [lo, hi]) in a win x win window, provided at
+// least about two-thirds of the window is good; otherwise the pixel is set to
+// nodata. This is a per-tile view: each tile is expanded by the window
+// half-width so it works on arbitrarily large images.
+template <class ImageT>
+class MedianFilterView: public vw::ImageViewBase<MedianFilterView<ImageT>> {
+  ImageT m_img;
+  int    m_win;
+  double m_lo, m_hi;
+  bool   m_has_nodata;
+  double m_nodata;
+  double m_out_nodata;
+  int    m_min_good;
+public:
+  typedef double pixel_type;
+  typedef double result_type;
+  typedef vw::ProceduralPixelAccessor<MedianFilterView<ImageT>> pixel_accessor;
+
+  MedianFilterView(ImageT const& img, int win, double lo, double hi,
+                   bool has_nodata, double nodata, double out_nodata):
+    m_img(img), m_win(win), m_lo(lo), m_hi(hi),
+    m_has_nodata(has_nodata), m_nodata(nodata), m_out_nodata(out_nodata) {
+    // Require about two-thirds of the window to be good before replacing a
+    // pixel (6 of 9 for a 3x3 window); otherwise the pixel is set to nodata.
+    m_min_good = std::max(1, int(std::round(2.0 * m_win * m_win / 3.0)));
+  }
+
+  inline vw::int32 cols()   const { return m_img.cols(); }
+  inline vw::int32 rows()   const { return m_img.rows(); }
+  inline vw::int32 planes() const { return 1; }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
+
+  inline bool is_good(double v) const {
+    if (std::isnan(v)) return false;
+    if (m_has_nodata && v == m_nodata) return false;
+    if (std::abs(v) > 1e30) return false; // ISIS special pixels read as huge values
+    return (v >= m_lo && v <= m_hi);
+  }
+
+  inline result_type operator()(double /*i*/, double /*j*/, vw::int32 /*p*/ = 0) const {
+    vw::vw_throw(vw::NoImplErr()
+                 << "MedianFilterView::operator() not implemented, use rasterize().");
+    return result_type();
+  }
+
+  typedef vw::CropView<vw::ImageView<pixel_type>> prerasterize_type;
+  inline prerasterize_type prerasterize(vw::BBox2i const& bbox) const {
+    int h = m_win / 2;
+    vw::BBox2i biased = bbox;
+    biased.expand(h);
+    biased.crop(vw::bounding_box(m_img));
+
+    // Rasterize the input tile plus its halo once, then filter within it.
+    vw::ImageView<pixel_type> tile = vw::crop(m_img, biased);
+    vw::ImageView<pixel_type> out(bbox.width(), bbox.height());
+
+    std::vector<double> buf;
+    buf.reserve(m_win * m_win);
+    for (int oy = 0; oy < bbox.height(); oy++) {
+      for (int ox = 0; ox < bbox.width(); ox++) {
+        int gx = bbox.min().x() + ox;
+        int gy = bbox.min().y() + oy;
+        // Global filter: every pixel is replaced by the median of the good
+        // (valid and in-range) pixels in its window, the center included if it
+        // is good. This denoises across the board and fills small nodata holes.
+        buf.clear();
+        for (int wy = gy - h; wy <= gy + h; wy++) {
+          for (int wx = gx - h; wx <= gx + h; wx++) {
+            if (wx < biased.min().x() || wx >= biased.max().x() ||
+                wy < biased.min().y() || wy >= biased.max().y())
+              continue;
+            double v = tile(wx - biased.min().x(), wy - biased.min().y());
+            if (is_good(v)) buf.push_back(v);
+          }
+        }
+        if (int(buf.size()) >= m_min_good) {
+          std::nth_element(buf.begin(), buf.begin() + buf.size() / 2, buf.end());
+          out(ox, oy) = buf[buf.size() / 2];
+        } else {
+          out(ox, oy) = m_out_nodata; // not enough good neighbors: null it
+        }
+      }
+    }
+    return prerasterize_type(out, -bbox.min().x(), -bbox.min().y(), cols(), rows());
+  }
+
+  template <class DestT>
+  inline void rasterize(DestT const& dest, vw::BBox2i const& bbox) const {
+    vw::rasterize(prerasterize(bbox), dest, bbox);
+  }
+};
 
 // Handling input
 void handle_arguments(int argc, char * argv[], Options & opt) {
@@ -580,6 +681,14 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
     ("longitude-offset",  po::value(&opt.lon_offset)->default_value(nan),
      "Add this value to the longitudes in the geoheader (can be used to offset the "
      "longitudes by 360 degrees).")
+    ("median-filter", po::value(&opt.median_filter),
+     "Denoise and infill a single image with a windowed median filter. Specify as a "
+     "quoted string 'min max win'. A pixel that is nodata or whose value is outside [min, max] "
+     "(including ISIS special pixels) is replaced by the median of the good (valid and "
+     "in-range) pixels in a win x win window, provided a majority of the window is good; "
+     "otherwise it is set to nodata. Good pixels are unchanged. This fills small nodata "
+     "holes and removes salt-and-pepper speckle. It operates on one input image only and "
+     "cannot be combined with a calculation expression.")
     ("help,h", "Display this help message.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -599,6 +708,8 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
+  opt.has_median_filter = (vm.count("median-filter") > 0);
+
   if (opt.input_files.empty())
     vw::vw_throw(vw::ArgumentErr() << "Missing input files.\n" << usage << general_options);
 
@@ -611,7 +722,30 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
     vw::vw_throw(vw::ArgumentErr() << "The --percentile-range values must be between 0 and 100, "
              << "and the first value must be less than the second.\n");
 
-  if (opt.calc_string.empty()) {
+  if (opt.has_median_filter) {
+    // Parse the "min max win" string into three values.
+    std::istringstream iss(opt.median_filter);
+    double win_d = 0.0;
+    if (!(iss >> opt.mf_min >> opt.mf_max >> win_d))
+      vw::vw_throw(vw::ArgumentErr()
+               << "The --median-filter option needs three values: 'min max win'.\n");
+    opt.mf_win = int(std::round(win_d));
+    if (opt.input_files.size() != 1)
+      vw::vw_throw(vw::ArgumentErr()
+               << "The --median-filter option works only with a single input image.\n");
+    if (!opt.calc_string.empty())
+      vw::vw_throw(vw::ArgumentErr()
+               << "The --median-filter option cannot be combined with a calculation "
+               << "expression.\n");
+    if (opt.mf_min >= opt.mf_max)
+      vw::vw_throw(vw::ArgumentErr()
+               << "The --median-filter min value must be less than the max value.\n");
+    if (opt.mf_win < 3 || opt.mf_win % 2 == 0)
+      vw::vw_throw(vw::ArgumentErr()
+               << "The --median-filter window size must be an odd integer >= 3.\n");
+  }
+
+  if (opt.calc_string.empty() && !opt.has_median_filter) {
     if (opt.input_files.size() == 1) {
       opt.calc_string = "var_0";
     } else {
@@ -874,7 +1008,89 @@ void proc_img(Options & opt, std::string const& output_file,
 
 }
 
+// Apply the windowed median filter to a single image and write the result.
+void median_filter_img(Options & opt) {
+
+  std::string input = opt.input_files[0];
+  auto rsrc = vw::DiskImageResourcePtr(input);
+  if (rsrc->channels() != 1)
+    vw::vw_throw(vw::ArgumentErr()
+             << "The --median-filter option works only with single-channel images.\n");
+  rsrc->set_rescale(false); // keep integer pixels at their original values
+
+  // Determine the input nodata value.
+  bool has_nodata = false;
+  double nodata = 0.0;
+  if (opt.has_in_nodata) {
+    has_nodata = true; nodata = opt.in_nodata_value;
+  } else if (rsrc->has_nodata_read()) {
+    has_nodata = true; nodata = rsrc->nodata_read();
+    vw::vw_out() << "\t--> Extracted nodata value from " << input << ": " << nodata << "\n";
+  }
+
+  vw::DiskImageView<double> image(rsrc);
+
+  bool have_georef = false;
+  vw::cartography::GeoReference georef;
+  handleGeoref(opt, have_georef, georef);
+
+  // The filter can null pixels, so the output always has a nodata value.
+  double out_nodata = opt.out_nodata_value; // type-aware default or user value
+  double lo = opt.mf_min, hi = opt.mf_max;
+  int win = opt.mf_win;
+
+  vw::ImageViewRef<double> filtered
+    = MedianFilterView<vw::DiskImageView<double>>(image, win, lo, hi,
+                                                  has_nodata, nodata, out_nodata);
+
+  // Carry over metadata from the input and any --mo additions.
+  std::map<std::string, std::string> keywords;
+  vw::cartography::read_header_strings(*rsrc.get(), keywords);
+  for (size_t i = 0; i < opt.metadata.size(); i++)
+    asp::parse_append_metadata(opt.metadata[i], keywords);
+
+  auto tpc = vw::TerminalProgressCallback("image_calc", "Writing:");
+  vw::vw_out() << "Writing: " << opt.output_file << "\n";
+  switch (opt.output_data_type) {
+  case vw::VW_CHANNEL_UINT8:
+    vw::cartography::block_write_gdal_image(opt.output_file,
+      vw::channel_cast_round_and_clamp<vw::uint8>(filtered),
+      have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
+  case vw::VW_CHANNEL_UINT16:
+    vw::cartography::block_write_gdal_image(opt.output_file,
+      vw::channel_cast_round_and_clamp<vw::uint16>(filtered),
+      have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
+  case vw::VW_CHANNEL_INT16:
+    vw::cartography::block_write_gdal_image(opt.output_file,
+      vw::channel_cast_round_and_clamp<vw::int16>(filtered),
+      have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
+  case vw::VW_CHANNEL_INT32:
+    vw::cartography::block_write_gdal_image(opt.output_file,
+      vw::channel_cast_round_and_clamp<vw::int32>(filtered),
+      have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
+  case vw::VW_CHANNEL_UINT32:
+    vw::cartography::block_write_gdal_image(opt.output_file,
+      vw::channel_cast_round_and_clamp<vw::uint32>(filtered),
+      have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
+  case vw::VW_CHANNEL_FLOAT64:
+    vw::cartography::block_write_gdal_image(opt.output_file,
+      filtered,
+      have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
+  default:
+    vw::cartography::block_write_gdal_image(opt.output_file,
+      vw::channel_cast<vw::float32>(filtered),
+      have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
+  }
+}
+
 void image_calc(Options & opt) {
+
+  // The median filter is a standalone image operation, not a calculation.
+  if (opt.has_median_filter) {
+    median_filter_img(opt);
+    return;
+  }
+
   std::string exp(opt.calc_string);
 
   calc_grammar<std::string::const_iterator> grammarParser;

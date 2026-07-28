@@ -289,6 +289,20 @@ Command-line options for image_calc
 --percentile-range <min max (default: 2 98)>
     The percentiles to use for stretching the image to 8-bit. These are double values.
 
+--median-filter <string>
+    Denoise and infill a single image with a global windowed median filter.
+    Specify as a quoted string ``'min max win'``. Every pixel is replaced by the
+    median of the good (valid and in the range ``[min, max]``) pixels in a
+    ``win`` by ``win`` window, provided at least about two-thirds of the window is
+    good (for example 6 of 9 for a 3 by 3 window); otherwise the pixel is set to
+    no-data. This removes salt-and-pepper speckle and fills small no-data holes. It
+    also masks ISIS special pixels (which read as very large values from a cube),
+    so it is a robust way to prepare a noisy cube for stereo. This option operates
+    on one input image only and cannot be combined with a calculation expression.
+    Example::
+
+        image_calc --median-filter '0.07 0.16 3' in.cub -o out.tif
+
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the value in ~/.vwrc.
