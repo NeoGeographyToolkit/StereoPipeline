@@ -31,15 +31,21 @@ names are handled.
 
 Command-line options for ipfind:
 
---interest-operator <sift|orb|OBALoG|LoG|Harris|IAGD (default: sift)>
-    Choose an interest point detector. SIFT and ORB are implemented
-    in OpenCV. OBALoG is from :cite:`jakkula2010efficient`. 
+--interest-operator <sift|orb|akaze|brisk|kaze|OBALoG|LoG|Harris|IAGD (default: sift)>
+    Choose an interest point detector. SIFT, ORB, AKAZE, BRISK, and KAZE
+    are implemented in OpenCV. AKAZE and KAZE use nonlinear diffusion,
+    which tends to help low-contrast imagery. BRISK is a fast binary
+    detector, but it can produce a very large number of keypoints on
+    low-contrast imagery. OBALoG is from :cite:`jakkula2010efficient`.
     IAGD (Integral Auto Gain Detector) is a variant of OBALoG.
 
---descriptor-generator <sift|orb|sgrad|sgrad2|patch (default: sift)>
+--descriptor-generator <sift|orb|akaze|brisk|kaze|sgrad|sgrad2|patch (default: sift)>
     Choose a descriptor generator. Some descriptors work only with
     certain interest point operators (for example, for 'OBALoG' use
-    'sgrad', 'sgrad2', 'patch').
+    'sgrad', 'sgrad2', 'patch'). The binary descriptors ORB, AKAZE, and
+    BRISK should be matched with the Hamming distance in
+    :ref:`ipmatch` (option ``--distance-metric hamming``); the float
+    descriptors SIFT and KAZE use the L2 distance.
 
 --ip-per-image <integer>
     Set the maximum number of IP to find in the whole image. If not

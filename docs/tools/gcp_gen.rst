@@ -186,10 +186,12 @@ Command-line options
 --ip-detect-method <integer (default: 0)>
     Choose an interest point detection method from: 0 = OBAloG
     (:cite:`jakkula2010efficient`), 1 = SIFT (from OpenCV), 2 = ORB (from
+    OpenCV), 3 = AKAZE (from OpenCV), 4 = BRISK (from OpenCV), 5 = KAZE (from
     OpenCV). The SIFT method, unlike OBALoG, produces interest points that are
-    accurate to subpixel level. Remove any existing ``.vwip`` files before
-    recomputing interest points with a different method. See also
-    :numref:`custom_ip`.
+    accurate to subpixel level. The AKAZE and KAZE methods use nonlinear
+    diffusion and can find more stable interest points on low-contrast imagery.
+    Remove any existing ``.vwip`` files before recomputing interest points with
+    a different method. See also :numref:`custom_ip`.
 
 --min-matches <integer (default: 10)>
     Set the minimum number of inlier matches between images for successful
