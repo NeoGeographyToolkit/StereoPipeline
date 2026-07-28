@@ -187,21 +187,26 @@ cameras of the same VIS camera type (A or B), as expected.
 Bundle adjustment
 ~~~~~~~~~~~~~~~~~
 
-Interest-point matching requires some custom settings for this sensor. 
-
-Set ``--ip-nodata-radius 0`` to reduce the effect of the various nodata regions
-that are left after removing the reseau marks and speckle.
+Match on the mapprojected frames, not the raw ones. Mapproject each frame onto the
+reference DEM with its camera, and pass these images to ``bundle_adjust`` via
+``--mapprojected-data-list``. Matching on the raw frames leaves the cross-orbit
+pairs poorly tied and the network decouples. On the mapprojected frames all pairs
+match well, and a single alignment then suffices.
 
 Use the AKAZE interest point method (``--ip-detect-method 3``,
-:numref:`stereodefault-pprc`).
+:numref:`stereodefault-pprc`), which finds stable points on this low-contrast data.
 
-Build the image and camera lists in the same loop, so they stay in the *same
-order* (do not use ``ls``, which sorts the names)::
+Build the image, camera, and mapprojected lists in the same loop, so they stay in
+the *same order* (do not use ``ls``, which sorts the names)::
 
-    rm -f images.txt cameras.txt
+    proj='+proj=stere +lat_0=-7.1 +lon_0=-70.4 +R=3396190 +units=m'
+    rm -f images.txt cameras.txt mapproj.txt
     for id in f912a14 f912a57 f913a15 f913a56; do
-      echo ${id}.tif  >> images.txt
-      echo ${id}.json >> cameras.txt
+      mapproject --t_srs "$proj" --tr 50 \
+        ref.tif ${id}.tif ${id}.json ${id}_map.tif
+      echo ${id}.tif     >> images.txt
+      echo ${id}.json    >> cameras.txt
+      echo ${id}_map.tif >> mapproj.txt
     done
 
 Then run ``bundle_adjust`` (:numref:`bundle_adjust`)::
@@ -209,19 +214,18 @@ Then run ``bundle_adjust`` (:numref:`bundle_adjust`)::
     bundle_adjust                             \
       --image-list images.txt                 \
       --camera-list cameras.txt               \
+      --mapprojected-data-list mapproj.txt    \
       --camera-position-uncertainty 1000,1000 \
       --datum D_MARS                          \
-      --ip-per-tile 10000                     \
+      --ip-per-tile 5000                      \
       --matches-per-tile 5000                 \
       --ip-detect-method 3                    \
-      --ip-nodata-radius 0                    \
-      --individually-normalize                \
       --num-iterations 100                    \
       --min-matches 1                         \
       -o ba/run
 
-This writes camera files with names like ``ba/run-f912a14.adjusted_state.json``,
-that are passed to stereo below.
+This writes camera files like ``ba/run-f912a14.adjusted_state.json``, passed to
+stereo below.
 
 Stereo and mosaicking
 ~~~~~~~~~~~~~~~~~~~~~
@@ -235,13 +239,9 @@ cameras are aligned to the reference DEM to mapproject onto.
 Of the six possible pairs from four frames, use the four with a convergence angle
 (:numref:`ba_conv_angle`) above 20 degrees. Each frame then appears in two pairs.
 
-Fix one local stereographic projection up front and pass it to every ``point2dem``
-(and ``mapproject``) call below, so all the DEMs are created on the same grid.
-Otherwise each DEM auto-computes its own projection (:numref:`point2dem_proj`).
-
-::
-
-    proj='+proj=stere +lat_0=-7.1 +lon_0=-70.4 +R=3396190 +units=m'
+The same stereographic ``proj`` defined above is passed to every ``point2dem`` and
+``mapproject`` call, so all the DEMs are created on the same grid. Otherwise each
+DEM auto-computes its own projection (:numref:`point2dem_proj`).
 
 First pass. For each pair, run stereo (:numref:`parallel_stereo`) with the
 bundle-adjusted camera files (passed explicitly) and
@@ -327,36 +327,14 @@ Produce each DEM at about four times the image ground sample distance (roughly
 200 m). The computed error image (:numref:`point2dem_ortho_err`) is a good predictor
 of bundle adjustment accuracy and quality of the lens distortion fit.
 
-Each second-pass pair triangulates a self-consistent surface, but a two-view pair
-from this weak network can still be tilted or shifted as a whole relative to the
-reference; a low triangulation error means the two rays meet, not that the pair is
-absolutely correct. 
+Because the bundle solve coupled all pairs, the second-pass DEMs are mutually
+registered. Combine them directly with ``dem_mosaic`` (:numref:`dem_mosaic`) into
+``mosaic.tif``, with no per-pair alignment::
 
-A single alignment of the merged mosaic cannot remove these per-pair tilts, so
-we do not do it here. That would be the suggested approach if the images have a
-lot of overlap, and especially for flat terrain, which is not the case here.
+    dem_mosaic st2_912/run-DEM.tif st2_913/run-DEM.tif \
+      st2_1557/run-DEM.tif st2_5614/run-DEM.tif -o mosaic.tif
 
-So align each second-pass DEM to the reference individually with ``pc_align``
-(:numref:`pc_align`), the small dense Viking DEM being the *source* and the
-reference the first argument::
-
-    pc_align                           \
-      --max-displacement 3000          \
-      --datum D_MARS                   \
-      --save-transformed-source-points \
-      ref.tif                          \
-      st2_912/run-DEM.tif              \
-      -o al2_912/run
-
-    point2dem --t_srs "$proj"      \
-      --tr 200                     \
-      al2_912/run-trans_source.tif \
-      -o al2_912/dem
-
-Repeat for each pair. Then combine the aligned DEMs with ``dem_mosaic``
-(:numref:`dem_mosaic`) into ``mosaic.tif``.
-
-The resulting mosaic agrees with the reference to about 40 m (median absolute
+The resulting mosaic agrees with the reference to about 30 m (median absolute
 difference), with a median bias of only a few meters, well within the reference's
 resolution.
 
@@ -375,7 +353,7 @@ were then colorized and hillshaded, such as with ``colormap`` (:numref:`colormap
    Viking four-pair DEM mosaic. Right: the HRSC/MOLA reference regridded to the
    same grid. The elevations agree (same color pattern). The Viking DEM
    shows more detail but also has some numerical artifacts. The elevation
-   range was -2600 to 4612 meters.
+   range was -2633 to 4658 meters.
 
 Orthoimage mosaic
 ~~~~~~~~~~~~~~~~~
