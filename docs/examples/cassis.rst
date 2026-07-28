@@ -974,50 +974,56 @@ could be used to rederive this optimized distortion while minimizing the tilt.
 
 .. _cassis_jitter:
 
-Solving for jitter
-^^^^^^^^^^^^^^^^^^
+Joint CTX and CaSSIS jitter solving
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The CTX images that go into the reference DEM are from a linescan sensor, which
-has a few meters of pose wobble along the track (:numref:`cassis_ctx_ref`). The
-tool :ref:`jitter_solve` can refine the CTX linescan poses, tied to the CaSSIS
-frame cameras, in a single joint solve, as it supports mixing linescan and frame
-cameras (:numref:`jitter_linescan_frame_cam`).
-
-Rather than registering the CaSSIS images against the reference CTX DEM, here they
-are registered at the pixel level against the CTX *images* themselves. This works
-best when the two sensors see similar illumination.
+The earlier examples showed to constrain the CaSSIS cameras against a prior CTX
+DEM. This section handles the advanced topic of pixel-level matching between CTX
+and CaSSIS images, followed by co-optimization. This only works if the two sets
+of data have similar illumination. It reduces the jitter that is usually present
+in CTX images.
 
 CTX is acquired in the early afternoon. At this site that gives a ground solar
 azimuth of about 282 to 284 degrees and an incidence of about 49 degrees, as
-reported by the ISIS ``caminfo`` and ``campt`` tools. The CaSSIS observation used
-here was acquired about ten years later, in a different Mars season, but also in
-the afternoon, so its ground solar azimuth is close, about 285 degrees. The
-shadows fall in a similar direction, which is what lets the matching succeed.
+reported by the ISIS ``caminfo`` and ``campt`` tools. CaSSIS images are recorded
+at various times during the day. Here we work with an image set that was
+acquired about ten years later, in a different Mars season, but also in the
+afternoon, so its ground solar azimuth is close, about 285 degrees. The shadows
+fall in a similar direction, which is what lets image matching succeed.
+
+CTX images are acquired with a linescan sensor, which can have a few meters of
+undulation due to jitter. The tool :ref:`jitter_solve` can take as input both
+linescan and frame cameras, and it can jointly refine the CTX linescan pose
+samples along the track and the CaSSIS frame camera poses
+(:numref:`jitter_linescan_frame_cam`).
 
 This example uses the Oxia Planum CaSSIS observation ``MY34_004172_162``
 (:numref:`cassis_ox2_geodiff`) and the contemporaneous CTX stereo pair
 ``B01_009880_1977_XN_17N024W`` and ``P22_009735_1977_XN_17N024W``, whose
-convergence angle is about 16 degrees. It leverages the blended reference CTX DEM
-from :numref:`cassis_ctx_ref`. When such a reference is not available, one is
-built by collecting a few CTX stereo pairs, bundle-adjusting each, running pairwise
-stereo, blending the DEMs, and aligning the blend to a global reference such as
-HRSC or MOLA (:numref:`cassis_ctx_ref`).
+convergence angle is about 16 degrees. It leverages the blended reference CTX
+DEM from :numref:`cassis_ctx_ref`. When such a reference is not available, one
+is built by collecting a few CTX stereo pairs, bundle-adjusting them together,
+running pairwise stereo, blending the DEMs, and aligning the blend to a global
+reference such as HRSC or MOLA (:numref:`cassis_ctx_ref`), followed by aligning
+the cameras to the same reference (:numref:`ba_pc_align`).
 
-Ingest each CTX image to an ISIS cube and a CSM linescan camera, following the CTX
-recipe (:numref:`ctx_example`). That recipe includes the radiometric calibration
-step ``ctxcal``, run after ``spiceinit``. It flattens the vignette that darkens one
-side of a raw CTX image, which otherwise weakens the cross-sensor matching. Then
-bundle-adjust the pair, run stereo with local epipolar alignment, and make a DEM::
+Ingest each CTX image to an ISIS cube and a CSM linescan camera, following the
+CTX recipe (:numref:`ctx_example`). That includes the radiometric calibration
+step ``ctxcal``, run after ``spiceinit``. It flattens the vignette that darkens
+one side of a raw CTX image, which otherwise weakens the cross-sensor matching.
+
+Bundle-adjust the pair, run stereo with local epipolar alignment, and make a
+DEM::
 
     bundle_adjust                  \
       ctx_left.cub ctx_right.cub   \
       ctx_left.json ctx_right.json \
       -o ba/run
 
-    parallel_stereo                     \
-      --stereo-algorithm asp_mgm        \
-      --alignment-method local_epipolar \
-      ctx_left.cub ctx_right.cub        \
+    parallel_stereo                        \
+      --stereo-algorithm asp_mgm           \
+      --alignment-method local_epipolar    \
+      ctx_left.cub ctx_right.cub           \
       ba/run-ctx_left.adjusted_state.json  \
       ba/run-ctx_right.adjusted_state.json \
       stereo/run
@@ -1029,14 +1035,15 @@ tricky. It has a large horizontal offset from the reference, on the order of 18
 km, inherited from the uncontrolled camera poses, and its surface carries fine
 along-track corrugation from the correlator. A single alignment step, whether a sparse
 hillshade interest-point match or a dense point-cloud match, failed on this
-low-texture terrain. What worked was a two-stage alignment. First, coarsen both
-DEMs by a factor of four, from 18 to 72 meters per pixel, with
-``gdalwarp -r average``. The averaging removes the corrugation and leaves the
-large craters, which match robustly. Then a single :ref:`pc_align` aligns the
-coarse pair. The ``--initial-transform-from-hillshading`` option finds a rigid
-transform from the hillshade interest points, then, because the iteration count is
-nonzero, refines it with point-to-plane ICP in the same run. The ICP recovers the
-rotation::
+low-texture terrain. 
+
+What worked was a two-stage alignment. First, coarsen both DEMs by a factor of
+four, from 18 to 72 meters per pixel, with ``gdalwarp -r average``. The
+averaging removes the corrugation and leaves the large craters, which match
+robustly. Then a single :ref:`pc_align` aligns the coarse pair. The
+``--initial-transform-from-hillshading`` option finds a rigid transform from the
+hillshade interest points, then, because the iteration count is nonzero, refines
+it with point-to-plane ICP in the same run. The ICP recovers the rotation::
 
     gdalwarp -r average -tr 72 72 stereo/ctx-DEM.tif ctx_72.tif
     gdalwarp -r average -tr 72 72 ctx_ref.tif        ref_72.tif
@@ -1045,16 +1052,15 @@ rotation::
       --initial-transform-from-hillshading rigid \
       --max-displacement 300                     \
       --num-iterations 2000                      \
+      --save-transformed-source-points           \
       ref_72.tif ctx_72.tif                      \
       -o align/run
 
-Getting the rotation right here is essential. A residual rotation propagates
-through the jitter solve, and the sparse cross-sensor ties cannot undo it. On this
-site the difference was a 7 m versus a 2 m final result. Check the alignment by eye,
-never by a vertical difference. On low-texture terrain a vertical difference is
-blind to horizontal shift and rotation. Overlay the two hillshades on one common
-grid, with the same projection, extent, and pixel size, and look for co-located
-craters. Fringes that flip direction across the frame signal a residual rotation.
+The resulting transformed source cloud should be gridded with ``point2dem`` and
+inspected to ensure it is on top of the reference cloud. This step still remains
+rather fragile. On occasion it is better to jst set the number of iterations to 0,
+so to stop at teh transform as produced by hillshading only. Here, however, ICP
+did improve the alignment.
 
 The rigid transform is independent of the grid it was estimated on, so it applies
 directly to the native-resolution cameras (:numref:`ba_pc_align`)::
@@ -1068,17 +1074,19 @@ directly to the native-resolution cameras (:numref:`ba_pc_align`)::
       -o align/run
 
 Next, mapproject the two CTX images and all 60 CaSSIS framelets onto the
-low-resolution blurred reference DEM, at the native CaSSIS resolution of 4.59
-meters per pixel. The CTX native resolution, about 5 meters, is comparable, so a
-single grid serves both. All inputs to the joint bundle adjustment then share this
-grid::
+low-resolution blurred reference CTX DEM, at the native CaSSIS resolution of
+4.59 meters per pixel. The CTX native resolution, about 6 meters, is comparable,
+but for the profuse of interest point matching, which fallows, having all the
+mapprojected images at the same resolution is better.
+
+::
 
     mapproject --tr 4.59 ctx_ref_blur.tif                 \
       ctx_left.cub align/run-ctx_left.adjusted_state.json \
       ctx_left.map.tif
 
-(likewise for the right CTX image and each CaSSIS framelet, each with its own
-camera).
+Do likewise for the right CTX image and each CaSSIS framelet, each with its own
+camera.
 
 Collect the aligned CTX cameras and the CaSSIS frame cameras into an image list
 and a camera list, in the same order, with a matching list of the mapprojected
@@ -1123,8 +1131,13 @@ matches from the bundle adjustment. The cross-sensor matches begin with a large
 reprojection error, since that misregistration is what is being solved for, so
 raise ``--max-initial-reprojection-error`` to keep them. Constrain the solve to
 the jitter-free reference with ``--heights-from-dem`` and an anchor DEM
-(:numref:`jitter_dem_constraint`, :numref:`jitter_anchor_points`), with a
-per-camera position leash via ``--camera-position-uncertainty``::
+(:numref:`jitter_dem_constraint`, :numref:`jitter_anchor_points`).
+
+Here it was important to keep ``--anchor-dem-uncertainty`` rather tight, at 25
+m. Otherwise the optimization of poses was too aggressive and the pose sequence
+became unstable.
+
+::
 
     jitter_solve                              \
       --image-list images.txt                 \
@@ -1133,15 +1146,15 @@ per-camera position leash via ``--camera-position-uncertainty``::
       --heights-from-dem ctx_ref.tif          \
       --heights-from-dem-uncertainty 10       \
       --anchor-dem ctx_ref.tif                \
-      --anchor-dem-uncertainty 100            \
-      --num-anchor-points-per-tile 10         \
+      --anchor-dem-uncertainty 25             \
+      --num-anchor-points-per-tile 50         \
       --camera-position-uncertainty 100,100   \
       --num-lines-per-position 1000           \
       --num-lines-per-orientation 250         \
       --max-initial-reprojection-error 500    \
       --robust-threshold 0.5                  \
-      --num-passes 2                        \
-      --num-iterations 50                   \
+      --num-passes 2                          \
+      --num-iterations 50                     \
       -o jitter/run
 
 The goal is the CTX, so look at the two de-jittered surfaces side by side, then
@@ -1172,7 +1185,7 @@ residual rotation the after value was about 7 m.
 
 The same holds against the CaSSIS DEM, over the smaller CaSSIS footprint
 (:numref:`cassis_ox2_jitter_ctxcassis`). The CTX minus CaSSIS difference tightens
-from a median of 0.4 m and an NMAD of 4.3 m to a median of -0.4 m and an NMAD of
+from a median of 0.4 m and an NMAD of 4.3 m to a median of -0.5 m and an NMAD of
 1.9 m.
 
 .. figure:: ../images/cassis_ox2_jitter_ctxcassis.png
@@ -1192,8 +1205,8 @@ and reading the raw disparity with :ref:`disparitydebug`, as in
    :alt: CaSSIS to de-jittered CTX registration, disparity
 
    Registration of the CaSSIS DEM to the de-jittered CTX, in pixels at 18 m/pixel.
-   Left: horizontal disparity, mean 0.4 px and NMAD 0.7 px. Right: vertical
-   disparity, mean -0.2 px and NMAD 0.6 px.
+   Left: horizontal disparity, mean 0.4 px and NMAD 0.9 px. Right: vertical
+   disparity, mean -0.2 px and NMAD 0.8 px.
 
 After the solve, mapproject the CaSSIS framelets at the native resolution onto the
 smooth CTX DEM as usual (:numref:`cassis_stereo`), redo stereo, and make the DEM.
