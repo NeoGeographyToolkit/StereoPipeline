@@ -25,6 +25,7 @@ Illumination is the key constraint. This example uses four Viking Orbiter 1
 frames acquired within one day, in December 1978, over the same area:
 ``f912a14``, ``f912a57`` (orbit 912) and ``f913a15``, ``f913a56`` (orbit 913),
 from VIS cameras A and B. Their Sun angles match, so they cross-correlate well.
+
 Frames of the same area from a different season (for example the August 1977
 orbits 427 and 428) have very different shadows, and mixing them with the
 December frames yields no usable matches. 
@@ -80,15 +81,25 @@ terrain sits in a narrow band (roughly 0.09 to 0.16); values below 0.02 or above
       HRSMIN = 0.30             \
       HRSMAX = 100.0
 
-Second, cap the bright speckle that still survives inside the band. These
-near-white pixels seed false interest points and mislead ``asp_mgm`` correlation.
-Clamp the high tail to 0.2 with ``image_calc`` (:numref:`image_calc`), which also
-writes a plain TIFF, the image used for the rest of the workflow::
+Second, clamp the values to the terrain band with ``image_calc``
+(:numref:`image_calc`), which also writes a plain TIFF. This caps the few percent
+of pixels above and below the band, including saturated speckle::
 
-    image_calc -c 'min(var_0, 0.2)' f912a14.mask.cub -o f912a14_clamp.tif
+    image_calc -c 'max(min(var_0, 0.16), 0.07)' f912a14.mask.cub -o f912a14_clamp.tif
 
-The valid terrain is well below 0.2, so only the speckle is affected. Repeat both
-steps for each frame.
+Third, denoise and infill with a median filter. What remains is salt-and-pepper
+speckle and scattered no-data from the reseau removal, and this is what most
+misleads ``asp_mgm`` correlation: it looks minor zoomed out but trips up the dense
+matcher up close. A 3 by 3 median that replaces a pixel by the median of its
+window when at least 6 of the 9 pixels are valid removes the speckle and fills the
+small holes, while leaving clean terrain nearly unchanged::
+
+    image_calc --median-filter '3 6' f912a14_clamp.tif -o f912a14.tif
+
+Both steps handle ISIS special pixels correctly (they are masked using the cube's
+valid range), so they can be run on the cube directly. Repeat all steps for each
+frame. Denoising is the single biggest lever on this data: it roughly halves the
+final DEM error against the reference.
 
 The reseau grid sits at a fixed detector location, so in ground coordinates it
 falls at a different place in each frame and is filled from neighboring frames
@@ -189,7 +200,7 @@ order* (do not use ``ls``, which sorts the names)::
 
     rm -f images.txt cameras.txt
     for id in f912a14 f912a57 f913a15 f913a56; do
-      echo ${id}_clamp.tif >> images.txt
+      echo ${id}.tif >> images.txt
       echo ${id}.json      >> cameras.txt
     done
 
@@ -246,8 +257,8 @@ bundle-adjusted camera files (passed explicitly) and
 ``--alignment-method affineepipolar``, with no mapprojection, then make a DEM::
 
     parallel_stereo                        \
-      f912a14_clamp.tif                    \
-      f912a57_clamp.tif                    \
+      f912a14.tif                    \
+      f912a57.tif                    \
       ba/run-f912a14.adjusted_state.json   \
       ba/run-f912a57.adjusted_state.json   \
       st1_912/run                          \
@@ -296,7 +307,7 @@ which is accurate and memory-safe::
     for id in f912a14 f912a57 f913a15 f913a56; do
       mapproject                         \
         ref.tif                          \
-        ${id}_clamp.tif                  \
+        ${id}.tif                        \
         cams/run-$id.adjusted_state.json \
         $id.map.tif                      \
         --t_srs "$proj"                  \
@@ -315,7 +326,10 @@ which is accurate and memory-safe::
       --subpixel-mode 9                      \
       --ip-per-tile 5000
 
-    point2dem st2_912/run-PC.tif --t_srs "$proj" --errorimage --tr 200
+    point2dem --t_srs "$proj"\
+      --tr 200               \
+      --errorimage           \
+      st2_912/run-PC.tif 
 
 Produce each DEM at about four times the image ground sample distance (roughly
 200 m) and request the triangulation error with ``--errorimage``. The median
@@ -339,12 +353,15 @@ and the reference the first argument, then combine the aligned DEMs with
       st2_912/run-DEM.tif              \
       -o al2_912/run
 
-    point2dem al2_912/run-trans_source.tif --t_srs "$proj" --tr 200 -o al2_912/dem
+    point2dem --t_srs "$proj"      \
+      --tr 200                     \
+      al2_912/run-trans_source.tif \
+      -o al2_912/dem
 
 Repeat for each pair, then mosaic the aligned DEMs::
 
     dem_mosaic al2_912/dem-DEM.tif al2_1557/dem-DEM.tif \
-      al2_913/dem-DEM.tif al2_5614/dem-DEM.tif -o mosaic
+      al2_913/dem-DEM.tif al2_5614/dem-DEM.tif -o mosaic.tif
 
 The resulting mosaic agrees with the reference to about 110 m (median absolute
 difference), with a median bias of only a few meters, well within the reference's
@@ -383,6 +400,43 @@ To compare, regrid the reference onto the mosaic's exact grid with ``gdalwarp``
    Colorized hillshade on a common elevation range and identical grid. Left: the
    Viking four-pair DEM mosaic. Right: the HRSC/MOLA reference regridded to the
    same grid. The elevations agree (same color pattern), while the Viking DEM
-   resolves considerably more detail than the coarser reference. The dark
-   speckles in the Viking panel are the no-data reseau grid and small gaps
-   between pairs.
+   resolves considerably more detail than the coarser reference.
+
+Orthoimage mosaic
+~~~~~~~~~~~~~~~~~
+
+The aligned cameras and the DEM mosaic also yield an orthoimage mosaic. Mapproject
+each frame onto the DEM with its aligned camera at the image resolution::
+
+    for id in f912a14 f912a57 f913a15 f913a56; do
+      mapproject                             \
+        mosaic.tif                           \
+        $id.tif                              \
+        cams/run-$id.adjusted_state.json     \
+        $id.ortho.tif                        \
+        --t_srs "$proj"                      \
+        --tr 50
+    done
+
+The vidicon frames differ in overall brightness, which would show as a seam in the
+mosaic. Equalize them by scaling each orthoimage so its median matches the common
+median (the average of the four). Compute the median of each ``ortho.tif``, then
+apply the scale factor with ``image_calc``, once per frame::
+
+    image_calc -c 'var_0 * 1.03' f912a14.ortho.tif -o f912a14.ortho_eq.tif
+
+Then combine with ``dem_mosaic --first`` (:numref:`dem_mosaic`), which keeps the
+first image at each pixel rather than blending, so a frame overlap shows a seam
+rather than a smear::
+
+    dem_mosaic --first f912a14.ortho_eq.tif f912a57.ortho_eq.tif \
+      f913a15.ortho_eq.tif f913a56.ortho_eq.tif -o ortho_mosaic.tif
+
+.. figure:: ../images/viking_ortho.png
+   :name: viking_ortho
+   :alt: Viking orthoimage mosaic
+
+   Orthoimage mosaic of the four frames draped on the Viking DEM, exposure-matched
+   and combined with ``dem_mosaic --first`` (no blending, so a frame overlap shows
+   a seam rather than a smear). The black specks are the reseau marks, which are
+   no-data after the cleanup.

@@ -291,17 +291,17 @@ Command-line options for image_calc
 
 --median-filter <string>
     Denoise and infill a single image with a global windowed median filter.
-    Specify as a quoted string ``'min max win'``. Every pixel is replaced by the
-    median of the good (valid and in the range ``[min, max]``) pixels in a
-    ``win`` by ``win`` window, provided at least about two-thirds of the window is
-    good (for example 6 of 9 for a 3 by 3 window); otherwise the pixel is set to
-    no-data. This removes salt-and-pepper speckle and fills small no-data holes. It
-    also masks ISIS special pixels (which read as very large values from a cube),
-    so it is a robust way to prepare a noisy cube for stereo. This option operates
-    on one input image only and cannot be combined with a calculation expression.
-    Example::
+    Specify as a quoted string ``'win_size min_count'``. Every pixel is replaced by
+    the median of the valid pixels in a ``win_size`` by ``win_size`` window,
+    provided at least ``min_count`` of them are valid; otherwise the pixel is set to
+    no-data. This removes salt-and-pepper speckle and fills small no-data holes.
+    ISIS special pixels are masked out first (using the cube's valid range), so a
+    cube can be filtered directly. Any value clamping is a separate step done before
+    this. This option operates on one input image only and cannot be combined with a
+    calculation expression. For example, a 3 by 3 window replacing a pixel when at
+    least 6 of the 9 window pixels are valid::
 
-        image_calc --median-filter '0.07 0.16 3' in.cub -o out.tif
+        image_calc --median-filter '3 6' in.cub -o out.tif
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

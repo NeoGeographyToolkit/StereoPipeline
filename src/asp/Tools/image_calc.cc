@@ -20,9 +20,13 @@
 // Apply specified arithmetic operations to given input images and save the
 // output with desired pixel type.
 
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspStringUtils.h>
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/IsisSpecialPixels.h>
+#endif
 
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
@@ -41,6 +45,7 @@
 #include <vw/FileIO/FileUtils.h>
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
@@ -501,9 +506,8 @@ struct Options: vw::GdalWriteOptions {
   std::string output_file;
   std::vector<std::string> metadata;
   bool        has_median_filter;
-  std::string median_filter; // "min max win"
-  double      mf_min, mf_max;
-  int         mf_win;
+  std::string median_filter; // "win_size min_count"
+  int         mf_win, mf_min_count;
 };
 
 // Pick an in-range default nodata for the output channel type for when no output
@@ -533,33 +537,29 @@ double get_type_aware_nodata(int output_data_type) {
 }
 
 // A global windowed median filter for denoising and small-hole infill. Every
-// pixel is replaced by the median of the "good" pixels (valid, not an ISIS
-// special / huge value, and in [lo, hi]) in a win x win window, provided at
-// least about two-thirds of the window is good; otherwise the pixel is set to
-// nodata. This is a per-tile view: each tile is expanded by the window
-// half-width so it works on arbitrarily large images.
+// pixel is replaced by the median of the valid pixels in a win x win window,
+// provided at least min_count of them are valid; otherwise the pixel is set to
+// nodata. Validity is nodata only: ISIS special pixels are masked to nodata
+// before this view (see median_filter_img), so no value-range test is needed
+// here. This is a per-tile view: each tile is expanded by the window half-width
+// so it works on arbitrarily large images.
 template <class ImageT>
 class MedianFilterView: public vw::ImageViewBase<MedianFilterView<ImageT>> {
   ImageT m_img;
   int    m_win;
-  double m_lo, m_hi;
+  int    m_min_good;
   bool   m_has_nodata;
   double m_nodata;
   double m_out_nodata;
-  int    m_min_good;
 public:
   typedef double pixel_type;
   typedef double result_type;
   typedef vw::ProceduralPixelAccessor<MedianFilterView<ImageT>> pixel_accessor;
 
-  MedianFilterView(ImageT const& img, int win, double lo, double hi,
+  MedianFilterView(ImageT const& img, int win, int min_count,
                    bool has_nodata, double nodata, double out_nodata):
-    m_img(img), m_win(win), m_lo(lo), m_hi(hi),
-    m_has_nodata(has_nodata), m_nodata(nodata), m_out_nodata(out_nodata) {
-    // Require about two-thirds of the window to be good before replacing a
-    // pixel (6 of 9 for a 3x3 window); otherwise the pixel is set to nodata.
-    m_min_good = std::max(1, int(std::round(2.0 * m_win * m_win / 3.0)));
-  }
+    m_img(img), m_win(win), m_min_good(std::max(1, min_count)),
+    m_has_nodata(has_nodata), m_nodata(nodata), m_out_nodata(out_nodata) {}
 
   inline vw::int32 cols()   const { return m_img.cols(); }
   inline vw::int32 rows()   const { return m_img.rows(); }
@@ -569,8 +569,7 @@ public:
   inline bool is_good(double v) const {
     if (std::isnan(v)) return false;
     if (m_has_nodata && v == m_nodata) return false;
-    if (std::abs(v) > 1e30) return false; // ISIS special pixels read as huge values
-    return (v >= m_lo && v <= m_hi);
+    return true;
   }
 
   inline result_type operator()(double /*i*/, double /*j*/, vw::int32 /*p*/ = 0) const {
@@ -682,13 +681,13 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
      "Add this value to the longitudes in the geoheader (can be used to offset the "
      "longitudes by 360 degrees).")
     ("median-filter", po::value(&opt.median_filter),
-     "Denoise and infill a single image with a windowed median filter. Specify as a "
-     "quoted string 'min max win'. A pixel that is nodata or whose value is outside [min, max] "
-     "(including ISIS special pixels) is replaced by the median of the good (valid and "
-     "in-range) pixels in a win x win window, provided a majority of the window is good; "
-     "otherwise it is set to nodata. Good pixels are unchanged. This fills small nodata "
-     "holes and removes salt-and-pepper speckle. It operates on one input image only and "
-     "cannot be combined with a calculation expression.")
+     "Denoise and infill a single image with a global windowed median filter. Specify as a "
+     "quoted string 'win_size min_count'. Every pixel is replaced by the median of the valid "
+     "pixels in a win_size by win_size window, provided at least min_count of them are valid; "
+     "otherwise the pixel is set to nodata. This removes salt-and-pepper speckle and fills "
+     "small nodata holes. ISIS special pixels are masked out first, so a cube can be filtered "
+     "directly. Any value clamping should be done as a separate step before this. It operates "
+     "on one input image only and cannot be combined with a calculation expression.")
     ("help,h", "Display this help message.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
@@ -723,13 +722,11 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
              << "and the first value must be less than the second.\n");
 
   if (opt.has_median_filter) {
-    // Parse the "min max win" string into three values.
+    // Parse the "win_size min_count" string into two integers.
     std::istringstream iss(opt.median_filter);
-    double win_d = 0.0;
-    if (!(iss >> opt.mf_min >> opt.mf_max >> win_d))
+    if (!(iss >> opt.mf_win >> opt.mf_min_count))
       vw::vw_throw(vw::ArgumentErr()
-               << "The --median-filter option needs three values: 'min max win'.\n");
-    opt.mf_win = int(std::round(win_d));
+               << "The --median-filter option needs two values: 'win_size min_count'.\n");
     if (opt.input_files.size() != 1)
       vw::vw_throw(vw::ArgumentErr()
                << "The --median-filter option works only with a single input image.\n");
@@ -737,12 +734,12 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
       vw::vw_throw(vw::ArgumentErr()
                << "The --median-filter option cannot be combined with a calculation "
                << "expression.\n");
-    if (opt.mf_min >= opt.mf_max)
-      vw::vw_throw(vw::ArgumentErr()
-               << "The --median-filter min value must be less than the max value.\n");
     if (opt.mf_win < 3 || opt.mf_win % 2 == 0)
       vw::vw_throw(vw::ArgumentErr()
                << "The --median-filter window size must be an odd integer >= 3.\n");
+    if (opt.mf_min_count < 1 || opt.mf_min_count > opt.mf_win * opt.mf_win)
+      vw::vw_throw(vw::ArgumentErr()
+               << "The --median-filter min_count must be between 1 and win_size squared.\n");
   }
 
   if (opt.calc_string.empty() && !opt.has_median_filter) {
@@ -967,7 +964,22 @@ void loadImagesNodata(Options & opt,
     }
 
     vw::DiskImageView<DoublePixelT> disk_image(rsrc);
-    input_images[i] = disk_image;
+    vw::ImageViewRef<DoublePixelT> img = disk_image;
+
+    // For an ISIS cube, mask the special pixels (Null, Lrs, Lis, Hrs, His) using
+    // the file's valid range, as mapproject and stereo do. Read as GDAL, only the
+    // Null special maps to nodata; the others leak through as very large values.
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+    if (has_nodata_vec[i] && boost::filesystem::path(input).extension() == ".cub") {
+      float nd_f = float(nodata_vec[i]);
+      vw::ImageViewRef<vw::PixelMask<float>> masked
+        = vw::create_mask(vw::pixel_cast<float>(img), nd_f);
+      asp::adjustIsisImage(input, nd_f, masked);
+      img = vw::pixel_cast<DoublePixelT>(vw::apply_mask(masked, nd_f));
+    }
+#endif
+
+    input_images[i] = img;
   }
 }
 
@@ -1036,12 +1048,28 @@ void median_filter_img(Options & opt) {
 
   // The filter can null pixels, so the output always has a nodata value.
   double out_nodata = opt.out_nodata_value; // type-aware default or user value
-  double lo = opt.mf_min, hi = opt.mf_max;
-  int win = opt.mf_win;
+  int win = opt.mf_win, min_count = opt.mf_min_count;
+
+  // For an ISIS cube, mask the special pixels (Null, Lrs, Lis, Hrs, His) using
+  // the file's valid range, exactly as mapproject and stereo do. Read as GDAL,
+  // only the Null special becomes nodata; the others leak through as very large
+  // values, so this step is what lets a cube be filtered honestly.
+  vw::ImageViewRef<double> clean_image = image;
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+  if (boost::filesystem::path(input).extension() == ".cub") {
+    float nd_f = has_nodata ? float(nodata) : float(out_nodata);
+    vw::ImageViewRef<vw::PixelMask<float>> masked
+      = vw::create_mask(vw::pixel_cast<float>(image), nd_f);
+    asp::adjustIsisImage(input, nd_f, masked);
+    // Special and prior nodata pixels are now invalid; write them as out_nodata.
+    clean_image = vw::pixel_cast<double>(vw::apply_mask(masked, float(out_nodata)));
+    has_nodata = true; nodata = out_nodata;
+  }
+#endif
 
   vw::ImageViewRef<double> filtered
-    = MedianFilterView<vw::DiskImageView<double>>(image, win, lo, hi,
-                                                  has_nodata, nodata, out_nodata);
+    = MedianFilterView<vw::ImageViewRef<double>>(clean_image, win, min_count,
+                                                 has_nodata, nodata, out_nodata);
 
   // Carry over metadata from the input and any --mo additions.
   std::map<std::string, std::string> keywords;
