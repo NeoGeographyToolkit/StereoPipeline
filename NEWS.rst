@@ -4,6 +4,7 @@ Changes since last release
 New sensors:
   * Added a pipeline for creating terrain models from TGO CaSSIS pushframe images
     (:numref:`cassis`).
+  * Added an example for Viking Orbiter (:numref:`viking`).
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
@@ -63,9 +64,11 @@ parallel_stereo (:numref:`parallel_stereo`):
     (:numref:`stereodefault`).
 
 cam_gen (:numref:`cam_gen`):
-  * Added ``--csm-refit-distortion`` to refit the lens distortion of a CSM
-    Frame camera to a chosen type while keeping the pose and other intrinsics
-    fixed (:numref:`csm_refit_dist`).
+  * Added ``--csm-refit-distortion`` to refit the lens distortion of a frame
+    camera, stored as a CSM camera or an ISIS cube, to a chosen type
+    while keeping the pose and other intrinsics fixed. For a cube, the focal
+    length, optical center, and pose are read from the cube directly
+    (:numref:`csm_refit_dist`).
 
 sparse_disp (:numref:`sparse_disp`):
   * Added the ability to produce subpixel-level match files (parabola subpixel)

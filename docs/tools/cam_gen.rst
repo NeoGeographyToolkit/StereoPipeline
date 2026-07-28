@@ -226,9 +226,9 @@ See :numref:`cam_gen_validation` for how to validate the created cameras.
 CSM Frame cameras distortion refit
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the input camera is already a CSM Frame model, this program can refit only
-its lens distortion to a different model type, keeping the pose, focal length,
-and optical center exactly as in the input.
+If the input is a frame camera, stored either as a CSM camera or as an ISIS cube,
+this program can refit only its lens distortion to a different model type, keeping
+the pose, focal length, and optical center exactly as in the input.
 
 This is useful when it is desired to create a lens distortion model with more
 degrees of freedom, which can later be optimized (:numref:`floatingintrinsics`).
@@ -249,6 +249,10 @@ Example::
       --refine-intrinsics distortion \
       --datum D_MARS                 \
       -o refit_camera.json
+
+The input can also be an ISIS cube (see an example for the Viking Orbiter,
+:numref:`viking`). This requires the 2026-07-27 build or later
+(:numref:`release`).
 
 See :numref:`cam_gen_validation` for how to validate the produced model.
 

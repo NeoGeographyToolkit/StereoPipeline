@@ -623,24 +623,29 @@ void disp_or_matches_work(std::string const& output_prefix,
   // use those for the match file. That because the matches are between
   // the original images, not the map-projected ones.
   // Read the raw image names from the mapprojection metadata.
+  // In correlator mode there are no cameras, so the matches cannot be
+  // un-projected to the original images. Keep them in the mapprojected image
+  // space, and name the match file after the mapprojected images.
   std::string left_raw_image = opt.in_file1, right_raw_image = opt.in_file2;
-  {
-    std::string adj_key, img_key, cam_type_key, cam_file_key, dem_key;
-    std::string adj, img, cam_type, cam_file, dem;
-    asp::read_mapproj_header(opt.in_file1, adj_key, img_key,
-                             cam_type_key, cam_file_key, dem_key,
-                             adj, img, cam_type, cam_file, dem);
-    if (!img.empty())
-      left_raw_image = img;
-  }
-  {
-    std::string adj_key, img_key, cam_type_key, cam_file_key, dem_key;
-    std::string adj, img, cam_type, cam_file, dem;
-    asp::read_mapproj_header(opt.in_file2, adj_key, img_key,
-                             cam_type_key, cam_file_key, dem_key,
-                             adj, img, cam_type, cam_file, dem);
-    if (!img.empty())
-      right_raw_image = img;
+  if (!asp::stereo_settings().correlator_mode) {
+    {
+      std::string adj_key, img_key, cam_type_key, cam_file_key, dem_key;
+      std::string adj, img, cam_type, cam_file, dem;
+      asp::read_mapproj_header(opt.in_file1, adj_key, img_key,
+                               cam_type_key, cam_file_key, dem_key,
+                               adj, img, cam_type, cam_file, dem);
+      if (!img.empty())
+        left_raw_image = img;
+    }
+    {
+      std::string adj_key, img_key, cam_type_key, cam_file_key, dem_key;
+      std::string adj, img, cam_type, cam_file, dem;
+      asp::read_mapproj_header(opt.in_file2, adj_key, img_key,
+                               cam_type_key, cam_file_key, dem_key,
+                               adj, img, cam_type, cam_file, dem);
+      if (!img.empty())
+        right_raw_image = img;
+    }
   }
   bool matches_as_txt = stereo_settings().matches_as_txt;
   std::string match_file = ip::match_filename(output_prefix + "-disp",

@@ -1193,7 +1193,11 @@ The produced match file name is named along the lines of::
 where ``left.tif`` and ``right.tif`` are the input images. If these images are
 mapprojected, the latest ASP (post version 3.4.0) will instead adjust the match
 file name to reflect the original, unprojected image names, as the matches are
-between those images. 
+between those images.
+
+This does not apply in ``--correlator-mode`` (:numref:`correlator-mode`). Then
+there are no cameras, so the dense matches cannot be un-projected to the original
+images.
 
 In either case, the produced match files must be copied from individual stereo
 runs to the same directory, and *use the standard naming convention* for the

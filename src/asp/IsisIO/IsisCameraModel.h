@@ -77,6 +77,11 @@ namespace camera {
     // Returns the number of samples in the ISIS cube
     int samples() const{ return m_interface->samples(); }
 
+    // Frame-camera intrinsics: focal length in pixels and optical center
+    // (principal point) as detector sample and line.
+    double focal_length_px() const { return m_interface->focal_length_px(); }
+    vw::Vector2 optical_center() const { return m_interface->optical_center(); }
+
     // Returns the serial number of the ISIS cube
     std::string serial_number() const {
       return m_interface->serial_number(); 

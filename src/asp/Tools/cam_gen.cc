@@ -308,7 +308,7 @@ void parseFrameIndex(std::string const& frame_index,
 
 struct Options : public vw::GdalWriteOptions {
   std::string image_file, out_camera, lon_lat_values_str, pixel_values_str, datum_str,
-    reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
+    reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera, csm_frame,
     stereo_session, bundle_adjust_prefix, parsed_camera_center_str, parsed_cam_quat_str,
     distortion_str, distortion_type, refine_intrinsics, extrinsics_file,
     camera_position_uncertainty_str;
@@ -422,6 +422,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("input-camera", po::value(&opt.input_camera)->default_value(""),
      "Create a camera approximating this camera. See the examples in the documentation "
      "for various applications.")
+    ("csm-frame", po::value(&opt.csm_frame)->default_value(""),
+     "For --csm-refit-distortion, load the fixed CSM Frame (pose, focal length, and "
+     "optical center) from this distortion-free CSM camera state file, while the "
+     "distorted ray directions to fit are sampled from --input-camera, which may be an "
+     "ISIS cube. This fits an analytic distortion for a camera whose distortion lives in "
+     "the image (such as Viking Orbiter), keeping the pose and other intrinsics fixed.")
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. See the doc for options.")
     ("extrinsics", po::value(&opt.extrinsics_file)->default_value(""),
@@ -1537,11 +1543,29 @@ void save_pinhole(Options const& opt,
                     ephem_time, sun_pos, serial_number, target_name);
     
     if (opt.csm_refit_distortion) {
-      // Keep the exact input CSM pose, focal length, and optical center. Replace the
-      // distortion with the requested type (zero-initialized) and refit only it, with
-      // the pose held fixed. The fit samples are ray-cast from the input camera below,
-      // so the new distortion learns to reproduce the input camera at its exact pose.
-      csm.load_model(opt.input_camera);
+      // Keep the exact pose, focal length, and optical center, then replace the
+      // distortion with the requested type (zero-initialized) and refit only it,
+      // with the pose held fixed. 
+      IsisCameraModel const* isis_frame = NULL;
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+      if (opt.csm_frame.empty())
+        isis_frame = dynamic_cast<IsisCameraModel const*>
+          (vw::camera::unadjusted_model(input_camera_ptr.get()));
+#endif
+      if (isis_frame != NULL) {
+        Vector2 ctr_pix(width / 2.0, height / 2.0);
+        Vector2 oc = isis_frame->optical_center();
+        csm.createFrameModel(width, height, oc[0], oc[1],
+                             isis_frame->focal_length_px(),
+                             geo.datum().semi_major_axis(),
+                             geo.datum().semi_minor_axis(),
+                             input_camera_ptr->camera_center(ctr_pix),
+                             input_camera_ptr->camera_pose(ctr_pix).rotation_matrix(),
+                             "", std::vector<double>(),
+                             ephem_time, sun_pos, serial_number, target_name);
+      } else {
+        csm.load_model(opt.csm_frame.empty() ? opt.input_camera : opt.csm_frame);
+      }
       if (opt.distortion_type == "transverse")
         csm.set_distortion_type(TRANSVERSE);
       else if (opt.distortion_type == "radtan")

@@ -26,6 +26,7 @@
 #include <isis/Distance.h>
 #include <isis/Pvl.h>
 #include <isis/Camera.h>
+#include <isis/CameraFocalPlaneMap.h>
 #include <isis/Target.h>
 #include <isis/FileName.h>
 #include <isis/CameraFactory.h>
@@ -120,6 +121,18 @@ int IsisInterface::lines() const {
 
 int IsisInterface::samples() const {
   return m_camera->Samples();
+}
+
+double IsisInterface::focal_length_px() const {
+  return m_camera->FocalLength() / m_camera->PixelPitch();
+}
+
+vw::Vector2 IsisInterface::optical_center() const {
+  // The principal point is the detector location where the boresight (the
+  // focal-plane origin) lands.
+  Isis::CameraFocalPlaneMap* fpmap = m_camera->FocalPlaneMap();
+  fpmap->SetFocalPlane(0.0, 0.0);
+  return vw::Vector2(fpmap->DetectorSample(), fpmap->DetectorLine());
 }
 
 std::string IsisInterface::serial_number() const {

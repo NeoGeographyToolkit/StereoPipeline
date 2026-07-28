@@ -84,6 +84,12 @@ namespace isis {
     std::string target_name   () const;
     vw::cartography::Datum get_datum_isis(bool use_sphere_for_non_earth) const;
 
+    // Frame-camera intrinsics: the focal length in pixels, and the optical
+    // center (principal point) as detector sample and line. These let a CSM
+    // Frame model be built that replicates a frame cube up to distortion.
+    double      focal_length_px() const;
+    vw::Vector2 optical_center  () const;
+
   protected:
     // Standard Variables
     //------------------------------------------------------
