@@ -120,6 +120,28 @@ This sets pixels at or above a threshold to nodata::
 Pixels at or above the threshold become nodata, while pixels below retain their
 original values.
 
+.. _image_calc_median:
+
+Median filter
+^^^^^^^^^^^^^
+
+The ``--median-filter`` option denoises and infills a single image with a global
+windowed median filter. Specify it as a quoted string ``'win_size min_count'``.
+Every pixel is replaced by the median of the valid pixels in a ``win_size`` by
+``win_size`` window, provided at least ``min_count`` of them are valid. Otherwise
+the pixel is set to no-data. This removes salt-and-pepper speckle and fills small
+no-data holes.
+
+ISIS special pixels are masked out first (using the cube's valid range), so a cube
+can be filtered directly. Any value clamping is a separate step, done before this
+one. This option operates on a single input image and cannot be combined with a
+calculation expression.
+
+For example, a 3 by 3 window that replaces a pixel when at least 6 of the 9 window
+pixels are valid::
+
+    image_calc --median-filter '3 6' in.cub -o out.tif
+
 Create an image with random values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -290,18 +312,9 @@ Command-line options for image_calc
     The percentiles to use for stretching the image to 8-bit. These are double values.
 
 --median-filter <string>
-    Denoise and infill a single image with a global windowed median filter.
-    Specify as a quoted string ``'win_size min_count'``. Every pixel is replaced by
-    the median of the valid pixels in a ``win_size`` by ``win_size`` window,
-    provided at least ``min_count`` of them are valid; otherwise the pixel is set to
-    no-data. This removes salt-and-pepper speckle and fills small no-data holes.
-    ISIS special pixels are masked out first (using the cube's valid range), so a
-    cube can be filtered directly. Any value clamping is a separate step done before
-    this. This option operates on one input image only and cannot be combined with a
-    calculation expression. For example, a 3 by 3 window replacing a pixel when at
-    least 6 of the 9 window pixels are valid::
-
-        image_calc --median-filter '3 6' in.cub -o out.tif
+    Denoise and infill a single image with a global windowed median filter,
+    specified as a quoted string ``'win_size min_count'``. See
+    :numref:`image_calc_median` for details and an example.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use

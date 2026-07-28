@@ -681,13 +681,8 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
      "Add this value to the longitudes in the geoheader (can be used to offset the "
      "longitudes by 360 degrees).")
     ("median-filter", po::value(&opt.median_filter),
-     "Denoise and infill a single image with a global windowed median filter. Specify as a "
-     "quoted string 'win_size min_count'. Every pixel is replaced by the median of the valid "
-     "pixels in a win_size by win_size window, provided at least min_count of them are valid; "
-     "otherwise the pixel is set to nodata. This removes salt-and-pepper speckle and fills "
-     "small nodata holes. ISIS special pixels are masked out first, so a cube can be filtered "
-     "directly. Any value clamping should be done as a separate step before this. It operates "
-     "on one input image only and cannot be combined with a calculation expression.")
+     "Denoise and infill a single image with a global windowed median filter, "
+     "specified as a quoted string 'win_size min_count'. See the documentation for details.")
     ("help,h", "Display this help message.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
