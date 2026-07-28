@@ -1,10 +1,12 @@
 Changes since last release
 --------------------------
 
-New sensors:
+New features:
   * Added a pipeline for creating terrain models from TGO CaSSIS pushframe images
     (:numref:`cassis`).
   * Added an example for Viking Orbiter (:numref:`viking`).
+  * Added the AKAZE, BRISK, and KAZE interest point detection methods to
+    ``parallel_stereo``, ``bundle_adjust``, etc. (:numref:`stereodefault`).
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the

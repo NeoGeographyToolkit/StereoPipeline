@@ -71,7 +71,7 @@ Additional preprocessing
 The calibration and reseau removal leave a few percent of pixels with
 out-of-range float values: a checkered pattern at the reseau nodes and scattered
 vidicon speckle. These pollute both interest-point matching and stereo
-correlation, so remove them in two steps.
+correlation, so remove them in three steps.
 
 First, null the pixels outside the valid terrain band with ISIS ``specpix``. The
 terrain sits in a narrow band (roughly 0.09 to 0.16); values below 0.02 or above
@@ -91,8 +91,8 @@ of pixels above and below the band, including saturated speckle::
 
     image_calc -c 'max(min(var_0, 0.16), 0.07)' f912a14.mask.cub -o f912a14_clamp.tif
 
-These values may differ for other images. These could likely be relaxed somewhat, as
-the heavy lifting is done by the median filter step below.
+These bounds may differ for other images, and can likely be relaxed somewhat,
+since the heavy lifting is done by the median filter step below.
 
 Third, denoise and infill with a median filter. What remains is salt-and-pepper
 speckle and scattered no-data from the reseau removal, and this is what most
@@ -103,8 +103,8 @@ small holes, while leaving clean terrain nearly unchanged::
 
     image_calc --median-filter '3 6' f912a14_clamp.tif -o f912a14.tif
 
-Both steps handle ISIS special pixels correctly (they are masked using the cube's
-valid range), so they can be run on the cube directly. Repeat all steps for each
+``image_calc`` handles ISIS special pixels correctly (they are masked using the
+cube's valid range), so it can read the cube directly. Repeat all steps for each
 frame. Denoising is the single biggest lever on this data: it roughly halves the
 final DEM error against the reference.
 
@@ -150,12 +150,16 @@ and ``/vsicurl`` (the global file is large)::
 Camera models
 ~~~~~~~~~~~~~
 
-The Viking lens distoortion is a custom so and so (claude please fill in) which does not handle
-well extrapolation beyond image frame, which resutls in mapprojection arrtiafacts.
+The Viking VIS lens distortion is defined in ISIS by a reseau distortion map
+(the ISIS ``ReseauDistortionMap``). It is not an analytic polynomial. The
+distortion is measured empirically, from the offsets of the reseau fiducial marks
+relative to their nominal grid positions, and interpolated between them. Being a
+grid of measured points, it does not extrapolate well beyond the outermost reseau
+marks, near the image frame, which results in mapprojection artifacts at the edges.
 
 To handle this, build a CSM (:numref:`csm`) Frame camera (:numref:`csm_frame`)
 that fits the ``transverse`` lens distortion model (:numref:`csm_frame_def`),
-while keeping the reset of the camera parameters. 
+while keeping the rest of the camera parameters.
 
 This requires the 2026-07-27 ASP build or later (:numref:`release`)::
 
@@ -168,9 +172,8 @@ This requires the 2026-07-27 ASP build or later (:numref:`release`)::
       -o f912a14.json
 
 The resulting camera model reproduces the ISIS camera to a few tenths of a
-pixel, (which is better than if one tries a radial-tangential model, that leaves
-a residual of about 2 pixels. Validate the agreement with ``cam_test``
-(:numref:`cam_test`).
+pixel. This is better than a radial-tangential model, which leaves a residual of
+about 2 pixels. Validate the agreement with ``cam_test`` (:numref:`cam_test`).
 
 Do the same for each frame. The fitted distortion is nearly identical for all
 cameras of the same VIS camera type (A or B), as expected.
@@ -180,8 +183,8 @@ Bundle adjustment
 
 Interest-point matching requires some custom settings for this sensor. 
 
-Set ``--ip-nodata-radius 0`` to reduce the effct of various nodata regions
-that are obtained after removing the resaaue marks and specke.
+Set ``--ip-nodata-radius 0`` to reduce the effect of the various nodata regions
+that are left after removing the reseau marks and speckle.
 
 Use the AKAZE interest point method (``--ip-detect-method 3``,
 :numref:`stereodefault-pprc`).
@@ -218,10 +221,10 @@ Stereo and mosaicking
 ~~~~~~~~~~~~~~~~~~~~~
 
 Stereo is done in two passes. The first pass creates a mosaicked terrain model.
-This product is aligned to a reference terrain, and the alignemntks applied to
-the caemras. Then stereo is redone. The second stereo pass uses mapprojected
+This product is aligned to a reference terrain, and the alignment is applied to
+the cameras. Then stereo is redone. The second stereo pass uses mapprojected
 images, but the first does not, as such images can only be employed after the
-cameras are aligned to the reference DEM to mapprooect onto.
+cameras are aligned to the reference DEM to mapproject onto.
 
 Of the six possible pairs from four frames, use the four with a convergence angle
 (:numref:`ba_conv_angle`) above 20 degrees. Each frame then appears in two pairs.
@@ -279,9 +282,9 @@ transform (:numref:`ba_pc_align`)::
 This writes ``cams/run-f912a14.adjusted_state.json`` and so on, now in the
 reference frame.
 
-Second pass is stereo wtih maprpojected iamges (:numref:`mapproj-example`), that improves
-the quality of DEMs for steep terrain. The cameras are now aligned, so mapprojection for stereo is
-meaningful. 
+The second pass is stereo with mapprojected images (:numref:`mapproj-example`),
+which improves the quality of the DEMs for steep terrain. The cameras are now
+aligned, so mapprojection for stereo is meaningful.
 
 Mapproject each frame at full resolution with a common projection (needed so the
 left and right images share one grid), then correlate with ``--alignment-method
@@ -324,14 +327,12 @@ reference; a low triangulation error means the two rays meet, not that the pair 
 absolutely correct. 
 
 A single alignment of the merged mosaic cannot remove these per-pair tilts, so
-we do not do it here, yet that would be the suggested approach if there images
-ahve a lot of overlap and espeically for flat terrain, which is not the case
-here. 
+we do not do it here. That would be the suggested approach if the images have a
+lot of overlap, and especially for flat terrain, which is not the case here.
 
 So align each second-pass DEM to the reference individually with ``pc_align``
 (:numref:`pc_align`), the small dense Viking DEM being the *source* and the
-reference the first argument, then combine the aligned DEMs with ``dem_mosaic``
-(:numref:`dem_mosaic`)::
+reference the first argument::
 
     pc_align                           \
       --max-displacement 3000          \
@@ -346,10 +347,8 @@ reference the first argument, then combine the aligned DEMs with ``dem_mosaic``
       al2_912/run-trans_source.tif \
       -o al2_912/dem
 
-Repeat for each pair, then mosaic the aligned DEMs::
-
-    dem_mosaic al2_912/dem-DEM.tif al2_1557/dem-DEM.tif \
-      al2_913/dem-DEM.tif al2_5614/dem-DEM.tif -o mosaic.tif
+Repeat for each pair. Then combine the aligned DEMs with ``dem_mosaic``
+(:numref:`dem_mosaic`) into ``mosaic.tif``.
 
 The resulting mosaic agrees with the reference to about 110 m (median absolute
 difference), with a median bias of only a few meters, well within the reference's
@@ -358,9 +357,9 @@ resolution.
 Comparison with the reference
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The created DEM mosaic and the reference were gridded, for comparision, ``gdalwarp``,
-with the opiton ``-r cubicspline`` to the same extent, grid, and projection. 
-These were colorized and hillshaded, such as with ``colormap`` (:numref:`colormap`).
+The created DEM mosaic and the reference were put on the same extent, grid, and
+projection with ``gdalwarp`` (option ``-r cubicspline``), for comparison. These
+were then colorized and hillshaded, such as with ``colormap`` (:numref:`colormap`).
 
 .. figure:: ../images/viking_cmap_compare.png
    :name: viking_cmap_compare
@@ -389,17 +388,16 @@ ground sample distance grid::
         --tr 50
     done
 
-The vidicon frames differ in overall brightness, which would show as a notable
-discontinuity in the mosaic. In this case the orthoimage for ``f912a14`` was
-adjsuted by a constant factor to match better the other ones with
-``image_calc`` (:numref:`image_calc`). 
+The vidicon frames differ in overall brightness, which can show as a seam in the
+mosaic. Optionally, scale a frame by a constant factor with ``image_calc``
+(:numref:`image_calc`) so its median matches the others.
 
 Combine the ortho images with ``dem_mosaic --first`` (:numref:`dem_mosaic`),
 which keeps the first image at each pixel rather than blending, so a frame
 overlap shows a seam rather than a smear::
 
-    dem_mosaic --first f912a14.ortho_eq.tif f912a57.ortho_eq.tif \
-      f913a15.ortho_eq.tif f913a56.ortho_eq.tif -o ortho_mosaic.tif
+    dem_mosaic --first f912a14.ortho.tif f912a57.ortho.tif \
+      f913a15.ortho.tif f913a56.ortho.tif -o ortho_mosaic.tif
 
 .. figure:: ../images/viking_ortho.png
    :name: viking_ortho

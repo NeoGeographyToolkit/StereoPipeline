@@ -606,7 +606,7 @@ The CSM frame camera model has its own collection of lens distortion models.
 Those include the `OpenCV radial-tangential distortion model
 <https://docs.opencv.org/3.4/dc/dbb/tutorial_py_calibration.html>`_ (it has 5
 parameters, in the order k1, k2, p1, p2, k3), *radial distortion*, with 3
-coeffecients, k1, k2, k3, and *transverse* distortion, which is a pair of full
+coefficients, k1, k2, k3, and *transverse* distortion, which is a pair of full
 polynomials of degree 3 in both x and y (20 coefficients), and various other
 `specialized models
 <https://github.com/DOI-USGS/usgscsm/blob/main/include/usgscsm/Distortion.h>`_.
