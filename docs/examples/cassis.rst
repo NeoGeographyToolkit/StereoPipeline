@@ -977,7 +977,7 @@ could be used to rederive this optimized distortion while minimizing the tilt.
 Joint CTX and CaSSIS jitter solving
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The earlier examples showed to constrain the CaSSIS cameras against a prior CTX
+The earlier examples showed how to constrain the CaSSIS cameras against a prior CTX
 DEM. This section handles the advanced topic of pixel-level matching between CTX
 and CaSSIS images, followed by co-optimization. This only works if the two sets
 of data have similar illumination. It reduces the jitter that is usually present
@@ -1058,8 +1058,8 @@ it with point-to-plane ICP in the same run. The ICP recovers the rotation::
 
 The resulting transformed source cloud should be gridded with ``point2dem`` and
 inspected to ensure it is on top of the reference cloud. This step still remains
-rather fragile. On occasion it is better to jst set the number of iterations to 0,
-so to stop at teh transform as produced by hillshading only. Here, however, ICP
+rather fragile. On occasion it is better to just set the number of iterations to 0,
+to stop at the transform as produced by hillshading only. Here, however, ICP
 did improve the alignment.
 
 The rigid transform is independent of the grid it was estimated on, so it applies
@@ -1076,8 +1076,8 @@ directly to the native-resolution cameras (:numref:`ba_pc_align`)::
 Next, mapproject the two CTX images and all 60 CaSSIS framelets onto the
 low-resolution blurred reference CTX DEM, at the native CaSSIS resolution of
 4.59 meters per pixel. The CTX native resolution, about 6 meters, is comparable,
-but for the profuse of interest point matching, which fallows, having all the
-mapprojected images at the same resolution is better.
+but for the interest-point matching that follows, having all the mapprojected
+images at the same resolution is better.
 
 ::
 
