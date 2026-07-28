@@ -71,7 +71,7 @@ Additional preprocessing
 The calibration and reseau removal leave a few percent of pixels with
 out-of-range float values: a checkered pattern at the reseau nodes and scattered
 vidicon speckle. These pollute both interest-point matching and stereo
-correlation, so remove them in three steps.
+correlation, so remove them in four steps.
 
 First, null the pixels outside the valid terrain band with ISIS ``specpix``. The
 terrain sits in a narrow band (roughly 0.09 to 0.16); values below 0.02 or above
@@ -89,38 +89,43 @@ Second, clamp the values to the terrain band with ``image_calc``
 (:numref:`image_calc`), which also writes a plain TIFF. This caps the few percent
 of pixels above and below the band, including saturated speckle::
 
-    image_calc -c 'max(min(var_0, 0.16), 0.07)' f912a14.mask.cub -o f912a14_clamp.tif
+    image_calc -c 'max(min(var_0, 0.16), 0.07)' \
+      f912a14.mask.cub -o f912a14_clamp.tif
 
 These bounds may differ for other images, and can likely be relaxed somewhat,
 since the heavy lifting is done by the median filter step below.
 
-Third, denoise and infill with a median filter. What remains is salt-and-pepper
-speckle and scattered no-data from the reseau removal, and this is what most
-misleads ``asp_mgm`` correlation: it looks minor zoomed out but trips up the dense
-matcher up close. A 3 by 3 median that replaces a pixel by the median of its
-window when at least 6 of the 9 pixels are valid removes the speckle and fills the
-small holes, while leaving clean terrain nearly unchanged::
+Third, remove the salt-and-pepper speckle with a median filter. The speckle is
+what most misleads ``asp_mgm`` correlation: it looks minor when zoomed out, but it
+trips up the dense matcher up close. A 3 by 3 median replaces a pixel by the median
+of its window when at least 6 of the 9 pixels are valid. This removes the speckle
+and fills the smallest holes, while leaving clean terrain nearly unchanged::
 
-    image_calc --median-filter '3 6' f912a14_clamp.tif -o f912a14.tif
+    image_calc --median-filter '3 6'       \
+      f912a14_clamp.tif -o f912a14_med.tif
+
+Fourth, fill the remaining no-data holes with ``gdal_fillnodata`` (shipped with
+ASP, :numref:`gdal_tools`). The median cannot fill the larger reseau boxes, which
+otherwise leave a grid of holes in the DEM and orthoimage. This step interpolates
+each hole from its valid neighbors and touches only the no-data pixels, so the
+terrain is left unchanged. A small maximum distance keeps it from inventing data
+across the image border::
+
+    gdal_fillnodata -md 6 f912a14_med.tif f912a14.tif
 
 ``image_calc`` handles ISIS special pixels correctly (they are masked using the
 cube's valid range), so it can read the cube directly. Repeat all steps for each
-frame. Denoising is the single biggest lever on this data: it roughly halves the
-final DEM error against the reference.
-
-The reseau grid sits at a fixed detector location, so in ground coordinates it
-falls at a different place in each frame and is filled from neighboring frames
-when the DEMs are mosaicked.
+frame. This preprocessing is the single biggest lever on this data: it roughly
+halves the final DEM error against the reference.
 
 .. figure:: ../images/viking_frames.png
    :name: viking_frames
    :alt: Four cleaned Viking frames
 
-   The four cleaned and clamped frames, stretched to a pixel value range of 0.09
-   to 0.16. Top row: ``f912a14`` and ``f912a57`` (orbit 912). Bottom row:
-   ``f913a15`` and ``f913a56`` (orbit 913). The no-data holes are the masked
-   reseau grid and speckle; they fall at different ground locations in each frame
-   and are filled from neighboring frames in the mosaic.
+   The four preprocessed frames, stretched to a pixel value range of 0.09 to 0.16.
+   Top row: ``f912a14`` and ``f912a57`` (orbit 912). Bottom row: ``f913a15`` and
+   ``f913a56`` (orbit 913). The speckle and reseau grid have been removed and the
+   reseau holes filled, so the frames carry no interior no-data.
 
 .. _viking_ref_dem:
 
@@ -134,7 +139,8 @@ being gap-free and global at 200 m/pixel.
 
 Set the URL for the remote DEM location::
 
-    url=https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif
+    base=https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend
+    url=$base/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif
 
 Crop the region of interest directly over the network with ``gdal_translate``
 and ``/vsicurl`` (the global file is large)::
@@ -194,8 +200,8 @@ order* (do not use ``ls``, which sorts the names)::
 
     rm -f images.txt cameras.txt
     for id in f912a14 f912a57 f913a15 f913a56; do
-      echo ${id}.tif >> images.txt
-      echo ${id}.json      >> cameras.txt
+      echo ${id}.tif  >> images.txt
+      echo ${id}.json >> cameras.txt
     done
 
 Then run ``bundle_adjust`` (:numref:`bundle_adjust`)::
@@ -292,12 +298,12 @@ none``::
 
     for id in f912a14 f912a57 f913a15 f913a56; do
       mapproject                         \
+        --t_srs "$proj"                  \
+        --tr 50                          \
         ref.tif                          \
         ${id}.tif                        \
         cams/run-$id.adjusted_state.json \
-        $id.map.tif                      \
-        --t_srs "$proj"                  \
-        --tr 50
+        $id.map.tif
     done
 
     parallel_stereo                          \
@@ -350,7 +356,7 @@ reference the first argument::
 Repeat for each pair. Then combine the aligned DEMs with ``dem_mosaic``
 (:numref:`dem_mosaic`) into ``mosaic.tif``.
 
-The resulting mosaic agrees with the reference to about 110 m (median absolute
+The resulting mosaic agrees with the reference to about 40 m (median absolute
 difference), with a median bias of only a few meters, well within the reference's
 resolution.
 
@@ -367,9 +373,9 @@ were then colorized and hillshaded, such as with ``colormap`` (:numref:`colormap
 
    Colorized hillshade on a common elevation range and identical grid. Left: the
    Viking four-pair DEM mosaic. Right: the HRSC/MOLA reference regridded to the
-   same grid. The elevations agree (same color pattern), while the Viking DEM
-   resolves considerably more detail than the coarser reference. The elevation
-   range was -2889 to 5235 meters.
+   same grid. The elevations agree (same color pattern). The Viking DEM
+   shows more detail but also has some numerical artifacts. The elevation
+   range was -2600 to 4612 meters.
 
 Orthoimage mosaic
 ~~~~~~~~~~~~~~~~~
@@ -379,13 +385,13 @@ Mapproject each frame onto the DEM with its aligned camera at the estimated
 ground sample distance grid::
 
     for id in f912a14 f912a57 f913a15 f913a56; do
-      mapproject                             \
-        mosaic.tif                           \
-        $id.tif                              \
-        cams/run-$id.adjusted_state.json     \
-        $id.ortho.tif                        \
-        --t_srs "$proj"                      \
-        --tr 50
+      mapproject                         \
+        --t_srs "$proj"                  \
+        --tr 50                          \
+        mosaic.tif                       \
+        $id.tif                          \
+        cams/run-$id.adjusted_state.json \
+        $id.ortho.tif
     done
 
 The vidicon frames differ in overall brightness, which can show as a seam in the

@@ -7,6 +7,7 @@ ASP distributes in the ``bin`` directory the following `GDAL
 <https://gdal.org/>`_ programs:
 
 - gdal_rasterize (modify images based on shape files)
+- gdal_fillnodata (interpolate no-data holes from valid neighbors)
 - gdal_translate (crop, resample)
 - gdalbuildvrt (mosaic)
 - gdaldem (hillshade)
