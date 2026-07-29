@@ -1116,15 +1116,20 @@ error. With too few iterations the solve does not converge, the cross-sensor tie
 do not tighten, and they get discarded as outliers. The matches land on craters
 shared between the two sensors (:numref:`cassis_ox2_jitter_matches`).
 
+It is advised to prefer dense matches between the Cassis images to the ones
+created this way, as those are higher quality. So the dense matches can be
+copied over the clean sparse matches made as here. The clean matches between
+CaSSIS and CTX images, and the ones between CTX images, will stay sparse.
+
 .. figure:: ../images/cassis_ox2_jitter_matches.png
    :name: cassis_ox2_jitter_matches
    :alt: Clean CTX to CaSSIS interest-point matches
 
-   Clean interest-point matches (red) between one full raw CaSSIS framelet (2018,
-   top) and the raw CTX image over the same ground extent (2008, bottom). The
-   similar afternoon illumination lets the pixel-level cross-sensor matching
-   succeed. The raw CaSSIS framelet is flipped north-south relative to the raw CTX
-   image, which the matching handles.
+   Clean interest-point matches (red) between one full raw CaSSIS framelet (left)
+   and the raw CTX image over the same ground extent (right). The similar
+   afternoon illumination lets the pixel-level cross-sensor matching succeed.
+   The two images are mirror-flips of each other, which did not prevent matching
+   as it was done with mapprojected versions of these. 
 
 Run the joint jitter solve on the same image and camera lists, tied by the clean
 matches from the bundle adjustment. The cross-sensor matches begin with a large
