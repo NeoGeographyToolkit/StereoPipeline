@@ -981,7 +981,8 @@ The earlier examples showed how to constrain the CaSSIS cameras against a prior 
 DEM. This section handles the advanced topic of pixel-level matching between CTX
 and CaSSIS images, followed by co-optimization. This only works if the two sets
 of data have similar illumination. It reduces the jitter that is usually present
-in CTX images.
+in CTX images. The scripts that reproduce this workflow are in the `CaSSIS pipeline
+<https://github.com/NeoGeographyToolkit/CassisPipeline#joint-ctx-and-cassis-jitter-solving>`_.
 
 CTX is acquired in the early afternoon. At this site that gives a ground solar
 azimuth of about 282 to 284 degrees and an incidence of about 49 degrees, as
