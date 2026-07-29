@@ -121,10 +121,9 @@ on this data: it roughly halves the final DEM error against the reference.
    :name: viking_frames
    :alt: Four cleaned Viking frames
 
-   The four preprocessed frames, stretched to a pixel value range of 0.09 to 0.16.
-   Top row: ``f912a14`` and ``f912a57`` (orbit 912). Bottom row: ``f913a15`` and
-   ``f913a56`` (orbit 913). The speckle and reseau grid have been removed and the
-   reseau holes filled, so the frames carry no interior no-data.
+   The four preprocessed frames. Top row: ``f912a14`` and ``f912a57`` (orbit
+   912). Bottom row: ``f913a15`` and ``f913a56`` (orbit 913). The speckle and
+   reseau grid artifacts have been removed.
 
 .. _viking_ref_dem:
 
