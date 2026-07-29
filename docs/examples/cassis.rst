@@ -1125,8 +1125,8 @@ CaSSIS and CTX images, and the ones between CTX images, will stay sparse.
    :name: cassis_ox2_jitter_matches
    :alt: Clean CTX to CaSSIS interest-point matches
 
-   Clean interest-point matches (red) between one full raw CaSSIS framelet (left)
-   and the raw CTX image over the same ground extent (right). The similar
+   Clean interest-point matches (red) between one full raw CaSSIS framelet (top)
+   and the raw CTX image over the same ground extent (bottom). The similar
    afternoon illumination lets the pixel-level cross-sensor matching succeed.
    The two images are mirror-flips of each other, which did not prevent matching
    as it was done with mapprojected versions of these. 
