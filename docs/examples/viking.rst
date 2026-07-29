@@ -93,16 +93,17 @@ of pixels above and below the band, including saturated speckle::
       f912a14.mask.cub -o f912a14_clamp.tif
 
 These bounds may differ for other images, and can likely be relaxed somewhat,
-since the heavy lifting is done by the median filter step below.
+since the heavy lifting is done by the median filter step below. 
 
-Third, remove the salt-and-pepper speckle with a median filter. The speckle is
-what most misleads ``asp_mgm`` correlation: it looks minor when zoomed out, but it
-trips up the dense matcher up close. A 3 by 3 median replaces a pixel by the median
-of its window when at least 6 of the 9 pixels are valid. This removes the speckle
-and fills the smallest holes, while leaving clean terrain nearly unchanged::
+Third, remove the salt-and-pepper speckle with a median filter. A 3 by 3 median
+replaces a pixel by the median of its window when at least 6 of the 9 pixels are
+valid. This removes the speckle and fills the smallest holes, while leaving
+clean terrain nearly unchanged::
 
     image_calc --median-filter '3 6'       \
       f912a14_clamp.tif -o f912a14_med.tif
+
+This option requires the 2026-07-28 ASP build or later (:numref:`release`).
 
 Fourth, fill the remaining no-data holes with ``gdal_fillnodata`` (shipped with
 ASP, :numref:`gdal_tools`). The median cannot fill the larger reseau boxes, which
@@ -113,10 +114,8 @@ across the image border::
 
     gdal_fillnodata -md 6 f912a14_med.tif f912a14.tif
 
-``image_calc`` handles ISIS special pixels correctly (they are masked using the
-cube's valid range), so it can read the cube directly. Repeat all steps for each
-frame. This preprocessing is the single biggest lever on this data: it roughly
-halves the final DEM error against the reference.
+Repeat all steps for each frame. This preprocessing is the single biggest lever
+on this data: it roughly halves the final DEM error against the reference.
 
 .. figure:: ../images/viking_frames.png
    :name: viking_frames
@@ -156,18 +155,18 @@ and ``/vsicurl`` (the global file is large)::
 Camera models
 ~~~~~~~~~~~~~
 
-The Viking VIS lens distortion is defined in ISIS by a reseau distortion map
-(the ISIS ``ReseauDistortionMap``). It is not an analytic polynomial. The
-distortion is measured empirically, from the offsets of the reseau fiducial marks
-relative to their nominal grid positions, and interpolated between them. Being a
-grid of measured points, it does not extrapolate well beyond the outermost reseau
-marks, near the image frame, which results in mapprojection artifacts at the edges.
+The Viking VIS lens distortion is defined in ISIS by a reseau distortion map.
+The distortion is measured empirically, from the offsets of the reseau fiducial
+marks relative to their nominal grid positions, and interpolated between them.
+Being a grid of measured points, it does not extrapolate well beyond the
+outermost reseau marks, near the image frame, which results in mapprojection
+artifacts at the edges.
 
 To handle this, build a CSM (:numref:`csm`) Frame camera (:numref:`csm_frame`)
 that fits the ``transverse`` lens distortion model (:numref:`csm_frame_def`),
 while keeping the rest of the camera parameters.
 
-This requires the 2026-07-27 ASP build or later (:numref:`release`)::
+This requires the 2026-07-28 ASP build or later (:numref:`release`)::
 
     cam_gen f912a14.cub              \
       --input-camera f912a14.cub     \
@@ -187,19 +186,17 @@ cameras of the same VIS camera type (A or B), as expected.
 Bundle adjustment
 ~~~~~~~~~~~~~~~~~
 
-Match on the mapprojected frames, not the raw ones. Mapproject each frame onto the
-reference DEM with its camera, and pass these images to ``bundle_adjust`` via
-``--mapprojected-data-list``. Matching on the raw frames leaves the cross-orbit
-pairs poorly tied and the network decouples. On the mapprojected frames all pairs
-match well, and a single alignment then suffices.
+Interest point matching is done on the mapprojected images (:numref:`mapip`),
+for robustness. Use the AKAZE interest point method (``--ip-detect-method 3``,
+:numref:`stereodefault-pprc`), which finds stable points on this low-contrast
+data.
 
-Use the AKAZE interest point method (``--ip-detect-method 3``,
-:numref:`stereodefault-pprc`), which finds stable points on this low-contrast data.
-
-Build the image, camera, and mapprojected lists in the same loop, so they stay in
-the *same order* (do not use ``ls``, which sorts the names)::
+Set a shared local projection::
 
     proj='+proj=stere +lat_0=-7.1 +lon_0=-70.4 +R=3396190 +units=m'
+
+Build the image, camera, and mapprojected lists in the *same order*::
+
     rm -f images.txt cameras.txt mapproj.txt
     for id in f912a14 f912a57 f913a15 f913a56; do
       mapproject --t_srs "$proj" --tr 50 \
@@ -262,10 +259,8 @@ This is repeated for each pair with a good convergence angle and good overlap.
 
 Combine the DEMs with ``dem_mosaic`` (:numref:`dem_mosaic`) into
 ``dem_mosaic_pass1.tif``. Align this mosaic to the reference with ``pc_align``
-(:numref:`pc_align`). Because the Viking DEM is a small dense patch inside the
-large coarse reference, the Viking DEM is the *source* and the reference is the
-first argument. The raw pointing can be off by more than 10 km, so use a large
-``--max-displacement``::
+(:numref:`pc_align`). The raw pointing can be off by more than 10 km, so use a
+large ``--max-displacement``::
 
     pc_align                   \
       --max-displacement 25000 \
@@ -273,6 +268,10 @@ first argument. The raw pointing can be off by more than 10 km, so use a large
       ref.tif                  \
       dem_mosaic_pass1.tif     \
       -o al/run
+
+Such a large max displacement can make it hard to filter outliers properly. It works
+is case, as the DEM we want to align, so ``dem_mosaic_pass1.tif`` is small in extent
+compared to the reference DEM.
 
 Apply the resulting transform to the cameras, so they move into the reference
 coordinate system. This does not re-optimize anything; it only applies the rigid
@@ -329,7 +328,7 @@ of bundle adjustment accuracy and quality of the lens distortion fit.
 
 Because the bundle solve coupled all pairs, the second-pass DEMs are mutually
 registered. Combine them directly with ``dem_mosaic`` (:numref:`dem_mosaic`) into
-``mosaic.tif``, with no per-pair alignment::
+``mosaic.tif``::
 
     dem_mosaic st2_912/run-DEM.tif st2_913/run-DEM.tif \
       st2_1557/run-DEM.tif st2_5614/run-DEM.tif -o mosaic.tif
@@ -349,16 +348,14 @@ were then colorized and hillshaded, such as with ``colormap`` (:numref:`colormap
    :name: viking_cmap_compare
    :alt: Viking mosaic versus HRSC, colorized hillshade
 
-   Colorized hillshade on a common elevation range and identical grid. Left: the
-   Viking four-pair DEM mosaic. Right: the HRSC/MOLA reference regridded to the
-   same grid. The elevations agree (same color pattern). The Viking DEM
-   shows more detail but also has some numerical artifacts. The elevation
-   range was -2633 to 4658 meters.
+   Left: the Viking four-pair DEM mosaic. Right: the HRSC/MOLA reference. The
+   elevations agree (same color pattern). The Viking DEM shows more detail but
+   also has some numerical artifacts. The elevation range was -2633 to 4658
+   meters.
 
 Orthoimage mosaic
 ~~~~~~~~~~~~~~~~~
 
-The aligned cameras and the DEM mosaic also yield an orthoimage mosaic.
 Mapproject each frame onto the DEM with its aligned camera at the estimated
 ground sample distance grid::
 
@@ -374,7 +371,7 @@ ground sample distance grid::
 
 The vidicon frames differ in overall brightness, which can show as a seam in the
 mosaic. Optionally, scale a frame by a constant factor with ``image_calc``
-(:numref:`image_calc`) so its median matches the others.
+(:numref:`image_calc`) so its median pixel value matches the others.
 
 Combine the ortho images with ``dem_mosaic --first`` (:numref:`dem_mosaic`),
 which keeps the first image at each pixel rather than blending, so a frame
@@ -388,3 +385,17 @@ overlap shows a seam rather than a smear::
    :alt: Viking orthoimage mosaic
 
    Orthoimage mosaic of the four frames draped on the Viking DEM (exposure-matched).
+
+Triangulation error
+~~~~~~~~~~~~~~~~~~~
+
+Inspect the triangulation error for each DEM (:numref:`point2dem_ortho_err`).
+When bundle adjustment fails, this error is larger than the ground sample
+distance, which here is about 50 m. A strong pattern around the frame corners
+would indicate unmodeled lens distortion, which is not seen here.
+
+.. figure:: ../images/viking_trierr.png
+   :name: viking_trierr
+   :alt: Viking triangulation error for the four stereo pairs
+
+   Triangulation error for the four stereo pairs, clamped to 0 to 50 m.
