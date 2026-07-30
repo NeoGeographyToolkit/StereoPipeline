@@ -647,7 +647,7 @@ domain, with affine-epipolar alignment::
       --stereo-algorithm asp_mgm         \
       --subpixel-mode 9                  \
       --corr-seed-mode 1                 \
-      --ip-detect-method 0               \
+      --ip-detect-method 1               \
       --ip-per-image 12000               \
       --num-matches-from-disparity 20000 \
       --min-triangulation-angle 1e-10    \
@@ -1102,10 +1102,14 @@ inputs (:numref:`mapip`)::
       --individually-normalize                \
       --ip-per-tile 2000                      \
       --matches-per-tile 500                  \
+      --ip-match-radius 20                    \
+      --ip-nodata-radius 0                    \
       --remove-outliers-params '75 3 100 100' \
       --heights-from-dem ctx_ref.tif          \
       --heights-from-dem-uncertainty 10       \
       --camera-position-uncertainty 100,100   \
+      --min-triangulation-angle 1e-10         \
+      --forced-triangulation-distance 392000  \
       --num-passes 2                          \
       --num-iterations 100                    \
       -o ba_joint/run
@@ -1116,6 +1120,38 @@ framelet pairs matched, with about 17,900 clean points, at a sub-pixel reproject
 error. With too few iterations the solve does not converge, the cross-sensor ties
 do not tighten, and they get discarded as outliers. The matches land on craters
 shared between the two sensors (:numref:`cassis_ox2_jitter_matches`).
+
+Because the inputs are mapprojected onto a common grid, a matching feature sits
+near its counterpart in pixel space. The option ``--ip-match-radius 20`` restricts
+matching to that neighborhood. This raises the number of correct cross-sensor
+matches and removes long-range false matches. The option ``--ip-nodata-radius 0``
+keeps interest points close to the no-data border, which are useful here as the
+overlap between mapprojected inputs is often a thin strip. Both are advised for any
+bundle adjustment or stereo run on mapprojected images.
+
+The CaSSIS stereo convergence angle is narrow, so triangulation is nearly
+degenerate. The options ``--min-triangulation-angle 1e-10`` and
+``--forced-triangulation-distance 392000`` (about the spacecraft altitude, in
+meters) let the solve place points along the rays even at such small angles,
+rather than discarding them. The same options are used in the framelet stereo and
+the jitter solve for the same reason.
+
+The default detector, ``--ip-detect-method 0``, is chosen deliberately for this
+cross-sensor bundle. Its coarse gradient descriptor is robust to the radiometric
+and resolution difference between CTX and CaSSIS, so its matches are few but
+reliable. The more elaborate SIFT and AKAZE descriptors overfit the
+sensor-specific texture and produce many false CTX-to-CaSSIS matches that are
+later discarded, so they match this cross-sensor pair far worse.
+
+That same coarseness is why method 0 does not match the same-look CaSSIS framelet
+pairs. Those pairs image nearly identical, self-similar terrain, and the coarse
+descriptor cannot distinguish one crater from its neighbors, so its matches are
+ambiguous and get rejected. The detector still finds plenty of interest points
+there; it is the descriptor that cannot match them, not a lack of features. A
+discriminative detector such as ``--ip-detect-method 3`` (AKAZE) matches the
+same-look pairs well, but it is poor across sensors, so it cannot replace method 0
+for the CTX-to-CaSSIS ties. The same-look pairs are therefore matched separately,
+with the dense correlation described next, or with a separate AKAZE pass.
 
 It is advised to prefer dense matches between the Cassis images to the ones
 created this way, as those are higher quality. So the dense matches can be
@@ -1157,6 +1193,8 @@ became unstable.
       --camera-position-uncertainty 100,100   \
       --num-lines-per-position 1000           \
       --num-lines-per-orientation 250         \
+      --min-triangulation-angle 1e-10         \
+      --forced-triangulation-distance 392000  \
       --max-initial-reprojection-error 500    \
       --robust-threshold 0.5                  \
       --num-passes 2                          \
