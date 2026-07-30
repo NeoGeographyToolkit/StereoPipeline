@@ -197,28 +197,58 @@ If they are DEMs, the option ``--initial-transform-from-hillshading`` hillshades
 the two DEMs, finds interest point matches between them, and uses these to compute
 an initial transform (which may include scale).
 
-For best results, the input DEMs should be at the same resolution and projection.
-Otherwise they can be gridded to the same (usually coarser) grid, as described in
-:numref:`regrid`. The clouds can be cropped to a shared area as well.
+It is strongly suggested to regrid the input DEMs to the same rather coarse
+ground sample distance and with the same projection. Here is an example::
+
+    gdalwarp -r average -tr $gsd $gsd -t_srs "$proj" ref.tif ref_regrid.tif
+
+and same for the source cloud. Here ``gsd`` is the chosen coarse grid size and
+``proj`` is some local projection.
+
+Inspect carefully the hillshaded regridded products. If they look dissimilar or noisy,
+consider making ``gsd`` larger, to reduce the noise and improve the similarity.
+
+Then alignment follows::
+
+    pc_align --max-displacement -1               \
+      --num-iterations 500                       \
+      --initial-transform-from-hillshading rigid \
+      --initial-transform-ransac-params 1000 3   \
+      --save-transformed-source-points           \
+      ref_regrid.tif src_regrid.tif              \
+      -o align/run
+
+Grid the resulting transformed cloud with the same projection and grid size::
+
+    point2dem --tr $gsd --t_srs "$proj" \
+      align/run-trans_source.tif
+
+which will create ``align/run-trans_source-DEM.tif``. Overlay this on top of
+``ref_regrid.tif`` as hillshaded images with georeference and check for misalignment.
+
+On occasion, if a DEM has warping, it is suggested to run this with zero
+iterations, so as to avoid the subsequent ICP-based refinement, which could
+make the alignment worse.
+
+The transform found between the regridded inputs can be applied to the original
+clouds (:numref:`prevtrans`). The alignment could be refined along the way if
+need be.
 
 If the data are point clouds or CSV, first grid them to DEMs with ``point2dem``
-with the same grid size and projection.
-
-In either case, the transform found between the processed versions of the inputs
-can be applied to the original clouds (:numref:`prevtrans`).
-
-See an example in :numref:`kh4_align`.
+with the same grid size and projection. These should be rather dense for this
+method to work.
 
 The related correlation-based alignment method is described in
 :numref:`pc_corr`.
 
-In recent ASP (10/2025 and later), hillshading is done with ``gdaldem
-hillshade`` (:numref:`gdal_hill`). ASP's own ``hillshade`` program
+In recent ASP (10/2025 and later), the internal hillshading is done with
+``gdaldem hillshade`` (:numref:`gdal_hill`). ASP's own ``hillshade`` program
 (:numref:`hillshade`) is also supported. See the option ``--hillshade-command``
 in :numref:`pc_align_options`.
 
-Inspect the produced hillshaded images and, if needed, change the hillshade
-command or its options to get visually good results.
+Inspect the produced hillshaded images that are written in the output directory.
+If needed, change the hillshade command or its options to get visually good
+results.
 
 The interest point finding and matching are performed with ASP's ``ipfind``
 (:numref:`ipfind`) and ``ipmatch`` (:numref:`ipmatch`) programs. These can be
@@ -227,12 +257,14 @@ one can increase the number of interest points being found or the detection meth
 
 The option ``--initial-transform-ransac-params`` controls the outlier removal.
 
-See :numref:`pc_align_options` for details about these options.
-
 The match file having the correspondences between the two hillshaded DEMs is
 saved in the output directory and can be inspected
 (:numref:`stereo_gui_view_ip`). It can also be created or edited manually
 (:numref:`manual-align`).
+
+See :numref:`pc_align_options` for details about these options.
+
+See more examples in :numref:`kh4_align` and :numref:`cassis_init_reg`.
 
 .. _pc_corr:
 
