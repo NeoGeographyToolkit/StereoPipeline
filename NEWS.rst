@@ -107,9 +107,8 @@ Misc:
     mapprojected images with some misregistration and very little overlap
     (:numref:`stereodefault-pprc`).
   * Normalize the images before interest point detection and matching for all
-    detectors in bundle adjustment, not only the OpenCV ones. This fixes the
-    default OBALoG detector failing to match low-contrast or self-similar
-    mapprojected images.
+    detectors in bundle adjustment, not just the OpenCV ones. This helps the
+    default detector match low-contrast and mapprojected images.
 
 RELEASE 3.7.0, June 2026
 ------------------------

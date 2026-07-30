@@ -1120,35 +1120,16 @@ error. With too few iterations the solve does not converge, the cross-sensor tie
 do not tighten, and they get discarded as outliers. The matches land on craters
 shared between the two sensors (:numref:`cassis_ox2_jitter_matches`).
 
-Because the inputs are mapprojected onto a common grid, a matching feature sits
-near its counterpart in pixel space. The option ``--ip-match-radius 20`` restricts
-matching to that neighborhood. This raises the number of correct cross-sensor
-matches and removes long-range false matches. It is advised for any bundle
-adjustment or stereo run on mapprojected images.
+The option ``--ip-match-radius 20`` removes long-range false matches in
+mapprojected images.
 
-The CaSSIS stereo convergence angle is narrow, so triangulation is nearly
-degenerate. The options ``--min-triangulation-angle 1e-10`` and
+The options ``--min-triangulation-angle 1e-10`` and
 ``--forced-triangulation-distance 392000`` (about the spacecraft altitude, in
-meters) let the solve place points along the rays even at such small angles,
-rather than discarding them. The same options are used in the framelet stereo and
-the jitter solve for the same reason.
+meters) help with keeping the matches between successive framelets, which have a 
+very narrow convergence. angle.
 
-The default detector, ``--ip-detect-method 0``, is chosen deliberately for this
-cross-sensor bundle. Its coarse gradient descriptor is robust to the radiometric
-and resolution difference between CTX and CaSSIS, so its matches are few but
-reliable. The more elaborate SIFT and AKAZE descriptors overfit the
-sensor-specific texture and produce many false CTX-to-CaSSIS matches that are
-later discarded, so they match this cross-sensor pair far worse.
-
-That same coarseness is why method 0 does not match the same-look CaSSIS framelet
-pairs. Those pairs image nearly identical, self-similar terrain, and the coarse
-descriptor cannot distinguish one crater from its neighbors, so its matches are
-ambiguous and get rejected. The detector still finds plenty of interest points
-there; it is the descriptor that cannot match them, not a lack of features. A
-discriminative detector such as ``--ip-detect-method 3`` (AKAZE) matches the
-same-look pairs well, but it is poor across sensors, so it cannot replace method 0
-for the CTX-to-CaSSIS ties. The same-look pairs are therefore matched separately,
-with the dense correlation described next, or with a separate AKAZE pass.
+The default detector, ``--ip-detect-method 0`` worked better than SIFT and
+AKAZE.
 
 It is advised to prefer dense matches between the Cassis images to the ones
 created this way, as those are higher quality. So the dense matches can be
