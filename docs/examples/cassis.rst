@@ -1103,7 +1103,6 @@ inputs (:numref:`mapip`)::
       --ip-per-tile 2000                      \
       --matches-per-tile 500                  \
       --ip-match-radius 20                    \
-      --ip-nodata-radius 0                    \
       --remove-outliers-params '75 3 100 100' \
       --heights-from-dem ctx_ref.tif          \
       --heights-from-dem-uncertainty 10       \
@@ -1124,10 +1123,8 @@ shared between the two sensors (:numref:`cassis_ox2_jitter_matches`).
 Because the inputs are mapprojected onto a common grid, a matching feature sits
 near its counterpart in pixel space. The option ``--ip-match-radius 20`` restricts
 matching to that neighborhood. This raises the number of correct cross-sensor
-matches and removes long-range false matches. The option ``--ip-nodata-radius 0``
-keeps interest points close to the no-data border, which are useful here as the
-overlap between mapprojected inputs is often a thin strip. Both are advised for any
-bundle adjustment or stereo run on mapprojected images.
+matches and removes long-range false matches. It is advised for any bundle
+adjustment or stereo run on mapprojected images.
 
 The CaSSIS stereo convergence angle is narrow, so triangulation is nearly
 degenerate. The options ``--min-triangulation-angle 1e-10`` and
