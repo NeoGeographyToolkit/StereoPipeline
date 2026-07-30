@@ -163,17 +163,20 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     masked_image2 = create_mask(image2, nodata2);
   }
 
-  // Get normalized versions of the images for OpenCV based methods.
-  // Similar logic is used in bundle_adjust per image.
-  if (asp::openCvDetectMethod()) {
-    vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
-    asp::normalize_images(stereo_settings().force_use_entire_range,
-                          stereo_settings().individually_normalize,
-                          asp::openCvDetectMethod(),
-                          asp::doNotExceedMinMax(),
-                          stats1, stats2,
-                          masked_image1, masked_image2);
-  }
+  // Normalize the images before interest point detection and matching. This is
+  // needed for all detectors, not just the OpenCV ones. The OBALoG (default)
+  // descriptor also relies on adequate image contrast. Without normalization,
+  // on low-contrast or self-similar terrain (e.g. mapprojected same-look CaSSIS
+  // framelets) its descriptors become nearly indistinguishable and matching
+  // collapses. The stereo path normalizes the aligned images for all detectors
+  // in preprocessing, so this brings bundle_adjust matching in line with it.
+  vw_out() << "\t--> Normalizing images for IP detection using stats " << stats1 << "\n";
+  asp::normalize_images(stereo_settings().force_use_entire_range,
+                        stereo_settings().individually_normalize,
+                        asp::openCvDetectMethod(),
+                        asp::doNotExceedMinMax(),
+                        stats1, stats2,
+                        masked_image1, masked_image2);
 
   bool have_datum = this->have_datum();
 
