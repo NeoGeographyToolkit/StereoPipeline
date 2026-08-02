@@ -191,3 +191,32 @@ Command-line options
     
 -h, --help
     Display the help message.
+
+Related camera-testing tools
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Several programs exist for testing a camera model, including with a *round
+trip*, in which a pixel is projected to the ground and then back to a pixel
+(image to ground to image), and the discrepancy between the original and
+resulting pixel is measured.
+
+- ``cam_test`` (this program) performs this round trip between two camera
+  models, or a model against itself.
+
+- `usgscsm_cam_test
+  <https://usgscsm.readthedocs.io/en/latest/tools/usgscsm_cam_test.html>`_
+  (USGSCSM) loads or converts a CSM model among the ISD, model state, binary
+  msgpack, and GXP formats, and checks the round-trip accuracy of a single CSM
+  model.
+
+- `camtest
+  <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/camtest/camtest.html>`_
+  (ISIS) writes a per-pixel round-trip error image for an ISIS camera model.
+
+- `campt
+  <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/campt/campt.html>`_
+  and `caminfo
+  <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/caminfo/caminfo.html>`_
+  (ISIS) report the geometry of an ISIS camera, such as the ground coordinates,
+  spacecraft position and altitude, and times, at a given pixel or for the whole
+  image.
