@@ -8,28 +8,24 @@ lunar orbiter <https://en.wikipedia.org/wiki/Chandrayaan-2>`_ data, using both
 the *Orbiter High Resolution Camera* (OHRC) and the *Terrain Mapping Camera-2*
 (TMC-2).
 
-This workflow uses the Community Sensor Model (:numref:`csm`). It needs ASP
-3.6.0 or later (:numref:`release`), `ISIS
-<https://github.com/DOI-USGS/ISIS3>`_ 10.0.0_RC2 (or a later release-candidate
-or stable version), `ALE <https://github.com/DOI-USGS/ale>`_ 1.1.3 or later, and
-`USGSCSM <https://github.com/DOI-USGS/usgscsm>`_ 2.0.2 or later. All are available as
-public conda packages (see below).
+This workflow needs ASP 3.7.0 or later, installed via conda together with its
+bundled ISIS, ALE, and USGSCSM, as described in the environment setup below.
 
 Chandrayaan-2 ISIS data should be downloaded as documented further down.
 
 Environment setup
 ~~~~~~~~~~~~~~~~~
 
-Fetch ISIS, ALE, USGSCSM, and ``rclone`` into a fresh conda environment::
+Install ASP 3.7.0 as documented in :numref:`conda_intro`. That release ships its
+own custom-built ISIS 10.0.0, along with custom `ALE
+<https://github.com/DOI-USGS/ale>`_, `USGSCSM
+<https://github.com/DOI-USGS/usgscsm>`_, and SpiceQL, with the Chandrayaan-2
+camera fixes already included. These are newer than the current public ISIS,
+ALE, and USGSCSM releases, and are needed for the fore and aft TMC-2 cameras.
+The conda environment (named ``asp`` there) already contains all of them.
+Activate it and point ISIS at it::
 
-    conda create -n isis10rc2                     \
-       -c usgs-astrogeology/label/RC              \
-       -c conda-forge                             \
-       isis=10.0.0_RC2 ale=1.1.3 usgscsm=2.0.2 rclone
-
-Activate the environment::
-
-    conda activate isis10rc2
+    conda activate asp
     export ISISROOT=$CONDA_PREFIX
 
 Set the location of the ISIS data area (to be downloaded next)::
@@ -37,9 +33,8 @@ Set the location of the ISIS data area (to be downloaded next)::
     export ISISDATA=$HOME/projects/isisdata
     export ALESPICEROOT=$ISISDATA
 
-Install ASP, build 2026/5 or newer (:numref:`release`), as some
-bugfixes for the Chandrayaan-2 cameras were incorporated at that
-time. Set its path as documented there.
+The kernel download below uses ``rclone``. If it is not already in the
+environment, install it with ``conda install -c conda-forge rclone``.
 
 See also the `USGS ISIS TMC documentation
 <https://astrogeology.usgs.gov/docs/getting-started/csm-stack/ingesting-tmc2/>`_.
@@ -127,6 +122,14 @@ These are at lower resolution but useful for context.
 Preprocessing
 ^^^^^^^^^^^^^
 
+The steps below assume the ASP 3.7.0 conda environment, which ships a custom
+build of ISIS, ALE, and USGSCSM (:numref:`conda_intro`). If ``spiceinit`` or
+``isd_generate -k`` errors, the active ISIS, ALE, or USGSCSM is likely too old,
+or a separately installed ISIS is being used instead of the one bundled with
+ASP. Activate the ASP 3.7.0 environment, or use a recent development ISIS build
+from 2026.06.07 or later from the dev label of the ``usgs-astrogeology`` channel
+(``usgs-astrogeology/label/dev``).
+
 Each calibrated image dataset has ``.img`` and ``.xml`` files, with raw data and
 a PDS-4 label.
 
@@ -141,13 +144,6 @@ The `isisimport <https://isis.astrogeology.usgs.gov/Application/presentation/Tab
 
 For simplicity, the output cub files are renamed to ``ohrc/img1.cub`` and
 ``ohrc/img2.cub``.
-
-ISIS 10 is required for correct OHRC line exposure handling. Older
-versions wrote a ``LineExposureDuration`` value 1000 times too large into
-the cub label (the ISRO PDS4 label tags the field as ``unit="ms"`` but the
-value is in microseconds), which then propagated into the CSM camera and
-broke its time-vs-line mapping. Cubs and CSM JSONs created with older
-ISIS should be rebuilt.
 
 The ``isisimport`` command only works with raw images and not with ortho images.
 
@@ -356,49 +352,24 @@ footprint of the OHRC images from earlier but extend well beyond them.
 Preprocessing
 ^^^^^^^^^^^^^
 
-We use only the CSM camera models (:numref:`csm`), as it appears that the
-non-nadir TMC ISIS camera models in the .cub files are still problematic (as of
-5/2026). The fix is to skip ``spiceinit`` entirely and run ``isd_generate``
-directly.
+These steps require the ASP 3.7.0 conda environment, which ships a custom build
+of ISIS, ALE, and USGSCSM (:numref:`conda_intro`). An error at ``spiceinit`` or
+``isd_generate -k`` means the active ISIS is not the one bundled with ASP, such
+as a separately installed public ISIS 10.0.0 or 10.0.0_RC2, or it is an older
+build. Activate the ASP 3.7.0 environment, or install a recent development ISIS
+build from 2026.06.07 or later from the dev label of the ``usgs-astrogeology``
+channel (``usgs-astrogeology/label/dev``).
 
-ALE 1.1.3 (without ``spiceinit``-attached kernels) needs a metakernel file
-under ``$ALESPICEROOT`` to locate SPICE kernels, but the USGS Chandrayaan-2
-ISIS data area (as of 5/2026) does not ship one. The workaround is to create
-a small metakernel locally at::
-
-    $ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm
-
-listing the kernel files. The values in ``PATH_VALUES`` should be absolute
-due to limitations in ALE, and should be correct for the local file system.
-See the NAIF `Metakernel reference
-<https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_
-for the file format and compare with existing ``.tm`` files for other
-missions.
-
-With the metakernel in place, the workflow is as follows::
-
-    export ALESPICEROOT=$ISISDATA
+The non-nadir TMC-2 cameras are processed the same way as OHRC above, using the
+CSM camera models (:numref:`csm`). Convert the raw images to cubs::
 
     isisimport \
       from = ch2_tmc_ncf_20231101T0125121344_d_img_d18.xml \
       to   = ch2_tmc_ncf_20231101T0125121344_d_img_d18.cub
 
-and same for the other ones.
-
-For simplicity, the output cub files are renamed to ``tmc/fwd.cub`` and
-``tmc/aft.cub``. Then run::
-
-    isd_generate tmc/fwd.cub
-    isd_generate tmc/aft.cub
-
-We skipped the ``-k`` option (read kernels from a cub) here given the current
-issue with ``spiceinit`` mentioned earlier.
-
-As of ASP 3.7.0 (June 2026), with the custom-built ISIS 10.0.0, ALE 1.2.0, and
-USGSCSM 2.0.2 shipped with it (:numref:`conda_intro`), this is resolved.
-``spiceinit`` can be run on the TMC cubes and ``isd_generate`` invoked with the
-``-k`` option, as done for OHRC above (:numref:`csm`). The alternative workflow
-is then::
+and same for the other ones. For simplicity, the output cub files are renamed to
+``tmc/fwd.cub`` and ``tmc/aft.cub``. Then attach the kernels and create the CSM
+cameras, using ``isd_generate`` with the ``-k`` option::
 
     spiceinit from = tmc/fwd.cub
     spiceinit from = tmc/aft.cub
@@ -406,9 +377,27 @@ is then::
     isd_generate -k tmc/fwd.cub tmc/fwd.cub
     isd_generate -k tmc/aft.cub tmc/aft.cub
 
-For the non-nadir fwd channel, the resulting CSM camera agrees with the ISIS
-camera to about 0.0001 pixels, and is equivalent to the metakernel-based ISD
-above. Either workflow can be used.
+If instead you use a stock or older ISIS, in which the non-nadir TMC camera is
+problematic, skip ``spiceinit`` and create the CSM camera directly. This is what
+earlier ASP versions required. ALE then needs a metakernel under
+``$ALESPICEROOT`` to locate the SPICE kernels, since the USGS Chandrayaan-2 ISIS
+data area does not ship one (as of 2026-08-02). Create a small metakernel at::
+
+    $ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm
+
+listing the kernel files. The values in ``PATH_VALUES`` should be absolute, due
+to limitations in ALE, and correct for the local file system. See the NAIF
+`Metakernel reference
+<https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_ for
+the format, and compare with existing ``.tm`` files for other missions. Then run
+``isd_generate`` without the ``-k`` option::
+
+    export ALESPICEROOT=$ISISDATA
+    isd_generate tmc/fwd.cub
+    isd_generate tmc/aft.cub
+
+For the non-nadir fwd channel, the resulting CSM camera agrees with the one from
+the ASP 3.7.0 workflow above to about 0.0001 pixels. Either workflow can be used.
 
 Check each JSON with ``cam_test`` (:numref:`cam_test`).
 
