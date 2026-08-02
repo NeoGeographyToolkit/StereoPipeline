@@ -9,8 +9,10 @@ Stereoscopic (HRS) instruments with a ground resolution of 5 meters.
 These two cameras were pointed forwards and backwards, allowing capture
 of a stereo image pair in a single pass of the satellite.
 
-For the newer SPOT 6 and SPOT 7 satellites, which use a different format and
-camera model, see :numref:`spot67`.
+For the earlier SPOT 1 to 4 satellites, which carry the HRV instrument and share
+this DIMAP format and camera code path, see :numref:`spot14`. For the newer SPOT
+6 and SPOT 7 satellites, which use a different format and camera model, see
+:numref:`spot67`.
 
 ASP supports only images from the HRS sensors on SPOT5. These images
 come in two parts, the data file (extension ``.bil`` or ``.tif``) and

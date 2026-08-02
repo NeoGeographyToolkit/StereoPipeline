@@ -2,6 +2,9 @@ Changes since last release
 --------------------------
 
 New features:
+  * Added support for the SPOT 1, 2, 3, and 4 HRV cameras, building a rigorous
+    CSM linescan model from the DIMAP metadata, reusing the SPOT5 code path
+    (:numref:`spot14`).
   * Added a pipeline for creating terrain models from TGO CaSSIS pushframe images
     (:numref:`cassis`).
   * Added an example for Viking Orbiter (:numref:`viking`).

@@ -99,6 +99,9 @@ namespace asp {
     void read_look_angles(std::string const& rawXml);
     void read_ephemeris  (xercesc::DOMElement* ephemeris_node);
     void read_attitude   (xercesc::DOMElement* corrected_attitudes_node);
+    // SPOT 1-4 (HRV) store only Raw_Attitudes (two absolute yaw/pitch/roll
+    // samples), not the pre-corrected per-line block SPOT5 has.
+    void read_raw_attitude(xercesc::DOMElement* raw_attitudes_node);
     void read_corners    (xercesc::DOMElement* dataset_frame_node);
     void read_image_size (xercesc::DOMElement* raster_dims_node);
     void read_line_times (xercesc::DOMElement* sensor_config_node);

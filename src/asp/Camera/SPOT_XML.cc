@@ -128,13 +128,28 @@ void SpotXML::parse_xml(xercesc::DOMElement* node,
   xercesc::DOMElement* dataset_frame_node       = get_node<DOMElement>(node, "Dataset_Frame");
   xercesc::DOMElement* raster_dims_node         = get_node<DOMElement>(node, "Raster_Dimensions");
   xercesc::DOMElement* ephemeris_node           = get_node<DOMElement>(node, "Ephemeris");
-  xercesc::DOMElement* corrected_attitudes_node = get_node<DOMElement>(node, "Corrected_Attitudes");
   xercesc::DOMElement* sensor_config_node       = get_node<DOMElement>(node, "Sensor_Configuration");
 
   read_corners(dataset_frame_node);
   read_ephemeris(ephemeris_node);
   read_image_size(raster_dims_node);
-  read_attitude(corrected_attitudes_node);
+
+  // SPOT5 stores pre-corrected per-line attitude in <Corrected_Attitudes>.
+  // SPOT 1-4 (HRV) store only two absolute samples in <Raw_Attitudes>.
+  // Dispatch on which block is present.
+  if (rawXml.find("<Corrected_Attitudes") != std::string::npos) {
+    xercesc::DOMElement* corrected_attitudes_node
+      = get_node<DOMElement>(node, "Corrected_Attitudes");
+    read_attitude(corrected_attitudes_node);
+  } else if (rawXml.find("<Raw_Attitudes") != std::string::npos) {
+    xercesc::DOMElement* raw_attitudes_node
+      = get_node<DOMElement>(node, "Raw_Attitudes");
+    read_raw_attitude(raw_attitudes_node);
+  } else {
+    vw_throw(ArgumentErr() << "SPOT XML: found neither <Corrected_Attitudes> "
+             << "nor <Raw_Attitudes> attitude block.\n");
+  }
+
   read_look_angles(rawXml);
   read_line_times(sensor_config_node);
 
@@ -171,16 +186,36 @@ void SpotXML::read_look_angles(std::string const& rawXml) {
                            values);
 
   size_t valsPerEntry = 3;
-  if (values.size() != num_cols * valsPerEntry)
-    vw_throw(ArgumentErr() << "Expected " << num_cols * valsPerEntry
-             << " look angle values, got " << values.size() << ".\n");
 
-  for (size_t i = 0; i < num_cols; i++) {
-    const double* v = &values[i * valsPerEntry];
-    look_angles[i].first    = static_cast<int>(v[0]);
-    look_angles[i].second.x() = v[1];
-    look_angles[i].second.y() = v[2];
+  // SPOT5 lists one look-angle entry per detector column.
+  if (values.size() == num_cols * valsPerEntry) {
+    for (size_t i = 0; i < num_cols; i++) {
+      const double* v = &values[i * valsPerEntry];
+      look_angles[i].first      = static_cast<int>(v[0]);
+      look_angles[i].second.x() = v[1];
+      look_angles[i].second.y() = v[2];
+    }
+    return;
   }
+
+  // SPOT 1-4 (HRV) list only the first and last detector (two entries).
+  // PSI_X and PSI_Y are linear across the array, so interpolate to every
+  // column. Values are (DETECTOR_ID, PSI_X, PSI_Y) per entry.
+  if (values.size() == 2 * valsPerEntry) {
+    double psi_x0 = values[1], psi_y0 = values[2];
+    double psi_x1 = values[4], psi_y1 = values[5];
+    for (size_t i = 0; i < num_cols; i++) {
+      double f = static_cast<double>(i) / static_cast<double>(num_cols - 1);
+      look_angles[i].first      = static_cast<int>(i) + 1;
+      look_angles[i].second.x() = psi_x0 + f * (psi_x1 - psi_x0);
+      look_angles[i].second.y() = psi_y0 + f * (psi_y1 - psi_y0);
+    }
+    return;
+  }
+
+  vw_throw(ArgumentErr() << "Expected " << num_cols * valsPerEntry
+           << " look angle values (SPOT5) or 6 (SPOT 1-4), got "
+           << values.size() << ".\n");
 }
 
 void SpotXML::read_ephemeris(xercesc::DOMElement* ephemeris_node) {
@@ -257,6 +292,43 @@ void SpotXML::read_attitude(xercesc::DOMElement* corrected_attitudes_node) {
     pose_logs.push_back(data);
 
   } // End loop through corrected attitudes
+}
+
+void SpotXML::read_raw_attitude(xercesc::DOMElement* raw_attitudes_node) {
+
+  pose_logs.clear(); // Reset data storage
+
+  // SPOT 1-4 layout: Raw_Attitudes / Aocs_Attitude / Angles_List / Angles,
+  // with only two absolute yaw/pitch/roll samples (near scene start and end).
+  // The downstream setup_pose_func linearly interpolates and pads these,
+  // which is adequate given the tiny attitude magnitudes (~1e-5 rad).
+  xercesc::DOMElement* aocs_node
+    = get_node<DOMElement>(raw_attitudes_node, "Aocs_Attitude");
+  xercesc::DOMElement* angles_list_node
+    = get_node<DOMElement>(aocs_node, "Angles_List");
+
+  DOMNodeList* children = angles_list_node->getChildNodes();
+  for (XMLSize_t i = 0; i < children->getLength(); i++) {
+    DOMNode* curr_node = children->item(i);
+    if (curr_node->getNodeType() != DOMNode::ELEMENT_NODE)
+      continue;
+
+    DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
+    std::string tag(XMLString::transcode(curr_element->getTagName()));
+    if (tag.find("Angles") == std::string::npos)
+      continue;
+
+    std::pair<std::string, Vector3> data;
+    cast_xmlch(get_node<DOMElement>(curr_element, "YAW")->getTextContent(),   data.second.x());
+    cast_xmlch(get_node<DOMElement>(curr_element, "PITCH")->getTextContent(), data.second.y());
+    cast_xmlch(get_node<DOMElement>(curr_element, "ROLL")->getTextContent(),  data.second.z());
+    cast_xmlch(get_node<DOMElement>(curr_element, "TIME")->getTextContent(),  data.first);
+    pose_logs.push_back(data);
+  }
+
+  if (pose_logs.size() < 2)
+    vw_throw(ArgumentErr() << "SPOT XML: expected at least two Raw_Attitudes "
+             << "angle samples, got " << pose_logs.size() << ".\n");
 }
 
 void SpotXML::read_corners(xercesc::DOMElement* dataset_frame_node) {
