@@ -122,6 +122,9 @@ Misc:
   * Normalize the images before interest point detection and matching for all
     detectors in bundle adjustment, not just the OpenCV ones. This helps the
     default detector match low-contrast and mapprojected images.
+  * The reader for DigitalGlobe/WorldView camera XML now handles the new
+    namespaced Vantor/Maxar ISD metadata, with ``lv1b:`` and ``isdc:`` tag
+    prefixes (:numref:`dg_tutorial`).
 
 RELEASE 3.7.0, June 2026
 ------------------------

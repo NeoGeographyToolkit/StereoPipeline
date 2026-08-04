@@ -57,26 +57,38 @@ void cast_xmlch(const XMLCh* ch, T& dst) {
   xercesc::XMLString::release(&text);
 }
 
+/// Return an element's local name, with any namespace prefix stripped.
+/// Newer Vantor/Maxar ISD XML namespaces every tag (lv1b:IMD,
+/// isdc:SCANDIRECTION), so getTagName() returns the full "prefix:name"
+/// string. getLocalName() returns just the local part. For non-namespaced
+/// XML getLocalName() can be null, so fall back to getTagName().
+std::string element_local_name(xercesc::DOMElement* element);
+
 /// Helper function to retrieve a node via string and verify that only one exists.
 template <class T>
 T* get_node(xercesc::DOMElement* element, std::string const& tag) {
-  XMLCh* tag_c = xercesc::XMLString::transcode(tag.c_str());
-  xercesc::DOMNodeList* list = element->getElementsByTagName(tag_c);
+  XMLCh* tag_c  = xercesc::XMLString::transcode(tag.c_str());
+  XMLCh* star_c = xercesc::XMLString::transcode("*");
+  // Match by local name in any (or no) namespace. Newer Vantor/Maxar ISD XML
+  // namespaces every element (e.g. isdc:STARTTIME), so getElementsByTagName,
+  // which matches the full "prefix:name", would find nothing.
+  xercesc::DOMNodeList* list = element->getElementsByTagNameNS(star_c, tag_c);
   VW_ASSERT(list->getLength() != 0,
             vw::IOErr() << "Could not find \"" << tag << "\" tag.");
   VW_ASSERT(list->getLength() == 1,
             vw::IOErr() << "Found multiple \"" << tag << "\" tags.");
   xercesc::XMLString::release(&tag_c);
+  xercesc::XMLString::release(&star_c);
   return dynamic_cast<T*>(list->item(0));
 }
 
 /// Parse all doubles from a named XML block in raw text using strtod.
-/// Finds the text between openTag and closeTag, skips any XML tags
-/// inside, and extracts all floating-point numbers. Much faster than
-/// xercesc DOM traversal for large blocks of numeric data.
+/// Finds the block whose local name is blockTag (ignoring any namespace
+/// prefix on the opening and closing tags), skips any XML tags inside, and
+/// extracts all floating-point numbers. Much faster than xercesc DOM
+/// traversal for large blocks of numeric data.
 void parseDoublesFromXmlBlock(std::string const& rawXml,
-                              std::string const& openTag,
-                              std::string const& closeTag,
+                              std::string const& blockTag,
                               std::vector<double>& values);
 
 } // End namespace XmlUtils

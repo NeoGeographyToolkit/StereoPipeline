@@ -181,9 +181,7 @@ void SpotXML::read_look_angles(std::string const& rawXml) {
   // Fast path: extract all doubles from the Look_Angles_List block
   // Each entry has 3 values: DETECTOR_ID, PSI_X, PSI_Y
   std::vector<double> values;
-  parseDoublesFromXmlBlock(rawXml,
-                           "<Look_Angles_List>", "</Look_Angles_List>",
-                           values);
+  parseDoublesFromXmlBlock(rawXml, "Look_Angles_List", values);
 
   size_t valsPerEntry = 3;
 

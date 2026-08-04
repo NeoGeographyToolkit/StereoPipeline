@@ -23,23 +23,78 @@
 
 using namespace vw;
 
+std::string asp::XmlUtils::element_local_name(xercesc::DOMElement* element) {
+  const XMLCh* local = element->getLocalName();
+  // getLocalName() is null for DOM Level 1 nodes with no namespace info.
+  const XMLCh* name = (local != NULL) ? local : element->getTagName();
+  char* text = xercesc::XMLString::transcode(name);
+  std::string result(text);
+  xercesc::XMLString::release(&text);
+  return result;
+}
+
+namespace {
+
+// Find a start tag <blockTag> or <prefix:blockTag> (when start is true), or an
+// end tag </blockTag> or </prefix:blockTag> (when start is false), ignoring any
+// namespace prefix. Returns the byte just past the start tag's '>', or the byte
+// at the end tag's '<'. Returns npos if not found. This mirrors how the newer
+// Vantor/Maxar ISD XML namespaces the list containers (e.g. isdc:EPHEMLISTList).
+size_t findBlockTag(std::string const& xml, std::string const& blockTag,
+                    bool start, size_t from) {
+  size_t n = xml.size();
+  size_t i = from;
+  while (i < n) {
+    size_t lt = xml.find('<', i);
+    if (lt == std::string::npos)
+      return std::string::npos;
+    size_t j = lt + 1;
+    bool isEnd = (j < n && xml[j] == '/');
+    if (isEnd)
+      j++;
+    // Skip declarations, comments, and processing instructions.
+    if (j < n && (xml[j] == '?' || xml[j] == '!')) {
+      i = lt + 1;
+      continue;
+    }
+    // Read the qualified tag name up to whitespace, '/', or '>'.
+    size_t nameStart = j;
+    while (j < n && xml[j] != '>' && xml[j] != '/' && xml[j] != ' ' &&
+           xml[j] != '\t' && xml[j] != '\r' && xml[j] != '\n')
+      j++;
+    std::string qname = xml.substr(nameStart, j - nameStart);
+    size_t colon = qname.find(':');
+    std::string local = (colon == std::string::npos) ? qname : qname.substr(colon + 1);
+    if (local == blockTag && isEnd == !start) {
+      if (!start)
+        return lt; // position of '<' of the end tag
+      size_t gt = xml.find('>', j);
+      if (gt == std::string::npos)
+        return std::string::npos;
+      return gt + 1; // just past the '>' of the start tag
+    }
+    i = lt + 1;
+  }
+  return std::string::npos;
+}
+
+} // end anonymous namespace
+
 void asp::XmlUtils::parseDoublesFromXmlBlock(
     std::string const& rawXml,
-    std::string const& openTag,
-    std::string const& closeTag,
+    std::string const& blockTag,
     std::vector<double>& values) {
 
   values.clear();
 
-  // Find the block boundaries
-  size_t blockStart = rawXml.find(openTag);
+  // Find the block boundaries by local name, ignoring any namespace prefix.
+  size_t blockStart = findBlockTag(rawXml, blockTag, true, 0);
   if (blockStart == std::string::npos)
-    vw_throw(ArgumentErr() << "Tag not found: " << openTag << "\n");
-  blockStart += openTag.size();
+    vw_throw(ArgumentErr() << "Tag not found: " << blockTag << "\n");
 
-  size_t blockEnd = rawXml.find(closeTag, blockStart);
+  size_t blockEnd = findBlockTag(rawXml, blockTag, false, blockStart);
   if (blockEnd == std::string::npos)
-    vw_throw(ArgumentErr() << "Closing tag not found: " << closeTag << "\n");
+    vw_throw(ArgumentErr() << "Closing tag not found: " << blockTag << "\n");
 
   const char* p = rawXml.c_str() + blockStart;
   const char* end = rawXml.c_str() + blockEnd;

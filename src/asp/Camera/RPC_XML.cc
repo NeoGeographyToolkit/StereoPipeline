@@ -240,7 +240,7 @@ void asp::GeometricXML::parse_detector_mounting(xercesc::DOMElement* node) {
     if (current->getNodeType() == DOMNode::ELEMENT_NODE) {
       DOMElement* element = dynamic_cast< DOMElement* > (current);
 
-      std::string tag(XMLString::transcode(element->getTagName()));
+      std::string tag = XmlUtils::element_local_name(element);
       if (boost::starts_with(tag, "BAND_")) {
         Vector4 data;
 
@@ -288,7 +288,7 @@ void asp::GeometricXML::parse(xercesc::DOMElement* node) {
       DOMElement* element =
         dynamic_cast< xercesc::DOMElement* >(current);
 
-      std::string tag(XMLString::transcode(element->getTagName()));
+      std::string tag = XmlUtils::element_local_name(element);
       if (tag == "PRINCIPAL_DISTANCE") {
         parse_principal_distance(element);
         check_argument(0);
@@ -340,8 +340,7 @@ void asp::EphemerisXML::parse_meta(xercesc::DOMElement* node) {
 void asp::EphemerisXML::parse_eph_list(std::string const& rawXml) {
   // Each EPHEMLIST entry has 13 doubles: index, pos[3], vel[3], cov[6]
   std::vector<double> values;
-  parseDoublesFromXmlBlock(rawXml, "<EPHEMLISTList>", "</EPHEMLISTList>",
-                           values);
+  parseDoublesFromXmlBlock(rawXml, "EPHEMLISTList", values);
 
   size_t numExpected = satellite_position_vec.size();
   size_t valsPerEntry = 13;
@@ -388,8 +387,7 @@ void asp::AttitudeXML::parse_meta(xercesc::DOMElement* node) {
 void asp::AttitudeXML::parse_att_list(std::string const& rawXml) {
   // Each ATTLIST entry has 15 doubles: index, quat[4], cov[10]
   std::vector<double> values;
-  parseDoublesFromXmlBlock(rawXml, "<ATTLISTList>", "</ATTLISTList>",
-                           values);
+  parseDoublesFromXmlBlock(rawXml, "ATTLISTList", values);
 
   size_t numExpected = satellite_quat_vec.size();
   size_t valsPerEntry = 15;
@@ -833,7 +831,7 @@ void asp::read_xml(std::string const& filename,
       if (curr_node->getNodeType() == DOMNode::ELEMENT_NODE) {
         DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
 
-        std::string tag(XMLString::transcode(curr_element->getTagName()));
+        std::string tag = XmlUtils::element_local_name(curr_element);
         if (tag == "GEO")
           geo.parse(curr_element);
         else if (tag == "EPH")
@@ -925,7 +923,7 @@ bool asp::read_WV_XML_corners(std::string const& xml_path,
 
     // Look for the BAND_X node
     DOMElement* curr_element = dynamic_cast<DOMElement*>(curr_node);
-    std::string tag(XMLString::transcode(curr_element->getTagName()));
+    std::string tag = XmlUtils::element_local_name(curr_element);
     if (tag.find("BAND_") == std::string::npos)
       continue;
 
