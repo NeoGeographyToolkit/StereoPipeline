@@ -346,15 +346,14 @@ calc_intensity_residual(SfsOptions const& opt,
                               refl_coeffs, opt);
 
     if (success && vw::is_valid(intensity) && vw::is_valid(reflectance)) {
-      // Assume a relative intensity uncertainty of 1%, with the uncertainty
-      // floor evaluated at min_intensity to avoid excessive weights for
-      // very dark pixels.
-      double const min_intensity = 0.01;
+      // Approximate the per-pixel brightness standard deviation as a
+      // fraction of intensity. Apply an intensity floor to avoid excessive
+      // weights for very dark pixels.
       double const observed_intensity = intensity.child();
       double const effective_intensity =
-        std::max(observed_intensity, min_intensity);
+        std::max(observed_intensity, opt.variance_min_intensity);
       double const intensity_weight =
-        1.0 / (0.01 * effective_intensity);
+        1.0 / (opt.variance_scaling * effective_intensity);
 
       residuals[0] = intensity_weight * ground_weight *
         (observed_intensity -

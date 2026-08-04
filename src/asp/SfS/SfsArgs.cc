@@ -340,7 +340,15 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   ("camera-position-step-size",
   po::value(&opt.camera_position_step_size)->default_value(1.0),
    "Larger step size will result in more aggressiveness in varying the camera position "
-   "if it is being floated (which may result in a better solution or in divergence).");
+   "if it is being floated (which may result in a better solution or in divergence).")
+    ("variance-scaling",
+     po::value(&opt.variance_scaling)->default_value(0.024),
+     "Fraction of intensity used to approximate per-pixel brightness "
+     "standard deviation.")
+    ("variance-min-intensity",
+     po::value(&opt.variance_min_intensity)->default_value(0.013),
+     "Intensity floor used when estimating brightness standard deviation, "
+     "to limit weights for dark pixels.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -434,6 +442,14 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
       opt.shadow_curvature_dist + opt.lit_curvature_dist <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "When modeling curvature in shadow, expecting a "
              << "positive value of shadow-curvature-dist or list-curvature-dist.\n");
+
+  if (opt.variance_scaling <= 0.0)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "--variance-scaling must be positive.\n");
+
+  if (opt.variance_min_intensity <= 0.0)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "--variance-min-intensity must be positive.\n");
 
   if (opt.steepness_factor <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "The steepness factor must be positive.\n");
