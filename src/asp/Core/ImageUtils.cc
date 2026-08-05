@@ -32,6 +32,10 @@
 #include <gdal_priv.h>
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
 using namespace vw;
 
 namespace fs = boost::filesystem;
@@ -273,10 +277,22 @@ void for_each_pixel_columnwise(const vw::ImageViewBase<ViewT> &view_, FuncT &fun
   return;
 }
 
-// Compute the min, max, mean, and standard deviation of an image object and
-// write them to a log. If prefix and image_path is set, will cache the results
-// to a file. For efficiency, the image must be traversed either rowwise or
-// columnwise, depending on how it is stored on disk.
+// A pixel functor that collects the valid pixel values into a buffer, so robust
+// statistics (median and NMAD) can be computed from them in memory. Invalid
+// (masked, e.g. nodata or ISIS special) pixels are skipped.
+struct ValidPixelCollector {
+  std::vector<float> & m_samples;
+  ValidPixelCollector(std::vector<float> & samples): m_samples(samples) {}
+  void operator()(vw::PixelMask<float> const& pix) {
+    if (vw::is_valid(pix))
+      m_samples.push_back(pix.child());
+  }
+};
+
+// Compute the min, max, median, and NMAD of an image object and write them to a
+// log. If prefix and image_path is set, will cache the results to a file. For
+// efficiency, the image must be traversed either rowwise or columnwise,
+// depending on how it is stored on disk.
 // TODO(oalexan1): This function must take into account ISIS special
 // pixels from StereoSessionIsis::preprocessing_hook(). Then, must eliminate
 // that function in favor of a single preprocessing_hook() in the base class.
@@ -338,36 +354,68 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
 
     vw_out() << "Using downsample scale: " << stat_scale << "\n";
 
-    ChannelAccumulator<vw::math::CDFAccumulator<float> > accumulator;
+    // Collect the valid subsampled pixel values into a buffer, so robust stats
+    // can be computed in memory. The buffer holds at most about TARGET_NUM_PIXELS
+    // floats (a few MB), so this is cheap.
+    std::vector<float> samples;
+    samples.reserve(size_t(TARGET_NUM_PIXELS) + 1);
+    ValidPixelCollector collector(samples);
     vw::TerminalProgressCallback tp("asp","\tstats: ");
     if (block_size[0] >= block_size[1]) // Rows are long, so go row by row
      for_each_pixel_rowwise(subsample(edge_extend(image, ConstantEdgeExtension()),
-                               stat_scale), accumulator, tp);
+                               stat_scale), collector, tp);
     else // Columns are long, so go column by column
      for_each_pixel_columnwise(subsample(edge_extend(image, ConstantEdgeExtension()),
-                                  stat_scale), accumulator, tp);
+                                  stat_scale), collector, tp);
 
-    result[0] = accumulator.quantile(0); // Min
-    result[1] = accumulator.quantile(1); // Max
-    result[2] = accumulator.approximate_mean();
-    result[3] = accumulator.approximate_stddev();
-    result[4] = accumulator.quantile(0.02); // Percentile values
-    result[5] = accumulator.quantile(0.98);
+    size_t num = samples.size();
+    if (num == 0)
+      vw_throw(vw::ArgumentErr()
+               << "No valid pixels to compute statistics for: " << image_path << "\n");
+
+    // Quantile by partial sort. This reorders the buffer, which is fine as each
+    // call only needs to place one element; later calls re-partition as needed.
+    auto quantile = [&](double p) -> float {
+      size_t idx = size_t(p * double(num - 1) + 0.5);
+      if (idx >= num) idx = num - 1;
+      std::nth_element(samples.begin(), samples.begin() + idx, samples.end());
+      return samples[idx];
+    };
+
+    // Robust center and spread: median and NMAD, not mean and stddev. The mean
+    // and stddev are wrecked by a few outliers (saturated or special pixels),
+    // which then blows up the +/- 2 sigma normalization band. The median is
+    // immune, and NMAD = 1.4826 * median(|x - median|) is the robust analog of
+    // stddev, equal to it for Gaussian data.
+    float median = quantile(0.5);
+    std::vector<float> dev(num);
+    for (size_t i = 0; i < num; i++)
+      dev[i] = std::fabs(samples[i] - median);
+    std::nth_element(dev.begin(), dev.begin() + num/2, dev.end());
+    float nmad = 1.4826 * dev[num/2];
+
+    auto mm = std::minmax_element(samples.begin(), samples.end());
+    result[0] = *mm.first;   // Min
+    result[1] = *mm.second;  // Max
+    result[2] = median;
+    result[3] = nmad;
+    result[4] = quantile(0.02); // Percentile values
+    result[5] = quantile(0.98);
 
     // Adjust lo/hi to be within 2 standard deviations of the mean, but do not
     // exceed min and max. Thi is needed for ISIS which has special pixels. May
     // become the default eventually or all uses as there is no point in
     // normalizing to a range that is much wider than the actual pixel values.
     if (adjust_min_max_with_std) {
-      vw_out() << "\t--> Adjusting hi and lo to -+2 sigmas around mean.\n";
-      float lo   = result[0];
-      float hi   = result[1];
-      float mean = result[2];
-      float std  = result[3];
-      if (lo < mean - 2*std)
-        lo = mean - 2*std;
-      if (hi > mean + 2*std)
-        hi = mean + 2*std;
+      vw_out() << "\t--> Adjusting hi and lo to -+2 NMAD around median.\n";
+      float lo     = result[0];
+      float hi     = result[1];
+      float median = result[2];
+      float nmad   = result[3];
+      if (lo < median - 2*nmad)
+        lo = median - 2*nmad;
+      if (hi > median + 2*nmad)
+        hi = median + 2*nmad;
       result[0] = lo;
       result[1] = hi;
     }
@@ -382,7 +430,7 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
   } // Done computing the results
 
   vw_out() << "\tlo: " << result[0] << " hi: " << result[1]
-           << " mean: " << result[2] << " std_dev: " << result[3] << "\n";
+           << " median: " << result[2] << " nmad: " << result[3] << "\n";
 
   return result;
 } // end function gather_stats

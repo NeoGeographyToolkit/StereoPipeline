@@ -122,6 +122,10 @@ Misc:
   * Normalize the images before interest point detection and matching for all
     detectors in bundle adjustment, not just the OpenCV ones. This helps the
     default detector match low-contrast and mapprojected images.
+  * Use robust statistics (median and NMAD) rather than the mean and standard
+    deviation for the image normalization band, so a few outlier pixels
+    (saturated or special values) no longer wreck the band and collapse
+    interest point matching.
   * The reader for DigitalGlobe/WorldView camera XML now handles the new
     namespaced Vantor/Maxar ISD metadata, with ``lv1b:`` and ``isdc:`` tag
     prefixes (:numref:`dg_tutorial`).

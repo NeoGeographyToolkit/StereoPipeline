@@ -156,7 +156,7 @@ void calcImageSeqMinMax(bool force_use_entire_range,
           }
         }
         
-        // Use mean  +/- 2 standard deviations. This is done in a few places in ASP.
+        // Use median +/- 2 NMAD. This is done in a few places in ASP.
         min_vals[i] = image_stats[i][2] - 2*image_stats[i][3];
         max_vals[i] = image_stats[i][2] + 2*image_stats[i][3];
       }
@@ -224,8 +224,8 @@ void normalize_images(bool force_use_entire_range,
   return;
 }
 
-// Normalize a single image to [0, 1] using mean and stddev-derived bounds.
-// Do not exceed the min and max values present in the image stats. This may 
+// Normalize a single image to [0, 1] using median and NMAD-derived bounds.
+// Do not exceed the min and max values present in the image stats. This may
 // need to be the default.
 void normalizeImage(std::string const& image_file,
                     vw::ImageViewRef<vw::PixelMask<float>> & image) {
@@ -242,11 +242,11 @@ void normalizeImage(std::string const& image_file,
   bool reuse_cache = false;
   vw::Vector6f stats = asp::gather_stats(image, prefix, image_file, reuse_cache);
   
-  // Use mean +/- 2 standard deviations. This is done in a few places in ASP.
-  float mean = stats[2];
-  float stddev = stats[3];
-  double min_val = std::max(stats[0], mean - 2*stddev);
-  double max_val = std::min(stats[1], mean + 2*stddev);
+  // Use median +/- 2 NMAD. This is done in a few places in ASP.
+  float median = stats[2];
+  float nmad = stats[3];
+  double min_val = std::max(stats[0], median - 2*nmad);
+  double max_val = std::min(stats[1], median + 2*nmad);
   
   image = normalize(image, min_val, max_val, 0.0, 1.0);
 }
