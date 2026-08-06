@@ -97,10 +97,14 @@ Command-line options
 --theia-overrides <string>
     Override any option in the auto-generated Theia flag file.  Set
     as ``"--option1=val1 --option2=val2 ..."``. The option
-    ``--random_seed=1`` is passed to Theia by default, to ensure
-    reproducible results. This can be overridden with
-    ``--theia-overrides "--random_seed=0"``, which seeds with
-    current time, producing different results on each run.
+    ``--random_seed=1`` is passed to Theia by default, for
+    reproducibility. Note that Theia's structure-from-motion is not
+    fully bit-reproducible even single-threaded, so the solved cameras
+    (and any downstream DEM) can still vary slightly from run to run;
+    ``--threads 1`` reduces this variation but does not eliminate it.
+    The seed can be overridden with
+    ``--theia-overrides "--random_seed=0"``, which seeds with the
+    current time, producing more varied results on each run.
 
 --theia-flagfile <filename>
     Path to a custom Theia flagfile to use settings from. File paths
@@ -117,7 +121,10 @@ Command-line options
     Reduce the amount of program console output.
 
 --threads <integer (default: 0)>
-    Number of threads to use. If set to 0, will use 16 threads.
+    Number of threads to use. If set to 0, will use 16 threads. Using
+    ``--threads 1`` (together with the default ``--random_seed=1``) makes
+    the result more reproducible, though Theia's structure-from-motion is
+    still not fully deterministic even single-threaded.
 
 -h, --help
     Display this help message.
