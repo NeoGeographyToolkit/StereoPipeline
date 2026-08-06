@@ -24,6 +24,7 @@
 #include <vw/Image/Interpolation.h>
 #include <vw/Image/Statistics.h>
 #include <vw/Math/Statistics.h>
+#include <vw/Math/Functors.h>
 #include <vw/Math/CDFAccumulator.h>
 #include <vw/FileIO/MatrixIO.h>
 
@@ -373,32 +374,27 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
       vw_throw(vw::ArgumentErr()
                << "No valid pixels to compute statistics for: " << image_path << "\n");
 
-    // Quantile by partial sort. This reorders the buffer, which is fine as each
-    // call only needs to place one element; later calls re-partition as needed.
+    // Min and max (order-independent, computed before the reordering below).
+    auto mm = std::minmax_element(samples.begin(), samples.end());
+    result[0] = *mm.first;   // Min
+    result[1] = *mm.second;  // Max
+
+    // Robust center and spread: median and NMAD, not mean and stddev. The mean
+    // and stddev are wrecked by a few outliers (saturated or special pixels),
+    // which then blows up the +/- 2 sigma normalization band. The median is
+    // immune, and NMAD = 1.4826 * median(|x - median|) is the robust analog of
+    // stddev, equal to it for Gaussian data. Use the VW utilities (they reorder
+    // the buffer, which is fine here).
+    result[2] = vw::math::destructive_median(samples);
+    result[3] = vw::math::destructive_nmad(samples);
+
+    // 2nd and 98th percentiles (used by the percentile-stretch normalization path).
     auto quantile = [&](double p) -> float {
       size_t idx = size_t(p * double(num - 1) + 0.5);
       if (idx >= num) idx = num - 1;
       std::nth_element(samples.begin(), samples.begin() + idx, samples.end());
       return samples[idx];
     };
-
-    // Robust center and spread: median and NMAD, not mean and stddev. The mean
-    // and stddev are wrecked by a few outliers (saturated or special pixels),
-    // which then blows up the +/- 2 sigma normalization band. The median is
-    // immune, and NMAD = 1.4826 * median(|x - median|) is the robust analog of
-    // stddev, equal to it for Gaussian data.
-    float median = quantile(0.5);
-    std::vector<float> dev(num);
-    for (size_t i = 0; i < num; i++)
-      dev[i] = std::fabs(samples[i] - median);
-    std::nth_element(dev.begin(), dev.begin() + num/2, dev.end());
-    float nmad = 1.4826 * dev[num/2];
-
-    auto mm = std::minmax_element(samples.begin(), samples.end());
-    result[0] = *mm.first;   // Min
-    result[1] = *mm.second;  // Max
-    result[2] = median;
-    result[3] = nmad;
     result[4] = quantile(0.02); // Percentile values
     result[5] = quantile(0.98);
 
