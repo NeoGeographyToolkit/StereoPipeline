@@ -344,9 +344,9 @@ void calcGsd(vw::ImageViewRef<double> const& dem,
 
   // Median grid size
   if (!gridx_vec.empty()) 
-    gridx = vw::math::destructive_median(gridx_vec);
+    gridx = vw::math::median_in_place(gridx_vec);
   if (!gridy_vec.empty()) 
-    gridy = vw::math::destructive_median(gridy_vec);
+    gridy = vw::math::median_in_place(gridy_vec);
   
   return;
 }

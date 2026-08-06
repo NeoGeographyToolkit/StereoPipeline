@@ -185,11 +185,13 @@ void Point2Grid::normalize() {
       } else if (m_filter == f_nmad) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
-        m_buffer(c, r) = vw::math::destructive_nmad(m_vals(c, r));
+        // Reorders m_vals(c, r) in place, which is fine (used once).
+        m_buffer(c, r) = vw::math::nmad_in_place(m_vals(c, r));
       } else if (m_filter == f_percentile) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
-        m_buffer(c, r) = vw::math::destructive_percentile(m_vals(c, r), m_percentile);
+        // Reorders m_vals(c, r) in place, which is fine (used once).
+        m_buffer(c, r) = vw::math::percentile_in_place(m_vals(c, r), m_percentile);
       }
 
     }

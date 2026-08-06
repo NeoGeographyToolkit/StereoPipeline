@@ -208,7 +208,7 @@ void populateFrameGroupMidTimestamp(std::vector<asp::CsmModel*>          const& 
       timestamps.push_back(p.first);
 
     // Find the median    
-    double median = vw::math::destructive_median(timestamps);
+    double median = vw::math::median_in_place(timestamps);
     rig_cam_info[icam].mid_group_time = median;
   }
 }

@@ -397,11 +397,11 @@ void calc_stats(std::string label, Eigen::MatrixXd const& dists) {
   // more careful job than the code below for even-length vectors. It looks
   // safer, if redundant, to work on a copy of the vector.
   std::vector<double> errs_copy = errs;
-  double median = vw::math::destructive_median(errs_copy);
+  double median = vw::math::median_in_place(errs_copy);
   
   // Find nmad. As before, copy the vector to be safe.
   errs_copy = errs;
-  double nmad = vw::math::destructive_nmad(errs_copy);
+  double nmad = vw::math::nmad_in_place(errs_copy);
   
   double p16 = errs[std::min(len-1, (int)round(len*0.16))];
   double p84 = errs[std::min(len-1, (int)round(len*0.84))];

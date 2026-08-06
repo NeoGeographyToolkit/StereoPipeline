@@ -990,8 +990,8 @@ void asp::median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
     if (lons.empty() || lats.empty())
       continue;
 
-    lon = vw::math::destructive_median(lons);
-    lat = vw::math::destructive_median(lats);
+    lon = vw::math::median_in_place(lons);
+    lat = vw::math::median_in_place(lats);
     success = true;
     break;
   }

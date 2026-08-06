@@ -810,7 +810,7 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
       // Find the median weight and count. The median is more robust to outliers.
       count_per_cam[pass][icam] = this_cam_weights.size();
       if (count_per_cam[pass][icam] > 0)
-        weight_per_cam[pass][icam] = vw::math::destructive_median(this_cam_weights);
+        weight_per_cam[pass][icam] = vw::math::median_in_place(this_cam_weights);
       else
         weight_per_cam[pass][icam] = 0.0;
     } // end iteration through cameras
@@ -1993,7 +1993,7 @@ void estimCurvature(UsgsAstroLsSensorModel * ls_model,
     std::vector<double> vals;
     for (int it = 1; it < numQuats - 1; it++)
       vals.push_back(curvature[it * NUM_QUAT_PARAMS + c]);
-    median_curvature[c] = vw::math::destructive_median<double>(vals);
+    median_curvature[c] = vw::math::median_in_place<double>(vals);
   }
 
   // For synthetic cameras, the median initial curvature is 0. That is not good.

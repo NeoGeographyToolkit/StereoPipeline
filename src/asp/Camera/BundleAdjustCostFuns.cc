@@ -1180,7 +1180,7 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
 
     // The median weight was shown to be more robust to outliers 
     // than the mean weight.
-    double median_wt = vw::math::destructive_median(pos_wts);
+    double median_wt = vw::math::median_in_place(pos_wts);
 
     // Based on the CERES loss function formula, adding N loss functions each 
     // with weight w and robust threshold t is equivalent to adding one loss 

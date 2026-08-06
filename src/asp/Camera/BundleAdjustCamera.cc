@@ -1210,8 +1210,8 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
     }
 
     // Leave this for the last
-    stats.horiz_error_median = vw::math::destructive_median(horiz_errors);
-    stats.vert_error_median = vw::math::destructive_median(vert_errors);
+    stats.horiz_error_median = vw::math::median_in_place(horiz_errors);
+    stats.vert_error_median = vw::math::median_in_place(vert_errors);
   }
 
   return;

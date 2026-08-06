@@ -318,7 +318,7 @@ namespace asp{
             vals.push_back(image(c, r).z());
           }
         }
-        double median = vw::math::destructive_median(vals);
+        double median = vw::math::median_in_place(vals);
         if (fabs(median - image(col, row).z()) > thresh) {
           image_out(col, row).z() = nan;
         }

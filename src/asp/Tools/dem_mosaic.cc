@@ -363,10 +363,11 @@ void processMedianOrNmad(vw::BBox2i const& bbox,
 
       if (vals.empty())
         continue;
+      // These reorder vals in place; the original order is kept in vals_all.
       if (is_median)
-        tile(c, r) = vw::math::destructive_median(vals);
+        tile(c, r) = vw::math::median_in_place(vals);
       else
-        tile(c, r) = vw::math::destructive_nmad(vals);
+        tile(c, r) = vw::math::nmad_in_place(vals);
 
       if (!save_index_map)
         continue;

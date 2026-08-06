@@ -735,7 +735,7 @@ void computeCamStats(std::vector<vw::Vector2> const& pixels,
   
   vw::vw_out() << "Errors of pixel projection in the camera with refined intrinsics:\n";
   vw::vw_out() << "Min:    " << errors[0] << "\n";
-  vw::vw_out() << "Median: " << vw::math::destructive_median(errors) << "\n";
+  vw::vw_out() << "Median: " << vw::math::median_in_place(errors) << "\n";
   vw::vw_out() << "Mean:   " << mean << "\n";
   vw::vw_out() << "StDev:  " << stdev << "\n";
   vw::vw_out() << "Max:    " << errors.back() << "\n";

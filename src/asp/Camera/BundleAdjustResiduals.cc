@@ -584,7 +584,7 @@ void writeTriOffsetsPerCamera(int num_cams,
     double mean = nan, median = nan, count = 0;
     if (!offsets.empty()) {
       mean = vw::math::mean(offsets);
-      median = vw::math::destructive_median<double>(offsets);
+      median = vw::math::median_in_place<double>(offsets);
       count = offsets.size();
     }
     ofs << image_files[icam] << " " << mean << " " << median << " " << count << "\n";  
@@ -913,7 +913,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
     double mean = nan, median = nan, count = nan;
     if (!residuals_per_cam[icam].empty()) {
       mean   = vw::math::mean(residuals_per_cam[icam]);
-      median = vw::math::destructive_median(residuals_per_cam[icam]);
+      median = vw::math::median_in_place(residuals_per_cam[icam]);
       count  = residuals_per_cam[icam].size();
     }
     residual_file << name   << ", " << mean   << ", " << median << ", " << count  << "\n";

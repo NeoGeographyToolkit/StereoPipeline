@@ -153,7 +153,7 @@ void fit_camera_to_xyz_ht(Vector3 const& known_cam_ctr, // may not be known
       errors.push_back(norm_2(pix1 - pix2));
     }
     vw::vw_out() << "Median pixel projection error in the coarse camera: "
-                 << vw::math::destructive_median(errors) << "\n";
+                 << vw::math::median_in_place(errors) << "\n";
   }
 
   Vector3 xyz0 = out_cam.get()->camera_center(vw::Vector2());
@@ -178,7 +178,7 @@ void fit_camera_to_xyz_ht(Vector3 const& known_cam_ctr, // may not be known
         errors.push_back(norm_2(pix1 - pix2));
       }
       vw::vw_out() << "Median pixel projection error in the refined camera: "
-                   << vw::math::destructive_median(errors) << "\n";
+                   << vw::math::median_in_place(errors) << "\n";
     }
 
   } // End camera refinement case

@@ -189,7 +189,7 @@ double pixelAspectRatio(SatSimOptions                 const & opt,
     vw::vw_throw(vw::ArgumentErr() << "No valid samples found to compute "
              << "the pixel width and height on the ground.\n");
 
-  double ratio = vw::math::destructive_median(ratios);
+  double ratio = vw::math::median_in_place(ratios);
 
   //sw.stop();
   //std::cout << "Time to compute pixel aspect ratio: " << sw.elapsed_seconds() << std::endl;
