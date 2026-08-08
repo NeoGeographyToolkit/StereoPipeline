@@ -63,7 +63,12 @@ option(BUILD_SHARED_LIBS "Produce shared libraries." TRUE)
 
 # Make sure installed files can find installed libraries
 if (APPLE)
-  SET(CMAKE_INSTALL_RPATH "@loader_path/../lib" ${CMAKE_INSTALL_RPATH})
+  # libusgscsm ships in lib/csmplugins, so add a relative rpath reaching it,
+  # mirroring the $ORIGIN/../lib/csmplugins that make-dist bakes on Linux. The
+  # absolute ASP_DEPS_DIR/lib/csmplugins entry below only exists on the build
+  # machine, so a relative one is needed for the shipped tarball.
+  SET(CMAKE_INSTALL_RPATH "@loader_path/../lib" "@loader_path/../lib/csmplugins"
+      ${CMAKE_INSTALL_RPATH})
 elseif (UNIX)
   SET(CMAKE_INSTALL_RPATH "$ORIGIN/../lib" ${CMAKE_INSTALL_RPATH})
 endif()

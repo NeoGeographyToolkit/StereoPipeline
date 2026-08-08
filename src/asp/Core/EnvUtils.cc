@@ -17,6 +17,7 @@
 
 #include <asp/Core/EnvUtils.h>
 #include <vw/Core/Exception.h>
+#include <vw/Core/Log.h>
 
 #include <vw/vw_config.h> // must come before asp_config.h, defines VW_BOOST_VERSION
 #include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
@@ -80,16 +81,19 @@ void set_asp_env_vars() {
   // BinaryBuilder/dist-add/libexec/libexec-funcs.sh. Note that plugins/ also
   // holds ASP's stereo correlation plugins, which are found separately via the
   // plugin list, not through QT_PLUGIN_PATH.
+  // Fall back to the compile-time deps dir only if the install root has neither
+  // Qt plugin location. Do not swap away just because lib/qt6/plugins is missing,
+  // as a tarball may ship only the older plugins/ dir. The swap must also stay
+  // consistent for GDAL_DATA and PROJ_LIB below, which use base_dir too.
+  if (!fs::exists(base_dir + "/lib/qt6/plugins") && !fs::exists(base_dir + "/plugins"))
+    base_dir = ASP_DEPS_DIR; // This is defined at compile time
   std::string qt_path = base_dir + "/lib/qt6/plugins:" + base_dir + "/plugins";
   asp::setEnvVar("QT_PLUGIN_PATH", qt_path);
-  if (!fs::exists(base_dir + "/lib/qt6/plugins")) {
-    base_dir = ASP_DEPS_DIR; // This is defined at compile time
-    qt_path = base_dir + "/lib/qt6/plugins:" + base_dir + "/plugins";
-    asp::setEnvVar("QT_PLUGIN_PATH", qt_path);
-  }
+  // A missing Qt plugin dir only affects the GUI. Warn rather than abort, so
+  // command-line tools that use no Qt, such as point2dem, still run.
   if (!fs::exists(base_dir + "/lib/qt6/plugins") && !fs::exists(base_dir + "/plugins"))
-    vw::vw_throw(vw::ArgumentErr() << "Cannot find Qt plugins in "
-                 << getenv("QT_PLUGIN_PATH"));
+    vw::vw_out(vw::WarningMessage) << "Cannot find Qt plugins in "
+                 << qt_path << ". The GUI may not work.\n";
 
   // Set GDAL_DATA and check for share/gdal
   asp::setEnvVar("GDAL_DATA", base_dir + "/share/gdal");  
