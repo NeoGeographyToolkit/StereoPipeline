@@ -203,120 +203,162 @@ Bundle adjustment
 We found that these images have notable pointing error, so bundle adjustment
 (:numref:`bundle_adjust`) is needed::
 
-    bundle_adjust                           \
-      ohrc/img1_crop.cub ohrc/img2_crop.cub \
-      ohrc/img1.json ohrc/img2.json         \
-      --ip-per-image 30000                  \
+    bundle_adjust                     \
+      ohrc/img1.cub ohrc/img2.cub     \
+      ohrc/img1.json ohrc/img2.json   \
+      --ip-per-image 30000            \
       -o ba/run
 
 This stereo pair has a convergence angle of about 25 degrees
-(:numref:`ba_conv_angle`).
+(:numref:`ba_conv_angle`). Inspect the report files (:numref:`ba_out_files`);
+the reprojection error should be sub-pixel.
 
 .. figure:: ../images/chandrayaan2_ohrc_interest_points.png
 
-  The left and right cropped OHRC images, and the interest point matches between
+  The left and right OHRC images, and the interest point matches between
   them (as shown by ``stereo_gui``, :numref:`stereo_gui_view_ip`).
 
 Stereo
 ^^^^^^
 
-Just as for TMC (:numref:`chandra2_tmc`), it is suggested to run stereo with mapprojected
-images (:numref:`mapproj-example`) for most reliable results.
-
-Here we do a preliminary ``parallel_stereo`` (:numref:`parallel_stereo`) run on the crops from above without mapprojected images::
+The full-site DEM is made with local epipolar alignment
+(:numref:`image_alignment`) on the raw images (no crop), with the
+bundle-adjusted cameras. This handles the extreme aspect ratio per tile and
+covers the whole strip::
 
     parallel_stereo                     \
-      --alignment-method affineepipolar \
+      --alignment-method local_epipolar \
       --stereo-algorithm asp_mgm        \
-      --clean-match-files-prefix ba/run \
+      --subpixel-mode 9                 \
       --nodes-list nodes.txt            \
-      ohrc/img1_crop.cub                \
-      ohrc/img2_crop.cub                \
+      ohrc/img1.cub ohrc/img2.cub       \
       ba/run-img1.adjusted_state.json   \
       ba/run-img2.adjusted_state.json   \
       stereo/run
 
-See :numref:`pbs_slurm` for running on multiple nodes.
+See :numref:`pbs_slurm` for running on multiple nodes. As for TMC, this needs a
+build with the 2026-05 local-epipolar robustness fixes (:numref:`release`).
 
-A DEM, orthoimage, and triangulation error image are made with ``point2dem``
-(:numref:`point2dem`), as::
+Make the DEM at 1 m, with the orthoimage and triangulation error
+(:numref:`point2dem`)::
 
-    point2dem           \
-      --tr 1.0          \
-      --errorimage      \
-      stereo/run-PC.tif \
-      --orthoimage      \
-      stereo/run-L.tif
+    point2dem --tr 1.0 --errorimage --orthoimage \
+      stereo/run-PC.tif stereo/run-L.tif
 
-.. figure:: ../images/chandrayaan2_ohrc_dem_ortho_err.png
+.. figure:: ../images/chandrayaan2_ohrc_dem.png
+   :name: chandrayaan2_ohrc_dem
 
-  From left to right: Produced OHRC DEM (range of heights is 304 to 650 meters),
-  orthoimage, and triangulation error image (blue = 0 m, red = 0.5 m). There is
-  notable jitter, whose magnitude is on the order of image GSD (0.25 m), which
-  is rather high, but which could be corrected (:numref:`jitter_solve`). Some
-  unmodeled lens distortion also seems evident, which could be solved for
-  (as in :numref:`kaguya_ba`).
-
-Alignment to LOLA
-^^^^^^^^^^^^^^^^^
-
-We aligned the produced OHRC DEM to `LOLA
-<https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_
-(:numref:`csv_format`), which is the usual global reference coordinate system
-for the Moon. See :numref:`ohrc_dem_align` for a strategy for alignment to a
-prior DEM.
-
-The OHRC DEM turned out to be shifted relative to LOLA by about 4 km along the
-satellite track, which resulted in failure to align with ``pc_align``
-(:numref:`pc_align`).
-
-Manual alignment was first performed (:numref:`manual-align`). The inputs were
-the OHRC DEM and a LOLA point cloud, after gridding both with a 10 m grid size
-and the same projection with ``point2dem``, and manually picking a few
-visually similar features. That brought the cloud notably closer, and the output
-transform from that alignment was used for aligning the full clouds as::
-
-    pc_align                                  \
-      --max-displacement 250                  \
-      --initial-transform init-transform.txt  \
-      --csv-format 2:lon,3:lat,4:radius_km    \
-      --save-inv-transformed-reference-points \
-      stereo/run-DEM.tif lola/lola.csv        \
-      -o stereo/run-align
-
-.. figure:: ../images/chandrayaan2_ohrc_lola.png
-
-  The difference between the aligned OHRC DEM and LOLA point cloud. Blue = -5 m,
-  red = 5 m. Given that the DEM, in principle, should have a vertical
-  uncertainty of under 1 m, this could be better, but at least we are in the
-  ballpark.
-
-A terrain model created with the lower-resolution TMC-2 images would likely be
-easier to align to LOLA, as it would have a much bigger extent.
+   The DEM (aligned, see below), orthoimage, and triangulation error (0 to
+   0.5 m). It is a solid ~64 km^2 strip with a low triangulation error (median
+   0.082 m). The horizontal striping in the error is along-track jitter at the
+   0.25 m GSD scale, which could be reduced (:numref:`jitter_solve`).
 
 .. _ohrc_dem_align:
 
-Alignment to a prior DEM
-^^^^^^^^^^^^^^^^^^^^^^^^
+Alignment to a reference DEM
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For sites sufficiently close to the poles, a gridded LOLA product is available.
-Some examples are given in :numref:`sfs_initial_terrain`. Alternatively, one
-could try aligning to a DEM produced with LRO NAC or TMC-2 images.
+The OHRC DEM is shifted from the global reference by about 2.1 km along the
+track. A swath this narrow has little cross-track signal, so ICP and
+hillshade-feature alignment (:numref:`pc_align`) slide it along its length. The
+robust route is correlation-based alignment (:numref:`pc_corr`): a bounded dense
+correlation cannot slide globally the way ICP does. It is automated, but can be
+fragile, so inspect the result (below).
 
-Another option is a Kaguya TC DTM (~10 m/pixel, near-global,
-:numref:`kaguya_products`), which is coarser than TMC-2 but finer than LOLA.
+The reference is a Kaguya TC DTM (~32 m near the pole, :numref:`kaguya_products`),
+finer than LOLA and near-global. Set a local south polar stereographic projection
+centered on the site::
 
-In either case, the large misalignment mentioned earlier will make ICP-based
-alignment methods fail.
+    proj="+proj=stere +lat_0=-68.4 +lon_0=20.9 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
 
-It is suggested to try the correlation-based alignment (:numref:`pc_corr`). This
-requires gridding the input DEMs with cubic spline interpolation (``gdalwarp -r
-cubicspline``) to a shared grid size and projection (the chosen grid size should
-likely be closer to the grid size of the coarser DEM). Inspect the hillshades
-visually for similarity before trying this method.
+First conform the OHRC DEM to the reference's projection, extent, and grid size
+with ``gdalwarp`` (:numref:`gdal_tools`), so the two hillshades match and the
+disparity reads near zero (the reference's extent comes from ``gdalinfo``)::
 
-If this method succeeds, the produced alignment transform can be used to seed
-the alignment to LOLA (:numref:`prevtrans`).
+    gdalwarp -r cubicspline -t_srs "$proj" \
+      -te <ref extent> -tr 32 32           \
+      stereo/run-DEM.tif ohrc_on_ref.tif
+
+Hillshade both (:numref:`gdal_hill`)::
+
+    gdaldem hillshade -multidirectional ref.tif         ref_hill.tif
+    gdaldem hillshade -multidirectional ohrc_on_ref.tif src_hill.tif
+
+.. figure:: ../images/chandrayaan2_ohrc_hillshades.png
+   :name: chandrayaan2_ohrc_hillshades
+
+   The regridded OHRC DEM and the Kaguya reference, hillshaded on the shared grid.
+   They must look visually similar for the correlation to succeed.
+
+Correlate the hillshades (:numref:`correlator-mode`) and extract a dense match
+file. The search range must cover the shift: here it was read visually as about
+66 px (2.1 km at 32 m), so ``--corr-search -100 -100 100 100`` is enough. For a
+larger shift, raise it; but too large a search is slow and risks locking onto a
+wrong solution, so size it to the observed offset::
+
+    parallel_stereo --correlator-mode    \
+      --stereo-algorithm asp_mgm         \
+      --subpixel-mode 9                  \
+      --corr-kernel 9 9                  \
+      --corr-search -100 -100 100 100    \
+      --ip-per-image 40000               \
+      --num-matches-from-disparity 40000 \
+      ref_hill.tif src_hill.tif run_corr/run
+
+Inspect the disparity ``run_corr/run-F.tif`` (:numref:`raw_disp`); a smoothly
+varying, near-constant shift means a good lock. (The larger, more complete cloud
+was used as the reference here; the order can matter, so inspect the result.)
+Feed the dense match file to ``pc_align`` (:numref:`pc_corr`)::
+
+    pc_align --max-displacement -1 --num-iterations 0    \
+      --max-num-reference-points 1000000                 \
+      --match-file run_corr/run-disp-ref_hill__src_hill.match \
+      --initial-transform-from-hillshading rigid         \
+      --initial-transform-ransac-params 1000 3           \
+      --save-transformed-source-points                   \
+      ref.tif ohrc_on_ref.tif -o run_align/run
+
+Grid the aligned cloud ``run_align/run-trans_source.tif`` with ``point2dem`` and
+EYEBALL it against the reference as a red/green hillshade overlay: a notable
+crater that was split before should snap together.
+
+.. figure:: ../images/chandrayaan2_ohrc_align.png
+   :name: chandrayaan2_ohrc_align
+
+   OHRC (red) over Kaguya (green) hillshades, before and after the
+   correlation-based alignment. The ~2.1 km along-track offset is removed and the
+   central crater coincides. dz vs Kaguya drops from -107 m to 0.16 m (NMAD 3.1 m).
+
+The transform ``run_align/run-transform.txt`` maps the OHRC DEM to the reference
+and can be applied to the original clouds or cameras (:numref:`prevtrans`,
+:numref:`ba_pc_align`).
+
+Vertical accuracy vs LOLA
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The reference itself may be slightly offset from LOLA (:numref:`csv_format`,
+:numref:`sfs_initial_terrain`), the global standard, and the DEM inherits that.
+Difference the aligned DEM and the reference against the raw LOLA shots
+(:numref:`geodiff`) to check::
+
+    geodiff dem.tif lola_shots.csv \
+      --csv-format "1:lon 2:lat 3:radius_km" -o dem_vs_lola
+
+.. figure:: ../images/chandrayaan2_ohrc_vertical.png
+   :name: chandrayaan2_ohrc_vertical
+
+   Aligned DEM minus Kaguya (raster), and the DEM and Kaguya each minus the LOLA
+   shots, all clamped +-10 m. The DEM is sub-meter against both (median 0.16 m vs
+   Kaguya, -0.41 m vs LOLA). Kaguya sits about -0.72 m below LOLA, so the DEM
+   matches true ground slightly better than the reference it aligned to; the small
+   residual is that reference offset, not a stereo error. No further refinement to
+   LOLA is needed here.
+
+.. figure:: ../images/chandrayaan2_ohrc_pointmap.png
+   :name: chandrayaan2_ohrc_pointmap
+
+   Bundle-adjustment points, reprojected to the local stereographic frame and
+   colored by mean reprojection error (0 to 0.5 px). Sub-pixel throughout.
 
 .. _chandra2_tmc:
 
@@ -324,10 +366,9 @@ Terrain Mapping Camera-2
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The TMC-2 instrument is a 3-line pushbroom camera, with separate forward (fwd),
-downward-pointing (nadir), and backward (aft) detectors. The fwd detector looks
-~25 degrees ahead of nadir and the aft detector looks ~25 degrees behind, a
-setup which is well-suited to stereo with any of these image pairs. The ground
-sample distance is about 5 meters at 100 km altitude.
+downward-pointing (nadir), and backward (aft) detectors, The look angles differ
+by about 25 degrees, which is well-suited to stereo. The ground sample distance
+is about 5 meters at 100 km altitude.
 
 All three detectors record simultaneously, so a substantial ground swath is
 imaged by all of them.
@@ -336,29 +377,30 @@ Input data
 ^^^^^^^^^^
 
 Download the TMC-2 forward, nadir, and aft stereo triplet from ISRO as
-described in :numref:`isro_download`. The three acquisitions
-cover a shared ground swath on the same orbit pass::
+described in :numref:`isro_download`. The three acquisitions cover a shared
+ground swath on the same orbit pass::
 
     ch2_tmc_ncf_20231101T0125121344_d_img_d18
     ch2_tmc_ncn_20231101T0125121377_d_img_d18
     ch2_tmc_nca_20231101T0125121377_d_img_d18
 
-We use only the fwd/aft pair below for the largest stereo convergence angle.
+Each detector image is about 4000 by 190000 pixels. In this example the site is
+near the lunar south pole, and the track runs from about -60 to -89 degrees
+latitude. We process the full track (not a crop) and use all three looks,
+forming two stereo pairs: fwd-nadir and nadir-aft.
 
-The corresponding pre-existing DTM (``ch2_tmc_ndn_20231101T0125121377``,
-mentioned earlier) covers the same orbit pass. These images include the
-footprint of the OHRC images from earlier but extend well beyond them.
+.. figure:: ../images/chandrayaan2_tmc_raw_triplet.png
+   :name: chandrayaan2_tmc_raw_triplet
+
+   The three raw TMC-2 looks (forward, nadir, aft), before any mapprojection.
+   These are long and narrow push-broom images. Deeply shadowed terrain
+   is recorded with a pixel value of 0 which is also the nodata value.
 
 Preprocessing
 ^^^^^^^^^^^^^
 
 These steps require the ASP 3.7.0 conda environment, which ships a custom build
-of ISIS, ALE, and USGSCSM (:numref:`conda_intro`). An error at ``spiceinit`` or
-``isd_generate -k`` means the active ISIS is not the one bundled with ASP, such
-as a separately installed public ISIS 10.0.0 or 10.0.0_RC2, or it is an older
-build. Activate the ASP 3.7.0 environment, or install a recent development ISIS
-build from 2026.06.07 or later from the dev label of the ``usgs-astrogeology``
-channel (``usgs-astrogeology/label/dev``).
+of ISIS, ALE, and USGSCSM (:numref:`conda_intro`). 
 
 The non-nadir TMC-2 cameras are processed the same way as OHRC above, using the
 CSM camera models (:numref:`csm`). Convert the raw images to cubs::
@@ -377,11 +419,20 @@ cameras, using ``isd_generate`` with the ``-k`` option::
     isd_generate -k tmc/fwd.cub tmc/fwd.cub
     isd_generate -k tmc/aft.cub tmc/aft.cub
 
-If instead you use a stock or older ISIS, in which the non-nadir TMC camera is
-problematic, skip ``spiceinit`` and create the CSM camera directly. This is what
-earlier ASP versions required. ALE then needs a metakernel under
-``$ALESPICEROOT`` to locate the SPICE kernels, since the USGS Chandrayaan-2 ISIS
-data area does not ship one (as of 2026-08-02). Create a small metakernel at::
+An error here likely means that the active ISIS is not the one bundled with ASP
+3.7.0, such as a separately installed public ISIS 10.0.0 or 10.0.0_RC2.
+Alteratively, install a recent development ISIS build from 2026.06.07 or later
+from the dev label of the ``usgs-astrogeology`` channel
+(``usgs-astrogeology/label/dev``).
+
+Alternative creation of CSM cameras
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With older ISIS, skip ``spiceinit`` altogether and follow the steps below.
+
+ALE then needs a metakernel under ``$ALESPICEROOT`` to locate the SPICE kernels,
+since the USGS Chandrayaan-2 ISIS data area does not ship one (as of
+2026-08-02). Create a small metakernel at::
 
     $ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm
 
@@ -401,99 +452,291 @@ the ASP 3.7.0 workflow above to about 0.0001 pixels. Either workflow can be used
 
 Check each JSON with ``cam_test`` (:numref:`cam_test`).
 
-Bundle adjustment
-^^^^^^^^^^^^^^^^^
+.. _chandra2_tmc_ref:
 
-Bundle-adjust (:numref:`bundle_adjust`) the fwd/aft pair with the JSONs as
-cameras::
+Reference DEM
+^^^^^^^^^^^^^
 
-    bundle_adjust                           \
-      tmc/fwd.cub tmc/aft.cub               \
-      tmc/fwd.json tmc/aft.json             \
-      --num-iterations 100 --num-passes 2   \
-      --camera-weight 0 --tri-weight 0.1    \
-      --remove-outliers-params "75 3 50 50" \
-      --ip-per-image 100000                 \
-      --max-pairwise-matches 50000          \
-      -o ba/run
+A reference DEM is needed to align the cameras to a known coordinate system and
+to mapproject the images after alignment (for a second stereo pass).
 
-It is suggested to inspect the produced report files (:numref:`ba_out_files`).
+Near the lunar south pole, a gridded LOLA polar DEM is the natural choice
+(:numref:`sfs_initial_terrain`). The product ``LDEM_60S_120M`` covers -60 to -90
+degrees at 120 m per pixel in one tile, spanning the full track. A Kaguya TC DTM
+(~10 m/pixel, :numref:`kaguya_products`) is finer, but does not reach the pole,
+and the wider-area LOLA products are coarser than 120 m. So ``LDEM_60S_120M`` at
+120 m is the best available reference here. Call it ``ref.tif``.
 
-Stereo
-^^^^^^
-
-Stereo with mapprojected images (:numref:`mapproj-example`) is strongly
-suggested for TMC. Using raw images with alignment-method ``affineepipolar`` or
-``local_epipolar`` (:numref:`image_alignment`) is not recommended given the
-extreme image aspect ratio (the images are about :math:`4000 \times 180000`
-pixels) and the large change in perspective between the images.
-
-The reference DEM for mapprojection can be a prior TMC DTM provided by ISRO
-(``ch2_tmc_ndn_*_d_dtm_d18``), a LOLA gridded DEM
-(:numref:`sfs_initial_terrain`), a DEM gridded from LOLA samples with
-``point2dem`` (:numref:`point2dem_csv`), or a Kaguya TC DTM (~10 m/pixel,
-near-global, :numref:`kaguya_products`), which is finer than LOLA and useful
-where no local TMC DTM exists. Fill in holes
-(:numref:`dem_mosaic_extrapolate`) and blur (``dem_mosaic --dem-blur-sigma 5``,
-:numref:`dem_mosaic_blur`) such a DEM. Call it ``ref.tif``.
-
-We employ a south polar stereographic projection given the location of the site.
-
-::
+Choose a local projection that is then used for all steps below. Here we will go
+with the south polar stereographic projection::
 
     proj="+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
 
-Mapproject each cub at the native ~5 m/pixel resolution::
+The reference DEM is already in this projection, otherwise it could be converted to it
+with a command such as::
 
-    mapproject --tr 5 --t_srs "$proj" \
-      ref.tif                         \
-      tmc/fwd.cub                     \
-      ba/run-fwd.adjusted_state.json  \
-      tmc/fwd.map.tif
+    gdalwarp -r cubicspline -t_srs "$proj" LDEM_60S_120M.tif ref.tif
 
-    mapproject --tr 5 --t_srs "$proj" \
-      ref.tif                         \
-      tmc/aft.cub                     \
-      ba/run-aft.adjusted_state.json  \
-      tmc/aft.map.tif
+Such DEMs can be very large. In that case it is suggested to pass an extent to this
+command with the ``-te`` option.
 
-Run stereo with ``--alignment-method none`` on the mapprojected pair,
-the bundle-adjusted JSON state files, and the reference DEM as the last
-argument::
+A LOLA gridded DEM is already gap-free. For a reference DEM with holes (such as
+a prior TMC or Kaguya DTM), fill them (:numref:`dem_mosaic_extrapolate`) and
+optionally blur the DEM (``dem_mosaic --dem-blur-sigma 5``,
+:numref:`dem_mosaic_blur`) before use.
 
-    parallel_stereo                   \
-      --alignment-method none         \
-      --stereo-algorithm asp_mgm      \
-      --subpixel-mode 9               \
-      --nodes-list nodes.txt          \
-      tmc/fwd.map.tif tmc/aft.map.tif \
-      ba/run-fwd.adjusted_state.json  \
-      ba/run-aft.adjusted_state.json  \
-      stereo/run                      \
-      ref.tif
+.. figure:: ../images/chandrayaan2_tmc_ref_dem.png
+   :name: chandrayaan2_tmc_ref_dem
+
+   Hillshade of the 120 m LOLA reference DEM, cropped to a region around the
+   area of interest. This is coarse relative to TMC but has the correct absolute
+   geometry, which is needed for alignment and mapprojection.
+
+Bundle adjustment
+^^^^^^^^^^^^^^^^^
+
+These images have a notable pointing error, so a joint bundle adjustment of the
+triplet is needed (:numref:`bundle_adjust`). All three cubs and their CSM cameras
+are passed together, so the fwd, nadir, and aft cameras end up in one
+self-consistent solution::
+
+    bundle_adjust                              \
+      tmc/fwd.cub tmc/nadir.cub tmc/aft.cub    \
+      tmc/fwd.json tmc/nadir.json tmc/aft.json \
+      --num-iterations 100 --num-passes 2      \
+      --camera-weight 0 --tri-weight 0.1       \
+      --remove-outliers-params "75 3 50 50"    \
+      --ip-per-tile 400                        \
+      --matches-per-tile 200                   \
+      --max-pairwise-matches 200000            \
+      -o ba/run
+
+Inspect the match files (:numref:`stereo_gui_pairwise_matches`), the pixel
+reprojection errors, and other metrics (:numref:`ba_out_files`).
+
+.. figure:: ../images/chandrayaan2_tmc_bundle.png
+   :name: chandrayaan2_tmc_bundle
+
+   Pixel reprojection errors per triangulated point, in a local projection. The
+   residuals are sub-pixel almost everywhere.
+
+.. _chandra2_tmc_le:
+
+Stereo with local epipolar alignment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A first DEM is produced from the raw images with ``local_epipolar`` alignment
+(:numref:`image_alignment`). This method does not require the cameras to be
+correctly registered to the grund.
+
+This requires build 2026/08/08 (:numref:`release`) which improved the robustness
+of this method.
+
+Run each pair such as::
+
+    parallel_stereo                       \
+      --alignment-method local_epipolar   \
+      --stereo-algorithm asp_mgm          \
+      --subpixel-mode 9                   \
+      --nodes-list nodes.txt              \
+      tmc/fwd.cub tmc/nadir.cub           \
+      ba/run-fwd.adjusted_state.json      \
+      ba/run-nadir.adjusted_state.json    \
+      stereo_fn/run
 
 See :numref:`pbs_slurm` for running on multiple nodes.
 
-Produce a DEM at 20 m / pixel (4x input image resolution,
-:numref:`post-spacing`) with ``point2dem`` (:numref:`point2dem`). The
-``--errorimage`` flag writes the triangulation error image
-(:numref:`point2dem_ortho_err`). This useful for inspecting along-track jitter
-(:numref:`jitter_solve`).
+Produce a DEM at 20 m per pixel (about 4x the input GSD, :numref:`post-spacing`),
+with the triangulation error image (:numref:`point2dem_ortho_err`)::
 
-::
+    point2dem --tr 20      \
+      --t_srs "$proj"      \
+      --errorimage         \
+      stereo_fn/run-PC.tif \
+      stereo_fn/run-L.tif
 
-    point2dem --tr 20 --t_srs "$proj"  \
-      --errorimage --orthoimage       \
-      stereo/run-L.tif stereo/run-PC.tif
+The projection variable was set earlier in the text.
 
-.. figure:: ../images/chandrayaan2_tmc_dem_err.png
+The two pair DEMs are then merged into one with ``dem_mosaic``
+(:numref:`dem_mosaic`)::
 
-   Left: portion of the colorized hillshaded DEM produced with mapprojected TMC
-   images. Color range -1130 to 2400 m. Right: triangulation error image, range
-   0 to 5 m (the ground sample distance).
+    dem_mosaic stereo_fn/run-DEM.tif stereo_na/run-DEM.tif \
+      -o tmc_merged.tif
 
-The same recipe applies to fwd/nadir and nadir/aft once a triplet bundle
-adjustment has produced ``run-nadir.adjusted_state.json``.
+.. figure:: ../images/chandrayaan2_tmc_le_dems.png
+   :name: chandrayaan2_tmc_le_dems
 
-For preliminary investigations, run stereo with images mapprojected onto a
-small cropped version of the reference DEM.
+   Left to right: fwd-nadir DEM, nadir-aft DEM, fwd-nadir error, nadir-aft
+   error. The coverage degrades in shadows. A later plot will have a close-up 
+   of a well-lit region.
+
+.. _chandra2_tmc_align:
+
+Alignment to LOLA
+^^^^^^^^^^^^^^^^^
+
+The merged DEM is shifted from LOLA (here by about 3 km along the track).
+This is quite large. Aligning to LOLA with the usual ICP ``point-to-plane`` method
+(:numref:`align-method`) fails. What worked is to do a coarse alignment first. 
+
+Coarsen the merged TMC DEM to the same grid, projection, and extent as
+``ref.tif``::
+
+    gdalwarp -r average -tr 120 120 -t_srs "$proj" \
+      tmc_merged.tif tmc_merged_120m.tif
+
+Overlay this onto ``ref.tif`` and inspect both.
+
+Here we choose to do a first alignment with sparse matches produced 
+from hillshades (:numref:`pc_hillshade`)::
+
+    pc_align                                      \
+      --initial-transform-from-hillshading rigid  \
+      --max-displacement 3000                     \
+      --num-iterations 0                          \
+      ref.tif tmc_merged_120m.tif                 \
+      -o align/seed
+
+If this fails, consider correlation-based alignment (:numref:`pc_corr`),
+with a search range based on the observed shift (:numref:`search_range`).
+
+The alignment is refined with point-to-plane ICP, seeded by the first
+transform::
+
+    pc_align                                       \
+      --initial-transform align/seed-transform.txt \
+      --alignment-method point-to-plane            \
+      --max-displacement 300                       \
+      --num-iterations 1000                        \
+      --save-transformed-source-points             \
+      ref.tif tmc_merged_120m.tif                  \
+      -o align/run
+
+The output ``align/run-transform.txt`` is the combined transform of both calls.
+
+Run ``point2dem`` on the transformed source cloud and overlay it on ``ref.tif``
+for inspection.
+
+Apply that transform to the three cameras, so all of them move into the LOLA
+frame together (:numref:`ba_pc_align`)::
+
+    bundle_adjust                                 \
+      tmc/fwd.cub tmc/nadir.cub tmc/aft.cub       \
+      ba/run-fwd.adjusted_state.json              \
+      ba/run-nadir.adjusted_state.json            \
+      ba/run-aft.adjusted_state.json              \
+      --initial-transform align/run-transform.txt \
+      --apply-initial-transform-only              \
+      --inline-adjustments                        \
+      -o ba_align/run
+
+.. _chandra2_tmc_map:
+
+Mapprojection
+^^^^^^^^^^^^^
+
+Mapproject each cub at the native ~5 m/pixel resolution onto the aligned
+reference, with the aligned cameras. The command for the forward look is below;
+the nadir and aft looks are identical with their own cub and camera::
+
+    mapproject --tr 5                      \
+      --t_srs "$proj"                      \
+      ref.tif                              \
+      tmc/fwd.cub                          \
+      ba_align/run-fwd.adjusted_state.json \
+      tmc/fwd.map.tif
+
+The mapprojected images inherit the reference DEM's projection (the south polar
+stereographic above), so all three are on a common grid.
+
+.. figure:: ../images/chandrayaan2_tmc_mapproj_inputs.png
+   :name: chandrayaan2_tmc_mapproj_inputs
+
+   The three mapprojected looks (forward, nadir, aft), shown standalone with a
+   black background so that shadowed terrain (digital number near 0) reads black.
+   A pair DEM can only form where two of these overlap, so the narrow diagonal
+   swath, thinning toward the pole where shadow fragments it, is what sets the DEM
+   coverage.
+
+Stereo with mapprojected images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Run stereo with ``--alignment-method none`` on each mapprojected pair, the
+aligned CSM cameras, such as::
+
+    parallel_stereo                          \
+      --alignment-method none                \
+      --stereo-algorithm asp_mgm             \
+      --subpixel-mode 9                      \
+      --nodes-list nodes.txt                 \
+      tmc/fwd.map.tif tmc/nadir.map.tif      \
+      ba_align/run-fwd.adjusted_state.json   \
+      ba_align/run-nadir.adjusted_state.json \
+      stereo_fn_map/run                      \
+      ref.tif
+
+Produce DEMs at 20 m per pixel::
+
+    point2dem --tr 20 \
+      --t_srs "$proj" \
+      --errorimage    \
+      stereo_fn_map/run-PC.tif
+
+Merge the results as before::
+
+    dem_mosaic stereo_fn_map/run-DEM.tif stereo_na_map/run-DEM.tif \
+      -o tmc_merged_map.tif
+
+.. figure:: ../images/chandrayaan2_tmc_map_dems.png
+   :name: chandrayaan2_tmc_map_dems
+
+   Mapprojected-pass DEMs (hillshaded) and triangulation error (0 to 5 m), left to
+   right: fwd-nadir DEM, nadir-aft DEM, fwd-nadir error, nadir-aft error. The
+   triangulation error is visibly lower than in the local-epipolar pass (medians
+   drop by roughly 10 to 25 percent), which is the payoff of mapprojected stereo.
+
+.. figure:: ../images/chandrayaan2_tmc_closeup.png
+   :name: chandrayaan2_tmc_closeup
+
+   A full-resolution close-up of the mapprojected-pass DEM, hillshaded, on the
+   upper part of the track. The quality is very good on illuminated terrain, with
+   small craters resolved, and degrades gracefully toward shadowed areas.
+
+Evaluation
+^^^^^^^^^^
+
+To validate the results, compare against LOLA. First difference the DEM against
+the gridded LOLA reference (:numref:`geodiff`)::
+
+    geodiff tmc_merged_map.tif ref.tif -o dem_vs_gridded
+
+then against the raw LOLA shots (:numref:`lola_csv`)::
+
+    geodiff tmc_merged_map.tif lola_shots.csv \
+      --csv-format "1:lon 2:lat 3:radius_km"  \
+      -o dem_vs_shots
+
+The horizontal registration is checked separately: regrid the DEM and the
+reference to 120 m with ``gdalwarp -r average`` and correlate their hillshades
+(``parallel_stereo --correlator-mode``, :numref:`correlator-mode`), which
+computes horizontal and vertical misregistration in the ground plane. The mean offset
+is near zero, with a robust spread of about 0.07 pixel.
+
+.. figure:: ../images/chandrayaan2_tmc_dz_dhdv.png
+   :name: chandrayaan2_tmc_dz_dhdv
+
+   Left to right: the two pair DEMs minus gridded LOLA (range +-25 m), and the
+   fwd-nadir horizontal (dd-H) and vertical (dd-V) alignment residual to LOLA
+   (range +-0.5 pixel). The height difference is centered on zero; the residual
+   disparity is sub-pixel with no low-frequency structure.
+
+.. figure:: ../images/chandrayaan2_tmc_bias.png
+   :name: chandrayaan2_tmc_bias
+
+   A vertical-bias check, all at +-15 m. Left: merged mapprojected DEM minus
+   gridded LOLA. Middle: the same DEM minus the raw LOLA shots. Right: gridded
+   LOLA minus the shots. The medians are all sub-meter, so there is no constant
+   bias against true ground. A low-amplitude along-track undulation appears in the
+   DEM (left and middle) but not in gridded-minus-shots (right), so it is in the
+   DEM, not LOLA; this is a mild residual-jitter signature that ``jitter_solve``
+   (:numref:`jitter_solve`) could reduce.
