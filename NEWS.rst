@@ -61,6 +61,9 @@ image_align (:numref:`image_align`):
     per-match uncertainty (:numref:`correlation_uncertainty`).
 
 parallel_stereo (:numref:`parallel_stereo`):
+  * Robustified the local epipolar alignment: a tile with too few interest
+    points is retried once with expanded boxes and proportionally more interest
+    points, reducing holes in the disparity (:numref:`stereodefault`).
   * Added the ``mgm_multi`` stereo algorithm, the multiscale flavor of MGM
     (:numref:`mgm_multi`).
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of

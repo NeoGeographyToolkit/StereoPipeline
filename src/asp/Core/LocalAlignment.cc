@@ -448,21 +448,28 @@ namespace asp {
                                   // Output
                                   right_trans_crop_win);
 
-    // TODO(oalexan1): May want to increase here the number of ip per image,
-    // from the default of 5000 in InterestPointMatching.cc.
-    // But do not introduce hard-coded values.
-
-    // Redo ip matching in the current tile. It should be more accurate after alignment
-    // and cropping.
+    // Redo ip matching in the current tile. It should be more accurate after
+    // alignment and cropping. ip_per_tile is defined per a fixed 1024^2
+    // reference tile (see InterestPointMatching.cc), so an expanded box (from a
+    // retry, see the attempt loop in stereo_corr.cc) already gets proportionally
+    // more interest points at the same density: the bigger box covers more
+    // ground, which is what cures a texture-poor tile. On a retry we ALSO raise
+    // the density modestly (x2), since at that point we do not know whether the
+    // tile failed for lack of extent or lack of ip density, and hedging both is
+    // cheap because the retry only fires on the few tiles that failed the first
+    // pass.
     std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
     size_t number_of_jobs = 1;
     bool use_cached_ip = false;
+    int local_ip_per_tile = stereo_settings().ip_per_tile;
+    if (left_extra_factor > 1.0 || right_extra_factor > 1.0)
+      local_ip_per_tile *= 2;
     detect_match_ip(left_local_ip, right_local_ip,
                     vw::pixel_cast<float>(crop(left_globally_aligned_image,
                                                left_trans_crop_win)),
                     vw::pixel_cast<float>(crop(right_globally_aligned_image,
                                                right_trans_crop_win)),
-                    stereo_settings().ip_per_tile, number_of_jobs,
+                    local_ip_per_tile, number_of_jobs,
                     "", "", use_cached_ip, // no saving or caching of ip
                     left_nodata_value, right_nodata_value,
                     ""); // do not save any match file to disk

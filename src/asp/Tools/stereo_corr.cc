@@ -1128,20 +1128,24 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   bool use_sphere_for_non_earth = true;
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
                                                     use_sphere_for_non_earth);
-  for (int attempt  = 1; attempt <= 1; attempt++) {
-    // TODO(oalexan1): The idea of the expansion of the domains need more thinking.
-    // In particular, need to proportionally expand how many interest points are
-    // found, as otherwise, if the density of interest points is different
-    // among the left and right images, the number of successful matches
-    // will actually go down. In either case, need to try without expansion
-    // first and only expand in subsequent attempts. A first attempt at
-    // expansion should expand the right box, in case it is not found
-    // accurately based on input disparity and interest points.
-    //if (attempt == 2) {
-    //   vw_out() << "Local alignment attempt: " << attempt << ".\n";
-    //  left_extra_factor = 1.0;
-    //  right_extra_factor = 2.0;
-    // }
+  // Try local alignment. If a tile lacks enough interest points for the
+  // epipolar fit, retry once with both tile boxes expanded, bringing in more
+  // texture and interest points (growing the left box is what directly cures a
+  // texture-poor tile). The final disparity is cropped back to the nominal tile
+  // by adjustForCropWin (below), so a grown box does not change the output tile
+  // size and downstream blending is unaffected. On the retry, local_alignment
+  // scales the interest-point count by the box area so the match density does
+  // not drop (the reason this retry was previously disabled). If it still fails,
+  // an empty disparity is written for the tile and processing continues, so a
+  // few holes do not abort the run.
+  int num_local_align_attempts = 2;
+  for (int attempt = 1; attempt <= num_local_align_attempts; attempt++) {
+    if (attempt == 2) {
+      vw_out() << "Local alignment retry (attempt " << attempt
+               << "): expanding the tile boxes and scaling interest points.\n";
+      left_extra_factor  = 2.0;
+      right_extra_factor = 2.0;
+    }
     try {
       local_alignment(// Inputs
                       opt, alg_name, opt.session->name(),
