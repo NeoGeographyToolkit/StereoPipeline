@@ -280,14 +280,19 @@ Hillshade both (:numref:`gdal_hill`)::
 .. figure:: ../images/chandrayaan2_ohrc_hillshades.png
    :name: chandrayaan2_ohrc_hillshades
 
-   The regridded OHRC DEM and the Kaguya reference, hillshaded on the shared grid.
-   They must look visually similar for the correlation to succeed.
+   The regridded OHRC DEM and the Kaguya reference, both hillshaded, with a
+   shared projection, grid, and extent. They must look visually similar for the
+   correlation to succeed. The reference goes beyond the OHRC DEM to take into
+   account the initial misregistration.
 
 Correlate the hillshades (:numref:`correlator-mode`) and extract a dense match
-file. The search range must cover the shift: here it was read visually as about
-66 px (2.1 km at 32 m), so ``--corr-search -100 -100 100 100`` is enough. For a
-larger shift, raise it; but too large a search is slow and risks locking onto a
-wrong solution, so size it to the observed offset::
+file. The search range must large enough to incorporate the expected
+misalignment (shift). Here the shift was found visually to be about 66 px (2.1
+km at 32 m), so ``--corr-search -100 -100 100 100`` is enough. For a larger
+shift, increase this range. Too large a search range results in slow processing
+and risks locking onto a wrong solution.
+
+::
 
     parallel_stereo --correlator-mode    \
       --stereo-algorithm asp_mgm         \
@@ -298,10 +303,9 @@ wrong solution, so size it to the observed offset::
       --num-matches-from-disparity 40000 \
       ref_hill.tif src_hill.tif run_corr/run
 
-Inspect the disparity ``run_corr/run-F.tif`` (:numref:`raw_disp`); a smoothly
-varying, near-constant shift means a good lock. (The larger, more complete cloud
-was used as the reference here; the order can matter, so inspect the result.)
-Feed the dense match file to ``pc_align`` (:numref:`pc_corr`)::
+Inspect the disparity ``run_corr/run-F.tif`` (:numref:`raw_disp`). A smoothly
+varying, near-constant shift means a good lock. Inspect this dense match file
+then pass it to ``pc_align`` (:numref:`pc_corr`)::
 
     pc_align --max-displacement -1 --num-iterations 0         \
       --max-num-reference-points 1000000                      \
@@ -312,8 +316,8 @@ Feed the dense match file to ``pc_align`` (:numref:`pc_corr`)::
       ref.tif ohrc_on_ref.tif -o run_align/run
 
 Grid the aligned cloud ``run_align/run-trans_source.tif`` with ``point2dem`` and
-eyeball it against the reference as a red/green hillshade overlay: a notable
-crater that was split before should snap together.
+inspect it against the reference: a notable crater that was split before should
+snap together.
 
 The transform ``run_align/run-transform.txt`` maps the OHRC DEM to the reference
 and can be applied to the original clouds or cameras (:numref:`prevtrans`,
