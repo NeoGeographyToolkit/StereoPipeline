@@ -181,21 +181,7 @@ The images can be inspected with ``stereo_gui`` (:numref:`stereo_gui`), as::
   stereo_gui ohrc/img1.cub ohrc/img2.cub
 
 The resulting cub files are very large, on the order of 12,000 x 101,075 pixels.
-For exploratory work, these can be cropped, with the ISIS `crop
-<https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/crop/crop.html>`_
-command, such as::
-
-    crop                            \
-      from     = ohrc/img1.cub      \
-      to       = ohrc/img1_crop.cub \
-      sample   = 1                  \
-      line     = 1                  \
-      nsamples = 12000              \
-      nlines   = 50000
-
-It is very important to ensure that the upper-left pixel (1, 1) is part of the
-crop region, as otherwise the resulting images will be inconsistent with the CSM
-camera models.
+The full images are processed throughout.
 
 Bundle adjustment
 ^^^^^^^^^^^^^^^^^
@@ -203,10 +189,14 @@ Bundle adjustment
 We found that these images have notable pointing error, so bundle adjustment
 (:numref:`bundle_adjust`) is needed::
 
-    bundle_adjust                     \
-      ohrc/img1.cub ohrc/img2.cub     \
-      ohrc/img1.json ohrc/img2.json   \
-      --ip-per-image 30000            \
+    bundle_adjust                           \
+      ohrc/img1.cub ohrc/img2.cub           \
+      ohrc/img1.json ohrc/img2.json         \
+      --num-iterations 100 --num-passes 2   \
+      --camera-weight 0 --tri-weight 0.1    \
+      --remove-outliers-params "75 3 50 50" \
+      --ip-per-image 50000                  \
+      --max-pairwise-matches 50000          \
       -o ba/run
 
 This stereo pair has a convergence angle of about 25 degrees
@@ -222,9 +212,9 @@ Stereo
 ^^^^^^
 
 The full-site DEM is made with local epipolar alignment
-(:numref:`image_alignment`) on the raw images (no crop), with the
-bundle-adjusted cameras. This handles the extreme aspect ratio per tile and
-covers the whole strip::
+(:numref:`image_alignment`) on the raw images, with the bundle-adjusted
+cameras. This handles the extreme aspect ratio per tile and covers the whole
+strip::
 
     parallel_stereo                     \
       --alignment-method local_epipolar \
@@ -320,15 +310,8 @@ Feed the dense match file to ``pc_align`` (:numref:`pc_corr`)::
       ref.tif ohrc_on_ref.tif -o run_align/run
 
 Grid the aligned cloud ``run_align/run-trans_source.tif`` with ``point2dem`` and
-EYEBALL it against the reference as a red/green hillshade overlay: a notable
+eyeball it against the reference as a red/green hillshade overlay: a notable
 crater that was split before should snap together.
-
-.. figure:: ../images/chandrayaan2_ohrc_align.png
-   :name: chandrayaan2_ohrc_align
-
-   OHRC (red) over Kaguya (green) hillshades, before and after the
-   correlation-based alignment. The ~2.1 km along-track offset is removed and the
-   central crater coincides. dz vs Kaguya drops from -107 m to 0.16 m (NMAD 3.1 m).
 
 The transform ``run_align/run-transform.txt`` maps the OHRC DEM to the reference
 and can be applied to the original clouds or cameras (:numref:`prevtrans`,
@@ -712,10 +695,9 @@ Merge the results as before::
 .. figure:: ../images/chandrayaan2_tmc_closeup.png
    :name: chandrayaan2_tmc_closeup
 
-   A full-resolution close-up DEM after stereo with mapprojection, showing the
-   upper part of the track. The quality is very good on illuminated terrain,
-   with small craters resolved. Results degrade gracefully toward shadowed
-   areas.
+   A close-up DEM after stereo with mapprojection, showing the upper part of the
+   track. The quality is very good on illuminated terrain, with small craters
+   resolved. Results degrade gracefully toward shadowed areas.
 
 Evaluation
 ^^^^^^^^^^
@@ -731,19 +713,20 @@ then against the raw LOLA shots (:numref:`lola_csv`)::
       --csv-format "2:lon 3:lat 4:radius_km"  \
       -o dem_vs_shots
 
-The horizontal registration is checked separately: regrid the DEM and the
-reference to 120 m with ``gdalwarp -r average`` and correlate their hillshades
-(``parallel_stereo --correlator-mode``, :numref:`correlator-mode`), which
-computes horizontal and vertical misregistration in the ground plane. The mean offset
-is near zero, with a robust spread of about 0.07 pixel.
+The horizontal registration against the reference is checked separately: regrid
+the created DEM and the reference to 120 m with ``gdalwarp -r average`` and
+correlate their hillshades (``parallel_stereo --correlator-mode``,
+:numref:`correlator-mode`), which computes horizontal and vertical
+misregistration in the ground plane. The mean offset is near zero, with a robust
+spread of about 0.07 pixel.
 
 .. figure:: ../images/chandrayaan2_tmc_dz_dhdv.png
    :name: chandrayaan2_tmc_dz_dhdv
 
    Left to right: the two pair DEMs minus gridded LOLA (range +-25 m), and the
-   fwd-nadir horizontal (dd-H) and vertical (dd-V) alignment residual to LOLA
-   (range +-0.5 pixel). The height difference is centered on zero; the residual
-   disparity is sub-pixel with no low-frequency structure.
+   fwd-nadir horizontal (dd-H) and vertical (dd-V) alignment residual to grided
+   120 m / pixel LOLA (range +-0.5 pixel). The height difference is centered on
+   zero; the residual disparity is sub-pixel with no low-frequency structure.
 
 .. figure:: ../images/chandrayaan2_tmc_bias.png
    :name: chandrayaan2_tmc_bias
