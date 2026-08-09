@@ -516,17 +516,21 @@ As an illustration, align a DEM to such a file with ``pc_align``
       dem.tif meas.csv                                         \
       -o run/run
 
+.. _lola_csv:
+
 LOLA, with radius in km
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-For a LOLA RDR PointPerRow table, as fetched from the `ODE web tool
+For a LOLA RDR PointPerRow table, as fetched with the `ODE web tool
 <https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_, the measurements
 are longitude, latitude (in degrees), and radius from the planet center (in km),
-in columns 2, 3, and 4. The format is then ``'2:lon 3:lat 4:radius_km'`` (the
+in columns 2, 3, and 4. 
+
+The value for ``--csv-format`` is then ``'2:lon 3:lat 4:radius_km'`` (the
 first column in a LOLA RDR file is the observation time, in UTC).
 
-As an illustration, use a LOLA cloud as a reference terrain in ``bundle_adjust``
-(:numref:`bundle_adjust`)::
+As an illustration of how to read this dataset, use a LOLA cloud as a reference
+terrain in ``bundle_adjust`` (:numref:`bundle_adjust`)::
 
     bundle_adjust <images> <cameras>         \
       --reference-terrain lola.csv           \

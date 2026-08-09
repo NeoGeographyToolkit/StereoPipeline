@@ -236,8 +236,9 @@ covers the whole strip::
       ba/run-img2.adjusted_state.json   \
       stereo/run
 
-See :numref:`pbs_slurm` for running on multiple nodes. As for TMC, this needs a
-build with the 2026-05 local-epipolar robustness fixes (:numref:`release`).
+See :numref:`pbs_slurm` for running on multiple nodes. As for TMC, this needs
+build 2026/08/08 (:numref:`release`) or later, which improved the robustness of
+local-epipolar alignment.
 
 Make the DEM at 1 m, with the orthoimage and triangulation error
 (:numref:`point2dem`)::
@@ -248,10 +249,10 @@ Make the DEM at 1 m, with the orthoimage and triangulation error
 .. figure:: ../images/chandrayaan2_ohrc_dem.png
    :name: chandrayaan2_ohrc_dem
 
-   The DEM (aligned, see below), orthoimage, and triangulation error (0 to
-   0.5 m). It is a solid ~64 km^2 strip with a low triangulation error (median
-   0.082 m). The horizontal striping in the error is along-track jitter at the
-   0.25 m GSD scale, which could be reduced (:numref:`jitter_solve`).
+   The final DEM (mapprojected pass, see below), orthoimage, and triangulation
+   error (0 to 0.5 m). It is a solid ~65.6 km^2 strip with a low triangulation
+   error (median 0.070 m). The horizontal striping in the error is along-track
+   jitter at the 0.25 m GSD scale, which could be reduced (:numref:`jitter_solve`).
 
 .. _ohrc_dem_align:
 
@@ -333,6 +334,16 @@ The transform ``run_align/run-transform.txt`` maps the OHRC DEM to the reference
 and can be applied to the original clouds or cameras (:numref:`prevtrans`,
 :numref:`ba_pc_align`).
 
+Second stereo pass (mapprojected)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With the cameras aligned, a second pass repeats stereo on the images
+mapprojected at native 0.25 m resolution onto the aligned DEM (filled with the
+reference where it has holes), exactly as for TMC (:numref:`chandra2_tmc_map`).
+This is the final DEM shown in :numref:`chandrayaan2_ohrc_dem`. Here it is a
+solid ~65.6 km^2 strip, and it slightly improves on the first pass in both
+coverage (65.6 vs 64.2 km^2) and triangulation error (0.070 vs 0.082 m).
+
 Vertical accuracy vs LOLA
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -347,12 +358,12 @@ Difference the aligned DEM and the reference against the raw LOLA shots
 .. figure:: ../images/chandrayaan2_ohrc_vertical.png
    :name: chandrayaan2_ohrc_vertical
 
-   Aligned DEM minus Kaguya (raster), and the DEM and Kaguya each minus the LOLA
-   shots, all clamped +-10 m. The DEM is sub-meter against both (median 0.16 m vs
-   Kaguya, -0.41 m vs LOLA). Kaguya sits about -0.72 m below LOLA, so the DEM
-   matches true ground slightly better than the reference it aligned to; the small
-   residual is that reference offset, not a stereo error. No further refinement to
-   LOLA is needed here.
+   Final DEM minus Kaguya (raster), and the DEM and Kaguya each minus the LOLA
+   shots, all clamped +-10 m. The DEM is essentially unbiased against Kaguya
+   (median -0.03 m) and sub-meter against the raw LOLA shots (-0.47 m). Kaguya
+   itself sits about -0.72 m below LOLA, so the DEM matches true ground about as
+   well as the reference it aligned to; the small residual is that reference
+   offset, not a stereo error. No further refinement to LOLA is needed here.
 
 .. figure:: ../images/chandrayaan2_ohrc_pointmap.png
    :name: chandrayaan2_ohrc_pointmap
