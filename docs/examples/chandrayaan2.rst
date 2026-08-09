@@ -211,10 +211,11 @@ the reprojection error should be sub-pixel.
 Stereo
 ^^^^^^
 
-The full-site DEM is made with local epipolar alignment
-(:numref:`image_alignment`) on the raw images, with the bundle-adjusted
-cameras. This handles the extreme aspect ratio per tile and covers the whole
-strip::
+A first DEM is made from the raw images with local epipolar alignment
+(:numref:`image_alignment`) and the bundle-adjusted cameras, the same first-pass
+approach used for the TMC triplet (:numref:`chandra2_tmc_le`). This method does
+not require the cameras to be correctly registered to the ground. It handles the
+extreme aspect ratio per tile and covers the whole strip::
 
     parallel_stereo                     \
       --alignment-method local_epipolar \
@@ -266,26 +267,55 @@ the orthoimage, and the triangulation error, which share the same grid
 The same command is applied to ``run-DRG.tif`` and ``run-IntersectionErr.tif``.
 The masked products are used for all inspection and figures below.
 
+.. _chandra2_ohrc_ref:
+
+Reference DEM
+^^^^^^^^^^^^^
+
+As for TMC (:numref:`chandra2_tmc_ref`), a reference DEM is needed to align the
+cameras to a known coordinate system and to mapproject the images for the second
+stereo pass. Here a different reference is used than for TMC, which is fine: the
+best choice depends on the site, and any well-registered product can serve.
+
+The chosen reference is a Kaguya TC DTM (~32 m/pixel, :numref:`kaguya_products`).
+This site is around -68 degrees latitude, where the Kaguya products reach and are
+finer than the wider-area LOLA gridded DEMs. For the TMC track, which runs to the
+pole where Kaguya does not reach, the polar LOLA product was the better choice
+(:numref:`chandra2_tmc_ref`). Merge the Kaguya tiles that cover the site into one
+DEM with ``dem_mosaic`` (:numref:`dem_mosaic`), and call it ``ref.tif``.
+
+Choose a local projection, centered on the site, that is used for all steps
+below. Here we use a south polar stereographic projection::
+
+    proj="+proj=stere +lat_0=-68.4 +lon_0=20.9 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
+
+Convert the reference to this projection if it is not already in it
+(:numref:`gdal_tools`)::
+
+    gdalwarp -r cubicspline -t_srs "$proj" kaguya_merged.tif ref.tif
+
+A Kaguya DTM can have holes. Fill them (:numref:`dem_mosaic_extrapolate`) and
+optionally blur the result (``dem_mosaic --dem-blur-sigma 5``,
+:numref:`dem_mosaic_blur`), so the draping surface for mapprojection is gap-free.
+
 .. _ohrc_dem_align:
 
 Alignment to a reference DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The OHRC DEM is shifted from the global reference by about 2.1 km along the
-track. ICP (:numref:`align-method`) and sparse hillshade-feature alignment
-(:numref:`pc_hillshade`) fail. The robust route is correlation-based alignment
-(:numref:`pc_corr`). This can be fragile, so careful inspection is needed.
+The OHRC DEM is shifted from the reference by about 2.1 km along the track. DEM
+alignment is not fully robust, and the best method depends on the data, so it is
+worth trying more than one (:numref:`pc_align`). For the TMC triplet, a
+hillshade-seeded rigid transform followed by point-to-plane ICP worked
+(:numref:`chandra2_tmc_align`). For this narrow OHRC swath that approach fails:
+plain ICP (:numref:`align-method`) and sparse hillshade-feature alignment
+(:numref:`pc_hillshade`) slide along the strip, because a thin swath has little
+cross-track signal to lock onto. The robust route here is correlation-based
+alignment (:numref:`pc_corr`): a bounded dense correlation cannot slide globally
+the way ICP can. It is automated but can be fragile, so inspect the result.
 
-The chosen reference is produced by merging with ``dem_mosaic`` a set of Kaguya
-TC DTMs (~32 m/pixel, :numref:`kaguya_products`).
-
-Set a local south polar stereographic projection centered on the site::
-
-    proj="+proj=stere +lat_0=-68.4 +lon_0=20.9 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
-
-Regrid the produced OHRC DEM and the reference to the same grid size,
-projection, and extent with ``gdalwarp`` (:numref:`gdal_tools`), along
-the lines of::
+Regrid the OHRC DEM and the reference to the same grid, projection, and extent
+with ``gdalwarp`` (:numref:`gdal_tools`)::
 
     gdalwarp -r cubicspline -t_srs "$proj" \
       -te <ref extent> -tr 32 32           \
@@ -668,7 +698,11 @@ Alignment to LOLA
 The merged DEM is shifted from the usual LOLA global reference (here by about 3
 km along the track). This is quite large. Aligning to LOLA with the usual ICP
 ``point-to-plane`` method (:numref:`align-method`) fails. What worked is to do a
-coarse alignment first. 
+coarse alignment first. DEM alignment is not fully robust, and the right method
+depends on the data, so it is worth trying more than one (:numref:`pc_align`).
+The hillshade-seeded coarse step below suits this wide triplet; for the narrow
+OHRC swath a correlation-based method was needed instead
+(:numref:`ohrc_dem_align`).
 
 Coarsen the created merged TMC DEM to the same grid, projection, and extent as
 ``ref.tif``::
