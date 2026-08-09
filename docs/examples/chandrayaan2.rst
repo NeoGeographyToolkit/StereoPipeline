@@ -135,7 +135,7 @@ a PDS-4 label.
 
 The `isisimport <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/isisimport/isisimport.html>`_ command converts the raw image to a .cub file::
 
-    isisimport \
+    isisimport                                             \
       from = ch2_ohr_nrp_20200827T0030107497_d_img_d18.xml \
       to   = ch2_ohr_nrp_20200827T0030107497_d_img_d18.cub
 
@@ -205,8 +205,8 @@ the reprojection error should be sub-pixel.
 
 .. figure:: ../images/chandrayaan2_ohrc_interest_points.png
 
-  The left and right OHRC images, and the interest point matches between
-  them (as shown by ``stereo_gui``, :numref:`stereo_gui_view_ip`).
+  The left and right OHRC images, and the interest point matches between them.
+  These can be plotted with ``stereo_gui``, :numref:`stereo_gui_view_ip`).
 
 Stereo
 ^^^^^^
@@ -226,9 +226,10 @@ strip::
       ba/run-img2.adjusted_state.json   \
       stereo/run
 
-See :numref:`pbs_slurm` for running on multiple nodes. As for TMC, this needs
-build 2026/08/08 (:numref:`release`) or later, which improved the robustness of
-local-epipolar alignment.
+See :numref:`pbs_slurm` for running on multiple nodes. 
+
+This needs build 2026/08/08 (:numref:`release`) or later, which improved the
+robustness of local-epipolar alignment.
 
 Make the DEM at 1 m, with the orthoimage and triangulation error
 (:numref:`point2dem`)::
@@ -240,9 +241,11 @@ Make the DEM at 1 m, with the orthoimage and triangulation error
    :name: chandrayaan2_ohrc_dem
 
    The final DEM (mapprojected pass, see below), orthoimage, and triangulation
-   error (0 to 0.5 m). It is a solid ~65.6 km^2 strip with a low triangulation
-   error (median 0.070 m). The horizontal striping in the error is along-track
-   jitter at the 0.25 m GSD scale, which could be reduced (:numref:`jitter_solve`).
+   error (0 to 0.5 m). The median triangulation error is 0.07 m. The horizontal
+   striping in the error is along-track jitter at the 0.25 m GSD scale, which
+   could be reduced if solving for jitter (:numref:`jitter_solve`). An artifact
+   exists in the shadow region that is not present when stereo is rerun with
+   mapprojected images (below).
 
 .. _ohrc_dem_align:
 
@@ -250,21 +253,20 @@ Alignment to a reference DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The OHRC DEM is shifted from the global reference by about 2.1 km along the
-track. A swath this narrow has little cross-track signal, so ICP and
-hillshade-feature alignment (:numref:`pc_align`) slide it along its length. The
-robust route is correlation-based alignment (:numref:`pc_corr`): a bounded dense
-correlation cannot slide globally the way ICP does. It is automated, but can be
-fragile, so inspect the result (below).
+track. ICP (:numref:`align-method`) and sparse hillshade-feature alignment
+(:numref:`pc_hillshade`) fail. The robust route is correlation-based alignment
+(:numref:`pc_corr`). This can be fragile, so careful inspection is needed.
 
-The reference is a Kaguya TC DTM (~32 m near the pole, :numref:`kaguya_products`),
-finer than LOLA and near-global. Set a local south polar stereographic projection
-centered on the site::
+The chosen reference is produced by merging with ``dem_mosaic`` a set of Kaguya
+TC DTMs (~32 m/pixel, :numref:`kaguya_products`).
+
+Set a local south polar stereographic projection centered on the site::
 
     proj="+proj=stere +lat_0=-68.4 +lon_0=20.9 +k=1 +x_0=0 +y_0=0 +R=1737400 +units=m +no_defs"
 
-First conform the OHRC DEM to the reference's projection, extent, and grid size
-with ``gdalwarp`` (:numref:`gdal_tools`), so the two hillshades match and the
-disparity reads near zero (the reference's extent comes from ``gdalinfo``)::
+Regrid the produced OHRC DEM and the reference to the same grid size,
+projection, and extent with ``gdalwarp`` (:numref:`gdal_tools`), along
+the lines of::
 
     gdalwarp -r cubicspline -t_srs "$proj" \
       -te <ref extent> -tr 32 32           \
@@ -301,12 +303,12 @@ varying, near-constant shift means a good lock. (The larger, more complete cloud
 was used as the reference here; the order can matter, so inspect the result.)
 Feed the dense match file to ``pc_align`` (:numref:`pc_corr`)::
 
-    pc_align --max-displacement -1 --num-iterations 0    \
-      --max-num-reference-points 1000000                 \
+    pc_align --max-displacement -1 --num-iterations 0         \
+      --max-num-reference-points 1000000                      \
       --match-file run_corr/run-disp-ref_hill__src_hill.match \
-      --initial-transform-from-hillshading rigid         \
-      --initial-transform-ransac-params 1000 3           \
-      --save-transformed-source-points                   \
+      --initial-transform-from-hillshading rigid              \
+      --initial-transform-ransac-params 1000 3                \
+      --save-transformed-source-points                        \
       ref.tif ohrc_on_ref.tif -o run_align/run
 
 Grid the aligned cloud ``run_align/run-trans_source.tif`` with ``point2dem`` and
@@ -399,7 +401,7 @@ of ISIS, ALE, and USGSCSM (:numref:`conda_intro`).
 The non-nadir TMC-2 cameras are processed the same way as OHRC above, using the
 CSM camera models (:numref:`csm`). Convert the raw images to cubs::
 
-    isisimport \
+    isisimport                                             \
       from = ch2_tmc_ncf_20231101T0125121344_d_img_d18.xml \
       to   = ch2_tmc_ncf_20231101T0125121344_d_img_d18.cub
 
