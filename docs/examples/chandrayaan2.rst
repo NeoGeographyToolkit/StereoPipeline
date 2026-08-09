@@ -350,10 +350,10 @@ Vertical accuracy vs LOLA
 The reference itself may be slightly offset from LOLA (:numref:`csv_format`,
 :numref:`sfs_initial_terrain`), the global standard, and the DEM inherits that.
 Difference the aligned DEM and the reference against the raw LOLA shots
-(:numref:`geodiff`) to check::
+(:numref:`lola_csv`, :numref:`geodiff`) to check::
 
     geodiff dem.tif lola_shots.csv \
-      --csv-format "1:lon 2:lat 3:radius_km" -o dem_vs_lola
+      --csv-format "2:lon 3:lat 4:radius_km" -o dem_vs_lola
 
 .. figure:: ../images/chandrayaan2_ohrc_vertical.png
    :name: chandrayaan2_ohrc_vertical
@@ -441,13 +441,14 @@ Alternative creation of CSM cameras
 
 With older ISIS, skip ``spiceinit`` altogether and follow the steps below.
 
-ALE then needs a metakernel under ``$ALESPICEROOT`` to locate the SPICE kernels,
-since the USGS Chandrayaan-2 ISIS data area does not ship one (as of
-2026-08-02). Create a small metakernel at::
+Create for ALE a metakernel under ``$ALESPICEROOT`` (which is usually set to
+``$ISISDATA``) to locate the SPICE kernels. That is needed since USGS
+Chandrayaan-2 ISIS data area does not ship one (as of 2026-08-02). Its path 
+should be::
 
     $ISISDATA/chandrayaan2/kernels/mk/ch2_v01.tm
 
-listing the kernel files. The values in ``PATH_VALUES`` should be absolute, due
+It lists the kernel files. The values in ``PATH_VALUES`` should be absolute, due
 to limitations in ALE, and correct for the local file system. See the NAIF
 `Metakernel reference
 <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/FORTRAN/req/kernel.html>`_ for
@@ -457,9 +458,6 @@ the format, and compare with existing ``.tm`` files for other missions. Then run
     export ALESPICEROOT=$ISISDATA
     isd_generate tmc/fwd.cub
     isd_generate tmc/aft.cub
-
-For the non-nadir fwd channel, the resulting CSM camera agrees with the one from
-the ASP 3.7.0 workflow above to about 0.0001 pixels. Either workflow can be used.
 
 Check each JSON with ``cam_test`` (:numref:`cam_test`).
 
@@ -474,9 +472,10 @@ to mapproject the images after alignment (for a second stereo pass).
 Near the lunar south pole, a gridded LOLA polar DEM is the natural choice
 (:numref:`sfs_initial_terrain`). The product ``LDEM_60S_120M`` covers -60 to -90
 degrees at 120 m per pixel in one tile, spanning the full track. A Kaguya TC DTM
-(~10 m/pixel, :numref:`kaguya_products`) is finer, but does not reach the pole,
-and the wider-area LOLA products are coarser than 120 m. So ``LDEM_60S_120M`` at
-120 m is the best available reference here. Call it ``ref.tif``.
+(~10 m/pixel, :numref:`kaguya_products`) is at a finer resolution, but does not
+reach the pole, and the wider-area LOLA products may be coarser than 120 m away
+from poles. So ``LDEM_60S_120M`` at 120 m is the best available reference here.
+Call it ``ref.tif``.
 
 Choose a local projection that is then used for all steps below. Here we will go
 with the south polar stereographic projection::
@@ -507,9 +506,8 @@ Bundle adjustment
 ^^^^^^^^^^^^^^^^^
 
 These images have a notable pointing error, so a joint bundle adjustment of the
-triplet is needed (:numref:`bundle_adjust`). All three cubs and their CSM cameras
-are passed together, so the fwd, nadir, and aft cameras end up in one
-self-consistent solution::
+triplet is needed (:numref:`bundle_adjust`). The three images (.cub files) and
+their CSM cameras are passed in the same order::
 
     bundle_adjust                              \
       tmc/fwd.cub tmc/nadir.cub tmc/aft.cub    \
@@ -536,12 +534,13 @@ reprojection errors, and other metrics (:numref:`ba_out_files`).
 Stereo with local epipolar alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A first DEM is produced from the raw images with ``local_epipolar`` alignment
-(:numref:`image_alignment`). This method does not require the cameras to be
-correctly registered to the grund.
+A first DEM is produced from the raw images and bundle-adjusted cameras with
+``local_epipolar`` image alignment (:numref:`image_alignment`). This method does
+not require the cameras to be correctly registered to the ground but only
+self-consistent.
 
-This requires build 2026/08/08 (:numref:`release`) which improved the robustness
-of this method.
+This requires build 2026/08/08 or later (:numref:`release`), incorporating some
+robustness fixes for this method.
 
 Run each pair such as::
 
@@ -577,26 +576,29 @@ The two pair DEMs are then merged into one with ``dem_mosaic``
 .. figure:: ../images/chandrayaan2_tmc_le_dems.png
    :name: chandrayaan2_tmc_le_dems
 
-   Left to right: fwd-nadir DEM, nadir-aft DEM, fwd-nadir error, nadir-aft
-   error. The coverage degrades in shadows. A later plot will have a close-up 
-   of a well-lit region.
+   Left to right: fwd-nadir hillshaded DEM, nadir-aft DEM, fwd-nadir
+   triangulation error (:numref:`triangulation_error`), nadir-aft triangulation
+   error. The coverage degrades in shadows. A later plot will have a close-up of
+   a well-lit region.
 
 .. _chandra2_tmc_align:
 
 Alignment to LOLA
 ^^^^^^^^^^^^^^^^^
 
-The merged DEM is shifted from LOLA (here by about 3 km along the track).
-This is quite large. Aligning to LOLA with the usual ICP ``point-to-plane`` method
-(:numref:`align-method`) fails. What worked is to do a coarse alignment first. 
+The merged DEM is shifted from the usual LOLA global reference (here by about 3
+km along the track). This is quite large. Aligning to LOLA with the usual ICP
+``point-to-plane`` method (:numref:`align-method`) fails. What worked is to do a
+coarse alignment first. 
 
-Coarsen the merged TMC DEM to the same grid, projection, and extent as
+Coarsen the created merged TMC DEM to the same grid, projection, and extent as
 ``ref.tif``::
 
     gdalwarp -r average -tr 120 120 -t_srs "$proj" \
       tmc_merged.tif tmc_merged_120m.tif
 
-Overlay this onto ``ref.tif`` and inspect both.
+Overlay this onto ``ref.tif`` and inspect both. They should appear similar and
+with a visible shift.
 
 Here we choose to do a first alignment with sparse matches produced 
 from hillshades (:numref:`pc_hillshade`)::
@@ -660,20 +662,21 @@ the nadir and aft looks are identical with their own cub and camera::
 The mapprojected images inherit the reference DEM's projection (the south polar
 stereographic above), so all three are on a common grid.
 
+Overlay these and the hillshaded reference DEM with georeference information in
+``stereo_gui`` (:numref:`stereo_gui`) and confirm that they are all in
+agreement.
+
 .. figure:: ../images/chandrayaan2_tmc_mapproj_inputs.png
    :name: chandrayaan2_tmc_mapproj_inputs
 
-   The three mapprojected looks (forward, nadir, aft), shown standalone with a
-   black background so that shadowed terrain (digital number near 0) reads black.
-   A pair DEM can only form where two of these overlap, so the narrow diagonal
-   swath, thinning toward the pole where shadow fragments it, is what sets the DEM
-   coverage.
+   The three mapprojected looks (forward, nadir, aft). Areas in shadow are set to
+   no-data and appear black.
 
 Stereo with mapprojected images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run stereo with ``--alignment-method none`` on each mapprojected pair, the
-aligned CSM cameras, such as::
+For each image pair, run stereo with mapprojected images
+(:numref:`mapproj-example`) and the aligned CSM cameras, such as::
 
     parallel_stereo                          \
       --alignment-method none                \
@@ -709,9 +712,10 @@ Merge the results as before::
 .. figure:: ../images/chandrayaan2_tmc_closeup.png
    :name: chandrayaan2_tmc_closeup
 
-   A full-resolution close-up of the mapprojected-pass DEM, hillshaded, on the
-   upper part of the track. The quality is very good on illuminated terrain, with
-   small craters resolved, and degrades gracefully toward shadowed areas.
+   A full-resolution close-up DEM after stereo with mapprojection, showing the
+   upper part of the track. The quality is very good on illuminated terrain,
+   with small craters resolved. Results degrade gracefully toward shadowed
+   areas.
 
 Evaluation
 ^^^^^^^^^^
@@ -724,7 +728,7 @@ the gridded LOLA reference (:numref:`geodiff`)::
 then against the raw LOLA shots (:numref:`lola_csv`)::
 
     geodiff tmc_merged_map.tif lola_shots.csv \
-      --csv-format "1:lon 2:lat 3:radius_km"  \
+      --csv-format "2:lon 3:lat 4:radius_km"  \
       -o dem_vs_shots
 
 The horizontal registration is checked separately: regrid the DEM and the
