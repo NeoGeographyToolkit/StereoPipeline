@@ -237,15 +237,34 @@ Make the DEM at 1 m, with the orthoimage and triangulation error
     point2dem --tr 1.0 --errorimage --orthoimage \
       stereo/run-PC.tif stereo/run-L.tif
 
-.. figure:: ../images/chandrayaan2_ohrc_dem.png
-   :name: chandrayaan2_ohrc_dem
+.. _ohrc_shadow_mask:
 
-   The final DEM (mapprojected pass, see below), orthoimage, and triangulation
-   error (0 to 0.5 m). The median triangulation error is 0.07 m. The horizontal
-   striping in the error is along-track jitter at the 0.25 m GSD scale, which
-   could be reduced if solving for jitter (:numref:`jitter_solve`). An artifact
-   exists in the shadow region that is not present when stereo is rerun with
-   mapprojected images (below).
+The deep-shadow crater on this strip has almost no image signal, so stereo
+leaves an artifact there: a spurious block in the DEM with high triangulation
+error. Mask it out with the orthoimage, which is near zero in shadow. First
+build a binary mask that is 1 on lit terrain and 0 in shadow
+(:numref:`image_calc_create_mask`)::
+
+    thresh=0.1
+    image_calc -c "gte(var_0, $thresh, 1, 0)" \
+      --output-nodata-value -1e+6             \
+      -d float32                              \
+      stereo/run-DRG.tif                      \
+      -o stereo/run-shadow_mask.tif
+
+Choose the threshold from the orthoimage histogram, large enough to nuke the
+black crater but not the lit terrain (here 0.1). Then apply the mask to the DEM,
+the orthoimage, and the triangulation error, which share the same grid
+(:numref:`image_calc_mask`)::
+
+    image_calc -c "eq(var_1, 0, -9999, var_0)"      \
+      --output-nodata-value -9999                   \
+      -d float32                                    \
+      stereo/run-DEM.tif stereo/run-shadow_mask.tif \
+      -o stereo/run-DEM_masked.tif
+
+The same command is applied to ``run-DRG.tif`` and ``run-IntersectionErr.tif``.
+The masked products are used for all inspection and figures below.
 
 .. _ohrc_dem_align:
 
@@ -319,25 +338,83 @@ Grid the aligned cloud ``run_align/run-trans_source.tif`` with ``point2dem`` and
 inspect it against the reference: a notable crater that was split before should
 snap together.
 
-The transform ``run_align/run-transform.txt`` maps the OHRC DEM to the reference
-and can be applied to the original clouds or cameras (:numref:`prevtrans`,
-:numref:`ba_pc_align`).
+Mapprojection
+^^^^^^^^^^^^^
 
-Second stereo pass (mapprojected)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The transform ``run_align/run-transform.txt`` maps the OHRC DEM to the reference.
+Apply it to the bundle-adjusted cameras (:numref:`prevtrans`,
+:numref:`ba_pc_align`), so both cameras move into the reference frame::
 
-With the cameras aligned, a second pass repeats stereo on the images
-mapprojected at native 0.25 m resolution onto the aligned DEM (filled with the
-reference where it has holes), exactly as for TMC (:numref:`chandra2_tmc_map`).
-This is the final DEM shown in :numref:`chandrayaan2_ohrc_dem`. Here it is a
-solid ~65.6 km^2 strip, and it slightly improves on the first pass in both
-coverage (65.6 vs 64.2 km^2) and triangulation error (0.070 vs 0.082 m).
+    bundle_adjust                                     \
+      ohrc/img1.cub ohrc/img2.cub                     \
+      ba/run-img1.adjusted_state.json                 \
+      ba/run-img2.adjusted_state.json                 \
+      --initial-transform run_align/run-transform.txt \
+      --apply-initial-transform-only                  \
+      --inline-adjustments                            \
+      -o ba_align/run
+
+Mapproject each image at the native ~0.25 m/pixel resolution onto the reference
+DEM, with the aligned cameras. The reference is gapless, so no hole filling is
+needed. The command for the first image is below; the second is identical with
+its own cub and camera::
+
+    mapproject --tr 0.25                     \
+      --t_srs "$proj"                        \
+      ref.tif                                \
+      ohrc/img1.cub                          \
+      ba_align/run-img1.adjusted_state.json  \
+      ohrc/img1.map.tif
+
+The projection variable was set earlier in the text. Both mapprojected images
+inherit the reference DEM's projection, so they are on a common grid.
+
+Stereo with mapprojected images
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Run stereo with mapprojected images (:numref:`mapproj-example`) and the aligned
+CSM cameras::
+
+    parallel_stereo                         \
+      --alignment-method none               \
+      --stereo-algorithm asp_mgm            \
+      --subpixel-mode 9                     \
+      --nodes-list nodes.txt                \
+      ohrc/img1.map.tif ohrc/img2.map.tif   \
+      ba_align/run-img1.adjusted_state.json \
+      ba_align/run-img2.adjusted_state.json \
+      stereo_map/run                        \
+      ref.tif
+
+Produce the DEM at 1 m per pixel, with the orthoimage and triangulation error::
+
+    point2dem --tr 1.0      \
+      --t_srs "$proj"       \
+      --errorimage          \
+      --orthoimage          \
+      stereo_map/run-PC.tif \
+      stereo_map/run-L.tif
+
+As in the local-epipolar pass, the deep-shadow crater is a data void. Apply the
+same shadow mask (:ref:`described above <ohrc_shadow_mask>`) to the DEM,
+orthoimage, and triangulation error before inspecting.
+
+.. figure:: ../images/chandrayaan2_ohrc_dem.png
+   :name: chandrayaan2_ohrc_dem
+
+   The final DEM (hillshade), orthoimage, and triangulation error (0 to 0.5 m),
+   after masking the shadow crater. The median triangulation error is 0.07 m. The
+   horizontal striping in the error is along-track jitter at the 0.25 m GSD scale,
+   which could be reduced by solving for jitter (:numref:`jitter_solve`).
+
+This is a solid ~65.6 km^2 strip, improving on the first pass in both coverage
+(65.6 vs 64.2 km^2) and triangulation error (0.070 vs 0.082 m).
 
 Vertical accuracy vs LOLA
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The reference itself may be slightly offset from LOLA (:numref:`csv_format`,
-:numref:`sfs_initial_terrain`), the global standard, and the DEM inherits that.
+The reference itself may be slightly offset from LOLA (:numref:`lola_csv`), the
+global standard, and the DEM inherits that.
 Difference the aligned DEM and the reference against the raw LOLA shots
 (:numref:`lola_csv`, :numref:`geodiff`) to check::
 
@@ -348,17 +425,30 @@ Difference the aligned DEM and the reference against the raw LOLA shots
    :name: chandrayaan2_ohrc_vertical
 
    Final DEM minus Kaguya (raster), and the DEM and Kaguya each minus the LOLA
-   shots, all clamped +-10 m. The DEM is essentially unbiased against Kaguya
-   (median -0.03 m) and sub-meter against the raw LOLA shots (-0.47 m). Kaguya
-   itself sits about -0.72 m below LOLA, so the DEM matches true ground about as
-   well as the reference it aligned to; the small residual is that reference
-   offset, not a stereo error. No further refinement to LOLA is needed here.
+   shots, all cropped to the DEM extent and clamped +-10 m. The masked crater is
+   the empty hole. The DEM is essentially unbiased against Kaguya (median -0.02 m)
+   and sub-meter against the raw LOLA shots (-0.47 m). Kaguya itself sits about
+   -0.60 m below LOLA over this area, so the DEM matches true ground about as well
+   as the reference it aligned to; the small residual is that reference offset,
+   not a stereo error.
 
-.. figure:: ../images/chandrayaan2_ohrc_pointmap.png
-   :name: chandrayaan2_ohrc_pointmap
+Refinement of alignment to LOLA
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-   Bundle-adjustment points, reprojected to the local stereographic frame and
-   colored by mean reprojection error (0 to 0.5 px). Sub-pixel throughout.
+The DEM is now within about a meter of LOLA, the global standard. Since it is
+already in the ballpark, the alignment can be refined directly against the LOLA
+shots with ordinary point-to-plane ICP (:numref:`align-method`), which now
+converges. Pass the DEM first, as the denser cloud (:numref:`pc_align`)::
+
+    pc_align --max-displacement 250          \
+      --csv-format "2:lon 3:lat 4:radius_km" \
+      --save-transformed-source-points       \
+      dem.tif lola_shots.csv                 \
+      -o align_lola/run
+
+The inverse transform (:numref:`prevtrans`) then maps the DEM onto LOLA and can
+be carried onto the cameras (:numref:`ba_pc_align`). Here the DEM is already
+sub-meter against LOLA, so this refinement is optional.
 
 .. _chandra2_tmc:
 
