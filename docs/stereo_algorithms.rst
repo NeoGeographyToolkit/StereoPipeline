@@ -139,11 +139,12 @@ still manually specify these options.
 
 -  The ``prefilter-mode`` setting is ignored when using SGM.
 
--  The ``subpixel-mode`` If not set, or set to values 7-12, SGM will
-   perform subpixel interpolation during the stereo correlation step and
-   will not do additional work in the stereo refinement step. This means
-   that after dealing with the long SGM processing time you do not need
-   to follow it up with a slow subpixel option. 
+-  If ``--subpixel-mode`` is not set, or is set to a value between 7 and 12,
+   SGM/MGM performs subpixel interpolation during the stereo correlation step
+   and does no additional work in the stereo refinement step. This means that
+   after the long SGM processing time you do not need to follow it up with a
+   slow subpixel option. In this case ``--subpixel-kernel`` has no effect, as
+   these modes do not use a subpixel kernel. 
 
    If desired, you can specify a subpixel mode (with value between 1
    and 4) to force those subpixel operations to be performed after the
@@ -156,7 +157,7 @@ still manually specify these options.
    :name: corr-sgm-example
 
    A section of a NASA IceBridge image on the left with a pair of
-   hill-shaded DEMs to the right it showing the difference between default
+   hill-shaded DEMs to the right showing the difference between default
    ASP processing (upper right) and processing using the SGM algorithm
    (lower right). See another illustration in :numref:`stereo_alg_fig`.
 
@@ -263,7 +264,7 @@ By default, ASP uses::
 
 These are adjusted depending on which ones the user chooses to override.
 
-The ``CENSUS_NCC_WIN`` parameter is is one of the more notable parameters,
+The ``CENSUS_NCC_WIN`` parameter is one of the more notable parameters,
 as it determines the size of the window to use for correlation, so it
 corresponds to the option ``--corr-kernel`` of ASP-implemented
 algorithms.

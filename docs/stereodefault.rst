@@ -677,8 +677,8 @@ subpixel-mode (*integer*) (default = auto)
     with parabola subpixel mode, then they will look even
     better with subpixel mode 2. For inputs with little noise, the affine method
     (subpixel mode 3) may produce results equivalent to Bayes EM in a shorter
-    time. Phase correlation (subpixel mode 4) is uses a frequency domain
-    technique. It is slow and is best may not produce better results than mode 2
+    time. Phase correlation (subpixel mode 4) uses a frequency domain
+    technique. It is slow and may not produce better results than mode 2
     but it may work well in some situations with flat terrain.
 
     Subpixel modes 5 and 6 are experimental. Modes 7-12 are only used as part of
@@ -687,8 +687,9 @@ subpixel-mode (*integer*) (default = auto)
     2-4 and if selected (with SGM/MGM) will be the only subpixel mode performed.
     They interpolate between the SGM/MGM integer results and should produce
     reasonable values. The default blend method for SGM/MGM is a custom
-    algorithm that should work well but the you may find that one of the other
-    options is better for your data.
+    algorithm that should work well but you may find that one of the other
+    options is better for your data. For these modes ``subpixel-kernel`` is
+    ignored, as they do not use a subpixel kernel.
 
     Subpixel modes 1-4 can be used in conjunction with SGM/MGM. In this
     case subpixel mode 12 will be used first, followed by the selected
@@ -719,12 +720,15 @@ subpixel-mode (*integer*) (default = auto)
     back to :numref:`correlation`.
 
 subpixel-kernel (*integer integer*) (default = 35 35)
-    Specify the size of the horizontal and vertical size (in pixels) of the
+    Specify the horizontal and vertical size (in pixels) of the
     subpixel correlation kernel. It is advantageous to keep this small for
     parabola fitting in order to resolve finer details. However for the Bayes EM
     methods, keep the kernel slightly larger. Those methods weight the kernel
-    with a Gaussian distribution, thus the effective area is small than the
+    with a Gaussian distribution, thus the effective area is smaller than the
     kernel size defined here. This affects ``edge-buffer-size``.
+
+    This option applies only to subpixel modes 1-6. It has no effect for modes
+    7-12 (the SGM/MGM subpixel methods), which do not use a subpixel kernel.
 
 phase-subpixel-accuracy (*integer*) (default = 20)
     Set the maximum resolution of the phase subpixel correlator. The
