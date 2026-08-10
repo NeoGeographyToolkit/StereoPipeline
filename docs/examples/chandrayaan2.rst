@@ -225,11 +225,15 @@ robustness of local-epipolar alignment.
       --alignment-method local_epipolar \
       --stereo-algorithm asp_mgm        \
       --subpixel-mode 9                 \
+      --ip-per-tile 300                 \
       --nodes-list nodes.txt            \
       ohrc/img1.cub ohrc/img2.cub       \
       ba/run-img1.adjusted_state.json   \
       ba/run-img2.adjusted_state.json   \
       stereo/run
+
+A generous ``--ip-per-tile`` gives the per-tile local alignment enough interest
+points on these long, narrow strips, so few tiles are left unmatched.
 
 See :numref:`pbs_slurm` for running on multiple nodes. 
 
@@ -239,8 +243,8 @@ Make the DEM at 1 m, with the orthoimage and triangulation error
     point2dem --tr 1.0 --errorimage --orthoimage \
       stereo/run-PC.tif stereo/run-L.tif
 
-The resulting files are named ``stereo_fn/run-DEM.tif``, ``stereo_fn/run-DRG.tif``,
-and ``stereo_fn/run-IntersectionErr.tif``.
+The resulting files are named ``stereo/run-DEM.tif``, ``stereo/run-DRG.tif``,
+and ``stereo/run-IntersectionErr.tif``.
 
 .. _ohrc_shadow_mask:
 
@@ -463,6 +467,8 @@ and the reference against the raw LOLA shots (:numref:`lola_csv`,
    as the reference it aligned to; the small residual is that reference offset,
    not a stereo error.
 
+.. _ohrc_lola_refine:
+
 Refinement of alignment to LOLA
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -480,8 +486,8 @@ converges. Pass the DEM first, as the denser cloud (:numref:`pc_align`)::
 Here the DEM is the reference (the denser cloud), so the roles are reversed and
 the inverse transform maps it onto LOLA. The produced cloud
 ``align_lola/run-trans_reference.tif`` is that DEM in the LOLA frame; grid it with
-``point2dem`` (:numref:`point2dem`) as before. The transform (:numref:`prevtrans`)
-can also be carried onto the cameras (:numref:`ba_pc_align`).
+``point2dem`` (:numref:`point2dem`) as before. That same inverse transform
+(:numref:`prevtrans`) can also be applied to the cameras (:numref:`ba_pc_align`).
 
 The correction is small but real: a north-east-down translation of about (2.6,
 1.8, 0.5) meters, with a very small rotation. It is mostly a 3 m horizontal nudge
@@ -531,26 +537,26 @@ Preprocessing
 These steps require the ASP 3.7.0 conda environment, which ships a custom build
 of ISIS, ALE, and USGSCSM (:numref:`conda_intro`). 
 
-The non-nadir TMC-2 cameras are processed the same way as OHRC above, using the
-CSM camera models (:numref:`csm`). Convert the raw images to cubs::
+All three TMC-2 detectors are processed the same way as OHRC above, using the
+CSM camera models (:numref:`csm`). Convert each raw image to a cub::
 
     isisimport                                             \
       from = ch2_tmc_ncf_20231101T0125121344_d_img_d18.xml \
       to   = ch2_tmc_ncf_20231101T0125121344_d_img_d18.cub
 
-and same for the other ones. For simplicity, the output cub files are renamed to
-``tmc/fwd.cub`` and ``tmc/aft.cub``. Then attach the kernels and create the CSM
-cameras, using ``isd_generate`` with the ``-k`` option::
+and the same for the nadir and aft images. For simplicity, the output cub files
+are renamed to ``tmc/fwd.cub``, ``tmc/nadir.cub``, and ``tmc/aft.cub``. Then
+attach the kernels and create the CSM camera for each, using ``isd_generate``
+with the ``-k`` option::
 
     spiceinit from = tmc/fwd.cub
-    spiceinit from = tmc/aft.cub
-
     isd_generate -k tmc/fwd.cub tmc/fwd.cub
-    isd_generate -k tmc/aft.cub tmc/aft.cub
+
+and the same for ``tmc/nadir.cub`` and ``tmc/aft.cub``.
 
 An error here likely means that the active ISIS is not the one bundled with ASP
 3.7.0, such as a separately installed public ISIS 10.0.0 or 10.0.0_RC2.
-Alteratively, install a recent development ISIS build from 2026.06.07 or later
+Alternatively, install a recent development ISIS build from 2026.06.07 or later
 from the dev label of the ``usgs-astrogeology`` channel
 (``usgs-astrogeology/label/dev``).
 
@@ -666,6 +672,7 @@ Run each pair such as::
       --alignment-method local_epipolar   \
       --stereo-algorithm asp_mgm          \
       --subpixel-mode 9                   \
+      --ip-per-tile 300                   \
       --nodes-list nodes.txt              \
       tmc/fwd.cub tmc/nadir.cub           \
       ba/run-fwd.adjusted_state.json      \
@@ -859,18 +866,52 @@ spread of about 0.07 pixel.
 .. figure:: ../images/chandrayaan2_tmc_dz_dhdv.png
    :name: chandrayaan2_tmc_dz_dhdv
 
-   Left to right: the two pair DEMs minus gridded LOLA (range +-25 m), and the
-   fwd-nadir horizontal (dd-H) and vertical (dd-V) alignment residual to grided
-   120 m / pixel LOLA (range +-0.5 pixel). The height difference is centered on
-   zero; the residual disparity is sub-pixel with no low-frequency structure.
+   Left to right: the two pair DEMs minus gridded LOLA (the height difference,
+   range +-25 m), then the fwd-nadir alignment residual to gridded 120 m / pixel
+   LOLA, horizontal (dh) and vertical (dv) in the ground plane (range +-0.5
+   pixel). Both are ground-plane shifts, not a height error. The height
+   difference is centered on zero; the residual disparity is sub-pixel with no
+   low-frequency structure.
 
 .. figure:: ../images/chandrayaan2_tmc_bias.png
    :name: chandrayaan2_tmc_bias
 
    A vertical-bias check, all at +-15 m. Left: merged mapprojected DEM minus
    gridded LOLA. Middle: the same DEM minus the raw LOLA shots. Right: gridded
-   LOLA minus the shots. The medians are all sub-meter, so there is no constant
+   LOLA minus the raw LOLA shots. The medians are all sub-meter, so there is no constant
    bias against true ground. A low-amplitude along-track undulation appears in the
    DEM (left and middle) but not in gridded-minus-shots (right), so it is in the
    DEM, not LOLA; this is a mild residual-jitter signature that ``jitter_solve``
    (:numref:`jitter_solve`) could reduce.
+
+.. _tmc_lola_refine:
+
+Refinement of alignment to LOLA
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The alignment so far used a coarse reference DEM, which made the process more
+robust.
+
+It is suggested to refine the alignment of the created DEM against the raw
+LOLA shots (:numref:`lola_csv`). The created DEM is already within a few meters
+of raw LOLA, so ordinary point-to-plane ICP (:numref:`align-method`) should work.
+
+For this alignment pass, the created DEM goes first, as the denser cloud
+(:numref:`pc_align`)::
+
+    pc_align --max-displacement 250           \
+      --csv-format "2:lon 3:lat 4:radius_km"  \
+      --save-inv-transformed-reference-points \
+      tmc_merged_map.tif lola_shots.csv       \
+      -o align_lola/run
+
+The DEM is the reference, so the inverse transform maps it onto LOLA; the
+produced cloud ``align_lola/run-trans_reference.tif`` is in the LOLA frame. It
+should be regridded with ``point2dem`` (:numref:`point2dem`). That same inverse
+transform (:numref:`prevtrans`) can be applied to the three cameras
+(:numref:`ba_pc_align`).
+
+The correction is small: a translation of about 9 m, mostly horizontal
+(north-east-down of about (2.5, -8.8, 1.3) m), with a negligible rotation. The
+DEM-minus-LOLA median changed from -0.90 to -0.21 m, and the NMAD from 5.8 to
+5.3 m.
