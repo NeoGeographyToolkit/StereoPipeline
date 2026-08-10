@@ -449,7 +449,7 @@ global standard, and the DEM inherits that. Difference the created aligned DEM
 and the reference against the raw LOLA shots (:numref:`lola_csv`,
 :numref:`geodiff`) to check::
 
-    geodiff dem.tif lola_shots.csv \
+    geodiff stereo_map/run-DEM_masked.tif lola_shots.csv \
       --csv-format "2:lon 3:lat 4:radius_km" -o dem_vs_lola
 
 .. figure:: ../images/chandrayaan2_ohrc_vertical.png
@@ -471,10 +471,10 @@ already in the ballpark, the alignment can be refined directly against the LOLA
 shots with ordinary point-to-plane ICP (:numref:`align-method`), which now
 converges. Pass the DEM first, as the denser cloud (:numref:`pc_align`)::
 
-    pc_align --max-displacement 250           \
-      --csv-format "2:lon 3:lat 4:radius_km"  \
-      --save-inv-transformed-reference-points \
-      stereo_map/run-DEM.tif lola_shots.csv   \
+    pc_align --max-displacement 250                \
+      --csv-format "2:lon 3:lat 4:radius_km"       \
+      --save-inv-transformed-reference-points      \
+      stereo_map/run-DEM_masked.tif lola_shots.csv \
       -o align_lola/run
 
 Here the DEM is the reference (the denser cloud), so the roles are reversed and
