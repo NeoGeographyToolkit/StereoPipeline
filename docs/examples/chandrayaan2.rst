@@ -370,15 +370,14 @@ then pass it to ``pc_align`` (:numref:`pc_corr`)::
       ref.tif ohrc_on_ref.tif -o run_align/run
 
 Grid the aligned cloud ``run_align/run-trans_source.tif`` with ``point2dem`` and
-inspect it against the reference: a notable crater that was split before should
-snap together.
+inspect it against the reference and the DEM before alignment.
 
 Mapprojection
 ^^^^^^^^^^^^^
 
-The transform ``run_align/run-transform.txt`` maps the OHRC DEM to the reference.
-Apply it to the bundle-adjusted cameras (:numref:`prevtrans`,
-:numref:`ba_pc_align`), so both cameras move into the reference frame::
+The transform ``run_align/run-transform.txt`` maps the OHRC DEM to the
+reference. Apply it to the bundle-adjusted cameras (:numref:`ba_pc_align`), so
+both cameras move into the reference frame::
 
     bundle_adjust                                     \
       ohrc/img1.cub ohrc/img2.cub                     \
@@ -390,7 +389,7 @@ Apply it to the bundle-adjusted cameras (:numref:`prevtrans`,
       -o ba_align/run
 
 Mapproject each image at the native ~0.25 m/pixel resolution onto the reference
-DEM, with the aligned cameras. The reference is gapless, so no hole filling is
+DEM, with the aligned cameras. The reference is gap-free, so no hole filling is
 needed. The command for the first image is below; the second is identical with
 its own cub and camera::
 
