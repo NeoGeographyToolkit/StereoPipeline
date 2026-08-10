@@ -471,15 +471,23 @@ already in the ballpark, the alignment can be refined directly against the LOLA
 shots with ordinary point-to-plane ICP (:numref:`align-method`), which now
 converges. Pass the DEM first, as the denser cloud (:numref:`pc_align`)::
 
-    pc_align --max-displacement 250          \
-      --csv-format "2:lon 3:lat 4:radius_km" \
-      --save-transformed-source-points       \
-      dem.tif lola_shots.csv                 \
+    pc_align --max-displacement 250           \
+      --csv-format "2:lon 3:lat 4:radius_km"  \
+      --save-inv-transformed-reference-points \
+      stereo_map/run-DEM.tif lola_shots.csv   \
       -o align_lola/run
 
-The inverse transform (:numref:`prevtrans`) then maps the DEM onto LOLA and can
-be carried onto the cameras (:numref:`ba_pc_align`). Here the DEM is already
-sub-meter against LOLA, so this refinement is optional.
+Here the DEM is the reference (the denser cloud), so the roles are reversed and
+the inverse transform maps it onto LOLA. The produced cloud
+``align_lola/run-trans_reference.tif`` is that DEM in the LOLA frame; grid it with
+``point2dem`` (:numref:`point2dem`) as before. The transform (:numref:`prevtrans`)
+can also be carried onto the cameras (:numref:`ba_pc_align`).
+
+The correction is small but real: a north-east-down translation of about (2.6,
+1.8, 0.5) meters, with a very small rotation. It is mostly a 3 m horizontal nudge
+plus a 0.5 m down shift that removes the slight vertical bias (the DEM minus the
+LOLA shots goes from a median of -0.47 m to about 0) and tightens the fit by
+roughly 20 percent (NMAD from 1.74 to 1.39 m). 
 
 .. _chandra2_tmc:
 
