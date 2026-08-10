@@ -866,10 +866,9 @@ spread of about 0.07 pixel.
 
    Left to right: the two pair DEMs minus gridded LOLA (the height difference,
    range +-25 m), then the fwd-nadir alignment residual to gridded 120 m / pixel
-   LOLA, the horizontal (dh) and vertical (dv) components of the disparity in the
-   ground plane (range +-0.5 pixel). Both are ground-plane shifts, not a height
-   error. The disparity in the ground plane is sub-pixel with no low-frequency
-   structure.
+   LOLA, the horizontal (dh) and vertical (dv) components of the disparity in
+   the ground plane (range +-0.5 pixel). The disparity in the ground plane is
+   sub-pixel with no low-frequency structure.
 
 .. figure:: ../images/chandrayaan2_tmc_bias.png
    :name: chandrayaan2_tmc_bias
