@@ -383,7 +383,7 @@ overlap shows a seam rather than a smear::
    :name: viking_ortho
    :alt: Viking orthoimage mosaic
 
-   Orthoimage mosaic of the four frames draped on the Viking DEM (exposure-matched).
+   Orthoimage mosaic of the four frames mapprojected onto the Viking DEM (exposure-matched).
 
 Triangulation error
 ~~~~~~~~~~~~~~~~~~~

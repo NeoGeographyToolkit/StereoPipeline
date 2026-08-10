@@ -334,7 +334,9 @@ Stereo correlation can take a long time. It can be run over several nodes
 (:numref:`pbs_slurm`). The option ``--max-disp-spread`` can help with reducing
 the search range (:numref:`corr_section`). A value like 50 is likely adequate.
 
-An explicit search range can be set with ``--corr-search`` (:numref:`search_range`).
+An explicit search range can be set with ``--corr-search``
+(:numref:`search_range`). This is suggested when interest point matching fails
+for this command. Values larger than 200 pixels are not advised here.
 
 Increasing the correlation kernel size, such as ``--corr-kernel 9 9`` (from the
 default of ``5 5`` for the ``asp_mgm`` algorithm) may help with noisy DEMs.

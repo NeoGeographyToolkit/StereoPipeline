@@ -69,6 +69,8 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
     recent processing best practices (addition of anchor points, gcp robust
     threshold, camera position controls with CSM cameras).
+  * Expanded the Chandrayaan-2 examples to ensure reproducibility
+    (:numref:`chandrayaan2`).
   * The minimum number of interest point matches is now set with
     ``--min-matches``, for consistency with other tools. The older option
     ``--min-num-ip`` is kept for backward compatibility

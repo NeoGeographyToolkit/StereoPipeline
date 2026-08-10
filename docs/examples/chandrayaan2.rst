@@ -205,17 +205,21 @@ the reprojection error should be sub-pixel.
 
 .. figure:: ../images/chandrayaan2_ohrc_interest_points.png
 
-  The left and right OHRC images, and the interest point matches between them.
-  These can be plotted with ``stereo_gui``, :numref:`stereo_gui_view_ip`).
+  The left and right OHRC images, and the clean interest point matches between
+  them. These can be plotted with ``stereo_gui``, :numref:`stereo_gui_view_ip`).
 
 Stereo
 ^^^^^^
 
 A first DEM is made from the raw images with local epipolar alignment
-(:numref:`image_alignment`) and the bundle-adjusted cameras, the same first-pass
+(:numref:`image_alignment`) and the bundle-adjusted cameras. This is the same
 approach used for the TMC triplet (:numref:`chandra2_tmc_le`). This method does
-not require the cameras to be correctly registered to the ground. It handles the
-extreme aspect ratio per tile and covers the whole strip::
+not require the cameras to be correctly registered to the ground.
+
+This needs build 2026/08/08 (:numref:`release`) or later, which improved the
+robustness of local-epipolar alignment.
+
+::
 
     parallel_stereo                     \
       --alignment-method local_epipolar \
@@ -229,14 +233,14 @@ extreme aspect ratio per tile and covers the whole strip::
 
 See :numref:`pbs_slurm` for running on multiple nodes. 
 
-This needs build 2026/08/08 (:numref:`release`) or later, which improved the
-robustness of local-epipolar alignment.
-
 Make the DEM at 1 m, with the orthoimage and triangulation error
 (:numref:`point2dem`)::
 
     point2dem --tr 1.0 --errorimage --orthoimage \
       stereo/run-PC.tif stereo/run-L.tif
+
+The resulting files are named ``stereo_fn/run-DEM.tif``, ``stereo_fn/run-DRG.tif``,
+and ``stereo_fn/run-IntersectionErr.tif``.
 
 .. _ohrc_shadow_mask:
 
@@ -253,7 +257,7 @@ build a binary mask that is 1 on lit terrain and 0 in shadow
       stereo/run-DRG.tif                      \
       -o stereo/run-shadow_mask.tif
 
-Choose the threshold from the orthoimage histogram, large enough to nuke the
+Choose the threshold from the orthoimage histogram, large enough to remove the
 black crater but not the lit terrain (here 0.1). Then apply the mask to the DEM,
 the orthoimage, and the triangulation error, which share the same grid
 (:numref:`image_calc_mask`)::
@@ -296,7 +300,7 @@ Convert the reference to this projection if it is not already in it
 
 A Kaguya DTM can have holes. Fill them (:numref:`dem_mosaic_extrapolate`) and
 optionally blur the result (``dem_mosaic --dem-blur-sigma 5``,
-:numref:`dem_mosaic_blur`), so the draping surface for mapprojection is gap-free.
+:numref:`dem_mosaic_blur`), so the DEM used for mapprojection is gap-free.
 
 .. _ohrc_dem_align:
 
@@ -305,14 +309,11 @@ Alignment to a reference DEM
 
 The OHRC DEM is shifted from the reference by about 2.1 km along the track. DEM
 alignment is not fully robust, and the best method depends on the data, so it is
-worth trying more than one (:numref:`pc_align`). For the TMC triplet, a
-hillshade-seeded rigid transform followed by point-to-plane ICP worked
-(:numref:`chandra2_tmc_align`). For this narrow OHRC swath that approach fails:
-plain ICP (:numref:`align-method`) and sparse hillshade-feature alignment
-(:numref:`pc_hillshade`) slide along the strip, because a thin swath has little
-cross-track signal to lock onto. The robust route here is correlation-based
-alignment (:numref:`pc_corr`): a bounded dense correlation cannot slide globally
-the way ICP can. It is automated but can be fragile, so inspect the result.
+worth trying more than one (:numref:`pc_align`).  The robust route here is
+correlation-based alignment (:numref:`pc_corr`): a bounded dense correlation
+cannot slide globally the way ICP can. It is automated but can be fragile, so
+inspect the result. Also see the analogous section for TMC
+(:numref:`chandra2_tmc_align`).
 
 Regrid the OHRC DEM and the reference to the same grid, projection, and extent
 with ``gdalwarp`` (:numref:`gdal_tools`)::
@@ -444,9 +445,9 @@ Vertical accuracy vs LOLA
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The reference itself may be slightly offset from LOLA (:numref:`lola_csv`), the
-global standard, and the DEM inherits that.
-Difference the aligned DEM and the reference against the raw LOLA shots
-(:numref:`lola_csv`, :numref:`geodiff`) to check::
+global standard, and the DEM inherits that. Difference the created aligned DEM
+and the reference against the raw LOLA shots (:numref:`lola_csv`,
+:numref:`geodiff`) to check::
 
     geodiff dem.tif lola_shots.csv \
       --csv-format "2:lon 3:lat 4:radius_km" -o dem_vs_lola
@@ -698,11 +699,8 @@ Alignment to LOLA
 The merged DEM is shifted from the usual LOLA global reference (here by about 3
 km along the track). This is quite large. Aligning to LOLA with the usual ICP
 ``point-to-plane`` method (:numref:`align-method`) fails. What worked is to do a
-coarse alignment first. DEM alignment is not fully robust, and the right method
-depends on the data, so it is worth trying more than one (:numref:`pc_align`).
-The hillshade-seeded coarse step below suits this wide triplet; for the narrow
-OHRC swath a correlation-based method was needed instead
-(:numref:`ohrc_dem_align`).
+coarse alignment first. The best method depends on the data; a narrow swath such
+as OHRC needs a different one (:numref:`ohrc_dem_align`).
 
 Coarsen the created merged TMC DEM to the same grid, projection, and extent as
 ``ref.tif``::
