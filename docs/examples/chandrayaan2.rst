@@ -280,17 +280,15 @@ The masked products are used for all inspection and figures below.
 Reference DEM
 ^^^^^^^^^^^^^
 
-As for TMC (:numref:`chandra2_tmc_ref`), a reference DEM is needed to align the
-cameras to a known coordinate system and to mapproject the images for the second
-stereo pass. Here a different reference is used than for TMC, which is fine: the
-best choice depends on the site, and any well-registered product can serve.
+A reference DEM is needed for alignment and mapprojection. Here the choice is a
+Kaguya TC DTM (~32 m/pixel, :numref:`kaguya_products`), which is finer than the
+wider-area LOLA gridded DEMs. The site is around -68 degrees latitude, within
+Kaguya's reach. For the TMC dataset, closer to the pole where Kaguya does not
+reach (as of 2026-08, though this may change), the polar LOLA product was the
+better choice (:numref:`chandra2_tmc_ref`).
 
-The chosen reference is a Kaguya TC DTM (~32 m/pixel, :numref:`kaguya_products`).
-This site is around -68 degrees latitude, where the Kaguya products reach and are
-finer than the wider-area LOLA gridded DEMs. For the TMC track, which runs to the
-pole where Kaguya does not reach, the polar LOLA product was the better choice
-(:numref:`chandra2_tmc_ref`). Merge the Kaguya tiles that cover the site into one
-DEM with ``dem_mosaic`` (:numref:`dem_mosaic`), and call it ``ref.tif``.
+Merge the Kaguya tiles that cover the site into one DEM with ``dem_mosaic``
+(:numref:`dem_mosaic`), and call it ``ref.tif``.
 
 Choose a local projection, centered on the site, that is used for all steps
 below. Here we use a south polar stereographic projection::
@@ -311,9 +309,10 @@ optionally blur the result (``dem_mosaic --dem-blur-sigma 5``,
 Alignment to a reference DEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The OHRC DEM is shifted from the reference by about 2.1 km along the track. DEM
-alignment is not fully robust, and the best method depends on the data, so it is
-worth trying more than one (:numref:`pc_align`).  The robust route here is
+The cameras must be aligned to the reference DEM's coordinate system. The OHRC
+DEM is shifted from the reference by about 2.1 km along the track. DEM alignment
+is not fully robust, and the best method depends on the data, so it is worth
+trying more than one (:numref:`pc_align`).  The robust route here is
 correlation-based alignment (:numref:`pc_corr`): a bounded dense correlation
 cannot slide globally the way ICP can. It is automated but can be fragile, so
 inspect the result. Also see the analogous section for TMC
@@ -589,13 +588,12 @@ Check each JSON with ``cam_test`` (:numref:`cam_test`).
 Reference DEM
 ^^^^^^^^^^^^^
 
-A reference DEM is needed to align the cameras to a known coordinate system and
-to mapproject the images after alignment (for a second stereo pass).
+A reference DEM is needed, for alignment and mapprojection.
 
 Near the lunar south pole, a gridded LOLA polar DEM is the natural choice
 (:numref:`sfs_initial_terrain`). The product ``LDEM_60S_120M`` covers -60 to -90
 degrees at 120 m per pixel in one tile, spanning the full track. A Kaguya TC DTM
-(~10 m/pixel, :numref:`kaguya_products`) is at a finer resolution, but does not
+(~32 m/pixel, :numref:`kaguya_products`) is at a finer resolution, but does not
 reach the pole, and the wider-area LOLA products may be coarser than 120 m away
 from poles. So ``LDEM_60S_120M`` at 120 m is the best available reference here.
 Call it ``ref.tif``.
@@ -710,8 +708,9 @@ The two pair DEMs are then merged into one with ``dem_mosaic``
 Alignment to LOLA
 ^^^^^^^^^^^^^^^^^
 
-The merged DEM is shifted from the usual LOLA global reference (here by about 3
-km along the track). This is quite large. Aligning to LOLA with the usual ICP
+The cameras must be aligned to the reference DEM's coordinate system. The merged
+DEM is shifted from the usual LOLA global reference (here by about 3 km along the
+track). This is quite large. Aligning to LOLA with the usual ICP
 ``point-to-plane`` method (:numref:`align-method`) fails. What worked is to do a
 coarse alignment first. The best method depends on the data; a narrow swath such
 as OHRC needs a different one (:numref:`ohrc_dem_align`).
@@ -867,10 +866,10 @@ spread of about 0.07 pixel.
 
    Left to right: the two pair DEMs minus gridded LOLA (the height difference,
    range +-25 m), then the fwd-nadir alignment residual to gridded 120 m / pixel
-   LOLA, horizontal (dh) and vertical (dv) in the ground plane (range +-0.5
-   pixel). Both are ground-plane shifts, not a height error. The height
-   difference is centered on zero; the residual disparity is sub-pixel with no
-   low-frequency structure.
+   LOLA, the horizontal (dh) and vertical (dv) components of the disparity in the
+   ground plane (range +-0.5 pixel). Both are ground-plane shifts, not a height
+   error. The disparity in the ground plane is sub-pixel with no low-frequency
+   structure.
 
 .. figure:: ../images/chandrayaan2_tmc_bias.png
    :name: chandrayaan2_tmc_bias
