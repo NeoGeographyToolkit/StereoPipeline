@@ -77,7 +77,9 @@ struct Options : public vw::GdalWriteOptions {
   int    num_iter, max_num_points;
   double semi_major_axis, semi_minor_axis, rel_error_tol;
   bool   save_transformed_clouds, align_to_first_cloud, verbose;
+  bool   copc_read_all;
   std::vector<std::string> cloud_files;
+  vw::BBox2 copc_win;
   // Output
   std::string out_prefix;
 
@@ -91,6 +93,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "Maximum number of iterations.")
     ("max-num-points", po::value(&opt.max_num_points)->default_value(1000000),
      "Maximum number of (randomly picked) points from each cloud to use.")
+    ("copc-win", po::value(&opt.copc_win)->default_value(vw::BBox2()),
+     "Specify the region to read from any input COPC LAZ file, as all clouds "
+     "should be cropped to the same region. The units are based on the projection "
+     "in the file. This is required unless --copc-read-all is set. Specify as "
+     "minx miny maxx maxy, or minx maxy maxx miny, with no quotes.")
+    ("copc-read-all", po::bool_switch(&opt.copc_read_all)->default_value(false),
+     "Read the full input COPC files, ignoring the --copc-win option.")
     ("csv-format",               po::value(&opt.csv_format_str)->default_value(""), asp::csv_opt_caption().c_str())
     ("csv-srs",      po::value(&opt.csv_srs)->default_value(""), 
      "The projection string to use to interpret the entries in input CSV files.")
@@ -179,6 +188,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.in_prefix != "" && opt.in_transforms != "")
     vw_throw(ArgumentErr() << "Cannot specify both the initial transforms prefix "
               << "and the list of initial transforms.\n" << usage << general_options);
+
+  // The COPC window can be specified with the y values swapped
+  if (opt.copc_win != BBox2() && opt.copc_win.min().y() > opt.copc_win.max().y())
+    std::swap(opt.copc_win.min().y(), opt.copc_win.max().y());
 }
 
 bool triplet_less(vw::Vector3 const& p, vw::Vector3 const& q) {
@@ -362,10 +375,13 @@ int main(int argc, char *argv[]) {
       transVec[cloudIter] = Eigen::MatrixXd::Identity(4, 4);
 
 
-    // Check for COPC files, as those cannot be read
+    // A COPC file is potentially immense, so it needs a read window
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
-       if (asp::isCopc(opt.cloud_files[cloudIter])) 
-         vw::vw_throw(vw::ArgumentErr() << "Cannot read LAZ COPC files.\n");
+      if (asp::isCopc(opt.cloud_files[cloudIter]) &&
+          opt.copc_win == vw::BBox2() && !opt.copc_read_all)
+        vw::vw_throw(vw::ArgumentErr()
+          << "Detected a COPC file: " << opt.cloud_files[cloudIter] << ".\n"
+          << "Set either the --copc-win or --copc-read-all option.\n");
     }
 
     // Load the first subsampled point cloud. Calculate the shift to apply to
@@ -376,12 +392,11 @@ int main(int argc, char *argv[]) {
     bool   is_lola_rdr_format = false;   // may get overwritten
     double mean_ref_longitude    = 0.0;  // may get overwritten
     double mean_source_longitude = 0.0;  // may get overwritten
-    BBox2 empty_box, copc_win;           // will not be used, part of the API
-    bool copc_read_all = false;          // will not be used, part of the API
+    BBox2 empty_box;                     // the lon-lat box, not used here
     DP in_cloud;
     bool verbose = true;
     load_cloud(opt.cloud_files[0], opt.max_num_points, empty_box,
-                copc_win, copc_read_all,
+                opt.copc_win, opt.copc_read_all,
                 calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                 mean_ref_longitude, verbose, in_cloud);
     convert_cloud(in_cloud, clouds[0]);
@@ -392,7 +407,7 @@ int main(int argc, char *argv[]) {
       
     for (int cloudIter = 1; cloudIter < numClouds; cloudIter++) {
       load_cloud(opt.cloud_files[cloudIter], opt.max_num_points, empty_box,
-                 copc_win, copc_read_all,
+                 opt.copc_win, opt.copc_read_all,
                  calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                  mean_ref_longitude, verbose, in_cloud);
       convert_cloud(in_cloud, clouds[cloudIter]);
@@ -691,9 +706,8 @@ int main(int argc, char *argv[]) {
         std::ostringstream os;
         os << opt.out_prefix << "-trans_cloud-" << cloudIter;
         std::string trans_prefix = os.str();
-        vw::BBox2 copc_win; bool copc_read_all = false; // not used, part of the API
         save_trans_point_cloud(opt, opt.cloud_files[cloudIter], trans_prefix,
-                               copc_win, copc_read_all,
+                               opt.copc_win, opt.copc_read_all,
                                geo, csv_conv, transVec[cloudIter]);
       }
     }

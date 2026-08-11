@@ -118,6 +118,10 @@ hiedr2mosaic (:numref:`hiedr2mosaic`):
   * Fixed a crash in the mosaic step when a HiRISE observation is missing a CCD.
   * Added ``--dry-run`` option.
 
+n_align (:numref:`n_align`):
+  * Added support for LAZ COPC files, with the ``--copc-win`` and
+    ``--copc-read-all`` options, as in ``pc_align``.
+
 Misc:
   * Fixed a bug with very long input image names when creating ``.match`` and
     ``.vwip`` file names (:numref:`match_file_naming`).

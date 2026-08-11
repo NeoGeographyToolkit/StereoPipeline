@@ -267,8 +267,26 @@ To process the full file, use the option ``--copc-read-all``.
 The determination of whether an input file is COPC or plain LAZ is done
 by peeking at the relevant bits with PDAL.
 
+A COPC file can also be read directly from a URL; only the ``--copc-win`` window
+is fetched.
+
 This program can process LAS files created with ``point2las``
 (:numref:`point2las`).
+
+.. _point2dem_vsi:
+
+Reading from an archive or over the network
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A GDAL-readable point cloud or DEM can be given as a GDAL virtual file system
+path, to read a member of a local archive without extracting it, or a remote
+file::
+
+    point2dem --tr 10 /vsizip/path/to/data.zip/cloud.tif -o run/run
+    point2dem --tr 10 /vsicurl/https://host/cloud.tif -o run/run
+
+The same holds for ``pc_align`` and ``n_align``, but not for LAS, LAZ, or CSV,
+which use PDAL. See :numref:`vsi_paths`.
 
 Multiple clouds
 ^^^^^^^^^^^^^^^

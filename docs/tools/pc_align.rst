@@ -409,6 +409,8 @@ option be used, for the method to converge, and use perhaps on the order of
 10-20 iterations and a smaller value for ``--max-num-source-points`` (perhaps a
 few thousand) for this approach to converge reasonably fast.
 
+.. _vsi_paths:
+
 File formats
 ~~~~~~~~~~~~
 

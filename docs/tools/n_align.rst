@@ -3,48 +3,77 @@
 n_align
 -------
 
-This tool can be used to jointly align a set of two or more point
-clouds, hence it extends the functionality of ``pc_align``
-(:numref:`pc_align`). It implements the ICP flavor from
-:cite:`toldo2010global`, more exactly,
+This tool jointly aligns a set of two or more point clouds, extending the
+functionality of ``pc_align`` (:numref:`pc_align`). It implements the ICP flavor
+from :cite:`toldo2010global`, more precisely
 `this MATLAB algorithm <https://searchcode.com/file/13619767/Code/matlab/GlobalProcrustesICP/globalProcrustes.m>`_.
 
-This program does not scale well for large clouds. In practice, ``pc_align`` is
-preferred.
+This program does not scale well for large clouds, so in practice ``pc_align``
+is preferred, applied pairwise, relative to some larger reference cloud.
 
-Usage::
+Example
+~~~~~~~
+
+Align three clouds to their common centroid::
+
+    n_align --max-num-points 10000     \
+      cloud1.tif cloud2.tif cloud3.tif \
+      -o run/run
+
+This writes one transform per input cloud, ``run-transform-0.txt``,
+``run-transform-1.txt``, and ``run-transform-2.txt``. With
+``--save-transformed-clouds``, the aligned clouds are saved as well.
+
+.. _n_align_convergence:
+
+Convergence and initial transforms
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This algorithm is not the same as the ones in ``pc_align``. It is expected to be
+more robust to outliers, as it uses a cross-check, but it may not handle a large
+translation between the clouds as well. In that case, first use ``pc_align`` to
+align every other cloud to the first one, then pass the resulting transforms to
+this tool as initial guesses, for joint refinement. For three clouds::
+
+     --initial-transforms 'identity.txt
+                           run_12/run-transform.txt
+                           run_13/run-transform.txt'
+
+Here ``identity.txt`` holds the 4 |times| 4 identity matrix (the transform from
+the first cloud to itself), and ``run_12/run`` is the ``pc_align`` output prefix
+for the first and second clouds, and so on. The transforms written on output
+incorporate these initial guesses. The list of transforms can be on one line or
+several, separated by newlines and/or whitespace. Do not add backslash line
+continuations, as within the quotes a backslash becomes part of a file name.
+
+This tool is less sensitive than ``pc_align`` to the order of the clouds, as any
+two are compared against each other. The number of iterations and points used
+strongly affect the run-time and accuracy. Cropping all clouds to the same
+region tends to improve both.
+
+.. _n_align_files:
+
+Input files
+~~~~~~~~~~~
+
+This tool reads the same cloud types as ``pc_align`` and can also read GDAL
+virtual file system paths (:numref:`vsi_paths`): the ASP point cloud format,
+DEMs, LAS (including LAZ and COPC), and CSV.
+
+For a COPC file, which can be very large, set ``--copc-win`` to the region to
+read, in the projection of the file. All COPC inputs are cropped to this one
+region, so they should overlap there. Use ``--copc-read-all`` to read the whole
+file instead.
+
+Usage
+~~~~~
+
+::
 
      n_align <cloud files> -o <output prefix>
 
-This tool supports the same types of data on input and output as
-``pc_align``, except for LAZ COPC files.
-
-Even for two clouds this algorithm is not the same as the ones that are
-part of ``pc_align``. This algorithm is expected to be more robust to
-outliers than the regular ICP in ``pc_align`` since it uses a
-cross-check. Yet, it may not handle a large translation difference
-between the clouds as well. In that case, given a set of clouds, one can
-first use ``pc_align`` to align all other clouds to the first one, then
-invoke this algorithm for joint alignment while passing the obtained
-alignment transforms as an argument to this tool, to be used as initial
-guesses. The option to use for this, as shown below for simplicity for
-three clouds, is::
-
-     --initial-transforms 'identity.txt run_12/run-transform.txt run_13/run-transform.txt'
-
-where the file ``identity.txt`` contains the 4 |times| 4 identity
-matrix (the transform from the first cloud to itself), and ``run_12/run``
-is the output prefix for ``pc_align`` when invoked on the first and
-second clouds, etc. The final transforms output by this tool will
-incorporate the initial guesses.
-
-This tool should be less sensitive than ``pc_align`` to the order of the
-clouds since any two of them are compared against each other. The number
-of iterations and number of input points used will dramatically affect
-its performance, and likely the accuracy. Cropping all clouds to the
-same region is likely to to improve both run-time and the results.
-
-Command-line options for n_align:
+Command-line options for n_align
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --num-iterations <arg (default: 100)>
     Maximum number of iterations.
@@ -52,6 +81,15 @@ Command-line options for n_align:
 --max-num-points <arg (default: 1000000)>
     Maximum number of (randomly picked) points from each cloud to
     use.
+
+--copc-win <minx miny maxx maxy>
+    Specify the region to read from any input COPC LAZ file, as all clouds
+    should be cropped to the same region. The units are based on the projection
+    in the file. This is required unless ``--copc-read-all`` is set. Specify as
+    minx miny maxx maxy, or minx maxy maxx miny, with no quotes.
+
+--copc-read-all
+    Read the full input COPC files, ignoring the ``--copc-win`` option.
 
 --csv-format <string>
     Specify the format of input CSV files as a list of entries
