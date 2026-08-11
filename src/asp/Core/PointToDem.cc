@@ -18,6 +18,7 @@
 #include <asp/Core/PointToDem.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/PointCloudProcessing.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/Core/PdalUtils.h>
 #include <asp/Core/CartographyUtils.h>
 #include <vw/FileIO/DiskImageUtils.h>
@@ -67,7 +68,8 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
   for (int i = 0; i < num; i++) {
     if (asp::is_las(files[i]) && pdal::Utils::isRemote(files[i]))
       continue; // This is a remote file, so we don't check existence
-    if (!fs::exists(files[i]))
+    // Unlike fs::exists(), this also sees a GDAL virtual file system path.
+    if (!asp::fileExists(files[i]))
       vw_throw(ArgumentErr() << "File does not exist: " << files[i] << ".\n");
   }
 

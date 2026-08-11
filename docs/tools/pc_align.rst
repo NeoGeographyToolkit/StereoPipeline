@@ -417,6 +417,13 @@ format (the output of ``parallel_stereo``, :numref:`outputfiles`), DEMs as
 GeoTIFF or ISIS cub files, LAS files (including LAZ and COPC), or plain-text CSV
 files (with .csv or .txt extension).
 
+A GDAL-readable input can also be given as a GDAL virtual file system path, such
+as ``/vsizip/path/to/data.zip/cloud.tif`` or ``/vsicurl/https://host/dem.tif``,
+so a cloud or DEM is read from an archive without extracting it, or over the
+network. This does not apply to LAS and CSV inputs, which are not read with
+GDAL. A ``/vsicurl`` URL carrying a query string (such as a signed URL) is not
+supported, as the format is deduced from the file extension.
+
 .. _pc_align_csv:
 
 CSV

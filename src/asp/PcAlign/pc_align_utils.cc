@@ -21,6 +21,7 @@
 #include <asp/PcAlign/pc_align_utils.h>
 #include <asp/Core/EigenUtils.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/Core/PointCloudRead.h>
 #include <asp/Core/PdalUtils.h>
 
@@ -85,9 +86,15 @@ void load_cloud_as_mat(std::string const& file_name,
   if (verbose)
     vw::vw_out() << "Reading: " << file_name << std::endl;
 
-  // Remote files should not be checked for existence
-  if (!asp::is_las(file_name) || !pdal::Utils::isRemote(file_name))
+  // A remote file is not checked against the local filesystem. Remote LAS is
+  // fetched by PDAL. A GDAL virtual file system path cannot be opened by
+  // validateFile(), which uses std::ifstream, so it is checked with GDAL.
+  if (asp::isVsiPath(file_name)) {
+    if (!asp::fileExists(file_name))
+      vw::vw_throw(vw::ArgumentErr() << "File does not exist: " << file_name << ".\n");
+  } else if (!asp::is_las(file_name) || !pdal::Utils::isRemote(file_name)) {
     PointMatcherSupport::validateFile(file_name);
+  }
 
   // We will over-write this below for CSV and DEM files where
   // longitude is available.

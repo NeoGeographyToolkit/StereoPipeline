@@ -23,6 +23,7 @@
 #include <vw/Core/Log.h>
 
 #include <gdal.h>
+#include <cpl_vsi.h>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -36,6 +37,20 @@
 namespace fs = boost::filesystem;
 
 namespace asp {
+
+  // Return true if this is a GDAL virtual file system path, such as /vsizip/.
+  bool isVsiPath(std::string const& file) {
+    return (file.rfind("/vsi", 0) == 0); // the GDAL prefix is case-sensitive
+  }
+
+  // Return true if this file exists, local or a GDAL virtual file system path.
+  // Only existence is queried, so no data is fetched for a remote path.
+  bool fileExists(std::string const& file) {
+    if (!isVsiPath(file))
+      return fs::exists(file);
+    VSIStatBufL stat_buf;
+    return (VSIStatExL(file.c_str(), &stat_buf, VSI_STAT_EXISTS_FLAG) == 0);
+  }
 
   // Return true if the first file exists and is newer than all of the other files.
   bool first_is_newer(std::string              const& test_file, 
