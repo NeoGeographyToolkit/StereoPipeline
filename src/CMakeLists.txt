@@ -62,12 +62,18 @@ add_custom_target(doxygen doxygen
 
 # Add external dependencies which still need to be built
 
-# Build GTest
+# Build GTest. The bundled headers are renamed (gtest_ASP.h) to avoid clashing
+# with a system gtest. Rename the libraries too, otherwise the produced
+# libgtest.dylib collides with the one in the deps environment, and rpath order
+# can load that newer, ABI-incompatible gtest into the test binaries, crashing
+# them at startup. The target names stay gtest/gtest_main for the link below.
 include_directories(../thirdparty/gtest/include)
 #include_directories(../thirdparty/gtest/)
 add_library(gtest      ../thirdparty/gtest/src/gtest-all.cc)
 add_library(gtest_main ../thirdparty/gtest/src/gtest_main.cc)
-target_link_libraries(gtest_main gtest) 
+set_target_properties(gtest      PROPERTIES OUTPUT_NAME asp_gtest)
+set_target_properties(gtest_main PROPERTIES OUTPUT_NAME asp_gtest_main)
+target_link_libraries(gtest_main gtest)
 
 target_compile_definitions(gtest PRIVATE GTEST_USE_OWN_TR1_TUPLE=1)
 target_compile_definitions(gtest_main PRIVATE GTEST_USE_OWN_TR1_TUPLE=1)
