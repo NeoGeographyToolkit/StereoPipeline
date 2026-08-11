@@ -25,6 +25,14 @@
 
 namespace asp {
 
+  // Return true if this is a GDAL virtual file system path, such as /vsizip/,
+  // /vsitar/, or /vsicurl/. Such a path is read by GDAL, not as a local file.
+  bool isVsiPath(std::string const& file);
+
+  // Return true if this file exists. Unlike boost::filesystem::exists(), this
+  // also works for GDAL virtual file system paths.
+  bool fileExists(std::string const& file);
+
   /// Return true if the first file exists and is newer than all of the other files.
   /// - Also returns false if any files are missing.
   /// - If a blank "" file is passed in it is ignored.

@@ -969,7 +969,7 @@ vw::Vector3 estimate_ref_cloud_centroid(Options const& opt,
   Stopwatch sw;
   sw.start();
 
-  PointMatcherSupport::validateFile(reference);
+  // The reference file is validated in load_cloud(), called below.
   PointMatcher<double>::DataPoints points;
 
   double median_longitude = 0.0; // to convert back from xyz to lonlat

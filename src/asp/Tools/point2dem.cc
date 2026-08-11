@@ -20,6 +20,7 @@
 
 #include <asp/Core/PointToDem.h>
 #include <asp/Core/PointUtils.h>
+#include <asp/Core/FileUtils.h>
 #include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
@@ -296,7 +297,8 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
 
   if (opt.out_prefix.empty()) {
     std::string input_file = opt.pointcloud_files[0];
-    if (asp::is_las(input_file) && pdal::Utils::isRemote(input_file))
+    if ((asp::is_las(input_file) && pdal::Utils::isRemote(input_file)) ||
+        asp::isVsiPath(input_file))
      input_file = fs::path(input_file).filename().string(); // rm the remote path
     opt.out_prefix = asp::prefix_from_pointcloud_filename(input_file);
   }

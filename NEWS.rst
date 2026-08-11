@@ -134,6 +134,10 @@ Misc:
   * The reader for DigitalGlobe/WorldView camera XML now handles the new
     namespaced Vantor/Maxar ISD metadata, with ``lv1b:`` and ``isdc:`` tag
     prefixes (:numref:`dg_tutorial`).
+  * ``pc_align``, ``n_align``, and ``point2dem`` now accept GDAL virtual file
+    system paths, such as ``/vsizip/``, ``/vsitar/``, and ``/vsicurl/``, so a
+    cloud or DEM can be read from an archive without extracting it
+    (:numref:`pc_align`).
 
 RELEASE 3.7.0, June 2026
 ------------------------
