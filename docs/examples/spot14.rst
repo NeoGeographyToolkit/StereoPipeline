@@ -95,6 +95,12 @@ looks::
       --ip-per-image 30000        \
       -o ba/run
 
+For CSM cameras (:numref:`csm`), ``bundle_adjust`` writes a self-contained
+optimized camera per scene, ``ba/run-nadir.adjusted_state.json`` and so on, with
+the adjustment already applied (:numref:`csm_state`). Each later step uses the
+cameras produced by the previous step directly, rather than the original cameras
+together with a ``--bundle-adjust-prefix`` (:numref:`ba_use`).
+
 .. figure:: ../images/spot14_ba_pointmap.png
    :name: spot14_ba_resid
 
@@ -116,12 +122,12 @@ Run :ref:`parallel_stereo` with local epipolar alignment
 (:numref:`image_alignment`), then make a DEM with the triangulation error
 (:numref:`point2dem`)::
 
-    parallel_stereo -t spot             \
+    parallel_stereo                     \
       --alignment-method local_epipolar \
       --stereo-algorithm asp_mgm        \
-      --bundle-adjust-prefix ba/run     \
       nadir.tif east.tif                \
-      nadir.dim east.dim                \
+      ba/run-nadir.adjusted_state.json  \
+      ba/run-east.adjusted_state.json   \
       st_pair1/run
 
     point2dem         \
@@ -182,16 +188,19 @@ The same transform can be applied to the cameras, so they move into the referenc
 frame without re-optimizing anything (:numref:`ba_pc_align`). Because the SPOT DEM
 was the second argument to pc_align, the direct transform is used::
 
-    bundle_adjust -t spot                         \
+    bundle_adjust                                 \
       nadir.tif east.tif west.tif                 \
-      nadir.dim east.dim west.dim                 \
-      --input-adjustments-prefix ba/run           \
+      ba/run-nadir.adjusted_state.json            \
+      ba/run-east.adjusted_state.json             \
+      ba/run-west.adjusted_state.json             \
       --initial-transform align/run-transform.txt \
       --apply-initial-transform-only              \
       -o ba_align/run
 
-This writes ``ba_align/run-nadir.adjusted_state.json`` and so on, now in the
-reference frame.
+This writes ``ba_align/run-run-nadir.adjusted_state.json`` and so on, now in the
+reference frame. The extra ``run-`` appears because the camera passed through
+``bundle_adjust`` a second time, and ASP names each output camera after its
+input.
 
 Alignment may fail on low-relief terrains. The :ref:`pc_align` documentation
 offers several choices of alignment algorithm, depending on the circumstances.
@@ -225,15 +234,19 @@ adjustment, and also constrain the camera positions
 
 ::
 
-    bundle_adjust -t spot                     \
-      nadir.tif east.tif west.tif             \
-      nadir.dim east.dim west.dim             \
-      --input-adjustments-prefix ba_align/run \
-      --clean-match-files-prefix ba/run       \
-      --heights-from-dem ref_dem.tif          \
-      --heights-from-dem-uncertainty 30       \
-      --camera-position-uncertainty 100,100   \
+    bundle_adjust                                \
+      nadir.tif east.tif west.tif                \
+      ba_align/run-run-nadir.adjusted_state.json \
+      ba_align/run-run-east.adjusted_state.json  \
+      ba_align/run-run-west.adjusted_state.json  \
+      --clean-match-files-prefix ba/run          \
+      --heights-from-dem ref_dem.tif             \
+      --heights-from-dem-uncertainty 30          \
+      --camera-position-uncertainty 100,100      \
       -o ba_htdem/run
+
+The optimized cameras are now ``ba_htdem/run-run-run-nadir.adjusted_state.json``
+and so on, used directly in the steps below.
 
 Mapproject both scenes at the native 10 meter resolution onto a smoothed copy of
 the reference (:numref:`dem_mosaic`), using the refined cameras, then correlate
@@ -242,27 +255,27 @@ and low-texture terrain better::
 
     dem_mosaic --dem-blur-sigma 3 ref_dem.tif -o ref_blur.tif
 
-    mapproject                               \
-      --tr 10                                \
-      --t_srs "$proj"                        \
-      ref_blur.tif nadir.tif                 \
-      ba_htdem/run-nadir.adjusted_state.json \
+    mapproject                                       \
+      --tr 10                                        \
+      --t_srs "$proj"                                \
+      ref_blur.tif nadir.tif                         \
+      ba_htdem/run-run-run-nadir.adjusted_state.json \
       nadir.map.tif
-    mapproject                              \
-      --tr 10                               \
-      --t_srs "$proj"                       \
-      ref_blur.tif east.tif                 \
-      ba_htdem/run-east.adjusted_state.json \
+    mapproject                                      \
+      --tr 10                                       \
+      --t_srs "$proj"                               \
+      ref_blur.tif east.tif                         \
+      ba_htdem/run-run-run-east.adjusted_state.json \
       east.map.tif
 
-    parallel_stereo                          \
-      --alignment-method none                \
-      --stereo-algorithm asp_mgm             \
-      --subpixel-mode 9                      \
-      nadir.map.tif east.map.tif             \
-      ba_htdem/run-nadir.adjusted_state.json \
-      ba_htdem/run-east.adjusted_state.json  \
-      mp1/run                                \
+    parallel_stereo                                  \
+      --alignment-method none                        \
+      --stereo-algorithm asp_mgm                     \
+      --subpixel-mode 9                              \
+      nadir.map.tif east.map.tif                     \
+      ba_htdem/run-run-run-nadir.adjusted_state.json \
+      ba_htdem/run-run-run-east.adjusted_state.json  \
+      mp1/run                                        \
       ref_blur.tif
 
     point2dem --errorimage \
@@ -323,15 +336,15 @@ First create dense matches from disparity (:numref:`jitter_ip`) for each pair. U
 ``--num-matches-from-disparity`` with ``--subpixel-mode 1``, which keeps the
 matches sharp. Mode 9 gives a smoother DEM but smears them::
 
-    parallel_stereo                          \
-      --alignment-method none                \
-      --stereo-algorithm asp_mgm             \
-      --subpixel-mode 1                      \
-      --num-matches-from-disparity 20000     \
-      nadir.map.tif east.map.tif             \
-      ba_htdem/run-nadir.adjusted_state.json \
-      ba_htdem/run-east.adjusted_state.json  \
-      dense_pair1/run                        \
+    parallel_stereo                                  \
+      --alignment-method none                        \
+      --stereo-algorithm asp_mgm                     \
+      --subpixel-mode 1                              \
+      --num-matches-from-disparity 20000             \
+      nadir.map.tif east.map.tif                     \
+      ba_htdem/run-run-run-nadir.adjusted_state.json \
+      ba_htdem/run-run-run-east.adjusted_state.json  \
+      dense_pair1/run                                \
       ref_blur.tif
 
 Repeat for the second pair, writing to ``dense_pair2``. The matches are between the
@@ -347,23 +360,23 @@ and constrain against Copernicus with a height term and with anchor points. The
 images are 6000 lines tall, so ``--num-lines-per-orientation 600`` gives about ten
 orientation samples along the track::
 
-    jitter_solve                             \
-      nadir.tif east.tif west.tif            \
-      ba_htdem/run-nadir.adjusted_state.json \
-      ba_htdem/run-east.adjusted_state.json  \
-      ba_htdem/run-west.adjusted_state.json  \
-      --match-files-prefix dense/run-disp    \
-      --num-lines-per-position    600        \
-      --num-lines-per-orientation 600        \
-      --max-pairwise-matches 100000          \
-      --camera-position-uncertainty 100,100  \
-      --heights-from-dem ref_dem.tif         \
-      --heights-from-dem-uncertainty 30      \
-      --anchor-dem ref_dem.tif               \
-      --num-anchor-points 5000               \
-      --anchor-dem-uncertainty 50            \
-      --tri-weight 0.1                       \
-      --num-iterations 100                   \
+    jitter_solve                                     \
+      nadir.tif east.tif west.tif                    \
+      ba_htdem/run-run-run-nadir.adjusted_state.json \
+      ba_htdem/run-run-run-east.adjusted_state.json  \
+      ba_htdem/run-run-run-west.adjusted_state.json  \
+      --match-files-prefix dense/run-disp            \
+      --num-lines-per-position    600                \
+      --num-lines-per-orientation 600                \
+      --max-pairwise-matches 100000                  \
+      --camera-position-uncertainty 100,100          \
+      --heights-from-dem ref_dem.tif                 \
+      --heights-from-dem-uncertainty 30              \
+      --anchor-dem ref_dem.tif                       \
+      --num-anchor-points 5000                       \
+      --anchor-dem-uncertainty 50                    \
+      --tri-weight 0.1                               \
+      --num-iterations 100                           \
       -o jitter/run
 
 The anchor points tie the cameras to the reference DEM away from the match points.
