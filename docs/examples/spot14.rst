@@ -401,9 +401,8 @@ so it does not clip valid points at the edges.
    blocks of columns are slightly offset from one another.
 
 The improvement is large. The triangulation error drops from about 2 meters to
-0.5 meter, and its banding disappears (:numref:`spot14_jitter_te`). The
-discrepancy between the two stereo DEMs falls from about 1.7 meters to 0.5 meter
-(:numref:`spot14_jitter_dr`).
+0.5 meter (:numref:`spot14_jitter_te`). The discrepancy between the two stereo
+DEMs falls from about 1.7 meters to 0.5 meter (:numref:`spot14_jitter_dr`).
 
 CCD corrections
 ~~~~~~~~~~~~~~~
