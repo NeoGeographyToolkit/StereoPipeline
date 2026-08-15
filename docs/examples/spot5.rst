@@ -14,9 +14,12 @@ this DIMAP format and camera code path, see :numref:`spot14`. For the newer SPOT
 6 and SPOT 7 satellites, which use a different format and camera model, see
 :numref:`spot67`.
 
+The session name below is ``spot5``. From a 2026-08-15 build, ``spot`` is also
+accepted for the whole SPOT family, with the exact sensor read from the metadata.
+
 ASP supports only images from the HRS sensors on SPOT5. These images
 come in two parts, the data file (extension ``.bil`` or ``.tif``) and
-the header file the data file (extension ``.dim``). The data file can be
+the header file (extension ``.dim``). The data file can be
 either a plain binary file with no header information or a GeoTIFF file.
 The header file is a plain text XML file. When using SPOT5 images with
 ASP tools, pass in the data file as the image file and the header file

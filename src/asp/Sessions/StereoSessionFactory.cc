@@ -39,6 +39,9 @@
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/FileIO/FileTypes.h>
 
+#include <fstream>
+#include <string>
+
 namespace asp {
 
 // Parse the ortho heights (terrain heights) from the cameras, if they exist.
@@ -83,6 +86,42 @@ void handleOrthoHeights(std::string const& left_image_file,
       << "the corresponding entry in the right camera file.\n";
   if (std::isnan(opt_heights[1]) && !std::isnan(cam_ht2))
     opt_heights[1] = cam_ht2;
+}
+
+// The SPOT 1-5 (DIMAP version 1, HRV/HRS/HRG) and SPOT 6/7 (DIMAP version 2)
+// sensors share the "spot" session family but use different camera models. Peek
+// inside the DIMAP camera file to tell them apart. The mission index is
+// authoritative (1-5 vs 6-7); fall back to the metadata-format major version.
+// Return true for SPOT 1-5. Default to SPOT 1-5 if nothing is found; the loader
+// will then error clearly if that is wrong.
+bool isSpot15Dimap(std::string const& camera_file) {
+  if (camera_file.empty())
+    return true;
+  std::ifstream is(camera_file.c_str());
+  if (!is.good())
+    return true;
+  std::string line;
+  while (std::getline(is, line)) {
+    // <MISSION_INDEX>1</MISSION_INDEX>
+    std::size_t p = line.find("MISSION_INDEX");
+    if (p != std::string::npos) {
+      std::size_t a = line.find('>', p);
+      std::size_t b = line.find('<', a);
+      if (a != std::string::npos && b != std::string::npos) {
+        try {
+          return std::stoi(line.substr(a + 1, b - a - 1)) <= 5;
+        } catch (...) {}
+      }
+    }
+    // <METADATA_FORMAT version="1.1">DIMAP</METADATA_FORMAT>
+    std::size_t q = line.find("METADATA_FORMAT");
+    if (q != std::string::npos) {
+      std::size_t v = line.find("version=\"", q);
+      if (v != std::string::npos)
+        return line[v + 9] == '1'; // major version 1 is SPOT 1-5
+    }
+  }
+  return true;
 }
 
 SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-out
@@ -239,7 +278,14 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
                        total_quiet, asp::stereo_settings().ortho_heights);
   vw::Vector2 heights = asp::stereo_settings().ortho_heights;
   bool have_heights = (!std::isnan(heights[0]) && !std::isnan(heights[1]));
-  
+
+  // The SPOT 1-5 and SPOT 6/7 sensors form one "spot" family. Accept both "spot"
+  // and "spot5" (auto-detection may produce either), then decide the actual sensor
+  // by peeking the DIMAP below, not by the session string or the file extension.
+  // Normalize to "spot" here; "spot5" stays valid for backward compatibility.
+  if (actual_session_type == "spot5")
+    actual_session_type = "spot";
+
   if (allow_map_promote) {
     
     // The case of images mapprojected onto some surface of constant height
@@ -292,10 +338,6 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
       // User says ISIS but also gives a DEM.
       actual_session_type = "isismapisis";
     }
-    if (!input_dem.empty() && actual_session_type == "spot5") {
-      // User says SPOT5 but also gives a DEM.
-      actual_session_type = "spot5maprpc";
-    }
     if (!input_dem.empty() && actual_session_type == "aster") {
       // User says ASTER but also gives a DEM.
       // Mapprojection can happen either with ASTER or RPC cameras
@@ -309,8 +351,12 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
       actual_session_type = "pleiadesmappleiades";
     }
     if (!input_dem.empty() && actual_session_type == "spot") {
-      // User says SPOT 6/7 but also gives a DEM.
-      actual_session_type = "spotmapspot";
+      // Images mapprojected for a SPOT sensor. Peek the DIMAP to route: SPOT 1-5
+      // triangulates with the exact SPOT 1-5 model, SPOT 6/7 with its own model.
+      if (isSpot15Dimap(left_camera_file))
+        actual_session_type = "spot5maprpc"; // SPOT 1-5
+      else
+        actual_session_type = "spotmapspot"; // SPOT 6/7
     }
     
     // Quietly switch from nadirpinhole to pinhole for mapprojected images
@@ -392,12 +438,15 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
   else if (actual_session_type == "isismapisis")
     session = StereoSessionIsisMapIsis::construct();
 #endif
-  else if (actual_session_type == "spot5")
-    session = StereoSessionSpot::construct();
   else if (actual_session_type == "perusat")
     session = StereoSessionPeruSat::construct();
-  else if (actual_session_type == "spot")
-    session = StereoSessionSpot67::construct();
+  else if (actual_session_type == "spot") {
+    // Peek the DIMAP: SPOT 1-5 uses the linescan SPOT model, SPOT 6/7 its own.
+    if (isSpot15Dimap(left_camera_file))
+      session = StereoSessionSpot::construct();   // SPOT 1-5
+    else
+      session = StereoSessionSpot67::construct(); // SPOT 6/7
+  }
   else if (actual_session_type == "pleiades")
     session = StereoSessionPleiades::construct();
   else if (actual_session_type == "aster")

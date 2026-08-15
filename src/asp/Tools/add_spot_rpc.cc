@@ -113,7 +113,7 @@ void generate_point_pairs(Options opt,
     // Load the input camera model (CSM linescan)
     boost::shared_ptr<camera::CameraModel> cam_ptr
       = boost::dynamic_pointer_cast<camera::CameraModel>(
-          asp::load_spot5_csm_camera_model_from_xml(opt.input_path));
+          asp::load_spot15_csm_camera_model_from_xml(opt.input_path));
 
     // Load some image info
     vw::ImageFormat format     = vw::DiskImageResourceRaw::image_format_from_spot5_DIM(opt.input_path);

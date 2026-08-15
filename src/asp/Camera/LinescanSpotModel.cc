@@ -73,7 +73,7 @@ Matrix3x3 get_look_rotation_matrix(double yaw, double pitch, double roll) {
 // only intrinsics (focal length, optical center, distortion) to match
 // the vendor's per-column look angle table.
 boost::shared_ptr<CsmModel>
-load_spot5_csm_camera_model_from_xml(std::string const& path) {
+load_spot15_csm_camera_model_from_xml(std::string const& path) {
 
   // Parse the SPOT5 XML file
   SpotXML xml_reader;
@@ -146,7 +146,19 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   R(1,0) =  0.0; R(1,1) = 1.0; R(1,2) =  0.0;
   R(2,0) =  0.0; R(2,1) = 0.0; R(2,2) = -1.0;
 
-  // Convert each pose sample to a GCC rotation matrix
+  // The HRV steering mirror points the look cross-track by a fixed per-scene
+  // angle, which the vendor bakes into the look angles. Absorb that mean look
+  // into the pose as a constant boresight rotation, so the detector look angles
+  // stay small (rays near the sensor-plane normal), as a linescan model expects.
+  double psi_y_center = xml_reader.look_angles[xml_reader.image_size[0]/2].second[1];
+  double cb = cos(psi_y_center), sb = sin(psi_y_center);
+  Matrix3x3 R_bore;               // Ry(psi_y_center), applied to cam2world
+  R_bore(0,0) =  cb; R_bore(0,1) = 0.0; R_bore(0,2) = sb;
+  R_bore(1,0) = 0.0; R_bore(1,1) = 1.0; R_bore(1,2) = 0.0;
+  R_bore(2,0) = -sb; R_bore(2,1) = 0.0; R_bore(2,2) = cb;
+
+  // Convert each pose sample to a GCC rotation matrix, with the boresight folded
+  // in so the camera points along the mean look direction.
   std::vector<vw::Matrix<double,3,3>> cam2world_vec(num_quat);
   for (size_t i = 0; i < num_quat; i++) {
     double time = t0_quat + dt_quat * static_cast<double>(i);
@@ -157,8 +169,17 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
     Matrix3x3 lo_frame      = get_local_orbital_frame(position, velocity);
     Matrix3x3 look_rotation = get_look_rotation_matrix(
                                 yaw_pitch_roll[0], yaw_pitch_roll[1], yaw_pitch_roll[2]);
-    cam2world_vec[i] = lo_frame * look_rotation * R;
+    cam2world_vec[i] = lo_frame * look_rotation * R * R_bore;
   }
+
+  // Detector look after removing the boresight, i.e. Ry(-psi_y_center) applied
+  // to normalize(tan PSI_Y, tan PSI_X, 1). Returns (undist_x, undist_y).
+  auto recenter_look = [&](double psi_y, double psi_x) -> vw::Vector2 {
+    double x = tan(psi_y), y = tan(psi_x), z = 1.0;
+    double xr =  cb * x - sb * z;   // Ry(-psi_y_center)
+    double zr =  sb * x + cb * z;
+    return vw::Vector2(xr / zr, y / zr);
+  };
 
   // Compute intrinsics from the look angle table using the PeruSat approach:
   // focal_length = 1.0, detector params in angle units.
@@ -181,10 +202,10 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   auto const& look_angles = xml_reader.look_angles;
   int num_cols = xml_reader.image_size[0];
 
-  // Linear fit to tan(PSI_Y) vs column index (0-based)
+  // Linear fit to the recentered across-track look vs column index (0-based).
   double sum_c = 0, sum_ty = 0, sum_c2 = 0, sum_cty = 0;
   for (int c = 0; c < num_cols; c++) {
-    double ty = tan(look_angles[c].second[1]);
+    double ty = recenter_look(look_angles[c].second[1], look_angles[c].second[0])[0];
     sum_c   += c;
     sum_ty  += ty;
     sum_c2  += c * (double)c;
@@ -195,9 +216,10 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
                        (n_cols * sum_c2 - sum_c * sum_c);
   double intercept_y = (sum_ty - slope_y * sum_c) / n_cols;
 
-  // PSI_X is nearly constant - use center value
+  // Along-track look (undist_y) is nearly constant - use the recentered center.
   int mid_col = num_cols / 2;
-  double psi_x_center = look_angles[mid_col].second[0];
+  double undist_y_center =
+    recenter_look(look_angles[mid_col].second[1], look_angles[mid_col].second[0])[1];
 
   double focal_length = 1.0;
   // optical_center is not used directly - detector origin encodes it
@@ -243,7 +265,7 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
   ls->m_detectorSampleSumming  = slope_y;
   ls->m_detectorSampleOrigin   = -intercept_y + 0.5 * slope_y;
   ls->m_detectorLineSumming    = 1.0;
-  ls->m_detectorLineOrigin     = -tan(psi_x_center);
+  ls->m_detectorLineOrigin     = -undist_y_center;  // recentered along-track look
   ls->m_startingDetectorLine   = 0.0;
   ls->m_startingDetectorSample = 0.0;
 
@@ -345,9 +367,10 @@ load_spot5_csm_camera_model_from_xml(std::string const& path) {
       vw::Matrix3x3 rot = q.rotation_matrix();
       for (size_t ci = 0; ci < col_idx.size(); ci++) {
         int c = col_idx[ci];
-        double psi_x = look_angles[c].second[0];
-        double psi_y = look_angles[c].second[1];
-        vw::Vector3 local_look = normalize(vw::Vector3(tan(psi_y), tan(psi_x), 1.0));
+        // Recentered look; rot already carries the boresight.
+        vw::Vector2 rl = recenter_look(look_angles[c].second[1],
+                                       look_angles[c].second[0]);
+        vw::Vector3 local_look = normalize(vw::Vector3(rl[0], rl[1], 1.0));
         world_sight_mat[ri][ci] = rot * local_look;
       }
     }

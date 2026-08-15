@@ -2,8 +2,9 @@ Changes since last release
 --------------------------
 
 New features:
-  * Added support for the SPOT 1, 2, 3, and 4 HRV cameras, building a rigorous
-    CSM linescan model from the DIMAP metadata, reusing the SPOT5 code path
+  * Support the SPOT 1, 2, 3, and 4 HRV linescan cameras (:numref:`spot14`).
+  * The ``spot`` session name now covers all of SPOT 1-7. The exact sensor is
+    read from the DIMAP metadata. The name ``spot5`` is still accepted
     (:numref:`spot14`).
   * Added a pipeline for creating terrain models from TGO CaSSIS pushframe images
     (:numref:`cassis`).

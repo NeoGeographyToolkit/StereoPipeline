@@ -202,8 +202,9 @@ Command-line options
     - isis         -- with planetary images stored in .cub files (:numref:`moc_tutorial`)
     - dg           -- with Maxar / DigitalGlobe exact linescan cameras (:numref:`dg_tutorial`), which are implemented as CSM (:numref:`dg_csm`)
     - rpc          -- with any RPC cameras (:numref:`rpc`)
-    - spot5        -- SPOT 5 exact linescan camera (:numref:`spot5`)
-    - spot         -- SPOT 6/7 exact linescan camera (:numref:`spot67`)
+    - spot         -- SPOT 1-7 exact linescan camera, from a 2026-08-15 build
+      (:numref:`spot14`, :numref:`spot5`, :numref:`spot67`). The exact sensor is
+      determined from the DIMAP metadata. The name ``spot5`` is also accepted.
     - aster        -- exact ASTER camera model (:numref:`aster`)
     - perusat      -- PeruSat-1 exact linescan camera model (:numref:`perusat1`)
     - opticalbar   -- Optical Bar cameras (:numref:`kh4`)

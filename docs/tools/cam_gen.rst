@@ -302,7 +302,8 @@ CSM linescan cameras
 
 This program can take as input a linescan camera, such as WorldView
 (:numref:`dg_tutorial`), Pleiades (:numref:`pleiades`), ASTER (:numref:`aster`),
-and CSM (:numref:`csm`), and convert it to the CSM linescan model state format
+SPOT 1-7 (:numref:`spot14`, etc.), PeruSat (:numref:`perusat1`), and CSM
+(:numref:`csm`), and convert it to the CSM linescan model state format
 (:numref:`csm_state`). This allows one to use ASP with a combination of linescan
 cameras from different vendors and also with Frame cameras
 (:numref:`ba_frame_linescan`).

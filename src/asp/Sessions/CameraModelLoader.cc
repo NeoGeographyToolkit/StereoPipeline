@@ -98,13 +98,13 @@ CameraModelLoader::load_dg_camera_model(std::string const& path) const {
   return vw::CamPtr(load_dg_camera_model_from_xml(path));
 }
 
-// Load a spot5 camera file
+// Load a SPOT 1-5 camera file
 boost::shared_ptr<vw::camera::CameraModel>
-CameraModelLoader::load_spot5_camera_model(std::string const& path) const {
+CameraModelLoader::load_spot15_camera_model(std::string const& path) const {
   vw::Stopwatch sw;
   sw.start();
 
-  vw::CamPtr ans = load_spot5_csm_camera_model_from_xml(path);
+  vw::CamPtr ans = load_spot15_csm_camera_model_from_xml(path);
 
   sw.stop();
   vw::vw_out() << "Load time: " << sw.elapsed_seconds() << " seconds.\n";

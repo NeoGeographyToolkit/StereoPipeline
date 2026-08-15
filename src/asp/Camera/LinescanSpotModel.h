@@ -34,7 +34,7 @@ class CsmModel;
 /// Populates CSM with vendor extrinsics (positions, velocities, quaternions)
 /// and fits intrinsics (focal length, optical center, TRANSVERSE distortion)
 /// to the vendor's per-column look angle table.
-boost::shared_ptr<CsmModel> load_spot5_csm_camera_model_from_xml(std::string const& path);
+boost::shared_ptr<CsmModel> load_spot15_csm_camera_model_from_xml(std::string const& path);
 
 } // namespace asp
 

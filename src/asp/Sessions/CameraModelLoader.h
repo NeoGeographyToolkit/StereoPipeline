@@ -42,10 +42,10 @@ namespace asp {
     vw::CamPtr load_dg_camera_model         (std::string const& path) const;
     vw::CamPtr load_pinhole_camera_model    (std::string const& path) const;
     vw::CamPtr load_isis_camera_model       (std::string const& path) const;
-    vw::CamPtr load_spot5_camera_model      (std::string const& path) const;
+    vw::CamPtr load_spot15_camera_model     (std::string const& path) const;
     vw::CamPtr load_perusat_camera_model    (std::string const& path) const;
     vw::CamPtr load_pleiades_camera_model   (std::string const& path) const;
-    vw::CamPtr load_spot_camera_model      (std::string const& path) const;
+    vw::CamPtr load_spot_camera_model       (std::string const& path) const;
     vw::CamPtr load_ASTER_camera_model      (std::string const& path) const;
     vw::CamPtr load_optical_bar_camera_model(std::string const& path) const;
     vw::CamPtr load_csm_camera_model        (std::string const& path) const;
