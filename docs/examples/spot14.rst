@@ -106,7 +106,7 @@ Stereo and DEM
 ~~~~~~~~~~~~~~
 
 Define a single projection and reuse it for all gridded outputs. Use the UTM zone
-that covers the site (Badia is in zone 37 north). 
+that covers the site (Badia is in zone 37 north).
 
 ::
 
@@ -145,13 +145,13 @@ adjustment it should be a small fraction of the ground sample distance.
 
    Triangulation error for the two pairs (color range is 0 to 8 meters). The
    median is about 2.5 meters, a quarter of the ground sample distance. The
-   along-track pattern due to jitter, which is corrected below.
+   along-track pattern is due to jitter, which is corrected below.
 
 .. figure:: ../images/spot14_stereo_geodiff.png
    :name: spot14_pairdiff
 
    The first DEM minus the second (color range is -30 to 30 meters). The
-   west-to-east gradient is the residual low-frequency attitude tilt which will
+   west-to-east gradient is the residual low-frequency attitude tilt, which will
    be corrected below.
 
 Alignment to a reference DEM
@@ -214,14 +214,14 @@ Stereo with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The cameras are now aligned to the reference, but the two looks still disagree
-by a low-frequency tilt (:numref:`spot14_pairdiff`).  We will try to reduce this
+by a low-frequency tilt (:numref:`spot14_pairdiff`). We will try to reduce this
 tilt with bundle adjustment. This will be unsuccessful, which motivates solving
 for jitter next.
 
 Do bundle adjustment that adds the Copernicus height as a soft constraint
 (:numref:`heights_from_dem`), reusing the clean matches from the first
 adjustment, and also constrain the camera positions
-(:numref:`ba_cam_constraints`). 
+(:numref:`ba_cam_constraints`).
 
 ::
 
@@ -397,8 +397,8 @@ so it does not clip valid points at the edges.
    layout as :numref:`spot14_map_diffs`. Top row: east-look pair and west-look
    pair minus Copernicus. Bottom row: the mosaic of the two DEMs minus
    Copernicus, and the first DEM minus the second. The tilt and the west-to-east
-   gradient largely flatten. What remains appear to be CCD artifacts (some
-   blocks of columns are slightly offset relative to other ones).
+   gradient largely flatten. What remains resembles faint CCD artifacts: some
+   blocks of columns are slightly offset from one another.
 
 The improvement is large. The triangulation error drops from about 2 meters to
 0.5 meter, and its banding disappears (:numref:`spot14_jitter_te`). The
@@ -411,7 +411,11 @@ CCD corrections
 SPOT 2 and SPOT 4 have known detector-to-detector misregistration on the HRV1
 instrument that appears as faint striping. If a stereo pair from these
 instruments shows striping in the triangulation error or the DEM, it should be
-corrected before stereo. Some of this pattern is also apparent above.
+corrected before stereo. ASP offers such corrections only for some WorldView
+cameras (:numref:`wv_correct`).
+
+Visual inspection suggests faint CCD effects in the SPOT-1 figures above as
+well.
 
 .. _spot_multi:
 
