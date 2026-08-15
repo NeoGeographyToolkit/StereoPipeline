@@ -190,7 +190,7 @@ Command-line options
 -t, --session-type <string>
     Select the stereo session type to use for processing. Usually the
     program can select this automatically by the file extension except
-    for xml cameras (if it has both DG and RPC models). Options and when to use:
+    for XML cameras (if it has both DG and RPC models). Options and when to use:
     
     - nadirpinhole -- for satellites/aircraft with pinhole cameras
       (:numref:`skysat`, :numref:`sfmicebridge`). This equivalent to using
@@ -199,22 +199,24 @@ Command-line options
       for Earth, Moon, and Mars).
     - pinhole      -- ground-level cameras, not assuming a datum
       (:numref:`mer-example`). A datum can be set, however, with ``--datum``.
-    - isis         -- with planetary images stored in .cub files (:numref:`moc_tutorial`)
-    - dg           -- with Maxar / DigitalGlobe exact linescan cameras (:numref:`dg_tutorial`), which are implemented as CSM (:numref:`dg_csm`)
+    - isis         -- with planetary images stored in .cub files
+      (:numref:`moc_tutorial`)
+    - dg           -- with Maxar / DigitalGlobe exact linescan cameras
+      (:numref:`dg_tutorial`), which are implemented as CSM (:numref:`dg_csm`)
     - rpc          -- with any RPC cameras (:numref:`rpc`)
-    - spot         -- SPOT 1-7 exact linescan camera, from a 2026-08-15 build
-      (:numref:`spot14`, :numref:`spot5`, :numref:`spot67`). The exact sensor is
-      determined from the DIMAP metadata. The name ``spot5`` is also accepted.
+    - spot         -- SPOT 1-7 exact linescan camera, starting with build
+      2026-08-15 (:numref:`spot14`, :numref:`spot5`, :numref:`spot67`). The
+      exact sensor is determined from the DIMAP metadata. The name ``spot5`` is
+      also accepted for backward compatibility.
     - aster        -- exact ASTER camera model (:numref:`aster`)
     - perusat      -- PeruSat-1 exact linescan camera model (:numref:`perusat1`)
     - opticalbar   -- Optical Bar cameras (:numref:`kh4`)
     - csm          -- Community Sensor Model (:numref:`csm`)
     - pleiades     -- Pleiades satellites (:numref:`pleiades`)
 
-    The next sessions are for mapprojected images
-    (:numref:`mapproj-example`). If ``-t`` is specified
-    as earlier, the sessions will be converted to the entities below
-    automatically.
+    The next sessions are for mapprojected images (:numref:`mapproj-example`).
+    If ``-t`` is specified as earlier, the sessions will be converted to the
+    entities below automatically.
 
     - pinholemappinhole
     - isismapisis

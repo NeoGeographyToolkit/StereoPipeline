@@ -2,12 +2,9 @@ Changes since last release
 --------------------------
 
 New features:
-  * Support the SPOT 1, 2, 3, and 4 HRV linescan cameras (:numref:`spot14`).
-  * The ``spot`` session name now covers all of SPOT 1-7. The exact sensor is
-    read from the DIMAP metadata. The name ``spot5`` is still accepted
-    (:numref:`spot14`).
   * Added a pipeline for creating terrain models from TGO CaSSIS pushframe images
     (:numref:`cassis`).
+  * Support the SPOT 1, 2, 3, and 4 HRV linescan cameras (:numref:`spot14`).
   * Added an example for Viking Orbiter (:numref:`viking`).
   * Added the AKAZE, BRISK, and KAZE interest point detection methods to
     ``parallel_stereo``, ``bundle_adjust``, etc. (:numref:`stereodefault`).

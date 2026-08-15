@@ -21,11 +21,8 @@ Camera model
 SPOT 1-4 broadly share the DIMAP v1 format with SPOT 5. They differ in two ways,
 both handled automatically:
 
-- Attitude is given as two absolute yaw, pitch, and roll samples (a
-  ``Raw_Attitudes`` block) rather than a pre-corrected per-line table. These
-  are interpolated across the scene. The magnitudes are of the order of
-  microradians, so this is adequate; residual low-frequency attitude is
-  discussed below.
+- Attitude is given as two absolute yaw, pitch, and roll samples rather than a
+  pre-corrected per-line table. These are interpolated across the scene.
 - The look angles are listed for the first and last detector only. They are
   interpolated linearly to every column.
 
@@ -40,17 +37,19 @@ saved this way by ``bundle_adjust`` and ``jitter_solve``
 Data access
 ~~~~~~~~~~~
 
-The SPOT 1-5 archive is free from the CNES SPOT World Heritage (SWH) program at
-https://regards.cnes.fr/user/swh. Create an account, accept the ETALAB 2.0
-license, and download the level-1A SCENE product in DIMAP format. Do not use the
-orthorectified level-2 product, as the rigorous camera needs the raw scene.
+The SPOT 1-5 archive is free from the `CNES SPOT World Heritage
+<https://regards.cnes.fr/user/swh>`_ (SWH) site. Create an account, accept the
+ETALAB 2.0 license, and download the level-1A SCENE product in DIMAP format. Do
+not use the orthorectified level-2 product, as the rigorous camera needs the raw
+scene.
 
 Scenes are identified in the catalogue by satellite, the SPOT grid reference K
 (column) and J (row), date, instrument (HRV1 or HRV2), and incidence angle. The
 scene identifier encodes all of these, for example ``11222858708240840372P`` is
 satellite 1 (SPOT-1), K122, J285, 1987-08-24, 08:40:37, instrument 2 (HRV2),
-panchromatic. A stereo pair is two scenes of the same K and J acquired with
-different incidence angles.
+panchromatic. The K and J together pin the ground footprint, so a stereo pair is
+two scenes with the same K and J whose incidence angles differ enough to give a
+usable convergence angle (the example below).
 
 Example stereo pair
 ~~~~~~~~~~~~~~~~~~~
@@ -76,8 +75,7 @@ The scenes below cover the Harrat volcanic field near Badia, northeast Jordan
      - -23.7° (west look)
 
 Pairing either off-nadir scene with the near-nadir 1987-04-22 scene gives a
-convergence of about 26°, which is easier to correlate. The example uses these two
-pairs.
+convergence of about 26°, which is suitable for stereo.
 
 After download, each scene arrives as a directory with the image in
 ``IMAGERY.TIF`` and the metadata in ``METADATA.DIM``. Since bundle adjustment
@@ -97,29 +95,25 @@ looks::
       --ip-per-image 30000        \
       -o ba/run
 
-Inspect ``ba/run-final_residuals_stats.txt`` (:numref:`bundle_adjust`). The
-median reprojection error should be well under a pixel.
-
 .. figure:: ../images/spot14_ba_pointmap.png
    :name: spot14_ba_resid
 
-   Reprojection error per triangulated point (:numref:`ba_out_files`), in pixels,
-   before bundle adjustment (left, 0 to 18) and after (right, 0 to 1), for the
-   three Badia scenes. The metadata pointing is off by about 14 pixels; after
-   adjustment the residual is sub-pixel across the whole footprint.
+   Reprojection error per triangulated point (:numref:`ba_out_files`), in
+   pixels, before (left) and after (right) bundle adjustment. After adjustment
+   the errors are sub-pixel across the whole footprint.
 
 Stereo and DEM
 ~~~~~~~~~~~~~~
 
 Define a single projection and reuse it for all gridded outputs. Use the UTM zone
-that covers the site (Badia is in zone 37 north). Fix one zone for all images,
-rather than letting it be auto-determined per image (:numref:`mapproj_auto_proj`),
-since the mapprojected images of a pair must share the same projection::
+that covers the site (Badia is in zone 37 north). 
+
+::
 
     proj="+proj=utm +zone=37 +datum=WGS84 +units=m +no_defs"
 
-Run stereo on each pair with local epipolar alignment
-(:numref:`parallel_stereo`), then make a DEM with the triangulation error
+Run :ref:`parallel_stereo` with local epipolar alignment
+(:numref:`image_alignment`), then make a DEM with the triangulation error
 (:numref:`point2dem`)::
 
     parallel_stereo -t spot             \
@@ -135,9 +129,9 @@ Run stereo on each pair with local epipolar alignment
       --t_srs "$proj" \
       st_pair1/run-PC.tif
 
-Repeat for the second pair. The triangulation (intersection) error is the key
-camera-quality check. After bundle adjustment it should be a small fraction of
-the ground sample distance.
+Repeat for the second pair. The triangulation error
+(:numref:`triangulation_error`) is the key camera-quality check. After bundle
+adjustment it should be a small fraction of the ground sample distance.
 
 .. figure:: ../images/spot14_stereo_hillshades.png
    :name: spot14_dems
@@ -149,18 +143,16 @@ the ground sample distance.
 .. figure:: ../images/spot14_stereo_trierr.png
    :name: spot14_trierr
 
-   Triangulation error (:numref:`triangulation_error`) for the two pairs, 0 to 8
-   meters, at the same left and right order as above. The median is about 2.5
-   meters, a quarter of the ground sample distance. The faint along-track banding
-   is residual low-frequency attitude, discussed below.
+   Triangulation error for the two pairs (color range is 0 to 8 meters). The
+   median is about 2.5 meters, a quarter of the ground sample distance. The
+   along-track pattern due to jitter, which is corrected below.
 
 .. figure:: ../images/spot14_stereo_geodiff.png
    :name: spot14_pairdiff
 
-   The first DEM minus the second, clamped to plus or minus 30 meters. The
-   west-to-east gradient is the residual low-frequency attitude tilt: the two
-   opposite-side looks lean in opposite directions, so it largely cancels in the
-   mosaic.
+   The first DEM minus the second (color range is -30 to 30 meters). The
+   west-to-east gradient is the residual low-frequency attitude tilt which will
+   be corrected below.
 
 Alignment to a reference DEM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -171,7 +163,7 @@ the ellipsoid first (:numref:`conv_to_ellipsoid`), and regrid both DEMs to a
 common projection and grid (about 4 times the image ground sample distance) with
 ``gdalwarp -r cubicspline``.
 
-Align with pc_align (:numref:`pc_align`), then regrid the aligned cloud to a DEM,
+Align to the reference DEM with :ref:`pc_align`, then regrid the aligned cloud to a DEM,
 reusing the ``proj`` projection defined earlier::
 
     pc_align                           \
@@ -199,45 +191,37 @@ was the second argument to pc_align, the direct transform is used::
       -o ba_align/run
 
 This writes ``ba_align/run-nadir.adjusted_state.json`` and so on, now in the
-reference frame. These aligned cameras are refined once more and then used for the
-mapprojected stereo below.
+reference frame.
 
-On low-texture terrain the option ``--initial-transform-from-hillshading`` can
-lock onto a spurious rotation. If the DEM is already close to the reference, as
-after bundle adjustment, plain point-to-plane alignment is more robust. Judge
-the result by a hillshade overlay, not by the vertical difference alone
-(:numref:`pc_align`).
+Alignment may fail on low-relief terrains. The :ref:`pc_align` documentation
+offers several choices of alignment algorithm, depending on the circumstances.
 
 .. figure:: ../images/spot14_ref_hillshades.png
    :name: spot14_ref_hs
 
    Hillshade of the aligned SPOT DEM mosaic (left) and the Copernicus GLO-30
    reference (right), on the same projection, grid, and extent. The features
-   coincide, which confirms the horizontal registration. The reference extends
-   into the corners outside the SPOT footprint.
+   coincide, which confirms the horizontal registration.
 
 .. figure:: ../images/spot14_ref_geodiff.png
    :name: spot14_ref_dz
 
    Aligned SPOT DEM mosaic minus Copernicus, clamped to plus or minus 30 meters.
-   The median vertical difference is about 0.5 meter. The residual signal at
-   cone and drainage edges is the resolution difference, 10 meter SPOT against 30
-   meter Copernicus, not a registration error.
+   The median vertical difference is about 0.5 meter. Some of the remaining
+   differences will be reduced after solving for jitter.
 
 Stereo with mapprojected images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The cameras are now aligned to the reference, but the two looks still disagree by
-a low-frequency tilt (:numref:`spot14_pairdiff`). One might try to reduce it by
-refining the cameras against the reference DEM. Do this with a bundle adjustment
-that adds the Copernicus height as a soft constraint (:numref:`heights_from_dem`),
-reusing the clean matches from the first adjustment, and also constrain the camera
-positions (:numref:`ba_cam_constraints`): the height constraint alone leaves the
-linescan position-attitude ambiguity free, so a near-nadir camera can drift along
-its trajectory and misregister the later mapprojection. Then mapproject onto the
-reference and redo stereo. As it turns out, this barely changes the tilt, because
-the disagreement is a relative attitude error between the two looks, which a height
-constraint cannot correct.
+The cameras are now aligned to the reference, but the two looks still disagree
+by a low-frequency tilt (:numref:`spot14_pairdiff`).  We will try to reduce this
+tilt with bundle adjustment. This will be unsuccessful, which motivates solving
+for jitter next.
+
+Do bundle adjustment that adds the Copernicus height as a soft constraint
+(:numref:`heights_from_dem`), reusing the clean matches from the first
+adjustment, and also constrain the camera positions
+(:numref:`ba_cam_constraints`). 
 
 ::
 
@@ -280,7 +264,11 @@ and low-texture terrain better::
       ba_htdem/run-east.adjusted_state.json  \
       mp1/run                                \
       ref_blur.tif
-    point2dem --errorimage --tr 40 --t_srs "$proj" mp1/run-PC.tif
+
+    point2dem --errorimage \
+      --tr 40              \
+      --t_srs "$proj"      \
+      mp1/run-PC.tif
 
 Repeat for the second pair, then mosaic the two DEMs (:numref:`dem_mosaic`).
 
@@ -316,11 +304,11 @@ Repeat for the second pair, then mosaic the two DEMs (:numref:`dem_mosaic`).
    opposite-side tilts largely cancel.
 
 The height constraint does tighten the absolute elevation: the mosaic matches
-Copernicus to a median near zero, about 0.1 meter (:numref:`spot14_map_diffs`), and
-since both looks cover the field, the opposite-side tilts largely cancel there. The
-relative tilt itself remains, about 1.7 meters across the scene
-(:numref:`spot14_map_diffs`); reducing it needs a jitter solve
-(:numref:`jitter_solve`).
+Copernicus to a median near zero, about 0.1 meter (:numref:`spot14_map_diffs`),
+and since both looks cover the field, the opposite-side tilts largely cancel
+there. The relative tilt itself remains, about 1.7 meters across the scene
+(:numref:`spot14_map_diffs`); reducing it needs solving for jitter, which is
+done next.
 
 Solving for jitter
 ~~~~~~~~~~~~~~~~~~
@@ -406,30 +394,16 @@ so it does not clip valid points at the edges.
    :name: spot14_jitter_dr
 
    DEM differences after the jitter solve, plus or minus 30 meters, in the same
-   layout as :numref:`spot14_map_diffs`. Top row: east-look pair and west-look pair
-   minus Copernicus. Bottom row: the mosaic of the two DEMs minus Copernicus, and
-   the first DEM minus the second. The tilt and the west-to-east gradient largely
-   flatten.
+   layout as :numref:`spot14_map_diffs`. Top row: east-look pair and west-look
+   pair minus Copernicus. Bottom row: the mosaic of the two DEMs minus
+   Copernicus, and the first DEM minus the second. The tilt and the west-to-east
+   gradient largely flatten. What remains appear to be CCD artifacts (some
+   blocks of columns are slightly offset relative to other ones).
 
 The improvement is large. The triangulation error drops from about 2 meters to
-0.5 meter, and its banding disappears (:numref:`spot14_jitter_te`). The tilt
-between the two looks falls from about 1.7 meters to 0.5 meter
-(:numref:`spot14_jitter_dr`), while the mosaic stays centered on Copernicus.
-
-Results and accuracy
-~~~~~~~~~~~~~~~~~~~~
-
-For the Badia pairs, bundle adjustment reduced the median reprojection error
-from about 14 pixels to 0.26 pixel (:numref:`spot14_ba_resid`). Each DEM had a
-triangulation error of about 0.25 of the ground sample distance
-(:numref:`spot14_trierr`). After alignment, the median vertical difference to
-Copernicus was about 0.5 meter (:numref:`spot14_ref_dz`).
-
-A low-frequency tilt between the two looks comes from SPOT 1-4 carrying only two
-absolute attitude samples (:numref:`spot14_pairdiff`). The jitter solve
-(:numref:`jitter_solve`) removes most of it: the triangulation error drops to about
-0.5 meter and the tilt to about 0.5 meter (:numref:`spot14_jitter_te`), with anchor
-points against the reference DEM supplying the missing low-frequency control.
+0.5 meter, and its banding disappears (:numref:`spot14_jitter_te`). The
+discrepancy between the two stereo DEMs falls from about 1.7 meters to 0.5 meter
+(:numref:`spot14_jitter_dr`).
 
 CCD corrections
 ~~~~~~~~~~~~~~~
@@ -437,8 +411,7 @@ CCD corrections
 SPOT 2 and SPOT 4 have known detector-to-detector misregistration on the HRV1
 instrument that appears as faint striping. If a stereo pair from these
 instruments shows striping in the triangulation error or the DEM, it should be
-corrected before stereo. Panchromatic scenes from other SPOT 1-4 instruments in
-this archive show little striping and can be used directly.
+corrected before stereo. Some of this pattern is also apparent above.
 
 .. _spot_multi:
 
