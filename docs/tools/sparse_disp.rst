@@ -7,7 +7,9 @@ The ``sparse_disp`` program creates a low-resolution initial disparity
 (``D_sub.tif``, :numref:`out_corr_files`) from the full-resolution stereo
 images, computed at a sparse set of pixels for speed. This is meant for
 difficult terrain, such as snow or ice, where the subsampled images used by the
-default seed approach appear blank (:numref:`d_sub_corr`).
+default seed approach appear blank (:numref:`d_sub_corr`). It can also produce a
+disparity at the full resolution of the images but on a sparse grid
+(:numref:`dsub_match`).
 
 This program is invoked automatically by :ref:`parallel_stereo` with the option
 ``--corr-seed-mode 3``, and is customized with the ``parallel_stereo`` option
