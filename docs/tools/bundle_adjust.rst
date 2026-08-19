@@ -879,6 +879,11 @@ Here is a sample file::
 The field ``num_observations`` counts in how many images each
 triangulated point is seen.
 
+With ``--heights-from-dem`` (:numref:`heights_from_dem`), the initial
+triangulated points are moved onto the DEM before optimization, hence before
+this initial ``pointmap.csv`` is written, and are constrained to those DEM
+positions via ``--heights-from-dem-uncertainty``.
+
 Such files can be plotted and overlaid with ``stereo_gui``
 (:numref:`plot_csv`) to see at which triangulated points the
 reprojection errors are large and their geographic locations.
