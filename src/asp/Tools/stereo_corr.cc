@@ -1138,13 +1138,13 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   // not drop (the reason this retry was previously disabled). If it still fails,
   // an empty disparity is written for the tile and processing continues, so a
   // few holes do not abort the run.
-  int num_local_align_attempts = 2;
+  int num_local_align_attempts = 3;  // localalign-grow: 3rd pass at 4x
   for (int attempt = 1; attempt <= num_local_align_attempts; attempt++) {
-    if (attempt == 2) {
+    if (attempt >= 2) {
       vw_out() << "Local alignment retry (attempt " << attempt
                << "): expanding the tile boxes and scaling interest points.\n";
-      left_extra_factor  = 2.0;
-      right_extra_factor = 2.0;
+      left_extra_factor  = (attempt == 2) ? 2.0 : 4.0;
+      right_extra_factor = (attempt == 2) ? 2.0 : 4.0;
     }
     try {
       local_alignment(// Inputs
