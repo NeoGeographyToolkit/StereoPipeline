@@ -112,8 +112,7 @@ namespace asp {
   // SGM/MGM on low-contrast edge tiles. Clamping to a robust window first keeps
   // the terrain using the full range. NaN (nodata) pixels are left untouched.
   // Used only for local_epipolar alignment. A factor <= 0 disables the clamp.
-  void clampNormalizeTileRobust(vw::ImageView<float> & tile, double k,
-                                std::string const& label) {
+  void clampNormalizeTileRobust(vw::ImageView<float> & tile, double k) {
 
     if (k <= 0)
       return; // clamp disabled
@@ -145,12 +144,6 @@ namespace asp {
 
     double lo   = median - k * nmad;
     double span = 2.0 * k * nmad;
-
-    if (stereo_settings().local_alignment_debug)
-      std::cout << "NMAD clamp (" << label << "): median " << median
-                << " NMAD " << nmad << " factor " << k
-                << " clamp window [" << lo << ", " << (median + k * nmad) << "]"
-                << " valid px " << vals.size() << std::endl;
 
     for (int row = 0; row < tile.rows(); row++) {
       for (int col = 0; col < tile.cols(); col++) {
@@ -574,10 +567,6 @@ namespace asp {
     if (valid_in_core.empty() ||
         valid_in_core.width()  <= sliver_thresh ||
         valid_in_core.height() <= sliver_thresh) {
-      if (stereo_settings().local_alignment_debug)
-        std::cout << "Skip tile: valid-in-core " << valid_in_core
-                  << " (thresh " << sliver_thresh << "), core " << core_tile
-                  << ", valid_bbox " << valid_bbox << std::endl;
       skip_tile = true;
       return;
     }
@@ -593,12 +582,6 @@ namespace asp {
                                             allowed);
     left_trans_crop_win.grow(tile_crop_win);      // ensure the tile stays covered
     left_trans_crop_win.crop(img_box);
-
-    if (stereo_settings().local_alignment_debug)
-      std::cout << "Left crop win (valid-aware) " << left_trans_crop_win
-                << " target " << left_target_size
-                << " valid_bbox " << valid_bbox
-                << " allowed " << allowed << std::endl;
 
     vw::Matrix<double> left_global_mat
        = asp::alignmentMatrix(opt.out_prefix, asp::stereo_settings().alignment_method,
@@ -872,8 +855,8 @@ namespace asp {
     // Only for local_epipolar alignment (this whole function is only used in that
     // mode). NaN pixels are preserved.
     double const nmad_factor = 2.5;
-    clampNormalizeTileRobust(left_trans_clip,  nmad_factor, "left");
-    clampNormalizeTileRobust(right_trans_clip, nmad_factor, "right");
+    clampNormalizeTileRobust(left_trans_clip,  nmad_factor);
+    clampNormalizeTileRobust(right_trans_clip, nmad_factor);
 
     if (alg_name == "msmw" || alg_name == "msmw2") {
       // msmw does not like nan

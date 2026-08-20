@@ -1151,12 +1151,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       vw_out() << "Local alignment retry (attempt " << attempt
                << "): growing the tile boxes by " << extra
                << " px of padding per side and raising interest-point density.\n";
-    if (stereo_settings().local_alignment_debug)
-      std::cout << "Local align attempt " << attempt
-                << ": tile_crop_win " << tile_crop_win
-                << " max_tile_size " << max_tile_size
-                << " left_target_size " << left_target_size
-                << " right_target_size " << right_target_size << std::endl;
     try {
       local_alignment(// Inputs
                       opt, alg_name, opt.session->name(),
@@ -1196,15 +1190,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     save_empty_disparity(opt, tile_crop_win, out_disp_file);
     return;
   }
-
-  if (stereo_settings().local_alignment_debug)
-    std::cout << "Resolved crop wins: left " << left_trans_crop_win
-              << " (" << left_trans_crop_win.width() << "x"
-              << left_trans_crop_win.height() << "), right " << right_trans_crop_win
-              << " (" << right_trans_crop_win.width() << "x"
-              << right_trans_crop_win.height()
-              << "). The aligned tile is correlated as one block (no sub-tiling)."
-              << std::endl;
 
   vw_out() << "Min and max disparities: " << min_disp << ", " << max_disp << ".\n";
 

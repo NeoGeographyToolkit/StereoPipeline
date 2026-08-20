@@ -55,11 +55,11 @@ namespace asp {
   
   void local_alignment(// Inputs
                        ASPGlobalOptions const & opt,
-                       std::string             const & alg_name,
+                       std::string      const & alg_name,
                        std::string      const & session_name,
                        int                      max_tile_size,
-                       int                             left_target_size,
-                       int                             right_target_size,
+                       int                      left_target_size,
+                       int                      right_target_size,
                        vw::BBox2i       const & tile_crop_win,
                        bool                     write_nodata,
                        vw::camera::CameraModel const * left_camera_model,
