@@ -1120,7 +1120,6 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     write_nodata = false; // To avoid warnings from the tif reader in msmw
   }
 
-  double left_extra_factor = 1.0, right_extra_factor = 1.0;
   bool success = false;
   std::string err_msg;
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
@@ -1128,28 +1127,40 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   bool use_sphere_for_non_earth = true;
   cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
                                                     use_sphere_for_non_earth);
-  // Try local alignment. If a tile lacks enough interest points for the
-  // epipolar fit, retry once with both tile boxes expanded, bringing in more
-  // texture and interest points (growing the left box is what directly cures a
-  // texture-poor tile). The final disparity is cropped back to the nominal tile
-  // by adjustForCropWin (below), so a grown box does not change the output tile
-  // size and downstream blending is unaffected. On the retry, local_alignment
-  // scales the interest-point count by the box area so the match density does
-  // not drop (the reason this retry was previously disabled). If it still fails,
-  // an empty disparity is written for the tile and processing continues, so a
+  // Try local alignment. The tile passed in (tile_crop_win, sized by
+  // corr-tile-size) is the nominal output tile plus a collar of padding. If a
+  // tile lacks enough interest points for the epipolar fit, retry with the
+  // boxes grown by one more collar of padding per attempt (additive, not
+  // multiplied), which brings in more texture and interest points without the
+  // box ballooning. The right box is always one collar larger than the left, so
+  // it holds the residual disparity after alignment. The final disparity is
+  // cropped back to the nominal tile by adjustForCropWin (below), so a grown box
+  // does not change the output tile size and downstream blending is unaffected.
+  // On a retry, local_alignment also raises the interest-point density, since we
+  // do not know whether the tile failed for lack of extent or ip density. If all
+  // attempts fail, an empty disparity is written and processing continues, so a
   // few holes do not abort the run.
-  int num_local_align_attempts = 3;  // localalign-grow: 3rd pass at 4x
+  int const local_pad = 128;         // one collar of padding, in pixels
+  int num_local_align_attempts = 3;
+  bool skip_tile = false;
   for (int attempt = 1; attempt <= num_local_align_attempts; attempt++) {
-    if (attempt >= 2) {
+    int extra = (attempt - 1) * local_pad;                    // 0, 128, 256
+    int left_target_size  = max_tile_size + 2 * extra;        // grow left additively
+    int right_target_size = left_target_size + 2 * local_pad; // right one collar bigger
+    if (attempt >= 2)
       vw_out() << "Local alignment retry (attempt " << attempt
-               << "): expanding the tile boxes and scaling interest points.\n";
-      left_extra_factor  = (attempt == 2) ? 2.0 : 4.0;
-      right_extra_factor = (attempt == 2) ? 2.0 : 4.0;
-    }
+               << "): growing the tile boxes by " << extra
+               << " px of padding per side and raising interest-point density.\n";
+    if (stereo_settings().local_alignment_debug)
+      std::cout << "Local align attempt " << attempt
+                << ": tile_crop_win " << tile_crop_win
+                << " max_tile_size " << max_tile_size
+                << " left_target_size " << left_target_size
+                << " right_target_size " << right_target_size << std::endl;
     try {
       local_alignment(// Inputs
                       opt, alg_name, opt.session->name(),
-                      max_tile_size, left_extra_factor, right_extra_factor,
+                      max_tile_size, left_target_size, right_target_size,
                       tile_crop_win, write_nodata,
                       left_camera_model.get(),
                       right_camera_model.get(),
@@ -1157,13 +1168,23 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                       // Outputs
                       left_trans_crop_win, right_trans_crop_win,
                       left_local_mat, right_local_mat,
-                      left_aligned_file, right_aligned_file,  
-                      min_disp, max_disp);
+                      left_aligned_file, right_aligned_file,
+                      min_disp, max_disp, skip_tile);
+      if (skip_tile)
+        break;      // final decision: too little valid data, do not retry
       success = true;
       break;
     } catch(std::exception const& e){
       err_msg = e.what();
     }
+  }
+  if (skip_tile) {
+    // The tile has too little valid data to correlate; a neighbor's collar will
+    // cover any boundary sliver. Write empty disparity and continue (no retry).
+    vw_out() << "Skipping tile with insufficient valid data: " << tile_crop_win
+             << ". Writing empty disparity.\n";
+    save_empty_disparity(opt, tile_crop_win, out_disp_file);
+    return;
   }
   if (!success) {
     // Surface the underlying exception so a swallowed throw does not
@@ -1175,6 +1196,15 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     save_empty_disparity(opt, tile_crop_win, out_disp_file);
     return;
   }
+
+  if (stereo_settings().local_alignment_debug)
+    std::cout << "Resolved crop wins: left " << left_trans_crop_win
+              << " (" << left_trans_crop_win.width() << "x"
+              << left_trans_crop_win.height() << "), right " << right_trans_crop_win
+              << " (" << right_trans_crop_win.width() << "x"
+              << right_trans_crop_win.height()
+              << "). The aligned tile is correlated as one block (no sub-tiling)."
+              << std::endl;
 
   vw_out() << "Min and max disparities: " << min_disp << ", " << max_disp << ".\n";
 
