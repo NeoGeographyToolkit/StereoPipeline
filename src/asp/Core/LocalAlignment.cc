@@ -33,6 +33,7 @@
 #include <asp/Core/FileUtils.h>
 
 #include <vw/Math/Transform.h>
+#include <vw/Math/Functors.h>
 #include <vw/Image/Transform.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/Image/Interpolation.h>
@@ -127,17 +128,12 @@ namespace asp {
     if (vals.size() < 2)
       return; // not enough valid data to compute robust stats
 
-    // Median (of the valid values)
-    std::vector<float> tmp = vals;
-    size_t mid = tmp.size() / 2;
-    std::nth_element(tmp.begin(), tmp.begin() + mid, tmp.end());
-    double median = tmp[mid];
-
-    // NMAD = 1.4826 * median(|x - median|)
-    for (size_t i = 0; i < tmp.size(); i++)
-      tmp[i] = std::fabs(vals[i] - median);
-    std::nth_element(tmp.begin(), tmp.begin() + mid, tmp.end());
-    double nmad = 1.4826 * tmp[mid];
+    // Robust stats via the shared VW helpers (median averages the two central
+    // values for even counts; nmad = 1.4826 * median(|x - median|)). Both reorder
+    // vals in place, which is fine: vals is not used afterward (the clamp below
+    // reads the tile directly), so no copy is needed.
+    double median = vw::math::median_in_place(vals);
+    double nmad   = vw::math::nmad_in_place(vals);
 
     if (nmad <= 0)
       return; // flat tile, nothing to stretch

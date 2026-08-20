@@ -216,7 +216,7 @@ A first DEM is made from the raw images with local epipolar alignment
 approach used for the TMC triplet (:numref:`chandra2_tmc_le`). This method does
 not require the cameras to be correctly registered to the ground.
 
-This needs build 2026/08/19 (:numref:`release`) or later, which improved the
+This needs build 2026/08/21 (:numref:`release`) or later, which improved the
 robustness of local-epipolar alignment.
 
 ::
@@ -660,7 +660,7 @@ A first DEM is produced from the raw images and bundle-adjusted cameras with
 not require the cameras to be correctly registered to the ground but only
 self-consistent.
 
-This requires build 2026/08/19 or later (:numref:`release`), incorporating some
+This requires build 2026/08/21 or later (:numref:`release`), incorporating some
 robustness fixes for this method.
 
 Run each pair such as::

@@ -490,7 +490,10 @@ errors (:numref:`ba_out_files`).
 
 Stereo is run next. The ``local_epipolar`` alignment (:numref:`running-stereo`)
 here did a flawless job, unlike ``affineepipolar`` alignment which resulted in
-some blunders. 
+some blunders.
+
+This requires build 2026/08/21 or later (:numref:`release`), which includes
+robustness fixes for local-epipolar alignment.
 
 ::
 
@@ -505,7 +508,13 @@ some blunders.
       img/K05_055472_1916_XN_11N210W.cal.json    \
       stereo/run
     point2dem --stereographic --auto-proj-center \
+      --max-valid-triangulation-error 10         \
       --errorimage stereo/run-PC.tif
+
+Above, ``--max-valid-triangulation-error 10`` sets an explicit triangulation-error
+outlier cutoff, in meters. Without it, ``point2dem`` uses a relative outlier filter
+(``--remove-outliers-params``, :numref:`point2dem`) which may underestimate the triangulation
+error when there is strong jitter.
 
 Note how above we chose to create dense interest point matches from
 disparity. They will be used to solve for jitter. We used the option
@@ -549,33 +558,35 @@ Solving for jitter
 Then, jitter was solved for, using the *original cameras*, with the adjustments prefix
 having the latest refinements and alignment::
 
-    jitter_solve                              \
-      img/J03_045820_1915_XN_11N210W.cal.cub  \
-      img/K05_055472_1916_XN_11N210W.cal.cub  \
-      img/J03_045820_1915_XN_11N210W.cal.json \
-      img/K05_055472_1916_XN_11N210W.cal.json \
-      --input-adjustments-prefix ba_align/run \
-      --max-pairwise-matches 100000           \
-      --match-files-prefix stereo/run-disp    \
-      --num-lines-per-position    1000        \
-      --num-lines-per-orientation 1000        \
-      --max-initial-reprojection-error 20     \
-      --camera-position-uncertainty 2000,2000 \
-      --heights-from-dem ref_dem.tif          \
-      --heights-from-dem-uncertainty 20.0     \
-      --num-iterations 50                     \
-      --anchor-dem ref_dem.tif                \
-      --num-anchor-points 1000                \
-      --anchor-dem-uncertainty 50.0           \
-      --tri-weight 0.1                        \
+    jitter_solve                               \
+      img/J03_045820_1915_XN_11N210W.cal.cub   \
+      img/K05_055472_1916_XN_11N210W.cal.cub   \
+      img/J03_045820_1915_XN_11N210W.cal.json  \
+      img/K05_055472_1916_XN_11N210W.cal.json  \
+      --input-adjustments-prefix ba_align/run  \
+      --max-pairwise-matches 100000            \
+      --match-files-prefix stereo/run-disp     \
+      --num-lines-per-position    1000         \
+      --num-lines-per-orientation 250          \
+      --max-initial-reprojection-error 20      \
+      --camera-position-uncertainty 100,100    \
+      --heights-from-dem ref_dem.tif           \
+      --heights-from-dem-uncertainty 300       \
+      --heights-from-dem-robust-threshold 0.05 \
+      --num-iterations 30                      \
+      --anchor-dem ref_dem.tif                 \
+      --num-anchor-points 1000                 \
+      --num-anchor-points-extra-lines 5000     \
+      --anchor-dem-uncertainty 300             \
+      --tri-weight 0.1                         \
       -o jitter/run
 
 It can be preferable to specify here the cameras after bundle adjustment, and
 then omit ``--input-adjustments-prefix``.
 
-It was found that using about 1000 lines per pose (position and
-orientation) sample gave good results, and if using too few lines, the
-poses become noisy. 
+A fine pose sampling (here 1000 lines per position and 250 per orientation) is
+needed to fit the jitter oscillation. Using too few lines per sample leaves the
+poses noisy.
 
 Either dense and *uniformly distributed* interest point matches or sufficiently
 dense *subpixel-level accurate sparse matches* are necessary to solve for jitter
@@ -590,9 +601,14 @@ final solution may not be unique, as a long-wavelength perturbation
 consistently applied to all obtained camera trajectories may work just
 as well.
 
-We used camera position constraints (:numref:`jitter_camera`), it is
-suggested to be generous with the uncertainties. For CTX they are likely
-rather large.
+A generous ``--heights-from-dem-uncertainty`` (here 300 m) is needed because the
+MOLA reference DEM is coarse (463 m/pixel) and the terrain around the large
+crater is steep and poorly resolved, so the reference should only weakly pull
+the solution. A tight ``--camera-position-uncertainty`` (here 100 m,
+:numref:`jitter_camera`) keeps the trajectory from drifting. Fine pose sampling
+fits the oscillation, and anchor points (:numref:`jitter_anchor_points`), with a
+matching generous ``--anchor-dem-uncertainty``, prevent pose instability at the
+starting and ending scan lines.
 
 The report files mentioned in :numref:`jitter_out_files` can be very helpful
 in evaluating how well the jitter solver worked, even before rerunning stereo.
@@ -616,77 +632,45 @@ used::
       jitter/run-K05_055472_1916_XN_11N210W.cal.adjusted_state.json \
       stereo_jitter/run
     point2dem --stereographic --auto-proj-center                    \
+      --max-valid-triangulation-error 10                            \
       --errorimage stereo_jitter/run-PC.tif
 
-To validate the results, first the triangulation (ray intersection) error
-(:numref:`point2dem`) was plotted, before and after solving for jitter. These
-were colorized as::
+To validate the results, the terrain and the triangulation (ray intersection)
+error (:numref:`point2dem`) were examined before and after solving for jitter.
+The DEMs were hillshaded and the triangulation error was colorized (0 to 10 m)
+with::
 
     colormap --min 0 --max 10 stereo/run-IntersectionErr.tif
     colormap --min 0 --max 10 stereo_jitter/run-IntersectionErr.tif
 
-The result is below.
+The result is in :numref:`ctx_jitter_terrain`.
 
-.. figure:: ../images/jitter_intersection_error.png
-   :name: ctx_jitter_intersection_error
+.. figure:: ../images/jitter_ctx_terrain.png
+   :name: ctx_jitter_terrain
 
-   The colorized triangulation error (max shade of red is 10 m)
-   before and after optimization for jitter.
+   Left to right: hillshaded stereo DEM before and after solving for jitter, and
+   the colorized triangulation error (0 to 10 m) before and after. The gross
+   terrain is unchanged, while the banded jitter signature in the triangulation
+   error is removed.
 
-Then, the absolute difference was computed between the sparse MOLA
-dataset and the DEM after alignment and before solving for jitter, and
-the same was done with the DEM produced after solving for it::
+Next, the stereo DEMs were compared to the coarse MOLA reference DEM
+(``ref_dem.tif``) and to each other, using signed differences computed with
+``geodiff`` (:numref:`geodiff`). Both stereo DEMs are the versions aligned to the
+reference DEM (:numref:`jitter_dem_constraint`). The result is in
+:numref:`ctx_jitter_diff`.
 
-    geodiff --absolute                                  \
-      --csv-format 1:lon,2:lat,5:radius_m               \
-      stereo/run-align-trans_reference-DEM.tif mola.csv \
-      -o stereo/run
+.. figure:: ../images/jitter_ctx_diff.png
+   :name: ctx_jitter_diff
 
-    geodiff --absolute                                  \
-      --csv-format 1:lon,2:lat,5:radius_m               \
-      stereo_jitter/run-DEM.tif mola.csv                \
-      -o stereo_jitter/run
+   Left to right: hillshaded MOLA reference DEM, then signed differences (clamped
+   to :math:`\pm 30` m) of the stereo DEM before jitter minus the reference, after
+   jitter minus the reference, and after minus before. The banded jitter signature,
+   clearly present in the first difference, is largely gone in the second, and the
+   last panel isolates the correction that was applied.
 
-Similar commands are used to find differences with the
-reference DEM::
-
-    geodiff --absolute ref_dem.tif                \
-      stereo/run-align-trans_reference-DEM.tif -o \
-      stereo/run
-    colormap --min 0 --max 20 stereo/run-diff.tif
-
-    geodiff --absolute ref_dem.tif                \
-      stereo_jitter/run-DEM.tif                   \
-      -o stereo_jitter/run
-    colormap --min 0 --max 20 stereo_jitter/run-diff.tif
-
-Plot with::
-
-    stereo_gui --colorize --min 0 --max 20 \
-       stereo/run-diff.csv                 \
-       stereo_jitter/run-diff.csv          \
-       stereo/run-diff_CMAP.tif            \
-       stereo_jitter/run-diff_CMAP.tif     \
-       stereo_jitter/run-DEM.tif           \
-       ref_dem.tif
-
-DEMs can later be hillshaded. 
-
-.. figure:: ../images/jitter_dem_diff.png
-   :name: ctx_jitter_dem_diff_error
-
-   From left to right are shown colorized absolute differences of (a)
-   jitter-unoptimized but aligned DEM and ungridded MOLA (b) jitter-optimized
-   DEM and ungridded MOLA (c) unoptimized DEM and gridded MOLA (d)
-   jitter-optimized DEM and gridded MOLA. Then, (e) hillshaded optimized DEM (f)
-   hillshaded gridded MOLA (which is the reference DEM). The max shade of red is
-   20 m difference.
-
-It can be seen that the banded systematic error due to jitter is gone,
-both in the triangulation error maps and DEM differences. The produced
-DEM still disagrees somewhat with the reference, but we believe that
-this is due to the reference DEM being very coarse, per plots (e) and
-(f) in the figure.
+It can be seen that the banded systematic error due to jitter is gone, both in
+the triangulation error and in the difference to the reference DEM. Multiple
+overlapping images are suggested for robustness (:numref:`jitter_limitations`).
 
 .. _jitter_multiple_images:
 
@@ -961,6 +945,10 @@ Solve for jitter. This command expects raw (not mapprojected) images::
       --anchor-dem ref.tif                    \
       --anchor-dem-uncertainty 50             \
     -o jitter/run
+
+For many images, this joint solve can take several hours. Consider using larger
+values for ``--num-lines-per-orientation`` and ``--num-lines-per-position``, and
+smaller number of iterations.
 
 The value of ``--heights-from-dem-uncertainty`` is very important. See
 :numref:`jitter_dem_constraint` regarding the DEM constraint,
