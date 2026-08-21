@@ -25,8 +25,13 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/shapeFile.h>
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/Image/Manipulation.h>
+
+#include <boost/filesystem.hpp>
 
 #include <fstream>
+#include <memory>
 
 namespace asp {
 
@@ -119,6 +124,20 @@ void produceTiles(bool is_map_projected,
     }
   }
 
+  // For local epipolar alignment, the left mask is the ground truth for where
+  // the left image has data. D_sub alone must not decide which tiles to process:
+  // it can be sparse and can vary non-deterministically between runs, silently
+  // dropping tiles that actually have valid data (which then never get computed).
+  // So, in addition to the D_sub check below, include a tile if the full-res left
+  // mask has any valid pixel in the tile box. The mask is read lazily, one row at
+  // a time with early exit, to avoid loading the whole image.
+  bool local_epi = (stereo_settings().alignment_method == "local_epipolar");
+  std::string lmask_file = output_prefix + "-lMask.tif";
+  bool have_lmask = local_epi && boost::filesystem::exists(lmask_file);
+  std::shared_ptr<vw::DiskImageView<vw::uint8>> lmask_ptr;
+  if (have_lmask)
+    lmask_ptr.reset(new vw::DiskImageView<vw::uint8>(lmask_file));
+
   int tile_x = parallel_tile_size[0];
   int tile_y = parallel_tile_size[1];
   int tiles_nx = int(std::ceil(double(trans_left_image_size[0]) / tile_x));
@@ -169,9 +188,28 @@ void produceTiles(bool is_map_projected,
         } 
       }
       
+      // If D_sub excluded this tile, still include it if the left mask has any
+      // valid pixel in the tile box (read lazily, row by row, with early exit).
+      if (!has_valid_vals && have_lmask) {
+        vw::DiskImageView<vw::uint8> & lmask = *lmask_ptr;
+        int x0 = std::max(beg_x - sgm_collar_size, 0);
+        int y0 = std::max(beg_y - sgm_collar_size, 0);
+        int x1 = std::min(beg_x + curr_tile_x + sgm_collar_size, lmask.cols());
+        int y1 = std::min(beg_y + curr_tile_y + sgm_collar_size, lmask.rows());
+        for (int y = y0; y < y1 && !has_valid_vals; y++) {
+          vw::ImageView<vw::uint8> row = vw::crop(lmask, vw::BBox2i(x0, y, x1 - x0, 1));
+          for (int x = 0; x < row.cols(); x++) {
+            if (row(x, 0) != 0) {
+              has_valid_vals = true;
+              break;
+            }
+          }
+        }
+      }
+
       if (has_valid_vals) {
         // Save the tile
-        ofs << output_prefix << "-" << beg_x << "_" << beg_y << "_" 
+        ofs << output_prefix << "-" << beg_x << "_" << beg_y << "_"
             << curr_tile_x << "_" << curr_tile_y << "\n";
             
         // Append the tile to the shape file structure
