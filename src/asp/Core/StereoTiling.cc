@@ -25,8 +25,6 @@
 #include <vw/Cartography/GeoTransform.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Cartography/shapeFile.h>
-#include <vw/Image/ImageView.h>
-#include <vw/FileIO/DiskImageView.h>
 
 #include <fstream>
 
@@ -72,39 +70,10 @@ void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
   tile_id_vec.push_back(tile_id);
 }
 
-// Return true if the left and right image masks both have a valid pixel at some
-// common location within the given tile. Used for local_epipolar alignment to keep
-// a tile that has real image overlap even when the low-resolution D_sub seed is empty.
-bool masksOverlapInTile(vw::ImageView<vw::uint8> const& left_mask,
-                        vw::ImageView<vw::uint8> const& right_mask,
-                        int beg_x, int beg_y, int curr_tile_x, int curr_tile_y) {
-
-  int cols = std::min(left_mask.cols(), right_mask.cols());
-  int rows = std::min(left_mask.rows(), right_mask.rows());
-  int min_x = std::max(beg_x, 0);
-  int min_y = std::max(beg_y, 0);
-  int max_x = std::min(beg_x + curr_tile_x, cols);
-  int max_y = std::min(beg_y + curr_tile_y, rows);
-
-  for (int y = min_y; y < max_y; y++) {
-    for (int x = min_x; x < max_x; x++) {
-      if (left_mask(x, y) != 0 && right_mask(x, y) != 0)
-        return true;
-    }
-  }
-  return false;
-}
-
 // Produce the list of tiles for parallel_stereo. If D_sub is available, write
 // only those tiles for which D_sub has valid values. Also save a shape file
 // with the tiles and the tile index for each tile, to be read in QGIS for
 // visualization.
-// For local_epipolar alignment, tiles do their own per-tile interest point matching,
-// so they can produce disparity even where the D_sub seed has holes (common at the
-// cross-track image edges). There the D_sub search is widened by 1.5 tiles and a tile
-// is also kept if the left and right masks overlap in it. Vast truly-empty areas with
-// no data nearby are still skipped, keeping most of the speedup. Other alignment
-// methods are unaffected.
 void produceTiles(bool is_map_projected,
                   std::string const& output_prefix,
                   vw::Vector2 const& trans_left_image_size,
@@ -150,21 +119,6 @@ void produceTiles(bool is_map_projected,
     }
   }
 
-  // For local_epipolar alignment, also load the left and right masks, to keep tiles
-  // that have image overlap even where the D_sub seed is empty.
-  bool is_local_epi = (stereo_settings().alignment_method == "local_epipolar");
-  bool have_masks = false;
-  vw::ImageView<vw::uint8> left_mask, right_mask;
-  if (is_local_epi) {
-    try {
-      left_mask  = vw::DiskImageView<vw::uint8>(output_prefix + "-lMask.tif");
-      right_mask = vw::DiskImageView<vw::uint8>(output_prefix + "-rMask.tif");
-      have_masks = true;
-    } catch (...) {
-      have_masks = false;
-    }
-  }
-
   int tile_x = parallel_tile_size[0];
   int tile_y = parallel_tile_size[1];
   int tiles_nx = int(std::ceil(double(trans_left_image_size[0]) / tile_x));
@@ -193,26 +147,16 @@ void produceTiles(bool is_map_projected,
       bool has_valid_vals = true;
       if (have_D_sub) {
         has_valid_vals = false;
-
-        // For local_epipolar, widen the D_sub search by 1.5 tiles, so a tile near a
-        // seed is kept even if its own D_sub cell is empty.
-        int extra_x = 0, extra_y = 0;
-        if (is_local_epi) {
-          extra_x = int(1.5 * tile_x);
-          extra_y = int(1.5 * tile_y);
-        }
-        int min_sub_x = std::floor((beg_x - sgm_collar_size - extra_x) / up_scale[0]);
-        int min_sub_y = std::floor((beg_y - sgm_collar_size - extra_y) / up_scale[1]);
-        int max_sub_x = std::ceil((beg_x + curr_tile_x + sgm_collar_size + extra_x)
-                                  / up_scale[0]);
-        int max_sub_y = std::ceil((beg_y + curr_tile_y + sgm_collar_size + extra_y)
-                                  / up_scale[1]);
-
+        int min_sub_x = std::floor((beg_x - sgm_collar_size) / up_scale[0]);
+        int min_sub_y = std::floor((beg_y - sgm_collar_size) / up_scale[1]);
+        int max_sub_x = std::ceil((beg_x + curr_tile_x + sgm_collar_size) / up_scale[0]);
+        int max_sub_y = std::ceil((beg_y + curr_tile_y + sgm_collar_size) / up_scale[1]);
+        
         min_sub_x = std::max(min_sub_x, 0);
         min_sub_y = std::max(min_sub_y, 0);
         max_sub_x = std::min(max_sub_x, sub_disp.cols() - 1);
         max_sub_y = std::min(max_sub_y, sub_disp.rows() - 1);
-
+      
         for (int y = min_sub_y; y <= max_sub_y; y++) {
           for (int x = min_sub_x; x <= max_sub_x; x++) {
             if (is_valid(sub_disp(x, y))) {
@@ -220,15 +164,9 @@ void produceTiles(bool is_map_projected,
               break;
             }
           }
-          if (has_valid_vals)
+          if (has_valid_vals) 
             break;
-        }
-
-        // For local_epipolar, also keep the tile if the left and right masks overlap
-        // in it, even when the widened D_sub search found nothing.
-        if (!has_valid_vals && is_local_epi && have_masks)
-          has_valid_vals = masksOverlapInTile(left_mask, right_mask,
-                                              beg_x, beg_y, curr_tile_x, curr_tile_y);
+        } 
       }
       
       if (has_valid_vals) {

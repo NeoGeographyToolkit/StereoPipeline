@@ -33,7 +33,6 @@
 #include <asp/Core/FileUtils.h>
 
 #include <vw/Math/Transform.h>
-#include <vw/Math/Functors.h>
 #include <vw/Image/Transform.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/Image/Interpolation.h>
@@ -52,9 +51,6 @@
 #include <boost/algorithm/string.hpp>
 #include <limits>
 #include <cctype>
-#include <algorithm>
-#include <cmath>
-#include <vector>
 
 using namespace vw;
 namespace fs = boost::filesystem;
@@ -104,115 +100,6 @@ namespace asp {
     return out_box;
   }
 
-  // Clamp-normalize a locally aligned tile to [0, 1] using robust per-tile
-  // statistics: median +/- k*NMAD, where NMAD = 1.4826 * median(|x - median|)
-  // is a robust estimate of the standard deviation. A handful of outlier pixels
-  // (from cloud, deep shadow, or resampling near nodata) would otherwise stretch
-  // the raw min/max, and when the correlator later quantizes the tile to uint8
-  // the actual terrain gets squeezed into a narrow band of gray levels, starving
-  // SGM/MGM on low-contrast edge tiles. Clamping to a robust window first keeps
-  // the terrain using the full range. NaN (nodata) pixels are left untouched.
-  // Used only for local_epipolar alignment. A factor <= 0 disables the clamp.
-  void clampNormalizeTileRobust(vw::ImageView<float> & tile, double k) {
-
-    if (k <= 0)
-      return; // clamp disabled
-
-    std::vector<float> vals;
-    vals.reserve(size_t(tile.cols()) * size_t(tile.rows()));
-    for (int row = 0; row < tile.rows(); row++)
-      for (int col = 0; col < tile.cols(); col++)
-        if (std::isfinite(tile(col, row)))
-          vals.push_back(tile(col, row));
-
-    if (vals.size() < 2)
-      return; // not enough valid data to compute robust stats
-
-    // Robust stats via the shared VW helpers (median averages the two central
-    // values for even counts; nmad = 1.4826 * median(|x - median|)). Both reorder
-    // vals in place, which is fine: vals is not used afterward (the clamp below
-    // reads the tile directly), so no copy is needed.
-    double median = vw::math::median_in_place(vals);
-    double nmad   = vw::math::nmad_in_place(vals);
-
-    if (nmad <= 0)
-      return; // flat tile, nothing to stretch
-
-    double lo   = median - k * nmad;
-    double span = 2.0 * k * nmad;
-
-    for (int row = 0; row < tile.rows(); row++) {
-      for (int col = 0; col < tile.cols(); col++) {
-        float v = tile(col, row);
-        if (!std::isfinite(v))
-          continue;
-        double nv = (v - lo) / span;
-        if (nv < 0.0) nv = 0.0;
-        if (nv > 1.0) nv = 1.0;
-        tile(col, row) = float(nv);
-      }
-    }
-  }
-
-  // Find the bounding box of valid (not nodata, not NaN) pixels of the given
-  // image within search_box (clipped to the image). Returns an empty box if no
-  // valid pixel is found. Used to size the local-alignment crop around actual
-  // image content rather than growing a square box blindly into nodata.
-  vw::BBox2i validDataBBox(vw::ImageViewRef<vw::PixelGray<float>> const& img,
-                          float nodata, vw::BBox2i search_box) {
-    search_box.crop(vw::bounding_box(img));
-    vw::BBox2i vb; // empty
-    if (search_box.empty())
-      return vb;
-    vw::ImageView<vw::PixelGray<float>> region = vw::crop(img, search_box);
-    for (int r = 0; r < region.rows(); r++) {
-      for (int c = 0; c < region.cols(); c++) {
-        float v = region(c, r);
-        if (std::isnan(v) || v == nodata)
-          continue;
-        vb.grow(Vector2i(search_box.min().x() + c, search_box.min().y() + r));
-      }
-    }
-    if (!vb.empty())
-      vb.max() += Vector2i(1, 1); // make it a pixel-inclusive [min, max) box
-    return vb;
-  }
-
-  // Grow one dimension of the box toward the target size, adding on whichever
-  // side has room inside the allowed region (valid data + collar). Prefers to
-  // split evenly, but if one side is blocked (nodata), it puts the remainder on
-  // the side that has room. This biases growth toward where the valid data is.
-  void growDimTowardValid(int& lo, int& hi, int target, int allowed_lo, int allowed_hi) {
-    int deficit = target - (hi - lo);
-    if (deficit <= 0)
-      return;
-    int room_lo = std::max(0, lo - allowed_lo);
-    int room_hi = std::max(0, allowed_hi - hi);
-    int add_lo = std::min(room_lo, deficit / 2);
-    int add_hi = std::min(room_hi, deficit - add_lo);
-    add_lo = std::min(room_lo, deficit - add_hi); // use leftover room on the low side
-    lo -= add_lo;
-    hi += add_hi;
-  }
-
-  // Grow the box to about target_size in each dimension, but only into the
-  // allowed region (the valid-data bounding box grown by a collar). Growth is
-  // done in x and then y, and repeated, so that after widening one way the
-  // perpendicular direction is re-examined and filled too. The original box is
-  // always kept (it covers the output tile we owe disparity for); only real,
-  // valid-data pixels (plus a collar) are added around it, never open nodata.
-  vw::BBox2i growBoxValidAware(vw::BBox2i box, int target_size, vw::BBox2i allowed) {
-    for (int iter = 0; iter < 2; iter++) {
-      int x0 = box.min().x(), x1 = box.max().x();
-      growDimTowardValid(x0, x1, target_size, allowed.min().x(), allowed.max().x());
-      box.min().x() = x0; box.max().x() = x1;
-      int y0 = box.min().y(), y1 = box.max().y();
-      growDimTowardValid(y0, y1, target_size, allowed.min().y(), allowed.max().y());
-      box.min().y() = y0; box.max().y() = y1;
-    }
-    return box;
-  }
-
   // Estimate the region in the right image corresponding
   // to left_trans_crop_win based on ip in the current box and
   // also by creating ip from D_sub. If cannot find enough such ip,
@@ -224,7 +111,8 @@ namespace asp {
                                      vw::HomographyTransform const & left_global_trans,
                                      vw::HomographyTransform const & right_global_trans,
                                      ImageViewRef<PixelGray<float>>  right_globally_aligned_image,
-                                     int                             right_target_size,
+                                     int                             max_tile_size,
+                                     double                          right_extra_factor,
                                      BBox2i                  const & left_trans_crop_win,
                                      BBox2i                        & right_trans_crop_win) {
 
@@ -316,16 +204,16 @@ namespace asp {
         std::cout << "Right trans crop win " << right_trans_crop_win << std::endl;
       }
 
-      // Sometimes the right box is under-estimated when there are not enough ip,
-      // or is not accurately determined from the ip or disparity. Grow it to a
-      // square at least right_target_size on a side. The caller sizes this one
-      // collar of padding larger than the left box, so the right box is always
-      // bigger than the left box and holds the residual disparity after
-      // alignment. After ip are found, filtered, and local alignment is applied,
-      // the aligned tiles are cropped to the left bounding box before running
-      // correlation.
+      // This is a bugfix, sometimes the right tile is under-estimated
+      // if there are not enough ip. Make the box bigger as sometimes
+      // it is not accurately determined based on input ip or
+      // disparity. After ip are found, filtered, and local alignment
+      // is applied, the aligned tiles will be shrunk (as I recall)
+      // before running correlation.
+      // TODO(oalexan1): Allow the right box to be bigger than left box,
+      // perhaps by a factor of 1.5.
       right_trans_crop_win = grow_box_to_square_with_constraint
-        (right_trans_crop_win, right_target_size,
+        (right_trans_crop_win, right_extra_factor * max_tile_size,
          vw::bounding_box(right_globally_aligned_image));
 
       if (stereo_settings().local_alignment_debug) {
@@ -478,8 +366,8 @@ namespace asp {
                        std::string             const & alg_name,
                        std::string             const & session_name,
                        int                             max_tile_size,
-                       int                             left_target_size,
-                       int                             right_target_size,
+                       double                          left_extra_factor,
+                       double                          right_extra_factor,
                        vw::BBox2i              const & tile_crop_win,
                        bool                            write_nodata,
                        vw::camera::CameraModel const * left_camera_model,
@@ -493,10 +381,8 @@ namespace asp {
                        std::string                   & left_aligned_file,
                        std::string                   & right_aligned_file,
                        int                           & min_disp,
-                       int                           & max_disp,
-                       bool                          & skip_tile) {
+                       int                           & max_disp) {
 
-    skip_tile = false;
     bool matches_as_txt = stereo_settings().matches_as_txt;
 
     // Read the unaligned images
@@ -531,53 +417,17 @@ namespace asp {
     DiskImageView<PixelGray<float>> left_globally_aligned_image(left_rsrc),
       right_globally_aligned_image(right_rsrc);
 
-    // Size the left crop window around the actual valid data, not by growing a
-    // blind square. Near the image footprint edge a square-grown box is mostly
-    // nodata, which starves interest-point matching and the correlator (and a
-    // retry that just grows the square only pulls in more nodata). Instead find
-    // the valid-data bounding box in the neighborhood and grow the tile toward
-    // it (in x and y), never into open nodata.
-    int const local_collar = 128; // one collar of padding (matches stereo_corr)
-    BBox2i img_box = vw::bounding_box(left_globally_aligned_image);
+    // At image edges, the tile we work with can be a sliver which can
+    // cause issues. Grow it to a square tile, then crop it to the
+    // image bounding box (which may make it non-square again, so
+    // repeat this a few times during which the box grows
+    // bigger).
+    left_trans_crop_win = grow_box_to_square_with_constraint
+      (tile_crop_win, left_extra_factor * max_tile_size,
+       vw::bounding_box(left_globally_aligned_image));
 
-    // Search a neighborhood as wide as the growth could reach.
-    BBox2i search_box = tile_crop_win;
-    search_box.expand(left_target_size);
-    BBox2i valid_bbox = validDataBBox(left_globally_aligned_image,
-                                      left_nodata_value, search_box);
-
-    // Decide whether to skip this tile. The core is the output tile without its
-    // padding collar. If the core has valid data we produce it; but if that
-    // valid data is only a thin sliver (<= half a collar in either dimension) we
-    // skip: an adjacent tile's collar overlaps this tile and will cover such a
-    // boundary-hugging sliver in its own blended output. (A rare sliver floating
-    // in the tile interior, with no data-bearing neighbor, would be dropped;
-    // that is uncommon since footprint slivers hug edges.)
-    BBox2i core_tile = tile_crop_win;
-    core_tile.min() += Vector2i(local_collar, local_collar); // remove padding collar
-    core_tile.max() -= Vector2i(local_collar, local_collar);
-    core_tile.crop(img_box);
-    BBox2i valid_in_core = valid_bbox;
-    valid_in_core.crop(core_tile);
-    int const sliver_thresh = local_collar / 2; // half a collar
-    if (valid_in_core.empty() ||
-        valid_in_core.width()  <= sliver_thresh ||
-        valid_in_core.height() <= sliver_thresh) {
-      skip_tile = true;
-      return;
-    }
-
-    // Grow the tile toward valid data (plus a collar), capped at the target
-    // size, always keeping the tile itself.
-    BBox2i allowed = valid_bbox;
-    allowed.expand(local_collar);
-    allowed.crop(img_box);
-    left_trans_crop_win = tile_crop_win;
-    left_trans_crop_win.crop(img_box);            // keep the tile, inside image
-    left_trans_crop_win = growBoxValidAware(left_trans_crop_win, left_target_size,
-                                            allowed);
-    left_trans_crop_win.grow(tile_crop_win);      // ensure the tile stays covered
-    left_trans_crop_win.crop(img_box);
+    if (stereo_settings().local_alignment_debug)
+      std::cout << "Grown left trans crop win " << left_trans_crop_win << std::endl;
 
     vw::Matrix<double> left_global_mat
        = asp::alignmentMatrix(opt.out_prefix, asp::stereo_settings().alignment_method,
@@ -594,7 +444,7 @@ namespace asp {
     estimate_right_trans_crop_win(opt, left_unaligned_file, right_unaligned_file,
                                   left_global_trans, right_global_trans,
                                   right_globally_aligned_image,
-                                  right_target_size, left_trans_crop_win,
+                                  max_tile_size, right_extra_factor, left_trans_crop_win,
                                   // Output
                                   right_trans_crop_win);
 
@@ -612,8 +462,7 @@ namespace asp {
     size_t number_of_jobs = 1;
     bool use_cached_ip = false;
     int local_ip_per_tile = stereo_settings().ip_per_tile;
-    bool is_retry = (left_target_size > max_tile_size); // box was grown past the base tile
-    if (is_retry)
+    if (left_extra_factor > 1.0 || right_extra_factor > 1.0)
       local_ip_per_tile *= 2;
     detect_match_ip(left_local_ip, right_local_ip,
                     vw::pixel_cast<float>(crop(left_globally_aligned_image,
@@ -841,18 +690,6 @@ namespace asp {
                                 ValueEdgeExtension<PixelMask<float>>(nodata_mask)),
                     bounding_box(left_aligned_image)), // note the left bounding box
                    nan_nodata);
-
-    // Robustly clamp-normalize each aligned tile to [0, 1] using per-tile
-    // median +/- 2.5*NMAD. This is done per tile (not per whole image), so
-    // low-contrast edge tiles are stretched using their own statistics and a few
-    // outliers do not compress the terrain when the correlator quantizes to
-    // uint8. The factor 2.5 keeps close to a 99% coverage for a normal
-    // distribution while still trimming the heavy tails that cause the problem.
-    // Only for local_epipolar alignment (this whole function is only used in that
-    // mode). NaN pixels are preserved.
-    double const nmad_factor = 2.5;
-    clampNormalizeTileRobust(left_trans_clip,  nmad_factor);
-    clampNormalizeTileRobust(right_trans_clip, nmad_factor);
 
     if (alg_name == "msmw" || alg_name == "msmw2") {
       // msmw does not like nan

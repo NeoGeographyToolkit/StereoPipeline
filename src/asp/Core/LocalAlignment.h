@@ -55,11 +55,11 @@ namespace asp {
   
   void local_alignment(// Inputs
                        ASPGlobalOptions const & opt,
-                       std::string      const & alg_name,
+                       std::string             const & alg_name,
                        std::string      const & session_name,
                        int                      max_tile_size,
-                       int                      left_target_size,
-                       int                      right_target_size,
+                       double                          left_extra_factor,
+                       double                          right_extra_factor,
                        vw::BBox2i       const & tile_crop_win,
                        bool                     write_nodata,
                        vw::camera::CameraModel const * left_camera_model,
@@ -73,8 +73,7 @@ namespace asp {
                        std::string        & left_aligned_file,
                        std::string        & right_aligned_file,
                        int                & min_disp,
-                       int                & max_disp,
-                       bool               & skip_tile);
+                       int                & max_disp); 
   
   // Go from 1D disparity of images with affine epipolar alignment to the 2D
   // disparity by undoing the transforms that applied this alignment.
