@@ -86,18 +86,87 @@ namespace asp {
       // Ensure we do not exceed the image bounds
       out_box.crop(max_box);
 
-      // TODO(oalexan1): Here need find the bounding box of the valid
-      // data and if necessary grow box to make the bounding box of
-      // the valid data be as wide and tall as a full tile. As it is,
-      // the box could be big but a good chunk of it could be covering
-      // an area with no data.
-
       // Stop when the box stops growing
       if (out_box == prev_box)
         break;
     }
 
     return out_box;
+  }
+
+  // Bounding box of valid (non-nodata, non-NaN) pixels within box 'b' of 'img'.
+  vw::BBox2i validDataBBox(vw::BBox2i const& b,
+                           vw::DiskImageView<vw::PixelGray<float>> const& img,
+                           float nodata) {
+    BBox2i vb;
+    ImageView<float> tile = pixel_cast<float>(crop(img, b));
+    for (int r = 0; r < tile.rows(); r++) {
+      for (int c = 0; c < tile.cols(); c++) {
+        float v = tile(c, r);
+        bool bad = (v != v) || (v == nodata); // NaN or nodata
+        if (!bad)
+          vb.grow(Vector2(b.min().x() + c, b.min().y() + r));
+      }
+    }
+    return vb;
+  }
+
+  // Grow a box toward valid image data so that the valid region inside it
+  // becomes more square, which is needed for local epipolar alignment to work.
+  vw::BBox2i growBoxValidAware(vw::BBox2i const& in_box,
+                               vw::DiskImageView<vw::PixelGray<float>> const& img,
+                               float nodata,
+                               vw::BBox2i const& max_box,
+                               int max_size) {
+    BBox2i box = in_box;
+    box.crop(max_box);
+
+    double frac = 0.5;             // want valid extent >= half the box per dim
+    int step = std::max(max_size / 4, 1);
+    for (int iter = 0; iter < 10; iter++) {
+      BBox2i vb = validDataBBox(box, img, nodata);
+      if (vb.empty())
+        break; // nothing valid; leave the box as is
+
+      bool grew = false;
+      // Right: valid hugs the right edge and is narrow -> more valid to the right
+      if (vb.max().x() >= box.max().x() - 1 &&
+          vb.width()  <  frac * box.width() &&
+          box.max().x() < max_box.max().x() &&
+          box.width()   < max_size) {
+        box.max().x() = std::min(box.max().x() + step, max_box.max().x());
+        grew = true;
+      }
+      // Bottom
+      if (vb.max().y() >= box.max().y() - 1 &&
+          vb.height() <  frac * box.height() &&
+          box.max().y() < max_box.max().y() &&
+          box.height()  < max_size) {
+        box.max().y() = std::min(box.max().y() + step, max_box.max().y());
+        grew = true;
+      }
+      // Top
+      if (vb.min().y() <= box.min().y() + 1 &&
+          vb.height() <  frac * box.height() &&
+          box.min().y() > max_box.min().y() &&
+          box.height()  < max_size) {
+        box.min().y() = std::max(box.min().y() - step, max_box.min().y());
+        grew = true;
+      }
+      // Left
+      if (vb.min().x() <= box.min().x() + 1 &&
+          vb.width()  <  frac * box.width() &&
+          box.min().x() > max_box.min().x() &&
+          box.width()   < max_size) {
+        box.min().x() = std::max(box.min().x() - step, max_box.min().x());
+        grew = true;
+      }
+
+      if (!grew)
+        break;
+    }
+
+    return box;
   }
 
   // Estimate the region in the right image corresponding
@@ -191,10 +260,26 @@ namespace asp {
       asp::filter_ip_by_disparity(params[0], params[1], quiet,
                                   left_trans_ip, right_trans_ip);
 
-      // Grow the right box from filtered IP
-      for (size_t i = 0; i < right_trans_ip.size(); i++)
-        right_trans_crop_win.grow(Vector2(right_trans_ip[i].x,
-                                          right_trans_ip[i].y));
+      // Position the right box by shifting the left box by the LOCAL median
+      // disparity (aligned right - aligned left) of the corresponding ip. The
+      // median is a single bounded offset (never the full search range), so it
+      // cannot blow up, the right box follows the left box by construction, and
+      // it keeps the left box's size. The left box already carries the padding,
+      // so no extra margin is added here.
+      std::vector<double> off_x, off_y;
+      for (size_t i = 0; i < right_trans_ip.size(); i++) {
+        off_x.push_back(right_trans_ip[i].x - left_trans_ip[i].x);
+        off_y.push_back(right_trans_ip[i].y - left_trans_ip[i].y);
+      }
+      if (!off_x.empty()) {
+        std::sort(off_x.begin(), off_x.end());
+        std::sort(off_y.begin(), off_y.end());
+        Vector2i off(int(std::round(off_x[off_x.size()/2])),
+                     int(std::round(off_y[off_y.size()/2])));
+        right_trans_crop_win = left_trans_crop_win;
+        right_trans_crop_win.min() += off;
+        right_trans_crop_win.max() += off;
+      }
 
       if (stereo_settings().local_alignment_debug) {
         std::cout << "Attempt: " << pass << std::endl;
@@ -203,18 +288,6 @@ namespace asp {
         std::cout << "Left trans crop win " << left_trans_crop_win << std::endl;
         std::cout << "Right trans crop win " << right_trans_crop_win << std::endl;
       }
-
-      // This is a bugfix, sometimes the right tile is under-estimated
-      // if there are not enough ip. Make the box bigger as sometimes
-      // it is not accurately determined based on input ip or
-      // disparity. After ip are found, filtered, and local alignment
-      // is applied, the aligned tiles will be shrunk (as I recall)
-      // before running correlation.
-      // TODO(oalexan1): Allow the right box to be bigger than left box,
-      // perhaps by a factor of 1.5.
-      right_trans_crop_win = grow_box_to_square_with_constraint
-        (right_trans_crop_win, right_extra_factor * max_tile_size,
-         vw::bounding_box(right_globally_aligned_image));
 
       if (stereo_settings().local_alignment_debug) {
         std::cout << "Grown right trans crop win " << right_trans_crop_win << std::endl;
@@ -425,6 +498,19 @@ namespace asp {
     left_trans_crop_win = grow_box_to_square_with_constraint
       (tile_crop_win, left_extra_factor * max_tile_size,
        vw::bounding_box(left_globally_aligned_image));
+
+    // Grow toward valid data so the valid region is squarish (fixes lopsided
+    // edge tiles). Only enlarges the box, so it still contains tile_crop_win,
+    // and the disparity is cropped back to tile_crop_win downstream, so the
+    // per-tile output extent is unchanged. Capped at 3x the tile size.
+    BBox2i blind_left_trans_crop_win = left_trans_crop_win;
+    left_trans_crop_win = growBoxValidAware
+      (left_trans_crop_win, left_globally_aligned_image, left_nodata_value,
+       vw::bounding_box(left_globally_aligned_image), 3 * max_tile_size);
+
+    vw_out() << "GROWFIX_V2 tile=" << tile_crop_win
+             << " blind=" << blind_left_trans_crop_win
+             << " valid_aware=" << left_trans_crop_win << std::endl;
 
     if (stereo_settings().local_alignment_debug)
       std::cout << "Grown left trans crop win " << left_trans_crop_win << std::endl;
@@ -794,120 +880,6 @@ namespace asp {
     // be skipped.
     return;
   }
-
-#if 0
-  // This is some experimental code which may still have some uses.
-
-  // Tweak the alignment transforms and their bounds.
-
-  BBox2i new_left_win, new_right_win;
-
-  for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
-    int i = ip_inlier_indices[it];
-    Vector2 left_pt = Vector2(left_local_ip [i].x,  left_local_ip [i].y)
-      + left_trans_crop_win.min();
-    Vector2 right_pt = Vector2(right_local_ip [i].x, right_local_ip [i].y)
-      + right_trans_crop_win.min();
-    new_left_win.grow(left_pt);
-    new_right_win.grow(right_pt);
-  }
-
-  std::cout << "old new left " << left_trans_crop_win << ' ' << new_left_win << std::endl;
-  std::cout << "old new right " << right_trans_crop_win << ' ' << new_right_win << std::endl;
-
-  // Apply local alignment to inlier ip and estimate the search range
-  {
-    vw::HomographyTransform left_local_trans (left_local_mat);
-    vw::HomographyTransform right_local_trans(right_local_mat);
-    int i = 0;
-    Vector2 left_pt = Vector2(left_local_ip [i].x,  left_local_ip [i].y);
-    std::cout << "mapped before left " << left_local_trans.forward(left_pt) << std::endl;
-    Vector2 right_pt = Vector2(right_local_ip [i].x,  right_local_ip [i].y);
-    std::cout << "mapped before right " << right_local_trans.forward(right_pt) << std::endl;
-  }
-
-  // Adjust the transforms given the new windows
-  std::cout << "left mat is " << left_local_mat << std::endl;
-  Vector3 left_shift(new_left_win.min().x() - left_trans_crop_win.min().x(),
-                     new_left_win.min().y() - left_trans_crop_win.min().y(),
-                     0.0);
-  std::cout << "left shift is " << left_shift << std::endl;
-  left_shift = left_local_mat * left_shift;
-  std::cout << "after left shift: " << left_shift << std::endl;
-  left_local_mat(0, 2) += left_shift[0];
-  left_local_mat(1, 2) += left_shift[1];
-  std::cout << "left mat after " << left_local_mat << std::endl;
-
-  std::cout << "right mat is " << right_local_mat << std::endl;
-  Vector3 right_shift(new_right_win.min().x() - right_trans_crop_win.min().x(),
-                      new_right_win.min().y() - right_trans_crop_win.min().y(),
-                      0.0);
-  std::cout << "right shift is " << right_shift << std::endl;
-  right_shift = right_local_mat * right_shift;
-  std::cout << "after right shift: " << right_shift << std::endl;
-  right_local_mat(0, 2) += right_shift[0];
-  right_local_mat(1, 2) += right_shift[1];
-  std::cout << "right mat after " << right_local_mat << std::endl;
-
-  // Adjust the ip
-  for (size_t i = 0; i < left_local_ip.size(); i++) {
-    left_local_ip [i].x -= (new_left_win.min().x() - left_trans_crop_win.min().x());
-    left_local_ip [i].y -= (new_left_win.min().y() - left_trans_crop_win.min().y());
-  }
-  for (size_t i = 0; i < right_local_ip.size(); i++) {
-    right_local_ip [i].x -= (new_right_win.min().x() - right_trans_crop_win.min().x());
-    right_local_ip [i].y -= (new_right_win.min().y() - right_trans_crop_win.min().y());
-  }
-
-  // Update the crop wins
-  left_trans_crop_win = new_left_win;
-  right_trans_crop_win = new_right_win;
-
-  {
-    vw::HomographyTransform left_local_trans (left_local_mat);
-    vw::HomographyTransform right_local_trans(right_local_mat);
-    int i = 0;
-    Vector2 left_pt = Vector2(left_local_ip [i].x,  left_local_ip [i].y);
-    std::cout << "mapped after left " << left_local_trans.forward(left_pt) << std::endl;
-    Vector2 right_pt = Vector2(right_local_ip [i].x,  right_local_ip [i].y);
-    std::cout << "mapped after right " << right_local_trans.forward(right_pt) << std::endl;
-
-
-    // Find the trans box
-    BBox2i trans_box;
-
-    for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
-      int i = ip_inlier_indices[it];
-
-      Vector2 left_pt (left_local_ip [i].x, left_local_ip [i].y);
-      Vector2 right_pt(right_local_ip[i].x, right_local_ip[i].y);
-
-      left_pt  = left_local_trans.forward(left_pt);
-      right_pt = right_local_trans.forward(right_pt);
-
-      trans_box.grow(left_pt);
-      trans_box.grow(right_pt);
-    }
-
-    // Make it just a tiny bit bigger, may improve behavior, perhaps.
-    // TODO(oalexan1): What if the ip do not cover fully the image tiles
-    // and hence we now leave valuable real estate out?
-    trans_box.expand(5);
-
-    std::cout << "trans box is " << trans_box << std::endl;
-
-    // adjust the trans box
-
-    left_local_mat (0, 2) -= trans_box.min().x();
-    left_local_mat (1, 2) -= trans_box.min().y();
-    right_local_mat(0, 2) -= trans_box.min().x();
-    right_local_mat(1, 2) -= trans_box.min().y();
-
-    std::cout << "tran dims before " << local_trans_aligned_size << std::endl;
-    local_trans_aligned_size = trans_box.size();
-    std::cout << "tran dims after " << local_trans_aligned_size << std::endl;
-  }
-#endif
 
   // TODO(oalexan1): if left pix or right pix is invalid in the image,
   // the disparity must be invalid! Test with OpenCV SGBM, libelas, and mgm!
