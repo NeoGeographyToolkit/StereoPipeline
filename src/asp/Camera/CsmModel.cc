@@ -282,6 +282,52 @@ const csm::Plugin* find_plugin_for_isd(csm::Isd const& support_data,
   return 0;
 } // End function find_plugin_for_isd
 
+// Read the sensor model name declared by an ISD file, without a full JSON
+// parse. An ISD names its model in the "name_model" field, and usgscsm's
+// isUsgsCsmIsd() finds it with a lightweight string scan (the same check
+// usgscsm itself uses to tell an ISD from a model state). This is the CSM
+// sensor model name, such as "USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL". Return an
+// empty string if the file is not a recognized ISD.
+std::string readModelNameFromIsd(std::string const& isd_path) {
+  // Read the file into a string, using the same idiom as loadModelFromStateFile().
+  std::ifstream ifs(isd_path.c_str());
+  std::string isd_str;
+  ifs.seekg(0, std::ios::end);
+  isd_str.reserve(ifs.tellg());
+  ifs.seekg(0, std::ios::beg);
+  isd_str.assign((std::istreambuf_iterator<char>(ifs)),
+                 std::istreambuf_iterator<char>());
+
+  std::string model_name;
+  if (isUsgsCsmIsd(isd_str, model_name))
+    return model_name;
+
+  return "";
+}
+
+// Find the plugin that provides a model with the given name, matching by name
+// only, without constructing a model from the ISD. This is used when the model
+// name is known ahead of time (read from the ISD), so the model type need not
+// be discovered by trying to build each one in turn (see find_plugin_for_isd).
+// That probing makes every sensor model that does not match the ISD log an
+// error on a normal, successful load, and it also builds the model twice.
+const csm::Plugin* find_plugin_for_model_name(std::string const& model_name,
+                                              std::string      & model_family) {
+  csm::PluginList plugins = csm::Plugin::getList();
+  for (auto iter = plugins.begin(); iter != plugins.end(); iter++) {
+    const csm::Plugin* csm_plugin = (*iter);
+    size_t num_models = csm_plugin->getNumModels();
+    for (size_t i = 0; i < num_models; i++) {
+      if (csm_plugin->getModelName(i) == model_name) {
+        model_family = csm_plugin->getModelFamily(i);
+        return csm_plugin;
+      }
+    }
+  }
+  model_family = "";
+  return 0;
+} // End function find_plugin_for_model_name
+
 void CsmModel::initialize_plugins() {
 
   // Only let one thread at a time in here.
@@ -432,10 +478,26 @@ void CsmModel::load_model_from_isd(std::string const& isd_path) {
 
   CsmModel::read_ellipsoid_from_isd(isd_path);
 
-  // Check each available CSM plugin until we find one that can handle the ISD.
+  // Find the plugin and model for this ISD. The ISD declares its sensor model
+  // in the "name_model" field, so read it and look up the plugin that provides
+  // that model by name. This avoids probing every model type in turn (see
+  // find_plugin_for_isd), which makes every model that does not match the ISD
+  // log an error on a normal, successful load, and which also builds the model
+  // twice. This mirrors how usgscsm_cam_test loads a model. If the ISD does not
+  // declare a model recognized by this build, fall back to probing.
   std::string model_name, model_family;
-  const csm::Plugin* csm_plugin = find_plugin_for_isd(support_data, model_name,
-                                                      model_family, false);
+  const csm::Plugin* csm_plugin = 0;
+
+  model_name = readModelNameFromIsd(isd_path);
+  if (!model_name.empty())
+    csm_plugin = find_plugin_for_model_name(model_name, model_family);
+
+  if (csm_plugin == 0) {
+    // The ISD did not declare a model recognized by this build. Probe each
+    // plugin and model to find one that can handle the ISD.
+    model_name = "";
+    csm_plugin = find_plugin_for_isd(support_data, model_name, model_family, false);
+  }
 
   // If we did not find a plugin that would work, go through them again and print error
   //  messages for each plugin that fails.
