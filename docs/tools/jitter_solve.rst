@@ -679,7 +679,7 @@ Multiple CTX images
 
 Jitter was solved jointly for a set of 27 CTX images with much overlap.
 The extent was roughly between -157.8 and -155.5 degrees of longitude, and from
--0.3 to 3.8 degrees of latitude. 
+-0.3 to 3.8 degrees of latitude.
 
 Bundle adjustment for the entire set was run as before. The
 ``convergence_angles.txt`` report file (:numref:`ba_conv_angle`) was used to
@@ -712,7 +712,7 @@ usually not problematic, if the alignment to the DEM is good.
 .. figure:: ../images/jitter_ctx_dem_drg.png
    :name: jitter_ctx_dem_drg
 
-   DEM and orthoimage produced by mosaicking the results for the 27 stereo
+   DEM and orthoimage produced by mosaicking the results for the 42 stereo
    pairs. Some seams in the DEMs are seen. Perhaps it is due to insufficiently
    good distortion modeling. For the orthoimages, the first encountered pixel
    was used at a given location.
