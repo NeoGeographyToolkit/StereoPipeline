@@ -183,6 +183,7 @@ namespace asp {
                                      int                             max_tile_size,
                                      double                          right_extra_factor,
                                      BBox2i                  const & left_trans_crop_win,
+                                     BBox2i                  const & tile_crop_win,
                                      BBox2i                        & right_trans_crop_win) {
 
     bool matches_as_txt = stereo_settings().matches_as_txt;
@@ -261,22 +262,29 @@ namespace asp {
                                   left_trans_ip, right_trans_ip);
 
       // Position the right box by shifting the left box by the LOCAL median
-      // disparity (aligned right - aligned left) of the corresponding ip. The
-      // median is a single bounded offset (never the full search range), so it
-      // cannot blow up, the right box follows the left box by construction, and
-      // it keeps the left box's size. The left box already carries the padding,
-      // so no extra margin is added here.
+      // disparity (aligned right - aligned left) of the corresponding ip.
+      // IMPORTANT: use ONLY ip that fall inside the NOMINAL tile, not the grown
+      // box. For tiles with no D_sub (image-footprint edges) the box is grown far
+      // to gather ip, but those distant ip carry the disparity of a different part
+      // of the image; using them shifts the right box off the tile's true overlap
+      // and yields a wrong, off-image disparity that then gets filtered out. If no
+      // ip fall in the nominal tile, do NOT shift: the global alignment already
+      // roughly aligns the pair, so the right box = left box and the (small)
+      // search range refines it.
       std::vector<double> off_x, off_y;
       for (size_t i = 0; i < right_trans_ip.size(); i++) {
+        Vector2 lp(left_trans_ip[i].x, left_trans_ip[i].y);
+        if (!tile_crop_win.contains(lp))
+          continue;
         off_x.push_back(right_trans_ip[i].x - left_trans_ip[i].x);
         off_y.push_back(right_trans_ip[i].y - left_trans_ip[i].y);
       }
+      right_trans_crop_win = left_trans_crop_win; // default: no shift
       if (!off_x.empty()) {
         std::sort(off_x.begin(), off_x.end());
         std::sort(off_y.begin(), off_y.end());
         Vector2i off(int(std::round(off_x[off_x.size()/2])),
                      int(std::round(off_y[off_y.size()/2])));
-        right_trans_crop_win = left_trans_crop_win;
         right_trans_crop_win.min() += off;
         right_trans_crop_win.max() += off;
       }
@@ -531,6 +539,7 @@ namespace asp {
                                   left_global_trans, right_global_trans,
                                   right_globally_aligned_image,
                                   max_tile_size, right_extra_factor, left_trans_crop_win,
+                                  tile_crop_win,
                                   // Output
                                   right_trans_crop_win);
 
