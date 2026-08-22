@@ -503,22 +503,21 @@ namespace asp {
     // image bounding box (which may make it non-square again, so
     // repeat this a few times during which the box grows
     // bigger).
+    // Massive uniform crop: 2x the tile size (and, below, 2x the interest-point
+    // count) from the first attempt, across the board, so every tile - including
+    // the image-boundary fringe - gets ample context. This replaces the earlier
+    // directional per-tile growth.
     left_trans_crop_win = grow_box_to_square_with_constraint
-      (tile_crop_win, left_extra_factor * max_tile_size,
+      (tile_crop_win, 2.0 * left_extra_factor * max_tile_size,
        vw::bounding_box(left_globally_aligned_image));
 
-    // Grow toward valid data so the valid region is squarish (fixes lopsided
-    // edge tiles). Only enlarges the box, so it still contains tile_crop_win,
-    // and the disparity is cropped back to tile_crop_win downstream, so the
-    // per-tile output extent is unchanged. Capped at 3x the tile size.
-    BBox2i blind_left_trans_crop_win = left_trans_crop_win;
-    left_trans_crop_win = growBoxValidAware
-      (left_trans_crop_win, left_globally_aligned_image, left_nodata_value,
-       vw::bounding_box(left_globally_aligned_image), 3 * max_tile_size);
-
+    // Uniform "massive crop": the left box is grown to left_extra_factor * tile
+    // (2x from the first attempt, see stereo_corr.cc), across the board. This
+    // gives every tile ample context - including the image-boundary fringe -
+    // rather than a directional per-tile growth. The disparity is cropped back to
+    // tile_crop_win downstream, so the per-tile output extent is unchanged.
     vw_out() << "GROWFIX_V2 tile=" << tile_crop_win
-             << " blind=" << blind_left_trans_crop_win
-             << " valid_aware=" << left_trans_crop_win << std::endl;
+             << " left_box=" << left_trans_crop_win << std::endl;
 
     if (stereo_settings().local_alignment_debug)
       std::cout << "Grown left trans crop win " << left_trans_crop_win << std::endl;
@@ -556,7 +555,7 @@ namespace asp {
     std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
     size_t number_of_jobs = 1;
     bool use_cached_ip = false;
-    int local_ip_per_tile = stereo_settings().ip_per_tile;
+    int local_ip_per_tile = 2 * stereo_settings().ip_per_tile;
     if (left_extra_factor > 1.0 || right_extra_factor > 1.0)
       local_ip_per_tile *= 2;
     detect_match_ip(left_local_ip, right_local_ip,
