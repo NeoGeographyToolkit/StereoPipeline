@@ -227,18 +227,15 @@ namespace asp {
       }
 
       // Collect D_sub IPs in the box (no bbox grow yet, filter first).
-      int num_ip_from_d_sub = 0;
       for (size_t i = 0; i < left_ip_from_dsub.size(); i++) {
         Vector2 left_pt(left_ip_from_dsub[i].x, left_ip_from_dsub[i].y);
         if (!ip_crop_win.contains(left_pt))
           continue;
         left_trans_ip.push_back(left_ip_from_dsub[i]);
         right_trans_ip.push_back(right_ip_from_dsub[i]);
-        num_ip_from_d_sub++;
       }
 
       // Collect global match IPs in the box (project to aligned coords).
-      int num_global_ip_in_tile = 0;
       for (size_t i = 0; i < left_unaligned_ip.size(); i++) {
         Vector2 left_pt (left_unaligned_ip [i].x, left_unaligned_ip [i].y);
         Vector2 right_pt(right_unaligned_ip[i].x, right_unaligned_ip[i].y);
@@ -252,7 +249,6 @@ namespace asp {
         left_trans_ip.back().y  = left_pt.y();
         right_trans_ip.back().x = right_pt.x();
         right_trans_ip.back().y = right_pt.y();
-        num_global_ip_in_tile++;
       }
 
       // Outlier filter per tile
@@ -290,15 +286,6 @@ namespace asp {
       }
 
       if (stereo_settings().local_alignment_debug) {
-        std::cout << "Attempt: " << pass << std::endl;
-        std::cout << "Num ip from D_sub: " << num_ip_from_d_sub << std::endl;
-        std::cout << "Num global ip in tile: " << num_global_ip_in_tile << std::endl;
-        std::cout << "Left trans crop win " << left_trans_crop_win << std::endl;
-        std::cout << "Right trans crop win " << right_trans_crop_win << std::endl;
-      }
-
-      if (stereo_settings().local_alignment_debug) {
-        std::cout << "Grown right trans crop win " << right_trans_crop_win << std::endl;
         std::string out_match_filename
           = vw::ip::match_filename(opt.out_prefix + "-tile", "L.tif", "R.tif", matches_as_txt);
         vw_out() << "Writing match file: " << out_match_filename << "\n";
@@ -511,17 +498,9 @@ namespace asp {
     // edge tiles). Only enlarges the box, so it still contains tile_crop_win,
     // and the disparity is cropped back to tile_crop_win downstream, so the
     // per-tile output extent is unchanged. Capped at 3x the tile size.
-    BBox2i blind_left_trans_crop_win = left_trans_crop_win;
     left_trans_crop_win = growBoxValidAware
       (left_trans_crop_win, left_globally_aligned_image, left_nodata_value,
        vw::bounding_box(left_globally_aligned_image), 3 * max_tile_size);
-
-    vw_out() << "GROWFIX_V2 tile=" << tile_crop_win
-             << " blind=" << blind_left_trans_crop_win
-             << " valid_aware=" << left_trans_crop_win << std::endl;
-
-    if (stereo_settings().local_alignment_debug)
-      std::cout << "Grown left trans crop win " << left_trans_crop_win << std::endl;
 
     vw::Matrix<double> left_global_mat
        = asp::alignmentMatrix(opt.out_prefix, asp::stereo_settings().alignment_method,
