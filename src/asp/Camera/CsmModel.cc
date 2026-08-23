@@ -282,12 +282,50 @@ const csm::Plugin* find_plugin_for_isd(csm::Isd const& support_data,
   return 0;
 } // End function find_plugin_for_isd
 
+// Tell whether a string is a USGS CSM ISD (not a model state) and, if so,
+// extract its CSM model name (such as "USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL")
+// with a lightweight string scan, no full JSON parse. An ISD starts with '{',
+// carries the ISD-only keys "body_rotation" and "instrument_position", and
+// names its model right after a "USGS_ASTRO_ prefix.
+//
+// This is a local copy of usgscsm's isUsgsCsmIsd() (usgscsm PR 502). ASP keeps
+// its own copy so it builds against older usgscsm that predate that symbol; the
+// function is a self-contained std::string scan with no dependencies.
+// TODO(oalexan1): Replace aspIsCsmIsd with usgscsm's isUsgsCsmIsd() once every
+// asp_deps tarball carries PR 502, at the next dependency-update cycle.
+bool aspIsCsmIsd(std::string const& str, std::string& model_name) {
+  model_name.clear();
+
+  // Model state strings have a text prefix before '{'. ISDs start with '{'.
+  auto pos = str.find_first_not_of(" \t\n\r");
+  if (pos == std::string::npos || str[pos] != '{')
+    return false;
+
+  // Check for ISD-only keys (never present in a model state).
+  if (str.find("\"body_rotation\"") == std::string::npos)
+    return false;
+  if (str.find("\"instrument_position\"") == std::string::npos)
+    return false;
+
+  // Extract the model name, which immediately follows the "USGS_ASTRO_ prefix.
+  std::string prefix = "\"USGS_ASTRO_";
+  pos = str.find(prefix);
+  if (pos == std::string::npos)
+    return false;
+  auto end = str.find("\"", pos + 1);
+  if (end == std::string::npos)
+    return false;
+
+  model_name = str.substr(pos + 1, end - pos - 1);
+  return !model_name.empty();
+}
+
 // Read the sensor model name declared by an ISD file, without a full JSON
-// parse. An ISD names its model in the "name_model" field, and usgscsm's
-// isUsgsCsmIsd() finds it with a lightweight string scan (the same check
-// usgscsm itself uses to tell an ISD from a model state). This is the CSM
-// sensor model name, such as "USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL". Return an
-// empty string if the file is not a recognized ISD.
+// parse. An ISD names its model in the "name_model" field, and aspIsCsmIsd()
+// finds it with a lightweight string scan (the same check usgscsm itself uses
+// to tell an ISD from a model state). This is the CSM sensor model name, such
+// as "USGS_ASTRO_LINE_SCANNER_SENSOR_MODEL". Return an empty string if the file
+// is not a recognized ISD.
 std::string readModelNameFromIsd(std::string const& isd_path) {
   // Read the file into a string, using the same idiom as loadModelFromStateFile().
   std::ifstream ifs(isd_path.c_str());
@@ -299,7 +337,7 @@ std::string readModelNameFromIsd(std::string const& isd_path) {
                  std::istreambuf_iterator<char>());
 
   std::string model_name;
-  if (isUsgsCsmIsd(isd_str, model_name))
+  if (aspIsCsmIsd(isd_str, model_name))
     return model_name;
 
   return "";
