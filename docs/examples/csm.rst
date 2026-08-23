@@ -193,6 +193,12 @@ is noticed, consider putting `this fix
 <https://github.com/DOI-USGS/ale/pull/677>`_ in the ``type_sensor.py`` file in
 the ALE package.
 
+*Note:* The ALE build on conda-forge (version 1.2.0) can produce an incomplete
+ISD for LRO NAC: the ``lrolrocnac`` distortion coefficient is written as a
+scalar instead of a list, so USGSCSM fails to create the camera. Use the ALE
+build shipped with ASP (from the ``nasa-ames-stereo-pipeline`` conda channel),
+which has this fix.
+
 Run::
 
     isd_generate left.cub
