@@ -497,15 +497,14 @@ robustness fixes for local-epipolar alignment.
 
 ::
 
-    parallel_stereo                              \
-      --bundle-adjust-prefix ba/run              \
-      --stereo-algorithm asp_mgm                 \
-      --num-matches-from-disparity 40000         \
-      --alignment-method local_epipolar          \
-      img/J03_045820_1915_XN_11N210W.cal.cub     \
-      img/K05_055472_1916_XN_11N210W.cal.cub     \
-      img/J03_045820_1915_XN_11N210W.cal.json    \
-      img/K05_055472_1916_XN_11N210W.cal.json    \
+    parallel_stereo                                             \
+      --stereo-algorithm asp_mgm                                \
+      --num-matches-from-disparity 40000                        \
+      --alignment-method local_epipolar                         \
+      img/J03_045820_1915_XN_11N210W.cal.cub                    \
+      img/K05_055472_1916_XN_11N210W.cal.cub                    \
+      ba/run-J03_045820_1915_XN_11N210W.cal.adjusted_state.json \
+      ba/run-K05_055472_1916_XN_11N210W.cal.adjusted_state.json \
       stereo/run
     point2dem --stereographic --auto-proj-center \
       --max-valid-triangulation-error 10         \
@@ -856,13 +855,16 @@ created (:numref:`jitter_ip`), to be used later to solve for jitter.
       --processes 6                      \
       --alignment-method none            \
       --num-matches-from-disparity 60000 \
-      --bundle-adjust-prefix ba/run      \
-      1.map.tif 2.map.tif 1.xml 2.xml    \
+      1.map.tif 2.map.tif                \
+      ba/run-1.adjusted_state.json       \
+      ba/run-2.adjusted_state.json       \
       run_1_2_map/run                    \
       ref.tif
 
     proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
-    point2dem --tr 0.4 --t_srs "$proj" --errorimage \
+    point2dem --tr 0.4 \
+      --t_srs "$proj"  \
+      --errorimage     \
       run_1_2_map/run-PC.tif
 
 A discussion regarding the projection to use above is in :numref:`point2dem_proj`.
@@ -995,22 +997,22 @@ mapprojected images::
  
 Run stereo::
 
-    parallel_stereo                                        \
-      --max-disp-spread 100                                \
-      --nodes-list nodes_list.txt                          \
-      --ip-per-image 20000                                 \
-      --stereo-algorithm asp_mgm                           \
-      --subpixel-mode 9                                    \
-      --processes 6                                        \
-      --alignment-method none                              \
-      1.jitter.map.tif 2.jitter.map.tif                    \
-      jitter/run-1.adjusted_state.json                     \
-      jitter/run-2.adjusted_state.json                     \
-      stereo_jitter/run                                    \
+    parallel_stereo                     \
+      --max-disp-spread 100             \
+      --nodes-list nodes_list.txt       \
+      --ip-per-image 20000              \
+      --stereo-algorithm asp_mgm        \
+      --subpixel-mode 9                 \
+      --processes 6                     \
+      --alignment-method none           \
+      1.jitter.map.tif 2.jitter.map.tif \
+      jitter/run-1.adjusted_state.json  \
+      jitter/run-2.adjusted_state.json  \
+      stereo_jitter/run                 \
       ref.tif
 
-    point2dem --tr 0.4 --t_srs "$proj"                     \
-      --errorimage                                         \
+    point2dem --tr 0.4 --t_srs "$proj"  \
+      --errorimage                      \
       stereo_jitter/run-PC.tif
 
 .. _jitter_reuse_run:
@@ -1022,23 +1024,23 @@ In ASP 3.3.0 or later, the mapprojection need not be redone, and stereo can
 resume at the triangulation stage (:numref:`mapproj_reuse`). This saves a lot of
 computing. The commands in the previous section can be replaced with::
 
-    parallel_stereo                                        \
-      --max-disp-spread 100                                \
-      --nodes-list nodes_list.txt                          \
-      --ip-per-image 20000                                 \
-      --stereo-algorithm asp_mgm                           \
-      --subpixel-mode 9                                    \
-      --processes 6                                        \
-      --alignment-method none                              \
-      --prev-run-prefix run_1_2_map/run                    \
-      1.map.tif 2.map.tif                                  \
-      jitter/run-1.adjusted_state.json                     \
-      jitter/run-2.adjusted_state.json                     \
-      stereo_jitter/run                                    \
+    parallel_stereo                     \
+      --max-disp-spread 100             \
+      --nodes-list nodes_list.txt       \
+      --ip-per-image 20000              \
+      --stereo-algorithm asp_mgm        \
+      --subpixel-mode 9                 \
+      --processes 6                     \
+      --alignment-method none           \
+      --prev-run-prefix run_1_2_map/run \
+      1.map.tif 2.map.tif               \
+      jitter/run-1.adjusted_state.json  \
+      jitter/run-2.adjusted_state.json  \
+      stereo_jitter/run                 \
       ref.tif
 
-    point2dem --tr 0.4 --t_srs "$proj"                     \
-      --errorimage                                         \
+    point2dem --tr 0.4 --t_srs "$proj"  \
+      --errorimage                      \
       stereo_jitter/run-PC.tif
 
 Note how we used the old mapprojected images ``1.map.tif`` and ``2.map.tif``,
@@ -1271,26 +1273,30 @@ ASTER cameras
 ~~~~~~~~~~~~~
 
 ASTER (:numref:`aster`) is a very good testbed for studying jitter because
-there are millions of free images over a span of 20 years, with many over the
-same location, and the images are rather small, on the order of 4,000 - 5,000
-pixels along each dimension.
+there are millions of free images acquired over a span of more than 20 years,
+with many over the same location, and the images are rather small, on the order
+of 4,000 - 5,000 pixels along each dimension.
 
 See :numref:`jitter_limitations` regarding limitations of this program.
 
 Setup
 ^^^^^
 
-In this example we worked on a rocky site in Egypt with a latitude 24.03562
-degrees and longitude of 25.85006 degrees. Dozens of cloud-free stereo pairs
-are available here. The jitter pattern, including its frequency, turned out to
-be quite different in each stereo pair we tried, but the solver was able to
-minimize it in all cases.
+In this example we work over a mountainous, heavily glaciated site in the
+Peruvian Andes (the Cordillera Blanca), at a latitude of about -9.9 degrees and
+longitude of about -77.2 degrees. This is instructive and rather difficult
+terrain: the relief is very steep, with sharp ridges, deep valleys, and
+glaciers that saturate to white in the imagery. It is a good test of the jitter
+solver, which, as will be seen in the results below, does well here.
 
-Fetch and prepare the data as documented in :numref:`aster_fetch`. Here we will
-work with dataset ``AST_L1A_00301062002090416_20231023221708_3693``.
+Fetch and prepare the data as documented in :numref:`aster_fetch`. Here we work
+with dataset ``AST_L1A_00307212017152819``.
 
-A reference Copernicus DEM can be downloaded per :numref:`initial_terrain`. Use
-``dem_geoid`` to convert the DEM to be relative to WGS84. 
+A reference DEM is used to constrain the solution. Here we employ a TanDEM-X DEM
+of the region (a Copernicus DEM, :numref:`initial_terrain`, works as well). The
+reference DEM should be relative to the WGS84 ellipsoid. Use ``dem_geoid``
+(:numref:`dem_geoid`) to convert a DEM from being relative to a geoid, if
+needed.
 
 Initial stereo and alignment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1299,9 +1305,10 @@ We will call the two images in an ASTER stereo pair ``out-Band3N.tif`` and
 ``out-Band3B.tif``. This is the convention used by ``aster2asp``
 (:numref:`aster2asp`), and instead of ``out`` any other string can be used. The
 corresponding cameras are ``out-Band3N.xml`` and ``out-Band3B.xml``. The
-reference Copernicus DEM relative to WGS84 is ``ref.tif``.
+reference DEM relative to WGS84 is ``ref.tif``.
 
-Bundle adjustment::
+Bundle adjustment (:numref:`bundle_adjust`) is run first, to make the cameras
+more self-consistent::
 
   bundle_adjust -t aster          \
     --camera-weight 0.0           \
@@ -1317,90 +1324,93 @@ to wrong results. The adjusted cameras are saved in CSM format
 (:numref:`csm_state`), which is needed for the jitter solver. The produced
 .adjust files should not be used as they save the adjustments only.
 
-Stereo was done with mapprojected images. The reference DEM was blurred a little
-as it is at the resolution of the images, and then any small misalignment
-between the images and the DEM may result in artifacts::
+Stereo is done with mapprojected images (:numref:`mapproj-example`). The
+reference DEM is blurred a little, as it is at a coarser resolution than the
+images, and then any small misalignment between the images and the DEM may
+result in artifacts. A gentle blur is used, as a heavy blur flattens the steep
+terrain and adds gaps::
 
-  dem_mosaic --dem-blur-sigma 2 ref.tif -o ref_blur.tif
-  
-Mapprojection in local stereographic projection::
+  dem_mosaic --dem-blur-sigma 3.5 ref.tif -o ref_blur.tif
 
-  proj='+proj=stere +lat_0=24.0275 +lon_0=25.8402 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
+Set a local projection that is appropriate for the desired site
+(:numref:`mapproj_auto_proj`)::
+
+  proj='+proj=utm +zone=18 +south +datum=WGS84 +units=m +no_defs'
+
+Mapproject both images with the same grid size (option ``--tr``) and projection
+(:numref:`mapproject`) with commands such as::
+
   mapproject -t csm                       \
    --tr 15 --t_srs "$proj"                \
     ref_blur.tif out-Band3N.tif           \
     ba/run-out-Band3N.adjusted_state.json \
     out-Band3N.map.tif
-  
-The same command is used for the other image. Both must use the same resolution
-in mapprojection (option ``--tr``). 
 
 It is suggested to overlay and inspect in ``stereo_gui`` (:numref:`stereo_gui`)
 the produced images and the reference DEM and check for any misalignment or
-artifacts. ASTER is quite well-aligned to the reference DEM.
+artifacts.
+
+In this case, the misalignment is relatively small (27 meters or so, while the ground
+sample distance is 15 meters). It will be corrected after stereo. Bigger
+misalignment needs to be handled ahead of time, such as in
+:numref:`ohrc_dem_align`, :numref:`viking`, etc.
 
 Stereo with mapprojected images (:numref:`mapproj-example`) and DEM generation
-is run. Here the ``asp_mgm`` algorithm is not used as it smears the jitter
-signal::
+are run next::
 
     parallel_stereo                         \
-      --stereo-algorithm asp_bm             \
-      --subpixel-mode 1                     \
-      --max-disp-spread 100                 \
+      --stereo-algorithm asp_mgm            \
+      --subpixel-mode 3                     \
+      --max-disp-spread 250                 \
       --num-matches-from-disparity 100000   \
       out-Band3N.map.tif out-Band3B.map.tif \
       ba/run-out-Band3N.adjusted_state.json \
       ba/run-out-Band3B.adjusted_state.json \
-      stereo_bm/run                         \
+      stereo/run                            \
       ref_blur.tif
-      
-    point2dem --errorimage --t_srs "$proj" \
-      --tr 15 stereo_bm/run-PC.tif         \
-      --orthoimage stereo_bm/run-L.tif
 
-We chose to use option ``--num-matches-from-disparity`` to create a large and
+    point2dem --errorimage --t_srs "$proj"   \
+      --tr 15                                \
+      --max-valid-triangulation-error 40     \
+      --remove-outliers-params 100 20        \
+      stereo/run-PC.tif
+
+The option ``--num-matches-from-disparity`` is used to create a large and
 uniformly distributed set of interest point matches. That is necessary because
-the jitter that we will solve for has rather high frequency.
+the jitter that we will solve for has a rather high frequency along the track.
+
+For the most subpixel-accurate jitter, these dense matches are best created with
+a block-matching correlator (``--stereo-algorithm asp_bm --subpixel-mode 1``),
+which does not smear the high-frequency signal the way the smoother ``asp_mgm``
+does; see :numref:`jitter_ip`. Here ``asp_mgm`` is used throughout and performs
+adequately, as the figures below show.
+
+The option ``--max-valid-triangulation-error`` sets a generous absolute cutoff
+(here 40 meters, a few times the image ground sample distance) for the ray
+intersection error, so that only gross blunders are removed. Over such steep
+terrain the default relative outlier filter would otherwise carve out valid
+data.
 
 See :numref:`point2dem_proj` for a discussion of the projection to use in DEM
 creation.
 
-.. figure:: ../images/aster_dem_ortho_error.png
-   :name: aster_dem_ortho_error
-
-   Produced DEM, orthoimage and intersection error. The correlation algorithm
-   has some trouble over sand, resulting in holes. The jitter is clearly
-   visible, and will be solved for next. The color scale on the right is from 0
-   to 10 meters.
-
-The created DEM is brought in the coordinate system of the reference DEM. This
+The created DEM is brought into the coordinate system of the reference DEM. This
 results in a small shift in this case, but it is important to do this each time
-before solving for jitter.
+before solving for jitter::
 
-::
-
-    pc_align --max-displacement 50          \
-    stereo_bm/run-DEM.tif ref.tif           \
-    -o stereo_bm/run-align                  \
-    --save-inv-transformed-reference-points
-  
-  point2dem --t_srs "$proj" --tr 15 \
-    stereo_bm/run-align-trans_reference.tif
+    pc_align --max-displacement 50           \
+      stereo/run-DEM.tif ref.tif             \
+      -o stereo/run-align                    \
+      --save-inv-transformed-reference-points
 
 One has to be careful with the value of ``--max-displacement`` that is used
 (:numref:`pc_align`).
 
-Take the difference with the reference DEM after alignment::
-
-  geodiff stereo_bm/run-align-trans_reference-DEM.tif \
-    ref.tif -o stereo_bm/run
-
-The result of this is shown in :numref:`aster_jitter_dem_diff`. 
 Apply the alignment transform to the cameras (:numref:`ba_pc_align`)::
 
     bundle_adjust -t csm                        \
       --initial-transform                       \
-      stereo_bm/run-align-inverse-transform.txt \
+      stereo/run-align-inverse-transform.txt    \
       --apply-initial-transform-only            \
       out-Band3N.map.tif out-Band3B.map.tif     \
       ba/run-out-Band3N.adjusted_state.json     \
@@ -1413,103 +1423,124 @@ It is important to use here the inverse alignment transform, as we want to map
 from the stereo DEM to the reference DEM, and the forward transform would do the
 opposite, given how ``pc_align`` was invoked.
 
-If the produced difference of DEMs shows large residuals consistent with the
-terrain, one should consider applying more blur to the reference terrain and/or
-redoing mapprojection and stereo with the now-aligned cameras, and see if this
-improves this difference.
-
-.. _jitter_naming_convention:
-
 Solving for jitter
 ^^^^^^^^^^^^^^^^^^
-
-Copy the dense match file (:numref:`dense_ip`) to follow the naming convention
-for unprojected (original) images::
-
-    mkdir -p jitter
-    cp stereo_bm/run-disp-out-Band3N.map__out-Band3B.map.match \
-      jitter/run-out-Band3N__out-Band3B.match
-
-In ASP 3.4.0 or later, that file to be copied is named instead
-``run_1_2_map/run-disp-out-Band3N__out-Band3B.match``, or so, reflecting the names
-of the raw images. Then, instead of copying and renaming, these matches can be
-passed with ``--match-files-prefix stereo_bm/run-disp``, reusing the existing
-prefix. It is suggested to not rename match files when the image names are long,
-as that can invalidate the shortening of long match file names
-(:numref:`match_file_naming`).
-
-The *naming convention for the match files* is::
-
-  <prefix>-<image1>__<image2>.match
-  
-where the image names are without the directory name and extension
-(:numref:`ba_match_files`). See :numref:`jitter_ip` for more information on
-interest point matches.
-
-Here it is important to use a lot of match points and a low 
-value for ``--num-lines-per-orientation`` and same for position,
-because the jitter has rather high frequency.
 
 Solve for jitter with the aligned cameras::
 
     jitter_solve out-Band3N.tif out-Band3B.tif        \
       ba_align/run-run-out-Band3N.adjusted_state.json \
       ba_align/run-run-out-Band3B.adjusted_state.json \
+      --match-files-prefix stereo/run-disp            \
       --max-pairwise-matches 100000                   \
-      --num-lines-per-position 100                    \
-      --num-lines-per-orientation 100                 \
       --max-initial-reprojection-error 20             \
       --num-iterations 50                             \
-      --match-files-prefix jitter/run                 \
+      --num-lines-per-position 1000                   \
+      --num-lines-per-orientation 100                 \
       --heights-from-dem ref.tif                      \
-      --heights-from-dem-uncertainty 20               \
-      --num-anchor-points 0                           \
+      --heights-from-dem-uncertainty 30               \
+      --camera-position-uncertainty 100,100           \
+      --num-anchor-points 1000                        \
+      --anchor-dem ref.tif                            \
+      --anchor-dem-uncertainty 60                     \
+      --num-anchor-points-extra-lines 5000            \
+      --tri-weight 0.1                                \
       -o jitter/run
 
-The DEM uncertainty constraint was set to 20, as the image GSD is 15 meters. A
-higher value for the uncertainty is recommended, such as 200 or more, if the
-reference DEM has large systematic differences with the stereo DEM. A tight uncertainty
-constraint can result in unphysical oscillations in the terrain model.
+The dense matches are reused directly via ``--match-files-prefix
+stereo/run-disp`` (:numref:`jitter_ip`); renaming is not needed, and the match
+file naming convention is documented in :numref:`ba_match_files`.
 
-Here, ``--num-lines-per-position`` and ``--num-lines-per-orientation`` are quite
-low. This may result in high-frequency oscillations in the produced DEM. If so,
-these need to be increased by 2x or 4x.
+The jitter of these cameras is in the orientation (attitude), while the
+positions are well constrained by the orbit and the earlier alignment. Hence
+``--num-lines-per-position`` is set to a large value (1000), which keeps the
+positions rigid, while ``--num-lines-per-orientation`` is small (100), to
+capture the along-track oscillation.
 
-See :numref:`jitter_camera` for a discussion of camera constraints,
-and :numref:`jitter_anchor_points` regarding anchor points.
+The option ``--camera-position-uncertainty`` (:numref:`jitter_camera`) leashes
+the camera centers, and the anchor points (:numref:`jitter_anchor_points`), with
+``--num-anchor-points-extra-lines`` extending them past the image ends, add
+stability where interest point matches are sparse. Both together keep the
+trajectory from drifting.
 
-The report files mentioned in :numref:`jitter_out_files` can be very helpful
-in evaluating how well the jitter solver worked, even before rerunning stereo.
+The reference DEM uncertainty (``--heights-from-dem-uncertainty``) was set to 30
+meters, which is a little looser than the 15-meter image GSD. A tight value
+(such as 20) ties the result hard to the reference; since the DEM is then also
+what we compare against, this is somewhat circular, and a tight tie can force
+unphysical oscillations. In practice, values from about 20 to 300 all give very
+similar results here, so a moderate value is a safe choice. The anchor DEM
+uncertainty is set a little above this, to 60.
 
-.. figure:: ../images/aster_jitter_pointmap.png
-   :name: aster_jitter_pointmap
+If ``--num-lines-per-orientation`` is made too small, high-frequency
+oscillations may appear in the produced DEM; then this value should be increased
+by 2x or 4x.
 
-   Pixel reprojection errors (:numref:`jitter_out_files`) before (left) and
-   after (right) solving for jitter. Compare with the ray intersection error
-   in :numref:`aster_jitter_intersection_err`.
+The report files mentioned in :numref:`jitter_out_files` can be very helpful in
+evaluating how well the jitter solver worked, even before rerunning stereo.
 
-Then, ``mapproject``, ``parallel_stereo`` and ``point2dem`` can be run again,
-with the new cameras created in the ``jitter`` directory. 
+Then, ``mapproject``, ``parallel_stereo`` and ``point2dem`` are run again, with
+the new cameras created in the ``jitter`` directory.
 
-*Do not* reuse the previous stereo run. So, do not use the option
-``--prev-run-prefix``. This introduces artifacts in the DEM. Likely it is
+*Do not* reuse the previous stereo run for such steep terrain. So, do not use
+the option ``--prev-run-prefix``. This introduces artifacts in the DEM, likely
 because the cameras changed too much. It is suggested to re-mapproject with the
-optimized cameras, and re-run stereo from scratch. 
+optimized cameras, and re-run stereo from scratch.
+
+Results
+^^^^^^^
+
+The hillshaded terrain is shown in :numref:`aster_jitter_dem`. The Andes relief
+here is very steep, and the ASP DEM resolves much more detail than the coarser
+reference. The change from solving for jitter is only a few meters, so it is not
+visible at this scale; it is revealed instead by the ray intersection error and
+the differences to the reference below.
+
+.. figure:: ../images/aster_jitter_dem.png
+   :name: aster_jitter_dem
+
+   Hillshaded DEMs: the reference DEM (left), the ASP DEM before solving for
+   jitter (middle), and after (right). The reference is coarser; the two ASP
+   DEMs look identical at this scale, as the jitter correction is only a few
+   meters.
+
+The ray intersection error, before and after solving for jitter, is shown in
+:numref:`aster_jitter_intersection_err`. This is the most direct evidence. The
+faint oscillatory pattern running across the track, well visible on the left,
+is removed on the right. The residual larger errors (yellow) are on the steepest
+ridges and glaciers, where correlation is inherently hard, and are not related
+to jitter.
 
 .. figure:: ../images/aster_jitter_intersection_err.png
    :name: aster_jitter_intersection_err
 
    The ray intersection error before (left) and after (right) solving for
-   jitter. The scale is in meters. Same pattern is seen as for the pixel
-   reprojection errors earlier.
+   jitter. The color scale is from 0 to 10 meters. The along-track oscillatory
+   jitter pattern on the left is gone on the right.
 
-.. figure:: ../images/aster_jitter_dem_diff.png
+The signed differences to the reference DEM are shown in
+:numref:`aster_jitter_dem_diff`.
+
+.. figure:: ../images/aster_jitter_diff.png
    :name: aster_jitter_dem_diff
 
-   The signed difference between the ASP DEM and the reference DEM, before
-   (left) and after (right) solving for jitter. The scale is in meters. It can
-   be seen that the jitter pattern is gone.
-   
+   Signed differences, with the color scale from -15 to 15 meters. Left: the ASP
+   DEM before jitter correction minus the reference. Middle: after jitter
+   correction minus the reference. Right: after minus before, which isolates the
+   correction. The difference to the reference (left and middle) is dominated by
+   real terrain detail that the coarse reference lacks, and by ice change between
+   the acquisition dates; it is similar before and after, as the jitter is a
+   small, low-frequency part. The after-minus-before panel isolates the removed
+   jitter as the faint along-track bands.
+
+It is seen in the figures that the faint oscillatory pattern along the track is
+removed, while the actual differences to the reference terrain, which are due to
+ice change and to real relief the coarse reference does not capture, remain.
+
+For robustness, it is suggested to have more than one stereo pair of images
+covering the same site. These can be solved for jitter jointly, or, after
+solving for jitter for each pair separately, be used to cross-validate each
+other.
+
 .. _jitter_sat_sim:
 
 Jitter with synthetic cameras and orientation constraints

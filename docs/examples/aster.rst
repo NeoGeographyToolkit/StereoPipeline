@@ -168,7 +168,7 @@ It is suggested to also create and inspect the triangulation error image
 (:numref:`point2dem`). If it is large (comparable to ground sample distance),
 the cameras should be bundle-adjusted first (:numref:`bundle_adjust`).
 
-See :numref:`aster_dem_ortho_error` for an illustration.
+See :numref:`aster_jitter_intersection_err` for an illustration.
 
 Stereo with ortho-ready L1B images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -134,8 +134,10 @@ vertical uncertainty.
                                         
 Example::
 
-    ls stereo_runs/*/run-DEM.tif > stereo_runs/dem_list.txt
-    ls stereo_runs/*/run-VerticalStdDev.tif > stereo_runs/vert_list.txt
+    ls stereo_runs/*/run-DEM.tif              \
+        > stereo_runs/dem_list.txt
+    ls stereo_runs/*/run-VerticalStdDev.tif   \
+        > stereo_runs/vert_list.txt
 
     dem_mosaic                                \
       --dem-list stereo_runs/dem_list.txt     \
