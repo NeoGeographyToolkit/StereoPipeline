@@ -35,6 +35,32 @@ echo "Platform: Linux aarch64"
 tag=asp_deps_linux_arm_v1
 envName=asp_deps
 
+# Robustly fetch a conda-pack tarball to a local file, verifying gzip integrity
+# and retrying. A silently partial or failed download otherwise unpacks to an
+# EMPTY conda env and fails far downstream in make-dist with a baffling
+# "Cannot find python" error (the 2026-08-26 nightly). Fail loudly instead if a
+# required asset cannot be obtained.
+# Usage: fetch_tarball <url> <outfile> [required|optional]   (default required)
+fetch_tarball() {
+    local url="$1" out="$2" mode="${3:-required}" tries i
+    if [ "$mode" = "optional" ]; then tries=1; else tries=4; fi
+    for (( i=1; i<=tries; i++ )); do
+        rm -f "$out"
+        if wget --tries=5 --timeout=30 -O "$out" "$url" 2>/dev/null \
+             && [ -s "$out" ] && gzip -t "$out" 2>/dev/null; then
+            return 0
+        fi
+        if [ "$i" -lt "$tries" ]; then
+            echo "Retry $i/$tries: $(basename "$url") download failed or corrupt"
+            sleep 15
+        fi
+    done
+    rm -f "$out"
+    [ "$mode" = "optional" ] && return 1
+    echo "Error: could not download a valid $(basename "$url") after $tries attempts"
+    exit 1
+}
+
 # Fetch and unpack the ASP dependencies (conda-pack tarballs; relocatable - the
 # bundled conda-unpack rewrites the baked prefix on this runner). asp_deps may be
 # split into parts (GitHub 2 GB asset cap); the cat-glob handles 1+ parts. The
@@ -42,9 +68,9 @@ envName=asp_deps
 bbUrl=https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}
 envParent="$HOME/miniconda3/envs"
 mkdir -p "$envParent/asp_deps" "$envParent/python_isis10"
-wget --tries=5 --timeout=30 ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
-wget --tries=2 --timeout=30 ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
-wget --tries=5 --timeout=30 ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
+fetch_tarball ${bbUrl}/asp_deps_p1.tar.gz   asp_deps_p1.tar.gz   required
+fetch_tarball ${bbUrl}/asp_deps_p2.tar.gz   asp_deps_p2.tar.gz   optional  # may not exist (single part)
+fetch_tarball ${bbUrl}/python_isis10.tar.gz python_isis10.tar.gz required
 # Silence GNU tar's "Ignoring unknown extended header keyword
 # 'LIBARCHIVE.xattr.com.apple.provenance'" warnings. The deps tarball was packed
 # with macOS tar, which records each file's Apple xattrs as pax headers GNU tar
@@ -59,6 +85,13 @@ find "$envParent/asp_deps" -name '._*' -delete 2>/dev/null
 tar xzf python_isis10.tar.gz -C "$envParent/python_isis10" 2>/dev/null
 find "$envParent/python_isis10" -name '._*' -delete 2>/dev/null
 "$envParent/python_isis10/bin/conda-unpack"
+# Sanity-check the python env actually populated. An empty env here is exactly
+# what silently broke the 2026-08-26 nightly; fail now with a clear message
+# rather than deep inside make-dist.
+if [ ! -x "$envParent/python_isis10/bin/python" ]; then
+    echo "Error: python_isis10 env is missing bin/python after unpack"
+    exit 1
+fi
 # Remove the downloaded dependency tarballs once they are unpacked (no need to
 # keep several GB of tarballs around).
 rm -f asp_deps_p*.tar.gz python_isis10.tar.gz

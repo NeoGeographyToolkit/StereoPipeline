@@ -47,6 +47,32 @@ else
     envName=asp_deps
 fi
 
+# Robustly fetch a conda-pack tarball to a local file, verifying gzip integrity
+# and retrying. A silently partial or failed download otherwise unpacks to an
+# EMPTY conda env and fails far downstream in make-dist with a baffling
+# "Cannot find python" error (the 2026-08-26 nightly). Fail loudly instead if a
+# required asset cannot be obtained.
+# Usage: fetch_tarball <url> <outfile> [required|optional]   (default required)
+fetch_tarball() {
+    local url="$1" out="$2" mode="${3:-required}" tries i
+    if [ "$mode" = "optional" ]; then tries=1; else tries=4; fi
+    for (( i=1; i<=tries; i++ )); do
+        rm -f "$out"
+        if wget --tries=5 --timeout=30 -O "$out" "$url" 2>/dev/null \
+             && [ -s "$out" ] && gzip -t "$out" 2>/dev/null; then
+            return 0
+        fi
+        if [ "$i" -lt "$tries" ]; then
+            echo "Retry $i/$tries: $(basename "$url") download failed or corrupt"
+            sleep 15
+        fi
+    done
+    rm -f "$out"
+    [ "$mode" = "optional" ] && return 1
+    echo "Error: could not download a valid $(basename "$url") after $tries attempts"
+    exit 1
+}
+
 # Fetch and unzip the ASP dependencies
 bbUrl=https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/${tag}
 if [ "$isArm64" != "" ]; then
@@ -61,9 +87,9 @@ if [ "$isArm64" != "" ]; then
     # conda is not on PATH this early in build_test.sh, so derive the envs dir
     # from $HOME (the env-discovery glob below also expects $HOME/*conda3/envs).
     envParent="$HOME/miniconda3/envs"
-    wget ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
-    wget ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
-    wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
+    fetch_tarball ${bbUrl}/asp_deps_p1.tar.gz   asp_deps_p1.tar.gz   required
+    fetch_tarball ${bbUrl}/asp_deps_p2.tar.gz   asp_deps_p2.tar.gz   optional  # may not exist (single part)
+    fetch_tarball ${bbUrl}/python_isis10.tar.gz python_isis10.tar.gz required
     mkdir -p "$envParent/asp_deps"
     cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps" 2>/dev/null
     "$envParent/asp_deps/bin/conda-unpack"
@@ -95,9 +121,9 @@ else
     # conda is not on PATH this early in build_test.sh, so derive the envs dir
     # from $HOME (the env-discovery glob below also expects $HOME/*conda3/envs).
     envParent="$HOME/miniconda3/envs"
-    wget ${bbUrl}/asp_deps_p1.tar.gz > /dev/null 2>&1
-    wget ${bbUrl}/asp_deps_p2.tar.gz > /dev/null 2>&1   # may not exist (single part) - ok
-    wget ${bbUrl}/python_isis10.tar.gz > /dev/null 2>&1
+    fetch_tarball ${bbUrl}/asp_deps_p1.tar.gz   asp_deps_p1.tar.gz   required
+    fetch_tarball ${bbUrl}/asp_deps_p2.tar.gz   asp_deps_p2.tar.gz   optional  # may not exist (single part)
+    fetch_tarball ${bbUrl}/python_isis10.tar.gz python_isis10.tar.gz required
     mkdir -p "$envParent/asp_deps"
     cat asp_deps_p*.tar.gz | tar xzf - -C "$envParent/asp_deps" 2>/dev/null
     "$envParent/asp_deps/bin/conda-unpack"
@@ -106,7 +132,15 @@ else
     "$envParent/python_isis10/bin/conda-unpack"
 fi
 
-# The env can be in miniconda3 or anaconda3  
+# Sanity-check the python env actually populated. An empty env here is exactly
+# what silently broke the 2026-08-26 Linux-arm nightly; fail now with a clear
+# message rather than deep inside make-dist.
+if [ ! -x "$envParent/python_isis10/bin/python" ]; then
+    echo "Error: python_isis10 env is missing bin/python after unpack"
+    exit 1
+fi
+
+# The env can be in miniconda3 or anaconda3
 envPath=$(ls -d $HOME/*conda3/envs/${envName})
 if [ ! -d "$envPath" ]; then
     echo "Error: Directory: $envPath does not exist"
