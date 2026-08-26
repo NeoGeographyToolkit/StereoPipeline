@@ -1227,7 +1227,8 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     // Bathymetry correction
     ("bathy-plane",
      po::value(&asp::stereo_settings().bathy_plane),
-      "Path to a file containing a plane approximating the water surface, for "
+      "Path to a plain-text plane, or a georeferenced water-surface raster (e.g., "
+      "from a tide model), approximating the water surface, for "
       "bathymetry correction with underwater terrain. This corrects camera rays passing "
       "through water using Snell's law. If multiple images are used and they have "
       "different water surfaces use --bathy-plane-list. Use together with "

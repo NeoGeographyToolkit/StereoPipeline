@@ -263,7 +263,8 @@ PreProcessingDescription::PreProcessingDescription():
       "Mask to use for the right image when doing bathymetry. See also "
       "left-bathy-mask.")
     ("bathy-plane", po::value(&global.bathy_plane),
-      "Path to a file containing a plane approximating the water surface, for "
+      "Path to a plain-text plane, or a georeferenced water-surface raster (e.g., "
+      "from a tide model), approximating the water surface, for "
       "bathymetry correction with underwater terrain. This corrects camera rays passing "
       "through water using Snell's law. If there is one plane per image, use "
       "--bathy-plane-list. Use together with --refraction-index.")

@@ -207,6 +207,10 @@ input image has a corresponding bathy mask, and these entities must be in the
 same order (and also with the cameras). Lists can also be used for the input
 images and cameras, via ``--image-list`` and ``--camera-list``.
 
+The value of ``--bathy-plane`` may be a plain-text plane
+(:numref:`bathy_plane_def`) or a georeferenced water-surface raster, such as
+from a tide model (:numref:`bathy_plane_img`).
+
 The preparation of bathy masks, the bathy plane (or more than one), and the
 refraction index are as for stereo processing (:numref:`bathy_intro`). The
 options invoked above are described in :numref:`ba_options`.
@@ -1841,18 +1845,20 @@ Bathymetry correction
 ^^^^^^^^^^^^^^^^^^^^^
 
 --bathy-plane <string (default: "")>
-    Path to a file containing a plane approximating the water surface, for
-    bathymetry correction with underwater terrain (:numref:`bathy_intro`; file
-    format: :numref:`bathy_plane_def`). This corrects camera rays passing
-    through water using Snell's law. If multiple images are used and they have
-    different water surfaces use ``--bathy-plane-list``. Use together with
-    ``--refraction-index``. See also ``--bathy-mask-list``.
+    Path to a plain-text plane (:numref:`bathy_plane_def`) or a georeferenced
+    water-surface raster (:numref:`bathy_plane_img`) approximating the water
+    surface, for bathymetry correction with underwater terrain. This corrects
+    camera rays passing through water using Snell's law. If multiple images are
+    used and they have different water surfaces use ``--bathy-plane-list``. Use
+    together with ``--refraction-index``. See also ``--bathy-mask-list``.
 
 --bathy-plane-list <string (default: "")>
     Path to a file containing a list of bathy plane files for bathymetry
     correction, if more than one. Set one plane file per line. Must specify one
-    plane per input image, in the same order. See :numref:`bathy_plane_def` for
-    the file format. Use with ``--bathy-mask-list`` and ``--refraction-index``.
+    plane per input image, in the same order. Each entry is a plain-text plane
+    (:numref:`bathy_plane_def`) or a water-surface raster
+    (:numref:`bathy_plane_img`). Use with ``--bathy-mask-list`` and
+    ``--refraction-index``.
 
 --bathy-mask-list <string (default: "")>
     Path to a file containing a list of water mask images for bathymetry correction,
