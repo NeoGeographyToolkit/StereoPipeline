@@ -131,18 +131,6 @@ public:
 
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
 
-  // Return true if an ECEF point is over water in the ortho bathy mask.
-  // Nearest-neighbor lookup; a point outside the mask is treated as land.
-  inline bool isWaterInOrthoMask(vw::Vector3 const& xyz) const {
-    vw::Vector3 llh = m_ortho_bathy_georef.datum().cartesian_to_geodetic(xyz);
-    vw::Vector2 pix = m_ortho_bathy_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
-    int c = (int)std::round(pix[0]);
-    int r = (int)std::round(pix[1]);
-    if (c < 0 || r < 0 || c >= m_ortho_bathy_mask.cols() || r >= m_ortho_bathy_mask.rows())
-      return false; // outside the mask: treat as land
-    return !vw::is_valid(m_ortho_bathy_mask(c, r)); // invalid pixel: water
-  }
-
   /// Compute the 3D coordinate corresponding to a pixel location.
   /// - p is not actually used here, it should always be zero!
   inline result_type operator()(size_t i, size_t j, size_t p = 0) const {
@@ -217,7 +205,7 @@ public:
       // ground point, obtained without ray bending.
       Vector3 tmpErr;
       Vector3 uncorr = m_stereo_model(pixVec, tmpErr);
-      do_bathy = isWaterInOrthoMask(uncorr);
+      do_bathy = vw::isWaterInOrthoMask(m_ortho_bathy_mask, m_ortho_bathy_georef, uncorr);
     } else {
       // Do bathy only when both left and right pixels are under water.
       Vector2 rpix = lpix + stereo::DispHelper(disp);
