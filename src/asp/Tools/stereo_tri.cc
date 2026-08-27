@@ -67,7 +67,7 @@ enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD}; // all, below wate
 class StereoTriangulation:
   public ImageViewBase<StereoTriangulation> {
   std::vector<DispImageType>     m_disparity_maps;
-  std::vector<const vw::camera::CameraModel*> m_camera_ptrs;
+  std::vector<vw::CamPtr>        m_cameras;
   std::vector<vw::TransformPtr>  m_transforms; // e.g., map-projection or homography to undo
   vw::cartography::Datum         m_datum;
   vw::stereo::StereoModel        m_stereo_model;
@@ -89,7 +89,7 @@ public:
 
   /// Constructor
   StereoTriangulation(std::vector<DispImageType>    const& disparity_maps,
-                      std::vector<const vw::camera::CameraModel*> const& camera_ptrs,
+                      std::vector<vw::CamPtr>       const& cameras,
                       std::vector<vw::TransformPtr> const& transforms,
                       vw::cartography::Datum        const& datum,
                       vw::stereo::StereoModel       const& stereo_model,
@@ -98,7 +98,7 @@ public:
                       bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
                       ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
                       ImageViewRef<PixelMask<float>> right_aligned_bathy_mask):
-    m_disparity_maps(disparity_maps), m_camera_ptrs(camera_ptrs),
+    m_disparity_maps(disparity_maps), m_cameras(cameras),
     m_transforms(transforms), m_datum(datum),
     m_stereo_model(stereo_model),
     m_bathy_model(bathy_model),
@@ -162,7 +162,7 @@ public:
           subvector(result, 4, 2)
             = asp::propagateCovariance(subvector(result, 0, 3),
                                        m_datum, v[0], v[1],
-                                       m_camera_ptrs[0], m_camera_ptrs[1],
+                                       m_cameras[0].get(), m_cameras[1].get(),
                                        pixVec[0], pixVec[1]);
         }
 
@@ -315,7 +315,7 @@ private:
         }
       }
 
-      return prerasterize_type(disparity_cropviews, m_camera_ptrs, transforms, m_datum,
+      return prerasterize_type(disparity_cropviews, m_cameras, transforms, m_datum,
                                m_stereo_model, m_bathy_model,
                                m_is_map_projected, m_bathy_correct, m_cloud_type,
                                in_memory_left_aligned_bathy_mask,
@@ -381,7 +381,7 @@ private:
       transforms_copy[p+1]->reverse_bbox(right_bbox);
     }
 
-    return prerasterize_type(disparity_cropviews, m_camera_ptrs, transforms_copy, m_datum,
+    return prerasterize_type(disparity_cropviews, m_cameras, transforms_copy, m_datum,
                              m_stereo_model, m_bathy_model, m_is_map_projected,
                              m_bathy_correct, m_cloud_type,
                              in_memory_left_aligned_bathy_mask,
@@ -392,7 +392,7 @@ private:
 /// A wrapper function for StereoTriangulation view construction
 StereoTriangulation
 stereo_triangulation(std::vector<DispImageType> const& disparities,
-                     std::vector<const vw::camera::CameraModel*> const& camera_ptrs,
+                     std::vector<vw::CamPtr>        const& cameras,
                      std::vector<vw::TransformPtr>  const& transforms,
                      vw::cartography::Datum         const& datum,
                      vw::stereo::StereoModel        const& stereo_model,
@@ -404,7 +404,7 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
                      ImageViewRef<PixelMask<float>> right_aligned_bathy_mask) {
 
   typedef StereoTriangulation result_type;
-  return result_type(disparities, camera_ptrs, transforms, datum, stereo_model, bathy_model,
+  return result_type(disparities, cameras, transforms, datum, stereo_model, bathy_model,
                      is_map_projected, bathy_correct, cloud_type,
                      left_aligned_bathy_mask, right_aligned_bathy_mask);
 }
@@ -786,7 +786,8 @@ void stereo_triangulation(std::string const& output_prefix,
     if (is_map_projected)
       vw_out() << "\t--> Inputs are map projected." << "\n";
 
-    // Strip the smart pointers and form the stereo model
+    // The VW stereo models take raw pointers, so form those just for their
+    // construction. Everything downstream keeps the smart pointers (cameras).
     std::vector<const vw::camera::CameraModel*> camera_ptrs;
     int num_cams = cameras.size();
     for (int c = 0; c < num_cams; c++)
@@ -885,7 +886,7 @@ void stereo_triangulation(std::string const& output_prefix,
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << "\n";
     ImageViewRef<Vector6> point_cloud = per_pixel_filter
-      (stereo_triangulation(disparity_maps, camera_ptrs, transforms, georef.datum(),
+      (stereo_triangulation(disparity_maps, cameras, transforms, georef.datum(),
                             stereo_model, bathy_stereo_model,
                             is_map_projected, bathy_correct, cloud_type,
                             left_aligned_bathy_mask, right_aligned_bathy_mask),
