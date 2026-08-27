@@ -40,6 +40,10 @@ void bathyChecks(std::string const& session_name,
 // If to apply bathy correction
 bool doBathy(asp::StereoSettings const& stereo_settings);
 
+// True when a single georeferenced ortho land/water mask is used instead of
+// the separate per-image left and right masks.
+bool useOrthoBathyMask(asp::StereoSettings const& stereo_settings);
+
 // Helper function to read bathy planes from either a direct string or a list file.
 // Returns space-separated string of plane files suitable for vw::readBathyPlanes().
 std::string readBathyPlanesStrOrList(std::string const& bathy_plane_files,

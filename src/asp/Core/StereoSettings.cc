@@ -261,7 +261,14 @@ PreProcessingDescription::PreProcessingDescription():
       "pixels must have positive value.")
     ("right-bathy-mask", po::value(&global.right_bathy_mask),
       "Mask to use for the right image when doing bathymetry. See also "
-      "left-bathy-mask.")
+      "left-bathy-mask and --ortho-bathy-mask.")
+    ("ortho-bathy-mask", po::value(&global.ortho_bathy_mask),
+      "A single georeferenced (orthoimage) land/water mask to use for bathymetry, "
+      "instead of the separate --left-bathy-mask and --right-bathy-mask. Each "
+      "triangulated point is projected into this mask; if it lands on water the "
+      "ray bending is applied. Pixels classified as water must have non-positive "
+      "value or be no-data in the mask, while land pixels must have positive value. "
+      "Cannot be used together with --left-bathy-mask or --right-bathy-mask.")
     ("bathy-plane", po::value(&global.bathy_plane),
       "Path to a plain-text plane, or a georeferenced water-surface raster (e.g., "
       "from a tide model), approximating the water surface, for "

@@ -49,10 +49,11 @@ as it is more accurate, or otherwise from the Green band images.
 The NIR1 band is good for finding the masks, as the water is dark in them,
 but the DEM with NIR1 images may not be that accurate to use in this context.
 
-It is important to decide carefully what outlier threshold to use and
-to check the number of resulting inliers. If too few, that may mean
-that the outlier threshold is too strict. Above, the inliers are saved
-as a shapefile and can be inspected. The inliers should be
+It is important to decide carefully what outlier threshold to use and to check
+the number of resulting inliers. If too few, that may mean that the outlier
+threshold is too strict.
+
+The inliers are saved as a shapefile and can be inspected. The inliers must be
 well-distributed over the entire shoreline.
 
 For some datasets an outlier threshold of 1.0 works better than 0.5.

@@ -129,6 +129,11 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
   if (!do_bathy)
     return;
 
+  // With a single ortho mask there are no per-image masks to align. The
+  // water/land decision is made in triangulation from the ortho mask.
+  if (asp::useOrthoBathyMask(asp::stereo_settings()))
+    return;
+
   // Check the timestamp of aligned masks
   std::vector<std::string> check_files;
   check_files.push_back(m_left_image_file);

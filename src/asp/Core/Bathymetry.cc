@@ -94,7 +94,15 @@ void readBathyData(int num_images,
 bool doBathy(asp::StereoSettings const& stereo_settings) {
   return (stereo_settings.left_bathy_mask  != "" ||
           stereo_settings.right_bathy_mask != "" ||
-          stereo_settings.bathy_mask_list  != "");
+          stereo_settings.bathy_mask_list  != "" ||
+          stereo_settings.ortho_bathy_mask != "");
+}
+
+// True when a single georeferenced ortho land/water mask is used instead of
+// the separate per-image left and right masks. The water/land decision is
+// then made in triangulation, per point, not from per-image masks.
+bool useOrthoBathyMask(asp::StereoSettings const& stereo_settings) {
+  return (stereo_settings.ortho_bathy_mask != "");
 }
 
 // Validate loaded bathymetry data for internal consistency.
@@ -145,6 +153,15 @@ void bathyChecks(std::string const& session_name,
                  int num_images) {
 
   if (doBathy(stereo_settings)) {
+
+    // The single ortho mask and the per-image masks are mutually exclusive.
+    if (useOrthoBathyMask(stereo_settings) &&
+        (stereo_settings.left_bathy_mask != "" ||
+         stereo_settings.right_bathy_mask != ""))
+      vw::vw_throw(vw::ArgumentErr()
+                   << "Cannot specify --ortho-bathy-mask together with "
+                   << "--left-bathy-mask or --right-bathy-mask.\n");
+
     // If only the topo cloud needs computing, will use only the info from the
     // left and right bathy masks, so does not need the refraction index and
     // the bathy plane.

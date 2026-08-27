@@ -59,16 +59,19 @@ image_align (:numref:`image_align`):
     per-match uncertainty (:numref:`correlation_uncertainty`).
 
 parallel_stereo (:numref:`parallel_stereo`):
-  * Robustified the local epipolar alignment: a tile with too few interest
-    points is retried once with expanded boxes and proportionally more interest
-    points, reducing holes in the disparity (:numref:`stereodefault`).
-  * Added the ``mgm_multi`` stereo algorithm, the multiscale flavor of MGM
-    (:numref:`mgm_multi`).
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
     recent processing best practices (addition of anchor points, gcp robust
     threshold, camera position controls with CSM cameras).
   * Expanded the Chandrayaan-2 examples to ensure reproducibility
     (:numref:`chandrayaan2`).
+  * Added the option ``--ortho-bathy-mask``, to use a single georeferenced
+    land/water mask for bathymetry instead of the separate left and right
+    masks (:numref:`bathy_stereo_run`).
+  * Robustified the local epipolar alignment: a tile with too few interest
+    points is retried once with expanded boxes and proportionally more interest
+    points, reducing holes in the disparity (:numref:`stereodefault`).
+  * Added the ``mgm_multi`` stereo algorithm, the multiscale flavor of MGM
+    (:numref:`mgm_multi`).
   * The minimum number of interest point matches is now set with
     ``--min-matches``, for consistency with other tools. The older option
     ``--min-num-ip`` is kept for backward compatibility

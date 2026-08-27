@@ -208,11 +208,10 @@ plane found before. Pixels classified as water must have non-positive value
 or be no-data in the mask, while land pixels must have positive value.
 
 The argument of ``--bathy-plane`` may also be a georeferenced raster of
-per-pixel water-surface heights (see :numref:`bathy_plane_img`), such as one
-produced from a tide model (:numref:`global_tides`), instead of the
-four-coefficient text file::
+per-pixel water-surface heights (see :numref:`bathy_plane_img`).
 
-      --bathy-plane water_surface.tif
+Instead of the two per-image masks it is possible to specify a single
+georeferenced (orthoimage) land/water mask with ``--ortho-bathy-mask``.
 
 See :numref:`nextsteps` for a discussion about various
 speed-vs-quality choices.

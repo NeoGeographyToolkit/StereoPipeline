@@ -42,14 +42,18 @@
 #include <vw/Camera/CameraModel.h>
 #include <vw/Stereo/StereoView.h>
 #include <vw/Cartography/BathyStereoModel.h>
+#include <vw/Cartography/GeoReference.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Image/Filter.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Cartography/Map2CamTrans.h>
+#include <vw/FileIO/DiskImageView.h>
+#include <vw/FileIO/DiskImageResource.h>
 #include <vw/Core/Stopwatch.h>
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <ctime>
+#include <limits>
 
 using namespace vw;
 
@@ -62,17 +66,18 @@ enum OUTPUT_CLOUD_TYPE {FULL_CLOUD, BATHY_CLOUD, TOPO_CLOUD}; // all, below wate
 /// error, and perhaps propagate covariances (creating stddev).
 class StereoTriangulation:
   public ImageViewBase<StereoTriangulation> {
-  std::vector<DispImageType>    m_disparity_maps;
+  std::vector<DispImageType>     m_disparity_maps;
   std::vector<const vw::camera::CameraModel*> m_camera_ptrs;
-  std::vector<vw::TransformPtr> m_transforms; // e.g., map-projection or homography to undo
-  vw::cartography::Datum        m_datum;
-  vw::stereo::StereoModel       m_stereo_model;
-  vw::BathyStereoModel          m_bathy_model;
-  bool                          m_is_map_projected;
-  bool                          m_bathy_correct;
-  OUTPUT_CLOUD_TYPE             m_cloud_type;
+  std::vector<vw::TransformPtr>  m_transforms; // e.g., map-projection or homography to undo
+  vw::cartography::Datum         m_datum;
+  vw::stereo::StereoModel        m_stereo_model;
+  vw::BathyStereoModel           m_bathy_model;
+  bool                           m_is_map_projected;
+  bool                           m_bathy_correct;
+  OUTPUT_CLOUD_TYPE              m_cloud_type;
   ImageViewRef<PixelMask<float>> m_left_aligned_bathy_mask;
   ImageViewRef<PixelMask<float>> m_right_aligned_bathy_mask;
+  bool                           m_use_ortho_bathy_mask;
 
   typedef typename DispImageType::pixel_type DPixelT;
 
@@ -101,7 +106,8 @@ public:
     m_bathy_correct(bathy_correct),
     m_cloud_type(cloud_type),
     m_left_aligned_bathy_mask(left_aligned_bathy_mask),
-    m_right_aligned_bathy_mask(right_aligned_bathy_mask) {
+    m_right_aligned_bathy_mask(right_aligned_bathy_mask),
+    m_use_ortho_bathy_mask(asp::useOrthoBathyMask(asp::stereo_settings())) {
 
     // Sanity check
     for (int p = 1; p < (int)m_disparity_maps.size(); p++) {
@@ -186,13 +192,23 @@ public:
     // See if both the left and right aligned matching pixels are in the aligned
     // bathymetry masks which means bathymetry correction should happen.
     // Note that pixVec has the unwarped left and right pixels.
-    Vector2 rpix = lpix + stereo::DispHelper(disp);
+    bool do_bathy = false;
+    if (m_use_ortho_bathy_mask) {
+      // With a single ortho mask there are no per-image masks. The water/land
+      // decision is made inside BathyStereoModel from the triangulated point, so pass
+      // do_bathy true here and let the model and did_bathy sort it out below.
+      do_bathy = true;
+    } else {
+      // Do bathy only when the mask is invalid (under water)
+      Vector2 rpix = lpix + stereo::DispHelper(disp);
+      do_bathy = vw::areMasked(m_left_aligned_bathy_mask, m_right_aligned_bathy_mask,
+                               lpix, rpix);
+    }
 
-    // Do bathy only when the mask is invalid (under water)
-    bool do_bathy = vw::areMasked(m_left_aligned_bathy_mask, m_right_aligned_bathy_mask,
-                                  lpix, rpix);
-
-    if (m_cloud_type == TOPO_CLOUD) {
+    // The mask-based early returns below assume do_bathy already reflects the
+    // water/land decision. In ortho mode it does not (that happens in the
+    // model), so skip them and rely on the did_bathy gate after triangulation.
+    if (!m_use_ortho_bathy_mask && m_cloud_type == TOPO_CLOUD) {
       if (!do_bathy) {
         // We are on dry land. Triangulate as before. In this mode
         // the bathy plane may not even exist.
@@ -821,22 +837,45 @@ void stereo_triangulation(std::string const& output_prefix,
         vw_throw(ArgumentErr()
                  << "Bathymetry correction does not work with multiview stereo.\n");
 
-      opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
-                                                   right_aligned_bathy_mask);
+      bool use_ortho = asp::useOrthoBathyMask(asp::stereo_settings());
 
-      if (left_aligned_bathy_mask.cols() != disparity_maps[0].cols() ||
-          left_aligned_bathy_mask.rows() != disparity_maps[0].rows())
-        vw_throw(ArgumentErr() << "The dimensions of disparity and left "
-                  << "aligned bathymetry mask must agree.\n");
+      // With a single ortho mask there are no per-image masks to read here.
+      if (!use_ortho) {
+        opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
+                                                     right_aligned_bathy_mask);
+
+        if (left_aligned_bathy_mask.cols() != disparity_maps[0].cols() ||
+            left_aligned_bathy_mask.rows() != disparity_maps[0].rows())
+          vw_throw(ArgumentErr() << "The dimensions of disparity and left "
+                    << "aligned bathymetry mask must agree.\n");
+      }
 
       // The bathy plane is needed only for the underwater component
       if (asp::stereo_settings().output_cloud_type != "topo") {
         int num_images = 2;
-        std::string planes_to_load 
-          = asp::readBathyPlanesStrOrList(stereo_settings().bathy_plane, 
+        std::string planes_to_load
+          = asp::readBathyPlanesStrOrList(stereo_settings().bathy_plane,
                                           stereo_settings().bathy_plane_list);
         vw::readBathyPlanes(planes_to_load, num_images, bathy_plane_vec);
         bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_vec);
+      }
+
+      // Load the single ortho land/water mask and hand it to the model. The
+      // mask must be georeferenced. It is read with read_bathy_mask (same as
+      // the per-image masks), so water pixels (non-positive or nodata) are
+      // invalidated. Rasterize fully into memory (masks are small).
+      if (use_ortho) {
+        std::string ortho_file = asp::stereo_settings().ortho_bathy_mask;
+        vw::cartography::GeoReference ortho_georef;
+        bool has_georef = vw::cartography::read_georeference(ortho_georef, ortho_file);
+        if (!has_georef)
+          vw_throw(ArgumentErr() << "The ortho bathy mask must be georeferenced: "
+                    << ortho_file << ".\n");
+
+        float ortho_nodata = -std::numeric_limits<float>::max(); // part of API
+        vw::ImageView<vw::PixelMask<float>> ortho_mask
+          = vw::read_bathy_mask(ortho_file, ortho_nodata);
+        bathy_stereo_model.set_ortho_mask(ortho_mask, ortho_georef);
       }
     }
 
