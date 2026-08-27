@@ -402,14 +402,19 @@ Choice of initial guess terrain model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For Earth, an existing lower-resolution initial guess terrain model can be, for
-example, the Copernicus 30 m DEM from:
-
-    https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3
-
-or the NASA SRTM DEM (available on the same web site as above),
+example, the `Copernicus 30 m DEM
+<https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3>`_,
+the `NASA SRTM DEM
+<https://portal.opentopography.org/raster?opentopoID=OTSRTMGL1.082016.4326.1>`_,
 GMTED2010, USGS's NED data, or NGA's DTED data.
 
-The Copernicus 30 m DEM heights are relative to the EGM96 geoid. 
+For the United States, the `USGS 3DEP elevation service
+<https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer>`_
+provides free 1 m and 10 m lidar-derived DEMs that are much finer than the global
+products above, with a tile for any area of interest fetched on demand.
+
+The Copernicus 30 m DEM heights are relative to the EGM2008 geoid, the SRTM DEM to
+the EGM96 geoid, and the 3DEP DEM to the NAVD88 geoid.
 
 *Any such DEM must be converted using* ``dem_geoid`` *to WGS84 ellipsoid heights,
 for any processing to be accurate.* See (:numref:`conv_to_ellipsoid`).
