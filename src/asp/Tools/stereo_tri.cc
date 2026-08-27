@@ -54,6 +54,7 @@
 #include <xercesc/util/PlatformUtils.hpp>
 #include <ctime>
 #include <limits>
+#include <cmath>
 
 using namespace vw;
 
@@ -78,6 +79,8 @@ class StereoTriangulation:
   ImageViewRef<PixelMask<float>> m_left_aligned_bathy_mask;
   ImageViewRef<PixelMask<float>> m_right_aligned_bathy_mask;
   bool                           m_use_ortho_bathy_mask;
+  ImageView<PixelMask<float>>    m_ortho_bathy_mask;   // for --ortho-bathy-mask
+  vw::cartography::GeoReference  m_ortho_bathy_georef; // georef of the ortho mask
 
   typedef typename DispImageType::pixel_type DPixelT;
 
@@ -97,7 +100,9 @@ public:
                       bool is_map_projected,
                       bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
                       ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
-                      ImageViewRef<PixelMask<float>> right_aligned_bathy_mask):
+                      ImageViewRef<PixelMask<float>> right_aligned_bathy_mask,
+                      ImageView<PixelMask<float>>    ortho_bathy_mask,
+                      vw::cartography::GeoReference  ortho_bathy_georef):
     m_disparity_maps(disparity_maps), m_cameras(cameras),
     m_transforms(transforms), m_datum(datum),
     m_stereo_model(stereo_model),
@@ -107,7 +112,9 @@ public:
     m_cloud_type(cloud_type),
     m_left_aligned_bathy_mask(left_aligned_bathy_mask),
     m_right_aligned_bathy_mask(right_aligned_bathy_mask),
-    m_use_ortho_bathy_mask(asp::useOrthoBathyMask(asp::stereo_settings())) {
+    m_use_ortho_bathy_mask(asp::useOrthoBathyMask(asp::stereo_settings())),
+    m_ortho_bathy_mask(ortho_bathy_mask),
+    m_ortho_bathy_georef(ortho_bathy_georef) {
 
     // Sanity check
     for (int p = 1; p < (int)m_disparity_maps.size(); p++) {
@@ -123,6 +130,18 @@ public:
   inline int32 planes() const { return 1; }
 
   inline pixel_accessor origin() const { return pixel_accessor(*this); }
+
+  // Return true if an ECEF point is over water in the ortho bathy mask.
+  // Nearest-neighbor lookup; a point outside the mask is treated as land.
+  inline bool isWaterInOrthoMask(vw::Vector3 const& xyz) const {
+    vw::Vector3 llh = m_ortho_bathy_georef.datum().cartesian_to_geodetic(xyz);
+    vw::Vector2 pix = m_ortho_bathy_georef.lonlat_to_pixel(vw::Vector2(llh[0], llh[1]));
+    int c = (int)std::round(pix[0]);
+    int r = (int)std::round(pix[1]);
+    if (c < 0 || r < 0 || c >= m_ortho_bathy_mask.cols() || r >= m_ortho_bathy_mask.rows())
+      return false; // outside the mask: treat as land
+    return !vw::is_valid(m_ortho_bathy_mask(c, r)); // invalid pixel: water
+  }
 
   /// Compute the 3D coordinate corresponding to a pixel location.
   /// - p is not actually used here, it should always be zero!
@@ -194,21 +213,19 @@ public:
     // Note that pixVec has the unwarped left and right pixels.
     bool do_bathy = false;
     if (m_use_ortho_bathy_mask) {
-      // With a single ortho mask there are no per-image masks. The water/land
-      // decision is made inside BathyStereoModel from the triangulated point, so pass
-      // do_bathy true here and let the model and did_bathy sort it out below.
-      do_bathy = true;
+      // The ortho mask is georeferenced, so look it up at the triangulated
+      // ground point, obtained without ray bending.
+      Vector3 tmpErr;
+      Vector3 uncorr = m_stereo_model(pixVec, tmpErr);
+      do_bathy = isWaterInOrthoMask(uncorr);
     } else {
-      // Do bathy only when the mask is invalid (under water)
+      // Do bathy only when both left and right pixels are under water.
       Vector2 rpix = lpix + stereo::DispHelper(disp);
       do_bathy = vw::areMasked(m_left_aligned_bathy_mask, m_right_aligned_bathy_mask,
                                lpix, rpix);
     }
 
-    // The mask-based early returns below assume do_bathy already reflects the
-    // water/land decision. In ortho mode it does not (that happens in the
-    // model), so skip them and rely on the did_bathy gate after triangulation.
-    if (!m_use_ortho_bathy_mask && m_cloud_type == TOPO_CLOUD) {
+    if (m_cloud_type == TOPO_CLOUD) {
       if (!do_bathy) {
         // We are on dry land. Triangulate as before. In this mode
         // the bathy plane may not even exist.
@@ -319,7 +336,8 @@ private:
                                m_stereo_model, m_bathy_model,
                                m_is_map_projected, m_bathy_correct, m_cloud_type,
                                in_memory_left_aligned_bathy_mask,
-                               in_memory_right_aligned_bathy_mask);
+                               in_memory_right_aligned_bathy_mask,
+                               m_ortho_bathy_mask, m_ortho_bathy_georef);
     }
 
     // Code for MAP-PROJECTED session types.
@@ -385,7 +403,8 @@ private:
                              m_stereo_model, m_bathy_model, m_is_map_projected,
                              m_bathy_correct, m_cloud_type,
                              in_memory_left_aligned_bathy_mask,
-                             in_memory_right_aligned_bathy_mask);
+                             in_memory_right_aligned_bathy_mask,
+                             m_ortho_bathy_mask, m_ortho_bathy_georef);
   } // End function PreRasterHelper() mapprojected version
 }; // End class StereoTriangulation
 
@@ -401,12 +420,15 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
                      bool bathy_correct,
                      OUTPUT_CLOUD_TYPE cloud_type,
                      ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
-                     ImageViewRef<PixelMask<float>> right_aligned_bathy_mask) {
+                     ImageViewRef<PixelMask<float>> right_aligned_bathy_mask,
+                     ImageView<PixelMask<float>>    ortho_bathy_mask,
+                     vw::cartography::GeoReference  ortho_bathy_georef) {
 
   typedef StereoTriangulation result_type;
   return result_type(disparities, cameras, transforms, datum, stereo_model, bathy_model,
                      is_map_projected, bathy_correct, cloud_type,
-                     left_aligned_bathy_mask, right_aligned_bathy_mask);
+                     left_aligned_bathy_mask, right_aligned_bathy_mask,
+                     ortho_bathy_mask, ortho_bathy_georef);
 }
 
 // TODO(oalexan1): Move some of these functions to a class or something!
@@ -832,6 +854,8 @@ void stereo_triangulation(std::string const& output_prefix,
     // Load the bathy plane and masks
     std::vector<vw::BathyPlane> bathy_plane_vec;
     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
+    ImageView<PixelMask<float>> ortho_bathy_mask; // for --ortho-bathy-mask
+    vw::cartography::GeoReference ortho_bathy_georef;
     if (bathy_correct) {
 
       if (disparity_maps.size() != 1)
@@ -861,22 +885,19 @@ void stereo_triangulation(std::string const& output_prefix,
         bathy_stereo_model.set_bathy(stereo_settings().refraction_index, bathy_plane_vec);
       }
 
-      // Load the single ortho land/water mask and hand it to the model. The
-      // mask must be georeferenced. It is read with read_bathy_mask (same as
-      // the per-image masks), so water pixels (non-positive or nodata) are
-      // invalidated. Rasterize fully into memory (masks are small).
+      // Load the single ortho land/water mask. It must be georeferenced. It is
+      // read with read_bathy_mask (same as the per-image masks), so water pixels
+      // (non-positive or nodata) are invalidated. It is sampled per triangulated
+      // point in the triangulation functor. Rasterize fully (masks are small).
       if (use_ortho) {
         std::string ortho_file = asp::stereo_settings().ortho_bathy_mask;
-        vw::cartography::GeoReference ortho_georef;
-        bool has_georef = vw::cartography::read_georeference(ortho_georef, ortho_file);
+        bool has_georef = vw::cartography::read_georeference(ortho_bathy_georef, ortho_file);
         if (!has_georef)
           vw_throw(ArgumentErr() << "The ortho bathy mask must be georeferenced: "
                     << ortho_file << ".\n");
 
         float ortho_nodata = -std::numeric_limits<float>::max(); // part of API
-        vw::ImageView<vw::PixelMask<float>> ortho_mask
-          = vw::read_bathy_mask(ortho_file, ortho_nodata);
-        bathy_stereo_model.set_ortho_mask(ortho_mask, ortho_georef);
+        ortho_bathy_mask = vw::read_bathy_mask(ortho_file, ortho_nodata);
       }
     }
 
@@ -889,7 +910,8 @@ void stereo_triangulation(std::string const& output_prefix,
       (stereo_triangulation(disparity_maps, cameras, transforms, georef.datum(),
                             stereo_model, bathy_stereo_model,
                             is_map_projected, bathy_correct, cloud_type,
-                            left_aligned_bathy_mask, right_aligned_bathy_mask),
+                            left_aligned_bathy_mask, right_aligned_bathy_mask,
+                            ortho_bathy_mask, ortho_bathy_georef),
          universe_radius_func);
 
     // In correlator mode, can go no further
