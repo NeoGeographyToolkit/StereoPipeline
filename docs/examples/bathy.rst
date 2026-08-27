@@ -552,9 +552,14 @@ its resolution by a factor of 4 to make it comparable to the PAN
 image, then crop about 50 columns on the left, and further crop or
 extend the scaled mask to match the PAN image dimensions.
 
-ASP provides a tool for doing this, which can be called as::
+The factor of 4 holds by design for DigitalGlobe/Maxar sensors
+(WorldView, QuickBird, GeoEye). This is checked with the
+``MEANPRODUCTGSD`` field.
 
-    scale_bathy_mask.py ms_mask.tif pan_image.tif output_pan_mask.tif
+ASP provides a tool for the mask transfer, which can be called as::
+
+    scale_bathy_mask.py ms_mask.tif pan_image.tif output_pan_mask.tif \
+      ms_camera.xml pan_camera.xml
 
 Any warnings about ``srcwin ... falls partially outside raster
 extent`` should be ignored. GDAL will correctly pad the scaled mask
@@ -569,7 +574,7 @@ be 50 or 48 pixels. It appears that 50 pixels works better for WV03
 while 48 pixels may be appropriate for WV02. These were observed
 to result in a smaller shift among these images. The default is 50.
 If desired to experiment with another amount, pass that one
-as an additional argument to the tool, after the output PAN mask.
+as an additional argument to the tool, after the camera XML files.
 
 .. _bathy_non_dg:
 

@@ -24,7 +24,18 @@ during shallow-water bathymetry. See:
 https://stereopipeline.readthedocs.io/en/latest
 '''
 from __future__ import print_function
-import sys, os, subprocess
+import sys, os, subprocess, re
+
+# Read the MEANPRODUCTGSD (mean ground sample distance of the delivered
+# product, in meters) from a DigitalGlobe/Maxar camera XML file.
+def read_mean_product_gsd(xml_file):
+    with open(xml_file, 'r') as f:
+        text = f.read()
+    m = re.search(r'<MEANPRODUCTGSD>\s*([0-9eE.+-]+)\s*</MEANPRODUCTGSD>', text)
+    if m is None:
+        print("Could not find MEANPRODUCTGSD in: " + xml_file)
+        sys.exit(1)
+    return float(m.group(1))
 
 # The path to the ASP python files
 basepath    = os.path.abspath(sys.path[0])
@@ -40,29 +51,48 @@ asp_system_utils.verify_python_version_is_supported()
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
 
-if len(sys.argv) < 4:
-    print("Usage: " + sys.argv[0] + " ms_mask.tif pan_image.tif output_pan_mask.tif [num_left_cols_crop]")
+if len(sys.argv) < 6:
+    print("Usage: " + sys.argv[0] + " ms_mask.tif pan_image.tif output_pan_mask.tif " + \
+          "ms_camera.xml pan_camera.xml [num_left_cols_crop]")
     sys.exit(1)
 
-ms_mask = sys.argv[1]
-pan_image = sys.argv[2]
+ms_mask         = sys.argv[1]
+pan_image       = sys.argv[2]
+output_pan_mask = sys.argv[3]
+ms_xml          = sys.argv[4]
+pan_xml         = sys.argv[5]
 
-if not os.path.exists(ms_mask):
-    print("Missing file: " + ms_mask)
-    sys.exit(1)
-
-if not os.path.exists(pan_image):
-    print("Missing file: " + pan_image)
-    sys.exit(1)
+for f in [ms_mask, pan_image, ms_xml, pan_xml]:
+    if not os.path.exists(f):
+        print("Missing file: " + f)
+        sys.exit(1)
 
 # It is not clear how much to crop on the left
 # A value of 50 seems to work better with WV03 and 48 with WV02.
 crop_len = 50
-if len(sys.argv) >= 5:
-    crop_len = sys.argv[4]
+if len(sys.argv) >= 7:
+    crop_len = sys.argv[6]
 print("Will remove " + str(crop_len) + " columns on the left after scaling the mask.")
 
-output_pan_mask = sys.argv[3]
+# The mask scaling assumes the multispectral GSD is 4x the panchromatic GSD.
+# This holds by design for DigitalGlobe/Maxar sensors (WorldView, QuickBird,
+# GeoEye) at native resolution, and is independent of the off-nadir angle. Read
+# both GSDs and assert the ratio is 4, to catch a non-standard product (pan-
+# sharpened, reduced-resolution, or custom-GSD). The tolerance is generous, as
+# the ratio is 4 by design and MEANPRODUCTGSD is only accurate to a few mm.
+ms_gsd  = read_mean_product_gsd(ms_xml)
+pan_gsd = read_mean_product_gsd(pan_xml)
+ratio   = ms_gsd / pan_gsd
+tol     = 0.1
+if abs(ratio - 4.0) > tol:
+    print("Error: the multispectral-to-panchromatic MEANPRODUCTGSD ratio is " + \
+          str(ratio) + " (MS = " + str(ms_gsd) + " m, PAN = " + str(pan_gsd) + \
+          " m), but this tool assumes a ratio of 4. A different ratio means a " + \
+          "non-standard product (pan-sharpened, reduced-resolution, or custom-" + \
+          "GSD). Aborting.")
+    sys.exit(1)
+print("MS/PAN MEANPRODUCTGSD ratio = " + str(ratio) + " (MS = " + str(ms_gsd) + \
+      " m, PAN = " + str(pan_gsd) + " m), within " + str(tol) + " of 4.")
 tmp_pan_mask = os.path.splitext(output_pan_mask)[0]+'_tmp.tif'
 
 ms_width, ms_height = asp_image_utils.getImageSize(ms_mask)
