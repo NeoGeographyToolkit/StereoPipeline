@@ -46,12 +46,12 @@ struct Options: vw::GdalWriteOptions {
   std::string shapefile, dem, mask, ortho_mask, camera, stereo_session, bathy_plane,
     water_height_measurements, lon_lat_measurements, csv_format_str,
     output_inlier_shapefile, bundle_adjust_prefix, output_outlier_shapefile,
-    mask_boundary_shapefile, dem_minus_plane, water_surface;
+    mask_boundary_shapefile, dem_minus_plane, water_surface, output_water_surface;
 
   double outlier_threshold;
-  int num_ransac_iterations, num_samples;
+  int num_ransac_iterations, num_samples, min_lake_pixels;
   bool save_shapefiles_as_polygons;
-  Options(): outlier_threshold(0.5), num_ransac_iterations(1000) {}
+  Options(): outlier_threshold(0.5), num_ransac_iterations(1000), min_lake_pixels(500) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -133,7 +133,20 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The best-fit plane to this raster is computed in a local stereographic "
      "projection and written to ``--bathy-plane`` for inspection or "
      "comparison. No DEM, mask, shapefile, or measurement file is required "
-     "in this mode.");
+     "in this mode.")
+    ("output-water-surface",
+     po::value(&opt.output_water_surface)->default_value(""),
+     "Fit a separate water-surface plane to each connected water body (lake) in "
+     "the georeferenced land/water mask given by ``--ortho-mask``, and write the "
+     "resulting per-pixel water-surface-elevation raster (heights above the "
+     "WGS_1984 ellipsoid, in meters) to this file. The DEM is set with ``--dem``. "
+     "Only water bodies with at least ``--min-lake-pixels`` pixels are fit. The "
+     "output raster can be passed to ``parallel_stereo --bathy-plane`` for "
+     "multi-water-body bathymetry correction.")
+    ("min-lake-pixels",
+     po::value(&opt.min_lake_pixels)->default_value(500),
+     "In multi-water-body mode (``--output-water-surface``), only fit a plane to "
+     "connected water bodies having at least this many pixels.");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
@@ -176,8 +189,17 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (!use_meas && !use_water_surface && opt.dem == "")
     vw::vw_throw(vw::ArgumentErr() << "Missing the input dem.\n" << usage << general_options);
 
-  if (opt.bathy_plane.empty() && opt.mask_boundary_shapefile.empty())
-    vw::vw_throw(vw::ArgumentErr() << "Must set either --bathy-plane or --mask-boundary-shapefile.\n"
+  bool use_multi_water = !opt.output_water_surface.empty();
+  if (use_multi_water && !use_ortho_mask)
+    vw::vw_throw(vw::ArgumentErr() << "The option --output-water-surface requires "
+             << "--ortho-mask (and --dem).\n" << usage << general_options);
+
+  if (opt.bathy_plane.empty() && opt.mask_boundary_shapefile.empty() && !use_multi_water)
+    vw::vw_throw(vw::ArgumentErr() << "Must set --bathy-plane, --mask-boundary-shapefile, "
+             << "or --output-water-surface.\n" << usage << general_options);
+
+  if (use_multi_water && opt.min_lake_pixels <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "The value of --min-lake-pixels must be positive.\n"
              << usage << general_options);
 
   if ((use_meas || use_lon_lat) && opt.csv_format_str == "")
@@ -196,10 +218,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "The option --dem-minus-plane is not "
              << "supported with --water-surface.\n" << usage << general_options);
 
-  // Create the output prefix  
+  // Create the output prefix
   std::string out_prefix = opt.bathy_plane;
-  if (opt.bathy_plane.empty())
+  if (out_prefix.empty())
     out_prefix = opt.mask_boundary_shapefile;
+  if (out_prefix.empty())
+    out_prefix = opt.output_water_surface;
   // Remove the extension, which is the text after the last dot
   size_t pos = out_prefix.rfind(".");
   if (pos != std::string::npos)
@@ -329,6 +353,20 @@ int main(int argc, char *argv[]) {
       interp_dem = vw::interpolate(masked_dem, vw::BilinearInterpolation(), ext_nodata);
       
       shape_georef = dem_georef; // may get overwritten below
+    }
+
+    // Multi-water-body mode: fit a separate plane per lake and write a WSE raster.
+    if (use_ortho_mask && !opt.output_water_surface.empty()) {
+      vw::cartography::GeoReference mask_georef;
+      if (!vw::cartography::read_georeference(mask_georef, opt.ortho_mask))
+        vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
+      asp::calcMultiWaterBodyPlanes(opt.ortho_mask, mask_georef, dem_georef,
+                                    dem, interp_dem, dem_nodata_val,
+                                    opt.min_lake_pixels, opt.num_ransac_iterations,
+                                    opt.outlier_threshold, opt.output_water_surface,
+                                    opt.output_inlier_shapefile,
+                                    opt.save_shapefiles_as_polygons, opt);
+      return 0;
     }
 
     std::vector<Eigen::Vector3d> ecef_vec;

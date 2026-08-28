@@ -27,6 +27,7 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Geometry/dPoly.h>
 #include <vw/Camera/CameraModel.h>
+#include <vw/FileIO/GdalWriteOptions.h>
 
 #include <Eigen/Dense>
 
@@ -148,6 +149,24 @@ void calcBathyPlane(int num_ransac_iterations,
                     std::vector<Eigen::Vector3d> const& proj_vec,
                     vw::Matrix<double> & plane,
                     std::vector<size_t> & inlier_indices);
+
+// Fit a separate water-surface plane to each connected water body (lake) in a
+// georeferenced land/water mask, and write a per-pixel water-surface-elevation
+// (WSE) raster on the DEM grid. See the .cc for details. The output raster can
+// be passed to parallel_stereo --bathy-plane for multi-water-body bathymetry.
+void calcMultiWaterBodyPlanes(std::string const& mask_file,
+                              vw::cartography::GeoReference const& mask_georef,
+                              vw::cartography::GeoReference const& dem_georef,
+                              vw::ImageViewRef<float> dem,
+                              vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
+                              double dem_nodata_val,
+                              int min_lake_pixels,
+                              int num_ransac_iterations,
+                              double outlier_threshold,
+                              std::string const& output_wse_raster,
+                              std::string const& output_inlier_shapefile,
+                              bool save_shapefiles_as_polygons,
+                              vw::GdalWriteOptions const& write_opt);
 
 } // end namespace asp
 

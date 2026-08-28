@@ -21,6 +21,7 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Cartography/BathyData.h>
 #include <vw/Cartography/shapeFile.h>
+#include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Math/RANSAC.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Core/ThreadPool.h>
@@ -34,6 +35,7 @@
 #include <iterator>
 #include <iostream>
 #include <vector>
+#include <stack>
 
 namespace asp {
 
@@ -993,6 +995,284 @@ void calcBathyPlane(int num_ransac_iterations,
   }
   vw::vw_out() << "Found " << inlier_indices.size() << " / " << proj_vec.size()
                << " inliers.\n";
+}
+
+// Evaluate the height (above the datum) of a water-surface plane at a given
+// lon-lat. The plane a*x + b*y + c*z + d = 0 lives in the local stereographic
+// frame stereo_georef. Intersect the vertical geodetic line at (lon, lat) with
+// the plane and return the geodetic height of the intersection. Mirrors the
+// math in DemMinusPlaneView.
+static double evalPlaneHeightAtLonLat(vw::Vector2 const& lon_lat,
+                                      vw::Matrix<double> const& plane,
+                                      vw::cartography::GeoReference const& stereo_georef) {
+  vw::Vector3 llh;
+  vw::math::subvector(llh, 0, 2) = lon_lat;
+  llh[2] = 0.0;
+  vw::Vector3 point1 = stereo_georef.geodetic_to_point(llh);
+  llh[2] = -100.0;
+  vw::Vector3 point2 = stereo_georef.geodetic_to_point(llh);
+
+  vw::Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
+  double plane_intercept = plane(0, 3);
+  double t = -(vw::math::dot_prod(point1, plane_normal) + plane_intercept) /
+    vw::math::dot_prod(point2 - point1, plane_normal);
+  vw::Vector3 P = point1 + t * (point2 - point1);
+  return stereo_georef.point_to_geodetic(P)[2];
+}
+
+// Fit a separate water-surface plane to each connected water body (lake) in a
+// georeferenced land/water mask, and write a per-pixel water-surface-elevation
+// (WSE) raster on the DEM grid. Water pixels are labeled into connected bodies
+// (8-connectivity). For each body with at least min_lake_pixels pixels, the
+// shoreline points (land pixels at the water interface, with heights from the
+// DEM) are fit to a plane in that body's own local stereographic frame via
+// RANSAC, exactly as the single-plane --ortho-mask path does, but per lake.
+// Every water pixel of a fitted lake gets that plane's height; all other pixels
+// are nodata. The output WSE raster can be passed to parallel_stereo
+// --bathy-plane for multi-water-body bathymetry correction.
+void calcMultiWaterBodyPlanes(std::string const& mask_file,
+                              vw::cartography::GeoReference const& mask_georef,
+                              vw::cartography::GeoReference const& dem_georef,
+                              vw::ImageViewRef<float> dem,
+                              vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
+                              double dem_nodata_val,
+                              int min_lake_pixels,
+                              int num_ransac_iterations,
+                              double outlier_threshold,
+                              std::string const& output_wse_raster,
+                              std::string const& output_inlier_shapefile,
+                              bool save_shapefiles_as_polygons,
+                              vw::GdalWriteOptions const& write_opt) {
+
+  // Read the mask and classify every pixel into three classes: WATER, LAND, or
+  // NODATA. Unlike the single-plane path, nodata is NOT treated as water here:
+  // the (typically large) nodata background would otherwise connect separate
+  // lakes into one body. A pixel is WATER if it is valid (not nodata, not NaN)
+  // and non-positive, LAND if valid and positive, and NODATA otherwise. This
+  // matches the ternary land=1 / water=0 / nodata convention of the ortho masks
+  // that this mode consumes.
+  vw::vw_out() << "Reading the ortho mask: " << mask_file << "\n";
+  float mask_thresh = 0.0f;
+  float file_nodata = std::numeric_limits<float>::quiet_NaN();
+  bool has_mask_nodata = vw::read_nodata_val(mask_file, file_nodata);
+  if (has_mask_nodata)
+    vw::vw_out() << "Read ortho mask nodata value: " << file_nodata << ".\n";
+  vw::ImageView<float> raw_mask = vw::DiskImageView<float>(mask_file);
+  vw::vw_out() << "Non-positive (and non-nodata) pixels are classified as water.\n";
+
+  int cols = raw_mask.cols(), rows = raw_mask.rows();
+
+  // cls: 0 = nodata/neither, 1 = water, 2 = land.
+  vw::ImageView<vw::uint8> cls(cols, rows);
+  long long num_water_px = 0;
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      float v = raw_mask(c, r);
+      bool is_nodata = (std::isnan(v) || (has_mask_nodata && v == file_nodata));
+      if (is_nodata)      cls(c, r) = 0;
+      else if (v <= mask_thresh) { cls(c, r) = 1; num_water_px++; }
+      else                cls(c, r) = 2;
+    }
+  }
+  vw::vw_out() << "Water pixels: " << num_water_px << ".\n";
+
+  // The ortho mask is built on the DEM, so require the same grid. This lets us
+  // index the mask, the labels, and the output WSE raster by the same pixel.
+  if (cols != dem.cols() || rows != dem.rows())
+    vw::vw_throw(vw::ArgumentErr()
+                 << "For multi-water-body mode the ortho mask and the DEM must have "
+                 << "the same dimensions. Mask: " << cols << " x " << rows
+                 << ", DEM: " << dem.cols() << " x " << dem.rows() << ".\n");
+
+  // Label connected water bodies with a flood fill (8-connectivity). labels is 0
+  // for land/nodata, and 1..num_lakes for water bodies.
+  vw::vw_out() << "Labeling connected water bodies.\n";
+  vw::ImageView<vw::int32> labels(cols, rows);
+  vw::fill(labels, 0);
+  std::vector<int> lake_size; // lake_size[k-1] = pixel count of label k
+  int num_lakes = 0;
+  const int dc8[8] = {-1, 0, 1, -1, 1, -1, 0, 1};
+  const int dr8[8] = {-1, -1, -1, 0, 0, 1, 1, 1};
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      if (cls(c, r) != 1 || labels(c, r) != 0)
+        continue; // not water, or already labeled
+      // New water body: flood fill it.
+      num_lakes++;
+      int count = 0;
+      std::stack<std::pair<int,int>> stk;
+      stk.push(std::make_pair(c, r));
+      labels(c, r) = num_lakes;
+      while (!stk.empty()) {
+        std::pair<int,int> p = stk.top(); stk.pop();
+        count++;
+        for (int k = 0; k < 8; k++) {
+          int nc = p.first + dc8[k], nr = p.second + dr8[k];
+          if (nc < 0 || nr < 0 || nc >= cols || nr >= rows)
+            continue;
+          if (cls(nc, nr) == 1 && labels(nc, nr) == 0) {
+            labels(nc, nr) = num_lakes;
+            stk.push(std::make_pair(nc, nr));
+          }
+        }
+      }
+      lake_size.push_back(count);
+    }
+  }
+  vw::vw_out() << "Found " << num_lakes << " connected water bodies.\n";
+
+  // Select the water bodies that are large enough to fit a plane to.
+  std::vector<int> label_to_lake(num_lakes + 1, -1); // map full label -> dense lake index
+  int num_kept = 0;
+  for (int k = 1; k <= num_lakes; k++) {
+    if (lake_size[k-1] >= min_lake_pixels) {
+      label_to_lake[k] = num_kept;
+      num_kept++;
+    }
+  }
+  vw::vw_out() << "Water bodies with at least " << min_lake_pixels
+               << " pixels: " << num_kept << ".\n";
+  if (num_kept == 0)
+    vw::vw_throw(vw::ArgumentErr() << "No water body has at least "
+                 << min_lake_pixels << " pixels. Lower --min-lake-pixels.\n");
+
+  // Collect shoreline points per lake in a single pass over land pixels at the
+  // water interface. A land pixel bordering a kept lake contributes a subpixel
+  // boundary point (height looked up in the DEM) to that lake.
+  std::vector<std::vector<Eigen::Vector3d>> ecef_per_lake(num_kept);
+  std::vector<std::vector<vw::Vector3>>     llh_per_lake(num_kept);
+  std::vector<std::vector<vw::Vector2>>     xy_per_lake(num_kept);
+  const int dc4[4] = {-1, 0, 0, 1};
+  const int dr4[4] = {0, -1, 1, 0};
+
+  // A plain water/land float image (water = 0, land or nodata = 1) so the
+  // subpixel boundary estimator finds only true land->water interfaces (and not
+  // false interfaces at the nodata background).
+  vw::ImageView<float> wl(cols, rows);
+  for (int r = 0; r < rows; r++)
+    for (int c = 0; c < cols; c++)
+      wl(c, r) = (cls(c, r) == 1) ? 0.0f : 1.0f;
+
+  vw::vw_out() << "Sampling shoreline points at water-body boundaries.\n";
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      if (cls(c, r) != 2)
+        continue; // only land pixels can be shoreline points
+      // Which kept lakes does this land pixel border?
+      std::set<int> adj_lakes;
+      for (int k = 0; k < 4; k++) {
+        int nc = c + dc4[k], nr = r + dr4[k];
+        if (nc < 0 || nr < 0 || nc >= cols || nr >= rows)
+          continue;
+        int lab = labels(nc, nr);
+        if (lab > 0 && label_to_lake[lab] >= 0)
+          adj_lakes.insert(label_to_lake[lab]);
+      }
+      if (adj_lakes.empty())
+        continue;
+      // Subpixel boundary location and the DEM-height point for it.
+      vw::Vector2 pix;
+      if (!calcSubpixBdPoint(wl, 0.0f, c, r, pix))
+        continue;
+      vw::Vector2 shape_xy = mask_georef.pixel_to_point(pix);
+      vw::Vector2 lonlat   = mask_georef.point_to_lonlat(shape_xy);
+      for (int lake: adj_lakes)
+        addPoint(dem_georef, interp_dem, lonlat, shape_xy,
+                 ecef_per_lake[lake], llh_per_lake[lake], xy_per_lake[lake]);
+    }
+  }
+
+  // Fit a plane to each lake in its own local stereographic frame.
+  std::vector<vw::Matrix<double>> lake_plane(num_kept);
+  std::vector<vw::cartography::GeoReference> lake_stereo(num_kept);
+  std::vector<bool> lake_valid(num_kept, false);
+  std::vector<double> lake_wse(num_kept, 0.0);
+  vw::geometry::dPoly inlierPoly; // accumulate inliers from all lakes
+
+  // Reverse map dense lake index -> a representative full label, for reporting.
+  std::vector<int> lake_to_label(num_kept, 0);
+  for (int k = 1; k <= num_lakes; k++)
+    if (label_to_lake[k] >= 0) lake_to_label[label_to_lake[k]] = k;
+
+  int min_shore_pts = 10;
+  for (int lake = 0; lake < num_kept; lake++) {
+    int npts = ecef_per_lake[lake].size();
+    if (npts < min_shore_pts) {
+      vw::vw_out() << "Lake " << lake_to_label[lake] << ": only " << npts
+                   << " shoreline points, skipping (need " << min_shore_pts << ").\n";
+      continue;
+    }
+
+    double proj_lat = -1.0, proj_lon = -1.0;
+    std::vector<Eigen::Vector3d> proj_vec;
+    vw::cartography::GeoReference stereo_georef;
+    find_projection(dem_georef, llh_per_lake[lake],
+                    proj_lat, proj_lon, stereo_georef, proj_vec);
+
+    std::vector<size_t> inliers;
+    vw::Matrix<double> plane;
+    calcBathyPlane(num_ransac_iterations, outlier_threshold, proj_vec, plane, inliers);
+    if (inliers.size() < size_t(min_shore_pts)) {
+      vw::vw_out() << "Lake " << lake_to_label[lake] << ": RANSAC found only "
+                   << inliers.size() << " inliers, skipping.\n";
+      continue;
+    }
+
+    lake_plane[lake] = plane;
+    lake_stereo[lake] = stereo_georef;
+    lake_valid[lake] = true;
+
+    // Water-surface height at the lake center (for reporting), from the plane.
+    lake_wse[lake] = evalPlaneHeightAtLonLat(vw::Vector2(proj_lon, proj_lat),
+                                             plane, stereo_georef);
+    vw::vw_out() << "Lake " << lake_to_label[lake] << ": " << lake_size[lake_to_label[lake]-1]
+                 << " water px, " << inliers.size() << "/" << npts << " shoreline inliers, "
+                 << "WSE = " << lake_wse[lake] << " m.\n";
+
+    // Accumulate inlier shoreline points for the optional shapefile.
+    if (!output_inlier_shapefile.empty())
+      for (size_t it = 0; it < inliers.size(); it++)
+        addPointToPoly(inlierPoly, xy_per_lake[lake][inliers[it]]);
+  }
+
+  // Build the WSE raster on the DEM grid: each water pixel of a fitted lake gets
+  // its plane's height, all other pixels are nodata.
+  vw::vw_out() << "Writing the water-surface-elevation raster: " << output_wse_raster << "\n";
+  vw::ImageView<float> wse(cols, rows);
+  vw::fill(wse, dem_nodata_val);
+  long long num_filled = 0;
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      int lab = labels(c, r);
+      if (lab <= 0) continue;
+      int lake = label_to_lake[lab];
+      if (lake < 0 || !lake_valid[lake]) continue;
+      vw::Vector2 lon_lat = dem_georef.pixel_to_lonlat(vw::Vector2(c, r));
+      wse(c, r) = evalPlaneHeightAtLonLat(lon_lat, lake_plane[lake], lake_stereo[lake]);
+      num_filled++;
+    }
+  }
+  vw::vw_out() << "Filled " << num_filled << " water pixels.\n";
+
+  bool has_georef = true, has_nodata = true;
+  vw::TerminalProgressCallback tpc("asp", ": ");
+  vw::cartography::block_write_gdal_image(output_wse_raster, wse, has_georef, dem_georef,
+                                          has_nodata, dem_nodata_val, write_opt, tpc);
+
+  // Optionally save the combined inlier shapefile.
+  if (!output_inlier_shapefile.empty()) {
+    if (save_shapefiles_as_polygons) {
+      vw::geometry::dPoly localPoly;
+      formSinglePoly(inlierPoly, localPoly);
+      inlierPoly = localPoly;
+    }
+    std::vector<vw::geometry::dPoly> inlierPolyVec;
+    inlierPolyVec.push_back(inlierPoly);
+    vw::vw_out() << "Writing inlier shapefile: " << output_inlier_shapefile << "\n";
+    bool has_shape_georef = true;
+    vw::geometry::write_shapefile(output_inlier_shapefile, has_shape_georef,
+                                  mask_georef, inlierPolyVec);
+  }
 }
 
 } // end namespace asp
