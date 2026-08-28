@@ -26,6 +26,10 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/CameraModel.h>
+// Full definition of vw::BathyPlane is needed, not a forward declaration:
+// it is used by value in the std::vector default argument below, and
+// BathyPlane embeds a vw::cartography::GeoReference member.
+#include <vw/Cartography/BathyData.h>
 
 #include <vector>
 
@@ -33,7 +37,6 @@ namespace vw {
   namespace cartography {
     class Datum;
   }
-  class BathyPlane;
 }
 
 namespace asp {
