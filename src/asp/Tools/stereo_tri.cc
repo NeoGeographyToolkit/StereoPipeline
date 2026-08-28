@@ -235,11 +235,34 @@ public:
       subvector(result, 3, 3) = Vector3(0, 0, 0);
       return result;
     }
-
-    // Do the triangulation. The did_bathy variable may change. 
+    
+    // We arrive here only with bathy modeling. Do the triangulation. The
+    // did_bathy variable may change.
     bool did_bathy = false;
     subvector(result, 0, 3) = m_bathy_model(pixVec, errorVec, do_bathy, did_bathy);
-    subvector(result, 3, 3) = errorVec;
+    if (!stereo_settings().propagate_errors) {
+      subvector(result, 3, 3) = errorVec;
+    } else {
+      // Band 3 = intersection error norm, bands 4-5 = horizontal and
+      // vertical stddev. Propagate through the bent-ray triangulation
+      // when this point was corrected, with the bend frozen so the finite
+      // differences stay on one branch.
+      result[3] = norm_2(errorVec);
+      auto const& v = asp::stereo_settings().horizontal_stddev; // alias
+
+      // Bend the rays in the covariance finite differences if and only if this
+      // point was actually bathy-corrected. This is frozen for all the
+      // perturbations, so they stay on the same (bent) branch.
+      bool bend_ray_for_bathy = did_bathy;
+      subvector(result, 4, 2)
+        = asp::propagateCovariance(subvector(result, 0, 3),
+                                   m_datum, v[0], v[1],
+                                   m_cameras[0].get(), m_cameras[1].get(),
+                                   pixVec[0], pixVec[1],
+                                   bend_ray_for_bathy,
+                                   m_bathy_model.refraction_index(),
+                                   m_bathy_model.bathy_plane_vec());
+    }
 
     // If we wanted to do bathy correction and it did not happen, or the opposite,
     // don't return the computed answer

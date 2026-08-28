@@ -27,10 +27,13 @@
 #include <vw/Math/Matrix.h>
 #include <vw/Camera/CameraModel.h>
 
+#include <vector>
+
 namespace vw {
   namespace cartography {
     class Datum;
   }
+  class BathyPlane;
 }
 
 namespace asp {
@@ -54,13 +57,25 @@ namespace asp {
   // ephemeris and attitude covariances to triangulation in NED
   // coordinates. Return the square root of horizontal and vertical
   // components, so the standard deviations.
+  //
+  // For bathymetry, set do_bend = true (the nominal point's did_bathy)
+  // so the finite-difference triangulation bends the rays at the water
+  // surface just like the actual point. The bend decision is frozen per
+  // point: every helper ray takes the same (bent) branch, so a
+  // perturbation that would otherwise cross the shoreline does not
+  // create a spurious derivative. bathy_plane_vec and refraction_index
+  // are the same settings passed to BathyStereoModel::set_bathy.
   vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
                                   vw::cartography::Datum const& datum,
                                   double stddev1, double stddev2,
                                   vw::camera::CameraModel const* cam1,
                                   vw::camera::CameraModel const* cam2,
                                   vw::Vector2 const& pix1,
-                                  vw::Vector2 const& pix2);
+                                  vw::Vector2 const& pix2,
+                                  bool do_bend = false,
+                                  double refraction_index = 1.0,
+                                  std::vector<vw::BathyPlane> const& bathy_plane_vec
+                                    = std::vector<vw::BathyPlane>());
   
 } // end namespace asp
 

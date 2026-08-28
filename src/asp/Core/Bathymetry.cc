@@ -198,10 +198,6 @@ void bathyChecks(std::string const& session_name,
       vw::vw_throw(vw::ArgumentErr()
           << "Bathymetry correction only works with alignment methods "
           << "homography, affineepipolar, local_epipolar, and none.\n");
-
-    if (stereo_settings.propagate_errors)
-      vw::vw_throw(vw::ArgumentErr() << "Error propagation is not implemented when "
-                << "bathymetry is modeled.\n");
   }
 
   // Ensure that either both or none of these settings are specified

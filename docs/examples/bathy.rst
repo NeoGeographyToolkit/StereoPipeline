@@ -250,7 +250,11 @@ correction or not, or if to change the value of
 As in usual invocations of stereo, the input images may be
 mapprojected, and then a DEM is expected, stereo may happen only in
 certain regions as chosen in the GUI, bundle adjustment may be used,
-the output point cloud may be converted to LAS, etc. 
+the output point cloud may be converted to LAS, etc.
+
+Error propagation (:numref:`error_propagation`) can be enabled together with
+bathymetry, in both ``parallel_stereo`` and ``bundle_adjust``. See
+:numref:`error_prop_bathy` for details.
 
 .. _bathy_validation:
 

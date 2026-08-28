@@ -89,6 +89,16 @@ interest point, rather than densely.
 
 The same underlying logic is employed as for stereo.
 
+When ``bundle_adjust`` is run with ``--propagate-errors``, the file::
+
+  {output-prefix}-triangulation_uncertainty_points.csv 
+  
+is saved, storing the triangulated point longitude, latitude, height above
+datum, and the horizontal and vertical stddev of each match. This is analogous
+to the ``pointmap.csv`` file that stores the reprojection error
+(:numref:`ba_err_per_point`), and can be colorized in ``stereo_gui``
+(:numref:`plot_csv`).
+
 .. _export_stddev:
 
 Export to DEM and LAS
@@ -113,6 +123,25 @@ In all these files the values are in units of meter.
 
 The ``point2las`` program (:numref:`point2las`) can export the horizontal and
 vertical stddev values from the point cloud to a LAS file.
+
+.. _error_prop_bathy:
+
+Error propagation with bathymetry
+---------------------------------
+
+Error propagation works together with bathymetry modeling
+(:numref:`bathy_intro`), in both ``parallel_stereo`` and ``bundle_adjust``.
+
+For an underwater point, the two camera rays are bent at the water surface
+according to Snell's law before they are intersected. The covariance is
+propagated likewise.
+
+It has been observed that under water the vertical uncertainty is larger than on
+land, growing with the water depth, while the horizontal uncertainty changes
+little. That is because the ray bending acts mostly in the vertical direction.
+
+This is supported both for the Maxar (DigitalGlobe) satellite ephemeris and
+attitude covariances and for the ``--horizontal-stddev`` option.
 
 Implementation details
 ----------------------

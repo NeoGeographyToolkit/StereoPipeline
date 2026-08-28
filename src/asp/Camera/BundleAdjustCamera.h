@@ -397,7 +397,9 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           std::vector<vw::ip::InterestPoint> const& right_ip,
                           double stddev1, double stddev2,
                           vw::cartography::Datum const& datum,
-                          // Output
+                          vw::BathyData const& bathy_data,
+                          // Outputs
+                          std::vector<vw::Vector<double, 5>> & uncertPoints,
                           asp::HorizVertErrorStats & stats);
 
 // Find the cameras with the latest adjustments. Note that we do not modify

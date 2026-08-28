@@ -67,6 +67,9 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Added the option ``--ortho-bathy-mask``, to use a single georeferenced
     land/water mask for bathymetry instead of the separate left and right
     masks (:numref:`bathy_stereo_run`).
+  * Error propagation (``--propagate-errors``) is now supported together with
+    bathymetry, in both ``parallel_stereo`` and ``bundle_adjust``
+    (:numref:`error_prop_bathy`).
   * Robustified the local epipolar alignment: a tile with too few interest
     points is retried once with expanded boxes and proportionally more interest
     points, reducing holes in the disparity (:numref:`stereodefault`).

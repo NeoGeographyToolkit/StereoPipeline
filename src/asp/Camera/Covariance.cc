@@ -23,6 +23,8 @@
 
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Math/LinearAlgebra.h>
+#include <vw/Cartography/BathyData.h>
+#include <vw/Cartography/BathyRay.h>
 
 #include <iostream>
 
@@ -91,6 +93,22 @@ int numCamsForCovariance() {
   return 15; 
 }
 
+// Bend an ECEF ray at the water surface (single bathy plane), mirroring
+// BathyStereoModel. Falls back to the straight ray only if the Snell solve
+// fails. The caller decides whether to bend at all (see the do_bend guards
+// below); this always attempts the bend.
+void bendRay(double refraction_index,
+             std::vector<vw::BathyPlane> const& planes, int idx,
+             vw::Vector3 & ctr, vw::Vector3 & dir) {
+  VW_ASSERT(idx >= 0 && idx < (int)planes.size(),
+            vw::ArgumentErr() << "bendRay: bathy plane index out of range.\n");
+  vw::Vector3 out_ctr, out_dir;
+  if (vw::curvedSnellLaw(ctr, dir, planes[idx], refraction_index, out_ctr, out_dir)) {
+    ctr = out_ctr;
+    dir = out_dir;
+  }
+}
+
 // Given two DG cameras and a pixel in each camera image, consider the
 // following transform. Go from the perturbed joint vector of
 // satellite positions and quaternions for this pixel pair to the
@@ -114,8 +132,11 @@ void scaledDGTriangulationJacobian(vw::cartography::Datum const& datum,
                                    vw::camera::CameraModel const* cam2,
                                    vw::Vector2 const& pix1,
                                    vw::Vector2 const& pix2,
-                                   vw::Matrix<double> & J) {
-  
+                                   vw::Matrix<double> & J,
+                                   bool do_bend,
+                                   double refraction_index,
+                                   std::vector<vw::BathyPlane> const& bathy_plane_vec) {
+
   // Handle adjusted cameras
   bool adjusted_cameras = false;
   const AdjustedCameraModel *adj_cam1 = dynamic_cast<const AdjustedCameraModel*>(cam1);
@@ -177,12 +198,20 @@ void scaledDGTriangulationJacobian(vw::cartography::Datum const& datum,
     }
   }
   
-  // Nominal triangulation point
+  // Nominal triangulation point. Bend the rays for bathymetry if do_bend is
+  // true, so the covariance is computed at the actual (underwater) point.
   vw::Vector3 tri_nominal, err_nominal;
+  vw::Vector3 c1c = cam1_ctrs[0], c1d = cam1_dirs[0];
+  vw::Vector3 c2c = cam2_ctrs[0], c2d = cam2_dirs[0];
+  if (do_bend) {
+    int icam = 0;
+    bendRay(refraction_index, bathy_plane_vec, icam, c1c, c1d);
+    icam = 1;
+    bendRay(refraction_index, bathy_plane_vec, icam, c2c, c2d);
+  }
   // If triangulation fails, it can return NaN
   tri_nominal
-    = vw::stereo::triangulate_pair(cam1_dirs[0], cam1_ctrs[0], cam2_dirs[0], cam2_ctrs[0],
-                                   err_nominal);
+    = vw::stereo::triangulate_pair(c1d, c1c, c2d, c2c, err_nominal);
   if (tri_nominal != tri_nominal) // NaN
     vw::vw_throw(vw::ArgumentErr() << "Could not triangulate.\n");
 
@@ -230,6 +259,16 @@ void scaledDGTriangulationJacobian(vw::cartography::Datum const& datum,
       int coord2 = coord - 7; // has values 0, 1, ..., 6
       cam2_dir_plus  = cam2_dirs[2*coord2 + 1]; cam2_ctr_plus  = cam2_ctrs[2*coord2 + 1];
       cam2_dir_minus = cam2_dirs[2*coord2 + 2]; cam2_ctr_minus = cam2_ctrs[2*coord2 + 2];
+    }
+
+    // Bend the perturbed rays too (same frozen do_bend as the nominal)
+    if (do_bend) {
+      int icam = 0;
+      bendRay(refraction_index, bathy_plane_vec, icam, cam1_ctr_plus,  cam1_dir_plus);
+      bendRay(refraction_index, bathy_plane_vec, icam, cam1_ctr_minus, cam1_dir_minus);
+      icam = 1;
+      bendRay(refraction_index, bathy_plane_vec, icam, cam2_ctr_plus,  cam2_dir_plus);
+      bendRay(refraction_index, bathy_plane_vec, icam, cam2_ctr_minus, cam2_dir_minus);
     }
 
     vw::Vector3 tri_plus, err_plus, tri_minus, err_minus;
@@ -364,18 +403,41 @@ void scaledDGSatelliteCovariance(vw::camera::CameraModel const* cam1,
 // center intersects the plane z = 0, and the same for the right camera,
 // all in NED coordinates, find where the rays intersect, also in NED.
 vw::Vector3 nedTri(vw::Vector3 const& cam1_ctr, vw::Vector3 const& cam2_ctr,
-                   double x1, double y1, double x2, double y2) {
+                   double x1, double y1, double x2, double y2,
+                   vw::Matrix3x3 const& NedToEcef, vw::Vector3 const& tri_nominal,
+                   bool do_bend, double refraction_index,
+                   std::vector<vw::BathyPlane> const& bathy_plane_vec) {
 
-  // Find the normalized direction from camera to ground
+  // Find the normalized direction from camera to ground, in NED
   vw::Vector3 ground_pt1(x1, y1, 0.0);
   vw::Vector3 cam1_dir = ground_pt1 - cam1_ctr; cam1_dir /= norm_2(cam1_dir);
   vw::Vector3 ground_pt2(x2, y2, 0.0);
   vw::Vector3 cam2_dir = ground_pt2 - cam2_ctr; cam2_dir /= norm_2(cam2_dir);
 
   vw::Vector3 tri, err;
-  tri = vw::stereo::triangulate_pair(cam1_dir, cam1_ctr, cam2_dir, cam2_ctr, err);
-  
-  return tri;
+
+  if (!do_bend) {
+    // Straight rays, triangulate in NED, as before
+    tri = vw::stereo::triangulate_pair(cam1_dir, cam1_ctr, cam2_dir, cam2_ctr, err);
+    return tri;
+  }
+
+  // Bathymetry. The Snell ray bending is defined in ECEF, so convert the rays
+  // to ECEF (NedToEcef is a rotation, so it maps directions and, with the
+  // nominal-point offset, points), bend, triangulate there, then convert the
+  // result back to NED. The perturbation stays on the ground intercept; only
+  // the triangulation becomes bent, mirroring the DG path.
+  vw::Matrix3x3 EcefToNed = transpose(NedToEcef);
+  vw::Vector3 c1e = NedToEcef * cam1_ctr + tri_nominal;
+  vw::Vector3 d1e = NedToEcef * cam1_dir;
+  vw::Vector3 c2e = NedToEcef * cam2_ctr + tri_nominal;
+  vw::Vector3 d2e = NedToEcef * cam2_dir;
+  int icam = 0;
+  bendRay(refraction_index, bathy_plane_vec, icam, c1e, d1e);
+  icam = 1;
+  bendRay(refraction_index, bathy_plane_vec, icam, c2e, d2e);
+  tri = vw::stereo::triangulate_pair(d1e, c1e, d2e, c2e, err);
+  return EcefToNed * (tri - tri_nominal);
 }
 
 // Given a triangulated point in ECEF, create the local
@@ -390,8 +452,11 @@ void triangulationJacobian(vw::cartography::Datum const& datum,
                            vw::camera::CameraModel const* cam2,
                            vw::Vector2 const& pix1,
                            vw::Vector2 const& pix2,
-                           vw::Matrix<double> & J) {
-  
+                           vw::Matrix<double> & J,
+                           bool do_bend,
+                           double refraction_index,
+                           std::vector<vw::BathyPlane> const& bathy_plane_vec) {
+
   // The matrix to go from the NED coordinate system to ECEF at the
   // nominal triangulation point
   vw::Vector3 llh = datum.cartesian_to_geodetic(tri_nominal);
@@ -445,9 +510,13 @@ void triangulationJacobian(vw::cartography::Datum const& datum,
     }
 
     vw::Vector3 xyz_plus = nedTri(cam1_ctr_ned, cam2_ctr_ned,
-                                  x1_plus, y1_plus, x2_plus, y2_plus);
+                                  x1_plus, y1_plus, x2_plus, y2_plus,
+                                  NedToEcef, tri_nominal, do_bend,
+                                  refraction_index, bathy_plane_vec);
     vw::Vector3 xyz_minus = nedTri(cam1_ctr_ned, cam2_ctr_ned,
-                                   x1_minus, y1_minus, x2_minus, y2_minus);
+                                   x1_minus, y1_minus, x2_minus, y2_minus,
+                                   NedToEcef, tri_nominal, do_bend,
+                                   refraction_index, bathy_plane_vec);
 
     // Centered difference
     vw::Vector3 partial_deriv = (xyz_plus - xyz_minus) / (2.0 * deltaPosition);
@@ -466,7 +535,10 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
                                 vw::camera::CameraModel const* cam1,
                                 vw::camera::CameraModel const* cam2,
                                 vw::Vector2 const& pix1,
-                                vw::Vector2 const& pix2) {
+                                vw::Vector2 const& pix2,
+                                bool do_bend,
+                                double refraction_index,
+                                std::vector<vw::BathyPlane> const& bathy_plane_vec) {
 
   // Return right away if triangulation was not successful. The caller will set the result
   // to (0, 0, 0).
@@ -481,8 +553,10 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
   variance[1] = stddev2 * stddev2;
   
   if (variance[0] > 0 && variance[1] > 0) {
-    // The user set horizontal stddev
-    triangulationJacobian(datum, tri_nominal, cam1, cam2, pix1, pix2, J);
+    // The user set horizontal stddev. This path works for any camera (not just
+    // DG), and bends the rays for bathymetry when do_bend is set.
+    triangulationJacobian(datum, tri_nominal, cam1, cam2, pix1, pix2, J,
+                          do_bend, refraction_index, bathy_plane_vec);
     C = vw::math::identity_matrix(4);
     // The first two covariances are the left camera horizontal square stddev,
     // and last two are for the right camera.
@@ -493,8 +567,9 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
     // set --horizontal-stddev.  The Jacobian of the transform from
     // ephemeris and attitude to the triangulated point in NED
     // coordinates, multiplied by a scale factor.
-    asp::scaledDGTriangulationJacobian(datum, cam1, cam2, pix1, pix2, J);
-    
+    asp::scaledDGTriangulationJacobian(datum, cam1, cam2, pix1, pix2, J,
+                                       do_bend, refraction_index, bathy_plane_vec);
+
     // The input covariance, divided by the square of the above scale factor.
     asp::scaledDGSatelliteCovariance(cam1, cam2, pix1, pix2, C);
   }

@@ -33,6 +33,8 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Cartography/CameraBBox.h>
+#include <vw/Cartography/BathyStereoModel.h>
+#include <vw/Cartography/BathyData.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Stereo/StereoModel.h>
 #include <vw/Math/Statistics.h>
@@ -44,6 +46,7 @@
 #include <vw/Camera/LensDistortion.h>
 
 #include <string>
+#include <fstream>
 
 using namespace vw;
 using namespace vw::camera;
@@ -852,13 +855,15 @@ void processMatchPair(size_t left_index, size_t right_index,
                       bool save_mapproj_match_points_offsets,
                       bool propagate_errors,
                       vw::Vector<double> const& horizontal_stddev_vec,
+                      vw::BathyData const& bathy_data,
                       // Outputs
                       // Will append to entities below
                       std::vector<asp::MatchPairStats>  & convAngles,
                       std::vector<vw::Vector<float, 4>> & mapprojPoints,
                       std::vector<asp::MatchPairStats> & mapprojOffsets,
                       std::vector<std::vector<float>>  & mapprojOffsetsPerCam,
-                      std::vector<asp::HorizVertErrorStats> & horizVertErrors) {
+                      std::vector<asp::HorizVertErrorStats> & horizVertErrors,
+                      std::vector<vw::Vector<double, 5>> & uncertPoints) {
 
   convAngles.push_back(asp::MatchPairStats()); // add an element, then populate it
   std::vector<double> sorted_angles;
@@ -892,6 +897,8 @@ void processMatchPair(size_t left_index, size_t right_index,
                               horizontal_stddev_vec[left_index],
                               horizontal_stddev_vec[right_index],
                               datum,
+                              bathy_data,
+                              uncertPoints,
                               horizVertErrors.back());
   }
 
@@ -921,6 +928,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   std::vector<asp::MatchPairStats> convAngles, mapprojOffsets;
   std::vector<std::vector<float>> mapprojOffsetsPerCam;
   std::vector<asp::HorizVertErrorStats> horizVertErrors;
+  std::vector<vw::Vector<double, 5>> uncertPoints; // per-match propagated errors
 
   // Wipe the outputs
   mapprojPoints.clear();
@@ -1042,10 +1050,10 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                        optimized_cams,
                        mapproj_dem_georef, interp_mapproj_dem, opt.datum,
                        save_mapproj_match_points_offsets,
-                       propagate_errors, horizontal_stddev_vec,
+                       propagate_errors, horizontal_stddev_vec, opt.bathy_data,
                        // Will append to entities below
                        convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
-                       horizVertErrors);
+                       horizVertErrors, uncertPoints);
       // Since no outliers are removed, nothing else to do
       continue;
     }
@@ -1098,10 +1106,10 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                      optimized_cams, mapproj_dem_georef, interp_mapproj_dem,
                      opt.datum,
                      save_mapproj_match_points_offsets,
-                     propagate_errors, horizontal_stddev_vec,
+                     propagate_errors, horizontal_stddev_vec, opt.bathy_data,
                      // Will append to entities below
                      convAngles, mapprojPoints, mapprojOffsets, mapprojOffsetsPerCam,
-                     horizVertErrors);
+                     horizVertErrors, uncertPoints);
 
     if (opt.output_cnet_type != "match-files" || !save_clean_matches)
       continue; // Do not write match files
@@ -1140,6 +1148,20 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   if (opt.propagate_errors) {
     std::string horiz_vert_errors_file = opt.out_prefix + "-triangulation_uncertainty.txt";
     asp::saveHorizVertErrors(horiz_vert_errors_file, horizVertErrors, opt.image_files);
+
+    // Per-match propagated errors with their ground location, for gridding or
+    // plotting (:numref:`error_propagation`). Very analogous to pointmap.csv.
+    std::string pts_file = opt.out_prefix + "-triangulation_uncertainty_points.csv";
+    vw_out() << "Writing: " << pts_file << "\n";
+    std::ofstream ofs(pts_file.c_str());
+    ofs << "# lon, lat, height_above_datum, horizontal_stddev, vertical_stddev\n";
+    ofs << "# " << opt.datum << "\n";
+    ofs.precision(17); // full double precision, as in pointmap.csv
+    for (size_t it = 0; it < uncertPoints.size(); it++)
+      ofs << uncertPoints[it][0] << ", " << uncertPoints[it][1] << ", "
+          << uncertPoints[it][2] << ", " << uncertPoints[it][3] << ", "
+          << uncertPoints[it][4] << "\n";
+    ofs.close();
   }
 
   return;
@@ -1153,7 +1175,9 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           std::vector<vw::ip::InterestPoint> const& right_ip,
                           double stddev1, double stddev2,
                           vw::cartography::Datum const& datum,
-                          // Output
+                          vw::BathyData const& bathy_data,
+                          // Outputs
+                          std::vector<vw::Vector<double, 5>> & uncertPoints,
                           asp::HorizVertErrorStats & stats) {
 
   // Create a stereo model, to be used for triangulation
@@ -1161,6 +1185,18 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                         (asp::stereo_settings().min_triangulation_angle*M_PI/180);
   vw::stereo::StereoModel stereo_model(left_cam, right_cam,
                                        angle_tol);
+
+  // If bathymetry is modeled, set up a bathy stereo model with the two planes
+  // for this pair, so underwater points are triangulated with bent rays and the
+  // covariance is propagated through the same bending (:numref:`error_propagation`).
+  bool has_bathy = !bathy_data.bathy_planes.empty() && !bathy_data.bathy_masks.empty();
+  std::vector<vw::BathyPlane> plane_pair;
+  vw::BathyStereoModel bathy_model(left_cam, right_cam, angle_tol);
+  if (has_bathy) {
+    plane_pair.push_back(bathy_data.bathy_planes[left_cam_index]);
+    plane_pair.push_back(bathy_data.bathy_planes[right_cam_index]);
+    bathy_model.set_bathy(bathy_data.refraction_index, plane_pair);
+  }
 
   // Create space for horiz and vert vectors of size num_ip
   int num_ip = left_ip.size();
@@ -1174,12 +1210,27 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
 
     Vector3 triVec(0, 0, 0), errorVec(0, 0, 0);
     vw::Vector2 outStdev;
+    bool do_bend = false;
     try {
-      triVec = stereo_model(left_pix, right_pix, errorVec);
+      if (has_bathy) {
+        // Bend when both pixels are under water. did_bathy is the actual
+        // outcome and is frozen into the covariance finite differences.
+        bool do_bathy = vw::areMasked(bathy_data.bathy_masks[left_cam_index],
+                                      bathy_data.bathy_masks[right_cam_index],
+                                      left_pix, right_pix);
+        std::vector<vw::Vector2> pixVec = {left_pix, right_pix};
+        bool did_bathy = false;
+        triVec = bathy_model(pixVec, errorVec, do_bathy, did_bathy);
+        do_bend = did_bathy;
+      } else {
+        triVec = stereo_model(left_pix, right_pix, errorVec);
+      }
       outStdev = asp::propagateCovariance(triVec, datum,
                                           stddev1, stddev2,
                                           left_cam, right_cam,
-                                          left_pix, right_pix);
+                                          left_pix, right_pix,
+                                          do_bend, bathy_data.refraction_index,
+                                          plane_pair);
     } catch (std::exception const& e) {
       errorVec = Vector3(0, 0, 0);
     }
@@ -1189,6 +1240,14 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
 
     horiz_errors.push_back(outStdev[0]);
     vert_errors.push_back(outStdev[1]);
+
+    // Save the per-match uncertainty with its ground location, so it can be
+    // gridded or plotted (lon, lat, height, horiz stddev, vert stddev).
+    vw::Vector3 llh = datum.cartesian_to_geodetic(triVec);
+    vw::Vector<double, 5> pt;
+    pt[0] = llh[0]; pt[1] = llh[1]; pt[2] = llh[2];
+    pt[3] = outStdev[0]; pt[4] = outStdev[1];
+    uncertPoints.push_back(pt);
   }
 
   // Initialize the output

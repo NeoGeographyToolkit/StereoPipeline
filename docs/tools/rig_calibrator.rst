@@ -598,7 +598,7 @@ If it performs poorly, it may be because:
   
 - The best-fit distortion model can be inaccurate unless there are many interest
   point matches, especially in the image periphery. See
-  :numref:`theia_sfm_config` for how to get more matches. The produced matches
+  :numref:`theia_sfm_command_line` for how to get more matches. The produced matches
   should be visualized in ``stereo_gui`` (:numref:`stereo_gui_nvm`).  
 
 - Some image pairs have insufficient matches, which may result in poor initial
