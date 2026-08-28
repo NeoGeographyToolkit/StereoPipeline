@@ -242,6 +242,8 @@ bathymetry (:numref:`bathy_intro`):
     (:numref:`bathy_water_masking`).
   * Added support for the water surface as a georeferenced raster
     (:numref:`bathy_plane_img`).
+  * Reduced the memory use when reading a large water-surface raster, avoiding an
+    out-of-memory failure for a high-resolution raster over a large water body.
 
 refr_index (:numref:`refr_index`):
   * Added the ``--wavelength-method`` option to select how a spectral
@@ -250,6 +252,11 @@ refr_index (:numref:`refr_index`):
     ``peak_response`` (wavelength at peak response).
 
 bathy_plane_calc (:numref:`bathy_plane_calc`):
+  * Added the option ``--output-water-surface`` (with ``--min-lake-pixels``) to
+    fit a separate water-surface plane to each connected water body in an ortho
+    land/water mask and write a per-pixel water-surface-elevation raster, for
+    scenes with many water bodies at different elevations
+    (:numref:`bathy_plane_multi`).
   * Refined the algorithm by taking into account that given a mask of land
     pixels, the true water interface is somewhere half way between those and the
     water pixels.

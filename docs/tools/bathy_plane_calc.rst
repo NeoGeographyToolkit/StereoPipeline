@@ -216,6 +216,58 @@ This is for inspecting or comparing the plane against the raster surface
 (:numref:`cam_test_bathy`). The ``parallel_stereo`` program accepts
 the water surface raster directly (:numref:`bathy_stereo_run`).
 
+.. _bathy_plane_multi:
+
+Multiple water bodies
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The modes above fit a *single* water-surface plane. When a scene contains many
+separate water bodies at different elevations (for example, supraglacial lakes
+on an ice sheet, or a set of inland lakes), a single plane is not adequate. In
+that case a *separate* plane is fit to each water body, and the result is a
+per-pixel water-surface-elevation raster::
+
+    bathy_plane_calc                         \
+      --ortho-mask ortho_mask.tif            \
+      --dem dem.tif                          \
+      --min-lake-pixels 500                  \
+      --outlier-threshold 2.0                \
+      --output-inlier-shapefile inliers.shp  \
+      --output-water-surface water_surface.tif
+
+The connected water bodies in the georeferenced land/water mask (given by
+``--ortho-mask``, with the same convention as the single-plane case: land pixels
+positive, water pixels non-positive) are labeled (8-connectivity). Only bodies
+with at least ``--min-lake-pixels`` pixels are processed. For each such body, its
+shoreline points (the land pixels at the water interface, with heights looked up
+in the DEM) are fit to a plane in that body's own local stereographic frame with
+RANSAC, exactly as in the single-plane ``--ortho-mask`` case
+(:numref:`bathy_plane_ortho_mask`). Every water pixel of a fitted body is then
+assigned that plane's height in the output raster; all other pixels are no-data.
+
+The ortho mask and the DEM must have the same dimensions (the ortho mask is
+normally created by orthorectifying a raw-image mask onto the DEM). Unlike the
+single-plane case, no-data pixels in the mask are classified as *neither* water
+nor land, so a large no-data background does not merge separate water bodies
+into one.
+
+The output water-surface raster can be passed to ``parallel_stereo
+--bathy-plane`` for multi-water-body bathymetry correction
+(:numref:`bathy_stereo_run`), the same way as a single water-surface raster.
+
+As with the single-plane case, set ``--outlier-threshold`` to roughly the DEM
+ground sample distance (not a much smaller value), so that enough shoreline
+points are kept and they represent the whole shoreline; otherwise the fitted
+plane can be tilted (:numref:`water_surface`). Inspect ``--output-inlier-shapefile``
+to confirm the inliers trace the full shoreline of each body.
+
+If a large water body has a featureless interior, the stereo DEM may have holes
+there. Such holes do not affect the plane fit (which uses only the shoreline),
+but for creating the ortho mask the DEM should first be filled over the hole
+with an external DEM (for example Copernicus 30 m) using ``dem_mosaic`` priority
+blending, then the mask orthorectified on the filled DEM. The original (holey)
+stereo DEM is still the input to this tool.
+
 .. _bathy_plane_water_meas:
 
 Using water height measurements
@@ -562,6 +614,19 @@ Command-line options for bathy_plane_calc
     a local stereographic projection and written to ``--bathy-plane`` for
     inspection or comparison. No DEM, mask, shapefile, or measurement file is
     required in this mode (see :numref:`bathy_plane_water_surface`).
+
+--output-water-surface <string (default: "")>
+    Fit a separate water-surface plane to each connected water body (lake) in the
+    georeferenced land/water mask given by ``--ortho-mask``, and write the
+    resulting per-pixel water-surface-elevation raster (heights above the
+    WGS_1984 ellipsoid, in meters) to this file. The DEM is set with ``--dem``.
+    Only water bodies with at least ``--min-lake-pixels`` pixels are fit. The
+    output raster can be passed to ``parallel_stereo --bathy-plane`` for
+    multi-water-body bathymetry correction (see :numref:`bathy_plane_multi`).
+
+--min-lake-pixels <integer (default: 500)>
+    In multi-water-body mode (``--output-water-surface``), only fit a plane to
+    connected water bodies having at least this many pixels.
 
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
