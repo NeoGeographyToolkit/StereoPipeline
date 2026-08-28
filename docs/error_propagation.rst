@@ -94,7 +94,11 @@ When ``bundle_adjust`` is run with ``--propagate-errors``, the file::
   {output-prefix}-triangulation_uncertainty_points.csv 
   
 is saved, storing the triangulated point longitude, latitude, height above
-datum, and the horizontal and vertical stddev of each match. This is analogous
+datum, and the horizontal and vertical stddev of each match. There is one entry
+per pair of matched interest points, rather than one per triangulated point,
+because the uncertainty depends on the triangulation geometry of the pair (and,
+with bathymetry, on how each ray is bent at the water surface), so it differs
+from pair to pair. This is analogous
 to the ``pointmap.csv`` file that stores the reprojection error
 (:numref:`ba_err_per_point`), and can be colorized in ``stereo_gui``
 (:numref:`plot_csv`).
