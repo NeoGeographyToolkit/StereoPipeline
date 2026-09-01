@@ -671,6 +671,56 @@ It can be seen that the banded systematic error due to jitter is gone, both in
 the triangulation error and in the difference to the reference DEM. Multiple
 overlapping images are suggested for robustness (:numref:`jitter_limitations`).
 
+.. _jitter_ctx_gcp:
+
+Correcting horizontal error with a good reference
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The example above uses the coarse MOLA DEM as a reference. That removes the
+vertical (height) banding due to jitter, but cannot correct horizontal
+(ground-plane) jitter, as MOLA is too coarse.
+
+When a good high-resolution reference is available, ground control points
+(:numref:`bagcp`) created with ``dem2gcp`` (:numref:`dem2gcp`) can be added to the
+jitter solve command. These also remove the in-ground-plane misregistration.
+
+For CTX, such a reference can be produced by mosaicking the DEMs in the `USGS
+controlled CTX DTM collection
+<https://stac.astrogeology.usgs.gov/docs/data/mars/ctxdtms/>`_ over the site,
+while excluding the ones with the strongest jitter. This requires some evaluation
+of the available published products.
+
+Produce the GCP by correlating the hillshaded stereo DEM against the hillshaded
+reference. Then run ``jitter_solve`` as before, with these changes:
+
+- Pass the produced GCP file (or files).
+- Set the GCP sigma to about 10 m (the ``dem2gcp`` option ``--gcp-sigma``, on the
+  order of the ground sample distance). A small sigma prioritizes the horizontal
+  correction.
+- Lower ``--heights-from-dem-uncertainty`` to about 50 m, from the 300 m used with
+  MOLA. A high-resolution CTX mosaic constrains the height far better than the
+  coarse MOLA DEM.
+- Set ``--anchor-dem-uncertainty`` to about 150 m.
+- Raise ``--max-initial-reprojection-error`` (here to 50) so the dense matches are
+  not filtered out before the solve.
+- Keep the number of dense matches (``--max-pairwise-matches``) somewhat larger
+  than the number of anchor points (``--num-anchor-points`` plus
+  ``--num-anchor-points-extra-lines``). The matches and GCP carry the
+  ground-conforming signal, while the anchor points only stabilize the pose at the
+  scan-line ends and pull toward the initial position. The former should dominate.
+
+These values are starting suggestions. Inspect the residual reports
+(:numref:`jitter_out_files`) and the difference to the reference DEM before and
+after the solve to firm them up. Check whether the horizontal alignment improved
+by again correlating the hillshaded DEMs. Also look for pose instability at the
+starting and ending scan lines.
+
+See :numref:`gcp_vs_tri` for keeping the GCP from being overwhelmed by the other
+constraints.
+
+The KH-9 example (:numref:`kh9`) illustrates the same GCP-based correction for
+linescan cameras on Earth.
+
 .. _jitter_multiple_images:
 
 Multiple CTX images
