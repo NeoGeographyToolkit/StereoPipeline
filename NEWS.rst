@@ -135,6 +135,10 @@ stereo_gui (:numref:`stereo_gui`):
     (:numref:`colorize`).
 
 Misc:
+  * The ``hillshade`` tool, and the hillshaded and colorized-hillshaded views in
+    ``stereo_gui``, now compute the surface normal with Horn's method, as in
+    ``gdaldem`` (:numref:`hillshade_algorithm`). This replaces a one-sided
+    difference.
   * Fixed a bug with very long input image names when creating ``.match`` and
     ``.vwip`` file names (:numref:`match_file_naming`).
   * Added ``--mapproj-geolocation-uncertainty``, to keep stereo from failing on

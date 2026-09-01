@@ -30,6 +30,26 @@ Example::
     gdaldem hillshade -multidirectional -compute_edges \
       input_dem.tif output_hillshade.tif
 
+.. _hillshade_algorithm:
+
+Algorithm
+~~~~~~~~~
+
+As of 9/2026 (:numref:`release`) the surface normal at each pixel is computed
+with Horn's method, a 3x3 weighted central difference of the elevations, which
+is the same approach used by ``gdaldem hillshade`` (:numref:`gdal_hill`).
+
+At the image border the 3x3 window is filled by replicating the edge cells, and
+a no-data neighbor is replaced by the center value, so pixels next to holes and
+along the boundary are still shaded. The shade is the dot product of the normal
+with the light direction set by the azimuth and elevation.
+
+The earlier one-sided (forward) difference was asymmetric and could
+produce a faint regular dotted pattern on quantized DEMs.
+
+This algorithm is shared by the ``hillshade`` tool and the hillshaded and
+colorized-hillshaded views in ``stereo_gui`` (:numref:`stereo_gui_hillshade`).
+
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
 

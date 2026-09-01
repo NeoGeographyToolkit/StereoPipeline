@@ -97,7 +97,7 @@ The ``stereo_gui`` program can:
   - Create and show hillshaded DEMs (:numref:`stereo_gui_hillshade`).
 
   - Colorize images on-the-fly (``--colorize``) and optionally show a
-    colorbar with axes (``--colorbar``). Can show colorized hillshade. 
+    colorbar with axes (``--colorbar``). Can show colorized hillshade.
     See :numref:`colorize`.
 
   - Display the output of the ASP ``colormap`` and ``hillshade`` tools
@@ -125,11 +125,11 @@ The ``stereo_gui`` program can:
   - Threshold images (:numref:`thresh`).
 
   - Cycle through images, showing one at a time (:numref:`gui_cycle`).
-  
+
   - Save a screenshot to disk in the PNG, BMP, or XPM format.
 
   - Render images to disk without display access (:numref:`gui_options`).
-  
+
 .. _stereo_gui_hillshade:
 
 Hillshading
@@ -146,7 +146,8 @@ Right-click to change the azimuth and elevation angles, hence the direction and
 height of the light source. Then toggle hillshading off and then on again.
 
 Hillshaded images can also be produced with the ``hillshade`` tool
-(:numref:`hillshade`) or with ``gdaldem hillshade`` (:numref:`gdal_tools`).
+(:numref:`hillshade`) or with ``gdaldem hillshade`` (:numref:`gdal_tools`). See
+:numref:`hillshade_algorithm` for the hillshade algorithm.
 
 A colorized hillshade is also supported, with the ``--color-hillshade`` option
 or the View menu ``Colorized hillshaded images`` entry (:numref:`colorize`).
@@ -171,7 +172,7 @@ each applies to all subsequent images until turned off by ``--no-colorize`` or
 can also be toggled from the View menu ``Colorized images`` entry.
 
 A colorized hillshade is supported as well, with the ``--color-hillshade``
-option or the View menu ``Colorized hillshaded images`` entry. 
+option or the View menu ``Colorized hillshaded images`` entry.
 
 An example invocation is as follows::
 

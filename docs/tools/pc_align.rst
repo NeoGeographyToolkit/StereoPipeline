@@ -244,7 +244,8 @@ The related correlation-based alignment method is described in
 In recent ASP (10/2025 and later), the internal hillshading is done with
 ``gdaldem hillshade`` (:numref:`gdal_hill`). ASP's own ``hillshade`` program
 (:numref:`hillshade`) is also supported. See the option ``--hillshade-command``
-in :numref:`pc_align_options`.
+in :numref:`pc_align_options`, and :numref:`hillshade_algorithm` for ASP's
+hillshade algorithm.
 
 Inspect the produced hillshaded images that are written in the output directory.
 If needed, change the hillshade command or its options to get visually good
