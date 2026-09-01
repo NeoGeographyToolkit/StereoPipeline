@@ -38,8 +38,12 @@ AppData::AppData(vw::GdalWriteOptions const& opt_in,
                  std::vector<std::string> const& image_files_in): 
   opt(opt_in), use_georef(use_georef_in), image_files(image_files_in) {
 
-  display_mode 
-    = asp::stereo_settings().hillshade?asp::HILLSHADED_VIEW:asp::REGULAR_VIEW;
+  if (asp::stereo_settings().color_hillshade)
+    display_mode = asp::HILLSHADE_COLORIZED_VIEW;
+  else if (asp::stereo_settings().hillshade)
+    display_mode = asp::HILLSHADED_VIEW;
+  else
+    display_mode = asp::REGULAR_VIEW;
 
   if (!stereo_settings().zoom_proj_win.empty())
     use_georef = true;
@@ -63,6 +67,22 @@ AppData::AppData(vw::GdalWriteOptions const& opt_in,
     // and set later. (Something more straightforward could be done.)
     images[i].m_display_mode = display_mode;
     has_georef = has_georef && images[i].has_georef;
+  }
+
+  // If no hillshade or color-hillshade mode was requested but some image is
+  // colorized (via --colorize), use the colorized display mode, so the display
+  // mode and the mutually exclusive View menu entries stay consistent.
+  if (display_mode == asp::REGULAR_VIEW) {
+    bool any_colorize = false;
+    for (size_t i = 0; i < num_images; i++)
+      any_colorize = any_colorize || images[i].colorize;
+    if (any_colorize) {
+      display_mode = asp::COLORIZED_VIEW;
+      for (size_t i = 0; i < num_images; i++) {
+        if (!images[i].isPolyOrCsv())
+          images[i].m_display_mode = asp::COLORIZED_VIEW;
+      }
+    }
   }
 
   // Use georef if all images have it. This may be turned off later if it is desired

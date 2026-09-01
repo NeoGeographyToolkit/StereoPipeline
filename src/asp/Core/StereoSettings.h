@@ -258,6 +258,7 @@ namespace asp {
     bool single_window;
     bool use_georef;
     bool hillshade;
+    bool color_hillshade;
     int lowest_resolution_subimage_num_pixels;
     double hillshade_azimuth, hillshade_elevation, gcp_sigma;
     bool view_matches, view_several_side_by_side, preview;
@@ -269,6 +270,8 @@ namespace asp {
     vw::BBox2 zoom_proj_win;
     double min, max;
     int plot_point_radius, font_size;
+    std::string background;                 // GUI canvas background color
+    std::string output_image;               // Render the GUI to this file and exit
 
     // stereo_parse options
     std::string tile_at_loc;

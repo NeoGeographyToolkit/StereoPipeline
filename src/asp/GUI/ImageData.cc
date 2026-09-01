@@ -325,6 +325,11 @@ void imageData::load() {
   auto& variant = m_variants[m_display_mode];
   if (variant.loaded)
     return;
+  // Some display modes (such as color-hillshade) are rendered from other
+  // variants and have no image of their own. Fall back to the primary image,
+  // so this variant can still provide the image geometry.
+  if (variant.name.empty())
+    variant.name = name;
   vw_out() << "Reading: " << variant.name << "\n";
   variant.loaded = true;
 
@@ -515,7 +520,9 @@ vw::Vector2 calcJointBounds(std::vector<imageData> const& images,
       }
       continue;
     }
-    auto const& img = images[i].currentImg();
+    // Use the regular (float DEM) variant, as colorization always works on it,
+    // even when the current display mode is hillshaded or color-hillshaded.
+    auto const& img = images[i].img();
     if (img.m_type != CH1_FLOAT)
       continue;
     vw::Vector2 ab = img.m_img_ch1_float.approx_bounds();

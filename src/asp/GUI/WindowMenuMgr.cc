@@ -134,6 +134,30 @@ void WindowMenuMgr::init(MainWindow* win) {
   QObject::connect(m_viewHillshadedImages_action, SIGNAL(triggered()),
                    win, SLOT(viewHillshadedImages()));
 
+  // View colorized images
+  m_viewColorizedImages_action = new QAction(QObject::tr("Colorized images"), win);
+  m_viewColorizedImages_action->setStatusTip(QObject::tr("View colorized images"));
+  m_viewColorizedImages_action->setCheckable(true);
+  bool any_colorize = false;
+  for (size_t i = 0; i < win->app_data.images.size(); i++)
+    any_colorize = any_colorize || win->app_data.images[i].colorize;
+  m_viewColorizedImages_action->setChecked(any_colorize);
+  m_viewColorizedImages_action->setShortcut(QObject::tr("L"));
+  QObject::connect(m_viewColorizedImages_action, SIGNAL(triggered()),
+                   win, SLOT(viewColorizedImages()));
+
+  // View colorized hillshaded images
+  m_viewColorHillshadedImages_action =
+    new QAction(QObject::tr("Colorized hillshaded images"), win);
+  m_viewColorHillshadedImages_action->setStatusTip(
+    QObject::tr("View colorized hillshaded images"));
+  m_viewColorHillshadedImages_action->setCheckable(true);
+  m_viewColorHillshadedImages_action->setChecked(
+    win->app_data.display_mode == HILLSHADE_COLORIZED_VIEW);
+  m_viewColorHillshadedImages_action->setShortcut(QObject::tr("K"));
+  QObject::connect(m_viewColorHillshadedImages_action, SIGNAL(triggered()),
+                   win, SLOT(viewColorHillshadedImages()));
+
   // View as georeferenced
   m_viewGeoreferencedImages_action =
     new QAction(QObject::tr("View as georeferenced images"), win);
@@ -339,6 +363,8 @@ void WindowMenuMgr::init(MainWindow* win) {
   m_view_menu->addAction(m_viewSeveralSideBySide_action);
   m_view_menu->addAction(m_viewAsTiles_action);
   m_view_menu->addAction(m_viewHillshadedImages_action);
+  m_view_menu->addAction(m_viewColorizedImages_action);
+  m_view_menu->addAction(m_viewColorHillshadedImages_action);
   m_view_menu->addAction(m_viewGeoreferencedImages_action);
   m_view_menu->addAction(m_overlayGeoreferencedImages_action);
   m_view_menu->addAction(m_zoomAllToSameRegion_action);

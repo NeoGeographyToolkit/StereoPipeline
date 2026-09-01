@@ -97,7 +97,8 @@ The ``stereo_gui`` program can:
   - Create and show hillshaded DEMs (:numref:`stereo_gui_hillshade`).
 
   - Colorize images on-the-fly (``--colorize``) and optionally show a
-    colorbar with axes (``--colorbar``). See :numref:`colorize`.
+    colorbar with axes (``--colorbar``). Can show colorized hillshade. 
+    See :numref:`colorize`.
 
   - Display the output of the ASP ``colormap`` and ``hillshade`` tools
     (:numref:`colormap`, :numref:`hillshade`).
@@ -124,9 +125,11 @@ The ``stereo_gui`` program can:
   - Threshold images (:numref:`thresh`).
 
   - Cycle through images, showing one at a time (:numref:`gui_cycle`).
+  
+  - Save a screenshot to disk in the PNG, BMP, or XPM format.
 
-  - Save a screenshot to disk in the BMP or XPM format.
-
+  - Render images to disk without display access (:numref:`gui_options`).
+  
 .. _stereo_gui_hillshade:
 
 Hillshading
@@ -145,8 +148,11 @@ height of the light source. Then toggle hillshading off and then on again.
 Hillshaded images can also be produced with the ``hillshade`` tool
 (:numref:`hillshade`) or with ``gdaldem hillshade`` (:numref:`gdal_tools`).
 
-Images that are both colorized and hillshaded can be created with ``colormap``
-(:numref:`colormap`), and then loaded in this program.
+A colorized hillshade is also supported, with the ``--color-hillshade`` option
+or the View menu ``Colorized hillshaded images`` entry (:numref:`colorize`).
+
+Images that are both colorized and hillshaded can also be created with
+``colormap`` (:numref:`colormap`), and then loaded in this program.
 
 .. _colorize:
 
@@ -161,7 +167,11 @@ CSV files can be colorized as well.
 
 The ``--colorize`` and ``--colorbar`` flags are per-image with sticky semantics:
 each applies to all subsequent images until turned off by ``--no-colorize`` or
-``--no-colorbar``. The ``--colorbar`` flag implies ``--colorize``.
+``--no-colorbar``. The ``--colorbar`` flag implies ``--colorize``. Colorization
+can also be toggled from the View menu ``Colorized images`` entry.
+
+A colorized hillshade is supported as well, with the ``--color-hillshade``
+option or the View menu ``Colorized hillshaded images`` entry. 
 
 An example invocation is as follows::
 
@@ -753,11 +763,16 @@ accept all other ``parallel_stereo`` options as well.
 --hillshade
     Interpret the input images as DEMs and hillshade them.
 
+--color-hillshade
+    Interpret the input images as DEMs, and apply both colorize and hillshade.
+    The color range can be adjusted with  ``--min`` and ``--max``
+    (:numref:`colorize`).
+
 --hillshade-azimuth
-    The azimuth value when showing hillshaded images.
+    The azimuth value when showing hillshaded or colorized-hillshaded images.
 
 --hillshade-elevation
-    The elevation value when showing hillshaded images.
+    The elevation value when showing hillshaded or colorized hillshaded images.
 
 --view-matches
     Locate and display the interest point matches for a stereo pair.
@@ -890,6 +905,17 @@ accept all other ``parallel_stereo`` options as well.
 
 --font-size <integer (default = 9)>
     Set the font size.
+
+--background <string (default = "black")>
+    Set the color of the display canvas behind and around the images
+    (for example, ``black``, ``white``, or a hex value such as
+    ``#202020``).
+
+--output-image <string (default = "")>
+    Instead of showing the interactive GUI, render the images (with the
+    current layout, colorization, hillshading, and background) to this
+    file and exit. No window is created, so this works over a remote
+    connection. Example: ``--output-image output.png``.
 
 --no-georef
     Do not use the georeference information when displaying the data,

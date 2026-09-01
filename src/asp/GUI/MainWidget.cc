@@ -69,7 +69,7 @@ MainWidget::MainWidget(QWidget *parent,
     m_allowMultipleSelections(allowMultipleSelections),
     m_can_emit_zoom_all_signal(false),
     m_polyEditMode(false), m_polyLayerIndex(beg_image_id),
-    m_pixelTol(6), m_backgroundColor(QColor("black")),
+    m_pixelTol(6), m_backgroundColor(QColor(asp::stereo_settings().background.c_str())),
     m_lineWidth(2), m_polyColor("green"),
     m_firstPaintEvent(false),
     m_emptyRubberBand(QRect(0,0,0,0)), m_rubberBand(QRect(0,0,0,0)),
@@ -404,7 +404,10 @@ void MainWidget::maybeGenHillshade() {
   // it each time as perhaps the hillshade parameters changed.
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
 
-    if (app_data.images[image_iter].m_display_mode != HILLSHADED_VIEW)
+    // The hillshade is the shade source for both the plain hillshade view and
+    // the color-hillshade view.
+    asp::DisplayMode orig_mode = app_data.images[image_iter].m_display_mode;
+    if (orig_mode != HILLSHADED_VIEW && orig_mode != HILLSHADE_COLORIZED_VIEW)
       continue;
 
     if (app_data.images[image_iter].name.find("_CMAP.tif") != std::string::npos) {
@@ -459,6 +462,11 @@ void MainWidget::maybeGenHillshade() {
 
     app_data.images[image_iter].read(hillshaded_file, m_opt, HILLSHADED_VIEW);
     temporary_files().files.insert(hillshaded_file);
+
+    // For color-hillshade, the hillshade is only the shade source. Restore the
+    // color-hillshade mode, which read() reset to HILLSHADED_VIEW.
+    if (orig_mode == HILLSHADE_COLORIZED_VIEW)
+      app_data.images[image_iter].m_display_mode = HILLSHADE_COLORIZED_VIEW;
   }
 }
 
@@ -531,20 +539,21 @@ void MainWidget::pushImageToBottomSlot(int imageIndex) {
   refreshPixmap();
 }
 
-void MainWidget::viewHillshadedImages(bool hillshade_mode) {
-  MainWidget::setHillshadeMode(hillshade_mode);
-  refreshHillshade();
-}
-
-// Each image can be hillshaded independently of the others
-void MainWidget::setHillshadeMode(bool hillshade_mode) {
+// Set the display mode for the images in this widget. The regular, hillshaded,
+// colorized, and color-hillshaded modes are mutually exclusive. Colorization is
+// done on the fly (so it responds to --min/--max); the hillshade is generated
+// on disk and read from a pyramid by refreshHillshade().
+void MainWidget::setDisplayMode(asp::DisplayMode mode) {
+  bool colorize = (mode == COLORIZED_VIEW || mode == HILLSHADE_COLORIZED_VIEW);
   for (int image_iter = m_beg_image_id; image_iter < m_end_image_id; image_iter++) {
-    if (hillshade_mode)
-      app_data.images[image_iter].m_display_mode = HILLSHADED_VIEW;
-    else
-      app_data.images[image_iter].m_display_mode = REGULAR_VIEW;
+    if (app_data.images[image_iter].isPolyOrCsv())
+      continue;
+    app_data.images[image_iter].m_display_mode = mode;
+    app_data.images[image_iter].colorize = colorize;
+    if (colorize && app_data.images[image_iter].colormap.empty())
+      app_data.images[image_iter].colormap = "binary-red-blue";
   }
-
+  refreshHillshade(); // generates the hillshade pyramid if needed, then refreshes
 }
 
 // Ensure the current image is displayed. Note that this on its own
@@ -740,11 +749,13 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
       if (px < 0 || py < 0 || px >= sourceImage.width() || py >= sourceImage.height())
         continue;
 
-      // If the pixel is black or transparent, skip it
-      QColor color = sourceImage.pixel(px, py);
-      if (color == QColorConstants::Transparent || color.alpha() == 0)
-        continue;
-      if (color.red() == 0 && color.green() == 0 && color.blue() == 0)
+      // Skip only transparent pixels (nodata). Do not skip black pixels: black
+      // is valid data (for example, steep shadowed areas in a hillshade, or the
+      // low end of a colormap). Nodata is conveyed by transparency, not color.
+      // Use pixelColor(), not pixel(): QColor(QRgb) would force alpha to 255 and
+      // lose the transparency.
+      QColor color = sourceImage.pixelColor(px, py);
+      if (color.alpha() == 0)
         continue;
 
       transformedImage.setPixel(x-screen_box.min().x(),
@@ -775,6 +786,38 @@ vw::Colormap buildColormap(std::string const& colormap_style) {
     vw::parseColorStyle("binary-red-blue", lut_map);
   }
   return vw::Colormap(lut_map);
+}
+
+// Multiply an on-the-fly colorized image by a grayscale hillshade to form a
+// color-hillshade. The color image carries the transparency (from nodata);
+// the hillshade only modulates the intensity. Both clips are at the same
+// pyramid level and cover the same region, so they have the same size.
+QImage colorHillshade(QImage const& color_img, QImage const& shade_img) {
+  int cols = color_img.width(), rows = color_img.height();
+  QImage out(cols, rows, QImage::Format_ARGB32_Premultiplied);
+  bool same_size = (shade_img.width() == cols && shade_img.height() == rows);
+  QRgb transparent = QColor(0, 0, 0, 0).rgba();
+  for (int row = 0; row < rows; row++) {
+    for (int col = 0; col < cols; col++) {
+      QRgb c = color_img.pixel(col, row);
+      if (qAlpha(c) == 0) { // nodata in the DEM
+        out.setPixel(col, row, transparent);
+        continue;
+      }
+      double s = 1.0;
+      if (same_size) {
+        QRgb sh = shade_img.pixel(col, row);
+        if (qAlpha(sh) == 0) { // nodata in the hillshade
+          out.setPixel(col, row, transparent);
+          continue;
+        }
+        s = qGray(sh) / 255.0;
+      }
+      out.setPixel(col, row, qRgba(int(qRed(c)*s), int(qGreen(c)*s),
+                                   int(qBlue(c)*s), qAlpha(c)));
+    }
+  }
+  return out;
 }
 
 // Draw the images on the screen
@@ -932,12 +975,31 @@ void MainWidget::drawImage(QPainter* paint) {
     }
 
     QImage qimg;
-    app_data.images[i].currentImg().get_image_clip(scale, image_box,
-                                                   highlight_nodata,
-                                                   colormap_ptr,
-                                                   joint_bounds,
-                                                   qimg, scale_out,
-                                                   region_out);
+    if (app_data.images[i].m_display_mode == HILLSHADE_COLORIZED_VIEW) {
+      // Colorize the DEM on the fly (so it responds to --min/--max), then
+      // multiply by the hillshade gray read from its pyramid. The hillshade was
+      // generated by maybeGenHillshade() into the HILLSHADED_VIEW variant.
+      vw::Colormap cmap = buildColormap(app_data.images[i].colormap.empty() ?
+                                        "binary-red-blue" :
+                                        app_data.images[i].colormap);
+      QImage color_img, shade_img;
+      double shade_scale_out = 1.0;
+      vw::BBox2i shade_region_out;
+      app_data.images[i].img().get_image_clip(scale, image_box,
+                                              false, &cmap, joint_bounds,
+                                              color_img, scale_out, region_out);
+      app_data.images[i].m_variants[HILLSHADED_VIEW].image.get_image_clip
+        (scale, image_box, false, NULL, vw::Vector2(),
+         shade_img, shade_scale_out, shade_region_out);
+      qimg = colorHillshade(color_img, shade_img);
+    } else {
+      app_data.images[i].currentImg().get_image_clip(scale, image_box,
+                                                     highlight_nodata,
+                                                     colormap_ptr,
+                                                     joint_bounds,
+                                                     qimg, scale_out,
+                                                     region_out);
+    }
 
     // Draw on image screen
     Stopwatch sw4;
@@ -1461,7 +1523,7 @@ void MainWidget::saveScreenshot() {
 
   QString fileName =
     QFileDialog::getSaveFileName(this, tr("Save screenshot"),
-                                    "./screenshot.bmp", tr("(*.bmp *.xpm)"));
+                                    "./screenshot.png", tr("(*.png *.bmp *.xpm)"));
   if (fileName.toStdString() == "")
     return;
 

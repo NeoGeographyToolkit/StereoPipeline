@@ -98,6 +98,8 @@ private slots:
   void saveVectorLayerAsShapeFile ();
   void saveVectorLayerAsTextFile  ();
   void viewHillshadedImages       ();
+  void viewColorizedImages        ();
+  void viewColorHillshadedImages  ();
   void viewGeoreferencedImages    ();
   void overlayGeoreferencedImages ();
   void setZoomAllToSameRegion     ();
@@ -141,6 +143,7 @@ private:
   
   void updateViewMenuEntries();
   void updateDisplayModeMenuEntries();
+  void applyDisplayMode(asp::DisplayMode mode);
   
   bool sanityChecks(int num_images);
 

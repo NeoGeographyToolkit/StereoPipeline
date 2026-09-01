@@ -142,7 +142,6 @@ public:
 
   vw::BBox2 current_view() const;
   void  zoomToRegion (vw::BBox2 const& region);
-  void  setHillshadeMode(bool hillshade_mode);
   vw::BBox2 firstImagePixelBox() const;
   vw::BBox2 firstImageWorldBox(vw::BBox2 const& image_box) const;
   void setWorldBox(vw::BBox2 const& world_box);
@@ -168,7 +167,7 @@ public slots:
   void customMenuRequested(QPoint pos);
   void viewUnthreshImages();
   void viewThreshImages  (bool refresh_pixmap);
-  void viewHillshadedImages(bool hillshade_mode);
+  void setDisplayMode(asp::DisplayMode mode);
 
   void addMatchPoint          (); // Add a new interest point (from right click menu)
   void deleteMatchPoint       (); // Delete an interest point (from right click menu)

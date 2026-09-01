@@ -62,6 +62,8 @@ struct WindowMenuMgr {
   QAction *m_viewAsTiles_action;
   QAction *m_zoomToProjWin_action;
   QAction *m_viewHillshadedImages_action;
+  QAction *m_viewColorizedImages_action;
+  QAction *m_viewColorHillshadedImages_action;
   QAction *m_viewGeoreferencedImages_action;
   QAction *m_overlayGeoreferencedImages_action;
   QAction *m_viewThreshImages_action;

@@ -20,6 +20,7 @@
 
 #include <QApplication>
 #include <QWidget>
+#include <QPixmap>
 
 #include <asp/GUI/MainWindow.h>
 #include <asp/GUI/GuiUtilities.h>
@@ -228,8 +229,9 @@ int main(int argc, char** argv) {
       for (size_t i = 0; i < images.size(); i++) {
         asp::imageData img;
         img.read(images[i], opt);
-        if (stereo_settings().hillshade) {
-          // Create hillshaded images. 
+        if (stereo_settings().hillshade || stereo_settings().color_hillshade) {
+          // Create hillshaded images. For color-hillshade, this is the shade
+          // source; the colorization is applied on the fly at display time.
           std::string hillshaded_file;
           bool have_gui = false; // so we don't use a pop up before the gui got started
           bool success = asp::write_hillshade(opt, have_gui,
@@ -243,6 +245,11 @@ int main(int argc, char** argv) {
       }
       return 0;
     }
+
+    // When rendering to a file, use the offscreen platform so no window
+    // is created. This also allows running over a remote connection.
+    if (!asp::stereo_settings().output_image.empty())
+      qputenv("QT_QPA_PLATFORM", "offscreen");
 
     // Create the application. Must be done before trying to read
     // images as that call uses pop-ups. Must not happen before
@@ -272,6 +279,23 @@ int main(int argc, char** argv) {
                                 argc, argv);
 
     main_window.show();
+
+    // Render the GUI to a file and exit, without an interactive session.
+    if (!asp::stereo_settings().output_image.empty()) {
+      // Process pending events so the widgets are laid out and the image
+      // pyramids are drawn before grabbing the result.
+      app.processEvents();
+      QWidget * central = main_window.centralWidget();
+      QPixmap pixmap = (central != NULL) ? central->grab() : main_window.grab();
+      std::string const& out_file = asp::stereo_settings().output_image;
+      if (pixmap.save(QString::fromStdString(out_file)))
+        vw::vw_out() << "Wrote: " << out_file << "\n";
+      else
+        vw::vw_out() << "Failed to write: " << out_file << "\n";
+      xercesc::XMLPlatformUtils::Terminate();
+      return 0;
+    }
+
     app.exec();
 
     xercesc::XMLPlatformUtils::Terminate();

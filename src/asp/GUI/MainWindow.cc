@@ -937,6 +937,10 @@ void MainWindow::updateDisplayModeMenuEntries() {
     ->setChecked(app_data.display_mode == THRESHOLDED_VIEW);
   wm.m_viewHillshadedImages_action
     ->setChecked(app_data.display_mode == HILLSHADED_VIEW);
+  wm.m_viewColorizedImages_action
+    ->setChecked(app_data.display_mode == COLORIZED_VIEW);
+  wm.m_viewColorHillshadedImages_action
+    ->setChecked(app_data.display_mode == HILLSHADE_COLORIZED_VIEW);
 }
 
 void MainWindow::viewMatchesFromMenu() {
@@ -1523,15 +1527,31 @@ void MainWindow::setPolyColor() {
   
 }
 
-void MainWindow::viewHillshadedImages() {
-  bool hillshade = m_win_menu_mgr.m_viewHillshadedImages_action->isChecked();
-  app_data.display_mode = hillshade ? HILLSHADED_VIEW : REGULAR_VIEW;
+// Apply one of the mutually exclusive display modes (regular, hillshaded,
+// colorized, color-hillshaded). This updates the menu checkboxes so only the
+// active mode is checked, then applies the mode to all widgets.
+void MainWindow::applyDisplayMode(asp::DisplayMode mode) {
+  app_data.display_mode = mode;
   MainWindow::updateDisplayModeMenuEntries();
-  
   for (size_t i = 0; i < m_widgets.size(); i++) {
     if (m_widgets[i])
-      m_widgets[i]->viewHillshadedImages(app_data.display_mode == HILLSHADED_VIEW);
+      m_widgets[i]->setDisplayMode(mode);
   }
+}
+
+void MainWindow::viewHillshadedImages() {
+  bool on = m_win_menu_mgr.m_viewHillshadedImages_action->isChecked();
+  MainWindow::applyDisplayMode(on ? HILLSHADED_VIEW : REGULAR_VIEW);
+}
+
+void MainWindow::viewColorizedImages() {
+  bool on = m_win_menu_mgr.m_viewColorizedImages_action->isChecked();
+  MainWindow::applyDisplayMode(on ? COLORIZED_VIEW : REGULAR_VIEW);
+}
+
+void MainWindow::viewColorHillshadedImages() {
+  bool on = m_win_menu_mgr.m_viewColorHillshadedImages_action->isChecked();
+  MainWindow::applyDisplayMode(on ? HILLSHADE_COLORIZED_VIEW : REGULAR_VIEW);
 }
 
 // Pass to the widget the desire to zoom all images to the same region

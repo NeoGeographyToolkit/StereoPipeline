@@ -5,11 +5,10 @@ New features:
   * Added a pipeline for creating terrain models from TGO CaSSIS pushframe images
     (:numref:`cassis`).
   * Support the SPOT 1, 2, 3, and 4 HRV linescan cameras (:numref:`spot14`).
-  * Added an example for Viking Orbiter (:numref:`viking`).
-  * Added an example for the Clementine NIR camera, including CSM camera creation
-    and mapprojection onto a lunar reference DEM (:numref:`clementine`).
   * Added the AKAZE, BRISK, and KAZE interest point detection methods to
     ``parallel_stereo``, ``bundle_adjust``, etc. (:numref:`stereodefault`).
+  * Added an example for Viking Orbiter (:numref:`viking`).
+  * Added an example for the Clementine NIR camera (:numref:`clementine`).
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
@@ -127,6 +126,13 @@ hiedr2mosaic (:numref:`hiedr2mosaic`):
 n_align (:numref:`n_align`):
   * Added support for LAZ COPC files, with the ``--copc-win`` and
     ``--copc-read-all`` options, as in ``pc_align``.
+
+stereo_gui (:numref:`stereo_gui`):
+  * Added the ``--background`` option (:numref:`stereo_gui`).
+  * Added ``--output-image``, to render the images to a file without GUI
+    (:numref:`stereo_gui`).
+  * Added ``--color-hillshade``, to display a colorized hillshade
+    (:numref:`colorize`).
 
 Misc:
   * Fixed a bug with very long input image names when creating ``.match`` and

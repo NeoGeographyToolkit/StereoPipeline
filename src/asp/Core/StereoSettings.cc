@@ -577,11 +577,15 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
       "Plot the images in the projected coordinate system given by the georeference of the images.")
     ("hillshade", po::bool_switch(&global.hillshade)->default_value(false)->implicit_value(true),
       "Interpret the input images as DEMs and hillshade them.")
+    ("color-hillshade", po::bool_switch(&global.color_hillshade)->default_value(false)->implicit_value(true),
+      "Interpret the input images as DEMs, and apply both colorize and "
+      "hillshade. The color range can be adjusted with --min and --max. Also "
+      "available from the View menu.")
 
     ("hillshade-azimuth", po::value(&global.hillshade_azimuth)->default_value(300),
-      "The azimuth value when showing hillshaded images.")
+      "The azimuth value when showing hillshaded or colorized hillshaded images.")
     ("hillshade-elevation", po::value(&global.hillshade_elevation)->default_value(20),
-      "The elevation value when showing hillshaded images.")
+      "The elevation value when showing hillshaded or colorized hillshaded images.")
     ("lowest-resolution-subimage-num-pixels", po::value(&global.lowest_resolution_subimage_num_pixels)->default_value(-1),
       "When building a pyramid of lower-resolution versions of an image, the coarsest image will have no more than this many pixels. If not set, it will internally default to 1000 x 1000. This is increased to 10000 x 10000 when loading .nvm files or with the --preview option.")
     ("view-matches", po::bool_switch(&global.view_matches)->default_value(false)->implicit_value(true),
@@ -640,6 +644,14 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
       "When plotting points from CSV files, let each point be drawn as a filled ball with this radius, in pixels.")
     ("font-size", po::value(&global.font_size)->default_value(9),
       "Set the font size.")
+    ("background", po::value(&global.background)->default_value("black"),
+      "Set the color of the display canvas behind and around the images "
+      "(for example, 'black', 'white', or a hex value such as '#202020').")
+    ("output-image", po::value(&global.output_image)->default_value(""),
+      "Instead of showing the interactive GUI, render the images (with the "
+      "current layout, colorization, hillshading, and background) to this "
+      "file and exit. No window is created, so this works over a remote "
+      "connection.")
     ("no-georef",
       po::bool_switch(&global.no_georef)->default_value(false)->implicit_value(true),
       "Do not use georeference information when displaying the data, even when it exists.")
