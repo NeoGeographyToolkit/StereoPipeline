@@ -31,6 +31,7 @@ rig), and :numref:`rig_examples` (using a rig and robot images).
    examples/shadowcam
    examples/cassis
    examples/viking
+   examples/clementine
    examples/junocam
    examples/isis_minirf
    examples/pbs_slurm

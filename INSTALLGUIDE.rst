@@ -186,11 +186,11 @@ Planetary images
 To process images from NASA's spacecraft that are exploring other planets,
 install ISIS and its data. Summary of the steps:
 
-#. Fetch ISIS binaries and install, following
-   https://github.com/DOI-USGS/ISIS3#installation
+#. `Fetch and install the ISIS binaries
+   <https://github.com/DOI-USGS/ISIS3#installation>`_.
 
-#. Fetch ISIS data, as detailed at
-   https://github.com/DOI-USGS/ISIS3#the-isis-data-area
+#. `Fetch the ISIS data
+   <https://github.com/DOI-USGS/ISIS3#the-isis-data-area>`_.
 
 #. Add the ISIS executables to your path:
 
@@ -203,13 +203,14 @@ install ISIS and its data. Summary of the steps:
   
      export ISISDATA="/path/to/isisdata"
    
-   Check that you have the directory ``$ISISDATA/base``.
+   Check that the directory ``$ISISDATA/base`` exists.
 
 #. Install Stereo Pipeline and set the ``PATH`` variable as above.
 
 #. Try it out. See :numref:`lronac_csm` for a quick Lunar example which does not
-   require installing ISIS or it supporting data as above,
-   :numref:`moc_tutorial` for an example using Mars images and ISIS data, and
+   require installing ISIS or its supporting data as above,
+   :numref:`moc_tutorial` for an example using Mars images and ISIS data,
+   :numref:`dg_tutorial` for DigitalGlobe Earth data, and
    many other examples in :numref:`examples`.
 
 Earth images
@@ -236,7 +237,7 @@ To run ASP, a computer cluster sharing storage and connected via ssh is needed
 (:numref:`pbs_slurm`).
 
 As a rule of thumb, for images on the order of 20,000 x 20,000 pixels, a machine
-with 40 GB of RAM 16 cores could likely produce a terrain model in 4 - 20 hours.
+with 40 GB of RAM and 16 cores could likely produce a terrain model in 4 - 20 hours.
 There is a lot of uncertainty here, and much depends on the choice of the stereo
 algorithm (:numref:`stereo_alg_overview`), and if mapprojection is employed
 (:numref:`mapproj-example`).
@@ -275,7 +276,7 @@ installation to the environmental variable ``PATH``
 
     /bin/sh: camrange: command not found
 
-You need to to add the ``bin`` directory of your ISIS installation to your path (:numref:`planetary_images`).
+You need to add the ``bin`` directory of your ISIS installation to your path (:numref:`planetary_images`).
 
 ::
 

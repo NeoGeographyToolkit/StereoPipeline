@@ -6,6 +6,8 @@ New features:
     (:numref:`cassis`).
   * Support the SPOT 1, 2, 3, and 4 HRV linescan cameras (:numref:`spot14`).
   * Added an example for Viking Orbiter (:numref:`viking`).
+  * Added an example for the Clementine NIR camera, including CSM camera creation
+    and mapprojection onto a lunar reference DEM (:numref:`clementine`).
   * Added the AKAZE, BRISK, and KAZE interest point detection methods to
     ``parallel_stereo``, ``bundle_adjust``, etc. (:numref:`stereodefault`).
 
