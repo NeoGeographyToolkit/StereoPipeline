@@ -895,6 +895,11 @@ reprojection errors are large and their geographic locations.
 Pixel reprojection errors corresponding to GCP will be printed at the end of
 these files and flagged with the string ``# GCP``.
 
+When bathymetry is modeled (:numref:`bathy_intro`), via ``--bathy-mask-list``,
+``--bathy-plane``, and ``--refraction-index``, each non-GCP triangulated point
+is also flagged as ``# water`` or ``# land``. These take precedence over the
+``# from DEM`` flag but not over ``# GCP``.
+
 During the optimization the pixel differences are divided by pixel sigma.
 This is undone when the pixel reprojection errors are later computed.
 

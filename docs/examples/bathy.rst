@@ -256,6 +256,10 @@ Error propagation (:numref:`error_propagation`) can be enabled together with
 bathymetry, in both ``parallel_stereo`` and ``bundle_adjust``. See
 :numref:`error_prop_bathy` for details.
 
+When ``bundle_adjust`` is run with bathymetry, each non-GCP triangulated point in
+the ``pointmap.csv`` report files is flagged as ``# water`` or ``# land``, to tell
+the underwater points from the land points (:numref:`ba_err_per_point`).
+
 .. _bathy_validation:
 
 Performing sanity checks on a bathy run

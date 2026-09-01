@@ -23,6 +23,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     (:numref:`ba_gcp_report`).
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
+  * When bathymetry is modeled, the ``pointmap.csv`` report files flag each
+    non-GCP triangulated point as water or land (:numref:`ba_err_per_point`).
   * Bug fix for ``--auto-overlap-params`` when a ground footprint cannot be
     computed.
 

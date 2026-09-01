@@ -24,6 +24,7 @@
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
+#include <vw/Cartography/BathyData.h>
 #include <vw/Math/Functors.h>
 #include <vw/Math/Statistics.h>
 
@@ -160,6 +161,48 @@ void compute_mean_residuals_at_xyz(asp::CRN const& crn,
   
 } // End function compute_mean_residuals_at_xyz
   
+// Classify each control-network point as land or water for bathymetry. A point
+// is water if, for at least one pair of its observations (using the same pairing
+// window as triangulation), both pixels fall in the water region of their
+// per-image bathy masks. This mirrors the do_bathy decision made in
+// vw::ba::triangulate_control_point(), so the tag reflects whether the point's
+// rays were bent by refraction. The classification keys off the fixed pixel
+// observations and the masks, not the triangulated ground point, so it does not
+// change as the cameras are optimized (the initial and final pointmap.csv get
+// the same land/water tags). If bathymetry is not active, all points stay land
+// (unclassified) and the caller adds no land/water tag.
+static void classifyWaterPoints(vw::ba::ControlNetwork const& cnet,
+                                vw::BathyData const& bathy_data,
+                                std::vector<char> & is_water) {
+
+  is_water.assign(cnet.size(), 0);
+
+  // Bathymetry must be active, same condition as in triangulate_control_point().
+  if (bathy_data.refraction_index <= 1.0 || bathy_data.bathy_masks.empty())
+    return;
+
+  for (size_t ipt = 0; ipt < cnet.size(); ipt++) {
+    vw::ba::ControlPoint const& cp = cnet[ipt];
+    bool water = false;
+    for (size_t j = 0; j < cp.size() && !water; j++) {
+      for (size_t k = j + 1; k < std::min(j + 11, cp.size()); k++) {
+        size_t j_cam_id = cp[j].image_id();
+        size_t k_cam_id = cp[k].image_id();
+        if (j_cam_id >= bathy_data.bathy_masks.size() ||
+            k_cam_id >= bathy_data.bathy_masks.size())
+          continue;
+        if (vw::areMasked(bathy_data.bathy_masks[j_cam_id],
+                          bathy_data.bathy_masks[k_cam_id],
+                          cp[j].position(), cp[k].position())) {
+          water = true;
+          break;
+        }
+      }
+    }
+    is_water[ipt] = water ? 1 : 0;
+  }
+}
+
 // Write out a .csv file recording the residual error at each location on the ground
 // TODO(oalexan1): Integrate with write_per_xyz_residuals().
 void write_residual_map(std::string const& output_prefix,
@@ -197,25 +240,40 @@ void write_residual_map(std::string const& output_prefix,
   // stereo_gui counts on being able to parse the datum from this file, so
   // do not modify the line below.
   file << "# " << opt.datum << std::endl;
-  
+
+  // When bathymetry is active, classify each point as land or water, so the
+  // land/water tag can be written below. GCP keep their own tag and are not
+  // classified. Both the land and water tags take precedence over the from-DEM tag.
+  std::vector<char> is_water;
+  classifyWaterPoints(cnet, opt.bathy_data, is_water);
+  bool bathy_active = (opt.bathy_data.refraction_index > 1.0 &&
+                       !opt.bathy_data.bathy_masks.empty());
+
   // Now write all the points to the file
   for (size_t i = 0; i < ba_state.num_points(); i++) {
 
     if (ba_state.get_point_outlier(i))
       continue; // skip outliers
-    
+
       // The final GCC coordinate of this point
       const double * point = ba_state.get_point_ptr(i);
       Vector3 xyz(point[0], point[1], point[2]);
 
       Vector3 llh = opt.datum.cartesian_to_geodetic(xyz);
 
+      // When bathymetry is active, every non-GCP point is flagged land or water.
+      // Both take precedence over the from-DEM flag, but not over GCP. When bathy
+      // is not active, the from-DEM flag is used as before.
       std::string comment = "";
       if (cnet[i].type() == ControlPoint::GroundControlPoint)
         comment = " # GCP";
+      else if (is_water[i])
+        comment = " # water";
+      else if (bathy_active)
+        comment = " # land";
       else if (cnet[i].type() == ControlPoint::PointFromDem)
         comment = " # from DEM";
-      
+
       file << llh[0] <<", "<< llh[1] <<", "<< llh[2] <<", "<< mean_residuals[i] <<", "
            << num_point_observations[i] << comment << std::endl;
   }
