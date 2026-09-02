@@ -49,9 +49,9 @@ struct Options: vw::GdalWriteOptions {
     mask_boundary_shapefile, dem_minus_plane, water_surface, output_water_surface;
 
   double outlier_threshold;
-  int num_ransac_iterations, num_samples, min_lake_pixels;
+  int num_ransac_iterations, num_samples, min_water_body_pixels;
   bool save_shapefiles_as_polygons;
-  Options(): outlier_threshold(0.5), num_ransac_iterations(1000), min_lake_pixels(500) {}
+  Options(): outlier_threshold(0.5), num_ransac_iterations(1000), min_water_body_pixels(500) {}
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
@@ -140,11 +140,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "the georeferenced land/water mask given by ``--ortho-mask``, and write the "
      "resulting per-pixel water-surface-elevation raster (heights above the "
      "WGS_1984 ellipsoid, in meters) to this file. The DEM is set with ``--dem``. "
-     "Only water bodies with at least ``--min-lake-pixels`` pixels are fit. The "
+     "Only water bodies with at least ``--min-water-body-pixels`` pixels are fit. The "
      "output raster can be passed to ``parallel_stereo --bathy-plane`` for "
      "multi-water-body bathymetry correction.")
-    ("min-lake-pixels",
-     po::value(&opt.min_lake_pixels)->default_value(500),
+    ("min-water-body-pixels",
+     po::value(&opt.min_water_body_pixels)->default_value(500),
      "In multi-water-body mode (``--output-water-surface``), only fit a plane to "
      "connected water bodies having at least this many pixels.");
 
@@ -198,8 +198,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw::vw_throw(vw::ArgumentErr() << "Must set --bathy-plane, --mask-boundary-shapefile, "
              << "or --output-water-surface.\n" << usage << general_options);
 
-  if (use_multi_water && opt.min_lake_pixels <= 0)
-    vw::vw_throw(vw::ArgumentErr() << "The value of --min-lake-pixels must be positive.\n"
+  if (use_multi_water && opt.min_water_body_pixels <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "The value of --min-water-body-pixels must be positive.\n"
              << usage << general_options);
 
   if ((use_meas || use_lon_lat) && opt.csv_format_str == "")
@@ -211,7 +211,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << usage << general_options);
 
   if (!opt.dem_minus_plane.empty() && opt.dem.empty())
-    vw::vw_throw(vw::ArgumentErr() << "The option --dem must be set if using --dem-minus-plane.\n"
+    vw::vw_throw(vw::ArgumentErr() 
+             << "The option --dem must be set if using --dem-minus-plane.\n"
              << usage << general_options);
 
   if (use_water_surface && !opt.dem_minus_plane.empty())
@@ -362,7 +363,7 @@ int main(int argc, char *argv[]) {
         vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       asp::calcMultiWaterBodyPlanes(opt.ortho_mask, mask_georef, dem_georef,
                                     dem, interp_dem, dem_nodata_val,
-                                    opt.min_lake_pixels, opt.num_ransac_iterations,
+                                    opt.min_water_body_pixels, opt.num_ransac_iterations,
                                     opt.outlier_threshold, opt.output_water_surface,
                                     opt.output_inlier_shapefile,
                                     opt.save_shapefiles_as_polygons, opt);

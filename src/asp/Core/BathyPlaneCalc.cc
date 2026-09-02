@@ -1023,7 +1023,7 @@ static double evalPlaneHeightAtLonLat(vw::Vector2 const& lon_lat,
 // Fit a separate water-surface plane to each connected water body (lake) in a
 // georeferenced land/water mask, and write a per-pixel water-surface-elevation
 // (WSE) raster on the DEM grid. Water pixels are labeled into connected bodies
-// (8-connectivity). For each body with at least min_lake_pixels pixels, the
+// (8-connectivity). For each body with at least min_water_body_pixels pixels, the
 // shoreline points (land pixels at the water interface, with heights from the
 // DEM) are fit to a plane in that body's own local stereographic frame via
 // RANSAC, exactly as the single-plane --ortho-mask path does, but per lake.
@@ -1036,7 +1036,7 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
                               vw::ImageViewRef<float> dem,
                               vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                               double dem_nodata_val,
-                              int min_lake_pixels,
+                              int min_water_body_pixels,
                               int num_ransac_iterations,
                               double outlier_threshold,
                               std::string const& output_wse_raster,
@@ -1125,16 +1125,16 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
   std::vector<int> label_to_lake(num_lakes + 1, -1); // map full label -> dense lake index
   int num_kept = 0;
   for (int k = 1; k <= num_lakes; k++) {
-    if (lake_size[k-1] >= min_lake_pixels) {
+    if (lake_size[k-1] >= min_water_body_pixels) {
       label_to_lake[k] = num_kept;
       num_kept++;
     }
   }
-  vw::vw_out() << "Water bodies with at least " << min_lake_pixels
+  vw::vw_out() << "Water bodies with at least " << min_water_body_pixels
                << " pixels: " << num_kept << ".\n";
   if (num_kept == 0)
     vw::vw_throw(vw::ArgumentErr() << "No water body has at least "
-                 << min_lake_pixels << " pixels. Lower --min-lake-pixels.\n");
+                 << min_water_body_pixels << " pixels. Lower --min-water-body-pixels.\n");
 
   // Collect shoreline points per lake in a single pass over land pixels at the
   // water interface. A land pixel bordering a kept lake contributes a subpixel

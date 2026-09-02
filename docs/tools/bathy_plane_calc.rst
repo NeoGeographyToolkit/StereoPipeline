@@ -230,7 +230,7 @@ per-pixel water-surface-elevation raster::
     bathy_plane_calc                         \
       --ortho-mask ortho_mask.tif            \
       --dem dem.tif                          \
-      --min-lake-pixels 500                  \
+      --min-water-body-pixels 500            \
       --outlier-threshold 2.0                \
       --output-inlier-shapefile inliers.shp  \
       --output-water-surface water_surface.tif
@@ -238,12 +238,12 @@ per-pixel water-surface-elevation raster::
 The connected water bodies in the georeferenced land/water mask (given by
 ``--ortho-mask``, with the same convention as the single-plane case: land pixels
 positive, water pixels non-positive) are labeled (8-connectivity). Only bodies
-with at least ``--min-lake-pixels`` pixels are processed. For each such body, its
+with at least ``--min-water-body-pixels`` pixels are processed. For each such body, its
 shoreline points (the land pixels at the water interface, with heights looked up
 in the DEM) are fit to a plane in that body's own local stereographic frame with
 RANSAC, exactly as in the single-plane ``--ortho-mask`` case
 (:numref:`bathy_plane_ortho_mask`). Every water pixel of a fitted body is then
-assigned that plane's height in the output raster; all other pixels are no-data.
+assigned that plane's height in the output raster. All other pixels are no-data.
 
 The ortho mask and the DEM must have the same dimensions (the ortho mask is
 normally created by orthorectifying a raw-image mask onto the DEM). Unlike the
@@ -265,8 +265,8 @@ If a large water body has a featureless interior, the stereo DEM may have holes
 there. Such holes do not affect the plane fit (which uses only the shoreline),
 but for creating the ortho mask the DEM should first be filled over the hole
 with an external DEM (for example Copernicus 30 m) using ``dem_mosaic`` priority
-blending, then the mask orthorectified on the filled DEM. The original (holey)
-stereo DEM is still the input to this tool.
+blending, then the mask orthorectified on the filled DEM. The original stereo
+DEM (potentially with holes) is still the input to this tool.
 
 .. _bathy_plane_water_meas:
 
@@ -620,11 +620,11 @@ Command-line options for bathy_plane_calc
     georeferenced land/water mask given by ``--ortho-mask``, and write the
     resulting per-pixel water-surface-elevation raster (heights above the
     WGS_1984 ellipsoid, in meters) to this file. The DEM is set with ``--dem``.
-    Only water bodies with at least ``--min-lake-pixels`` pixels are fit. The
+    Only water bodies with at least ``--min-water-body-pixels`` pixels are fit. The
     output raster can be passed to ``parallel_stereo --bathy-plane`` for
     multi-water-body bathymetry correction (see :numref:`bathy_plane_multi`).
 
---min-lake-pixels <integer (default: 500)>
+--min-water-body-pixels <integer (default: 500)>
     In multi-water-body mode (``--output-water-surface``), only fit a plane to
     connected water bodies having at least this many pixels.
 
