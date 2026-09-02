@@ -11,7 +11,8 @@ Example::
 
     hillshade -a 300 -e 30 dem.tif -o hillshaded.tif
 
-See an illustration in :numref:`genhillshade`.
+See an illustration in :numref:`genhillshade`. The algorithm is described in
+:numref:`hillshade_algorithm`.
 
 View these side-by-side with ``stereo_gui`` (:numref:`stereo_gui`)::
 
@@ -39,10 +40,14 @@ As of 9/2026 (:numref:`release`) the surface normal at each pixel is computed
 with Horn's method, a 3x3 weighted central difference of the elevations, which
 is the same approach used by ``gdaldem hillshade`` (:numref:`gdal_hill`).
 
-At the image border the 3x3 window is filled by replicating the edge cells, and
-a no-data neighbor is replaced by the center value, so pixels next to holes and
-along the boundary are still shaded. The shade is the dot product of the normal
-with the light direction set by the azimuth and elevation.
+A normal is computed only where the 3x3 window has at least two valid values in
+its center row and at least two valid values in its center column, judged on the
+raw data before any fill. Otherwise the pixel is left as no-data. This shades the
+image border, single-pixel holes, and one-sided edges, but leaves a lone row, a
+lone column, or an isolated point as no-data rather than inventing a flat normal.
+Any remaining missing cell in the window is then filled from the valid ones. The
+shade is the dot product of the normal with the light direction set by the
+azimuth and elevation.
 
 The earlier one-sided (forward) difference was asymmetric and could
 produce a faint regular dotted pattern on quantized DEMs.
