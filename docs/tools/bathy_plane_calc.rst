@@ -247,9 +247,9 @@ case (:numref:`bathy_plane_ortho_mask`). Every water pixel of a fitted body is
 then assigned that plane's height in the output raster. All other pixels are
 no-data.
 
-The output water surface is on the ortho mask grid. The DEM supplies the
-shoreline heights, sampled at each shoreline point's longitude and latitude by
-bilinear interpolation (no-data DEM pixels are skipped).
+The output water surface is on the ortho mask grid. The DEM can be on a different
+grid and projection. It is sampled at each shoreline point's longitude and
+latitude by bilinear interpolation (no-data DEM pixels are skipped).
 
 Unlike the single-plane case, no-data pixels in the mask are classified as
 *neither* water nor land, so a large no-data background does not merge separate
