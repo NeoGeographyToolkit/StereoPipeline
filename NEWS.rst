@@ -9,6 +9,8 @@ New features:
     ``parallel_stereo``, ``bundle_adjust``, etc. (:numref:`stereodefault`).
   * Added an example for Viking Orbiter (:numref:`viking`).
   * Added an example for the Clementine NIR camera (:numref:`clementine`).
+  * Added ``glint_correct``, to remove sun glint from a visible band for
+    shallow-water bathymetry (:numref:`glint_correct`).
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the

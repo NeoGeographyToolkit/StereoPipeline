@@ -172,6 +172,11 @@ to be on land and hence no bathymetry correction will take place for
 this pair. Hence, some inspection and potentially cleanup of the
 masks may be necessary.
 
+If the green band has sun glint (specular reflection of sunlight off the water
+surface, which can wash out submerged features), it can be removed at this
+stage with ``glint_correct`` (:numref:`glint_correct`), using the mask just
+created. This helps most where the glint is strong.
+
 .. _water_surface:
 
 Determination of the water surface

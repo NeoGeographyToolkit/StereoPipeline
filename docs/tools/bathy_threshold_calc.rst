@@ -21,8 +21,10 @@ This program can be invoked as:
 
 ::
 
-    ~/miniconda3/envs/bathy/bin/python $(which bathy_threshold_calc.py) \
-        --image image.tif --num-samples 1000000
+    ~/miniconda3/envs/bathy/bin/python   \
+        $(which bathy_threshold_calc.py) \
+        --image image.tif                \
+        --num-samples 1000000
 
 Here it is assumed that ASP's ``bin`` directory is in the path, otherwise
 the full path to this Python script must be specified above.
@@ -55,9 +57,9 @@ as follows:
 
 ::
 
-     conda create --name bathy -c conda-forge python=3.6 gdal
+     conda create --name bathy -c conda-forge \
+       python gdal numpy scipy matplotlib
      conda activate bathy
-     conda install -c conda-forge numpy scipy matplotlib
 
 Command-line options for bathy_threshold_calc.py
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

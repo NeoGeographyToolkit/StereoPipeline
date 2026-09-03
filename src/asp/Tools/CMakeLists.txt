@@ -20,8 +20,9 @@ set(PYTHON_TOOLS dg_mosaic             parallel_stereo
                  stereo_tile
                  cam2map4stereo.py     hiedr2mosaic.py
                  lronac2mosaic.py      parse_match_file.py
-                 historical_helper.py  bathy_threshold_calc.py 
-                 scale_bathy_mask.py   orbit_plot.py)
+                 historical_helper.py  bathy_threshold_calc.py
+                 scale_bathy_mask.py   orbit_plot.py
+                 glint_correct)
 
 foreach(p ${PYTHON_TOOLS})
   INSTALL(FILES ${p} PERMISSIONS

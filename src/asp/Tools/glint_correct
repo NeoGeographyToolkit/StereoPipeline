@@ -1,0 +1,749 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2026, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+'''
+Remove sun glint from a visible band (for example the green band of a
+WorldView multispectral image) using the method of Hedley et al. (2005).
+Over water, near-infrared radiance above a glint-free baseline is due to
+surface glint, and the glint in a visible band is linear in that excess.
+The corrected band is Green - b*(NIR - NIR_min), where the slope b and
+the baseline NIR_min are found by regression over deep water.
+
+Based on the tool of the same name by Shashank Bhushan.
+
+This tool needs python 3, numpy, scipy, matplotlib, and osgeo.
+'''
+
+import numpy as np
+from scipy import ndimage
+from scipy.stats import theilslopes
+from osgeo import gdal as _gdal
+
+
+def _read_band(path):
+    """gdal replacement for rasterio.open(path).read(1) + nodata + pixel res.
+    Holds the dataset ref until after the read (else GC invalidates the band).
+    Returns (array_float64, nodata_or_None, xres_or_1.0)."""
+    ds = _gdal.Open(path)
+    if ds is None:
+        raise IOError("cannot open %s" % path)
+    band = ds.GetRasterBand(1)
+    arr = band.ReadAsArray().astype(np.float64)
+    nodata = band.GetNoDataValue()
+    gt = ds.GetGeoTransform()
+    xres = abs(gt[1]) if gt is not None else 1.0
+    ds = None
+    return arr, nodata, xres
+import argparse
+import os
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+
+def compute_hedley_parameters(green, nir, water_mask, land_mask,
+                               deep_water_buffer=50, 
+                               nir_min_percentile=5,
+                               sample_fraction=1.0,
+                               regression_method='ols'):
+    """
+    Compute Hedley glint correction parameters from deep water pixels.
+    
+    The Hedley method regresses visible band against NIR over deep water,
+    where all signal variation in both bands is due to glint. The slope (b)
+    gives the co-variation, and NIR_min gives the glint-free baseline.
+    
+    Correction: Green_corrected = Green - b * (NIR - NIR_min)
+    
+    Parameters
+    ----------
+    green : np.ndarray
+        Green band array.
+    nir : np.ndarray
+        NIR band array.
+    water_mask : np.ndarray (bool)
+        True where pixel is water.
+    land_mask : np.ndarray (bool)
+        True where pixel is land.
+    deep_water_buffer : int
+        Minimum distance from shoreline (pixels) for deep water selection.
+    nir_min_percentile : float
+        Percentile of NIR distribution over deep water to use as NIR_min.
+        Using a low percentile (e.g., 5) rather than absolute minimum 
+        avoids sensitivity to noise/outliers. Default: 5.
+    sample_fraction : float
+        Fraction of deep water pixels to use for regression (0-1).
+        Use < 1.0 for very large water bodies to speed computation.
+    regression_method : str
+        'ols' - Ordinary Least Squares (default)
+        'theilsen' - Theil-Sen robust regression (median-based slope)
+        
+    Returns
+    -------
+    b : float
+        Regression slope (glint co-variation coefficient).
+    nir_min : float
+        Glint-free NIR baseline value.
+    stats : dict
+        Regression diagnostics.
+    regression_mask : np.ndarray (bool)
+        Binary mask of pixels used in the regression.
+    """
+    
+    # --- Identify deep water pixels ---
+    if deep_water_buffer > 0:
+        structure = ndimage.generate_binary_structure(2, 2)
+        deep_water = ndimage.binary_erosion(
+            water_mask, structure=structure, iterations=deep_water_buffer
+        )
+    else:
+        deep_water = water_mask.copy()
+    
+    # Remove invalid pixels
+    invalid = ~np.isfinite(green) | ~np.isfinite(nir)
+    deep_water = deep_water & ~invalid
+    
+    print(f"  Deep water buffer: {deep_water_buffer} px")
+    print(f"  Total water pixels: {np.sum(water_mask)}")
+    print(f"  Deep water pixels: {np.sum(deep_water)}")
+    
+    if np.sum(deep_water) < 50:
+        print(f"  WARNING: Too few deep water pixels ({np.sum(deep_water)}). "
+              f"Falling back to all water pixels.")
+        deep_water = water_mask & ~invalid
+    
+    # Initialize regression mask as all deep water pixels
+    regression_mask = deep_water.copy()
+    
+    # Get deep water values
+    green_deep = green[deep_water]
+    nir_deep = nir[deep_water]
+    
+    # Optional subsampling for large scenes
+    n_pixels = len(green_deep)
+    if sample_fraction < 1.0 and n_pixels > 1000:
+        n_sample = max(int(n_pixels * sample_fraction), 1000)
+        rng = np.random.default_rng(42)
+        idx = rng.choice(n_pixels, size=n_sample, replace=False)
+        green_deep = green_deep[idx]
+        nir_deep = nir_deep[idx]
+        print(f"  Subsampled to {n_sample} pixels for regression")
+        
+        # Update regression mask to only include subsampled pixels
+        deep_water_indices = np.where(deep_water.ravel())[0]
+        regression_mask = np.zeros(green.shape, dtype=bool)
+        regression_mask.ravel()[deep_water_indices[idx]] = True
+    
+    # --- Compute NIR_min (glint-free baseline) ---
+    nir_min = np.percentile(nir_deep, nir_min_percentile)
+    print(f"  NIR_min ({nir_min_percentile}th percentile): {nir_min:.6f}")
+    
+    # --- Regression ---
+    print(f"  Regression method: {regression_method}")
+    
+    if regression_method == 'theilsen':
+        max_theilsen = 10000
+        if len(green_deep) > max_theilsen:
+            rng = np.random.default_rng(42)
+            ts_idx = rng.choice(len(green_deep), max_theilsen, replace=False)
+            green_ts = green_deep[ts_idx]
+            nir_ts = nir_deep[ts_idx]
+            print(f"  Theil-Sen: subsampled to {max_theilsen} pixels "
+                  f"(from {len(green_deep):,} - O(n^2) memory constraint)")
+        else:
+            green_ts = green_deep
+            nir_ts = nir_deep
+        
+        b, intercept, low_slope, high_slope = theilslopes(green_ts, nir_ts)
+        print(f"  Theil-Sen slope (b): {b:.6f}")
+        print(f"  Intercept: {intercept:.6f}")
+        print(f"  95% CI on slope: [{low_slope:.6f}, {high_slope:.6f}]")
+        
+        # Compute R-squared for reporting
+        predicted = b * nir_deep + intercept
+        ss_res = np.sum((green_deep - predicted) ** 2)
+        ss_tot = np.sum((green_deep - green_deep.mean()) ** 2)
+        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+        
+        stats = {
+            'slope_b': float(b),
+            'intercept': float(intercept),
+            'r_squared': float(r_squared),
+            'slope_ci_low': float(low_slope),
+            'slope_ci_high': float(high_slope),
+            'nir_min': float(nir_min),
+            'nir_min_percentile': nir_min_percentile,
+            'n_regression_pixels': len(green_deep),
+            'nir_mean': float(nir_deep.mean()),
+            'nir_std': float(nir_deep.std()),
+            'green_mean': float(green_deep.mean()),
+            'green_std': float(green_deep.std()),
+            'method': 'theilsen',
+        }
+        
+    else:  # OLS
+        A = np.column_stack([nir_deep, np.ones(len(nir_deep))])
+        coeffs, _, _, _ = np.linalg.lstsq(A, green_deep, rcond=None)
+        b = coeffs[0]
+        intercept = coeffs[1]
+        
+        # R-squared
+        predicted = A @ coeffs
+        ss_res = np.sum((green_deep - predicted) ** 2)
+        ss_tot = np.sum((green_deep - green_deep.mean()) ** 2)
+        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+        
+        stats = {
+            'slope_b': float(b),
+            'intercept': float(intercept),
+            'r_squared': float(r_squared),
+            'nir_min': float(nir_min),
+            'nir_min_percentile': nir_min_percentile,
+            'n_regression_pixels': len(green_deep),
+            'nir_mean': float(nir_deep.mean()),
+            'nir_std': float(nir_deep.std()),
+            'green_mean': float(green_deep.mean()),
+            'green_std': float(green_deep.std()),
+            'method': 'ols',
+        }
+    
+    print(f"  Regression slope (b): {b:.6f}")
+    print(f"  Intercept: {intercept:.6f}")
+    print(f"  R^2: {r_squared:.4f}")
+    print(f"  N pixels: {len(green_deep)}")
+    
+    # Sanity checks
+    if b <= 0:
+        print(f"  WARNING: Negative slope b={b:.4f} suggests no glint correlation. "
+              f"Check inputs.")
+    if r_squared < 0.2:
+        print(f"  WARNING: Low R^2={r_squared:.4f}. Weak glint signal or "
+              f"heterogeneous water properties in deep water sample.")
+    
+    return b, nir_min, stats, regression_mask
+
+
+def save_regression_plot(green_deep, nir_deep, stats, output_path,
+                          max_plot_points=50000):
+    """
+    Save scatter plot of Green vs NIR over deep water with regression fit.
+    
+    Parameters
+    ----------
+    green_deep : np.ndarray
+        Green band values over deep water (used in regression).
+    nir_deep : np.ndarray
+        NIR band values over deep water (used in regression).
+    stats : dict
+        Regression statistics (slope, intercept, R^2, etc.).
+    output_path : str
+        Path to save the figure (PNG).
+    max_plot_points : int
+        Maximum points to plot (subsamples for readability).
+    """
+    
+    b = stats['slope_b']
+    intercept = stats['intercept']
+    r_squared = stats['r_squared']
+    nir_min = stats['nir_min']
+    method = stats.get('method', 'ols')
+    n_pixels = stats['n_regression_pixels']
+    
+    # Subsample for plotting
+    if len(green_deep) > max_plot_points:
+        idx = np.random.default_rng(42).choice(len(green_deep), max_plot_points, replace=False)
+        green_plot = green_deep[idx]
+        nir_plot = nir_deep[idx]
+    else:
+        green_plot = green_deep
+        nir_plot = nir_deep
+    
+    fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+    
+    # Scatter
+    ax.scatter(nir_plot, green_plot, s=1, alpha=0.2, c='steelblue', 
+               rasterized=True, label='Deep water pixels')
+    
+    # Fit line
+    nir_range = np.linspace(nir_plot.min(), nir_plot.max(), 100)
+    fit_line = b * nir_range + intercept
+    ax.plot(nir_range, fit_line, 'r-', lw=2, label='Regression fit')
+    
+    # NIR_min vertical line
+    ax.axvline(nir_min, color='green', ls='--', lw=1.5, alpha=0.8,
+               label=f'NIR_min ({stats["nir_min_percentile"]}th pctl)')
+    
+    # Annotation with parameters
+    method_label = 'Theil-Sen' if method == 'theilsen' else 'OLS'
+    textstr = (
+        f'Method: {method_label}\n'
+        f'b (slope) = {b:.4f}\n'
+        f'intercept = {intercept:.4f}\n'
+        f'R^2 = {r_squared:.4f}\n'
+        f'NIR_min = {nir_min:.4f}\n'
+        f'N pixels = {n_pixels:,}'
+    )
+    if method == 'theilsen' and 'slope_ci_low' in stats:
+        textstr += f'\n95% CI: [{stats["slope_ci_low"]:.4f}, {stats["slope_ci_high"]:.4f}]'
+    
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=10,
+            verticalalignment='top', bbox=props)
+    
+    ax.set_xlabel('NIR (DN)', fontsize=12)
+    ax.set_ylabel('Green (DN)', fontsize=12)
+    ax.set_title('Hedley Glint Regression: Green vs NIR over Deep Water', fontsize=12)
+    ax.legend(loc='lower right', fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    print(f"Regression plot saved to: {output_path}")
+
+
+def apply_hedley_correction(green_path, nir_path, mask_path, output_path,
+                             b=None, nir_min=None,
+                             deep_water_buffer=50,
+                             nir_min_percentile=5,
+                             sample_fraction=1.0,
+                             correct_land=False,
+                             nodata=None,
+                             regression_method='ols'):
+    """
+    Apply Hedley et al. (2005) sun glint correction to green band.
+    
+    For each water pixel:
+        Green_corrected = Green - b * (NIR - NIR_min)
+    
+    Where:
+        b       = regression slope of Green vs NIR over deep water
+        NIR_min = glint-free NIR baseline (low percentile over deep water)
+    
+    When NIR = NIR_min (no glint), correction = 0 (values preserved).
+    When NIR > NIR_min (glint present), correction removes excess.
+    
+    Parameters
+    ----------
+    green_path : str
+        Path to green band raster (GeoTIFF).
+    nir_path : str
+        Path to NIR band raster (GeoTIFF).
+    mask_path : str
+        Path to land-water mask (GeoTIFF). Convention: land=1, water=0.
+    output_path : str
+        Path to output glint-corrected green band.
+    b : float or None
+        Regression slope. If None, computed from deep water pixels.
+    nir_min : float or None
+        Glint-free NIR baseline. If None, computed from deep water pixels.
+    deep_water_buffer : int
+        Erosion distance (pixels) from shoreline for deep water selection.
+    nir_min_percentile : float
+        Percentile for NIR_min computation (default: 5th percentile).
+    sample_fraction : float
+        Fraction of deep water pixels for regression (default: 1.0 = all).
+    correct_land : bool
+        If True, apply correction to all pixels.
+    nodata : float or None
+        Output nodata value.
+    regression_method : str
+        'ols' or 'theilsen'. Default: 'ols'.
+        
+    Returns
+    -------
+    green_corrected : np.ndarray
+    params : dict
+        Contains b, nir_min, and regression diagnostics.
+    """
+    
+    # Read inputs
+    green, green_nodata, _xres = _read_band(green_path)
+    res = (_xres, _xres)
+    nir, nir_nodata, _ = _read_band(nir_path)
+    land_water_mask, _, _ = _read_band(mask_path)
+    
+    # Convention: land=1, water=0
+    water_mask = (land_water_mask == 0)
+    land_mask = (land_water_mask == 1)
+    
+    # Handle nodata
+    invalid = np.zeros(green.shape, dtype=bool)
+    if green_nodata is not None:
+        invalid |= (green == green_nodata)
+    if nir_nodata is not None:
+        invalid |= (nir == nir_nodata)
+    invalid |= np.isnan(green) | np.isnan(nir)
+    
+    valid_water = water_mask & ~invalid
+    
+    print(f"=== Hedley et al. (2005) Glint Correction ===")
+    print(f"Green band: {green_path}")
+    print(f"NIR band: {nir_path}")
+    print(f"Water mask: {mask_path}")
+    print(f"Pixel resolution: {abs(res[0]):.2f} m")
+    print(f"Deep water buffer: {deep_water_buffer} px "
+          f"(~{deep_water_buffer * abs(res[0]):.1f} m from shore)")
+    print(f"Total water pixels: {np.sum(water_mask)}")
+    print(f"Valid water pixels: {np.sum(valid_water)}")
+    
+    # --- Compute or use provided parameters ---
+    regression_mask = None
+    if b is not None and nir_min is not None:
+        print(f"\nUsing user-specified parameters:")
+        print(f"  b = {b:.6f}")
+        print(f"  NIR_min = {nir_min:.6f}")
+        stats = {'slope_b': b, 'nir_min': nir_min, 'user_specified': True}
+    else:
+        print(f"\nComputing Hedley parameters from deep water pixels...")
+        b, nir_min, stats, regression_mask = compute_hedley_parameters(
+            green, nir, valid_water, land_mask,
+            deep_water_buffer=deep_water_buffer,
+            nir_min_percentile=nir_min_percentile,
+            sample_fraction=sample_fraction,
+            regression_method=regression_method
+        )
+        
+        # Save regression plot
+        plot_path = os.path.splitext(output_path)[0] + "_regression.png"
+        green_reg = green[regression_mask]
+        nir_reg = nir[regression_mask]
+        save_regression_plot(green_reg, nir_reg, stats, plot_path)
+    
+    # --- Apply Hedley correction ---
+    # Green_corrected = Green - b * (NIR - NIR_min)
+    green_corrected = green.copy()
+    
+    if correct_land:
+        correction_mask = ~invalid
+    else:
+        correction_mask = valid_water
+    
+    glint_excess = nir[correction_mask] - nir_min
+    
+    # Only correct where NIR > NIR_min (glint present)
+    # Where NIR < NIR_min, no correction (avoid adding signal)
+    glint_excess = np.maximum(glint_excess, 0)
+    
+    green_corrected[correction_mask] = (
+        green[correction_mask] - b * glint_excess
+    )
+    
+    # --- Handle negative values ---
+    negative_mask = correction_mask & (green_corrected < 0)
+    n_negative = np.sum(negative_mask)
+    if n_negative > 0:
+        pct = n_negative / np.sum(correction_mask) * 100
+        print(f"\n  WARNING: {n_negative} pixels ({pct:.2f}%) became negative. "
+              f"Clamping to 0.")
+        green_corrected[negative_mask] = 0
+    
+    # Preserve nodata
+    out_nodata = nodata if nodata is not None else green_nodata
+    if out_nodata is not None:
+        green_corrected[invalid] = out_nodata
+    
+    # --- Correction statistics ---
+    print(f"\n--- Correction Statistics (water pixels) ---")
+    green_before = green[valid_water]
+    green_after = green_corrected[valid_water]
+    nir_water = nir[valid_water]
+    correction_applied = green_before - green_after
+    
+    print(f"  NIR over water:     mean={nir_water.mean():.6f}, "
+          f"median={np.median(nir_water):.6f}")
+    print(f"  Green (before):     mean={green_before.mean():.6f}, "
+          f"std={green_before.std():.6f}")
+    print(f"  Green (after):      mean={green_after.mean():.6f}, "
+          f"std={green_after.std():.6f}")
+    print(f"  Correction applied: mean={correction_applied.mean():.6f}, "
+          f"max={correction_applied.max():.6f}")
+    print(f"  Pixels corrected:   "
+          f"{np.sum(correction_applied > 0)}/{np.sum(valid_water)} "
+          f"({np.sum(correction_applied > 0)/np.sum(valid_water)*100:.1f}%)")
+    print(f"  Parameters:         b={b:.6f}, NIR_min={nir_min:.6f}")
+    
+    # --- Write output (no georeference - raw sensor geometry for ASP) ---
+    from osgeo import gdal
+
+    nrows, ncols = green_corrected.shape
+    driver = gdal.GetDriverByName('GTiff')
+    out_ds = driver.Create(
+        output_path, ncols, nrows, 1, gdal.GDT_Float64,
+        options=['COMPRESS=LZW', 'TILED=YES']
+    )
+
+    out_ds.GetRasterBand(1).WriteArray(green_corrected)
+
+    if out_nodata is not None:
+        out_ds.GetRasterBand(1).SetNoDataValue(out_nodata)
+
+    # Deliberately do NOT set GeoTransform or Projection
+    # so ASP does not interpret this as georeferenced data
+    out_ds.FlushCache()
+    out_ds = None
+    print(f"\nOutput written to: {output_path}")
+    
+    # --- Write regression pixel mask ---
+    if regression_mask is not None:
+        regression_mask_path = os.path.splitext(output_path)[0] + "_regression_pixels.tif"
+        
+        out_ds = driver.Create(
+            regression_mask_path, ncols, nrows, 1, gdal.GDT_Byte,
+            options=['COMPRESS=LZW', 'TILED=YES']
+        )
+        out_ds.GetRasterBand(1).WriteArray(regression_mask.astype(np.uint8))
+        out_ds.GetRasterBand(1).SetNoDataValue(255)
+        out_ds.FlushCache()
+        out_ds = None
+        print(f"Regression pixel mask written to: {regression_mask_path}")
+        print(f"  Pixels used in fit: {np.sum(regression_mask)}")
+    
+    # Return parameters for reference
+    params = {
+        'b': float(b),
+        'nir_min': float(nir_min),
+        'regression_stats': stats
+    }
+    
+    return green_corrected, params
+
+
+def apply_hedley_multiband(band_paths, nir_path, mask_path, output_dir,
+                            deep_water_buffer=50, nir_min_percentile=5,
+                            sample_fraction=1.0, nodata=None,
+                            regression_method='ols'):
+    """
+    Apply Hedley correction to multiple visible bands simultaneously.
+    
+    Each band gets its own regression slope (b) against NIR, but shares
+    the same NIR_min baseline. Useful for correcting blue, green, red 
+    bands together for multi-band bathymetry.
+    
+    Parameters
+    ----------
+    band_paths : dict
+        Dictionary of {band_name: file_path} for each band to correct.
+        e.g., {'blue': 'blue.tif', 'green': 'green.tif', 'red': 'red.tif'}
+    nir_path : str
+        Path to NIR band raster.
+    mask_path : str
+        Path to land-water mask. Convention: land=1, water=0.
+    output_dir : str
+        Directory for output corrected bands.
+    deep_water_buffer : int
+        Erosion distance for deep water selection.
+    nir_min_percentile : float
+        Percentile for NIR_min.
+    sample_fraction : float
+        Fraction of pixels for regression.
+    nodata : float or None
+        Output nodata value.
+    regression_method : str
+        'ols' or 'theilsen'.
+        
+    Returns
+    -------
+    results : dict
+        Per-band parameters {band_name: {'b': float, 'nir_min': float, ...}}
+    """
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Read NIR and mask
+    nir, nir_nodata, _ = _read_band(nir_path)
+    land_water_mask, _, _ = _read_band(mask_path)
+    
+    water_mask = (land_water_mask == 0)
+    land_mask = (land_water_mask == 1)
+    
+    # Invalid NIR pixels
+    nir_invalid = np.zeros(nir.shape, dtype=bool)
+    if nir_nodata is not None:
+        nir_invalid |= (nir == nir_nodata)
+    nir_invalid |= np.isnan(nir)
+    
+    # Deep water mask (shared across bands)
+    structure = ndimage.generate_binary_structure(2, 2)
+    if deep_water_buffer > 0:
+        deep_water = ndimage.binary_erosion(
+            water_mask, structure=structure, iterations=deep_water_buffer
+        )
+    else:
+        deep_water = water_mask.copy()
+    deep_water = deep_water & ~nir_invalid
+    
+    # Shared NIR_min
+    nir_deep = nir[deep_water]
+    nir_min = np.percentile(nir_deep, nir_min_percentile)
+    
+    print(f"=== Hedley Multi-Band Glint Correction ===")
+    print(f"NIR band: {nir_path}")
+    print(f"Deep water pixels: {np.sum(deep_water)}")
+    print(f"Shared NIR_min ({nir_min_percentile}th pctl): {nir_min:.6f}")
+    print(f"Bands to correct: {list(band_paths.keys())}\n")
+    
+    results = {}
+    
+    for band_name, band_path in band_paths.items():
+        print(f"--- Processing: {band_name} ---")
+        
+        output_path = os.path.join(
+            output_dir, 
+            f"{os.path.splitext(os.path.basename(band_path))[0]}_hedley.tif"
+        )
+        
+        _, params = apply_hedley_correction(
+            green_path=band_path,
+            nir_path=nir_path,
+            mask_path=mask_path,
+            output_path=output_path,
+            nir_min=nir_min,  # Shared baseline
+            b=None,           # Compute per-band slope
+            deep_water_buffer=deep_water_buffer,
+            nir_min_percentile=nir_min_percentile,
+            sample_fraction=sample_fraction,
+            nodata=nodata,
+            regression_method=regression_method
+        )
+        
+        results[band_name] = params
+        print()
+    
+    # Summary
+    print(f"=== Summary ===")
+    print(f"{'Band':<10} {'b (slope)':<12} {'NIR_min':<12}")
+    print(f"{'-'*34}")
+    for band_name, params in results.items():
+        print(f"{band_name:<10} {params['b']:<12.6f} {params['nir_min']:<12.6f}")
+    
+    return results
+
+
+def getparser():
+    parser = argparse.ArgumentParser(
+        description="Remove sun glint from a visible band with the method of "
+                    "Hedley et al. (2005): corrected = band - b*(NIR - NIR_min), "
+                    "with the slope b and baseline NIR_min found by regression "
+                    "over deep water.",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        "--image", type=str, required=True,
+        help="The visible band to correct (for example the green band), "
+             "as a single-channel GeoTIFF.")
+    parser.add_argument(
+        "--nir-image", dest="nir_image", type=str, required=True,
+        help="The near-infrared band, as a single-channel GeoTIFF, on the "
+             "same grid as the visible band.")
+    parser.add_argument(
+        "--mask", type=str, required=True,
+        help="The land-water mask, as a single-channel GeoTIFF on the same "
+             "grid, with land = 1 and water = 0.")
+    parser.add_argument(
+        "--output-image", dest="output", type=str, default=None,
+        help="The output corrected band. Default: the input image name with "
+             "a _deglint suffix.")
+    parser.add_argument(
+        "--slope", dest="b", type=float, default=None,
+        help="The regression slope b. If not set, computed over deep water.")
+    parser.add_argument(
+        "--nir-min", dest="nir_min", type=float, default=None,
+        help="The glint-free NIR baseline. If not set, computed over deep water.")
+    parser.add_argument(
+        "--deep-water-buffer", dest="deep_water_buffer", type=int, default=50,
+        help="Erode the water mask inward by this many pixels to select deep "
+             "water (free of bottom return) for the regression (default: 50).")
+    parser.add_argument(
+        "--nir-min-percentile", dest="nir_min_percentile", type=float, default=5,
+        help="Set NIR_min to this percentile of the deep-water NIR values. A "
+             "lower value is a more conservative baseline (default: 5).")
+    parser.add_argument(
+        "--sample-fraction", dest="sample_fraction", type=float, default=1.0,
+        help="Fraction of deep-water pixels to use in the regression. Reduce "
+             "for very large scenes (default: 1.0).")
+    parser.add_argument(
+        "--correct-land", dest="correct_land", action='store_true', default=False,
+        help="Apply the correction to all pixels, not just water.")
+    parser.add_argument(
+        "--regression-method", dest="regression_method", type=str,
+        choices=['ols', 'theilsen'], default='ols',
+        help="Slope estimation method: 'ols' (ordinary least squares, fast, "
+             "default) or 'theilsen' (median-based, robust to outliers).")
+    parser.add_argument(
+        "--multiband", nargs='+', type=str, default=None,
+        help="Correct several visible bands (each gets its own slope, sharing "
+             "one NIR_min). Pass the band GeoTIFFs after this option.")
+    parser.add_argument(
+        "--output-dir", dest="output_dir", type=str, default=None,
+        help="Output directory for multiband mode (default: deglint).")
+    parser.add_argument(
+        "--nodata-value", dest="nodata", type=float, default=None,
+        help="Output nodata value. Default: inherited from the input band.")
+    return parser
+
+
+def main():
+    parser = getparser()
+    args = parser.parse_args()
+
+    if args.multiband:
+        # Multi-band mode
+        output_dir = args.output_dir if args.output_dir else "deglint"
+
+        # Create band dictionary from file paths
+        band_paths = {}
+        for path in args.multiband:
+            band_name = os.path.splitext(os.path.basename(path))[0]
+            band_paths[band_name] = path
+
+        apply_hedley_multiband(
+            band_paths=band_paths,
+            nir_path=args.nir_image,
+            mask_path=args.mask,
+            output_dir=output_dir,
+            deep_water_buffer=args.deep_water_buffer,
+            nir_min_percentile=args.nir_min_percentile,
+            sample_fraction=args.sample_fraction,
+            nodata=args.nodata,
+            regression_method=args.regression_method
+        )
+    else:
+        # Single band mode
+        if args.output is None:
+            base, ext = os.path.splitext(args.image)
+            args.output = f"{base}_deglint{ext}"
+
+        apply_hedley_correction(
+            green_path=args.image,
+            nir_path=args.nir_image,
+            mask_path=args.mask,
+            output_path=args.output,
+            b=args.b,
+            nir_min=args.nir_min,
+            deep_water_buffer=args.deep_water_buffer,
+            nir_min_percentile=args.nir_min_percentile,
+            sample_fraction=args.sample_fraction,
+            correct_land=args.correct_land,
+            nodata=args.nodata,
+            regression_method=args.regression_method
+        )
+
+
+if __name__ == "__main__":
+    main()
