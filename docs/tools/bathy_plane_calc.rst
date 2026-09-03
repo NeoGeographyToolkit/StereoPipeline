@@ -237,19 +237,23 @@ per-pixel water-surface-elevation raster::
 
 The connected water bodies in the georeferenced land/water mask (given by
 ``--ortho-mask``, with the same convention as the single-plane case: land pixels
-positive, water pixels non-positive) are labeled (8-connectivity). Only bodies
-with at least ``--min-water-body-pixels`` pixels are processed. For each such body, its
-shoreline points (the land pixels at the water interface, with heights looked up
-in the DEM) are fit to a plane in that body's own local stereographic frame with
-RANSAC, exactly as in the single-plane ``--ortho-mask`` case
-(:numref:`bathy_plane_ortho_mask`). Every water pixel of a fitted body is then
-assigned that plane's height in the output raster. All other pixels are no-data.
+positive, water pixels non-positive) are labeled (8-connectivity).
+
+Only bodies with at least ``--min-water-body-pixels`` pixels are processed. For
+each such body, its shoreline points (the land pixels at the water interface,
+with heights looked up in the DEM) are fit to a plane in that body's own local
+stereographic frame with RANSAC, exactly as in the single-plane ``--ortho-mask``
+case (:numref:`bathy_plane_ortho_mask`). Every water pixel of a fitted body is
+then assigned that plane's height in the output raster. All other pixels are
+no-data.
 
 The ortho mask and the DEM must have the same dimensions (the ortho mask is
-normally created by orthorectifying a raw-image mask onto the DEM). Unlike the
-single-plane case, no-data pixels in the mask are classified as *neither* water
-nor land, so a large no-data background does not merge separate water bodies
-into one.
+normally created by orthorectifying a raw-image mask onto the DEM).
+
+Unlike the single-plane case, no-data pixels in the mask are classified as
+*neither* water nor land, so a large no-data background does not merge separate
+water bodies into one. Land pixels must be positive in the mask and water
+pixels must be non-positive and both different from no-data.
 
 The output water-surface raster can be passed to ``parallel_stereo
 --bathy-plane`` for multi-water-body bathymetry correction
@@ -267,6 +271,12 @@ but for creating the ortho mask the DEM should first be filled over the hole
 with an external DEM (for example Copernicus 30 m) using ``dem_mosaic`` priority
 blending, then the mask orthorectified on the filled DEM. The original stereo
 DEM (potentially with holes) is still the input to this tool.
+
+An ortho mask with holes will result in a water surface with holes. For those
+ASP will use the average water surface, which is fine for sea-level surfaces but
+not for lakes with variable height. So, for such applications one should ensure
+the ortho mask and the produced water surface have no holes where stereo
+correlation finds valid texture.
 
 .. _bathy_plane_water_meas:
 
