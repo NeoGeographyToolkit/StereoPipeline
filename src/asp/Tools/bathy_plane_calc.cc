@@ -362,7 +362,7 @@ int main(int argc, char *argv[]) {
       if (!vw::cartography::read_georeference(mask_georef, opt.ortho_mask))
         vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       asp::calcMultiWaterBodyPlanes(opt.ortho_mask, mask_georef, dem_georef,
-                                    dem, interp_dem, dem_nodata_val,
+                                    interp_dem, dem_nodata_val,
                                     opt.min_water_body_pixels, opt.num_ransac_iterations,
                                     opt.outlier_threshold, opt.output_water_surface,
                                     opt.output_inlier_shapefile,

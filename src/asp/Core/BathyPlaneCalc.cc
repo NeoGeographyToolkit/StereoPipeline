@@ -1033,7 +1033,6 @@ static double evalPlaneHeightAtLonLat(vw::Vector2 const& lon_lat,
 void calcMultiWaterBodyPlanes(std::string const& mask_file,
                               vw::cartography::GeoReference const& mask_georef,
                               vw::cartography::GeoReference const& dem_georef,
-                              vw::ImageViewRef<float> dem,
                               vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                               double dem_nodata_val,
                               int min_water_body_pixels,
@@ -1076,13 +1075,9 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
   }
   vw::vw_out() << "Water pixels: " << num_water_px << ".\n";
 
-  // The ortho mask is built on the DEM, so require the same grid. This lets us
-  // index the mask, the labels, and the output WSE raster by the same pixel.
-  if (cols != dem.cols() || rows != dem.rows())
-    vw::vw_throw(vw::ArgumentErr()
-                 << "For multi-water-body mode the ortho mask and the DEM must have "
-                 << "the same dimensions. Mask: " << cols << " x " << rows
-                 << ", DEM: " << dem.cols() << " x " << dem.rows() << ".\n");
+  // The labels, shoreline sampling, and output WSE raster all live on the mask
+  // grid. The DEM only supplies shoreline heights, read by bilinear interpolation
+  // at each point's lon-lat, so it can be on any grid or resolution.
 
   // Label connected water bodies with a flood fill (8-connectivity). labels is 0
   // for land/nodata, and 1..num_lakes for water bodies.
@@ -1235,7 +1230,7 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
         addPointToPoly(inlierPoly, xy_per_lake[lake][inliers[it]]);
   }
 
-  // Build the WSE raster on the DEM grid: each water pixel of a fitted lake gets
+  // Build the WSE raster on the mask grid: each water pixel of a fitted body gets
   // its plane's height, all other pixels are nodata.
   vw::vw_out() << "Writing the water-surface-elevation raster: " << output_wse_raster << "\n";
   vw::ImageView<float> wse(cols, rows);
@@ -1247,7 +1242,7 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
       if (lab <= 0) continue;
       int lake = label_to_lake[lab];
       if (lake < 0 || !lake_valid[lake]) continue;
-      vw::Vector2 lon_lat = dem_georef.pixel_to_lonlat(vw::Vector2(c, r));
+      vw::Vector2 lon_lat = mask_georef.pixel_to_lonlat(vw::Vector2(c, r));
       wse(c, r) = evalPlaneHeightAtLonLat(lon_lat, lake_plane[lake], lake_stereo[lake]);
       num_filled++;
     }
@@ -1256,7 +1251,7 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
 
   bool has_georef = true, has_nodata = true;
   vw::TerminalProgressCallback tpc("asp", ": ");
-  vw::cartography::block_write_gdal_image(output_wse_raster, wse, has_georef, dem_georef,
+  vw::cartography::block_write_gdal_image(output_wse_raster, wse, has_georef, mask_georef,
                                           has_nodata, dem_nodata_val, write_opt, tpc);
 
   // Optionally save the combined inlier shapefile.

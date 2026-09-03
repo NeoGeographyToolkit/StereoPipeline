@@ -150,14 +150,15 @@ void calcBathyPlane(int num_ransac_iterations,
                     vw::Matrix<double> & plane,
                     std::vector<size_t> & inlier_indices);
 
-// Fit a separate water-surface plane to each connected water body (lake) in a
+// Fit a separate water-surface plane to each connected water body in a
 // georeferenced land/water mask, and write a per-pixel water-surface-elevation
-// (WSE) raster on the DEM grid. See the .cc for details. The output raster can
-// be passed to parallel_stereo --bathy-plane for multi-water-body bathymetry.
+// (WSE) raster on the mask grid. Shoreline heights are read from the DEM by
+// bilinear interpolation at each point's lon-lat, so the DEM need not be on the
+// mask grid. See the .cc for details. The output raster can be passed to
+// parallel_stereo --bathy-plane for multi-water-body bathymetry.
 void calcMultiWaterBodyPlanes(std::string const& mask_file,
                               vw::cartography::GeoReference const& mask_georef,
                               vw::cartography::GeoReference const& dem_georef,
-                              vw::ImageViewRef<float> dem,
                               vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                               double dem_nodata_val,
                               int min_water_body_pixels,
