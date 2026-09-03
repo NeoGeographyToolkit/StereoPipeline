@@ -273,11 +273,9 @@ with an external DEM (for example Copernicus 30 m) using ``dem_mosaic`` priority
 blending, then the mask orthorectified on the filled DEM. The original stereo
 DEM (potentially with holes) is still the input to this tool.
 
-An ortho mask with holes will result in a water surface with holes. For those
-ASP will use the average water surface, which is fine for sea-level surfaces but
-not for lakes with variable height. So, for such applications one should ensure
-the ortho mask and the produced water surface have no holes where stereo
-correlation finds valid texture.
+Any holes in the water surface should be filled (:numref:`dem_mosaic_extrapolate`),
+otherwise the average plane is used there, which is wrong for bodies at different
+heights.
 
 .. _bathy_plane_water_meas:
 
