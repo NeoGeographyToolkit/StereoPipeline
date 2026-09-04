@@ -1,0 +1,325 @@
+// __BEGIN_LICENSE__
+//  Copyright (c) 2009-2026, United States Government as represented by the
+//  Administrator of the National Aeronautics and Space Administration. All
+//  rights reserved.
+//
+//  The NGT platform is licensed under the Apache License, Version 2.0 (the
+//  "License"); you may not use this file except in compliance with the
+//  License. You may obtain a copy of the License at
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+//  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+//  License for the specific language governing permissions and limitations
+//  under the License.
+// __END_LICENSE__
+
+/// \file ExteriorOrientation.cc
+
+#include <asp/Camera/ExteriorOrientation.h>
+#include <asp/Core/FileUtils.h>
+
+#include <vw/Camera/PinholeModel.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/Datum.h>
+#include <vw/Core/Exception.h>
+#include <vw/Core/Log.h>
+#include <vw/Math/Matrix.h>
+#include <vw/Math/Vector.h>
+
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+
+#include <cmath>
+#include <cstdlib>
+#include <fstream>
+#include <map>
+#include <vector>
+
+namespace fs = boost::filesystem;
+
+namespace asp {
+
+// One exterior-orientation record parsed from the vendor file.
+struct EoRecord {
+  double E, N, Z;           // position in the projected CRS (easting, northing, height)
+  double omega, phi, kappa; // orientation angles, in degrees
+};
+
+// Elementary rotation matrices (angles in radians).
+namespace {
+
+vw::Matrix3x3 Rx(double a) {
+  vw::Matrix3x3 m;
+  m.set_identity();
+  m(1,1) =  cos(a);
+  m(1,2) = -sin(a);
+  m(2,1) =  sin(a);
+  m(2,2) =  cos(a);
+  return m;
+}
+
+vw::Matrix3x3 Ry(double a) {
+  vw::Matrix3x3 m;
+  m.set_identity();
+  m(0,0) =  cos(a);
+  m(0,2) =  sin(a);
+  m(2,0) = -sin(a);
+  m(2,2) =  cos(a);
+  return m;
+}
+
+vw::Matrix3x3 Rz(double a) {
+  vw::Matrix3x3 m;
+  m.set_identity();
+  m(0,0) =  cos(a);
+  m(0,1) = -sin(a);
+  m(1,0) =  sin(a);
+  m(1,1) =  cos(a);
+  return m;
+}
+
+double deg2rad(double d) {
+  return d * M_PI / 180.0;
+}
+
+} // end anonymous namespace
+
+// Read the ESRI exterior-orientation report. It is a tab or whitespace separated
+// table whose header names the columns (Filename, X, Y, Z, Omega, Phi, Kappa, ...).
+// We locate columns by name (not position) since vendors reorder them. Positions
+// are keyed by the image base name (no directory, no extension).
+static void parseEsriEoFile(std::string const& eo_file,
+                            std::map<std::string, EoRecord> & records) {
+  std::ifstream ifs(eo_file.c_str());
+  if (!ifs.good())
+    vw_throw(vw::ArgumentErr() << "Could not open the exterior-orientation file: "
+             << eo_file << ".\n");
+
+  std::string line;
+  if (!std::getline(ifs, line))
+    vw_throw(vw::ArgumentErr() << "The exterior-orientation file is empty: "
+             << eo_file << ".\n");
+
+  // Parse the header, mapping a lowercased column name to its index.
+  std::vector<std::string> cols;
+  boost::split(cols, line, boost::is_any_of("\t"), boost::token_compress_off);
+  std::map<std::string, int> col;
+  for (size_t i = 0; i < cols.size(); i++) {
+    std::string c = boost::trim_copy(cols[i]);
+    boost::to_lower(c);
+    col[c] = (int)i;
+  }
+  const char* need[] = {"filename", "x", "y", "z", "omega", "phi", "kappa"};
+  for (int k = 0; k < 7; k++)
+    if (col.find(need[k]) == col.end())
+      vw_throw(vw::ArgumentErr() << "The exterior-orientation file " << eo_file
+               << " is missing the '" << need[k] << "' column. Found header: "
+               << line << ".\n");
+
+  while (std::getline(ifs, line)) {
+    if (boost::trim_copy(line).empty()) continue;
+    std::vector<std::string> vals;
+    boost::split(vals, line, boost::is_any_of("\t"), boost::token_compress_off);
+    if ((int)vals.size() <= col["kappa"]) continue; // short/garbled line
+    std::string fname = boost::trim_copy(vals[col["filename"]]);
+    std::string base = fs::path(fname).stem().string(); // no dir, no extension
+    EoRecord r;
+    r.E     = atof(vals[col["x"]].c_str());
+    r.N     = atof(vals[col["y"]].c_str());
+    r.Z     = atof(vals[col["z"]].c_str());
+    r.omega = atof(vals[col["omega"]].c_str());
+    r.phi   = atof(vals[col["phi"]].c_str());
+    r.kappa = atof(vals[col["kappa"]].c_str());
+    records[base] = r;
+  }
+  if (records.empty())
+    vw_throw(vw::ArgumentErr() << "No records parsed from the exterior-orientation file: "
+             << eo_file << ".\n");
+  vw::vw_out() << "Parsed " << records.size() << " exterior-orientation records from "
+               << eo_file << ".\n";
+}
+
+// Read the ESRI camera (interior orientation) CSV. It has a header line and one
+// data line: FocalLength (microns), PrincipalX/Y, NRows, NCols, PixelSize (microns).
+// We return the intrinsics in pixel units with a pixel pitch of 1, which is the
+// convention CSM uses natively and which avoids the mm-vs-pixel ambiguity.
+static void parseEsriCameraCsv(std::string const& camera_csv,
+                               double & focal_px, double & cu_px, double & cv_px) {
+  std::ifstream ifs(camera_csv.c_str());
+  if (!ifs.good())
+    vw_throw(vw::ArgumentErr() << "Could not open the camera file: "
+             << camera_csv << ".\n");
+  std::string header, data;
+  if (!std::getline(ifs, header) || !std::getline(ifs, data))
+    vw_throw(vw::ArgumentErr() << "The camera file must have a header and a data line: "
+             << camera_csv << ".\n");
+
+  std::vector<std::string> hc, dc;
+  boost::split(hc, header, boost::is_any_of(","), boost::token_compress_off);
+  boost::split(dc, data,   boost::is_any_of(","), boost::token_compress_off);
+  std::map<std::string, std::string> f;
+  for (size_t i = 0; i < hc.size() && i < dc.size(); i++)
+    f[boost::to_lower_copy(boost::trim_copy(hc[i]))] = boost::trim_copy(dc[i]);
+  const char* need[] = {"focallength", "pixelsize", "nrows", "ncols"};
+  for (int k = 0; k < 4; k++)
+    if (f.find(need[k]) == f.end())
+      vw_throw(vw::ArgumentErr() << "The camera file " << camera_csv
+               << " is missing the '" << need[k] << "' column.\n");
+
+  double focal_um = atof(f["focallength"].c_str());
+  double pix_um   = atof(f["pixelsize"].c_str());
+  int nrows = atoi(f["nrows"].c_str());
+  int ncols = atoi(f["ncols"].c_str());
+  if (pix_um <= 0 || focal_um <= 0 || nrows <= 0 || ncols <= 0)
+    vw_throw(vw::ArgumentErr() << "Invalid focal/pixel/size values in the camera file: "
+             << camera_csv << ".\n");
+
+  focal_px = focal_um / pix_um;
+  // PrincipalX/Y are an offset from the frame center, in the same units as pixel size.
+  double ppx = (f.count("principalx") ? atof(f["principalx"].c_str()) : 0.0) / pix_um;
+  double ppy = (f.count("principaly") ? atof(f["principaly"].c_str()) : 0.0) / pix_um;
+  cu_px = ncols / 2.0 + ppx;
+  cv_px = nrows / 2.0 + ppy;
+}
+
+// Grid convergence at (E, N): the true-north bearing of the projected-grid north
+// direction, derived geometrically from the georeference (no PROJ factors needed,
+// no sign guessing). A small step north in grid coordinates is converted to
+// geographic; its azimuth is the convergence. Works for any projected CRS.
+static double gridConvergence(vw::cartography::GeoReference const& geo,
+                              double E, double N) {
+  double step = 1.0; // meters, in grid coordinates
+  vw::Vector2 ll0 = geo.point_to_lonlat(vw::Vector2(E, N));
+  vw::Vector2 ll1 = geo.point_to_lonlat(vw::Vector2(E, N + step));
+  double lat0 = deg2rad(ll0[1]);
+  double dlon = deg2rad(ll1[0] - ll0[0]) * cos(lat0);
+  double dlat = deg2rad(ll1[1] - ll0[1]);
+  return atan2(dlon, dlat); // radians, grid-north bearing east of true north
+}
+
+// Assemble the camera-to-ECEF rotation from ESRI omega/phi/kappa (referenced to
+// the projected grid). Compose: ENU->ECEF * Rz(grid->true north) * R_opk *
+// (photo->computer-vision axis flip). The grid-to-true-north step is the
+// negative of the grid convergence, verified against known-good cameras.
+static vw::Matrix3x3 esriRotationToEcef(vw::cartography::GeoReference const& geo,
+                                        EoRecord const& r, double lon, double lat) {
+  vw::Matrix3x3 R_io = Rz(deg2rad(r.kappa)) * Ry(deg2rad(r.phi)) * Rx(deg2rad(r.omega));
+
+  // ENU->ECEF from the datum NED basis (columns are N, E, D). ENU = [E, N, U=-D].
+  vw::Matrix3x3 ned = geo.datum().lonlat_to_ned_matrix(vw::Vector3(lon, lat, 0));
+  vw::Matrix3x3 enu;
+  for (int i = 0; i < 3; i++) {
+    enu(i,0) =  ned(i,1); // East
+    enu(i,1) =  ned(i,0); // North
+    enu(i,2) = -ned(i,2); // Up
+  }
+
+  // Grid north to true north is the negative of the grid convergence.
+  double conv = gridConvergence(geo, r.E, r.N);
+  vw::Matrix3x3 gridToTrue = Rz(-conv);
+
+  // Photo axes (x right, y up, z up) to computer-vision axes (x right, y down,
+  // z forward).
+  vw::Matrix3x3 F;
+  F.set_identity();
+  F(1,1) = -1;
+  F(2,2) = -1;
+
+  return enu * gridToTrue * R_io * F;
+}
+
+void camerasFromExteriorOrientation(EoOptions const& opt) {
+
+  if (opt.vendor != "esri")
+    vw_throw(vw::ArgumentErr() << "Unsupported --vendor value: '" << opt.vendor
+             << "'. Only 'esri' is supported at this time.\n");
+  if (opt.extrinsics_file.empty())
+    vw_throw(vw::ArgumentErr() << "Must set --extrinsics (the vendor "
+             << "exterior-orientation report).\n");
+  if (opt.image_list.empty())
+    vw_throw(vw::ArgumentErr() << "Must set --image-list (the input images).\n");
+  if (opt.output_dir.empty())
+    vw_throw(vw::ArgumentErr() << "Must set --output-dir (where the cameras "
+             << "are written).\n");
+  if (opt.proj_str.empty())
+    vw_throw(vw::ArgumentErr() << "Must set --t-srs (the CRS of the exterior-orientation "
+             << "positions). It cannot be inferred from easting/northing alone.\n");
+  if (opt.intrinsics_file.empty() && opt.sample_tsai.empty())
+    vw_throw(vw::ArgumentErr() << "Must set --intrinsics (vendor interior "
+             << "orientation) or --sample-file (a sample .tsai with the intrinsics).\n");
+
+  // Georeference for the projected CRS -> lon/lat and ECEF. Let the CRS string
+  // (e.g. EPSG:32617) define the datum; do not force a user datum, which would
+  // build a non-single CRS.
+  vw::cartography::Datum datum(opt.datum_str.empty() ? "WGS_1984" : opt.datum_str);
+  vw::cartography::GeoReference geo;
+  vw::cartography::set_srs_string(opt.proj_str, false, datum, geo);
+
+  // Interior orientation (in pixels, pitch = 1).
+  double focal_px = 0, cu_px = 0, cv_px = 0;
+  if (!opt.intrinsics_file.empty()) {
+    parseEsriCameraCsv(opt.intrinsics_file, focal_px, cu_px, cv_px);
+  } else {
+    vw::camera::PinholeModel s(opt.sample_tsai);
+    double pitch = s.pixel_pitch();
+    focal_px = s.focal_length()[0] / pitch;
+    cu_px = s.point_offset()[0] / pitch;
+    cv_px = s.point_offset()[1] / pitch;
+  }
+  vw::vw_out() << "Interior orientation (pixels): focal = " << focal_px
+               << ", optical center = (" << cu_px << ", " << cv_px << ").\n";
+
+  // Exterior orientation records, keyed by image base name.
+  std::map<std::string, EoRecord> records;
+  parseEsriEoFile(opt.extrinsics_file, records);
+
+  // Input images, matched to EO records by base name.
+  std::vector<std::string> images;
+  asp::read_list(opt.image_list, images);
+
+  fs::create_directories(opt.output_dir);
+  std::vector<std::string> out_cams;
+
+  int matched = 0;
+  for (size_t i = 0; i < images.size(); i++) {
+    std::string base = fs::path(images[i]).stem().string();
+    std::map<std::string, EoRecord>::const_iterator it = records.find(base);
+    if (it == records.end()) {
+      vw::vw_out() << "Warning: no exterior orientation for image " << images[i]
+                   << ", skipping.\n";
+      continue;
+    }
+    EoRecord const& r = it->second;
+
+    vw::Vector2 lonlat = geo.point_to_lonlat(vw::Vector2(r.E, r.N));
+    vw::Vector3 llh(lonlat[0], lonlat[1], r.Z);
+    vw::Vector3 ctr = geo.datum().geodetic_to_cartesian(llh);
+    vw::Matrix3x3 R = esriRotationToEcef(geo, r, lonlat[0], lonlat[1]);
+
+    // ESRI delivers already-undistorted metric imagery, so no lens distortion.
+    vw::camera::LensDistortion* no_distortion = NULL;
+    double pixel_pitch = 1.0;
+    vw::camera::PinholeModel pin(ctr, R, focal_px, focal_px, cu_px, cv_px,
+                                 no_distortion, pixel_pitch);
+
+    std::string out_cam = (fs::path(opt.output_dir) / (base + ".tsai")).string();
+    pin.write(out_cam);
+    out_cams.push_back(out_cam);
+    matched++;
+  }
+
+  if (matched == 0)
+    vw_throw(vw::ArgumentErr() << "No images matched exterior-orientation records "
+             << "by file name.\n");
+
+  std::string cam_list = (fs::path(opt.output_dir) / "camera_list.txt").string();
+  asp::write_list(cam_list, out_cams);
+  vw::vw_out() << "Wrote " << matched << " cameras to " << opt.output_dir
+               << " and the camera list " << cam_list << ".\n";
+  vw::vw_out() << "Validate by mapprojecting a frame onto a reference DEM to confirm "
+               << "it lands correctly.\n";
+}
+
+} // end namespace asp

@@ -23,6 +23,7 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
+#include <asp/Camera/ExteriorOrientation.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/CsmModelFit.h>
@@ -311,7 +312,8 @@ struct Options : public vw::GdalWriteOptions {
     reference_dem, frame_index, gcp_file, camera_type, sample_file, input_camera,
     stereo_session, bundle_adjust_prefix, parsed_camera_center_str, parsed_cam_quat_str,
     distortion_str, distortion_type, refine_intrinsics, extrinsics_file,
-    camera_position_uncertainty_str;
+    camera_position_uncertainty_str,
+    vendor, intrinsics_file, image_list, output_dir, proj_str;
   double focal_length, pixel_pitch, gcp_std, height_above_datum,
     cam_height, cam_weight, cam_ctr_weight;
   Vector2 optical_center, camera_position_uncertainty;
@@ -425,9 +427,30 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("session-type,t",   po::value(&opt.stereo_session)->default_value(""),
      "Select the input camera model type. Normally this is auto-detected, but may need to be specified if the input camera model is in XML format. See the doc for options.")
     ("extrinsics", po::value(&opt.extrinsics_file)->default_value(""),
-     "Read a file having on each line an image name and extrinsic parameters as "
-     "longitude, latitude, height above datum, roll, pitch, and yaw. Write one .tsai "
-     "camera file per image.")
+     "Read a file having on each line an image name and the exterior orientation, and "
+     "write one camera per image. Without --vendor, the columns are longitude, latitude, "
+     "height above datum, roll, pitch, and yaw. With --vendor, the file follows that "
+     "vendor's convention (see --vendor).")
+    ("vendor", po::value(&opt.vendor)->default_value(""),
+     "Interpret --extrinsics and --intrinsics using a vendor's convention. Only "
+     "'esri' is supported: the positions are in a projected coordinate system "
+     "(--t-srs) and the angles are omega/phi/kappa referenced to the projected "
+     "grid. Requires --extrinsics, --output-dir, --t-srs, and either --intrinsics "
+     "or --sample-file.")
+    ("intrinsics", po::value(&opt.intrinsics_file)->default_value(""),
+     "The interior-orientation (camera) file, parsed according to --vendor. For 'esri', "
+     "the ESRI camera CSV (focal length, pixel size, principal point, image size). "
+     "Alternatively use --sample-file (a sample .tsai).")
+    ("image-list", po::value(&opt.image_list)->default_value(""),
+     "With --vendor, a file listing the input images (one per line), matched to the "
+     "exterior-orientation records by file name. If not set, all records are used.")
+    ("output-dir", po::value(&opt.output_dir)->default_value(""),
+     "With --vendor, the directory where the per-image cameras are written. The list of "
+     "written cameras, in the same order as the images, is saved as "
+     "<output-dir>/camera_list.txt, for use with bundle_adjust.")
+    ("t-srs", po::value(&opt.proj_str)->default_value(""),
+     "With --vendor, the projected coordinate system (as a PROJ, WKT, or EPSG string) of "
+     "the exterior-orientation positions, e.g. EPSG:32617.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
      "Use the camera adjustment obtained by previously running bundle_adjust "
      "when providing an input camera.")
@@ -450,13 +473,19 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
 
-  // If extrinsics file is set, must have datum and sample file
+  if (opt.vendor != "" && opt.extrinsics_file == "")
+    vw_throw(ArgumentErr() << "With --vendor, must set --extrinsics.\n");
+
+  // Batch creation from an extrinsics file. Without --vendor it needs a datum and a
+  // sample file (roll/pitch/yaw flow). With --vendor the inputs are validated in
+  // camerasFromExteriorOrientation(). Either way, the single-image options do not apply.
   if (opt.extrinsics_file != "") {
-    if (opt.datum_str == "")
-      vw_throw(ArgumentErr() << "Must provide a datum when reading extrinsics.\n");
-    if (opt.sample_file == "")
-      vw_throw(ArgumentErr() << "Must provide a sample file when reading extrinsics.\n");
-    // The rest of the options do not apply
+    if (opt.vendor == "") {
+      if (opt.datum_str == "")
+        vw_throw(ArgumentErr() << "Must provide a datum when reading extrinsics.\n");
+      if (opt.sample_file == "")
+        vw_throw(ArgumentErr() << "Must provide a sample file when reading extrinsics.\n");
+    }
     return;
   }
 
@@ -1639,8 +1668,24 @@ int main(int argc, char * argv[]) {
       return 0;
     }
 
+    // Batch creation of cameras from a per-image exterior-orientation file. With
+    // --vendor, parse it (and the intrinsics) using that vendor's convention;
+    // without --vendor, it is the roll/pitch/yaw over lon/lat/height flow.
     if (opt.extrinsics_file != "") {
-      camerasFromExtrinsics(opt);
+      if (opt.vendor == "") {
+        camerasFromExtrinsics(opt);
+      } else {
+        asp::EoOptions eo;
+        eo.vendor          = opt.vendor;
+        eo.extrinsics_file = opt.extrinsics_file;
+        eo.intrinsics_file = opt.intrinsics_file;
+        eo.sample_tsai     = opt.sample_file;
+        eo.image_list      = opt.image_list;
+        eo.output_dir      = opt.output_dir;
+        eo.proj_str        = opt.proj_str;
+        eo.datum_str       = opt.datum_str;
+        asp::camerasFromExteriorOrientation(eo);
+      }
       return 0;
     }
 
