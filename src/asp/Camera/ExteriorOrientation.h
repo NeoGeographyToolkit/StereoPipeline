@@ -53,6 +53,12 @@ struct EoOptions {
 // then write opt.camera_list. Throws on an unsupported vendor or malformed input.
 void camerasFromExteriorOrientation(EoOptions const& opt);
 
+// Batch creation of Pinhole cameras from a plain roll/pitch/yaw exterior-orientation
+// report (columns image, lon, lat, height_above_datum, roll, pitch, yaw). The
+// intrinsics come from opt.sample_tsai and the positions are relative to
+// opt.datum_str. Each camera is written next to its image, with a .tsai extension.
+void camerasFromExtrinsics(EoOptions const& opt);
+
 } // end namespace asp
 
 #endif // __ASP_CAMERA_EXTERIOR_ORIENTATION_H__

@@ -19,14 +19,19 @@
 
 #include <asp/Camera/ExteriorOrientation.h>
 #include <asp/Core/FileUtils.h>
+#include <asp/Core/ReportUtils.h>
+#include <asp/Core/CameraTransforms.h>
 
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
+#include <vw/FileIO/FileUtils.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Math/Vector.h>
+
+#include <set>
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -244,7 +249,7 @@ void camerasFromExteriorOrientation(EoOptions const& opt) {
     vw_throw(vw::ArgumentErr() << "Must set --output-dir (where the cameras "
              << "are written).\n");
   if (opt.proj_str.empty())
-    vw_throw(vw::ArgumentErr() << "Must set --t-srs (the CRS of the exterior-orientation "
+    vw_throw(vw::ArgumentErr() << "Must set --t_srs (the CRS of the exterior-orientation "
              << "positions). It cannot be inferred from easting/northing alone.\n");
   if (opt.intrinsics_file.empty() && opt.sample_tsai.empty())
     vw_throw(vw::ArgumentErr() << "Must set --intrinsics (vendor interior "
@@ -320,6 +325,55 @@ void camerasFromExteriorOrientation(EoOptions const& opt) {
                << " and the camera list " << cam_list << ".\n";
   vw::vw_out() << "Validate by mapprojecting a frame onto a reference DEM to confirm "
                << "it lands correctly.\n";
+}
+
+void camerasFromExtrinsics(EoOptions const& opt) {
+
+  // Read the extrinsics report (roll/pitch/yaw over lon/lat/height).
+  std::set<std::string> str_col_names = {"image"};
+  std::set<std::string> num_col_names = {"lon", "lat", "height_above_datum",
+                                         "roll", "pitch", "yaw"};
+  std::map<std::string, std::vector<std::string>> str_map;
+  std::map<std::string, std::vector<double>> num_map;
+  asp::readReportFile(opt.extrinsics_file, str_col_names, num_col_names,
+                      str_map, num_map);
+
+  // Read the intrinsics from the sample camera, and the datum.
+  vw::camera::PinholeModel pinhole(opt.sample_tsai);
+  vw::cartography::Datum datum(opt.datum_str);
+
+  int num_cameras = str_map["image"].size();
+  if (num_cameras == 0)
+    vw_throw(vw::ArgumentErr() << "No extrinsics found in: "
+             << opt.extrinsics_file << ".\n");
+
+  for (int i = 0; i < num_cameras; i++) {
+
+    double lon                = num_map["lon"][i];
+    double lat                = num_map["lat"][i];
+    double height_above_datum = num_map["height_above_datum"][i];
+    double roll               = num_map["roll"][i];
+    double pitch              = num_map["pitch"][i];
+    double yaw                = num_map["yaw"][i];
+
+    // Camera center in ECEF.
+    vw::Vector3 llh(lon, lat, height_above_datum);
+    vw::Vector3 P = datum.geodetic_to_cartesian(llh);
+
+    // Camera-to-world rotation.
+    vw::Matrix3x3 ned = datum.lonlat_to_ned_matrix(llh);
+    vw::Matrix3x3 R = ned * asp::rollPitchYaw(roll, pitch, yaw) * asp::rotationXY();
+
+    pinhole.set_camera_center(P);
+    pinhole.set_camera_pose(R);
+
+    // Write the camera next to the image, with a .tsai extension.
+    std::string imageFile = str_map["image"][i];
+    std::string camFile = fs::path(imageFile).replace_extension(".tsai").string();
+    vw::create_out_dir(camFile);
+    vw::vw_out() << "Writing: " << camFile << "\n";
+    pinhole.write(camFile);
+  }
 }
 
 } // end namespace asp

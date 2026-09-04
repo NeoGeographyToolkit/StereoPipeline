@@ -34,8 +34,6 @@
 #include <asp/Core/FileUtils.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/EigenUtils.h>
-#include <asp/Core/ReportUtils.h>
-#include <asp/Core/CameraTransforms.h>
 
 #include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
@@ -71,7 +69,6 @@
 #include <limits>
 #include <set>
 
-namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 using json = nlohmann::json;
 
@@ -434,8 +431,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("vendor", po::value(&opt.vendor)->default_value(""),
      "Interpret --extrinsics and --intrinsics using a vendor's convention. Only "
      "'esri' is supported: the positions are in a projected coordinate system "
-     "(--t-srs) and the angles are omega/phi/kappa referenced to the projected "
-     "grid. Requires --extrinsics, --output-dir, --t-srs, and either --intrinsics "
+     "(--t_srs) and the angles are omega/phi/kappa referenced to the projected "
+     "grid. Requires --extrinsics, --output-dir, --t_srs, and either --intrinsics "
      "or --sample-file.")
     ("intrinsics", po::value(&opt.intrinsics_file)->default_value(""),
      "The interior-orientation (camera) file, parsed according to --vendor. For 'esri', "
@@ -448,7 +445,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "With --vendor, the directory where the per-image cameras are written. The list of "
      "written cameras, in the same order as the images, is saved as "
      "<output-dir>/camera_list.txt, for use with bundle_adjust.")
-    ("t-srs", po::value(&opt.proj_str)->default_value(""),
+    ("t_srs", po::value(&opt.proj_str)->default_value(""),
      "With --vendor, the projected coordinate system (as a PROJ, WKT, or EPSG string) of "
      "the exterior-orientation positions, e.g. EPSG:32617.")
     ("bundle-adjust-prefix", po::value(&opt.bundle_adjust_prefix),
@@ -1443,56 +1440,6 @@ void save_rpc(Options & opt) {
 }
 
 // See --extrinsics.
-void camerasFromExtrinsics(Options const& opt) {
-
-  // Read the extrinsics
-  std::set<std::string> str_col_names = {"image"};
-  std::set<std::string> num_col_names = {"lon", "lat", "height_above_datum",
-                                            "roll", "pitch", "yaw"};
-  std::map<std::string, std::vector<std::string>> str_map;
-  std::map<std::string, std::vector<double>> num_map;
-  asp::readReportFile(opt.extrinsics_file, str_col_names, num_col_names, str_map, num_map);
-
-  // Read the intrinsics
-  vw::camera::PinholeModel pinhole(opt.sample_file);
-
-  // Read the datum
-  vw::cartography::Datum datum(opt.datum_str);
-
-  int num_cameras = str_map["image"].size();
-  if (num_cameras == 0)
-    vw_throw(ArgumentErr() << "No extrinsics found in: " << opt.extrinsics_file << ".\n");
-
-  // Iterate over cameras
-  for (int i = 0; i < num_cameras; i++) {
-
-    // Read the extrinsics
-    double lon = num_map["lon"][i];
-    double lat = num_map["lat"][i];
-    double height_above_datum = num_map["height_above_datum"][i];
-    double roll = num_map["roll"][i];
-    double pitch = num_map["pitch"][i];
-    double yaw = num_map["yaw"][i];
-
-    // Convert camera center to ECEF
-    vw::Vector3 llh(lon, lat, height_above_datum);
-    vw::Vector3 P = datum.geodetic_to_cartesian(llh);
-    // Camera-to-world rotation
-    vw::Matrix3x3 ned = datum.lonlat_to_ned_matrix(llh);
-    vw::Matrix3x3 R = ned * asp::rollPitchYaw(roll, pitch, yaw) * asp::rotationXY();
-    // Form the camera
-    pinhole.set_camera_center(P);
-    pinhole.set_camera_pose(R);
-
-    // Write the camera
-    std::string imageFile = str_map["image"][i];
-    std::string camFile = fs::path(imageFile).replace_extension(".tsai").string();
-    vw::create_out_dir(camFile);
-    vw::vw_out() << "Writing: " << camFile << "\n";
-    pinhole.write(camFile);
-  }
-}
-
 // Fetch metadata from an ISIS cube for saving to the output CSM camera.
 void isisCubMetadata(vw::CamPtr in_cam,
                      double & ephem_time,
@@ -1672,20 +1619,19 @@ int main(int argc, char * argv[]) {
     // --vendor, parse it (and the intrinsics) using that vendor's convention;
     // without --vendor, it is the roll/pitch/yaw over lon/lat/height flow.
     if (opt.extrinsics_file != "") {
-      if (opt.vendor == "") {
-        camerasFromExtrinsics(opt);
-      } else {
-        asp::EoOptions eo;
-        eo.vendor          = opt.vendor;
-        eo.extrinsics_file = opt.extrinsics_file;
-        eo.intrinsics_file = opt.intrinsics_file;
-        eo.sample_tsai     = opt.sample_file;
-        eo.image_list      = opt.image_list;
-        eo.output_dir      = opt.output_dir;
-        eo.proj_str        = opt.proj_str;
-        eo.datum_str       = opt.datum_str;
-        asp::camerasFromExteriorOrientation(eo);
-      }
+      asp::EoOptions eo;
+      eo.vendor          = opt.vendor;
+      eo.extrinsics_file = opt.extrinsics_file;
+      eo.intrinsics_file = opt.intrinsics_file;
+      eo.sample_tsai     = opt.sample_file;
+      eo.image_list      = opt.image_list;
+      eo.output_dir      = opt.output_dir;
+      eo.proj_str        = opt.proj_str;
+      eo.datum_str       = opt.datum_str;
+      if (opt.vendor == "")
+        asp::camerasFromExtrinsics(eo);        // roll/pitch/yaw flow
+      else
+        asp::camerasFromExteriorOrientation(eo); // vendor flow
       return 0;
     }
 
