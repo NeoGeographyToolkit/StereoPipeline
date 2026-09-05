@@ -23,6 +23,7 @@
 #include <asp/Core/CameraTransforms.h>
 
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/LensDistortion.h>
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Core/Exception.h>
@@ -89,6 +90,21 @@ double deg2rad(double d) {
   return d * M_PI / 180.0;
 }
 
+// Split on any of the given separator chars, collapsing runs, trimming each
+// field, and dropping empty fields. Used for the exterior-orientation rows (once
+// the delimiter is chosen) and for the distortion coefficient lists.
+void splitDrop(std::string const& line, std::string const& seps,
+               std::vector<std::string> & out) {
+  out.clear();
+  std::vector<std::string> raw;
+  boost::split(raw, line, boost::is_any_of(seps), boost::token_compress_on);
+  for (size_t i = 0; i < raw.size(); i++) {
+    std::string v = boost::trim_copy(raw[i]);
+    if (!v.empty())
+      out.push_back(v);
+  }
+}
+
 } // end anonymous namespace
 
 // Read the ESRI exterior-orientation report. It is a tab or whitespace separated
@@ -107,9 +123,15 @@ static void parseEsriEoFile(std::string const& eo_file,
     vw_throw(vw::ArgumentErr() << "The exterior-orientation file is empty: "
              << eo_file << ".\n");
 
+  // Choose the delimiter from the header: if it has a tab, the file is
+  // tab-delimited (column names such as "Image ID" contain spaces, so space is
+  // NOT a separator here); otherwise fall back to whitespace. The same delimiter
+  // is used for the data rows.
+  std::string delim = (line.find('\t') != std::string::npos) ? "\t" : " \t";
+
   // Parse the header, mapping a lowercased column name to its index.
   std::vector<std::string> cols;
-  boost::split(cols, line, boost::is_any_of("\t"), boost::token_compress_off);
+  splitDrop(line, delim, cols);
   std::map<std::string, int> col;
   for (size_t i = 0; i < cols.size(); i++) {
     std::string c = boost::trim_copy(cols[i]);
@@ -125,9 +147,17 @@ static void parseEsriEoFile(std::string const& eo_file,
 
   while (std::getline(ifs, line)) {
     if (boost::trim_copy(line).empty()) continue;
+    // Data values never contain spaces, so split rows on any whitespace (tab or
+    // space). This tolerates a file that mixes tabs and spaces between columns
+    // (common after copy-paste), while the header above kept its spaced names.
     std::vector<std::string> vals;
-    boost::split(vals, line, boost::is_any_of("\t"), boost::token_compress_off);
-    if ((int)vals.size() <= col["kappa"]) continue; // short/garbled line
+    splitDrop(line, " \t", vals);
+    // The number of values in a row must equal the number of header columns.
+    if (vals.size() != cols.size())
+      vw_throw(vw::ArgumentErr() << "In the exterior-orientation file " << eo_file
+               << ", a data row has " << vals.size() << " values but the header has "
+               << cols.size() << " columns. They must be one-to-one. Row: "
+               << line << ".\n");
     std::string fname = boost::trim_copy(vals[col["filename"]]);
     std::string base = fs::path(fname).stem().string(); // no dir, no extension
     EoRecord r;
@@ -150,8 +180,18 @@ static void parseEsriEoFile(std::string const& eo_file,
 // data line: FocalLength (microns), PrincipalX/Y, NRows, NCols, PixelSize (microns).
 // We return the intrinsics in pixel units with a pixel pitch of 1, which is the
 // convention CSM uses natively and which avoids the mm-vs-pixel ambiguity.
+// Fields may be separated by any of space, tab, comma, or semicolon (see
+// tokenize). Named columns give the focal length and pixel size (microns), the
+// principal point, and the image size. If a DistortionType column is present, the
+// numbers after it are the OpenCV radial-tangential coefficients in the vendor
+// order K1, K2, K3, P1, P2 (a longer radial list is reduced to the first three
+// radial and the last two tangential). We return the intrinsics in pixel units
+// (pitch 1) and the distortion in the TsaiLensDistortion order k1, k2, p1, p2, k3
+// (left empty if all zero, i.e. undistorted).
 static void parseEsriCameraCsv(std::string const& camera_csv,
-                               double & focal_px, double & cu_px, double & cv_px) {
+                               double & focal_px, double & cu_px, double & cv_px,
+                               std::vector<double> & dist) {
+  dist.clear();
   std::ifstream ifs(camera_csv.c_str());
   if (!ifs.good())
     vw_throw(vw::ArgumentErr() << "Could not open the camera file: "
@@ -161,11 +201,19 @@ static void parseEsriCameraCsv(std::string const& camera_csv,
     vw_throw(vw::ArgumentErr() << "The camera file must have a header and a data line: "
              << camera_csv << ".\n");
 
+  // Comma-separated (the vendor format), keeping empty fields so the header and
+  // data stay column-aligned. Columns are then located BY NAME, so the many extra
+  // columns in the delivery are ignored and the layout may vary.
   std::vector<std::string> hc, dc;
   boost::split(hc, header, boost::is_any_of(","), boost::token_compress_off);
   boost::split(dc, data,   boost::is_any_of(","), boost::token_compress_off);
+  // The header and the data line must have the same number of fields.
+  if (hc.size() != dc.size())
+    vw_throw(vw::ArgumentErr() << "In the camera file " << camera_csv
+             << ", the header has " << hc.size() << " columns but the data line has "
+             << dc.size() << " values. They must be one-to-one.\n");
   std::map<std::string, std::string> f;
-  for (size_t i = 0; i < hc.size() && i < dc.size(); i++)
+  for (size_t i = 0; i < hc.size(); i++)
     f[boost::to_lower_copy(boost::trim_copy(hc[i]))] = boost::trim_copy(dc[i]);
   const char* need[] = {"focallength", "pixelsize", "nrows", "ncols"};
   for (int k = 0; k < 4; k++)
@@ -187,6 +235,34 @@ static void parseEsriCameraCsv(std::string const& camera_csv,
   double ppy = (f.count("principaly") ? atof(f["principaly"].c_str()) : 0.0) / pix_um;
   cu_px = ncols / 2.0 + ppx;
   cv_px = nrows / 2.0 + ppy;
+
+  // Lens distortion, from the Radial and Tangential columns (located by name).
+  // Radial holds K1, K2, K3 (a longer list is truncated to the first three);
+  // Tangential holds P1, P2. Inside those fields the sub-separator may be ';',
+  // ',' cannot occur (it is the field delimiter), or whitespace.
+  double k1 = 0, k2 = 0, k3 = 0, p1 = 0, p2 = 0;
+  if (f.count("radial")) {
+    std::vector<std::string> rv;
+    splitDrop(f["radial"], "; \t", rv);
+    if (rv.size() >= 1) k1 = atof(rv[0].c_str());
+    if (rv.size() >= 2) k2 = atof(rv[1].c_str());
+    if (rv.size() >= 3) k3 = atof(rv[2].c_str());
+  }
+  if (f.count("tangential")) {
+    std::vector<std::string> tv;
+    splitDrop(f["tangential"], "; \t", tv);
+    if (tv.size() >= 1) p1 = atof(tv[0].c_str());
+    if (tv.size() >= 2) p2 = atof(tv[1].c_str());
+  }
+  if (k1 == 0 && k2 == 0 && k3 == 0 && p1 == 0 && p2 == 0)
+    return; // undistorted: leave dist empty
+
+  // TsaiLensDistortion order is k1, k2, p1, p2, k3.
+  dist.push_back(k1);
+  dist.push_back(k2);
+  dist.push_back(p1);
+  dist.push_back(p2);
+  dist.push_back(k3);
 }
 
 // Grid convergence at (E, N): the true-north bearing of the projected-grid north
@@ -262,10 +338,12 @@ void camerasFromExteriorOrientation(EoOptions const& opt) {
   vw::cartography::GeoReference geo;
   vw::cartography::set_srs_string(opt.proj_str, false, datum, geo);
 
-  // Interior orientation (in pixels, pitch = 1).
+  // Interior orientation (in pixels, pitch = 1). dist is the radtan lens
+  // distortion (TsaiLensDistortion order), empty if the camera is undistorted.
   double focal_px = 0, cu_px = 0, cv_px = 0;
+  std::vector<double> dist;
   if (!opt.intrinsics_file.empty()) {
-    parseEsriCameraCsv(opt.intrinsics_file, focal_px, cu_px, cv_px);
+    parseEsriCameraCsv(opt.intrinsics_file, focal_px, cu_px, cv_px, dist);
   } else {
     vw::camera::PinholeModel s(opt.sample_tsai);
     double pitch = s.pixel_pitch();
@@ -303,11 +381,19 @@ void camerasFromExteriorOrientation(EoOptions const& opt) {
     vw::Vector3 ctr = geo.datum().geodetic_to_cartesian(llh);
     vw::Matrix3x3 R = esriRotationToEcef(geo, r, lonlat[0], lonlat[1]);
 
-    // ESRI delivers already-undistorted metric imagery, so no lens distortion.
-    vw::camera::LensDistortion* no_distortion = NULL;
+    // Build the Pinhole. A metric aerial camera is typically undistorted (dist
+    // empty); otherwise apply the radtan lens distortion read from the vendor file.
     double pixel_pitch = 1.0;
     vw::camera::PinholeModel pin(ctr, R, focal_px, focal_px, cu_px, cv_px,
-                                 no_distortion, pixel_pitch);
+                                 NULL, pixel_pitch);
+    if (!dist.empty()) {
+      vw::Vector<double> coeffs;
+      coeffs.set_size(dist.size());
+      for (size_t k = 0; k < dist.size(); k++)
+        coeffs[k] = dist[k];
+      vw::camera::TsaiLensDistortion distModel(coeffs);
+      pin.set_lens_distortion(&distModel);
+    }
 
     std::string out_cam = (fs::path(opt.output_dir) / (base + ".tsai")).string();
     pin.write(out_cam);
