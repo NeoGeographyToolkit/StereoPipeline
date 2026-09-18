@@ -56,7 +56,17 @@ bool georef_from_las(std::string const& las_file,
 // Check if a file is in the LAS COPC format
 bool isCopc(std::string const& file);
 
-// Save a point cloud and triangulation error to the LAS format.
+// Estimate the projected bbox from a coarse subsample, inflated by 'margin' for
+// safety, to pick the LAS offset/scale without a full transform pass. Points
+// that fall outside (would overflow int32) are dropped on write.
+vw::BBox3 projected_pointcloud_bbox_estim(vw::ImageViewRef<vw::Vector3> const& ecef_image,
+                                          vw::cartography::GeoReference const& georef,
+                                          double margin);
+
+// Save a point cloud and triangulation error to the LAS format. If
+// project_from_ecef is set, point_image holds ECEF points to be projected to
+// georef (batched); otherwise it is already in the output coordinates. block_h
+// is the input's native block height, used to size the read strips.
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
@@ -66,6 +76,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::Vector3 const& offset,  vw::Vector3 const& scale,
                bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
+               bool project_from_ecef, int block_h,
                std::string const& out_prefix);
 
 // Try to load at least this many points from the LAS file. 

@@ -54,6 +54,14 @@ point2dem (:numref:`point2dem`):
   * Fixed a bug that could produce an enormous output DEM extent (and a
     "size too large" error) when reading a projected TIF or PCD point cloud.
 
+point2las (:numref:`point2las`):
+  * Much faster for large point clouds. The cloud is now read in bulk strips
+    (removing a block-cache slowdown that was severe for wide clouds), the
+    coordinate projection is batched, and the output offset and scale are
+    estimated from a subsample instead of an extra full pass. Points that fall
+    outside the estimated extent are dropped (and reported) rather than written
+    at a wrong location.
+
 image_align (:numref:`image_align`):
   * Added ``--match-points-geopackage``, giving the ability to find interest
     point matches between two georeferenced images and save them to a GeoPackage

@@ -24,8 +24,11 @@
 #include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Mosaic/ImageComposite.h>
 #include <vw/Geometry/geomUtils.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/Manipulation.h>
 
 #include <cmath>
+#include <cstdint>
 
 using namespace vw;
 using namespace vw::cartography;
@@ -831,24 +834,54 @@ std::string asp::prefix_from_pointcloud_filename(std::string const& filename) {
 // signifies no-data. If is_geodetic is true, no-data is suggested
 // by having the z component of the point be NaN.
 vw::BBox3 asp::pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
-                               bool is_geodetic) {
+                               bool is_geodetic, int block_h) {
 
   vw::BBox3 result;
   vw::vw_out() << "Computing the point cloud bounding box.\n";
   vw::TerminalProgressCallback progress_bar("asp", "\t--> ");
 
-  for (int row=0; row < point_image.rows(); ++row) {
-    progress_bar.report_fractional_progress(row, point_image.rows());
-    for (int col=0; col < point_image.cols(); ++col) {
-      vw::Vector3 pt = point_image(col, row);
-      if ((!is_geodetic && pt != vw::Vector3()) ||
-           (is_geodetic  &&  !std::isnan(pt.z())))
-        result.grow(pt);
+  int cols = point_image.cols(), rows = point_image.rows();
+  int strip_h = asp::cloud_strip_rows(cols, rows, block_h);
+
+  // Read block-aligned strips in bulk (each tile once), rather than lazy
+  // per-pixel access that re-decodes tiles and thrashes the cache.
+  for (int row0 = 0; row0 < rows; row0 += strip_h) {
+    int h = std::min(strip_h, rows - row0);
+    vw::ImageView<vw::Vector3> strip = vw::crop(point_image, vw::BBox2i(0, row0, cols, h));
+    for (int r = 0; r < h; r++) {
+      progress_bar.report_fractional_progress(row0 + r, rows);
+      for (int col = 0; col < cols; col++) {
+        vw::Vector3 pt = strip(col, r);
+        if ((!is_geodetic && pt != vw::Vector3()) ||
+             (is_geodetic  &&  !std::isnan(pt.z())))
+          result.grow(pt);
+      }
     }
   }
   progress_bar.report_finished();
 
   return result;
+}
+
+// Strip height: a multiple of the native block height that fits a memory
+// budget, so tiles are read once. Falls back gracefully for tall blocks.
+int asp::cloud_strip_rows(int cols, int rows, int block_h) {
+  std::int64_t const budget   = std::int64_t(512) * 1024 * 1024; // soft, bytes
+  std::int64_t const hard_cap = std::int64_t(2)   * 1024 * 1024 * 1024;
+  std::int64_t row_bytes  = std::max(1, cols) * (std::int64_t)sizeof(vw::Vector3);
+  int rows_budget = (int)std::max<std::int64_t>(1, budget / row_bytes);
+  if (block_h < 1) block_h = 1;
+
+  int h;
+  if (block_h <= rows_budget)
+    h = (rows_budget / block_h) * block_h;      // whole blocks within budget
+  else if ((std::int64_t)block_h * row_bytes <= hard_cap)
+    h = block_h;                                // one tall block, within hard cap
+  else
+    h = rows_budget;                            // pathological: cap, accept re-reads
+
+  if (rows > 0 && h > rows) h = rows;
+  return std::max(h, 1);
 }
 
 // Compute per-axis subsample factors so very-wide point clouds (e.g. long

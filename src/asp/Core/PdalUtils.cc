@@ -32,6 +32,8 @@
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Core/ProgressCallback.h>
+#include <vw/Image/ImageView.h>
+#include <vw/Image/Manipulation.h>
 
 #include <io/CopcReader.hpp>
 #include <io/LasHeader.hpp>
@@ -48,6 +50,46 @@
 #include <pdal/util/ProgramArgs.hpp>
 
 #include <cmath>
+#include <limits>
+#include <vector>
+
+// Project an in-memory strip of ECEF points to the georef's projection, in
+// place. Matches cartesian_to_geodetic followed by geodetic_to_point, but
+// batches the projection one row per PROJ call (the per-call overhead is what
+// makes the per-point path slow). Invalid points become (0, 0, NaN).
+static void project_ecef_strip(vw::cartography::GeoReference const& gr,
+                               vw::ImageView<vw::Vector3>& strip) {
+
+  vw::cartography::Datum const& datum = gr.datum();
+  double nan = std::numeric_limits<double>::quiet_NaN();
+  int cols = strip.cols(), rows = strip.rows();
+
+  std::vector<vw::Vector2> ll;
+  std::vector<int> col_of;
+  std::vector<char> ok;
+
+  for (int r = 0; r < rows; r++) {
+    ll.clear();
+    col_of.clear();
+    for (int c = 0; c < cols; c++) {
+      vw::Vector3 v = strip(c, r);
+      vw::Vector3 g = (v == vw::Vector3()) ?
+                      vw::Vector3(0, 0, nan) : datum.cartesian_to_geodetic(v);
+      strip(c, r) = g; // keep geodetic; NaN-height points pass through unprojected
+      if (!std::isnan(g.z())) {
+        ll.push_back(vw::Vector2(g.x(), g.y()));
+        col_of.push_back(c);
+      }
+    }
+    gr.lonlat_to_point(ll, ok); // batched projection for this row
+    for (size_t k = 0; k < col_of.size(); k++) {
+      int c = col_of[k];
+      if (ok[k]) strip(c, r) = vw::Vector3(ll[k].x(), ll[k].y(), strip(c, r).z());
+      else       strip(c, r) = vw::Vector3(0, 0, nan);
+    }
+  }
+}
+
 namespace pdal {
     
 // A class to produce a point cloud point-by-point, rather than
@@ -58,14 +100,18 @@ class PDAL_DLL StreamedCloud: public Reader, public Streamable {
   
 public:
   std::string getName() const;
-  StreamedCloud(bool has_georef, 
+  StreamedCloud(bool has_georef,
                 vw::ImageViewRef<vw::Vector3> point_image,
                 vw::ImageViewRef<double> error_image,
                 vw::ImageViewRef<float> intensity,
                 vw::ImageViewRef<double> horizontal_stddev,
-                vw::ImageViewRef<double> vertical_stddev,                
+                vw::ImageViewRef<double> vertical_stddev,
                 bool save_triangulation_error,
-                double max_valid_triangulation_error);
+                double max_valid_triangulation_error,
+                bool project_from_ecef,
+                vw::cartography::GeoReference const& georef,
+                int block_h,
+                vw::Vector3 const& offset, vw::Vector3 const& scale);
   ~StreamedCloud();
 
 private:
@@ -77,7 +123,15 @@ private:
   virtual bool processOne(PointRef& point);
   virtual void addArgs(ProgramArgs& args);
 
+  // Rasterize into memory a block-aligned horizontal strip of rows starting at
+  // row0. This reads the underlying tiles once, in bulk, and applies the
+  // coordinate transform, rather than accessing the lazy image pixel-by-pixel
+  // (which re-decodes tiles and can thrash the block cache for wide clouds).
+  void loadStrip(point_count_t row0);
+
   bool m_has_georef;
+  bool m_project;                        // project m_point_image (ECEF) to m_georef
+  vw::cartography::GeoReference m_georef; // output projection, used if m_project
   vw::ImageViewRef<vw::Vector3> m_point_image;
   vw::ImageViewRef<double> m_error_image;
   vw::ImageViewRef<float> m_intensity;
@@ -86,9 +140,23 @@ private:
   bool m_save_triangulation_error;
   double m_max_valid_triangulation_error;
 
+  // LAS int32 quantization: dropped if round((xyz-offset)/scale) overflows
+  vw::Vector3 m_offset, m_scale;
+
   // These are of type uint64_t
   point_count_t m_col_count, m_row_count, m_cols, m_rows;
   point_count_t m_count, m_size, m_num_valid_points, m_num_saved_points;
+  point_count_t m_num_dropped_overflow;
+
+  // In-memory strips (see loadStrip). Serving points from these makes the disk
+  // reads sequential and cache-size-independent.
+  int m_strip_h;              // strip height (multiple of the tile size)
+  point_count_t m_strip_row0; // first row currently held in the strips
+  bool m_use_error, m_save_intensity, m_save_hstddev, m_save_vstddev;
+  vw::ImageView<vw::Vector3> m_pt_strip;
+  vw::ImageView<double> m_err_strip;
+  vw::ImageView<float>  m_inten_strip;
+  vw::ImageView<double> m_hstd_strip, m_vstd_strip;
 
   vw::TerminalProgressCallback m_tpc;
 };
@@ -104,17 +172,35 @@ StreamedCloud::StreamedCloud(bool has_georef,
                              vw::ImageViewRef<double> horizontal_stddev,
                              vw::ImageViewRef<double> vertical_stddev,
                              bool save_triangulation_error,
-                             double max_valid_triangulation_error):
+                             double max_valid_triangulation_error,
+                             bool project_from_ecef,
+                             vw::cartography::GeoReference const& georef,
+                             int block_h,
+                             vw::Vector3 const& offset, vw::Vector3 const& scale):
   m_has_georef(has_georef),
+  m_project(project_from_ecef), m_georef(georef),
   m_point_image(point_image), m_error_image(error_image), m_intensity(intensity),
   m_horizontal_stddev(horizontal_stddev), m_vertical_stddev(vertical_stddev),
   m_save_triangulation_error(save_triangulation_error),
   m_max_valid_triangulation_error(max_valid_triangulation_error),
+  m_offset(offset), m_scale(scale),
   m_col_count(0), m_row_count(0),
   m_cols(m_point_image.cols()), m_rows(m_point_image.rows()),
   m_size(m_cols * m_rows), // careful here to avoid integer overflow
   m_count(0), m_num_valid_points(0), m_num_saved_points(0),
-  m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {}
+  m_num_dropped_overflow(0),
+  m_strip_h(0), m_strip_row0(0),
+  m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {
+
+  // Which optional fields are actually read per point
+  m_use_error      = (m_max_valid_triangulation_error > 0 &&
+                      m_error_image.cols() > 0 && m_error_image.rows() > 0);
+  m_save_intensity = (m_intensity.cols() != 0 || m_intensity.rows() != 0);
+  m_save_hstddev   = (m_horizontal_stddev.cols() != 0 || m_horizontal_stddev.rows() != 0);
+  m_save_vstddev   = (m_vertical_stddev.cols() != 0 || m_vertical_stddev.rows() != 0);
+
+  m_strip_h = asp::cloud_strip_rows((int)m_cols, (int)m_rows, block_h);
+}
 
 StreamedCloud::~StreamedCloud() {}
 
@@ -155,58 +241,100 @@ point_count_t StreamedCloud::read(PointViewPtr view, point_count_t numPts) {
   return -1;
 }
 
+// Read into memory the block-aligned strip of rows starting at row0. Reading in
+// bulk (each tile once, across threads) avoids the lazy per-pixel access that
+// re-decodes tiles and thrashes the cache for wide clouds. If m_project, the
+// strip is ECEF and is projected to m_georef with a batched transform.
+void StreamedCloud::loadStrip(point_count_t row0) {
+
+  int h = m_strip_h;
+  if (row0 + (point_count_t)h > m_rows)
+    h = (int)(m_rows - row0);
+  if (h <= 0)
+    return;
+
+  vw::BBox2i box(0, (int)row0, (int)m_cols, h);
+
+  // Cropping and assigning reads the tiles in one bulk region read (each once).
+  m_pt_strip = vw::crop(m_point_image, box);
+  if (m_project)
+    project_ecef_strip(m_georef, m_pt_strip);
+
+  bool need_err = (m_error_image.cols() > 0 && m_error_image.rows() > 0 &&
+                   (m_use_error || m_save_triangulation_error));
+  if (need_err)         m_err_strip   = vw::crop(m_error_image, box);
+  if (m_save_intensity) m_inten_strip = vw::crop(m_intensity, box);
+  if (m_save_hstddev)   m_hstd_strip  = vw::crop(m_horizontal_stddev, box);
+  if (m_save_vstddev)   m_vstd_strip  = vw::crop(m_vertical_stddev, box);
+
+  m_strip_row0 = row0;
+}
+
 // Create one point at a time. Will ask for a point till the counter
 // reaches m_size.
 bool StreamedCloud::processOne(PointRef& point) {
-  
+
   // Keep on going through the input cloud until a valid point
   // is found or until we run out of points.
-  
-  bool save_intensity = (m_intensity.cols() != 0 || m_intensity.rows() != 0);
-  bool save_horizontal_stddev = (m_horizontal_stddev.cols() != 0 ||
-                                 m_horizontal_stddev.rows() != 0);
-  bool save_vertical_stddev = (m_vertical_stddev.cols() != 0 ||
-                               m_vertical_stddev.rows() != 0);
-  
+
   while (1) {
-    
+
     // Break the loop if no more points are available
     if (m_count >= m_size)
-        return false; 
+        return false;
+
+    // Refill the in-memory strip when the current row moves past it
+    if (m_pt_strip.rows() == 0 ||
+        m_row_count >= m_strip_row0 + (point_count_t)m_pt_strip.rows())
+      loadStrip(m_row_count);
+
+    int sc = (int)m_col_count;                   // strip column
+    int sr = (int)(m_row_count - m_strip_row0);  // strip row
 
     // Note how we access in col, row order, per ASP conventions
-    vw::Vector3 xyz = m_point_image(m_col_count, m_row_count);
-    
+    vw::Vector3 xyz = m_pt_strip(sc, sr);
+
     // Skip no-data points and point above the max valid triangulation error
     bool valid_xyz = ((!m_has_georef && xyz != vw::Vector3()) ||
                     (m_has_georef  && !std::isnan(xyz.z())));
     bool valid_tri_err = (m_max_valid_triangulation_error <= 0 ||
-                    m_error_image(m_col_count, m_row_count) <= 
-                    m_max_valid_triangulation_error);
+                    m_err_strip(sc, sr) <= m_max_valid_triangulation_error);
 
     if (valid_xyz)
       m_num_valid_points++;
 
+    // Drop (never clamp) points that would overflow the LAS int32 quantization.
+    // With an exact offset/scale this never triggers; with the subsampled
+    // estimate it drops the rare far outlier instead of writing a wrong value.
+    bool in_range = true;
     if (valid_xyz && valid_tri_err) {
-      
+      for (int i = 0; i < 3; i++) {
+        double q = std::round((xyz[i] - m_offset[i]) / m_scale[i]);
+        if (q > 2147483647.0 || q < -2147483647.0) { in_range = false; break; }
+      }
+      if (!in_range) m_num_dropped_overflow++;
+    }
+
+    if (valid_xyz && valid_tri_err && in_range) {
+
       point.setField(Dimension::Id::X, xyz[0]);
       point.setField(Dimension::Id::Y, xyz[1]);
       point.setField(Dimension::Id::Z, xyz[2]);
       m_num_saved_points++;
-      
+
       // Save the intensity as a double
-      if (save_intensity)
-        point.setField(Dimension::Id::W, m_intensity(m_col_count, m_row_count));
-        
+      if (m_save_intensity)
+        point.setField(Dimension::Id::W, m_inten_strip(sc, sr));
+
       // Save the triangulation error as a double
       if (m_save_triangulation_error)
-        point.setField(Dimension::Id::TextureU, m_error_image(m_col_count, m_row_count));
-        
+        point.setField(Dimension::Id::TextureU, m_err_strip(sc, sr));
+
       // Save the horizontal and vertical stddev as doubles
-      if (save_horizontal_stddev)
-        point.setField(Dimension::Id::TextureV, m_horizontal_stddev(m_col_count, m_row_count));
-      if (save_vertical_stddev)
-        point.setField(Dimension::Id::TextureW, m_vertical_stddev(m_col_count, m_row_count));
+      if (m_save_hstddev)
+        point.setField(Dimension::Id::TextureV, m_hstd_strip(sc, sr));
+      if (m_save_vstddev)
+        point.setField(Dimension::Id::TextureW, m_vstd_strip(sc, sr));
     }
 
     // Adjust the counters whether the point is good or not
@@ -217,12 +345,12 @@ bool StreamedCloud::processOne(PointRef& point) {
       m_tpc.report_fractional_progress(m_row_count, m_rows);
     }
     m_count++;
-    
+
     // Break the loop if a good point was found
-    if (valid_xyz && valid_tri_err)
+    if (valid_xyz && valid_tri_err && in_range)
       return true;
   } // end while loop
-  
+
   // This should not be reached
   return false;
 }
@@ -232,13 +360,17 @@ void StreamedCloud::done(PointTableRef table) {
   
   vw::vw_out () << "Wrote: " << m_num_saved_points << " points." << std::endl;
   if (m_max_valid_triangulation_error > 0.0) {
-    point_count_t num_excluded = m_num_valid_points - m_num_saved_points;
+    point_count_t num_excluded
+      = m_num_valid_points - m_num_saved_points - m_num_dropped_overflow;
     double percent = 100.0 * double(num_excluded)/double(m_num_valid_points);
     percent = round(percent * 100.0)/100.0; // don't keep too many digits
-    vw::vw_out() << "Excluded based on triangulation error: " << num_excluded 
+    vw::vw_out() << "Excluded based on triangulation error: " << num_excluded
                  << " points (" << percent << "%)." << std::endl;
   }
-  
+  if (m_num_dropped_overflow > 0)
+    vw::vw_out() << "Dropped as outside the estimated cloud extent: "
+                 << m_num_dropped_overflow << " points." << std::endl;
+
 } // End function done
 
 // A class to read a point cloud from a file point by point, without
@@ -362,6 +494,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::Vector3 const& offset, vw::Vector3 const& scale,
                bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
+               bool project_from_ecef, int block_h,
                std::string const& out_prefix) {
 
   // The point image and error image must have the same dimensions
@@ -399,7 +532,9 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
   pdal::StreamedCloud stream_cloud(has_georef, point_image, error_image, intensity,
                                    horizontal_stddev, vertical_stddev,
                                    save_triangulation_error,
-                                   max_valid_triangulation_error);
+                                   max_valid_triangulation_error,
+                                   project_from_ecef, georef, block_h,
+                                   offset, scale);
 
   // buf_size is the number of points that will be
   // processed and kept in this table at the same time. 
@@ -443,6 +578,34 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
   writer.setInput(stream_cloud);
   writer.prepare(t);
   writer.execute(t);
+}
+
+// Estimate the projected bounding box from a coarse subsample of the ECEF
+// cloud, then inflate it by 'margin' about its center. This avoids a full
+// transform pass just to pick the LAS offset/scale. The inflation guards
+// against the subsample missing the true extremes (which would overflow the
+// int32 quantization); it only coarsens the quantization slightly.
+vw::BBox3 projected_pointcloud_bbox_estim(vw::ImageViewRef<vw::Vector3> const& ecef_image,
+                                          vw::cartography::GeoReference const& georef,
+                                          double margin) {
+
+  int cols = ecef_image.cols(), rows = ecef_image.rows();
+  int sub = (int)(vw::math::norm_2(vw::Vector2(cols, rows)) / 256.0);
+  if (sub < 1) sub = 1;
+
+  vw::ImageView<vw::Vector3> s = vw::subsample(ecef_image, sub);
+  project_ecef_strip(georef, s);
+
+  vw::BBox3 box;
+  for (int r = 0; r < s.rows(); r++)
+    for (int c = 0; c < s.cols(); c++)
+      if (!std::isnan(s(c, r).z()))
+        box.grow(s(c, r));
+
+  if (box.empty()) return box;
+  vw::Vector3 ctr  = (box.min() + box.max()) / 2.0;
+  vw::Vector3 half = (box.max() - box.min()) / 2.0 * margin;
+  return vw::BBox3(ctr - half, ctr + half);
 }
 
 // Read a LAS cloud and return a subset of it. This inherits from pdal::Writer

@@ -123,7 +123,7 @@ struct Options: vw::GdalWriteOptions {
   double      max_valid_triangulation_error;
   int         num_samples;
   bool save_triangulation_error, save_stddev, dem;
-  
+
   // Output
   std::string out_prefix;
   Options() : compressed(false), max_valid_triangulation_error(0.0), num_samples(0) {}
@@ -328,8 +328,9 @@ int main(int argc, char *argv[]) {
     cartography::GeoReference georef;
     bool have_user_datum = false, have_input_georef = false;
     bool have_out_georef = false;
+    bool project_from_ecef = false; // point_image is ECEF, project it on write
     ImageViewRef<Vector3> point_image;
-    
+
     if (!opt.dem) {
       if (!opt.ecef) {
         have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
@@ -354,9 +355,9 @@ int main(int argc, char *argv[]) {
         // See if to use [-180, 180] or [0, 360]
         vw::BBox2 lonlat_box = asp::estim_lonlat_box(point_image, georef.datum());
         georef.set_image_ll_box(lonlat_box);
-        // Convert cartesian to projected coordinates via geodetic
-        point_image = cartesian_to_geodetic(point_image, datum);
-        point_image = geodetic_to_point(point_image, georef);
+        // point_image stays ECEF; it is projected in bulk when written, which
+        // is much faster than projecting each point through a lazy view.
+        project_from_ecef = true;
       }
     } else {
       // The input is a DEM. Resulting point_image will be in projected_coordinates.
@@ -396,7 +397,23 @@ int main(int argc, char *argv[]) {
       vertical_stddev   = vw::select_channel(full_point_image, 5);
     }
 
-    BBox3 cloud_bbox = asp::pointcloud_bbox(point_image, have_out_georef);
+    // Native block height of the input, to size the bulk read strips
+    int block_h = 256;
+    try {
+      boost::shared_ptr<vw::DiskImageResource>
+        rsrc(vw::DiskImageResource::open(opt.pointcloud_file));
+      if (rsrc->block_read_size().y() > 0)
+        block_h = rsrc->block_read_size().y();
+    } catch (...) {}
+
+    // For a projected cloud, estimate the offset/scale from a subsample (fast,
+    // avoids a full transform pass); points that would overflow the resulting
+    // int32 quantization are dropped on write. Otherwise use the exact bbox.
+    BBox3 cloud_bbox;
+    if (project_from_ecef)
+      cloud_bbox = asp::projected_pointcloud_bbox_estim(point_image, georef, 2.0);
+    else
+      cloud_bbox = asp::pointcloud_bbox(point_image, have_out_georef, block_h);
 
     // The las format stores the values as 32 bit integers. So, for a
     // given point, we store round((point-offset)/scale), as well as
@@ -414,12 +431,13 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < scale.size(); i++)
       if (scale[i] <= 0.0) scale[i] = 1.0e-16; // avoid degeneracy
 
-    asp::write_las(have_out_georef, georef, 
+    asp::write_las(have_out_georef, georef,
                    point_image, error_image, intensity,
                    horizontal_stddev, vertical_stddev,
-                   offset, scale, opt.compressed, 
+                   offset, scale, opt.compressed,
                    opt.save_triangulation_error,
                    opt.max_valid_triangulation_error,
+                   project_from_ecef, block_h,
                    opt.out_prefix);
     return 0;
     
