@@ -36,7 +36,6 @@
 #include <vw/Image/Statistics.h>
 #include <vw/Cartography/PointImageManipulation.h>
 
-#include <fstream>
 #include <iostream>
 #include <string>
 #include <boost/program_options.hpp>
@@ -302,10 +301,10 @@ void read_dem(std::string const& pointcloud_file,
   if (ecef)
     vw::vw_throw(vw::ArgumentErr() 
               << "Options --ecef and --dem are not compatible.\n");
-    if (no_input_georef) 
-    vw::vw_throw(vw::ArgumentErr() 
+  if (no_input_georef)
+    vw::vw_throw(vw::ArgumentErr()
               << "Options --no-input-georef and --dem are not compatible.\n");
-    
+
   double nodata_val = -std::numeric_limits<double>::max();
   vw::read_nodata_val(pointcloud_file, nodata_val);
   
