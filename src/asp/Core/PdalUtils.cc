@@ -52,23 +52,24 @@
 #include <cmath>
 #include <limits>
 #include <vector>
+#include <thread>
 
-// Project an in-memory strip of ECEF points to the georef's projection, in
-// place. Matches cartesian_to_geodetic followed by geodetic_to_point, but
-// batches the projection one row per PROJ call (the per-call overhead is what
-// makes the per-point path slow). Invalid points become (0, 0, NaN).
-static void project_ecef_strip(vw::cartography::GeoReference const& gr,
-                               vw::ImageView<vw::Vector3>& strip) {
+#include <vw/Core/Settings.h>
+
+// Project rows [r0, r1) of an ECEF strip to gr's projection, in place. Matches
+// cartesian_to_geodetic followed by geodetic_to_point, but batches the
+// projection one row per PROJ call. Invalid points become (0, 0, NaN).
+static void project_rows(vw::cartography::GeoReference const& gr,
+                         vw::ImageView<vw::Vector3>& strip, int r0, int r1) {
 
   vw::cartography::Datum const& datum = gr.datum();
   double nan = std::numeric_limits<double>::quiet_NaN();
-  int cols = strip.cols(), rows = strip.rows();
-
+  int cols = strip.cols();
   std::vector<vw::Vector2> ll;
   std::vector<int> col_of;
   std::vector<char> ok;
 
-  for (int r = 0; r < rows; r++) {
+  for (int r = r0; r < r1; r++) {
     ll.clear();
     col_of.clear();
     for (int c = 0; c < cols; c++) {
@@ -88,6 +89,40 @@ static void project_ecef_strip(vw::cartography::GeoReference const& gr,
       else       strip(c, r) = vw::Vector3(0, 0, nan);
     }
   }
+}
+
+// Project an ECEF strip in place, splitting the rows across threads. Each
+// thread gets its own GeoReference copy (a shared OGRCoordinateTransformation
+// is not thread-safe; the copy deep-copies and rebuilds the transform). The
+// result is identical to a serial projection: rows are disjoint and the
+// per-point math is the same.
+static void project_ecef_strip(vw::cartography::GeoReference const& gr,
+                               vw::ImageView<vw::Vector3>& strip) {
+
+  int rows = strip.rows();
+  if (rows <= 0)
+    return;
+
+  int nthreads = vw::vw_settings().default_num_threads();
+  if (nthreads < 1) nthreads = 1;
+
+  if (nthreads == 1 || rows < nthreads) {
+    project_rows(gr, strip, 0, rows);
+    return;
+  }
+
+  std::vector<vw::cartography::GeoReference> georefs(nthreads, gr); // deep copies
+  std::vector<std::thread> threads;
+  int chunk = (rows + nthreads - 1) / nthreads;
+  for (int t = 0; t < nthreads; t++) {
+    int r0 = t * chunk, r1 = std::min(rows, r0 + chunk);
+    if (r0 >= r1) break;
+    threads.emplace_back([&georefs, &strip, t, r0, r1]() {
+      project_rows(georefs[t], strip, r0, r1);
+    });
+  }
+  for (auto& th : threads)
+    th.join();
 }
 
 namespace pdal {
