@@ -55,7 +55,7 @@ point2dem (:numref:`point2dem`):
     "size too large" error) when reading a projected TIF or PCD point cloud.
 
 point2las (:numref:`point2las`):
-  * About 3x faster for large point clouds, via multithreading and other
+  * Sped up by about 3x for large point clouds, via multithreading and other
     optimizations.
 
 image_align (:numref:`image_align`):
