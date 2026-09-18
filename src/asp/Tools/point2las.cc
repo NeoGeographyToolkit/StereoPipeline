@@ -408,7 +408,7 @@ int main(int argc, char *argv[]) {
 
     // For a projected cloud, estimate the offset/scale from a subsample (fast,
     // avoids a full transform pass); points that would overflow the resulting
-    // int32 quantization are dropped on write. Otherwise use the exact bbox.
+    // int32 quantization are dropped on write.
     BBox3 cloud_bbox;
     if (project_from_ecef)
       cloud_bbox = asp::projected_pointcloud_bbox_estim(point_image, georef, 2.0);

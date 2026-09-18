@@ -56,9 +56,8 @@
 
 #include <vw/Core/Settings.h>
 
-// Project rows [r0, r1) of an ECEF strip to gr's projection, in place. Matches
-// cartesian_to_geodetic followed by geodetic_to_point, but batches the
-// projection one row per PROJ call. Invalid points become (0, 0, NaN).
+// Project rows [r0, r1) of an ECEF strip to gr's projection, in place, batching
+// one PROJ call per row. Invalid points become (0, 0, NaN).
 static void project_rows(vw::cartography::GeoReference const& gr,
                          vw::ImageView<vw::Vector3>& strip, int r0, int r1) {
 
@@ -91,11 +90,9 @@ static void project_rows(vw::cartography::GeoReference const& gr,
   }
 }
 
-// Project an ECEF strip in place, splitting the rows across threads. Each
-// thread gets its own GeoReference copy (a shared OGRCoordinateTransformation
-// is not thread-safe; the copy deep-copies and rebuilds the transform). The
-// result is identical to a serial projection: rows are disjoint and the
-// per-point math is the same.
+// Project an ECEF strip in place, splitting the rows across threads. Each thread
+// gets its own GeoReference copy, as a shared OGRCoordinateTransformation is not
+// thread-safe (the copy deep-copies and rebuilds the transform).
 static void project_ecef_strip(vw::cartography::GeoReference const& gr,
                                vw::ImageView<vw::Vector3>& strip) {
 
@@ -159,13 +156,12 @@ private:
   virtual void addArgs(ProgramArgs& args);
 
   // Rasterize into memory a block-aligned horizontal strip of rows starting at
-  // row0. This reads the underlying tiles once, in bulk, and applies the
-  // coordinate transform, rather than accessing the lazy image pixel-by-pixel
-  // (which re-decodes tiles and can thrash the block cache for wide clouds).
+  // row0. This reads the underlying tiles once and applies the
+  // coordinate transform.
   void loadStrip(point_count_t row0);
 
   bool m_has_georef;
-  bool m_project;                        // project m_point_image (ECEF) to m_georef
+  bool m_project;                         // project m_point_image (ECEF) to m_georef
   vw::cartography::GeoReference m_georef; // output projection, used if m_project
   vw::ImageViewRef<vw::Vector3> m_point_image;
   vw::ImageViewRef<double> m_error_image;
@@ -183,8 +179,7 @@ private:
   point_count_t m_count, m_size, m_num_valid_points, m_num_saved_points;
   point_count_t m_num_dropped_overflow;
 
-  // In-memory strips (see loadStrip). Serving points from these makes the disk
-  // reads sequential and cache-size-independent.
+  // In-memory strips (see loadStrip).
   int m_strip_h;              // strip height (multiple of the tile size)
   point_count_t m_strip_row0; // first row currently held in the strips
   bool m_use_error, m_save_intensity, m_save_hstddev, m_save_vstddev;
@@ -338,9 +333,8 @@ bool StreamedCloud::processOne(PointRef& point) {
     if (valid_xyz)
       m_num_valid_points++;
 
-    // Drop (never clamp) points that would overflow the LAS int32 quantization.
-    // With an exact offset/scale this never triggers; with the subsampled
-    // estimate it drops the rare far outlier instead of writing a wrong value.
+    // Drop the rare point beyond the 2x-generous estimated bbox (would overflow
+    // the LAS int32 quantization).
     bool in_range = true;
     if (valid_xyz && valid_tri_err) {
       for (int i = 0; i < 3; i++) {
@@ -616,10 +610,9 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
 }
 
 // Estimate the projected bounding box from a coarse subsample of the ECEF
-// cloud, then inflate it by 'margin' about its center. This avoids a full
-// transform pass just to pick the LAS offset/scale. The inflation guards
-// against the subsample missing the true extremes (which would overflow the
-// int32 quantization); it only coarsens the quantization slightly.
+// cloud, inflated by 'margin' about its center, to pick the LAS offset/scale
+// without a full transform pass. The margin guards against the subsample
+// missing the true extremes.
 vw::BBox3 projected_pointcloud_bbox_estim(vw::ImageViewRef<vw::Vector3> const& ecef_image,
                                           vw::cartography::GeoReference const& georef,
                                           double margin) {
