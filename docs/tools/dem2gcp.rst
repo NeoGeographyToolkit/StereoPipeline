@@ -249,9 +249,6 @@ be no more than 5 to 10 pixels. Consider also using the ``bundle_adjust`` option
 ``--max-gcp-reproj-err`` (:numref:`ba_options`) to remove worst GCP outliers.
 The option ``--max-disp`` for ``dem2gcp`` can help with this as well.
 
-For linescan cameras, the jitter solver can be invoked instead with a very
-similar command to the above (:numref:`jitter_solve`).
-
 Examine the pixel residuals before and after bundle adjustment
 (:numref:`ba_err_per_point`) in ``stereo_gui`` as::
 
@@ -282,9 +279,18 @@ Then, one can rerun stereo with the optimized cameras and the original images
 scratch). The results are in :numref:`kh7_orig_vs_opt`. The warping is much
 reduced but not eliminated. 
 
-We further improved the results for KH-7 and KH-9 cameras by creating
-linescan cameras (:numref:`opticalbar2csm`) and running ``jitter_solve``
-with GCP (:numref:`kh9`).
+Solving for jitter
+~~~~~~~~~~~~~~~~~~
+
+For linescan cameras, the jitter solver can be invoked instead with a very
+similar command to the above (:numref:`jitter_solve`). An example
+is in :numref:`kh9`.
+
+Both ``bundle_adjust`` and ``jitter_solve`` accept the images and cameras via
+``--image-list`` and ``--camera-list``, and both write such lists in their
+output directory, with the latest cameras. When a linescan camera has both lens
+distortion and jitter, the two can be refined in alternating passes, with each
+tool using the previous tool's output lists.
 
 .. _gcp_vs_tri:
 
@@ -361,10 +367,10 @@ Transforming existing GCP files
 
 Existing GCP files whose ground coordinates were measured on the warped DEM
 can be passed in with ``--input-gcp-list``. The argument is a plain text file
-with one GCP file path per line. Each triangulated point in these GCP is mapped
-through the disparity to the reference DEM (the same transform applied to the
-points from interest point matches), and the resulting GCP are appended to the
-output GCP file.
+with one GCP file path per line. The ground coordinate of each input GCP is
+mapped through the disparity to the reference DEM (the same transform applied to
+the match-derived points), and the resulting GCP are appended to the output GCP
+file.
 
 In the example below we transform only the input GCP, without generating any
 match-derived GCP, by setting ``--max-pairwise-matches 0``. In that case
@@ -480,9 +486,9 @@ Command-line options
 
 --input-gcp-list <string (default: "")>
     A file containing a list of existing GCP files (one per line), with ground
-    coordinates measured on the warped DEM. Each triangulated point is mapped
-    via the disparity to the reference DEM, and the resulting GCP are appended
-    to the output GCP file. The options ``--gcp-sigma`` and ``--max-num-gcp``
+    coordinates measured on the warped DEM. The ground coordinate of each input
+    GCP is mapped via the disparity to the reference DEM, and the resulting GCP
+    are appended to the output GCP file. The options ``--gcp-sigma`` and ``--max-num-gcp``
     apply to the combined set. A warning is issued for images referenced by
     the input GCP that are not in the image list.
 
