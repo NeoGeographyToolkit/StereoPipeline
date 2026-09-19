@@ -1132,8 +1132,50 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
 
   } // End loop through the match files
 
-  // Save the produced files  
+  // Also find convergence angles from GCP, but only for pairs not already
+  // covered by a match file above. So the report is the union of the two.
+  {
+    std::map<std::pair<int, int>,
+             std::pair<std::vector<vw::ip::InterestPoint>,
+                       std::vector<vw::ip::InterestPoint>>> gcp_pairs;
+    for (int ipt = 0; ipt < cnet.size(); ipt++) {
+      if (outliers.find(ipt) != outliers.end())
+        continue;
+      if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
+        continue;
+      for (auto m1 = cnet[ipt].begin(); m1 != cnet[ipt].end(); m1++) {
+        for (auto m2 = cnet[ipt].begin(); m2 != cnet[ipt].end(); m2++) {
+          int left_index  = m1->image_id();
+          int right_index = m2->image_id();
+          if (left_index >= right_index)
+            continue; // one direction only, and skip self-pairs
+          // Skip pairs already handled through a match file above
+          if (local_match_files.find(std::make_pair(left_index, right_index))
+                != local_match_files.end() ||
+              local_match_files.find(std::make_pair(right_index, left_index))
+                != local_match_files.end())
+            continue;
+          auto & pr = gcp_pairs[std::make_pair(left_index, right_index)];
+          pr.first.push_back
+            (vw::ip::InterestPoint(m1->position()[0], m1->position()[1], 1.0));
+          pr.second.push_back
+            (vw::ip::InterestPoint(m2->position()[0], m2->position()[1], 1.0));
+        }
+      }
+    }
+    for (auto const& it: gcp_pairs) {
+      int left_index  = it.first.first;
+      int right_index = it.first.second;
+      convAngles.push_back(asp::MatchPairStats());
+      std::vector<double> sorted_angles;
+      asp::convergence_angles(optimized_cams[left_index].get(),
+                              optimized_cams[right_index].get(),
+                              it.second.first, it.second.second, sorted_angles);
+      convAngles.back().populate(left_index, right_index, sorted_angles);
+    }
+  }
 
+  // Save the produced files
   std::string conv_angles_file = opt.out_prefix + "-convergence_angles.txt";
   asp::saveConvergenceAngles(conv_angles_file, convAngles, opt.image_files);
 
