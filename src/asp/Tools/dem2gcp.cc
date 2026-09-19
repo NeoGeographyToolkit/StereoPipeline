@@ -190,12 +190,17 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
 
     vw::ba::ControlPoint const& cp = cnet[ipt]; // alias
 
-    // Find the pixel in the warped DEM. Use the ray-to-DEM intersection (convergence-
-    // free), NOT the triangulated position, so near-parallel same-look observations do
-    // not produce a mislocated point (see updateTriPtsFromDem).
-    vw::Vector3 xyz = dem_xyz_vec[ipt];
+    // Ground position in the warped DEM. Input GCP already have one, so use it.
+    // Tie points use the ray-to-DEM intersection (convergence-free), not the
+    // triangulated point, so near-parallel same-look observations do not
+    // mislocate the point (see updateTriPtsFromDem).
+    vw::Vector3 xyz;
+    if (cp.type() == vw::ba::ControlPoint::GroundControlPoint)
+      xyz = cp.position();
+    else
+      xyz = dem_xyz_vec[ipt];
     if (xyz == vw::Vector3(0, 0, 0))
-      continue; // ray-to-DEM intersection failed for this point
+      continue; // no valid ground position for this point
     vw::Vector3 llh;
     llh = warped_dem_georef.datum().cartesian_to_geodetic(xyz);
     vw::Vector2 dem_pix = warped_dem_georef.lonlat_to_pixel(vw::Vector2(llh.x(), llh.y()));
@@ -477,10 +482,11 @@ int run_dem2gcp(int argc, char * argv[]) {
                       // Outputs
                       stereo_session, single_threaded_cameras, camera_models);
     
-  // Load the DEM and georef, and prepare for interpolation  
+  // Load the warped DEM (masked) and its georef. Reused for the ray-to-DEM
+  // intersection below.
   vw::cartography::GeoReference warped_dem_georef;
-  vw::ImageViewRef<vw::PixelMask<double>> interp_warped_dem;
-  asp::create_interp_dem(opt.warped_dem_file, warped_dem_georef, interp_warped_dem);
+  vw::ImageViewRef<vw::PixelMask<double>> masked_warped_dem;
+  asp::create_masked_dem(opt.warped_dem_file, warped_dem_georef, masked_warped_dem);
 
   // Load the reference DEM
   vw::cartography::GeoReference ref_dem_georef;
@@ -511,8 +517,8 @@ int run_dem2gcp(int argc, char * argv[]) {
   }
   
   // Warped size must equal disparity size, otherwise there is a mistake
-  if (interp_warped_dem.cols() != disparity.cols() || 
-      interp_warped_dem.rows() != disparity.rows())
+  if (masked_warped_dem.cols() != disparity.cols() ||
+      masked_warped_dem.rows() != disparity.rows())
     vw::vw_throw( vw::ArgumentErr() 
                 << "Error: The warped DEM and disparity sizes do not match.\n" );
   
@@ -584,19 +590,15 @@ int run_dem2gcp(int argc, char * argv[]) {
                  << " file(s) in " << opt.input_gcp_list << ".\n";
   }
 
-  // Robust point positions via ray-to-DEM intersection against the warped DEM. This
-  // replaces the degenerate triangulation for the GCP ground positions: each observation's
-  // ray is intersected with the DEM and averaged (convergence-free), so near-parallel
-  // same-look (e.g. consecutive push-frame framelet) observations no longer mislocate the
-  // point. The triangulated cnet positions seed the intersection search.
+  // Robust GCP ground positions via ray-to-DEM intersection (convergence-free),
+  // not two-ray triangulation, so near-parallel same-look (push-frame) observations
+  // do not mislocate. Returns (0, 0, 0) for GCP-type points; those input GCP keep
+  // their own position in genWriteGcp.
   std::vector<vw::Vector3> dem_xyz_vec;
   {
-    vw::cartography::GeoReference masked_georef;
-    vw::ImageViewRef<vw::PixelMask<double>> masked_warped_dem;
-    asp::create_masked_dem(opt.warped_dem_file, masked_georef, masked_warped_dem);
     std::set<int> no_outliers;
     asp::updateTriPtsFromDem(cnet, no_outliers, camera_models,
-                             masked_georef, masked_warped_dem,
+                             warped_dem_georef, masked_warped_dem,
                              dem_xyz_vec); // output
   }
 
