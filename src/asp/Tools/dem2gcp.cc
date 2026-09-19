@@ -597,9 +597,10 @@ int run_dem2gcp(int argc, char * argv[]) {
   std::vector<vw::Vector3> dem_xyz_vec;
   {
     std::set<int> no_outliers;
+    int dem_threads = single_threaded_cameras ? 1 : opt.num_threads;
     asp::updateTriPtsFromDem(cnet, no_outliers, camera_models,
                              warped_dem_georef, masked_warped_dem,
-                             dem_xyz_vec); // output
+                             dem_xyz_vec, dem_threads); // output, then threads
   }
 
   genWriteGcp(ref_dem_georef, cnet, dem_xyz_vec, disparity,

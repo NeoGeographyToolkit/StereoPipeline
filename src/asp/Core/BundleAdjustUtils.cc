@@ -37,6 +37,9 @@
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Interpolation.h>
+
+#include <atomic>
+#include <omp.h>
 #include <vw/Image/ImageChannels.h>
 #include <vw/Image/PixelTypeInfo.h>
 #include <vw/Cartography/shapeFile.h>
@@ -314,13 +317,14 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
                          vw::cartography::GeoReference const& dem_georef,
                          vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
                          // Output
-                         std::vector<vw::Vector3> & dem_xyz_vec) {
+                         std::vector<vw::Vector3> & dem_xyz_vec,
+                         int num_threads) {
 
   // Put this note as this part can take a long time
   vw::vw_out() << "Updating triangulated points with DEM height.\n";
 
   int num_tri_points = cnet.size();
-  dem_xyz_vec.resize(num_tri_points, vw::Vector3(0, 0, 0));
+  dem_xyz_vec.assign(num_tri_points, vw::Vector3(0, 0, 0));
 
   // Project vertically onto the DEM. This needs interpolation into the DEM
   vw::PixelMask<double> invalid_val;
@@ -328,16 +332,25 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
    = vw::interpolate(masked_dem, vw::BilinearInterpolation(),
                      vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
 
-  // Prepare for measuring progress and elapsed time
+  // Each point is independent, so the result does not depend on num_threads.
+  // Callers must ensure the cameras are thread-safe when num_threads > 1.
+  int nthreads = std::max(1, num_threads);
+
+  // Progress and elapsed time. In parallel, report from thread 0 only, as the
+  // callback is not thread-safe.
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  double inc_amount = 1.0 / std::max(1, num_tri_points);
+  std::atomic<int> progress_count(0);
+  int report_interval = std::max(num_tri_points / 100, 1);
   tpc.report_progress(0);
   vw::Stopwatch sw;
   sw.start();
 
+  #pragma omp parallel for num_threads(nthreads) schedule(dynamic, 100)
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
 
-    tpc.report_incremental_progress(inc_amount);
+    int count = progress_count.fetch_add(1);
+    if (omp_get_thread_num() == 0 && count % report_interval == 0)
+      tpc.report_progress(double(count) / std::max(num_tri_points, 1));
 
     if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
       continue; // GCP do not get modified

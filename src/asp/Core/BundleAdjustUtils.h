@@ -96,13 +96,18 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
 // Shoot rays from all matching interest points. Intersect those with a DEM. Find
 // their average. Project it vertically onto the DEM. Invalid or uncomputable
 // xyz are set to the zero vector.
+// num_threads > 1 parallelizes the per-point loop. Use it only when the camera
+// models are thread-safe (e.g. pinhole, CSM), never for ISIS. DEM reads go
+// through the VW block cache, whose global lock serializes them, so the speedup
+// is limited. Default 1 keeps the serial behavior.
 void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
                          std::set<int> const& outliers,
                          std::vector<vw::CamPtr> const& camera_models,
                          vw::cartography::GeoReference const& dem_georef,
                          vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
                          // Output
-                         std::vector<vw::Vector3> & dem_xyz_vec);
+                         std::vector<vw::Vector3> & dem_xyz_vec,
+                         int num_threads = 1);
 
 // Update triangulated points using one or more DEMs. These come from
 // --heights-from-dem and --heights-from-dem-list.
