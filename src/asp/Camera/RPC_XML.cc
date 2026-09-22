@@ -78,6 +78,10 @@ void asp::ImageXML::parse_tlc_list(xercesc::DOMElement* node) {
       std::string buffer;
       cast_xmlch(element->getTextContent(), buffer);
 
+      if (count >= tlc_vec.size())
+        vw_throw(IOErr() << "Found more TLC entries than the " << tlc_vec.size()
+                 << " declared in NUMTLC.\n");
+
       std::istringstream istr(buffer);
       istr >> tlc_vec[count].first >> tlc_vec[count].second;
 
@@ -337,6 +341,19 @@ void asp::EphemerisXML::parse_meta(xercesc::DOMElement* node) {
   satellite_pos_cov.resize(6 * num_points); // see RPC_XML.h
 }
 
+namespace {
+  // The per-entry index in an EPHEMLIST or ATTLIST entry is 1-based and comes
+  // from the file, so it has to be checked against the count declared in
+  // NUMPOINTS before it is used as a subscript.
+  size_t ephemerisIndex(double rawIndex, size_t numExpected, std::string const& what) {
+    double index = rawIndex + 0.5;
+    if (index < 1.0 || index >= double(numExpected) + 1.0)
+      vw_throw(IOErr() << "Found an out of range " << what << " index " << rawIndex
+               << ", expected a value between 1 and " << numExpected << ".\n");
+    return size_t(index) - 1;
+  }
+}
+
 void asp::EphemerisXML::parse_eph_list(std::string const& rawXml) {
   // Each EPHEMLIST entry has 13 doubles: index, pos[3], vel[3], cov[6]
   std::vector<double> values;
@@ -350,7 +367,7 @@ void asp::EphemerisXML::parse_eph_list(std::string const& rawXml) {
 
   for (size_t i = 0; i < numExpected; i++) {
     const double* v = &values[i * valsPerEntry];
-    size_t index = size_t(v[0] + 0.5) - 1;
+    size_t index = ephemerisIndex(v[0], numExpected, "ephemeris");
     satellite_position_vec[index][0] = v[1];
     satellite_position_vec[index][1] = v[2];
     satellite_position_vec[index][2] = v[3];
@@ -397,7 +414,7 @@ void asp::AttitudeXML::parse_att_list(std::string const& rawXml) {
 
   for (size_t i = 0; i < numExpected; i++) {
     const double* v = &values[i * valsPerEntry];
-    size_t index = size_t(v[0] + 0.5) - 1;
+    size_t index = ephemerisIndex(v[0], numExpected, "attitude");
     for (int j = 0; j < 4; j++)
       satellite_quat_vec[index][j] = v[1 + j];
     for (int j = 0; j < 10; j++)
