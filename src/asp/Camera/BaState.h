@@ -196,6 +196,9 @@ public:
   int get_num_obs_outliers() const {
     return (int)m_outlier_obs.size();
   }
+  std::set<std::pair<int, int>> const& get_obs_outliers() const {
+    return m_outlier_obs;
+  }
   
   /// Get the values for a point
   vw::Vector3 get_point(int point_index)  const{

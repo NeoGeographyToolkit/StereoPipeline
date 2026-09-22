@@ -1357,10 +1357,11 @@ void jitterSolvePass(int                                 pass,
   // reloading interest point matches, which is expensive.
   bool remove_outliers = true, propagate_errors = false, save_clean_matches = false;
   vw::Vector<double> horizontal_stddev_vec; // not used
+  std::set<std::pair<int, int>> no_obs_outliers; // jitter_solve has no per-observation outliers
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
                             opt.camera_models, // these have been updated
-                            remove_outliers, outliers, opt.mapproj_dem,
+                            remove_outliers, outliers, no_obs_outliers, opt.mapproj_dem,
                             propagate_errors, horizontal_stddev_vec,
                             save_clean_matches, opt.match_files,
                             stereo_settings().matches_as_txt);

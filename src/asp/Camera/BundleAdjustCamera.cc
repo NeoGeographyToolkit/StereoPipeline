@@ -915,6 +915,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
                           std::vector<vw::CamPtr>      const& optimized_cams,
                           bool                                remove_outliers,
                           std::set<int>                const& outliers,
+                          std::set<std::pair<int, int>> const& outlier_obs,
                           std::string                  const& mapproj_dem,
                           bool                                propagate_errors,
                           vw::Vector<double>           const& horizontal_stddev_vec,
@@ -969,6 +970,11 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
           int right_index = m2->image_id();
           // Can have left_index > right_index
           if (left_index == right_index)
+            continue;
+          // Skip measurements dropped as per-observation outliers, so the clean
+          // match files and the stats reflect only the measurements that survived.
+          if (outlier_obs.find(std::make_pair(left_index,  ipt)) != outlier_obs.end() ||
+              outlier_obs.find(std::make_pair(right_index, ipt)) != outlier_obs.end())
             continue;
           match_map[std::make_pair(left_index, right_index)].insert
             (Quadruplet(m1->position()[0], m1->position()[1],

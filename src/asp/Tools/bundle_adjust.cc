@@ -757,7 +757,8 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   bool save_clean_matches = true;
   asp::matchFilesProcessing(cnet,
                             asp::BaBaseOptions(opt), // note the slicing
-                            optimized_cams, remove_outliers, outliers, opt.mapproj_dem,
+                            optimized_cams, remove_outliers, outliers,
+                            ba_state.get_obs_outliers(), opt.mapproj_dem,
                             opt.propagate_errors, opt.horizontal_stddev_vec,
                             save_clean_matches, opt.match_files,
                             stereo_settings().matches_as_txt);
