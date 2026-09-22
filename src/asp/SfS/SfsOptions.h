@@ -28,12 +28,12 @@
 namespace asp {
 
 struct SfsOptions: public vw::GdalWriteOptions {
-  // Fraction of intensity used to approximate per-pixel brightness
+  // Fraction of image intensity used to approximate per-pixel brightness
   // standard deviation.
-  double variance_scaling;
+  double brightness_variance_scaling;
 
-  // Intensity floor used when estimating brightness standard deviation.
-  double variance_min_intensity;
+  // Weight floor used when estimating weights from brightness standard deviation.
+  double min_brightness_weight;
 
   std::string input_dem, image_list, camera_list, out_prefix, stereo_session, bundle_adjust_prefix, input_albedo;
   std::vector<std::string> input_images, input_cameras;
