@@ -258,6 +258,19 @@ Command-line options for sfs
     grid point where all images show shadows. To be used if shadow
     thresholds are set.
 
+--brightness-sigma-scaling <float (default: 0)>
+    Fraction of image pixel intensity used to approximate standard deviation of
+    brightness at each pixel, for use in weighted least squares. The default value
+    of 0 removes per-pixel differences in weights. The minimum standard deviation
+    estimated for each pixel is defined by ``--min-brightness-sigma``. See
+    :numref:`sfs_unc` for usage.
+
+--min-brightness-sigma <float (default: 1)>
+    The minimum value of the modeled, per-pixel brightness standard deviation. At
+    each pixel, the minimum sigma overrides the ``brightness-sigma-scaling`` sigma
+    if ``--min-brightness-sigma`` is larger at that pixel. See :numref:`sfs_unc`
+    for usage.
+
 --save-variances
     Save the uncalibrated variance of the DEM for each pixel. If ``--float-albedo`` is on,
     also save the variance of the albedo. Note that computing the albedo
