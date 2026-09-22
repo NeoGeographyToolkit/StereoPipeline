@@ -2177,8 +2177,8 @@ compute the variance for each DEM pixel (available in ASP 3.6.0 or later).
 
 The square root of the variance is the standard deviation, a relative measure of
 DEM height uncertainty.
-This feature is experimental: the values are uncalibrated and they do not
-represent real elevation uncertainties in meters.
+Without properly specifying weights based on brightness, variance values are
+uncalibrated and they do not represent real elevation uncertainties in meters.
 
 Use the ``--save-variances`` option (:numref:`sfs_opt`) with ``parallel_sfs``
 (:numref:`parallel_sfs_usage`). The resulting output file is described in
@@ -2195,6 +2195,16 @@ and (+2, 0). These are the pixel pairs that enter the central-difference
 (three-point) slope, so with the variance they let the height uncertainty be
 propagated into a slope uncertainty, and they help reveal the spatial
 correlation of errors. See :numref:`sfs_outputs` for the output files.
+
+An image pixel brightness uncertainty model is needed to properly scale the
+weights: an appropriately scale covariance matrix can be obtained by weighting each
+residual term according to the brightness uncertainty at that pixel. Pixel brightness
+uncertainty can be modeled as a fraction of intensity, which is controlled using
+``--brightness-sigma-scaling``. The default value of 0 effectively induces equal 
+weighting and reduces to the uncalibrated case. Additionally, to avoid assigning
+unreasonably large weights to dark pixels, a minimum weight should be provided using
+the ``--min-brightness-sigma`` option; all pixel values scaled below this threshold will
+be assigned the threshold sigma value.
 
 Previously, the option ``--estimate-height-errors`` was employed, with a
 different implementation. This is now obsolete. See :numref:`sfs_opt` for
