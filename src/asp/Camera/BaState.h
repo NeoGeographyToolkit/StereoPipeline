@@ -35,6 +35,8 @@ namespace vw {
 
 #include <string>
 #include <vector>
+#include <set>
+#include <utility>
 
 namespace asp {
 
@@ -177,6 +179,23 @@ public:
     }
     return count;
   }
+
+  // Per-observation (image measurement) outliers, keyed by (camera_index,
+  // point_index). A point outlier drops a 3D point and all of its measurements;
+  // an observation outlier drops a single image measurement of a point while
+  // keeping the point, as long as it retains at least two measurements. This
+  // lets a single bad-pose camera's measurement be removed without deleting the
+  // whole tie point (and its good measurements in other cameras).
+  void set_obs_outlier(int camera_index, int point_index) {
+    m_outlier_obs.insert(std::make_pair(camera_index, point_index));
+  }
+  bool get_obs_outlier(int camera_index, int point_index) const {
+    return m_outlier_obs.find(std::make_pair(camera_index, point_index))
+           != m_outlier_obs.end();
+  }
+  int get_num_obs_outliers() const {
+    return (int)m_outlier_obs.size();
+  }
   
   /// Get the values for a point
   vw::Vector3 get_point(int point_index)  const{
@@ -227,6 +246,8 @@ private: // Variables
   // Raw data storage
   std::vector<double> m_points_vec, m_cameras_vec, m_intrinsics_vec;
   std::vector<bool> m_outlier_points_vec;
+  // Outlier image measurements, keyed by (camera_index, point_index).
+  std::set<std::pair<int, int>> m_outlier_obs;
 }; // End class BaState
 
 } // end namespace asp

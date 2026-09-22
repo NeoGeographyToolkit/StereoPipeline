@@ -840,6 +840,8 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
       int ipt = (**fiter).m_point_id;
       if (ba_state.get_point_outlier(ipt))
         continue; // skip outliers
+      if (ba_state.get_obs_outlier(icam, ipt))
+        continue; // skip outlier observations (this measurement dropped, point kept)
 
       VW_ASSERT(int(icam) < num_cameras,
                 ArgumentErr() << "Out of bounds in the number of cameras.");

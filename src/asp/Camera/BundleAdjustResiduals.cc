@@ -95,7 +95,9 @@ void compute_residuals(asp::BaBaseOptions const& opt,
 
       if (ba_state.get_point_outlier(ipt))
         continue; // skip outliers
-        
+      if (ba_state.get_obs_outlier(icam, ipt))
+        continue; // skip outlier observations (must match the problem construction)
+
       // Look up the sigma for this point
       auto sigma_it = pixel_sigmas[icam].find(ipt);
       // Must have a sigma for each residual added
@@ -135,6 +137,8 @@ void compute_mean_residuals_at_xyz(asp::CRN const& crn,
 
       if (ba_state.get_point_outlier(ipt))
         continue; // skip outliers
+      if (ba_state.get_obs_outlier(icam, ipt))
+        continue; // skip outlier observations (must match the problem construction)
 
       // Get the residual norm for this observation
       double errorX         = residuals[residual_index];

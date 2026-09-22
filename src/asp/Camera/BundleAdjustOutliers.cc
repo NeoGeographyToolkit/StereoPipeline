@@ -25,6 +25,7 @@
 #include <asp/Camera/BundleAdjustOptions.h>
 #include <asp/Camera/BundleAdjustResiduals.h>
 #include <asp/Core/OutlierProcessing.h>
+#include <asp/Core/BundleAdjustUtils.h>
 
 #include <vw/Math/Statistics.h>
 #include <vw/Cartography/GeoReference.h>
@@ -183,35 +184,30 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   asp::compute_mean_residuals_at_xyz(crn, residuals, ba_state,
                                      mean_residuals, num_point_observations); // outputs
 
-  // The number of mean residuals is the same as the number of points,
-  // of which some are outliers. Hence need to collect only the
-  // non-outliers so far to be able to remove new outliers.  Need to
-  // follow the same logic as when residuals were formed. And also ignore GCP.
+  // Collect the per-observation reprojection residuals. Outliers are removed per
+  // image measurement, so the threshold is derived from the distribution of
+  // individual measurement errors. Walk the residuals in the same order
+  // compute_residuals produced them: skip outlier points and outlier observations
+  // (no residual is emitted for those), but include GCP measurements (which have
+  // residuals, though GCP are never removed).
   std::vector<double> actual_residuals;
-  std::set<int> was_added;
-  for (size_t icam = 0; icam < num_cameras; icam++) {
-    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-
-      // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-
-      // skip existing outliers
-      if (ba_state.get_point_outlier(ipt))
-        continue;
-
-      // Skip gcp, those are never outliers no matter what.
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-        continue;
-
-      // We already encountered this residual in the previous camera
-      if (was_added.find(ipt) != was_added.end())
-        continue;
-
-      was_added.insert(ipt);
-      actual_residuals.push_back(mean_residuals[ipt]);
-      //vw_out() << "XYZ residual " << ipt << " = " << mean_residuals[ipt] << std::endl;
+  {
+    size_t ri = 0;
+    for (size_t icam = 0; icam < num_cameras; icam++) {
+      for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+        int ipt = (**fiter).m_point_id;
+        if (ba_state.get_point_outlier(ipt))
+          continue;
+        if (ba_state.get_obs_outlier(icam, ipt))
+          continue;
+        double obs_err = norm_2(vw::Vector2(residuals[ri + 0], residuals[ri + 1]));
+        ri += PIXEL_SIZE;
+        if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+          continue; // GCP measurements are never outliers
+        actual_residuals.push_back(obs_err);
+      }
     }
-  } // End double loop through all the observations
+  }
 
   double pct      = 1.0 - opt.remove_outliers_params[0]/100.0;
   double factor   = opt.remove_outliers_params[1];
@@ -222,45 +218,69 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
   vw::math::find_outlier_brackets(actual_residuals, pct, factor, b, e);
   vw_out() << "Percentile-based outlier bounds: b = " << b << ", e = " << e << ".\n";
 
-  // If this is too aggressive, the user can tame it. It is
-  // unreasonable to throw out pixel residuals as small as 1 or 2
-  // pixels. We will not use the b, because the residuals start at 0.
-  // "max_pix2" sets the minimum error that can be thrown out.
+  // It is unreasonable to throw out pixel residuals as small as 1 or 2 pixels.
+  // max_pix1 is the floor below which nothing is removed; max_pix2 the ceiling
+  // above which everything is removed.
   e = std::min(std::max(e, max_pix1), max_pix2);
 
-  vw_out() << "Removing as outliers points with mean reprojection error > " << e << ".\n";
+  vw_out() << "Removing as outliers individual observations with reprojection error > "
+           << e << ".\n";
 
-  // Add to the outliers by reprojection error. Must repeat the same logic as above.
-  // TODO(oalexan1): This removes a 3D point altogether if any reprojection
-  // errors for it are big. Need to only remove bad reprojection errors
-  // and keep a 3D point if it is left with at least two reprojection residuals.
-  int num_outliers_by_reprojection = 0, total = 0;
-  for (size_t icam = 0; icam < num_cameras; icam++) {
-    typedef CameraNode<JFeature>::const_iterator crn_iter;
-    for (crn_iter fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-
-      // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-
-      total++;
-
-      // skip existing outliers
-      if (ba_state.get_point_outlier(ipt))
-        continue;
-
-      // Skip gcp
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-        continue;
-
-      if (mean_residuals[ipt] > e) {
-        ba_state.set_point_outlier(ipt, true);
-        num_outliers_by_reprojection++;
+  // Drop the individual measurements whose reprojection error exceeds the
+  // threshold, keeping the 3D point. Walk the residuals in the same order as above.
+  int num_obs_removed = 0, total_obs = 0;
+  {
+    size_t ri = 0;
+    for (size_t icam = 0; icam < num_cameras; icam++) {
+      for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+        int ipt = (**fiter).m_point_id;
+        if (ba_state.get_point_outlier(ipt))
+          continue;
+        if (ba_state.get_obs_outlier(icam, ipt))
+          continue;
+        double obs_err = norm_2(vw::Vector2(residuals[ri + 0], residuals[ri + 1]));
+        ri += PIXEL_SIZE;
+        if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+          continue; // never remove GCP measurements
+        total_obs++;
+        if (obs_err > e) {
+          ba_state.set_obs_outlier(icam, ipt);
+          num_obs_removed++;
+        }
       }
     }
-  } // End double loop through all the observations
-  vw_out() << "Removed " << num_outliers_by_reprojection << " outliers out of "
-           << total << " interest points by reprojection error. Ratio: "
-           << double(num_outliers_by_reprojection) / double(total) <<".\n";
+  }
+
+  // A 3D point needs at least two surviving measurements to be triangulated.
+  // Demote to a point outlier any non-GCP point left with fewer than two.
+  std::vector<int> surviving(num_points, 0);
+  for (size_t icam = 0; icam < num_cameras; icam++) {
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+      int ipt = (**fiter).m_point_id;
+      if (ba_state.get_point_outlier(ipt))
+        continue;
+      if (ba_state.get_obs_outlier(icam, ipt))
+        continue;
+      surviving[ipt]++;
+    }
+  }
+  int num_demoted = 0;
+  for (size_t ipt = 0; ipt < num_points; ipt++) {
+    if (ba_state.get_point_outlier(ipt))
+      continue;
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+      continue;
+    if (surviving[ipt] < 2) {
+      ba_state.set_point_outlier(ipt, true);
+      num_demoted++;
+    }
+  }
+
+  int num_outliers_by_reprojection = num_obs_removed + num_demoted;
+  vw_out() << "Removed " << num_obs_removed << " outlier observations out of "
+           << total_obs << " by reprojection error "
+           << "(3D point kept when >= 2 observations survived); demoted "
+           << num_demoted << " point(s) left with < 2 observations.\n";
 
   // Remove outliers by elevation limit
   int num_outliers_by_elev_or_lonlat = 0;

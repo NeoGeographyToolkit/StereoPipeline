@@ -181,6 +181,7 @@ void BaState::copy_intrinsics(BaState const& other) {
 void BaState::copy_outliers(BaState const& other) {
   for (size_t i = 0; i < m_outlier_points_vec.size(); i++)
     m_outlier_points_vec[i] = other.m_outlier_points_vec[i];
+  m_outlier_obs = other.m_outlier_obs;
 }
 
 // Compute the offset in m_intrinsics_vec to the requested data
