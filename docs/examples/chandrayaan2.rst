@@ -492,7 +492,71 @@ The correction is small but real: a north-east-down translation of about (2.6,
 1.8, 0.5) meters, with a very small rotation. It is mostly a 3 m horizontal nudge
 plus a 0.5 m down shift that removes the slight vertical bias (the DEM minus the
 LOLA shots goes from a median of -0.47 m to about 0) and tightens the fit by
-roughly 20 percent (NMAD from 1.74 to 1.39 m). 
+roughly 20 percent (NMAD from 1.74 to 1.39 m).
+
+.. _ohrc_nac_coreg:
+
+OHRC-LRO NAC coregistration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+OHRC and LRO NAC images (:numref:`lronac-example`) acquired with similar
+illumination can be bundle-adjusted together (:numref:`bundle_adjust`). This
+helps with alignment and the creation of joint products, including orthoimages
+and potentially shape-from-shading (:numref:`sfs_usage`).
+
+OHRC images have a ground sample distance of about 0.25 m/pixel while LRO NAC is
+around 1.0 m/pixel. In order to find interest point matches, they can be
+mapprojected (:numref:`mapproject`) onto an existing DEM
+(:numref:`sfs_initial_terrain`) at a compromise resolution of 0.5 m/pixel.
+
+As an example, consider the OHRC image::
+
+    ch2_ohr_ncp_20241208T1355014366_d_img_d18
+
+and the LRO NAC image ``M111186999RE``. Their Sun azimuth angles (as printed by
+``sfs --query``, :numref:`sfs_azimuth`) are about -135.7 and -136.8 degrees, so
+their shadows agree and they can be matched to each other.
+
+Set a local projection, for example south polar stereographic::
+
+    proj="+proj=stere +lat_0=-90 +lon_0=0 +R=1737400 +units=m"
+
+Both can be mapprojected with a command such as::
+
+    mapproject -t csm                                \
+      --tr 0.5                                       \
+      --t_srs "$proj"                                \
+      dem.tif                                        \
+      ch2_ohr_ncp_20241208T1355014366_d_img_d18.cub  \
+      ch2_ohr_ncp_20241208T1355014366_d_img_d18.json \
+      ohrc_map.tif
+
+Then bundle-adjust using the mapprojected images (:numref:`mapip`). Use the
+default OBALoG interest point detector (``--ip-detect-method 0``). This gives
+many more matches than the SIFT detector (``--ip-detect-method 1``)::
+
+    bundle_adjust -t csm                \
+      --datum D_MOON                    \
+      --image-list images.txt           \
+      --camera-list cameras.txt         \
+      --mapprojected-data-list maps.txt \
+      --ip-detect-method 0              \
+      --ip-per-tile 2000                \
+      --matches-per-tile 1000           \
+      -o ba/run
+
+Here ``images.txt`` and ``cameras.txt`` list the raw .cub files and their
+CSM cameras (:numref:`csm`) respectively, and ``maps.txt`` lists the
+mapprojected images (one file per line). All these must be in the same order.
+
+.. figure:: ../images/chandrayaan2_ohrc_nac_matches.png
+   :name: chandrayaan2_ohrc_nac_matches
+
+   Interest point matches between the OHRC image (left) and the LRO NAC image
+   (right). The images are raw (the mapprojection is undone after the matching).
+
+We found that solving for jitter (:numref:`jitter_solve`) can further improve
+registration.
 
 .. _chandra2_tmc:
 

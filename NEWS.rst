@@ -22,6 +22,8 @@ New features:
     can be mosaicked (:numref:`dg_mosaic`).
 
 bundle_adjust (:numref:`bundle_adjust`):
+  * Added a documentation section on OHRC-LRO NAC coregistration
+    (:numref:`ohrc_nac_coreg`).
   * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
     ground control point (GCP) residuals.
   * Added the option ``--ip-match-radius``. For mapprojected images, drops
