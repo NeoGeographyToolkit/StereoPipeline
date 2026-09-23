@@ -2177,8 +2177,9 @@ compute the variance for each DEM pixel (available in ASP 3.6.0 or later).
 
 The square root of the variance is the standard deviation, a relative measure of
 DEM height uncertainty.
-Without properly specifying weights based on brightness, variance values are
-uncalibrated and they do not represent real elevation uncertainties in meters.
+Without properly specifying weights based on brightness uncertainty, variance values
+are not in phyiscal units. They should not be used to represent real elevation
+uncertainties (in meters).
 
 Use the ``--save-variances`` option (:numref:`sfs_opt`) with ``parallel_sfs``
 (:numref:`parallel_sfs_usage`). The resulting output file is described in
@@ -2197,14 +2198,14 @@ propagated into a slope uncertainty, and they help reveal the spatial
 correlation of errors. See :numref:`sfs_outputs` for the output files.
 
 An image pixel brightness uncertainty model is needed to properly scale the
-weights: an appropriately scale covariance matrix can be obtained by weighting each
+weights: an appropriately-scaled covariance matrix can be obtained by weighting each
 residual term according to the brightness uncertainty at that pixel. Pixel brightness
 uncertainty can be modeled as a fraction of intensity, which is controlled using
-``--brightness-sigma-scaling``. The default value of 0 effectively induces equal 
-weighting and reduces to the uncalibrated case. Additionally, to avoid assigning
-unreasonably large weights to dark pixels, a minimum weight should be provided using
-the ``--min-brightness-sigma`` option; all pixel values scaled below this threshold will
-be assigned the threshold sigma value.
+``--brightness-sigma-scaling``. The default value of 0 effectively imposes equal 
+weighting and reduces to the unweighted least squares case (ASP's original solution approach).
+Additionally, to avoid assigning unreasonably large weights to dark pixels, a minimum
+weight should be provided using the ``--min-brightness-sigma`` option; all pixel
+values scaled below this threshold will be assigned the threshold sigma value.
 
 Previously, the option ``--estimate-height-errors`` was employed, with a
 different implementation. This is now obsolete. See :numref:`sfs_opt` for
@@ -2212,7 +2213,8 @@ details.
 
 A useful exercise is to run SfS with two independent sets of images, each with
 diverse illumination, compare the produced DEMs, and see how that compares with
-the estimated uncertainty.
+the estimated uncertainty. A more complete calibration procedure will be detailed
+in an upcoming publication (Repasky et al., in preparation).
 
 .. _sfs_jitter:
 
