@@ -259,15 +259,15 @@ Command-line options for sfs
     thresholds are set.
 
 --brightness-sigma-scaling <float (default: 0)>
-    Fraction of image pixel intensity used to approximate standard deviation of
+    Fraction of image pixel intensity used to approximate uncertainty of
     brightness at each pixel, for use in weighted least squares. The default value
-    of 0 removes per-pixel differences in weights. The minimum standard deviation
+    of 0 removes per-pixel differences in weights. The minimum sigma
     estimated for each pixel is defined by ``--min-brightness-sigma``. See
     :numref:`sfs_unc` for usage.
 
 --min-brightness-sigma <float (default: 1)>
-    The minimum value of the modeled, per-pixel brightness standard deviation. At
-    each pixel, the minimum sigma overrides the ``brightness-sigma-scaling`` sigma
+    The minimum value of the modeled, per-pixel brightness uncertainty. At
+    each pixel, the minimum sigma overrides the ``--brightness-sigma-scaling`` sigma
     if ``--min-brightness-sigma`` is larger at that pixel. See :numref:`sfs_unc`
     for usage.
 
