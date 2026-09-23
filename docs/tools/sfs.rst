@@ -324,8 +324,9 @@ Command-line options for sfs
     files are of the form ``<output prefix>-*-sim-intensity.tif``. The image
     exposures will be computed along the way unless specified via
     ``--image-exposures-prefix``, and will be saved in either case to ``<output
-    prefix>-exposures.txt``. Same for haze, if applicable. See also
-    ``--save-meas-intensity-only``.
+    prefix>-exposures.txt``. Same for haze, if applicable. The albedo is read
+    from ``--input-albedo`` if set, otherwise a uniform value of 1 is used. See
+    also ``--save-meas-intensity-only``.
 
 --save-meas-intensity-only
     Save the measured image intensities at each DEM pixel for the given DEM,

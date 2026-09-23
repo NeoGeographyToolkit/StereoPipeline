@@ -98,7 +98,8 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "of the form <output prefix>-*-sim-intensity.tif. The image exposures "
    "will be computed along the way unless specified via --image-exposures-prefix, and "
    "will be saved in either case to <output prefix>-exposures.txt. Same for haze, if "
-   "applicable. See also: --save-meas-intensity-only.")
+   "applicable. The albedo is read from --input-albedo if set, otherwise a uniform "
+   "value of 1 is used. See also: --save-meas-intensity-only.")
   ("save-meas-intensity-only",
   po::bool_switch(&opt.save_meas_intensity_only)->default_value(false)->implicit_value(true),
     "Save the measured image intensities at each DEM pixel for the given DEM, "
