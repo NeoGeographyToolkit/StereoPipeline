@@ -349,11 +349,14 @@ void genLinescanCameras(double                                 first_line_time,
     // ratio = pixelAspectRatio(opt, dem_georef, *ls_cam, dem, height_guess);
   }
   
+  if (opt.flip_cross_track)
+    ls_cam->flip_cross_track();
+
   double timestamp = std::numeric_limits<double>::quiet_NaN();
   int iFrame = -1; // No frame index for linescan cameras
   bool isRef = false;
   bool isFrame = false;
-  std::string ref= ""; 
+  std::string ref= "";
   std::string filename = camPrefix(opt, iFrame, timestamp, isRef, isFrame, suffix) + ".json";
   vw::vw_out() << "Writing: " << filename << "\n";
   ls_cam->saveState(filename);
@@ -365,6 +368,8 @@ void genLinescanCameras(double                                 first_line_time,
                            opt.image_size, dem_georef.datum(), sensor_id,
                            positions,  velocities, ref_cam2world, have_rig, ref2sensor,
                            ref_cam); // output
+    if (opt.flip_cross_track)
+      ref_cam.flip_cross_track();
     isRef = true;
     std::string ref_filename = 
       camPrefix(opt, iFrame, timestamp, isRef, isFrame, suffix) + ".json";

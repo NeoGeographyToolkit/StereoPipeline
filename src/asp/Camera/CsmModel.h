@@ -171,6 +171,9 @@ namespace asp {
     // Set / get quaternions (only for linescan cameras)
     void set_linescan_quaternions(std::vector<double> const& quaternions);
     std::vector<double> linescan_quaternions() const;
+
+    // Flip detector sample direction (camera-space left-right mirror)
+    void flip_cross_track();
     
     double frame_pixel_pitch() const; // pixel pitch for frame camera
     

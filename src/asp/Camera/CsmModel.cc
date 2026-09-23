@@ -1426,6 +1426,19 @@ void CsmModel::set_optical_center(vw::Vector2 const& optical_center) {
     csmFieldThrow("detector line");
 }
 
+// Flip detector sample direction (camera-space left-right mirror)
+void CsmModel::flip_cross_track() {
+  UsgsAstroLsSensorModel * ls_model
+    = dynamic_cast<UsgsAstroLsSensorModel*>(m_gm_model.get());
+  if (ls_model == NULL)
+    vw::vw_throw(vw::ArgumentErr()
+      << "flip_cross_track: this is only supported for linescan CSM cameras.\n");
+
+  ls_model->m_iTransS[1] = -ls_model->m_iTransS[1];
+  ls_model->m_detectorSampleOrigin
+    = (ls_model->m_nSamples - 1.0) - ls_model->m_detectorSampleOrigin;
+}
+
 // Get quaternions (only for linescan cameras)
 std::vector<double> CsmModel::linescan_quaternions() const {
 

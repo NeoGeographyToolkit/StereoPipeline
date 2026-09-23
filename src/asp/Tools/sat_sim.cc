@@ -138,10 +138,14 @@ void handle_arguments(int argc, char *argv[], asp::SatSimOptions& opt,
      "For each created camera, save also the 'reference' camera that has no roll, pitch, "
      "yaw, jitter, or 90 degree in-sensor-plane rotation from camera to satellite " 
      "coordinates. Their names have '-ref-' after the output prefix.")
-    ("save-as-csm", 
+    ("save-as-csm",
       po::bool_switch(&opt.save_as_csm)->default_value(false)->implicit_value(true),
       "Save Pinhole (frame) cameras in the CSM format, as done for linescan cameras. "
       "Can be used to combine these sensors in bundle adjustment and solving for jitter.")
+    ("flip-cross-track",
+      po::bool_switch(&opt.flip_cross_track)->default_value(false)->implicit_value(true),
+      "For linescan cameras, flip the detector sample (cross-track) direction. "
+      "Equivalent to mirroring the image left-right.")
      ("rig-config", po::value(&opt.rig_config)->default_value(""),
      "Simulate a frame camera rig with this configuration file. Then do not set the image "
      "size, focal length, optical center on the command line, as those are set by the rig. "
