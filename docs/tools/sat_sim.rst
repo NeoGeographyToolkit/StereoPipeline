@@ -224,10 +224,14 @@ and ``--last-ground-pos``.
 
 Unlike in :numref:`sat_sim_custom_path`, the camera orientations will not change.
 
-Currently, in this mode one must have the roll and yaw angles set to zero.
-Then, the satellite should follow an orbit whose vertical projection onto the
-ground is quite similar to the provided ground path. These restrictions may be
-relaxed in the future.
+In this mode the yaw angle must be zero, but the roll and pitch can be nonzero.
+If roll is zero, the solver optimizes only the along-track camera position to
+fit the pitch, keeping the cameras strictly on the original orbit trajectory.
+If roll is nonzero, the solver also finds an across-track offset to place the
+camera off-nadir so that the tilted look angle images the requested ground path.
+(A nonzero yaw rotates the frame in-plane and cannot be compensated by a position
+shift, so it is not supported here.) The satellite should follow an orbit whose
+vertical projection onto the ground is quite similar to the provided ground path.
 
 It is not important to know very accurately the values of ``--first-ground-pos``
 and ``--last-ground-pos``. The trajectory of the camera center ground footprint
@@ -896,6 +900,13 @@ Command-line options
     Save Pinhole (frame) cameras in the CSM format, as done for linescan
     cameras. Can be used to combine these sensors in bundle adjustment and
     solving for jitter. See an example in :numref:`jitter_linescan_frame_cam`.
+
+--flip-cross-track
+    For created linescan cameras, flip the detector sample (cross-track)
+    direction. This is the camera-space equivalent of mirroring the input image
+    from left to right, so the original (unflipped) image maps correctly when
+    the stored image column order is opposite to the sat_sim sample convention.
+    Only for linescan cameras.
 
 --rig-config <string (default="")>
     Simulate a frame camera rig with this configuration file. Then do not set
