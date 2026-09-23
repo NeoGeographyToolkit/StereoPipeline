@@ -504,9 +504,9 @@ illumination can be bundle-adjusted together (:numref:`bundle_adjust`). This
 helps with alignment and the creation of joint products, including orthoimages
 and potentially shape-from-shading (:numref:`sfs_usage`).
 
-OHRC images have a ground sample distance of about 0.25 m/pixel while LRO NAC is
-around 1.0 m/pixel. In order to find interest point matches, they can be
-mapprojected (:numref:`mapproject`) onto an existing DEM
+OHRC images have a ground sample distance (GSD) of about 0.25 m/pixel while LRO
+NAC GSD is around 1.0 m/pixel. In order to find interest point matches, they can
+be mapprojected (:numref:`mapproject`) onto an existing DEM
 (:numref:`sfs_initial_terrain`) at a compromise resolution of 0.5 m/pixel.
 
 As an example, consider the OHRC image::
@@ -553,7 +553,10 @@ mapprojected images (one file per line). All these must be in the same order.
    :name: chandrayaan2_ohrc_nac_matches
 
    Interest point matches between the OHRC image (left) and the LRO NAC image
-   (right). The images are raw (the mapprojection is undone after the matching).
+   (right), shown on the raw images. The two frames are seen from very different
+   perspectives and appear mirror-flipped, which is an effect of a different
+   acquisition modality. Matching is done on the mapprojected images, which look
+   much more similar, then transferred to these raw images.
 
 We found that solving for jitter (:numref:`jitter_solve`) can further improve
 registration.
