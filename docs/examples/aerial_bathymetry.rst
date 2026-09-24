@@ -53,6 +53,31 @@ providing the orientations as roll, pitch, yaw (:numref:`cam_gen_extrinsics`).
 It is suggested to study such input on a case-by-case basis. Our Pinhole camera
 format used for output is described in :numref:`pinholemodels`.
 
+Extracting image bands
+~~~~~~~~~~~~~~~~~~~~~~
+
+The RCD30 frames have four bands, in the order red, green, blue, and
+near-infrared (NIR). Bundle adjustment and stereo operate on single-band
+images, so one band must be extracted from each frame.
+
+Use the green band (band 2) for stereo and bundle adjustment. Green penetrates
+water better than red or blue, so it shows the most texture on a shallow water
+bottom. Use the NIR band (band 4) for water masking
+(:numref:`aerial_bathymetry_mask`), as water is dark in the NIR.
+
+Extract a band with ``gdal_translate``::
+
+    gdal_translate -b 2 -co compress=lzw \
+      img_0003.tif img_0003_green.tif
+    gdal_translate -b 4 -co compress=lzw \
+      img_0003.tif img_0003_nir.tif
+
+The band order can be confirmed with ``gdalinfo`` (:numref:`gdal_tools`).
+
+List the green-band images in ``images.txt``, one per line. That list is used
+for camera creation, bundle adjustment, and stereo below. In practice a short
+shell loop over all frames does the extraction and writes this list.
+
 Creation of camera models
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -108,8 +133,26 @@ geoid, so they must be converted to WGS84 ellipsoid heights with ``dem_geoid``
 (:numref:`dem_geoid`) before use, as discussed in :numref:`initial_terrain`.
 
 Where available, the USGS 3DEP lidar DEM is a much finer alternative (about 1
-m), also convertible with ``dem_geoid`` (its heights are relative to the NAVD88
-geoid).
+m). Like most published USGS products, its heights are relative to the NAVD88
+geoid (orthometric heights), not the ellipsoid. All heights in this pipeline,
+the cameras and the stereo output, are relative to the ellipsoid. The 3DEP DEM
+must therefore be converted to ellipsoidal heights before use, or else
+mapprojection, bundle adjustment, and validation are all off by the geoid
+separation, which is about 26 m near Sarasota, Florida.
+
+Convert it with ``dem_geoid`` (:numref:`dem_geoid`). The default direction of
+that tool subtracts the geoid to produce orthometric heights, so here the
+``--reverse-adjustment`` option is used to go the other way, adding the geoid
+to produce ellipsoidal heights::
+
+    dem_geoid              \
+      3dep_dem.tif         \
+      --reverse-adjustment \
+      -o 3dep_dem
+
+This writes ``3dep_dem-adj.tif``. Use that ellipsoidal DEM as ``ref_dem.tif`` in
+the commands below. For NAD83 the NAVD88 geoid is the default, so no geoid needs
+to be specified.
 
 .. figure:: ../images/examples/threedep_colorhs.png
    :name: aerial_bathymetry_3dep
@@ -249,6 +292,10 @@ median convergence angle is within ``--conv-angle-range`` is used.
 
 We set the DEM grid to 0.9 m, about four times the 0.23 m ground sample
 distance. The projection is the same as the cameras (here ``EPSG:6346``).
+
+If desired to use mapprojected images (:numref:`mapproj-example`), mapproject
+every image with the same grid size (option ``--tr``, :numref:`mapproject`) and
+the same projection.
 
 If the input images are mapprojected, add the option ``--dem`` that points to
 the DEM for mapprojection (:numref:`multi_stereo_dem_mosaic`).
