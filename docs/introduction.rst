@@ -10,12 +10,12 @@ satellites (:numref:`skysat`), and historical images (:numref:`kh4`).
 It has functionality for 3D terrain creation from stereo (:numref:`tutorial`),
 including shallow-water bathymetry (:numref:`bathy_intro`), alignment of point
 clouds (:numref:`pc_align`), map projection (:numref:`mapproject`),
-structure-from-motion
-(:numref:`sfm`), shape-from-shading (:numref:`sfs_usage`), bundle adjustment
-(:numref:`bundle_adjust`), solving for jitter (:numref:`jitter_solve`), rig
-calibration (:numref:`rig_calibrator`), refining camera intrinsics
-(:numref:`floatingintrinsics`), GCP generation (:numref:`gcp_gen`,
-:numref:`dem2gcp`), and a versatile GUI shell (:numref:`stereo_gui`).
+structure-from-motion (:numref:`sfm`), shape-from-shading (:numref:`sfs_usage`),
+bundle adjustment (:numref:`bundle_adjust`), solving for jitter
+(:numref:`jitter_solve`), rig calibration (:numref:`rig_calibrator`), refining
+camera intrinsics (:numref:`floatingintrinsics`), GCP generation
+(:numref:`gcp_gen`, :numref:`dem2gcp`), and a versatile GUI shell
+(:numref:`stereo_gui`).
 
 ASP produces cartographic products, including digital terrain models (DTMs) and
 ortho-projected images (:numref:`builddem`), 3D models (:numref:`point2mesh`),
@@ -30,10 +30,9 @@ public outreach.
 
    This 3D model was generated from a image pair M01/00115 and E02/01461
    (34.66N, 141.29E). The complete stereo reconstruction process takes
-   approximately thirty minutes on a 3.0 GHz workstation for input
-   images of this size (1024 |times| 8064 pixels). This model,
-   shown here without vertical exaggeration, is roughly 2 km wide in the
-   cross-track dimension. 
+   approximately thirty minutes on a 3.0 GHz workstation for input images of
+   this size (1024 |times| 8064 pixels). This model, shown here without vertical
+   exaggeration, is roughly 2 km wide in the cross-track dimension. 
 
 Background
 ----------
@@ -41,8 +40,8 @@ Background
 ASP is developed by the Intelligent Robotics Group (IRG) at the NASA Ames
 Research Center. It builds on more than two decades of planetary 3D surface
 reconstruction, first demonstrated on the Mars Pathfinder mission and since
-delivered to the :term:`MPL`, :term:`MER`, :term:`MRO`, and :term:`LRO`
-science operations teams.
+delivered to the :term:`MPL`, :term:`MER`, :term:`MRO`, and :term:`LRO` science
+operations teams.
 
 Software foundations
 --------------------
@@ -50,12 +49,11 @@ Software foundations
 NASA Vision Workbench
 ~~~~~~~~~~~~~~~~~~~~~
 
-The Stereo Pipeline is built upon the Vision Workbench software which is
-a general purpose image processing and computer vision library also
-developed by the IRG. Some of the tools discussed in this document are
-actually Vision Workbench programs, and any distribution of the Stereo
-Pipeline requires the Vision Workbench. This distinction is important
-only if compiling this software.
+The Stereo Pipeline is built upon the Vision Workbench software which is a
+general purpose image processing and computer vision library also developed by
+the IRG. Some of the tools discussed in this document are actually Vision
+Workbench programs, and any distribution of the Stereo Pipeline requires the
+Vision Workbench. This distinction is important only if compiling this software.
 
 The USGS Integrated Software for Imagers and Spectrometers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -66,8 +64,8 @@ Spectrometers (:term:`ISIS`, :numref:`planetary_images`). ISIS is however not
 required for processing terrestrial images (:numref:`dg_tutorial`).
 
 ISIS is widely used in the planetary science community for processing raw
-spacecraft images into high level data products of scientific interest
-such as map-projected and mosaicked images
+spacecraft images into high level data products of scientific interest such as
+map-projected and mosaicked images
 :cite:`2004LPI.35.2039A,1997LPI.28.387G,ISIS_website`.
 
 .. _get-help:
@@ -91,57 +89,26 @@ output by ``parallel_stereo`` and other tools (:numref:`logging`).
 Typographical conventions
 -------------------------
 
-Names of programs that are meant to be run on the command line are
-written in a constant-width font, like the ``parallel_stereo`` program, as are
-options to those programs.
+Program names and their command line options are shown in a constant-width
+font, such as ``parallel_stereo``.
 
-An indented line of constant-width text can be typed into your terminal,
-these lines will either begin with a '``>``' to denote a regular shell,
-or with '``ISIS>``' which denotes an ISIS-enabled shell (which means you have
-to set the ``ISISROOT`` environment variable and have sourced the appropriate
-ISIS startup script, as detailed in the ISIS instructions).
-
-::
+Commands to type in a terminal are shown indented and constant-width. A ``>``
+prompt is a regular shell. An ``ISIS>`` prompt is an ISIS-enabled shell
+(``ISISROOT`` set and the ISIS startup script sourced)::
 
     > ls
 
     ISIS> pds2isis
 
-Constant-width text enclosed in greater-than and less-than brackets denotes an 
-option or argument that a user will need to supply. For example,
-'``stereo E0201461.map.cub M0100115.map.cub out``' is specific, but
-'``stereo <left-image> <right-image> out``' indicates that ``<left-image>``
-and ``<right-image>`` are not the names of specific files, but dummy
-parameters which need to be replaced with actual file names.
-
-Square brackets denote optional options or values to a command, and
-items separated by a vertical bar are either aliases for each other, or
-different, specific options.  Default arguments or other notes are
-enclosed by parentheses, and line continuation with a backslash::
+In a command, ``<value>`` is an argument you supply, ``[ ]`` marks optional
+items, ``a|b`` are alternatives, ``( )`` gives a default or note, and a trailing
+backslash continues the command on the next line::
 
     point2dem [-h|--help] [-r moon|mars] [-s <float(default: 0.0)>] \
               [-o <output prefix>] <output prefix>-PC.tif
 
-The above indicates a run of the ``point2dem`` program. The only
-argument that it requires is a point cloud file, which is produced by
-the ``parallel_stereo`` program and ends in ``-PC.tif``, although its prefix
-could be anything (hence the greater-than and less-than enclosing brackets).
-Everything else is in square brackets indicating that they are optional.
-
-Here, ``--help`` and ``-h`` refer to the same thing. Similarly, the
-argument to the ``-r`` option must be either ``moon`` or ``mars``. The
-``-s`` option takes a floating point value as its argument, and has a
-default value of zero. The ``-o`` option takes a filename that will be
-used as the output DTM.
-
-Although there are two lines of constant-width text, the backslash at
-the end of the first line indicates that the command continues on the
-second line. You can either type everything into one long line on your
-own terminal, or use the backslash character and a return to continue
-typing on a second line in your terminal.
-
-Citing the Ames Stereo Pipeline in your work
---------------------------------------------
+Citing the Ames Stereo Pipeline
+-------------------------------
 
 In general, use this reference:
 
@@ -179,28 +146,19 @@ DOI <https://doi.org/10.5281/zenodo.598174>`__ for ASP.
 If you publish a paper using ASP, please let us know. We'll cite your
 work in this document, in :numref:`papersusingasp`.
 
-
 Warnings to users of the Ames Stereo Pipeline
 ---------------------------------------------
 
-Ames Stereo Pipeline is a **research** product. There may be bugs or
-incomplete features. We reserve the ability to change the API and
-command line options of the tools we provide. Although we hope you
-will find this release helpful, you use it at your own risk.
+Ames Stereo Pipeline is a research product. It may have bugs or incomplete
+features, and its APIs and command line options may change between releases. Use
+it at your own risk.
 
-While we are confident that the algorithms used by this software are
-robust, the Ames Stereo Pipeline has a lot of adjustable parameters, and
+The algorithms are robust, but the tools have many adjustable parameters, and
 even experienced operators can produce poor results. Inspect every product
 before relying on it, and watch for errors from poor input data or unsuitable
-settings. We *strongly recommend* that if you have any concerns about the
-products that you (or others) create with this software, please just get in
-contact with us.
-We can help you figure out either how to make the product better, or
-help you accurately describe the limitations of the data or the data
-products, so that you can use it to confidently make new and wonderful
-discoveries.
+settings. If you have concerns about a product, contact us (:numref:`get-help`).
+We can help improve it, or describe the limitations of the data.
 
-Please check each release's NEWS file (:numref:`news`) to see a summary of
-our recent changes.
+See each release's NEWS file (:numref:`news`) for a summary of recent changes.
 
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN
