@@ -350,7 +350,7 @@ calc_intensity_residual(SfsOptions const& opt,
       // fraction of intensity. Apply an intensity floor to avoid excessive
       // weights for very dark pixels.
       double const observed_intensity = intensity.child();
-      double const intensity_sigma = 
+      double const intensity_sigma =
         std::max(opt.brightness_sigma_scaling * observed_intensity, opt.min_brightness_sigma);
       double const intensity_weight = 1.0 / intensity_sigma;
 
