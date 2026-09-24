@@ -448,7 +448,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
     vw::vw_throw(vw::ArgumentErr()
                  << "--brightness-sigma-scaling must be non-negative.\n");
 
-  if (opt.brightness_sigma_scaling > 0.0) && (opt.min_brightness_sigma <= 0.0)
+  if (opt.brightness_sigma_scaling > 0.0 && opt.min_brightness_sigma <= 0.0)
     vw::vw_throw(vw::ArgumentErr()
                  << "--min-brightness-sigma must be positive.\n");
 
