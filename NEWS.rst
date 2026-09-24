@@ -124,6 +124,10 @@ corr_eval (:numref:`corr_eval`):
     localization uncertainty from the curvature of the correlation peak. These
     are the dense version of the two estimators in ``sparse_disp``.
 
+convert_pinhole_model (:numref:`convert_pinhole_model`):
+  * Added the option ``--penalty-weight``, to penalize higher-order RPC
+    coefficients when fitting an RPC distortion model.
+
 dem2gcp (:numref:`dem2gcp`):
   * The ground position of each interest point is now found by intersecting its
     camera rays with the DEM (as for the ``--heights-from-dem`` constraint in

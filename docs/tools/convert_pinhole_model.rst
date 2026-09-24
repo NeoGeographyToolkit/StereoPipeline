@@ -17,7 +17,9 @@ model where distortion is expressed as a ratio of polynomials.
 
 The degree of the RPC lens distortion can be specified via
 ``--rpc-degree``. A smaller value is suggested to start with, as
-lower-degree polynomials may be easier to interpret.
+lower-degree polynomials may be easier to interpret. The option
+``--penalty-weight`` can be used to penalize higher-order RPC
+coefficients to reduce high-frequency variations.
 
 Usage
 ~~~~~
@@ -85,6 +87,10 @@ Command-line options
 --rpc-degree <int (default: 3)>
     The degree of the polynomials, if the output distortion model
     is RPC.
+
+--penalty-weight <double (default: 0.0)>
+    Penalty weight to use to keep higher-order RPC coefficients small.
+    Higher penalty weight results in smaller such coefficients.
 
 --camera-to-ground-dist <double (default: 0)>
     The distance from the camera to the ground, in meters. This is
