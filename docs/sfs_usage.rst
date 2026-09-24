@@ -2206,6 +2206,9 @@ weighting and reduces to the unweighted least squares case (ASP's original solut
 Additionally, to avoid assigning unreasonably large weights to dark pixels, a minimum
 brightness uncertainty should be specified using the ``--min-brightness-sigma`` option; all pixel
 values scaled below this threshold will be assigned the threshold sigma value.
+Note that regularization weights ``--smoothness-weight`` and ``--initial-dem-constraint-weight``
+should be scaled up proportionally to the weights induced by brightness sigmas, i.e., by
+a factor of roughly 1 over the typical brightness sigma.
 
 Previously, the option ``--estimate-height-errors`` was employed, with a
 different implementation. This is now obsolete. See :numref:`sfs_opt` for

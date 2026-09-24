@@ -349,13 +349,20 @@ calc_intensity_residual(SfsOptions const& opt,
       // Approximate the per-pixel brightness standard deviation as a
       // fraction of intensity. Apply an intensity floor to avoid excessive
       // weights for very dark pixels.
-      double const observed_intensity = intensity.child();
-      double const intensity_sigma =
-        std::max(opt.brightness_sigma_scaling * observed_intensity, opt.min_brightness_sigma);
-      double const intensity_weight = 1.0 / intensity_sigma;
+      double intensity_weight = 1.0;
+      if (opt.brightness_sigma_scaling > 0.0) {
+        double const observed_intensity = intensity.child();
+        double const intensity_sigma =
+          std::max(opt.brightness_sigma_scaling * observed_intensity,
+                   opt.min_brightness_sigma);
+        if (intensity_sigma <= 0.0)
+          vw::vw_throw(vw::ArgumentErr()
+                       << "Intensity sigma must be positive when brightness uncertainty weighting is enabled.\n");
+        intensity_weight = 1.0 / intensity_sigma;
+      }
 
       residuals[0] = intensity_weight * ground_weight *
-        (observed_intensity -
+        (intensity.child() -
          calcSimIntensity(albedo[0], reflectance.child(), exposure[0],
                           opt.steepness_factor, haze, opt.num_haze_coeffs));
     }
