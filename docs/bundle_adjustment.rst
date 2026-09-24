@@ -409,8 +409,12 @@ a large intersection error. But, since bundle adjustment usually has two passes,
 at the second pass the improved cameras are used to recompute the point on the
 DEM with better accuracy. 
 
-This option can be more effective than using ``--reference-terrain`` when there
-is a large uncertainty in camera intrinsics.
+If a resulting DEM exhibits warping and a high quality prior DEM exists, the
+:ref:`dem2gcp` program can create GCP for bundle adjustment, to reduce the
+warping.
+
+The ``--heights-from-dem`` option can be more effective than using
+``--reference-terrain`` when there is a large uncertainty in camera intrinsics.
 
 See two other large-scale examples of using ``--heights-from-dem``, without
 floating the intrinsics, in the SkySat processing example (:numref:`skysat`),

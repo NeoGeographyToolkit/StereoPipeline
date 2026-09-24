@@ -13,20 +13,21 @@ Precompiled binaries
 Linux
 ~~~~~
 
-Binaries are available for both Intel (x86_64) and ARM64 (aarch64) architectures.
+Binaries are available for both Intel (x86_64) and ARM64 (aarch64)
+architectures.
 
 Choose either the latest build (recommended) or a stable release from:
 
 - `<https://github.com/NeoGeographyToolkit/StereoPipeline/releases>`_
 
-No installation steps or administrative rights are necessary.  Extract
-the archive, and run the executables in the ``bin`` subdirectory as::
+No installation steps or administrative rights are necessary.  Extract the
+archive, and run the executables in the ``bin`` subdirectory as::
 
     tar xvf StereoPipeline-3.7.0-2026-06-07-x86_64-Linux.tar.bz2
     ./StereoPipeline-3.7.0-2026-06-07-x86_64-Linux/bin/stereo --help
 
-Adjust the tarball name for your OS and architecture (Intel or Arm).
-The result of the last command should be a help message.
+Adjust the tarball name for your OS and architecture (Intel or Arm). The result
+of the last command should be a help message.
 
 To permanently add the ASP executable subdirectory to your PATH, add to your
 shell configuration (e.g., ``~/.bashrc``), a line similar to::

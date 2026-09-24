@@ -9,7 +9,8 @@ satellites (:numref:`skysat`), and historical images (:numref:`kh4`).
 
 It has functionality for 3D terrain creation from stereo (:numref:`tutorial`),
 including shallow-water bathymetry (:numref:`bathy_intro`), alignment of point
-clouds (:numref:`pc_align`), structure-from-motion
+clouds (:numref:`pc_align`), map projection (:numref:`mapproject`),
+structure-from-motion
 (:numref:`sfm`), shape-from-shading (:numref:`sfs_usage`), bundle adjustment
 (:numref:`bundle_adjust`), solving for jitter (:numref:`jitter_solve`), rig
 calibration (:numref:`rig_calibrator`), refining camera intrinsics
@@ -37,98 +38,11 @@ public outreach.
 Background
 ----------
 
-The Intelligent Robotics Group (IRG) at the NASA Ames Research
-Center has been developing 3D surface reconstruction and visualization
-capabilities for planetary exploration for more than a decade. First
-demonstrated during the Mars Pathfinder Mission, the IRG has delivered
-tools providing these capabilities to the science operations teams
-of the :term:`MPL` mission, the :term:`MER` mission, the :term:`MRO`
-mission, and the :term:`LRO` mission. A critical component technology
-enabling this work is the ASP. The Stereo Pipeline generates high
-quality, dense, texture-mapped 3D surface models from stereo image
-pairs. In addition, ASP provides tools to perform many other
-cartography tasks including map projection, point cloud and DEM
-registration, automatic registration of cameras, data format
-conversion, and data visualization.
-
-Although initially developed for ground control and scientific
-visualization applications, the Stereo Pipeline has evolved to address
-orbital stereogrammetry and cartographic applications. In particular,
-long-range mission planning requires detailed knowledge of planetary
-topography, and high resolution topography is often derived from stereo
-pairs captured from orbit. Orbital mapping satellites are sent as
-precursors to planetary bodies in advance of landers and rovers. They
-return a wealth of images and other data that helps mission planners and
-scientists identify areas worthy of more detailed study. Topographic
-information often plays a central role in this planning and analysis
-process.
-
-Our recent development of the Stereo Pipeline coincides with a
-period of time when NASA orbital mapping missions are returning
-orders of magnitude more data than ever before. Data volumes from
-the Mars and Lunar Reconnaissance Orbiter missions now measure in
-the tens of terabytes.  There is growing consensus that existing
-processing techniques, which are still extremely human intensive
-and expensive, are no longer adequate to address the data processing
-needs of NASA and the Planetary Science community. To pick an example
-of particular relevance, the :term:`HiRISE` instrument has captured
-a few thousand stereo pairs. Of these, only about two hundred stereo
-pairs have been processed to date; mostly on human-operated, high-end
-photogrammetric workstations. It is clear that much more value could
-be extracted from this valuable raw data if a more streamlined,
-efficient process could be developed.
-
-The Stereo Pipeline was designed to address this very need. By applying
-recent advances in computer vision, we have created an *automated*
-process that is capable of generating high quality DTMs with minimal human
-intervention. Users of the Stereo Pipeline can expect to spend some time
-picking a handful of settings when they first start processing a new
-type of image, but once this is done, the Stereo Pipeline can be used to
-process tens, hundreds, or even thousands of stereo pairs without
-further adjustment. With the release of this software, we hope to
-encourage the adoption of this tool chain at institutions that run and
-support these remote sensing missions. Over time, we hope to see this
-tool incorporated into ground data processing systems alongside other
-automated image processing pipelines. As this tool continues to mature,
-we believe that it will be capable of producing digital elevation models
-of exceptional quality without any human intervention.
-
-Human vs. Computer: When to Choose Automation?
-----------------------------------------------
-
-When is it appropriate to choose automated stereo mapping over the use
-of a conventional, human-operated photogrammetric workstation? This is a
-philosophical question with an answer that is likely to evolve over the
-coming years as automated data processing technologies become more
-robust and widely adopted. For now, our opinion is that you should
-*always* rely on human-guided, manual data processing techniques for
-producing mission critical data products for missions where human lives
-or considerable capital resources are at risk. In particular, maps for
-landing site analysis and precision landing absolutely require the
-benefit of an expert human operator to eliminate obvious errors in the
-DEMs, and also to guarantee that the proper procedures have been
-followed to correct satellite telemetry errors so that the data have the
-best possible geodetic control.
-
-When it comes to using DTMs for scientific analysis, both techniques have
-their merits. Human-guided stereo reconstruction produces DTMs of
-unparalleled quality that benefit from the intuition and experience of
-an expert. The process of building and validating these DTMs is
-well-established and accepted in the scientific community.
-
-However, only a limited number of DTMs can be processed to this level of
-quality. For the rest, automated stereo processing can be used to
-produce DTMs at a fraction of the cost. The results are not necessarily less
-accurate than those produced by the human operator, but they will not
-benefit from the same level of scrutiny and quality control. As such,
-users of these DTMs must be able to identify potential issues, and be on the
-lookout for errors that may result from the improper use of these tools.
-
-We recommend that all users of the Stereo Pipeline take the time to
-thoroughly read this documentation and build an understanding of how
-stereo reconstruction and bundle adjustment can be best used together to
-produce high quality results. You are welcome to contact us if you have
-any questions (:numref:`get-help`).
+ASP is developed by the Intelligent Robotics Group (IRG) at the NASA Ames
+Research Center. It builds on more than two decades of planetary 3D surface
+reconstruction, first demonstrated on the Mars Pathfinder mission and since
+delivered to the :term:`MPL`, :term:`MER`, :term:`MRO`, and :term:`LRO`
+science operations teams.
 
 Software foundations
 --------------------
@@ -146,29 +60,15 @@ only if compiling this software.
 The USGS Integrated Software for Imagers and Spectrometers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For processing non-terrestrial NASA satellite images, Stereo Pipeline
-must be installed alongside a copy of the Integrated Software for
-Imagers and Spectrometers (:term:`ISIS`). ISIS is however not required for
-processing terrestrial images (DigitalGlobe/Maxar WorldView, etc.).
+For processing non-terrestrial NASA satellite images, Stereo Pipeline must be
+installed alongside a copy of the Integrated Software for Imagers and
+Spectrometers (:term:`ISIS`, :numref:`planetary_images`). ISIS is however not
+required for processing terrestrial images (:numref:`dg_tutorial`).
 
 ISIS is widely used in the planetary science community for processing raw
 spacecraft images into high level data products of scientific interest
 such as map-projected and mosaicked images
 :cite:`2004LPI.35.2039A,1997LPI.28.387G,ISIS_website`.
-We chose ISIS because (1) it is widely adopted by the planetary science
-community, (2) it contains the authoritative collection of geometric
-camera models for planetary remote sensing instruments, and (3) it is
-open source software that is easy to leverage.
-
-By installing the Stereo Pipeline, you will be adding an advanced stereo
-image processing capability that can be used in your existing ISIS workflow.
-The Stereo Pipeline supports the ISIS cube (``.cub``) file format, and can
-make use of the camera models and ancillary information (i.e. SPICE
-kernels) for imagers on many NASA spacecraft. The use of this single
-standardized set of camera models ensures consistency between products
-generated in the Stereo Pipeline and those generated by ISIS. Also by
-leveraging ISIS camera models, the Stereo Pipeline can process stereo pairs
-captured by just about any NASA mission.
 
 .. _get-help:
 
@@ -290,9 +190,11 @@ will find this release helpful, you use it at your own risk.
 
 While we are confident that the algorithms used by this software are
 robust, the Ames Stereo Pipeline has a lot of adjustable parameters, and
-even experienced operators can produce poor results. We *strongly
-recommend* that if you have any concerns about the products that you (or
-others) create with this software, please just get in contact with us.
+even experienced operators can produce poor results. Inspect every product
+before relying on it, and watch for errors from poor input data or unsuitable
+settings. We *strongly recommend* that if you have any concerns about the
+products that you (or others) create with this software, please just get in
+contact with us.
 We can help you figure out either how to make the product better, or
 help you accurately describe the limitations of the data or the data
 products, so that you can use it to confidently make new and wonderful
