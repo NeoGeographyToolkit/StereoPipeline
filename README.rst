@@ -12,17 +12,26 @@ Ames Stereo Pipeline (ASP)
    :target: https://stereopipeline.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation for latest version
 
-The NASA Ames Stereo Pipeline (ASP) is a suite of free and open source
-automated geodesy and stereogrammetry tools designed for processing
-stereo images captured from satellites (around Earth and other
-planets), robotic rovers, aerial cameras, and historical images, with
-and without accurate camera pose information.
+The NASA Ames Stereo Pipeline (ASP) is a suite of free and open source automated
+geodesy and stereogrammetry tools designed for processing stereo images captured
+from satellites (around Earth and other planets), robotic rovers, aerial
+cameras, and historical images, with and without accurate camera pose
+information.
+
+ASP supports a wide range of camera models, including linescan, frame,
+pushframe, optical bar, RPC, and the USGS Community Sensor Model (CSM). It can
+create cameras from scratch and refine them with bundle adjustment, solving for
+pose, jitter, lens distortion, and rig calibration.
+
+It has functionality for 3D terrain creation from stereo, including
+shallow-water bathymetry, alignment of point clouds, mapprojection,
+structure-from-motion, shape-from-shading, GCP generation, and a
+versatile GUI shell.
 
 ASP produces cartographic products, including digital terrain models
-(DTMs, synonymous with digital elevation models, DEMs),
-ortho-projected images, 3D models, and bundle-adjusted networks of
-cameras. These data products are suitable for science analysis,
-mission planning, and public outreach.
+(DTMs), ortho-projected images, 3D models, and bundle-adjusted
+networks of cameras. These data products are suitable for science
+analysis, mission planning, and public outreach.
 
 * ASP is free software released under the Apache Software License 2.0.
 * Documentation: https://stereopipeline.readthedocs.io
@@ -32,7 +41,7 @@ Installation
 
 Precompiled binaries for Linux (Intel and ARM64) and macOS (Intel and ARM64) are
 available for the stable releases and the current development build. Download
-the appropriate distribution for your operating system and architecture,
+the appropriate distribution for the operating system and architecture,
 extract, and run the executables in the ``bin`` subdirectory.
 
 - `Stable releases, daily builds, and conda packages
@@ -42,13 +51,12 @@ See the `NEWS
 <https://stereopipeline.readthedocs.io/en/latest/news.html>`_
 for the most recent additions.
 
-To permanently add the ASP executable subdirectory to your PATH,
-you can add the following line to your shell configuration (e.g.,
-``~/.bashrc``), replacing ``/path/to/StereoPipeline/bin`` with the location
-on your filesystem: ``export PATH=${PATH}:/path/to/StereoPipeline/bin``
+To permanently add the ASP executable subdirectory to the PATH, add a
+line such as this to a shell configuration file (e.g., ``~/.bashrc``):
+``export PATH=${PATH}:/path/to/StereoPipeline/bin``
 
 *ISIS users*: Please install the latest `USGS ISIS
-<https://github.com/DOI-USGS/ISIS3>`_ if you would like to process NASA
+<https://github.com/DOI-USGS/ISIS3>`_ to process NASA
 non-terrestrial images. Users wishing to process Earth images, such as Digital
 Globe, satellites with RPC cameras, or various frame/pinhole cameras do not need
 to download anything else. If ASP is installed with conda, it will install ISIS
@@ -63,9 +71,6 @@ The documentation includes a gentle introduction to using the Stereo Pipeline,
 an entry for each tool, and example processing workflows for many supported
 sensors.
 
-The ReStructured Text source files for the documentation are in the `docs`
-subdirectory of the ASP distribution.
-
 Support and user community
 ==========================
 
@@ -74,9 +79,8 @@ can be posted on the `ASP support forum
 <https://groups.google.com/forum/#!forum/ames-stereo-pipeline-support>`_.
 
 We also encourage the posting of issues on the `GitHub repo
-<https://github.com/NeoGeographyToolkit/StereoPipeline>`_ (most
-such items posted on the forum will typically be converted to an
-issue there for the developers to work on), as well as pull requests.
+<https://github.com/NeoGeographyToolkit/StereoPipeline>`_, as well as
+pull requests.
 
 Credits
 =======
@@ -104,8 +108,8 @@ In general, please use this reference for the Ames Stereo Pipeline:
   processing terrain data, Earth and Space Science, 5.
   https://doi.org/10.1029/2018EA000409.
 
-If you are using ASP for application to Earth Images, or need a reference
-which details the quality of the output, then we suggest also referencing:
+For application to Earth images, or for a reference detailing the quality
+of the output, also cite:
 
   Shean, D. E., O. Alexandrov, Z. Moratto, B. E. Smith, I. R. Joughin,
   C. C. Porter, Morin, P. J. 2016. An automated, open-source pipeline
@@ -114,13 +118,13 @@ which details the quality of the output, then we suggest also referencing:
   of Photogrammetry and Remote Sensing, 116.
   https://doi.org/10.1016/j.isprsjprs.2016.03.012.
 
-In addition to the recommended citation, we ask that you also cite
-the DOI for the specific version of ASP that you used for processing.
-Every new release (and daily build) of ASP will have its own unique
-DOI, which can be found `here <https://doi.org/10.5281/zenodo.598174>`_.
+In addition to the recommended citation, please also cite the DOI for
+the specific version of ASP used for processing. Every new release (and
+daily build) of ASP has its own unique DOI, which can be found `here
+<https://doi.org/10.5281/zenodo.598174>`_.
 
-Additional details for how to cite ASP in your published work can be found
-in the ASP documentation.
+Additional details for citing ASP in published work are in the ASP
+documentation.
 
 License
 =======

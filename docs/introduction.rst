@@ -7,14 +7,18 @@ satellites, around Earth and other planets (:numref:`examples`), robotic rovers
 (:numref:`rig_msl`, :numref:`csm_msl`), aerial cameras (:numref:`sfm`), low-cost
 satellites (:numref:`skysat`), and historical images (:numref:`kh4`).
 
+ASP supports a wide range of camera models, including linescan, frame, pushframe
+(:numref:`cassis`), optical bar, RPC, and the USGS Community Sensor Model
+(:numref:`csm`). It can create cameras from scratch and refine them with bundle
+adjustment (:numref:`bundle_adjust`), solving for pose, jitter
+(:numref:`jitter_solve`), lens distortion (:numref:`floatingintrinsics`), and
+rig calibration (:numref:`rig_calibrator`).
+
 It has functionality for 3D terrain creation from stereo (:numref:`tutorial`),
 including shallow-water bathymetry (:numref:`bathy_intro`), alignment of point
-clouds (:numref:`pc_align`), map projection (:numref:`mapproject`),
+clouds (:numref:`pc_align`), mapprojection (:numref:`mapproject`),
 structure-from-motion (:numref:`sfm`), shape-from-shading (:numref:`sfs_usage`),
-bundle adjustment (:numref:`bundle_adjust`), solving for jitter
-(:numref:`jitter_solve`), rig calibration (:numref:`rig_calibrator`), refining
-camera intrinsics (:numref:`floatingintrinsics`), GCP generation
-(:numref:`gcp_gen`, :numref:`dem2gcp`), and a versatile GUI shell
+GCP generation (:numref:`gcp_gen`, :numref:`dem2gcp`), and a versatile GUI shell
 (:numref:`stereo_gui`).
 
 ASP produces cartographic products, including digital terrain models (DTMs) and
