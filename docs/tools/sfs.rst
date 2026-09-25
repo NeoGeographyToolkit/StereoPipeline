@@ -262,7 +262,7 @@ Command-line options for sfs
     Fraction of image pixel intensity used to approximate uncertainty of
     brightness at each pixel, for use in weighted least squares. The default value
     of 0 removes per-pixel differences in weights. The minimum sigma
-    estimated for each pixel is defined by ``--min-brightness-sigma``. 
+    estimated for each pixel is defined by ``--min-brightness-sigma``.
     Note that when using uncertainty weighting, ``--smoothness-weight``
     and ``--initial-dem-constraint-weight`` should be scaled up proportionally
     (roughly 1 over the typical brightness sigma). See :numref:`sfs_unc` for usage.
