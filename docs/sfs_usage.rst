@@ -2177,11 +2177,13 @@ compute the variance for each DEM pixel (available in ASP 3.6.0 or later).
 
 The square root of the variance is the standard deviation, a relative measure of
 DEM height uncertainty.
+
 Without properly specifying weights based on brightness uncertainty, variance values
 are not in physical units. They should not be used to represent real elevation
-uncertainties (in meters).
+uncertainties (in meters). See :numref:`sfs_brightness_uncertainty` for how to scale
+the weights using an image brightness uncertainty model.
 
-Use the ``--save-variances`` option (:numref:`sfs_opt`) with ``parallel_sfs``
+Use the ``--save-variances`` option (:numref:`sfs_options`) with ``parallel_sfs``
 (:numref:`parallel_sfs_usage`). The resulting output file is described in
 :numref:`sfs_outputs`.
 
@@ -2189,7 +2191,7 @@ The variance is computed from the diagonal of the covariance matrix of the
 optimized parameters, using the `Ceres Covariance Estimation
 <http://ceres-solver.org/nnls_covariance.html>`_ method.
 
-The ``--save-covariances`` option (:numref:`sfs_opt`), available in build 2026/2
+The ``--save-covariances`` option (:numref:`sfs_options`), available in build 2026/2
 or later (:numref:`release`), saves the covariance between each DEM pixel and
 four nearby neighbors, at row and column offsets (0, +2), (+1, -1), (+1, +1),
 and (+2, 0). These are the pixel pairs that enter the central-difference
@@ -2197,27 +2199,13 @@ and (+2, 0). These are the pixel pairs that enter the central-difference
 propagated into a slope uncertainty, and they help reveal the spatial
 correlation of errors. See :numref:`sfs_outputs` for the output files.
 
-An image pixel brightness uncertainty model is needed to properly scale the
-weights: an appropriately-scaled covariance matrix can be obtained by weighting each
-residual term according to the brightness uncertainty at that pixel. Pixel brightness
-uncertainty can be modeled as a fraction of intensity, which is controlled using
-``--brightness-sigma-scaling``. The default value of 0 effectively imposes equal
-weighting and reduces to the unweighted least squares case (ASP's original solution approach).
-Additionally, to avoid assigning unreasonably large weights to dark pixels, a minimum
-brightness uncertainty should be specified using the ``--min-brightness-sigma`` option; all pixel
-values scaled below this threshold will be assigned the threshold sigma value.
-Note that regularization weights ``--smoothness-weight`` and ``--initial-dem-constraint-weight``
-should be scaled up proportionally to the weights induced by brightness sigmas, i.e., by
-a factor of roughly 1 over the typical brightness sigma.
-
 Previously, the option ``--estimate-height-errors`` was employed, with a
-different implementation. This is now obsolete. See :numref:`sfs_opt` for
+different implementation. This is now obsolete. See :numref:`sfs_options` for
 details.
 
 A useful exercise is to run SfS with two independent sets of images, each with
 diverse illumination, compare the produced DEMs, and see how that compares with
-the estimated uncertainty. A more complete calibration procedure will be detailed
-in an upcoming publication (Repasky et al., in preparation).
+the estimated uncertainty.
 
 .. _sfs_jitter:
 

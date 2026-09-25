@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -80,18 +80,18 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   po::value(&opt.input_albedo),
    "The input albedo image, if known. Must have same dimensions as the input DEM. "
    "Otherwise it is initialized to 1. Can be refined with --float-albedo.")
-  ("float-albedo",  
+  ("float-albedo",
   po::bool_switch(&opt.float_albedo)->default_value(false)->implicit_value(true),
    "Float the albedo for each pixel. Will give incorrect results if only one image is "
    "present. The albedo is normalized, its nominal value is 1.")
-  ("float-exposure",  
+  ("float-exposure",
   po::bool_switch(&opt.float_exposure)->default_value(false)->implicit_value(true),
    "Float the exposure for each image. Will give incorrect results if only one image is "
    "present. It usually gives marginal results.")
-  ("model-shadows",  
+  ("model-shadows",
   po::bool_switch(&opt.model_shadows)->default_value(false)->implicit_value(true),
    "Model the fact that some points on the DEM are in the shadow (occluded from the Sun).")
-  ("save-sim-intensity-only",  
+  ("save-sim-intensity-only",
   po::bool_switch(&opt.save_sim_intensity_only)->default_value(false)->implicit_value(true),
    "Save the simulated image intensities at each DEM pixel for the given DEM, images, "
    "cameras, and reflectance model, without refining the DEM. The output files are "
@@ -132,7 +132,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "etc.), and smoothness weight are ignored. Results are not computed at image pixels "
    "in shadow. This produces <output prefix>-height-error.tif. No SfS DEM is computed. "
    "See also --height-error-params. This uncertainty may be overly optimistic.")
-  ("height-error-params", 
+  ("height-error-params",
   po::value(&opt.height_error_params)->default_value(vw::Vector2(5.0, 100.0), "5.0 100"),
    "Specify the largest height deviation to examine (in meters), and how many samples to use from 0 to that height.")
   ("sun-positions",
@@ -155,22 +155,22 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "A shadow threshold to apply to all images. Must be positive. Areas that "
    "are in shadow in all images will result in a blurred version of the input DEM, "
    "influenced by the --smoothness-weight.")
-  ("custom-shadow-threshold-list", 
+  ("custom-shadow-threshold-list",
   po::value(&opt.custom_shadow_threshold_list)->default_value(""),
    "A list having one image and one shadow threshold per line. For the images specified "
    "here, override the shadow threshold supplied by other means with this value.")
-  ("low-light-threshold", 
+  ("low-light-threshold",
   po::value(&opt.low_light_threshold)->default_value(-1.0),
    "A threshold for low-light pixels. If positive, pixels with intensity between "
    "this and the shadow threshold will be given less weight, if other images have higher "
    "intensity values at the same ground point. This helps fix seams. See also "
    "--low-light-weight-power and --low-light-blur-sigma.")
-  ("low-light-weight-power", 
+  ("low-light-weight-power",
   po::value(&opt.low_light_weight_power)->default_value(4.0),
    "With the option --low-light-threshold, the weight of a low-light pixel is inversely "
    "proportional with the discrepancy between the simulated and observed pixel value, "
    "raised to this power.")
-  ("low-light-blur-sigma", 
+  ("low-light-blur-sigma",
   po::value(&opt.low_light_blur_sigma)->default_value(3.0),
    "With the option --low-light-threshold, apply a Gaussian blur with this sigma to the "
    "low-light weight image, to make it continuous.")
@@ -188,7 +188,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "difference (using the Cauchy loss). Any difference much larger than this will be "
    "penalized. A good value may be 5% to 25% of the average image value or the same "
    "fraction of the computed image exposure values.")
-  ("albedo-constraint-weight", 
+  ("albedo-constraint-weight",
   po::value(&opt.albedo_constraint_weight)->default_value(0),
    "If floating the albedo, a larger value will try harder to keep the optimized albedo "
    "close to the initial albedo. See also --input-albedo and --albedo-robust-threshold.")
@@ -197,16 +197,16 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "If floating the albedo and this threshold is positive, apply a Cauchy loss with this "
    "threshold to the product of the albedo difference and the albedo constraint weight.")
   ("skip-images",
-  po::value(&opt.skip_images_str)->default_value(""), 
+  po::value(&opt.skip_images_str)->default_value(""),
    "Skip images with these indices (indices start from 0).")
-  ("save-dem-with-nodata",  
+  ("save-dem-with-nodata",
   po::bool_switch(&opt.save_dem_with_nodata)->default_value(false)->implicit_value(true),
    "Save a copy of the DEM while using a no-data value at a DEM grid point where all "
    "images show shadows. To be used if shadow thresholds are set.")
-  ("use-approx-camera-models",  
+  ("use-approx-camera-models",
   po::bool_switch(&opt.use_approx_camera_models)->default_value(false)->implicit_value(true),
    "Use approximate camera models for speed. Only with ISIS .cub cameras.")
-  ("crop-input-images",  
+  ("crop-input-images",
   po::bool_switch(&opt.crop_input_images)->default_value(false)->implicit_value(true),
    "Crop the images to a region that was computed to be large enough, and keep them "
    "fully in memory, for speed. This is the default in the latest builds.")
@@ -221,7 +221,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   po::value(&opt.min_blend_size)->default_value(0),
    "Do not apply blending in shadowed areas for which both the width and height are less "
    "than this.")
-  ("allow-borderline-data",  
+  ("allow-borderline-data",
   po::bool_switch(&opt.allow_borderline_data)->default_value(false)->implicit_value(true),
    "At the border of the region where there are no lit pixels in any images, do not let "
    "the blending weights decay to 0. This noticeably improves the level of detail. The "
@@ -233,7 +233,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   po::value(&opt.curvature_in_shadow)->default_value(0.0),
    "Attempt to make the curvature of the DEM (the Laplacian) at points in shadow in all "
    "images equal to this value, which should make the DEM curve down.")
-  ("curvature-in-shadow-weight", 
+  ("curvature-in-shadow-weight",
   po::value(&opt.curvature_in_shadow_weight)->default_value(0.0),
    "The weight to give to the curvature in shadow constraint.")
   ("lit-curvature-dist",
@@ -279,13 +279,13 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   po::value(&opt.init_dem_height)->default_value(nan),
    "Use this value for initial DEM heights (measured in meters, relative to the datum). "
    "An input DEM still needs to be provided for georeference information.")
-  ("crop-win", 
+  ("crop-win",
   po::value(&opt.crop_win)->default_value(vw::BBox2i(0, 0, 0, 0), "xoff yoff xsize ysize"),
    "Crop the input DEM to this region before continuing.")
   ("nodata-value",
   po::value(&opt.nodata_val)->default_value(nan),
    "Use this as the DEM no-data value, over-riding what is in the initial guess DEM.")
-  ("fix-dem",  
+  ("fix-dem",
   po::bool_switch(&opt.fix_dem)->default_value(false)->implicit_value(true),
    "Do not float the DEM at all. Useful when floating the model params.")
   ("read-exposures",
@@ -298,10 +298,10 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   ("read-albedo",
   po::bool_switch(&opt.read_albedo)->default_value(false)->implicit_value(true),
    "If specified, read the computed albedo with the current output prefix.")
-  ("float-reflectance-model",  
+  ("float-reflectance-model",
   po::bool_switch(&opt.float_reflectance_model)->default_value(false)->implicit_value(true),
    "Allow the coefficients of the reflectance model to float (not recommended).")
-  ("integrability-constraint-weight", 
+  ("integrability-constraint-weight",
   po::value(&opt.integrability_weight)->default_value(0.0),
    "Use the integrability constraint from Horn 1990 with this value of its weight.")
   ("smoothness-weight-pq",
@@ -309,7 +309,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "Smoothness weight for p and q, when the integrability constraint "
    "is used. A larger value will result in a smoother solution "
    "(experimental).")
-  ("query",  
+  ("query",
   po::bool_switch(&opt.query)->default_value(false)->implicit_value(true),
    "Print some info and exit. Invoked from parallel_sfs.")
   ("session-type,t",
@@ -317,14 +317,14 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "Select the stereo session type to use for processing. Usually the program can select "
    "this automatically by the file extension, except for xml cameras. See the doc for "
    "options.")
-  ("gradient-weight", 
+  ("gradient-weight",
   po::value(&opt.gradient_weight)->default_value(0.0),
    "The weight given to the cost function term which consists of sums of squares of "
    "first-order derivatives. A larger value will result in shallower slopes but less "
    "noise. This can be used in conjunction with --smoothness-weight. It is suggested to "
    "experiment with this with a value of 0.0001 - 0.01, while reducing the smoothness "
    "weight to a very small value.")
-  ("save-sparingly",  
+  ("save-sparingly",
   po::bool_switch(&opt.save_sparingly)->default_value(false)->implicit_value(true),
    "Avoid saving any results except the adjustments and the DEM, as that's a lot of files.")
   ("save-variances",
@@ -338,23 +338,23 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
    "--save-variances), also save the covariance between each DEM pixel and its four "
    "horizontal and vertical neighbors, and the same for the albedo if --float-albedo "
    "is on.")
+  ("brightness-sigma-scaling",
+   po::value(&opt.brightness_sigma_scaling)->default_value(0.0),
+   "Fraction of image intensity used to approximate per-pixel brightness "
+   "standard deviation.")
+  ("min-brightness-sigma",
+   po::value(&opt.min_brightness_sigma)->default_value(0.0),
+   "Minimum approximated value of per-pixel brightness standard deviation, "
+   "to limit weights for dark pixels.")
   ("camera-position-step-size",
   po::value(&opt.camera_position_step_size)->default_value(1.0),
    "Larger step size will result in more aggressiveness in varying the camera position "
-   "if it is being floated (which may result in a better solution or in divergence).")
-    ("brightness-sigma-scaling",
-     po::value(&opt.brightness_sigma_scaling)->default_value(0.0),
-     "Fraction of image intensity used to approximate per-pixel brightness "
-     "standard deviation.")
-    ("min-brightness-sigma",
-     po::value(&opt.min_brightness_sigma)->default_value(0.0),
-     "Minimum approximated value of per-pixel brightness standard deviation, "
-     "to limit weights for dark pixels.");
+   "if it is being floated (which may result in a better solution or in divergence).");
 
   general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
-  positional.add_options() 
+  positional.add_options()
     ("input-images", po::value(&opt.input_images));
 
   po::positional_options_description positional_desc;
@@ -367,7 +367,6 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
     asp::check_command_line(argc, argv, opt, general_options, general_options,
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
-
 
   // Sanity checks. Put this early, before separating images from cameras, as that
   // function can print a message not reflecting the true issue of missing the DEM.
@@ -452,6 +451,11 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
     vw::vw_throw(vw::ArgumentErr()
                  << "--min-brightness-sigma must be non-negative.\n");
 
+  if (opt.brightness_sigma_scaling > 0.0 && opt.min_brightness_sigma <= 0.0)
+    vw::vw_throw(vw::ArgumentErr()
+                 << "When --brightness-sigma-scaling is positive, "
+                 << "--min-brightness-sigma must be positive.\n");
+
   if (opt.steepness_factor <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "The steepness factor must be positive.\n");
 
@@ -464,7 +468,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
 
   if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
     if (opt.use_approx_camera_models || opt.crop_input_images) {
-      vw::vw_out(vw::WarningMessage) 
+      vw::vw_out(vw::WarningMessage)
         << "When computing exposures only, not using approximate camera models or "
         << "cropping input images.\n";
       // Turn off various settings that are needed only when doing iterations  
@@ -550,7 +554,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
       }
     }
   }
-  
+
   // If the low-light-threshold is specified, ensure it is above all shadow thresholds,
   // and that the shadow thresholds are positive.
   if (opt.low_light_threshold > 0) {
@@ -566,7 +570,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
       vw::vw_throw(vw::ArgumentErr()
         << "When using --low-light-threshold, must set --allow-borderline-data.\n");
   }
-        
+
   if (opt.low_light_weight_power <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "Expecting a positive --low-light-weight-power.\n");
   if (opt.low_light_blur_sigma <= 0.0)
@@ -574,7 +578,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   if (opt.erode_seams && opt.low_light_threshold <= 0.0)
    vw::vw_throw(vw::ArgumentErr()
      << "When using --erode-seams, must set a positive --low-light-threshold.\n");
-   
+
   // Parse max valid image vals
   std::istringstream ism(opt.max_valid_image_vals);
   opt.max_valid_image_vals_vec.clear();
@@ -791,7 +795,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   if (opt.estimate_height_errors && opt.save_covariances)
     vw::vw_throw(vw::ArgumentErr() << "Cannot estimate height errors with --save-covariances.");
 
-  if (opt.save_sim_intensity_only || opt.save_meas_intensity_only || 
+  if (opt.save_sim_intensity_only || opt.save_meas_intensity_only ||
       opt.estimate_height_errors) {
 
     // No iterations
@@ -811,7 +815,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   // Cannot have both sun positions and sun angles
   if (opt.sun_positions_list.size() > 0 && opt.sun_angles_list.size() > 0)
     vw::vw_throw(vw::ArgumentErr() << "Cannot specify both sun positions and sun angles.\n");
-    
+
   if (!opt.ref_map.empty()) {
     // --ref-map is to be used only with --save-sim-intensity-only or
     // --save-meas-intensity-only
@@ -819,12 +823,12 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
       vw::vw_throw(vw::ArgumentErr()
                << "--ref-map is to be used only with --save-sim-intensity-only or "
                << "--save-meas-intensity-only.\n");
-      
+
      // This is also incompatible with non-empty crop win
      if (!opt.crop_win.empty())
       vw::vw_throw(vw::ArgumentErr()
                << "--ref-map is incompatible with --crop-win.\n");
-      
+
   }
 
   // If --save-covariances is on, also turn on --save-variances
@@ -839,7 +843,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
         << "Computing the albedo variance may be ill-posed when "
         << "floating haze or exposures.\n";
   }
-  
+
 } // end function handleSfsArgs
-    
+
 } // end namespace asp

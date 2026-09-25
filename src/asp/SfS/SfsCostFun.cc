@@ -356,8 +356,7 @@ calc_intensity_residual(SfsOptions const& opt,
           std::max(opt.brightness_sigma_scaling * observed_intensity,
                    opt.min_brightness_sigma);
         if (intensity_sigma <= 0.0)
-          vw::vw_throw(vw::ArgumentErr()
-                       << "Intensity sigma must be positive when brightness uncertainty weighting is enabled.\n");
+          return true; // Not normally reachable
         intensity_weight = 1.0 / intensity_sigma;
       }
 

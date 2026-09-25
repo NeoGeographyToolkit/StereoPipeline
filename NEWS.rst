@@ -358,7 +358,10 @@ dem2gcp (:numref:`dem2gcp`):
 
 sfs (:numref:`sfs`):
   * Recommend the variance-based uncertainty estimation (:numref:`sfs_unc`).
-  * Added the option ``--save-covariances`` (:numref:`sfs_opt`).
+  * Added the option ``--save-covariances`` (:numref:`sfs_options`).
+  * Added the options ``--brightness-sigma-scaling`` and ``--min-brightness-sigma``
+    to weight residuals based on image brightness uncertainty
+    (:numref:`sfs_brightness_uncertainty`).
 
 rig_calibrator (:numref:`rig_calibrator`):
   * Replaced ``--camera-position-weight`` with ``--camera-position-uncertainty``.
