@@ -1123,6 +1123,36 @@ location a file of the form::
 having the elapsed time and memory usage, as output by ``/usr/bin/time``.
 This can guide tuning of parameters to reduce resource usage.
 
+.. _debug_tiles:
+
+Debugging tile failures
+^^^^^^^^^^^^^^^^^^^^^^^
+
+If specific tiles fail or leave holes in the output DEM, the tile map shapefile
+(ending in ``-tiles.shp``, :ref:`tiles shapefile <tiles_shp>`) can help diagnose
+the problem. Open this shapefile in ``stereo_gui`` (:numref:`stereo_gui`) or
+QGIS on top of the DEM (if the images were mapprojected) or on top of ``-L.tif``
+(if unprojected). Each tile polygon contains a ``tile_id`` attribute (an integer
+starting from 0).
+
+Because ``parallel_stereo`` deletes tile subdirectories after combining results,
+re-run with ``--resume-at-corr --keep-only unchanged`` (or ``--entry-point 1
+--keep-only unchanged``) to keep them. In the file ``<output-prefix>-dirList.txt``,
+line *N* corresponds to ``tile_id`` *N* and gives the directory name
+(``<output-prefix>-<x>_<y>_<w>_<h>``).
+
+Check the log in that directory (such as ``<tile-prefix>-stereo_corr.log``) to
+see if the process crashed, such as from running out of memory, or if it finished
+cleanly but found no matches. To re-run only that tile, invoke
+``parallel_stereo`` with the same arguments plus::
+
+    --entry-point 1 --stop-point 2 \
+    --tile-id <id>
+
+If correlation failed because the process ran out of memory, check if the search
+range is excessive. Check if ``L.tif`` and ``R.tif`` show large shifts. Reduce
+the value of ``--processes``.
+
 .. _next_steps_ba:
 
 Correcting camera positions and orientations

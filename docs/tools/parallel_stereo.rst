@@ -91,6 +91,8 @@ for the ``asp_bm`` algorithm, 256 for ``asp_sgm``/``asp_mgm``, and 128
 with local alignment or an external algorithm.
 
 The padding can be increased if artifacts at tile boundary are noticed.
+See :numref:`debug_tiles` for how to use the tile shapefile to investigate tile
+failures.
 
 Resuming a run
 ~~~~~~~~~~~~~~
@@ -105,6 +107,9 @@ An example is given in :numref:`mapproj_reuse`. Another one is in
 If the program failed during correlation, such as because of
 insufficient memory, it can be told to resume without recomputing the
 existing good partial results with the option ``--resume-at-corr``.
+
+If specific tiles fail or produce gaps in the output DEM, see
+:numref:`debug_tiles` for how to locate and debug them using the tile shapefile.
 
 .. _entrypoints:
 

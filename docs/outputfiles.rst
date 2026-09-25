@@ -219,6 +219,8 @@ Diagnostics files
     The status is also printed to standard output as each tile gets done (unless
     there is only one tile).
 
+.. _tiles_shp:
+
 \*-tiles.shp - shapefile having the tiles
 
     This file saves the tiles used in processing (:numref:`ps_tiling`). Each is
@@ -242,6 +244,9 @@ Diagnostics files
     Otherwise the shapefile is in pixel units. The y coordinate is then written
     with the negative sign, so that the shapefile appears correctly on top of
     ``L.tif`` and ``R.tif`` in QGIS and ``stereo_gui``.
+
+    For how to use this file to locate and debug failed tiles, see
+    :numref:`debug_tiles`.
 
 .. _out_log_files:
 
