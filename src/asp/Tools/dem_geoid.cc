@@ -474,11 +474,14 @@ int main(int argc, char *argv[]) {
         << "axis lengths differ.\n";
     }
 
-    // Put an interpolation and mask wrapper around the input geoid file
+    // Put an interpolation and mask wrapper around the input geoid file.
+    // Use ConstantEdgeExtension so that bicubic interpolation near the
+    // boundary (e.g., the poles for the MOLA areoid) repeats the nearest
+    // valid value instead of inserting zeros.
     ImageViewRef<PixelMask<double>> geoid
       = interpolate(create_mask(pixel_cast<double>(geoid_img),
                                 geoid_nodata_val),
-                    BicubicInterpolation(), ZeroEdgeExtension());
+                    BicubicInterpolation(), ConstantEdgeExtension());
 
     // Set up conversion image view
     ImageViewRef<double> adj_dem = dem_geoid(dem_img, dem_georef,
