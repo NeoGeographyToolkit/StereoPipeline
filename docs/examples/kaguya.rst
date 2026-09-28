@@ -57,8 +57,8 @@ For each image, run commands along the lines of::
 
 Create CSM cameras (:numref:`csm`)::
 
-    $ISISROOT/bin/isd_generate --only_naif_spice \
-        TC1W2B0_01_02936N034E0938.cub            \
+    $ISISROOT/bin/isd_generate --reduction linear --only_naif_spice \
+        TC1W2B0_01_02936N034E0938.cub                               \
         -k TC1W2B0_01_02936N034E0938.cub
 
 Bundle adjustment and stereo

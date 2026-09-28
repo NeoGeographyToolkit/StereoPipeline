@@ -71,6 +71,15 @@ correction. Here are the steps, illustrated on one image::
     lronaccal   from = ${f}.cub     to = ${f}.cal.cub
     lronacecho  from = ${f}.cal.cub to = ${f}.cal.echo.cub
 
+To create a CSM camera model (:numref:`csm_linescan`) from the calibrated cube,
+run ``isd_generate`` from the ALE package::
+
+    isd_generate --reduction linear -k ${f}.cal.echo.cub ${f}.cal.echo.cub
+
+This will produce the CSM camera state file ``${f}.cal.echo.json``. The
+``--reduction linear`` option is necessary to handle a pending issue in ALE
+that results in very large and slow-loading camera models.
+
 Note that for these commands to succeed, ISIS and its supporting data
 must be downloaded, per :numref:`planetary_images`.
 

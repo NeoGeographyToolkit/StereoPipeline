@@ -162,8 +162,8 @@ from the ALE package, following the linescan recipe in
 :numref:`create_csm_linescan`::
 
     export ALESPICEROOT=$ISISDATA
-    isd_generate -k ohrc/img1.cub ohrc/img1.cub
-    isd_generate -k ohrc/img2.cub ohrc/img2.cub
+    isd_generate --reduction linear -k ohrc/img1.cub ohrc/img1.cub
+    isd_generate --reduction linear -k ohrc/img2.cub ohrc/img2.cub
 
 It is expected that the environment is activated with ``conda activate``, with
 ``ISISROOT`` set to ``$CONDA_PREFIX``, and ``$ISISDATA`` and ``$ALESPICEROOT``
@@ -616,7 +616,7 @@ attach the kernels and create the CSM camera for each, using ``isd_generate``
 with the ``-k`` option::
 
     spiceinit from = tmc/fwd.cub
-    isd_generate -k tmc/fwd.cub tmc/fwd.cub
+    isd_generate --reduction linear -k tmc/fwd.cub tmc/fwd.cub
 
 and the same for ``tmc/nadir.cub`` and ``tmc/aft.cub``.
 
@@ -646,8 +646,8 @@ the format, and compare with existing ``.tm`` files for other missions. Then run
 ``isd_generate`` without the ``-k`` option::
 
     export ALESPICEROOT=$ISISDATA
-    isd_generate tmc/fwd.cub
-    isd_generate tmc/aft.cub
+    isd_generate --reduction linear tmc/fwd.cub
+    isd_generate --reduction linear tmc/aft.cub
 
 Check each JSON with ``cam_test`` (:numref:`cam_test`).
 

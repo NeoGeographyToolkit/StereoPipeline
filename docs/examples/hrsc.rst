@@ -119,8 +119,8 @@ Create an ISD for each stereo channel. The ``-k`` option tells ``isd_generate``
 which cube's attached SPICE kernels to use; here each cube supplies its own,
 set earlier by ``spiceinit``::
 
-    isd_generate -k h1995_0000_s13.cub h1995_0000_s13.cub
-    isd_generate -k h1995_0000_s23.cub h1995_0000_s23.cub
+    isd_generate --reduction linear -k h1995_0000_s13.cub h1995_0000_s13.cub
+    isd_generate --reduction linear -k h1995_0000_s23.cub h1995_0000_s23.cub
 
 This writes ``h1995_0000_s13.json`` and ``h1995_0000_s23.json``. Each ``.json``
 is the CSM camera for the corresponding ``.cub`` image.

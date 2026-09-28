@@ -114,7 +114,7 @@ yet support ShadowCam.
 The ``-k`` flag tells ``isd_generate`` which cube's attached SPICE kernels to
 use; here the cube supplies its own, set earlier by ``spiceinit``::
 
-    isd_generate -k M074289249SE.cub M074289249SE.cub
+    isd_generate --reduction linear -k M074289249SE.cub M074289249SE.cub
 
 This produces ``M074289249SE.json``. Repeat for the second observation.
 

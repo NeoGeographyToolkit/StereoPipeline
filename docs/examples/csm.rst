@@ -187,11 +187,8 @@ Run the ISIS ``spiceinit`` command on the .cub files as::
 Next, CSM cameras are created, with ``isd_generate``. This program is discussed
 in :numref:`create_csm_dawn`.
 
-*Note:* Currently shipped version of ``isd_generate`` (in ALE 1.0.2) has a bug,
-creating very large linescan camera models that are very slow to load. If this
-is noticed, consider putting `this fix
-<https://github.com/DOI-USGS/ale/pull/677>`_ in the ``type_sensor.py`` file in
-the ALE package.
+*Note:* Pass ``--reduction linear`` to ``isd_generate`` for linescan sensors to
+avoid creating very large camera models that are slow to load.
 
 *Note:* The ALE build on conda-forge (version 1.2.0) can produce an incomplete
 ISD for LRO NAC: the ``lrolrocnac`` distortion coefficient is written as a
@@ -201,8 +198,8 @@ which has this fix.
 
 Run::
 
-    isd_generate left.cub
-    isd_generate right.cub
+    isd_generate --reduction linear left.cub
+    isd_generate --reduction linear right.cub
     
 This will produce ``left.json`` and ``right.json``.
 
