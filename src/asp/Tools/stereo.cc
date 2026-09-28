@@ -1274,7 +1274,7 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
     if (std::abs(M1(0, 0) - M2(0, 0)) > tol || std::abs(M1(1, 1) - M2(1, 1)) > tol)
         vw::vw_throw(vw::ArgumentErr()
                << "The input mapprojected images must have the same ground resolution "
-               << "for best results. This can be overriden with the option "
+               << "for best results. This can be overridden with the option "
                << "--allow-different-mapproject-gsd, but is not recommended.\n");
   }
 

@@ -91,7 +91,7 @@ void read_csv_metadata(std::string              const& csv_file,
     return;
   }
 
-  // Each file has its own csv format. Will be overriden if specified by the user
+  // Each file has its own csv format. Will be overridden if specified by the user
   // via --csv-format-str.
   std::string local_csv_format_str;
 
