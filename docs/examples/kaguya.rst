@@ -49,17 +49,23 @@ For each image, run commands along the lines of::
       setnullrange=NO sethrsrange=NO sethisrange=NO \
       setlrsrange=NO setlisrange=NO
 
-    $ISISROOT/bin/spiceinit from=TC1W2B0_01_02936N034E0938.cub \
-        web=false attach=TRUE cksmithed=FALSE ckrecon=TRUE     \
-        ckpredicted=FALSE cknadir=FALSE spksmithed=true        \
-        spkrecon=TRUE spkpredicted=FALSE shape=SYSTEM          \
+    $ISISROOT/bin/spiceinit                                \
+        from=TC1W2B0_01_02936N034E0938.cub                 \
+        web=false attach=TRUE cksmithed=FALSE ckrecon=TRUE \
+        ckpredicted=FALSE cknadir=FALSE spksmithed=true    \
+        spkrecon=TRUE spkpredicted=FALSE shape=SYSTEM      \
         startpad=0.0 endpad=0.0
 
 Create CSM cameras (:numref:`csm`)::
 
-    $ISISROOT/bin/isd_generate --reduction linear --only_naif_spice \
-        TC1W2B0_01_02936N034E0938.cub                               \
-        -k TC1W2B0_01_02936N034E0938.cub
+    $ISISROOT/bin/isd_generate           \
+        --reduction linear               \
+        --only_naif_spice                \
+        -k TC1W2B0_01_02936N034E0938.cub \
+        TC1W2B0_01_02936N034E0938.cub
+
+The same cub file is repeated twice in this invocation, with the first being
+an argument to ``-k``.
 
 Bundle adjustment and stereo
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -115,14 +115,20 @@ Point ``ISISDATA`` at the ISIS data directory (:numref:`planetary_images`)::
 
     export ISISDATA=/path/to/isisdata
 
-Create an ISD for each stereo channel. The ``-k`` option tells ``isd_generate``
-which cube's attached SPICE kernels to use; here each cube supplies its own,
-set earlier by ``spiceinit``::
+Create an ISD for each stereo channel::
 
-    isd_generate --reduction linear -k h1995_0000_s13.cub h1995_0000_s13.cub
-    isd_generate --reduction linear -k h1995_0000_s23.cub h1995_0000_s23.cub
+    isd_generate                  \
+      --reduction linear          \
+      -k h1995_0000_s13.cub       \
+      h1995_0000_s13.cub
+    isd_generate                  \
+      --reduction linear          \
+      -k h1995_0000_s23.cub       \
+      h1995_0000_s23.cub
 
 This writes ``h1995_0000_s13.json`` and ``h1995_0000_s23.json``. Each ``.json``
-is the CSM camera for the corresponding ``.cub`` image.
+is the CSM camera for the corresponding ``.cub`` image. The cub file is repeated
+twice in each invocation, with the first being an argument to ``-k``. This
+option ensures the cube's attached SPICE kernels are used.
 
 Then, stereo processing can happen as in :numref:`csm_linescan_stereo`.

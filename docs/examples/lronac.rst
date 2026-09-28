@@ -74,7 +74,9 @@ correction. Here are the steps, illustrated on one image::
 To create a CSM camera model (:numref:`csm_linescan`) from the calibrated cube,
 run ``isd_generate`` from the ALE package::
 
-    isd_generate --reduction linear -k ${f}.cal.echo.cub ${f}.cal.echo.cub
+    isd_generate --reduction linear \
+        -k ${f}.cal.echo.cub        \
+        ${f}.cal.echo.cub
 
 This will produce the CSM camera state file ``${f}.cal.echo.json``. The
 ``--reduction linear`` option is necessary to handle a pending issue in ALE
@@ -109,32 +111,37 @@ Running stereo
 Stereo can then be run either with unstitched or stitched .cub files.
 Here's an example with the unstitched LE images::
 
-    parallel_stereo M104318871LE.cub M104311715LE.cub  \
-      --alignment-method affineepipolar                \
+    parallel_stereo M104318871LE.cub M104311715LE.cub \
+      --stereo-algorithm asp_mgm                      \
+      --alignment-method affineepipolar               \
       run/run
+
+See :numref:`nextsteps` for a discussion about various stereo speed-vs-quality
+choices. Consider using mapprojection (:numref:`mapproj-example`) for best
+results for steep slopes.
 
 Create a DEM, orthoimage, and error image with ``point2dem``
 (:numref:`point2dem`)::
  
-    point2dem --stereographic --auto-proj-center \
-      --errorimage --orthoimage                  \
-        run/run-PC.tif run/run-L.tif
+    point2dem                   \
+      --stereographic           \
+      --auto-proj-center        \
+      --errorimage              \
+      --orthoimage              \
+      run/run-PC.tif            \
+      run/run-L.tif
         
 Check the stereo convergence angle as printed during preprocessing
-(:numref:`stereo_pairs`). That angle is often too small for LRO NAC,
-and then the results are not going to be great.
+(:numref:`stereo_pairs`). That angle is often too small for LRO NAC, and then
+the results are not going to be great.
 
 Check the triangulation error (:numref:`triangulation_error`) in the produced
 error image. This may suggest that bundle adjustment may be needed
 (:numref:`bundle_adjust`).
 
-See :numref:`nextsteps` for a discussion about various stereo
-speed-vs-quality choices. Consider using mapprojection
-(:numref:`mapproj-example`) for best results for steep slopes.
-
-It is strongly suggested to convert the cameras to CSM 
-(:numref:`csm_linescan`). This makes mapprojection faster, 
-and also can help solve for jitter (:numref:`jitter_solve`).
+It is strongly suggested to convert the cameras to CSM (:numref:`csm_linescan`).
+This makes mapprojection faster, and also can help solve for jitter
+(:numref:`jitter_solve`).
 
 .. _lronac_align:
 
