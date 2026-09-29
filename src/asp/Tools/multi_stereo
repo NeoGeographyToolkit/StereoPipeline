@@ -34,9 +34,8 @@ threads per pair. The modes differ only in how the per-pair clouds are fused:
               data with no datum.
 
 The image pairs come from an overlap list (--overlap-list), or a convergence angle
-range (--conv-angle-list, --conv-angle-range). Either way works in both modes. When the
-images are mapprojected (dem_mosaic with a seed DEM), these lists may name either the
-mapprojected images or the images before mapprojection.
+range (--conv-angle-list, --conv-angle-range). Either way works in both modes, and may
+name the --image-list images or the images they were mapprojected from.
 """
 
 import argparse, os, re, shutil, subprocess, sys, glob, shlex, tempfile
@@ -197,9 +196,9 @@ def process_args(args):
                         "<prefix>-convergence_angles.txt. Each pair whose median "       + \
                         "convergence angle is within --conv-angle-range is used. An "    + \
                         "alternative to --overlap-list for choosing the pairs, in both " + \
-                        "modes. When the images are mapprojected (--dem is set), this "  + \
-                        "report may name either the mapprojected images or the images "  + \
-                        "before mapprojection. Mutually exclusive with --overlap-list.")
+                        "modes. The report may name the --image-list images, or the "    + \
+                        "images they were mapprojected from. Mutually exclusive with "   + \
+                        "--overlap-list.")
 
     parser.add_argument("--conv-angle-range", dest="conv_angle_range", default="",
                         help = "Two comma-separated values, the min and max median "   + \
