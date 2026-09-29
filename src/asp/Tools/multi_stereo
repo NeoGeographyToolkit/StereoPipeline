@@ -33,8 +33,10 @@ threads per pair. The modes differ only in how the per-pair clouds are fused:
               rig (--rig-config, --camera-poses), for robot / structure-from-motion
               data with no datum.
 
-The image pairs come from an overlap list (--overlap-list), or in dem_mosaic mode from
-a convergence angle range (--conv-angle-list, --conv-angle-range).
+The image pairs come from an overlap list (--overlap-list), or a convergence angle
+range (--conv-angle-list, --conv-angle-range). Either way works in both modes. When the
+images are mapprojected (dem_mosaic with a seed DEM), these lists may name either the
+mapprojected images or the images before mapprojection.
 """
 
 import argparse, os, re, shutil, subprocess, sys, glob, shlex, tempfile
@@ -195,7 +197,9 @@ def process_args(args):
                         "<prefix>-convergence_angles.txt. Each pair whose median "       + \
                         "convergence angle is within --conv-angle-range is used. An "    + \
                         "alternative to --overlap-list for choosing the pairs, in both " + \
-                        "modes. Mutually exclusive with --overlap-list.")
+                        "modes. When the images are mapprojected (--dem is set), this "  + \
+                        "report may name either the mapprojected images or the images "  + \
+                        "before mapprojection. Mutually exclusive with --overlap-list.")
 
     parser.add_argument("--conv-angle-range", dest="conv_angle_range", default="",
                         help = "Two comma-separated values, the min and max median "   + \
@@ -241,8 +245,34 @@ def read_list(path):
                 items.append(line)
     return items
 
-def read_image_camera_map(image_list, camera_list):
-    """Map each image to its camera, from two parallel lists (image i to camera i)."""
+def mapproj_input_image(image, tool_base_dir):
+    """
+    For a mapprojected image, return the raw input image it was mapprojected from,
+    read from the INPUT_IMAGE_FILE metadata that mapproject writes. Return None if
+    that metadata is absent (the image is not mapprojected).
+    """
+    gdalinfo = asp_rig_utils.find_tool(tool_base_dir, 'gdalinfo')
+    try:
+        out = subprocess.check_output([gdalinfo, image], universal_newlines=True,
+                                      stderr=subprocess.DEVNULL)
+    except Exception:
+        return None
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("INPUT_IMAGE_FILE="):
+            return line.split("=", 1)[1].strip()
+    return None
+
+def build_image_resolver(image_list, camera_list, seed_dem, tool_base_dir):
+    """
+    Map an image identity to its (image, camera) from --image-list and --camera-list
+    (paired by position). Keys are the image name and its basename. If a seed DEM is
+    set (--dem), the images are taken to be mapprojected, so the raw image each was
+    mapprojected from (INPUT_IMAGE_FILE metadata) is added as a key too. This lets an
+    overlap list or a convergence report name either the mapprojected images or the
+    images before mapprojection. The image fed to stereo is always the --image-list
+    image, that is, the mapprojected one when a seed DEM is set.
+    """
     if image_list == "" or camera_list == "":
         raise Exception("Mode 'dem_mosaic' needs --image-list and --camera-list.")
     images  = read_list(image_list)
@@ -250,37 +280,35 @@ def read_image_camera_map(image_list, camera_list):
     if len(images) != len(cameras):
         raise Exception("The image and camera lists differ in length (" +
                         str(len(images)) + " vs " + str(len(cameras)) + ").")
-    cam_of = {}
+    resolver = {}
+    def add(key, image, camera):
+        if key != "":
+            resolver.setdefault(key, (image, camera))
     for (img, cam) in zip(images, cameras):
-        cam_of[img] = cam
-        cam_of.setdefault(os.path.basename(img), cam)
-    return cam_of
+        add(img, img, cam)
+        add(os.path.basename(img), img, cam)
+        if seed_dem != "":
+            raw = mapproj_input_image(img, tool_base_dir)
+            if raw is not None:
+                add(raw, img, cam)
+                add(os.path.basename(raw), img, cam)
+    return resolver
 
-def camera_for(cam_of, image):
-    """The camera for an image, matched by full name or basename."""
-    if image in cam_of:
-        return cam_of[image]
-    base = os.path.basename(image)
-    if base in cam_of:
-        return cam_of[base]
-    raise Exception("Image not found in --image-list: " + image)
-
-def image_in_map(cam_of, image):
-    """True if the image is in --image-list, matched by full name or basename."""
-    return image in cam_of or os.path.basename(image) in cam_of
-
-def validate_overlap_images(name_pairs, cam_of, overlap_list):
+def resolve_image(resolver, name):
     """
-    The overlap list only selects which pairs of --image-list images to run stereo
-    on. Every image it names must therefore be one of the images in --image-list.
+    The (image, camera) from --image-list for a name given in an overlap list or a
+    convergence report, matched by full name or basename, directly or via a
+    mapprojected image's recorded raw input (INPUT_IMAGE_FILE).
     """
-    for (left, right) in name_pairs:
-        for image in (left, right):
-            if not image_in_map(cam_of, image):
-                raise Exception("Image in --overlap-list is not in --image-list: " +
-                                image + ". The overlap list must consist of pairs of "
-                                "images from --image-list. It only selects which pairs "
-                                "to run stereo on.")
+    if name in resolver:
+        return resolver[name]
+    base = os.path.basename(name)
+    if base in resolver:
+        return resolver[base]
+    raise Exception("Image not found in --image-list, directly or via a mapprojected "
+                    "image's INPUT_IMAGE_FILE metadata: " + name + ". The overlap list "
+                    "or convergence report must name images from --image-list, or the "
+                    "images they were mapprojected from.")
 
 def gen_pairs(args, all_distorted_images):
     """
@@ -869,14 +897,17 @@ def run_dem_mosaic(args, tool_base_dir):
     step_dict = STEP_DICTS["dem_mosaic"]
     first = step_dict[args.first_step]
     last = step_dict[args.last_step]
-    cam_of = read_image_camera_map(args.image_list, args.camera_list)
+    resolver = build_image_resolver(args.image_list, args.camera_list,
+                                    args.seed_dem, tool_base_dir)
     if args.overlap_list != "":
         name_pairs = read_overlap_pairs(args.overlap_list, 2)
-        validate_overlap_images(name_pairs, cam_of, args.overlap_list)
     else:
         name_pairs = conv_angle_pairs(args)
-    pairs = [(l, r, camera_for(cam_of, l), camera_for(cam_of, r))
-             for (l, r) in name_pairs]
+    pairs = []
+    for (left, right) in name_pairs:
+        (li, lc) = resolve_image(resolver, left)
+        (ri, rc) = resolve_image(resolver, right)
+        pairs.append((li, ri, lc, rc))
     print("Mode 'dem_mosaic': " + str(len(pairs)) + " pair(s).")
     if first <= 0 and last >= 0:
         run_pooled_stereo(args, pairs, tool_base_dir)

@@ -350,8 +350,11 @@ Command-line options for multi_stereo
     ``<prefix>-convergence_angles.txt`` (:numref:`ba_conv_angle`). The overlap list is
     built automatically from it: each image pair whose median convergence angle is
     within ``--conv-angle-range`` is used. An alternative to ``--overlap-list`` for
-    choosing the pairs, in both modes. Mutually exclusive with ``--overlap-list``.
-    See the example in :numref:`aerial_bathymetry`.
+    choosing the pairs, in both modes. When the images are mapprojected (a seed DEM is
+    set with ``--dem``), this report may name either the mapprojected images or the
+    images before mapprojection, since each mapprojected image records the image it was
+    made from (:numref:`mapproject`). Mutually exclusive with ``--overlap-list``. See
+    the example in :numref:`aerial_bathymetry`.
 --conv-angle-range <min,max>
     Two comma-separated values, no quotes, the minimum and maximum median convergence
     angle in degrees, for example ``15,45``. Used with ``--conv-angle-list`` to
