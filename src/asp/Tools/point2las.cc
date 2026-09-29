@@ -396,11 +396,13 @@ int main(int argc, char *argv[]) {
       vertical_stddev   = vw::select_channel(full_point_image, 5);
     }
 
-    // Native block height of the input, to size the bulk read strips
-    int block_h = 256;
+    // Native block size of the input, to size the bulk read chunks
+    int block_w = 256, block_h = 256;
     try {
       boost::shared_ptr<vw::DiskImageResource>
         rsrc(vw::DiskImageResource::open(opt.pointcloud_file));
+      if (rsrc->block_read_size().x() > 0)
+        block_w = rsrc->block_read_size().x();
       if (rsrc->block_read_size().y() > 0)
         block_h = rsrc->block_read_size().y();
     } catch (...) {}
@@ -412,7 +414,7 @@ int main(int argc, char *argv[]) {
     if (project_from_ecef)
       cloud_bbox = asp::projected_pointcloud_bbox_estim(point_image, georef, 2.0);
     else
-      cloud_bbox = asp::pointcloud_bbox(point_image, have_out_georef, block_h);
+      cloud_bbox = asp::pointcloud_bbox(point_image, have_out_georef, block_w, block_h);
 
     // The las format stores the values as 32 bit integers. So, for a
     // given point, we store round((point-offset)/scale), as well as
@@ -436,7 +438,7 @@ int main(int argc, char *argv[]) {
                    offset, scale, opt.compressed,
                    opt.save_triangulation_error,
                    opt.max_valid_triangulation_error,
-                   project_from_ecef, block_h,
+                   project_from_ecef, block_w, block_h,
                    opt.out_prefix);
     return 0;
     

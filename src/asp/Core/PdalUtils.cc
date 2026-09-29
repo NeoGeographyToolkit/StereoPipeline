@@ -90,13 +90,13 @@ static void project_rows(vw::cartography::GeoReference const& gr,
   }
 }
 
-// Project an ECEF strip in place, splitting the rows across threads. Each thread
+// Project an ECEF block in place, splitting the rows across threads. Each thread
 // gets its own GeoReference copy, as a shared OGRCoordinateTransformation is not
 // thread-safe (the copy deep-copies and rebuilds the transform).
-static void project_ecef_strip(vw::cartography::GeoReference const& gr,
-                               vw::ImageView<vw::Vector3>& strip) {
+static void project_ecef_block(vw::cartography::GeoReference const& gr,
+                               vw::ImageView<vw::Vector3>& block) {
 
-  int rows = strip.rows();
+  int rows = block.rows();
   if (rows <= 0)
     return;
 
@@ -104,7 +104,7 @@ static void project_ecef_strip(vw::cartography::GeoReference const& gr,
   if (nthreads < 1) nthreads = 1;
 
   if (nthreads == 1 || rows < nthreads) {
-    project_rows(gr, strip, 0, rows);
+    project_rows(gr, block, 0, rows);
     return;
   }
 
@@ -114,12 +114,17 @@ static void project_ecef_strip(vw::cartography::GeoReference const& gr,
   for (int t = 0; t < nthreads; t++) {
     int r0 = t * chunk, r1 = std::min(rows, r0 + chunk);
     if (r0 >= r1) break;
-    threads.emplace_back([&georefs, &strip, t, r0, r1]() {
-      project_rows(georefs[t], strip, r0, r1);
+    threads.emplace_back([&georefs, &block, t, r0, r1]() {
+      project_rows(georefs[t], block, r0, r1);
     });
   }
   for (auto& th : threads)
     th.join();
+}
+
+static void project_ecef_strip(vw::cartography::GeoReference const& gr,
+                               vw::ImageView<vw::Vector3>& strip) {
+  project_ecef_block(gr, strip);
 }
 
 namespace pdal {
@@ -142,7 +147,7 @@ public:
                 double max_valid_triangulation_error,
                 bool project_from_ecef,
                 vw::cartography::GeoReference const& georef,
-                int block_h,
+                int block_w, int block_h,
                 vw::Vector3 const& offset, vw::Vector3 const& scale);
   ~StreamedCloud();
 
@@ -155,10 +160,8 @@ private:
   virtual bool processOne(PointRef& point);
   virtual void addArgs(ProgramArgs& args);
 
-  // Rasterize into memory a block-aligned horizontal strip of rows starting at
-  // row0. This reads the underlying tiles once and applies the
-  // coordinate transform.
-  void loadStrip(point_count_t row0);
+  // Rasterize into memory a block-aligned chunk at (col0, row0).
+  void loadBlock(int col0, int row0);
 
   bool m_has_georef;
   bool m_project;                         // project m_point_image (ECEF) to m_georef
@@ -174,19 +177,22 @@ private:
   // LAS int32 quantization: dropped if round((xyz-offset)/scale) overflows
   vw::Vector3 m_offset, m_scale;
 
-  // These are of type uint64_t
-  point_count_t m_col_count, m_row_count, m_cols, m_rows;
+  // Point counters
+  point_count_t m_cols, m_rows;
   point_count_t m_count, m_size, m_num_valid_points, m_num_saved_points;
   point_count_t m_num_dropped_overflow;
 
-  // In-memory strips (see loadStrip).
-  int m_strip_h;              // strip height (multiple of the tile size)
-  point_count_t m_strip_row0; // first row currently held in the strips
+  // Block grid and chunk parameters (see loadBlock)
+  int m_chunk_w, m_chunk_h;
+  int m_block_col0, m_block_row0;
+  int m_curr_block_w, m_curr_block_h;
+  int m_sub_col, m_sub_row;
+
   bool m_use_error, m_save_intensity, m_save_hstddev, m_save_vstddev;
-  vw::ImageView<vw::Vector3> m_pt_strip;
-  vw::ImageView<double> m_err_strip;
-  vw::ImageView<float>  m_inten_strip;
-  vw::ImageView<double> m_hstd_strip, m_vstd_strip;
+  vw::ImageView<vw::Vector3> m_pt_block;
+  vw::ImageView<double> m_err_block;
+  vw::ImageView<float>  m_inten_block;
+  vw::ImageView<double> m_hstd_block, m_vstd_block;
 
   vw::TerminalProgressCallback m_tpc;
 };
@@ -205,7 +211,7 @@ StreamedCloud::StreamedCloud(bool has_georef,
                              double max_valid_triangulation_error,
                              bool project_from_ecef,
                              vw::cartography::GeoReference const& georef,
-                             int block_h,
+                             int block_w, int block_h,
                              vw::Vector3 const& offset, vw::Vector3 const& scale):
   m_has_georef(has_georef),
   m_project(project_from_ecef), m_georef(georef),
@@ -214,12 +220,14 @@ StreamedCloud::StreamedCloud(bool has_georef,
   m_save_triangulation_error(save_triangulation_error),
   m_max_valid_triangulation_error(max_valid_triangulation_error),
   m_offset(offset), m_scale(scale),
-  m_col_count(0), m_row_count(0),
   m_cols(m_point_image.cols()), m_rows(m_point_image.rows()),
   m_size(m_cols * m_rows), // careful here to avoid integer overflow
   m_count(0), m_num_valid_points(0), m_num_saved_points(0),
   m_num_dropped_overflow(0),
-  m_strip_h(0), m_strip_row0(0),
+  m_chunk_w(0), m_chunk_h(0),
+  m_block_col0(0), m_block_row0(0),
+  m_curr_block_w(0), m_curr_block_h(0),
+  m_sub_col(0), m_sub_row(0),
   m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {
 
   // Which optional fields are actually read per point
@@ -229,7 +237,9 @@ StreamedCloud::StreamedCloud(bool has_georef,
   m_save_hstddev   = (m_horizontal_stddev.cols() != 0 || m_horizontal_stddev.rows() != 0);
   m_save_vstddev   = (m_vertical_stddev.cols() != 0 || m_vertical_stddev.rows() != 0);
 
-  m_strip_h = asp::cloud_strip_rows((int)m_cols, (int)m_rows, block_h);
+  vw::Vector2i chunk = asp::cloud_chunk_size((int)m_cols, (int)m_rows, block_w, block_h);
+  m_chunk_w = chunk.x();
+  m_chunk_h = chunk.y();
 }
 
 StreamedCloud::~StreamedCloud() {}
@@ -262,6 +272,13 @@ void StreamedCloud::addArgs(ProgramArgs& args) {
 
 void StreamedCloud::ready(PointTableRef table) {
   m_count = 0;
+  m_block_col0 = 0;
+  m_block_row0 = 0;
+  m_curr_block_w = 0;
+  m_curr_block_h = 0;
+  m_sub_col = 0;
+  m_sub_row = 0;
+  m_pt_block.reset();
 }
 
 // This function is used when a point cloud is formed fully in memory.
@@ -271,33 +288,37 @@ point_count_t StreamedCloud::read(PointViewPtr view, point_count_t numPts) {
   return -1;
 }
 
-// Read into memory the block-aligned strip of rows starting at row0. Reading in
+// Read into memory a block-aligned chunk at (col0, row0). Reading in
 // bulk (each tile once, across threads) avoids the lazy per-pixel access that
 // re-decodes tiles and thrashes the cache for wide clouds. If m_project, the
-// strip is ECEF and is projected to m_georef with a batched transform.
-void StreamedCloud::loadStrip(point_count_t row0) {
+// chunk is ECEF and is projected to m_georef with a batched transform.
+void StreamedCloud::loadBlock(int col0, int row0) {
 
-  int h = m_strip_h;
-  if (row0 + (point_count_t)h > m_rows)
-    h = (int)(m_rows - row0);
-  if (h <= 0)
+  int w = std::min(m_chunk_w, (int)m_cols - col0);
+  int h = std::min(m_chunk_h, (int)m_rows - row0);
+  if (w <= 0 || h <= 0)
     return;
 
-  vw::BBox2i box(0, (int)row0, (int)m_cols, h);
+  m_block_col0   = col0;
+  m_block_row0   = row0;
+  m_curr_block_w = w;
+  m_curr_block_h = h;
+  m_sub_col      = 0;
+  m_sub_row      = 0;
+
+  vw::BBox2i box(col0, row0, w, h);
 
   // Cropping and assigning reads the tiles in one bulk region read (each once).
-  m_pt_strip = vw::crop(m_point_image, box);
+  m_pt_block = vw::crop(m_point_image, box);
   if (m_project)
-    project_ecef_strip(m_georef, m_pt_strip);
+    project_ecef_block(m_georef, m_pt_block);
 
   bool need_err = (m_error_image.cols() > 0 && m_error_image.rows() > 0 &&
                    (m_use_error || m_save_triangulation_error));
-  if (need_err)         m_err_strip   = vw::crop(m_error_image, box);
-  if (m_save_intensity) m_inten_strip = vw::crop(m_intensity, box);
-  if (m_save_hstddev)   m_hstd_strip  = vw::crop(m_horizontal_stddev, box);
-  if (m_save_vstddev)   m_vstd_strip  = vw::crop(m_vertical_stddev, box);
-
-  m_strip_row0 = row0;
+  if (need_err)         m_err_block   = vw::crop(m_error_image, box);
+  if (m_save_intensity) m_inten_block = vw::crop(m_intensity, box);
+  if (m_save_hstddev)   m_hstd_block  = vw::crop(m_horizontal_stddev, box);
+  if (m_save_vstddev)   m_vstd_block  = vw::crop(m_vertical_stddev, box);
 }
 
 // Create one point at a time. Will ask for a point till the counter
@@ -311,24 +332,23 @@ bool StreamedCloud::processOne(PointRef& point) {
 
     // Break the loop if no more points are available
     if (m_count >= m_size)
-        return false;
+      return false;
 
-    // Refill the in-memory strip when the current row moves past it
-    if (m_pt_strip.rows() == 0 ||
-        m_row_count >= m_strip_row0 + (point_count_t)m_pt_strip.rows())
-      loadStrip(m_row_count);
+    // Load initial block if not loaded yet
+    if (m_curr_block_w <= 0 || m_curr_block_h <= 0)
+      loadBlock(0, 0);
 
-    int sc = (int)m_col_count;                   // strip column
-    int sr = (int)(m_row_count - m_strip_row0);  // strip row
+    int sc = m_sub_col;
+    int sr = m_sub_row;
 
     // Note how we access in col, row order, per ASP conventions
-    vw::Vector3 xyz = m_pt_strip(sc, sr);
+    vw::Vector3 xyz = m_pt_block(sc, sr);
 
     // Skip no-data points and point above the max valid triangulation error
     bool valid_xyz = ((!m_has_georef && xyz != vw::Vector3()) ||
-                    (m_has_georef  && !std::isnan(xyz.z())));
+                      (m_has_georef  && !std::isnan(xyz.z())));
     bool valid_tri_err = (m_max_valid_triangulation_error <= 0 ||
-                    m_err_strip(sc, sr) <= m_max_valid_triangulation_error);
+                          m_err_block(sc, sr) <= m_max_valid_triangulation_error);
 
     if (valid_xyz)
       m_num_valid_points++;
@@ -353,25 +373,37 @@ bool StreamedCloud::processOne(PointRef& point) {
 
       // Save the intensity as a double
       if (m_save_intensity)
-        point.setField(Dimension::Id::W, m_inten_strip(sc, sr));
+        point.setField(Dimension::Id::W, m_inten_block(sc, sr));
 
       // Save the triangulation error as a double
       if (m_save_triangulation_error)
-        point.setField(Dimension::Id::TextureU, m_err_strip(sc, sr));
+        point.setField(Dimension::Id::TextureU, m_err_block(sc, sr));
 
       // Save the horizontal and vertical stddev as doubles
       if (m_save_hstddev)
-        point.setField(Dimension::Id::TextureV, m_hstd_strip(sc, sr));
+        point.setField(Dimension::Id::TextureV, m_hstd_block(sc, sr));
       if (m_save_vstddev)
-        point.setField(Dimension::Id::TextureW, m_vstd_strip(sc, sr));
+        point.setField(Dimension::Id::TextureW, m_vstd_block(sc, sr));
     }
 
-    // Adjust the counters whether the point is good or not
-    m_col_count++;
-    if (m_col_count >= m_cols) {
-      m_col_count = 0;
-      m_row_count++;
-      m_tpc.report_fractional_progress(m_row_count, m_rows);
+    // Advance pixel within current block
+    m_sub_col++;
+    if (m_sub_col >= m_curr_block_w) {
+      m_sub_col = 0;
+      m_sub_row++;
+      if (m_sub_row >= m_curr_block_h) {
+        // Block is completely consumed. Advance to next block in row-major block order
+        m_sub_row = 0;
+        int next_col0 = m_block_col0 + m_chunk_w;
+        int next_row0 = m_block_row0;
+        if (next_col0 >= (int)m_cols) {
+          next_col0 = 0;
+          next_row0 += m_chunk_h;
+          m_tpc.report_fractional_progress(std::min((point_count_t)next_row0, m_rows), m_rows);
+        }
+        if (next_row0 < (int)m_rows)
+          loadBlock(next_col0, next_row0);
+      }
     }
     m_count++;
 
@@ -523,7 +555,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::Vector3 const& offset, vw::Vector3 const& scale,
                bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
-               bool project_from_ecef, int block_h,
+               bool project_from_ecef, int block_w, int block_h,
                std::string const& out_prefix) {
 
   // The point image and error image must have the same dimensions
@@ -562,7 +594,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                                    horizontal_stddev, vertical_stddev,
                                    save_triangulation_error,
                                    max_valid_triangulation_error,
-                                   project_from_ecef, georef, block_h,
+                                   project_from_ecef, georef, block_w, block_h,
                                    offset, scale);
 
   // buf_size is the number of points that will be
@@ -621,14 +653,33 @@ vw::BBox3 projected_pointcloud_bbox_estim(vw::ImageViewRef<vw::Vector3> const& e
   int sub = (int)(vw::math::norm_2(vw::Vector2(cols, rows)) / 256.0);
   if (sub < 1) sub = 1;
 
-  vw::ImageView<vw::Vector3> s = vw::subsample(ecef_image, sub);
-  project_ecef_strip(georef, s);
+  int sub_x = 0, sub_y = 0;
+  asp::setupSampleRate(cols, rows, sub, sub_x, sub_y);
+
+  vw::ImageViewRef<vw::Vector3> sub_img = vw::subsample(ecef_image, sub_x, sub_y);
+  vw::ImageView<vw::Vector3> s(sub_img.cols(), sub_img.rows());
+  for (int r = 0; r < s.rows(); r++)
+    for (int c = 0; c < s.cols(); c++)
+      s(c, r) = sub_img(c, r);
+
+  project_ecef_block(georef, s);
 
   vw::BBox3 box;
   for (int r = 0; r < s.rows(); r++)
     for (int c = 0; c < s.cols(); c++)
       if (!std::isnan(s(c, r).z()))
         box.grow(s(c, r));
+
+  // Also sample the 4 corners so extreme edge pixels are not missed by subsampling
+  vw::ImageView<vw::Vector3> corners(4, 1);
+  corners(0, 0) = ecef_image(0, 0);
+  corners(1, 0) = ecef_image(cols - 1, 0);
+  corners(2, 0) = ecef_image(0, rows - 1);
+  corners(3, 0) = ecef_image(cols - 1, rows - 1);
+  project_ecef_block(georef, corners);
+  for (int c = 0; c < 4; c++)
+    if (!std::isnan(corners(c, 0).z()))
+      box.grow(corners(c, 0));
 
   if (box.empty()) return box;
   vw::Vector3 ctr  = (box.min() + box.max()) / 2.0;

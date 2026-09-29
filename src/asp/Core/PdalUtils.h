@@ -65,8 +65,8 @@ vw::BBox3 projected_pointcloud_bbox_estim(vw::ImageViewRef<vw::Vector3> const& e
 
 // Save a point cloud and triangulation error to the LAS format. If
 // project_from_ecef is set, point_image holds ECEF points to be projected to
-// georef (batched); otherwise it is already in the output coordinates. block_h
-// is the input's native block height, used to size the read strips.
+// georef (batched); otherwise it is already in the output coordinates. block_w
+// and block_h are the input's native tile dimensions.
 void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
@@ -76,7 +76,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
                vw::Vector3 const& offset,  vw::Vector3 const& scale,
                bool compressed, bool save_triangulation_error,
                double max_valid_triangulation_error,
-               bool project_from_ecef, int block_h,
+               bool project_from_ecef, int block_w, int block_h,
                std::string const& out_prefix);
 
 // Try to load at least this many points from the LAS file. 

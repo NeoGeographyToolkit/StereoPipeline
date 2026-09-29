@@ -288,18 +288,20 @@ namespace asp {
                                                          PointTransFunc(t));
   }
 
-  /// Strip height (rows) for reading a cloud of the given width in bulk. A
-  /// multiple of the file's native block height, memory-bounded, so each tile
-  /// is read once. block_h is the native block height (256 if unknown).
+  /// Chunk size (cols, rows) for reading a cloud in bulk blocks. Aligns with
+  /// integer multiples of the file's native block size (block_w, block_h) so
+  /// disk tiles are read whole, capped at a moderate size (~1024x1024, ~25 MB).
+  vw::Vector2i cloud_chunk_size(int cols, int rows, int block_w = 256, int block_h = 256);
+
   int cloud_strip_rows(int cols, int rows, int block_h);
 
   /// Compute bounding box of the given cloud. If is_geodetic is false,
   /// that means a cloud of raw xyz cartesian values, then Vector3()
   /// signifies no-data. If is_geodetic is true, no-data is suggested
-  /// by having the z component of the point be NaN. block_h is the input's
-  /// native block height, used to size the read strips.
+  /// by having the z component of the point be NaN. block_w and block_h
+  /// are the input's native tile dimensions.
   vw::BBox3 pointcloud_bbox(vw::ImageViewRef<vw::Vector3> const& point_image,
-                            bool is_geodetic, int block_h = 256);
+                            bool is_geodetic, int block_w = 256, int block_h = 256);
 
 
   // Class to read points from CSV one point at a
