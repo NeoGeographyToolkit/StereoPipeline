@@ -75,9 +75,11 @@ def process_args(args):
     parser.add_argument("--overlap-list", dest="overlap_list", default="",
                         help = "Text file with the image pairs to run stereo on, one "  + \
                         "pair per line, two columns, 'left_image right_image'. For "    + \
-                        "mode 'mesh' the names are as in --camera-poses, for mode "     + \
-                        "'dem_mosaic' as in --image-list. Lines starting with '#' and " + \
-                        "blank lines are ignored.")
+                        "mode 'mesh' the names are as in --camera-poses. For mode "     + \
+                        "'dem_mosaic' as in --image-list (the cameras come from "       + \
+                        "--image-list and --camera-list). Lines starting with a pound " + \
+                        "character are ignored. Mutually exclusive with "               + \
+                        "--conv-angle-list.")
 
     parser.add_argument("--image-list", dest="image_list", default="",
                         help = "List of images, one per line (mode 'dem_mosaic'). Each " + \
@@ -189,18 +191,16 @@ def process_args(args):
                         "DEMs (mode 'dem_mosaic').")
 
     parser.add_argument("--conv-angle-list", dest="conv_angle_list", default="",
-                        help = "A bundle_adjust convergence angle report, named "         + \
-                        "<prefix>-convergence_angles.txt (mode 'dem_mosaic'). Each pair " + \
-                        "whose median convergence angle is within --conv-angle-range is " + \
-                        "used. The cameras come from --image-list and --camera-list. "    + \
-                        "Set this and --conv-angle-range instead of --overlap-list, not " + \
-                        "both.")
+                        help = "A bundle_adjust convergence angle report, named "        + \
+                        "<prefix>-convergence_angles.txt. Each pair whose median "       + \
+                        "convergence angle is within --conv-angle-range is used. An "    + \
+                        "alternative to --overlap-list for choosing the pairs, in both " + \
+                        "modes. Mutually exclusive with --overlap-list.")
 
     parser.add_argument("--conv-angle-range", dest="conv_angle_range", default="",
-                        help = "Two comma-separated values, the min and max median "    + \
-                        "convergence angle in degrees, no quotes, for example 15,45 "   + \
-                        "(mode 'dem_mosaic'). Used with --conv-angle-list to select "   + \
-                        "the stereo pairs.")
+                        help = "Two comma-separated values, the min and max median "   + \
+                        "convergence angle in degrees, no quotes, for example 15,45. " + \
+                        "Used with --conv-angle-list to select the stereo pairs.")
 
     args = parser.parse_args()
 
@@ -265,20 +265,44 @@ def camera_for(cam_of, image):
         return cam_of[base]
     raise Exception("Image not found in --image-list: " + image)
 
+def image_in_map(cam_of, image):
+    """True if the image is in --image-list, matched by full name or basename."""
+    return image in cam_of or os.path.basename(image) in cam_of
+
+def validate_overlap_images(name_pairs, cam_of, overlap_list):
+    """
+    The overlap list only selects which pairs of --image-list images to run stereo
+    on. Every image it names must therefore be one of the images in --image-list.
+    """
+    for (left, right) in name_pairs:
+        for image in (left, right):
+            if not image_in_map(cam_of, image):
+                raise Exception("Image in --overlap-list is not in --image-list: " +
+                                image + ". The overlap list must consist of pairs of "
+                                "images from --image-list. It only selects which pairs "
+                                "to run stereo on.")
+
 def gen_pairs(args, all_distorted_images):
     """
-    For mode 'mesh': map the image-name pairs in the overlap list to indices in
-    all_distorted_images (the images parsed from --camera-poses).
+    For mode 'mesh': map the image-name pairs to indices in all_distorted_images (the
+    images parsed from --camera-poses). The pairs come from --overlap-list, or are
+    built from a convergence angle report with --conv-angle-list and
+    --conv-angle-range, the same as in mode 'dem_mosaic'.
     """
 
     dist_indices = asp_rig_utils.create_index_dict(all_distorted_images)
+    if args.overlap_list != "":
+        name_pairs = read_overlap_pairs(args.overlap_list, 2)
+    else:
+        name_pairs = conv_angle_pairs(args)
+
     index_pairs = []
-    for (left, right) in read_overlap_pairs(args.overlap_list, 2):
+    for (left, right) in name_pairs:
         if left not in dist_indices:
-            raise Exception("Image in the overlap list not found among the cameras: " +
+            raise Exception("Image not found among the cameras (--camera-poses): " +
                             left)
         if right not in dist_indices:
-            raise Exception("Image in the overlap list not found among the cameras: " +
+            raise Exception("Image not found among the cameras (--camera-poses): " +
                             right)
         index_pairs.append((dist_indices[left], dist_indices[right]))
 
@@ -318,21 +342,20 @@ def sanity_checks(args):
     if args.out_prefix == "":
         raise Exception("The output prefix was not specified (--output-prefix).")
 
-    # Mode 'mesh' always needs the overlap list. Mode 'dem_mosaic' needs either the
-    # overlap list, or both --conv-angle-list and --conv-angle-range (to build the
-    # overlap list from a bundle_adjust convergence angle report), but not both.
+    # Choosing the pairs, the same way in both modes. Either --overlap-list names the
+    # pairs directly, or they are built from a bundle_adjust convergence angle report,
+    # with both --conv-angle-list and --conv-angle-range. The two ways are mutually
+    # exclusive, and one of them is required.
     have_conv = (args.conv_angle_list != "" or args.conv_angle_range != "")
-    if args.mode == "dem_mosaic" and have_conv:
-        if args.conv_angle_list == "" or args.conv_angle_range == "":
-            raise Exception("Both --conv-angle-list and --conv-angle-range must be "
-                            "set, or neither.")
-        if args.overlap_list != "":
-            raise Exception("Set either --overlap-list, or --conv-angle-list and "
-                            "--conv-angle-range, not both.")
-    elif args.overlap_list == "":
-        raise Exception("The overlap list was not specified (--overlap-list). In mode "
-                        "'dem_mosaic', --conv-angle-list and --conv-angle-range may "
-                        "be used instead.")
+    if args.overlap_list != "" and have_conv:
+        raise Exception("Set either --overlap-list, or --conv-angle-list and "
+                        "--conv-angle-range, not both.")
+    if have_conv and (args.conv_angle_list == "" or args.conv_angle_range == ""):
+        raise Exception("Both --conv-angle-list and --conv-angle-range must be set, "
+                        "or neither.")
+    if not have_conv and args.overlap_list == "":
+        raise Exception("Must set either --overlap-list, or --conv-angle-list and "
+                        "--conv-angle-range.")
 
     if args.mode == "dem_mosaic" and (args.image_list == "" or args.camera_list == ""):
         raise Exception("Mode 'dem_mosaic' needs --image-list and --camera-list.")
@@ -849,6 +872,7 @@ def run_dem_mosaic(args, tool_base_dir):
     cam_of = read_image_camera_map(args.image_list, args.camera_list)
     if args.overlap_list != "":
         name_pairs = read_overlap_pairs(args.overlap_list, 2)
+        validate_overlap_images(name_pairs, cam_of, args.overlap_list)
     else:
         name_pairs = conv_angle_pairs(args)
     pairs = [(l, r, camera_for(cam_of, l), camera_for(cam_of, r))

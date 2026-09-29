@@ -32,9 +32,10 @@ This program has two modes, set with ``--mode``:
   (:numref:`rig_calibrator`). This is for robot or Structure-from-Motion data, with no
   datum. See an example below.
 
-The image pairs are auto-determined from a convergence angle range
-(``--conv-angle-list`` and ``--conv-angle-range``, ``dem_mosaic`` mode), or read
-from an overlap list (``--overlap-list``). See :numref:`multi_stereo_command_line`.
+In both modes the image pairs are chosen in one of two mutually exclusive ways: read
+from an overlap list (``--overlap-list``), or auto-determined from a convergence angle
+range (``--conv-angle-list`` and ``--conv-angle-range``). See
+:numref:`multi_stereo_command_line`.
 
 In both modes the per-tile work of all pairs are put in a single pool, with the
 number of processes per node and threads per pair given by ``--processes`` and
@@ -338,13 +339,23 @@ Command-line options for multi_stereo
     cameras, per-pair ``point2dem``, then a DEM mosaic, and optionally a
     triangulation error and orthoimage mosaic). Required.
 --overlap-list <string (default: "")>
-    Text file with the image pairs to run stereo on, one pair per line. For
-    mode ``mesh``: two columns, ``left_image right_image``, with names as in
-    ``--camera-poses``. For mode ``dem_mosaic``: four columns,
-    ``left_image right_image left_camera right_camera``. Lines starting with
-    ``#`` and blank lines are ignored. Required, unless in mode ``dem_mosaic``
-    the pairs are determined automatically with ``--conv-angle-list`` (see
-    below).
+    Text file with the image pairs to run stereo on, one pair per line, two
+    columns, ``left_image right_image``. For mode ``mesh`` the names are as in
+    ``--camera-poses``. For mode ``dem_mosaic`` as in ``--image-list`` (the
+    cameras come from ``--image-list`` and ``--camera-list``). Lines starting
+    with a pound character are ignored. Mutually exclusive with
+    ``--conv-angle-list``.
+--conv-angle-list <string (default: "")>
+    A ``bundle_adjust`` convergence angle report, named
+    ``<prefix>-convergence_angles.txt`` (:numref:`ba_conv_angle`). The overlap list is
+    built automatically from it: each image pair whose median convergence angle is
+    within ``--conv-angle-range`` is used. An alternative to ``--overlap-list`` for
+    choosing the pairs, in both modes. Mutually exclusive with ``--overlap-list``.
+    See the example in :numref:`aerial_bathymetry`.
+--conv-angle-range <min,max>
+    Two comma-separated values, no quotes, the minimum and maximum median convergence
+    angle in degrees, for example ``15,45``. Used with ``--conv-angle-list`` to
+    select the stereo pairs.
 --output-prefix <string (default: "")>
     The output prefix, as for parallel_stereo and stereo_dist. The DEM mosaic,
     mesh, per-pair stereo data, and other outputs are named starting with this
@@ -416,17 +427,6 @@ Options for mode ``dem_mosaic``:
     taken from the first DEM produced and applied to the rest, so all share one grid.
 --dem-mosaic-options <string (default: "")>
     Extra options for the ``dem_mosaic`` of the per-pair DEMs.
---conv-angle-list <string (default: "")>
-    A ``bundle_adjust`` convergence angle report, named
-    ``<prefix>-convergence_angles.txt`` (:numref:`ba_conv_angle`). The overlap list is
-    built automatically from it: each image pair whose median convergence angle is
-    within ``--conv-angle-range`` is used. The cameras come from ``--image-list`` and
-    ``--camera-list``. Set this and ``--conv-angle-range`` instead of
-    ``--overlap-list``, not both. See the example in :numref:`aerial_bathymetry`.
---conv-angle-range <min,max>
-    Two comma-separated values, no quotes, the minimum and maximum median convergence
-    angle in degrees, for example ``15,45``. Used with ``--conv-angle-list`` to
-    select the stereo pairs.
 
 -h, --help
   Show this help message and exit.
