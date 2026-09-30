@@ -1463,7 +1463,8 @@ Optimization
     kept.
 
 --save-intermediate-cameras
-    Save the values for the cameras at each iteration.
+    Save the updated camera files at each iteration. This can be very
+    time-consuming for a large set of cameras.
 
 Outlier filtering
 ^^^^^^^^^^^^^^^^^

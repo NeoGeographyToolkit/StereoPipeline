@@ -941,7 +941,8 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("num-random-passes", po::value(&opt.num_random_passes)->default_value(0),
      "After performing the normal bundle adjustment passes, do this many more passes using the same matches but adding random offsets to the initial parameter values with the goal of avoiding local minima that the optimizer may be getting stuck in.")
     ("save-intermediate-cameras", po::bool_switch(&opt.save_intermediate_cameras)->default_value(false)->implicit_value(true),
-     "Save the values for the cameras at each iteration.")
+     "Save the updated camera files at each iteration. This can be very "
+     "time-consuming for a large set of cameras.")
 
     // Outlier filtering
     ("remove-outliers-params",

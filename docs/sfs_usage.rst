@@ -529,13 +529,19 @@ mapprojected images (:numref:`mapproj-example`). This will not only be
 automated and faster, but also more accurate, as the inputs will be
 more similar after mapprojection.
 
-Bundle adjustment (:numref:`bundle_adjust`) and stereo happens as
-follows::
+Run bundle adjustment (:numref:`bundle_adjust`)::
 
-    bundle_adjust A_crop.cub B_crop.cub C_crop.cub D_crop.cub \
-      --num-iterations 100 --save-intermediate-cameras        \
-      --ip-per-image 20000 --max-pairwise-matches 2000        \
-      --min-matches 1 --num-passes 1 -o run_ba/run
+    bundle_adjust A_crop.cub B_crop.cub \
+      C_crop.cub D_crop.cub             \
+      --num-iterations 100              \
+      --ip-per-image 20000              \
+      --max-pairwise-matches 2000       \
+      --min-matches 1                   \
+      --num-passes 1                    \
+      -o run_ba/run
+
+This is followed by :ref:`parallel_stereo`::
+
     parallel_stereo A_crop.cub B_crop.cub run_full2/run       \
       --subpixel-mode 3 --bundle-adjust-prefix run_ba/run
 
@@ -579,7 +585,7 @@ mapprojected images. The process went as follows::
     # Run bundle adjustment
     bundle_adjust A_crop_sub10.cub B_crop_sub10.cub     \
       C_crop_sub10.cub D_crop_sub10.cub --min-matches 1 \
-      --num-iterations 100 --save-intermediate-cameras  \
+      --num-iterations 100                              \
       -o run_ba_sub10/run --ip-per-image 20000          \
       --max-pairwise-matches 2000 --overlap-limit 200   \
       --match-first-to-last --num-passes 1              \
@@ -1165,7 +1171,6 @@ Run bundle adjustment::
       --tri-weight 0.05                              \
       --tri-robust-threshold 0.05                    \
       --remove-outliers-params "75.0 3.0 100 100"    \
-      --save-intermediate-cameras                    \
       --match-first-to-last                          \
       --forced-triangulation-distance 100000         \
       --min-triangulation-angle 1e-10                \
@@ -1199,13 +1204,8 @@ If having an estimate of how accurate initial camera positions are, the option
 small, it can prevent convergence. For LRO NAC, perhaps 100 - 500 m is a good
 value. See also :numref:`ba_camera_offsets`.
 
-Note that this invocation may run for over a day, and may be necessary
-for good convergence. If the process gets interrupted, or the user
-gives up on waiting, the adjustments obtained so far can still be
-usable, if invoking bundle adjustment, as above, with
-``--save-intermediate-cameras``.
-
-As before, using the CSM model can result in much-improved performance. 
+This invocation may run for 2-6 hours or so with CSM cameras and take much longer
+with ISIS .cub cameras.
 
 Here we used ``--camera-weight 0`` and ``--robust-threshold 2`` to
 give cameras which start far from the solution more chances to
@@ -1404,7 +1404,6 @@ in bundle adjustment (:numref:`heights_from_dem`)::
       --num-iterations 100                        \
       --num-passes 2                              \
       --camera-weight 0                           \
-      --save-intermediate-cameras                 \
       --heights-from-dem ref_dem.tif              \
       --heights-from-dem-uncertainty 20.0         \
       --mapproj-dem ref_dem.tif                   \
@@ -1427,9 +1426,6 @@ misregistered images (see below).
 The value used for ``--heights-from-dem-uncertainty`` can be larger, such as
 100, if it is believed that the stereo DEM mosaic produced so far is too
 different from LOLA.  See also :numref:`heights_from_dem`.
-
-The switch ``--save-intermediate-cameras`` is helpful, as before, if
-desired to stop if things take too long.
 
 .. _sfs_reg_valid:
 
