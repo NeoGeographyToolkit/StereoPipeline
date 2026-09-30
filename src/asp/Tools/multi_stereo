@@ -672,12 +672,16 @@ def run_pooled_stereo(args, pairs, tool_base_dir):
     for (entry, stop, pooled, tag, suffix) in STEREO_STAGES:
         if len(pairs) == 0:
             print("No pairs left to run stereo on.")
-            return
+            return pairs
         if pooled:
             stereo_pool_stage(ps, args, pairs, entry, stop, tag, stereo_options, seed)
         else:
             stereo_serial_stage(ps, args, pairs, entry, stop, tag, stereo_options, seed)
         pairs = keep_pairs(pairs, args, suffix)
+
+    # The pairs that survived every stage (produced run-PC.tif). Only these go on to
+    # the DEM and fuse steps.
+    return pairs
 
 def gdal_pixel_size(path):
     """The pixel size in map units of a raster, or None."""
@@ -826,6 +830,12 @@ def dem_stage_fuse(args, pairs, tool_base_dir):
     # Blunder filter against the seed DEM --dem, if given.
     if args.seed_dem != "":
         pres = blunder_filter(pres, args.seed_dem, args.blunder_tol)
+    if len(pres) == 0:
+        raise Exception("No per-pair DEM survived the blunder filter against the seed "
+                        "DEM (--dem). Every pair's DEM departs from it by more than "
+                        "--blunder-tol (" + str(args.blunder_tol) + " m). This usually "
+                        "means bad cameras or a large triangulation error, not a tool "
+                        "issue. Inspect the per-pair run-IntersectionErr.tif.")
 
     mos = args.out_prefix
     mosaic_opts = shlex.split(args.dem_mosaic_options.replace('\\', ' '))
@@ -909,10 +919,24 @@ def run_dem_mosaic(args, tool_base_dir):
         pairs.append((li, ri, lc, rc))
     print("Mode 'dem_mosaic': " + str(len(pairs)) + " pair(s).")
     if first <= 0 and last >= 0:
-        run_pooled_stereo(args, pairs, tool_base_dir)
+        pairs = run_pooled_stereo(args, pairs, tool_base_dir)
+    # The DEM and fuse steps must run only on pairs that actually produced a point
+    # cloud. A pair can be dropped in stereo (too few interest points, textureless
+    # water) with no run-PC.tif. Filtering by what is on disk also makes each step
+    # correct when started on its own (--first-step dem or fuse).
     if first <= 1 and last >= 1:
+        pairs = keep_pairs(pairs, args, '-PC.tif')
+        if len(pairs) == 0:
+            raise Exception("No pair produced a point cloud (run-PC.tif), so no DEM "
+                            "can be made. Check the per-pair stereo logs under "
+                            + args.out_prefix + "-pairs.")
         dem_stage_dem(args, pairs, tool_base_dir)
     if first <= 2 and last >= 2:
+        pairs = keep_pairs(pairs, args, '-DEM.tif')
+        if len(pairs) == 0:
+            raise Exception("No pair produced a DEM (run-DEM.tif), so there is nothing "
+                            "to mosaic. Check the per-pair stereo logs under "
+                            + args.out_prefix + "-pairs.")
         dem_stage_fuse(args, pairs, tool_base_dir)
 
 if __name__ == "__main__":
