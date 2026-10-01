@@ -57,6 +57,7 @@
 #include <vw/Image/ImageChannels.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Core/Stopwatch.h>
+#include <vw/Math/RandomSet.h>
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Camera/CameraImage.h>
@@ -90,6 +91,9 @@ struct Options: public asp::BaBaseOptions {
     use_initial_rig_transforms;
   double quat_norm_weight, anchor_weight, anchor_dem_uncertainty, roll_weight,
     yaw_weight, smoothness_weight;
+  int max_num_tri_points;
+  double max_anchor_to_tri_points_ratio;
+  int max_anchor_points_total; // computed from the ratio, not a direct option
   std::map<int, int> cam2group;
 };
 
@@ -144,6 +148,26 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "number, by selecting a random subset, if needed. This happens "
      "when setting up the optimization, and before outlier filtering. "
      "Set to 0 to load no matches (use with GCP only).")
+    ("max-num-tri-points", po::value(&opt.max_num_tri_points)->default_value(-1),
+     "If positive, reduce the number of triangulated (tie) points to at most this "
+     "number, by selecting a random subset. This happens after filtering outliers "
+     "with --max-initial-reprojection-error, and complements the per-pair limit set "
+     "by --max-pairwise-matches. It helps balance and bound the problem size for "
+     "very large networks. See also --max-gcp-to-tri-points-ratio and "
+     "--max-anchor-points-to-tri-points-ratio.")
+    ("max-gcp-to-tri-points-ratio",
+     po::value(&opt.max_gcp_to_tri_points_ratio)->default_value(-1.0),
+     "If non-negative, reduce the number of ground control points (GCP) to at most "
+     "this ratio times the number of triangulated (tie) points (counted after any "
+     "reduction from --max-num-tri-points), by selecting a random subset. This keeps "
+     "the GCP from dominating the problem.")
+    ("max-anchor-points-to-tri-points-ratio",
+     po::value(&opt.max_anchor_to_tri_points_ratio)->default_value(-1.0),
+     "If non-negative, reduce the number of anchor points to at most this ratio times "
+     "the number of triangulated (tie) points (counted after any reduction from "
+     "--max-num-tri-points), by selecting a random subset. The anchor points are first "
+     "created with --num-anchor-points or --num-anchor-points-per-tile (one of which "
+     "must be set), then pruned. Requires --anchor-dem.")
     ("min-triangulation-angle", po::value(&opt.min_triangulation_angle)->default_value(0.1),
      "The minimum angle, in degrees, at which rays must meet at a triangulated point to "
      "accept this point as valid. It must be a positive value.")
@@ -705,6 +729,18 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw::vw_throw(vw::ArgumentErr() << "Anchor points parameters have been specified. "
                  << "Must set  --anchor-dem.\n");
 
+  // The anchor ratio prunes the anchor points after they are created, so an
+  // anchor creation mechanism must still be set.
+  if (opt.max_anchor_to_tri_points_ratio >= 0) {
+    if (opt.num_anchor_points_per_image <= 0 && opt.num_anchor_points_per_tile <= 0)
+      vw_throw(ArgumentErr() << "Must set --num-anchor-points or "
+               << "--num-anchor-points-per-tile to create anchor points when using "
+               << "--max-anchor-points-to-tri-points-ratio.\n");
+    if (opt.anchor_dem.empty())
+      vw_throw(ArgumentErr() << "Must set --anchor-dem when using "
+               << "--max-anchor-points-to-tri-points-ratio.\n");
+  }
+
   // Must have at least one pass
   if (opt.num_passes < 1)
     vw_throw(ArgumentErr() << "Must have at least one pass.\n");
@@ -776,7 +812,14 @@ void calcAnchorPoints(Options                         const & opt,
       anchor_weight_image_nodata, anchor_weight_image_georef, anchor_weight_image);
 
   int num_cams = opt.camera_models.size();
-  int totalAnchorPoints = 0;
+
+  // First collect all candidate anchor points, uniformly distributed. They are
+  // appended to the output structures later, after an optional random pruning to
+  // opt.max_anchor_points_total. This separates creation from pruning.
+  std::vector<std::vector<Vector2>> cand_pix(num_cams);
+  std::vector<std::vector<double>>  cand_weight(num_cams);
+  std::vector<std::vector<Vector3>> cand_xyz(num_cams);
+
   for (int icam = 0; icam < num_cams; icam++) {
 
     vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
@@ -886,18 +929,9 @@ void calcAnchorPoints(Options                         const & opt,
           }
         }
 
-        pixel_vec[icam].push_back(pix);
-        weight_vec[icam].push_back(opt.anchor_weight * anchor_weight_from_image);
-        isAnchor_vec[icam].push_back(1);
-
-        // The current number of points in tri_points_vec is the index of the next point
-        pix2xyz_index[icam].push_back(tri_points_vec.size() / 3);
-
-        // Append every coordinate of dem_xyz to tri_points_vec
-        for (int it = 0; it < 3; it++) {
-          orig_tri_points_vec.push_back(dem_xyz[it]);
-          tri_points_vec.push_back(dem_xyz[it]);
-        }
+        cand_pix[icam].push_back(pix);
+        cand_weight[icam].push_back(opt.anchor_weight * anchor_weight_from_image);
+        cand_xyz[icam].push_back(dem_xyz);
 
         numAnchorPoints++;
       }
@@ -906,7 +940,54 @@ void calcAnchorPoints(Options                         const & opt,
     tpc.report_finished();
     vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
     vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
-    totalAnchorPoints += numAnchorPoints;
+  }
+
+  // Flatten the candidate indices as (camera, local index) pairs, in camera order
+  std::vector<std::pair<int, int>> all_cand;
+  for (int icam = 0; icam < num_cams; icam++)
+    for (size_t j = 0; j < cand_pix[icam].size(); j++)
+      all_cand.push_back(std::make_pair(icam, (int)j));
+
+  // Optionally prune the candidates at random to the given total. This is set
+  // from --max-anchor-points-to-tri-points-ratio.
+  std::vector<char> keep(all_cand.size(), 1);
+  if (opt.max_anchor_points_total >= 0 &&
+      (int)all_cand.size() > opt.max_anchor_points_total) {
+    std::vector<int> subset;
+    vw::math::pick_random_indices_in_range(all_cand.size(),
+                                           opt.max_anchor_points_total, subset);
+    std::fill(keep.begin(), keep.end(), 0);
+    for (size_t it = 0; it < subset.size(); it++)
+      keep[subset[it]] = 1;
+    vw_out() << "Reducing the number of anchor points from " << all_cand.size()
+             << " to " << opt.max_anchor_points_total
+             << ", by selecting a random subset.\n";
+  }
+
+  // Append the kept candidates to the output structures, in camera order, so the
+  // bookkeeping in pix2xyz_index stays consistent.
+  int totalAnchorPoints = 0;
+  for (size_t k = 0; k < all_cand.size(); k++) {
+    if (!keep[k])
+      continue;
+    int icam = all_cand[k].first;
+    int j    = all_cand[k].second;
+
+    pixel_vec[icam].push_back(cand_pix[icam][j]);
+    weight_vec[icam].push_back(cand_weight[icam][j]);
+    isAnchor_vec[icam].push_back(1);
+
+    // The current number of points in tri_points_vec is the index of the next point
+    pix2xyz_index[icam].push_back(tri_points_vec.size() / 3);
+
+    // Append every coordinate of the anchor xyz to tri_points_vec
+    Vector3 xyz = cand_xyz[icam][j];
+    for (int it = 0; it < 3; it++) {
+      orig_tri_points_vec.push_back(xyz[it]);
+      tri_points_vec.push_back(xyz[it]);
+    }
+
+    totalAnchorPoints++;
   }
 
   sw.stop();
@@ -1511,6 +1592,50 @@ void run_jitter_solve(int argc, char* argv[]) {
                         outliers);
   vw_out() << "Removed " << outliers.size()
     << " outliers based on initial reprojection error.\n";
+
+  // Balance the problem for large networks. Reduce the triangulated points,
+  // then the GCP and anchor points relative to the reduced triangulated point
+  // count. These are flagged as outliers (the control network is not modified),
+  // and done once here so the selection is stable across passes. Anchor points
+  // are not in the control network; they are generated per pass, so here we only
+  // set their per-image count.
+  {
+    // Count the current inlier triangulated (non-GCP) points and GCP
+    int cur_tri = 0, cur_gcp = 0;
+    for (int ipt = 0; ipt < (int)cnet.size(); ipt++) {
+      if (outliers.find(ipt) != outliers.end())
+        continue;
+      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+        cur_gcp++;
+      else
+        cur_tri++;
+    }
+
+    // The triangulated point count after any reduction. This is the denominator
+    // for the GCP and anchor ratios.
+    int tri_budget = cur_tri;
+    if (opt.max_num_tri_points >= 0)
+      tri_budget = std::min(cur_tri, opt.max_num_tri_points);
+
+    int gcp_budget = cur_gcp;
+    if (opt.max_gcp_to_tri_points_ratio >= 0)
+      gcp_budget = std::min(cur_gcp,
+                   (int)round(opt.max_gcp_to_tri_points_ratio * tri_budget));
+
+    if (opt.max_num_tri_points >= 0 || opt.max_gcp_to_tri_points_ratio >= 0)
+      vw::ba::subsample_control_network(cnet, tri_budget, gcp_budget, outliers);
+
+    // The anchor points are created per image or per tile, then pruned at random
+    // to this total. Creation and pruning are both needed.
+    opt.max_anchor_points_total = -1;
+    if (opt.max_anchor_to_tri_points_ratio >= 0) {
+      opt.max_anchor_points_total
+        = (int)round(opt.max_anchor_to_tri_points_ratio * tri_budget);
+      vw_out() << "Limiting the total number of anchor points to "
+               << opt.max_anchor_points_total
+               << ", based on --max-anchor-points-to-tri-points-ratio.\n";
+    }
+  }
 
   // It is convenient to compute these inside the first pass rather than outside.
   // They should not go out of scope until the end of the program.

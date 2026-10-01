@@ -109,7 +109,9 @@ should show correctly the correspondences. The GCP file can be inspected in
 ``stereo_gui`` as well (:numref:`stereo_gui_vwip_gcp`).
     
 The images and GCP files can be passed together to ``bundle_adjust`` to refine,
-transform, or initialize the camera models (:numref:`ba_use_gcp`).
+transform, or initialize the camera models (:numref:`ba_use_gcp`). When many GCP
+are created, the option ``--max-gcp-to-tri-points-ratio`` can keep them balanced
+against the triangulated points (:numref:`gcp_vs_tri`).
 
 Then, ``mapproject`` (:numref:`mapproject`) can be invoked with the camera
 image, updated camera (or the original camera with the option

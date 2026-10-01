@@ -517,6 +517,10 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
     vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
   }
 
+  // Balance GCP against triangulated points for large networks
+  if (num_gcp > 0)
+    vw::ba::subsample_gcp_by_tri_ratio(cnet, opt.max_gcp_to_tri_points_ratio);
+
   // If we change the cameras, we must rebuild the control network
   bool cameras_changed = false;
 

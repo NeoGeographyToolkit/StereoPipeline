@@ -828,6 +828,13 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "number, by selecting a random subset, if needed. This happens "
      "when setting up the optimization, and before outlier filtering. "
      "Set to 0 to load no matches (use with GCP only).")
+    ("max-gcp-to-tri-points-ratio",
+     po::value(&opt.max_gcp_to_tri_points_ratio)->default_value(-1.0),
+     "If non-negative, reduce the number of ground control points (GCP) to at most "
+     "this ratio times the number of triangulated (tie) points, by selecting a random "
+     "subset. This keeps the GCP from dominating the problem for large networks. The "
+     "triangulated points themselves are not reduced here (use --max-pairwise-matches "
+     "for that), so the interest point matches written out are not affected.")
     ("matches-per-tile",  po::value(&opt.matches_per_tile)->default_value(0),
      "How many interest point matches to compute in each image tile (of size "
      "normally 1024^2 pixels). Use a value of --ip-per-tile a few times larger "

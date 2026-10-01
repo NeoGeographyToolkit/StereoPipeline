@@ -299,12 +299,20 @@ Balancing GCP against other constraints
 
 When using GCP from ``dem2gcp`` in ``bundle_adjust`` or ``jitter_solve``,
 triangulated points that lack GCP are still constrained by
-``--heights-from-dem`` or ``--tri-weight`` (:numref:`ba_options`). Both of
-these anchor such points to their initial (potentially incorrect) positions. If
-these points greatly outnumber the GCP, or have smaller uncertainties than GCP, 
-they can dominate the solution and prevent the GCP from correcting the cameras.
+``--heights-from-dem`` or ``--tri-weight`` (:numref:`ba_options`). Both of these
+anchor such points to their initial (potentially not-overly-correct yet)
+positions. If these points greatly outnumber the GCP, or have smaller
+uncertainties than GCP, they can dominate the solution and prevent the GCP from
+correcting the cameras.
 
-To avoid this:
+The option ``--max-gcp-to-tri-points-ratio`` (in ``bundle_adjust`` and
+``jitter_solve``) reduces the GCP to at most this ratio times the triangulated
+point count, which is helpful for large networks. In ``jitter_solve``, see also
+``--max-num-tri-points`` and ``--max-anchor-points-to-tri-points-ratio``, which
+bound the triangulated points and the anchor points as well
+(:numref:`jitter_anchor_points`).
+
+In addition:
 
 - Use a smaller value of ``--max-pairwise-matches`` and check how many triangulated
   points without GCP have been loaded, vs GCP.

@@ -1537,6 +1537,13 @@ Outlier filtering
 Camera and ground constraints
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+--max-gcp-to-tri-points-ratio <double (default: -1)>
+    If non-negative, reduce the number of ground control points (GCP) to at most
+    this ratio times the number of triangulated (tie) points, by selecting a
+    random subset. This keeps the GCP from dominating the problem for large
+    networks (:numref:`gcp_vs_tri`). Available as of build 2026/10
+    (:numref:`release`).
+
 --tri-weight <double (default: 0.1)>
     The weight to give to the constraint that optimized triangulated points stay
     close to original triangulated points. A positive value will help ensure the

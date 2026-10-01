@@ -2236,7 +2236,7 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --num-lines-per-position 15000                 \
       --num-lines-per-orientation 4000               \
       --clean-match-files-prefix ba/run              \
-      --max-pairwise-matches 75                      \
+      --max-pairwise-matches 5000                    \
       --match-first-to-last                          \
       --min-matches 1                                \
       --forced-triangulation-distance 100000         \
@@ -2249,9 +2249,12 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --heights-from-dem ref_dem.tif                 \
       --heights-from-dem-uncertainty 20.0            \
       --anchor-dem ref_dem_extra.tif                 \
-      --num-anchor-points-per-tile 4                 \
+      --num-anchor-points-per-tile 10                \
       --num-anchor-points-extra-lines 40000          \
       --anchor-dem-uncertainty 50.0                  \
+      --max-num-tri-points 500000                    \
+      --max-gcp-to-tri-points-ratio 1.0              \
+      --max-anchor-points-to-tri-points-ratio 1.0    \
       --mapproj-dem ref_dem.tif                      \
       --max-gcp-reproj-err 30                        \
       --camera-position-uncertainty 500,500          \
@@ -2262,14 +2265,10 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
 It is important to compare this with the bundle adjustment command
 in :numref:`sfs_ba_refine`.
 
-Normally a much larger value of ``--max-pairwise-matches`` is preferred,
-but given the very large number of input images this had to be drastically
-reduced.
-
 The camera position constraints prevented the cameras from moving far. The
 anchor points constrained the ground points (:numref:`jitter_anchor_points`).
 These together implicitly constrained the orientations as well. Adding more
-anchor points per tile and decreasing the anchor DEM uncertainty helped reduce
+anchor points and decreasing the anchor DEM uncertainty helped reduce
 pose interpolation oscillations in dark or low-match regions.
 
 The number of triangulated points, GCP, and anchor points should be kept
@@ -2279,6 +2278,12 @@ uncertainties and weights for these should also be chosen carefully. GCP
 uncertainty should be smaller than the value of
 ``--heights-from-dem-uncertainty``, which should be smaller than the
 ``--anchor-dem-uncertainty``.
+
+The options ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
+``--max-anchor-points-to-tri-points-ratio`` bound the number of triangulated
+points and keep the ground control points and anchor points in balance with them
+(:numref:`jitter_anchor_points`). Available as of build 2026/10
+(:numref:`release`).
 
 The anchor DEM (``ref_dem_extra.tif``) went 40 km beyond the site of interest to
 ensure we constrain oscillations in the cameras even outside the main DEM

@@ -354,6 +354,14 @@ The solver prints to the terminal the total number of triangulated points, ancho
 points, and ground control points. This helps check that these counts are
 balanced.
 
+For a large number of images and many anchor points, these counts are hard to
+predict in advance, as they arise from the pairwise matches across the network.
+The options ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
+``--max-anchor-points-to-tri-points-ratio`` can enforce the desired balance. They
+cap the number of triangulated points, then set the number of ground control
+points and anchor points relative to it, by selecting random subsets. An example
+is in :numref:`sfs_jitter`. Available as of build 2026/10 (:numref:`release`).
+
 A report file that has the residuals at anchor points is written down
 (:numref:`anchor_point_files`). The per-image counts and total number of
 anchor points are printed on the terminal.
@@ -2342,6 +2350,32 @@ Command-line options for jitter_solve
 
 --num-iterations <integer (default: 100)>
     Set the maximum number of iterations.
+
+--max-num-tri-points <integer (default: -1)>
+    If positive, reduce the number of triangulated (tie) points to at most this
+    number, by selecting a random subset. This happens after filtering outliers
+    with ``--max-initial-reprojection-error``, and complements the per-pair limit
+    set by ``--max-pairwise-matches``. It helps balance and bound the problem size
+    for very large networks (:numref:`jitter_anchor_points`). See also
+    ``--max-gcp-to-tri-points-ratio`` and
+    ``--max-anchor-points-to-tri-points-ratio``. Available as of build 2026/10
+    (:numref:`release`).
+
+--max-gcp-to-tri-points-ratio <double (default: -1)>
+    If non-negative, reduce the number of ground control points (GCP) to at most
+    this ratio times the number of triangulated (tie) points (counted after any
+    reduction from ``--max-num-tri-points``), by selecting a random subset. This
+    keeps the GCP from dominating the problem (:numref:`jitter_anchor_points`).
+    Available as of build 2026/10 (:numref:`release`).
+
+--max-anchor-points-to-tri-points-ratio <double (default: -1)>
+    If non-negative, reduce the number of anchor points to at most this ratio times
+    the number of triangulated (tie) points (counted after any reduction from
+    ``--max-num-tri-points``), by selecting a random subset. The anchor points are
+    first created with ``--num-anchor-points`` or ``--num-anchor-points-per-tile``
+    (one of which must be set), then pruned. Requires ``--anchor-dem``
+    (:numref:`jitter_anchor_points`). Available as of build 2026/10
+    (:numref:`release`).
 
 --parameter-tolerance <double (default: 1e-8)>
     Stop when the relative error in the variables being optimized

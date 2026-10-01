@@ -36,6 +36,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     (:numref:`ba_gcp_report`).
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
+  * Added ``--max-gcp-to-tri-points-ratio``, to reduce the ground control points
+    to at most this ratio times the triangulated point count, for large networks
+    (:numref:`gcp_vs_tri`).
   * When bathymetry is modeled, the ``pointmap.csv`` report files flag each
     non-GCP triangulated point as water or land (:numref:`ba_err_per_point`).
   * Bug fix for ``--auto-overlap-params`` when a ground footprint cannot be
@@ -51,6 +54,10 @@ jitter_solve (:numref:`jitter_solve`):
     (:numref:`ba_gcp_report`).
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
+  * Added ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
+    ``--max-anchor-points-to-tri-points-ratio``, to balance and bound the number
+    of triangulated points, ground control points, and anchor points for large
+    networks (:numref:`jitter_anchor_points`).
 
 point2dem (:numref:`point2dem`):
   * Fixed a bug that could produce an enormous output DEM extent (and a

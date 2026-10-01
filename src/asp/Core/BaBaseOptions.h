@@ -65,7 +65,7 @@ struct BaBaseOptions: public asp::OptimizerOptions {
     camera_weight, rotation_weight,
     camera_position_weight, camera_position_robust_threshold,
     camera_position_uncertainty_power,
-    max_disp_error, max_gcp_reproj_err;
+    max_disp_error, max_gcp_reproj_err, max_gcp_to_tri_points_ratio;
   vw::Vector<double, 4> remove_outliers_params;
   BACameraType camera_type;
   std::vector<std::string> image_files, camera_files, gcp_files;
@@ -87,7 +87,7 @@ struct BaBaseOptions: public asp::OptimizerOptions {
    match_first_to_last(false), single_threaded_cameras(false),
    update_isis_cubes_with_csm_state(false),
    fix_gcp_xyz(false), use_llh_error(false), save_cnet_as_gcp(false),
-   max_gcp_reproj_err(-1.0),
+   max_gcp_reproj_err(-1.0), max_gcp_to_tri_points_ratio(-1.0),
    camera_type(BaCameraType_Other), max_num_reference_points(-1),
    datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM,
                                 "User Specified Spheroid",
