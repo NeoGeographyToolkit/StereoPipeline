@@ -351,8 +351,8 @@ triangulated and DEM-constrained points), and their uncertainty
 require more anchor points.
 
 The solver prints to the terminal the total number of triangulated points, anchor
-points, and ground control points. This helps check that these counts are
-balanced.
+points, and ground control points (after potentially any reductions,
+:numref:`gcp_vs_tri`). This helps check that these counts are balanced.
 
 For a large number of images and many anchor points, these counts are hard to
 predict in advance, as they arise from the pairwise matches across the network.

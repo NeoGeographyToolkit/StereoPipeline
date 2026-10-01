@@ -1229,6 +1229,29 @@ void jitterSolvePass(int                                 pass,
                      pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
                      local_orig_tri_points_vec, tri_points_vec);
 
+  // Print a summary of the counts actually used, after any reductions. The
+  // triangulated points and GCP are counted from the control network, skipping
+  // outliers. The anchor points are counted from the problem structure. This is
+  // done once, as these do not change across passes.
+  if (pass == 0) {
+    int num_tri = 0, num_gcp = 0, num_anchor = 0;
+    for (int ipt = 0; ipt < (int)cnet.size(); ipt++) {
+      if (outliers.find(ipt) != outliers.end())
+        continue;
+      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+        num_gcp++;
+      else
+        num_tri++;
+    }
+    for (size_t icam = 0; icam < isAnchor_vec.size(); icam++)
+      for (size_t it = 0; it < isAnchor_vec[icam].size(); it++)
+        if (isAnchor_vec[icam][it] == 1)
+          num_anchor++;
+    vw::vw_out() << "Number of triangulated points: " << num_tri << "\n";
+    vw::vw_out() << "Number of ground control points: " << num_gcp << "\n";
+    vw::vw_out() << "Number of anchor points: " << num_anchor << "\n";
+  }
+
   // Save the original camera positions and triangulated points for the initial pass
   if (pass == 0) {
     orig_tri_points_vec = local_orig_tri_points_vec;
@@ -1561,12 +1584,11 @@ void run_jitter_solve(int argc, char* argv[]) {
                                   stereo_settings().matches_as_txt);
   }
 
-  vw::vw_out() << "Number of triangulated control points: " << cnet.size() << "\n";
-
+  // The counts of triangulated points, GCP, and anchor points are printed later,
+  // after any reductions, together as a summary (:numref:`jitter_anchor_points`).
   if (!opt.gcp_files.empty()) {
-    int num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
     checkGcpRadius(opt.datum, cnet);
-    vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
   }
 
   if (cnet.empty())
@@ -1626,15 +1648,12 @@ void run_jitter_solve(int argc, char* argv[]) {
       vw::ba::subsample_control_network(cnet, tri_budget, gcp_budget, outliers);
 
     // The anchor points are created per image or per tile, then pruned at random
-    // to this total. Creation and pruning are both needed.
+    // to this total. Creation and pruning are both needed. The actual reduction
+    // is reported later, when the anchor points are created.
     opt.max_anchor_points_total = -1;
-    if (opt.max_anchor_to_tri_points_ratio >= 0) {
+    if (opt.max_anchor_to_tri_points_ratio >= 0)
       opt.max_anchor_points_total
         = (int)round(opt.max_anchor_to_tri_points_ratio * tri_budget);
-      vw_out() << "Limiting the total number of anchor points to "
-               << opt.max_anchor_points_total
-               << ", based on --max-anchor-points-to-tri-points-ratio.\n";
-    }
   }
 
   // It is convenient to compute these inside the first pass rather than outside.
