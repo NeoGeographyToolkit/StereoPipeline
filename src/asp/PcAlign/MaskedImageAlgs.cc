@@ -47,10 +47,10 @@ long long validCount(vw::ImageView<vw::PixelMask<float>> const& img) {
 // Compute the median of the valid pixels
 double maskedMedian(vw::ImageView<vw::PixelMask<float>> const& img) {
 
-  // Allocate enough space first  
-  std::vector<float> vals(img.cols()*img.rows());
-  vals.clear();
-  
+  // Reserve enough space first (64-bit, to avoid int overflow)
+  std::vector<float> vals;
+  vals.reserve(size_t(img.cols()) * img.rows());
+
   for (int col = 0; col < img.cols(); col++) {
     for (int row = 0; row < img.rows(); row++) {
       if (is_valid(img(col, row)))
@@ -68,9 +68,9 @@ double maskedMedian(vw::ImageView<vw::PixelMask<float>> const& img) {
 double normalizedMad(vw::ImageView<vw::PixelMask<float>> const& img, 
                      double median) {
   
-  // Compute the median absolute deviation
-  std::vector<float> vals(img.cols()*img.rows());
-  vals.clear();
+  // Compute the median absolute deviation. Reserve 64-bit, to avoid int overflow.
+  std::vector<float> vals;
+  vals.reserve(size_t(img.cols()) * img.rows());
   for (int col = 0; col < img.cols(); col++) {
     for (int row = 0; row < img.rows(); row++) {
       if (is_valid(img(col, row)))

@@ -375,8 +375,10 @@ void PcdReader::read_header() {
     valid = false;
   }
 
-  // Get size info
-  int width, height, count;
+  // Get size info. width/height are 64-bit: a cloud stored with all points
+  // in one row can exceed a 32-bit int, and so can their product.
+  std::int64_t width = 0, height = 0;
+  int count = 0;
   handle >> dummy >> count;
   std::getline(handle, line); // Go to the next line
   if (count != 1) {
@@ -387,7 +389,7 @@ void PcdReader::read_header() {
   std::getline(handle, line); // Skip viewpoint line
   std::getline(handle, line);
   handle >> dummy >> m_num_points;
-  if (m_num_points != (static_cast<size_t>(width*height))) {
+  if (m_num_points != (static_cast<size_t>(width) * static_cast<size_t>(height))) {
     vw::vw_out() << "Error: PCD point count error!\n";
     valid = false;
   }

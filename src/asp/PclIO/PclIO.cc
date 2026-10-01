@@ -55,7 +55,7 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
       
     pc.width = std::int64_t(cloud.cols()) * std::int64_t(cloud.rows());  // avoid int overflow
     pc.height = 1;
-    pc.points.resize(std::int64_t(pc.width) * std::int64_t(pc.height)); // avoid overflow
+    pc.points.resize(size_t(cloud.cols()) * cloud.rows()); // 64-bit, avoid overflow
       
     std::int64_t count = 0;
     for (std::int64_t col = 0; col < cloud.cols(); col++) {
@@ -72,8 +72,8 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
     }
 
     pc.width = count;
-    pc.points.resize(pc.width * pc.height);
-    
+    pc.points.resize(size_t(count));
+
     pcl::io::savePLYFileBinary(cloud_file, pc);
 
   } else {
@@ -81,9 +81,9 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
     // Write pcd
     pcl::PointCloud<pcl::PointNormal> pc;
 
-    pc.width = std::int64_t(cloud.cols()) * std::int64_t(cloud.rows()); 
+    pc.width = std::int64_t(cloud.cols()) * std::int64_t(cloud.rows());
     pc.height = 1;
-    pc.points.resize(pc.width * pc.height);
+    pc.points.resize(size_t(cloud.cols()) * cloud.rows()); // 64-bit, avoid overflow
       
     std::int64_t count = 0;
     for (std::int64_t col = 0; col < cloud.cols(); col++) {
@@ -104,8 +104,8 @@ void writeCloud(vw::ImageViewRef<vw::Vector<double, 4>> cloud,
     }
 
     pc.width = count;
-    pc.points.resize(pc.width * pc.height);
-    
+    pc.points.resize(size_t(count));
+
     pcl::io::savePCDFileBinary(cloud_file, pc);
   }
   

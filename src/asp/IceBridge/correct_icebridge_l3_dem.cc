@@ -75,7 +75,7 @@ int main( int argc, char *argv[] ) {
   
   // Make a float casted copy of the image data.
   ImageView<float> data_out(data_in.cols(), data_in.rows());
-  size_t num_bytes = data_in.cols()*data_in.rows()*sizeof(float);
+  size_t num_bytes = size_t(data_in.cols())*data_in.rows()*sizeof(float);
   memcpy(data_out.data(), data_in.data(), num_bytes);
 
   // Write the output file.  

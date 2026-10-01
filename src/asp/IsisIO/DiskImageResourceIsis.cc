@@ -125,7 +125,7 @@ namespace vw {
     src.format.rows = bbox.height();
     src.cstride = m_bytes_per_pixel;
     src.rstride = m_bytes_per_pixel * bbox.width();
-    src.pstride = m_bytes_per_pixel * bbox.width() * bbox.height();
+    src.pstride = size_t(m_bytes_per_pixel) * bbox.width() * bbox.height();
 
     convert(dest, src);
   }
