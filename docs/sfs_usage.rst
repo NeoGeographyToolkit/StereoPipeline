@@ -2249,8 +2249,8 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --heights-from-dem ref_dem.tif                 \
       --heights-from-dem-uncertainty 20.0            \
       --anchor-dem ref_dem_extra.tif                 \
-      --num-anchor-points-per-tile 10                \
-      --num-anchor-points-extra-lines 40000          \
+      --num-anchor-points 5000                       \
+      --num-anchor-points-extra-lines 4000           \
       --anchor-dem-uncertainty 50.0                  \
       --max-num-tri-points 500000                    \
       --max-gcp-to-tri-points-ratio 1.0              \
@@ -2282,14 +2282,14 @@ uncertainty should be smaller than the value of
 The options ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
 ``--max-anchor-points-to-tri-points-ratio`` bound the number of triangulated
 points and keep the ground control points and anchor points in balance with them
-(:numref:`jitter_anchor_points`). Available as of build 2026/10
+(:numref:`jitter_anchor_points`). Too many matches can cause the Ceres Jacobian
+to overflow for large datasets. These options are available as of build 2026/10
 (:numref:`release`).
 
 The anchor DEM (``ref_dem_extra.tif``) went 40 km beyond the site of interest to
 ensure we constrain oscillations in the cameras even outside the main DEM
-extent. The option ``--num-anchor-points-extra-lines`` placed anchor points well
-beyond the first and last image lines, covering the full orbit strip within the
-anchor DEM. These values were likely excessive for this dataset.
+extent. The option ``--num-anchor-points-extra-lines`` placed anchor points
+beyond the first and last image lines.
 
 The camera position uncertainty was set to 500 m horizontally and vertically,
 which is generous enough to allow the expected 30-100 m corrections but
@@ -2297,14 +2297,10 @@ prevents wild oscillations. This is a soft constraint and in practice the
 camera positions can move somewhat beyond that.
 
 GCP were produced as earlier (:numref:`sfs_gcp`), with ``dem2gcp``
-(:numref:`dem2gcp`). The GCP sigma was set to 10 meters. Decreasing this to 1.0
-should be considered if the pull of the GCP is not adequate. The GCP sigma
-uncertainty should be less than the value of ``--heights-from-dem-uncertainty``.
-The option ``--max-gcp-reproj-err`` was used to filter GCP outliers.
-
-Clean matches from bundle adjustment were reused. The number of pairwise
-matches can be adjusted to balance quality and problem size. Too many matches
-can cause the Ceres Jacobian to overflow for large datasets.
+(:numref:`dem2gcp`). The GCP sigma should be set to around 1 meter or so. The
+GCP sigma uncertainty should be notably less than the value of
+``--heights-from-dem-uncertainty`` so it has higher priority. The option
+``--max-gcp-reproj-err`` was used to filter GCP outliers.
 
 We assume the cameras in ``ba_align_ref`` are in CSM format, with the
 adjustments and alignment already applied to them.
