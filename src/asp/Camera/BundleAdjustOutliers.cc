@@ -99,6 +99,7 @@ void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
 
     if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
       continue; // don't filter out GCP
+    // Note: DEM-constrained points (PointFromDem) are filtered here too.
     if (ba_state.get_point_outlier(ipt))
       continue; // skip outliers
 

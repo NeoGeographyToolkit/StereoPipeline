@@ -1241,7 +1241,7 @@ void jitterSolvePass(int                                 pass,
       if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
         num_gcp++;
       else
-        num_tri++;
+        num_tri++; // DEM-constrained points counted as tri here too
     }
     for (size_t icam = 0; icam < isAnchor_vec.size(); icam++)
       for (size_t it = 0; it < isAnchor_vec[icam].size(); it++)
@@ -1630,7 +1630,7 @@ void run_jitter_solve(int argc, char* argv[]) {
       if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
         cur_gcp++;
       else
-        cur_tri++;
+        cur_tri++; // DEM-constrained points counted as tri here too
     }
 
     // The triangulated point count after any reduction. This is the denominator

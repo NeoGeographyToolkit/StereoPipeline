@@ -167,6 +167,8 @@ void addIsisControlPoint(Isis::ControlNet & icnet,
       point->SetType(Isis::ControlPoint::Constrained);
     }
   } else {
+    // DEM-constrained points (PointFromDem) land here as Free. Likely fine, as
+    // jigsaw has no equivalent mode.
     point->SetType(Isis::ControlPoint::Free);
   }
   
