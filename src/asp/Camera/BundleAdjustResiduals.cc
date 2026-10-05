@@ -949,7 +949,13 @@ void saveJitterResiduals(ceres::Problem                             & problem,
       pixel_residual_count[m.xyz_index]++;
       residuals_per_cam[m.icam].push_back(norm);
     } else {
-      norm /= m.weight; // Undo the weight, to recover the pixel norm
+      // TODO(oalexan1): This extra division by the weight is a bug. The residual
+      // is already weight * (proj - obs), so dividing by weight_per_residual
+      // above recovers the raw pixel error (as done for tie points). Dividing by
+      // the weight again inflates the reported anchor norm by 1/weight. Kept for
+      // now to hold the anchor_points.csv gold stable; fixing it changes only
+      // that diagnostic, not the solve.
+      norm /= m.weight;
       double const* tri_point = &tri_points_vec[3 * m.xyz_index];
       anchor_xyz.push_back(Vector3(tri_point[0], tri_point[1], tri_point[2]));
       anchor_residual_norm.push_back(norm);
