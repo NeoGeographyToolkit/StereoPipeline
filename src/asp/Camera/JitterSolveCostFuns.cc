@@ -688,10 +688,7 @@ struct weightedQuatNormError {
 // constraints that scale with the number of reprojection errors and GSD.
 void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
                       asp::CRN                             const & crn,
-                      std::vector<std::vector<vw::Vector2>> const & pixel_vec,
-                      std::vector<std::vector<double>>      const & weight_vec,
-                      std::vector<std::vector<int>>         const & isAnchor_vec,
-                      std::vector<std::vector<int>>         const & pix2xyz_index,
+                      std::vector<std::vector<asp::JitterObs>> const & obs_vec,
                       std::vector<asp::CsmModel*>           const & csm_models,
                       bool                                          have_rig,
                       rig::RigSet                           const & rig,
@@ -725,12 +722,13 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
       vw::BBox2 image_box = bounding_box(img);
       std::vector<double> this_cam_weights;
 
-      for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
+      for (size_t ipix = 0; ipix < obs_vec[icam].size(); ipix++) {
 
-        vw::Vector2 pix_obs = pixel_vec[icam][ipix];
-        double * tri_point  = &tri_points_vec[3 * pix2xyz_index[icam][ipix]];
-        double pix_wt       = weight_vec[icam][ipix];
-        bool isAnchor       = isAnchor_vec[icam][ipix];
+        asp::JitterObs const& obs = obs_vec[icam][ipix];
+        vw::Vector2 pix_obs = obs.pixel;
+        double * tri_point  = &tri_points_vec[3 * obs.xyz_index];
+        double pix_wt       = obs.weight;
+        bool isAnchor       = obs.is_anchor;
 
         // Pass 0 is without anchor points, while pass 1 uses them
         if ((int)isAnchor != pass)

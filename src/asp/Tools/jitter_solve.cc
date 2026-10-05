@@ -778,20 +778,17 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   return;
 }
 
-// Calculate a set of anchor points uniformly distributed over the image
-// Will use opt.num_anchor_points_extra_lines. We append to weight_vec and
-// other quantities that were used for reprojection errors for match points.
+// Calculate a set of anchor points uniformly distributed over the image.
+// Will use opt.num_anchor_points_extra_lines. We append to obs_vec, which
+// already holds the reprojection observations for the match points.
 void calcAnchorPoints(Options                         const & opt,
                       ImageViewRef<PixelMask<double>>         interp_anchor_dem,
                       vw::cartography::GeoReference   const & anchor_georef,
                       std::vector<asp::CsmModel*>     const & csm_models,
                       // Append to these, they already have entries
-                      std::vector<std::vector<Vector2>>     & pixel_vec,
-                      std::vector<std::vector<double>>      & weight_vec,
-                      std::vector<std::vector<int>>         & isAnchor_vec,
-                      std::vector<std::vector<int>>         & pix2xyz_index,
-                      std::vector<double>                   & orig_tri_points_vec,
-                      std::vector<double>                   & tri_points_vec) {
+                      std::vector<std::vector<asp::JitterObs>> & obs_vec,
+                      std::vector<double> & orig_tri_points_vec,
+                      std::vector<double> & tri_points_vec) {
 
   vw::vw_out() << "Calculating anchor points.\n";
   vw::Stopwatch sw;
@@ -964,8 +961,8 @@ void calcAnchorPoints(Options                         const & opt,
              << ", by selecting a random subset.\n";
   }
 
-  // Append the kept candidates to the output structures, in camera order, so the
-  // bookkeeping in pix2xyz_index stays consistent.
+  // Append the kept candidates to obs_vec, in camera order, so the xyz_index
+  // bookkeeping stays consistent.
   int totalAnchorPoints = 0;
   for (size_t k = 0; k < all_cand.size(); k++) {
     if (!keep[k])
@@ -973,12 +970,11 @@ void calcAnchorPoints(Options                         const & opt,
     int icam = all_cand[k].first;
     int j    = all_cand[k].second;
 
-    pixel_vec[icam].push_back(cand_pix[icam][j]);
-    weight_vec[icam].push_back(cand_weight[icam][j]);
-    isAnchor_vec[icam].push_back(1);
-
     // The current number of points in tri_points_vec is the index of the next point
-    pix2xyz_index[icam].push_back(tri_points_vec.size() / 3);
+    bool is_anchor = true;
+    int xyz_index = tri_points_vec.size() / 3;
+    obs_vec[icam].push_back(asp::JitterObs(cand_pix[icam][j], cand_weight[icam][j],
+                                           is_anchor, xyz_index));
 
     // Append every coordinate of the anchor xyz to tri_points_vec
     Vector3 xyz = cand_xyz[icam][j];
@@ -1059,11 +1055,8 @@ void createProblemStructure(Options                      const& opt,
                             vw::ba::ControlNetwork       const& cnet,
                             std::vector<double>          const& tri_points_vec,
                             // Outputs
-                            std::set<int>                     & outliers,
-                            std::vector<std::vector<Vector2>> & pixel_vec,
-                            std::vector<std::vector<double>>  & weight_vec,
-                            std::vector<std::vector<int>>     & isAnchor_vec,
-                            std::vector<std::vector<int>>     & pix2xyz_index) {
+                            std::set<int> & outliers,
+                            std::vector<std::vector<asp::JitterObs>> & obs_vec) {
 
   // If to use a weight image
   bool have_weight_image = (!opt.weight_image.empty());
@@ -1076,16 +1069,9 @@ void createProblemStructure(Options                      const& opt,
 
   int num_cameras = opt.camera_models.size();
 
-  // Wipe
-  pixel_vec.resize(0);
-  weight_vec.resize(0);
-  isAnchor_vec.resize(0);
-  pix2xyz_index.resize(0);
-  // Resize
-  pixel_vec.resize(num_cameras);
-  weight_vec.resize(num_cameras);
-  isAnchor_vec.resize(num_cameras);
-  pix2xyz_index.resize(num_cameras);
+  // Wipe and resize
+  obs_vec.resize(0);
+  obs_vec.resize(num_cameras);
 
   for (int icam = 0; icam < (int)crn.size(); icam++) {
     for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
@@ -1128,10 +1114,8 @@ void createProblemStructure(Options                      const& opt,
         weight *= img_wt.child();
       }
 
-      pixel_vec[icam].push_back(observation);
-      weight_vec[icam].push_back(weight);
-      isAnchor_vec[icam].push_back(0);
-      pix2xyz_index[icam].push_back(ipt);
+      bool is_anchor = false;
+      obs_vec[icam].push_back(asp::JitterObs(observation, weight, is_anchor, ipt));
     }
   }
 
@@ -1211,22 +1195,19 @@ void jitterSolvePass(int                                 pass,
   asp::formTriVec(dem_xyz_vec, have_dem, opt.heights_from_dem_uncertainty,
     cnet, local_orig_tri_points_vec, tri_points_vec); // outputs
 
-  // Create structures for pixels, xyz, and weights, to be used in optimization
-  std::vector<std::vector<Vector2>> pixel_vec;
-  std::vector<std::vector<double>> weight_vec;
-  std::vector<std::vector<int>> isAnchor_vec;
-  std::vector<std::vector<int>> pix2xyz_index;
+  // The per-camera pixel observations (tie points and anchor points) used in
+  // optimization. Each carries its pixel, weight, anchor flag, and xyz index.
+  std::vector<std::vector<asp::JitterObs>> obs_vec;
   createProblemStructure(opt, crn, cnet, tri_points_vec,
                          // Outputs
-                         outliers, pixel_vec,
-                         weight_vec, isAnchor_vec, pix2xyz_index);
+                         outliers, obs_vec);
 
-  // Find anchor points and append to pixel_vec, weight_vec, xyz_vec, etc.
+  // Find anchor points and append them to obs_vec.
   if ((opt.num_anchor_points_per_image > 0 || opt.num_anchor_points_per_tile > 0) &&
        opt.anchor_weight > 0)
     calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,
                      // Append to these
-                     pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
+                     obs_vec,
                      local_orig_tri_points_vec, tri_points_vec);
 
   // Print a summary of the counts actually used, after any reductions. The
@@ -1243,9 +1224,9 @@ void jitterSolvePass(int                                 pass,
       else
         num_tri++; // DEM-constrained points counted as tri here too
     }
-    for (size_t icam = 0; icam < isAnchor_vec.size(); icam++)
-      for (size_t it = 0; it < isAnchor_vec[icam].size(); it++)
-        if (isAnchor_vec[icam][it] == 1)
+    for (size_t icam = 0; icam < obs_vec.size(); icam++)
+      for (size_t it = 0; it < obs_vec[icam].size(); it++)
+        if (obs_vec[icam][it].is_anchor)
           num_anchor++;
     vw::vw_out() << "Number of triangulated points: " << num_tri << "\n";
     vw::vw_out() << "Number of ground control points: " << num_gcp << "\n";
@@ -1274,8 +1255,7 @@ void jitterSolvePass(int                                 pass,
   std::vector<std::vector<double>> count_per_cam(2);
 
   // Add reprojection errors. Get back weights_per_cam, count_per_cam.
-  addReprojCamErrs(opt, crn, pixel_vec, weight_vec,
-                   isAnchor_vec, pix2xyz_index, csm_models,
+  addReprojCamErrs(opt, crn, obs_vec, csm_models,
                    have_rig, rig, rig_cam_info, opt.cam2group, timestamp_map,
                    opt.fix_rig_translations, opt.fix_rig_rotations,
                    // Outputs
@@ -1388,7 +1368,7 @@ void jitterSolvePass(int                                 pass,
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                    tri_points_vec, outliers, weight_per_residual,
-                   pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
+                   obs_vec,
                    reference_vec, ref_indices,
                    mean_pixel_residuals);
   }
@@ -1436,7 +1416,7 @@ void jitterSolvePass(int                                 pass,
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
-                 pixel_vec, weight_vec, isAnchor_vec, pix2xyz_index,
+                 obs_vec,
                  reference_vec, ref_indices,
                  mean_pixel_residuals);
 

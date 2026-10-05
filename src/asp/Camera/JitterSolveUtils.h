@@ -25,6 +25,7 @@
 #include <asp/Camera/CsmModel.h>
 
 #include <vw/Cartography/GeoReference.h>
+#include <vw/Math/Vector.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
 
 #include <string>
@@ -38,6 +39,20 @@ namespace rig {
 namespace asp {
 
 class RigCamInfo;
+
+// A single pixel observation used by the jitter solver: either a tie point
+// measurement or an anchor point. Replaces the parallel pixel/weight/isAnchor/
+// xyz-index vectors that had to be kept in lockstep.
+struct JitterObs {
+  vw::Vector2 pixel;     // pixel observation
+  double      weight;    // scalar pixel weight
+  bool        is_anchor; // true for an anchor point, false for a tie point
+  int         xyz_index; // index of the 3D point in tri_points_vec (divided by 3)
+
+  JitterObs(): pixel(vw::Vector2()), weight(0.0), is_anchor(false), xyz_index(-1) {}
+  JitterObs(vw::Vector2 const& pix, double wt, bool anchor, int idx):
+    pixel(pix), weight(wt), is_anchor(anchor), xyz_index(idx) {}
+};
 
 // If several images are acquired in quick succession along the same orbit and
 // stored in the same list, record this structure by grouping them together.

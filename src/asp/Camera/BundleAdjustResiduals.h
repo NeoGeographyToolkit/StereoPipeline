@@ -23,6 +23,7 @@
 #define __BUNDLE_ADJUST_RESIDUALS_H__
 
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/JitterSolveUtils.h>
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
@@ -140,10 +141,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::vector<double>                   const& tri_points_vec,
                          std::set<int>                         const& outliers,
                          std::vector<double>                   const& weight_per_residual,
-                         std::vector<std::vector<vw::Vector2>> const& pixel_vec,
-                         std::vector<std::vector<double>>      const& weight_vec,
-                         std::vector<std::vector<int>>         const& isAnchor_vec,
-                         std::vector<std::vector<int>>         const& pix2xyz_index,
+                         std::vector<std::vector<asp::JitterObs>> const& obs_vec,
                          std::vector<vw::Vector3>              const& reference_vec,
                          std::vector<std::vector<int>>         const& ref_indices,
                          // Output

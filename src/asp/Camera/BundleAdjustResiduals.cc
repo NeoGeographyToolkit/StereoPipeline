@@ -907,10 +907,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::vector<double>                   const& tri_points_vec,
                          std::set<int>                         const& outliers,
                          std::vector<double>                   const& weight_per_residual,
-                         std::vector<std::vector<vw::Vector2>> const& pixel_vec,
-                         std::vector<std::vector<double>>      const& weight_vec,
-                         std::vector<std::vector<int>>         const& isAnchor_vec,
-                         std::vector<std::vector<int>>         const& pix2xyz_index,
+                         std::vector<std::vector<asp::JitterObs>> const& obs_vec,
                          std::vector<vw::Vector3>              const& reference_vec,
                          std::vector<std::vector<int>>         const& ref_indices,
                          // Output
@@ -994,25 +991,25 @@ void saveJitterResiduals(ceres::Problem                             & problem,
   std::vector<double> anchor_residual_norm;
   for (int pass = 1; pass < 2; pass++) {
     for (int icam = 0; icam < (int)crn.size(); icam++) {
-      for (size_t ipix = 0; ipix < pixel_vec[icam].size(); ipix++) {
+      for (size_t ipix = 0; ipix < obs_vec[icam].size(); ipix++) {
 
-        Vector2 observation =  pixel_vec[icam][ipix];
-        double weight = weight_vec[icam][ipix];
-        bool isAnchor = isAnchor_vec[icam][ipix];
+        asp::JitterObs const& obs = obs_vec[icam][ipix];
+        double weight = obs.weight;
+        bool isAnchor = obs.is_anchor;
 
         // Pass 0 is without anchor points, while pass 1 uses them.
         // Here we only do pass 1.
-        if ((int)isAnchor != pass) 
+        if ((int)isAnchor != pass)
           continue;
 
         // Norm of pixel residual
         double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
                                      residuals[ires + 1] / weight_per_residual[ires + 1]));
         norm /= weight; // Undo the weight, to recover the pixel norm
-        
+
         ires += PIXEL_SIZE; // Update for the next iteration
 
-        double const* tri_point = &tri_points_vec[3 * pix2xyz_index[icam][ipix]];
+        double const* tri_point = &tri_points_vec[3 * obs.xyz_index];
         Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
         anchor_xyz.push_back(xyz);
         anchor_residual_norm.push_back(norm);
