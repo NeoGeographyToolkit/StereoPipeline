@@ -1245,6 +1245,9 @@ void jitterSolvePass(int                                 pass,
   // Need this in order to undo the multiplication by weight before saving the residuals
   std::vector<double> weight_per_residual;
 
+  // Per-reprojection-residual metadata, recorded in add order, for saving residuals
+  std::vector<asp::JitterResidualMeta> residual_meta;
+
   // The problem to solve
   ceres::Problem problem;
 
@@ -1260,6 +1263,7 @@ void jitterSolvePass(int                                 pass,
                    opt.fix_rig_translations, opt.fix_rig_rotations,
                    // Outputs
                    tri_points_vec, frame_params, weight_per_residual,
+                   residual_meta,
                    weight_per_cam, count_per_cam, ref_to_curr_sensor_vec,
                    problem);
 
@@ -1368,7 +1372,7 @@ void jitterSolvePass(int                                 pass,
     std::string residual_prefix = opt.out_prefix + "-initial_residuals";
     saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                    tri_points_vec, outliers, weight_per_residual,
-                   obs_vec,
+                   residual_meta,
                    reference_vec, ref_indices,
                    mean_pixel_residuals);
   }
@@ -1416,7 +1420,7 @@ void jitterSolvePass(int                                 pass,
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
   saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
                  tri_points_vec, outliers, weight_per_residual,
-                 obs_vec,
+                 residual_meta,
                  reference_vec, ref_indices,
                  mean_pixel_residuals);
 

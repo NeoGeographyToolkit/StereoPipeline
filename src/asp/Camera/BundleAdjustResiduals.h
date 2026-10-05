@@ -141,7 +141,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::vector<double>                   const& tri_points_vec,
                          std::set<int>                         const& outliers,
                          std::vector<double>                   const& weight_per_residual,
-                         std::vector<std::vector<asp::JitterObs>> const& obs_vec,
+                         std::vector<asp::JitterResidualMeta>  const& residual_meta,
                          std::vector<vw::Vector3>              const& reference_vec,
                          std::vector<std::vector<int>>         const& ref_indices,
                          // Output

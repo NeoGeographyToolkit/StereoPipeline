@@ -54,6 +54,21 @@ struct JitterObs {
     pixel(pix), weight(wt), is_anchor(anchor), xyz_index(idx) {}
 };
 
+// Metadata for one reprojection residual block added to the Ceres problem,
+// recorded in the exact order residuals are added. This lets the residual writer
+// walk the solved residuals without re-deriving the add-time traversal, which
+// would desync if a residual was skipped at add time.
+struct JitterResidualMeta {
+  int    icam;      // camera index
+  int    xyz_index; // index of the 3D point in tri_points_vec (divided by 3)
+  bool   is_anchor; // true for an anchor residual
+  double weight;    // scalar pixel weight used for this residual
+
+  JitterResidualMeta(): icam(-1), xyz_index(-1), is_anchor(false), weight(0.0) {}
+  JitterResidualMeta(int cam, int idx, bool anchor, double wt):
+    icam(cam), xyz_index(idx), is_anchor(anchor), weight(wt) {}
+};
+
 // If several images are acquired in quick succession along the same orbit and
 // stored in the same list, record this structure by grouping them together.
 // Each element in the input vector below is either a standalone image, then it

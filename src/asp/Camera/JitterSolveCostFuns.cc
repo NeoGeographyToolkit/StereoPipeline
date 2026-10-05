@@ -701,14 +701,16 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
                       std::vector<double>                     & tri_points_vec,
                       std::vector<double>                     & frame_params,
                       std::vector<double>                     & weight_per_residual,
+                      std::vector<asp::JitterResidualMeta>    & residual_meta,
                       std::vector<std::vector<double>>        & weight_per_cam,
                       std::vector<std::vector<double>>        & count_per_cam,
                       std::vector<double>                     & ref_to_curr_sensor_vec,
                       ceres::Problem                          & problem) {
 
   // Do here two passes, first for non-anchor points and then for anchor ones.
-  // This way it is easier to do the bookkeeping when saving the residuals.
-  // Note: The same motions as here are repeated in saveJitterResiduals().
+  // Record per-residual metadata in add order, so the residual writer need not
+  // re-derive this traversal.
+  residual_meta.clear();
   weight_per_cam.resize(2);
   count_per_cam.resize(2);
   for (int pass = 0; pass < 2; pass++) {
@@ -782,6 +784,12 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
         // Two residuals were added. Save the corresponding weights.
         for (int c = 0; c < asp::PIXEL_SIZE; c++)
           weight_per_residual.push_back(pix_wt);
+
+        // Record the metadata for this residual pair, in add order. Points
+        // skipped by the catch above push nothing, so this stays aligned with
+        // the residuals that were actually added.
+        residual_meta.push_back(asp::JitterResidualMeta(icam, obs.xyz_index,
+                                                        obs.is_anchor, pix_wt));
 
         // Anchor points are fixed by definition. They try to prevent
         // the cameras from moving too much from original poses.

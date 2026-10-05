@@ -907,7 +907,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          std::vector<double>                   const& tri_points_vec,
                          std::set<int>                         const& outliers,
                          std::vector<double>                   const& weight_per_residual,
-                         std::vector<std::vector<asp::JitterObs>> const& obs_vec,
+                         std::vector<asp::JitterResidualMeta>  const& residual_meta,
                          std::vector<vw::Vector3>              const& reference_vec,
                          std::vector<std::vector<int>>         const& ref_indices,
                          // Output
@@ -928,27 +928,34 @@ void saveJitterResiduals(ceres::Problem                             & problem,
   int ires = 0;
   int num_cams = crn.size();
   std::vector<std::vector<double>> residuals_per_cam(num_cams);
-  for (int icam = 0; icam < crn.size(); icam++) {
-    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
-      
-      // The index of the 3D point
-      int ipt = (**fiter).m_point_id;
-      
-      if (outliers.find(ipt) != outliers.end())
-        continue; // Skip outliers
 
-      // Norm of pixel residual
-      double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
-                                   residuals[ires + 1] / weight_per_residual[ires + 1]));
+  // Anchor-point residuals, collected in the same pass.
+  std::vector<Vector3> anchor_xyz;
+  std::vector<double> anchor_residual_norm;
 
-      mean_pixel_residual_norm[ipt] += norm;
-      pixel_residual_count[ipt]++;
-      
-      // Record the residual for the camera
-      residuals_per_cam[icam].push_back(norm);
-      
-      ires += PIXEL_SIZE; // Update for the next iteration
+  // Walk the reprojection residuals in the exact order addReprojCamErrs added
+  // them (recorded in residual_meta). This avoids re-deriving the add-time
+  // traversal, which could desync if a residual was skipped at add time.
+  for (size_t i = 0; i < residual_meta.size(); i++) {
+
+    asp::JitterResidualMeta const& m = residual_meta[i];
+
+    // Norm of pixel residual
+    double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
+                                 residuals[ires + 1] / weight_per_residual[ires + 1]));
+
+    if (!m.is_anchor) {
+      mean_pixel_residual_norm[m.xyz_index] += norm;
+      pixel_residual_count[m.xyz_index]++;
+      residuals_per_cam[m.icam].push_back(norm);
+    } else {
+      norm /= m.weight; // Undo the weight, to recover the pixel norm
+      double const* tri_point = &tri_points_vec[3 * m.xyz_index];
+      anchor_xyz.push_back(Vector3(tri_point[0], tri_point[1], tri_point[2]));
+      anchor_residual_norm.push_back(norm);
     }
+
+    ires += PIXEL_SIZE; // Update for the next iteration
   }
 
   // Average all pixel residuals for a given xyz
@@ -984,38 +991,6 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                                 tri_points_vec, mean_pixel_residual_norm,  
                                 pixel_residual_count);
 
-  // Add residuals for anchor points. That is pass 1 from
-  // addReprojCamErrs(). We imitate here the same logic for that
-  // pass. We continue to increment the ires counter from above.
-  std::vector<Vector3> anchor_xyz;
-  std::vector<double> anchor_residual_norm;
-  for (int pass = 1; pass < 2; pass++) {
-    for (int icam = 0; icam < (int)crn.size(); icam++) {
-      for (size_t ipix = 0; ipix < obs_vec[icam].size(); ipix++) {
-
-        asp::JitterObs const& obs = obs_vec[icam][ipix];
-        double weight = obs.weight;
-        bool isAnchor = obs.is_anchor;
-
-        // Pass 0 is without anchor points, while pass 1 uses them.
-        // Here we only do pass 1.
-        if ((int)isAnchor != pass)
-          continue;
-
-        // Norm of pixel residual
-        double norm = norm_2(Vector2(residuals[ires + 0] / weight_per_residual[ires + 0],
-                                     residuals[ires + 1] / weight_per_residual[ires + 1]));
-        norm /= weight; // Undo the weight, to recover the pixel norm
-
-        ires += PIXEL_SIZE; // Update for the next iteration
-
-        double const* tri_point = &tri_points_vec[3 * obs.xyz_index];
-        Vector3 xyz(tri_point[0], tri_point[1], tri_point[2]);
-        anchor_xyz.push_back(xyz);
-        anchor_residual_norm.push_back(norm);
-      }
-    }
-  }
   write_anchor_residuals(residual_prefix, datum, anchor_xyz, anchor_residual_norm);
   
   // Ensure we did not process more residuals than what we have.
