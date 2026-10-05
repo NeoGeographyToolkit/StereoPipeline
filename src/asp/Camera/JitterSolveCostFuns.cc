@@ -779,7 +779,7 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
 
         } // end condition for having a rig
 
-        } catch (...) { continue; }
+        } catch (...) { continue; } // skipped residuals record nothing, stay aligned
 
         // Two residuals were added. Save the corresponding weights.
         for (int c = 0; c < asp::PIXEL_SIZE; c++)
