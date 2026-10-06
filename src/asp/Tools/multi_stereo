@@ -543,14 +543,8 @@ def run_parallel(cmds, num_parallel):
 
     cmd = [par, '--will-cite', '-j', str(num_parallel), '--halt', 'never']
 
-    # Decide whether to spread the jobs over the PBS nodes with ssh. The node file lists
-    # the unique hosts. ssh-ing to a SINGLE node (any select=1 job, the common case) hits
-    # that node's sshd MaxStartups/MaxSessions cap (often 16): GNU parallel opens one ssh
-    # per job, connections past the cap are refused, and with --halt never those jobs are
-    # silently dropped, leaving holes in the DEM mosaic. On a single host there is nothing
-    # to distribute, so run locally, with no ssh and no login cap. Spread over ssh only
-    # when there really are several hosts, and then pace the logins (--sshdelay) and retry
-    # a refused launch (--retries) to survive that same cap.
+    # On a single node, run locally: ssh-ing to one host hits its sshd login cap and
+    # (with --halt never) silently drops jobs. Spread over ssh only across several hosts.
     nodefile = os.environ.get("PBS_NODEFILE")
     hosts = []
     if nodefile is not None and os.path.exists(nodefile):

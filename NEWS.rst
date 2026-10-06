@@ -21,12 +21,6 @@ New features:
     (tags with the ``isdc:`` prefix), so multi-part deliveries in this format
     can be mosaicked (:numref:`dg_mosaic`).
 
-multi_stereo (:numref:`multi_stereo`):
-  * On a single-node allocation, launch the per-pair and per-tile jobs locally
-    instead of over ssh. This avoids the node's ssh login limit (``MaxStartups`` /
-    ``MaxSessions``) silently dropping jobs and leaving holes in the DEM mosaic.
-    Jobs are spread over ssh only when the allocation spans several nodes.
-
 bundle_adjust (:numref:`bundle_adjust`):
   * Added a documentation section on OHRC-LRO NAC coregistration
     (:numref:`ohrc_nac_coreg`).
