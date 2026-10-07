@@ -1,0 +1,350 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# __BEGIN_LICENSE__
+#  Copyright (c) 2009-2026, United States Government as represented by the
+#  Administrator of the National Aeronautics and Space Administration. All
+#  rights reserved.
+#
+#  The NGT platform is licensed under the Apache License, Version 2.0 (the
+#  "License"); you may not use this file except in compliance with the
+#  License. You may obtain a copy of the License at
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+# __END_LICENSE__
+
+'''
+Remove a smooth spatial bias (a low-frequency trend) from a DEM, using
+scattered ground-control points such as ICESat-2 ATL24 photon depths or a
+lidar survey. A thin-plate spline is fit to the residual (control point minus
+DEM) at the points, evaluated over the whole DEM, and subtracted.
+
+This corrects a slowly varying warp that a rigid alignment (pc_align) cannot
+remove. Run pc_align first, then this tool on its output.
+
+This tool needs python 3, numpy, scipy, and osgeo (gdal).
+'''
+
+import argparse
+import os
+import sys
+import time
+
+import numpy as np
+from osgeo import gdal
+
+gdal.UseExceptions()
+
+
+def stats(e, tag):
+    """Print robust before/after residual statistics."""
+    e = e[np.isfinite(e)]
+    if e.size == 0:
+        print(f"  {tag:12s} (no valid points)")
+        return
+    med = np.median(e)
+    nmad = 1.4826 * np.median(np.abs(e - med))
+    sd = e.std(ddof=1) if e.size > 1 else 0.0
+    print(f"  {tag:12s} n={e.size:7d} bias={e.mean():+.4f} median={med:+.4f} "
+          f"MAE={np.abs(e).mean():.4f} SD={sd:.4f} "
+          f"NMAD={nmad:.4f} RMSE={np.sqrt((e**2).mean()):.4f}")
+
+
+def read_control_points(path, cols, delimiter):
+    """Read scattered control points from a CSV or text file.
+
+    Columns are 1-based indices into each line for x, y, z. Lines starting
+    with '#' and any header line whose fields do not parse as numbers are
+    skipped. The x, y values must be in the DEM's projection (easting and
+    northing), and z in the DEM's vertical datum."""
+    cx, cy, cz = (c - 1 for c in cols)
+    need = max(cx, cy, cz)
+    xs, ys, zs = [], [], []
+    with open(path, "r") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            fields = line.split(delimiter) if delimiter else line.split()
+            if len(fields) <= need:
+                continue
+            try:
+                x = float(fields[cx]); y = float(fields[cy]); z = float(fields[cz])
+            except ValueError:
+                # A header line or a stray non-numeric row. Skip it.
+                continue
+            xs.append(x); ys.append(y); zs.append(z)
+    if not xs:
+        raise ValueError("No numeric control points were read from %s. Check "
+                         "--csv-cols and --csv-delimiter." % path)
+    return np.array(xs), np.array(ys), np.array(zs)
+
+
+def bilinear_sample(dem, gt, X, Y):
+    """Bilinearly sample the DEM (with nodata as NaN) at projected X, Y."""
+    ny, nx = dem.shape
+    fcol = (X - gt[0]) / gt[1] - 0.5
+    frow = (Y - gt[3]) / gt[5] - 0.5
+    c0 = np.floor(fcol).astype(int); r0 = np.floor(frow).astype(int)
+    wc = fcol - c0; wr = frow - r0
+    inb = (r0 >= 0) & (r0 < ny - 1) & (c0 >= 0) & (c0 < nx - 1)
+    out = np.full(X.shape, np.nan)
+    ri, ci = r0[inb], c0[inb]
+    a = dem[ri, ci]; b = dem[ri, ci + 1]
+    c = dem[ri + 1, ci]; d = dem[ri + 1, ci + 1]
+    wri, wci = wr[inb], wc[inb]
+    out[inb] = (a * (1 - wri) * (1 - wci) + b * (1 - wri) * wci +
+                c * wri * (1 - wci) + d * wri * wci)
+    return out
+
+
+def fit_trend(Xc, Yc, rc, num_knots, num_fit, seed, t0):
+    """Fit a reduced-rank penalized thin-plate spline to the residuals.
+
+    Model: residual(x,y) = sum_j b_j eta(||p - knot_j||) + a0 + a1 x + a2 y,
+    with eta(r) = r^2 log r. The penalty is the thin-plate bending energy; the
+    smoothing weight lambda is chosen by generalized cross validation (GCV).
+    A low rank (num_knots ~ 150) keeps the trend smooth: a DEM bias is low
+    frequency and does not need many degrees of freedom, and a high rank both
+    slows the evaluation and overfits (it grows bullseyes on the tracks).
+    Returns a closure trend(GX, GY) that evaluates the fitted surface."""
+
+    # Normalize coordinates for numerical stability.
+    mx, my = Xc.mean(), Yc.mean()
+    sc = np.sqrt(((Xc - mx) ** 2 + (Yc - my) ** 2).mean())
+    if sc == 0:
+        sc = 1.0
+    def norm(x, y):
+        return (x - mx) / sc, (y - my) / sc
+
+    def eta_sq(d2):
+        # r^2 log r = 0.5 d2 log d2, with the d2 -> 0 limit set to 0.
+        out = np.zeros_like(d2)
+        m = d2 > 0
+        out[m] = 0.5 * d2[m] * np.log(d2[m])
+        return out
+
+    from scipy.spatial.distance import cdist
+
+    rng = np.random.default_rng(seed)
+    fit_idx = rng.choice(Xc.size, min(num_fit, Xc.size), replace=False)
+    xf, yf = norm(Xc[fit_idx], Yc[fit_idx]); zf = rc[fit_idx]
+    kn_idx = rng.choice(xf.size, min(num_knots, xf.size), replace=False)
+    kx, ky = xf[kn_idx], yf[kn_idx]
+    K = np.c_[kx, ky]
+    print(f"[{time.time()-t0:5.1f}s] fit on {xf.size} points, {K.shape[0]} knots")
+
+    # Design: E (radial basis) and T (the unpenalized null space: 1, x, y).
+    E = eta_sq(cdist(np.c_[xf, yf], K, "sqeuclidean"))
+    T = np.c_[np.ones_like(xf), xf, yf]
+    B = np.c_[E, T]
+    Ek = eta_sq(cdist(K, K, "sqeuclidean"))
+    m = K.shape[0]
+    P = np.zeros((m + 3, m + 3)); P[:m, :m] = Ek
+    BtB = B.T @ B; Btz = B.T @ zf
+    n = xf.size
+
+    # GCV over a lambda grid. Floor lambda well above zero: a near-interpolating
+    # global thin-plate spline (lambda -> 0) extrapolates to huge values and is
+    # unstable. The floor also biases toward the smoother trend we want.
+    best = None
+    for lam in np.logspace(-3, 4, 29):
+        A = BtB + lam * P
+        try:
+            coef = np.linalg.solve(A, Btz)
+        except np.linalg.LinAlgError:
+            continue
+        rss = np.sum((zf - B @ coef) ** 2)
+        edf = np.trace(np.linalg.solve(A, BtB))
+        gcv = n * rss / (n - edf) ** 2
+        if best is None or gcv < best[0]:
+            best = (gcv, lam, coef, edf)
+    gcv, lam, coef, edf = best
+    print(f"[{time.time()-t0:5.1f}s] GCV lambda={lam:.3g} edf={edf:.0f} gcv={gcv:.4g}")
+
+    beta = coef[:m].astype(np.float32)
+    aff = coef[m:].astype(np.float32)
+    Kf = K.astype(np.float32)
+    k2 = np.einsum("ij,ij->i", Kf, Kf).astype(np.float32)
+
+    def trend(GX, GY):
+        gx, gy = norm(GX.ravel(), GY.ravel())
+        P2 = np.c_[gx, gy].astype(np.float32)
+        d2 = (np.einsum("ij,ij->i", P2, P2)[:, None] + k2[None, :]
+              - 2.0 * (P2 @ Kf.T))
+        np.maximum(d2, 0, out=d2)
+        Eg = (0.5 * d2 * np.log(np.maximum(d2, 1e-30))).astype(np.float32)
+        return (Eg @ beta + aff[0] + aff[1] * gx.astype(np.float32)
+                + aff[2] * gy.astype(np.float32)).reshape(GX.shape)
+
+    return trend
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Remove a smooth spatial bias from a DEM using scattered "
+                    "ground-control points (for example ICESat-2 ATL24 or "
+                    "lidar). A thin-plate spline is fit to the control-point "
+                    "minus DEM residual and subtracted.",
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--dem", required=True,
+        help="The input DEM to detrend, as a GeoTIFF.")
+    parser.add_argument("--csv", required=True,
+        help="The control points, as a CSV or text file. The x and y columns "
+             "must be in the DEM's projection (easting, northing) and z in its "
+             "vertical datum.")
+    parser.add_argument("--output-dem", dest="output_dem", default=None,
+        help="The output detrended DEM. Default: the input name with a "
+             "_detrend suffix.")
+    parser.add_argument("--output-trend", dest="output_trend", default=None,
+        help="Also write the fitted trend (the amount added to the DEM) to "
+             "this GeoTIFF.")
+    parser.add_argument("--csv-cols", dest="csv_cols", default="1 2 3",
+        help="The 1-based column indices in the CSV for x, y, z "
+             "(default: '1 2 3').")
+    parser.add_argument("--csv-delimiter", dest="csv_delimiter", default=",",
+        help="The CSV field delimiter. Use the empty string for whitespace "
+             "(default: ',').")
+    parser.add_argument("--num-knots", dest="num_knots", type=int, default=150,
+        help="The rank of the thin-plate spline. More knots give a finer trend "
+             "at higher cost and risk overfitting (default: 150).")
+    parser.add_argument("--num-fit-points", dest="num_fit", type=int,
+        default=80000,
+        help="Subsample the control points to this many for the fit (default: "
+             "80000).")
+    parser.add_argument("--max-distance", dest="max_distance", type=float,
+        default=0.0,
+        help="Taper the correction to zero beyond this distance (meters) from "
+             "the control points, with a cosine falloff. Zero means no taper, "
+             "so the trend is applied over the whole DEM (default: 0).")
+    parser.add_argument("--outlier-method", dest="outlier_method",
+        choices=["tukey", "none"], default="tukey",
+        help="Reject residual outliers before the fit: 'tukey' (1.5 IQR) or "
+             "'none' (default: tukey).")
+    parser.add_argument("--tile-rows", dest="tile_rows", type=int, default=256,
+        help="Evaluate the trend in blocks of this many DEM rows, to limit "
+             "memory (default: 256).")
+    parser.add_argument("--nodata-value", dest="nodata", type=float,
+        default=None,
+        help="Output nodata value. Default: inherited from the input DEM.")
+    parser.add_argument("--seed", type=int, default=0,
+        help="Random seed for the fit subsample, for reproducibility "
+             "(default: 0).")
+    args = parser.parse_args()
+
+    try:
+        cols = [int(c) for c in args.csv_cols.split()]
+        assert len(cols) == 3
+    except (ValueError, AssertionError):
+        print("ERROR: --csv-cols must be three integers, e.g. '1 2 3'.",
+              file=sys.stderr)
+        sys.exit(1)
+
+    if args.output_dem is None:
+        base, ext = os.path.splitext(args.dem)
+        args.output_dem = base + "_detrend" + ext
+
+    t0 = time.time()
+    ds = gdal.Open(args.dem)
+    gt = ds.GetGeoTransform()
+    nx, ny = ds.RasterXSize, ds.RasterYSize
+    bnd = ds.GetRasterBand(1)
+    in_nodata = bnd.GetNoDataValue()
+    dem = bnd.ReadAsArray().astype(np.float64)
+    if in_nodata is not None:
+        dem[dem == in_nodata] = np.nan
+    print(f"[{time.time()-t0:5.1f}s] read DEM {nx}x{ny} "
+          f"({nx*ny/1e6:.1f}e6 cells)")
+
+    X, Y, Z = read_control_points(args.csv, cols, args.csv_delimiter)
+    sdb = bilinear_sample(dem, gt, X, Y)
+    res = Z - sdb
+    ok = np.isfinite(res)
+    X, Y, res = X[ok], Y[ok], res[ok]
+    if res.size == 0:
+        print("ERROR: No control points overlap the valid DEM area.",
+              file=sys.stderr)
+        sys.exit(1)
+    stats(res, "before_all")
+
+    if args.outlier_method == "tukey":
+        q1, q3 = np.percentile(res, [25, 75]); iqr = q3 - q1
+        keep = (res >= q1 - 1.5 * iqr) & (res <= q3 + 1.5 * iqr)
+    else:
+        keep = np.ones(res.size, bool)
+    Xc, Yc, rc = X[keep], Y[keep], res[keep]
+    print(f"[{time.time()-t0:5.1f}s] {(~keep).sum()} outliers removed, "
+          f"{rc.size} control points kept")
+    stats(rc, "before_clean")
+
+    trend_fn = fit_trend(Xc, Yc, rc, args.num_knots, args.num_fit,
+                         args.seed, t0)
+
+    # Optional cosine taper, computed once at full resolution via a distance
+    # transform of the rasterized control-point cells, so the taper edge stays
+    # exact and no per-tile neighbor search is needed.
+    taper = None
+    if args.max_distance > 0:
+        from scipy.ndimage import distance_transform_edt
+        mask = np.zeros((ny, nx), bool)
+        cc = ((Xc - gt[0]) / gt[1]).astype(int)
+        rr = ((Yc - gt[3]) / gt[5]).astype(int)
+        ins = (cc >= 0) & (cc < nx) & (rr >= 0) & (rr < ny)
+        mask[rr[ins], cc[ins]] = True
+        dist_m = distance_transform_edt(~mask).astype(np.float32) * abs(gt[1])
+        d = np.clip(dist_m, 0, args.max_distance) / args.max_distance
+        taper = (0.5 * (1 + np.cos(np.pi * d))).astype(np.float32)
+        taper[dist_m >= args.max_distance] = 0.0
+        print(f"[{time.time()-t0:5.1f}s] taper distance transform done")
+
+    # Full-resolution tiled evaluation of the trend.
+    out = np.full((ny, nx), np.nan, np.float32)
+    cols_idx = np.arange(nx)
+    xw = gt[0] + (cols_idx + 0.5) * gt[1]
+    for r in range(0, ny, args.tile_rows):
+        r1 = min(r + args.tile_rows, ny)
+        yw = gt[3] + (np.arange(r, r1) + 0.5) * gt[5]
+        GX, GY = np.meshgrid(xw, yw)
+        tr = trend_fn(GX, GY)
+        if taper is not None:
+            tr = tr * taper[r:r1, :]
+        out[r:r1, :] = tr
+    print(f"[{time.time()-t0:5.1f}s] trend evaluated over {nx*ny/1e6:.0f}e6 cells")
+
+    corrected = dem + out
+
+    out_nodata = args.nodata if args.nodata is not None else in_nodata
+    if out_nodata is None:
+        out_nodata = -3.4e38
+    od = gdal.GetDriverByName("GTiff").Create(
+        args.output_dem, nx, ny, 1, gdal.GDT_Float32,
+        options=["COMPRESS=DEFLATE", "TILED=YES"])
+    od.SetGeoTransform(gt); od.SetProjection(ds.GetProjection())
+    ob = od.GetRasterBand(1); ob.SetNoDataValue(out_nodata)
+    cw = corrected.copy(); cw[~np.isfinite(cw)] = out_nodata
+    ob.WriteArray(cw.astype(np.float32)); od.FlushCache(); od = None
+    print(f"[{time.time()-t0:5.1f}s] wrote {args.output_dem}")
+
+    if args.output_trend is not None:
+        td = gdal.GetDriverByName("GTiff").Create(
+            args.output_trend, nx, ny, 1, gdal.GDT_Float32,
+            options=["COMPRESS=DEFLATE", "TILED=YES"])
+        td.SetGeoTransform(gt); td.SetProjection(ds.GetProjection())
+        tb = td.GetRasterBand(1); tb.SetNoDataValue(out_nodata)
+        tw = out.copy(); tw[~np.isfinite(tw)] = out_nodata
+        tb.WriteArray(tw.astype(np.float32)); td.FlushCache(); td = None
+        print(f"[{time.time()-t0:5.1f}s] wrote {args.output_trend}")
+
+    # After-correction residuals at the clean control points.
+    corr_at = bilinear_sample(corrected.astype(np.float64), gt, Xc, Yc)
+    sdb_clean = bilinear_sample(dem, gt, Xc, Yc)
+    stats((rc + sdb_clean) - corr_at, "after_clean")
+    print(f"[{time.time()-t0:5.1f}s] done")
+
+
+if __name__ == "__main__":
+    main()

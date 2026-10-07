@@ -1679,6 +1679,11 @@ This applies, in particular, to OpenTopography DEMs (:numref:`initial_terrain`).
 
 These are the various approaches of integrating well-aligned prior terrain data.
 
+A rigid or similarity alignment with ``pc_align`` cannot remove a smooth spatial
+warp. If a residual trend remains against scattered ground truth, such as
+ICESat-2 or lidar points, it can be fit and subtracted with ``dem_detrend``
+(:numref:`dem_detrend`).
+
  - Bundle adjustment can be performed with a terrain constraint. If the terrain
    is a DEM, use the ``--heights-from-dem`` option (:numref:`heights_from_dem`).
    This also works for a rather dense point cloud in various formats, after

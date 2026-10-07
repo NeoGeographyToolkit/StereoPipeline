@@ -12,6 +12,9 @@ New features:
   * Added an example for the Clementine NIR camera (:numref:`clementine`).
   * Added ``glint_correct``, to remove sun glint from a visible band for
     shallow-water bathymetry (:numref:`glint_correct`).
+  * Added ``dem_detrend``, to remove a smooth spatial bias from a DEM using
+    ground-control points such as ICESat-2 ATL24 or lidar
+    (:numref:`dem_detrend`).
   * ``wv_correct``: added built-in CCD artifact corrections for the WorldView-3
     green multispectral band (band 3), for a few TDI levels and scan
     directions (:numref:`wv_correct`).
@@ -175,16 +178,13 @@ Misc:
     detectors in bundle adjustment, not just the OpenCV ones. This helps the
     default detector match low-contrast and mapprojected images.
   * Use robust statistics (median and NMAD) rather than the mean and standard
-    deviation for the image normalization band, so a few outlier pixels
-    (saturated or special values) no longer wreck the band and collapse
-    interest point matching.
+    deviation for image normalization.
   * The reader for DigitalGlobe/WorldView camera XML now handles the new
     namespaced Vantor/Maxar ISD metadata, with ``lv1b:`` and ``isdc:`` tag
     prefixes (:numref:`dg_tutorial`).
   * ``pc_align``, ``n_align``, and ``point2dem`` now accept GDAL virtual file
-    system paths, such as ``/vsizip/``, ``/vsitar/``, and ``/vsicurl/``, so a
-    cloud or DEM can be read from an archive without extracting it
-    (:numref:`pc_align`).
+    system paths, such as ``/vsicurl/``, ``/vsizip/``, etc., so a cloud or DEM
+    can be read without fully fetching or extracting it (:numref:`pc_align`).
 
 RELEASE 3.7.0, June 2026
 ------------------------

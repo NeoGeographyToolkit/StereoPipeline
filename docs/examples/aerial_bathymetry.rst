@@ -422,3 +422,8 @@ and other products as before.
    correction. Blue is where the water bottom moved deeper, the expected
    refraction signature. Land is unchanged (pale). The value is clamped to 1.5 m.
    The correction deepens the shallow water by up to 1 m or so.
+
+A residual depth-dependent bias in the bathymetry can be reduced by detrending
+the DEM against prior ground truth, such as ICESat-2 ATL24 photon depths, with
+``dem_detrend`` (:numref:`dem_detrend`). Align the DEM to the control points
+first with ``pc_align`` (:numref:`pc_align`), then detrend.
