@@ -44,37 +44,6 @@ bundle_adjust (:numref:`bundle_adjust`):
   * Bug fix for ``--auto-overlap-params`` when a ground footprint cannot be
     computed.
 
-jitter_solve (:numref:`jitter_solve`):
-  * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
-    ground control point (GCP) residuals.
-  * Added ``--cost-function``, to choose the robust cost function type, as in
-    ``bundle_adjust``.
-  * The GCP report was reorganized to match ``bundle_adjust``, giving the
-    ground-plane and height offset of each optimized GCP from its input position
-    (:numref:`ba_gcp_report`).
-  * Added ``--heights-from-dem-list``, to constrain the triangulated points
-    against several sites.
-  * Added ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
-    ``--max-anchor-points-to-tri-points-ratio``, to balance and bound the number
-    of triangulated points, ground control points, and anchor points for large
-    networks (:numref:`jitter_anchor_points`).
-
-point2dem (:numref:`point2dem`):
-  * Fixed a bug that could produce an enormous output DEM extent (and a
-    "size too large" error) when reading a projected TIF or PCD point cloud.
-
-point2las (:numref:`point2las`):
-  * Sped up by about 3x for large point clouds, via multithreading and other
-    optimizations.
-
-image_align (:numref:`image_align`):
-  * Added ``--match-points-geopackage``, giving the ability to find interest
-    point matches between two georeferenced images and save them to a GeoPackage
-    in projected units (:numref:`image_align_match_points`).
-  * ``--disparity-params`` accepts an optional third entry, the left-right
-    disparity difference, used to populate the GeoPackage ``sigma`` column with a
-    per-match uncertainty (:numref:`correlation_uncertainty`).
-
 parallel_stereo (:numref:`parallel_stereo`):
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
     recent processing best practices (addition of anchor points, gcp robust
@@ -103,6 +72,42 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Option ``--skip-image-normalization`` now accepts any GDAL-supported input
     image format, including ``.vrt``. It works with ``--cost-mode`` 3 and 4
     (:numref:`stereodefault`).
+
+jitter_solve (:numref:`jitter_solve`):
+  * Added ``--gcp-robust-threshold``, to apply a robust cost function to the
+    ground control point (GCP) residuals.
+  * Added ``--cost-function``, to choose the robust cost function type, as in
+    ``bundle_adjust``.
+  * The GCP report was reorganized to match ``bundle_adjust``, giving the
+    ground-plane and height offset of each optimized GCP from its input position
+    (:numref:`ba_gcp_report`).
+  * Added ``--heights-from-dem-list``, to constrain the triangulated points
+    against several sites.
+  * Added ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
+    ``--max-anchor-points-to-tri-points-ratio``, to balance and bound the number
+    of triangulated points, ground control points, and anchor points for large
+    networks (:numref:`jitter_anchor_points`).
+
+sfs (:numref:`sfs`):
+  * Added the `SfsPipeline repository
+    <https://github.com/NeoGeographyToolkit/SfsPipeline>`__. Work by Andrew
+    Annex.
+
+point2dem (:numref:`point2dem`):
+  * Fixed a bug that could produce an enormous output DEM extent (and a
+    "size too large" error) when reading a projected TIF or PCD point cloud.
+
+point2las (:numref:`point2las`):
+  * Sped up by about 3x for large point clouds, via multithreading and other
+    optimizations.
+
+image_align (:numref:`image_align`):
+  * Added ``--match-points-geopackage``, giving the ability to find interest
+    point matches between two georeferenced images and save them to a GeoPackage
+    in projected units (:numref:`image_align_match_points`).
+  * ``--disparity-params`` accepts an optional third entry, the left-right
+    disparity difference, used to populate the GeoPackage ``sigma`` column with a
+    per-match uncertainty (:numref:`correlation_uncertainty`).
 
 cam_gen (:numref:`cam_gen`):
   * Added ``--csm-refit-distortion`` to refit the lens distortion of a frame

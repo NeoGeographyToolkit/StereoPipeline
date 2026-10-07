@@ -11,7 +11,9 @@ DEM. It has the same options as ``sfs``, and a few additional ones, as
 outlined below.
 
 An example for how to invoke this program is in :numref:`parallel_sfs_usage`.
-See :numref:`sfs_usage` for the larger context.
+See :numref:`sfs_usage` for the larger context. A reference workflow that drives
+this program over large Lunar sites is in the `SfsPipeline repository
+<https://github.com/NeoGeographyToolkit/SfsPipeline>`__ (:numref:`sfs-lola`).
 
 If having many computing nodes, the option ``--nodes-list`` must be set, to
 ensure all nodes are used. 

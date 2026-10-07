@@ -37,6 +37,10 @@ Examples
  - Earth example, with atmospheric haze (:numref:`sfs_earth`).
  - CTX Mars example (:numref:`sfs_ctx`).
 
+A reference end-to-end implementation of the large-scale Lunar LRO NAC workflow
+(:numref:`sfs-lola`), with ready-to-run scripts, is in the `SfsPipeline
+repository <https://github.com/NeoGeographyToolkit/SfsPipeline>`__.
+
 Limitations
 -----------
 
@@ -865,6 +869,16 @@ poster <https://www.hou.usra.edu/meetings/lpsc2023/pdf/2377.pdf>`_).
    regions. Left: hillshaded SfS terrain. Right: max-lit mosaic. The
    quality of the produced terrain gracefully degrades as illumination
    gets worse.
+
+Reference workflow
+^^^^^^^^^^^^^^^^^^
+
+The steps described in this section are implemented as a set of scripts in the
+`SfsPipeline repository <https://github.com/NeoGeographyToolkit/SfsPipeline>`__.
+It provides a reference end-to-end workflow for large-scale Lunar LRO NAC
+processing, from fetching the images to registration against LOLA. The
+repository is maintained together with this documentation, which remains the
+reference for the underlying ASP tools and their options.
 
 Challenges
 ^^^^^^^^^^

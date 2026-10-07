@@ -10,6 +10,10 @@ processes on multiple machines.
 
 An overview and examples of using this program are in :numref:`sfs_usage`.
 
+A reference workflow for large-scale Lunar LRO NAC processing, implemented as a
+set of scripts, is in the `SfsPipeline repository
+<https://github.com/NeoGeographyToolkit/SfsPipeline>`__ (:numref:`sfs-lola`).
+
 Illustration
 ~~~~~~~~~~~~
 
