@@ -42,6 +42,7 @@ class QAction;
 class QLabel;
 class QTabWidget;
 class QSplitter;
+class QwtScaleWidget;
 
 namespace asp {
 
@@ -119,9 +120,10 @@ protected:
   bool eventFilter(QObject *obj, QEvent *e);
 
 private slots:
-  void perhapsCreateLayout(int row, int col); 
-  void hideShowAll_windowVersion(); 
+  void perhapsCreateLayout(int row, int col);
+  void hideShowAll_windowVersion();
   void createLayout();
+  void updateColorbars(); // rebuild the colorbars after a runtime colormap change
 
 private:
 
@@ -153,6 +155,16 @@ private:
   std::string               m_output_prefix;
   double                    m_widRatio;    // ratio of sidebar to entire win wid
   std::vector<MainWidget*>  m_widgets;     // one of these for each separate image pane.
+
+  // The colorbars shown next to colorized widgets, kept so their colormap can be
+  // refreshed when it is changed at runtime (see updateColorbars()).
+  struct ColorbarData {
+    QwtScaleWidget* colorbar;
+    int             begIdx;   // first image of the widget this colorbar belongs to
+    double          min_val, max_val;
+  };
+  std::vector<ColorbarData> m_colorbars;
+
   ChooseFilesDlg *          m_chooseFiles; // left sidebar for selecting files
 
   WindowMenuMgr m_win_menu_mgr;

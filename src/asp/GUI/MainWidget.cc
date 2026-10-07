@@ -463,8 +463,8 @@ void MainWidget::maybeGenHillshade() {
     app_data.images[image_iter].read(hillshaded_file, m_opt, HILLSHADED_VIEW);
     temporary_files().files.insert(hillshaded_file);
 
-    // For color-hillshade, the hillshade is only the shade source. Restore the
-    // color-hillshade mode, which read() reset to HILLSHADED_VIEW.
+    // read() set the mode to HILLSHADED_VIEW. For color-hillshade, restore it,
+    // as the hillshade is only the shade source.
     if (orig_mode == HILLSHADE_COLORIZED_VIEW)
       app_data.images[image_iter].m_display_mode = HILLSHADE_COLORIZED_VIEW;
   }
@@ -1516,6 +1516,27 @@ void MainWidget::setHillshadeParams() {
 
   vw_out() << "Hillshade azimuth and elevation for " << app_data.images[m_beg_image_id].name
            << ": " << m_hillshade.azimuth << ' ' << m_hillshade.elevation << "\n";
+}
+
+// Set the colormap style for the images in this widget (from the right-click
+// menu). It takes effect in the colorized and colorized-hillshade views. Can be
+// a named style (:numref:`colormap`) or the path to a colormap file.
+void MainWidget::setColormap() {
+
+  std::string colormap = app_data.images[m_beg_image_id].colormap;
+  bool ans = getStringFromGui(this, "Colormap style", "Colormap style",
+                              colormap, colormap);
+  if (!ans || colormap.empty())
+    return;
+
+  for (int i = m_beg_image_id; i < m_end_image_id; i++) {
+    if (app_data.images[i].isPolyOrCsv())
+      continue;
+    app_data.images[i].colormap = colormap;
+  }
+
+  refreshPixmap();       // the colormap is applied on the fly when drawing
+  emit setColormapSignal(); // refresh the colorbar too
 }
 
 // Save the current view to a file

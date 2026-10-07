@@ -151,6 +151,19 @@ Hillshaded images can also be produced with the ``hillshade`` tool
 
 A colorized hillshade is also supported, with the ``--color-hillshade`` option
 or the View menu ``Colorized hillshaded images`` entry (:numref:`colorize`).
+A colorbar can be added with ``--colorbar``. Example::
+
+    stereo_gui --colorbar        \
+        --color-hillshade        \
+        --colormap-style terrain \
+        dem.tif
+
+.. figure:: ../images/stereo_gui_color_hillshade.png
+   :name: color_hillshade_fig
+   :width: 60%
+
+   A colorized hillshade, with the ``terrain`` colormap and a colorbar,
+   from the invocation above.
 
 Images that are both colorized and hillshaded can also be created with
 ``colormap`` (:numref:`colormap`), and then loaded in this program.
@@ -169,10 +182,13 @@ CSV files can be colorized as well.
 The ``--colorize`` and ``--colorbar`` flags are per-image with sticky semantics:
 each applies to all subsequent images until turned off by ``--no-colorize`` or
 ``--no-colorbar``. The ``--colorbar`` flag implies ``--colorize``. Colorization
-can also be toggled from the View menu ``Colorized images`` entry.
+can also be toggled from the View menu ``Colorized images`` entry. The colormap
+can be changed at runtime by right-clicking an image and choosing ``Set colormap
+style``.
 
 A colorized hillshade is supported as well, with the ``--color-hillshade``
-option or the View menu ``Colorized hillshaded images`` entry.
+option or the View menu ``Colorized hillshaded images`` entry. The colormap is
+set with ``--colormap-style`` as before.
 
 An example invocation is as follows::
 
@@ -205,7 +221,8 @@ Colorization works as well with overlaid and georeferenced images.
 
    An illustration of displaying images with specified colormap, with colorbar
    and axes, and without them. See :numref:`scattered_points_colorbar` for
-   an example having scattered points.
+   an example having scattered points, and :numref:`color_hillshade_fig` for a
+   colorized hillshade.
 
 .. _plot_csv:
 

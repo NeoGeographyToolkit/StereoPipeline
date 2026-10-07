@@ -339,21 +339,10 @@ MainWindow::MainWindow(vw::GdalWriteOptions const& opt,
   createLayout();
 }
 
-// Wrap a widget in a horizontal layout with a colorbar on the right.
-// Returns the wrapper widget, or the original widget if bounds are invalid.
-// The colormap style is taken from the first image in the range.
-QWidget* createColorbarLayout(QWidget* widget,
-                              double min_val, double max_val,
-                              std::string const& colormap_style) {
-
-  if (min_val >= max_val)
-    return widget;
-
-  // Parse the colormap
+// Build a QwtLinearColorMap from a colormap style (a named style or a file).
+QwtLinearColorMap* buildQwtColorMap(std::string const& colormap_style) {
   std::map<float, vw::Vector3u> lut_map;
   vw::parseColorStyle(colormap_style, lut_map);
-
-  // Build a QwtLinearColorMap from the LUT
   auto firstC = lut_map.begin()->second;
   auto lastC = lut_map.rbegin()->second;
   QwtLinearColorMap *cmap =
@@ -365,6 +354,22 @@ QWidget* createColorbarLayout(QWidget* widget,
     auto const& c = it->second;
     cmap->addColorStop(it->first, QColor(c[0], c[1], c[2]));
   }
+  return cmap;
+}
+
+// Wrap a widget in a horizontal layout with a colorbar on the right.
+// Returns the wrapper widget, or the original widget if bounds are invalid.
+// The colormap style is taken from the first image in the range. The created
+// colorbar is returned via colorbar_out (NULL if none), so it can be refreshed
+// later when the colormap changes.
+QWidget* createColorbarLayout(QWidget* widget,
+                              double min_val, double max_val,
+                              std::string const& colormap_style,
+                              QwtScaleWidget*& colorbar_out) {
+
+  colorbar_out = NULL;
+  if (min_val >= max_val)
+    return widget;
 
   // Create the colorbar widget
   QwtScaleWidget *colorbar =
@@ -372,7 +377,7 @@ QWidget* createColorbarLayout(QWidget* widget,
   QwtInterval interval(min_val, max_val);
   colorbar->setColorBarEnabled(true);
   colorbar->setColorBarWidth(30);
-  colorbar->setColorMap(interval, cmap);
+  colorbar->setColorMap(interval, buildQwtColorMap(colormap_style));
   QwtLinearScaleEngine engine;
   colorbar->setScaleDiv(
     engine.divideScale(min_val, max_val, 8, 5));
@@ -385,7 +390,23 @@ QWidget* createColorbarLayout(QWidget* widget,
   hbox->addWidget(widget, 1);
   hbox->addWidget(colorbar, 0);
 
+  colorbar_out = colorbar;
   return wrapper;
+}
+
+// Rebuild the colorbars' colormaps after the colormap is changed at runtime
+// (from the right-click "Set colormap style"). Each colorbar uses the colormap
+// of its widget's first image. This avoids a full relayout, so the view is kept.
+void MainWindow::updateColorbars() {
+  for (size_t i = 0; i < m_colorbars.size(); i++) {
+    ColorbarData & e = m_colorbars[i];
+    if (e.colorbar == NULL)
+      continue;
+    QwtInterval interval(e.min_val, e.max_val);
+    e.colorbar->setColorMap(interval,
+                            buildQwtColorMap(app_data.images[e.begIdx].colormap));
+    e.colorbar->update();
+  }
 }
 
 // Create a new central widget. Qt is smart enough to de-allocate
@@ -410,6 +431,7 @@ void MainWindow::createLayout() {
   // Wipe the widgets from the array. Qt will automatically delete
   // the widgets when the time is right.
   m_widgets.clear();
+  m_colorbars.clear(); // the colorbars are children of the widgets just cleared
 
   // Note that the menus persist even when the layout changes
 
@@ -531,9 +553,12 @@ void MainWindow::createLayout() {
     if (m_widgets[i] && app_data.images[begIdx].colorbar) {
       vw::Vector2 bounds = calcJointBounds(app_data.images,
                                            begIdx, endIdx);
+      QwtScaleWidget* cbar = NULL;
       wid = createColorbarLayout(m_widgets[i],
                                  bounds[0], bounds[1],
-                                 app_data.images[begIdx].colormap);
+                                 app_data.images[begIdx].colormap, cbar);
+      if (cbar != NULL)
+        m_colorbars.push_back({cbar, begIdx, bounds[0], bounds[1]});
     }
     grid->addWidget(wid, row, col);
 
@@ -554,6 +579,8 @@ void MainWindow::createLayout() {
             this, SLOT(zoomAllToSameRegionAction(int)));
     connect(m_widgets[i], SIGNAL(recreateLayoutSignal()),
             this, SLOT(createLayout()));
+    connect(m_widgets[i], SIGNAL(setColormapSignal()),
+            this, SLOT(updateColorbars()));
   }
 
   QWidget *container = new QWidget(centralWidget);

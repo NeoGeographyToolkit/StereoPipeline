@@ -90,7 +90,8 @@ Command-line options for ``colormap``
 --colormap-style <string (default="binary-red-blue")>
     Specify the colormap style.  Options: ``binary-red-blue``
     (default), ``jet``, ``black-body``, ``viridis``, ``kindlmann``,
-    ``cubehelix``, ``plasma``, ``inferno``, ``rainbow``, ``turbo``.
+    ``cubehelix``, ``plasma``, ``inferno``, ``rainbow``, ``turbo``,
+    ``terrain``, ``ocean``, ``gist_earth``, ``gist_stern``.
     Or specify the name of a file having the colormap, on each line of
     which there must be a normalized or percentage intensity and the
     three integer RGB values it maps to.

@@ -154,6 +154,7 @@ public:
 signals:
   void toggleViewMatchesSignal    ();
   void recreateLayoutSignal       ();
+  void setColormapSignal          (); // the colormap changed; refresh the colorbar
   void updateMatchesSignal        (); // this one will do less work and keep the zoom level
   void uncheckProfileModeCheckbox ();
   void uncheckPolyEditModeCheckbox();
@@ -173,6 +174,7 @@ public slots:
   void deleteMatchPoint       (); // Delete an interest point (from right click menu)
   void setThreshold           (); // Set change image threshold (from right click menu)
   void setHillshadeParams     (); // Set the azimuth and elevation for hillshaded images.
+  void setColormap            (); // Set the colormap style (from right click menu)
   void toggleHillshadeImageRightClick(); // Turn on/off hillshading on right-click on image
   void toggleHillshadeFromImageList(int imageIndex); // Toggle hillshade by right-click on image list
   void refreshHillshade       (); // Update the display if the state of hillshading changed.

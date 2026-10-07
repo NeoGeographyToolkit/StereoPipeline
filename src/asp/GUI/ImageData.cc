@@ -219,29 +219,34 @@ void imageData::read(std::string const& name_in, vw::GdalWriteOptions const& opt
   if (display_mode == REGULAR_VIEW)
     name = name_in;
 
-  // TODO(oalexan1): There is no need to make the color a class member,
-  // as it is already stored in individual polygons
-  color = "default";
-  style = "default";
-  colormap = "binary-red-blue";
-  colorize = false;
-  colorbar = false;
-
   m_opt = opt;
   m_display_mode = display_mode;
 
-  // Properties passed on the command line; they take precedence
-  for (auto it = properties.begin(); it != properties.end(); it++) {
-    if (it->first == "color")
-      color = it->second; // copy the poly/line/points color
-    if (it->first == "style")
-      style = it->second; // copy the style (poly, line, points)
-    if (it->first == "colormap")
-      colormap = it->second; // copy the colormap style (e.g., binary-red-blue)
-    if (it->first == "colorize")
-      colorize = atof(it->second.c_str());
-    if (it->first == "colorbar")
-      colorbar = atof(it->second.c_str());
+  // Set the display properties only on the primary read. A secondary read
+  // (hillshade, threshold) carries no properties and must leave them untouched,
+  // to keep the colormap the user chose.
+  if (display_mode == REGULAR_VIEW) {
+    // TODO(oalexan1): There is no need to make the color a class member,
+    // as it is already stored in individual polygons
+    color = "default";
+    style = "default";
+    colormap = "binary-red-blue";
+    colorize = false;
+    colorbar = false;
+
+    // Properties passed on the command line take precedence
+    for (auto it = properties.begin(); it != properties.end(); it++) {
+      if (it->first == "color")
+        color = it->second; // copy the poly/line/points color
+      if (it->first == "style")
+        style = it->second; // copy the style (poly, line, points)
+      if (it->first == "colormap")
+        colormap = it->second; // copy the colormap style (e.g., binary-red-blue)
+      if (it->first == "colorize")
+        colorize = atof(it->second.c_str());
+      if (it->first == "colorbar")
+        colorbar = atof(it->second.c_str());
+    }
   }
 
   // These must be set once we know the name and the style

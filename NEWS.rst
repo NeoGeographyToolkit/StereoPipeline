@@ -163,8 +163,14 @@ stereo_gui (:numref:`stereo_gui`):
     (:numref:`stereo_gui`).
   * Added ``--color-hillshade``, to display a colorized hillshade
     (:numref:`colorize`).
+  * The colorized hillshade view uses the chosen ``--colormap-style``
+    (:numref:`colorize`).
+  * The colormap can be changed at runtime from the right-click menu
+    (:numref:`colorize`).
 
 Misc:
+  * Added the ``terrain``, ``ocean``, ``gist_earth``, and ``gist_stern``
+    colormaps to the ``colormap`` tool and ``stereo_gui`` (:numref:`colormap`).
   * The ``hillshade`` tool, and the hillshaded and colorized-hillshaded views in
     ``stereo_gui``, now compute the surface normal with Horn's method, as in
     ``gdaldem`` (:numref:`hillshade_algorithm`). This replaces a one-sided
