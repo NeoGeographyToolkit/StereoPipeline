@@ -240,10 +240,11 @@ Data preparation
 
 Fetch the images::
 
-    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0005/DATA/SCI/2010267/NAC/M139939938LE.IMG
-    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0005/DATA/SCI/2010267/NAC/M139946735RE.IMG
-    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0009/DATA/SCI/2011284/NAC/M173004270LE.IMG
-    wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010062/NAC/M122270273LE.IMG
+    base=http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0
+    wget $base/LROLRC_0005/DATA/SCI/2010267/NAC/M139939938LE.IMG
+    wget $base/LROLRC_0005/DATA/SCI/2010267/NAC/M139946735RE.IMG
+    wget $base/LROLRC_0009/DATA/SCI/2011284/NAC/M173004270LE.IMG
+    wget $base/LROLRC_0002/DATA/MAP/2010062/NAC/M122270273LE.IMG
 
 For many images, this fetch and calibration process is automated by the
 `SfsPipeline repository <https://github.com/NeoGeographyToolkit/SfsPipeline>`__.
@@ -257,7 +258,8 @@ It can be convenient to create preview versions of these datasets, at
 done as follows::
 
     f=M139939938LE
-    reduce from = ${f}.cal.echo.cub to = ${f}.cal.echo.sub10.cub  \
+    reduce from = ${f}.cal.echo.cub \
+      to = ${f}.cal.echo.sub10.cub  \
       sscale = 10 lscale = 10
 
 For simplicity, we create shorter aliases for these images::
@@ -744,8 +746,10 @@ We also show in this figure the first of the images used for SfS,
 use the previously computed bundle-adjusted cameras when mapprojecting,
 otherwise the image will show as shifted from its true location::
 
-    mapproject sfs_sub10_ref1/run-DEM-final.tif A_crop_sub10.cub   \
-      A_crop_sub10_map.tif --bundle-adjust-prefix run_ba_sub10/run
+    mapproject sfs_sub10_ref1/run-DEM-final.tif \
+      A_crop_sub10.cub                          \
+      A_crop_sub10_map.tif                      \
+      --bundle-adjust-prefix run_ba_sub10/run
 
 See :numref:`sfs-lola` for a large-scale example.
 
@@ -956,7 +960,8 @@ dataset should be converted to a .cub file as::
 The heights for this DEM need to be multiplied by 0.5, per the information in
 the LBL file. We do that with ``image_calc`` (:numref:`image_calc`)::
 
-    image_calc -c "0.5*var_0" ldem_80s_20m.cub -o ldem_80s_20m_scale.tif
+    image_calc -c "0.5*var_0" ldem_80s_20m.cub \
+      -o ldem_80s_20m_scale.tif
 
 Resample an initial DEM to 1 m/pixel using ``gdalwarp`` (:numref:`gdal_tools`),
 creating a DEM named ``ref_dem.tif``::
@@ -1396,7 +1401,8 @@ of images.
 The following command can be used to quickly overlay a few
 dozen mapprojected images::
 
-  stereo_gui --hide-all --single-window --use-georef $(cat list.txt)
+  stereo_gui --hide-all --single-window \
+    --use-georef $(cat list.txt)
 
 Then individual images can be toggled on and off.
 
@@ -1825,10 +1831,16 @@ for example, at 1/4 or 1/8 resolution of the DEMs, as created with ``stereo_gui`
 In either case, the alignment transform can then be applied to the full SfS DEM
 (:numref:`prevtrans`)::
 
-    pc_align --initial-transform align_sub4/run-transform.txt      \
-      ref_dem.tif sfs_dem.tif -o align/run --num-iterations 0      \
-      --max-displacement -1 --save-transformed-source-points       \
-      --max-num-reference-points 1000 --max-num-source-points 1000
+    pc_align                                           \
+      --initial-transform align_sub4/run-transform.txt \
+      ref_dem.tif                                      \
+      sfs_dem.tif                                      \
+      -o align/run                                     \
+      --num-iterations 0                               \
+      --max-displacement -1                            \
+      --save-transformed-source-points                 \
+      --max-num-reference-points 1000                  \
+      --max-num-source-points 1000
 
 The number of points being used is not important since we will just
 apply the alignment and transform the full DEM.
@@ -1836,7 +1848,8 @@ apply the alignment and transform the full DEM.
 The aligned SfS DEM can be created from the obtained transformed
 cloud as::
 
-    point2dem --tr 1 --search-radius-factor 2 --t_srs projection_str \
+    point2dem --tr 1 --search-radius-factor 2 \
+      --t_srs projection_str                  \
       align/run-trans_source.tif
 
 Here, the projection string should be the same one as in the reference 
@@ -1874,11 +1887,16 @@ If these approaches fail to remove the visually noticeable displacement
 between the SfS and LOLA terrain, one can try to nudge the SfS terrain
 manually, by using ``pc_align`` as::
 
-    pc_align --initial-ned-translation                             \
-      "north_shift east_shift down_shift"                          \
-      ref_dem.tif sfs_dem.tif -o align/run --num-iterations 0      \
-      --max-displacement -1 --save-transformed-source-points       \
-      --max-num-reference-points 1000 --max-num-source-points 1000
+    pc_align --initial-ned-translation    \
+      "north_shift east_shift down_shift" \
+      ref_dem.tif                         \
+      sfs_dem.tif                         \
+      -o align/run                        \
+      --num-iterations 0                  \
+      --max-displacement -1               \
+      --save-transformed-source-points    \
+      --max-num-reference-points 1000     \
+      --max-num-source-points 1000
 
 Here, the value of ``down_shift`` should be 0, as we attempt a horizontal shift. For
 the others, one may try some values and observe their effect in moving the
@@ -2122,17 +2140,18 @@ image to 3D locations on the SfS DEM.
 
 ::
 
-    gcp_gen                                              \
-        --ip-detect-method 0                             \
-        --inlier-threshold 50                            \
-        --ip-per-image 0                                 \
-        --ip-per-tile 2500                               \
-        --gcp-sigma 1.0                                  \
-        --camera-image image.cub                         \
-        --mapproj-image image_map.tif                    \
-        --ortho-image run/image-camera-sim-intensity.tif \
-        --dem sfs_dem.tif                                \
-        --output-prefix gcp_gen/run                      \
+    gcp_gen                                  \
+        --ip-detect-method 0                 \
+        --inlier-threshold 50                \
+        --ip-per-image 0                     \
+        --ip-per-tile 2500                   \
+        --gcp-sigma 1.0                      \
+        --camera-image image.cub             \
+        --mapproj-image image_map.tif        \
+        --ortho-image                        \
+          run/image-camera-sim-intensity.tif \
+        --dem sfs_dem.tif                    \
+        --output-prefix gcp_gen/run          \
         -o image_gcp.gcp
 
 A GCP sigma of 1.0 meter is reasonable if the DEM resolution is 1 m/pixel.
