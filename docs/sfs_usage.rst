@@ -133,45 +133,44 @@ application.
 How to get images
 -----------------
 
-We obtain the images from http://wms.lroc.asu.edu/lroc/search (search
-for EDR images of type NACL and NACR).
+We obtain the images from the `LROC search interface
+<http://wms.lroc.asu.edu/lroc/search>`__ (search for EDR images of type NACL and
+NACR).
 
-A faster (but not as complete) interface is provided by
-http://ode.rsl.wustl.edu/moon/indexproductsearch.aspx.
-This site allows for bulk downloads, but does not permit datasets
-bigger than several tens of GB, so several attempts may be necessary.
+A faster (but not as complete) interface is the `ODE product search
+<http://ode.rsl.wustl.edu/moon/indexproductsearch.aspx>`__. It allows bulk
+downloads, but does not permit datasets bigger than several tens of GB, so
+several attempts may be necessary.
 
-The related site http://ode.rsl.wustl.edu/moon/indextools.aspx?displaypage=lolardr 
-can provide LOLA datasets which can be used as (sparse) ground truth.
+For a large number of images, the `SfsPipeline repository
+<https://github.com/NeoGeographyToolkit/SfsPipeline>`__ automates this discovery
+and bulk download (for example its ``query_lro`` tool queries the ODE REST API by
+extent and emits the download URLs).
 
 If desired to use a gridded LOLA DEM as an initial guess, see
-:numref:`sfs-lola`.
+:numref:`sfs_initial_terrain`.
 
-We advise the following strategy for picking images. First choose a
-small longitude-latitude window in which to perform a search for
-images. Pick two images that are very close in time and with a big
-amount of overlap (ideally they would have consecutive orbit numbers).
-A good convergence angle is expected (:numref:`stereo_pairs`).
-Those images can be passed to ASP's ``parallel_stereo`` tool to create an
-initial DEM.  Then, search for other images close to the center of the
-maximum overlap of the first two images. Pick one or more of those,
-ideally with different illumination conditions than the first
-two. Those (together with one of the first two images) can be used for
-SfS.
+The `ODE LOLA RDR tools
+<http://ode.rsl.wustl.edu/moon/indextools.aspx?displaypage=lolardr>`__ page can
+provide LOLA datasets, usable as (sparse) ground truth.
 
-To locate the area of spatial overlap, the images can be map-projected
-(either with ``cam2map`` at a coarse resolution, or with
-``mapproject``), using for example the LOLA DEM as the terrain to
-project onto, or the DEM obtained from running ``parallel_stereo`` on
-those images. Then the images can be overlaid as georeferenced images
-in ``stereo_gui`` (:numref:`stereo_gui`). A good sanity check is to
-examine the shadows in various images. If they point in different
-directions in the images and perhaps also have different lengths, that
-means that illumination conditions are different enough, which will
-help constrain the ``sfs`` problem better.
+For a small test, images can be picked by hand, as below. For large sites, use
+the automated approach above and in :numref:`sfs-lola`.
 
-An example for how to download and prepare the datasets is shown
-in :numref:`sfs_single_image`.
+Choose a small longitude-latitude window and pick two images close in time with
+large overlap (ideally consecutive orbit numbers), which gives a good convergence
+angle (:numref:`stereo_pairs`). Run ``parallel_stereo`` on them to create an
+initial DEM. Then add one or more images near the center of their overlap, with
+different illumination, for SfS.
+
+To find the overlap, mapproject the images (with ``cam2map`` at a coarse
+resolution, or ``mapproject``) onto the LOLA DEM or the stereo DEM, and overlay
+them in ``stereo_gui`` (:numref:`stereo_gui`). As a sanity check, examine the
+shadows: if they point in different directions and have different lengths, the
+illumination differs enough to constrain ``sfs`` well.
+
+An example of downloading and preparing the datasets is in
+:numref:`sfs_single_image`.
 
 .. _sfs_isis_vs_csm:
 
@@ -245,6 +244,9 @@ Fetch the images::
     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0005/DATA/SCI/2010267/NAC/M139946735RE.IMG
     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0009/DATA/SCI/2011284/NAC/M173004270LE.IMG
     wget http://lroc.sese.asu.edu/data/LRO-L-LROC-2-EDR-V1.0/LROLRC_0002/DATA/MAP/2010062/NAC/M122270273LE.IMG
+
+For many images, this fetch and calibration process is automated by the
+`SfsPipeline repository <https://github.com/NeoGeographyToolkit/SfsPipeline>`__.
 
 We convert these to ISIS cubes, initialize the SPICE kernels, and
 perform radiometric calibration and echo correction. That is explained
@@ -399,13 +401,14 @@ We show the results of running this program in :numref:`sfs1`. The
 left-most figure is the hill-shaded original DEM, which was obtained
 by running the ``hillshade`` program (:numref:`hillshade`)::
 
-    hillshade --azimuth 300 --elevation 20 run_full1/run-crop-DEM.tif \
-      -o run_full1/run-crop-hill.tif 
+    hillshade --azimuth 300 --elevation 20 \
+      run_full1/run-crop-DEM.tif           \
+      -o run_full1/run-crop-hill.tif
 
 The second image is the hill-shaded DEM obtained after running ``sfs``
 for 10 iterations.
 
-The third image is, for comparison, the map-projection of A.cub onto the
+The third image is, for comparison, the mapprojection of A.cub onto the
 original DEM, obtained via the command::
 
     mapproject --tr 1 run_full1/run-crop-DEM.tif A.cub A_map.tif \
@@ -429,7 +432,7 @@ original DEM and the SfS output, obtained by running ``geodiff``
 
    An illustration of ``sfs``. The images are, from left to right, the
    original hill-shaded DEM, the hill-shaded DEM obtained from ``sfs``,
-   the image A.cub map-projected onto the original DEM, and the absolute
+   the image A.cub mapprojected onto the original DEM, and the absolute
    difference of the original and final DEM, where the brightest shade
    of red corresponds to a 2 meter height difference.
 
@@ -737,8 +740,8 @@ experiment can be repeated with the Lambertian reflectance model
 worse.
 
 We also show in this figure the first of the images used for SfS,
-``A_crop_sub10.cub``, map-projected upon the optimized DEM. Note that we
-use the previously computed bundle-adjusted cameras when map-projecting,
+``A_crop_sub10.cub``, mapprojected upon the optimized DEM. Note that we
+use the previously computed bundle-adjusted cameras when mapprojecting,
 otherwise the image will show as shifted from its true location::
 
     mapproject sfs_sub10_ref1/run-DEM-final.tif A_crop_sub10.cub   \
@@ -836,7 +839,7 @@ resolution. They could be made larger if no effect is seen.
    An illustration of ``sfs``. The images are, from left to right, the
    hill-shaded initial guess DEM for SfS, the hill-shaded DEM obtained
    from ``sfs``, the "ground truth" DEM, and the first of the images
-   used in SfS map-projected onto the optimized DEM.
+   used in SfS mapprojected onto the optimized DEM.
 
 .. _sfs2_fix_fig:
 .. figure:: images/sfs2_fix_depth.jpg
