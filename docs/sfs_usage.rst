@@ -2270,14 +2270,14 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --image-list ba_align_ref/run-image_list.txt   \
       --camera-list ba_align_ref/run-camera_list.txt \
       --num-lines-per-position 15000                 \
-      --num-lines-per-orientation 4000               \
+      --num-lines-per-orientation 2000               \
       --clean-match-files-prefix ba/run              \
       --max-pairwise-matches 5000                    \
       --match-first-to-last                          \
       --min-matches 1                                \
       --forced-triangulation-distance 100000         \
       --min-triangulation-angle 1e-10                \
-      --num-iterations 50                            \
+      --num-iterations 75                            \
       --num-passes 2                                 \
       --max-initial-reprojection-error 50            \
       --overlap-limit 10000                          \
@@ -2287,13 +2287,13 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --anchor-dem ref_dem_extra.tif                 \
       --num-anchor-points 5000                       \
       --num-anchor-points-extra-lines 4000           \
-      --anchor-dem-uncertainty 50.0                  \
+      --anchor-dem-uncertainty 20.0                  \
       --max-num-tri-points 500000                    \
       --max-gcp-to-tri-points-ratio 1.0              \
       --max-anchor-points-to-tri-points-ratio 1.0    \
       --mapproj-dem ref_dem.tif                      \
       --max-gcp-reproj-err 30                        \
-      --camera-position-uncertainty 500,500          \
+      --camera-position-uncertainty 20,20            \
       --threads 60                                   \
       -o jitter_align_ref/run                        \
       input.gcp
@@ -2310,10 +2310,11 @@ pose interpolation oscillations in dark or low-match regions.
 The number of triangulated points, GCP, and anchor points should be kept
 relatively balanced. This program prints the number of triangulated non-GCP
 points, the number of GCP, and the total number of anchor points. The
-uncertainties and weights for these should also be chosen carefully. GCP
-uncertainty should be smaller than the value of
-``--heights-from-dem-uncertainty``, which should be smaller than the
-``--anchor-dem-uncertainty``.
+uncertainties and weights for these should also be chosen carefully. The GCP
+uncertainty should be notably smaller than ``--heights-from-dem-uncertainty``, so
+the GCP are the dominant control. The ``--anchor-dem-uncertainty`` can be set
+equal to or larger than ``--heights-from-dem-uncertainty``. Here both were 20 m,
+since the anchors only stabilize the poses while the GCP do the registration.
 
 The options ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
 ``--max-anchor-points-to-tri-points-ratio`` bound the number of triangulated
@@ -2322,15 +2323,17 @@ points and keep the ground control points and anchor points in balance with them
 to overflow for large datasets. These options are available as of build 2026/10
 (:numref:`release`).
 
-The anchor DEM (``ref_dem_extra.tif``) went 40 km beyond the site of interest to
+The anchor DEM (``ref_dem_extra.tif``) went 4 km beyond the site of interest to
 ensure we constrain oscillations in the cameras even outside the main DEM
 extent. The option ``--num-anchor-points-extra-lines`` placed anchor points
 beyond the first and last image lines.
 
-The camera position uncertainty was set to 500 m horizontally and vertically,
-which is generous enough to allow the expected 30-100 m corrections but
-prevents wild oscillations. This is a soft constraint and in practice the
-camera positions can move somewhat beyond that.
+The camera position uncertainty was set to a reasonably tight 20 m horizontally
+and vertically. The dominant effect of this refinement is a change in camera
+orientation, not position, so a tight position constraint is suggested: it
+prevents wild oscillations of the camera centers while the orientations do the
+work. This is a soft constraint and in practice the positions can move somewhat
+beyond that.
 
 GCP were produced as earlier (:numref:`sfs_gcp`), with ``dem2gcp``
 (:numref:`dem2gcp`). The GCP sigma should be set to around 1 meter or so. The
