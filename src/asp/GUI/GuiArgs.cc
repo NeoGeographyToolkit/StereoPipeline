@@ -38,6 +38,7 @@ void preprocessArgs(int &argc, char** argv,
   std::string curr_style = "default";
   std::string curr_color = "default";
   std::string curr_colormap = "binary-red-blue";
+  std::string curr_opacity = "1.0";
   std::string colorbar = "0";
   std::string colorize = "0";
 
@@ -78,6 +79,16 @@ void preprocessArgs(int &argc, char** argv,
       continue;
     }
 
+    if (std::string(argv[it]) == "--opacity") {
+      if (it == argc - 1)
+        continue; // There is nothing else
+
+      it++;
+      curr_opacity = argv[it]; // copy the opacity value, and move past it
+      image_after_color_opt = false;
+      continue;
+    }
+
     // Sticky boolean flags with no value
     if (std::string(argv[it]) == "--colorbar") {
       colorbar = "1";
@@ -106,6 +117,7 @@ void preprocessArgs(int &argc, char** argv,
       properties[it]["style"] = curr_style;
       properties[it]["color"] = curr_color;
       properties[it]["colormap"] = curr_colormap;
+      properties[it]["opacity"] = curr_opacity;
       properties[it]["colorbar"] = colorbar;
       properties[it]["colorize"] = colorize;
       image_after_color_opt = true;

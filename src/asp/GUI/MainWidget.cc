@@ -668,11 +668,15 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
                                           QImage const& sourceImage,
                                           BBox2i const& screen_box,
                                           BBox2i const& region_out,
-                                          ImageView<int> & drawn_already) {
+                                          ImageView<int> & drawn_already,
+                                          bool skip_drawn) {
 
-  // Create a QImage object to store the transformed image
+  // Create a QImage object to store the transformed image. Fill it transparent,
+  // so unmapped and nodata pixels let the images below show through when this
+  // one is drawn with less than full opacity.
   QImage transformedImage = QImage(screen_box.width(), screen_box.height(),
                                    QImage::Format_ARGB32_Premultiplied);
+  transformedImage.fill(Qt::transparent);
   
   // TODO(oalexan1): Cache the last 10 images to not recompute them all the time
   // when toggling images on and off.
@@ -720,8 +724,10 @@ void MainWidget::renderGeoreferencedImage(double scale_out,
   for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
     for (int y = screen_box.min().y(); y < screen_box.max().y(); y++) {
 
-      // Skip pixels that were already drawn. Cannot handle csv files.
-      if (drawn_already(x, y) != 0 && !has_csv)
+      // Skip pixels that were already drawn (a speedup for opaque overlays).
+      // Disabled when blending with opacity, so lower images show through.
+      // Cannot handle csv files.
+      if (skip_drawn && drawn_already(x, y) != 0 && !has_csv)
         continue;
 
       // p is in pixel coordinates of image i
@@ -865,9 +871,16 @@ void MainWidget::drawImage(QPainter* paint) {
     if (app_data.images[i].m_isCsv)
       has_csv = true;
   }
-  if (app_data.use_georef && !has_csv)
+  // If any image is semi-transparent, draw bottom-to-top and do not skip
+  // already-drawn pixels, so the layers blend. Otherwise keep the speedup of
+  // drawing the top image first and skipping what it covers.
+  bool any_transparent = false;
+  for (int i = m_beg_image_id; i < m_end_image_id; i++)
+    any_transparent = any_transparent || (app_data.images[i].opacity < 1.0);
+
+  if (app_data.use_georef && !has_csv && !any_transparent)
     std::reverse(draw_order.begin(), draw_order.end());
-  
+
   // For --colorize, compute joint min/max across all images in this widget
   vw::Vector2 joint_bounds(std::numeric_limits<double>::max(),
                            -std::numeric_limits<double>::max());
@@ -924,8 +937,9 @@ void MainWidget::drawImage(QPainter* paint) {
       screen_box.max().y() = screen_box.min().y() + 1;
 
     // If all screen pixels are drawn already based on images that should be
-    // on top of this one, no need to draw this image.
-    if (app_data.use_georef) {
+    // on top of this one, no need to draw this image. Skip this optimization
+    // when blending, as then a covered image must still be drawn to show through.
+    if (app_data.use_georef && !any_transparent) {
       bool all_drawn = true;
       #pragma omp parallel for
       for (int x = screen_box.min().x(); x < screen_box.max().x(); x++) {
@@ -1004,6 +1018,11 @@ void MainWidget::drawImage(QPainter* paint) {
     // Draw on image screen
     Stopwatch sw4;
     sw4.start();
+
+    // Per-image opacity, for overlaid images (georef or single-window). Applies
+    // to both draw paths below. Reset to opaque afterwards.
+    paint->setOpacity(app_data.images[i].opacity);
+
     if (!app_data.use_georef) {
       // This is a regular image, no georeference, just pass it to the Qt painter
       QRect rect(screen_box.min().x(), screen_box.min().y(),
@@ -1011,8 +1030,11 @@ void MainWidget::drawImage(QPainter* paint) {
       paint->drawImage(rect, qimg);
     } else {
       MainWidget::renderGeoreferencedImage(scale_out, i, paint, has_csv, qimg,
-                                           screen_box, region_out, drawn_already);
+                                           screen_box, region_out, drawn_already,
+                                           !any_transparent);
     }
+
+    paint->setOpacity(1.0);
 
   } // End loop through input images
 
@@ -1537,6 +1559,31 @@ void MainWidget::setColormap() {
 
   refreshPixmap();       // the colormap is applied on the fly when drawing
   emit setColormapSignal(); // refresh the colorbar too
+}
+
+// Set the drawing opacity for the images in this widget (from the right-click
+// menu). Only visible for overlaid images (georeferenced or single-window). A
+// value of 1 is opaque, 0 is fully transparent.
+void MainWidget::setOpacity() {
+
+  std::ostringstream oss;
+  oss << app_data.images[m_beg_image_id].opacity;
+  std::string opacity = oss.str();
+  bool ans = getStringFromGui(this, "Image opacity (0 to 1)",
+                              "Image opacity (0 to 1)", opacity, opacity);
+  if (!ans)
+    return;
+
+  double val = atof(opacity.c_str());
+  val = std::max(0.0, std::min(1.0, val));
+
+  for (int i = m_beg_image_id; i < m_end_image_id; i++) {
+    if (app_data.images[i].isPolyOrCsv())
+      continue;
+    app_data.images[i].opacity = val;
+  }
+
+  refreshPixmap(); // the opacity is applied on the fly when drawing
 }
 
 // Save the current view to a file

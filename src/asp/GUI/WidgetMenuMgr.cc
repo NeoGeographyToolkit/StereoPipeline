@@ -57,6 +57,7 @@ WidgetMenuMgr::WidgetMenuMgr(MainWidget* wid) {
   m_toggleHillshadeImageRightClick  = m_contextMenu->addAction("Toggle hillshaded display");
   m_setHillshadeParams = m_contextMenu->addAction("View/set hillshade azimuth and elevation");
   m_setColormap = m_contextMenu->addAction("Set colormap style");
+  m_setOpacity = m_contextMenu->addAction("Set image opacity");
   m_saveVectorLayerAsShapeFile = m_contextMenu->addAction("Save vector layer as shape file");
   m_saveVectorLayerAsTextFile = m_contextMenu->addAction("Save vector layer as text file");
 
@@ -82,6 +83,8 @@ WidgetMenuMgr::WidgetMenuMgr(MainWidget* wid) {
                    wid, SLOT(setHillshadeParams()));
   QObject::connect(m_setColormap, SIGNAL(triggered()),
                    wid, SLOT(setColormap()));
+  QObject::connect(m_setOpacity, SIGNAL(triggered()),
+                   wid, SLOT(setOpacity()));
   QObject::connect(m_setThreshold, SIGNAL(triggered()),
                    wid, SLOT(setThreshold()));
   QObject::connect(m_saveScreenshot, SIGNAL(triggered()),
@@ -135,6 +138,7 @@ void WidgetMenuMgr::setupContextMenu(MainWidget* wid) {
   m_toggleHillshadeImageRightClick->setVisible(!wid->m_polyEditMode);
   m_setHillshadeParams->setVisible(!wid->m_polyEditMode);
   m_setColormap->setVisible(!wid->m_polyEditMode);
+  m_setOpacity->setVisible(!wid->m_polyEditMode);
   m_setThreshold->setVisible(!wid->m_polyEditMode);
   m_allowMultipleSelections_action->setVisible(!wid->m_polyEditMode);
   m_deleteSelection->setVisible(!sideBySideWithDialog());

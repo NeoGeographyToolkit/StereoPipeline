@@ -49,6 +49,7 @@ struct WidgetMenuMgr {
   QAction* m_setThreshold;
   QAction* m_setHillshadeParams;
   QAction* m_setColormap;
+  QAction* m_setOpacity;
   QAction* m_saveScreenshot;
   QAction* m_toggleHillshadeFromImageList;
   QAction* m_zoomToImageFromTable;

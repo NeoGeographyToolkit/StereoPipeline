@@ -165,8 +165,7 @@ stereo_gui (:numref:`stereo_gui`):
     (:numref:`colorize`).
   * The colorized hillshade view uses the chosen ``--colormap-style``
     (:numref:`colorize`).
-  * The colormap can be changed at runtime from the right-click menu
-    (:numref:`colorize`).
+  * Added ``--opacity``, to blend overlaid images (:numref:`opacity`).
 
 Misc:
   * Added the ``terrain``, ``ocean``, ``gist_earth``, and ``gist_stern``

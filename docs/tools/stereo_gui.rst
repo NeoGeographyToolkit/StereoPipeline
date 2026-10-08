@@ -18,7 +18,8 @@ This program can be invoked just as ``parallel_stereo``::
 
 Here is an example when using RPC cameras::
 
-    stereo_gui -t rpc left.tif right.tif left.xml right.xml run/run
+    stereo_gui -t rpc left.tif right.tif \
+      left.xml right.xml run/run
 
 One can zoom with the mouse wheel, or by dragging the mouse from
 upper-left to lower-right (zoom in), and vice-versa (zoom out). The
@@ -100,6 +101,8 @@ The ``stereo_gui`` program can:
     colorbar with axes (``--colorbar``). Can show colorized hillshade.
     See :numref:`colorize`.
 
+  - Overlay images with transparency (:numref:`opacity`).
+
   - Display the output of the ASP ``colormap`` and ``hillshade`` tools
     (:numref:`colormap`, :numref:`hillshade`).
 
@@ -163,7 +166,8 @@ A colorbar can be added with ``--colorbar``. Example::
    :width: 60%
 
    A colorized hillshade, with the ``terrain`` colormap and a colorbar,
-   from the invocation above.
+   from the invocation above. Each pixel is the colormap color times the
+   hillshade intensity, so it looks darker than the pure colors in the colorbar.
 
 Images that are both colorized and hillshaded can also be created with
 ``colormap`` (:numref:`colormap`), and then loaded in this program.
@@ -223,6 +227,31 @@ Colorization works as well with overlaid and georeferenced images.
    and axes, and without them. See :numref:`scattered_points_colorbar` for
    an example having scattered points, and :numref:`color_hillshade_fig` for a
    colorized hillshade.
+
+.. _opacity:
+
+Overlaying images with transparency
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When images are overlaid (:numref:`stereo_gui`), they can be blended by setting a
+per-image opacity with ``--opacity`` (1 is opaque, 0 is transparent). The default
+is 1. A given value applies to all images after it until set again. Later images
+are rendered on top of earlier ones.
+
+The rendering is affected by the value of the ``--background`` color (black by
+default). The opacity can also be changed at runtime by right-clicking an image
+and choosing ``Set image opacity``.
+
+Example::
+
+    stereo_gui --single-window dem_hs.tif \
+      --opacity 0.25 dem_crop_color.tif
+
+.. figure:: ../images/stereo_gui_opacity.png
+   :name: opacity_fig
+   :width: 60%
+
+   A colorized DEM crop drawn at opacity 0.25 over a hillshade of the full DEM.
 
 .. _plot_csv:
 

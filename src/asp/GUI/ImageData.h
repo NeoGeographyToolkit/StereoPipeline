@@ -87,6 +87,7 @@ namespace asp {
     std::string color; // poly color
     std::string style; // plotting style
     std::string colormap; // colormap style
+    double opacity; // drawing opacity, 1 = opaque, 0 = transparent
     bool colorize; // if a given image must be colorized
     bool colorbar; // if a colorbar should be shown
 

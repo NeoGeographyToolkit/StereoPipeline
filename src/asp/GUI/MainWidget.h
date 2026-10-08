@@ -175,6 +175,7 @@ public slots:
   void setThreshold           (); // Set change image threshold (from right click menu)
   void setHillshadeParams     (); // Set the azimuth and elevation for hillshaded images.
   void setColormap            (); // Set the colormap style (from right click menu)
+  void setOpacity             (); // Set the drawing opacity (from right click menu)
   void toggleHillshadeImageRightClick(); // Turn on/off hillshading on right-click on image
   void toggleHillshadeFromImageList(int imageIndex); // Toggle hillshade by right-click on image list
   void refreshHillshade       (); // Update the display if the state of hillshading changed.
@@ -331,9 +332,10 @@ private:
                                 QPainter* paint, 
                                 bool has_csv,
                                 QImage const& sourceImage,
-                                vw::BBox2i const& screen_box, 
+                                vw::BBox2i const& screen_box,
                                 vw::BBox2i const& region_out,
-                                vw::ImageView<int> & screen_image);
+                                vw::ImageView<int> & screen_image,
+                                bool skip_drawn = true);
                               
   void updateCurrentMousePosition();
   void updateRubberBand(QRect & R);
