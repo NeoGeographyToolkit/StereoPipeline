@@ -280,6 +280,82 @@ void solveSOR(ImageView<char> const& is_hole,
 
 
 
+// Estimate the local terrain curvature just outside a shadow blob, to be used
+// as the Poisson forcing so the grown floor continues the surrounding shape:
+// flat ground gives a flat fill, a bowl-shaped neighborhood gives a bowl. Sample
+// the discrete Laplacian of the SfS (second derivative, spacing s) over a thin
+// band of valid lit ground a few pixels outside the blob, and average it. Not a
+// parameter. The sign convention matches solveSOR: a positive value is a bowl
+// that dips down, so the caller clamps the result to be non-negative to make
+// sure the fill can never dome up.
+double estimateLocalCurvature(ImageView<double> const& sfs_d,
+                              ImageView<char> const& shadow,
+                              std::vector<Vector2i> const& blob_pix,
+                              int cols, int rows) {
+  // Window = blob bounding box expanded by a margin.
+  int wc0 = cols, wc1 = 0, wr0 = rows, wr1 = 0;
+  for (size_t i = 0; i < blob_pix.size(); i++) {
+    wc0 = std::min(wc0, blob_pix[i].x()); wc1 = std::max(wc1, blob_pix[i].x());
+    wr0 = std::min(wr0, blob_pix[i].y()); wr1 = std::max(wr1, blob_pix[i].y());
+  }
+  int M = 10;
+  wc0 = std::max(0, wc0 - M); wc1 = std::min(cols - 1, wc1 + M);
+  wr0 = std::max(0, wr0 - M); wr1 = std::min(rows - 1, wr1 + M);
+  int ww = wc1 - wc0 + 1, wh = wr1 - wr0 + 1;
+
+  // Local hole mask, then dilate by 2 and by 6 to carve a sample band [3, 6] px
+  // of ground just outside the blob.
+  ImageView<char> base(ww, wh);
+  for (int c = 0; c < ww; c++) {
+    for (int r = 0; r < wh; r++)
+      base(c, r) = 0;
+  }
+  for (size_t i = 0; i < blob_pix.size(); i++)
+    base(blob_pix[i].x() - wc0, blob_pix[i].y() - wr0) = 1;
+  int dcol[4] = {1, -1, 0, 0};
+  int drow[4] = {0, 0, 1, -1};
+  ImageView<char> near2 = vw::copy(base), near6 = vw::copy(base), tmp(ww, wh);
+  for (int pass = 0; pass < 6; pass++) {
+    for (int c = 0; c < ww; c++) {
+      for (int r = 0; r < wh; r++) {
+        char v = near6(c, r);
+        for (int k = 0; k < 4 && !v; k++) {
+          int nc = c + dcol[k], nr = r + drow[k];
+          if (nc >= 0 && nc < ww && nr >= 0 && nr < wh && near6(nc, nr))
+            v = 1;
+        }
+        tmp(c, r) = v;
+      }
+    }
+    near6 = vw::copy(tmp);
+    if (pass == 1)
+      near2 = vw::copy(tmp);
+  }
+
+  int s = 3;
+  double sum = 0.0;
+  int cnt = 0;
+  for (int c = 0; c < ww; c++) {
+    for (int r = 0; r < wh; r++) {
+      if (!near6(c, r) || near2(c, r))
+        continue;
+      int gc = c + wc0, gr = r + wr0;
+      if (shadow(gc, gr))
+        continue;
+      if (gc - s < 0 || gc + s >= cols || gr - s < 0 || gr + s >= rows)
+        continue;
+      if (shadow(gc - s, gr) || shadow(gc + s, gr) ||
+          shadow(gc, gr - s) || shadow(gc, gr + s))
+        continue;
+      double lap = (sfs_d(gc + s, gr) + sfs_d(gc - s, gr) - 2.0 * sfs_d(gc, gr)) / (s * s)
+                 + (sfs_d(gc, gr + s) + sfs_d(gc, gr - s) - 2.0 * sfs_d(gc, gr)) / (s * s);
+      sum += lap;
+      cnt++;
+    }
+  }
+  return (cnt > 0) ? sum / cnt : 0.0;
+}
+
 // The workhorse of this code, do the blending
 class SfsBlendView: public ImageViewBase<SfsBlendView>{
 
@@ -435,11 +511,16 @@ public:
 
       // In the shadow default to LOLA (so big unfilled blobs hand off to LOLA);
       // the lit region keeps the SfS set above. Filled blobs are overwritten
-      // below with the grown floor.
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          if (shadow(col, row))
-            fill_crop(col, row) = lola_dem_crop(col, row);
+      // below with the grown floor. For sfs-curved the shadow keeps the SfS (the
+      // grown floor is only a ceiling that caps SfS pop-ups), so do not default
+      // it to LOLA.
+      if (m_opt.shadow_fill_mode != "sfs-curved" &&
+          m_opt.shadow_fill_mode != "sfs-lola-curved") {
+        for (int col = 0; col < cols; col++) {
+          for (int row = 0; row < rows; row++) {
+            if (shadow(col, row))
+              fill_crop(col, row) = lola_dem_crop(col, row);
+          }
         }
       }
 
@@ -447,22 +528,17 @@ public:
       int num_blobs = 0;
       labelShadowBlobs(shadow, labels, num_blobs);
 
-      ImageView<double> sfs_d(cols, rows), zero_d(cols, rows),
-        zlid(cols, rows), zbowl(cols, rows);
+      ImageView<double> sfs_d(cols, rows), zfill(cols, rows);
       for (int col = 0; col < cols; col++) {
         for (int row = 0; row < rows; row++) {
           sfs_d(col, row) = sfs_dem_crop(col, row);
-          zero_d(col, row) = 0.0;
-          zlid(col, row) = 0.0;
-          zbowl(col, row) = 0.0;
+          zfill(col, row) = 0.0;
         }
       }
 
-      // Collect each blob's pixels, whether it touches the tile border, and its
-      // inscribed radius (the max shadow grassfire distance in the blob).
+      // Collect each blob's pixels and whether it touches the tile border.
       std::vector<std::vector<Vector2i>> blob_pix(num_blobs + 1);
       std::vector<bool> blob_border(num_blobs + 1, false);
-      std::vector<double> blob_rad(num_blobs + 1, 0.0);
       for (int col = 0; col < cols; col++) {
         for (int row = 0; row < rows; row++) {
           int b = labels(col, row);
@@ -471,7 +547,6 @@ public:
           blob_pix[b].push_back(Vector2i(col, row));
           if (col == 0 || row == 0 || col == cols - 1 || row == rows - 1)
             blob_border[b] = true;
-          blob_rad[b] = std::max(blob_rad[b], (double)shadow_grass_dist(col, row));
         }
       }
 
@@ -492,33 +567,32 @@ public:
         for (size_t i = 0; i < blob_pix[b].size(); i++)
           is_hole(blob_pix[b][i].x(), blob_pix[b][i].y()) = 1;
 
-        // Laplace membrane with the surrounding SfS as boundary.
-        solveSOR(is_hole, sfs_d, 0.0, blob_pix[b], zlid);
-
-        // Curve the floor down by the depth/diameter ratio, but only for blobs
-        // up to the max diameter. The unit bowl (Poisson, zero boundary) is
-        // scaled to hit the target center depth, and stays <= the membrane so it
-        // cannot pop up.
-        double diam = 2.0 * blob_rad[b];
-        double depth = 0.0;
-        if (diam <= m_opt.shadow_fill_max_diam)
-          depth = m_opt.shadow_fill_ratio * diam;
-        double scale = 0.0;
-        if (depth > 0.0) {
-          solveSOR(is_hole, zero_d, 1.0, blob_pix[b], zbowl);
-          double min_b = 0.0;
-          for (size_t i = 0; i < blob_pix[b].size(); i++)
-            min_b = std::min(min_b, zbowl(blob_pix[b][i].x(), blob_pix[b][i].y()));
-          if (min_b < -1e-6)
-            scale = depth / (-min_b);
-        }
+        // Grow the floor by solving the Poisson equation with the surrounding
+        // SfS as boundary and a forcing equal to the local terrain curvature just
+        // outside the hole. This continues the neighborhood shape inward: flat
+        // around gives a flat fill, a bowl around gives a bowl. Clamp the forcing
+        // to be non-negative so the fill can only dip down or stay flat, never
+        // dome up.
+        double c_est = estimateLocalCurvature(sfs_d, shadow, blob_pix[b], cols, rows);
+        double forcing = std::max(c_est, 0.0);
+        solveSOR(is_hole, sfs_d, forcing, blob_pix[b], zfill);
 
         for (size_t i = 0; i < blob_pix[b].size(); i++) {
           int col = blob_pix[b][i].x(), row = blob_pix[b][i].y();
-          double val = zlid(col, row) + scale * zbowl(col, row);
+          double val = zfill(col, row);
+          // Cap by LOLA or by SfS so the floor is the lower of the grown ceiling
+          // and the chosen reference. sfs-curved keeps the real SfS floor and
+          // clips only where SfS pops above the ceiling.
           if (m_opt.shadow_fill_mode == "lola-curved" &&
-              lola_dem_crop(col, row) != m_lola_nodata)
+              lola_dem_crop(col, row) != m_lola_nodata) {
             val = std::min(val, (double)lola_dem_crop(col, row));
+          } else if (m_opt.shadow_fill_mode == "sfs-curved") {
+            val = std::min(val, (double)sfs_dem_crop(col, row));
+          } else if (m_opt.shadow_fill_mode == "sfs-lola-curved") {
+            val = std::min(val, (double)sfs_dem_crop(col, row));
+            if (lola_dem_crop(col, row) != m_lola_nodata)
+              val = std::min(val, (double)lola_dem_crop(col, row));
+          }
           fill_crop(col, row) = val;
         }
 
@@ -566,6 +640,51 @@ public:
       }
     }
 
+    // Feathered boundary blur: soften the seam where the grown floor meets the
+    // real terrain. Blur the blended DEM, then blend the blurred and original
+    // with a weight that is 1 on the shadow/lit boundary and falls smoothly
+    // (raised cosine) to 0 at a distance that differs by side: lit-blend-length
+    // into the lit region and shadow-blend-length into the shadow. Both sides
+    // reach 1 at the boundary, so the blend stays smooth across it, but each
+    // side can decay over its own length (e.g. a longer shadow reach to soften a
+    // rough LOLA transition). Blur sigma = half the larger reach so the blur
+    // footprint hugs the wider band. Only for the grown-floor modes and the DEM
+    // (not the weight) pass.
+    double lit_L = m_opt.lit_blend_length;
+    double shadow_L = m_opt.shadow_blend_length;
+    if (!m_save_weight && m_opt.shadow_fill_mode != "lola" &&
+        (lit_L > 0 || shadow_L > 0)) {
+      int cols = sfs_dem_crop.cols(), rows = sfs_dem_crop.rows();
+      double sigma = std::max(lit_L, shadow_L) / 2.0;
+      // Blur input: replace nodata with the SfS so the blur stays well defined.
+      ImageView<double> binput(cols, rows);
+      for (int col = 0; col < cols; col++) {
+        for (int row = 0; row < rows; row++) {
+          if (blended_dem(col, row) == m_sfs_nodata)
+            binput(col, row) = sfs_dem_crop(col, row);
+          else
+            binput(col, row) = blended_dem(col, row);
+        }
+      }
+      ImageView<double> blurred = vw::gaussian_filter(binput, sigma);
+      double pi = 3.141592653589793;
+      for (int col = 0; col < cols; col++) {
+        for (int row = 0; row < rows; row++) {
+          if (blended_dem(col, row) == m_sfs_nodata)
+            continue;
+          bool is_shadow = is_valid(inv_mask(col, row));
+          double d = is_shadow ? (double)shadow_grass_dist(col, row)
+                               : (double)lit_grass_dist(col, row);
+          double L = is_shadow ? shadow_L : lit_L;
+          if (L <= 0 || d >= L)
+            continue;
+          double w = 0.5 * (1.0 + std::cos(pi * d / L));
+          blended_dem(col, row) = w * blurred(col, row)
+                                + (1.0 - w) * blended_dem(col, row);
+        }
+      }
+    }
+
     return prerasterize_type(blended_dem, -biased_box.min().x(), -biased_box.min().y(),
                              cols(), rows());
   }
@@ -597,7 +716,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("min-blend-size", po::value<double>(&opt.min_blend_size)->default_value(0.0),
      "Do not apply blending in shadowed areas of dimensions less than this, hence keeping there the SfS DEM.")
     ("shadow-fill-mode", po::value<std::string>(&opt.shadow_fill_mode)->default_value("lola"),
-     "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the default, legacy behavior). 'curved' grows a smooth floor from the surrounding SfS by solving the Laplace equation, curved gently down like a crater. 'lola-curved' uses the lower of that curved floor and LOLA, so LOLA can never raise the floor. See --shadow-fill-params.")
+     "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the default, legacy behavior). 'curved' grows a smooth floor from the surrounding SfS by solving the Laplace equation with a locally estimated curvature. 'lola-curved' uses the lower of that curved floor and LOLA. 'sfs-curved' keeps the SfS and caps it at the curved floor (the lower of the two), so the real SfS floor is preserved and only SfS pop-ups are clipped. 'sfs-lola-curved' takes the lower of the curved floor, the SfS, and LOLA, so LOLA can additionally pull the floor down where it is lower. See --shadow-fill-params.")
     ("shadow-fill-params", po::value<std::vector<double>>(&opt.shadow_fill_params)->multitoken(),
      "Two values used by the 'curved' and 'lola-curved' shadow fill modes: the maximum hole diameter (in pixels) that is curved, and the crater depth/diameter ratio. A hole up to this diameter gets a floor a fraction (the ratio) of its own width deep; larger holes are left flat (and handed off to LOLA in lola-curved mode). Ignored when --shadow-fill-mode is 'lola'. Suggested: 100 0.15.")
     ("output-dem", po::value(&opt.output_dem), "The blended output DEM to save.")
@@ -624,8 +743,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.lit_blend_length <= 0)
     vw_throw(ArgumentErr() << "The lit blending length must be positive.\n"
                            << usage << general_options);
-  if (opt.shadow_blend_length <= 0)
-    vw_throw(ArgumentErr() << "The shadow blending length must be positive.\n"
+  if (opt.shadow_blend_length < 0)
+    vw_throw(ArgumentErr() << "The shadow blending length must be non-negative.\n"
                            << usage << general_options);
   if (opt.image_threshold <= 0)
     vw_throw(ArgumentErr() << "The image threshold must be positive.\n"
@@ -633,9 +752,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Validate the shadow fill mode and parse its parameters.
   if (opt.shadow_fill_mode != "lola" && opt.shadow_fill_mode != "curved" &&
-      opt.shadow_fill_mode != "lola-curved")
+      opt.shadow_fill_mode != "lola-curved" && opt.shadow_fill_mode != "sfs-curved" &&
+      opt.shadow_fill_mode != "sfs-lola-curved")
     vw_throw(ArgumentErr() << "Unknown --shadow-fill-mode: " << opt.shadow_fill_mode
-                           << ". Must be 'lola', 'curved', or 'lola-curved'.\n");
+                           << ". Must be 'lola', 'curved', 'lola-curved', 'sfs-curved', "
+                           << "or 'sfs-lola-curved'.\n");
   opt.shadow_fill_max_diam = 0.0;
   opt.shadow_fill_ratio = 0.0;
   if (opt.shadow_fill_mode != "lola") {
