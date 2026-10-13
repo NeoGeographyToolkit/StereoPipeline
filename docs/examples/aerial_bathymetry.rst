@@ -293,15 +293,12 @@ median convergence angle is within ``--conv-angle-range`` is used.
 We set the DEM grid to 0.9 m, about four times the 0.23 m ground sample
 distance. The projection is the same as the cameras (here ``EPSG:6346``).
 
-If desired to use mapprojected images (:numref:`mapproj-example`), mapproject
-every image with the same grid size (option ``--tr``, :numref:`mapproject`) and
-the same projection.
-
-If the input images are mapprojected, add the option ``--dem`` that points to
-the DEM for mapprojection (:numref:`multi_stereo_dem_mosaic`).
-
 Set the option ``--nodes-list`` to run on multiple machines
 (:numref:`pbs_slurm`).
+
+Stereo can also be run on mapprojected images (:numref:`aerial_mapproj_stereo`).
+For these near-nadir frames that is optional, as it gives essentially the same
+DEM.
 
 .. figure:: ../images/examples/aerial_dem_vs_3dep.png
    :name: aerial_dem_3dep
@@ -336,6 +333,28 @@ avoids smearing image seams and any small residual misregistration in the ortho.
    Left: the orthoimage over the developed area. Right: the triangulation error.
    Over open water there is no texture, so stereo correlation finds no matches and
    the error is high there. That area can be ignored.
+
+.. _aerial_mapproj_stereo:
+
+Stereo with mapprojected images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To run stereo with mapprojected images (:numref:`mapproj-example`), take the
+stereo DEM created so far, grow it to remove some holes
+(:numref:`dem_mosaic_extrapolate`), blur it with a sigma of 5 or so
+(:numref:`dem_mosaic_blur`), and mapproject onto it the images with the
+bundle-adjusted cameras at the native ground sample distance (here ``--tr
+0.23``).
+
+Then run :ref:`multi_stereo` on the mapprojected images, with that DEM passed
+via ``--dem`` (:numref:`multi_stereo_dem_mosaic`).
+
+Add ``--max-disp-spread 100`` to the stereo options to reduce the effect of
+spurious matches over deep water. Here 100 pixels is about 23 m of relief at
+0.23 m, which is enough to resolve the buildings.
+
+This should take about 4 to 6 hours on one 28-core node. Use ``--nodes-list``
+to spread the work across machines.
 
 .. _aerial_bathymetry_mask:
 
