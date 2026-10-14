@@ -177,8 +177,8 @@ void fillInteriorSpecks(ImageView<char> & shadow) {
 // Grow and smooth the shadow mask: dilate by dilate_r then erode by erode_r
 // (4-connectivity). With dilate_r > erode_r this nets an outward growth, which
 // absorbs the unreliable band of fabricated bright SfS at the shadow rim (the
-// grazing-illumination garbage knobs) into the hole so they get the smooth grown
-// floor instead of being kept as jagged spikes against the lowered floor. The
+// grazing-illumination garbage knobs) into the hole so they get the smooth
+// curved-surface fill instead of being kept as jagged spikes. The
 // closing part also swallows thin lit fingers.
 void morphCloseShadow(ImageView<char> & shadow, int dilate_r, int erode_r) {
   if (dilate_r <= 0 && erode_r <= 0)
@@ -279,7 +279,7 @@ void solveSOR(ImageView<char> const& is_hole,
 
 
 // Estimate the local terrain curvature just outside a shadow blob, to be used
-// as the Poisson forcing so the grown floor continues the surrounding shape:
+// as the Poisson forcing so the curved surface continues the surrounding shape:
 // flat ground gives a flat fill, a bowl-shaped neighborhood gives a bowl. Sample
 // the discrete Laplacian of the SfS (second derivative, spacing s) over a thin
 // band of valid lit ground a few pixels outside the blob, and average it. Not a
@@ -420,12 +420,12 @@ public:
       }
     }
 
-    // For the grown-floor modes, clean the lit/shadow classification
-    // before it drives both the blend weight and the grown floor: absorb interior
+    // For the 'curved' and 'lola-curved' modes, clean the lit/shadow classification
+    // before it drives both the blend weight and the curved surface: absorb interior
     // specks and close thin lit fingers of fabricated bright SfS at the shadow
     // edge, so those garbage spikes become part of the hole and get the smooth
-    // floor instead of being kept at the lit SfS value. The legacy 'lola' mode is
-    // left untouched.
+    // curved surface instead of being kept at the lit SfS value. The legacy 'lola'
+    // mode is left untouched.
     if (m_opt.shadow_fill_mode != "lola") {
       int cols = inv_mask.cols(), rows = inv_mask.rows();
       ImageView<char> shadow(cols, rows);
@@ -482,15 +482,14 @@ public:
       dist_to_bd = vw::gaussian_filter(dist_to_bd, m_opt.weight_blur_sigma);
 
     // Build the fill DEM used inside the shadow. For the legacy 'lola' mode this
-    // is the LOLA DEM. For the grown-floor modes it is the SfS DEM outside the
-    // shadow blobs, so the fill is continuous with the surrounding terrain
-    // across the shadow boundary (no step, hence no seam), and inside each
-    // fully-contained blob it is a smooth floor grown from the surrounding SfS
-    // by solving the Laplace equation, curved down by the crater depth/diameter
-    // ratio. That grown floor is then capped (the lower of it and the reference)
-    // by SfS for sfs-curved, and by both SfS and LOLA for lola-curved. Big blobs
-    // (wider than the tile margin or the max diameter) are left unfilled, so the
-    // blend there is SfS to SfS, or picks up LOLA only in the 'curved' handoff.
+    // is the LOLA DEM. For the 'curved' and 'lola-curved' modes it is the SfS DEM
+    // outside the shadow blobs, so the fill is continuous with the surrounding
+    // terrain across the shadow boundary (no step, hence no seam), and inside each
+    // fully-contained blob it is a curved surface grown from the surrounding SfS
+    // by solving the Laplace equation, curving gently downward. For lola-curved
+    // that surface is combined with the SfS and LOLA by taking the per-pixel
+    // minimum. Big blobs (wider than the tile margin or the max diameter) are left
+    // unfilled, handing off to LOLA for 'curved' and to the SfS for 'lola-curved'.
     ImageView<float> fill_crop;
     if (m_opt.shadow_fill_mode == "lola")
       fill_crop = vw::copy(lola_dem_crop);
@@ -508,12 +507,10 @@ public:
       }
 
       // In the shadow default to LOLA (so big unfilled blobs hand off to LOLA);
-      // the lit region keeps the SfS set above. Filled blobs are overwritten
-      // below with the grown floor. For sfs-curved and lola-curved the shadow
-      // keeps the SfS (the grown floor is only a ceiling that caps SfS pop-ups),
-      // so do not default it to LOLA.
-      if (m_opt.shadow_fill_mode != "sfs-curved" &&
-          m_opt.shadow_fill_mode != "lola-curved") {
+      // the lit region keeps the SfS set above. Filled blobs are overwritten below
+      // with the curved surface. The 'lola-curved' mode instead keeps the SfS in
+      // the shadow (its per-pixel minimum already includes LOLA), so skip this.
+      if (m_opt.shadow_fill_mode != "lola-curved") {
         for (int col = 0; col < cols; col++) {
           for (int row = 0; row < rows; row++) {
             if (shadow(col, row))
@@ -556,7 +553,8 @@ public:
 
       for (int b = 1; b <= num_blobs; b++) {
         // Skip blobs that are not fully contained (bigger than the tile margin):
-        // these are left as LOLA, which is the intended handoff for big craters.
+        // these keep the plain fill (LOLA for 'curved', the SfS for 'lola-curved'),
+        // which is the intended handoff for big craters.
         if (blob_border[b])
           continue;
         if ((double)blob_pix[b].size() < m_opt.min_blend_size)
@@ -565,12 +563,12 @@ public:
         for (size_t i = 0; i < blob_pix[b].size(); i++)
           is_hole(blob_pix[b][i].x(), blob_pix[b][i].y()) = 1;
 
-        // Grow the floor by solving the Poisson equation with the surrounding
-        // SfS as boundary and a forcing equal to the local terrain curvature just
-        // outside the hole. This continues the neighborhood shape inward: flat
-        // around gives a flat fill, a bowl around gives a bowl. Clamp the forcing
-        // to be non-negative so the fill can only dip down or stay flat, never
-        // dome up.
+        // Grow the curved surface by solving the Poisson equation with the
+        // surrounding SfS as boundary and a forcing equal to the local terrain
+        // curvature just outside the hole. This continues the neighborhood shape
+        // inward: flat around gives a flat fill, a bowl around gives a bowl. Clamp
+        // the forcing to be non-negative so the fill can only dip down or stay
+        // flat, never dome up.
         double c_est = estimateLocalCurvature(sfs_d, shadow, blob_pix[b], cols, rows);
         double forcing = std::max(c_est, 0.0);
         solveSOR(is_hole, sfs_d, forcing, blob_pix[b], zfill);
@@ -578,13 +576,10 @@ public:
         for (size_t i = 0; i < blob_pix[b].size(); i++) {
           int col = blob_pix[b][i].x(), row = blob_pix[b][i].y();
           double val = zfill(col, row);
-          // Cap by SfS, and for lola-curved also by LOLA, so the floor is the
-          // lower of the grown ceiling and the chosen references. sfs-curved
-          // keeps the real SfS floor and clips only where SfS pops above the
-          // ceiling. lola-curved additionally lets LOLA pull the floor down.
-          if (m_opt.shadow_fill_mode == "sfs-curved") {
-            val = std::min(val, (double)sfs_dem_crop(col, row));
-          } else if (m_opt.shadow_fill_mode == "lola-curved") {
+          // 'curved' uses the surface as is. 'lola-curved' takes the per-pixel
+          // minimum of the surface, the SfS, and LOLA, so the fill follows
+          // whichever is lowest and cannot rise above the surrounding terrain.
+          if (m_opt.shadow_fill_mode == "lola-curved") {
             val = std::min(val, (double)sfs_dem_crop(col, row));
             if (lola_dem_crop(col, row) != m_lola_nodata)
               val = std::min(val, (double)lola_dem_crop(col, row));
@@ -636,8 +631,8 @@ public:
       }
     }
 
-    // Feathered boundary blur: soften the seam where the grown floor meets the
-    // real terrain. Blur the blended DEM (sigma = weight-blur-sigma), then blend
+    // Feathered boundary blur: soften the seam where the curved-surface fill
+    // meets the real terrain. Blur the blended DEM (sigma = weight-blur-sigma), then blend
     // the blurred and original with a weight that is 1 on the shadow/lit boundary
     // and falls to 0 a distance L out on each side (L = lit-blend-length in the
     // lit region, shadow-blend-length in the shadow). The weight is built from
@@ -645,7 +640,7 @@ public:
     // with a Gaussian: an unsmoothed weight steps every pixel and those steps,
     // times (blurred minus original), band the result into stripes. Smoothing the
     // weight (as the old sfs_blend smooths its transition weight) removes them.
-    // Only for the grown-floor modes and the DEM (not the weight) pass.
+    // Only for the 'curved' and 'lola-curved' modes and the DEM (not the weight) pass.
     double lit_L = m_opt.lit_blend_length;
     double shadow_L = m_opt.shadow_blend_length;
     double blur_sigma = m_opt.weight_blur_sigma;
@@ -721,9 +716,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("min-blend-size", po::value<double>(&opt.min_blend_size)->default_value(0.0),
      "Do not apply blending in shadowed areas of dimensions less than this, hence keeping there the SfS DEM.")
     ("shadow-fill-mode", po::value<std::string>(&opt.shadow_fill_mode)->default_value("lola-curved"),
-     "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the legacy behavior). 'curved' grows a smooth floor from the surrounding SfS by solving the Laplace equation with a locally estimated curvature, clamped so the floor cannot rise above its surroundings. 'sfs-curved' keeps the SfS and lowers it only where it rises above the curved floor, so the real SfS floor and detail are preserved and only spurious bumps are clipped. 'lola-curved' is like 'sfs-curved' but also takes the lower of LOLA, so LOLA can pull the floor down where it is genuinely lower (the default). See --shadow-fill-max-diameter.")
+     "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the legacy behavior). 'curved' fills with a surface grown from the surrounding SfS that curves gently downward, found by solving the Laplace equation with a locally estimated curvature, clamped so it cannot rise above its surroundings. 'lola-curved' (the default) is the per-pixel minimum of the SfS, LOLA, and that curved surface, so the fill cannot rise above the surrounding terrain. See --shadow-fill-max-diameter.")
     ("shadow-fill-max-diameter", po::value<double>(&opt.shadow_fill_max_diam)->default_value(0.0),
-     "The maximum hole diameter, in pixels, to which the grown floor is applied in the 'curved', 'sfs-curved', and 'lola-curved' modes. Larger holes keep the LOLA fill. Ignored when --shadow-fill-mode is 'lola'. A value such as 300 is reasonable.")
+     "The maximum hole diameter, in pixels, for which the curved surface is computed in the 'curved' and 'lola-curved' modes. Larger holes keep the plain LOLA or SfS fill. Ignored when --shadow-fill-mode is 'lola'. A value such as 300 is reasonable.")
     ("output-dem", po::value(&opt.output_dem), "The blended output DEM to save.")
     ("output-weight", po::value(&opt.output_weight), "The weight showing the proportion of the SfS DEM in the blend with the LOLA DEM (1 is for purely SfS and 0 is for purely LOLA).");
 
@@ -757,13 +752,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Validate the shadow fill mode and parse its parameters.
   if (opt.shadow_fill_mode != "lola" && opt.shadow_fill_mode != "curved" &&
-      opt.shadow_fill_mode != "sfs-curved" && opt.shadow_fill_mode != "lola-curved")
+      opt.shadow_fill_mode != "lola-curved")
     vw_throw(ArgumentErr() << "Unknown --shadow-fill-mode: " << opt.shadow_fill_mode
-                           << ". Must be 'lola', 'curved', 'sfs-curved', "
-                           << "or 'lola-curved'.\n");
+                           << ". Must be 'lola', 'curved', or 'lola-curved'.\n");
   if (opt.shadow_fill_mode != "lola" && opt.shadow_fill_max_diam <= 0)
     vw_throw(ArgumentErr() << "The --shadow-fill-max-diameter must be positive "
-             << "for the grown-floor shadow fill modes.\n");
+             << "for the 'curved' and 'lola-curved' shadow fill modes.\n");
 
   // Create the output directory
   vw::create_out_dir(opt.output_dem);

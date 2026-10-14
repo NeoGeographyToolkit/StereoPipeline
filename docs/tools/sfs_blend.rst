@@ -10,50 +10,38 @@ are in permanent shadow with values from the initial guess DEM used
 for SfS (which is typically the LOLA gridded DEM), with a transition
 region between the two DEMs.
 
-By default the shadowed holes are filled with a smooth floor grown
-from the surrounding SfS terrain (the ``--shadow-fill-mode`` option,
-:numref:`sfs_blend_fill`). The original behavior of filling with the
-plain LOLA DEM is also available.
-
 Motivation and an example of an invocation of this tool are given in
 the :ref:`SfS usage <sfs_usage>` chapter.
 
 .. _sfs_blend_fill:
 
 Shadow fill modes
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
-Filling the holes with LOLA can produce an artifact where LOLA sits
-above the SfS floor, as the filled region then rises above the
-surrounding terrain. The grown-floor modes avoid this.
+The ``--shadow-fill-mode`` option sets what fills a permanently
+shadowed hole. Three modes are supported.
 
-The grown floor (used by all modes except ``lola``) is found per hole
-by solving Laplace's equation in the hole with the surrounding SfS as
-the boundary, and a forcing equal to the terrain curvature estimated
-from the valid ground just outside the hole. This continues the local
-shape inward: a flat neighborhood gives a flat floor, a bowl-shaped one
-gives a bowl. The forcing is clamped to be non-negative, so the floor
-can only dip down or stay level, never rise above its surroundings.
+- ``lola``: fill the hole with the LOLA DEM. This is the earliest
+  implementation.
+  
+- ``curved``: fill the hole with a surface grown from the surrounding
+  SfS that curves gently downward into the hole. It is found by solving
+  Laplace's equation with the surrounding SfS as the boundary and the
+  local terrain curvature as the forcing, clamped so the surface can
+  only dip down, never rise above its surroundings.
 
-The modes differ in how this grown floor is used:
+- ``lola-curved`` (the default): the per-pixel minimum of the SfS, the LOLA DEM,
+  and the curved surface. The minimum keeps the fill from rising above the
+  surrounding terrain even when LOLA itself does that.
 
-- ``lola``: fill the hole with the LOLA DEM (the original behavior).
-- ``curved``: fill the hole with the grown floor.
-- ``sfs-curved``: keep the SfS and lower it only where it rises above
-  the grown floor. The grown floor acts as a ceiling, so the real SfS
-  floor and its fine detail are preserved and only spurious bumps are
-  clipped.
-- ``lola-curved``: as ``sfs-curved``, but take the lower of the grown
-  floor, the SfS, and LOLA, so LOLA can additionally pull the floor
-  down where it is genuinely lower. This is the default.
+The seam where the fill meets the lit terrain is softened with a feathered blur:
+the blended DEM is blurred (with a standard deviation of
+``--weight-blur-sigma``) and mixed with the original using a weight that is 1 on
+the shadow-lit boundary and falls to zero over ``--lit-blend-length`` pixels
+into the lit region and ``--shadow-blend-length`` pixels into the shadow. That
+weight is itself smoothed to avoid banding. 
 
-The seam where the fill meets the lit terrain is softened with a
-feathered blur: the blended DEM is blurred (with a standard deviation
-of ``--weight-blur-sigma``) and mixed with the original using a weight
-that is 1 on the shadow-lit boundary and falls to zero over
-``--lit-blend-length`` pixels into the lit region and
-``--shadow-blend-length`` pixels into the shadow. That weight is itself
-smoothed to avoid banding. A reasonable invocation is::
+A reasonable invocation is::
 
     sfs_blend                             \
       --sfs-dem sfs.tif                   \
@@ -103,8 +91,8 @@ Command-line options:
     higher value results in a smoother transition (this does not
     smooth the DEMs). The extent of the blur is about 7 times this
     deviation though it tapers fast to 0 before that. Set to 0 to not
-    use this operation. In the grown-floor modes this value is also
-    the standard deviation of the feathered boundary blur
+    use this operation. In the ``curved`` and ``lola-curved`` modes this
+    value is also the standard deviation of the feathered boundary blur
     (:numref:`sfs_blend_fill`).
 
 --min-blend-size <int (default 0)>
@@ -113,13 +101,14 @@ Command-line options:
 
 --shadow-fill-mode <string (default: lola-curved)>
     What to put in a permanently shadowed hole before the boundary
-    blending: ``lola``, ``curved``, ``sfs-curved``, or ``lola-curved``
+    blending: ``lola``, ``curved``, or ``lola-curved``
     (:numref:`sfs_blend_fill`).
 
 --shadow-fill-max-diameter <float (default 0)>
-    The maximum hole diameter, in pixels, to which the grown floor is
-    applied in the grown-floor modes. Larger holes keep the LOLA fill.
-    Ignored when ``--shadow-fill-mode`` is ``lola``.
+    The maximum hole diameter, in pixels, for which the curved surface
+    is computed in the ``curved`` and ``lola-curved`` modes. Larger
+    holes keep the plain LOLA or SfS fill. Ignored when
+    ``--shadow-fill-mode`` is ``lola``.
 
 --output-dem <arg>
     The blended output DEM to save.

@@ -777,7 +777,7 @@ value may result in seams. Increasing this will allow the seams to be
 attenuated, but may result in more erosion.
 
 The ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
-the areas in complete shadow after doing SfS. 
+the areas in complete shadow after doing SfS.
 
 .. figure:: images/sfs_borderline.png
    :name: sfs_borderline_fig
@@ -2052,14 +2052,14 @@ dimensions less than ``--min-blend-size``, where the SfS DEM is
 kept. See :numref:`sfs_blend` for more details.
 
 The ``--shadow-fill-mode`` option, shown above, controls the hole fill
-(:numref:`sfs_blend_fill`). The default value ``lola-curved`` caps both the SfS
-and the LOLA fill by a floor grown from the surrounding SfS, so neither can rise
-above the terrain. The value ``lola`` keeps the original behavior of filling
-with the plain LOLA DEM.
+(:numref:`sfs_blend_fill`). The default value ``lola-curved`` uses the per-pixel
+minimum of the SfS, the LOLA DEM, and a surface that curves gently downward in
+the hole, so the fill cannot rise above the surrounding terrain. The value
+``lola`` keeps the original behavior of filling with the plain LOLA DEM.
 
 The blended result should be inspected. If the fill in some shadowed areas needs
 to be touched up, that area can be re-blended on a clip and merged back into the
-full result with :ref:`dem_mosaic` option ``--priority-blending-length 100``. 
+full result with :ref:`dem_mosaic` option ``--priority-blending-length 100``.
 
 If ``sfs_blend`` fails due to the grids not matching, it is suggested that the
 input LOLA terrain be prepared with ``gdalwarp -te <corners>`` as described in
