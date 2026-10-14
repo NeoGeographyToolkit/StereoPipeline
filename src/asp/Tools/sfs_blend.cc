@@ -354,6 +354,261 @@ double estimateLocalCurvature(ImageView<double> const& sfs_d,
   return (cnt > 0) ? sum / cnt : 0.0;
 }
 
+// Clean the lit/shadow classification for the grown-surface modes: absorb
+// interior specks and close thin lit fingers of fabricated bright SfS at the
+// shadow edge, so those spikes become part of the hole and get the smooth
+// curved surface instead of the lit SfS value. Rewrites mask and inv_mask.
+void cleanShadowClassification(ImageView<float> const& image_mosaic_crop,
+                               // Outputs
+                               ImageView<PixelMask<float>> & mask,
+                               ImageView<PixelMask<float>> & inv_mask) {
+  int cols = inv_mask.cols(), rows = inv_mask.rows();
+  ImageView<char> shadow(cols, rows);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++)
+      shadow(col, row) = is_valid(inv_mask(col, row)) ? 1 : 0;
+  }
+  fillInteriorSpecks(shadow);
+  // Close thin lit fingers of fabricated bright SfS at the shadow edge.
+  morphCloseShadow(shadow, 3, 3);
+  fillInteriorSpecks(shadow);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      if (shadow(col, row)) {
+        inv_mask(col, row) = 1;
+        inv_mask(col, row).validate();
+        mask(col, row) = 0;
+        mask(col, row).invalidate();
+      } else {
+        inv_mask(col, row) = 0;
+        inv_mask(col, row).invalidate();
+        mask(col, row) = image_mosaic_crop(col, row);
+        mask(col, row).validate();
+      }
+    }
+  }
+}
+
+// Build the fill DEM used inside the shadow. For 'lola' this is the LOLA DEM.
+// For 'curved' and 'lola-curved' it is the SfS DEM outside the shadow blobs (so
+// the fill is continuous with the surrounding terrain across the boundary), and
+// inside each fully-contained blob a curved surface grown from the surrounding
+// SfS by solving the Laplace equation, curving gently downward. For 'lola-curved'
+// that surface is combined with the SfS and LOLA by the per-pixel minimum. Big
+// blobs (touching the tile margin) are left unfilled, handing off to LOLA for
+// 'curved' and to the SfS for 'lola-curved'.
+ImageView<float> buildShadowFill(ImageView<float> const& sfs_dem_crop,
+                                 ImageView<float> const& lola_dem_crop,
+                                 ImageView<PixelMask<float>> const& inv_mask,
+                                 std::string const& mode,
+                                 double min_blend_size, float lola_nodata) {
+  ImageView<float> fill_crop;
+  if (mode == "lola") {
+    fill_crop = vw::copy(lola_dem_crop);
+    return fill_crop;
+  }
+  fill_crop = vw::copy(sfs_dem_crop);
+
+  int cols = sfs_dem_crop.cols(), rows = sfs_dem_crop.rows();
+
+  // The lit/shadow classification was already cleaned above (specks absorbed
+  // and thin lit fingers closed), so just read the shadow mask here.
+  ImageView<char> shadow(cols, rows);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++)
+      shadow(col, row) = is_valid(inv_mask(col, row)) ? 1 : 0;
+  }
+
+  // In the shadow default to LOLA (so big unfilled blobs hand off to LOLA);
+  // the lit region keeps the SfS set above. Filled blobs are overwritten below
+  // with the curved surface. The 'lola-curved' mode instead keeps the SfS in
+  // the shadow (its per-pixel minimum already includes LOLA), so skip this.
+  if (mode != "lola-curved") {
+    for (int col = 0; col < cols; col++) {
+      for (int row = 0; row < rows; row++) {
+        if (shadow(col, row))
+          fill_crop(col, row) = lola_dem_crop(col, row);
+      }
+    }
+  }
+
+  ImageView<int> labels;
+  int num_blobs = 0;
+  labelShadowBlobs(shadow, labels, num_blobs);
+
+  ImageView<double> sfs_d(cols, rows), zfill(cols, rows);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      sfs_d(col, row) = sfs_dem_crop(col, row);
+      zfill(col, row) = 0.0;
+    }
+  }
+
+  // Collect each blob's pixels and whether it touches the tile border.
+  std::vector<std::vector<Vector2i>> blob_pix(num_blobs + 1);
+  std::vector<bool> blob_border(num_blobs + 1, false);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      int b = labels(col, row);
+      if (b == 0)
+        continue;
+      blob_pix[b].push_back(Vector2i(col, row));
+      if (col == 0 || row == 0 || col == cols - 1 || row == rows - 1)
+        blob_border[b] = true;
+    }
+  }
+
+  ImageView<char> is_hole(cols, rows);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++)
+      is_hole(col, row) = 0;
+  }
+
+  for (int b = 1; b <= num_blobs; b++) {
+    // Skip blobs that are not fully contained (bigger than the tile margin):
+    // these keep the plain fill (LOLA for 'curved', the SfS for 'lola-curved'),
+    // which is the intended handoff for big craters.
+    if (blob_border[b])
+      continue;
+    if ((double)blob_pix[b].size() < min_blend_size)
+      continue;
+
+    for (size_t i = 0; i < blob_pix[b].size(); i++)
+      is_hole(blob_pix[b][i].x(), blob_pix[b][i].y()) = 1;
+
+    // Grow the curved surface by solving the Poisson equation with the
+    // surrounding SfS as boundary and a forcing equal to the local terrain
+    // curvature just outside the hole. This continues the neighborhood shape
+    // inward: flat around gives a flat fill, a bowl around gives a bowl. Clamp
+    // the forcing to be non-negative so the fill can only dip down or stay
+    // flat, never dome up.
+    double c_est = estimateLocalCurvature(sfs_d, shadow, blob_pix[b], cols, rows);
+    double forcing = std::max(c_est, 0.0);
+    solveSOR(is_hole, sfs_d, forcing, blob_pix[b], zfill);
+
+    for (size_t i = 0; i < blob_pix[b].size(); i++) {
+      int col = blob_pix[b][i].x(), row = blob_pix[b][i].y();
+      double val = zfill(col, row);
+      // 'curved' uses the surface as is. 'lola-curved' takes the per-pixel
+      // minimum of the surface, the SfS, and LOLA, so the fill follows
+      // whichever is lowest and cannot rise above the surrounding terrain.
+      if (mode == "lola-curved") {
+        val = std::min(val, (double)sfs_dem_crop(col, row));
+        if (lola_dem_crop(col, row) != lola_nodata)
+          val = std::min(val, (double)lola_dem_crop(col, row));
+      }
+      fill_crop(col, row) = val;
+    }
+
+    // Reset the hole mask for the next blob.
+    for (size_t i = 0; i < blob_pix[b].size(); i++)
+      is_hole(blob_pix[b][i].x(), blob_pix[b][i].y()) = 0;
+  }
+
+  return fill_crop;
+}
+
+// Blend the SfS DEM and the fill DEM across the boundary using the clamped
+// signed distance to the boundary. Returns the blended DEM, or the weight
+// field when save_weight is set.
+ImageView<float> blendDems(ImageView<float> const& sfs_dem_crop,
+                           ImageView<float> const& fill_crop,
+                           ImageView<double> const& dist_to_bd,
+                           double lit_blend_length, double shadow_blend_length,
+                           bool save_weight, float sfs_nodata,
+                           float lola_nodata, float weight_nodata) {
+  ImageView<float> blended_dem;
+  blended_dem.set_size(sfs_dem_crop.cols(), sfs_dem_crop.rows());
+  for (int col = 0; col < sfs_dem_crop.cols(); col++) {
+    for (int row = 0; row < sfs_dem_crop.rows(); row++) {
+
+      if (!save_weight)
+        blended_dem(col, row) = sfs_nodata;
+      else
+        blended_dem(col, row) = weight_nodata;
+
+      // The signed distance to the boundary is modified so that the smallest
+      // value is 0, the largest is 1, and in a band close to the boundary it
+      // transitions from 0 to 1. Must use here a double value, for precision.
+      double weight = (dist_to_bd(col, row) + shadow_blend_length) /
+        (shadow_blend_length + lit_blend_length);
+
+      // These are not strictly necessary but enforce them
+      if (weight > 1.0)
+        weight = 1.0;
+      if (weight < 1e-7) // take into account the float error
+        weight = 0.0;
+
+      // Handle no-data values. These are not meant to happen, but do this just in case.
+      if (sfs_dem_crop(col, row) == sfs_nodata)
+        weight = 0.0; // Use LOLA
+
+      if (fill_crop(col, row) == lola_nodata)
+        continue;
+
+      if (!save_weight)
+        blended_dem(col, row)
+          = weight * sfs_dem_crop(col, row) + (1.0 - weight) * fill_crop(col, row);
+      else
+        blended_dem(col, row) = weight;
+    }
+  }
+  return blended_dem;
+}
+
+// Feathered boundary blur: soften the seam where the curved-surface fill meets
+// the real terrain. Blur the blended DEM (sigma = blur_sigma), then mix it back
+// near the shadow/lit boundary with a raised-cosine weight of the grassfire
+// distance (1 on the boundary, 0 a distance L out on each side). The weight is
+// itself Gaussian-smoothed so the integer distance does not band the result into
+// stripes. Modifies blended_dem in place.
+void featherBoundary(ImageView<float> const& sfs_dem_crop,
+                     ImageView<PixelMask<float>> const& inv_mask,
+                     ImageView<float> const& lit_grass_dist,
+                     ImageView<float> const& shadow_grass_dist,
+                     double lit_L, double shadow_L, double blur_sigma,
+                     float sfs_nodata,
+                     // Output
+                     ImageView<float> & blended_dem) {
+  int cols = sfs_dem_crop.cols(), rows = sfs_dem_crop.rows();
+  // Blur input: replace nodata with the SfS so the blur stays well defined.
+  ImageView<double> binput(cols, rows), wimg(cols, rows);
+  double pi = 3.141592653589793;
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      bool nodata = (blended_dem(col, row) == sfs_nodata);
+      binput(col, row) = nodata ? sfs_dem_crop(col, row) : blended_dem(col, row);
+      double wv = 0.0;
+      if (!nodata) {
+        bool is_shadow = is_valid(inv_mask(col, row));
+        double d = is_shadow ? (double)shadow_grass_dist(col, row)
+                             : (double)lit_grass_dist(col, row);
+        double L = is_shadow ? shadow_L : lit_L;
+        if (L > 0 && d < L)
+          wv = 0.5 * (1.0 + std::cos(pi * d / L));
+      }
+      wimg(col, row) = wv;
+    }
+  }
+  ImageView<double> blurred = vw::gaussian_filter(binput, blur_sigma);
+  // Smooth the weight to kill the per-pixel banding from the integer distance.
+  double wsigma = std::max(2.0, std::max(lit_L, shadow_L) / 4.0);
+  ImageView<double> wsm = vw::gaussian_filter(wimg, wsigma);
+  for (int col = 0; col < cols; col++) {
+    for (int row = 0; row < rows; row++) {
+      if (blended_dem(col, row) == sfs_nodata)
+        continue;
+      double w = wsm(col, row);
+      if (w <= 1e-6)
+        continue;
+      if (w > 1.0)
+        w = 1.0;
+      blended_dem(col, row) = w * blurred(col, row)
+                            + (1.0 - w) * blended_dem(col, row);
+    }
+  }
+}
+
 // The workhorse of this code, do the blending
 class SfsBlendView: public ImageViewBase<SfsBlendView>{
 
@@ -420,39 +675,10 @@ public:
       }
     }
 
-    // For the 'curved' and 'lola-curved' modes, clean the lit/shadow classification
-    // before it drives both the blend weight and the curved surface: absorb interior
-    // specks and close thin lit fingers of fabricated bright SfS at the shadow
-    // edge, so those garbage spikes become part of the hole and get the smooth
-    // curved surface instead of being kept at the lit SfS value. The legacy 'lola'
-    // mode is left untouched.
-    if (m_opt.shadow_fill_mode != "lola") {
-      int cols = inv_mask.cols(), rows = inv_mask.rows();
-      ImageView<char> shadow(cols, rows);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++)
-          shadow(col, row) = is_valid(inv_mask(col, row)) ? 1 : 0;
-      }
-      fillInteriorSpecks(shadow);
-      // Close thin lit fingers of fabricated bright SfS at the shadow edge.
-      morphCloseShadow(shadow, 3, 3);
-      fillInteriorSpecks(shadow);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          if (shadow(col, row)) {
-            inv_mask(col, row) = 1;
-            inv_mask(col, row).validate();
-            mask(col, row) = 0;
-            mask(col, row).invalidate();
-          } else {
-            inv_mask(col, row) = 0;
-            inv_mask(col, row).invalidate();
-            mask(col, row) = image_mosaic_crop(col, row);
-            mask(col, row).validate();
-          }
-        }
-      }
-    }
+    // For the grown-surface modes, clean the classification before it drives
+    // the blend weight and the fill. The legacy 'lola' mode is left untouched.
+    if (m_opt.shadow_fill_mode != "lola")
+      cleanShadowClassification(image_mosaic_crop, mask, inv_mask);
 
     // The grassfire weight positive in the lit region, with zero at the light-shadow
     // boundary
@@ -481,209 +707,26 @@ public:
     if (m_opt.weight_blur_sigma > 0)
       dist_to_bd = vw::gaussian_filter(dist_to_bd, m_opt.weight_blur_sigma);
 
-    // Build the fill DEM used inside the shadow. For the legacy 'lola' mode this
-    // is the LOLA DEM. For the 'curved' and 'lola-curved' modes it is the SfS DEM
-    // outside the shadow blobs, so the fill is continuous with the surrounding
-    // terrain across the shadow boundary (no step, hence no seam), and inside each
-    // fully-contained blob it is a curved surface grown from the surrounding SfS
-    // by solving the Laplace equation, curving gently downward. For lola-curved
-    // that surface is combined with the SfS and LOLA by taking the per-pixel
-    // minimum. Big blobs (wider than the tile margin or the max diameter) are left
-    // unfilled, handing off to LOLA for 'curved' and to the SfS for 'lola-curved'.
-    ImageView<float> fill_crop;
-    if (m_opt.shadow_fill_mode == "lola")
-      fill_crop = vw::copy(lola_dem_crop);
-    else
-      fill_crop = vw::copy(sfs_dem_crop);
-    if (m_opt.shadow_fill_mode != "lola") {
-      int cols = sfs_dem_crop.cols(), rows = sfs_dem_crop.rows();
-
-      // The lit/shadow classification was already cleaned above (specks absorbed
-      // and thin lit fingers closed), so just read the shadow mask here.
-      ImageView<char> shadow(cols, rows);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++)
-          shadow(col, row) = is_valid(inv_mask(col, row)) ? 1 : 0;
-      }
-
-      // In the shadow default to LOLA (so big unfilled blobs hand off to LOLA);
-      // the lit region keeps the SfS set above. Filled blobs are overwritten below
-      // with the curved surface. The 'lola-curved' mode instead keeps the SfS in
-      // the shadow (its per-pixel minimum already includes LOLA), so skip this.
-      if (m_opt.shadow_fill_mode != "lola-curved") {
-        for (int col = 0; col < cols; col++) {
-          for (int row = 0; row < rows; row++) {
-            if (shadow(col, row))
-              fill_crop(col, row) = lola_dem_crop(col, row);
-          }
-        }
-      }
-
-      ImageView<int> labels;
-      int num_blobs = 0;
-      labelShadowBlobs(shadow, labels, num_blobs);
-
-      ImageView<double> sfs_d(cols, rows), zfill(cols, rows);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          sfs_d(col, row) = sfs_dem_crop(col, row);
-          zfill(col, row) = 0.0;
-        }
-      }
-
-      // Collect each blob's pixels and whether it touches the tile border.
-      std::vector<std::vector<Vector2i>> blob_pix(num_blobs + 1);
-      std::vector<bool> blob_border(num_blobs + 1, false);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          int b = labels(col, row);
-          if (b == 0)
-            continue;
-          blob_pix[b].push_back(Vector2i(col, row));
-          if (col == 0 || row == 0 || col == cols - 1 || row == rows - 1)
-            blob_border[b] = true;
-        }
-      }
-
-      ImageView<char> is_hole(cols, rows);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++)
-          is_hole(col, row) = 0;
-      }
-
-      for (int b = 1; b <= num_blobs; b++) {
-        // Skip blobs that are not fully contained (bigger than the tile margin):
-        // these keep the plain fill (LOLA for 'curved', the SfS for 'lola-curved'),
-        // which is the intended handoff for big craters.
-        if (blob_border[b])
-          continue;
-        if ((double)blob_pix[b].size() < m_opt.min_blend_size)
-          continue;
-
-        for (size_t i = 0; i < blob_pix[b].size(); i++)
-          is_hole(blob_pix[b][i].x(), blob_pix[b][i].y()) = 1;
-
-        // Grow the curved surface by solving the Poisson equation with the
-        // surrounding SfS as boundary and a forcing equal to the local terrain
-        // curvature just outside the hole. This continues the neighborhood shape
-        // inward: flat around gives a flat fill, a bowl around gives a bowl. Clamp
-        // the forcing to be non-negative so the fill can only dip down or stay
-        // flat, never dome up.
-        double c_est = estimateLocalCurvature(sfs_d, shadow, blob_pix[b], cols, rows);
-        double forcing = std::max(c_est, 0.0);
-        solveSOR(is_hole, sfs_d, forcing, blob_pix[b], zfill);
-
-        for (size_t i = 0; i < blob_pix[b].size(); i++) {
-          int col = blob_pix[b][i].x(), row = blob_pix[b][i].y();
-          double val = zfill(col, row);
-          // 'curved' uses the surface as is. 'lola-curved' takes the per-pixel
-          // minimum of the surface, the SfS, and LOLA, so the fill follows
-          // whichever is lowest and cannot rise above the surrounding terrain.
-          if (m_opt.shadow_fill_mode == "lola-curved") {
-            val = std::min(val, (double)sfs_dem_crop(col, row));
-            if (lola_dem_crop(col, row) != m_lola_nodata)
-              val = std::min(val, (double)lola_dem_crop(col, row));
-          }
-          fill_crop(col, row) = val;
-        }
-
-        // Reset the hole mask for the next blob.
-        for (size_t i = 0; i < blob_pix[b].size(); i++)
-          is_hole(blob_pix[b][i].x(), blob_pix[b][i].y()) = 0;
-      }
-    }
+    // Build the fill DEM used inside the shadow (see buildShadowFill).
+    ImageView<float> fill_crop
+      = buildShadowFill(sfs_dem_crop, lola_dem_crop, inv_mask,
+                        m_opt.shadow_fill_mode, m_opt.min_blend_size, m_lola_nodata);
 
     // Do the blending
-    ImageView<float> blended_dem;
-    blended_dem.set_size(sfs_dem_crop.cols(), sfs_dem_crop.rows());
-    for (int col = 0; col < sfs_dem_crop.cols(); col++) {
-      for (int row = 0; row < sfs_dem_crop.rows(); row++) {
+    ImageView<float> blended_dem
+      = blendDems(sfs_dem_crop, fill_crop, dist_to_bd,
+                  m_opt.lit_blend_length, m_opt.shadow_blend_length,
+                  m_save_weight, m_sfs_nodata, m_lola_nodata, m_weight_nodata);
 
-        if (!m_save_weight)
-          blended_dem(col, row) = m_sfs_nodata;
-        else
-          blended_dem(col, row) = m_weight_nodata;
-
-        // The signed distance to the boundary is modified so that the smallest
-        // value is 0, the largest is 1, and in a band close to the boundary it
-        // transitions from 0 to 1. Must use here a double value, for precision.
-        double weight = (dist_to_bd(col, row) + m_opt.shadow_blend_length) /
-          (m_opt.shadow_blend_length + m_opt.lit_blend_length);
-
-        // These are not strictly necessary but enforce them
-        if (weight > 1.0)
-          weight = 1.0;
-        if (weight < 1e-7) // take into account the float error
-          weight = 0.0;
-
-        // Handle no-data values. These are not meant to happen, but do this just in case.
-        if (sfs_dem_crop(col, row) == m_sfs_nodata)
-          weight = 0.0; // Use LOLA
-
-        if (fill_crop(col, row) == m_lola_nodata)
-          continue;
-
-        if (!m_save_weight)
-          blended_dem(col, row)
-            = weight * sfs_dem_crop(col, row) + (1.0 - weight) * fill_crop(col, row);
-        else
-          blended_dem(col, row) = weight;
-      }
-    }
-
-    // Feathered boundary blur: soften the seam where the curved-surface fill
-    // meets the real terrain. Blur the blended DEM (sigma = weight-blur-sigma), then blend
-    // the blurred and original with a weight that is 1 on the shadow/lit boundary
-    // and falls to 0 a distance L out on each side (L = lit-blend-length in the
-    // lit region, shadow-blend-length in the shadow). The weight is built from
-    // the grassfire distance, which is integer-valued, so it is then smoothed
-    // with a Gaussian: an unsmoothed weight steps every pixel and those steps,
-    // times (blurred minus original), band the result into stripes. Smoothing the
-    // weight (as the old sfs_blend smooths its transition weight) removes them.
-    // Only for the 'curved' and 'lola-curved' modes and the DEM (not the weight) pass.
-    double lit_L = m_opt.lit_blend_length;
-    double shadow_L = m_opt.shadow_blend_length;
-    double blur_sigma = m_opt.weight_blur_sigma;
+    // Feathered boundary blur (see featherBoundary): soften the seam at the
+    // shadow boundary. Only for the grown-surface modes, the DEM (not the
+    // weight) pass, and when a blur and a blend length are set.
     if (!m_save_weight && m_opt.shadow_fill_mode != "lola" &&
-        blur_sigma > 0 && (lit_L > 0 || shadow_L > 0)) {
-      int cols = sfs_dem_crop.cols(), rows = sfs_dem_crop.rows();
-      // Blur input: replace nodata with the SfS so the blur stays well defined.
-      ImageView<double> binput(cols, rows), wimg(cols, rows);
-      double pi = 3.141592653589793;
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          bool nodata = (blended_dem(col, row) == m_sfs_nodata);
-          binput(col, row) = nodata ? sfs_dem_crop(col, row) : blended_dem(col, row);
-          double wv = 0.0;
-          if (!nodata) {
-            bool is_shadow = is_valid(inv_mask(col, row));
-            double d = is_shadow ? (double)shadow_grass_dist(col, row)
-                                 : (double)lit_grass_dist(col, row);
-            double L = is_shadow ? shadow_L : lit_L;
-            if (L > 0 && d < L)
-              wv = 0.5 * (1.0 + std::cos(pi * d / L));
-          }
-          wimg(col, row) = wv;
-        }
-      }
-      ImageView<double> blurred = vw::gaussian_filter(binput, blur_sigma);
-      // Smooth the weight to kill the per-pixel banding from the integer distance.
-      double wsigma = std::max(2.0, std::max(lit_L, shadow_L) / 4.0);
-      ImageView<double> wsm = vw::gaussian_filter(wimg, wsigma);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          if (blended_dem(col, row) == m_sfs_nodata)
-            continue;
-          double w = wsm(col, row);
-          if (w <= 1e-6)
-            continue;
-          if (w > 1.0)
-            w = 1.0;
-          blended_dem(col, row) = w * blurred(col, row)
-                                + (1.0 - w) * blended_dem(col, row);
-        }
-      }
-    }
+        m_opt.weight_blur_sigma > 0 &&
+        (m_opt.lit_blend_length > 0 || m_opt.shadow_blend_length > 0))
+      featherBoundary(sfs_dem_crop, inv_mask, lit_grass_dist, shadow_grass_dist,
+                      m_opt.lit_blend_length, m_opt.shadow_blend_length,
+                      m_opt.weight_blur_sigma, m_sfs_nodata, blended_dem);
 
     return prerasterize_type(blended_dem, -biased_box.min().x(), -biased_box.min().y(),
                              cols(), rows());
