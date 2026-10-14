@@ -49,12 +49,10 @@ void create_interp_dem(std::string const& dem_file,
                         vw::cartography::GeoReference & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<double>> & interp_dem);
 
-/// Estimate the mean terrain radius (distance from the planet center, in ECEF
-/// meters) by sampling a DEM on a grid. Independent of any triangulation. The
-/// grid starts coarse and is refined (10x10, 100x100, 1000x1000) only to find
-/// enough valid (non-nodata) pixels, since a few samples already pin the mean
-/// well. Returns false if too few valid pixels are found even on the finest
-/// grid. The caller then falls back to meanDatumRadius().
+/// Estimate the mean terrain radius (ECEF meters) by sampling a DEM on a grid,
+/// independent of any triangulation. The grid is refined (10x10, 100x100,
+/// 1000x1000) only until enough valid pixels are found. Returns false if too
+/// few are found even on the finest grid; the caller then uses meanDatumRadius().
 bool meanDemRadius(vw::ImageViewRef<vw::PixelMask<double>> const& dem,
                    vw::cartography::GeoReference const& georef,
                    vw::cartography::Datum const& datum,

@@ -629,17 +629,11 @@ struct weightedRotationError {
   double  m_weight;
 };
 
-/// A unary, DEM-free, metric "faux anchor" on a single orientation sample. For
-/// a few fixed look rays (computed once from the initial pose and a mean terrain
-/// sphere), the residual is the ground displacement, in meters, caused by this
-/// sample's rotation drifting from its initial value, divided by sigma (meters,
-/// like --anchor-dem-uncertainty). It pins every sample's full rotation
-/// (including yaw, via off-boresight rays) regardless of anchor coverage,
-/// without touching neighbor samples (unary, no interpolation stencil) and
-/// without a DEM (the rays use the average terrain radius, a cooked-up point
-/// on the ray that works even where the ray leaves the DEM). It must stay
-/// non-robust: a robust loss would release runaways, which is the exact failure
-/// mode of the reprojection anchors.
+/// A unary, DEM-free, metric "faux anchor" on one orientation sample. The
+/// residual is the ground displacement (meters, over sigma) of a few fixed look
+/// rays caused by the sample's rotation drifting from its initial value. Pins
+/// the full rotation (yaw included, via off-boresight rays) without a DEM or
+/// neighbor samples. Non-robust, so it keeps pulling on runaways.
 struct GroundRotationError {
   GroundRotationError(const double * init_quat,
                       std::vector<vw::Vector3> const& body_rays,
@@ -2184,20 +2178,10 @@ void addQuatSmoothnessErr(UsgsAstroLsSensorModel   * ls_model,
   return;
 }
 
-// Add a per-pose orientation-uncertainty constraint: for every orientation knot
-// of every linescan camera, a unary metric "faux anchor" (GroundRotationError)
-// that pins the knot's rotation so no look-ray lever moves more than ~sigma
-// meters on the average-terrain sphere. Unary (no interpolation stencil, so it
-// does not pull in neighbor knots), DEM-free (uses only the mean terrain radius,
-// so it works even where the ray leaves the DEM), and non-robust (keeps pulling
-// on runaways). sigma is in meters, like --anchor-dem-uncertainty.
 // Build the 3 cross-track look rays for one orientation sample at the initial
-// pose, by intersecting each ray with the mean-terrain sphere. A look ray is
-// the vector from the camera center out to the sphere (length = slant range).
-// Shared by the orientation-uncertainty constraint (GroundRotationError) and
-// the orientation-offset report, so the two cannot drift apart. Also returns
-// the body-frame rays, so R(init) * body = world. Returns false if any ray
-// could not be formed.
+// pose, by intersecting each ray with the mean-terrain sphere. Shared by the
+// constraint and the offset report so they cannot drift apart. Also returns the
+// body-frame rays (R(init) * body = world). False if a ray cannot be formed.
 static bool buildOrientationSampleRays(asp::BaBaseOptions const& opt, int icam,
                                        UsgsAstroLsSensorModel * ls_model,
                                        int iq, int numQuat,
@@ -2254,6 +2238,8 @@ static bool buildOrientationSampleRays(asp::BaBaseOptions const& opt, int icam,
   return (world_rays.size() == 3);
 }
 
+// Add the orientation-uncertainty constraint: a unary GroundRotationError on
+// every orientation knot of every linescan camera. sigma is in meters.
 void addOrientationUncertaintyConstraint(asp::BaBaseOptions          const& opt,
                                          std::vector<asp::CsmModel*> const& csm_models,
                                          double                             sigma,
@@ -2357,11 +2343,9 @@ void collectOrientationRays(asp::BaBaseOptions          const& opt,
   return;
 }
 
-// Write the per-camera orientation-offset report. For each orientation sample,
-// the value is the largest (over its 3 look rays) ground displacement, in
-// meters, between the initial and the optimized rotation, with the camera
-// center held fixed. These are aggregated per camera as mean, median, min,
-// max, count. See the header.
+// Write the per-camera orientation-offset report: for each sample, the largest
+// ground displacement (meters) over its 3 look rays between the initial and
+// optimized rotation, aggregated per camera (mean, median, min, max, count).
 void saveOrientationOffsets(asp::BaBaseOptions          const& opt,
                             std::vector<asp::CsmModel*> const& csm_models,
                             std::vector<std::vector<asp::OrientationSampleRays>> const& rays,

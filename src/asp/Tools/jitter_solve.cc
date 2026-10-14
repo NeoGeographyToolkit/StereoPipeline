@@ -331,7 +331,7 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "A higher weight will penalize more deviations from the original camera "
      "orientations. This is not recommended. Use instead ground constraints and "
      "--camera-position-uncertainty.")
-    ("orientation-uncertainty", 
+    ("orientation-uncertainty",
      po::value(&opt.orientation_uncertainty)->default_value(0.0),
      "A per-pose metric on the camera orientations (1 sigma, in meters). For "
      "each orientation sample, penalize the ground displacement (on a sphere at the "
@@ -1378,11 +1378,9 @@ void jitterSolvePass(int                                 pass,
                                  weight_per_residual, orig_curvatures,
                                  problem);
 
-  // The mean terrain radius (ECEF meters), needed below for the
-  // orientation-uncertainty constraint and the orientation-offset report. It is
-  // estimated by sampling a DEM on a grid, independent of the triangulated
-  // points. Prefer the anchor DEM (usually padded, so better coverage), then
-  // the first heights-from-dem DEM, then fall back to a datum radius.
+  // The mean terrain radius (ECEF meters) for the orientation constraint and
+  // report, from sampling a DEM: prefer the anchor DEM, then the first
+  // heights-from-dem DEM, then fall back to a datum radius.
   double mean_radius = 0.0;
   bool got_radius = false;
   if (opt.anchor_dem != "")
@@ -1409,10 +1407,9 @@ void jitterSolvePass(int                                 pass,
   if (!got_radius)
     mean_radius = asp::meanDatumRadius(opt.datum);
 
-  // Snapshot the initial look rays (before optimization) so the change in camera
-  // orientation can be reported as a ground displacement later. Done in the
-  // first pass, like orig_cam_positions, so it measures from the very start.
-  // Written out whether or not the orientation constraint is in use.
+  // Snapshot the initial look rays (first pass, like orig_cam_positions) so the
+  // orientation change can be reported as a ground displacement later. Done
+  // whether or not the orientation constraint is in use.
   if (pass == 0)
     asp::collectOrientationRays(opt, csm_models, mean_radius,
                                 orig_orientation_rays);

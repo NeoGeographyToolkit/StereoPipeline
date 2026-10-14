@@ -222,13 +222,9 @@ void addOrientationUncertaintyConstraint(asp::BaBaseOptions          const& opt,
                                          std::vector<double>              & weight_per_residual,
                                          ceres::Problem                   & problem);
 
-// Per-sample look rays captured from the initial pose, before optimization,
-// used by the orientation-offset report to measure how far each orientation
-// sample's rotation drift (initial vs optimized) moves a look ray's ground
-// point. Each look ray is the vector from the camera center out to the
-// mean-terrain sphere. These are the same rays used by the
-// orientation-uncertainty constraint (GroundRotationError), so the report and
-// the constraint speak the same meters.
+// Look rays of one orientation sample, captured from the initial pose for the
+// orientation-offset report. The same rays the constraint (GroundRotationError)
+// uses, so the two speak the same meters.
 struct OrientationSampleRays {
   int quat_index;                      // index of this orientation sample
   std::vector<vw::Vector3> look_rays;  // the 3 look rays at the initial pose
