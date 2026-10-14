@@ -27,8 +27,9 @@ into one job of width --processes, spread over the $PBS_NODEFILE nodes if that i
 so the load is balanced across all pairs, not one pair at a time. --threads sets the
 threads per pair. The modes differ only in how the per-pair clouds are fused:
   dem_mosaic: per-pair point2dem, then a DEM mosaic (and, with --errorimage /
-              --orthoimage, a max triangulation error / orthoimage mosaic). Works for
-              raw or mapprojected images (the latter with a seed DEM, --dem).
+              --orthoimage / --propagate-errors, a max triangulation error / orthoimage /
+              uncertainty mosaic). Works for raw or mapprojected images (the latter with
+              a seed DEM, --dem).
   mesh:       per-pair pc_filter, then a fused voxblox mesh. The cameras come from a
               rig (--rig-config, --camera-poses), for robot / structure-from-motion
               data with no datum.
@@ -179,11 +180,13 @@ def process_args(args):
                         "footprint by more than this is dropped. Default: 500.")
 
     parser.add_argument("--point2dem-options", dest="point2dem_options", default="",
-                        help = "Options for point2dem (mode 'dem_mosaic'). Pass "        + \
-                        "--errorimage to also mosaic the maximum triangulation error, "  + \
-                        "and --orthoimage (with no argument, the per-pair L.tif is "     + \
-                        "added automatically) to also mosaic an orthoimage (DRG), as "   + \
-                        "in stereo_dist. If both --tr and --t_srs are given here, they " + \
+                        help = "Options for point2dem (mode 'dem_mosaic'). Pass "           + \
+                        "--errorimage to also mosaic the maximum triangulation error, "     + \
+                        "--orthoimage (with no argument, the per-pair L.tif is "            + \
+                        "added automatically) to also mosaic an orthoimage (DRG), and "     + \
+                        "--propagate-errors to also mosaic the horizontal and vertical "    + \
+                        "uncertainty (also add --propagate-errors to --stereo-options), "   + \
+                        "as in stereo_dist. If both --tr and --t_srs are given here, they " + \
                         "are used for all pairs; otherwise the grid and projection are " + \
                         "taken from the first DEM produced and applied to the rest.")
 
@@ -820,14 +823,17 @@ def dem_stage_fuse(args, pairs, tool_base_dir):
     """
     Mosaic the per-pair products (mode 'dem_mosaic'). The DEM is always produced. The
     maximum triangulation error is mosaicked if --errorimage was in --point2dem-options,
-    and an orthoimage (DRG) if --orthoimage was, matching stereo_dist
+    an orthoimage (DRG) if --orthoimage was, and the horizontal and vertical uncertainty
+    (:numref:`error_propagation`) if --propagate-errors was, matching stereo_dist
     (:numref:`stereo_dist`). The output names follow point2dem: dem_mosaic-DEM.tif,
-    dem_mosaic-IntersectionErr.tif, dem_mosaic-DRG.tif.
+    dem_mosaic-IntersectionErr.tif, dem_mosaic-DRG.tif, dem_mosaic-HorizontalStdDev.tif,
+    dem_mosaic-VerticalStdDev.tif.
     """
     print("Step 'fuse': dem_mosaic of the per-pair products.")
     dm = asp_rig_utils.find_tool(tool_base_dir, 'dem_mosaic')
     want_err = '--errorimage' in args.point2dem_options
     want_ortho = '--orthoimage' in args.point2dem_options
+    want_stddev = '--propagate-errors' in args.point2dem_options
 
     pres = [os.path.join(pair_dir(args.out_prefix, li, ri), 'run')
             for (li, ri, _, _) in pairs]
@@ -864,6 +870,14 @@ def dem_stage_fuse(args, pairs, tool_base_dir):
         cmds.append(shlex.join([dm, '--first'] + [p + '-DRG.tif' for p in pres] +
                                ['-o', mos + '-DRG.tif']))
         outputs.append(mos + '-DRG.tif')
+    if want_stddev:
+        # The propagated horizontal and vertical uncertainties (:numref:`error_propagation`).
+        # Each is combined with --max, the worst-case uncertainty over the overlapping
+        # pairs, the same choice as for the triangulation error above.
+        for band in ['HorizontalStdDev', 'VerticalStdDev']:
+            cmds.append(shlex.join([dm, '--max'] + [p + '-' + band + '.tif' for p in pres] +
+                                   ['-o', mos + '-' + band + '.tif']))
+            outputs.append(mos + '-' + band + '.tif')
 
     run_parallel(cmds, min(len(cmds), args.processes))
     for o in outputs:

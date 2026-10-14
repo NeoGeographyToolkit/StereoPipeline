@@ -114,6 +114,16 @@ optional products are added by passing the corresponding flag in
 * ``--orthoimage`` (with no argument, the per-pair ``L.tif`` is added automatically)
   also writes ``stereo_out/run-DRG.tif``, the orthoimage, combined with
   ``dem_mosaic --first`` (the first valid pixel, to avoid smearing seams).
+* ``--propagate-errors`` also writes ``stereo_out/run-HorizontalStdDev.tif`` and
+  ``stereo_out/run-VerticalStdDev.tif``, the propagated horizontal and vertical
+  uncertainty (:numref:`error_propagation`), each combined with ``dem_mosaic --max``
+  (the worst-case uncertainty over the pairs). The flag ``--propagate-errors`` must
+  then be set in *both* ``--stereo-options`` (so each pair's point cloud carries the
+  uncertainty bands) and ``--point2dem-options`` (so it is gridded and mosaicked). The
+  input camera uncertainties are supplied as in regular stereo, either read from the
+  cameras or given with ``--horizontal-stddev`` in ``--stereo-options``. This works
+  with the bathymetry mode as well (:numref:`error_prop_bathy`), with the bathy options
+  passed in ``--stereo-options``.
 
 Set the option ``--nodes-list`` to run on multiple machines (:numref:`pbs_slurm`).
 
@@ -337,7 +347,7 @@ Command-line options for multi_stereo
     Processing mode. One of: ``mesh`` (pairwise stereo, ``pc_filter``, then a
     fused mesh, with rig cameras) or ``dem_mosaic`` (pairwise stereo with the given
     cameras, per-pair ``point2dem``, then a DEM mosaic, and optionally a
-    triangulation error and orthoimage mosaic). Required.
+    triangulation error, orthoimage, and uncertainty mosaic). Required.
 --overlap-list <string (default: "")>
     Text file with the image pairs to run stereo on, one pair per line, two
     columns, ``left_image right_image``. For mode ``mesh`` the names are as in
@@ -421,9 +431,12 @@ Options for mode ``dem_mosaic``:
     more than this is dropped.
 --point2dem-options <string (default: "")>
     Options for ``point2dem``. Pass ``--errorimage`` to also mosaic the maximum
-    triangulation error, and ``--orthoimage`` (with no argument, the per-pair
-    ``L.tif`` is added automatically) to also mosaic an orthoimage (DRG), as in
-    ``stereo_dist`` (:numref:`stereo_dist`). If both ``--tr`` and ``--t_srs`` are
+    triangulation error, ``--orthoimage`` (with no argument, the per-pair
+    ``L.tif`` is added automatically) to also mosaic an orthoimage (DRG), and
+    ``--propagate-errors`` to also mosaic the horizontal and vertical uncertainty
+    (:numref:`error_propagation`, also add ``--propagate-errors`` to
+    ``--stereo-options``), as in ``stereo_dist`` (:numref:`stereo_dist`). If both
+    ``--tr`` and ``--t_srs`` are
     given here, they are used for all pairs; otherwise the grid and projection are
     taken from the first DEM produced and applied to the rest, so all share one grid.
 --dem-mosaic-options <string (default: "")>
