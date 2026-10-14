@@ -777,7 +777,14 @@ value may result in seams. Increasing this will allow the seams to be
 attenuated, but may result in more erosion.
 
 The ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
-the areas in complete shadow after doing SfS.
+the areas in complete shadow after doing SfS. Its
+``--shadow-fill-mode`` option can grow a smooth floor from the
+surrounding SfS terrain instead of using the LOLA DEM
+(:numref:`sfs_blend_fill`).
+
+The blended result should be inspected. If the fill in some shadowed
+areas needs to be touched up, that area can be re-blended on a clip and
+merged back into the full result, as described in :numref:`sfs_issues`.
 
 .. figure:: images/sfs_borderline.png
    :name: sfs_borderline_fig
@@ -1941,7 +1948,9 @@ must be redone as discussed in the earlier sections.
 If in some low-light locations the SfS DEM has seams, see :numref:`sfs_seams`.
 
 Artifacts around permanently shadowed areas can be fixed with ``sfs_blend``
-(:numref:`sfs_blend`).
+(:numref:`sfs_blend`). Inspect its output. If some shadowed area still
+needs adjustment, re-run ``sfs_blend`` on a clip and blend the result back
+into the full DEM, as below.
 
 See :numref:`sfs_borderline` for how to increase the coverage in areas 
 with very low illumination.
@@ -2248,10 +2257,8 @@ ASP has a jitter solver (:numref:`jitter_solve`). This one can refine individual
 position and orientation samples in a linescan camera.
 
 Normally, for SfS, bundle adjustment as in :numref:`sfs_ba_refine` is
-sufficient. However, we found the jitter solver helpful for a very large site
-(more than 50 km on the side, at 1 m/pixel). It was able to resolve very
-long-wavelength error accumulation in linescan cameras and produce better
-registration.
+sufficient. However, the jitter solver can resolve long-wavelength error
+accumulation in linescan cameras and produce better registration.
 
 It is important to note that, as seen below, the solver should be called with
 carefully set constraints, to avoid large oscillations in the solution, and
@@ -2259,8 +2266,10 @@ these constraints should be balanced well. The Google Ceres solver that is
 employed also has an upper bound on problem size, beyond which it will refuse
 to run.
 
-This particular site had a DEM of 57840 by 41790 pixels, at 1 m/pixel
-resolution. There were about 3650 images.
+The example below is for a lunar south-pole site with a DEM of about 17500 by
+10500 pixels at 1 m/pixel, and about 1200 LRO NAC images. For a larger site, the
+numbers of triangulated and anchor points should be increased (see the
+discussion after the command).
 
 At this stage the images should already be well-aligned with the reference DEM.
 We will take the last batch of optimized cameras stored in ``ba_align_ref``
@@ -2286,13 +2295,14 @@ from :numref:`sfs_ba_refine`, and run the jitter command as::
       --heights-from-dem-uncertainty 20.0            \
       --anchor-dem ref_dem_extra.tif                 \
       --num-anchor-points 5000                       \
-      --num-anchor-points-extra-lines 4000           \
+      --num-anchor-points-extra-lines 2000           \
       --anchor-dem-uncertainty 20.0                  \
-      --max-num-tri-points 500000                    \
-      --max-gcp-to-tri-points-ratio 1.0              \
-      --max-anchor-points-to-tri-points-ratio 1.0    \
+      --max-num-tri-points 300000                    \
+      --max-gcp-to-tri-points-ratio 2.0              \
+      --max-anchor-points-to-tri-points-ratio 4.0    \
+      --gcp-robust-threshold 20                      \
       --mapproj-dem ref_dem.tif                      \
-      --max-gcp-reproj-err 30                        \
+      --max-gcp-reproj-err 50                        \
       --camera-position-uncertainty 20,20            \
       --threads 60                                   \
       -o jitter_align_ref/run                        \
@@ -2307,20 +2317,34 @@ These together implicitly constrained the orientations as well. Adding more
 anchor points and decreasing the anchor DEM uncertainty helped reduce
 pose interpolation oscillations in dark or low-match regions.
 
-The number of triangulated points, GCP, and anchor points should be kept
-relatively balanced. This program prints the number of triangulated non-GCP
-points, the number of GCP, and the total number of anchor points. The
-uncertainties and weights for these should also be chosen carefully. The GCP
-uncertainty should be notably smaller than ``--heights-from-dem-uncertainty``, so
-the GCP are the dominant control. The ``--anchor-dem-uncertainty`` can be set
+This program prints the number of triangulated non-GCP points, the number of
+GCP, and the total number of anchor points. Having many anchor points is
+important: they stabilize the per-line poses across dark or low-match regions,
+so in this example the anchor points were set to about four times the
+triangulated points (``--max-anchor-points-to-tri-points-ratio 4.0``). The
+anchors are kept light through a loose ``--anchor-dem-uncertainty``, so a large
+count stabilizes the poses without freezing the solution to the anchor DEM. The
+GCP uncertainty should be notably smaller than ``--heights-from-dem-uncertainty``,
+so the GCP are the dominant control, while ``--anchor-dem-uncertainty`` can be set
 equal to or larger than ``--heights-from-dem-uncertainty``. Here both were 20 m,
-since the anchors only stabilize the poses while the GCP do the registration.
+since the anchors only stabilize the poses while the GCP do the registration. The
+option ``--gcp-robust-threshold`` down-weights outlier GCP; set it above the
+expected shift (here 20, for a 5 to 10 m registration shift) so good control
+keeps its full pull while gross outliers are softened.
 
 The options ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
 ``--max-anchor-points-to-tri-points-ratio`` bound the number of triangulated
-points and keep the ground control points and anchor points in balance with them
-(:numref:`jitter_anchor_points`). Too many matches can cause the Ceres Jacobian
-to overflow for large datasets. These options are available as of build 2026/10
+points and keep the ground control points and anchor points in proportion to them
+(:numref:`jitter_anchor_points`). For a larger site, increase
+``--max-num-tri-points`` and, if needed, the anchor ratio. If there are too few
+triangulated and anchor points, some orientation knots become under-constrained,
+and the solution, while otherwise good, can oscillate. Because these options cap
+the points that enter the solver, ``--max-pairwise-matches`` can be left generous
+(such as 5000) without starving the supply. The flip side is that the total number
+of control points (triangulated plus GCP plus anchor, which is
+``--max-num-tri-points`` times one plus the two ratios) can approach the Ceres
+problem-size limit for a very large site, so these counts must both constrain the
+problem and stay within memory. These options are available as of build 2026/10
 (:numref:`release`).
 
 The anchor DEM (``ref_dem_extra.tif``) went 4 km beyond the site of interest to
