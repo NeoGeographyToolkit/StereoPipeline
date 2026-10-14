@@ -81,15 +81,16 @@ jitter_solve (:numref:`jitter_solve`):
     ground control point (GCP) residuals.
   * Added ``--cost-function``, to choose the robust cost function type, as in
     ``bundle_adjust``.
+  * Added ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
+    ``--max-anchor-points-to-tri-points-ratio``, to balance and bound the number
+    of triangulated points, ground control points, and anchor points for large
+    networks (:numref:`jitter_anchor_points`).
+  * Added the option ``--orientation-uncertainty`` (:numref:`jitter_options`).
   * The GCP report was reorganized to match ``bundle_adjust``, giving the
     ground-plane and height offset of each optimized GCP from its input position
     (:numref:`ba_gcp_report`).
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
-  * Added ``--max-num-tri-points``, ``--max-gcp-to-tri-points-ratio``, and
-    ``--max-anchor-points-to-tri-points-ratio``, to balance and bound the number
-    of triangulated points, ground control points, and anchor points for large
-    networks (:numref:`jitter_anchor_points`).
 
 sfs (:numref:`sfs`):
   * Added the `SfsPipeline repository

@@ -28,6 +28,7 @@
 namespace vw {
   namespace cartography {
     class GeoReference;
+    class Datum;
   }
 }
 
@@ -47,6 +48,23 @@ void create_masked_dem(std::string const& dem_file,
 void create_interp_dem(std::string const& dem_file,
                         vw::cartography::GeoReference & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<double>> & interp_dem);
+
+/// Estimate the mean terrain radius (distance from the planet center, in ECEF
+/// meters) by sampling a DEM on a grid. Independent of any triangulation. The
+/// grid starts coarse and is refined (10x10, 100x100, 1000x1000) only to find
+/// enough valid (non-nodata) pixels, since a few samples already pin the mean
+/// well. Returns false if too few valid pixels are found even on the finest
+/// grid. The caller then falls back to meanDatumRadius().
+bool meanDemRadius(vw::ImageViewRef<vw::PixelMask<double>> const& dem,
+                   vw::cartography::GeoReference const& georef,
+                   vw::cartography::Datum const& datum,
+                   // Output
+                   double & mean_radius);
+
+/// A representative datum radius (meters), used when no DEM is available: the
+/// average of the semi-major and semi-minor axes. Better than the equatorial
+/// radius alone for an oblate datum, such as Mars.
+double meanDatumRadius(vw::cartography::Datum const& datum);
 
 /// Take an interest point from a map projected image and convert it
 /// to the corresponding IP in the original non-map-projected image.

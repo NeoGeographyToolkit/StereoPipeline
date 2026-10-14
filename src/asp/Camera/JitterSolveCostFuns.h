@@ -212,6 +212,48 @@ void addSmoothnessConstraint(asp::BaBaseOptions               const& opt,
                              std::vector<std::vector<double>>   & orig_curvatures,
                              ceres::Problem                     & problem);
 
+// Add a per-pose orientation-uncertainty constraint (unary metric "faux anchor"
+// on each orientation knot). See the .cc file for details. sigma is in meters.
+void addOrientationUncertaintyConstraint(asp::BaBaseOptions          const& opt,
+                                         std::vector<asp::CsmModel*> const& csm_models,
+                                         double                             sigma,
+                                         double                             mean_radius,
+                                         // Outputs
+                                         std::vector<double>              & weight_per_residual,
+                                         ceres::Problem                   & problem);
+
+// Per-sample look rays captured from the initial pose, before optimization,
+// used by the orientation-offset report to measure how far each orientation
+// sample's rotation drift (initial vs optimized) moves a look ray's ground
+// point. Each look ray is the vector from the camera center out to the
+// mean-terrain sphere. These are the same rays used by the
+// orientation-uncertainty constraint (GroundRotationError), so the report and
+// the constraint speak the same meters.
+struct OrientationSampleRays {
+  int quat_index;                      // index of this orientation sample
+  std::vector<vw::Vector3> look_rays;  // the 3 look rays at the initial pose
+  std::vector<double> init_quat;       // initial quaternion [x, y, z, w]
+};
+
+// Snapshot the initial look rays (before optimization) for the
+// orientation-offset report. Indexed by camera, then by orientation sample.
+// Linescan cameras only; other cameras get an empty entry. See the .cc file.
+void collectOrientationRays(asp::BaBaseOptions          const& opt,
+                            std::vector<asp::CsmModel*> const& csm_models,
+                            double                             mean_radius,
+                            // Output
+                            std::vector<std::vector<asp::OrientationSampleRays>> & rays);
+
+// Write a per-camera report of how far each orientation sample's rotation drift
+// (initial vs optimized) moves a look ray's ground point on the mean-terrain
+// sphere, in meters, with the camera center held fixed. Aggregated per camera
+// as mean, median, min, max, count over that camera's orientation samples.
+void saveOrientationOffsets(asp::BaBaseOptions          const& opt,
+                            std::vector<asp::CsmModel*> const& csm_models,
+                            std::vector<std::vector<asp::OrientationSampleRays>> const& rays,
+                            double                             sigma,
+                            std::string                 const& orientation_offsets_file);
+
 } // end namespace asp
 
 #endif //__ASP_CAMERA_JITTER_SOLVE_COST_FUNS_H__

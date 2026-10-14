@@ -102,9 +102,68 @@ void create_interp_dem(std::string const& dem_file,
   asp::create_masked_dem(dem_file, dem_georef, masked_dem);
 
   vw::PixelMask<double> invalid_val;
-  interp_dem = interpolate(masked_dem, BilinearInterpolation(), 
+  interp_dem = interpolate(masked_dem, BilinearInterpolation(),
                            vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
 
+}
+
+// Estimate the mean terrain radius by sampling a DEM on a grid. See the header.
+bool meanDemRadius(vw::ImageViewRef<vw::PixelMask<double>> const& dem,
+                   vw::cartography::GeoReference const& georef,
+                   vw::cartography::Datum const& datum,
+                   // Output
+                   double & mean_radius) {
+
+  mean_radius = 0.0;
+
+  int cols = dem.cols(), rows = dem.rows();
+  if (cols < 1 || rows < 1)
+    return false;
+
+  // Escalate the grid density only to find valid data. A few valid samples are
+  // plenty, as the mean radius is insensitive to the sampling.
+  int grid_sizes[] = {10, 100, 1000};
+  int min_valid = 5; // require at least this many valid samples
+
+  for (int ig = 0; ig < 3; ig++) {
+
+    int N = grid_sizes[ig];
+    double sum_radius = 0.0;
+    long int count = 0;
+
+    for (int i = 0; i < N; i++) {
+      for (int j = 0; j < N; j++) {
+
+        // Pixel of cell (i, j) of an N x N lattice over the DEM.
+        int col = (int)((i + 0.5) * double(cols) / double(N));
+        int row = (int)((j + 0.5) * double(rows) / double(N));
+        if (col < 0 || col >= cols || row < 0 || row >= rows)
+          continue;
+
+        vw::PixelMask<double> h = dem(col, row);
+        if (!vw::is_valid(h))
+          continue;
+
+        vw::Vector2 ll = georef.pixel_to_lonlat(vw::Vector2(col, row));
+        vw::Vector3 llh(ll[0], ll[1], h.child());
+        vw::Vector3 xyz = datum.geodetic_to_cartesian(llh);
+        sum_radius += norm_2(xyz);
+        count++;
+      }
+    }
+
+    if (count >= min_valid) {
+      mean_radius = sum_radius / double(count);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// A representative datum radius, used when no DEM is available. See the header.
+double meanDatumRadius(vw::cartography::Datum const& datum) {
+  return 0.5 * (datum.semi_major_axis() + datum.semi_minor_axis());
 }
 
 /// Take an interest point from a map projected image and convert it

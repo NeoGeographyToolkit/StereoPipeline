@@ -37,12 +37,16 @@
 #include <vw/Core/Exception.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Math/Transform.h>
+#include <vw/Math/Statistics.h>
 #include <vw/Image/Interpolation.h>
 #include <vw/Cartography/Map2CamTrans.h>
+
+#include <ceres/rotation.h>
 
 #include <algorithm>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -623,6 +627,61 @@ struct weightedRotationError {
 
   std::vector<double> m_init_quat;
   double  m_weight;
+};
+
+/// A unary, DEM-free, metric "faux anchor" on a single orientation sample. For
+/// a few fixed look rays (computed once from the initial pose and a mean terrain
+/// sphere), the residual is the ground displacement, in meters, caused by this
+/// sample's rotation drifting from its initial value, divided by sigma (meters,
+/// like --anchor-dem-uncertainty). It pins every sample's full rotation
+/// (including yaw, via off-boresight rays) regardless of anchor coverage,
+/// without touching neighbor samples (unary, no interpolation stencil) and
+/// without a DEM (the rays use the average terrain radius, a cooked-up point
+/// on the ray that works even where the ray leaves the DEM). It must stay
+/// non-robust: a robust loss would release runaways, which is the exact failure
+/// mode of the reprojection anchors.
+struct GroundRotationError {
+  GroundRotationError(const double * init_quat,
+                      std::vector<vw::Vector3> const& body_rays,
+                      std::vector<vw::Vector3> const& world_rays,
+                      double sigma):
+    m_sigma(sigma), m_body(body_rays), m_world(world_rays) {
+    for (int it = 0; it < NUM_QUAT_PARAMS; it++)
+      m_init_quat[it] = init_quat[it];
+  }
+
+  template <typename T>
+  bool operator()(const T* quat, T* residuals) const {
+    // CSM quaternions are stored [x, y, z, w]; ceres wants [w, x, y, z].
+    // Normalize for safety (the norm is also held near 1 by --quat-norm-weight).
+    T q[4] = {quat[3], quat[0], quat[1], quat[2]};
+    T nrm = sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+    for (int i = 0; i < 4; i++) q[i] /= nrm;
+
+    for (size_t k = 0; k < m_body.size(); k++) {
+      T b[3] = {T(m_body[k][0]), T(m_body[k][1]), T(m_body[k][2])};
+      T rot[3];
+      ceres::UnitQuaternionRotatePoint(q, b, rot); // R(quat) * body ray
+      // Ground displacement from the initial world ray, in meters, over sigma.
+      residuals[3*k + 0] = (rot[0] - T(m_world[k][0])) / T(m_sigma);
+      residuals[3*k + 1] = (rot[1] - T(m_world[k][1])) / T(m_sigma);
+      residuals[3*k + 2] = (rot[2] - T(m_world[k][2])) / T(m_sigma);
+    }
+    return true;
+  }
+
+  // Factory. Fixed at 3 rays -> 9 residuals, 4 quaternion parameters.
+  static ceres::CostFunction* Create(const double * init_quat,
+                                     std::vector<vw::Vector3> const& body_rays,
+                                     std::vector<vw::Vector3> const& world_rays,
+                                     double sigma) {
+    return (new ceres::AutoDiffCostFunction<GroundRotationError, 9, NUM_QUAT_PARAMS>
+            (new GroundRotationError(init_quat, body_rays, world_rays, sigma)));
+  }
+
+  double m_init_quat[NUM_QUAT_PARAMS];
+  std::vector<vw::Vector3> m_body, m_world;
+  double m_sigma;
 };
 
 /// A Ceres cost function. The residual is the difference between the
@@ -2121,6 +2180,255 @@ void addQuatSmoothnessErr(UsgsAstroLsSensorModel   * ls_model,
   // raising to the power and the smoothness weight.
   for (int it = 0; it < NUM_QUAT_PARAMS; it++)
     weight_per_residual.push_back(1.0);
+
+  return;
+}
+
+// Add a per-pose orientation-uncertainty constraint: for every orientation knot
+// of every linescan camera, a unary metric "faux anchor" (GroundRotationError)
+// that pins the knot's rotation so no look-ray lever moves more than ~sigma
+// meters on the average-terrain sphere. Unary (no interpolation stencil, so it
+// does not pull in neighbor knots), DEM-free (uses only the mean terrain radius,
+// so it works even where the ray leaves the DEM), and non-robust (keeps pulling
+// on runaways). sigma is in meters, like --anchor-dem-uncertainty.
+// Build the 3 cross-track look rays for one orientation sample at the initial
+// pose, by intersecting each ray with the mean-terrain sphere. A look ray is
+// the vector from the camera center out to the sphere (length = slant range).
+// Shared by the orientation-uncertainty constraint (GroundRotationError) and
+// the orientation-offset report, so the two cannot drift apart. Also returns
+// the body-frame rays, so R(init) * body = world. Returns false if any ray
+// could not be formed.
+static bool buildOrientationSampleRays(asp::BaBaseOptions const& opt, int icam,
+                                       UsgsAstroLsSensorModel * ls_model,
+                                       int iq, int numQuat,
+                                       double numSamples, double numLines,
+                                       double mean_radius,
+                                       // Outputs
+                                       std::vector<vw::Vector3> & world_rays,
+                                       std::vector<vw::Vector3> & body_rays) {
+  world_rays.clear();
+  body_rays.clear();
+
+  // Three cross-track rays: ~10% in from each edge gives yaw leverage, the
+  // center gives roll/pitch. Keep it at exactly 3 (matches the fixed residual
+  // count of GroundRotationError).
+  double lever_samples[3] = {0.1*numSamples, 0.5*numSamples, 0.9*numSamples};
+
+  // Approximate image line for this orientation sample (samples are tabulated
+  // ~uniformly over the image lines). The ray only needs to sit near the sample.
+  double line = (double(iq) / double(numQuat - 1)) * (numLines - 1);
+
+  vw::Matrix3x3 Rinit
+    = asp::quaternionToMatrix(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+  vw::Matrix3x3 RinitT = vw::math::transpose(Rinit);
+
+  for (int s = 0; s < 3; s++) {
+    vw::Vector2 pix(lever_samples[s], line);
+    vw::Vector3 C, v;
+    try {
+      C = opt.camera_models[icam]->camera_center(pix);
+      v = opt.camera_models[icam]->pixel_to_vector(pix); // unit, world frame
+    } catch (...) {
+      return false;
+    }
+    // Ray-sphere intersection with the mean-terrain sphere (centered at the
+    // planet center = ECEF origin). This is the cooked-up ground point on the
+    // ray; it needs no DEM and works beyond any DEM extent.
+    double Cv = dot_prod(C, v);
+    double CC = dot_prod(C, C);
+    double disc = Cv*Cv - (CC - mean_radius*mean_radius);
+    double t;
+    if (disc >= 0)
+      t = -Cv - std::sqrt(disc); // near intersection
+    else
+      t = norm_2(C) - mean_radius; // fallback: nadir distance to the sphere
+    if (t <= 0)
+      return false;
+
+    vw::Vector3 Lw = t * v;       // world look ray (ground point - camera_center)
+    vw::Vector3 B  = RinitT * Lw; // body-frame ray, so R(init) * B = Lw
+    world_rays.push_back(Lw);
+    body_rays.push_back(B);
+  }
+
+  return (world_rays.size() == 3);
+}
+
+void addOrientationUncertaintyConstraint(asp::BaBaseOptions          const& opt,
+                                         std::vector<asp::CsmModel*> const& csm_models,
+                                         double                             sigma,
+                                         double                             mean_radius,
+                                         // Outputs
+                                         std::vector<double>              & weight_per_residual,
+                                         ceres::Problem                   & problem) {
+
+  if (sigma <= 0)
+    return;
+
+  vw::vw_out() << "Adding per-pose orientation uncertainty constraint, sigma = "
+               << sigma << " m, mean terrain radius = " << mean_radius << " m.\n";
+
+  int num_cams = opt.camera_models.size();
+  int num_samples = 0;
+
+  for (int icam = 0; icam < num_cams; icam++) {
+
+    UsgsAstroLsSensorModel * ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+    if (ls_model == NULL)
+      continue; // linescan only
+
+    vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
+    double numSamples = dims[0], numLines = dims[1];
+    int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+    if (numQuat < 2 || numSamples < 2 || numLines < 2)
+      continue;
+
+    for (int iq = 0; iq < numQuat; iq++) {
+
+      std::vector<vw::Vector3> world_rays, body_rays;
+      bool ok = buildOrientationSampleRays(opt, icam, ls_model, iq, numQuat,
+                                           numSamples, numLines, mean_radius,
+                                           world_rays, body_rays);
+      if (!ok)
+        continue;
+
+      ceres::CostFunction* cost_function
+        = GroundRotationError::Create(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS],
+                                      body_rays, world_rays, sigma);
+      // No loss function: a robust loss would release runaways, defeating the guard.
+      problem.AddResidualBlock(cost_function, NULL,
+                               &ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+      for (int c = 0; c < 9; c++)
+        weight_per_residual.push_back(1.0 / sigma);
+      num_samples++;
+    }
+  }
+
+  vw::vw_out() << "Added orientation uncertainty constraints to " << num_samples
+               << " orientation samples.\n";
+  return;
+}
+
+// Snapshot the initial look rays (before optimization) for the
+// orientation-offset report. See the header for the output layout.
+void collectOrientationRays(asp::BaBaseOptions          const& opt,
+                            std::vector<asp::CsmModel*> const& csm_models,
+                            double                             mean_radius,
+                            // Output
+                            std::vector<std::vector<asp::OrientationSampleRays>> & rays) {
+
+  int num_cams = opt.camera_models.size();
+  rays.clear();
+  rays.resize(num_cams);
+
+  for (int icam = 0; icam < num_cams; icam++) {
+
+    UsgsAstroLsSensorModel * ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+    if (ls_model == NULL)
+      continue; // linescan only
+
+    vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
+    double numSamples = dims[0], numLines = dims[1];
+    int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+    if (numQuat < 2 || numSamples < 2 || numLines < 2)
+      continue;
+
+    for (int iq = 0; iq < numQuat; iq++) {
+
+      std::vector<vw::Vector3> world_rays, body_rays;
+      bool ok = buildOrientationSampleRays(opt, icam, ls_model, iq, numQuat,
+                                           numSamples, numLines, mean_radius,
+                                           world_rays, body_rays);
+      if (!ok)
+        continue;
+
+      asp::OrientationSampleRays sample;
+      sample.quat_index = iq;
+      sample.look_rays = world_rays;
+      sample.init_quat.resize(NUM_QUAT_PARAMS);
+      for (int it = 0; it < NUM_QUAT_PARAMS; it++)
+        sample.init_quat[it] = ls_model->m_quaternions[iq * NUM_QUAT_PARAMS + it];
+      rays[icam].push_back(sample);
+    }
+  }
+
+  return;
+}
+
+// Write the per-camera orientation-offset report. For each orientation sample,
+// the value is the largest (over its 3 look rays) ground displacement, in
+// meters, between the initial and the optimized rotation, with the camera
+// center held fixed. These are aggregated per camera as mean, median, min,
+// max, count. See the header.
+void saveOrientationOffsets(asp::BaBaseOptions          const& opt,
+                            std::vector<asp::CsmModel*> const& csm_models,
+                            std::vector<std::vector<asp::OrientationSampleRays>> const& rays,
+                            double                             sigma,
+                            std::string                 const& orientation_offsets_file) {
+
+  int num_cams = opt.camera_models.size();
+  if ((int)rays.size() != num_cams)
+    return; // no rays were collected (e.g. no linescan cameras)
+
+  vw::vw_out() << "Writing: " << orientation_offsets_file << "\n";
+  std::ofstream ofs(orientation_offsets_file.c_str());
+  ofs.precision(8);
+  ofs << "# Per-image ground displacement (meters) from the change in camera "
+      << "orientation\n";
+  ofs << "# (initial vs optimized), measured on the mean-terrain sphere with the "
+      << "camera center held fixed.\n";
+  if (sigma > 0)
+    ofs << "# orientation-uncertainty sigma = " << sigma << " m\n";
+  ofs << "# Image mean median min max count\n";
+
+  double nan = std::numeric_limits<double>::quiet_NaN();
+
+  for (int icam = 0; icam < num_cams; icam++) {
+
+    UsgsAstroLsSensorModel * ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+
+    // One value per orientation sample: the max over its 3 look rays.
+    std::vector<double> offsets;
+
+    if (ls_model != NULL) {
+      for (size_t k = 0; k < rays[icam].size(); k++) {
+
+        asp::OrientationSampleRays const& sample = rays[icam][k];
+        int iq = sample.quat_index;
+        if ((iq + 1) * NUM_QUAT_PARAMS > (int)ls_model->m_quaternions.size())
+          continue; // sample no longer present (should not happen)
+
+        vw::Matrix3x3 Ropt
+          = asp::quaternionToMatrix(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+        vw::Matrix3x3 Rinit = asp::quaternionToMatrix(&sample.init_quat[0]);
+        // The rotation drift applied in the world frame.
+        vw::Matrix3x3 Rdelta = Ropt * vw::math::transpose(Rinit);
+
+        double sample_offset = 0.0;
+        for (size_t s = 0; s < sample.look_rays.size(); s++) {
+          vw::Vector3 Lw = sample.look_rays[s];
+          double disp = norm_2(Rdelta * Lw - Lw); // how far the ground end moved
+          sample_offset = std::max(sample_offset, disp);
+        }
+        offsets.push_back(sample_offset);
+      }
+    }
+
+    double mean = nan, median = nan, mn = nan, mx = nan, count = 0;
+    if (!offsets.empty()) {
+      mean  = vw::math::mean(offsets);
+      mn    = *std::min_element(offsets.begin(), offsets.end());
+      mx    = *std::max_element(offsets.begin(), offsets.end());
+      median = vw::math::median_in_place<double>(offsets); // reorders offsets
+      count = offsets.size();
+    }
+    ofs << opt.image_files[icam] << " " << mean << " " << median << " "
+        << mn << " " << mx << " " << count << "\n";
+  }
+  ofs.close();
 
   return;
 }

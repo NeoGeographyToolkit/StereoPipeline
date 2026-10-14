@@ -314,12 +314,13 @@ errors (:numref:`bundle_adjustment`) for the anchor points. This complements the
 reprojection errors from triangulated interest point matches, and the external
 DEM constraint (if used).
 
-The purpose of the anchor points is to control the camera orientation, by
-constraining how much the ground points, where the rays meet the anchor DEM, are
-allowed to move. The strength of this constraint is set with
-``--anchor-dem-uncertainty``, the uncertainty of the anchor points, as a 1-sigma
-value in meters. A smaller value constrains the cameras more. This option was
-introduced in build 2026/6 (:numref:`release`).
+The purpose of the anchor points is to control the camera orientation. Each
+anchor ground point, where a ray meets the anchor DEM, is held fixed. As the
+camera poses are optimized, a reprojection error accrues wherever a camera ray
+drifts off its anchor point. The strength of this constraint is set with
+``--anchor-dem-uncertainty``, a 1-sigma value in meters. A smaller value gives
+the reprojection error more weight, so the cameras are held more firmly. This
+option was introduced in build 2026/6 (:numref:`release`).
 
 This constraint is normally used together with the camera position uncertainty
 (``--camera-position-uncertainty``, :numref:`jitter_camera`). These two together
@@ -371,7 +372,13 @@ The relevant options are ``--num-anchor-points``,
 and ``--num-anchor-points-extra-lines``.  An example is given in
 :numref:`jitter_dg`.
 
-Solving for intrinsics 
+As of build 2026/10 (:numref:`release`), the option
+``--orientation-uncertainty`` is available. It provides a separate and explicit
+uncertainty constraint on each variable camera pose, as a 1-sigma value in
+meters (:numref:`jitter_orientation_offsets`). This is recent functionality and
+has not yet been evaluated thoroughly.
+
+Solving for intrinsics
 ~~~~~~~~~~~~~~~~~~~~~~
 
 For some datasets there can be both jitter and lens distortion effects, such
@@ -2179,6 +2186,28 @@ This program writes, just like ``bundle_adjust``, a report file that records the
 changes in camera position (:numref:`ba_camera_offsets`). This can help with
 adjusting camera constraints (:numref:`jitter_camera`).
 
+.. _jitter_orientation_offsets:
+
+Changes in camera orientations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The change in each camera's orientation between the initial and optimized poses
+is recorded, as a ground displacement in meters, in::
+
+    {output-prefix}-orientation_offsets.txt
+
+For each orientation sample of a linescan camera, a few look rays are shot to the
+mean-terrain sphere with the camera center held fixed, and the distance by which
+their ground points move under the orientation change is measured. The mean,
+median, min, max, and count of these values, per camera, are saved. The units are
+meters, the same as for ``--orientation-uncertainty`` (:numref:`jitter_camera`),
+so the two can be compared directly. This report is always written, whether or
+not that option is set.
+
+This is a good complement to the camera position changes
+(:numref:`jitter_cam_offsets`), as for a distant linescan sensor the orientation
+change, not the along-track center shift, drives the ground misregistration.
+
 .. _jitter_tri_offsets:
 
 Changes in triangulated points
@@ -2499,10 +2528,11 @@ Command-line options for jitter_solve
     ``--num-anchor-points``.
 
 --anchor-dem-uncertainty <double (default: -1.0)>
-    The uncertainty of anchor points (1 sigma, in meters). This controls how much
-    the ground points, where rays through the anchor points meet the anchor DEM,
-    are allowed to move. A smaller value constrains the cameras more. This is the
-    preferred way of setting the strength of the anchor constraint, instead of
+    The uncertainty of anchor points (1 sigma, in meters). Each anchor ground
+    point, where a ray through an anchor pixel meets the anchor DEM, is held
+    fixed, and this sets the strength of the reprojection error that ties the
+    camera to that point. A smaller value holds the cameras more firmly. This is
+    the preferred way of setting the strength of the anchor constraint, instead of
     ``--anchor-weight``, which is harder to interpret. It should normally be
     notably larger than ``--heights-from-dem-uncertainty``, as otherwise
     convergence may be prevented. Mutually exclusive with ``--anchor-weight``.
@@ -2566,6 +2596,15 @@ Command-line options for jitter_solve
     normalized camera quaternions, multiplied by this weight, and then
     squared. No robust threshold is used to attenuate this term.
     See also :numref:`jitter_camera`.
+
+--orientation-uncertainty <double (default: 0.0)>
+    A per-pose metric constraint on the camera orientations, as a 1-sigma value
+    in meters. For each orientation sample of a linescan camera, this penalizes
+    how far a look ray's ground point (on a sphere at the mean terrain radius)
+    moves relative to its initial value. Use a value similar to
+    ``--anchor-dem-uncertainty``. The resulting orientation changes are reported
+    in meters (:numref:`jitter_orientation_offsets`). See also
+    :numref:`jitter_camera`.
 
 --smoothness-weight <double (default: 0.0)>
     A weight to penalize high-frequency changes in the sequence of orientations

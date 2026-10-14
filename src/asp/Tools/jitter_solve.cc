@@ -90,7 +90,7 @@ struct Options: public asp::BaBaseOptions {
   bool initial_camera_constraint, fix_rig_translations, fix_rig_rotations,
     use_initial_rig_transforms;
   double quat_norm_weight, anchor_weight, anchor_dem_uncertainty, roll_weight,
-    yaw_weight, smoothness_weight;
+    yaw_weight, smoothness_weight, orientation_uncertainty;
   int max_num_tri_points;
   double max_anchor_to_tri_points_ratio;
   int max_anchor_points_total; // computed from the ratio, not a direct option
@@ -255,9 +255,10 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "distributed. Useful when images of vastly different sizes (such as frame and "
      "linescan) are used together. Mutually exclusive with --num-anchor-points.")
     ("anchor-dem-uncertainty", po::value(&opt.anchor_dem_uncertainty)->default_value(-1.0),
-     "The uncertainty of anchor points (1 sigma, in meters). This controls how much the "
-     "ground points where rays through the anchor points meet the anchor DEM are allowed "
-     "to move. A smaller value constrains the cameras more. This is the preferred way of "
+     "The uncertainty of anchor points (1 sigma, in meters). Each anchor ground point, "
+     "where a ray through an anchor pixel meets the anchor DEM, is held fixed. This sets "
+     "the strength of the reprojection error that ties the camera to that point, so a "
+     "smaller value holds the cameras more firmly. This is the preferred way of "
      "setting the strength of the anchor constraint, instead of --anchor-weight, which is "
      "harder to interpret. It should normally be notably larger than "
      "--heights-from-dem-uncertainty, as otherwise convergence may be prevented. Mutually "
@@ -330,6 +331,13 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "A higher weight will penalize more deviations from the original camera "
      "orientations. This is not recommended. Use instead ground constraints and "
      "--camera-position-uncertainty.")
+    ("orientation-uncertainty", 
+     po::value(&opt.orientation_uncertainty)->default_value(0.0),
+     "A per-pose metric on the camera orientations (1 sigma, in meters). For "
+     "each orientation sample, penalize the ground displacement (on a sphere at the "
+     "mean terrain radius) relative to its initial value. Use a value similar to "
+     "--anchor-dem-uncertainty. The resulting orientation changes are reported in "
+     "meters, see the orientation offsets file.")
     ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
      "If specified, mapproject every pair of matched interest points onto this DEM "
      "and compute their distance, then percentiles of such distances for each image "
@@ -669,6 +677,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   if (opt.rotation_weight < 0)
     vw_throw(ArgumentErr() << "The rotation weight must be non-negative.\n");
+
+  if (opt.orientation_uncertainty < 0)
+    vw_throw(ArgumentErr() << "The orientation uncertainty must be non-negative.\n");
 
   if (opt.camera_position_weight < 0)
     vw_throw(ArgumentErr() << "The value of --camera-position-weight must be n"
@@ -1139,6 +1150,7 @@ void jitterSolvePass(int                                 pass,
                      std::vector<std::vector<vw::Vector3>> & orig_cam_positions,
                      std::vector<double>               & orig_tri_points_vec,
                      std::vector<std::vector<double>>  & orig_curvatures,
+                     std::vector<std::vector<asp::OrientationSampleRays>> & orig_orientation_rays,
                      rig::RigSet                       & rig,
                      std::vector<double>               & ref_to_curr_sensor_vec) {
 
@@ -1366,6 +1378,52 @@ void jitterSolvePass(int                                 pass,
                                  weight_per_residual, orig_curvatures,
                                  problem);
 
+  // The mean terrain radius (ECEF meters), needed below for the
+  // orientation-uncertainty constraint and the orientation-offset report. It is
+  // estimated by sampling a DEM on a grid, independent of the triangulated
+  // points. Prefer the anchor DEM (usually padded, so better coverage), then
+  // the first heights-from-dem DEM, then fall back to a datum radius.
+  double mean_radius = 0.0;
+  bool got_radius = false;
+  if (opt.anchor_dem != "")
+    got_radius = asp::meanDemRadius(interp_anchor_dem, anchor_georef, opt.datum,
+                                    mean_radius);
+  if (!got_radius && have_dem) {
+    // The heights-from-dem view is not kept around, so open the first such DEM.
+    // This is a lazy view, so the full raster is not loaded.
+    std::string ht_dem_file = opt.heights_from_dem;
+    if (ht_dem_file.empty() && !opt.heights_from_dem_list.empty()) {
+      std::vector<std::string> dem_files;
+      asp::read_list(opt.heights_from_dem_list, dem_files);
+      if (!dem_files.empty())
+        ht_dem_file = dem_files[0];
+    }
+    if (!ht_dem_file.empty()) {
+      vw::cartography::GeoReference ht_georef;
+      vw::ImageViewRef<vw::PixelMask<double>> ht_masked_dem;
+      asp::create_masked_dem(ht_dem_file, ht_georef, ht_masked_dem);
+      got_radius = asp::meanDemRadius(ht_masked_dem, ht_georef, opt.datum,
+                                      mean_radius);
+    }
+  }
+  if (!got_radius)
+    mean_radius = asp::meanDatumRadius(opt.datum);
+
+  // Snapshot the initial look rays (before optimization) so the change in camera
+  // orientation can be reported as a ground displacement later. Done in the
+  // first pass, like orig_cam_positions, so it measures from the very start.
+  // Written out whether or not the orientation constraint is in use.
+  if (pass == 0)
+    asp::collectOrientationRays(opt, csm_models, mean_radius,
+                                orig_orientation_rays);
+
+  // Add the per-pose orientation-uncertainty constraint (metric faux anchors).
+  if (opt.orientation_uncertainty > 0)
+    asp::addOrientationUncertaintyConstraint(opt, csm_models,
+                                             opt.orientation_uncertainty, mean_radius,
+                                             // Outputs
+                                             weight_per_residual, problem);
+
   // Save residuals before optimization
   std::vector<double> mean_pixel_residuals;
   if (pass == 0) {
@@ -1460,6 +1518,13 @@ void jitterSolvePass(int                                 pass,
     asp::saveCameraOffsets(opt.datum, opt.image_files,
                            orig_cam_positions, opt_cam_positions,
                            cam_offsets_file);
+
+  // Report the change in camera orientation as a ground displacement (meters),
+  // using the look rays snapshotted at the start.
+  std::string orientation_offsets_file = opt.out_prefix + "-orientation_offsets.txt";
+  asp::saveOrientationOffsets(opt, csm_models, orig_orientation_rays,
+                              opt.orientation_uncertainty,
+                              orientation_offsets_file);
 
   // Resize the tri_points_vec to eliminate the anchor points that were appended.
   // The number of those can be variable in each pass and those do not contribute
@@ -1645,6 +1710,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   std::vector<std::vector<vw::Vector3>> orig_cam_positions;
   std::vector<double> orig_tri_points_vec;
   std::vector<std::vector<double>> orig_curvatures;
+  std::vector<std::vector<asp::OrientationSampleRays>> orig_orientation_rays;
 
   // Do this many passes
   for (int pass = 0; pass < opt.num_passes; pass++)
@@ -1654,6 +1720,7 @@ void run_jitter_solve(int argc, char* argv[]) {
                     cnet, outliers, csm_models,
                     orig_cam_positions,
                     orig_tri_points_vec, orig_curvatures,
+                    orig_orientation_rays,
                     rig, ref_to_curr_sensor_vec);
 
   return;
