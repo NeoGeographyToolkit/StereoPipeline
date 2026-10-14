@@ -96,6 +96,11 @@ sfs (:numref:`sfs`):
     <https://github.com/NeoGeographyToolkit/SfsPipeline>`__. Work by Andrew
     Annex.
 
+sfs_blend (:numref:`sfs_blend`):
+  * Added ``--shadow-fill-mode``, to grow a smooth floor from the surrounding
+    SfS in permanently shadowed holes instead of using LOLA
+    (:numref:`sfs_blend_fill`).
+
 point2dem (:numref:`point2dem`):
   * Fixed a bug that could produce an enormous output DEM extent (and a
     "size too large" error) when reading a projected TIF or PCD point cloud.

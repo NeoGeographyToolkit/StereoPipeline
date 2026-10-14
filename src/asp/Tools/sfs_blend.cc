@@ -82,12 +82,10 @@ struct Options: vw::GdalWriteOptions {
   std::string sfs_dem, lola_dem, max_lit_image_mosaic, output_dem, output_weight,
     shadow_fill_mode;
   double image_threshold, weight_blur_sigma, lit_blend_length,
-    shadow_blend_length, min_blend_size;
-  std::vector<double> shadow_fill_params;
-  double shadow_fill_max_diam, shadow_fill_ratio; // parsed from shadow_fill_params
+    shadow_blend_length, min_blend_size, shadow_fill_max_diam;
   Options(): image_threshold(0.0), weight_blur_sigma(0.0), lit_blend_length(0.0),
              shadow_blend_length(0.0), min_blend_size(0.0),
-             shadow_fill_max_diam(0.0), shadow_fill_ratio(0.0) {}
+             shadow_fill_max_diam(0.0) {}
 };
 
 // Label connected shadow blobs with 4-connectivity. Here shadow(col, row) is
@@ -624,7 +622,7 @@ public:
           weight = 1.0;
         if (weight < 1e-7) // take into account the float error
           weight = 0.0;
-        
+
         // Handle no-data values. These are not meant to happen, but do this just in case.
         if (sfs_dem_crop(col, row) == m_sfs_nodata)
           weight = 0.0; // Use LOLA
@@ -641,44 +639,53 @@ public:
     }
 
     // Feathered boundary blur: soften the seam where the grown floor meets the
-    // real terrain. Blur the blended DEM, then blend the blurred and original
-    // with a weight that is 1 on the shadow/lit boundary and falls smoothly
-    // (raised cosine) to 0 at a distance that differs by side: lit-blend-length
-    // into the lit region and shadow-blend-length into the shadow. Both sides
-    // reach 1 at the boundary, so the blend stays smooth across it, but each
-    // side can decay over its own length (e.g. a longer shadow reach to soften a
-    // rough LOLA transition). Blur sigma = half the larger reach so the blur
-    // footprint hugs the wider band. Only for the grown-floor modes and the DEM
-    // (not the weight) pass.
+    // real terrain. Blur the blended DEM (sigma = weight-blur-sigma), then blend
+    // the blurred and original with a weight that is 1 on the shadow/lit boundary
+    // and falls to 0 a distance L out on each side (L = lit-blend-length in the
+    // lit region, shadow-blend-length in the shadow). The weight is built from
+    // the grassfire distance, which is integer-valued, so it is then smoothed
+    // with a Gaussian: an unsmoothed weight steps every pixel and those steps,
+    // times (blurred minus original), band the result into stripes. Smoothing the
+    // weight (as the old sfs_blend smooths its transition weight) removes them.
+    // Only for the grown-floor modes and the DEM (not the weight) pass.
     double lit_L = m_opt.lit_blend_length;
     double shadow_L = m_opt.shadow_blend_length;
+    double blur_sigma = m_opt.weight_blur_sigma;
     if (!m_save_weight && m_opt.shadow_fill_mode != "lola" &&
-        (lit_L > 0 || shadow_L > 0)) {
+        blur_sigma > 0 && (lit_L > 0 || shadow_L > 0)) {
       int cols = sfs_dem_crop.cols(), rows = sfs_dem_crop.rows();
-      double sigma = std::max(lit_L, shadow_L) / 2.0;
       // Blur input: replace nodata with the SfS so the blur stays well defined.
-      ImageView<double> binput(cols, rows);
-      for (int col = 0; col < cols; col++) {
-        for (int row = 0; row < rows; row++) {
-          if (blended_dem(col, row) == m_sfs_nodata)
-            binput(col, row) = sfs_dem_crop(col, row);
-          else
-            binput(col, row) = blended_dem(col, row);
-        }
-      }
-      ImageView<double> blurred = vw::gaussian_filter(binput, sigma);
+      ImageView<double> binput(cols, rows), wimg(cols, rows);
       double pi = 3.141592653589793;
       for (int col = 0; col < cols; col++) {
         for (int row = 0; row < rows; row++) {
+          bool nodata = (blended_dem(col, row) == m_sfs_nodata);
+          binput(col, row) = nodata ? sfs_dem_crop(col, row) : blended_dem(col, row);
+          double wv = 0.0;
+          if (!nodata) {
+            bool is_shadow = is_valid(inv_mask(col, row));
+            double d = is_shadow ? (double)shadow_grass_dist(col, row)
+                                 : (double)lit_grass_dist(col, row);
+            double L = is_shadow ? shadow_L : lit_L;
+            if (L > 0 && d < L)
+              wv = 0.5 * (1.0 + std::cos(pi * d / L));
+          }
+          wimg(col, row) = wv;
+        }
+      }
+      ImageView<double> blurred = vw::gaussian_filter(binput, blur_sigma);
+      // Smooth the weight to kill the per-pixel banding from the integer distance.
+      double wsigma = std::max(2.0, std::max(lit_L, shadow_L) / 4.0);
+      ImageView<double> wsm = vw::gaussian_filter(wimg, wsigma);
+      for (int col = 0; col < cols; col++) {
+        for (int row = 0; row < rows; row++) {
           if (blended_dem(col, row) == m_sfs_nodata)
             continue;
-          bool is_shadow = is_valid(inv_mask(col, row));
-          double d = is_shadow ? (double)shadow_grass_dist(col, row)
-                               : (double)lit_grass_dist(col, row);
-          double L = is_shadow ? shadow_L : lit_L;
-          if (L <= 0 || d >= L)
+          double w = wsm(col, row);
+          if (w <= 1e-6)
             continue;
-          double w = 0.5 * (1.0 + std::cos(pi * d / L));
+          if (w > 1.0)
+            w = 1.0;
           blended_dem(col, row) = w * blurred(col, row)
                                 + (1.0 - w) * blended_dem(col, row);
         }
@@ -716,9 +723,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("min-blend-size", po::value<double>(&opt.min_blend_size)->default_value(0.0),
      "Do not apply blending in shadowed areas of dimensions less than this, hence keeping there the SfS DEM.")
     ("shadow-fill-mode", po::value<std::string>(&opt.shadow_fill_mode)->default_value("lola"),
-     "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the default, legacy behavior). 'curved' grows a smooth floor from the surrounding SfS by solving the Laplace equation with a locally estimated curvature. 'lola-curved' uses the lower of that curved floor and LOLA. 'sfs-curved' keeps the SfS and caps it at the curved floor (the lower of the two), so the real SfS floor is preserved and only SfS pop-ups are clipped. 'sfs-lola-curved' takes the lower of the curved floor, the SfS, and LOLA, so LOLA can additionally pull the floor down where it is lower. See --shadow-fill-params.")
-    ("shadow-fill-params", po::value<std::vector<double>>(&opt.shadow_fill_params)->multitoken(),
-     "Two values used by the 'curved' and 'lola-curved' shadow fill modes: the maximum hole diameter (in pixels) that is curved, and the crater depth/diameter ratio. A hole up to this diameter gets a floor a fraction (the ratio) of its own width deep; larger holes are left flat (and handed off to LOLA in lola-curved mode). Ignored when --shadow-fill-mode is 'lola'. Suggested: 100 0.15.")
+     "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the default, legacy behavior). 'curved' grows a smooth floor from the surrounding SfS by solving the Laplace equation with a locally estimated curvature, clamped so the floor cannot rise above its surroundings. 'lola-curved' uses the lower of that curved floor and LOLA. 'sfs-curved' keeps the SfS and lowers it only where it rises above the curved floor, so the real SfS floor and detail are preserved and only spurious bumps are clipped. 'sfs-lola-curved' takes the lower of the curved floor, the SfS, and LOLA. See --shadow-fill-max-diameter.")
+    ("shadow-fill-max-diameter", po::value<double>(&opt.shadow_fill_max_diam)->default_value(0.0),
+     "The maximum hole diameter, in pixels, to which the grown floor is applied in the 'curved', 'lola-curved', 'sfs-curved', and 'sfs-lola-curved' modes. Larger holes keep the LOLA fill. Ignored when --shadow-fill-mode is 'lola'. A value such as 300 is reasonable.")
     ("output-dem", po::value(&opt.output_dem), "The blended output DEM to save.")
     ("output-weight", po::value(&opt.output_weight), "The weight showing the proportion of the SfS DEM in the blend with the LOLA DEM (1 is for purely SfS and 0 is for purely LOLA).");
 
@@ -757,20 +764,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "Unknown --shadow-fill-mode: " << opt.shadow_fill_mode
                            << ". Must be 'lola', 'curved', 'lola-curved', 'sfs-curved', "
                            << "or 'sfs-lola-curved'.\n");
-  opt.shadow_fill_max_diam = 0.0;
-  opt.shadow_fill_ratio = 0.0;
-  if (opt.shadow_fill_mode != "lola") {
-    if (opt.shadow_fill_params.size() != 2)
-      vw_throw(ArgumentErr() << "--shadow-fill-params expects two values: "
-               << "the max hole diameter in pixels and the depth/diameter ratio.\n");
-    opt.shadow_fill_max_diam = opt.shadow_fill_params[0];
-    opt.shadow_fill_ratio = opt.shadow_fill_params[1];
-    if (opt.shadow_fill_max_diam <= 0)
-      vw_throw(ArgumentErr() << "The shadow fill max diameter must be positive.\n");
-    if (opt.shadow_fill_ratio < 0 || opt.shadow_fill_ratio > 0.5)
-      vw_throw(ArgumentErr() << "The shadow fill depth/diameter ratio must be "
-               << "in [0, 0.5].\n");
-  }
+  if (opt.shadow_fill_mode != "lola" && opt.shadow_fill_max_diam <= 0)
+    vw_throw(ArgumentErr() << "The --shadow-fill-max-diameter must be positive "
+             << "for the grown-floor shadow fill modes.\n");
 
   // Create the output directory
   vw::create_out_dir(opt.output_dem);
