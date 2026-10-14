@@ -116,13 +116,11 @@ optional products are added by passing the corresponding flag in
   ``dem_mosaic --first`` (the first valid pixel, to avoid smearing seams).
 * ``--propagate-errors`` also writes ``stereo_out/run-HorizontalStdDev.tif`` and
   ``stereo_out/run-VerticalStdDev.tif``, the propagated horizontal and vertical
-  uncertainty (:numref:`error_propagation`), each combined with ``dem_mosaic --max``
-  (the worst-case uncertainty over the pairs). The flag ``--propagate-errors`` must
-  then be set in *both* ``--stereo-options`` (so each pair's point cloud carries the
-  uncertainty bands) and ``--point2dem-options`` (so it is gridded and mosaicked). The
-  input camera uncertainties are supplied as in regular stereo, either read from the
-  cameras or given with ``--horizontal-stddev`` in ``--stereo-options``. This works
-  with the bathymetry mode as well (:numref:`error_prop_bathy`), with the bathy options
+  uncertainty (:numref:`error_propagation`), each combined with ``dem_mosaic``.
+  Set ``--propagate-errors`` in ``--stereo-options`` (so each pair's point cloud
+  carries the uncertainty bands). It can also be set in ``--point2dem-options`` (so it
+  is gridded and mosaicked), or else it is added there automatically. This works with
+  the bathymetry mode as well (:numref:`error_prop_bathy`), with the bathy options
   passed in ``--stereo-options``.
 
 Set the option ``--nodes-list`` to run on multiple machines (:numref:`pbs_slurm`).
@@ -434,11 +432,11 @@ Options for mode ``dem_mosaic``:
     triangulation error, ``--orthoimage`` (with no argument, the per-pair
     ``L.tif`` is added automatically) to also mosaic an orthoimage (DRG), and
     ``--propagate-errors`` to also mosaic the horizontal and vertical uncertainty
-    (:numref:`error_propagation`, also add ``--propagate-errors`` to
-    ``--stereo-options``), as in ``stereo_dist`` (:numref:`stereo_dist`). If both
-    ``--tr`` and ``--t_srs`` are
-    given here, they are used for all pairs; otherwise the grid and projection are
-    taken from the first DEM produced and applied to the rest, so all share one grid.
+    (:numref:`error_propagation`). For ``--propagate-errors`` it is enough to set it in
+    ``--stereo-options``, as it is added here automatically if missing. If both
+    ``--tr`` and ``--t_srs`` are given here, they are used for all pairs. Otherwise the
+    grid and projection are taken from the first DEM produced and applied to the rest,
+    so all share one grid.
 --dem-mosaic-options <string (default: "")>
     Extra options for the ``dem_mosaic`` of the per-pair DEMs.
 

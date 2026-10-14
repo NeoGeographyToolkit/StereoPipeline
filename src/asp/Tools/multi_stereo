@@ -180,14 +180,15 @@ def process_args(args):
                         "footprint by more than this is dropped. Default: 500.")
 
     parser.add_argument("--point2dem-options", dest="point2dem_options", default="",
-                        help = "Options for point2dem (mode 'dem_mosaic'). Pass "           + \
-                        "--errorimage to also mosaic the maximum triangulation error, "     + \
-                        "--orthoimage (with no argument, the per-pair L.tif is "            + \
-                        "added automatically) to also mosaic an orthoimage (DRG), and "     + \
-                        "--propagate-errors to also mosaic the horizontal and vertical "    + \
-                        "uncertainty (also add --propagate-errors to --stereo-options), "   + \
-                        "as in stereo_dist. If both --tr and --t_srs are given here, they " + \
-                        "are used for all pairs; otherwise the grid and projection are " + \
+                        help = "Options for point2dem (mode 'dem_mosaic'). Pass "        + \
+                        "--errorimage to also mosaic the maximum triangulation error, "  + \
+                        "--orthoimage (with no argument, the per-pair L.tif is "         + \
+                        "added automatically) to also mosaic an orthoimage (DRG), and "  + \
+                        "--propagate-errors to also mosaic the horizontal and vertical " + \
+                        "uncertainty (it is enough to set --propagate-errors in "        + \
+                        "--stereo-options, it is added here automatically if missing). " + \
+                        "If both --tr and --t_srs are given here, they "                 + \
+                        "are used for all pairs. Otherwise the grid and projection are " + \
                         "taken from the first DEM produced and applied to the rest.")
 
     parser.add_argument("--dem-mosaic-options", dest="dem_mosaic_options", default="",
@@ -872,10 +873,10 @@ def dem_stage_fuse(args, pairs, tool_base_dir):
         outputs.append(mos + '-DRG.tif')
     if want_stddev:
         # The propagated horizontal and vertical uncertainties (:numref:`error_propagation`).
-        # Each is combined with --max, the worst-case uncertainty over the overlapping
-        # pairs, the same choice as for the triangulation error above.
+        # Each is blended (plain dem_mosaic, as for the DEM above), an honest average over
+        # the overlapping pairs rather than a worst-case.
         for band in ['HorizontalStdDev', 'VerticalStdDev']:
-            cmds.append(shlex.join([dm, '--max'] + [p + '-' + band + '.tif' for p in pres] +
+            cmds.append(shlex.join([dm] + [p + '-' + band + '.tif' for p in pres] +
                                    ['-o', mos + '-' + band + '.tif']))
             outputs.append(mos + '-' + band + '.tif')
 
@@ -925,6 +926,14 @@ def conv_angle_pairs(args):
 
 def run_dem_mosaic(args, tool_base_dir):
     """Drive mode 'dem_mosaic': stereo, then per-pair DEM, then mosaic."""
+    # Autocomplete --propagate-errors into --point2dem-options if it is in
+    # --stereo-options but not there. Then stereo carries the uncertainty bands and
+    # point2dem grids and mosaics them, without the user having to repeat the flag.
+    if ('--propagate-errors' in args.stereo_options and
+        '--propagate-errors' not in args.point2dem_options):
+        args.point2dem_options = (args.point2dem_options + ' --propagate-errors').strip()
+        print("Added --propagate-errors to --point2dem-options (from --stereo-options).")
+
     step_dict = STEP_DICTS["dem_mosaic"]
     first = step_dict[args.first_step]
     last = step_dict[args.last_step]
