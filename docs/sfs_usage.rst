@@ -777,14 +777,7 @@ value may result in seams. Increasing this will allow the seams to be
 attenuated, but may result in more erosion.
 
 The ``sfs_blend`` tool (:numref:`sfs_blend`) can be used to tune
-the areas in complete shadow after doing SfS. Its
-``--shadow-fill-mode`` option can grow a smooth floor from the
-surrounding SfS terrain instead of using the LOLA DEM
-(:numref:`sfs_blend_fill`).
-
-The blended result should be inspected. If the fill in some shadowed
-areas needs to be touched up, that area can be re-blended on a clip and
-merged back into the full result, as described in :numref:`sfs_issues`.
+the areas in complete shadow after doing SfS. 
 
 .. figure:: images/sfs_borderline.png
    :name: sfs_borderline_fig
@@ -1948,9 +1941,7 @@ must be redone as discussed in the earlier sections.
 If in some low-light locations the SfS DEM has seams, see :numref:`sfs_seams`.
 
 Artifacts around permanently shadowed areas can be fixed with ``sfs_blend``
-(:numref:`sfs_blend`). Inspect its output. If some shadowed area still
-needs adjustment, re-run ``sfs_blend`` on a clip and blend the result back
-into the full DEM, as below.
+(:numref:`sfs_blend`).
 
 See :numref:`sfs_borderline` for how to increase the coverage in areas 
 with very low illumination.
@@ -2028,11 +2019,18 @@ How to prepare the initial terrain is described in
 
 The blending can be done as::
 
-    sfs_blend --lola-dem lola_dem.tif --sfs-dem sfs_dem.tif      \
-      --max-lit-image-mosaic max_lit.tif --image-threshold 0.005 \
-      --lit-blend-length 25 --shadow-blend-length 5              \
-      --min-blend-size 25 --weight-blur-sigma 5                  \
-      --output-dem sfs_blend.tif --output-weight sfs_weight.tif
+    sfs_blend --lola-dem lola_dem.tif    \
+      --sfs-dem sfs_dem.tif              \
+      --max-lit-image-mosaic max_lit.tif \
+      --image-threshold 0.005            \
+      --lit-blend-length 20              \
+      --shadow-blend-length 20           \
+      --min-blend-size 25                \
+      --weight-blur-sigma 10             \
+      --shadow-fill-mode lola-curved     \
+      --shadow-fill-max-diameter 300     \
+      --output-dem sfs_blend.tif         \
+      --output-weight sfs_weight.tif
 
 Here, the inputs are the LOLA and SfS DEMs, the maximally lit mosaic
 provided as before, the shadow threshold (the same value as in
@@ -2052,6 +2050,16 @@ values between 0 and 1, then blurred with a Gaussian kernel with the
 above-mentioned sigma. No blending happens for shadowed regions of
 dimensions less than ``--min-blend-size``, where the SfS DEM is
 kept. See :numref:`sfs_blend` for more details.
+
+The ``--shadow-fill-mode`` option, shown above, controls the hole fill
+(:numref:`sfs_blend_fill`). The default value ``lola-curved`` caps both the SfS
+and the LOLA fill by a floor grown from the surrounding SfS, so neither can rise
+above the terrain. The value ``lola`` keeps the original behavior of filling
+with the plain LOLA DEM.
+
+The blended result should be inspected. If the fill in some shadowed areas needs
+to be touched up, that area can be re-blended on a clip and merged back into the
+full result with :ref:`dem_mosaic` option ``--priority-blending-length 100``. 
 
 If ``sfs_blend`` fails due to the grids not matching, it is suggested that the
 input LOLA terrain be prepared with ``gdalwarp -te <corners>`` as described in

@@ -97,9 +97,8 @@ sfs (:numref:`sfs`):
     Annex.
 
 sfs_blend (:numref:`sfs_blend`):
-  * Added ``--shadow-fill-mode``, to grow a smooth floor from the surrounding
-    SfS in permanently shadowed holes instead of using LOLA
-    (:numref:`sfs_blend_fill`).
+  * Added ``--shadow-fill-mode``, with several options for blending in shadowed
+    areas (:numref:`sfs_blend_fill`).
 
 point2dem (:numref:`point2dem`):
   * Fixed a bug that could produce an enormous output DEM extent (and a

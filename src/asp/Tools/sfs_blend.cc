@@ -420,7 +420,7 @@ public:
       }
     }
 
-    // For the curved and lola-curved modes, clean the lit/shadow classification
+    // For the grown-floor modes, clean the lit/shadow classification
     // before it drives both the blend weight and the grown floor: absorb interior
     // specks and close thin lit fingers of fabricated bright SfS at the shadow
     // edge, so those garbage spikes become part of the hole and get the smooth
@@ -482,15 +482,15 @@ public:
       dist_to_bd = vw::gaussian_filter(dist_to_bd, m_opt.weight_blur_sigma);
 
     // Build the fill DEM used inside the shadow. For the legacy 'lola' mode this
-    // is the LOLA DEM. For the curved and lola-curved modes it is the SfS DEM
-    // outside the shadow blobs, so the fill is continuous with the surrounding
-    // terrain across the shadow boundary (no step, hence no seam), and inside
-    // each fully-contained blob it is a smooth floor grown from the surrounding
-    // SfS by solving the Laplace equation, curved down by the crater
-    // depth/diameter ratio. For lola-curved the floor is capped by LOLA (the
-    // lower of the two), so LOLA can never raise it. Big blobs (wider than the
-    // tile margin or the max diameter) are left unfilled, so the blend there is
-    // SfS to SfS (curved) or picks up LOLA only through the cap (lola-curved).
+    // is the LOLA DEM. For the grown-floor modes it is the SfS DEM outside the
+    // shadow blobs, so the fill is continuous with the surrounding terrain
+    // across the shadow boundary (no step, hence no seam), and inside each
+    // fully-contained blob it is a smooth floor grown from the surrounding SfS
+    // by solving the Laplace equation, curved down by the crater depth/diameter
+    // ratio. That grown floor is then capped (the lower of it and the reference)
+    // by SfS for sfs-curved, and by both SfS and LOLA for lola-curved. Big blobs
+    // (wider than the tile margin or the max diameter) are left unfilled, so the
+    // blend there is SfS to SfS, or picks up LOLA only in the 'curved' handoff.
     ImageView<float> fill_crop;
     if (m_opt.shadow_fill_mode == "lola")
       fill_crop = vw::copy(lola_dem_crop);
@@ -509,11 +509,11 @@ public:
 
       // In the shadow default to LOLA (so big unfilled blobs hand off to LOLA);
       // the lit region keeps the SfS set above. Filled blobs are overwritten
-      // below with the grown floor. For sfs-curved the shadow keeps the SfS (the
-      // grown floor is only a ceiling that caps SfS pop-ups), so do not default
-      // it to LOLA.
+      // below with the grown floor. For sfs-curved and lola-curved the shadow
+      // keeps the SfS (the grown floor is only a ceiling that caps SfS pop-ups),
+      // so do not default it to LOLA.
       if (m_opt.shadow_fill_mode != "sfs-curved" &&
-          m_opt.shadow_fill_mode != "sfs-lola-curved") {
+          m_opt.shadow_fill_mode != "lola-curved") {
         for (int col = 0; col < cols; col++) {
           for (int row = 0; row < rows; row++) {
             if (shadow(col, row))
@@ -578,15 +578,13 @@ public:
         for (size_t i = 0; i < blob_pix[b].size(); i++) {
           int col = blob_pix[b][i].x(), row = blob_pix[b][i].y();
           double val = zfill(col, row);
-          // Cap by LOLA or by SfS so the floor is the lower of the grown ceiling
-          // and the chosen reference. sfs-curved keeps the real SfS floor and
-          // clips only where SfS pops above the ceiling.
-          if (m_opt.shadow_fill_mode == "lola-curved" &&
-              lola_dem_crop(col, row) != m_lola_nodata) {
-            val = std::min(val, (double)lola_dem_crop(col, row));
-          } else if (m_opt.shadow_fill_mode == "sfs-curved") {
+          // Cap by SfS, and for lola-curved also by LOLA, so the floor is the
+          // lower of the grown ceiling and the chosen references. sfs-curved
+          // keeps the real SfS floor and clips only where SfS pops above the
+          // ceiling. lola-curved additionally lets LOLA pull the floor down.
+          if (m_opt.shadow_fill_mode == "sfs-curved") {
             val = std::min(val, (double)sfs_dem_crop(col, row));
-          } else if (m_opt.shadow_fill_mode == "sfs-lola-curved") {
+          } else if (m_opt.shadow_fill_mode == "lola-curved") {
             val = std::min(val, (double)sfs_dem_crop(col, row));
             if (lola_dem_crop(col, row) != m_lola_nodata)
               val = std::min(val, (double)lola_dem_crop(col, row));
@@ -722,10 +720,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "The standard deviation of the Gaussian used to blur the weight that performs the transition from the SfS to the LOLA DEM. A higher value results in a smoother transition (this does not smooth the DEMs). The extent of the blur is about 7 times this deviation, though it tapers fast to 0 before that. Set to 0 to not use this operation.")
     ("min-blend-size", po::value<double>(&opt.min_blend_size)->default_value(0.0),
      "Do not apply blending in shadowed areas of dimensions less than this, hence keeping there the SfS DEM.")
-    ("shadow-fill-mode", po::value<std::string>(&opt.shadow_fill_mode)->default_value("lola"),
-     "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the default, legacy behavior). 'curved' grows a smooth floor from the surrounding SfS by solving the Laplace equation with a locally estimated curvature, clamped so the floor cannot rise above its surroundings. 'lola-curved' uses the lower of that curved floor and LOLA. 'sfs-curved' keeps the SfS and lowers it only where it rises above the curved floor, so the real SfS floor and detail are preserved and only spurious bumps are clipped. 'sfs-lola-curved' takes the lower of the curved floor, the SfS, and LOLA. See --shadow-fill-max-diameter.")
+    ("shadow-fill-mode", po::value<std::string>(&opt.shadow_fill_mode)->default_value("lola-curved"),
+     "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the legacy behavior). 'curved' grows a smooth floor from the surrounding SfS by solving the Laplace equation with a locally estimated curvature, clamped so the floor cannot rise above its surroundings. 'sfs-curved' keeps the SfS and lowers it only where it rises above the curved floor, so the real SfS floor and detail are preserved and only spurious bumps are clipped. 'lola-curved' is like 'sfs-curved' but also takes the lower of LOLA, so LOLA can pull the floor down where it is genuinely lower (the default). See --shadow-fill-max-diameter.")
     ("shadow-fill-max-diameter", po::value<double>(&opt.shadow_fill_max_diam)->default_value(0.0),
-     "The maximum hole diameter, in pixels, to which the grown floor is applied in the 'curved', 'lola-curved', 'sfs-curved', and 'sfs-lola-curved' modes. Larger holes keep the LOLA fill. Ignored when --shadow-fill-mode is 'lola'. A value such as 300 is reasonable.")
+     "The maximum hole diameter, in pixels, to which the grown floor is applied in the 'curved', 'sfs-curved', and 'lola-curved' modes. Larger holes keep the LOLA fill. Ignored when --shadow-fill-mode is 'lola'. A value such as 300 is reasonable.")
     ("output-dem", po::value(&opt.output_dem), "The blended output DEM to save.")
     ("output-weight", po::value(&opt.output_weight), "The weight showing the proportion of the SfS DEM in the blend with the LOLA DEM (1 is for purely SfS and 0 is for purely LOLA).");
 
@@ -759,11 +757,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Validate the shadow fill mode and parse its parameters.
   if (opt.shadow_fill_mode != "lola" && opt.shadow_fill_mode != "curved" &&
-      opt.shadow_fill_mode != "lola-curved" && opt.shadow_fill_mode != "sfs-curved" &&
-      opt.shadow_fill_mode != "sfs-lola-curved")
+      opt.shadow_fill_mode != "sfs-curved" && opt.shadow_fill_mode != "lola-curved")
     vw_throw(ArgumentErr() << "Unknown --shadow-fill-mode: " << opt.shadow_fill_mode
-                           << ". Must be 'lola', 'curved', 'lola-curved', 'sfs-curved', "
-                           << "or 'sfs-lola-curved'.\n");
+                           << ". Must be 'lola', 'curved', 'sfs-curved', "
+                           << "or 'lola-curved'.\n");
   if (opt.shadow_fill_mode != "lola" && opt.shadow_fill_max_diam <= 0)
     vw_throw(ArgumentErr() << "The --shadow-fill-max-diameter must be positive "
              << "for the grown-floor shadow fill modes.\n");
