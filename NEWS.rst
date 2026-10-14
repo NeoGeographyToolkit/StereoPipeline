@@ -7,9 +7,7 @@ New features:
   * Support the SPOT 1, 2, 3, and 4 HRV linescan cameras (:numref:`spot14`).
   * Added an example for bathymetry with aerial images (:numref:`aerial_bathymetry`).
   * Added a program for load-balanced multi-pair stereo and DEM merge
-    (:numref:`multi_stereo`). It can propagate camera uncertainties to the output,
-    producing horizontal and vertical standard deviation mosaics
-    (:numref:`error_propagation`), including with bathymetry.
+    (:numref:`multi_stereo`).
   * Added an example for Viking Orbiter (:numref:`viking`).
   * Added an example for the Clementine NIR camera (:numref:`clementine`).
   * Added ``glint_correct``, to remove sun glint from a visible band for
