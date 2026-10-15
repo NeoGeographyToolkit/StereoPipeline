@@ -12,7 +12,15 @@ non-small convergence angle between the matching rays emanating from
 the two cameras, for stereo triangulation to be accurate. Yet, if the
 perspectives are very different, it will be challenging to compute the
 stereo correlation between images. A convergence angle of 10 to 60
-degrees is likely reasonable. 
+degrees is likely reasonable.
+
+.. figure:: ../images/stereo_triangulation.svg
+   :name: stereo_triangulation_fig
+
+   Rays from matched pixels in the two images intersect at the triangulated
+   ground point. A larger convergence angle makes the triangulation more
+   accurate. Figure adapted from the UW `stereopipeline-quickstart
+   <https://github.com/uw-cryo/stereopipeline-quickstart>`__ (BSD 3-Clause).
 
 Depending on the characteristics of the mission data set and the
 individual images, the degree of acceptable variation will

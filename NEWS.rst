@@ -62,6 +62,7 @@ parallel_stereo (:numref:`parallel_stereo`):
   * Robustified the local epipolar alignment: a tile with too few interest
     points is retried once with expanded boxes and proportionally more interest
     points, reducing holes in the disparity (:numref:`stereodefault`).
+  * Added GPU correlator plugins (:numref:`gpu_plugins`).
   * Added the ``mgm_multi`` stereo algorithm, the multiscale flavor of MGM
     (:numref:`mgm_multi`).
   * The minimum number of interest point matches is now set with

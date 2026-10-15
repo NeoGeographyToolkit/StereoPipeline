@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1030 240" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-label="Five-stage ASP pipeline from raw imagery to an aligned DEM">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#898781"/>
+    </marker>
+  </defs>
+
+  <!-- figure surface -->
+  <rect x="0.5" y="0.5" width="1029" height="239" rx="10" fill="#fcfcfb" stroke="#0b0b0b" stroke-opacity="0.1"/>
+
+  <!-- input chip -->
+  <rect x="18" y="76" width="104" height="72" rx="8" fill="#f0efec" stroke="#c3c2b7"/>
+  <text x="70" y="106" text-anchor="middle" font-size="13.5" fill="#0b0b0b">raw imagery</text>
+  <text x="70" y="124" text-anchor="middle" font-size="12" fill="#898781">+ vendor</text>
+  <text x="70" y="139" text-anchor="middle" font-size="12" fill="#898781">metadata</text>
+
+  <line x1="122" y1="112" x2="144" y2="112" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- stage 1 -->
+  <rect x="148" y="70" width="138" height="84" rx="8" fill="#e3eefb" stroke="#2a78d6" stroke-width="1.5"/>
+  <text x="217" y="94" text-anchor="middle" font-size="12" fill="#898781">1</text>
+  <text x="217" y="113" text-anchor="middle" font-size="14" font-weight="600" fill="#0b0b0b">Sensor prep</text>
+  <text x="217" y="132" text-anchor="middle" font-size="11.5" fill="#52514e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">aster2asp</text>
+  <text x="217" y="146" text-anchor="middle" font-size="11.5" fill="#52514e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">wv_correct</text>
+
+  <line x1="286" y1="112" x2="308" y2="112" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- stage 2 -->
+  <rect x="312" y="70" width="138" height="84" rx="8" fill="#e3eefb" stroke="#2a78d6" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="381" y="94" text-anchor="middle" font-size="12" fill="#898781">2</text>
+  <text x="381" y="113" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0b0b0b">Bundle adjustment</text>
+  <text x="381" y="139" text-anchor="middle" font-size="11.5" fill="#52514e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">bundle_adjust</text>
+
+  <line x1="450" y1="112" x2="472" y2="112" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- stage 3 -->
+  <rect x="476" y="70" width="138" height="84" rx="8" fill="#e3eefb" stroke="#2a78d6" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="545" y="94" text-anchor="middle" font-size="12" fill="#898781">3</text>
+  <text x="545" y="113" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0b0b0b">Orthorectification</text>
+  <text x="545" y="139" text-anchor="middle" font-size="11.5" fill="#52514e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">mapproject</text>
+
+  <line x1="614" y1="112" x2="636" y2="112" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- stage 4 -->
+  <rect x="640" y="70" width="138" height="84" rx="8" fill="#e3eefb" stroke="#2a78d6" stroke-width="1.5"/>
+  <text x="709" y="94" text-anchor="middle" font-size="12" fill="#898781">4</text>
+  <text x="709" y="113" text-anchor="middle" font-size="14" font-weight="600" fill="#0b0b0b">Stereo + DEM</text>
+  <text x="709" y="132" text-anchor="middle" font-size="11.5" fill="#52514e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">parallel_stereo</text>
+  <text x="709" y="146" text-anchor="middle" font-size="11.5" fill="#52514e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">point2dem</text>
+
+  <line x1="778" y1="112" x2="800" y2="112" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- stage 5 -->
+  <rect x="804" y="70" width="138" height="84" rx="8" fill="#e3eefb" stroke="#2a78d6" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="873" y="94" text-anchor="middle" font-size="12" fill="#898781">5</text>
+  <text x="873" y="113" text-anchor="middle" font-size="14" font-weight="600" fill="#0b0b0b">Alignment</text>
+  <text x="873" y="139" text-anchor="middle" font-size="11.5" fill="#52514e" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">pc_align</text>
+
+  <line x1="942" y1="112" x2="964" y2="112" stroke="#898781" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- output chip -->
+  <rect x="968" y="76" width="44" height="72" rx="8" fill="#f0efec" stroke="#c3c2b7"/>
+  <text x="990" y="117" text-anchor="middle" font-size="13.5" fill="#0b0b0b">DEM</text>
+
+  <!-- legend -->
+  <text x="24" y="216" font-size="12" fill="#898781">dashed = optional stage</text>
+</svg>

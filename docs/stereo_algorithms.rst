@@ -823,3 +823,36 @@ Also look at its input image tiles and output disparity stored there.
 
 Note such auxiliary data is removed by default, unless ``parallel_stereo`` is
 called with the option ``--keep-only unchanged`` (:numref:`parallel_stereo`).
+
+.. _gpu_plugins:
+
+GPU correlator plugins
+----------------------
+
+The GSFC NASA Center for Climate Simulation provides GPU versions of several
+stereo correlators as an external plugin, using the interface described above
+(:numref:`adding_algos`). The code is at `stereo-pipeline-gpu-plugin
+<https://github.com/nasa-nccs-hpda/stereo-pipeline-gpu-plugin>`__ and is archived
+at `Zenodo <https://doi.org/10.5281/zenodo.17662736>`__.
+
+It provides four CUDA correlators: ``opencv_bm_gpu`` (block matching),
+``opencv_sgm_gpu`` (semi-global matching), ``opencv_bp_gpu`` (belief
+propagation), and ``opencv_csbp_gpu`` (constant-space belief propagation). Their
+options mirror the CPU ``opencv_bm`` (:numref:`opencv_bm`) and ``opencv_sgbm``
+(:numref:`opencv_sgbm_options`) correlators.
+
+The plugin ships as a Singularity or Docker container and requires an NVIDIA GPU.
+An example invocation is::
+
+    parallel_stereo                     \
+      --session-type rpc                \
+      --alignment-method local_epipolar \
+      --stereo-algorithm opencv_bm_gpu  \
+      left.tif                          \
+      right.tif                         \
+      left.xml                          \
+      right.xml                         \
+      run/out
+
+This is a third-party, community-supported package. See its repository for
+container download and build instructions.

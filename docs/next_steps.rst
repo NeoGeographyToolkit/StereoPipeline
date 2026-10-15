@@ -387,6 +387,14 @@ portions, or because of clouds and deep shadows. This can result in
 large disparity search ranges, long run times, and ASP producing
 3D terrains with noise or missing data.
 
+.. figure:: images/ortho_search_range.svg
+   :name: ortho_search_range_fig
+
+   Mapprojecting both images onto a reference DEM shrinks the search range that
+   stereo matching must cover. Figure adapted from the UW
+   `stereopipeline-quickstart
+   <https://github.com/uw-cryo/stereopipeline-quickstart>`__ (BSD 3-Clause).
+
 ASP can mitigate this by *mapprojecting* the left and right images onto
 some pre-existing low-resolution smooth terrain model without holes, and
 using the output images to do stereo. In effect, this makes the images

@@ -11,6 +11,14 @@ Global Registration (:numref:`fgr`), and feature-based alignment
 Some of the provided ICP implementations can handle a scale change, in addition
 to rotations and translations.
 
+.. figure:: ../images/pc_align_icp.svg
+   :name: pc_align_icp_fig
+
+   pc_align translates and rotates the produced DEM so it matches the reference,
+   here a set of sparse altimetry points. Figure adapted from the UW
+   `stereopipeline-quickstart
+   <https://github.com/uw-cryo/stereopipeline-quickstart>`__ (BSD 3-Clause).
+
 Usage::
 
      pc_align --max-displacement <float> [other options]    \

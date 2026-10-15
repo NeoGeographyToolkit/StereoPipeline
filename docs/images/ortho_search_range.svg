@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 268" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-label="Orthorectification shrinks the search range stereo matching must cover">
+  <!-- figure surface -->
+  <rect x="0.5" y="0.5" width="759" height="267" rx="10" fill="#fcfcfb" stroke="#0b0b0b" stroke-opacity="0.1"/>
+
+  <!-- panel titles -->
+  <text x="210" y="42" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0b0b0b">raw stereo pair</text>
+  <text x="550" y="42" text-anchor="middle" font-size="13.5" font-weight="600" fill="#0b0b0b">orthorectified onto a reference DEM</text>
+
+  <!-- panel 1: wide search range -->
+  <text x="94" y="64" font-size="11" fill="#898781">image 1</text>
+  <rect x="90" y="70" width="240" height="28" rx="5" fill="#fcfcfb" stroke="#898781"/>
+  <line x1="210" y1="74" x2="210" y2="94" stroke="#2a78d6" stroke-width="2.5"/>
+  <line x1="210" y1="98" x2="210" y2="170" stroke="#898781" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="94" y="164" font-size="11" fill="#898781">image 2</text>
+  <rect x="90" y="170" width="240" height="28" rx="5" fill="#fcfcfb" stroke="#898781"/>
+  <rect x="120" y="172" width="180" height="24" fill="#e34948" fill-opacity="0.12" stroke="#e34948" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="210" y="230" text-anchor="middle" font-size="12" fill="#52514e">search range for the matching pixel</text>
+
+  <!-- panel 2: small search range -->
+  <text x="434" y="64" font-size="11" fill="#898781">image 1</text>
+  <rect x="430" y="70" width="240" height="28" rx="5" fill="#fcfcfb" stroke="#898781"/>
+  <line x1="550" y1="74" x2="550" y2="94" stroke="#2a78d6" stroke-width="2.5"/>
+  <line x1="550" y1="98" x2="550" y2="170" stroke="#898781" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="434" y="164" font-size="11" fill="#898781">image 2</text>
+  <rect x="430" y="170" width="240" height="28" rx="5" fill="#fcfcfb" stroke="#898781"/>
+  <rect x="537" y="172" width="26" height="24" fill="#e34948" fill-opacity="0.12" stroke="#e34948" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="550" y="230" text-anchor="middle" font-size="12" fill="#52514e">search range for the matching pixel</text>
+</svg>

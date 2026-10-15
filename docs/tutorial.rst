@@ -10,6 +10,15 @@ passed along to one of several programs that convert a point cloud
 into a mesh for 3D viewing, a gridded digital terrain model (DTM) for
 GIS purposes, or a LAS/LAZ point cloud.
 
+.. figure:: images/pipeline_stages.svg
+   :name: pipeline_stages_fig
+
+   The ASP pipeline from raw imagery to an aligned DEM. Optional stages are
+   dashed. The minimum path is ``parallel_stereo`` (:numref:`parallel_stereo`)
+   followed by ``point2dem`` (:numref:`point2dem`). Figure adapted from the UW
+   `stereopipeline-quickstart
+   <https://github.com/uw-cryo/stereopipeline-quickstart>`__ (BSD 3-Clause).
+
 There are a number of ways to fine-tune parameters and analyze the results, but
 ultimately this software suite takes images and builds models in a mostly
 automatic way. 
