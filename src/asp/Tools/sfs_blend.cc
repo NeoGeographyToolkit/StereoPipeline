@@ -401,7 +401,8 @@ ImageView<float> buildShadowFill(ImageView<float> const& sfs_dem_crop,
                                  ImageView<float> const& lola_dem_crop,
                                  ImageView<PixelMask<float>> const& inv_mask,
                                  std::string const& mode,
-                                 double min_blend_size, float lola_nodata) {
+                                 double min_blend_size, double max_diam,
+                                 float lola_nodata) {
   ImageView<float> fill_crop;
   if (mode == "lola") {
     fill_crop = vw::copy(lola_dem_crop);
@@ -444,15 +445,18 @@ ImageView<float> buildShadowFill(ImageView<float> const& sfs_dem_crop,
     }
   }
 
-  // Collect each blob's pixels and whether it touches the tile border.
+  // Collect each blob's pixels, its bounding box, and whether it touches the
+  // tile border.
   std::vector<std::vector<Vector2i>> blob_pix(num_blobs + 1);
   std::vector<bool> blob_border(num_blobs + 1, false);
+  std::vector<BBox2i> blob_bbox(num_blobs + 1);
   for (int col = 0; col < cols; col++) {
     for (int row = 0; row < rows; row++) {
       int b = labels(col, row);
       if (b == 0)
         continue;
       blob_pix[b].push_back(Vector2i(col, row));
+      blob_bbox[b].grow(Vector2i(col, row));
       if (col == 0 || row == 0 || col == cols - 1 || row == rows - 1)
         blob_border[b] = true;
     }
@@ -465,12 +469,16 @@ ImageView<float> buildShadowFill(ImageView<float> const& sfs_dem_crop,
   }
 
   for (int b = 1; b <= num_blobs; b++) {
-    // Skip blobs that are not fully contained (bigger than the tile margin):
-    // these keep the plain fill (LOLA for 'curved', the SfS for 'lola-curved'),
-    // which is the intended handoff for big craters.
+    // Skip blobs that are not fully contained (they extend past the crop): these
+    // keep the plain fill (LOLA for 'curved', the SfS for 'lola-curved'), the
+    // intended handoff for big craters.
     if (blob_border[b])
       continue;
     if ((double)blob_pix[b].size() < min_blend_size)
+      continue;
+    // Also skip blobs bigger than max_diam. The margin guarantees such a blob is
+    // seen whole in every overlapping tile, so this gate is consistent across tiles.
+    if (blob_bbox[b].width() > max_diam || blob_bbox[b].height() > max_diam)
       continue;
 
     for (size_t i = 0; i < blob_pix[b].size(); i++)
@@ -710,7 +718,8 @@ public:
     // Build the fill DEM used inside the shadow (see buildShadowFill).
     ImageView<float> fill_crop
       = buildShadowFill(sfs_dem_crop, lola_dem_crop, inv_mask,
-                        m_opt.shadow_fill_mode, m_opt.min_blend_size, m_lola_nodata);
+                        m_opt.shadow_fill_mode, m_opt.min_blend_size,
+                        m_opt.shadow_fill_max_diam, m_lola_nodata);
 
     // Do the blending
     ImageView<float> blended_dem
@@ -876,11 +885,14 @@ int main(int argc, char *argv[]) {
     if (opt.weight_blur_sigma > 0)
       extra += vw::compute_kernel_size(opt.weight_blur_sigma);
 
-    // A curved shadow blob is only filled if it fits fully inside the tile
-    // margin, so the margin must be at least its radius (half the max diameter)
-    // for the per-tile fill to be consistent across tiles.
+    // A curved shadow blob is only filled if it fits fully inside the crop. A
+    // blob can touch a tile core at one edge and span a full diameter across, so
+    // for the fill to be consistent across tiles the margin must be at least the
+    // whole max diameter (not the radius): then any blob up to max_diam that
+    // overlaps a core is fully contained in that core's crop, and buildShadowFill
+    // caps the fill at max_diam, so every tile makes the same fill decision.
     if (opt.shadow_fill_mode != "lola")
-      extra = std::max(extra, (int)std::ceil(opt.shadow_fill_max_diam / 2.0) + 2);
+      extra = std::max(extra, (int)std::ceil(opt.shadow_fill_max_diam) + 2);
 
     // Write bigger tiles to make the processing with the extra margin
     // more efficient.
