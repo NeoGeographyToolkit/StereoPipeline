@@ -766,6 +766,16 @@ The images must be in the TIF format, with pixel values being of the
 disparity is expected to satisfy the same assumptions and be of
 dimensions equal to those of the input images.
 
+.. note::
+
+   The output disparity must be the actual pixel disparity, that is, for each
+   left-image pixel, the horizontal shift (along the row) to its match in the
+   right image, measured in pixels. Some libraries do not return this directly.
+   OpenCV, for example, stores disparity in a fixed-point form scaled by a
+   constant (often 16), and some implementations use the opposite sign. Each
+   external program must undo any such scale and sign convention so the written
+   values are the true pixel disparity.
+
 The options passed to this program are expected to have no other
 characters except letters, numbers, space, period, underscore, plus,
 minus, and equal signs. Each option must have exactly one value, 
@@ -840,6 +850,10 @@ It provides four CUDA correlators: ``opencv_bm_gpu`` (block matching),
 propagation), and ``opencv_csbp_gpu`` (constant-space belief propagation). Their
 options mirror the CPU ``opencv_bm`` (:numref:`opencv_bm`) and ``opencv_sgbm``
 (:numref:`opencv_sgbm_options`) correlators.
+
+The OpenCV CUDA correlators return disparity at a library-specific scale and
+sign, which the plugin detects and corrects to match ASP's convention
+(:numref:`adding_algos`).
 
 The plugin ships as a Singularity or Docker container and requires an NVIDIA GPU.
 An example invocation is::
