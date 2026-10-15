@@ -15,6 +15,15 @@ what ``bundle_adjust`` does (:numref:`bundle_adjust`), except that the
 latter tool has just a single position and orientation per camera,
 instead of a sequence of them.
 
+.. figure:: ../images/ba_vs_jitter.svg
+   :name: ba_vs_jitter_fig
+
+   bundle_adjust applies one rigid position and orientation correction to the
+   whole camera trajectory, so its shape cannot change. jitter_solve corrects
+   the pointing of each linescan pose sample individually. Figure adapted from
+   the UW `stereopipeline-quickstart
+   <https://github.com/uw-cryo/stereopipeline-quickstart>`__ (BSD 3-Clause).
+
 Usage::
 
      jitter_solve <images> <cameras> <input adjustments> \

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" role="img" aria-label="bundle_adjust applies one rigid shift and rotation to the whole trajectory; jitter_solve corrects each pose sample's pointing individually">
+  <defs>
+    <marker id="oarrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#eb6834"/>
+    </marker>
+  </defs>
+
+  <!-- figure surface -->
+  <rect x="0.5" y="0.5" width="759" height="259" rx="10" fill="#fcfcfb" stroke="#0b0b0b" stroke-opacity="0.1"/>
+
+  <text x="380" y="28" text-anchor="middle" font-size="12" fill="#52514e">a linescan camera model stores a sequence of pose samples; each image line is imaged from its own pose</text>
+
+  <!-- panel titles -->
+  <text x="200" y="56" text-anchor="middle" font-size="13" fill="#0b0b0b"><tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">bundle_adjust</tspan><tspan font-weight="600">: one rigid correction</tspan></text>
+  <text x="560" y="56" text-anchor="middle" font-size="13" fill="#0b0b0b"><tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-weight="600">jitter_solve</tspan><tspan font-weight="600">: per-pose corrections</tspan></text>
+
+  <!-- left: whole trajectory moves rigidly -->
+  <text x="70" y="86" font-size="11" fill="#898781">vendor trajectory</text>
+  <g stroke="#898781" fill="#898781">
+    <line x1="70" y1="98" x2="330" y2="110" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <circle cx="70" cy="98" r="3.5"/>
+    <circle cx="122" cy="100" r="3.5"/>
+    <circle cx="174" cy="103" r="3.5"/>
+    <circle cx="226" cy="105" r="3.5"/>
+    <circle cx="278" cy="108" r="3.5"/>
+    <circle cx="330" cy="110" r="3.5"/>
+  </g>
+  <g transform="translate(14,58) rotate(-3 200 104)" stroke="#2a78d6" fill="#2a78d6">
+    <line x1="70" y1="98" x2="330" y2="110" stroke-width="2"/>
+    <circle cx="70" cy="98" r="3.5"/>
+    <circle cx="122" cy="100" r="3.5"/>
+    <circle cx="174" cy="103" r="3.5"/>
+    <circle cx="226" cy="105" r="3.5"/>
+    <circle cx="278" cy="108" r="3.5"/>
+    <circle cx="330" cy="110" r="3.5"/>
+  </g>
+  <line x1="200" y1="108" x2="211" y2="155" stroke="#eb6834" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#oarrow)"/>
+  <path d="M 318 144 A 30 30 0 0 1 366 154" fill="none" stroke="#eb6834" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#oarrow)"/>
+  <text x="84" y="192" font-size="11" fill="#2a78d6">after <tspan font-family="ui-monospace, SFMono-Regular, Menlo, monospace">bundle_adjust</tspan></text>
+  <text x="200" y="222" text-anchor="middle" font-size="12" fill="#52514e">one translation + rotation moves every pose together;</text>
+  <text x="200" y="238" text-anchor="middle" font-size="12" fill="#52514e">the trajectory's shape cannot change</text>
+
+  <!-- right: pointing corrected pose by pose -->
+  <g stroke="#2a78d6" fill="#2a78d6">
+    <line x1="430" y1="98" x2="690" y2="110" stroke-width="2"/>
+    <circle cx="430" cy="98" r="4"/>
+    <circle cx="482" cy="100" r="4"/>
+    <circle cx="534" cy="103" r="4"/>
+    <circle cx="586" cy="105" r="4"/>
+    <circle cx="638" cy="108" r="4"/>
+    <circle cx="690" cy="110" r="4"/>
+  </g>
+  <!-- jittered pointing (before) -->
+  <g stroke="#898781" stroke-width="1.5" stroke-dasharray="4 3">
+    <line x1="430" y1="98" x2="412" y2="138"/>
+    <line x1="482" y1="100" x2="496" y2="142"/>
+    <line x1="534" y1="103" x2="517.5" y2="144"/>
+    <line x1="586" y1="105" x2="604" y2="145"/>
+    <line x1="638" y1="108" x2="624" y2="150"/>
+    <line x1="690" y1="110" x2="706.5" y2="151"/>
+  </g>
+  <!-- corrected pointing (after) -->
+  <g stroke="#2a78d6" stroke-width="2">
+    <line x1="430" y1="98" x2="430" y2="142"/>
+    <line x1="482" y1="100" x2="482" y2="144"/>
+    <line x1="534" y1="103" x2="534" y2="147"/>
+    <line x1="586" y1="105" x2="586" y2="149"/>
+    <line x1="638" y1="108" x2="638" y2="152"/>
+    <line x1="690" y1="110" x2="690" y2="154"/>
+  </g>
+  <!-- per-pose corrections -->
+  <g stroke="#eb6834" stroke-width="1.2" stroke-dasharray="3 2">
+    <line x1="412" y1="138" x2="426" y2="141" marker-end="url(#oarrow)"/>
+    <line x1="496" y1="142" x2="486" y2="144" marker-end="url(#oarrow)"/>
+    <line x1="517.5" y1="144" x2="530" y2="146" marker-end="url(#oarrow)"/>
+    <line x1="604" y1="145" x2="590" y2="148" marker-end="url(#oarrow)"/>
+    <line x1="624" y1="150" x2="634" y2="151" marker-end="url(#oarrow)"/>
+    <line x1="706.5" y1="151" x2="694" y2="153" marker-end="url(#oarrow)"/>
+  </g>
+  <text x="430" y="186" font-size="11" fill="#898781">dashed: jittered pointing</text>
+  <text x="430" y="202" font-size="11" fill="#2a78d6">solid: corrected pointing</text>
+  <text x="560" y="222" text-anchor="middle" font-size="12" fill="#52514e">each pose's pointing is corrected on its own;</text>
+  <text x="560" y="238" text-anchor="middle" font-size="12" fill="#52514e">positions are constrained to move little</text>
+</svg>

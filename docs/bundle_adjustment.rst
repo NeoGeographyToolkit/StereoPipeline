@@ -32,6 +32,17 @@ and the 3D feature position are adjusted until they are. This is solved jointly
 over many features and images, and works with as few as two overlapping images
 or with thousands. The solution is only as good as the data and constraints, so
 the result should be checked against reality (:numref:`ba_out_files`).
+Geometrically, matching rays from consistent cameras meet at the ground feature
+(:numref:`ray_intersect_fig`).
+
+.. figure:: images/rays_intersect.svg
+   :name: ray_intersect_fig
+
+   Before bundle adjustment, matching rays from two cameras miss, giving a
+   triangulation error (:numref:`triangulation_error`). After adjustment they
+   intersect at the feature. Figure adapted from the UW
+   `stereopipeline-quickstart
+   <https://github.com/uw-cryo/stereopipeline-quickstart>`__ (BSD 3-Clause).
 
 Bundle adjustment can also take advantage of GCPs (:numref:`bagcp`), which are
 3D locations of features that are known a priori (often by measuring them by
@@ -104,12 +115,17 @@ and works well-enough unless the cameras change a lot.
 .. figure:: images/MOC_tri_error.png
    :name: moc_dem_intersection_errors
 
-   An unusually large intersection error (left), and the version after bundle
+   An unusually large triangulation error (left), and the version after bundle
    adjustment (right). Note that these do not use the same range of colors. The
    images are produced with the MOC camera (:numref:`moc_example`). The
    remaining wavy pattern is due to jitter, that ASP has a solver for
    (:numref:`jitter_solve`). More illustrations are in
    :numref:`ba_rpc_distortion` and :numref:`ba_frame_linescan_results`.
+
+The wavy jitter pattern above is a per-pose pointing error. Bundle adjustment
+cannot remove it, as it applies only one rigid correction per camera. The
+``jitter_solve`` tool (:numref:`jitter_solve`) corrects each pose sample
+individually (:numref:`ba_vs_jitter_fig`).
 
 Bundle adjustment aims to make the cameras more self-consistent but offers no
 guarantees about their absolute positions (unless GCP are used,
@@ -184,10 +200,16 @@ should be used in practice.
 
 It is suggested that one run ``parallel_stereo`` with the obtained cameras::
 
-     parallel_stereo -t nadirpinhole --alignment-method epipolar      \
-        --stereo-algorithm asp_mgm --subpixel-mode 9                  \
-        left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai \
-        run_stereo/run
+     parallel_stereo               \
+       -t nadirpinhole             \
+       --alignment-method epipolar \
+       --stereo-algorithm asp_mgm  \
+       --subpixel-mode 9           \
+       left.tif                    \
+       right.tif                   \
+       run_ba/run-left.tsai        \
+       run_ba/run-right.tsai       \
+       run_stereo/run
 
 followed by DEM creation (:numref:`point2dem`)::
 
@@ -296,10 +318,16 @@ needs to be first aligned to this ground truth, such as::
 
 This alignment can then be applied to the cameras as well::
 
-     bundle_adjust -t nadirpinhole --inline-adjustments              \
-       --initial-transform run_align/run-inverse-transform.txt       \
-       left.tif right.tif run_ba/run-left.tsai run_ba/run-right.tsai \
-       --apply-initial-transform-only -o run_align/run
+     bundle_adjust                                             \
+       -t nadirpinhole                                         \
+       --inline-adjustments                                    \
+       --initial-transform run_align/run-inverse-transform.txt \
+       left.tif                                                \
+       right.tif                                               \
+       run_ba/run-left.tsai                                    \
+       run_ba/run-right.tsai                                   \
+       --apply-initial-transform-only                          \
+       -o run_align/run
 
 If ``pc_align`` is called with the clouds in reverse order (the denser
 cloud should always be the first), when applying the transform to the
@@ -997,7 +1025,7 @@ This basic example assumes two frame camera images sharing intrinsics, named
 ``frame1.tif`` and ``frame2.tif``, and two linescan camera images, whose
 intrinsics are not enforced to be shared. They
 can even be from different vendors. The linescan intrinsics will be kept fixed.
-Assume these files are named ``linescan1.tif`` and ``linescan2.tif``. The camera
+Assume these files are named ``ls1.tif`` and ``ls2.tif``. The camera
 names will have the same convention, but ending in ``.json``.
 
 Initial bundle adjustment
@@ -1009,7 +1037,7 @@ strictly necessary.
 
 Ensure consistent order of the images and cameras, both here and in the next
 steps. This will guarantee that all generated match files will be used. The
-order here will be ``frame1``, ``frame2``, ``linescan1``, ``linescan2``.
+order here will be ``frame1``, ``frame2``, ``ls1``, ``ls2``.
 
 It is very strongly suggested to examine the stereo convergence angles
 (:numref:`ba_conv_angle`). At least some of them should be at least 10-15
@@ -1060,22 +1088,22 @@ cameras::
 
     ls ba/run-frame1.adjusted_state.json \
        ba/run-frame2.adjusted_state.json > frame_cameras.txt
-    ls ba/run-linescan1.adjusted_state.json > linescan1_cameras.txt
-    ls ba/run-linescan2.adjusted_state.json > linescan2_cameras.txt
+    ls ba/run-ls1.adjusted_state.json > ls1_cameras.txt
+    ls ba/run-ls2.adjusted_state.json > ls2_cameras.txt
  
 and similarly the images. Hence, there are 3 groups of sensors. These
 files will be passed to ``bundle_adjust`` as follows::
 
-  --image-list frame_images.txt,linescan1_images.txt,linescan2_images.txt      \
-  --camera-list frame_cameras.txt,linescan1_cameras.txt,linescan2_cameras.txt
+  --image-list frame_images.txt,ls1_images.txt,ls2_images.txt \
+  --camera-list frame_cameras.txt,ls1_cameras.txt,ls2_cameras.txt
  
 Use a comma as separator, and no spaces.
 
 The intrinsics for the frame cameras are floated, and the linescan intrinsics
 (but not poses) are kept fixed. This is accomplished with the option::
 
-  --intrinsics-to-float '1:focal_length,optical_center,other_intrinsics 
-                         2:none 3:none'
+    --intrinsics-to-float \
+      '1:focal_length,optical_center,other_intrinsics 2:none 3:none'
 
 Optimizing the optical center may not be necessary, as this intrinsic parameter
 may correlate with the position of the cameras, and these are not easy to
