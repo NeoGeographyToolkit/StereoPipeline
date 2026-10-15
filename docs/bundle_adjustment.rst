@@ -6,15 +6,11 @@ Bundle adjustment
 Overview
 --------
 
-Satellite position and orientation errors have a direct effect on the
-accuracy of digital elevation models produced by the Stereo Pipeline. If
-they are not corrected, these uncertainties will result in systematic
-errors in the overall position and slope of the DEM. Severe distortions
-can occur as well, resulting in twisted or "taco-shaped" DEMs, though in
-most cases these effects are quite subtle and hard to detect. In the
-worst case, such as with old mission data like Voyager or Apollo, these
-gross camera misalignments can inhibit Stereo Pipeline's internal
-interest point matcher and block auto search range detection.
+Errors in satellite position and orientation directly affect the accuracy of
+DEMs produced by the Stereo Pipeline. Uncorrected, they cause systematic errors
+in the position and slope of the DEM, and can cause severe distortions. With old
+mission data, such as Voyager or Apollo, large camera misalignments can also
+prevent interest point matching and block automatic search range detection.
 
 .. figure:: images/ba_orig_adjusted.png
 
@@ -24,46 +20,33 @@ interest point matcher and block auto search range detection.
    made from different images. (b) After bundle adjustment, DEM alignment
    errors are minimized and no longer visible.
 
-Errors in camera position and orientation can be corrected using a
-process called *bundle adjustment*. Bundle adjustment is the process of
-simultaneously adjusting the properties of many cameras and the 3D
-locations of the objects they see in order to minimize the error between
-the estimated, back-projected pixel locations of the 3D objects and
-their actual measured locations in the captured images. This is called
-the *reprojection error*.
+Bundle adjustment corrects errors in camera position and orientation by
+simultaneously adjusting the parameters of many cameras and the 3D locations
+of the features they observe. It minimizes the reprojection error, the
+discrepancy between where each 3D feature projects into a camera and where it
+was measured in the image.
 
-This complex process can be boiled down to this simple idea: bundle
-adjustment ensures that the observations in multiple images of a single
-ground feature are self-consistent. If they are not consistent, then the
-position and orientation of the cameras as well as the 3D position of
-the feature must be adjusted until they are. This optimization is
-carried out along with thousands (or more) of similar constraints
-involving many different features observed in other images. Bundle
-adjustment is very powerful and versatile: it can operate on just two
-overlapping images, or on thousands. It is also a dangerous tool.
-Careful consideration is required to insure and verify that the solution
-does represent reality.
+In effect, bundle adjustment makes the observations of a ground feature in
+multiple images self-consistent. If they are not consistent, the camera poses
+and the 3D feature position are adjusted until they are. This is solved jointly
+over many features and images, and works with as few as two overlapping images
+or with thousands. The solution is only as good as the data and constraints, so
+the result should be checked against reality (:numref:`ba_out_files`).
 
 Bundle adjustment can also take advantage of GCPs (:numref:`bagcp`), which are
 3D locations of features that are known a priori (often by measuring them by
-hand in another existing DEM). GCPs can improve the internal consistency of your
-DEM or align your DEM to an existing data product. Finally, even though bundle
+hand in another existing DEM). GCPs can improve the internal consistency of the
+DEM or align it to an existing data product. Finally, even though bundle
 adjustment calculates the locations of the 3D objects it views, only the final
 properties of the cameras are recorded for use by the Ames Stereo Pipeline.
 Those properties can be loaded into the ``parallel_stereo`` program which uses
 its own method for triangulating 3D feature locations.
 
-When using the Stereo Pipeline, bundle adjustment is an optional step
-between the capture of images and the creation of DEMs. The bundle
-adjustment process described below should be completed prior to running
-the ``parallel_stereo`` command.
-
-Although bundle adjustment is not a required step for generating DEMs,
-it is *highly recommended* for users who plan to create DEMs for
-scientific analysis and publication. Incorporating bundle adjustment
-into the stereo work flow not only results in DEMs that are more
-internally consistent, it is also the correct way to co-register your
-DEMs with other existing data sets and geodetic control networks.
+Bundle adjustment is an optional step between image capture and DEM creation,
+run before ``parallel_stereo``. It is not required, but it is strongly
+recommended for DEMs intended for scientific analysis and publication. It makes
+DEMs more internally consistent, and it is the correct way to co-register them
+with other data sets and geodetic control networks.
 
 A DEM obtained after bundle adjustment and stereo may need to be aligned
 to a known reference coordinate system. For that, use the ``pc_align``
@@ -75,8 +58,8 @@ external DEM in bundle adjustment.  Note that these can only locally
 refine camera parameters, an initial alignment with ``pc_align`` is
 still necessary.
 
-Optimizing of camera intrinsics parameters, such as optical center,
-focal length, and distortion is also possible, as seen below.
+Optimizing camera intrinsics, such as optical center, focal length, and
+distortion, is also possible (:numref:`floatingintrinsics`).
 
 .. _baasp:
 
@@ -91,7 +74,7 @@ models::
 
     parallel_stereo AS15-M-1134.cub AS15-M-1135.cub run_noadjust/run
 
-See :numref:`nextsteps` for how how to improve the quality of stereo
+See :numref:`nextsteps` for how to improve the quality of stereo
 correlation results (at the expense of speed).
 
 Create a DEM and triangulation error image as in :numref:`point2dem`.
@@ -152,9 +135,7 @@ during stereo with the options ``--match-files-prefix`` and
 Floating intrinsics and using a lidar or DEM ground truth
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This section documents some advanced functionality, and it suggested the
-reader study it carefully and invest a certain amount of time to fully
-take advantage of these concepts.
+This is advanced functionality and rewards careful study.
 
 When the input cameras are of Pinhole type (:numref:`pinholemodels`), optical
 bar (:numref:`panoramic`), or CSM (:numref:`csm`), it is possible to optimize
@@ -179,8 +160,8 @@ Mixing frame and linescan cameras is discussed in :numref:`ba_frame_linescan`.
 A first attempt at floating the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This section is *only an introduction* of how to float the intrinsics. Detailed
-examples are further down. 
+This is only an introduction to floating the intrinsics. Detailed examples are
+further down.
 
 It is very strongly suggested to ensure that a good number of images exists,
 they have a lot of overlap, that the cameras have been already bundle-adjusted
@@ -222,7 +203,7 @@ See :numref:`running-stereo` for other stereo algorithms. For ``colormap``
 (:numref:`colormap`), ``--min`` and ``--max`` bounds can be specified if the
 automatic range is too large.
 
-We also suggest inspecting the interest points
+It is also suggested to inspect the interest points
 (:numref:`stereo_gui_view_ip`)::
 
      stereo_gui left.tif right.tif run_ba/run
@@ -235,7 +216,7 @@ run directory and create a better set, as discussed in :numref:`custom_ip`.
 
 If the interest points are good and the mean intersection error is
 acceptable, but this error shows an odd nonlinear pattern, that means
-it may be necessary to optimize the intrinsics. We do so by using the
+it may be necessary to optimize the intrinsics. This is done using the
 cameras with the optimized extrinsics found earlier. This is just an
 early such attempt, better approaches will be suggested below::
 
@@ -265,7 +246,7 @@ is a simple formula, which is fast and convenient in bundle adjustment,
 when projecting into the camera is the key operation. Using models
 like *Photometrix* and *Brown-Conrady* is not advised.
 
-Here we assumed all intrinsics are shared. See
+Here all intrinsics are assumed shared. See
 :numref:`kaguya_ba` for how to have several groups of
 intrinsics. See also the option ``--intrinsics-to-share``.
 
@@ -325,7 +306,7 @@ cloud should always be the first), when applying the transform to the
 cameras in ``bundle_adjust`` one should use ``transform.txt`` instead of
 ``inverse-transform.txt`` above.
 
-Note that if your ground truth is in CSV format, any tools that use this cloud
+Note that if the ground truth is in CSV format, any tools that use this cloud
 must set ``--csv-format`` and perhaps also ``--datum`` and/or ``--csv-srs``.
 
 See :numref:`ba_pc_align` for how to handle the case when input
@@ -364,9 +345,9 @@ instead ``--heights-from-dem-uncertainty``.
 If a triangulated point is not close to the reference DEM, bundle adjustment
 falls back to the ``--tri-weight`` constraint.
 
-Here is an example when we solve for intrinsics with a DEM constraint. As in the
-earlier section, *we assume that the cameras and the terrain are already
-aligned*::
+Here is an example of solving for intrinsics with a DEM constraint. As in the
+earlier section, the cameras and the terrain are assumed to be already
+aligned::
 
      bundle_adjust -t nadirpinhole               \
        --inline-adjustments                      \
@@ -389,13 +370,12 @@ it larger will ensure it does not prevent convergence.
 
 It is *strongly suggested* to use dense interest points (:numref:`dense_ip`), if
 solving for intrinsics, and have ``--max-pairwise-matches`` large enough to not
-throw some of them out. We set ``--camera-position-weight 0``, as hopefully the
-DEM constraint is enough to constrain the solution.
+throw some of them out. Here ``--camera-position-weight 0`` is set, as the
+DEM constraint is hopefully enough to constrain the solution.
 
-Here we were rather generous with the parameters for removing
-outliers, as the input DEM may not be that accurate, and then if tying
-too much to it some valid matches be be flagged as outliers otherwise,
-perhaps.
+The parameters for removing outliers were set rather generously here, as the
+input DEM may not be that accurate. Tying too much to it could otherwise flag
+some valid matches as outliers.
 
 The implementation of ``--heights-from-dem`` is as follows. Rays from matching
 interest points are intersected with this DEM, and the average of the produced
@@ -421,12 +401,12 @@ floating the intrinsics, in the SkySat processing example (:numref:`skysat`),
 using Pinhole cameras, and with linescan Lunar images with variable illumination
 (:numref:`sfs-lola`).
 
-Here we assumed all intrinsics are shared. See :numref:`kaguya_ba` for how to
+Here all intrinsics are assumed shared. See :numref:`kaguya_ba` for how to
 have several groups of intrinsics. See also the option
 ``--intrinsics-to-share``.
 
 It is suggested to look at the documentation of all the options
-above and adjust them for your use case.
+above and adjust them for the use case at hand.
 
 See :numref:`bundle_adjust` for the documentation of all options
 above, and :numref:`ba_out_files` for the output reports being saved,
@@ -437,11 +417,10 @@ which can help judge how well the optimization worked.
 Sparse ground truth and using the disparity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Here we will discuss an approach that works when the ground truth can
-be sparse, and we make use of the stereo disparity. It requires more
-work to set up than the earlier one.
+This approach works when the ground truth can be sparse, and makes use of the
+stereo disparity. It requires more work to set up than the earlier one.
 
-We will create a disparity between the left and right image by taking the
+A disparity between the left and right image is created by taking the
 disparity obtained in stereo and removing any mapprojection or alignment (option
 ``--unalign-disparity`` :numref:`triangulation_options`). The same command also
 creates dense and uniformly distributed interest point matches
@@ -463,7 +442,7 @@ an existing stereo run, reusing the ``run_stereo/run-F.tif`` disparity. The
 preferred alignment method should be set above (:numref:`image_alignment`).
 
 The bundle adjustment can be invoked with this disparity, the dense matches, and
-the DEM/lidar file. Note that we use the cameras obtained after alignment::
+the DEM/lidar file. Note that the cameras obtained after alignment are used::
 
      bundle_adjust -t nadirpinhole                     \
        --inline-adjustments                            \
@@ -486,12 +465,12 @@ the DEM/lidar file. Note that we use the cameras obtained after alignment::
 The dense matches created above are saved with the prefix ``run_stereo/run-disp``
 (:numref:`dense_ip`), hence the value of ``--match-files-prefix``.
 
-Here we set the camera position weight all the way to 0, since it is hoped that
-having a reference terrain is a sufficient constraint to prevent over-fitting.
+Here the camera position weight is set all the way to 0, since having a
+reference terrain is hopefully a sufficient constraint to prevent over-fitting.
 The newer option ``--camera-position-uncertainty`` is a suggested control, which
 should be set leniently.
 
-We used ``--robust-threshold 2`` to make the solver work harder
+Here ``--robust-threshold 2`` is used to make the solver work harder
 where the errors are larger. This may be increased somewhat if the
 distortion is still not solved well in corners.
 
@@ -515,9 +494,9 @@ cameras are not well-aligned to each other or to the ground, or the
 intrinsics are off too much. In that case it is possible the errors are
 too large for this approach to reduce them effectively.
 
-We strongly recommend that for this process one should not rely on
-bundle adjustment to create interest points, but to use the dense and
-uniformly distributed ones created with stereo (:numref:`dense_ip`).
+For this process, it is strongly recommended not to rely on bundle adjustment
+to create interest points, but to use the dense and uniformly distributed ones
+created with stereo (:numref:`dense_ip`).
 
 The hope is that after these directions are followed, this will result
 in a smaller intersection error and a smaller error to the lidar/DEM
@@ -525,7 +504,7 @@ ground truth (the later can be evaluated by invoking
 ``geodiff --absolute`` on the ASP-created aligned DEM and the reference
 lidar/DEM file).
 
-Here we assumed all intrinsics are shared. See
+Here all intrinsics are assumed shared. See
 :numref:`kaguya_ba` for how to have several groups of
 intrinsics. See also the option ``--intrinsics-to-share``.
 
@@ -600,11 +579,11 @@ individually.
 Refining the intrinsics per sensor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Given a set of sensors, with each acquiring several images, we will optimize the
-intrinsics per sensor. All images acquired with the same sensor will share the
+Given a set of sensors, with each acquiring several images, the intrinsics are
+optimized per sensor. All images acquired with the same sensor will share the
 same intrinsics, and none will be shared across sensors.
 
-We will work with Kaguya TC linescan cameras and the CSM camera model
+This example uses Kaguya TC linescan cameras and the CSM camera model
 (:numref:`csm`). Pinhole cameras in .tsai format (:numref:`pinholemodels`) and
 Frame cameras in CSM format (:numref:`csm_frame_def`) can be used as well.
 
@@ -640,7 +619,7 @@ enough to model the distortion in the images.
 Image selection
 ^^^^^^^^^^^^^^^
 
-We chose a set of 10 Kaguya stereo pairs with a lot of overlap (20 images in
+A set of 10 Kaguya stereo pairs with a lot of overlap was chosen (20 images in
 total). The left image was acquired with the ``TC1`` sensor, and the right one
 with ``TC2``. These sensors have different intrinsics.
 
@@ -669,8 +648,8 @@ Put the image and camera names in plain text files named ``images.txt`` and
 ``cameras.txt``. These must be in one-to-one correspondence, and with one image
 or camera per line. 
 
-The order should be with TC1 images being before TC2. Later we will use the same
-order when these are subdivided by sensor.
+The order should be with TC1 images being before TC2. Later the same order is
+used when these are subdivided by sensor.
 
 Initial bundle adjustment is done with the intrinsics fixed.
 
@@ -698,7 +677,7 @@ needed to estimate which image pairs overlap.
 The option ``--remove-outliers-params`` is set so that only the worst outliers
 (with reprojection error of 20 pixels or more) are removed. That because
 imperfect intrinsics may result in accurate interest points that have a
-somewhat large reprojection error. We want to keep such features in the corners
+somewhat large reprojection error. Such features in the corners should be kept,
 to help refine the distortion parameters.
 
 The option ``--ip-per-tile`` is set to a large value so that many interest
@@ -722,7 +701,7 @@ The reprojection errors are plotted in :numref:`kaguya_intrinsics_opt_example`.
 Running stereo
 ^^^^^^^^^^^^^^
 
-We will use the optimized CSM cameras saved in the ``ba`` directory
+The optimized CSM cameras saved in the ``ba`` directory are used
 (:numref:`csm_state`). For each stereo pair, run::
 
     parallel_stereo                    \
@@ -736,7 +715,7 @@ We will use the optimized CSM cameras saved in the ``ba`` directory
       ba/run-right.adjusted_state.json \
       stereo_left_right/run
 
-Then we will create a DEM at the resolution of the input images,
+Then a DEM is created at the resolution of the input images,
 which in this case is 10 m/pixel. The local stereographic projection
 will be used.
 
@@ -825,9 +804,9 @@ then use the same naming convention.
 Refining the intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-We will use the camera files produced by ``bundle_adjust`` before, with names as
-``ba/run-*.adjusted_state.json``. These have the refined position and
-orientation. We will re-optimize those together with the intrinsics parameters,
+The camera files produced earlier by ``bundle_adjust``, with names as
+``ba/run-*.adjusted_state.json``, are used here. These have the refined position
+and orientation. They are re-optimized together with the intrinsics parameters,
 including distortion (which in ``bundle_adjust`` goes by the name
 ``other_intrinsics``).
 
@@ -898,10 +877,10 @@ errors drop by a factor of about 2 and 1.5 respectively.
 Comparing to an external ground truth
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We solved for intrinsics by constraining against the averaged mosaicked DEM of
-the stereo pairs produced with initial intrinsics. This works reasonably well if
-the error due to distortion is somewhat small and the stereo pairs overlap
-enough that this error gets averaged out in the mosaic.
+Here the intrinsics were solved for by constraining against the averaged
+mosaicked DEM of the stereo pairs produced with initial intrinsics. This works
+reasonably well if the error due to distortion is somewhat small and the stereo
+pairs overlap enough that this error gets averaged out in the mosaic.
 
 Ideally, a known accurate external DEM should be used. For example, one could
 create DEMs using LRO NAC data. Note that many such DEMs would be need to be
@@ -912,10 +891,10 @@ mosaic (or individual stereo DEMs) should be first aligned to the external DEM.
 Then, the same alignment transform should be applied to the cameras
 (:numref:`ba_pc_align`). Then the intrinsics optimization can happen as before. 
 
-We use the sparse `LOLA RDR
+The sparse `LOLA RDR
 <https://ode.rsl.wustl.edu/moon/tools?displaypage=lolardr>`_ dataset
-(:numref:`csv_format`) for final validation. This works well enough because the
-ground footprint of Kaguya TC is rather large.
+(:numref:`csv_format`) is used for final validation. This works well enough
+because the ground footprint of Kaguya TC is rather large.
 
 Each stereo DEM, before and after intrinsics refinement, is individually aligned to 
 LOLA, and the signed difference to LOLA is found.
@@ -981,11 +960,11 @@ distortion artifacts are most likely to have been averaged well.
 Mixing frame and linescan cameras
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-So far we discussed refining the intrinsics for pinhole (frame) cameras, such as
-in :numref:`heights_from_dem`, and for linescan cameras, such as in
-:numref:`kaguya_ba`.
+So far the discussion covered refining the intrinsics for pinhole (frame)
+cameras, such as in :numref:`heights_from_dem`, and for linescan cameras, such
+as in :numref:`kaguya_ba`.
 
-Here we will consider the situation when we have both. It is assumed that the
+Here the situation when both are present is considered. It is assumed that the
 images acquired with these sensors are close in time and have similar
 illumination. There should be a solid amount of image overlap, especially in the
 corners of the images whose distortion should be optimized. 
@@ -1014,9 +993,9 @@ The linescan cameras can be converted to CSM format using ``cam_gen`` as well
 (:numref:`cam_gen_linescan`). This does not find a best-fit model, but rather
 reads the linescan sensor poses and intrinsics from the input file.  
 
-We will assume in this basic example that we have two frame camera images
-sharing intrinsics, named ``frame1.tif`` and ``frame2.tif``, and two linescan
-camera images, for which will not enforce that the intrinsics are shared. They
+This basic example assumes two frame camera images sharing intrinsics, named
+``frame1.tif`` and ``frame2.tif``, and two linescan camera images, whose
+intrinsics are not enforced to be shared. They
 can even be from different vendors. The linescan intrinsics will be kept fixed.
 Assume these files are named ``linescan1.tif`` and ``linescan2.tif``. The camera
 names will have the same convention, but ending in ``.json``.
@@ -1063,17 +1042,17 @@ data will then motivate the next steps.
 Refinement of the frame camera intrinsics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We will follow closely the recipe in :numref:`kaguya_ba`. It is suggested to use
-for the refinement step the linescan DEM as a constraint (option
+The recipe in :numref:`kaguya_ba` is followed closely. For the refinement step,
+it is suggested to use the linescan DEM as a constraint (option
 ``--heights-from-dem``). If a different DEM is employed, the produced bundle-adjusted
 cameras and DEMs should be aligned to it first (:numref:`ba_pc_align`).
 
-As for :numref:`kaguya_ba`, we need to create several text files, with each
-having the names of the images whose intrinsics are shared, and the same for the
+As in :numref:`kaguya_ba`, several text files need to be created, each having
+the names of the images whose intrinsics are shared, and the same for the
 cameras.
 
-If not sure that the linescan cameras have the same intrinsics, they can be kept
-in different files. We will keep those intrinsics fixed in either ase.
+If it is not certain that the linescan cameras have the same intrinsics, they
+can be kept in different files. Those intrinsics are kept fixed in either case.
 
 Assume the previous bundle adjustment was done with the output prefix
 ``ba/run``. The files for the next step are created as follows. For the
@@ -1084,7 +1063,7 @@ cameras::
     ls ba/run-linescan1.adjusted_state.json > linescan1_cameras.txt
     ls ba/run-linescan2.adjusted_state.json > linescan2_cameras.txt
  
-and similarly the images. Hence, we have 3 groups of sensors. These
+and similarly the images. Hence, there are 3 groups of sensors. These
 files will be passed to ``bundle_adjust`` as follows::
 
   --image-list frame_images.txt,linescan1_images.txt,linescan2_images.txt      \
@@ -1092,8 +1071,8 @@ files will be passed to ``bundle_adjust`` as follows::
  
 Use a comma as separator, and no spaces.
 
-We will float the intrinsics for the frame cameras, and keep the linescan intrinsics
-(but not poses) fixed. This is accomplished with the option::
+The intrinsics for the frame cameras are floated, and the linescan intrinsics
+(but not poses) are kept fixed. This is accomplished with the option::
 
   --intrinsics-to-float '1:focal_length,optical_center,other_intrinsics 
                          2:none 3:none'
@@ -1246,7 +1225,7 @@ mapproject the images onto this DEM (:numref:`mapproject`), obtaining the images
 The same resolution (option ``--tr``) should be used for all images, which should
 be a compromise between the ground sample distance values for these images.
 
-See :numref:`mapproj-example` how how to find a DEM for mapprojection and other
+See :numref:`mapproj-example` how to find a DEM for mapprojection and other
 details.
 
 Automatic matching
@@ -1411,7 +1390,7 @@ matches from disparity (:numref:`dense_ip`).
 Bundle adjustment using ISIS
 ----------------------------
 
-In what follows we describe how to do bundle adjustment using ISIS's
+What follows describes how to do bundle adjustment using ISIS's
 toolchain. It also serves to describe bundle adjustment in more detail,
 which is applicable to other bundle adjustment tools as well, including
 Stereo Pipeline's own tool.
@@ -1438,7 +1417,7 @@ This shows up in slightly different projected locations in each image
 due to their slight misalignments. The second step is to have an
 automatic registration algorithm try to find the same feature in all
 images using the prior grid as a starting location. The third step is to
-manually verify all measurements visually, checking to insure that each
+manually verify all measurements visually, checking to ensure that each
 measurement is looking at the same feature.
 
 .. figure:: images/ba_feature_observation.png
@@ -1469,17 +1448,11 @@ Levenberg-Marquardt algorithm (LMA). Speed is improved by using sparse methods
 as described in :cite:`hartley04`, :cite:`konolige:sparsesparse`, and
 :cite:`cholmod`.
 
-Even though the arithmetic for bundle adjustment sounds clever, there
-are faults with the base implementation. Imagine a case where all
-cameras and 3D points were collapsed into a single point. If you
-evaluate the above cost function, you'll find that the error is indeed
-zero. This is not the correct solution if the images were taken from
-orbit. Another example is if a translation was applied equally to all 3D
-points and camera locations. This again would not affect the cost
-function. This fault comes from bundle adjustment's inability to control
-the scale and translation of the solution. It will correct the geometric
-shape of the problem, yet it cannot guarantee that the solution will
-have correct scale and translation.
+The cost function above has a fundamental limitation. Collapsing all cameras
+and 3D points to a single point makes it zero, as does applying the same
+translation to all cameras and points. Minimizing the reprojection error alone
+constrains the geometric shape of the solution, but not its absolute scale and
+translation.
 
 ISIS attempts to fix this problem by adding two additional cost
 functions to bundle adjustment. First of which is
@@ -1522,15 +1495,15 @@ nor the authors of Stereo Pipeline. They were created by USGS and their
 documentation is available at :cite:`isis:documentation`.
 
 What follows is an example of bundle adjustment using two MOC images of Hrad
-Vallis. We use images E02/01461 and M01/00115, the same as used in
+Vallis. The images E02/01461 and M01/00115 are used, the same as in
 :numref:`moc_tutorial`. These images are available from NASA's PDS (the ISIS
-``mocproc`` program will operate on either the IMQ or IMG format files, we use
-the ``.imq`` below in the example). 
+``mocproc`` program operates on either the IMQ or IMG format files, the
+``.imq`` is used below in the example).
 
 Ensure that ISIS and its supporting data is installed, per :numref:`planetary_images`,
 and that ``ISISROOT`` and ``ISIS3DATA`` are set. The string ``ISIS>`` is not 
-part of the shell commands below, it is just suggestive of the fact that we operate
-in an ISIS environment.
+part of the shell commands below, it just indicates that the commands are
+run in an ISIS environment.
 
 Fetch the MOC images anc convert them to ISIS cubes.
 
@@ -1554,8 +1527,8 @@ ASP's ``bundle_adjust`` program, however, can create and match features
 on mapprojected images, and then project those into the original images
 (:numref:`mapip`).
 
-Before we can dive into creating our tie-point measurements we must
-finish prepping these images. The following commands will add a vector
+These images need further preparation before the tie-point measurements can
+be created. The following commands will add a vector
 layer to the cube file that describes its outline on the globe. It will
 also create a data file that describes the overlapping sections between
 files.
@@ -1567,7 +1540,7 @@ files.
      ISIS> ls *.cub > cube.lis
      ISIS> findimageoverlaps from=cube.lis overlaplist=overlap.lis
 
-At this point, we are ready to start generating our measurements. This
+At this point, the measurements can be generated. This
 is a three step process that requires defining a geographic pattern for
 the layout of the points on the groups, an automatic registration pass,
 and finally a manual clean up of all measurements. Creating the ground
@@ -1658,8 +1631,8 @@ the matching template. The search range is specific for this image pair.
 The control network result after ``autoseed`` had a large vertical
 offset on the order of 500 pixels. The large misalignment dictated the
 need for the large search in the lines direction. Use ``qnet`` to get an
-idea for what the pixel shifts look like in your stereo pair to help you
-decide on a search range. In this example, only one measurement failed
+idea of what the pixel shifts look like in the stereo pair, to help decide
+on a search range. In this example, only one measurement failed
 to match automatically. Here are the arguments to use in this example of
 ``pointreg``.
 
@@ -1672,14 +1645,14 @@ The third step is to verify the measurements in ``qnet``, and, if necessary,
 apply manual corrections. Type ``qnet`` in the terminal and then open
 *cube.lis*, followed by *control_pointreg.net*. From the Control Network
 Navigator window, click, as before, on the first point, *vallis0001*. That opens
-a third window called the Qnet Tool. That window will allow you to play a flip
-animation that shows alignment of the feature between the two images. Correcting
+a third window called the Qnet Tool. That window can play a flip animation
+that shows the alignment of the feature between the two images. Correcting
 a measurement is performed by left clicking in the right image, then clicking
 *Save Measure*, and finally finishing by clicking *Save Point*.
 
-In this tutorial, measurement *0025* ended up being incorrect. Your number may
-vary if you used different settings than the above or if MOC SPICE (camera pose)
-data has improved since this writing. When finished, go back to the main Qnet
+In this tutorial, measurement 0025 ended up being incorrect. This number may
+vary with different settings, or if the MOC SPICE (camera pose) data has
+improved since this writing. When finished, go back to the main Qnet
 window. Save the final control network as *control_qnet.net* by clicking on
 *File*, and then *Save As*.
 
@@ -1702,8 +1675,8 @@ adjustment. Here's how ``jigsaw`` is called::
              cnet               = control_qnet.net \
              onet               = control_ba.net
 
-The update option defines that we would like to update the camera pointing, if
-our bundle adjustment converges. The ``twist = no`` option says to not solve for
+The update option specifies that the camera pointing should be updated if
+bundle adjustment converges. The ``twist = no`` option says to not solve for
 the camera rotation about the camera bore. That property is usually very well
 known as it is critical for integrating an image with a line-scan camera. The
 ``radius = yes`` setting means that the radius of the 3D features can be solved
@@ -1714,16 +1687,16 @@ the uncertainty of the radius of the 3D points, in units of meter.
 The above command will print out diagnostic information from
 every iteration of the optimization algorithm. The most important
 feature to look at is the *sigma0* value. It represents the mean of
-pixel errors in the control network. In our run, the initial error was
+pixel errors in the control network. In this run, the initial error was
 1065 pixels and the final solution had an error of 1.1 pixels.
 
 Producing a DEM using the newly created camera corrections is the same
 as covered in the Tutorial. When using ``jigsaw``, it modifies
 a copy of the SPICE data that is stored internally to the cube file.
 
-Thus, when we want to create a DEM using the correct camera geometry, no extra
-information needs to be given to ``parallel_stereo`` since it is already
-contained in the camera files. 
+Thus, to create a DEM using the correct camera geometry, no extra information
+needs to be given to ``parallel_stereo``, since it is already contained in
+the camera files.
 
 More information is in the `jigsaw documentation
 <https://isis.astrogeology.usgs.gov/Application/presentation/Tabbed/jigsaw/jigsaw.html>`_.
@@ -1744,7 +1717,7 @@ In either case, then one can run stereo::
              E0201461.cub M0100115.cub  \
              stereo/run
      
-See :numref:`nextsteps` for how how to improve the quality of stereo
+See :numref:`nextsteps` for how to improve the quality of stereo
 correlation results (at the expense of speed), how to create a DEM,
 etc.
 

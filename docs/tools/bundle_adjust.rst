@@ -40,9 +40,8 @@ See :numref:`moc_tutorial` for an introduction to these cameras.
        file1.cub file2.cub file3.cub \
        -o run_ba/run
 
-The above choices for camera weight and triangulation weight have in the
-meantime become the defaults. These are helpful in preventing the cameras from
-drifting too far from initial locations.
+These choices for camera weight and triangulation weight are now the defaults.
+They help keep the cameras from drifting too far from their initial locations.
 
 How to use the adjusted cameras is shown in :numref:`ba_use`.
 
@@ -51,8 +50,8 @@ How to use the adjusted cameras is shown in :numref:`ba_use`.
 Maxar Earth cameras and GCP
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Here we use Maxar (DigitalGlobe) Earth data (:numref:`dg_tutorial`) and ground
-control points (:numref:`bagcp`)::
+Here Maxar (DigitalGlobe) Earth data (:numref:`dg_tutorial`) and ground control
+points (:numref:`bagcp`) are used::
 
     bundle_adjust                \
       --camera-weight 0          \
@@ -79,7 +78,7 @@ The residuals for the GCP will be printed at the end of the
 ``final_residuals_pointmap.csv`` file, and flagged with the string ``# GCP``
 (:numref:`ba_err_per_point`).
 
-We invoked the tool with two passes, which also enables removal
+The tool was invoked with two passes, which also enables removal
 of outliers (see option ``--remove-outliers-params``, :numref:`ba_options`).
 
 .. _ba_rpc:
@@ -125,8 +124,8 @@ Pinhole cameras
 
 See :numref:`pinholemodels` for the pinhole camera model format.
 
-Here we assumed that the cameras point towards the planet's surface and used the
-``nadirpinhole`` session. If this assumption is not true, one should use the
+Here the cameras are assumed to point towards the planet's surface, and the
+``nadirpinhole`` session is used. If this assumption is not true, use the
 ``pinhole`` session or the ``--no-datum`` option.
 
 The value of ``--datum`` should reflect the planetary body being imaged. If not
