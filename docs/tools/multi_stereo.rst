@@ -116,12 +116,8 @@ optional products are added by passing the corresponding flag in
   ``dem_mosaic --first`` (the first valid pixel, to avoid smearing seams).
 * ``--propagate-errors`` also writes ``stereo_out/run-HorizontalStdDev.tif`` and
   ``stereo_out/run-VerticalStdDev.tif``, the propagated horizontal and vertical
-  uncertainty (:numref:`error_propagation`), each combined with ``dem_mosaic``.
-  Set ``--propagate-errors`` in ``--stereo-options`` (so each pair's point cloud
-  carries the uncertainty bands). It can also be set in ``--point2dem-options`` (so it
-  is gridded and mosaicked), or else it is added there automatically. This works with
-  the bathymetry mode as well (:numref:`error_prop_bathy`), with the bathy options
-  passed in ``--stereo-options``.
+  uncertainty (:numref:`error_propagation`). This works with the bathymetry mode
+  as well (:numref:`error_prop_bathy`).
 
 Set the option ``--nodes-list`` to run on multiple machines (:numref:`pbs_slurm`).
 
