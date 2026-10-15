@@ -117,7 +117,9 @@ optional products are added by passing the corresponding flag in
 * ``--propagate-errors`` also writes ``stereo_out/run-HorizontalStdDev.tif`` and
   ``stereo_out/run-VerticalStdDev.tif``, the propagated horizontal and vertical
   uncertainty (:numref:`error_propagation`). This works with the bathymetry mode
-  as well (:numref:`error_prop_bathy`).
+  as well (:numref:`error_prop_bathy`). For most cameras the input uncertainty
+  must also be set, by passing ``--horizontal-stddev`` in ``--stereo-options``
+  (:numref:`error_propagation`).
 
 Set the option ``--nodes-list`` to run on multiple machines (:numref:`pbs_slurm`).
 

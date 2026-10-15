@@ -3,36 +3,55 @@
 Error propagation
 =================
 
-At the triangulation stage, ``parallel_stereo`` can propagate the
-errors (uncertainties, standard deviations, covariances) from the
-input cameras, computing the horizontal and vertical standard
-deviation (stddev) of the uncertainty for each triangulated
-point. This is enabled with the option ``--propagate-errors``
-(:numref:`stereo-default-error-propagation`).
+At the triangulation stage, :ref:`parallel_stereo` can propagate the errors
+(uncertainties, standard deviations, covariances) from the input cameras,
+computing the horizontal and vertical standard deviation (stddev) of the
+uncertainty for each triangulated point. This is enabled with the option
+``--propagate-errors`` (:numref:`stereo-default-error-propagation`).
 
 Bundle adjustment can propagate uncertainties as well
 (:numref:`ba_error_propagation`).
 
 The produced uncertainties can be exported from the point cloud to DEM and/or
-LAS files (:numref:`export_stddev`). 
+LAS files (:numref:`export_stddev`).
+
+.. _input_errors:
 
 The input uncertainties
 -----------------------
 
-The input uncertainties can be either numbers that are passed on the
-command line, or, otherwise, for a few camera models, they can be read
-from the camera files.
+Error propagation needs, for each of the two cameras, the standard
+deviation (stddev) of the camera position uncertainty in the local
+horizontal ground plane at the triangulated point, measured in meters.
 
-If the option ``--horizontal-stddev`` is set, with two positive
-numbers as values, representing the left and right camera stddev of
-position uncertainty in the local horizontal ground plane having the
-triangulated point, then these values will be used. The input stddev
-values are measured in meters.  This functionality works with any
-cameras supported by ASP.
+For most cameras these values must be set explicitly, with the option::
 
-If this option is not set, the following strategies are used:
+    --horizontal-stddev
 
- - For Pleiades 1A/1B linescan camera models (:numref:`pleiades`) 
+with two positive numbers as values, for the left and right camera. This works
+with any cameras supported by ASP. Example::
+
+    parallel_stereo                         \
+      --stereo-algorithm asp_mgm            \
+      --subpixel-mode 9                     \
+      --propagate-errors                    \
+      --horizontal-stddev 1.3 1.2           \
+      left.tif right.tif left.cam right.cam \
+      run/run
+
+A fuller example, including ``point2dem``, is in :numref:`error_prop_example`.
+
+If ``--horizontal-stddev`` is *not* set, ASP will try to read the input
+uncertainties from the camera files. This works only for these camera
+models:
+
+ - For Maxar (DigitalGlobe) linescan cameras (:numref:`dg_tutorial`),
+   the inputs are the satellite position and orientation covariances,
+   read from the ``EPHEMLIST`` and ``ATTLIST`` fields. These are
+   propagated from the satellites to the ground and then through
+   triangulation.
+
+ - For Pleiades 1A/1B linescan camera models (:numref:`pleiades`)
    (but not for NEO, :numref:`pleiades_neo`) the
    ``ACCURACY_STDV`` field is read from the "DIM" XML file for each camera
    (in the *Absolute Horizontal Accuracy* section of the camera
@@ -43,16 +62,14 @@ If this option is not set, the following strategies are used:
    The square root of sum of squares of these quantities is the input horizontal
    stddev for a camera.
 
- - For Maxar (DigitalGlobe) linescan cameras (:numref:`dg_tutorial`), 
-   the inputs are the satellite position and orientation covariances,
-   read from the ``EPHEMLIST`` and ``ATTLIST`` fields. These are
-   propagated from the satellites to the ground and then through
-   triangulation. 
+For all other camera models, including Pinhole (:numref:`pinholemodels`) and CSM
+(:numref:`csm`), and the aerial and mapprojected workflows based on them, the
+values must be provided via ``--horizontal-stddev``. Otherwise an error will be
+produced.
 
-For datasets with a known CE90 measure, or in general a
-:math:`CE_X` measure, where :math:`X` is between 0% and 100%,
-use the  ``--horizontal-stddev`` option, with values computed
-using the formula:
+For datasets with a known CE90 measure, or in general a :math:`CE_X` measure,
+where :math:`X` is between 0% and 100%, use the ``--horizontal-stddev`` option,
+with values computed using the formula:
 
 .. math::
 
@@ -70,7 +87,7 @@ Produced uncertainty for triangulated points
 
 The triangulation covariance matrix is computed in the local North-East-Down
 (NED) coordinates at each nominal triangulated point, and further decomposed
-into the horizontal and vertical components (:numref:`produced_covariances`). 
+into the horizontal and vertical components (:numref:`produced_covariances`).
 
 The square root is taken, creating the horizontal and vertical standard
 deviations, that are saved as the 5th and 6th band in the point cloud
@@ -79,6 +96,8 @@ deviations, that are saved as the 5th and 6th band in the point cloud
 each band in that file.
 
 The computed stddev values are in units of meter.
+
+These errors can be exported to DEM and LAS products (:numref:`export_stddev`).
 
 Bundle adjustment
 -----------------
@@ -91,16 +110,17 @@ The same underlying logic is employed as for stereo.
 
 When ``bundle_adjust`` is run with ``--propagate-errors``, the file::
 
-  {output-prefix}-triangulation_uncertainty_points.csv 
-  
+  {output-prefix}-triangulation_uncertainty_points.csv
+
 is saved, storing the triangulated point longitude, latitude, height above
 datum, and the horizontal and vertical stddev of each match. There is one entry
 per pair of matched interest points, rather than one per triangulated point,
 because the uncertainty depends on the triangulation geometry of the pair (and,
 with bathymetry, on how each ray is bent at the water surface), so it differs
-from pair to pair. This is analogous
-to the ``pointmap.csv`` file that stores the reprojection error
-(:numref:`ba_err_per_point`), and can be colorized in ``stereo_gui``
+from pair to pair.
+
+This is analogous to the ``pointmap.csv`` file that stores the reprojection
+error (:numref:`ba_err_per_point`), and can be colorized in ``stereo_gui``
 (:numref:`plot_csv`).
 
 .. _export_stddev:
@@ -182,7 +202,7 @@ This is not the discrepancy between this point's location as compared
 to to a known ground truth. If the input cameras are translated by the
 same amount in the ECEF coordinate system, the triangulated point
 position can change a lot, but the produced uncertainties will change
-very little. To estimate and correct a point cloud's geolocation 
+very little. To estimate and correct a point cloud's geolocation
 invoke an alignment algorithm (:numref:`pc_align`).
 
 The produced uncertainties are not a measure of the pointing accuracy
@@ -190,44 +210,52 @@ The produced uncertainties are not a measure of the pointing accuracy
 meet at the nominal triangulated point perfectly, or their closest
 distance is, for example, 5 meters, the produced uncertainties around
 the nominal point will be about the same. See a comparison between
-these errors in :numref:`grand_mesa_dem_intersection_err` and 
+these errors in :numref:`grand_mesa_dem_intersection_err` and
 :numref:`horizontal_vertical_error`.
 
 The pointing accuracy can be improved by using bundle adjustment
 (:numref:`bundle_adjust`) and solving for jitter
 (:numref:`jitter_solve`).
 
+.. _error_prop_example:
+
 Example
 -------
 
-For Maxar (DigitalGlobe) linescan cameras::
+For Maxar (DigitalGlobe) linescan cameras, *without* explicitly specifying the
+input camera uncertainties::
 
     parallel_stereo                     \
+      -t dg                             \
       --alignment-method local_epipolar \
       --stereo-algorithm asp_mgm        \
       --subpixel-mode 9                 \
-      -t dg                             \
       --propagate-errors                \
-      left.tif right.tif left.xml right.xml 
+      left.tif right.tif                \
+      left.xml right.xml                \
       run/run
-      
+
+Set the output projection::
+
    proj="+proj=utm +zone=13 +datum=WGS84 +units=m +no_defs"
-   
-   point2dem --tr 1.6                   \
-     --t_srs "$proj"                    \
-     --propagate-errors                 \
+
+Create a DEM with :ref:`point2dem`::
+
+   point2dem --tr 1.6   \
+     --t_srs "$proj"    \
+     --propagate-errors \
      run/run-PC.tif
 
 The projection and grid size above are dependent on the dataset. For steep
 slopes, consider using mapprojection (:numref:`mapproj-example`).
 
-Alternatively, the input horizontal stddev values for the cameras
-can be set as::
+The input horizontal stddev values for the cameras can be explicitly set as::
 
    --horizontal-stddev 1.05 1.11
 
-Then these will be used instead. This last approach works for any
-orbital camera model supported by ASP (:numref:`examples`).
+Then these will be used, instead of metadata from the camera files
+(:numref:`input_errors`). This last approach works for any orbital camera model
+supported by ASP (:numref:`examples`).
 
 .. figure:: images/grand_mesa_dem_intersection_err.png
    :name: grand_mesa_dem_intersection_err
@@ -236,7 +264,7 @@ orbital camera model supported by ASP (:numref:`examples`).
    Grand Mesa, Colorado (left), and the triangulation error
    (:numref:`triangulation_error`) in meters (right). The input images were
    mapprojected (:numref:`mapproj-example`). No bundle adjustment was
-   used. Jitter (:numref:`jitter_solve`) is noticeable.  
+   used. Jitter (:numref:`jitter_solve`) is noticeable.
 
 .. figure:: images/horizontal_vertical_error.png
    :name: horizontal_vertical_error

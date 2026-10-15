@@ -964,9 +964,9 @@ propagate-errors
     point cloud. See :numref:`error_propagation`.
 
 horizontal-stddev <*double double* (default = 0.0 0.0)>
-    If positive, propagate these left and right camera horizontal
-    ground plane stddev values through triangulation. To be used with
-    ``--propagate-errors``.
+    The left and right camera horizontal ground plane stddev values, in
+    meters, to propagate through triangulation, with ``--propagate-errors``.
+    Required for most cameras (:numref:`error_propagation`).
 
 position-covariance-factor <double (default: 1.0)>
     Multiply the satellite position covariances by this number before

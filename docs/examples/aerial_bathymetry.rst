@@ -284,6 +284,19 @@ triangulation error image (:numref:`triangulation_error`) named
 ``stereo/run-IntersectionErr.tif``, and an orthoimage (DRG)
 at the DEM grid named ``stereo/run-DRG.tif``.
 
+To also produce maps of the propagated horizontal and vertical uncertainty
+(:numref:`error_propagation`), add ``--propagate-errors`` to ``stereoOpts``.
+These aerial cameras carry no uncertainty metadata, so the per-camera
+horizontal uncertainty must be given, in meters, with ``--horizontal-stddev``.
+For example, set (before invoking ``multi_stereo``)::
+
+    stereoOpts="--stereo-algorithm asp_mgm
+                --subpixel-mode 9
+                --propagate-errors
+                --horizontal-stddev 1.0 1.0"
+
+If ``--horizontal-stddev`` is not set, an error message will be produced.
+
 The image and camera lists ``ba/run-image_list.txt`` and
 ``ba/run-camera_list.txt`` are written by ``bundle_adjust``
 (:numref:`ba_out_cams`). The stereo pairs come from the convergence angle report

@@ -993,10 +993,20 @@ disparity. Since the produced uncertainties depend only weakly on the
 triangulated surface, computing them for a sparse set of features, and
 summarizing the statistics, as done here, is usually sufficient.
 
-Specify ``--horizontal-stddev`` (a single value for all cameras, measured in
-meters), to use this as the input camera ground horizontal uncertainty.
-Otherwise, as in the above-mentioned section, the input errors will be read from
-camera files, if available.
+As in triangulation, for most cameras the input camera horizontal uncertainty
+must be provided, in meters, with ``--horizontal-stddev`` (here a *single* value
+for all cameras). Only for the Maxar (DigitalGlobe), RPC, and Pleiades camera
+models can the values be read from the camera files instead
+(:numref:`error_propagation`). Example::
+
+    bundle_adjust                           \
+      --propagate-errors                    \
+      --horizontal-stddev 1.3               \
+      left.tif right.tif left.cam right.cam \
+      -o ba/run
+
+Without this option, and when the values cannot be read from the cameras, error
+propagation fails (:numref:`error_propagation`).
 
 The produced errors are saved to the file::
 
@@ -1851,9 +1861,9 @@ Error propagation
     each camera pair (:numref:`ba_error_propagation`).
 
 --horizontal-stddev <double (default: 0.0)>
-    If positive, propagate this stddev of horizontal ground plane camera
-    uncertainty through triangulation for all cameras. To be used with
-    ``--propagate-errors``.
+    The stddev of horizontal ground plane camera uncertainty, in meters, to
+    propagate through triangulation for all cameras, with ``--propagate-errors``.
+    Required for most cameras (:numref:`error_propagation`).
 
 Bathymetry correction
 ^^^^^^^^^^^^^^^^^^^^^
