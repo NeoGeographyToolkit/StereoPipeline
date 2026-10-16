@@ -103,13 +103,9 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
 }
 
-// ASP assumes the pixel-is-area convention, with each grid value sampled at the
-// center of its cell. A raster tagged AREA_OR_POINT=Point instead places the
-// value at the cell corner, so it is off by half a pixel in each direction.
-// Honoring that correctly would require a change in the VisionWorkbench
-// georeference read logic, which would affect all tools and must be done
-// consistently across them. Until then, refuse such an input rather than
-// silently producing a difference shifted by half a pixel.
+// ASP assumes pixel-is-area (value at cell center). A raster tagged
+// AREA_OR_POINT=Point puts the value at the cell corner, a half-pixel offset.
+// Refuse it rather than silently producing a shifted difference.
 void check_area_or_point(std::string const& file) {
   DiskImageResourceGDAL rsrc(file);
   const char* const* metadata = rsrc.get_metadata();
