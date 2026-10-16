@@ -886,6 +886,16 @@ you can try is to convert an input point cloud into a smoothed DEM. Use
 fill in holes in the DEM. For some input data this can significantly
 improve alignment accuracy.
 
+See also
+~~~~~~~~
+
+Runnable coregistration tutorial notebooks, which can be launched in a GitHub
+Codespace, are provided by the UW ``asp_tutorials`` repository, for aligning
+`two DEMs or point clouds
+<https://github.com/uw-cryo/asp_tutorials/blob/master/tutorials/example-dem_coregistration.ipynb>`_
+and aligning a `DEM to sparse altimetry
+<https://github.com/uw-cryo/asp_tutorials/blob/master/tutorials/example-dem_altimetry_coregistration.ipynb>`_.
+
 .. _pc_align_options:
 
 Command-line options for pc_align

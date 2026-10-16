@@ -15,7 +15,12 @@ See a `ready-made ASTER example
 It has the input images and cameras, ASP outputs, and instructions for how to
 run it. Also see a `workbook with illustrations
 <https://nbviewer.org/github/uw-cryo/asp_plot/blob/main/notebooks/ASTER/aster_with_mapprojection.ipynb>`_.
-    
+
+A runnable ASTER stereo tutorial notebook, which can be launched in a GitHub
+Codespace, is provided by the UW `asp_tutorials
+<https://github.com/uw-cryo/asp_tutorials/blob/master/tutorials/example-aster_stereo_reconstruction.ipynb>`_
+repository.
+
 ASP can correct for the jitter in these cameras (:numref:`jitter_aster`).
 
 .. _aster_fetch:
