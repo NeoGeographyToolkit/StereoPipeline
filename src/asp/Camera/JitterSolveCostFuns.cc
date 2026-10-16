@@ -34,11 +34,15 @@
 #include <vw/Camera/CameraImage.h>
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Cartography/CameraBBox.h>
 #include <vw/Core/Exception.h>
+#include <vw/Core/Stopwatch.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/Math/Transform.h>
 #include <vw/Math/Statistics.h>
+#include <vw/Math/RandomSet.h>
 #include <vw/Image/Interpolation.h>
+#include <vw/Image/ImageChannels.h>
 #include <vw/Cartography/Map2CamTrans.h>
 
 #include <ceres/rotation.h>
@@ -736,6 +740,275 @@ struct weightedQuatNormError {
 
   double  m_weight;
 };
+
+// Calculate a set of anchor points uniformly distributed over the image.
+// Will use num_anchor_points_extra_lines. We append to obs_vec, which
+// already holds the reprojection observations for the match points.
+void calcAnchorPoints(asp::BaBaseOptions              const & opt,
+                      int                                     num_anchor_points_per_image,
+                      int                                     num_anchor_points_per_tile,
+                      int                                     num_anchor_points_extra_lines,
+                      int                                     max_anchor_points_total,
+                      double                                  anchor_dem_uncertainty,
+                      double                                  anchor_weight,
+                      std::string                     const & anchor_weight_image_file,
+                      vw::ImageViewRef<vw::PixelMask<double>> interp_anchor_dem,
+                      vw::cartography::GeoReference   const & anchor_georef,
+                      std::vector<asp::CsmModel*>     const & csm_models,
+                      // Append to these, they already have entries
+                      std::vector<std::vector<asp::JitterObs>> & obs_vec,
+                      std::vector<double> & orig_tri_points_vec,
+                      std::vector<double> & tri_points_vec) {
+
+  vw::vw_out() << "Calculating anchor points.\n";
+  vw::Stopwatch sw;
+  sw.start();
+
+  if (num_anchor_points_per_image <= 0 && num_anchor_points_per_tile <= 0)
+    vw::vw_throw(vw::ArgumentErr() << "Expecting a positive number of anchor points.\n");
+
+  bool warning_printed = false;
+
+  // If to use an anchor weight image
+  bool have_anchor_weight_image = (!anchor_weight_image_file.empty());
+  vw::ImageViewRef<vw::PixelMask<float>> anchor_weight_image;
+  float anchor_weight_image_nodata = -std::numeric_limits<float>::max();
+  vw::cartography::GeoReference anchor_weight_image_georef;
+  if (have_anchor_weight_image)
+    vw::cartography::readGeorefImage(anchor_weight_image_file,
+      anchor_weight_image_nodata, anchor_weight_image_georef, anchor_weight_image);
+
+  int num_cams = opt.camera_models.size();
+
+  // First collect all candidate anchor points, uniformly distributed. They are
+  // appended to the output structures later, after an optional random pruning to
+  // max_anchor_points_total. This separates creation from pruning.
+  std::vector<std::vector<vw::Vector2>> anchor_pix(num_cams);
+  std::vector<std::vector<double>>      anchor_pix_weight(num_cams); // final pixel weight
+  std::vector<std::vector<vw::Vector3>> anchor_xyz(num_cams);
+
+  // Convert the anchor dem uncertainty (1 sigma, in meters on the ground) to a
+  // pixel uncertainty by dividing by GSD.
+  bool use_anchor_uncertainty = (anchor_dem_uncertainty > 0);
+
+  for (int icam = 0; icam < num_cams; icam++) {
+
+    vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
+    int numLines   = dims[1];
+    int numSamples = dims[0];
+    int extra = num_anchor_points_extra_lines;
+    vw::BBox2i image_box(0, 0, numSamples, numLines);
+
+    // Per-anchor-point buffers for this image. The final pixel weight needs the
+    // per-image median GSD, which is known only after all points are found.
+    std::vector<double> anchor_img_mult; // the weight-image multiplier per point
+    std::vector<double> anchor_gsd;      // the ground sample distance per point
+
+    UsgsAstroLsSensorModel * ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+    if (ls_model == NULL)
+       extra = 0; // extra lines are only for linescan
+
+    // Find how much image area will be taken by each anchor point
+    // Convert to double early on to avoid integer overflow
+    double area = double(numSamples) * double(numLines + 2 * extra);
+    double area_per_point = 0.0;
+    if (num_anchor_points_per_image > 0)
+      area_per_point = area / double(num_anchor_points_per_image);
+    else
+      area_per_point = 1024.0 * 1024.0 / double(num_anchor_points_per_tile);
+
+    double bin_len = sqrt(area_per_point);
+    bin_len = std::max(bin_len, 1.0);
+    int lenx = ceil(double(numSamples) / bin_len); lenx = std::max(1, lenx);
+    int leny = ceil(double(numLines + 2 * extra) / bin_len); leny = std::max(1, leny);
+
+    vw::vw_out() << "Image file: " << opt.image_files[icam] << "\n";
+    vw::TerminalProgressCallback tpc("asp", "\t--> ");
+    double inc_amount = 1.0/lenx;
+    tpc.report_progress(0);
+
+    int numAnchorPoints = 0;
+    for (int binx = 0; binx <= lenx; binx++) {
+
+      tpc.report_incremental_progress(inc_amount);
+      double posx = binx * bin_len;
+
+      for (int biny = 0; biny <= leny; biny++) {
+        double posy = biny * bin_len - extra;
+
+        if (posx > numSamples - 1 || posy < -extra || posy > numLines - 1 + extra)
+          continue;
+
+        vw::Vector2 pix(posx, posy);
+        vw::Vector3 xyz_guess(0, 0, 0);
+
+        bool treat_nodata_as_zero = false;
+        bool has_intersection = false;
+        double height_error_tol = 0.001; // 1 mm should be enough
+
+        vw::Vector3 anchor_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+          (opt.camera_models[icam]->camera_center(pix),
+           opt.camera_models[icam]->pixel_to_vector(pix),
+           vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem), anchor_georef,
+           treat_nodata_as_zero, has_intersection,
+           height_error_tol, xyz_guess);
+
+        if (!has_intersection || anchor_dem_xyz == vw::Vector3())
+          continue;
+
+        vw::Vector2 pix_out;
+        try {
+          pix_out = opt.camera_models[icam]->point_to_pixel(anchor_dem_xyz);
+        } catch (...) {
+          continue;
+        }
+
+        if (norm_2(pix - pix_out) > 10 * height_error_tol)
+          continue; // this is likely a bad point
+
+        // If we have a weight image, use it to multiply the weight
+        double anchor_weight_from_image = 1.0;
+        if (have_anchor_weight_image) {
+          vw::PixelMask<float> img_wt
+            = vw::cartography::closestPixelVal(anchor_weight_image,
+                                               anchor_weight_image_georef,
+                                               anchor_dem_xyz);
+
+          // Skip bad weights
+          if (!vw::is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0)
+            continue;
+
+          anchor_weight_from_image = img_wt.child();
+        }
+
+        if (ls_model != NULL) {
+          // Anchor points must not be outside the range of tabulated positions and orientations
+          csm::ImageCoord imagePt;
+          asp::toCsmPixel(pix, imagePt);
+          double time    = ls_model->getImageTime(imagePt);
+          int numPos     = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+          double posT0   = ls_model->m_t0Ephem;
+          double posDt   = ls_model->m_dtEphem;
+          int pos_index  = static_cast<int>((time - posT0) / posDt);
+          int numQuat    = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+          double quatT0  = ls_model->m_t0Quat;
+          double quatDt  = ls_model->m_dtQuat;
+          int quat_index = static_cast<int>((time - quatT0) / quatDt);
+          if (pos_index < 0  || pos_index >= numPos ||
+              quat_index < 0 || quat_index >= numQuat) {
+            if (!warning_printed) {
+              vw::vw_out(vw::WarningMessage) << "Not placing anchor points outside "
+                << "the range of tabulated positions and orientations.\n";
+              warning_printed = true;
+            }
+            continue;
+          }
+        }
+
+        // The ground sample distance at this anchor pixel, where the ray meets
+        // the anchor DEM. Used to convert the ground uncertainty to pixels.
+        // Only needed for the uncertainty path, not the legacy weight path.
+        double gsd = 0.0;
+        if (use_anchor_uncertainty) {
+          try {
+            gsd = vw::camera::estimatedGSD(opt.camera_models[icam].get(), image_box,
+                                           pix, anchor_dem_xyz);
+          } catch (...) {
+            continue; // cannot convert the uncertainty to pixels without a GSD
+          }
+          if (gsd <= 0)
+            continue;
+        }
+
+        anchor_pix[icam].push_back(pix);
+        anchor_xyz[icam].push_back(anchor_dem_xyz);
+        anchor_img_mult.push_back(anchor_weight_from_image);
+        anchor_gsd.push_back(gsd);
+
+        numAnchorPoints++;
+      }
+    }
+
+    tpc.report_finished();
+
+    // Now that all candidates for this image are found, convert the ground
+    // uncertainty to a per-image pixel weight using the median GSD. The median
+    // is robust to the few bad GSD estimates at image edges. Without the
+    // uncertainty, the legacy pixel weight is used directly.
+    double base_wt = anchor_weight; // legacy pixel weight path
+    double median_gsd = 0.0;
+    if (!anchor_gsd.empty()) {
+      std::vector<double> gsd_copy = anchor_gsd;
+      median_gsd = vw::math::median_in_place<double>(gsd_copy);
+    }
+    if (use_anchor_uncertainty && median_gsd > 0) {
+      // Convert the ground uncertainty (meters) to a pixel weight using the
+      // per-image median GSD. The pixel sigma is anchor_dem_uncertainty/median_gsd.
+      base_wt = median_gsd / anchor_dem_uncertainty; // = 1/sigma_pix
+    }
+
+    // Assign the final pixel weight to each candidate of this image.
+    anchor_pix_weight[icam].resize(anchor_img_mult.size());
+    for (size_t k = 0; k < anchor_img_mult.size(); k++)
+      anchor_pix_weight[icam][k] = base_wt * anchor_img_mult[k];
+
+    vw::vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
+    vw::vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
+  }
+
+  // Flatten the candidate indices as (camera, local index) pairs, in camera order
+  std::vector<std::pair<int, int>> all_anchor;
+  for (int icam = 0; icam < num_cams; icam++)
+    for (size_t j = 0; j < anchor_pix[icam].size(); j++)
+      all_anchor.push_back(std::make_pair(icam, (int)j));
+
+  // Optionally prune the candidates at random to the given total. This is set
+  // from --max-anchor-points-to-tri-points-ratio.
+  std::vector<char> keep(all_anchor.size(), 1);
+  if (max_anchor_points_total >= 0 &&
+      (int)all_anchor.size() > max_anchor_points_total) {
+    std::vector<int> subset;
+    vw::math::pick_random_indices_in_range(all_anchor.size(),
+                                           max_anchor_points_total, subset);
+    std::fill(keep.begin(), keep.end(), 0);
+    for (size_t it = 0; it < subset.size(); it++)
+      keep[subset[it]] = 1;
+    vw::vw_out() << "Reducing the number of anchor points from " << all_anchor.size()
+             << " to " << max_anchor_points_total
+             << ", by selecting a random subset.\n";
+  }
+
+  // Append the kept candidates to obs_vec, in camera order, so the xyz_index
+  // bookkeeping stays consistent.
+  int totalAnchorPoints = 0;
+  for (size_t k = 0; k < all_anchor.size(); k++) {
+    if (!keep[k])
+      continue;
+    int icam = all_anchor[k].first;
+    int j    = all_anchor[k].second;
+
+    // The current number of points in tri_points_vec is the index of the next point
+    bool is_anchor = true;
+    int xyz_index = tri_points_vec.size() / 3;
+    obs_vec[icam].push_back(asp::JitterObs(anchor_pix[icam][j], anchor_pix_weight[icam][j],
+                                           is_anchor, xyz_index));
+
+    // Append every coordinate of the anchor xyz to tri_points_vec
+    vw::Vector3 xyz = anchor_xyz[icam][j];
+    for (int it = 0; it < 3; it++) {
+      orig_tri_points_vec.push_back(xyz[it]);
+      tri_points_vec.push_back(xyz[it]);
+    }
+
+    totalAnchorPoints++;
+  }
+
+  sw.stop();
+  vw::vw_out() << "Total number of anchor points: " << totalAnchorPoints << "\n";
+  vw::vw_out() << "Elapsed time in calculating anchor points: " << sw.elapsed_seconds()
+               << " seconds.\n";
+}
 
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.

@@ -32,6 +32,8 @@
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Math/Transform.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/PixelMask.h>
 
 #include <usgscsm/UsgsAstroLsSensorModel.h>
 #include <usgscsm/UsgsAstroFrameSensorModel.h>
@@ -65,6 +67,25 @@ void updateLsModelTriPt(double const * const * parameters,
                         int & param_shift,
                         UsgsAstroLsSensorModel & cam,
                         csm::EcefCoord & P);
+
+// Calculate a set of anchor points uniformly distributed over the image, where
+// rays through anchor pixels meet the anchor DEM. Append them to obs_vec, which
+// already holds the reprojection observations for the match points.
+void calcAnchorPoints(asp::BaBaseOptions              const & opt,
+                      int                                     num_anchor_points_per_image,
+                      int                                     num_anchor_points_per_tile,
+                      int                                     num_anchor_points_extra_lines,
+                      int                                     max_anchor_points_total,
+                      double                                  anchor_dem_uncertainty,
+                      double                                  anchor_weight,
+                      std::string                     const & anchor_weight_image_file,
+                      vw::ImageViewRef<vw::PixelMask<double>> interp_anchor_dem,
+                      vw::cartography::GeoReference   const & anchor_georef,
+                      std::vector<asp::CsmModel*>     const & csm_models,
+                      // Append to these, they already have entries
+                      std::vector<std::vector<asp::JitterObs>> & obs_vec,
+                      std::vector<double> & orig_tri_points_vec,
+                      std::vector<double> & tri_points_vec);
 
 // Add reprojection errors. Collect data that will be used to add camera
 // constraints that scale with the number of reprojection errors and GSD.
