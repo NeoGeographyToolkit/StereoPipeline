@@ -1043,12 +1043,15 @@ This will use bilinear interpolation.
 Image selection and sorting by illumination
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By far the hardest part of this exercise is choosing the images. We downloaded
-up to 1,400 of them, as described in :numref:`fetch_lro_images`, given the
-desired longitude-latitude bounds. The PDS .IMG files were converted to ISIS
-.cub cameras as in :numref:`sfs_single_image`, and they were mapprojected onto
-the reference DEM, initially at a lower resolution to get a preview of things
-(:numref:`sfs_inspection`).
+It is strongly suggested to download all available images for a given extent, to
+maximize the chance of having enough images at intermediate illumination angles
+to register all of them.
+
+We downloaded around 1,400 images, as described in :numref:`fetch_lro_images`,
+given the desired longitude-latitude bounds. The PDS .IMG files were converted
+to ISIS .cub cameras as in :numref:`sfs_single_image`, and they were
+mapprojected onto the reference DEM, initially at a lower resolution to get a
+preview of things (:numref:`sfs_inspection`).
 
 It is very strongly recommended to use the CSM camera models instead
 of ISIS models (:numref:`sfs_isis_vs_csm`).
@@ -1074,10 +1077,10 @@ region. Example::
 Eliminate the images that are not relevant to the area. Keeping them in
 impacts reliability and performance.
 
-The obtained subset of images *must* be sorted by illumination conditions, that
+The obtained image set *must* be sorted by illumination conditions, that
 is, the Sun azimuth, measured from true North. This angle is printed when
 running ``sfs`` with the ``--query`` option on the .cub files. Here is an
-example::
+example, with the angle on the right, in degrees::
 
     M114859732RE.cal.echo.cub       73.1771
     M148012947LE.cal.echo.cub       75.9232
@@ -1085,33 +1088,17 @@ example::
     M152979020RE.cal.echo.cub       96.895
     M117241732LE.cal.echo.cub       97.9219
     M152924707RE.cal.echo.cub       104.529
-    M150366876RE.cal.echo.cub       104.626
-    M152897611RE.cal.echo.cub       108.337
-    M152856903RE.cal.echo.cub       114.057
-    M140021445LE.cal.echo.cub       121.838
-    M157843789LE.cal.echo.cub       130.831
-    M157830228LE.cal.echo.cub       132.74
-    M157830228RE.cal.echo.cub       132.74
-    M157809893RE.cal.echo.cub       135.604
-    M139743255RE.cal.echo.cub       161.014
-    M139729686RE.cal.echo.cub       162.926
-    M139709342LE.cal.echo.cub       165.791
-    M139695762LE.cal.echo.cub       167.704
-    M142240314RE.cal.echo.cub       168.682
-    M142226765RE.cal.echo.cub       170.588
-    M142213197LE.cal.echo.cub       172.497
-    M132001536LE.cal.echo.cub       175.515
-    M103870068LE.cal.echo.cub       183.501
-    M103841430LE.cal.echo.cub       187.544
-    M142104686LE.cal.echo.cub       187.765
-    M162499044LE.cal.echo.cub       192.747
-    M162492261LE.cal.echo.cub       193.704
-    M162485477LE.cal.echo.cub       194.662
-    M162478694LE.cal.echo.cub       195.62
-    M103776992RE.cal.echo.cub       196.643
-    M103776992LE.cal.echo.cub       196.643
 
-(the Sun azimuth is shown on the right, in degrees).
+.. figure:: images/sfs_azimuth_rose.png
+   :name: sfs_azimuth_rose_fig
+   :alt: Polar plot of Sun azimuth angles.
+   :width: 50%
+
+   Polar plot of the Sun azimuth angles (0° at North, measured clockwise), one
+   dot per image, for a set of 430 LRO NAC images over a Lunar South Pole site.
+   Gaps in illumination coverage are easy to spot. Produced with
+   ``plot_sfs_azimuth.py`` from the `SfsPipeline repository
+   <https://github.com/NeoGeographyToolkit/SfsPipeline>`__.
 
 The primary reason why registration can fail later is illumination
 varying too drastically between nearby images, and not being able to
@@ -1126,6 +1113,8 @@ to the ground, so later in the process (:numref:`parallel_sfs_usage`).
 
 The paper :cite:`bertone2023highly` discusses how to automate
 the process of selecting images. 
+
+.. _usgs_reg:
 
 Incorporation of well-registered images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1271,10 +1260,15 @@ Alignment to the ground
 
 A very critical part of the process is to move from the coordinate
 system of the cameras to the coordinate system of the initial guess
-terrain in ``ref_dem.tif``. The only reliable approach for this is to
-create a terrain model using stereo with some of the images and
-bundle-adjusted cameras produced so far, align that one to ``ref_dem.tif``,
-and then apply this alignment to the cameras.
+terrain in ``ref_dem.tif``. 
+
+Recently, this step is skipped if registered cameras exist that can be used as
+anchors (:numref:`usgs_reg`).
+
+Otherwise, the only known reliable approach for this is to create a terrain
+model using stereo with some of the images and bundle-adjusted cameras produced
+so far, align that one to ``ref_dem.tif``, and then apply this alignment to the
+cameras.
 
 With LRO NAC images, stereo pairs may be hard to find. In addition, after the
 earlier step of bundle adjustment the images may already be within 10-30 meters
