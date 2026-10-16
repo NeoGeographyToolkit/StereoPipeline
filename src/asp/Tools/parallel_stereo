@@ -43,10 +43,6 @@ def check_system_memory(opt, args, settings):
     are estimated to exceed available RAM. Currently only the ASP SGM
     and MGM have large memory requirements.'''
 
-    if asp_system_utils.run_with_return_code(['which', 'free']) != 0:
-        # No 'free' exists. This is the case on OSX.
-        return
-
     try:
         alg = stereo_alg_to_num(settings['stereo_algorithm'][0])
         if alg == VW_CORRELATION_BM or alg >= VW_CORRELATION_OTHER:
@@ -68,10 +64,26 @@ def check_system_memory(opt, args, settings):
         ram_per_process = baseline_mem + sgm_ram_limit
         est_ram_usage   = int(num_procs * ram_per_process)
 
-        print('Warning: Estimated maximum memory consumption is '
-                  + str(est_ram_usage) + ' MB. To lower memory use, '
-                  + 'consider reducing the number of processes or lowering '
-                  + '--corr-memory-limit-mb.')
+        # Compare to the memory the kernel reports as available. Read
+        # /proc/meminfo MemAvailable, which accounts for reclaimable cache.
+        # The 'free' column used earlier ignored that cache and caused
+        # spurious warnings. Only Linux has /proc/meminfo, so elsewhere
+        # avail_mb stays None and no warning is issued.
+        avail_mb = None
+        try:
+            with open('/proc/meminfo') as f:
+                for line in f:
+                    if line.startswith('MemAvailable:'):
+                        avail_mb = int(line.split()[1]) // 1024
+                        break
+        except Exception:
+            pass
+
+        if avail_mb is not None and est_ram_usage > avail_mb:
+            print('Warning: Estimated maximum memory consumption is '
+                  + str(est_ram_usage) + ' MB but only ' + str(avail_mb)
+                  + ' MB is available. To lower memory use, consider reducing '
+                  + 'the number of processes or lowering --corr-memory-limit-mb.')
 
     except:
         # Don't let an error here prevent the tool from running.
