@@ -45,8 +45,10 @@
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/LensDistortion.h>
 
+#include <cmath>
 #include <string>
 #include <fstream>
+#include <vector>
 
 using namespace vw;
 using namespace vw::camera;
@@ -356,9 +358,11 @@ void check_gcp_dists(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr) 
     gap[i] = std::max(0.0, std::max(gcp_box.min()[i] - ip_box.max()[i],
                                     ip_box.min()[i] - gcp_box.max()[i]));
 
-  if (norm_2(gap) > 100000.0)
-    vw_out() << "WARNING: GCPs are over 100 km from the other points. "
-             << "Are your lat/lon GCP coordinates swapped?\n";
+  double dist = norm_2(gap);
+  if (dist > 100000.0)
+    vw_out() << "WARNING: The GCP are about " << dist/1000.0 << " km away from the "
+             << "triangulated interest points. Check the GCP file for a lat-lon "
+             << "coordinate swap or other error.\n";
 }
 
 // Initialize the position and orientation of each pinhole camera model using
@@ -483,6 +487,26 @@ void transform_cameras_with_indiv_image_gcp
   apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
 }
 
+// RMS distance between the input points mapped by a similarity transform and
+// the output points. Used to judge a fit of triangulated GCP to ground GCP.
+double similarity_fit_rms(std::vector<vw::Vector3> const& in_vec,
+                          std::vector<vw::Vector3> const& out_vec,
+                          vw::Matrix3x3 const& rotation,
+                          vw::Vector3 const& translation,
+                          double scale) {
+  if (in_vec.empty())
+    return 0.0;
+
+  double sum = 0.0;
+  for (size_t i = 0; i < in_vec.size(); i++) {
+    vw::Vector3 pred = scale * rotation * in_vec[i] + translation;
+    double dist = norm_2(pred - out_vec[i]);
+    sum += dist * dist;
+  }
+
+  return std::sqrt(sum / in_vec.size());
+}
+
 /// Initialize the position and orientation of each pinhole camera model using
 /// a least squares error transform to match the provided control points file.
 /// This function overwrites the camera parameters in-place. It works
@@ -544,28 +568,68 @@ void transform_cameras_with_shared_gcp(
           << "You may need to use --transform-cameras-using-gcp.\n");
   }
 
-  // Copy these points to a matrix as required by the API about to be used. 
-  vw::Matrix<double> points_in(3, num_good_gcp), points_out(3, num_good_gcp);
-  typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
-  for (size_t ipt = 0; ipt < in_xyz.size(); ipt++) {
-    ColView colIn (points_in,  ipt);
-    ColView colOut(points_out, ipt);
-    colIn  = in_xyz[ipt];
-    colOut = out_xyz[ipt];
-  } // End loop through control network points
-
-  // Call function to compute a 3D affine transform between the two point sets
+  // Fit a 3D similarity transform from the triangulated GCP positions to the
+  // GCP ground positions, robust to outlier GCP. A single blunder (such as a
+  // lat-lon swap) can so corrupt a plain least-squares fit that every residual
+  // is large and the blunder no longer stands out. So, instead, drop GCP one at
+  // a time by leave-one-out: remove the GCP whose removal most reduces the fit
+  // RMS error, but only when that drop reduces the error by a large factor,
+  // which marks a true outlier rather than ordinary noise. Clean GCP sets are
+  // left unchanged. The GCP count on this camera-init path is modest, so the
+  // leave-one-out cost is not a concern.
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
-  double        scale;
-  vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
+  double        scale = 1.0;
+  std::string transform_type = "similarity";
+  std::vector<vw::Vector3> in_fit = in_xyz, out_fit = out_xyz;
+  double outlier_factor = 20.0; // a drop must cut the RMS error by this factor
+  while (true) {
+    vw::math::find_3D_transform_no_outliers(in_fit, out_fit, rotation, translation,
+                                            scale, transform_type);
+    double full_rms = similarity_fit_rms(in_fit, out_fit, rotation, translation, scale);
+    if (int(in_fit.size()) <= MIN_GCP_COUNT || full_rms <= 0.0)
+      break;
+
+    // Leave-one-out: find the GCP whose removal most reduces the fit RMS error
+    int drop_idx = -1;
+    double best_rms = full_rms;
+    for (size_t i = 0; i < in_fit.size(); i++) {
+      std::vector<vw::Vector3> in_sub, out_sub;
+      for (size_t j = 0; j < in_fit.size(); j++) {
+        if (j == i)
+          continue;
+        in_sub.push_back(in_fit[j]);
+        out_sub.push_back(out_fit[j]);
+      }
+      vw::Matrix3x3 sub_rotation;
+      vw::Vector3   sub_translation;
+      double        sub_scale = 1.0;
+      vw::math::find_3D_transform_no_outliers(in_sub, out_sub, sub_rotation,
+                                              sub_translation, sub_scale, transform_type);
+      double sub_rms = similarity_fit_rms(in_sub, out_sub, sub_rotation,
+                                          sub_translation, sub_scale);
+      if (sub_rms < best_rms) {
+        best_rms = sub_rms;
+        drop_idx = i;
+      }
+    }
+
+    // Drop the worst GCP only when that clearly improves the fit, then refit
+    if (drop_idx >= 0 && best_rms * outlier_factor < full_rms) {
+      vw_out() << "Discarding a likely outlier GCP. The fit RMS error drops from "
+               << full_rms << " m to " << best_rms << " m when it is removed.\n";
+      in_fit.erase(in_fit.begin() + drop_idx);
+      out_fit.erase(out_fit.begin() + drop_idx);
+      continue;
+    }
+    break;
+  }
 
   // Update the camera and point information with the new transform
   vw_out() << "Applying transform based on GCP:\n";
   vw_out() << "Rotation:    " << rotation    << "\n";
   vw_out() << "Translation: " << translation << "\n";
   vw_out() << "Scale:       " << scale       << "\n";
-  vw_out() << "This transform can be disabled with --disable-pinhole-gcp-init.\n";
   apply_rigid_transform(rotation, translation, scale, camera_models, cnet_ptr);
 
   return;

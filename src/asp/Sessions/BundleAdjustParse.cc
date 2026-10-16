@@ -1186,8 +1186,10 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "with each GCP not shared among the images), transform the cameras to ground "
      "coordinates. This is not as robust as --transform-cameras-with-shared-gcp.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
-     "Do not try to initialize the positions of pinhole cameras based on input GCPs. This "
-     "ignored as is now the default. See also: --init-camera-using-gcp.")
+     "Do not initialize the positions of pinhole cameras based on input GCP. This is now "
+     "the default, so this option has no effect. To opt in to such initialization, use "
+     "--transform-cameras-with-shared-gcp, --transform-cameras-using-gcp, or "
+     "--init-camera-using-gcp.")
     ("update-isis-cubes-with-csm-state",
      po::bool_switch(&opt.update_isis_cubes_with_csm_state)->default_value(false)->implicit_value(true),
      "Save the model state of optimized CSM cameras as part of the .cub files. Any prior "

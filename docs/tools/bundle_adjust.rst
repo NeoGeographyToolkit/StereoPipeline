@@ -1793,7 +1793,8 @@ Camera initialization and transforms
     find the triangulated positions based on pixels values in the GCP,
     and apply a rotation + translation + scale transform to the entire
     camera system so that the triangulated points get
-    mapped to the ground coordinates in the GCP.
+    mapped to the ground coordinates in the GCP. This fit is robust to
+    an outlier GCP, such as one with a lat-lon coordinate swap.
 
 --transform-cameras-using-gcp
     Given a set of GCP, with at least two images having at least three
@@ -1802,9 +1803,11 @@ Camera initialization and transforms
     as ``--transform-cameras-with-shared-gcp``.
 
 --disable-pinhole-gcp-init
-    Do not try to initialize pinhole camera coordinates using provided
-    GCP coordinates. This is ignored as it is now the default. See also:
-    ``--init-camera-using-gcp``.
+    Do not initialize pinhole camera coordinates using provided GCP
+    coordinates. This is now the default, so this option has no effect.
+    To opt in to such initialization, use
+    ``--transform-cameras-with-shared-gcp``,
+    ``--transform-cameras-using-gcp``, or ``--init-camera-using-gcp``.
 
 --update-isis-cubes-with-csm-state
     Save the model state of optimized CSM cameras as part of the .cub

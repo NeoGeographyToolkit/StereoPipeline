@@ -46,6 +46,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     non-GCP triangulated point as water or land (:numref:`ba_err_per_point`).
   * Bug fix for ``--auto-overlap-params`` when a ground footprint cannot be
     computed.
+  * The ``--transform-cameras-with-shared-gcp`` camera initialization is now
+    robust to outlier GCP (:numref:`bundle_adjust`).
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
