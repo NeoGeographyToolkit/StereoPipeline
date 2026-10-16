@@ -494,11 +494,10 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    std::vector<ASPGlobalOptions> opt_vec;
+    ASPGlobalOptions opt;
     std::string output_prefix;
     asp::parseStereoArgs(argc, argv, PreProcessingDescription(),
-                         verbose, output_prefix, opt_vec);
-    ASPGlobalOptions opt = opt_vec[0];
+                         verbose, output_prefix, opt);
 
     vw_out() << "Image files:  " << opt.in_file1  << ", " << opt.in_file2  << "\n";
     if (opt.cam_file1 != "" || opt.cam_file2 != "") 

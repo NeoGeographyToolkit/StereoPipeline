@@ -67,7 +67,7 @@ namespace asp {
                        additional_options,
                        bool verbose,
                        std::string & output_prefix,
-                       std::vector<ASPGlobalOptions> & opt_vec,
+                       ASPGlobalOptions & opt,
                        bool exit_early = false);
 
   /// Extract only the named options (flags and their values) from the command

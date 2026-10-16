@@ -622,7 +622,7 @@ void write_point(std::string const& file, Vector3 const& point) {
 // good place to put it. Unalign the disparity, and/or create match points
 // from disparity, and/or solve for jitter.
 void disp_or_matches_work(std::string const& output_prefix,
-                          std::vector<ASPGlobalOptions> const& opt_vec,
+                          ASPGlobalOptions const& opt,
                           std::vector<vw::TransformPtr> const& transforms,
                           std::vector<DispImageType> const& disparity_maps,
                           std::vector<std::string> const& image_files,
@@ -633,7 +633,6 @@ void disp_or_matches_work(std::string const& output_prefix,
   VW_ASSERT(disparity_maps.size() == 1 && transforms.size() == 2,
             vw::ArgumentErr() << "Expecting two images and one disparity.\n");
 
-  ASPGlobalOptions opt = opt_vec[0];
   bool is_map_projected = opt.session->isMapProjected();
 
   // Transforms to compensate for alignment
@@ -711,11 +710,11 @@ void disp_or_matches_work(std::string const& output_prefix,
 
 /// Main triangulation function
 void stereo_triangulation(std::string const& output_prefix,
-                          std::vector<ASPGlobalOptions> const& opt_vec) {
+                          ASPGlobalOptions const& opt) {
 
   try { // Outer try/catch
 
-    bool is_map_projected = opt_vec[0].session->isMapProjected();
+    bool is_map_projected = opt.session->isMapProjected();
 
     // Collect the left and right images, cameras, and transforms.
     std::vector<std::string> image_files, camera_files;
@@ -723,17 +722,17 @@ void stereo_triangulation(std::string const& output_prefix,
     std::vector<vw::TransformPtr> transforms;
     {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-      opt_vec[0].session->camera_models(camera_model1, camera_model2);
+      opt.session->camera_models(camera_model1, camera_model2);
 
-      boost::shared_ptr<StereoSession> sPtr = opt_vec[0].session;
+      boost::shared_ptr<StereoSession> sPtr = opt.session;
 
-      image_files.push_back(opt_vec[0].in_file1);
-      camera_files.push_back(opt_vec[0].cam_file1);
+      image_files.push_back(opt.in_file1);
+      camera_files.push_back(opt.cam_file1);
       cameras.push_back(camera_model1);
       transforms.push_back(sPtr->tx_left());
 
-      image_files.push_back(opt_vec[0].in_file2);
-      camera_files.push_back(opt_vec[0].cam_file2);
+      image_files.push_back(opt.in_file2);
+      camera_files.push_back(opt.cam_file2);
       cameras.push_back(camera_model2);
       transforms.push_back(sPtr->tx_right());
     }
@@ -747,7 +746,7 @@ void stereo_triangulation(std::string const& output_prefix,
     stereo::UniverseRadiusFunc universe_radius_func(Vector3(), 0, 0);
     try{
       if (stereo_settings().universe_center == "camera") {
-        if (opt_vec[0].session->name() == "rpc") {
+        if (opt.session->name() == "rpc") {
           vw_throw(InputErr() << "Stereo with RPC cameras cannot "
                               << "have the camera as the universe center.\n");
         }
@@ -770,14 +769,14 @@ void stereo_triangulation(std::string const& output_prefix,
 
     std::vector<DispImageType> disparity_maps;
     disparity_maps.push_back
-      (opt_vec[0].session->pre_pointcloud_hook(opt_vec[0].out_prefix+"-F.tif"));
+      (opt.session->pre_pointcloud_hook(opt.out_prefix+"-F.tif"));
 
     bool do_disp_or_matches_work
       = (stereo_settings().unalign_disparity                        ||
          stereo_settings().num_matches_from_disparity > 0           ||
          stereo_settings().num_matches_from_disp_triplets > 0);
     if (do_disp_or_matches_work) {
-      disp_or_matches_work(output_prefix, opt_vec, transforms,
+      disp_or_matches_work(output_prefix, opt, transforms,
                            disparity_maps, image_files, camera_files,
                            // Cameras can change
                            cameras);
@@ -812,7 +811,7 @@ void stereo_triangulation(std::string const& output_prefix,
     // masks and computes the cloud center just finished. This is fragile logic.
     bool bathy_correct = asp::doBathy(asp::stereo_settings());
     if (bathy_correct && !stereo_settings().skip_point_cloud_center_comp)
-      opt_vec[0].session->align_bathy_masks(opt_vec[0]);
+      opt.session->align_bathy_masks(opt);
 
     // Create both a regular stereo model and a bathy stereo
     // model. Will use the latter only if we do bathymetry. This way
@@ -846,7 +845,7 @@ void stereo_triangulation(std::string const& output_prefix,
 
       // With a single ortho mask there are no per-image masks to read here.
       if (!use_ortho) {
-        opt_vec[0].session->read_aligned_bathy_masks(left_aligned_bathy_mask,
+        opt.session->read_aligned_bathy_masks(left_aligned_bathy_mask,
                                                      right_aligned_bathy_mask);
 
         if (left_aligned_bathy_mask.cols() != disparity_maps[0].cols() ||
@@ -882,7 +881,7 @@ void stereo_triangulation(std::string const& output_prefix,
     }
 
     // Used to find the datum for the given planet
-    vw::cartography::GeoReference georef = opt_vec[0].session->get_georef();
+    vw::cartography::GeoReference georef = opt.session->get_georef();
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << "\n";
@@ -911,7 +910,7 @@ void stereo_triangulation(std::string const& output_prefix,
         if (!stereo_settings().skip_point_cloud_center_comp) {
           vw::Stopwatch sw;
           sw.start();
-          cloud_center = find_point_cloud_center(opt_vec[0].raster_tile_size, point_cloud);
+          cloud_center = find_point_cloud_center(opt.raster_tile_size, point_cloud);
           vw_out() << "Writing point cloud center: " << cloud_center_file << "\n";
           write_point(cloud_center_file, cloud_center);
           sw.stop();
@@ -943,10 +942,10 @@ void stereo_triangulation(std::string const& output_prefix,
                                << "Setting it to (err_len, 0, 0)." << "\n";
 
       ImageViewRef<Vector6> crop_pc = crop(point_cloud, cbox);
-      save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt_vec[0]);
+      save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt);
     } else {
       ImageViewRef<Vector4> crop_pc = crop(point_and_error_norm(point_cloud), cbox);
-      save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt_vec[0]);
+      save_point_cloud(cloud_center, crop_pc, point_cloud_file, georef, opt);
     } // End if/else
 
     // Must print this at the end, as it contains statistics on the number of rejected points.
@@ -978,25 +977,25 @@ int main(int argc, char* argv[]) {
     asp::stereo_register_sessions();
 
     bool verbose = false;
-    std::vector<asp::ASPGlobalOptions> opt_vec;
+    asp::ASPGlobalOptions opt;
     std::string output_prefix;
     asp::parseStereoArgs(argc, argv, asp::TriangulationDescription(),
-                         verbose, output_prefix, opt_vec);
+                         verbose, output_prefix, opt);
 
     // There is a single stereo pair. The filtered disparity must exist.
-    if (!fs::exists(opt_vec[0].out_prefix+"-F.tif"))
+    if (!fs::exists(opt.out_prefix+"-F.tif"))
       vw_throw(ArgumentErr() << "No valid F.tif file found.\n");
 
     // Triangulation uses small tiles.
     int ts = asp::ASPGlobalOptions::tri_tile_size();
-    opt_vec[0].raster_tile_size = Vector2i(ts, ts);
+    opt.raster_tile_size = Vector2i(ts, ts);
 
     // This is good info to have at triangulation. Also prints a warning regarding
     // small triangulation angle and potentially an empty point cloud.
     if (!asp::stereo_settings().stereo_dist_mode)
-      asp::estimate_convergence_angle(opt_vec[0]);
+      asp::estimate_convergence_angle(opt);
 
-    asp::stereo_triangulation(output_prefix, opt_vec);
+    asp::stereo_triangulation(output_prefix, opt);
 
     vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: TRIANGULATION FINISHED\n";
 

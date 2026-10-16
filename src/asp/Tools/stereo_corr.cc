@@ -1565,11 +1565,10 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    std::vector<ASPGlobalOptions> opt_vec;
+    ASPGlobalOptions opt;
     std::string output_prefix;
     asp::parseStereoArgs(argc, argv, CorrelationDescription(),
-                         verbose, output_prefix, opt_vec);
-    ASPGlobalOptions opt = opt_vec[0];
+                         verbose, output_prefix, opt);
 
     // Leave the number of parallel block threads equal to the default unless we
     //  are using SGM in which case only one block at a time should be processed.

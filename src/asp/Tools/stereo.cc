@@ -568,24 +568,20 @@ void parseStereoArgs(int argc, char* argv[],
                      additional_options,
                      bool verbose,
                      std::string & output_prefix,
-                     std::vector<ASPGlobalOptions> & opt_vec,
+                     ASPGlobalOptions & opt,
                      bool exit_early) {
 
-  // First reset the outputs
+  // First reset the output
   output_prefix.clear();
-  opt_vec.clear();
 
-  // Extract the images/cameras/output prefix, and perhaps the input DEM
+  // On this first pass, parse just enough to extract the input files. This also
+  // populates opt, which the GUI needs even if a later failure occurs.
   std::vector<std::string> files;
-  bool first_pass = true; // on this pass, just extract the files
-  ASPGlobalOptions opt;
+  bool first_pass = true;
   std::string usage;
   bool override_out_prefix = true;
   parseStereoHelper(argc, argv, opt, additional_options,
                     first_pass, override_out_prefix, files, usage, exit_early);
-
-  // Need this for the GUI, ensure that opt_vec is never empty, even on failures
-  opt_vec.push_back(opt);
 
   if (files.size() < 3)
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
@@ -617,12 +613,12 @@ void parseStereoArgs(int argc, char* argv[],
   // Full parse of the single stereo pair
   first_pass = false;
   override_out_prefix = true;
-  parseStereoHelper(argc, argv, opt_vec[0], additional_options,
+  parseStereoHelper(argc, argv, opt, additional_options,
                     first_pass, override_out_prefix, files, usage, exit_early);
 
-  // For each stereo command not in a tile, print the run info
+  // Print the run info, unless this is a tile run
   if (!is_tile_run(argc, argv))
-    saveRunInfo(opt_vec[0], images, cameras, input_dem);
+    saveRunInfo(opt, images, cameras, input_dem);
 
   return;
 }

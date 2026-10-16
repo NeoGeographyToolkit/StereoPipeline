@@ -481,11 +481,10 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = false;
-    std::vector<ASPGlobalOptions> opt_vec;
+    ASPGlobalOptions opt;
     std::string output_prefix;
     asp::parseStereoArgs(argc, argv, FilteringDescription(),
-                         verbose, output_prefix, opt_vec);
-    ASPGlobalOptions opt = opt_vec[0];
+                         verbose, output_prefix, opt);
 
     // Internal Processes
     //---------------------------------------------------------

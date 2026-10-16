@@ -103,14 +103,10 @@ int main(int argc, char* argv[]) {
     stereo_register_sessions();
 
     bool verbose = true;
-    std::vector<ASPGlobalOptions> opt_vec;
+    ASPGlobalOptions opt;
     std::string output_prefix;
     asp::parseStereoArgs(argc, argv, ParseDescription(),
-                         verbose, output_prefix, opt_vec);
-    if (opt_vec.empty())
-      return 1;
-
-    ASPGlobalOptions opt = opt_vec[0];
+                         verbose, output_prefix, opt);
 
     // This is needed for the stereo_dist distributed processing program. Save
     // the needed list of tiles to disk (and their mapprojected versions as a
