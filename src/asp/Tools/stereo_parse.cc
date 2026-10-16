@@ -144,7 +144,6 @@ int main(int argc, char* argv[]) {
              << stereo_settings().left_image_crop_win.width()   << ","
              << stereo_settings().left_image_crop_win.height()  << "\n";
 
-    // This is different from opt.out_prefix for multiview
     vw_out() << "out_prefix," << output_prefix << "\n";
 
     // Output only the named options (no positional args) so that callers

@@ -61,7 +61,7 @@ namespace asp {
   /// Transform the crop window to be in reference to L.tif
   vw::BBox2i transformed_crop_win(ASPGlobalOptions const& opt);
 
-  /// Parse the command line options for multi-view stereo
+  /// Parse the command line options for stereo (two images only)
   void parseStereoArgs(int argc, char* argv[],
                        boost::program_options::options_description const&
                        additional_options,
@@ -81,7 +81,7 @@ namespace asp {
   void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
                          boost::program_options::options_description const&
                          additional_options,
-                         bool is_multiview, bool override_out_prefix,
+                         bool first_pass, bool override_out_prefix,
                          std::vector<std::string> & unregistered,
                          std::string & usage, bool exit_early = false);
 

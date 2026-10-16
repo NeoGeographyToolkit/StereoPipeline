@@ -185,8 +185,8 @@ PreProcessingDescription::PreProcessingDescription():
       "Skip normalizing the input image values and removing nodata pixels, avoiding a normalized copy of the inputs. A speedup option for mapprojected input images. Requires no alignment, no crop windows, no bathymetry, a GDAL-supported input format, and --cost-mode 2, 3, or 4.")
     ("force-reuse-match-files", po::bool_switch(&global.force_reuse_match_files)->default_value(false)->implicit_value(true),
       "Force reusing the match files even if older than the images or cameras.")
-    ("part-of-multiview-run", po::bool_switch(&global.part_of_multiview_run)->default_value(false)->implicit_value(true),
-      "If the current run is part of a larger multiview run.")
+    ("no-crop-on-alignment", po::bool_switch(&global.no_crop_on_alignment)->default_value(false)->implicit_value(true),
+      "Do not crop the left and right images to their shared region during alignment, so a one-to-one correspondence is kept between the input left image pixels and the output disparity and point cloud. Used by wv_correct.")
     ("global-alignment-threshold", po::value(&global.global_alignment_threshold)->default_value(10),
       "Maximum distance from inlier interest point matches to the epipolar line when calculating the global affine epipolar alignment.")
     ("local-alignment-threshold", po::value(&global.local_alignment_threshold)->default_value(5),

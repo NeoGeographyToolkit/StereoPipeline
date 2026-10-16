@@ -113,7 +113,7 @@ namespace asp {
     bool   no_datum;                        // Do not assume a reliable datum exists
     bool   skip_image_normalization;        // Skip the step of normalizing the values of input images and removing nodata-pixels. Create instead symbolic links to original images.
     bool   force_reuse_match_files;         // Force reusing the match files even if older than the images or cameras
-    bool   part_of_multiview_run;           // If this run is part of a larger multiview run
+    bool   no_crop_on_alignment;            // Do not crop images to their shared region in alignment
     std::string datum;                      // The datum to use with RPC camera models
     std::string match_files_prefix, clean_match_files_prefix; // Load matches from here
     std::string left_image_clip, right_image_clip;

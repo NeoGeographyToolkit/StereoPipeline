@@ -108,60 +108,6 @@ def sym_link_prev_run(prev_run_prefix, out_prefix):
                 os.remove(dst_f) # this could be some dangling thing
             os.symlink(rel_src, dst_f)
 
-def create_symlinks_for_multiview(opt, args, settings):
-    """
-    Running parallel_stereo for each pair in a multiview run
-    creates files like:
-      out-prefix-pair2/2-4096_4096_1629_1629/4096_4096_1629_1629-F.tif
-    To run parallel_stereo for tri, we expect this at
-      out-prefix-4096_4096_1629_1629/4096_4096_1629_1629-pair2/2-F.tif
-    Create the latter as a sym link.
-    """
-    subdirs = create_subdirs_symlink(opt, args, settings) # symlink L.tif, etc
-    
-    for s in sorted(settings.keys()):
-        
-        # Find the settings for each stereo command that together comprise the
-        # multiview run.
-        # TODO(oalexan1): This should be factored out as a function, and the above
-        # loop should iterate over the output of this function.
-        m = re.match(r'multiview_command', s)
-        if not m:
-            continue
-        local_settings=run_and_parse_output("stereo_parse", settings[s][1:],
-                                            sep, opt.verbose)
-        local_prefix = local_settings['out_prefix'][0]
-        m = re.match(r'^(.*?)-pair(\d+)\/', local_prefix)
-        if not m:
-            continue
-        base_prefix = m.group(1)
-        index       = str(m.group(2))
-        
-        for tile_id in range(len(subdirs)):
-            subdir = subdirs[tile_id]
-            tile = dirToTile(subdir)
-            tile_str = tile.name_str()
-            src_pref = tile_dir(base_prefix + '-pair' + index + '/' + index, tile) + '/' + tile_str
-            dst_dir  = tile_dir(base_prefix, tile) + '/' + tile_str + '-pair' + index
-            mkdir_p(dst_dir)
-
-            dst_pref = dst_dir + '/' + index
-            files = glob.glob(src_pref + '*')
-            for f in files:
-                m = re.match(skip_symlink_expr, f)
-                if m:
-                    continue # won't sym link certain patterns
-                m = re.match(r'^' + src_pref + '(.*?)$', f)
-                if not m:
-                    continue
-                suff    = m.group(1)
-                src_f   = src_pref + suff
-                dst_f   = dst_pref + suff
-                rel_src = os.path.relpath(src_f, dst_dir)
-                if os.path.lexists(dst_f):
-                    continue
-                os.symlink(rel_src, dst_f)
-
 def get_num_nodes(nodes_list):
 
     if nodes_list is None:
@@ -581,41 +527,6 @@ def parallel_stereo_args(p, opt, parallel_args, args):
 
     return extra_args
 
-def setup_run_multiview(opt, settings, parallel_args, args):
-    '''
-    Prepare and run multiview stereo. Triangulation is joint, but
-    the steps before that are done separately for each pair.
-    '''
- 
-    # TODO(oalexan1): This function calls parallel_stereo again. This is
-    # confusing.
-    
-    if opt.keep_only == "all_combined":
-        # Change the default to "unchanged"
-        opt.keep_only = "unchanged"
-    if opt.keep_only != "unchanged":
-        # If the user specified something else
-        raise Exception('Option --keep-only does not work with multiview stereo.')
-
-    # TODO(oalexan1): avoid confusing the logic below
-    asp_cmd_utils.wipe_option(parallel_args, '-s', 1)
-    if os.path.exists(opt.stereo_file):
-        parallel_args.extend(['--stereo-file', opt.stereo_file])
-
-    # Args only for parallel_stereo
-    extra_args = parallel_stereo_args(p, opt, parallel_args, args)
-
-    if opt.entry_point < Step.tri:
-        run_multiview(__file__, args, extra_args, opt.entry_point,
-                        opt.stop_point, opt.verbose, settings)
-        # Everything is done.
-        sys.exit(0)
-    else:
-        # We will arrive here after this script invokes itself
-        # for multiview.  Set up the directories. After this
-        # exits, triangulation will run.
-        create_symlinks_for_multiview(opt, args, settings)
-                
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <images> [<cameras>]
                   <output_prefix> [DEM]
@@ -894,7 +805,7 @@ if __name__ == '__main__':
 
     # TODO(oalexan1): The giant block below needs to be broken up into two
     # functions, called main_run() and and tile_run(). Careful testing will be
-    # needed, including for multiview stereo.
+    # needed.
     if opt.tile_id is None:
 
         # We get here when the script is started. The current running process
@@ -906,11 +817,6 @@ if __name__ == '__main__':
         asp_cmd_utils.wipe_option(parallel_args, '-e', 1)
         asp_cmd_utils.wipe_option(parallel_args, '--entry-point', 1)
         asp_cmd_utils.wipe_option(parallel_args, '--stop-point', 1)
-        
-        num_pairs = int(settings['num_stereo_pairs'][0])
-        if num_pairs > 1:
-            # Multiview stereo needs special treatment
-            setup_run_multiview(opt, settings, parallel_args, args)
 
         # Preprocessing
         step = Step.pprc

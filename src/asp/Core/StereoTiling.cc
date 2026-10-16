@@ -106,14 +106,14 @@ void produceTiles(bool is_map_projected,
   std::vector<int> tile_id_vec;
   std::string fieldId = "tile_id"; // Will be used on reading in stereo_gui as well
 
-  // We check for valid D_sub only if seed_mode is not 0 and not part of a multiview
-  // run, as that one is tricky to get right, given that each pair run has its own D_sub.
+  // Check for a valid D_sub only if seed_mode is not 0 and not --no-crop-on-alignment,
+  // as the latter (used by wv_correct) need not have a standard top-level D_sub.
   bool have_D_sub = false;
   std::string d_sub_file = output_prefix + "-D_sub.tif";
   vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
   vw::Vector2 up_scale(0, 0);
-  bool is_multiview = stereo_settings().part_of_multiview_run;
-  if (stereo_settings().seed_mode != 0 && !is_multiview) {
+  bool skip_d_sub = stereo_settings().no_crop_on_alignment;
+  if (stereo_settings().seed_mode != 0 && !skip_d_sub) {
     have_D_sub = true; 
     try {
       asp::load_D_sub_and_scale(output_prefix, d_sub_file, sub_disp, up_scale);

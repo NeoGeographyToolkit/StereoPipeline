@@ -332,12 +332,6 @@ correlation (disparity) of two images, without cameras
 The quality of correlation can be evaluated with the ``corr_eval``
 program (:numref:`corr_eval`).
 
-The ``parallel_stereo`` command can also take multiple input images,
-performing multi-view stereo (:numref:`multiview`), though this
-approach is rather discouraged as better results can be obtained with
-bundle adjustment followed by pairwise stereo and merging of DEMs with
-``dem_mosaic`` (:numref:`dem_mosaic`).
-
 Running the GUI frontend
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1725,48 +1719,4 @@ ICESat-2 or lidar points, it can be fit and subtracted with ``dem_detrend``
    correct warping in the ASP-produced DEM, by either solving for lens distortion
    or jitter.
   
-.. _multiview:
-
-Multi-view stereo
-~~~~~~~~~~~~~~~~~
-
-ASP supports multi-view stereo at the triangulation stage. This mode is
-*discouraged*. 
-
-See instead :numref:`sfm_multiview` for an approach based on pairwise stereo.
-
-If using this multiview stereo mode (not suggested), the first image is set as
-reference, disparities are computed from it to all the other images, and then
-joint triangulation is performed :cite:`slabaugh2001optimal`. A single point
-cloud is generated with one 3D point for each pixel in the first image. The
-inputs to multi-view stereo and its output point cloud are handled in the same
-way as for two-view stereo (e.g., inputs can be mapprojected, the output can be
-converted to a DEM, etc.).
-
-It is suggested that images be bundle-adjusted (:numref:`baasp`)
-before running multi-view stereo.
-
-Example (for ISIS with three images)::
-
-     parallel_stereo file1.cub file2.cub file3.cub results/run
-
-Example (for DigitalGlobe/Maxar data with three mapprojected images)::
-
-     parallel_stereo file1.tif file2.tif file3.tif \
-       file1.xml file2.xml file3.xml               \
-       results/run input-DEM.tif
-
-For a sequence of images, multi-view stereo can be run several times
-with each image as a reference, and the obtained point clouds combined
-into a single DEM using ``point2dem`` (:numref:`point2dem`).
-
-The ray intersection error, the fourth band in the point cloud file, is
-computed as twice the mean of distances from the optimally computed
-intersection point to the individual rays. For two rays, this agrees
-with the intersection error for two-view stereo which is defined as the
-minimal distance between rays. For multi-view stereo this error is much
-less amenable to interpretation than for two-view stereo, since the
-number of valid rays corresponding to a given feature can vary across
-the image, which results in discontinuities in the intersection error.
-
 .. |times| unicode:: U+00D7 .. MULTIPLICATION SIGN

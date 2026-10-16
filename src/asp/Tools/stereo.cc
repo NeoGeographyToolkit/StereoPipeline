@@ -401,138 +401,6 @@ void parseStereoOptsVals(int argc, char *argv[],
   }
 }
 
-// Handle the arguments for the multiview case. It creates multiple pairwise
-// invocations of stereo.
-void parseMultiviewHelper(int argc, char* argv[],
-                          int num_pairs,
-                          std::vector<std::string> const& files,
-                          std::vector<std::string> const& images,
-                          std::vector<std::string> const& cameras,
-                          std::string const& output_prefix,
-                          std::string const& input_dem,
-                          po::options_description const& additional_options,
-                          bool verbose, bool exit_early,
-                          // Outputs
-                          std::string & usage,
-                          std::vector<ASPGlobalOptions> & opt_vec) {
-
-  //  Parse all the options and their values, stored in a vector, to be 
-  // used later for pairwise stereo. It skips the standalone input files.
-  std::vector<std::string> opts_vals;
-  parseStereoOptsVals(argc, argv, additional_options, opts_vals);
-
-  // Must signal to the children runs that they are part of a multiview run
-  std::string opt_str = "--part-of-multiview-run";
-  auto it = find(opts_vals.begin(), opts_vals.end(), opt_str);
-  if (it == opts_vals.end())
-    opts_vals.push_back(opt_str);
-
-  // Multiview is very picky about alignment method
-  if (stereo_settings().alignment_method != "none" &&
-      stereo_settings().alignment_method != "homography") {
-
-    std::string new_alignment;
-    if (input_dem == "")
-      new_alignment = "homography";
-    else
-      new_alignment = "none";
-
-    vw_out(WarningMessage)
-      << "For multi-view stereo, only alignment method of 'none' or 'homography' "
-      << "is supported. Changing alignment method from '"
-      << stereo_settings().alignment_method << "' to '" << new_alignment << "'.\n";
-    stereo_settings().alignment_method = new_alignment;
-
-    // Set this for future pairwise runs as well
-    std::string align_opt = "--alignment-method";
-    auto it = std::find(opts_vals.begin(), opts_vals.end(), align_opt);
-    if (it != opts_vals.end() && it + 1 != opts_vals.end()) {
-      // Modify existing alignment
-      *(it+1) = new_alignment;
-    } else {
-      // Set new alignment
-      opts_vals.push_back(align_opt);
-      opts_vals.push_back(new_alignment);
-    }
-  }
-
-  // Generate the stereo command for each of the pairs made up of the first
-  // image and each subsequent image, with corresponding cameras.
-  opt_vec.resize(num_pairs);
-  std::string prog_name = extract_prog_name(argv[0]);
-  for (int p = 1; p <= num_pairs; p++) {
-
-    std::vector<std::string> cmd;
-    cmd.push_back(prog_name);
-
-    // The command line options go first
-    for (int t = 0; t < (int)opts_vals.size(); t++)
-      cmd.push_back(opts_vals[t]);
-
-    cmd.push_back(images[0]); // left image
-    cmd.push_back(images[p]); // right image
-
-    if (!cameras.empty()) {
-      // Don't append the camera names if they are the same as the image names
-      if ((images[0] != cameras[0]) && (images[p] != cameras[p])) {
-        cmd.push_back(cameras[0]); // left camera
-        cmd.push_back(cameras[p]); // right camera
-      }
-    }
-
-    // Need to have a separate output prefix for each pair
-    std::string local_prefix = output_prefix;
-    std::ostringstream os;
-    os << local_prefix << "-pair" << p << "/" << p;
-    local_prefix = os.str();
-    cmd.push_back(local_prefix);
-    if (!input_dem.empty())
-      cmd.push_back(input_dem);
-
-    // Create a local argc and argv for the given stereo pair and parse them.
-    int largc = cmd.size();
-    std::vector<char*> largv;
-    for (int t = 0; t < largc; t++)
-      largv.push_back((char*)cmd[t].c_str());
-    bool is_multiview = false; // single image and camera pair
-    std::vector<std::string> local_files;
-    bool override_out_prefix = false;
-    parseStereoHelper(largc, &largv[0], opt_vec[p-1], additional_options,
-                     is_multiview, override_out_prefix, local_files, usage, exit_early);
-
-    if (verbose) {
-      // Needed for stereo_parse
-      int big = 10000; // helps keep things in order in the python script
-      vw_out() << "multiview_command_" << big + p << ",";
-      for (int t = 0; t < largc-1; t++)
-        vw_out() << cmd[t] << ",";
-      if (largc > 0)
-        vw_out() << cmd[largc-1];
-      vw_out() << "\n";
-    }
-
-  } // end loop through pairs
-
-  // Sanity checks specific to multiview
-
-  if (stereo_settings().propagate_errors)
-    vw::vw_throw(vw::ArgumentErr() << "Error propagation is not "
-                  << "implemented for more than two images.\n");
-
-  if (prog_name != "stereo_parse" &&
-      prog_name != "stereo_tri" && prog_name != "stereo_gui")
-    vw_throw(ArgumentErr() << "The executable " << prog_name
-              << " is not meant to be used directly with more than two images. Use "
-              << "instead the stereo/parallel_stereo scripts with desired entry points.\n");
-
-  // This must happen after StereoSession is initialized
-  if (asp::doBathy(asp::stereo_settings()))
-    vw_throw(ArgumentErr() << "Bathymetry correction does not work with "
-              << "multiview stereo.\n");
-
-  return;
-}
-
 /// Parse the list of files and output prefix specified as positional arguments
 /// on the command line. Hence, parse the arguments that are not passed to options.
 // The format is:  <N image paths> [N camera model paths] <output prefix> [input DEM path]
@@ -588,9 +456,8 @@ bool parseStereoFiles(bool override_out_prefix,
 
   // parallel_stereo must be able to run with a tile output prefix. That program
   // does not understand all the stereo options, so, it delegates to the
-  // underlying stereo executables to do this switch. Invoke this only
-  // if is_multiview is true, to do the replacement of the prefix just once.
-  // Do not do it later again, when the processing is per each stereo pair.
+  // underlying stereo executables to do this switch. Replace the prefix only
+  // when override_out_prefix is set, so it happens just once.
   if (asp::stereo_settings().output_prefix_override != "" && override_out_prefix)
     outPrefix = asp::stereo_settings().output_prefix_override;
 
@@ -690,13 +557,12 @@ void handleCropWins(ASPGlobalOptions const& opt) {
 
 // If a stereo program is invoked as:
 // prog <images> <cameras> <output-prefix> [<input_dem>] <other options>
-// with the number of images n >= 2, create n-1 individual
-// ASPGlobalOptions entries, corresponding to n-1 stereo pairs between the
-// first image and each of the subsequent images.
+// parse the two images, cameras, output prefix, and optional DEM into a single
+// ASPGlobalOptions entry. Only two images are supported. For more images, use
+// multi_stereo.
 // TODO(oalexan1): The logic here is convoluted. parseStereoHelper() is called
-// multiple times: once initially to extract files, then again for each stereo
-// pair (1 time for single stereo, or n-1 times for multiview with n images).
-// This redundant parsing and argv reconstruction should be refactored.
+// twice: once to extract the files, then again to do the full parse. This
+// redundant parsing and argv reconstruction should be refactored.
 void parseStereoArgs(int argc, char* argv[],
                      boost::program_options::options_description const&
                      additional_options,
@@ -711,12 +577,12 @@ void parseStereoArgs(int argc, char* argv[],
 
   // Extract the images/cameras/output prefix, and perhaps the input DEM
   std::vector<std::string> files;
-  bool is_multiview = true;
+  bool first_pass = true; // on this pass, just extract the files
   ASPGlobalOptions opt;
   std::string usage;
   bool override_out_prefix = true;
   parseStereoHelper(argc, argv, opt, additional_options,
-                    is_multiview, override_out_prefix, files, usage, exit_early);
+                    first_pass, override_out_prefix, files, usage, exit_early);
 
   // Need this for the GUI, ensure that opt_vec is never empty, even on failures
   opt_vec.push_back(opt);
@@ -740,20 +606,19 @@ void parseStereoArgs(int argc, char* argv[],
   int num_pairs = (int)images.size() - 1;
   if (num_pairs <= 0)
     vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
+  if (num_pairs > 1)
+    vw_throw(ArgumentErr() << "Stereo with more than two images (the old "
+             << "multiview mode) has been removed. Use multi_stereo instead.\n");
 
-  // Needed for stereo_parse
+  // Needed for stereo_parse. There is always a single pair now.
   if (verbose)
     vw_out() << "num_stereo_pairs," << num_pairs << "\n";
 
-  if (num_pairs == 1) {
-    bool is_multiview = false, override_out_prefix = true;
-    parseStereoHelper(argc, argv, opt_vec[0], additional_options,
-                      is_multiview, override_out_prefix, files, usage, exit_early);
-  } else {
-    parseMultiviewHelper(argc, argv, num_pairs, files, images, cameras, output_prefix, 
-                         input_dem, additional_options, verbose, exit_early, usage,
-                         opt_vec); // output
-  }
+  // Full parse of the single stereo pair
+  first_pass = false;
+  override_out_prefix = true;
+  parseStereoHelper(argc, argv, opt_vec[0], additional_options,
+                    first_pass, override_out_prefix, files, usage, exit_early);
 
   // For each stereo command not in a tile, print the run info
   if (!is_tile_run(argc, argv))
@@ -766,7 +631,7 @@ void parseStereoArgs(int argc, char* argv[],
 void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
                        boost::program_options::options_description const&
                        additional_options,
-                       bool is_multiview, bool override_out_prefix,
+                       bool first_pass, bool override_out_prefix,
                        std::vector<std::string> & input_files,
                        std::string & usage, bool exit_early) {
 
@@ -802,7 +667,7 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
     // says that an option already stored will not be changed. So, the settings
     // in the config files will not overwrite the ones already set on the
     // command line.
-    bool print_warnings = is_multiview; // print warnings just first time
+    bool print_warnings = first_pass; // print warnings just first time
     po::store(parse_asp_config_file(print_warnings,
                                     opt.stereo_default_filename,
                                     cfg_options), vm);
@@ -847,10 +712,9 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
       << usage << general_options);
   input_files = vm["input-files"].as<std::vector<std::string>>();
 
-  // For multiview, just store the files and return. Must happen after logging
-  // starts, as logging for multiview is done in subdirectories. In multiview
-  // mode, the logic further down will be later called for each pair.
-  if (is_multiview)
+  // On the first pass, just store the files and return. Must happen after
+  // logging starts. The logic further down is called on the second pass.
+  if (first_pass)
     return;
 
   // Re-use the logic in parseStereoFiles, but just for two images/cameras.

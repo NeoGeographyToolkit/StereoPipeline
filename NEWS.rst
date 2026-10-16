@@ -201,6 +201,9 @@ Misc:
   * ``pc_align``, ``n_align``, and ``point2dem`` now accept GDAL virtual file
     system paths, such as ``/vsicurl/``, ``/vsizip/``, etc., so a cloud or DEM
     can be read without fully fetching or extracting it (:numref:`pc_align`).
+  * Removed the built-in multiview mode of ``stereo`` and ``parallel_stereo``
+    (passing more than two images at once). Use ``multi_stereo`` instead
+    (:numref:`multi_stereo`).
 
 RELEASE 3.7.0, June 2026
 ------------------------

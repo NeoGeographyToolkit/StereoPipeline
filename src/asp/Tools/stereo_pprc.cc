@@ -506,12 +506,10 @@ int main(int argc, char* argv[]) {
     if (!opt.input_dem.empty())
       vw_out() << "Input DEM: " << opt.input_dem << "\n";
 
-    // We will not adjust the left image size if we do multiview stereo,
-    // so we can keep one-to-one correspondence between the several
-    // pairwise runs that are part of the multiview run for the time
-    // when we need to combine all these runs to do simultaneous triangulation.
-    bool adjust_left_image_size = (opt_vec.size() == 1 &&
-                                   !stereo_settings().part_of_multiview_run);
+    // Do not crop the images to their shared region when --no-crop-on-alignment
+    // is set, to keep a one-to-one correspondence between the input left image
+    // pixels and the output disparity and point cloud.
+    bool adjust_left_image_size = !stereo_settings().no_crop_on_alignment;
 
     stereo_preprocessing(adjust_left_image_size, opt);
     if (!stereo_settings().stereo_dist_mode)

@@ -36,7 +36,7 @@ fi
 #bundle_adjust $left_image $right_image $left_cam $right_cam -o run_ba/run
 
 base_cmd="parallel_stereo --corr-seed-mode 1 --subpixel-kernel 13 13
-  --part-of-multiview-run --alignment-method homography
+  --no-crop-on-alignment --alignment-method homography
   --subpixel-mode 1 --corr-max-levels 2 --disable-fill-holes
   --corr-timeout 600 " # sometimes may want to use many ip: --ip-per-tile 1000"
 #  --bundle-adjust-prefix run_ba/run"

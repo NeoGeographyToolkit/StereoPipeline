@@ -147,14 +147,6 @@ if __name__ == '__main__':
             raise Exception('Option --compute-low-res-disparity-only is not ' + \
                             'compatible with an entry point past the correlation stage.')
 
-        # Invoke itself for multiview if appropriate
-        num_pairs = int(settings['num_stereo_pairs'][0])
-        if num_pairs > 1 and opt.entry_point < Step.tri:
-            extra_args = []
-            run_multiview(__file__, args, extra_args, opt.entry_point,
-                          opt.stop_point, opt.verbose, settings)
-            sys.exit(0)
-
         # Pre-processing
         step = Step.pprc
         if (opt.entry_point <= step):

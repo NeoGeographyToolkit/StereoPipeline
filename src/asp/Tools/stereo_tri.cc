@@ -114,16 +114,7 @@ public:
     m_right_aligned_bathy_mask(right_aligned_bathy_mask),
     m_use_ortho_bathy_mask(asp::useOrthoBathyMask(asp::stereo_settings())),
     m_ortho_bathy_mask(ortho_bathy_mask),
-    m_ortho_bathy_georef(ortho_bathy_georef) {
-
-    // Sanity check
-    for (int p = 1; p < (int)m_disparity_maps.size(); p++) {
-      if (m_disparity_maps[0].cols() != m_disparity_maps[p].cols() ||
-          m_disparity_maps[0].rows() != m_disparity_maps[p].rows())
-        vw_throw(ArgumentErr() << "In multi-view triangulation, all disparities "
-                  << "must have the same dimensions.\n");
-    }
-  }
+    m_ortho_bathy_georef(ortho_bathy_georef) {}
 
   inline int32 cols  () const { return m_disparity_maps[0].cols(); }
   inline int32 rows  () const { return m_disparity_maps[0].rows(); }
@@ -135,20 +126,15 @@ public:
   /// - p is not actually used here, it should always be zero!
   inline result_type operator()(size_t i, size_t j, size_t p = 0) const {
 
-    // For each input image, de-warp the pixel in to the native camera coordinates
-    int num_disp = m_disparity_maps.size();
-    std::vector<Vector2> pixVec(num_disp + 1);
+    // De-warp the left and right pixels into the native camera coordinates
+    std::vector<Vector2> pixVec(2);
     pixVec[0] = m_transforms[0]->reverse(Vector2(i,j)); // De-warp "left" pixel
-    for (int c = 0; c < num_disp; c++) {
-      Vector2 pix;
-      DPixelT disp = m_disparity_maps[c](i,j,p); // Disparity value at this pixel
-      if (is_valid(disp)) // De-warp the "right" pixel
-        pix = m_transforms[c+1]->reverse(Vector2(i,j) + stereo::DispHelper(disp));
-      else // Insert flag values
-        pix = Vector2(std::numeric_limits<double>::quiet_NaN(),
-                      std::numeric_limits<double>::quiet_NaN());
-      pixVec[c+1] = pix;
-    }
+    DPixelT disp = m_disparity_maps[0](i,j,p); // Disparity value at this pixel
+    if (is_valid(disp)) // De-warp the "right" pixel
+      pixVec[1] = m_transforms[1]->reverse(Vector2(i,j) + stereo::DispHelper(disp));
+    else // Insert flag values
+      pixVec[1] = Vector2(std::numeric_limits<double>::quiet_NaN(),
+                          std::numeric_limits<double>::quiet_NaN());
 
     // Compute the location of the 3D point observed by each input pixel
     // when no bathymetry correction is needed.
@@ -186,10 +172,9 @@ public:
       return result; // Contains location and error vector
     }
 
-    // Continue with bathymetry correction. Note how we assume no
-    // multi-view stereo happens.
+    // Continue with bathymetry correction.
     Vector2 lpix(i, j);
-    DPixelT disp = m_disparity_maps[0](i, j, p);
+    disp = m_disparity_maps[0](i, j, p);
     if (!is_valid(disp)) {
       subvector(result, 0, 3) = Vector3(0, 0, 0);
       subvector(result, 3, 3) = Vector3(0, 0, 0);
@@ -325,7 +310,6 @@ private:
 
         if (m_bathy_correct) {
           // Bring the needed parts of the bathy masks in memory as well.
-          // We assume no multiview for stereo with bathy correction.
           BBox2i right_bbox = calc_right_bbox(bbox, clip);
 
           // Bring the needed parts of the bathy masks in memory as well
@@ -368,11 +352,6 @@ private:
     // want later. Caching is fast for dense rasterizing purposes, but slow for
     // sparse pixels.
     transforms_copy[0]->reverse_bbox(bbox);
-    if (transforms_copy.size() != m_disparity_maps.size() + 1) {
-      vw_throw(ArgumentErr() << "In multi-view triangulation, "
-                << "the number of disparities must be one less "
-                << "than the number of images.");
-    }
 
     std::vector<ImageViewRef<DPixelT>> disparity_cropviews;
     for (int p = 0; p < (int)m_disparity_maps.size(); p++) {
@@ -738,28 +717,23 @@ void stereo_triangulation(std::string const& output_prefix,
 
     bool is_map_projected = opt_vec[0].session->isMapProjected();
 
-    // Collect the images, cameras, and transforms. The left image is
-    // the same in all n-1 stereo pairs forming the n images multiview
-    // system. Same for cameras and transforms.
+    // Collect the left and right images, cameras, and transforms.
     std::vector<std::string> image_files, camera_files;
     std::vector<boost::shared_ptr<camera::CameraModel>> cameras;
     std::vector<vw::TransformPtr> transforms;
-    for (int p = 0; p < (int)opt_vec.size(); p++) {
-
+    {
       boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
-      opt_vec[p].session->camera_models(camera_model1, camera_model2);
+      opt_vec[0].session->camera_models(camera_model1, camera_model2);
 
-      boost::shared_ptr<StereoSession> sPtr = opt_vec[p].session;
+      boost::shared_ptr<StereoSession> sPtr = opt_vec[0].session;
 
-      if (p == 0) { // The first image is the "left" image for all pairs.
-        image_files.push_back(opt_vec[p].in_file1);
-        camera_files.push_back(opt_vec[p].cam_file1);
-        cameras.push_back(camera_model1);
-        transforms.push_back(sPtr->tx_left());
-      }
+      image_files.push_back(opt_vec[0].in_file1);
+      camera_files.push_back(opt_vec[0].cam_file1);
+      cameras.push_back(camera_model1);
+      transforms.push_back(sPtr->tx_left());
 
-      image_files.push_back(opt_vec[p].in_file2);
-      camera_files.push_back(opt_vec[p].cam_file2);
+      image_files.push_back(opt_vec[0].in_file2);
+      camera_files.push_back(opt_vec[0].cam_file2);
       cameras.push_back(camera_model2);
       transforms.push_back(sPtr->tx_right());
     }
@@ -795,9 +769,8 @@ void stereo_triangulation(std::string const& output_prefix,
     } // End try/catch
 
     std::vector<DispImageType> disparity_maps;
-    for (int p = 0; p < (int)opt_vec.size(); p++)
-      disparity_maps.push_back
-        (opt_vec[p].session->pre_pointcloud_hook(opt_vec[p].out_prefix+"-F.tif"));
+    disparity_maps.push_back
+      (opt_vec[0].session->pre_pointcloud_hook(opt_vec[0].out_prefix+"-F.tif"));
 
     bool do_disp_or_matches_work
       = (stereo_settings().unalign_disparity                        ||
@@ -868,10 +841,6 @@ void stereo_triangulation(std::string const& output_prefix,
     ImageView<PixelMask<float>> ortho_bathy_mask; // for --ortho-bathy-mask
     vw::cartography::GeoReference ortho_bathy_georef;
     if (bathy_correct) {
-
-      if (disparity_maps.size() != 1)
-        vw_throw(ArgumentErr()
-                 << "Bathymetry correction does not work with multiview stereo.\n");
 
       bool use_ortho = asp::useOrthoBathyMask(asp::stereo_settings());
 
@@ -1008,39 +977,23 @@ int main(int argc, char* argv[]) {
 
     asp::stereo_register_sessions();
 
-    // Unlike other stereo executables, triangulation can handle multiple images and cameras.
     bool verbose = false;
     std::vector<asp::ASPGlobalOptions> opt_vec;
     std::string output_prefix;
     asp::parseStereoArgs(argc, argv, asp::TriangulationDescription(),
                          verbose, output_prefix, opt_vec);
 
-    if (opt_vec.size() > 1) {
-      // For multiview, turn on logging to file in the run directory
-      // in output_prefix, not just in individual subdirectories.
-      asp::log_to_file(argc, argv, opt_vec[0].stereo_default_filename,
-                       output_prefix);
-    }
-
-    // Keep only those stereo pairs for which filtered disparity exists
-    std::vector<asp::ASPGlobalOptions> opt_vec_new;
-    for (int p = 0; p < (int)opt_vec.size(); p++) {
-      if (fs::exists(opt_vec[p].out_prefix+"-F.tif"))
-        opt_vec_new.push_back(opt_vec[p]);
-    }
-    opt_vec = opt_vec_new;
-    if (opt_vec.empty())
-      vw_throw(ArgumentErr() << "No valid F.tif files found.\n");
+    // There is a single stereo pair. The filtered disparity must exist.
+    if (!fs::exists(opt_vec[0].out_prefix+"-F.tif"))
+      vw_throw(ArgumentErr() << "No valid F.tif file found.\n");
 
     // Triangulation uses small tiles.
-    //---------------------------------------------------------
     int ts = asp::ASPGlobalOptions::tri_tile_size();
-    for (int s = 0; s < (int)opt_vec.size(); s++)
-      opt_vec[s].raster_tile_size = Vector2i(ts, ts);
+    opt_vec[0].raster_tile_size = Vector2i(ts, ts);
 
     // This is good info to have at triangulation. Also prints a warning regarding
     // small triangulation angle and potentially an empty point cloud.
-    if (opt_vec.size() == 1 && !asp::stereo_settings().stereo_dist_mode)
+    if (!asp::stereo_settings().stereo_dist_mode)
       asp::estimate_convergence_angle(opt_vec[0]);
 
     asp::stereo_triangulation(output_prefix, opt_vec);
