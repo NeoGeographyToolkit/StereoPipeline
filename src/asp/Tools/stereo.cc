@@ -472,9 +472,14 @@ bool parseStereoFiles(bool override_out_prefix,
         << "It appears that the output prefix exists as a file: "
         << outPrefix << ". Perhaps this was not intended.\n";
 
-  // Now there are N images and possibly N camera paths
+  // Separate the images from the cameras
   bool ensure_equal_sizes = false;
   asp::separate_images_from_cameras(files, imageFiles, camFiles, ensure_equal_sizes);
+
+  // Only two images are supported. For more, use multi_stereo.
+  if (imageFiles.size() > 2)
+    vw_throw(ArgumentErr() << "Stereo with more than two images (the old "
+             << "multiview mode) has been removed. Use multi_stereo instead.\n");
 
   return true;
 }
@@ -560,9 +565,6 @@ void handleCropWins(ASPGlobalOptions const& opt) {
 // parse the two images, cameras, output prefix, and optional DEM into a single
 // ASPGlobalOptions entry. Only two images are supported. For more images, use
 // multi_stereo.
-// TODO(oalexan1): The logic here is convoluted. parseStereoHelper() is called
-// twice: once to extract the files, then again to do the full parse. This
-// redundant parsing and argv reconstruction should be refactored.
 void parseStereoArgs(int argc, char* argv[],
                      boost::program_options::options_description const&
                      additional_options,
@@ -571,50 +573,35 @@ void parseStereoArgs(int argc, char* argv[],
                      ASPGlobalOptions & opt,
                      bool exit_early) {
 
-  // First reset the output
+  // Reset the output
   output_prefix.clear();
 
-  // On this first pass, parse just enough to extract the input files. This also
-  // populates opt, which the GUI needs even if a later failure occurs.
+  // Parse the single stereo pair. This sets opt and returns the input files.
+  // parseStereoFiles (called within, and again below) rejects more than two
+  // images.
   std::vector<std::string> files;
-  bool first_pass = true;
   std::string usage;
   bool override_out_prefix = true;
   parseStereoHelper(argc, argv, opt, additional_options,
-                    first_pass, override_out_prefix, files, usage, exit_early);
+                    override_out_prefix, files, usage, exit_early);
 
   if (files.size() < 3)
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
 
-  // Add note on the alignment method. If done in parseStereoHelper, it will be
-  // printed twice.
   if (stereo_settings().correlator_mode)
     vw_out() << "Running in correlator mode. The alignment method is: "
              << stereo_settings().alignment_method << ".\n";
 
-  // Extract all the positional elements
+  // Extract the positional elements for the run info
   std::vector<std::string> images, cameras;
   std::string input_dem;
   if (!parseStereoFiles(override_out_prefix, files, images, cameras,
                         output_prefix, input_dem))
     vw_throw(ArgumentErr() << "Missing the input files and/or output prefix.\n");
 
-  int num_pairs = (int)images.size() - 1;
-  if (num_pairs <= 0)
-    vw_throw(ArgumentErr() << "Insufficient number of images provided.\n");
-  if (num_pairs > 1)
-    vw_throw(ArgumentErr() << "Stereo with more than two images (the old "
-             << "multiview mode) has been removed. Use multi_stereo instead.\n");
-
-  // Needed for stereo_parse. There is always a single pair now.
+  // Needed for stereo_parse. There is always a single pair.
   if (verbose)
-    vw_out() << "num_stereo_pairs," << num_pairs << "\n";
-
-  // Full parse of the single stereo pair
-  first_pass = false;
-  override_out_prefix = true;
-  parseStereoHelper(argc, argv, opt, additional_options,
-                    first_pass, override_out_prefix, files, usage, exit_early);
+    vw_out() << "num_stereo_pairs,1\n";
 
   // Print the run info, unless this is a tile run
   if (!is_tile_run(argc, argv))
@@ -627,7 +614,7 @@ void parseStereoArgs(int argc, char* argv[],
 void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
                        boost::program_options::options_description const&
                        additional_options,
-                       bool first_pass, bool override_out_prefix,
+                       bool override_out_prefix,
                        std::vector<std::string> & input_files,
                        std::string & usage, bool exit_early) {
 
@@ -663,7 +650,7 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
     // says that an option already stored will not be changed. So, the settings
     // in the config files will not overwrite the ones already set on the
     // command line.
-    bool print_warnings = first_pass; // print warnings just first time
+    bool print_warnings = true;
     po::store(parse_asp_config_file(print_warnings,
                                     opt.stereo_default_filename,
                                     cfg_options), vm);
@@ -707,11 +694,6 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
     vw_throw(ArgumentErr() << "Missing input arguments.\n"
       << usage << general_options);
   input_files = vm["input-files"].as<std::vector<std::string>>();
-
-  // On the first pass, just store the files and return. Must happen after
-  // logging starts. The logic further down is called on the second pass.
-  if (first_pass)
-    return;
 
   // Re-use the logic in parseStereoFiles, but just for two images/cameras.
   std::vector<std::string> images, cameras;

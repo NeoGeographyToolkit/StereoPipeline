@@ -81,7 +81,7 @@ namespace asp {
   void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
                          boost::program_options::options_description const&
                          additional_options,
-                         bool first_pass, bool override_out_prefix,
+                         bool override_out_prefix,
                          std::vector<std::string> & unregistered,
                          std::string & usage, bool exit_early = false);
 
