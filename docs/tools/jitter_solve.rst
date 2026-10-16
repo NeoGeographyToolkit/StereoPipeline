@@ -326,10 +326,11 @@ DEM constraint (if used).
 The purpose of the anchor points is to control the camera orientation. Each
 anchor ground point, where a ray meets the anchor DEM, is held fixed. As the
 camera poses are optimized, a reprojection error accrues wherever a camera ray
-drifts off its anchor point. The strength of this constraint is set with
-``--anchor-dem-uncertainty``, a 1-sigma value in meters. A smaller value gives
-the reprojection error more weight, so the cameras are held more firmly. This
-option was introduced in build 2026/6 (:numref:`release`).
+drifts off its anchor point. The strength of this constraint is proportional with
+``--anchor-dem-uncertainty``, a 1-sigma value measured in meters on the ground.
+A smaller value gives the reprojection error more weight, so the cameras are
+held more firmly. This option was introduced in build 2026/6 (:numref:`release`),
+and fixed in 2026/10 by properly converting meter values to pixels.
 
 This constraint is normally used together with the camera position uncertainty
 (``--camera-position-uncertainty``, :numref:`jitter_camera`). These two together
@@ -343,14 +344,8 @@ The anchor uncertainty should normally be notably larger than
 ``--heights-from-dem-uncertainty`` (:numref:`jitter_dem_constraint`). Otherwise
 the anchor constraint is too strong and convergence may be prevented.
 
-Specifying the uncertainty in meters is preferred to the older ``--anchor-weight``
-option, which is harder to interpret. This way the ground constraints that are
-expressed as uncertainties (ground control points, the DEM constraint, and the
-anchor points constraint) are in the same units of meters, which makes them
-easier to reason about and to balance against each other. (The triangulation
-constraint, ``--tri-weight``, is the exception, being a weight, not an
-uncertainty.) The two options are mutually exclusive; an anchor weight ``w``
-corresponds to an anchor DEM uncertainty of ``1/w``.
+The older ``--anchor-weight`` option, a raw pixel weight, is deprecated in favor
+of ``--anchor-dem-uncertainty``.
 
 Anchor points are strongly encouraged either with a triangulated point constraint
 or a reference DEM constraint. To avoid the anchor points dominating the problem,
@@ -2540,19 +2535,7 @@ Command-line options for jitter_solve
     The uncertainty of anchor points (1 sigma, in meters). Each anchor ground
     point, where a ray through an anchor pixel meets the anchor DEM, is held
     fixed, and this sets the strength of the reprojection error that ties the
-    camera to that point. A smaller value holds the cameras more firmly. This is
-    the preferred way of setting the strength of the anchor constraint, instead of
-    ``--anchor-weight``, which is harder to interpret. It should normally be
-    notably larger than ``--heights-from-dem-uncertainty``, as otherwise
-    convergence may be prevented. Mutually exclusive with ``--anchor-weight``.
-    See :numref:`jitter_anchor_points` for the full discussion.
-
---anchor-weight <double (default: 0.0)>
-    How much weight to give to each anchor point. A larger weight will make it
-    harder for the cameras to move, hence preventing unreasonable changes. This is
-    harder to interpret than ``--anchor-dem-uncertainty`` (which is in meters), so
-    the latter is preferred. An anchor weight ``w`` corresponds to an anchor DEM
-    uncertainty of ``1/w``. Mutually exclusive with ``--anchor-dem-uncertainty``.
+    camera to that point (:numref:`jitter_anchor_points`).
 
 --anchor-dem <string (default: "")>
     Use this DEM to create anchor points.
@@ -2665,8 +2648,8 @@ Command-line options for jitter_solve
 
 --anchor-weight-image <string (default: "")>
     Weight image for anchor points. Limits where anchor points are placed and
-    their weight. Weights are additionally multiplied by ``--anchor-weight``.
-    See also ``--weight-image``.
+    their weight. These weights multiply the per-anchor weight derived from
+    ``--anchor-dem-uncertainty``. See also ``--weight-image``.
 
 --image-list
     A file containing the list of images, when they are too many to specify on

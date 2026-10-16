@@ -92,6 +92,11 @@ jitter_solve (:numref:`jitter_solve`):
     (:numref:`ba_gcp_report`).
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
+  * Bugfix: The anchor DEM uncertainty (``--anchor-dem-uncertainty``) was
+    documented as being in meters but was applied internally in pixels. It is
+    now applied in meters (:numref:`jitter_anchor_points`).
+  * The ``--anchor-weight`` option is deprecated in favor of
+    ``--anchor-dem-uncertainty``.
 
 sfs (:numref:`sfs`):
   * Added the `SfsPipeline repository

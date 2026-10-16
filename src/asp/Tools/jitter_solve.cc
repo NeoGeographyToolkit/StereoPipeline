@@ -255,22 +255,18 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "distributed. Useful when images of vastly different sizes (such as frame and "
      "linescan) are used together. Mutually exclusive with --num-anchor-points.")
     ("anchor-dem-uncertainty", po::value(&opt.anchor_dem_uncertainty)->default_value(-1.0),
-     "The uncertainty of anchor points (1 sigma, in meters). Each anchor ground point, "
-     "where a ray through an anchor pixel meets the anchor DEM, is held fixed. This sets "
-     "the strength of the reprojection error that ties the camera to that point, so a "
-     "smaller value holds the cameras more firmly. This is the preferred way of "
-     "setting the strength of the anchor constraint, instead of --anchor-weight, which is "
-     "harder to interpret. It should normally be notably larger than "
-     "--heights-from-dem-uncertainty, as otherwise convergence may be prevented. Mutually "
-     "exclusive with --anchor-weight. Set also --num-anchor-points and --anchor-dem.")
+     "The uncertainty of anchor points (1 sigma, measured in meters on the ground). Each "
+     "anchor ground point, where a ray through an anchor pixel meets the anchor DEM, is "
+     "held fixed, and this sets the strength of the reprojection error that ties the camera "
+     "to that point. A smaller value holds the cameras more firmly. The anchor cost is in "
+     "pixels, so this ground uncertainty is converted, per image, to pixels by dividing by "
+     "the median ground sample distance. Set also --num-anchor-points and --anchor-dem. See "
+     "the manual for the full discussion.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(0.0),
-     "How much weight to give to each anchor point. Anchor points are "
-     "obtained by intersecting rays from initial cameras with the DEM given by "
-     "--anchor-dem. A larger weight will make it harder for "
-     "the cameras to move, hence preventing unreasonable changes. This option is harder to "
-     "interpret than --anchor-dem-uncertainty (the latter is in meters), so the latter is "
-     "preferred. The two are mutually exclusive, and an anchor weight w corresponds to an "
-     "anchor DEM uncertainty of 1/w. Set also --num-anchor-points and --anchor-dem.")
+     "Obsolete. A raw weight on each anchor point reprojection error, in pixels, not "
+     "adjusted for the ground sample distance. Use --anchor-dem-uncertainty instead, which "
+     "is in meters on the ground and easier to interpret. Mutually exclusive with it. This "
+     "option will be removed in a future version.")
     ("anchor-dem",  po::value(&opt.anchor_dem)->default_value(""),
      "Use this DEM to create anchor points.")
     ("num-anchor-points-extra-lines",
@@ -388,8 +384,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "will be ignored.")
      ("anchor-weight-image", po::value(&opt.anchor_weight_image)->default_value(""),
      "Weight image for anchor points. Limits where anchor points are placed and their "
-     "weight. These weights are additionally multiplied by --anchor-weight. See also "
-     "--weight-image.")
+     "weight. These weights multiply the per-anchor weight derived from "
+     "--anchor-dem-uncertainty. See also --weight-image.")
     ("roll-weight", po::value(&opt.roll_weight)->default_value(0.0),
      "A weight to penalize the deviation of camera roll orientation as measured from the "
      "along-track direction. Pass in a large value, such as 1e+5. This is best used only "
@@ -720,21 +716,21 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   if (opt.anchor_weight < 0)
     vw_throw(ArgumentErr() << "The anchor weight must be non-negative.\n");
 
-  // The anchor uncertainty (in meters) is the preferred way to set the anchor
-  // constraint strength, instead of the harder-to-interpret anchor weight. The
-  // two are mutually exclusive. Internally the uncertainty is converted to a
-  // weight (weight = 1/uncertainty), so the anchor cost is effectively divided
-  // by the uncertainty, as is done for the height-from-dem uncertainty.
+  // The anchor DEM uncertainty (1 sigma, in meters on the ground) is the
+  // preferred way to set the anchor constraint strength, instead of the
+  // harder-to-interpret anchor weight. The two are mutually exclusive. The
+  // uncertainty is in meters, but the anchor cost is a reprojection error in
+  // pixels, so the uncertainty is converted per image to a pixel value by
+  // dividing by the median ground sample distance (see calcAnchorPoints). The
+  // legacy --anchor-weight is a raw pixel weight (deprecated).
   if (!vm["anchor-weight"].defaulted() && !vm["anchor-dem-uncertainty"].defaulted())
     vw_throw(ArgumentErr() << "Cannot set both --anchor-weight and "
              << "--anchor-dem-uncertainty. The latter is preferred.\n");
-  if (!vm["anchor-dem-uncertainty"].defaulted()) {
-    if (opt.anchor_dem_uncertainty <= 0)
-      vw_throw(ArgumentErr() << "The value of --anchor-dem-uncertainty must be positive.\n");
-    opt.anchor_weight = 1.0 / opt.anchor_dem_uncertainty;
-  }
+  if (!vm["anchor-dem-uncertainty"].defaulted() && opt.anchor_dem_uncertainty <= 0)
+    vw_throw(ArgumentErr() << "The value of --anchor-dem-uncertainty must be positive.\n");
 
-  if ((opt.anchor_weight > 0  || opt.num_anchor_points_per_image > 0 ||
+  if ((opt.anchor_dem_uncertainty > 0 || opt.anchor_weight > 0 ||
+       opt.num_anchor_points_per_image > 0 ||
        opt.num_anchor_points_per_tile > 0 || opt.num_anchor_points_extra_lines > 0) &&
       opt.anchor_dem.empty())
     vw::vw_throw(vw::ArgumentErr() << "Anchor points parameters have been specified. "
@@ -824,9 +820,13 @@ void calcAnchorPoints(Options                         const & opt,
   // First collect all candidate anchor points, uniformly distributed. They are
   // appended to the output structures later, after an optional random pruning to
   // opt.max_anchor_points_total. This separates creation from pruning.
-  std::vector<std::vector<Vector2>> cand_pix(num_cams);
-  std::vector<std::vector<double>>  cand_weight(num_cams);
-  std::vector<std::vector<Vector3>> cand_xyz(num_cams);
+  std::vector<std::vector<Vector2>> anchor_pix(num_cams);
+  std::vector<std::vector<double>>  anchor_pix_weight(num_cams); // final pixel weight
+  std::vector<std::vector<Vector3>> anchor_xyz(num_cams);
+
+  // Convert the anchor dem uncertainty (1 sigma, in meters on the ground) to a
+  // pixel uncertainty by dividing by GSD.
+  bool use_anchor_uncertainty = (opt.anchor_dem_uncertainty > 0);
 
   for (int icam = 0; icam < num_cams; icam++) {
 
@@ -834,6 +834,12 @@ void calcAnchorPoints(Options                         const & opt,
     int numLines   = dims[1];
     int numSamples = dims[0];
     int extra = opt.num_anchor_points_extra_lines;
+    vw::BBox2i image_box(0, 0, numSamples, numLines);
+
+    // Per-anchor-point buffers for this image. The final pixel weight needs the
+    // per-image median GSD, which is known only after all points are found.
+    std::vector<double> anchor_img_mult; // the weight-image multiplier per point
+    std::vector<double> anchor_gsd;      // the ground sample distance per point
 
     UsgsAstroLsSensorModel * ls_model
       = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
@@ -878,19 +884,19 @@ void calcAnchorPoints(Options                         const & opt,
         bool has_intersection = false;
         double height_error_tol = 0.001; // 1 mm should be enough
 
-        Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+        Vector3 anchor_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
           (opt.camera_models[icam]->camera_center(pix),
            opt.camera_models[icam]->pixel_to_vector(pix),
            vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem), anchor_georef,
            treat_nodata_as_zero, has_intersection,
            height_error_tol, xyz_guess);
 
-        if (!has_intersection || dem_xyz == Vector3())
+        if (!has_intersection || anchor_dem_xyz == Vector3())
           continue;
 
         Vector2 pix_out;
         try {
-          pix_out = opt.camera_models[icam]->point_to_pixel(dem_xyz);
+          pix_out = opt.camera_models[icam]->point_to_pixel(anchor_dem_xyz);
         } catch (...) {
           continue;
         }
@@ -904,7 +910,7 @@ void calcAnchorPoints(Options                         const & opt,
           vw::PixelMask<float> img_wt
             = vw::cartography::closestPixelVal(anchor_weight_image,
                                                anchor_weight_image_georef,
-                                               dem_xyz);
+                                               anchor_dem_xyz);
 
           // Skip bad weights
           if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0)
@@ -937,37 +943,75 @@ void calcAnchorPoints(Options                         const & opt,
           }
         }
 
-        cand_pix[icam].push_back(pix);
-        cand_weight[icam].push_back(opt.anchor_weight * anchor_weight_from_image);
-        cand_xyz[icam].push_back(dem_xyz);
+        // The ground sample distance at this anchor pixel, where the ray meets
+        // the anchor DEM. Used to convert the ground uncertainty to pixels.
+        // Only needed for the uncertainty path, not the legacy weight path.
+        double gsd = 0.0;
+        if (use_anchor_uncertainty) {
+          try {
+            gsd = vw::camera::estimatedGSD(opt.camera_models[icam].get(), image_box,
+                                           pix, anchor_dem_xyz);
+          } catch (...) {
+            continue; // cannot convert the uncertainty to pixels without a GSD
+          }
+          if (gsd <= 0)
+            continue;
+        }
+
+        anchor_pix[icam].push_back(pix);
+        anchor_xyz[icam].push_back(anchor_dem_xyz);
+        anchor_img_mult.push_back(anchor_weight_from_image);
+        anchor_gsd.push_back(gsd);
 
         numAnchorPoints++;
       }
     }
 
     tpc.report_finished();
+
+    // Now that all candidates for this image are found, convert the ground
+    // uncertainty to a per-image pixel weight using the median GSD. The median
+    // is robust to the few bad GSD estimates at image edges. Without the
+    // uncertainty, the legacy pixel weight is used directly.
+    double base_wt = opt.anchor_weight; // legacy pixel weight path
+    double median_gsd = 0.0;
+    if (!anchor_gsd.empty()) {
+      std::vector<double> gsd_copy = anchor_gsd;
+      median_gsd = vw::math::median_in_place<double>(gsd_copy);
+    }
+    if (use_anchor_uncertainty && median_gsd > 0) {
+      // Convert the ground uncertainty (meters) to a pixel weight using the
+      // per-image median GSD. The pixel sigma is anchor_dem_uncertainty/median_gsd.
+      base_wt = median_gsd / opt.anchor_dem_uncertainty; // = 1/sigma_pix
+    }
+
+    // Assign the final pixel weight to each candidate of this image.
+    anchor_pix_weight[icam].resize(anchor_img_mult.size());
+    for (size_t k = 0; k < anchor_img_mult.size(); k++)
+      anchor_pix_weight[icam][k] = base_wt * anchor_img_mult[k];
+
     vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
     vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
   }
 
   // Flatten the candidate indices as (camera, local index) pairs, in camera order
-  std::vector<std::pair<int, int>> all_cand;
+  std::vector<std::pair<int, int>> all_anchor;
   for (int icam = 0; icam < num_cams; icam++)
-    for (size_t j = 0; j < cand_pix[icam].size(); j++)
-      all_cand.push_back(std::make_pair(icam, (int)j));
+    for (size_t j = 0; j < anchor_pix[icam].size(); j++)
+      all_anchor.push_back(std::make_pair(icam, (int)j));
 
   // Optionally prune the candidates at random to the given total. This is set
   // from --max-anchor-points-to-tri-points-ratio.
-  std::vector<char> keep(all_cand.size(), 1);
+  std::vector<char> keep(all_anchor.size(), 1);
   if (opt.max_anchor_points_total >= 0 &&
-      (int)all_cand.size() > opt.max_anchor_points_total) {
+      (int)all_anchor.size() > opt.max_anchor_points_total) {
     std::vector<int> subset;
-    vw::math::pick_random_indices_in_range(all_cand.size(),
+    vw::math::pick_random_indices_in_range(all_anchor.size(),
                                            opt.max_anchor_points_total, subset);
     std::fill(keep.begin(), keep.end(), 0);
     for (size_t it = 0; it < subset.size(); it++)
       keep[subset[it]] = 1;
-    vw_out() << "Reducing the number of anchor points from " << all_cand.size()
+    vw_out() << "Reducing the number of anchor points from " << all_anchor.size()
              << " to " << opt.max_anchor_points_total
              << ", by selecting a random subset.\n";
   }
@@ -975,20 +1019,20 @@ void calcAnchorPoints(Options                         const & opt,
   // Append the kept candidates to obs_vec, in camera order, so the xyz_index
   // bookkeeping stays consistent.
   int totalAnchorPoints = 0;
-  for (size_t k = 0; k < all_cand.size(); k++) {
+  for (size_t k = 0; k < all_anchor.size(); k++) {
     if (!keep[k])
       continue;
-    int icam = all_cand[k].first;
-    int j    = all_cand[k].second;
+    int icam = all_anchor[k].first;
+    int j    = all_anchor[k].second;
 
     // The current number of points in tri_points_vec is the index of the next point
     bool is_anchor = true;
     int xyz_index = tri_points_vec.size() / 3;
-    obs_vec[icam].push_back(asp::JitterObs(cand_pix[icam][j], cand_weight[icam][j],
+    obs_vec[icam].push_back(asp::JitterObs(anchor_pix[icam][j], anchor_pix_weight[icam][j],
                                            is_anchor, xyz_index));
 
     // Append every coordinate of the anchor xyz to tri_points_vec
-    Vector3 xyz = cand_xyz[icam][j];
+    Vector3 xyz = anchor_xyz[icam][j];
     for (int it = 0; it < 3; it++) {
       orig_tri_points_vec.push_back(xyz[it]);
       tri_points_vec.push_back(xyz[it]);
@@ -1214,9 +1258,11 @@ void jitterSolvePass(int                                 pass,
                          // Outputs
                          outliers, obs_vec);
 
-  // Find anchor points and append them to obs_vec.
+  // Find anchor points and append them to obs_vec. Anchors need a count and a
+  // strength, set either via --anchor-dem-uncertainty (meters) or the legacy
+  // --anchor-weight (pixels).
   if ((opt.num_anchor_points_per_image > 0 || opt.num_anchor_points_per_tile > 0) &&
-       opt.anchor_weight > 0)
+       (opt.anchor_dem_uncertainty > 0 || opt.anchor_weight > 0))
     calcAnchorPoints(opt, interp_anchor_dem, anchor_georef, csm_models,
                      // Append to these
                      obs_vec,
@@ -1334,7 +1380,6 @@ void jitterSolvePass(int                                 pass,
   // for bundle adjustment.
   if (opt.camera_position_uncertainty.size() > 0)
     addHardCamPositionConstraint(opt, outliers, crn, csm_models, count_per_cam,
-                                 opt.anchor_weight,
                                  have_rig, rig, rig_cam_info,
                                  // Outputs
                                  frame_params, weight_per_residual, problem);
