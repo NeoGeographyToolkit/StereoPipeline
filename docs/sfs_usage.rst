@@ -1003,6 +1003,11 @@ Any holes can also be filled with ``dem_mosaic`` (:numref:`dem_mosaic_extrapolat
 :numref:`dem_mosaic_fill`). A subsequent blur with a sigma of 2 pixels is
 suggested (:numref:`dem_mosaic_blur`).
 
+The blurred DEM should be used only as a surface for mapprojecting the images.
+The height constraint in bundle adjustment and jitter solving, and the terrain
+for estimating height uncertainty, should use the unblurred DEM, as blurring
+biases the heights.
+
 See :numref:`initial_sfs_dem` for how to create an initial DEM using stereo.
 A stereo DEM can also be blended with the LOLA DEM using ``dem_mosaic``
 (after alignment, :numref:`sfs_ground_align`).
@@ -1777,7 +1782,7 @@ This invocation requires a build of ASP as of 2025/11 or later
     --clean-match-files-prefix ba/run                \
     --max-pairwise-matches 5000                      \
     --gcp-sigma 1.0                                  \
-    --max-num-gcp 2000000                            \
+    --max-num-gcp 1000000                            \
     --output-gcp sfs_ref_corr/run.gcp
 
 The value of ``--gcp-sigma`` should be on the order of the ground sample distance
