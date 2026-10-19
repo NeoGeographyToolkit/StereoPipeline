@@ -86,6 +86,21 @@ difference (for example, a factor of 5-10) can be a good value for
 If a large horizontal misalignment exists, consider using feature-based
 alignment first (:numref:`pc_hillshade`).
 
+Finer-grained control is available via the options ``--max-horizontal-offset``
+and ``--max-vertical-offset`` (as of build 2026/10, :numref:`release`). These set
+the maximum expected horizontal and vertical displacement of source points
+separately. When they are not set, the value of ``--max-displacement`` is applied
+to both.
+
+The horizontal offset sets the size of the box within which the source point
+cloud is loaded, and filters source points that are too far horizontally from the
+reference. The vertical offset filters source points whose elevation differs too
+much from the reference, when the reference is a DEM. Separate values are useful
+when the source cloud covers a much larger area than the reference. Then, a tight
+horizontal offset excludes source points with no reference coverage, which can
+otherwise degrade the alignment, while a looser vertical offset can accommodate a
+larger height difference.
+
 .. _align-method:
 
 Alignment method
@@ -908,10 +923,35 @@ Command-line options for pc_align
     Maximum expected displacement (horizontal + vertical) of source
     points as result of alignment, in meters (after the initial guess
     transform is applied to the source points).  Used for removing
-    gross outliers in the source (movable) point cloud.
+    gross outliers in the source (movable) point cloud. This value
+    also sets the size of the box within which the source cloud is
+    loaded, so the number of loaded source points grows with it. The
+    "Input" and "Output" error percentiles printed by the tool are
+    computed over the surviving inliers after this cutoff, so they are
+    not the raw initial residuals, and they shrink as this value is
+    tightened. When the reference covers only a part of the source,
+    prefer a tight value (or pre-crop the source to the reference
+    footprint), as a loose value admits source points with no
+    reference coverage that bias the alignment.
 
 -o, --output-prefix <string (default: "")>
     Specify the output file prefix.
+
+--max-horizontal-offset <float>
+    Maximum expected horizontal displacement of source points, in
+    meters. Used to set the box within which the source cloud is
+    loaded, and to filter gross outliers. If not set, the value of
+    ``--max-displacement`` is used. Set it smaller than
+    ``--max-displacement`` to exclude source points that are far
+    horizontally from the reference, such as points with no reference
+    coverage.
+
+--max-vertical-offset <float>
+    Maximum expected vertical displacement of source points, in
+    meters. Used to further filter gross outliers when the reference
+    cloud is a DEM, based on the elevation difference. If not set, the
+    value of ``--max-displacement`` is used. It has an effect only when
+    set smaller than ``--max-displacement``.
 
 --outlier-ratio <float (default: 0.75)>
     Fraction of source (movable) points considered inliers (after

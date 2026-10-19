@@ -45,6 +45,7 @@
 #include <vw/FileIO/FileUtils.h>
 
 #include <limits>
+#include <cmath>
 #include <cstring>
 #include <thread>
 #include <omp.h>
@@ -72,7 +73,7 @@ struct Options: public vw::GdalWriteOptions {
          max_num_reference_points,
          max_num_source_points;
   double diff_translation_err, diff_rotation_err,
-         max_disp, outlier_ratio, semi_major_axis,
+         max_disp, max_horiz_offset, max_vert_offset, outlier_ratio, semi_major_axis,
          semi_minor_axis, initial_rotation_angle;
   bool   compute_translation_only, dont_use_dem_distances,
          save_trans_source, save_trans_ref,
@@ -108,6 +109,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "Change in translation amount below which the algorithm will stop (if rotation error is also below bound), in meters.")
     ("max-displacement", po::value(&opt.max_disp)->default_value(0.0),
       "Maximum expected displacement of source points as result of alignment, in meters (after the initial guess transform is applied to the source points). Used for removing gross outliers in the source point cloud.")
+    ("max-horizontal-offset",
+     po::value(&opt.max_horiz_offset)->default_value(std::numeric_limits<double>::quiet_NaN()),
+      "Maximum expected horizontal displacement of source points, in meters. Used to set the box within which the source cloud is loaded, and to filter gross outliers. If not set, the value of --max-displacement is used.")
+    ("max-vertical-offset",
+     po::value(&opt.max_vert_offset)->default_value(std::numeric_limits<double>::quiet_NaN()),
+      "Maximum expected vertical displacement of source points, in meters. Used to further filter gross outliers when the reference cloud is a DEM. If not set, the value of --max-displacement is used.")
     ("outlier-ratio", po::value(&opt.outlier_ratio)->default_value(0.75),
       "Fraction of source (movable) points considered inliers (after gross outliers further than max-displacement from reference points are removed).")
     ("max-num-reference-points",
@@ -229,6 +236,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.max_disp == 0.0)
     vw_throw(ArgumentErr() << "The max-displacement option was not set. "
               << "Use -1 if it is desired not to use it.\n");
+
+  // If the horizontal and vertical offsets are not set, use the max-displacement value.
+  if (std::isnan(opt.max_horiz_offset))
+    opt.max_horiz_offset = opt.max_disp;
+  if (std::isnan(opt.max_vert_offset))
+    opt.max_vert_offset = opt.max_disp;
+  if (opt.max_horiz_offset == 0.0 || opt.max_vert_offset == 0.0)
+    vw_throw(ArgumentErr() << "The max-horizontal-offset and max-vertical-offset "
+              << "options cannot be zero. Use -1 to not use them.\n");
 
   if (opt.num_iter < 0)
     vw_throw(ArgumentErr() << "The number of iterations must be non-negative.\n");
@@ -624,6 +640,18 @@ void filter_source_cloud(DP          const& ref_point_cloud,
       // Compute the registration error using the best available means
       compute_registration_error(ref_point_cloud, source_point_cloud, pm_icp_object, shift,
                                  dem_georef, dem_ref, opt, error_matrix);
+
+      // Optionally tighten the vertical outlier cutoff. Only has an effect when
+      // the user sets it below --max-displacement. Applied to points that fall
+      // within the reference DEM, using their vertical (elevation) difference.
+      if (opt.max_vert_offset > 0.0 && opt.max_vert_offset < opt.max_disp) {
+        std::vector<double> dem_errors;
+        calcErrorsWithDem(source_point_cloud, shift, dem_georef, dem_ref, dem_errors);
+        for (size_t i = 0; i < dem_errors.size(); i++) {
+          if (dem_errors[i] < BIG_NUMBER && dem_errors[i] > opt.max_vert_offset)
+            error_matrix(0, i) = BIG_NUMBER; // force removal by the cutoff below
+        }
+      }
 
       filterPointsByError(source_point_cloud, error_matrix, opt.max_disp);
     } else { // LPM only method
@@ -1128,7 +1156,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Find the intersection of ref and source bounding boxs. This does not need
-    // a lot of samples as it is expanded by max_disp in either case.
+    // a lot of samples as it is expanded by the horizontal offset in either case.
     BBox2 ref_box, source_box, trans_ref_box, trans_source_box;
     if (!opt.skip_shared_box_estimation) {
       Stopwatch sw0;
@@ -1150,7 +1178,7 @@ int main(int argc, char *argv[]) {
 
       Eigen::MatrixXd inv_init_trans = opt.init_transform.inverse();
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                                opt.reference, opt.max_disp, inv_init_trans,
+                                opt.reference, opt.max_horiz_offset, inv_init_trans,
                                 opt.ref_copc_win, opt.ref_copc_read_all,
                                 need_src_projwin, src_georef,
                                 ref_box, trans_ref_box, src_projwin); // outputs
@@ -1163,7 +1191,7 @@ int main(int argc, char *argv[]) {
       }
 
       calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                                opt.source, opt.max_disp, opt.init_transform,
+                                opt.source, opt.max_horiz_offset, opt.init_transform,
                                 opt.src_copc_win, opt.src_copc_read_all,
                                 dummy_flag, dummy_georef,
                                 source_box, trans_source_box, dummy_projwin); // outputs
