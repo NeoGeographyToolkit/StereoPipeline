@@ -222,7 +222,7 @@ Care is needed around the origin to avoid division of small numbers.
 An example of how these values are specified in a camera file is in :numref:`fisheye_dist_example`.
 
 Fisheye equisolid
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 
 A four-parameter wide field-of-view model that uses the same radial angle
 polynomial as the Fisheye model above, but an equisolid-angle (equal-area)
@@ -245,7 +245,7 @@ undistortion inverts a nonlinear function with Newton's method.
 An example is in :numref:`fisheye_equisolid_dist_example`.
 
 Fisheye stereographic
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 A four-parameter wide field-of-view model, like the equisolid model, but with a
 stereographic projection from the angle to the radius. This is a classic
@@ -263,7 +263,7 @@ The forward operation is closed-form and the undistortion uses Newton's method.
 An example is in :numref:`fisheye_stereographic_dist_example`.
 
 Fisheye orthographic
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 
 A four-parameter wide field-of-view model, like the equisolid model, but with
 an orthographic projection from the angle to the radius. This is a classic
@@ -514,7 +514,7 @@ Fisheye
 .. _fisheye_equisolid_dist_example:
 
 Fisheye equisolid
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 
   ::
 
@@ -527,7 +527,7 @@ Fisheye equisolid
 .. _fisheye_stereographic_dist_example:
 
 Fisheye stereographic
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
   ::
 
@@ -540,7 +540,7 @@ Fisheye stereographic
 .. _fisheye_orthographic_dist_example:
 
 Fisheye orthographic
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 
   ::
 
