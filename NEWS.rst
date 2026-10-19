@@ -52,6 +52,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     computed.
   * The ``--transform-cameras-with-shared-gcp`` camera initialization is now
     robust to outlier GCP (:numref:`bundle_adjust`).
+  * Added the equisolid, stereographic, and orthographic fisheye lens
+    distortion models (:numref:`pinhole_distortion`).
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of

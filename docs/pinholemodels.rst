@@ -221,6 +221,65 @@ Care is needed around the origin to avoid division of small numbers.
 
 An example of how these values are specified in a camera file is in :numref:`fisheye_dist_example`.
 
+Fisheye equisolid
+^^^^^^^^^^^^^^^^^^
+
+A four-parameter wide field-of-view model that uses the same radial angle
+polynomial as the Fisheye model above, but an equisolid-angle (equal-area)
+projection from the angle to the radius. It fits many real fisheye lenses
+better than the equidistant form. This is a classic fisheye projection
+(:cite:`miyamoto1964`, :cite:`hughes2010`).
+
+The equations are as for the Fisheye model, except that the normalized radius
+is computed as:
+
+  .. math::
+
+    r_d = 2 \sin(\theta_d / 2)
+
+    s = \frac{r_d}{r}
+
+As before, the forward (distortion) operation is closed-form, while the
+undistortion inverts a nonlinear function with Newton's method.
+
+An example is in :numref:`fisheye_equisolid_dist_example`.
+
+Fisheye stereographic
+^^^^^^^^^^^^^^^^^^^^^^
+
+A four-parameter wide field-of-view model, like the equisolid model, but with a
+stereographic projection from the angle to the radius. This is a classic
+fisheye projection (:cite:`miyamoto1964`, :cite:`hughes2010`). The equations are
+as for the Fisheye model, except that the normalized radius is:
+
+  .. math::
+
+    r_d = 2 \tan(\theta_d / 2)
+
+    s = \frac{r_d}{r}
+
+The forward operation is closed-form and the undistortion uses Newton's method.
+
+An example is in :numref:`fisheye_stereographic_dist_example`.
+
+Fisheye orthographic
+^^^^^^^^^^^^^^^^^^^^^
+
+A four-parameter wide field-of-view model, like the equisolid model, but with
+an orthographic projection from the angle to the radius. This is a classic
+fisheye projection (:cite:`miyamoto1964`, :cite:`hughes2010`). The equations are
+as for the Fisheye model, except that the normalized radius is:
+
+  .. math::
+
+    r_d = \sin(\theta_d)
+
+    s = \frac{r_d}{r}
+
+The forward operation is closed-form and the undistortion uses Newton's method.
+
+An example is in :numref:`fisheye_orthographic_dist_example`.
+
 FOV
 ^^^
 
@@ -451,6 +510,45 @@ Fisheye
       k2 = 0.038013929764216248
       k3 = -0.058893197165394658
       k4 = 0.02915171342570104
+
+.. _fisheye_equisolid_dist_example:
+
+Fisheye equisolid
+^^^^^^^^^^^^^^^^^^
+
+  ::
+
+      FISHEYE_EQUISOLID
+      k1 = 0.12
+      k2 = -0.04
+      k3 = 0.01
+      k4 = 0
+
+.. _fisheye_stereographic_dist_example:
+
+Fisheye stereographic
+^^^^^^^^^^^^^^^^^^^^^^
+
+  ::
+
+      FISHEYE_STEREOGRAPHIC
+      k1 = -0.10
+      k2 = 0.03
+      k3 = -0.005
+      k4 = 0
+
+.. _fisheye_orthographic_dist_example:
+
+Fisheye orthographic
+^^^^^^^^^^^^^^^^^^^^^
+
+  ::
+
+      FISHEYE_ORTHOGRAPHIC
+      k1 = 0.08
+      k2 = -0.03
+      k3 = 0.005
+      k4 = 0
 
 .. _fov_dist_example:
 
