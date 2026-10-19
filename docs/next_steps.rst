@@ -650,6 +650,14 @@ The mapprojection DEM can be set via ``--dem`` above, in any place in the
 command, rather than being the very last argument (as of build 2026/02,
 :numref:`release`).
 
+As of ASP 3.8.0 (:numref:`release`), the mapprojection of the two input images
+can be done automatically by ``parallel_stereo`` itself. Pass the raw (not
+mapprojected) images together with the option ``--mapproject`` and the DEM via
+``--dem``. The images are then mapprojected with a consistent projection, grid
+size, and intersection bounding box, and stereo is run on them. The DEM should
+be hole-filled and blurred beforehand, as above (:numref:`dem_prep`). See the
+``--mapproject`` option for details (:numref:`ps_mapproject`).
+
 Lastly, we create a DEM at 1 meter resolution with ``point2dem``
 (:numref:`point2dem`)::
 

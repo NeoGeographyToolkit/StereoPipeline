@@ -30,6 +30,7 @@ sys.path.insert(0, libexecpath)
 import asp_system_utils, asp_string_utils, asp_cmd_utils
 asp_system_utils.verify_python_version_is_supported()
 from asp_stereo_utils import * # must be after the path is altered above
+from asp_dist_utils import runMapprojection # shared with stereo_dist
 
 # Prepend to system PATH
 os.environ["PATH"] = libexecpath + os.pathsep + os.environ["PATH"]
@@ -539,6 +540,84 @@ def parallel_stereo_args(p, opt, parallel_args, args):
 
     return extra_args
 
+def remove_positional_arg(argv, tok):
+    '''Remove the first argv token matching tok, by string or real path.'''
+    if not tok:
+        return
+    tok_real = os.path.realpath(tok)
+    for i in range(len(argv)):
+        if argv[i] == tok or os.path.realpath(argv[i]) == tok_real:
+            del argv[i]
+            return
+
+def mapproject_inputs(p, opt, args):
+    '''With --mapproject, mapproject the raw images onto the DEM with a common
+    projection, grid, and box, then rewrite the command line to the standard
+    mapprojected workflow (DEM last). Master process only. Return the args.'''
+
+    sep = ","
+
+    # Order the box as min then max.
+    if opt.t_projwin is not None:
+        if opt.t_projwin[0] > opt.t_projwin[2]:
+            opt.t_projwin[0], opt.t_projwin[2] = opt.t_projwin[2], opt.t_projwin[0]
+        if opt.t_projwin[1] > opt.t_projwin[3]:
+            opt.t_projwin[1], opt.t_projwin[3] = opt.t_projwin[3], opt.t_projwin[1]
+
+    # On resume past preprocessing, reuse the existing mapprojected images.
+    eff_entry = opt.entry_point
+    if opt.resume_at_corr:
+        eff_entry = Step.corr
+    if opt.prev_run_prefix is not None:
+        eff_entry = Step.tri
+
+    # Parse the raw inputs. No DEM yet, stereo_parse rejects it with raw images.
+    settings = run_and_parse_output("stereo_parse", args, sep, opt.verbose)
+    out_prefix = settings['out_prefix'][0]
+
+    in_file1  = settings['in_file1'][0]
+    in_file2  = settings['in_file2'][0]
+    cam_file1 = settings['cam_file1'][0]
+    cam_file2 = settings['cam_file2'][0]
+
+    # Mapproject both, with consistent parameters (shared with stereo_dist).
+    (leftMap, rightMap) = runMapprojection(opt, settings, out_prefix, eff_entry)
+
+    # ISIS cameras live in the .cub files, pass them explicitly.
+    if settings['stereo_session'][0] == 'isis':
+        if not cam_file1:
+            cam_file1 = in_file1
+        if not cam_file2:
+            cam_file2 = in_file2
+
+    # Rewrite sys.argv so the spawned per-tile children get the mapprojected
+    # images and DEM. Drop the mapproject-only options.
+    asp_cmd_utils.wipe_option(sys.argv, '--mapproject', 0)
+    asp_cmd_utils.wipe_option(sys.argv, '--dem', 1)
+    asp_cmd_utils.wipe_option(sys.argv, '--t_srs', 1)
+    asp_cmd_utils.wipe_option(sys.argv, '--tr', 1)
+    asp_cmd_utils.wipe_option(sys.argv, '--t_projwin', 4)
+
+    # Swap the raw positional inputs for the mapprojected ones, DEM last.
+    for tok in [in_file1, in_file2, settings['cam_file1'][0],
+                settings['cam_file2'][0], out_prefix]:
+        remove_positional_arg(sys.argv, tok)
+
+    new_positionals = [leftMap, rightMap]
+    if cam_file1:
+        new_positionals.append(cam_file1)
+    if cam_file2:
+        new_positionals.append(cam_file2)
+    new_positionals.append(out_prefix)
+    new_positionals.append(opt.dem)
+    sys.argv.extend(new_positionals)
+
+    # Refresh args from the rewritten command line. Keep the resolved opt.
+    (junk, args) = p.parse_known_args()
+    args = asp_cmd_utils.clean_args(args)
+
+    return args
+
 if __name__ == '__main__':
     usage = '''parallel_stereo [options] <images> [<cameras>]
                   <output_prefix> [DEM]
@@ -626,6 +705,28 @@ if __name__ == '__main__':
         help='Display the commands being executed.')
     p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
         help='Options to pass directly to GNU Parallel.')
+    p.add_argument('--mapproject', dest='mapproject', default=False, action='store_true',
+        help='Mapproject the raw input images onto the DEM (option --dem) before ' + \
+        'running stereo. The projection, grid size, and bounding box are ' + \
+        'auto-determined to be consistent for both images, and can be overridden ' + \
+        'with --t_srs, --tr, and --t_projwin. Requires --dem.')
+    p.add_argument('--dem', dest='dem', default=None,
+        help='The DEM to mapproject onto, when --mapproject is set, and to use as ' + \
+        'the stereo seed surface. Without --mapproject, the input images are ' + \
+        'assumed already mapprojected and this is passed to stereo as the ' + \
+        'mapprojection DEM (same as giving the DEM as the last argument).')
+    p.add_argument('--t_srs', dest='t_srs', default=None,
+        help='Output projection for mapprojection, when --mapproject is set. A ' + \
+        'PROJ string, EPSG code, or path to a WKT file. Auto-determined if not set.')
+    p.add_argument('--tr', dest='tr', default=None, type=float,
+        help='Output grid size (ground sample distance) for mapprojection, when ' + \
+        '--mapproject is set, in units of the projection. Auto-determined as the ' + \
+        'finer of the two images if not set.')
+    p.add_argument('--t_projwin', dest='t_projwin', default=None, type=float,
+        nargs=4, metavar=('XMIN', 'YMIN', 'XMAX', 'YMAX'),
+        help='Bounding box for mapprojection, when --mapproject is set, in ' + \
+        'projected coordinates: xmin ymin xmax ymax. Auto-determined as the ' + \
+        'intersection of the two image footprints if not set.')
     # Internal variables below.
     # The id of the tile to process, 0 <= tile_id < num_tiles.
     p.add_argument('--tile-id', dest='tile_id', default=None, type=int,
@@ -673,6 +774,22 @@ if __name__ == '__main__':
 
     if opt.threads_single is None:
         opt.threads_single = get_num_cpus()
+
+    # With --mapproject, mapproject the raw images first (master only).
+    if opt.mapproject and opt.tile_id is None:
+        if opt.dem is None:
+            raise Exception('The option --mapproject requires --dem.')
+        args = mapproject_inputs(p, opt, args)
+    else:
+        # These options apply only with --mapproject.
+        for name in ['t_srs', 'tr', 't_projwin']:
+            if getattr(opt, name) is not None:
+                raise Exception('Option --' + name + ' can only be used with ' + \
+                                '--mapproject.')
+        # Without --mapproject, the images are already mapprojected. Pass the DEM
+        # to stereo (master and children), same as giving it as the last argument.
+        if opt.dem is not None:
+            args.extend(['--dem', opt.dem])
 
     # Resolve corr-seed-mode from CLI, stereo file, or default
     resolve_seed_mode(opt, args)

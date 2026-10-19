@@ -59,6 +59,52 @@ stages of stereo benefit equally from parallelization. Most likely to gain are
 stages 1 and 3 (correlation and refinement) which are the most computationally
 expensive.
 
+.. _ps_mapproject:
+
+Mapprojecting the input images
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Mapprojecting the input images onto a DEM before stereo can greatly improve the
+results for images with large convergence angle or steep terrain
+(:numref:`mapproj-example`). Normally this is done by running :ref:`mapproject`
+on each image by hand, taking care that both images share the same projection
+and grid size, then passing the mapprojected images and the DEM to
+``parallel_stereo``.
+
+With the ``--mapproject`` option, raw (not mapprojected) images can be passed in
+directly, and ``parallel_stereo`` will mapproject them first, with a consistent
+projection, grid size, and bounding box for both. The DEM is set with
+``--dem``. Example::
+
+    parallel_stereo               \
+      --stereo-algorithm asp_mgm  \
+      --nodes-list machines.txt   \
+      --mapproject                \
+      --dem input_dem.tif         \
+      left.cub right.cub          \
+      left.json right.json        \
+      run/run
+
+For images with the cameras embedded (such as ISIS .cub files), the cameras can
+be omitted.
+
+The projection is auto-determined from the DEM and the left image
+(:numref:`mapproj_auto_proj`). The grid size (GSD) is the minimum of those
+estimated from the two images, so the finer of the two. The mapprojection region
+is the intersection of the ground footprints of the two images. Any of these can
+be explicitly set with ``--t_srs``, ``--tr``, and ``--t_projwin``
+(:numref:`ps_options`).
+
+The mapprojection is distributed over the same ``--nodes-list`` as the stereo
+run. The mapprojected images are saved as ``<output prefix>-left_map.tif`` and
+``<output prefix>-right_map.tif``, and the DEM is then used as the stereo seed
+surface, as with pre-existing mapprojected images. These images are reused if
+the run is resumed with ``--entry-point 1`` or higher.
+
+To distribute every stage of a single stereo pair, including the serial ones,
+over many nodes, see ``stereo_dist`` (:numref:`stereo_dist`), which has the same
+``--mapproject`` option.
+
 Output files
 ~~~~~~~~~~~~
 
@@ -330,3 +376,35 @@ Command-line options
 
 -h, --help
     Display this help message.
+
+Mapprojection options
+^^^^^^^^^^^^^^^^^^^^^
+
+These apply when mapprojecting the raw input images before stereo
+(:numref:`ps_mapproject`).
+
+--mapproject
+    Mapproject the raw (not mapprojected) input images onto the DEM (option
+    ``--dem``) before running stereo, with a consistent projection, grid size,
+    and bounding box for both images.
+
+--dem <string (default: "")>
+    The DEM to mapproject onto, when ``--mapproject`` is set, and to use as the
+    stereo seed surface. Without ``--mapproject``, the input images are assumed
+    already mapprojected and this is passed to stereo as the mapprojection DEM
+    (the same as giving the DEM as the last argument).
+
+--t_srs <string (default: "")>
+    Output projection for mapprojection, when ``--mapproject`` is set. A PROJ
+    string, EPSG code, or path to a WKT file. Auto-determined from the DEM and
+    the left image if not set.
+
+--tr <float (default: auto)>
+    Output grid size (ground sample distance) for mapprojection, when
+    ``--mapproject`` is set, in units of the projection. Auto-determined as the
+    finer of the two images if not set.
+
+--t_projwin <xmin ymin xmax ymax>
+    Bounding box for mapprojection in projected coordinates, when
+    ``--mapproject`` is set. Auto-determined as the intersection of the two
+    image footprints if not set.
