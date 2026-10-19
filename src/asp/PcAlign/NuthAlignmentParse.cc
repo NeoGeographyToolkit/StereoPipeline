@@ -93,12 +93,13 @@ void handleNuthArgs(int argc, char *argv[],  NuthOptions& opt) {
   if (opt.tol <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "The tolerance must be positive.\n");
 
-  // If horizontal and vertical offset are NaN (so, not set), use max_displacement
+  // If the Nuth-specific offsets are not set, fall back to the general pc_align
+  // offsets (which themselves default to max_displacement).
   if (std::isnan(opt.max_horiz_offset))
-     opt.max_horiz_offset = opt.max_displacement;
+     opt.max_horiz_offset = opt.gen_max_horiz_offset;
   if (std::isnan(opt.max_vert_offset))
-      opt.max_vert_offset = opt.max_displacement;
-         
+      opt.max_vert_offset = opt.gen_max_vert_offset;
+
   // All these offsets must be positive
   if (opt.max_displacement <= 0.0)
     vw::vw_throw(vw::ArgumentErr() << "The maximum displacement must be positive.\n");

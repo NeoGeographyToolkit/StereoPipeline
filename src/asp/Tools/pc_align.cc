@@ -1347,7 +1347,8 @@ int main(int argc, char *argv[]) {
     if (opt.num_iter > 0) {
       if (opt.alignment_method == "nuth") {
         T = asp::nuthAlignment(opt.reference, opt.source, opt.out_prefix,
-                               opt.max_disp, opt.num_iter,
+                               opt.max_disp, opt.max_horiz_offset, opt.max_vert_offset,
+                               opt.num_iter,
                                opt.num_threads, opt.compute_translation_only,
                                opt.nuth_options);
         // Nuth does not use the shift, so apply it after it is returned.

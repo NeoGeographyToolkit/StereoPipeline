@@ -134,22 +134,6 @@ void prepareData(NuthOptions const& opt,
   
   // TODO(oalexan1): Crop the reference given the extent of the source
   // and estimated max movement.
-#if 0  
-  // Estimate the ground resolution
-  double gridx = 0.0, gridy = 0.0;
-  int sample_rate = std::min(ref.cols(), ref.rows()) / 50;
-  if (sample_rate < 1) 
-    sample_rate = 1;
-  asp::calcGsd(vw::apply_mask(ref, ref_nodata), ref_georef, ref_nodata,
-               sample_rate, sample_rate, gridx, gridy);
-  double res = (gridx + gridy) / 2.0;
-  if (res <= 0.0)
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "Could not estimate the DEM grid size. Check if your input clouds "
-                 "are dense enough and with solid overlap.\n");
-    
-  int max_horiz_offset_px = int(max_horiz_offset/res) + 1;
-#endif  
 }
 
 // Warp the source DEM to the reference DEM's georef, while applying a
@@ -437,10 +421,12 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
                               std::string const& src_file, 
                               std::string const& out_prefix, 
                               double max_displacement,
+                              double max_horiz_offset,
+                              double max_vert_offset,
                               int num_iterations,
                               int num_threads,
                               bool compute_translation_only,
-                              std::string const& nuth_options) { 
+                              std::string const& nuth_options) {
 
   // Pass some of these directly to opt
   NuthOptions opt;
@@ -448,6 +434,8 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   opt.src = src_file;
   opt.out_prefix = out_prefix;
   opt.max_displacement = max_displacement;
+  opt.gen_max_horiz_offset = max_horiz_offset;
+  opt.gen_max_vert_offset = max_vert_offset;
   opt.max_iter = num_iterations;
   opt.num_threads = num_threads;
   opt.compute_translation_only = compute_translation_only;

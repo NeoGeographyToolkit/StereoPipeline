@@ -30,6 +30,9 @@ struct NuthOptions: vw::GdalWriteOptions {
   std::string ref, src, out_prefix, res;
   int poly_order, max_iter, inner_iter;
   double tol, max_horiz_offset, max_vert_offset, max_displacement;
+  // Fallbacks from the general pc_align options, used when the Nuth-specific
+  // offsets are not set.
+  double gen_max_horiz_offset, gen_max_vert_offset;
   bool tiltcorr, compute_translation_only;
   vw::Vector2 slope_lim;
    NuthOptions() {}

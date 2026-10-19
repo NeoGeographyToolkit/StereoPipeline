@@ -379,6 +379,8 @@ pc_align (:numref:`pc_align`):
     to filter gross outliers with separate horizontal and vertical cutoffs.
     They default to ``--max-displacement``. The horizontal value also sets the
     box within which the source cloud is loaded.
+  * The Nuth and Kaab algorithm uses these offsets too, with its own
+    ``--nuth-options`` values taking priority when set.
   * Print to the terminal and the log file the following initial and final
     error stats: Mean, StdDev, RMSE, Median, NMAD.
   * Changed the default for ``--diff-rotation-error`` from 1e-8 to 1e-5 degrees,

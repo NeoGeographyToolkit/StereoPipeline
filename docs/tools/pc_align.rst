@@ -1184,11 +1184,11 @@ Default values will be used for any unspecified options. The options are:
 
 --max-horizontal-offset <float>
     Maximum expected horizontal translation magnitude (meters). Used to filter
-    outliers. If not set, use the value in ``--max-displacement``.
+    outliers. If not set, the top-level ``--max-horizontal-offset`` is used.
 
 --max-vertical-offset <float>
     Maximum expected vertical translation in meters (meters). Used to filter
-    outliers. If not set, use the value in ``--max-displacement``.
+    outliers. If not set, the top-level ``--max-vertical-offset`` is used.
 
 --num-inner-iter <integer (default: 10)>
     Maximum number of iterations for the inner loop, when finding the best fit
