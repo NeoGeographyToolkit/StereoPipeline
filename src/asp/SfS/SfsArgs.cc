@@ -220,9 +220,7 @@ void handleSfsArgs(int argc, char *argv[], SfsOptions& opt) {
   ("min-blend-size",
   po::value(&opt.min_blend_size)->default_value(0),
    "Do not apply blending in shadowed areas whose pixel area is less than the square of "
-   "this value. The size is measured by area rather than by the bounding box, so long, "
-   "narrow, or sparse small shadows are also kept, as their blending would otherwise "
-   "erode the surrounding terrain.")
+   "this value.")
   ("allow-borderline-data",
   po::bool_switch(&opt.allow_borderline_data)->default_value(false)->implicit_value(true),
    "At the border of the region where there are no lit pixels in any images, do not let "

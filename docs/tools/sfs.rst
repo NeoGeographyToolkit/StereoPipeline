@@ -499,9 +499,8 @@ Boundary blending and seams
 
 --min-blend-size <integer (default: 0)>
     Do not apply blending in shadowed areas whose pixel area is less than the square
-    of this value. The size is measured by area rather than by the bounding box, so
-    long, narrow, or sparse small shadows are also kept. This avoids losing data
-    around small holes, but the solution may become less smooth.
+    of this value. This avoids losing data around small holes, but the solution may
+    become less smooth.
 
 --allow-borderline-data
     At the border of the region where there are no lit pixels in any images, do not

@@ -400,9 +400,7 @@ void loadMaskedImagesCalcWeights(SfsOptions const& opt,
         // Compute blending weights only when cropping the images. Otherwise
         // the weights are too huge.
         if (opt.blending_dist > 0) {
-          // Size a shadow by pixel area (kept if area <= min_blend_size^2),
-          // not by its bounding box, so long, narrow, or sparse small shadows
-          // also keep the SfS result instead of being eroded by the blend.
+          // Size a shadow by pixel area.
           bool min_blend_size_by_area = true;
           blend_weights[image_iter]
             = asp::blendingWeights(masked_images[image_iter],

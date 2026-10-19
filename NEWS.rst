@@ -109,9 +109,7 @@ sfs_blend (:numref:`sfs_blend`):
   * Added ``--shadow-fill-mode``, with several options for blending in shadowed
     areas (:numref:`sfs_blend_fill`).
   * The ``--min-blend-size`` option in ``sfs`` and ``sfs_blend`` now measures a
-    shadowed region by its pixel area (kept when the area is at most the square
-    of this value) rather than by its bounding box, so long, narrow, or sparse
-    small shadows are also kept instead of being blended and eroded.
+    shadowed region by its pixel area rather than by its bounding box.
 
 point2dem (:numref:`point2dem`):
   * Fixed a bug that could produce an enormous output DEM extent (and a
