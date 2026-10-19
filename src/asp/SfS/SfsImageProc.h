@@ -103,7 +103,8 @@ void handleBorderlineAndLowLight(SfsOptions & opt,
 vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
                                       double blending_dist,
                                       double blending_power,
-                                      int min_blend_size);
+                                      int min_blend_size,
+                                      bool min_blend_size_by_area = false);
 
 // Find the points on a given DEM that are shadowed by other points of
 // the DEM.  Start marching from the point on the DEM on a ray towards

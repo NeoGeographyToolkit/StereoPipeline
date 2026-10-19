@@ -694,8 +694,13 @@ public:
 
     // Fill small holes that we don't blend in those, then compute the distance
     // to the remaining holes
+    // Size a shadow hole by pixel area (kept if area <= min_blend_size^2), not
+    // by its bounding box, so long, narrow, or sparse small shadows also keep
+    // the SfS DEM instead of being blended and eroding the surrounding terrain.
+    bool min_blend_size_by_area = true;
     ImageView<pixel_type> lit_grass_dist
-      = vw::grassfire(vw::copy(vw::fill_holes_grass(mask, m_opt.min_blend_size)),
+      = vw::grassfire(vw::copy(vw::fill_holes_grass(mask, m_opt.min_blend_size,
+                                                    min_blend_size_by_area)),
                       no_zero_at_border);
 
     // The grassfire weights are positive in the shadow region, with
@@ -766,7 +771,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("weight-blur-sigma", po::value<double>(&opt.weight_blur_sigma)->default_value(0.0),
      "The standard deviation of the Gaussian used to blur the weight that performs the transition from the SfS to the LOLA DEM. A higher value results in a smoother transition (this does not smooth the DEMs). The extent of the blur is about 7 times this deviation, though it tapers fast to 0 before that. Set to 0 to not use this operation.")
     ("min-blend-size", po::value<double>(&opt.min_blend_size)->default_value(0.0),
-     "Do not apply blending in shadowed areas of dimensions less than this, hence keeping there the SfS DEM.")
+     "Do not apply blending in shadowed areas whose pixel area is less than the square of this value, hence keeping there the SfS DEM. The size is measured by area rather than by the bounding box, so long, narrow, or sparse small shadows are also kept, as their blending would otherwise erode the surrounding terrain.")
     ("shadow-fill-mode", po::value<std::string>(&opt.shadow_fill_mode)->default_value("lola-curved"),
      "What to put in a permanently shadowed hole before blending. 'lola' uses the LOLA DEM (the legacy behavior). 'curved' fills with a surface grown from the surrounding SfS that curves gently downward, found by solving the Laplace equation with a locally estimated curvature, clamped so it cannot rise above its surroundings. 'lola-curved' (the default) is the per-pixel minimum of the SfS, LOLA, and that curved surface, so the fill cannot rise above the surrounding terrain. See --shadow-fill-max-diameter.")
     ("shadow-fill-max-diameter", po::value<double>(&opt.shadow_fill_max_diam)->default_value(0.0),

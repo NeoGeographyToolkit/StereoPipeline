@@ -508,7 +508,8 @@ void adjustBorderlineDataWeights(int cols, int rows,
 vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
                                       double blending_dist,
                                       double blending_power,
-                                      int min_blend_size) {
+                                      int min_blend_size,
+                                      bool min_blend_size_by_area) {
 
   //   if (img.cols() <= 2 || img.rows() <= 2) {
   //     // The image is too small to have good weights. grassfire crashes.
@@ -527,7 +528,8 @@ vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
   if (min_blend_size <= 0)
     weights = grassfire(img);
   else
-    weights = vw::copy(grassfire(vw::copy(vw::fill_holes_grass(vw::copy(img), min_blend_size))));
+    weights = vw::copy(grassfire(vw::copy(vw::fill_holes_grass(vw::copy(img), min_blend_size,
+                                                               min_blend_size_by_area))));
 
   // We will later count on this precise logic.
   for (int col = 0; col < weights.cols(); col++) {

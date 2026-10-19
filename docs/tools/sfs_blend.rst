@@ -96,8 +96,11 @@ Command-line options:
     (:numref:`sfs_blend_fill`).
 
 --min-blend-size <int (default 0)>
-    Do not apply blending in shadowed areas of dimensions less than
-    this, hence keeping there the SfS DEM.
+    Do not apply blending in shadowed areas whose pixel area is less
+    than the square of this value, hence keeping there the SfS DEM. The
+    size is measured by area rather than by the bounding box, so long,
+    narrow, or sparse small shadows are also kept, as their blending
+    would otherwise erode the surrounding terrain.
 
 --shadow-fill-mode <string (default: lola-curved)>
     What to put in a permanently shadowed hole before the boundary
