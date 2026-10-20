@@ -8,10 +8,6 @@ New features:
   * Added an example for bathymetry with aerial images (:numref:`aerial_bathymetry`).
   * Added a program for load-balanced multi-pair stereo and DEM merge
     (:numref:`multi_stereo`).
-  * ``parallel_stereo``: added the ``--mapproject`` option, to mapproject the
-    raw input images onto a DEM (option ``--dem``), with a consistent
-    projection, grid size, and intersection bounding box for both, before
-    running stereo (:numref:`ps_mapproject`).
   * Added an example for Viking Orbiter (:numref:`viking`).
   * Added an example for the Clementine NIR camera (:numref:`clementine`).
   * Added ``glint_correct``, to remove sun glint from a visible band for
@@ -56,6 +52,12 @@ bundle_adjust (:numref:`bundle_adjust`):
     distortion models (:numref:`pinhole_distortion`).
 
 parallel_stereo (:numref:`parallel_stereo`):
+  * Added the ``--mapproject`` option, to mapproject the raw input images onto a
+    DEM (option ``--dem``), with a consistent projection, grid size, and
+    intersection bounding box for both, before running stereo
+    (:numref:`ps_mapproject`).
+  * Added the ``--point2dem-options`` option, to create a DEM from the point
+    cloud at the end of the run (:numref:`ps_point2dem`).
   * Expanded the KH-9 panoramic camera example (:numref:`kh9`) in light of
     recent processing best practices (addition of anchor points, gcp robust
     threshold, camera position controls with CSM cameras).

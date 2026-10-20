@@ -105,6 +105,43 @@ To distribute every stage of a single stereo pair, including the serial ones,
 over many nodes, see ``stereo_dist`` (:numref:`stereo_dist`), which has the same
 ``--mapproject`` option.
 
+.. _ps_point2dem:
+
+Creating a DEM
+~~~~~~~~~~~~~~
+
+By default ``parallel_stereo`` stops at the point cloud (``<output
+prefix>-PC.tif``), and the user runs :ref:`point2dem` to make a DEM. With
+``--point2dem-options``, ``parallel_stereo`` runs ``point2dem`` itself at the end
+of the run, so a single command goes from raw images to a finished DEM::
+
+    parallel_stereo                 \
+      --stereo-algorithm asp_mgm    \
+      --mapproject                  \
+      --dem input_dem.tif           \
+      --point2dem-options           \
+        "--orthoimage --errorimage" \
+      left.cub right.cub            \
+      run/run
+
+The option value is passed to ``point2dem`` as is. It may be empty, in which case
+the ``point2dem`` defaults are used. The grid size and projection are
+auto-determined unless ``--tr`` or ``--t_srs`` are set in this string.
+
+A value that contains spaces, such as a PROJ string for ``--t_srs``, must be in
+single quotes, for example ``--t_srs '+proj=stere +lat_0=-90'``, so it stays one
+token.
+
+Here ``--orthoimage`` must be passed with no value, unlike in :ref:`point2dem`
+where it takes a texture image. The run's ``L.tif`` is used as the texture
+automatically, as with :ref:`stereo_dist`. Pass ``--errorimage`` for the
+triangulation error. Outlier filtering options can be passed here as well
+(:numref:`point2dem`).
+
+This tool does not fill holes in the DEM. Filling gaps invents terrain where
+stereo found none, so it is left as a deliberate, separate choice with
+``dem_mosaic --hole-fill-length`` (:numref:`dem_mosaic`).
+
 Output files
 ~~~~~~~~~~~~
 

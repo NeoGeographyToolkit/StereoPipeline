@@ -16,7 +16,7 @@
 #  limitations under the License.
 # __END_LICENSE__
 
-import sys, argparse, subprocess, re, os, math, time, glob, shutil, math, platform
+import sys, argparse, subprocess, re, os, math, time, glob, shutil, math, platform, shlex
 import os.path as P
 
 # Set up the path to Python modules about to load
@@ -706,27 +706,36 @@ if __name__ == '__main__':
     p.add_argument('--parallel-options', dest='parallel_options', default='--sshdelay 0.2',
         help='Options to pass directly to GNU Parallel.')
     p.add_argument('--mapproject', dest='mapproject', default=False, action='store_true',
-        help='Mapproject the raw input images onto the DEM (option --dem) before ' + \
-        'running stereo. The projection, grid size, and bounding box are ' + \
-        'auto-determined to be consistent for both images, and can be overridden ' + \
+        help='Mapproject the raw input images onto the DEM (option --dem) before '  + \
+        'running stereo. The projection, grid size, and bounding box are '          + \
+        'auto-determined to be consistent for both images, and can be overridden '  + \
         'with --t_srs, --tr, and --t_projwin. Requires --dem.')
     p.add_argument('--dem', dest='dem', default=None,
         help='The DEM to mapproject onto, when --mapproject is set, and to use as ' + \
-        'the stereo seed surface. Without --mapproject, the input images are ' + \
-        'assumed already mapprojected and this is passed to stereo as the ' + \
+        'the stereo seed surface. Without --mapproject, the input images are '      + \
+        'assumed already mapprojected and this is passed to stereo as the '         + \
         'mapprojection DEM (same as giving the DEM as the last argument).')
     p.add_argument('--t_srs', dest='t_srs', default=None,
-        help='Output projection for mapprojection, when --mapproject is set. A ' + \
+        help='Output projection for mapprojection, when --mapproject is set. A '    + \
         'PROJ string, EPSG code, or path to a WKT file. Auto-determined if not set.')
     p.add_argument('--tr', dest='tr', default=None, type=float,
-        help='Output grid size (ground sample distance) for mapprojection, when ' + \
-        '--mapproject is set, in units of the projection. Auto-determined as the ' + \
+        help='Output grid size (ground sample distance) for mapprojection, when '   + \
+        '--mapproject is set, in units of the projection. Auto-determined as the '  + \
         'finer of the two images if not set.')
     p.add_argument('--t_projwin', dest='t_projwin', default=None, type=float,
         nargs=4, metavar=('XMIN', 'YMIN', 'XMAX', 'YMAX'),
-        help='Bounding box for mapprojection, when --mapproject is set, in ' + \
-        'projected coordinates: xmin ymin xmax ymax. Auto-determined as the ' + \
+        help='Bounding box for mapprojection, when --mapproject is set, in '        + \
+        'projected coordinates: xmin ymin xmax ymax. Auto-determined as the '       + \
         'intersection of the two image footprints if not set.')
+    p.add_argument('--point2dem-options', dest='point2dem_options', default=None,
+        help='Run point2dem on the resulting point cloud to create a DEM, '         + \
+        'passing it these options. If not set, no DEM is made and the run '         + \
+        'stops at the point cloud. May be an empty string to use the point2dem '    + \
+        'defaults. Here --orthoimage must be passed with no value, and the '        + \
+        'L.tif texture is used automatically. Pass --errorimage for the '           + \
+        'triangulation error. The grid and projection are auto-determined '         + \
+        'unless --tr or --t_srs are given here. Use quotes around this string, '    + \
+        'with single quotes around any value that contains spaces.')
     # Internal variables below.
     # The id of the tile to process, 0 <= tile_id < num_tiles.
     p.add_argument('--tile-id', dest='tile_id', default=None, type=int,
@@ -761,6 +770,11 @@ if __name__ == '__main__':
     if not args and not opt.version:
         p.print_help()
         raise_error('Missing input files', code=2)
+
+    # A DEM can be made only if the run reaches the point cloud (past triangulation).
+    if opt.point2dem_options is not None and opt.stop_point <= Step.tri:
+        raise_error('The option --point2dem-options needs the run to pass the ' + \
+                    'triangulation stage, but --stop-point is set to stop earlier.')
 
     # Ensure our 'parallel' is not out of date
     asp_system_utils.check_parallel_version()
@@ -946,6 +960,8 @@ if __name__ == '__main__':
         asp_cmd_utils.wipe_option(parallel_args, '-e', 1)
         asp_cmd_utils.wipe_option(parallel_args, '--entry-point', 1)
         asp_cmd_utils.wipe_option(parallel_args, '--stop-point', 1)
+        # The DEM is made once in the master, not per spawned tile.
+        asp_cmd_utils.wipe_option(parallel_args, '--point2dem-options', 1)
 
         # Preprocessing
         step = Step.pprc
@@ -1106,7 +1122,26 @@ if __name__ == '__main__':
             # If this was not created by now, do it now
             subdirs = create_subdirs_symlink(opt, args, settings)
           keepOnlySpecified(opt.keep_only, out_prefix, subdirs, settings)
-                
+
+        # Optionally make a DEM from the point cloud. Gated by --point2dem-options
+        # being set (possibly empty), not a numbered stage, so the entry/stop-point
+        # range is unchanged. Runs after cleanup, when the combined PC.tif and L.tif
+        # exist. As in stereo_dist, --orthoimage may be given with no argument and
+        # the L.tif texture is appended. The grid and projection are auto-determined
+        # unless --tr or --t_srs are passed.
+        pc_file = out_prefix + '-PC.tif'
+        if opt.point2dem_options is not None and \
+           int(settings['correlator_mode'][0]) == 0 and os.path.exists(pc_file):
+            p2d = asp_system_utils.bin_path('point2dem')
+            p2d_opts = shlex.split(opt.point2dem_options)
+            want_ortho = ('--orthoimage' in p2d_opts)
+            p2d_opts = [o for o in p2d_opts if o != '--orthoimage']
+            cmd = [p2d] + p2d_opts + ['-o', out_prefix, pc_file]
+            if want_ortho:
+                cmd += ['--orthoimage', out_prefix + '-L.tif']
+            print("Creating a DEM from the point cloud with point2dem.")
+            asp_system_utils.generic_run(cmd, opt.verbose)
+
        # End main process case
     else:
 
