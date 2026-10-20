@@ -53,6 +53,7 @@
 #include <limits>
 #include <random>
 #include <vector>
+#include <unordered_map>
 
 namespace asp {
 
@@ -64,11 +65,12 @@ struct LsPixelReprojErr {
   LsPixelReprojErr(vw::Vector2 const& observation, double weight,
                    UsgsAstroLsSensorModel* ls_model,
                    int begQuatIndex, int endQuatIndex,
-                   int begPosIndex, int endPosIndex):
+                   int begPosIndex, int endPosIndex,
+                   double lineBand):
     m_observation(observation), m_weight(weight),
     m_begQuatIndex(begQuatIndex), m_endQuatIndex(endQuatIndex),
     m_begPosIndex(begPosIndex),   m_endPosIndex(endPosIndex),
-    m_ls_model(ls_model) {}
+    m_ls_model(ls_model), m_lineBand(lineBand) {}
 
   // The implementation is further down
   bool operator()(double const * const * parameters, double * residuals) const;
@@ -77,14 +79,15 @@ struct LsPixelReprojErr {
   static ceres::CostFunction* Create(vw::Vector2 const& observation, double weight,
                                      UsgsAstroLsSensorModel* ls_model,
                                      int begQuatIndex, int endQuatIndex,
-                                     int begPosIndex, int endPosIndex) {
+                                     int begPosIndex, int endPosIndex,
+                                     double lineBand) {
 
     // TODO(oalexan1): Try using here the analytical cost function
     ceres::DynamicNumericDiffCostFunction<LsPixelReprojErr>* cost_function =
       new ceres::DynamicNumericDiffCostFunction<LsPixelReprojErr>
       (new LsPixelReprojErr(observation, weight, ls_model,
                                   begQuatIndex, endQuatIndex,
-                                  begPosIndex, endPosIndex));
+                                  begPosIndex, endPosIndex, lineBand));
 
     // The residual size is always the same.
     cost_function->SetNumResiduals(PIXEL_SIZE);
@@ -107,6 +110,9 @@ private:
   UsgsAstroLsSensorModel* m_ls_model;
   int m_begQuatIndex, m_endQuatIndex;
   int m_begPosIndex, m_endPosIndex;
+  // Half-width (in lines) of the band the pose window covers. The local fast path
+  // falls back to the full model if a projection leaves this band.
+  double m_lineBand;
 }; // End class LsPixelReprojErr
 
 // An error function minimizing the error of projecting an xyz point
@@ -186,25 +192,133 @@ void updateLsModelTriPt(double const * const * parameters,
   P.z = parameters[param_shift][2];
 }
 
+// Default path: copy the whole model, set the window from the parameters, project.
+// Correct, but deep-copies the full pose arrays on every call (the main cost).
+static csm::ImageCoord fullCopyLsProject(UsgsAstroLsSensorModel const* src,
+                                         double const * const * parameters,
+                                         int begQuatIndex, int endQuatIndex,
+                                         int begPosIndex, int endPosIndex,
+                                         double desired_precision) {
+  UsgsAstroLsSensorModel cam = *src;
+  int shift = 0;
+  csm::EcefCoord P;
+  updateLsModelTriPt(parameters, begQuatIndex, endQuatIndex,
+                     begPosIndex, endPosIndex, shift, cam, P);
+  return cam.groundToImage(P, desired_precision);
+}
+
+// Extra samples kept on each side of the window so the window-edge Lagrange
+// interpolation uses the same order (up to 8) as the full model. Four is the true
+// minimum (the Lagrange half-order); eight is a conservative choice with headroom
+// for the groundToImage line search. Even at eight this trimming already gives the
+// full ~12x speedup of the Jacobian evaluation, so dropping to four (with more
+// testing) is a minor extra win, not a necessity.
+static const int LOCAL_LINESCAN_PAD = 8;
+
+// Reshape a cached local model to one residual: keep the small fields (optics,
+// line-to-time map, etc.) but trim the position/velocity/quaternion arrays to the
+// subset of samples this observation can touch (the window plus a small margin).
+// The window comes from the current parameters, the margin from the current model,
+// so nothing is stale. The caller owns the one-time full copy. P is an output.
+//
+// Not precisely identical to the full model: trimming shifts the interpolation
+// origin, so (time - t0)/dt rounds slightly differently, a negligible ~1e-9 px.
+static void reshapeLocalLsModel(UsgsAstroLsSensorModel const* src,
+                                double const * const * parameters,
+                                int begQuatIndex, int endQuatIndex,
+                                int begPosIndex, int endPosIndex,
+                                int pad,
+                                UsgsAstroLsSensorModel      & local, // cached, small fields set
+                                csm::EcefCoord              & P) {
+
+  int numPos  = src->m_numPositions  / NUM_XYZ_PARAMS;
+  int numQuat = src->m_numQuaternions / NUM_QUAT_PARAMS;
+
+  // Padded sample ranges, clamped to the model. The clamping matches the full
+  // model near the image ends, so the Lagrange edge-order drop is reproduced.
+  int pLo = std::max(0,       begPosIndex  - pad);
+  int pHi = std::min(numPos,  endPosIndex  + pad);
+  int qLo = std::max(0,       begQuatIndex - pad);
+  int qHi = std::min(numQuat, endQuatIndex + pad);
+
+  // Trim positions to [pLo, pHi), re-indexing the ephem origin. Velocity is left
+  // zero: no camera operation here uses it (groundToImage with no adjustments
+  // never interpolates velocity).
+  int nP = pHi - pLo;
+  local.m_numPositions = nP * NUM_XYZ_PARAMS;
+  local.m_t0Ephem      = src->m_t0Ephem + pLo * src->m_dtEphem;
+  local.m_positions.resize(nP * NUM_XYZ_PARAMS);
+  local.m_velocities.assign(nP * NUM_XYZ_PARAMS, 0.0);
+  for (int pi = pLo; pi < pHi; pi++) {
+    int b = pi - pLo;
+    for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+      local.m_positions[NUM_XYZ_PARAMS * b + c] = src->m_positions[NUM_XYZ_PARAMS * pi + c];
+  }
+
+  // Trim quaternions to [qLo, qHi), re-indexing the quaternion origin.
+  int nQ = qHi - qLo;
+  local.m_numQuaternions = nQ * NUM_QUAT_PARAMS;
+  local.m_t0Quat         = src->m_t0Quat + qLo * src->m_dtQuat;
+  local.m_quaternions.resize(nQ * NUM_QUAT_PARAMS);
+  for (int qi = qLo; qi < qHi; qi++) {
+    int b = qi - qLo;
+    for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+      local.m_quaternions[NUM_QUAT_PARAMS * b + c] = src->m_quaternions[NUM_QUAT_PARAMS * qi + c];
+  }
+
+  // Overwrite the optimization window with the current parameters, re-indexed to
+  // the local arrays, then recover the triangulated point. The parameter block
+  // order mirrors updateLsModelTriPt: quaternions, then positions, then xyz.
+  int shift = 0;
+  for (int qi = begQuatIndex; qi < endQuatIndex; qi++) {
+    int b = qi - qLo;
+    for (int c = 0; c < NUM_QUAT_PARAMS; c++)
+      local.m_quaternions[NUM_QUAT_PARAMS * b + c] = parameters[qi + shift - begQuatIndex][c];
+  }
+  shift += (endQuatIndex - begQuatIndex);
+  for (int pi = begPosIndex; pi < endPosIndex; pi++) {
+    int b = pi - pLo;
+    for (int c = 0; c < NUM_XYZ_PARAMS; c++)
+      local.m_positions[NUM_XYZ_PARAMS * b + c] = parameters[pi + shift - begPosIndex][c];
+  }
+  shift += (endPosIndex - begPosIndex);
+  P.x = parameters[shift][0];
+  P.y = parameters[shift][1];
+  P.z = parameters[shift][2];
+}
+
 // See the documentation higher up in the file.
 bool LsPixelReprojErr::operator()(double const * const * parameters,
                                   double * residuals) const {
 
   try {
-    // Make a copy of the model, as we will update quaternion and position
-    // values that are being modified now. This may be expensive.
-    // Update the shift too.
-    UsgsAstroLsSensorModel cam = *m_ls_model;
-    int shift = 0;
-    csm::EcefCoord P;
-    updateLsModelTriPt(parameters, m_begQuatIndex, m_endQuatIndex,
-                       m_begPosIndex, m_endPosIndex, shift, cam, P);
-
     // Project in the camera with high precision. Do not use here
     // anything lower than 1e-8, as the linescan model will then
     // return junk.
     double desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
-    csm::ImageCoord imagePt = cam.groundToImage(P, desired_precision);
+
+    // One cached local model per camera per thread: the full copy happens once
+    // per camera (to grab the small fields), then the pose arrays are reshaped
+    // from current data each call. The pointer is a stable key since the camera
+    // models live for the whole solve.
+    static thread_local
+      std::unordered_map<UsgsAstroLsSensorModel const*, UsgsAstroLsSensorModel> localCache;
+    auto it = localCache.find(m_ls_model);
+    if (it == localCache.end())
+      it = localCache.emplace(m_ls_model, *m_ls_model).first; // one-time full copy
+    UsgsAstroLsSensorModel& local = it->second;
+    csm::EcefCoord P;
+    reshapeLocalLsModel(m_ls_model, parameters,
+                        m_begQuatIndex, m_endQuatIndex,
+                        m_begPosIndex, m_endPosIndex,
+                        LOCAL_LINESCAN_PAD, local, P);
+    csm::ImageCoord imagePt = local.groundToImage(P, desired_precision);
+    // Fall back to the full model if the projection left the window band, where
+    // the trimmed local model lacks the samples the full model would use.
+    if (std::abs(imagePt.line - m_observation[1]) > m_lineBand)
+      imagePt = fullCopyLsProject(m_ls_model, parameters,
+                                  m_begQuatIndex, m_endQuatIndex,
+                                  m_begPosIndex, m_endPosIndex, desired_precision);
 
     // Convert to what ASP expects
     vw::Vector2 pix;
@@ -511,7 +625,7 @@ void addLsReprojectionErr(asp::BaBaseOptions  const& opt,
   ceres::CostFunction* pixel_cost_function =
     LsPixelReprojErr::Create(observation, weight, ls_model,
                              begQuatIndex, endQuatIndex,
-                             begPosIndex, endPosIndex);
+                             begPosIndex, endPosIndex, line_extra);
   ceres::LossFunction* pixel_loss_function = new ceres::CauchyLoss(opt.robust_threshold);
 
   // The variable of optimization are camera quaternions and positions stored in the
