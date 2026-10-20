@@ -548,7 +548,11 @@ def main(argsIn):
                      options.imagePath, options.cameraPath,
                      options.outputPath]
     if '--threads' not in options.extraArgs:
-        commandList = commandList + ['--threads', '8'] # If not specified use 8 threads
+        # Balance the load so processes times threads is near the core count: with many
+        # tiles this is one thread per process, with few large tiles each process gets
+        # several threads. This avoids oversubscribing the machine.
+        threadsPerProcess = max(1, int(cpusPerNode / options.numProcesses))
+        commandList = commandList + ['--threads', str(threadsPerProcess)]
     if options.convertTiles:
         commandList = commandList + ['--convert-tiles']
     if options.suppressOutput:
