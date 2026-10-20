@@ -1098,6 +1098,19 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         vw::ip::write_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
       }
 
+    } else if (!save_clean_matches && remove_outliers &&
+               match_map.find(std::make_pair((int)left_index, (int)right_index))
+                 != match_map.end()) {
+      // No clean matches are written here (e.g. jitter_solve) and the reports
+      // below need only pixel positions, which are in the control network
+      // already. So skip re-reading the match file (slow at scale). The scale is
+      // not preserved there and is not needed, so use unit scale, as above.
+      auto const& quads = match_map[std::make_pair((int)left_index, (int)right_index)];
+      for (auto const& q: quads) {
+        double s = 1.0; // scale
+        orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(q), std::get<1>(q), s));
+        orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(q), std::get<3>(q), s));
+      }
     } else {
       // Read existing matches. Skip over match files that don't exist.
       if (!boost::filesystem::exists(match_file)) {
