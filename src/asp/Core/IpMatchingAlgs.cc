@@ -457,9 +457,12 @@ void listExistingMatchFiles(std::string const& prefix,
    
   // Iterate over all files in the directory
   for (auto i = fs::directory_iterator(dirName); i != fs::directory_iterator(); i++) {
-    
-    if (fs::is_directory(i->path())) // skip dirs
-      continue;
+
+    // Filter by extension only. Avoid fs::is_directory() here: it stats every
+    // entry, and with tens of thousands of match files on a networked filesystem
+    // that per-file stat dominates the runtime. A directory whose name contains
+    // the match extension is implausible, and a stray entry would simply never be
+    // looked up downstream.
     std::string filename = i->path().string();
     if (filename.find(ext) == std::string::npos) // keep only match files
       continue;
