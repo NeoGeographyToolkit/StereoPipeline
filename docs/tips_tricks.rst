@@ -61,6 +61,11 @@ amount of time.
 -  If a run takes unreasonably long, decreasing the timeout parameter
    may be in order (:numref:`longrun`).
 
+-  The number of threads and cache size default to sensible values (all
+   cores and 1 GB) and can be set per run with ``--threads`` and
+   ``--cache-size-mb``. A global ``~/.vwrc`` file is also supported for
+   advanced use (:numref:`vwrc`).
+
 -  Manually set the search range if the automated approach fails
    (:numref:`search_range`).
 

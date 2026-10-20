@@ -21,6 +21,7 @@ Ames Stereo Pipeline documentation (version |version|)
    stereodefault
    stereo_algorithms 
    outputfiles
+   vwrc
    pinholemodels
    bathy_water_masking
    papersusingasp

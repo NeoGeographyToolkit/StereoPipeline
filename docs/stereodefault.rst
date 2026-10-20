@@ -344,10 +344,10 @@ mapproj-geolocation-uncertainty <integer (default: 0)>
 threads (*integer*) (default = 0)
     Select the number of threads to use for each process. If 0, use
     the number of threads set in ~/.vwrc, or the number of cores if not
-    set there.
+    set there (:numref:`vwrc`).
 
 cache-size-mb (*integer*) (default = 1024)
-    Set the system cache size, in MB, for each process.
+    Set the system cache size, in MB, for each process (:numref:`vwrc`).
 
 .. _corr_section:
 
