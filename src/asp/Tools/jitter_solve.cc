@@ -81,6 +81,18 @@ using namespace vw::math;
 
 namespace asp {
 
+// A scoped timer for profiling the non-eval phases. Prints the elapsed seconds
+// when it goes out of scope. Grep the log for "jitter_timing:".
+struct PhaseTimer {
+  vw::Stopwatch sw;
+  std::string name;
+  PhaseTimer(std::string const& n): name(n) { sw.start(); }
+  ~PhaseTimer() {
+    sw.stop();
+    vw::vw_out() << "jitter_timing: " << name << " = " << sw.elapsed_seconds() << " s\n";
+  }
+};
+
 struct Options: public asp::BaBaseOptions {
   int num_lines_per_position, num_lines_per_orientation, num_anchor_points_per_image,
     num_anchor_points_per_tile;
@@ -937,6 +949,7 @@ void jitterSolvePass(int                                 pass,
                      std::vector<double>               & ref_to_curr_sensor_vec) {
 
   vw::vw_out() << "\nJitter solving pass: " << pass << "\n";
+  PhaseTimer t_pass("jitterSolvePass total (incl. Ceres solve)");
 
   // If some of the input cameras are frame, need to store position and
   // quaternion variables for them outside the camera model.
@@ -952,6 +965,7 @@ void jitterSolvePass(int                                 pass,
   ImageViewRef<PixelMask<double>> interp_anchor_dem;
   bool warn_only = false; // for jitter solving we always know well the datum
   if (have_dem) {
+    PhaseTimer t("read heights-from-dem and update tri points");
     // The DEM datum is checked inside, against opt.datum. This also returns the
     // first DEM's georef in dem_georef, used below for the roll/yaw constraint.
     asp::updateTriPtsFromDemList(cnet, outliers, opt.camera_models,
@@ -992,9 +1006,12 @@ void jitterSolvePass(int                                 pass,
   // The per-camera pixel observations (tie points and anchor points) used in
   // optimization. Each carries its pixel, weight, anchor flag, and xyz index.
   std::vector<std::vector<asp::JitterObs>> obs_vec;
-  createProblemStructure(opt, crn, cnet, tri_points_vec,
-                         // Outputs
-                         outliers, obs_vec);
+  {
+    PhaseTimer t("create problem structure");
+    createProblemStructure(opt, crn, cnet, tri_points_vec,
+                           // Outputs
+                           outliers, obs_vec);
+  }
 
   // Find anchor points and append them to obs_vec. Anchors need a count and a
   // strength, set either via --anchor-dem-uncertainty (meters) or the legacy
@@ -1264,11 +1281,14 @@ void jitterSolvePass(int                                 pass,
 
   // Save residuals after optimization
   std::string residual_prefix = opt.out_prefix + "-final_residuals";
-  saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
-                 tri_points_vec, outliers, weight_per_residual,
-                 residual_meta,
-                 reference_vec, ref_indices,
-                 mean_pixel_residuals);
+  {
+    PhaseTimer t("save final residuals (pointmap + stats)");
+    saveJitterResiduals(problem, residual_prefix, opt, cnet, crn, opt.datum,
+                   tri_points_vec, outliers, weight_per_residual,
+                   residual_meta,
+                   reference_vec, ref_indices,
+                   mean_pixel_residuals);
+  }
 
   // Filter GCP outliers based on mean reprojection error
   if (opt.max_gcp_reproj_err > 0)
@@ -1292,13 +1312,16 @@ void jitterSolvePass(int                                 pass,
   bool remove_outliers = true, propagate_errors = false, save_clean_matches = false;
   vw::Vector<double> horizontal_stddev_vec; // not used
   std::set<std::pair<int, int>> no_obs_outliers; // jitter_solve has no per-observation outliers
-  asp::matchFilesProcessing(cnet,
-                            asp::BaBaseOptions(opt), // note the slicing
-                            opt.camera_models, // these have been updated
-                            remove_outliers, outliers, no_obs_outliers, opt.mapproj_dem,
-                            propagate_errors, horizontal_stddev_vec,
-                            save_clean_matches, opt.match_files,
-                            stereo_settings().matches_as_txt);
+  {
+    PhaseTimer t("reporting: reload matches + mapproj offsets");
+    asp::matchFilesProcessing(cnet,
+                              asp::BaBaseOptions(opt), // note the slicing
+                              opt.camera_models, // these have been updated
+                              remove_outliers, outliers, no_obs_outliers, opt.mapproj_dem,
+                              propagate_errors, horizontal_stddev_vec,
+                              save_clean_matches, opt.match_files,
+                              stereo_settings().matches_as_txt);
+  }
 
   // Compute the change in camera centers
   std::string cam_offsets_file = opt.out_prefix + "-camera_offsets.txt";
@@ -1370,7 +1393,10 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Get pointers to the underlying CSM cameras, as need to manipulate
   // those directly. These will result in changes to the input cameras.
   std::vector<asp::CsmModel*> csm_models;
-  initResampleCsmCams(opt, opt.camera_models, csm_models);
+  {
+    PhaseTimer t("resample csm cameras");
+    initResampleCsmCams(opt, opt.camera_models, csm_models);
+  }
 
   // Preparations if having a rig 
   // TODO(oalexan1): Must check that there exist images for all rig sensors, and
@@ -1387,13 +1413,15 @@ void run_jitter_solve(int argc, char* argv[]) {
 
   // Make a list of all the image pairs to find matches for. Some quantities
   // below are not needed but are part of the API.
-  if (opt.isis_cnet.empty() && opt.nvm.empty())
+  if (opt.isis_cnet.empty() && opt.nvm.empty()) {
+    PhaseTimer t("find match files");
     asp::findMatchFiles(opt.overlap_limit, opt.match_first_to_last,
                         opt.image_files, opt.clean_match_files_prefix,
                         opt.match_files_prefix, opt.out_prefix,
                         asp::stereo_settings().matches_as_txt,
                         // Outputs
                         opt.match_files);
+  }
 
   // Build control network and perform triangulation with adjusted input cameras
   ba::ControlNetwork cnet("jitter_solve");
@@ -1410,6 +1438,7 @@ void run_jitter_solve(int argc, char* argv[]) {
       asp::readNvmAsCnet(opt.nvm, opt.image_files, nvm_no_shift,
                          cnet, world_to_cam, optical_offsets); // outputs
   } else {
+    PhaseTimer t("build control network (load matches + triangulate)");
     bool triangulate_control_points = true;
     vw::ba::build_control_network(triangulate_control_points,
                                   cnet, // output
@@ -1446,9 +1475,12 @@ void run_jitter_solve(int argc, char* argv[]) {
   // Flag as outliers points with initial reprojection error bigger than
   // a certain amount. This assumes that the input cameras are very accurate.
   std::set<int> outliers;
-  flag_initial_outliers(cnet, crn, opt.camera_models, opt.max_init_reproj_error,
-                        // Output
-                        outliers);
+  {
+    PhaseTimer t("flag initial outliers (reproject all matches)");
+    flag_initial_outliers(cnet, crn, opt.camera_models, opt.max_init_reproj_error,
+                          // Output
+                          outliers);
+  }
   vw_out() << "Removed " << outliers.size()
     << " outliers based on initial reprojection error.\n";
 
