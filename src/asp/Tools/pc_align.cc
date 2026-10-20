@@ -32,6 +32,8 @@
 #include <asp/PcAlign/NuthAlignment.h>
 
 #include <vw/Core/Stopwatch.h>
+#include <vw/Core/System.h>
+#include <vw/Core/Settings.h>
 #include <vw/Math/EulerAngles.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/Cartography/Datum.h>
@@ -47,7 +49,6 @@
 #include <limits>
 #include <cmath>
 #include <cstring>
-#include <thread>
 #include <omp.h>
 
 #include <boost/filesystem.hpp>
@@ -1097,10 +1098,11 @@ int main(int argc, char *argv[]) {
   try {
     handle_arguments(argc, argv, opt);
 
-    // Set the number of threads for OpenMP. 
-    int processor_count = std::thread::hardware_concurrency();
+    // Set the number of threads for OpenMP. This honors --threads when set,
+    // otherwise it is the number of cores (via ~/.vwrc or the default).
+    int num_threads = vw::vw_settings().default_num_threads();
     omp_set_dynamic(0);
-    omp_set_num_threads(processor_count);
+    omp_set_num_threads(num_threads);
 
     // Parse the csv format string and csv projection string
     asp::CsvConv csv_conv;

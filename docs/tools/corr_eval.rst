@@ -193,10 +193,10 @@ Command-line options
     the right image patches. This make the program faster by a factor
     of about 2, without changing significantly the output image.
 
---threads <integer (default: 0)>  
-    Set the number of threads to use. By default use the number of
-    threads as given in .vwrc, which can be 8 or 16. (The actual
-    number will be printed when this program starts.) 
+--threads <integer (default: 0)>
+    Set the number of threads to use. If 0, use the number of threads
+    set in ~/.vwrc, or the number of cores if not set there. (The actual
+    number will be printed when this program starts.)
 
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.

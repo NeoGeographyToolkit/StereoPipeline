@@ -22,7 +22,7 @@ Below is an example::
 
   # General settings
   [general]
-  default_num_threads = 16
+  default_num_threads = 0 # 0 means use all cores
   write_pool_size = 40
   system_cache_size = 1073741824 # ~ 1 GB
   
@@ -82,21 +82,18 @@ user should have when selecting a value.
 Performance settings
 ~~~~~~~~~~~~~~~~~~~~
 
-``default_num_threads`` (default=2)
+``default_num_threads`` (default: the number of cores)
    This sets the maximum number of threads that can be used for
-   rendering. When stereo's ``subpixel_rfne`` is running you'll
-   probably notice 10 threads are running when you have
-   ``default_num_threads`` set to 8. This is not an error, you are
-   seeing 8 threads being used for rendering, 1 thread for holding
-   ``main()``'s execution, and finally 1 optional thread acting as
-   the interface to the file driver.
+   rendering. When stereo's ``subpixel_rfne`` is running you may notice
+   two more threads than this value, one holding ``main()``'s execution
+   and one optional thread acting as the interface to the file driver.
 
-   It is usually best to set this parameter equal to the number of
-   processors on your system. Be sure to include the number of logical
-   processors in your arithmetic if your system supports
-   hyper-threading. Adding more threads for rasterization increases the
-   memory demands of Stereo Pipeline. If your system is memory limited,
-   it might be best to lower the ``default_num_threads`` option.
+   A value of 0, which is the default, means use all cores on the system,
+   including logical cores if it supports hyper-threading. So there is
+   usually no need to set this. It can be lowered here, or per run with
+   each tool's ``--threads`` option, as adding more threads for
+   rasterization increases the memory demands of Stereo Pipeline, so if
+   the system is memory limited it might be best to lower it.
 
 ``write_pool_size`` (default=21)
    The ``write_pool_size`` option represents the max waiting pool size

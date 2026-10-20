@@ -216,6 +216,8 @@ Misc:
   * Removed the built-in multiview mode of ``stereo`` and ``parallel_stereo``
     (passing more than two images at once). Use ``multi_stereo`` instead
     (:numref:`multi_stereo`).
+  * The default number of threads is now the number of cores on the system,
+    rather than a fixed value (:numref:`vwrc`).
 
 RELEASE 3.7.0, June 2026
 ------------------------

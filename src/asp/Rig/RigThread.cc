@@ -26,8 +26,10 @@
 namespace rig {
   
 int defaultNumThreads() {
+  // Use all hardware cores. Fall back to a single thread if the count cannot be
+  // determined, which happens only on unusual platforms.
   return (std::thread::hardware_concurrency() == 0 ?
-          8 : std::thread::hardware_concurrency());
+          1 : std::thread::hardware_concurrency());
 }
 
 

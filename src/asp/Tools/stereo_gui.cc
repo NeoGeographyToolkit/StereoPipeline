@@ -35,6 +35,8 @@
 #include <vw/Stereo/CostFunctions.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Core/CmdUtils.h>
+#include <vw/Core/System.h>
+#include <vw/Core/Settings.h>
 #include <vw/FileIO/FileTypes.h>
 
 // Can't do much about warnings in boost except to hide them
@@ -47,7 +49,6 @@
 
 #include <xercesc/util/PlatformUtils.hpp>
 #include <omp.h>
-#include <thread>
 
 using namespace vw;
 using namespace vw::stereo;
@@ -263,11 +264,12 @@ int main(int argc, char** argv) {
 
     vw::create_out_dir(output_prefix);
 
-    // Use OpenMP to speed things up.
+    // Use OpenMP to speed things up. This honors --threads when set, otherwise
+    // it is the number of cores (via ~/.vwrc or the default).
     // TODO(oalexan1): This should be enabled in more places.
-    int processor_count = std::thread::hardware_concurrency();
+    int num_threads = vw::vw_settings().default_num_threads();
     omp_set_dynamic(0);
-    omp_set_num_threads(processor_count);
+    omp_set_num_threads(num_threads);
 
     // Start up the Qt GUI
     asp::MainWindow main_window(opt, images, output_prefix,

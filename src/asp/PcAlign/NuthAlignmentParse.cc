@@ -20,6 +20,8 @@
 
 #include <vw/Core/Exception.h>
 #include <vw/Core/Log.h>
+#include <vw/Core/System.h>
+#include <vw/Core/Settings.h>
 #include <vw/FileIO/DiskImageView.h>
 
 #include <boost/program_options.hpp>
@@ -28,7 +30,6 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <thread>
 #include <sstream>
 #include <limits>
 
@@ -121,14 +122,12 @@ void handleNuthArgs(int argc, char *argv[],  NuthOptions& opt) {
   if (opt.tiltcorr)
     vw::vw_throw(vw::NoImplErr() << "Tilt correction is not implemented yet.\n");
      
-  // TODO(oalexan1): Sort out the number of threads. Now it comes from .vwrc if
-  // not set.
-
-  // Set the number of threads for OpenMP.  
-  int processor_count = std::thread::hardware_concurrency();
+  // Set the number of threads for OpenMP. This honors --threads when set,
+  // otherwise it is the number of cores (via ~/.vwrc or the default).
+  int num_threads = vw::vw_settings().default_num_threads();
   omp_set_dynamic(0);
-  omp_set_num_threads(processor_count);
-  vw::vw_out() << "Using " << processor_count << " threads with OpenMP.\n";
+  omp_set_num_threads(num_threads);
+  vw::vw_out() << "Using " << num_threads << " threads with OpenMP.\n";
 }
 
 // Given a command-line string, form argc and argv. In addition to pointers,
