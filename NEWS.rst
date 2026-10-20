@@ -105,10 +105,6 @@ jitter_solve (:numref:`jitter_solve`):
     now applied in meters (:numref:`jitter_anchor_points`).
   * The ``--anchor-weight`` option is deprecated in favor of
     ``--anchor-dem-uncertainty``.
-  * The per-residual linescan pixel reprojection is much faster, as the iterative
-    ground-to-image projection now operates on only the small window of camera
-    position and orientation samples that affect each observation, rather than a
-    copy of the whole camera model.
 
 sfs (:numref:`sfs`):
   * Added the `SfsPipeline repository
