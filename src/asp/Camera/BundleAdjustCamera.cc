@@ -1070,6 +1070,10 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     }
   }
 
+  // Print only the first few match files, to avoid verbosity.
+  size_t const max_verbose_match_msgs = 100;
+  size_t num_match_msgs = 0;
+
   // Work on individual image pairs
   for (const auto& match_it: local_match_files) {
 
@@ -1094,7 +1098,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
 
       // Write the matches formed from the cnet to disk
       if (opt.output_cnet_type == "match-files") {
-        vw::vw_out() << "Writing: " << match_file << "\n";
+        if (num_match_msgs < max_verbose_match_msgs)
+          vw::vw_out() << "Writing: " << match_file << "\n";
         vw::ip::write_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
       }
 
@@ -1114,7 +1119,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     } else {
       // Read existing matches. Skip over match files that don't exist.
       if (!boost::filesystem::exists(match_file)) {
-        vw_out() << "Skipping non-existent match file: " << match_file << "\n";
+        if (num_match_msgs < max_verbose_match_msgs)
+          vw_out() << "Skipping non-existent match file: " << match_file << "\n";
         continue;
       }
       // Read the original IP, to ensure later we write to disk only
@@ -1122,6 +1128,11 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       // are part of these original ones.
       vw::ip::read_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
     }
+
+    num_match_msgs++;
+    if (num_match_msgs == max_verbose_match_msgs)
+      vw::vw_out() << "Processed " << max_verbose_match_msgs
+                   << " match files. Not printing more individual ones.\n";
 
     // Create a new convergence angle storage struct
     asp::MatchPairStats & convAngle = convAngles.back(); // alias

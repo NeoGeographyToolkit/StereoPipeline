@@ -1263,7 +1263,10 @@ void jitterSolvePass(int                                 pass,
   vw_out() << "Starting the Ceres optimizer.\n";
 
   ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
+  {
+    PhaseTimer t("ceres solve (optimization)");
+    ceres::Solve(options, &problem, &summary);
+  }
   vw_out() << summary.FullReport() << "\n";
   if (summary.termination_type == ceres::NO_CONVERGENCE)
     vw_out() << "Found a valid solution, but did not reach the actual minimum. "
@@ -1296,9 +1299,12 @@ void jitterSolvePass(int                                 pass,
                            opt.max_gcp_reproj_err, outliers);
 
   // Save the optimized camera models
-  saveCsmCameras(opt.out_prefix, opt.stereo_session,
-                 opt.image_files, opt.camera_files,
-                 opt.camera_models, opt.update_isis_cubes_with_csm_state);
+  {
+    PhaseTimer t("save output cameras");
+    saveCsmCameras(opt.out_prefix, opt.stereo_session,
+                   opt.image_files, opt.camera_files,
+                   opt.camera_models, opt.update_isis_cubes_with_csm_state);
+  }
 
   if (have_rig) {
     // Update the rig with the optimized transforms and save it
@@ -1370,14 +1376,17 @@ void run_jitter_solve(int argc, char* argv[]) {
   rig::RigSet rig;
   handle_arguments(argc, argv, opt, rig);
 
-  // Load the cameras  
+  // Load the cameras
   bool approximate_pinhole_intrinsics = false;
-  asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,
-                    approximate_pinhole_intrinsics,
-                    // Outputs
-                    opt.stereo_session,  // may change
-                    opt.single_threaded_cameras,
-                    opt.camera_models);
+  {
+    PhaseTimer t("load cameras");
+    asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,
+                      approximate_pinhole_intrinsics,
+                      // Outputs
+                      opt.stereo_session,  // may change
+                      opt.single_threaded_cameras,
+                      opt.camera_models);
+  }
 
   // Find the datum.
   // TODO(oalexan1): Integrate this into load_cameras, to avoid loading
