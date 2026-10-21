@@ -44,6 +44,10 @@ small regions with larger "background" DEMs covering a larger extent.
 Then, the pixels from the high-resolution DEMs are more desirable, yet
 at their boundary these DEMs should blend into the background.
 
+Blending happens only along a boundary where another DEM is present to
+blend into. A boundary with no other DEM on the other side, such as the
+outer edge of the data or a hole covered by no other DEM, stays sharp.
+
 To obtain smoother blending when the input DEMs are quite different at the
 boundary, one can increase ``--weights-blur-sigma`` and ``--weights-exponent``.
 The latter will result in weights growing slower at each DEM boundary faster

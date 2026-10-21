@@ -141,7 +141,6 @@ void priorityBlend(double out_nodata_value,
                    double bias,
                    double weights_blur_sigma,
                    double weights_exp,
-                   bool no_border_blend,
                    int save_dem_weight,
                    std::vector<int> const& clip2dem_index,
                    vw::cartography::GeoReference const& out_georef,
@@ -160,10 +159,43 @@ void priorityBlend(double out_nodata_value,
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
     asp::setNoDataByWeight(out_nodata_value, tile_vec[clip_iter], weight_vec[clip_iter]);
 
-  // Update the weights given the created nodata regions
-  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
-    weight_vec[clip_iter] = grassfire(notnodata(tile_vec[clip_iter], out_nodata_value),
-                                      no_border_blend);
+  // Count, at each output pixel, how many DEM clips have valid data. A boundary
+  // stretch fades only where another clip is present to blend into.
+  vw::ImageView<int> num_valid;
+  if (!tile_vec.empty()) {
+    num_valid.set_size(tile_vec[0].cols(), tile_vec[0].rows());
+    vw::fill(num_valid, 0);
+    for (size_t clip_iter = 0; clip_iter < tile_vec.size(); clip_iter++) {
+      vw::ImageView<double> const& t = tile_vec[clip_iter];
+      for (int col = 0; col < t.cols(); col++)
+        for (int row = 0; row < t.rows(); row++)
+          if (t(col, row) != out_nodata_value)
+            num_valid(col, row)++;
+    }
+  }
+
+  // Recompute the weights by grassfire, with coverage-aware seeding. A no-data
+  // pixel of this clip acts as a fading boundary (a grassfire seed) only if some
+  // other clip covers it, so there is a neighbor to blend into. No-data pixels
+  // covered by no other clip (the overall data edge) are not seeds, so the
+  // weights there do not decay and that boundary stays sharp, with no fade to
+  // no-data. This is what makes priority blending only blend where needed.
+  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++) {
+
+    vw::ImageView<double> const& t = tile_vec[clip_iter];
+    vw::ImageView<double> seed_mask(t.cols(), t.rows());
+    for (int col = 0; col < t.cols(); col++) {
+      for (int row = 0; row < t.rows(); row++) {
+        bool this_valid = (t(col, row) != out_nodata_value);
+        bool other_covers = (num_valid(col, row) - (this_valid ? 1 : 0)) >= 1;
+        // Grassfire treats a zero value as a boundary seed.
+        seed_mask(col, row) = (!this_valid && other_covers) ? 0.0 : 1.0;
+      }
+    }
+    // Ignore the array frame as a boundary too, consistent with the principle
+    // that an edge with no neighbor on the other side does not fade.
+    weight_vec[clip_iter] = grassfire(seed_mask, true);
+  }
 
   // Don't allow the weights to become big, for uniqueness across tiles
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
@@ -538,8 +570,7 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
                        vw::ImageView<double>& weights) {
 
   // Compute linear weights using grassfire distance transform
-  weights = grassfire(notnodata(select_channel(dem, 0), nodata_value),
-                      opt.no_border_blend);
+  weights = grassfire(notnodata(select_channel(dem, 0), nodata_value));
 
   // Erode based on grassfire weights, and then overwrite the grassfire
   // weights with centerline weights
@@ -823,7 +854,7 @@ public:
     // the DEMs where we don't want blending, then recreate the weights
     if (use_priority_blend)
       priorityBlend(m_opt.out_nodata_value, m_bias, m_opt.weights_blur_sigma,
-                    m_opt.weights_exp, m_opt.no_border_blend, m_opt.save_dem_weight,
+                    m_opt.weights_exp, m_opt.save_dem_weight,
                     clip2dem_index, m_out_georef, bbox,
                     // Outputs
                     tile_vec, weight_vec, tile, weights, saved_weight);

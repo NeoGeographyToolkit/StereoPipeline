@@ -194,6 +194,9 @@ stereo_gui (:numref:`stereo_gui`):
   * Added ``--opacity``, to blend overlaid images (:numref:`opacity`).
 
 Misc:
+  * Improved ``dem_mosaic`` priority blending in tricky situations with holes
+    and clip boundaries (:numref:`dem_mosaic`). The ``--no-border-blend`` option
+    was removed, as no longer needed.
   * Added the ``terrain``, ``ocean``, ``gist_earth``, and ``gist_stern``
     colormaps to the ``colormap`` tool and ``stereo_gui`` (:numref:`colormap`).
   * The ``hillshade`` tool, and the hillshaded and colorized-hillshaded views in

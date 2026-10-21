@@ -45,7 +45,7 @@ struct DemMosaicOptions: vw::GdalWriteOptions {
   double nodata_threshold, fill_search_radius, fill_power, fill_percent, min_weight;
   bool   first, last, min, max, block_max, mean, stddev, median, nmad,
     count, tap, gdal_tap, save_index_map, use_centerline_weights,
-    propagate_nodata, no_border_blend, invert_weights;
+    propagate_nodata, invert_weights;
   std::set<int> tile_list;
   vw::BBox2 projwin;
 

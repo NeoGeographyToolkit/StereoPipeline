@@ -59,9 +59,6 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     "If positive, keep unmodified values from the earliest available DEM except a band "
     "this wide measured in pixels inward of its boundary where blending with subsequent "
     "DEMs will happen.")
-  ("no-border-blend", po::bool_switch(&opt.no_border_blend)->default_value(false),
-    "Only apply blending around holes, don't blend at image borders. Not compatible with "
-    "centerline weights.")
   ("tr", po::value(&opt.tr),
     "Output grid size, that is, the DEM resolution in target georeferenced units per "
     "pixel. Default: use the same resolution as the first DEM to be mosaicked.")
