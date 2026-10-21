@@ -107,6 +107,9 @@ jitter_solve (:numref:`jitter_solve`):
     now applied in meters (:numref:`jitter_anchor_points`).
   * The ``--anchor-weight`` option is deprecated in favor of
     ``--anchor-dem-uncertainty``.
+  * Made the solver about two to three times faster on large problems, by
+    optimizing the pixel reprojection cost function and reading the match files
+    in parallel.
 
 sfs (:numref:`sfs`):
   * Added the `SfsPipeline repository
