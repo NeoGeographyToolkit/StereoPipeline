@@ -195,8 +195,9 @@ Command-line options
 
 --threads <integer (default: 0)>
     Set the number of threads to use. If 0, use the number of threads
-    set in ~/.vwrc, or the number of cores if not set there. (The actual
-    number will be printed when this program starts.)
+    set in ~/.vwrc, or the number of cores if not set there
+    (:numref:`vwrc`). (The actual number will be printed when this
+    program starts.)
 
 --cache-size-mb <integer (default = 1024)>
     Set the system cache size, in MB.

@@ -473,7 +473,7 @@ Command-line options
 --threads <integer (default: 0)>
     Select the number of threads to use for each process. If 0, use
     the number of threads set in ~/.vwrc, or the number of cores if
-    not set there.
+    not set there (:numref:`vwrc`).
 
 --tif-tile-size <integer (default: 256 256)>
     The dimensions of each block in the output image.
