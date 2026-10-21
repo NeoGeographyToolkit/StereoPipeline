@@ -1018,7 +1018,12 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   // somehow, not quadruplets of floats.
   // TODO(oalexan1): Make this into a function.
   typedef std::tuple<float, float, float, float> Quadruplet;
-  std::map<std::pair<int, int>, std::set<Quadruplet>> match_map;
+  // For each image pair, map the pixel-position quadruplet of a match to the two
+  // interest-point scales (left, right). The scale is read from the control
+  // measure sigma, where the loader stored it. Keeping scale out of the key
+  // preserves the position-based membership test below, and lets the clean match
+  // files be rebuilt from the control network without re-reading them from disk.
+  std::map<std::pair<int, int>, std::map<Quadruplet, std::pair<float, float>>> match_map;
   if (remove_outliers || !opt.isis_cnet.empty() || !opt.nvm.empty()) {
     for (int ipt = 0; ipt < cnet.size(); ipt++) {
       // Skip outliers
@@ -1040,9 +1045,10 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
           if (outlier_obs.find(std::make_pair(left_index,  ipt)) != outlier_obs.end() ||
               outlier_obs.find(std::make_pair(right_index, ipt)) != outlier_obs.end())
             continue;
-          match_map[std::make_pair(left_index, right_index)].insert
-            (Quadruplet(m1->position()[0], m1->position()[1],
-                        m2->position()[0], m2->position()[1]));
+          match_map[std::make_pair(left_index, right_index)]
+            [Quadruplet(m1->position()[0], m1->position()[1],
+                        m2->position()[0], m2->position()[1])]
+            = std::make_pair(m1->sigma()[0], m2->sigma()[0]);
         }
       }
     }
@@ -1089,11 +1095,13 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     if (opt.isis_cnet != "" || opt.nvm != "") {
       // Must create the matches from the cnet.
       auto & match_pair = match_map[std::make_pair(left_index, right_index)]; // alias
-      // Iterate over this set of quadruplets, and build matches
+      // Iterate over the quadruplets and build matches. The scale is not tracked
+      // for an ISIS cnet or nvm, so use a unit scale.
       for (auto const& q: match_pair) {
+        auto const& pos = q.first; // position quadruplet (x1, y1, x2, y2)
         double s = 1.0; // scale
-        orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(q), std::get<1>(q), s));
-        orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(q), std::get<3>(q), s));
+        orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(pos), std::get<1>(pos), s));
+        orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(pos), std::get<3>(pos), s));
       }
 
       // Write the matches formed from the cnet to disk
@@ -1103,18 +1111,22 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         vw::ip::write_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
       }
 
-    } else if (!save_clean_matches && remove_outliers &&
+    } else if (remove_outliers &&
                match_map.find(std::make_pair((int)left_index, (int)right_index))
                  != match_map.end()) {
-      // No clean matches are written here (e.g. jitter_solve) and the reports
-      // below need only pixel positions, which are in the control network
-      // already. So skip re-reading the match file (slow at scale). The scale is
-      // not preserved there and is not needed, so use unit scale, as above.
+      // The matches were already read into the control network by
+      // build_control_network, so do not re-read them from disk here, which is
+      // slow at scale over a network file system. Rebuild the per-pair interest
+      // points from the control network: the positions are the measure
+      // positions and the scale is the measure sigma. 
       auto const& quads = match_map[std::make_pair((int)left_index, (int)right_index)];
       for (auto const& q: quads) {
-        double s = 1.0; // scale
-        orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(q), std::get<1>(q), s));
-        orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(q), std::get<3>(q), s));
+        auto const& pos   = q.first;  // position quadruplet (x1, y1, x2, y2)
+        auto const& scale = q.second; // interest point scale (left, right)
+        orig_left_ip.push_back
+          (vw::ip::InterestPoint(std::get<0>(pos), std::get<1>(pos), scale.first));
+        orig_right_ip.push_back
+          (vw::ip::InterestPoint(std::get<2>(pos), std::get<3>(pos), scale.second));
       }
     } else {
       // Read existing matches. Skip over match files that don't exist.
@@ -1123,9 +1135,9 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
           vw_out() << "Skipping non-existent match file: " << match_file << "\n";
         continue;
       }
-      // Read the original IP, to ensure later we write to disk only
-      // the subset of the IP from the control network which
-      // are part of these original ones.
+      // Read the original IP, to ensure later we write to disk only the subset
+      // of the IP from the control network which are part of these original
+      // ones.
       vw::ip::read_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
     }
 
