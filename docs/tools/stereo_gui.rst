@@ -63,6 +63,17 @@ building on disk pyramids of increasingly coarser subsampled images and
 displaying the subsampled versions that are appropriate for the current
 level of zoom.
 
+These pyramids are written next to each input image, in files with a ``_subN``
+suffix, where ``N`` is the subsampling factor (2, 4, 8, and so on). If the input
+directory is not writable, they are written in the current directory instead.
+They are reused on later runs, and can be removed with
+``--delete-temporary-files-on-exit``. Single-band images are stored as Float32.
+
+These pyramids are a display cache. They are not meant to be used as inputs for
+further processing, as their pixel grid can be offset by up to half a subsampled
+pixel. To create a reduced-resolution image for processing, use ``gdal_translate``
+with ``-outsize`` and ``-r average`` (:numref:`gdal_tools`).
+
 The images can be shown either all side-by-side (default), several
 side-by-side (``--view-several-side-by-side``), as tiles on a grid
 (using ``--grid-cols integer``), or on top of each other (using

@@ -56,17 +56,24 @@ or the auxiliary ImageMagick ``convert`` program will fail, or the machine
 will run out of memory. 
 
 It is suggested to resize the images to a more manageable size, at least for
-initial processing. This is easiest to do by opening the images in
-``stereo_gui`` (:numref:`stereo_gui`), which will create a pyramid of subsampled
-("sub") images at 1/2 the full resolution, then 1/4th, etc. This resampling is
-done using local averaging, to avoid aliasing effects.
+initial processing. This is best done with ``gdal_translate``
+(:numref:`gdal_tools`), such as::
 
-Alternatively, one can call ``gdal_translate`` (:numref:`gdal_tools`), such as::
+    gdal_translate     \
+      -outsize 25% 25% \
+      -r average       \
+      input.tif        \
+      output.tif
 
-    gdal_translate -outsize 25% 25% -r average input.tif output.tif
+This reduces the image size by a factor of 4. The ``-r average`` option averages
+the input pixels, which avoids aliasing. This command preserves the input pixel
+data type and keeps the reduced pixel grid aligned with the input.
 
-This will reduce the image size by a factor of 4. The ``-r average`` option will,
-as before, help avoid aliasing.
+The ``stereo_gui`` program (:numref:`stereo_gui`) also builds a pyramid of
+subsampled ("sub") images, at 1/2 the full resolution, then 1/4th, etc. Those
+are a display cache only. They are stored as Float32 and their subsampled pixel
+grid can be offset from the input by up to half a subsampled pixel, so they
+should not be used as inputs for further processing.
 
 A camera model (pinhole or optical bar) created at one resolution can be
 converted to another resolution by adjusting the ``pitch`` parameter (a higher
@@ -227,21 +234,24 @@ Bundle adjustment and stereo
 
 Before processing the input images it is a good idea to experiment with
 reduced resolution copies in order to accelerate testing. You can easily
-generate reduced resolution copies of the images using ``stereo_gui`` as
-shown below. 
+generate reduced resolution copies of the images using ``gdal_translate``
+(:numref:`gdal_tools`) as shown below.
 
 ::
 
-     stereo_gui for.tif aft.tif --create-image-pyramids-only
-     ln -s for_sub8.tif  for_small.tif
-     ln -s aft_sub8.tif  aft_small.tif
+     gdal_translate         \
+       -outsize 12.5% 12.5% \
+       -r average           \
+       for.tif              \
+       for_small.tif
      cp for.tsai for_small.tsai
-     cp aft.tsai aft_small.tsai
 
-The new .tsai files need to be adjusted by updating the image_size,
-image_center (divide by resolution factor, which is 8 here), and the
-pitch (multiply by the resolution factor) to account for the
-downsample amount.
+Do the same for ``aft.tif``, producing ``aft_small.tif`` and ``aft_small.tsai``.
+
+The ``-outsize 12.5%`` option reduces the images by a factor of 8. The new .tsai
+files need to be adjusted by updating the image_size, image_center (divide by the
+resolution factor, which is 8 here), and the pitch (multiply by the resolution
+factor) to account for the downsample amount.
 
 You can now run bundle adjustment on the downsampled images::
 
@@ -570,15 +580,19 @@ Check the GCP pixel residuals at the end of the produced residual file
 
 At this point it is a good idea to experiment with lower-resolution copies of
 the input images before running processing with the full size images. You can
-generate these using ``stereo_gui``
-::
+generate these using ``gdal_translate`` (:numref:`gdal_tools`)::
 
-     stereo_gui 5001.tif 6001.tif --create-image-pyramids-only
-     ln -s 5001_sub16.tif  5001_small.tif
-     ln -s 6001_sub16.tif  6001_small.tif
-     
-Make copies of the camera files for the smaller images::
-     
+     gdal_translate         \
+       -outsize 6.25% 6.25% \
+       -r average           \
+       5001.tif             \
+       5001_small.tif
+
+Do the same for ``6001.tif``, producing ``6001_small.tif``.
+
+The ``-outsize 6.25%`` option reduces the images by a factor of 16. Make copies
+of the camera files for the smaller images::
+
      cp 5001.tsai  5001_small.tsai
      cp 6001.tsai  6001_small.tsai
 

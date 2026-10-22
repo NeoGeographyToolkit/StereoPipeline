@@ -46,12 +46,20 @@ Then, break up the input image set into several groups, by Sun azimuth
 produce subsets of images with diverse illumination.
 
 For the images in each group, create a list of mapprojected images at a low
-resolution, for example, at 1/16 of original image resolution. This can be
-accomplished by using ``sub`` images produced by ``stereo_gui``
-(:numref:`stereo_gui`), whose resolution can be further reduced with a command
-such as::
+resolution, for example, at 1/16 of the original image resolution. It is simplest
+to mapproject (:numref:`mapproject`) directly at a coarse grid size (``--tr``). An
+existing mapprojected image can also be reduced with ``gdal_translate``
+(:numref:`gdal_tools`), such as::
 
-  gdalwarp -r cubicspline -tr <gridx> <gridy> input.tif output.tif
+  gdal_translate         \
+    -outsize 6.25% 6.25% \
+    -r average           \
+    input.tif            \
+    output.tif
+
+The ``-r average`` option avoids aliasing. This preserves the data type and
+georeferencing of the input, which keeps the reduced images registered to each
+other.
 
 Then, for each group, this program can be called as::
 
