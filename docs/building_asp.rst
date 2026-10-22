@@ -13,16 +13,56 @@ in :numref:`installation`.
 Building ASP from source
 ------------------------
 
+Install dependencies
+~~~~~~~~~~~~~~~~~~~~
+
 All dependencies for the *latest development version* of ASP are available as
-a `binary tarball
+a set of `binary tarballs
 <https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/>`_.
 
-The dependencies for the latest stable version of ASP are in the 
+To download them, set the following url (that may need adjusting)::
+
+    url=https://github.com/NeoGeographyToolkit/BinaryBuilder/releases/download/asp_deps_linux_v2
+
+Set the parent directory of your conda environments (adjust as needed)::
+
+    envParent=$HOME/miniconda3/envs
+
+Bring the tarballs into your conda environments as follows. Note that
+the second tarball, ``asp_deps_p2.tar.gz``, may be absent on some platforms.
+
+::
+
+    wget $url/asp_deps_p1.tar.gz
+    wget $url/asp_deps_p2.tar.gz
+    mkdir -p $envParent/asp_deps
+    cat asp_deps_p*.tar.gz | tar xzf - -C $envParent/asp_deps
+    $envParent/asp_deps/bin/conda-unpack
+
+Also fetch a Python environment::
+
+    wget $url/python_isis10.tar.gz
+    mkdir -p $envParent/python_isis10
+    tar xzf python_isis10.tar.gz -C $envParent/python_isis10
+    $envParent/python_isis10/bin/conda-unpack
+
+These are packed with ``conda-pack``: the build-time prefix is baked into the
+binaries and ``conda-unpack`` rewrites it to the final location. Extract each
+tarball into its target environment directory and run ``conda-unpack`` there,
+rather than extracting elsewhere and moving the files afterward. The
+``asp_deps`` environment is split into parts that must be concatenated with
+``cat asp_deps_p*.tar.gz``, so extracting a single part alone yields an
+incomplete environment.
+
+The list of dependencies for the latest stable version of ASP are in the
 ``stereopipeline-feedstock`` repository (:numref:`packages_to_build`).
+
+Build
+~~~~~
 
 Assume that all dependencies, including the development tools, are installed
 in the ``asp_deps`` conda environment and the ``PATH`` variable is set up
-to use them. 
+to use them.
 
 Create a work directory::
 
