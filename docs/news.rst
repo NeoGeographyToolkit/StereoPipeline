@@ -198,6 +198,12 @@ stereo_gui (:numref:`stereo_gui`):
     (:numref:`colorize`).
   * Added ``--opacity``, to blend overlaid images (:numref:`opacity`).
 
+camera_solve (:numref:`camera_solve`):
+  * Can now handle float (or other non-8-bit) images. Internally each image is
+    normalized with a robust median +/- 2*nmad stretch, as used elsewhere in ASP,
+    and scaled to the range each detector expects (SIFT and AKAZE). Available in
+    the next conda release.
+
 Misc:
   * Improved ``dem_mosaic`` priority blending in tricky situations with holes
     and clip boundaries (:numref:`dem_mosaic`). The ``--no-border-blend`` option
