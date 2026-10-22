@@ -128,7 +128,7 @@ build of ISIS, ALE, and USGSCSM (:numref:`conda_intro`). If ``spiceinit`` or
 or a separately installed ISIS is being used instead of the one bundled with
 ASP. Activate the ASP 3.7.0 environment, or use a recent development ISIS build
 from 2026.06.07 or later from the dev label of the ``usgs-astrogeology`` channel
-(``usgs-astrogeology/label/dev``).
+(``usgs-astrogeology/label/dev``). See the `ISIS installation instructions <https://astrogeology.usgs.gov/docs/how-to-guides/environment-setup-and-maintenance/installing-isis-via-anaconda/>`_.
 
 Each calibrated image dataset has ``.img`` and ``.xml`` files, with raw data and
 a PDS-4 label.
