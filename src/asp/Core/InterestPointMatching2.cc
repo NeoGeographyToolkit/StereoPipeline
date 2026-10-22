@@ -591,13 +591,13 @@ void match_ip_no_datum(std::vector<vw::ip::InterestPoint> const& ip1_copy,
   // with the EpipolarLinePointMatcher class!
   if (detect_method != DETECT_IP_METHOD_ORB) {
     // For all L2Norm distance metrics
-    vw::ip::InterestPointMatcher<vw::ip::L2NormMetric,ip::NullConstraint> 
+    vw::ip::InterestPointMatcher<vw::ip::L2NormMetric> 
       matcher(asp::stereo_settings().flann_method, uniqueness_threshold);
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
 	    TerminalProgressCallback("asp", "\t   Matching: "), quiet);
   } else {
     // For Hamming distance metrics
-    vw::ip::InterestPointMatcher<ip::HammingMetric,ip::NullConstraint> 
+    vw::ip::InterestPointMatcher<ip::HammingMetric> 
       matcher(asp::stereo_settings().flann_method, uniqueness_threshold);
     matcher(ip1_copy, ip2_copy, matched_ip1, matched_ip2,
 	    TerminalProgressCallback("asp", "\t   Matching: "), quiet);
