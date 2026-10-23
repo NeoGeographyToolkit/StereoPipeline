@@ -23,6 +23,15 @@
 
 set -e
 tag=${1:-asp_deps_linux_v2}
+here=$(cd "$(dirname "$0")" && pwd)
+
+# Refuse to pack an env that diverges from conda-meta. conda-pack ships the
+# conda-meta recorded bytes, so a dev build installed over the prefix is shipped
+# as stale bytes against respun libs. Install a custom build as a real conda
+# package instead of overlaying the prefix.
+aspDepsPrefix=$(conda env list | awk '$1=="asp_deps"{print $NF}')
+echo "Auditing $aspDepsPrefix for conda-meta overlays before packing..."
+python3 "$here/audit_env_overlays.py" "$aspDepsPrefix"
 
 # conda-pack must be installed (conda install -n base conda-pack, or pip).
 echo "Packing asp_deps (excluding VW/ASP)..."
@@ -48,12 +57,23 @@ else
     mv -f asp_deps.tar.gz asp_deps_p1.tar.gz
 fi
 
-# Upload to a BinaryBuilder release (full clobber of the same tag).
+# Upload with --clobber on the existing release, or create it if the tag is
+# absent. More robust than delete-then-create, which can leave the release gone.
 gh=$(ls -d $HOME/*conda3/envs/gh/bin/gh 2>/dev/null | head -1)
 repo=NeoGeographyToolkit/BinaryBuilder
-$gh release delete "$tag" -R "$repo" --yes 2>/dev/null || true
-$gh release create "$tag" -R "$repo" -t "$tag" \
-  -n "linux-x86_64 ASP deps (conda-pack; VW/ASP excluded)" \
-  asp_deps_p1.tar.gz python_isis10.tar.gz
-[ -f asp_deps_p2.tar.gz ] && $gh release upload "$tag" -R "$repo" asp_deps_p2.tar.gz
+if $gh api "repos/$repo/releases/tags/$tag" >/dev/null 2>&1; then
+    $gh release upload "$tag" -R "$repo" --clobber asp_deps_p1.tar.gz python_isis10.tar.gz
+    if [ -f asp_deps_p2.tar.gz ]; then
+        $gh release upload "$tag" -R "$repo" --clobber asp_deps_p2.tar.gz
+    else
+        # Drop a stale p2 from a prior 2-part split, else the consumer's
+        # cat asp_deps_p*.tar.gz appends garbage.
+        $gh release delete-asset "$tag" -R "$repo" asp_deps_p2.tar.gz -y 2>/dev/null || true
+    fi
+else
+    $gh release create "$tag" -R "$repo" -t "$tag" \
+      -n "linux-x86_64 ASP deps (conda-pack; VW/ASP excluded)" \
+      asp_deps_p1.tar.gz python_isis10.tar.gz
+    [ -f asp_deps_p2.tar.gz ] && $gh release upload "$tag" -R "$repo" asp_deps_p2.tar.gz
+fi
 echo "Uploaded $tag to $repo"
