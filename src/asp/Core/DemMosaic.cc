@@ -364,27 +364,30 @@ double smootherStep(double t) {
   return t*t*t*(t*(t*6.0 - 15.0) + 10.0);
 }
 
-// A smooth blending weight for a DEM clip. The Euclidean distance to the
-// boundary is normalized by max_dist (the tile read-ahead, so the weight
-// plateaus exactly at the read-ahead depth and tiles agree) and shaped by a
-// smootherstep. Exactly zero at the boundary and one at the plateau, with zero
-// slope at both ends, so no corner, all within the valid region.
+// Smooth blending weight: Euclidean distance to the nearest no-data, normalized
+// by max_dist and shaped by a smootherstep. The data is padded by one pixel of
+// no-data, so the weight fades at every edge (holes and the frame, like the
+// grassfire weight) yet stops honestly short of zero one pixel in, so no valid
+// pixel is dropped and there is no artificial floor.
 void euclideanPlateauWeights(vw::ImageView<DoubleGrayA> const& dem,
                              double nodata_value, double max_dist,
                              vw::ImageView<double> & weights) {
   int cols = dem.cols(), rows = dem.rows();
-  vw::ImageView<int> mask(cols, rows);
+  vw::ImageView<int> mask(cols + 2, rows + 2);
+  for (int c = 0; c < cols + 2; c++)
+    for (int r = 0; r < rows + 2; r++)
+      mask(c, r) = 0;
   for (int c = 0; c < cols; c++)
     for (int r = 0; r < rows; r++)
-      mask(c, r) = (dem(c, r)[0] != nodata_value) ? 1 : 0;
+      mask(c + 1, r + 1) = (dem(c, r)[0] != nodata_value) ? 1 : 0;
 
   vw::ImageView<double> dist;
-  boundedEuclideanDist(mask, true, max_dist, dist);
+  boundedEuclideanDist(mask, false, max_dist, dist);
 
   weights.set_size(cols, rows);
   for (int c = 0; c < cols; c++)
     for (int r = 0; r < rows; r++)
-      weights(c, r) = (max_dist > 0) ? smootherStep(dist(c, r)/max_dist) : 0.0;
+      weights(c, r) = (max_dist > 0) ? smootherStep(dist(c + 1, r + 1)/max_dist) : 0.0;
 }
 
 // Convert a projected-space bounding box to pixel coordinates with snapping.
