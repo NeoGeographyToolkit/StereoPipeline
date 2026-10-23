@@ -592,6 +592,17 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
                        // Outputs
                        vw::ImageView<double>& weights) {
 
+  // No-blend modes do not form a weighted average, so gate on plain support
+  // (valid value), not on the blend weight (which is zero at the boundary).
+  if (numNoBlendOptions(opt) > 0) {
+    weights.set_size(dem.cols(), dem.rows());
+    for (int col = 0; col < dem.cols(); col++)
+      for (int row = 0; row < dem.rows(); row++)
+        weights(col, row)
+          = (select_channel(dem, 0)(col, row) != nodata_value) ? 1.0 : 0.0;
+    return;
+  }
+
   // Use the smooth plateau Euclidean weight for regular blending. The priority
   // path keeps the grassfire distance here, as it is a distance the priority
   // burn logic compares against the blending length. The priority final weight
