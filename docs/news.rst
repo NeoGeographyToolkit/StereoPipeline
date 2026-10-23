@@ -180,6 +180,11 @@ dem2gcp (:numref:`dem2gcp`):
     ``bundle_adjust``, :numref:`heights_from_dem`), rather than by triangulation.
     This is more robust when the rays meet at a small convergence angle.
 
+dem_mosaic (:numref:`dem_mosaic`):
+  * By default, smooth Euclidean blending weights are used. These 
+    behave better at irregular boundaries. The previous weights are available
+    with ``--grassfire-weights`` (:numref:`dem_mosaic_blending_weights`).
+
 hiedr2mosaic (:numref:`hiedr2mosaic`):
   * Fixed a crash in the mosaic step when a HiRISE observation is missing a CCD.
   * Added ``--dry-run`` option.

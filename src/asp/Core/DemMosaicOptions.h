@@ -45,7 +45,7 @@ struct DemMosaicOptions: vw::GdalWriteOptions {
   double nodata_threshold, fill_search_radius, fill_power, fill_percent, min_weight;
   bool   first, last, min, max, block_max, mean, stddev, median, nmad,
     count, tap, gdal_tap, save_index_map, use_centerline_weights,
-    propagate_nodata, invert_weights;
+    propagate_nodata, invert_weights, grassfire_weights;
   std::set<int> tile_list;
   vw::BBox2 projwin;
 
@@ -60,7 +60,7 @@ struct DemMosaicOptions: vw::GdalWriteOptions {
              count(false), save_index_map(false), tap(false), gdal_tap(false),
              use_centerline_weights(false),
              projwin(vw::BBox2()),
-             invert_weights(false) {}
+             invert_weights(false), grassfire_weights(false) {}
 };
 
 // Return the number of no-blending options selected

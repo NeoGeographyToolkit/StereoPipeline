@@ -12,70 +12,53 @@ See many examples in :numref:`dem_mosaic_examples`.
 Overview
 ~~~~~~~~
 
-The output mosaic is written as non-overlapping tiles with desired tile
-size, with the size set either in pixels or in georeferenced (projected)
-units. The default tile size is large enough that normally the entire
-mosaic is saved as one tile, named as::
+The mosaic is written to the file passed to the ``-o`` option, for example
+``-o mosaic.tif``. Normally the whole mosaic is this single file. A very large
+mosaic can be written in tiles instead (:numref:`dem_mosaic_tiling`).
 
-    output_prefix-tile-0.tif
-
-Alternatively, one can pass to the ``-o`` option an output file, such
-as ``output.tif``. Then the mosaic will be written with this exact
-name. (This will fail if the tool decides there is a need for more
-than one tile.)
-
-Individual tiles can be saved via the ``--tile-index`` option (the tool
-displays the total number of tiles when it is being run). As such,
-separate processes can be invoked for individual tiles for increased
-robustness and perhaps speed.
-
-By the default, the output mosaicked DEM will use the same grid size and
+By default, the output mosaicked DEM will use the same grid size and
 projection as the first input DEM. These can be changed via the ``--tr`` and
 ``--t_srs`` options. Also note the ``--gdal-tap`` and ``--tap`` options.
-
-The default behavior is to blend the DEMs everywhere. If the option
-``--priority-blending-length integer`` is invoked, the blending behavior
-will be different. At any location, the pixel value of the DEM earliest
-in the list present at this location will be kept, unless closer to the
-boundary of that DEM than this blending length (measured in input DEM
-pixels), only in the latter case blending will happen. This mode is
-useful when blending several high-resolution "foreground" DEMs covering
-small regions with larger "background" DEMs covering a larger extent.
-Then, the pixels from the high-resolution DEMs are more desirable, yet
-at their boundary these DEMs should blend into the background.
 
 Blending happens only along a boundary where another DEM is present to
 blend into. A boundary with no other DEM on the other side, such as the
 outer edge of the data or a hole covered by no other DEM, stays sharp.
 
-To obtain smoother blending when the input DEMs are quite different at the
-boundary, one can increase ``--weights-blur-sigma`` and ``--weights-exponent``.
-The latter will result in weights growing slower at each DEM boundary faster
-inwards. Some experimentation may be necessary, helped for example by examining
-the weights used in blending; they can be written out with ``--save-dem-weight
-integer``.
+The default behavior is to blend the DEMs everywhere. This program
+supports prioritizing one DEM (:numref:`dem_priority`).
 
 Instead of blending, ``dem_mosaic`` can compute the image of first,
 last, minimum, maximum, mean, standard deviation, median, and count of
 all encountered valid DEM heights at output grid points. For the
 "first" and "last" operations, the order in which DEMs were passed in
-is used. With any of these options, the tile names will be adjusted
-accordingly. It is important to note that with these options blending
-will not happen, since it is explicitly requested that particular
-values of the input DEMs be used.
-
-If the number of input DEMs is very large, the tool can fail as the
-operating system may refuse to load all DEMs. In that case, it is
-suggested to use the parameter ``--tile-size`` to break up the output
-DEM into several large tiles, and to invoke the tool for each of the
-output tiles with the option ``--tile-index``. Later, ``dem_mosaic`` can
-be invoked again to merge these tiles into a single DEM.
-
-If the DEMs have reasonably regular boundaries and no holes, smoother
-blending may be obtained by using ``--use-centerline-weights``.
+is used. With any of these options, the output name is adjusted
+accordingly, and no blending happens, as specific input values are kept.
 
 This tool can also apply hole-filling, smoothing, and pixel erosion at
 boundary.
+
+.. _dem_mosaic_blending_weights:
+
+Blending weights
+~~~~~~~~~~~~~~~~
+
+To blend the DEMs, each DEM is given a weight that is largest in its interior
+(with a plateau) and decays to zero at its boundary and around holes. The output
+DEM is the weighted average, so every DEM fades out smoothly where it ends.
+
+By default (as of build 2026/10, :numref:`release`) the blending weight is based
+on the Euclidean distance to the boundary.
+
+The option ``--grassfire-weights`` provides a weight that is based on the
+Manhattan (grassfire) distance to the boundary. That weight has a diamond pattern
+around holes and is not recommended.
+
+.. figure:: ../images/dem_mosaic_weights.png
+   :name: dem_mosaic_weights_fig
+   :alt: dem_mosaic blending weights
+
+   The blending weight for a DEM with many small holes. Left: the hillshaded DEM.
+   Middle: the default Euclidean weight. Right: the grassfire weight.
 
 .. _dem_mosaic_examples:
 
@@ -89,6 +72,8 @@ This creates a seamless DEM::
 
      dem_mosaic dem1.tif dem2.tif -o blended.tif
 
+.. _dem_priority:
+
 Priority blending
 ^^^^^^^^^^^^^^^^^
 
@@ -100,18 +85,14 @@ transition length.
 
      echo dem1.tif dem2.tif > image_list.txt
      dem_mosaic -l image_list.txt --priority-blending-length 14 \
-       -o priority_blended
-
-Since an extension for the output was not specified, it will be saved
-as ``priority_blended/tile-0.tif`` (there may be more than one tile if
-the ``--tile-size`` parameter is set).
+       -o priority_blended.tif
 
 Mean height DEM
 ^^^^^^^^^^^^^^^
 
 ::
 
-     dem_mosaic -l image_list.txt --mean -o mosaic
+     dem_mosaic -l image_list.txt --mean -o mosaic.tif
 
 This uses no blending. Also supported are the options ``--first``,
 ``--last``, ``--min``, ``--max``, ``--stddev``, ``--median``, ``--nmad``,
@@ -123,9 +104,8 @@ External weights
 ^^^^^^^^^^^^^^^^
 
 The default behavior of ``dem_mosaic`` is to blend the DEMs using a weighted
-average with internal weights that decrease to zero towards the boundary of the DEM
-and plateau inwards, away from the boundary (see ``--extra-crop-length`` and
-``--weights-exponent``). 
+average with internal weights that decrease to zero towards the boundary of the
+DEM and plateau inwards (:numref:`dem_mosaic_blending_weights`).
 
 If, for example, the DEMs are known to have different vertical uncertainties
 (:numref:`error_propagation`), these gridded uncertainties
@@ -135,7 +115,7 @@ uncertainty), then multiplied by the internal weights before blending.
 
 A larger stereo convergence angle (:numref:`stereo_pairs`) results in less
 vertical uncertainty.
-                                        
+
 Example::
 
     ls stereo_runs/*/run-DEM.tif              \
@@ -157,8 +137,8 @@ Any weight value that equals the no-data value will be ignored.
 
 Another candidate for the weight could be the triangulation error
 (:numref:`point2dem_ortho_err`). The ``--min-weight`` option is strongly
-encouraged in this case, as an extremely small triangulation error many not
-suggest high reliability alone. 
+encouraged in this case, as an extremely small triangulation error may not
+suggest high reliability alone.
 
 The ``image_calc`` program (:numref:`image_calc`) can help devise schemas for
 how various uncertainty measures could be combined into a single weight image.
@@ -223,9 +203,9 @@ To extrapolate a DEM based on a weighted average of neighbors, run::
         --fill-power 8          \
         --fill-percent 10       \
         --fill-num-passes 3     \
-        input.tif -o filled.tif 
+        input.tif -o filled.tif
 
-This command will become very slow for large ``--fill-search-radius``. 
+This command will become very slow for large ``--fill-search-radius``.
 It is suggested to increase ``--fill-num-passes`` instead.
 
 This method will also grow the DEM outwards, not just within
@@ -237,7 +217,7 @@ It is suggested to blur a little the obtained DEM, such as::
 
 To preserve as much as possible the input DEM values in the resulting DEM,
 except a small transition area at the boundary, run::
-    
+
     dem_mosaic --priority-blending-length 20 \
       input.tif blurred.tif -o output.tif
 
@@ -247,12 +227,12 @@ If the percentage of valid to total number of found pixels is no less than the
 specified value, the invalid pixel will be filled with the weighted average of
 the valid pixel values, with the weight given as:
 
-.. math::    
-  
+.. math::
+
     \frac{1}{d^p + 1}
 
 where :math:`d` is the distance from the invalid to the valid pixel to borrow
-the value from, and :math:`p` is given by ``--fill-power``. 
+the value from, and :math:`p` is given by ``--fill-power``.
 
 This process will be repeated the specified number of times, with the valid
 portion of the DEM growing each time.
@@ -274,25 +254,47 @@ bilinear interpolation. This is analogous to ``gdalwarp`` (:numref:`gdal_tools`)
 with the options ``-tap -tr 1 1 -r bilinear -te``. Here, a projection in units
 of meter is assumed.
 
-Processing
-~~~~~~~~~~
+Internal processing
+~~~~~~~~~~~~~~~~~~~
 
-The tool reads input DEMs as single precision (float32), performs all 
-processing in double precision (float64) for numerical accuracy, and 
+The tool reads input DEMs as single precision (float32), performs all
+processing in double precision (float64) for numerical accuracy, and
 writes output mosaics as single precision (float32) by default. The output
-type can be changed via the ``--ot`` option to Byte, UInt16, Int16, UInt32, 
+type can be changed via the ``--ot`` option to Byte, UInt16, Int16, UInt32,
 Int32, or Float32.
+
+.. _dem_mosaic_tiling:
+
+Very large mosaics
+~~~~~~~~~~~~~~~~~~
+
+Normally the whole mosaic is written as a single file, the ``-o`` file with a
+``.tif`` extension. For a very large mosaic it can instead be written as
+non-overlapping tiles. The tile size is set in pixels with ``--tile-size``, or
+in georeferenced units with ``--georef-tile-size``. If a prefix is passed to
+``-o``, without a ``.tif`` extension, the tiles are named::
+
+    output_prefix-tile-0.tif
+
+Individual tiles can be saved with the ``--tile-index`` option (the tool prints
+the total number of tiles). Separate processes can then be run for individual
+tiles, for robustness and speed.
+
+If the number of input DEMs is very large, the tool can fail, as the operating
+system may refuse to load all DEMs at once. Then, use ``--tile-size`` to break
+the output into several large tiles, invoke the tool for each with
+``--tile-index``, and later run ``dem_mosaic`` again to merge the tiles.
 
 Usage
 ~~~~~
 
 ::
 
-     dem_mosaic [options] <dem files> -o output_prefix
+     dem_mosaic [options] <dem files> -o output.tif
 
 or::
 
-     dem_mosaic [options] -l dem_files_list.txt -o output_prefix
+     dem_mosaic [options] -l dem_files_list.txt -o output.tif
 
 Command-line options
 ~~~~~~~~~~~~~~~~~~~~
@@ -401,7 +403,7 @@ Command-line options
 
 --min-weight <double (default: 0.0)>
     Limit from below with this value the weights provided with ``--weight-list``.
-    
+
 --georef-tile-size <double>
     Set the tile size in georeferenced (projected) units (e.g.,
     degrees or meters).
@@ -439,7 +441,7 @@ Command-line options
     blending them (a small value may result in artifacts). This value also helps
     determine how to plateau the blending weights inwards, away from the DEM
     boundary.
-     
+
 --nodata-threshold <float>
     Values no larger than this number will be interpreted as no-data.
 
@@ -454,7 +456,7 @@ Command-line options
     ``--tr``). When ``--t_projwin`` is set and its entries are integer multiples
     of the grid size, that precise extent will be produced on output. This
     functions as the GDAL ``-tap`` option. An example is in :numref:`gdal_tap`.
-    
+
 --tap
     Let the output grid be at integer multiples of the grid size (like
     the default behavior of ``point2dem`` and ``mapproject``, and
@@ -462,7 +464,7 @@ Command-line options
     not have the half-a-pixel extra extent this tool has). If this
     option is not set, the input grids determine the output grid.
     See also ``--gdal-tap``.
-    
+
 --save-dem-weight <integer>
     Save the weight image that tracks how much the input DEM with
     given index contributed to the output mosaic at each pixel

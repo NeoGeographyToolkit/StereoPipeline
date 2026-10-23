@@ -279,6 +279,114 @@ double erfSmoothStep(double x, double M, double L) {
   return 0.5*M*(1 + boost::math::erf (0.5*sqrt(M_PI) * (2*x*L/M - L)));
 }
 
+// One-dimensional squared-distance transform (Felzenszwalb and Huttenlocher).
+// Given f, returns d[q] = min_p ((q-p)^2 + f[p]). Linear time.
+static void dt1d(std::vector<double> const& f, std::vector<double> & d) {
+  int n = (int)f.size();
+  d.assign(n, 0.0);
+  if (n == 0)
+    return;
+  std::vector<int> v(n, 0);
+  std::vector<double> z(n + 1, 0.0);
+  int k = 0;
+  v[0] = 0;
+  z[0] = -1e30;
+  z[1] =  1e30;
+  for (int q = 1; q < n; q++) {
+    double s = ((f[q] + double(q)*q) - (f[v[k]] + double(v[k])*v[k]))
+               / (2.0*q - 2.0*v[k]);
+    while (s <= z[k]) {
+      k--;
+      s = ((f[q] + double(q)*q) - (f[v[k]] + double(v[k])*v[k]))
+          / (2.0*q - 2.0*v[k]);
+    }
+    k++;
+    v[k] = q;
+    z[k] = s;
+    z[k + 1] = 1e30;
+  }
+  k = 0;
+  for (int q = 0; q < n; q++) {
+    while (z[k + 1] < q)
+      k++;
+    double dd = double(q) - v[k];
+    d[q] = dd*dd + f[v[k]];
+  }
+}
+
+// Exact Euclidean distance to the nearest zero pixel of mask, clamped at
+// max_dist. A zero pixel is a boundary seed. Isotropic, so no Manhattan
+// faceting, and linear time. If seed_borders, the array frame is also a seed,
+// so pixels fade toward the frame (as for plain border blending). If not, only
+// mask zeros seed, so an edge with no seed beyond it does not fade.
+void boundedEuclideanDist(vw::ImageView<int> const& mask, bool seed_borders,
+                          double max_dist, vw::ImageView<double> & dist) {
+  int cols = mask.cols(), rows = mask.rows();
+  dist.set_size(cols, rows);
+  const double INF = 1e18;
+  vw::ImageView<double> g(cols, rows);
+  for (int c = 0; c < cols; c++)
+    for (int r = 0; r < rows; r++)
+      g(c, r) = (mask(c, r) == 0) ? 0.0 : INF;
+
+  if (seed_borders) {
+    for (int c = 0; c < cols; c++) { g(c, 0) = 0.0; g(c, rows - 1) = 0.0; }
+    for (int r = 0; r < rows; r++) { g(0, r) = 0.0; g(cols - 1, r) = 0.0; }
+  }
+
+  std::vector<double> f, d;
+  // Transform along columns, then along rows (separable).
+  f.resize(rows);
+  for (int c = 0; c < cols; c++) {
+    for (int r = 0; r < rows; r++) f[r] = g(c, r);
+    dt1d(f, d);
+    for (int r = 0; r < rows; r++) g(c, r) = d[r];
+  }
+  f.resize(cols);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) f[c] = g(c, r);
+    dt1d(f, d);
+    for (int c = 0; c < cols; c++) g(c, r) = d[c];
+  }
+
+  double maxsq = max_dist*max_dist;
+  for (int c = 0; c < cols; c++)
+    for (int r = 0; r < rows; r++)
+      dist(c, r) = sqrt(std::min(g(c, r), maxsq));
+}
+
+// Smoothstep of fifth order (Perlin). Zero at t<=0, one at t>=1, with zero first
+// and second derivative at both ends. Gentle near the boundary, rounded at the
+// plateau, with no free parameter.
+double smootherStep(double t) {
+  if (t <= 0.0) return 0.0;
+  if (t >= 1.0) return 1.0;
+  return t*t*t*(t*(t*6.0 - 15.0) + 10.0);
+}
+
+// A smooth blending weight for a DEM clip. The Euclidean distance to the
+// boundary is normalized by max_dist (the tile read-ahead, so the weight
+// plateaus exactly at the read-ahead depth and tiles agree) and shaped by a
+// smootherstep. Exactly zero at the boundary and one at the plateau, with zero
+// slope at both ends, so no corner, all within the valid region.
+void euclideanPlateauWeights(vw::ImageView<DoubleGrayA> const& dem,
+                             double nodata_value, double max_dist,
+                             vw::ImageView<double> & weights) {
+  int cols = dem.cols(), rows = dem.rows();
+  vw::ImageView<int> mask(cols, rows);
+  for (int c = 0; c < cols; c++)
+    for (int r = 0; r < rows; r++)
+      mask(c, r) = (dem(c, r)[0] != nodata_value) ? 1 : 0;
+
+  vw::ImageView<double> dist;
+  boundedEuclideanDist(mask, true, max_dist, dist);
+
+  weights.set_size(cols, rows);
+  for (int c = 0; c < cols; c++)
+    for (int r = 0; r < rows; r++)
+      weights(c, r) = (max_dist > 0) ? smootherStep(dist(c, r)/max_dist) : 0.0;
+}
+
 // Convert a projected-space bounding box to pixel coordinates with snapping.
 // Transforms all 4 corners, rounds near-integer values (within tol) to integers,
 // then floors/ceils to ensure integer pixel boundaries.

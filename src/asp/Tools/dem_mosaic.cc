@@ -141,6 +141,7 @@ void priorityBlend(double out_nodata_value,
                    double bias,
                    double weights_blur_sigma,
                    double weights_exp,
+                   bool euclidean_weights,
                    int save_dem_weight,
                    std::vector<int> const& clip2dem_index,
                    vw::cartography::GeoReference const& out_georef,
@@ -188,25 +189,47 @@ void priorityBlend(double out_nodata_value,
       for (int row = 0; row < t.rows(); row++) {
         bool this_valid = (t(col, row) != out_nodata_value);
         bool other_covers = (num_valid(col, row) - (this_valid ? 1 : 0)) >= 1;
-        // Grassfire treats a zero value as a boundary seed.
+        // A zero value is a boundary seed (both grassfire and the Euclidean
+        // distance treat it so).
         seed_mask(col, row) = (!this_valid && other_covers) ? 0.0 : 1.0;
       }
     }
-    // Ignore the array frame as a boundary too, consistent with the principle
-    // that an edge with no neighbor on the other side does not fade.
-    weight_vec[clip_iter] = grassfire(seed_mask, true);
+
+    if (euclidean_weights) {
+      // Smooth plateau weight. The distance is to the seeds only, never to the
+      // array frame, so a boundary with no neighbor beyond it stays sharp.
+      vw::ImageView<int> seed_int(t.cols(), t.rows());
+      for (int col = 0; col < t.cols(); col++)
+        for (int row = 0; row < t.rows(); row++)
+          seed_int(col, row) = (seed_mask(col, row) == 0.0) ? 0 : 1;
+      // Plateau at the read-ahead (bias), consistent with the regular path.
+      double plateau = double(bias);
+      vw::ImageView<double> dist;
+      asp::boundedEuclideanDist(seed_int, false, plateau, dist);
+      vw::ImageView<double> w(t.cols(), t.rows());
+      for (int col = 0; col < t.cols(); col++)
+        for (int row = 0; row < t.rows(); row++)
+          w(col, row) = (plateau > 0) ? asp::smootherStep(dist(col, row)/plateau) : 0.0;
+      weight_vec[clip_iter] = w;
+    } else {
+      // Ignore the array frame as a boundary too, consistent with the principle
+      // that an edge with no neighbor on the other side does not fade.
+      weight_vec[clip_iter] = grassfire(seed_mask, true);
+    }
   }
 
   // Don't allow the weights to become big, for uniqueness across tiles
   for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
     asp::clampWeights(bias, weight_vec[clip_iter]);
 
-  // Blur the weights
-  for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
-    asp::blurWeights(weight_vec[clip_iter], weights_blur_sigma);
+  // Blur the weights. The Euclidean weight is already smooth, so skip it there.
+  if (!euclidean_weights)
+    for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
+      asp::blurWeights(weight_vec[clip_iter], weights_blur_sigma);
 
-  // Raise to power
-  if (weights_exp != 1) {
+  // Raise to power. The Euclidean weight is already a shaped S-curve, so it is
+  // not raised to a power (that is for the grassfire distance weight).
+  if (weights_exp != 1 && !euclidean_weights) {
     for (size_t clip_iter = 0; clip_iter < weight_vec.size(); clip_iter++)
       asp::raiseToPower(weights_exp, weight_vec[clip_iter]);
   }
@@ -569,38 +592,53 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
                        // Outputs
                        vw::ImageView<double>& weights) {
 
-  // Compute linear weights using grassfire distance transform
-  weights = grassfire(notnodata(select_channel(dem, 0), nodata_value));
+  // Use the smooth plateau Euclidean weight for regular blending. The priority
+  // path keeps the grassfire distance here, as it is a distance the priority
+  // burn logic compares against the blending length. The priority final weight
+  // is recomputed (smoothly) later in priorityBlend.
+  bool use_euclidean = (!opt.grassfire_weights && !use_priority_blend
+                        && !opt.use_centerline_weights);
 
-  // Erode based on grassfire weights, and then overwrite the grassfire
-  // weights with centerline weights
-  if (opt.use_centerline_weights)
-    erodeCreateCenterlineWeights(dem, nodata_value, opt.erode_len, bias, weights);
+  if (use_euclidean) {
+    // Plateau at the tile read-ahead (bias), so the transition spans exactly the
+    // read-ahead and per-tile results agree where a tile sees that far.
+    asp::euclideanPlateauWeights(dem, nodata_value, double(bias), weights);
+  } else {
+    // Compute linear weights using grassfire distance transform
+    weights = grassfire(notnodata(select_channel(dem, 0), nodata_value));
 
-  // Clamp the weights to ensure the results agree across tiles. For
-  // priority blending length, we'll do this process later, as the bbox is
-  // obtained differently in that case. With centerline weights, that is
-  // handled before 1D weights are multiplied to get the 2D weights.
-  if (!use_priority_blend && !opt.use_centerline_weights)
-    asp::clampWeights(bias, weights);
+    // Erode based on grassfire weights, and then overwrite the grassfire
+    // weights with centerline weights
+    if (opt.use_centerline_weights)
+      erodeCreateCenterlineWeights(dem, nodata_value, opt.erode_len, bias, weights);
 
-  // Erode. We already did that if centerline weights are used.
-  if (!opt.use_centerline_weights) {
-    int max_cutoff = max_pixel_value(weights);
-    int min_cutoff = opt.erode_len;
-    if (max_cutoff <= min_cutoff)
-      max_cutoff = min_cutoff + 1; // precaution
-    weights = clamp(weights - min_cutoff, 0.0, max_cutoff - min_cutoff);
+    // Clamp the weights to ensure the results agree across tiles. For
+    // priority blending length, we'll do this process later, as the bbox is
+    // obtained differently in that case. With centerline weights, that is
+    // handled before 1D weights are multiplied to get the 2D weights.
+    if (!use_priority_blend && !opt.use_centerline_weights)
+      asp::clampWeights(bias, weights);
+
+    // Erode. We already did that if centerline weights are used.
+    if (!opt.use_centerline_weights) {
+      int max_cutoff = max_pixel_value(weights);
+      int min_cutoff = opt.erode_len;
+      if (max_cutoff <= min_cutoff)
+        max_cutoff = min_cutoff + 1; // precaution
+      weights = clamp(weights - min_cutoff, 0.0, max_cutoff - min_cutoff);
+    }
   }
 
   // Blur the weights. If priority blending length is on, we'll do the blur later,
-  // after weights from different DEMs are combined.
-  if (opt.weights_blur_sigma > 0 && !use_priority_blend)
+  // after weights from different DEMs are combined. The Euclidean weight is
+  // already smooth, so it is not blurred (that is the blur hack we are replacing).
+  if (opt.weights_blur_sigma > 0 && !use_priority_blend && !use_euclidean)
     asp::blurWeights(weights, opt.weights_blur_sigma);
 
   // Raise to the power. Note that when priority blending length is positive, we
-  // delay this process.
-  if (opt.weights_exp != 1 && !use_priority_blend)
+  // delay this process. The Euclidean weight is already shaped, so it is not
+  // raised to a power.
+  if (opt.weights_exp != 1 && !use_priority_blend && !use_euclidean)
     asp::raiseToPower(opt.weights_exp, weights);
 
   // Apply external weights
@@ -854,7 +892,8 @@ public:
     // the DEMs where we don't want blending, then recreate the weights
     if (use_priority_blend)
       priorityBlend(m_opt.out_nodata_value, m_bias, m_opt.weights_blur_sigma,
-                    m_opt.weights_exp, m_opt.save_dem_weight,
+                    m_opt.weights_exp, !m_opt.grassfire_weights,
+                    m_opt.save_dem_weight,
                     clip2dem_index, m_out_georef, bbox,
                     // Outputs
                     tile_vec, weight_vec, tile, weights, saved_weight);

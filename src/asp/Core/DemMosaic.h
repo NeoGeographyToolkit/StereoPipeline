@@ -57,6 +57,16 @@ void centerlineWeightsWithHoles(vw::ImageView<vw::PixelMask<double>> const& img,
 
 double erfSmoothStep(double x, double M, double L);
 
+// Fifth-order smoothstep. Zero at t<=0, one at t>=1, zero first and second
+// derivative at both ends. No free parameter.
+double smootherStep(double t);
+
+// Exact Euclidean distance to the nearest zero pixel of mask, clamped at
+// max_dist (linear time, no Manhattan faceting). If seed_borders, the array
+// frame is also a seed.
+void boundedEuclideanDist(vw::ImageView<int> const& mask, bool seed_borders,
+                          double max_dist, vw::ImageView<double> & dist);
+
 // Convert a projected-space bounding box to pixel coordinates with snapping.
 // Transforms all 4 corners, rounds near-integer values (within tol) to integers,
 // then floors/ceils to ensure integer pixel boundaries.
@@ -72,6 +82,13 @@ DoubleGrayA interpDem(double x, double y,
                       vw::ImageViewRef<DoubleGrayA> const& interp_dem,
                       double tol,
                       bool propagate_nodata);
+
+// Smooth plateau blending weight: Euclidean distance to the boundary normalized
+// by max_dist (the read-ahead) and shaped by a smootherstep. Zero at the
+// boundary, gentle rise, rounded plateau at the read-ahead depth.
+void euclideanPlateauWeights(vw::ImageView<DoubleGrayA> const& dem,
+                             double nodata_value, double max_dist,
+                             vw::ImageView<double> & weights);
 
 // Pixel and weight manipulation utilities
 void invalidateByThreshold(double threshold, double nodata_value,

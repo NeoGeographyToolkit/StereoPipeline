@@ -59,6 +59,9 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
     "If positive, keep unmodified values from the earliest available DEM except a band "
     "this wide measured in pixels inward of its boundary where blending with subsequent "
     "DEMs will happen.")
+  ("grassfire-weights", po::bool_switch(&opt.grassfire_weights)->default_value(false),
+    "Use the older Manhattan grassfire blending weight, instead of the default smooth "
+    "Euclidean weight.")
   ("tr", po::value(&opt.tr),
     "Output grid size, that is, the DEM resolution in target georeferenced units per "
     "pixel. Default: use the same resolution as the first DEM to be mosaicked.")
