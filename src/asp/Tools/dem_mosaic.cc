@@ -592,8 +592,8 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
                        // Outputs
                        vw::ImageView<double>& weights) {
 
-  // No-blend modes do not form a weighted average, so gate on plain support
-  // (valid value), not on the blend weight (which is zero at the boundary).
+  // No-blend modes do not form a weighted average, so select pixels by plain
+  // support (valid value), not by the blend weight (which is zero at the boundary).
   if (numNoBlendOptions(opt) > 0) {
     weights.set_size(dem.cols(), dem.rows());
     for (int col = 0; col < dem.cols(); col++)
