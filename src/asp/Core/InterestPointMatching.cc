@@ -39,6 +39,7 @@
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <set>
 #include <unordered_map>
@@ -669,18 +670,15 @@ Vector2i homography_rectification(bool adjust_left_image_size,
 /// - Returns the number of points removed.
 size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & ip_list,
                       bool remove_outside) {
-  // Loop through all the points
-  size_t num_removed = 0;
-  vw::ip::InterestPointList::iterator ip;
-  for (ip = ip_list.begin(); ip != ip_list.end(); ++ip) {
-
-    if (roi.contains(vw::Vector2i(ip->ix,ip->iy)) xor remove_outside) {
-      ip = ip_list.erase(ip);
-      ++num_removed;
-      --ip;
-    }
-  }
-  return num_removed;
+  // Decide per point whether to drop it, then compact in one O(n) pass. A
+  // per-point erase on the vector ip_list would be O(n^2).
+  size_t prior_size = ip_list.size();
+  auto keep_end = std::remove_if(ip_list.begin(), ip_list.end(),
+    [&](vw::ip::InterestPoint const& ip) {
+      return roi.contains(vw::Vector2i(ip.ix,ip.iy)) xor remove_outside;
+    });
+  ip_list.erase(keep_end, ip_list.end());
+  return prior_size - ip_list.size();
 } // End function remove_ip_bbox
 
 void side_ip_filtering(vw::ip::InterestPointList& ip1,
