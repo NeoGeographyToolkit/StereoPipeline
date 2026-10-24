@@ -48,6 +48,7 @@
 #pragma GCC diagnostic pop
 
 #include <xercesc/util/PlatformUtils.hpp>
+#include <cpl_conv.h>
 #include <omp.h>
 
 using namespace vw;
@@ -209,6 +210,15 @@ int main(int argc, char** argv) {
   try {
     xercesc::XMLPlatformUtils::Initialize();
     stereo_register_sessions();
+
+    // Redirect GDAL sidecar files (overviews, .aux.xml) for a read-only input
+    // to a writable cache. Must be set before any image opens, as GDAL's proxy
+    // database initializes on first use.
+    try {
+      std::string pam_proxy = (fs::temp_directory_path() / "asp_pyramids").string();
+      fs::create_directories(pam_proxy);
+      CPLSetConfigOption("GDAL_PAM_PROXY_DIR", pam_proxy.c_str());
+    } catch (...) {}
 
     // Extract style and color for scattered points, curves, and polygons
     std::vector<std::map<std::string, std::string>> properties;

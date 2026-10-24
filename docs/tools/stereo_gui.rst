@@ -61,18 +61,7 @@ display arbitrarily large images with integer, floating-point, or RGB
 pixels, including ISIS .cub files and DEMs. It handles large images by
 building on disk pyramids of increasingly coarser subsampled images and
 displaying the subsampled versions that are appropriate for the current
-level of zoom.
-
-These pyramids are written next to each input image, in files with a ``_subN``
-suffix, where ``N`` is the subsampling factor (2, 4, 8, and so on). If the input
-directory is not writable, they are written in the current directory instead.
-They are reused on later runs, and can be removed with
-``--delete-temporary-files-on-exit``. Single-band images are stored as Float32.
-
-These pyramids are a display cache. They are not meant to be used as inputs for
-further processing, as their pixel grid can be offset by up to half a subsampled
-pixel. To create a reduced-resolution image for processing, use ``gdal_translate``
-with ``-outsize`` and ``-r average`` (:numref:`gdal_tools`).
+level of zoom (:numref:`gui_pyr`).
 
 The images can be shown either all side-by-side (default), several
 side-by-side (``--view-several-side-by-side``), as tiles on a grid
@@ -242,7 +231,7 @@ Colorization works as well with overlaid and georeferenced images.
 .. _opacity:
 
 Overlaying images with transparency
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When images are overlaid (:numref:`stereo_gui`), they can be blended by setting a
 per-image opacity with ``--opacity`` (1 is opaque, 0 is transparent). The default
@@ -770,6 +759,20 @@ the 'n' and 'p' keys.
 In this mode, the lowest-resolution subimage size is larger than usual to avoid
 creating small images when building an image pyramid. See
 ``--lowest-resolution-subimage-num-pixels``.
+
+.. _gui_pyr:
+
+Image pyramids
+~~~~~~~~~~~~~~
+
+As of build 2026/10 (:numref:`release`), this program creates GDAL overviews
+(with ``gdaladdo``) that are stored in a ``.ovr`` sidecar next to each input
+image. The input file itself is not modified. Overviews preserve the input data
+type and georeferencing, and any mask, so special pixels (including ISIS
+``NULL`` and the saturation values) are handled by GDAL. If the input directory
+is not writable, the overviews go to a per-user cache directory instead. They
+are reused on later runs, and can be removed with
+``--delete-temporary-files-on-exit``.
 
 See also
 ~~~~~~~~

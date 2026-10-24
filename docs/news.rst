@@ -184,6 +184,9 @@ dem_mosaic (:numref:`dem_mosaic`):
   * By default, smooth Euclidean blending weights are used. These 
     behave better at irregular boundaries. The previous weights are available
     with ``--grassfire-weights`` (:numref:`dem_mosaic_blending_weights`).
+  * Improved ``dem_mosaic`` priority blending in tricky situations with holes
+    and clip boundaries (:numref:`dem_mosaic`). The ``--no-border-blend`` option
+    was removed, as no longer needed.
 
 hiedr2mosaic (:numref:`hiedr2mosaic`):
   * Fixed a crash in the mosaic step when a HiRISE observation is missing a CCD.
@@ -202,6 +205,12 @@ stereo_gui (:numref:`stereo_gui`):
   * The colorized hillshade view uses the chosen ``--colormap-style``
     (:numref:`colorize`).
   * Added ``--opacity``, to blend overlaid images (:numref:`opacity`).
+  * Uses GDAL overviews (gdaladdo) to speed up access (:numref:`gui_pyr`).
+  * Added the ``terrain``, ``ocean``, ``gist_earth``, and ``gist_stern``
+    colormaps to the ``colormap`` tool and ``stereo_gui`` (:numref:`colormap`).
+  * Reduced-resolution images for processing should be made with
+    ``gdal_translate -r average`` rather than ``stereo_gui`` pyramid files
+    (:numref:`resizing_images`).
 
 camera_solve (:numref:`camera_solve`):
   * Can now handle float (or other non-8-bit) images. Internally each image is
@@ -210,11 +219,6 @@ camera_solve (:numref:`camera_solve`):
     the next conda release.
 
 Misc:
-  * Improved ``dem_mosaic`` priority blending in tricky situations with holes
-    and clip boundaries (:numref:`dem_mosaic`). The ``--no-border-blend`` option
-    was removed, as no longer needed.
-  * Added the ``terrain``, ``ocean``, ``gist_earth``, and ``gist_stern``
-    colormaps to the ``colormap`` tool and ``stereo_gui`` (:numref:`colormap`).
   * The ``hillshade`` tool, and the hillshaded and colorized-hillshaded views in
     ``stereo_gui``, now compute the surface normal with Horn's method, as in
     ``gdaldem`` (:numref:`hillshade_algorithm`). This replaces a one-sided
@@ -242,9 +246,6 @@ Misc:
     launches others as parallel processes, the per-process thread count is
     balanced against the number of processes (:numref:`vwrc`).
   * Moved the ``.vwrc`` configuration file to its own page (:numref:`vwrc`).
-  * Reduced-resolution images for processing should be made with
-    ``gdal_translate -r average`` rather than ``stereo_gui`` pyramid files
-    (:numref:`resizing_images`).
 
 RELEASE 3.7.0, June 2026
 ------------------------
