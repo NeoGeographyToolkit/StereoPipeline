@@ -25,9 +25,6 @@ New features:
     directions (:numref:`wv_correct`).
   * Added the AKAZE, BRISK, and KAZE interest point detection methods to
     ``parallel_stereo``, ``bundle_adjust``, etc. (:numref:`stereodefault`).
-  * ``dg_mosaic``: support the newer namespaced Maxar/Vantor ISD metadata XML
-    (tags with the ``isdc:`` prefix), so multi-part deliveries in this format
-    can be mosaicked (:numref:`dg_mosaic`).
 
 bundle_adjust (:numref:`bundle_adjust`):
   * Added a documentation section on OHRC-LRO NAC coregistration
@@ -217,6 +214,10 @@ camera_solve (:numref:`camera_solve`):
     normalized with a robust median +/- 2*nmad stretch, as used elsewhere in ASP,
     and scaled to the range each detector expects (SIFT and AKAZE). Available in
     the next conda release.
+
+dg_mosaic (:numref:`dg_mosaic`):
+  * Support the newer Maxar/Vantor ISD metadata XML (tags with the ``isdc:``
+    prefix).
 
 Misc:
   * The ``hillshade`` tool, and the hillshaded and colorized-hillshaded views in
