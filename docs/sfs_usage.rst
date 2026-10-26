@@ -1795,6 +1795,13 @@ that removes outliers with reprojection error more than 5-10 pixels or so.
 The resulting GCP file can be passed to ``bundle_adjust`` together with the
 images and *latest* cameras, such as in :numref:`sfs_ba_refine`.
 
+A bundle adjustment with these GCP can fix any systematic offset observed in the
+disparity. It corrects a single shift in each of the horizontal and vertical
+directions, which is usually sufficient for sites on the order of 5 to 10 km on a
+side. For a finer-grained correction of a spatially varying shift, the jitter
+solver (:numref:`sfs_jitter`) can be used instead, though it is more technically
+involved.
+
 Care must be taken that these GCP do not conflict with triangulated points in
 bundle adjustment, with or without the ``--heights-from-dem`` option. See
 :numref:`gcp_vs_tri`.
