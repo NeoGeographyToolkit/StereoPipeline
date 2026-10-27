@@ -1061,26 +1061,11 @@ preview of things (:numref:`sfs_inspection`).
 It is very strongly recommended to use the CSM camera models instead
 of ISIS models (:numref:`sfs_isis_vs_csm`).
 
-Inspection of a large number of images and choosing those that have
-valid pixels in the area of interest can be very arduous. To make this
-easier, we make use of the reporting facility of ``dem_mosaic``
-(:numref:`dem_mosaic`) when invoked with the option
-``--block-max``, with a large value of ``--block-size`` (larger than
-the image size), and using the ``--t_projwin`` option to specify the
-region of interest (in ``stereo_gui`` one can find this region by
-selecting it with Control-Mouse).
-
-When the mosaicking tool runs, the sum of pixels in the current region
-for each image will be printed to the screen. Images with a positive
-sum of pixels are likely to contribute to the desired
-region. Example::
-
-   dem_mosaic --block-max --block-size 10000 --threads 1   \
-     --t_projwin -7050.500 -10890.500 -1919.500 -5759.500  \
-     M*.map.lowres.tif -o tmp.tif | tee pixel_sum_list.txt
-
-Eliminate the images that are not relevant to the area. Keeping them in
-impacts reliability and performance.
+Eliminate the images that fail to mapproject, and those that have no valid
+pixels after mapprojection (these will result in failure of bundle adjustment).
+A script for this (which also drops any image whose mapprojected maximum is
+below the shadow threshold) is in the `SfsPipeline repository
+<https://github.com/NeoGeographyToolkit/SfsPipeline>`__.
 
 The obtained image set *must* be sorted by illumination conditions, that
 is, the Sun azimuth, measured from true North. This angle is printed when
