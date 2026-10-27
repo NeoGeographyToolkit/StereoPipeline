@@ -128,7 +128,8 @@ for alignment (:numref:`pc_align`), a helper DEM for mapprojection
   stall when reading a ``.JP2`` DEM directly. Prefer the floating-point ``IMG``
   product. If only the ``.JP2`` is at hand, first convert it to a *tiled* GeoTIFF
   with ``gdal_translate``, cropping to the area of interest to save space, and
-  *account for* the 0.5 m height scale.
+  then multiply the heights by 0.5 to convert them to meters, for example with
+  :ref:`image_calc`.
 
 - USGS-generated Kaguya TC DTMs. Over 127,000 products spanning 70 degrees north
   to 70 degrees south, produced with the Ames Stereo Pipeline and aligned to

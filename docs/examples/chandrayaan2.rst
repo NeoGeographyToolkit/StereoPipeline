@@ -666,6 +666,10 @@ reach the pole, and the wider-area LOLA products may be coarser than 120 m away
 from poles. So ``LDEM_60S_120M`` at 120 m is the best available reference here.
 Call it ``ref.tif``.
 
+The raw ``LDEM_60S_120M`` stores its heights with a 0.5 scale in its LBL file,
+which ``gdalwarp`` and ``gdal_translate`` do not apply. Scale it to meters first
+(:numref:`sfs_initial_terrain`).
+
 Choose a local projection that is then used for all steps below. Here we will go
 with the south polar stereographic projection::
 

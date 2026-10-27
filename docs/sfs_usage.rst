@@ -963,6 +963,11 @@ the LBL file. We do that with ``image_calc`` (:numref:`image_calc`)::
     image_calc -c "0.5*var_0" ldem_80s_20m.cub \
       -o ldem_80s_20m_scale.tif
 
+Note that ``gdal_translate`` and ``gdalwarp`` copy the raw integer values and
+do not apply the LBL scale, so this step must not be skipped. The LBL offset is
+the body radius (1737400 m) and should not be added. The resulting heights are
+relative to that sphere.
+
 Resample an initial DEM to 1 m/pixel using ``gdalwarp`` (:numref:`gdal_tools`),
 creating a DEM named ``ref_dem.tif``::
 
