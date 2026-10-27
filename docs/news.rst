@@ -219,6 +219,10 @@ dg_mosaic (:numref:`dg_mosaic`):
   * Support the newer Maxar/Vantor ISD metadata XML (tags with the ``isdc:``
     prefix).
 
+mapproject (:numref:`mapproject`):
+  * Multi-band images (such as 4-band multispectral) are mapprojected correctly
+    (:numref:`mapproj_multiband`).
+
 Misc:
   * The ``hillshade`` tool, and the hillshaded and colorized-hillshaded views in
     ``stereo_gui``, now compute the surface normal with Horn's method, as in

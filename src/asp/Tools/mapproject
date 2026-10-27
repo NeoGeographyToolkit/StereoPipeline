@@ -182,6 +182,24 @@ def parse_gdal_metadata(filename, meta_label):
 
     return meta_dict
 
+def get_band_color_interps(filename):
+    """
+    Return the per-band GDAL color interpretation tokens, lowercased and in
+    band order, such as ['red', 'green', 'blue', 'undefined']. Uses gdalinfo.
+    """
+    args = [filename]
+    sep = ""
+    verbose = False
+    gdal_settings = asp_system_utils.run_and_parse_output("gdalinfo", args, sep,
+                                                          verbose, return_full_lines = True)
+    interps = []
+    for v in sorted(gdal_settings.keys()):
+        m = re.search(r"ColorInterp=(\w+)", gdal_settings[v])
+        if m:
+            interps.append(m.group(1).lower())
+
+    return interps
+
 def format_metadata(meta_label, meta_dict):
     """
     Format the metadata with given label and entries as the GDAL VRT
@@ -619,8 +637,22 @@ def main(argsIn):
         f.writelines(lines)
         f.close()
 
+    # Preserve the input image's per-band color interpretation when the output
+    # has the same number of bands. This keeps a multispectral last band as a
+    # plain data band rather than letting the GeoTIFF driver default the fourth
+    # band of a byte image to an alpha band. For a 3-band RGB input the output
+    # gains an alpha band (counts differ), so the default is left in place.
+    color_interp_opt = ""
+    try:
+        in_interps  = get_band_color_interps(options.imagePath)
+        out_interps = get_band_color_interps(tiles[0])
+        if len(in_interps) >= 2 and len(in_interps) == len(out_interps):
+            color_interp_opt = "-colorinterp " + ",".join(in_interps) + " "
+    except Exception as e:
+        color_interp_opt = ""
+
     # Convert VRT file to final output file
-    cmd = "gdal_translate -co BIGTIFF=IF_SAFER "
+    cmd = "gdal_translate " + color_interp_opt + "-co BIGTIFF=IF_SAFER "
     if options.cog:
         # Use GDAL COG driver for cloud-optimized output. This ignores the
         # INTERLEAVE, TILED options.

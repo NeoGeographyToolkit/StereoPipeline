@@ -34,6 +34,8 @@
 #include <vw/Image/RoundAndClamp.h>
 #include <vw/FileIO/FileUtils.h>
 
+#include <gdal.h>
+
 #include <boost/filesystem.hpp>
 
 namespace fs = boost::filesystem;
@@ -185,6 +187,28 @@ vw::BBox2 occlusionEstim(vw::BBox2 const& cam_box,
     return cam_box; // Fall back to original box
 
   return box_sans_occl;
+}
+
+// Query the number of bands and whether the last band is an alpha band.
+// VW's disk image reader maps any 4-band image to RGBA and discards the GDAL
+// color interpretation, so a 4-band multispectral image (R, G, B, NIR) cannot
+// be told apart from true RGBA at the VW level. Ask GDAL directly here.
+void gdalBandInfo(std::string const& image_file, int & num_bands, bool & has_alpha) {
+
+  num_bands = 0;
+  has_alpha = false;
+
+  GDALDatasetH ds = GDALOpen(image_file.c_str(), GA_ReadOnly);
+  if (ds == NULL)
+    vw_throw(vw::ArgumentErr() << "Failed to open: " << image_file << ".\n");
+
+  num_bands = GDALGetRasterCount(ds);
+  if (num_bands >= 1) {
+    GDALRasterBandH band = GDALGetRasterBand(ds, num_bands);
+    has_alpha = (GDALGetRasterColorInterpretation(band) == GCI_AlphaBand);
+  }
+
+  GDALClose(ds);
 }
 
 template <class ImageT>
@@ -465,6 +489,82 @@ void project_image_alpha(asp::MapprojOptions & opt,
     }
 }
 
+/// Map project a general multi-band (multispectral) image, such as a 4-band
+/// R-G-B-NIR image. Every band is projected with the same geometry, and all
+/// bands are preserved as plain data bands in the output (no alpha channel).
+/// Processing is in float with a nodata mask, as in the single-band path. On
+/// write the values are rounded and clamped back to the input integer type.
+template <class Map2CamTransT>
+void project_image_multiband(asp::MapprojOptions & opt,
+                             GeoReference  const& out_georef,
+                             Vector2i      const& out_size,
+                             BBox2i        const& out_bbox,
+                             Map2CamTransT const& transform) {
+
+    typedef PixelMask<float> ImageMaskPixelT;
+
+    boost::shared_ptr<DiskImageResource> img_rsrc =
+          vw::DiskImageResourcePtr(opt.image_file);
+
+    // Keep integer values as-is when read as float (no normalization to [0,1]).
+    img_rsrc->set_rescale(false);
+
+    if (img_rsrc->has_nodata_read())
+      opt.nodata_value = img_rsrc->nodata_read();
+
+    // Read all bands as a multi-plane float image. VW exposes an image with
+    // more than 4 bands as multiple scalar planes already (one channel). For 2
+    // to 4 bands it uses a single multi-channel plane, so split the channels
+    // into planes, reading with the exact channel count to not pad the data.
+    ImageFormat img_fmt = img_rsrc->format();
+    int nch = num_channels(img_fmt.pixel_format);
+    ImageViewRef<float> disk_img;
+    if (nch == 1)
+      disk_img = DiskImageView<float>(img_rsrc);
+    else if (nch == 2)
+      disk_img = channels_to_planes(DiskImageView<PixelGrayA<float>>(img_rsrc));
+    else if (nch == 3)
+      disk_img = channels_to_planes(DiskImageView<PixelRGB<float>>(img_rsrc));
+    else
+      disk_img = channels_to_planes(DiskImageView<PixelRGBA<float>>(img_rsrc));
+
+    ImageViewRef<ImageMaskPixelT> masked_input
+      = create_mask(disk_img, opt.nodata_value);
+
+    bool            has_img_nodata = true;
+    ImageMaskPixelT nodata_mask = ImageMaskPixelT(); // invalid value for a PixelMask
+
+    if (opt.nearest_neighbor) {
+      write_parallel_type
+        (opt.output_file,
+        crop(apply_mask
+              (transform_nodata(masked_input,
+                                transform,
+                                out_size[0],
+                                out_size[1],
+                                ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
+                                NearestPixelInterpolation(), nodata_mask),
+              opt.nodata_value),
+              out_bbox),
+        out_georef, has_img_nodata, opt.nodata_value, opt,
+        TerminalProgressCallback("",""));
+    } else {
+      write_parallel_type
+        (opt.output_file,
+        crop(apply_mask
+              (transform_nodata(masked_input,
+                                transform,
+                                out_size[0],
+                                out_size[1],
+                                ValueEdgeExtension<ImageMaskPixelT>(nodata_mask),
+                                BicubicInterpolation(), nodata_mask),
+              opt.nodata_value),
+              out_bbox),
+        out_georef, has_img_nodata, opt.nodata_value, opt,
+        TerminalProgressCallback("",""));
+    }
+}
+
 // The two "pick" functions below select between the Map2CamTrans and Datum2CamTrans
 // transform classes which will be passed to the image projection function.
 // - TODO: Is there a good reason for the transform classes to be CRTP instead of virtual?
@@ -528,6 +628,35 @@ void project_image_alpha_pick_transform(asp::MapprojOptions & opt,
   }
 }
 
+void project_image_multiband_pick_transform(asp::MapprojOptions & opt,
+                                            GeoReference const& dem_georef,
+                                            GeoReference const& target_georef,
+                                            GeoReference const& out_georef,
+                                            Vector2i     const& input_size,
+                                            Vector2i     const& out_size,
+                                            BBox2i       const& out_bbox,
+                                            vw::CamPtr const& camera_model) {
+
+  const bool call_from_mapproject = true;
+  if (fs::path(opt.dem_file).extension() != "") {
+    // A DEM file was provided
+    return project_image_multiband(opt, out_georef,
+                                   out_size, out_bbox,
+                                   Map2CamTrans(camera_model.get(), target_georef,
+                                                dem_georef, opt.dem_file, input_size,
+                                                call_from_mapproject,
+                                                opt.nearest_neighbor));
+  } else {
+    // A constant datum elevation was provided
+    return project_image_multiband(opt, out_georef,
+                                   out_size, out_bbox,
+                                   Datum2CamTrans(camera_model.get(), target_georef,
+                                                  dem_georef, opt.datum_offset,
+                                                  input_size, call_from_mapproject,
+                                                  opt.nearest_neighbor));
+  }
+}
+
 // Project the image depending on image format.
 void project_image(asp::MapprojOptions & opt,
                    GeoReference const& dem_georef,
@@ -543,10 +672,20 @@ void project_image(asp::MapprojOptions & opt,
   // Determine the pixel type of the input image
   boost::shared_ptr<DiskImageResource> image_rsrc = vw::DiskImageResourcePtr(opt.image_file);
   ImageFormat image_fmt = image_rsrc->format();
-  const int num_input_channels = num_channels(image_fmt.pixel_format);
+
+  // Query GDAL for the true band count and whether the last band is an alpha
+  // band. The color (RGB/RGBA) path below is used for 3-band RGB and for a
+  // 4-band image whose last band is a real alpha band. Any other multi-band
+  // image (4-band R-G-B-NIR, or more bands) goes to the general multi-band
+  // path, which keeps every band as a plain data band.
+  int num_bands = 0;
+  bool has_alpha = false;
+  asp::gdalBandInfo(opt.image_file, num_bands, has_alpha);
+  bool color_path = (image_fmt.pixel_format == VW_PIXEL_RGB) ||
+                    (num_bands == 4 && has_alpha);
 
   // Redirect to the correctly typed function to perform the actual map projection.
-  if (image_fmt.pixel_format == VW_PIXEL_RGB) {
+  if (color_path) {
 
     // RGB processing strategy: read as native type, channel_cast to float32
     // (preserving values: uint8 255 becomes 255.0f, not 1.0f), process entirely
@@ -577,12 +716,26 @@ void project_image(asp::MapprojOptions & opt,
                                        target_georef, out_georef, input_size,
                                        out_size, out_bbox, opt.camera_model);
 
+  } else if (num_bands >= 2) {
+    // General multi-band (multispectral) image. Keep all bands. Match the
+    // output type to the input type, as for the color path above (the --ot
+    // option applies only to single-band input).
+    switch (image_fmt.channel_type) {
+    case VW_CHANNEL_UINT8:  opt.output_type = "Byte";    break;
+    case VW_CHANNEL_INT16:  opt.output_type = "Int16";   break;
+    case VW_CHANNEL_UINT16: opt.output_type = "UInt16";  break;
+    case VW_CHANNEL_UINT32: opt.output_type = "UInt32";  break;
+    case VW_CHANNEL_INT32:  opt.output_type = "Int32";   break;
+    default:                opt.output_type = "Float32"; break;
+    }
+
+    project_image_multiband_pick_transform(opt, dem_georef, target_georef, out_georef,
+                                           input_size, out_size, out_bbox,
+                                           opt.camera_model);
+
   } else {
-    // If the input image is not RGB, only single channel images are supported.
-    if (num_input_channels != 1 || image_fmt.planes != 1)
-      //vw_throw( ArgumentErr() << "Input images must be single channel or RGB!\n" );
-      vw_out() << "Detected multi-band image. Only the first band will be used. The pixels will be interpreted as float.\n";
-    // Read as float with rescaling disabled, so integer values are preserved.
+    // Single channel image. Read as float with rescaling disabled, so
+    // integer values are preserved. Respects the --ot output type.
     project_image_nodata_pick_transform(opt, dem_georef, target_georef, out_georef,
                                         input_size, out_size, out_bbox,
                                         opt.camera_model);

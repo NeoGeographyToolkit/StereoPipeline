@@ -97,6 +97,26 @@ With ``--gdal-tap`` the convention is inverted: the output image bounds, rather
 than the pixel centers, are snapped to integer multiples of the grid size,
 emulating the GDAL ``-tap`` option (:numref:`gdal_tap`).
 
+.. _mapproj_multiband:
+
+Multi-band images
+~~~~~~~~~~~~~~~~~
+
+All bands of a multi-band input image are projected and written to the output,
+in the same order. This covers single-band, 3-band RGB, 4-band RGBA, and
+multispectral images with four or more bands. The number of bands is not
+limited. Each band's color interpretation is preserved, so an alpha band stays
+an alpha band and a plain data band (such as a near-infrared band) is not
+mistaken for one. 
+
+This is available as of build 2026/10 (:numref:`release`).
+
+A 3-band RGB input produces a 4-band RGBA output, where the added alpha channel
+marks the valid pixels.
+
+The ``--ot`` option sets the output data type for a single-band input. For a
+multi-band input the output type is the same as the input type.
+
 Examples
 ~~~~~~~~
 
@@ -367,11 +387,10 @@ When the option ``pixres`` is not set, the default value is used (``camera``),
 which amounts to auto-determining the grid size from the camera and DEM. This is
 the same behavior as for ``mapproject`` when the ``--tr`` option is not set.
 
-This implementation supports multi-band inputs with float values. ASP's
-``mapproject`` program can handle single-band float images and RGB images.
-For other multi-band inputs (including RGBA), only the first band is used.
-When comparing with ``cam2map`` on multi-band inputs, ``mapproject`` results
-correspond to the first band of the ``cam2map`` output.
+ASP's ``mapproject`` preserves all bands of a multi-band input, including RGB,
+RGBA, and multispectral images (:numref:`mapproj_multiband`). When comparing
+with ``cam2map`` on multi-band inputs, the ``mapproject`` bands correspond to
+the respective ``cam2map`` output bands.
 
 The ``defaultrange`` option is partially supported: ``defaultrange=camera``
 unlocks the ``minlat``/``maxlat``/``minlon``/``maxlon`` overrides, and
