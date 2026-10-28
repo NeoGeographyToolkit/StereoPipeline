@@ -158,10 +158,15 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
   try {
     m_num_channels = get_num_channels(image_file);
 
-    if (m_num_channels > 1 && image_fmt.channel_type != VW_CHANNEL_UINT8) {
-      vw_out() << "File " << image_file << " has more than one band, and the "
-               << "bands are not unsigned int. Reading only the first band in "
-               << "double precision.\n";
+    // A multi-band image is displayed by reading only its first band as float,
+    // unless it is a uint8 image with 2 to 4 bands (shown as gray with alpha,
+    // RGB, or RGBA). This handles any band count, including multispectral.
+    bool read_first_band = (m_num_channels > 1) &&
+      (image_fmt.channel_type != VW_CHANNEL_UINT8 || m_num_channels > 4);
+
+    if (read_first_band) {
+      vw_out() << "File " << image_file << " has " << m_num_channels
+               << " bands. Reading only the first band in double precision.\n";
     }
 
     // For ISIS .cub files, get the valid pixel range so the pyramid
@@ -180,7 +185,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
     m_valid_min = valid_min;
     m_valid_max = valid_max;
 
-    if (m_num_channels == 1 || image_fmt.channel_type != VW_CHANNEL_UINT8) {
+    if (m_num_channels == 1 || read_first_band) {
       // Single channel image with float pixels.
 
       m_img_ch1_float =
