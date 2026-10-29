@@ -239,6 +239,10 @@ Note that this transform is an approximation. It is not possible to
 precisely convert a 2D transform between images to a 3D transform
 in ECEF unless the underlying terrain is perfectly flat.
 
+For registering a raw camera image to a reference orthoimage, it is better to
+correct the camera itself. Create GCP with ``gcp_gen`` (:numref:`gcp_gen`) and
+refine the camera with ``bundle_adjust`` (:numref:`ba_use_gcp`).
+
 .. _image_align_match_points:
 
 Evaluating matches between orthoimages
