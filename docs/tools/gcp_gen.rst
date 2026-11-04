@@ -57,8 +57,12 @@ In some cases, ``--ip-detect-method 2`` (ORB) worked out better than SIFT.
 This program produces a match file at the output prefix location, which will
 be reused next time the program is run with the same inputs. 
 
+For difficult setups consider mapprojecting the camera image (:numref:`gcp_adv`).
+
 A couple of detailed applications of this program for registration are shown in
 :numref:`change3` (Chang'e 3) and :numref:`junocam` (JunoCam).
+
+.. _gcp_adv:
 
 Advanced usage
 ~~~~~~~~~~~~~~
