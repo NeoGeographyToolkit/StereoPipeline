@@ -22,7 +22,7 @@
 using namespace vw;
 using namespace asp;
 
-TEST( Common, separate_images_from_cameras_rpb ) {
+TEST(Common, separate_images_from_cameras_rpb) {
 
   std::vector<std::string> inputs, images, cameras;
   bool ensure_equal_sizes = true;
@@ -37,7 +37,7 @@ TEST( Common, separate_images_from_cameras_rpb ) {
   EXPECT_EQ(2, cameras.size());
 }
 
-TEST( Common, StereoMultiCmdCheck ) {
+TEST(Common, StereoMultiCmdCheck) {
 
   // Init a georef, the numbers are pretty arbitrary, it just must be valid
   vw::GeoReference georef;
@@ -86,7 +86,7 @@ TEST( Common, StereoMultiCmdCheck ) {
   EXPECT_EQ("img2.tif", image_paths [1]);
   EXPECT_EQ("img1.xml", camera_paths[0]);
   EXPECT_EQ("img2.xml", camera_paths[1]);
-  EXPECT_EQ("run/run" , prefix );
+  EXPECT_EQ("run/run", prefix);
   EXPECT_EQ("",         dem_path);
 
   // ----
@@ -101,7 +101,7 @@ TEST( Common, StereoMultiCmdCheck ) {
   EXPECT_EQ(0, camera_paths.size());
   EXPECT_EQ("img1.cub", image_paths [0]);
   EXPECT_EQ("img2.cub", image_paths [1]);
-  EXPECT_EQ("run/run" , prefix);
+  EXPECT_EQ("run/run", prefix);
   EXPECT_EQ("",         dem_path);
 
   // ----
@@ -139,7 +139,7 @@ TEST( Common, StereoMultiCmdCheck ) {
   EXPECT_EQ("img2.tif", image_paths [1]);
   EXPECT_EQ("img3.tif", image_paths [2]);
   EXPECT_EQ("img4.tif", image_paths [3]);
-  EXPECT_EQ("run/run" , prefix);
-  EXPECT_EQ("dem.tif" , dem_path);
+  EXPECT_EQ("run/run", prefix);
+  EXPECT_EQ("dem.tif", dem_path);
 
 } // End test StereoMultiCmdCheck

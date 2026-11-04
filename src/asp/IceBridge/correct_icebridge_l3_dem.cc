@@ -33,7 +33,7 @@ using namespace vw;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   // Simple input parsing
   if (argc < 4) {
@@ -49,7 +49,7 @@ int main( int argc, char *argv[] ) {
   GeoReference georef;
   bool has_georef = read_georeference(georef, in_rsrc);
   if (!has_georef) {
-    vw_throw( ArgumentErr() << "Could not read the georeference from: " << input_path  
+    vw_throw(ArgumentErr() << "Could not read the georeference from: " << input_path  
 	      << ". Check if the corresponding .tfw file is present.\n");
   }
   
@@ -62,7 +62,7 @@ int main( int argc, char *argv[] ) {
 
   // Set nodata if it is not already set.  This should be constant across files.
   double nodata_val = -32767; // Somehow -32767 is hard-coded in those files.
-  if ( in_rsrc.has_nodata_read() ) {
+  if (in_rsrc.has_nodata_read()) {
     nodata_val = in_rsrc.nodata_read();
     vw_out() << "\tFound input nodata value: " << nodata_val << std::endl;
   }

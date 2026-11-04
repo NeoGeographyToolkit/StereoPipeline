@@ -126,7 +126,7 @@ namespace asp {
   // QT conversion functions
   vw::Vector2 QPoint2Vec(QPoint      const& qpt);
   vw::Vector2 QPointF2Vec(QPointF    const& qpt);
-  QPoint      Vec2QPoint(vw::Vector2 const& V  );
+  QPoint      Vec2QPoint(vw::Vector2 const& V);
 
   // A simple class for keeping track of crosshair locations and colors.
   // - Contains a list of points and the color applied to them.

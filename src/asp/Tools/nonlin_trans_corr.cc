@@ -225,7 +225,7 @@ int main(int argc, char ** argv) {
     std::cout << "D cols and rows " << disp.cols() << ' ' << disp.rows() << std::endl;
 
     if (left.cols() != disp.cols() || left.rows() != disp.rows())
-      vw_throw( ArgumentErr() << "Left image and disparity must have same dims.");
+      vw_throw(ArgumentErr() << "Left image and disparity must have same dims.");
 
     double area = double(left.cols()) * double(left.rows()); // careful to not overflow
     int sample_rate = round(sqrt(double(area) / double(num_samples)));

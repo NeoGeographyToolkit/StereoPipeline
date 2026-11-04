@@ -27,8 +27,6 @@ using namespace asp;
 using namespace xercesc;
 
 // Placeholder test for when we have a real test case
-TEST( StereoSessionRPC, Dummy ) {
+TEST(StereoSessionRPC, Dummy) {
   EXPECT_TRUE(true);
 }
-
-

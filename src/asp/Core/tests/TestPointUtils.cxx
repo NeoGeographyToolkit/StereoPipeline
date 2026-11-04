@@ -22,7 +22,7 @@
 using namespace vw;
 using namespace asp;
 
-TEST( PointUtils, CsvConv ) {
+TEST(PointUtils, CsvConv) {
   
   // Needed for the Lola tests below.
   vw::GeoReference geo;
@@ -128,7 +128,7 @@ TEST( PointUtils, CsvConv ) {
 }
 
 // Open up an ascii style PCD file and make sure we can read all of the values from it.
-TEST( PointUtils, PcdReader ) {
+TEST(PointUtils, PcdReader) {
 
   asp::PcdReader reader("sample_ascii.pcd");
 
@@ -139,13 +139,13 @@ TEST( PointUtils, PcdReader ) {
   values.push_back(Vector3(17.882353, -170.72942, 550.55975));
   values.push_back(Vector3(18.258823, -170.72942, 550.55975));
   values.push_back(Vector3(18.635294, -170.72942, 550.55975));
-  values.push_back(Vector3(23.085714, -207.3143,  668.5368 ));
+  values.push_back(Vector3(23.085714, -207.3143,  668.5368));
   values.push_back(Vector3(27.466667, -241.86668, 779.95966));
-  values.push_back(Vector3(18.97143,  -206.85715, 668.5368 ));
+  values.push_back(Vector3(18.97143,  -206.85715, 668.5368));
 
   for (size_t i=0; i<values.size(); ++i) {  
     EXPECT_TRUE(reader.ReadNextPoint());
-    EXPECT_VECTOR_NEAR( reader.GetPoint(), values[i], 1e-16 );
+    EXPECT_VECTOR_NEAR(reader.GetPoint(), values[i], 1e-16);
   }
   EXPECT_FALSE(reader.ReadNextPoint());
 

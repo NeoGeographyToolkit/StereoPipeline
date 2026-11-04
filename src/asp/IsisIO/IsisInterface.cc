@@ -321,8 +321,8 @@ std::string csmStateFromIsisCube(std::string const& cubeFile) {
   QString access = "r";
   Isis::Cube cube(qCubeFile, access);
   if (!cube.hasBlob("CSMState", "String"))
-    vw::vw_throw( vw::ArgumentErr() << "Cannot find the CSM state in: "
-                  << cubeFile << "\n");
+    vw::vw_throw(vw::ArgumentErr() << "Cannot find the CSM state in: "
+                 << cubeFile << "\n");
 
   Isis::Blob csmStateBlob("CSMState", "String");
   cube.read(csmStateBlob);
@@ -344,8 +344,8 @@ void saveCsmStateToIsisCube(std::string const& cubeFile,
                             std::string const& modelState) {
  
  if (modelState.empty())
-   vw::vw_throw( vw::ArgumentErr() << "Cannot save empty CSM state to ISIS cube file "
-                 << cubeFile << ".\n");
+   vw::vw_throw(vw::ArgumentErr() << "Cannot save empty CSM state to ISIS cube file "
+                << cubeFile << ".\n");
 
   QString qCubeFile = QString::fromStdString(cubeFile);
   Isis::Process p;

@@ -54,8 +54,8 @@ void check_image_sizes(std::string const& file1, std::string const& file2) {
   DiskImageView<float> left_image (file1), right_image(file2);
   if (left_image.cols() != right_image.cols() ||
       left_image.rows() != right_image.rows())
-    vw_throw( ArgumentErr() << "Expecting images: " << file1 << " and " << file2
-              << " to have the same dimensions. Delete this run and start all over.\n");
+    vw_throw(ArgumentErr() << "Expecting images: " << file1 << " and " << file2
+             << " to have the same dimensions. Delete this run and start all over.\n");
 }
 
 // Create subsampled images and masks
@@ -110,7 +110,7 @@ void createSubsampledImages(ASPGlobalOptions const& opt,
     float  sub_scale = sqrt(s * s / (float(left_image.cols ()) * float(left_image.rows ())))
                      + sqrt(s * s / (float(right_image.cols()) * float(right_image.rows())));
     sub_scale /= 2;
-    if ( sub_scale > 0.6 ) // ???
+    if (sub_scale > 0.6) // ???
       sub_scale = 0.6;
 
     // Solving for the number of threads and the tile size to use for
@@ -188,22 +188,22 @@ void createSubsampledImages(ASPGlobalOptions const& opt,
       lsub, apply_mask(left_sub_image, output_nodata),
       has_left_georef, left_sub_georef,
       has_nodata, output_nodata,
-      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: ") );
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: "));
     vw::block_write_gdal_image(
       rsub, apply_mask(right_sub_image, output_nodata),
       has_right_georef, right_sub_georef,
       has_nodata, output_nodata,
-      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: ") );
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: "));
     vw::block_write_gdal_image(
       lmsub, channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
       has_left_georef, left_sub_georef,
       has_nodata, output_nodata,
-      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: "));
     vw::block_write_gdal_image(
       rmsub, channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
       has_right_georef, right_sub_georef,
       has_nodata, output_nodata,
-      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: ") );
+      opt_nopred, TerminalProgressCallback("asp", "\t    Sub R Mask: "));
   } // End rebuild check
 } // End function createSubsampledImages
 
@@ -414,14 +414,14 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
       rebuild = true;
     }else{
       vw_log().console_log().rule_set().add_rule(-1,"fileio");
-      DiskImageView<PixelGray<uint8>> testa(left_mask_file );
+      DiskImageView<PixelGray<uint8>> testa(left_mask_file);
       DiskImageView<PixelGray<uint8>> testb(right_mask_file);
       vw_settings().reload_config();
     }
   } catch (vw::IOErr const& e) {
     vw_settings().reload_config();
     rebuild = true;
-  } catch (vw::ArgumentErr const& e ) {
+  } catch (vw::ArgumentErr const& e) {
     // Throws on a corrupted file.
     vw_settings().reload_config();
     rebuild = true;

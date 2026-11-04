@@ -115,8 +115,8 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
   }
   vw_out() << "image_ext: " << image_ext << std::endl;
   if (image_ext == "")
-    vw_throw( ArgumentErr() << "Failed to find any image files in the camera_solve directory: "
-                            << solver_folder);
+    vw_throw(ArgumentErr() << "Failed to find any image files in the camera_solve directory: "
+                           << solver_folder);
   
   // Grab a list of just the image files
   size_t num_images = get_files_in_folder(solver_folder, image_files, image_ext);
@@ -153,8 +153,8 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
       for (size_t m=0; m<num_matches; ++m) {
         // If both file names are contained in the match file name,
         //  make a match between image files i and j
-        if ( (match_files[m].find(f1) != std::string::npos) && 
-             (match_files[m].find(f2) != std::string::npos)   ) {
+        if ((match_files[m].find(f1) != std::string::npos) && 
+            (match_files[m].find(f2) != std::string::npos)) {
           matched_cameras[i].push_back(j);
           match_files[m] = ""; // Clear this name so we don't use the match twice
         }
@@ -165,7 +165,7 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
   return num_images;
 }
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
@@ -195,7 +195,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
 
   po::options_description positional("");
   positional.add_options()
-    ("input-files", po::value(&opt.input_files) );
+    ("input-files", po::value(&opt.input_files));
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
@@ -235,8 +235,8 @@ int main(int argc, char* argv[]) {
                                                  camera_files, matched_cameras);
     }
 
-    if ( image_files.empty() )
-      vw_throw( ArgumentErr() << "No image files detected.\n" );
+    if (image_files.empty())
+      vw_throw(ArgumentErr() << "No image files detected.\n");
     
     std::string first_image = image_files[0];
     std::string first_camera = first_image;
@@ -247,24 +247,24 @@ int main(int argc, char* argv[]) {
                                          opt,
                                          first_image, first_image,
                                          first_camera, first_camera
-                                         ) );
+                                         ));
 
     // Prepare output directory
     vw::create_out_dir(opt.out_file);
     
     // Create the KML file. The KML title comes from the output file name.
-    KMLFile kml( opt.out_file, strip_directory_and_extension(opt.out_file));
+    KMLFile kml(opt.out_file, strip_directory_and_extension(opt.out_file));
 
     // Style listing
-    if ( opt.path_to_outside_model.empty() ) {
+    if (opt.path_to_outside_model.empty()) {
       // Placemark Style
-      kml.append_style( "plane", "", 1.2,
-                        "http://maps.google.com/mapfiles/kml/shapes/airports.png", 
-                        opt.hide_labels);
-      kml.append_style( "plane_highlight", "", 1.4,
-                        "http://maps.google.com/mapfiles/kml/shapes/airports.png");
-      kml.append_stylemap( "camera_placemark", "plane",
-                           "plane_highlight" );
+      kml.append_style("plane", "", 1.2,
+                       "http://maps.google.com/mapfiles/kml/shapes/airports.png", 
+                       opt.hide_labels);
+      kml.append_style("plane_highlight", "", 1.4,
+                       "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+      kml.append_stylemap("camera_placemark", "plane",
+                          "plane_highlight");
     }
 
     // Load up the datum
@@ -273,11 +273,11 @@ int main(int argc, char* argv[]) {
 
     std::string csv_file = fs::path(opt.out_file).replace_extension("csv").string();
     std::ofstream csv_handle;
-    if ( opt.write_csv ) {
+    if (opt.write_csv) {
       csv_handle.open(csv_file.c_str());
     
-      if ( !csv_handle.is_open() )
-        vw_throw( IOErr() << "Unable to open output file.\n" );
+      if (!csv_handle.is_open())
+        vw_throw(IOErr() << "Unable to open output file.\n");
     }
     
     Vector2 camera_pixel(opt.linescan_sample, opt.linescan_line);
@@ -294,17 +294,17 @@ int main(int argc, char* argv[]) {
                                            opt,
                                            image_files[i],  image_files[i],
                                            camera_files[i], camera_files[i]
-                                           ) );
+                                           ));
       current_camera = session->camera_model(image_files[i], camera_files[i]);
 
-      if ( opt.write_csv ) {
+      if (opt.write_csv) {
         csv_handle << image_files[i] << ", ";
 
         // Add the ISIS camera serial number if applicable
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
         boost::shared_ptr<IsisCameraModel> isis_cam =
           boost::dynamic_pointer_cast<IsisCameraModel>(current_camera);
-        if ( isis_cam != NULL ) {
+        if (isis_cam != NULL) {
           csv_handle << isis_cam->serial_number() << ", ";
         }
 #endif
@@ -323,15 +323,15 @@ int main(int argc, char* argv[]) {
       // Adding Placemarks
       std::string display_name = strip_directory(image_files[i]);
       if (!opt.path_to_outside_model.empty()) {
-        kml.append_model( opt.path_to_outside_model,
-                          lon_lat_alt.x(), lon_lat_alt.y(),
-                          inverse(current_camera->camera_pose(camera_pixel)),
-                          display_name, "",
-                          lon_lat_alt[2], opt.model_scale );
+        kml.append_model(opt.path_to_outside_model,
+                         lon_lat_alt.x(), lon_lat_alt.y(),
+                         inverse(current_camera->camera_pose(camera_pixel)),
+                         display_name, "",
+                         lon_lat_alt[2], opt.model_scale);
       } else {
-        kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
-                              display_name, "", "camera_placemark",
-                              lon_lat_alt[2], true );
+        kml.append_placemark(lon_lat_alt.x(), lon_lat_alt.y(),
+                             display_name, "", "camera_placemark",
+                             lon_lat_alt[2], true);
       }
       
     } // End loop through cameras

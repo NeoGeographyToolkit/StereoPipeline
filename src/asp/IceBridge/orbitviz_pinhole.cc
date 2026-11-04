@@ -59,7 +59,7 @@ struct Options : public vw::GdalWriteOptions {
 
 
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("output,o",                po::value(&opt.out_file)->default_value("orbit.kml"),
@@ -75,11 +75,11 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
           "Scale factor applied to 3D model size.")
     ("write-csv", po::bool_switch(&opt.write_csv)->default_value(false),
      "Write a csv file with the orbital data.");
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
-    ("input-files", po::value(&opt.input_files) );
+    ("input-files", po::value(&opt.input_files));
 
   po::positional_options_description positional_desc;
   positional_desc.add("input-files", -1);
@@ -89,9 +89,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
  
  if (opt.input_list != "") {
    std::ifstream handle(opt.input_list.c_str());
@@ -106,7 +106,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
  }
  
  if (opt.input_files.empty())
-  vw_throw( ArgumentErr() << "No input files provided!\n" );
+  vw_throw(ArgumentErr() << "No input files provided!\n");
   
 }
 
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     size_t num_cameras = opt.input_files.size();
 
@@ -122,18 +122,18 @@ int main(int argc, char* argv[]) {
     vw::create_out_dir(opt.out_file);
   
     // Create the KML file.
-    KMLFile kml( opt.out_file, "orbitviz" );
+    KMLFile kml(opt.out_file, "orbitviz");
 
     // Style listing
-    if ( opt.path_to_outside_model.empty() ) {
+    if (opt.path_to_outside_model.empty()) {
       // Placemark Style
-      kml.append_style( "plane", "", 1.2,
-                        "http://maps.google.com/mapfiles/kml/shapes/airports.png", 
-                        opt.hide_labels);
-      kml.append_style( "plane_highlight", "", 1.4,
-                        "http://maps.google.com/mapfiles/kml/shapes/airports.png");
-      kml.append_stylemap( "camera_placemark", "plane",
-                           "plane_highlight" );
+      kml.append_style("plane", "", 1.2,
+                       "http://maps.google.com/mapfiles/kml/shapes/airports.png", 
+                       opt.hide_labels);
+      kml.append_style("plane_highlight", "", 1.4,
+                       "http://maps.google.com/mapfiles/kml/shapes/airports.png");
+      kml.append_stylemap("camera_placemark", "plane",
+                          "plane_highlight");
     }
 
     // Load up the datum
@@ -141,11 +141,11 @@ int main(int argc, char* argv[]) {
 
     std::string csv_file = fs::path(opt.out_file).replace_extension("csv").string();
     std::ofstream csv_handle;
-    if ( opt.write_csv ) {
+    if (opt.write_csv) {
       csv_handle.open(csv_file.c_str());
   
-      if ( !csv_handle.is_open() )
-        vw_throw( IOErr() << "Unable to open output file.\n" );
+      if (!csv_handle.is_open())
+        vw_throw(IOErr() << "Unable to open output file.\n");
     }
   
     Vector2 camera_pixel(0, 0);
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
       // Load this input file
       PinholeModel current_camera(opt.input_files[i]);
 
-      if ( opt.write_csv ) {
+      if (opt.write_csv) {
         csv_handle << opt.input_files[i] << ", ";
 
         Vector3 xyz = current_camera.camera_center(camera_pixel);
@@ -173,15 +173,15 @@ int main(int argc, char* argv[]) {
       // Adding placemarks
       std::string display_name = strip_directory(opt.input_files[i]);
       if (!opt.path_to_outside_model.empty()) {
-        kml.append_model( opt.path_to_outside_model,
-                          lon_lat_alt.x(), lon_lat_alt.y(),
-                          inverse(current_camera.camera_pose(camera_pixel)),
-                          display_name, "",
-                          lon_lat_alt[2], opt.model_scale );
+        kml.append_model(opt.path_to_outside_model,
+                         lon_lat_alt.x(), lon_lat_alt.y(),
+                         inverse(current_camera.camera_pose(camera_pixel)),
+                         display_name, "",
+                         lon_lat_alt[2], opt.model_scale);
       } else {
-        kml.append_placemark( lon_lat_alt.x(), lon_lat_alt.y(),
-                              display_name, "", "camera_placemark",
-                              lon_lat_alt[2], true );
+        kml.append_placemark(lon_lat_alt.x(), lon_lat_alt.y(),
+                             display_name, "", "camera_placemark",
+                             lon_lat_alt[2], true);
       }
     
     } // End loop through cameras

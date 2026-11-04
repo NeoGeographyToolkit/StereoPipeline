@@ -504,4 +504,3 @@ namespace rig {
 #undef DEFINE_INTRINSIC
 
 }  // end namespace rig
-

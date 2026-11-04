@@ -183,15 +183,15 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
       // The camera file has a CSM blob
       actual_session_type = "csm";
 #endif // ASP_HAVE_PKG_ISIS
-    } else if (boost::iends_with(boost::to_lower_copy(left_image_file  ), ".cub") ||
-                boost::iends_with(boost::to_lower_copy(right_image_file ), ".cub") ||
-                boost::iends_with(boost::to_lower_copy(left_camera_file ), ".cub") ||
+    } else if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") ||
+                boost::iends_with(boost::to_lower_copy(right_image_file), ".cub") ||
+                boost::iends_with(boost::to_lower_copy(left_camera_file), ".cub") ||
                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".cub")) {
       actual_session_type = "isis";
-    } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".dim") ||
+    } else if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".dim") ||
                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".dim")) {
       actual_session_type = "spot5";
-    } else if (boost::iends_with(boost::to_lower_copy(left_camera_file ), ".xml") ||
+    } else if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".xml") ||
                 boost::iends_with(boost::to_lower_copy(right_camera_file), ".xml")) {
 
       // Here we have several options for .xml files. Note that a

@@ -179,7 +179,7 @@ namespace asp {
   /// Builds a datum object out of the input arguments
   bool read_user_datum(double semi_major, double semi_minor,
                        std::string const& reference_spheroid,
-                       vw::Datum& datum );
+                       vw::Datum& datum);
 
   /// Parse a UTM string such as "58N"
   void parse_utm_str(std::string const& utm, int & zone, bool & north);
@@ -240,8 +240,8 @@ namespace asp {
 
   template <class ImageT>
   vw::UnaryPerPixelView<ImageT, PointOffsetFunc>
-  inline point_image_offset( vw::ImageViewBase<ImageT> const& image, vw::Vector3 const& offset) {
-    return vw::UnaryPerPixelView<ImageT,PointOffsetFunc>( image.impl(), PointOffsetFunc(offset));
+  inline point_image_offset(vw::ImageViewBase<ImageT> const& image, vw::Vector3 const& offset) {
+    return vw::UnaryPerPixelView<ImageT,PointOffsetFunc>(image.impl(), PointOffsetFunc(offset));
   }
 
   // TODO: Move center lon functions and use consistently.
@@ -252,10 +252,10 @@ namespace asp {
   public:
     CenterLongitudeFunc(double c = 0) : center(c) {}
 
-    vw::Vector3 operator()( vw::Vector3 const& v ) const {
-      if ( v[0] < center - 180 )
+    vw::Vector3 operator()(vw::Vector3 const& v) const {
+      if (v[0] < center - 180)
         return (*this)(v + vw::Vector3(360,0,0));
-      else if ( v[0] > center + 180 )
+      else if (v[0] > center + 180)
         return (*this)(v - vw::Vector3(360,0,0));
       return v;
     }
@@ -263,7 +263,7 @@ namespace asp {
 
   template <class ImageT>
   vw::UnaryPerPixelView<ImageT, CenterLongitudeFunc>
-  inline recenter_longitude( vw::ImageViewBase<ImageT> const& image, double center ) {
+  inline recenter_longitude(vw::ImageViewBase<ImageT> const& image, double center) {
     return vw::UnaryPerPixelView<ImageT, CenterLongitudeFunc>(image.impl(),
                                                               CenterLongitudeFunc(center));
   }
@@ -278,8 +278,8 @@ namespace asp {
 
   template <class ImageT>
   vw::UnaryPerPixelView<ImageT, PointTransFunc>
-  inline point_transform( vw::ImageViewBase<ImageT> const& image,
-                          vw::Matrix3x3 const& t ) {
+  inline point_transform(vw::ImageViewBase<ImageT> const& image,
+                         vw::Matrix3x3 const& t) {
     return vw::UnaryPerPixelView<ImageT, PointTransFunc>(image.impl(),
                                                          PointTransFunc(t));
   }

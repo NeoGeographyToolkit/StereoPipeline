@@ -52,14 +52,14 @@ namespace isis {
 
   class IsisInterface {
   public:
-    IsisInterface( std::string const& file );
+    IsisInterface(std::string const& file);
     virtual ~IsisInterface(); // Can't be declared here since we have
                               // incomplete types from Isis.
 
     virtual std::string type() = 0;
     
     /// Construct an IsisInterface-derived class of the correct type for the given file.
-    static IsisInterface* open( std::string const& filename );
+    static IsisInterface* open(std::string const& filename);
 
     // Standard Methods
     //------------------------------------------------------
@@ -68,18 +68,18 @@ namespace isis {
     // them to be customized for the type of camera so that they are
     // fast and not too full of conditionals.
 
-    virtual vw::Vector2 point_to_pixel ( vw::Vector3 const& point               ) const = 0;
-    virtual vw::Vector3 pixel_to_vector( vw::Vector2 const& pix                 ) const = 0;
-    virtual vw::Vector3 camera_center  ( vw::Vector2 const& pix = vw::Vector2() ) const = 0;
-    virtual vw::Quat    camera_pose    ( vw::Vector2 const& pix = vw::Vector2() ) const = 0;
+    virtual vw::Vector2 point_to_pixel (vw::Vector3 const& point) const = 0;
+    virtual vw::Vector3 pixel_to_vector(vw::Vector2 const& pix) const = 0;
+    virtual vw::Vector3 camera_center  (vw::Vector2 const& pix = vw::Vector2()) const = 0;
+    virtual vw::Quat    camera_pose    (vw::Vector2 const& pix = vw::Vector2()) const = 0;
 
     // General information
     //------------------------------------------------------
     int         lines         () const;
     int         samples       () const;
     std::string serial_number () const;
-    double      ephemeris_time( vw::Vector2 const& pix ) const;
-    vw::Vector3 sun_position  ( vw::Vector2 const& pix = vw::Vector2() ) const;
+    double      ephemeris_time(vw::Vector2 const& pix) const;
+    vw::Vector3 sun_position  (vw::Vector2 const& pix = vw::Vector2()) const;
     vw::Vector3 target_radii  () const;
     std::string target_name   () const;
     vw::Datum get_datum_isis(bool use_sphere_for_non_earth) const;
@@ -99,12 +99,12 @@ namespace isis {
 
     vw::Datum m_datum;
     
-    friend std::ostream& operator<<( std::ostream&, IsisInterface* );
+    friend std::ostream& operator<<(std::ostream&, IsisInterface*);
   };
 
   // IOstream interface
   // -------------------------------------------------------
-  std::ostream& operator<<( std::ostream& os, IsisInterface* i );
+  std::ostream& operator<<(std::ostream& os, IsisInterface* i);
 
   bool IsisEnv();
 

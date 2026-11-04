@@ -111,11 +111,11 @@ private: // Variables
 public: // Functions
 
   // Constructor
-  PanSharpView( ImageGrayT  const& gray_image,
-                ImageColorT const& color_image,
-                DataTypeT          outputNodata,
-                DataTypeT          min_value,
-                DataTypeT          max_value)
+  PanSharpView(ImageGrayT  const& gray_image,
+               ImageColorT const& color_image,
+               DataTypeT          outputNodata,
+               DataTypeT          min_value,
+               DataTypeT          max_value)
                   : m_gray_image(gray_image), m_color_image(color_image),
                     m_output_nodata(outputNodata),
                     m_min_val(min_value),
@@ -129,13 +129,13 @@ public: // Functions
   inline int32 rows  () const { return m_num_rows; }
   inline int32 planes() const { return 1; }
 
-  inline result_type operator()( int32 i, int32 j, int32 p=0 ) const
+  inline result_type operator()(int32 i, int32 j, int32 p=0) const
   {
     return 0; // NOT IMPLEMENTED!
   }
 
   typedef ProceduralPixelAccessor<PanSharpView<ImageGrayT, ImageColorT, DataTypeT> > pixel_accessor;
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
 
   /// Apply pansharp algorithm to a single pair of pixels.
@@ -155,7 +155,7 @@ public: // Functions
 
 
   typedef CropView<ImageView<result_type> > prerasterize_type;
-  inline prerasterize_type prerasterize( BBox2i const& bbox ) const {
+  inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
     // Set up the output image tile
     ImageView<result_type> tile(bbox.width(), bbox.height());
@@ -167,8 +167,8 @@ public: // Functions
         int source_r = r + bbox.min()[1];
 
         // Check for a masked pixel
-        if ( !is_valid(m_gray_image (source_c, source_r)) ||
-             !is_valid(m_color_image(source_c, source_r))  ) {
+        if (!is_valid(m_gray_image (source_c, source_r)) ||
+            !is_valid(m_color_image(source_c, source_r))) {
           tile(c, r) = m_output_nodata;
           continue;
         }
@@ -184,13 +184,13 @@ public: // Functions
     // Return the tile we created with fake borders to make it look the size of the entire output image
     return prerasterize_type(tile,
                              -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
 
   } // End prerasterize function
 
  template <class DestT>
- inline void rasterize( DestT const& dest, BBox2i const& bbox ) const {
-   vw::rasterize( prerasterize(bbox), dest, bbox );
+ inline void rasterize(DestT const& dest, BBox2i const& bbox) const {
+   vw::rasterize(prerasterize(bbox), dest, bbox);
  }
 
 }; // End class PanSharpView
@@ -199,11 +199,11 @@ public: // Functions
 /// Convenience function
 template <class ImageGrayT, class ImageColorT, typename DataTypeT>
 PanSharpView<ImageGrayT, ImageColorT, DataTypeT>
-inline pansharp_view( ImageGrayT  const& gray_image,
-                      ImageColorT const& color_image,
-                      DataTypeT          output_nodata,
-                      DataTypeT          min_value,
-                      DataTypeT          max_value ) {
+inline pansharp_view(ImageGrayT  const& gray_image,
+                     ImageColorT const& color_image,
+                     DataTypeT          output_nodata,
+                     DataTypeT          min_value,
+                     DataTypeT          max_value) {
   return PanSharpView<ImageGrayT, ImageColorT, DataTypeT>
     (gray_image, color_image, output_nodata, min_value, max_value);
 }
@@ -226,7 +226,7 @@ struct Options : vw::GdalWriteOptions {
 
 const double DEFAULT_NODATA = -std::numeric_limits<double>::max();
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("min-value", po::value(&opt.min_value)->default_value(0),
@@ -240,7 +240,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
              "Path to a WV XML file for the color image.  Can be used to obtain the geo data.")
     ("nodata-value", po::value(&opt.nodata_value)->default_value(DEFAULT_NODATA),
              "The no-data value to use, unless present in the color image header.");
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -257,17 +257,17 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
-  if ( opt.gray_file.empty() || opt.color_file.empty() || opt.output_file.empty())
-    vw_throw( ArgumentErr()
+  if (opt.gray_file.empty() || opt.color_file.empty() || opt.output_file.empty())
+    vw_throw(ArgumentErr()
          << "Requires <gray file>, <color file>, and <output file> in order to proceed.\n\n"
-         << usage << general_options );
+         << usage << general_options);
 
   if (opt.min_value > opt.max_value)
-    vw_throw( ArgumentErr() << "The minimum value cannot be greater than the maximum value!\n\n");
+    vw_throw(ArgumentErr() << "The minimum value cannot be greater than the maximum value!\n\n");
 
   // Determine if the user entered a nodata value
   opt.has_nodata = vm.count("output-nodata-value");
@@ -303,8 +303,8 @@ void load_inputs_and_process(Options           & opt,
   DiskImageView<PixelRGB <T> > color_img(color_rsrc);
 
   // Generate a bounding box that is the minimum of the two BBox areas
-  BBox2 crop_box = bounding_box( gray_img );
-  crop_box.crop(gray_georef.lonlat_to_pixel_bbox(color_georef.pixel_to_lonlat_bbox(bounding_box( color_img ))));
+  BBox2 crop_box = bounding_box(gray_img);
+  crop_box.crop(gray_georef.lonlat_to_pixel_bbox(color_georef.pixel_to_lonlat_bbox(bounding_box(color_img))));
 
   // Processing is done on doubles to handle nodata values, then converted to the desired output type.
 
@@ -312,53 +312,53 @@ void load_inputs_and_process(Options           & opt,
   typedef PixelMask<PixelRGB<double> > PixelRGBMaskD;
   typedef PixelMask<PixelRGB<T     > > PixelRGBMask;
   ImageViewRef<PixelRGBMaskD> color_trans =
-    crop(geo_transform( create_mask(pixel_cast<PixelRGBMaskD>(color_img),
-                                                  color_nodata),
-                        color_georef, gray_georef,
-                        ValueEdgeExtension<PixelRGBMaskD>(PixelRGBMaskD()) ),
-         crop_box );
+    crop(geo_transform(create_mask(pixel_cast<PixelRGBMaskD>(color_img),
+                                                 color_nodata),
+                       color_georef, gray_georef,
+                       ValueEdgeExtension<PixelRGBMaskD>(PixelRGBMaskD())),
+         crop_box);
 
 
   // WorldView convention is to mask <= a value, but this may not be a universal standard!
   // - create_mask_less_or_equal seems to break on PixelRGB types.
 
   vw_out() << "Writing: " << opt.output_file << std::endl;
-  vw::block_write_gdal_image( opt.output_file,
-                               // The final output image is set up in these few lines:
-                               pixel_cast<PixelRGBMask>
-                               (apply_mask(pansharp_view
-                                           (crop(create_mask_less_or_equal
-                                                 (pixel_cast<double>(gray_img),
-                                                  gray_nodata),
-                                                 crop_box),
-                                            color_trans,
-                                            opt.nodata_value,
-                                            opt.min_value,
-                                            opt.max_value),
-                                           opt.nodata_value)
-                                ),
-                               true, gray_georef, // The output is written in the gray coordinate system
-                               opt.has_nodata, opt.nodata_value,
-                               opt,
-                               TerminalProgressCallback("pansharp","\t--> Writing:"));
+  vw::block_write_gdal_image(opt.output_file,
+                              // The final output image is set up in these few lines:
+                              pixel_cast<PixelRGBMask>
+                              (apply_mask(pansharp_view
+                                          (crop(create_mask_less_or_equal
+                                                (pixel_cast<double>(gray_img),
+                                                 gray_nodata),
+                                                crop_box),
+                                           color_trans,
+                                           opt.nodata_value,
+                                           opt.min_value,
+                                           opt.max_value),
+                                          opt.nodata_value)
+                               ),
+                              true, gray_georef, // The output is written in the gray coordinate system
+                              opt.has_nodata, opt.nodata_value,
+                              opt,
+                              TerminalProgressCallback("pansharp","\t--> Writing:"));
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     DiskImageResourceGDAL gray_rsrc(opt.gray_file),
                           color_rsrc(opt.color_file);
 
     double gray_nodata  = opt.nodata_value;
     double color_nodata = opt.nodata_value;
-    if ( gray_rsrc.has_nodata_read() ) {
+    if (gray_rsrc.has_nodata_read()) {
       gray_nodata = gray_rsrc.nodata_read();
       vw_out() << "\tFound input nodata value for the gray image: " << gray_nodata << endl;
     }
-    if ( color_rsrc.has_nodata_read() ) {
+    if (color_rsrc.has_nodata_read()) {
       color_nodata = color_rsrc.nodata_read();
       vw_out() << "\tFound input nodata value for the color image: " << color_nodata << endl;
       // If we read in color nodata and the user did not provide nodata,
@@ -371,21 +371,21 @@ int main( int argc, char *argv[] ) {
 
     // Read in geo information
     GeoReference gray_georef, color_georef;
-    if (!asp::read_wv_georeference(gray_georef,  opt.gray_file,  opt.gray_xml_file ) ||
-        !asp::read_wv_georeference(color_georef, opt.color_file, opt.color_xml_file)   ) {
+    if (!asp::read_wv_georeference(gray_georef,  opt.gray_file,  opt.gray_xml_file) ||
+        !asp::read_wv_georeference(color_georef, opt.color_file, opt.color_xml_file)) {
       vw_throw(ArgumentErr() << "Could not read a georeference from an input image!\n");
     }
 
     // Transform the color image into the same perspective as the grayscale image. However, we
     // don't support datum changes!
-    if ( gray_georef.datum().proj4_str() != color_georef.datum().proj4_str() )
-      vw_throw( NoImplErr() << "Pansharp can't operate on images which are on different datums!\n" );
+    if (gray_georef.datum().proj4_str() != color_georef.datum().proj4_str())
+      vw_throw(NoImplErr() << "Pansharp can't operate on images which are on different datums!\n");
 
     // Check the input data type
     ChannelTypeEnum input_data_type = gray_rsrc.channel_type();
     ChannelTypeEnum color_data_type = color_rsrc.channel_type();
     if (input_data_type != color_data_type)
-      vw_throw( NoImplErr() << "Pansharp can't operate on images which are different data types!\n" );
+      vw_throw(NoImplErr() << "Pansharp can't operate on images which are different data types!\n");
 
     // Redirect to another function with the correct template type
     switch(input_data_type) {

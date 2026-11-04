@@ -46,26 +46,26 @@ namespace asp {
     std::vector<std::string> m_z_eq;
     std::vector<double> m_z_consts;
 
-    void update( double t );
-    void string_to_eqn( std::string const& str,
-                        std::vector<std::string>& commands,
-                        std::vector<double>& consts );
-    double evaluate( std::vector<std::string> const& commands,
-                     std::vector<double>& consts,
-                     double t );
+    void update(double t);
+    void string_to_eqn(std::string const& str,
+                       std::vector<std::string>& commands,
+                       std::vector<double>& consts);
+    double evaluate(std::vector<std::string> const& commands,
+                    std::vector<double>& consts,
+                    double t);
   public:
     RPNEquation();
-    RPNEquation( std::string const& x_eq,
-                 std::string const& y_eq,
-                 std::string const& z_eq );
+    RPNEquation(std::string const& x_eq,
+                std::string const& y_eq,
+                std::string const& z_eq);
     std::string type() const { return "RPNEquation"; }
 
     size_t size() const { return m_x_consts.size() +
         m_y_consts.size() + m_z_consts.size(); }
-    double& operator[]( size_t n );
+    double& operator[](size_t n);
 
-    void write( std::ofstream &f );
-    void read( std::ifstream &f );
+    void write(std::ofstream &f);
+    void read(std::ifstream &f);
   };
 
 }

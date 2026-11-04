@@ -31,12 +31,12 @@ namespace asp {
   //-------------------------------------------------------
 
   // Debugging output of coefficients (constants)
-  std::ostream& operator<<( std::ostream&, boost::shared_ptr<BaseEquation> eq);
+  std::ostream& operator<<(std::ostream&, boost::shared_ptr<BaseEquation> eq);
 
   // Determines equation type and write appropriate
-  void write_equation( std::ofstream& f, boost::shared_ptr<BaseEquation> eq);
+  void write_equation(std::ofstream& f, boost::shared_ptr<BaseEquation> eq);
   // Determines equation type from file and return appropriate
-  boost::shared_ptr<BaseEquation> read_equation( std::ifstream& f);
+  boost::shared_ptr<BaseEquation> read_equation(std::ifstream& f);
 
 }
 

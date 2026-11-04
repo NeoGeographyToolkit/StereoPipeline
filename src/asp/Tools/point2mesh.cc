@@ -213,7 +213,7 @@ void save_mesh(std::string const& output_prefix,
   face_progress.report_finished();
 }
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("point-cloud-step-size,s", po::value(&opt.point_cloud_step_size)->default_value(10),
@@ -227,7 +227,7 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("precision", po::value(&opt.precision)->default_value(17),
      "How many digits of precision to save.");
   
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -251,9 +251,9 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   if (opt.pointcloud_filename.empty())
     vw_throw(ArgumentErr() << "Missing point cloud.\n"
               << usage << general_options);
-  if ( opt.output_prefix.empty() )
+  if (opt.output_prefix.empty())
     opt.output_prefix =
-      asp::prefix_from_pointcloud_filename( opt.pointcloud_filename );
+      asp::prefix_from_pointcloud_filename(opt.pointcloud_filename);
 
   if (opt.point_cloud_step_size <= 0)
     vw_throw(ArgumentErr() << "Step size must be positive.\n"
@@ -308,7 +308,7 @@ int main(int argc, char *argv[]){
       point_cloud = vw::subsample(asp::read_asp_point_cloud_3(input_file),
                                   opt.point_cloud_step_size);
     }else{
-      vw_throw( ArgumentErr() << "The input must be a point cloud or a DEM.\n");
+      vw_throw(ArgumentErr() << "The input must be a point cloud or a DEM.\n");
     }
 
     vw_out() << "\t--> Subsampled cloud size:   "
@@ -328,7 +328,7 @@ int main(int argc, char *argv[]){
     ImageViewRef<float> texture_image;
     
     // Resample the image if it is too fine.
-    if ( !opt.texture_file_name.empty() ) {
+    if (!opt.texture_file_name.empty()) {
       texture_image = vw::subsample(DiskImageView<float>(opt.texture_file_name),
                                     opt.texture_step_size);
     } else {

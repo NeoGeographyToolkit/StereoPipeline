@@ -92,7 +92,7 @@ void populateRigCamInfo(rig::RigSet const& rig,
 
 // Given a reference linescan camera and the transform from it to the current
 // camera, find the current camera to world transform as an array.
-void linescanToCurrSensorTrans( UsgsAstroLsSensorModel const & ref_ls_cam,
+void linescanToCurrSensorTrans(UsgsAstroLsSensorModel const & ref_ls_cam,
                                double curr_time,
                                double const* ref_to_curr_trans,
                                // Output
@@ -110,7 +110,7 @@ void frameToCurrSensorTrans(std::vector<double>       const& frame_params,
 
 // Given a reference linescan camera and the transform from it to the current
 // linescan camera, update the the current camera poses within the given range.
-void updateLinescanWithRig( UsgsAstroLsSensorModel const & ref_ls_cam,
+void updateLinescanWithRig(UsgsAstroLsSensorModel const & ref_ls_cam,
                            double const* ref_to_curr_trans,
                            UsgsAstroLsSensorModel & curr_ls_cam, // update this
                            // Range of quat and position indices to update.

@@ -50,4 +50,3 @@ namespace rig {
 }  // namespace rig
 
 #endif  // ASP_RIG_TYPE_DEFS_H
-

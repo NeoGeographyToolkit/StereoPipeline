@@ -91,7 +91,7 @@ double gps_seconds(std::string const& orthoimage_path){
   std::string label = "DMS";
   std::size_t it = orthoimage_path.find(label);
   if (it == std::string::npos) 
-    vw_throw( ArgumentErr() << "Could not find the text " << label << " in " << orthoimage_path << "\n" );
+    vw_throw(ArgumentErr() << "Could not find the text " << label << " in " << orthoimage_path << "\n");
 
   it += 18;
 
@@ -119,7 +119,7 @@ double gps_seconds(std::string const& orthoimage_path){
                      month-1,        // 0-based month
                      year - 1900};     // year since 1900
 
-  std::time_t time_val = std::mktime( & time_in );
+  std::time_t time_val = std::mktime(& time_in);
 
   // the return value from localtime is a static global - do not call
   // this function from more than one thread!
@@ -139,7 +139,7 @@ void scan_line(std::string const& line,
   double xv, yv, zv;
   if (sscanf(line.c_str(), "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
              &seconds, &lat, &lon, &alt, &xv, &yv, &zv, &roll, &pitch, &heading) != 10) 
-    vw_throw( ArgumentErr() << "Could not scan 10 values from line: " << line << "\n" );
+    vw_throw(ArgumentErr() << "Could not scan 10 values from line: " << line << "\n");
 }
 
 /// Rotate about X (forward)
@@ -172,8 +172,8 @@ Matrix3x3 get_look_rotation_matrix(double yaw, double pitch, double roll, int ro
 
   // These calculations are copied from the SPOT 123-4-58 Geometry Handbook (GAEL-P135-DOC-001)
   Matrix3x3 Mp = get_rotation_matrix_pitch(pitch);
-  Matrix3x3 Mr = get_rotation_matrix_roll (roll );
-  Matrix3x3 My = get_rotation_matrix_yaw  (yaw  ); 
+  Matrix3x3 Mr = get_rotation_matrix_roll (roll);
+  Matrix3x3 My = get_rotation_matrix_yaw  (yaw); 
 
   if (rot_order == 1) return Mp*Mr*My;
   if (rot_order == 2) return Mp*My*Mr;
@@ -217,7 +217,7 @@ struct Options : public vw::GdalWriteOptions {
   double time_offset;
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   std::string cam_list_path;
   po::options_description general_options("");
   general_options.add_options()
@@ -229,14 +229,14 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
     ("output-folder",  po::value(&opt.output_folder)->default_value(""), 
                        "Output folder where the camera files are written.")
     // TODO: Remove secret option to pass in negative values to change how rotations are applied!
-    ("camera-mounting"  ,  po::value(&opt.camera_mounting)->default_value(0),
+    ("camera-mounting",  po::value(&opt.camera_mounting)->default_value(0),
         "0 = right-forwards, 1=left-forwards, 2=top-forwards, 3=bottom-forwards.")
     ("detect-offset",  po::bool_switch(&opt.detect_offset)->default_value(false)->implicit_value(true),
         "Instead of generating camera files, estimate time offset to the provided camera files.")
     ("cam-list",       po::value(&cam_list_path)->default_value(""), 
                        "A sorted list of input ortho and camera files.");
   
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   
   po::options_description positional("");
   
@@ -251,16 +251,16 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
                             allow_unregistered, unregistered);
 
   // Check mandatory inputs  
-  if ( opt.nav_file.empty() )
-    vw_throw( ArgumentErr() << "Missing input nav file.\n" << usage << general_options );
+  if (opt.nav_file.empty())
+    vw_throw(ArgumentErr() << "Missing input nav file.\n" << usage << general_options);
 
-  if ( opt.input_cam.empty() )
-    vw_throw( ArgumentErr() << "Missing input pinhole camera.\n" << usage << general_options );
+  if (opt.input_cam.empty())
+    vw_throw(ArgumentErr() << "Missing input pinhole camera.\n" << usage << general_options);
 
-  if ( cam_list_path.empty() )
-    vw_throw( ArgumentErr() << "Missing input file list file.\n" << usage << general_options );
+  if (cam_list_path.empty())
+    vw_throw(ArgumentErr() << "Missing input file list file.\n" << usage << general_options);
 
-  if ( !cam_list_path.empty() ) {
+  if (!cam_list_path.empty()) {
     // Load all the names from the camera list file into opt.image_files
     vw_out() << "Reading input files from " << cam_list_path << "...\n";
     std::ifstream input_stream(cam_list_path.c_str());

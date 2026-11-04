@@ -29,7 +29,7 @@
 
 using namespace vw;
 
-TEST( IntegralAutoGainDetector, VerifyMaxima ) {
+TEST(IntegralAutoGainDetector, VerifyMaxima) {
 
   ImageView<float> test_image(101,101);
 
@@ -37,10 +37,10 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
 
   // Drawing a DoG signal
   Vector2i location, center(50,50);
-  for ( ; location.y() < test_image.rows(); location.y()++ ) {
-    for ( location.x() = 0; location.x() < test_image.cols(); location.x()++ ) {
-      float distance = norm_2( Vector2f(location - center) );
-      test_image( location.x(), location.y() ) =
+  for (; location.y() < test_image.rows(); location.y()++) {
+    for (location.x() = 0; location.x() < test_image.cols(); location.x()++) {
+      float distance = norm_2(Vector2f(location - center));
+      test_image(location.x(), location.y()) =
         40 * (
               1/(2*M_PI*SIGMA*SIGMA)*exp(-pow(distance,2)/(2*SIGMA*SIGMA)) -
               1/(2*M_PI*4*SIGMA*SIGMA)*exp(-pow(distance,2)/(2*4*SIGMA*SIGMA))
@@ -50,22 +50,22 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
 
   // Detect interest points
   IntegralAutoGainDetector detector;
-  vw::InterestPointList list = detector.process_image( test_image );
+  vw::InterestPointList list = detector.process_image(test_image);
 
   // On 32-bit Linux the answer is different
 #if __GNUC__
 #if __x86_64__ || __ppc64__
-  EXPECT_EQ( list.size(), 9 ); // Digitization error
+  EXPECT_EQ(list.size(), 9); // Digitization error
 #else
-  EXPECT_EQ( list.size(), 13 ); // Digitization error
+  EXPECT_EQ(list.size(), 13); // Digitization error
 #endif
 #endif
 
   // Find the best IP
   const vw::InterestPoint* best_ip = &list.front();
   float best_ip_value = list.begin()->interest;
-  BOOST_FOREACH( vw::InterestPoint const& ip, list ) {
-    if ( ip.interest > best_ip_value ) {
+  BOOST_FOREACH(vw::InterestPoint const& ip, list) {
+    if (ip.interest > best_ip_value) {
       best_ip_value = ip.interest;
       best_ip = &ip;
     }
@@ -74,12 +74,12 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
   // The best IP is the one centered on the circle feature we
   // drew. There are more due to digitization errors and float point
   // errors in the the integral image.
-  EXPECT_EQ( best_ip->x, 50 );
-  EXPECT_EQ( best_ip->y, 50 );
-  EXPECT_EQ( best_ip->scale, 1.875 );
+  EXPECT_EQ(best_ip->x, 50);
+  EXPECT_EQ(best_ip->y, 50);
+  EXPECT_EQ(best_ip->scale, 1.875);
 
   // This is odd ... but I'm just verifying the impl calls the same
   // code. This was a bug that elluded me for a very long time.
-  ASSERT_EQ( typeid(detector),
-             typeid(detector.impl()) );
+  ASSERT_EQ(typeid(detector),
+            typeid(detector.impl()));
 }

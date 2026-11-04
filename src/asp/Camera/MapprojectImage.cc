@@ -329,7 +329,7 @@ void write_parallel_type(std::string              const& filename,
 			vw::round_and_clamp<int32>(nodata_val),
 			opt, tpc);
   else
-    vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
+    vw_throw(NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
 }
 
 // Like write_parallel_type, but for compound pixel types (e.g., PixelRGBA<float32>).

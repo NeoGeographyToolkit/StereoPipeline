@@ -49,8 +49,8 @@ void asp::photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
                                         int kernel_size) {
   // Projecting right into perspective of left
   DiskImageView<PixelGray<float>> right_disk_image(prefix+"-R.tif");
-  DiskImageView<PixelMask<Vector2f>> disparity_disk_image( input_disparity );
-  vw::DisparityTransform trans( disparity_disk_image );
+  DiskImageView<PixelMask<Vector2f>> disparity_disk_image(input_disparity);
+  vw::DisparityTransform trans(disparity_disk_image);
 
   std::string cache_dir = "/tmp"; // modify here to use a different cache dir if needed
   if (!fs::is_directory(cache_dir)) {
@@ -59,17 +59,17 @@ void asp::photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
   }
 
   DiskCacheImageView<PixelGray<float>>
-    right_proj( transform( right_disk_image, trans, ZeroEdgeExtension()),
-                "tif", TerminalProgressCallback("asp","Projecting R:"), cache_dir);
+    right_proj(transform(right_disk_image, trans, ZeroEdgeExtension()),
+               "tif", TerminalProgressCallback("asp","Projecting R:"), cache_dir);
 
   // Differencing Left and Projected Right
   ImageViewRef<PixelMask<PixelGray<float32>>> right_mask =
     create_mask(right_proj);
   DiskImageView<PixelGray<float32>> left_image(prefix+"-L.tif");
   DiskCacheImageView<PixelGray<float>>
-    diff( abs(apply_mask(copy_mask(left_image,right_mask))-right_proj),
-          "tif", TerminalProgressCallback("asp","\tDifference:"),
-          cache_dir);
+    diff(abs(apply_mask(copy_mask(left_image,right_mask))-right_proj),
+         "tif", TerminalProgressCallback("asp","\tDifference:"),
+         cache_dir);
   ChannelAccumulator<math::CDFAccumulator<float32>> cdf;
   cdf.resize(8000,2001);
   for_each_pixel(diff, cdf);
@@ -89,5 +89,5 @@ void asp::photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
 
   vw::block_write_gdal_image(prefix + "-FDust.tif",
                           cleaned_disparity, opt,
-                          TerminalProgressCallback("asp", "Dust Removal:") );
+                          TerminalProgressCallback("asp", "Dust Removal:"));
 }

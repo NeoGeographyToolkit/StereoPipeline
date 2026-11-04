@@ -71,7 +71,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     ("penalty-weight",     po::value(&opt.penalty_weight)->default_value(0.1),
      "Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.");
 
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -88,10 +88,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 			    positional, positional_desc, usage,
 			    allow_unregistered, unregistered);
   
-  if ( opt.input_path.empty() )
-    vw_throw( ArgumentErr() << "Missing input path.\n" << usage << general_options );
+  if (opt.input_path.empty())
+    vw_throw(ArgumentErr() << "Missing input path.\n" << usage << general_options);
 
-  if ( opt.output_path.empty() ) {
+  if (opt.output_path.empty()) {
     vw_out() << "Output path not provided, appending RPC model to the input metadata file.\n";
     opt.output_path = opt.input_path;
     
@@ -184,9 +184,9 @@ void generate_point_pairs(Options opt,
         for (int z = 0; z < num_pts; z++){
 
           // This is the test point location in our image normalized to 0 <> 1 range
-          Vector3 u( x/(num_pts - 1.0),
-                     y/(num_pts - 1.0),
-                     z/(num_pts - 1.0) );
+          Vector3 u(x/(num_pts - 1.0),
+                    y/(num_pts - 1.0),
+                    z/(num_pts - 1.0));
           // Shrink the point a little bit so we don't go all the way up to the valid boundaries.
           u = elem_sum(elem_prod(u,1.0-CONTRACTION), (CONTRACTION/2.0));
 
@@ -219,7 +219,7 @@ void generate_point_pairs(Options opt,
           subvector(normalized_geodetics, RPCModel::GEODETIC_COORD_SIZE*success_count,
                     RPCModel::GEODETIC_COORD_SIZE) = U;
           subvector(normalized_pixels,    RPCModel::IMAGE_COORD_SIZE   *success_count,
-                    RPCModel::IMAGE_COORD_SIZE   ) = pxn;
+                    RPCModel::IMAGE_COORD_SIZE) = pxn;
           success_count++;
 
         } // End z loop
@@ -293,7 +293,7 @@ void save_xml(Vector3 const& llh_scale,
     ofs.open(out_cam_file.c_str(), std::fstream::out);
   }
   if (!ofs.good())
-    vw_throw( ArgumentErr() << "Error writing to file:" << out_cam_file);
+    vw_throw(ArgumentErr() << "Error writing to file:" << out_cam_file);
 
   // Write RPC to file in Digital Globe format  
   ofs << "<isd>\n";
@@ -331,7 +331,7 @@ void save_xml(Vector3 const& llh_scale,
 }
 
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {

@@ -53,7 +53,7 @@ struct RPC_gen_Options : vw::GdalWriteOptions {
 };
 
 /// Parse input arguments
-void handle_arguments( int argc, char *argv[], RPC_gen_Options& opt ) {
+void handle_arguments(int argc, char *argv[], RPC_gen_Options& opt) {
   po::options_description general_options("");
   general_options.add_options()
     ("output-prefix",      po::value(&opt.output_prefix)->default_value(""),
@@ -62,7 +62,7 @@ void handle_arguments( int argc, char *argv[], RPC_gen_Options& opt ) {
              "Penalty weight to use to keep the higher-order RPC coefficients small. Higher penalty weight results in smaller such coefficients.")
     ("lon-lat-height-box", po::value(&opt.lon_lat_height_box)->default_value(BBox3(0,0,0,0,0,0)),
              "The 3D region in which to solve for the RPC model [lon_min lat_min height_min lon_max lat_max height_max].");
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -74,13 +74,13 @@ void handle_arguments( int argc, char *argv[], RPC_gen_Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
-  if ( !vm.count("camera-model") )
-    vw_throw( ArgumentErr() << "Requires <camera_model> input in order to proceed.\n\n"
-              << usage << general_options );
+  if (!vm.count("camera-model"))
+    vw_throw(ArgumentErr() << "Requires <camera_model> input in order to proceed.\n\n"
+             << usage << general_options);
 
 }
 
@@ -156,7 +156,7 @@ void load_pairs_from_file(std::string const& path,
   // Check that we loaded the correct number of points
   size_t num_points = gdc_temp.size();
   if (pixel_temp.size() != num_points)
-    vw_throw( ArgumentErr() << "Error reading input file: counts\n");
+    vw_throw(ArgumentErr() << "Error reading input file: counts\n");
   
   // Automatically compute the scale factors
   compute_scale_factors(gdc_bbox, pixel_bbox.size(), llh_scale, llh_offset, uv_scale, uv_offset);
@@ -171,11 +171,11 @@ void load_pairs_from_file(std::string const& path,
   
     // Normalize the points
     Vector3 gdc   = elem_quot(gdc_temp  [i] - llh_offset, llh_scale);
-    Vector2 pixel = elem_quot(pixel_temp[i] - uv_offset,  uv_scale );
+    Vector2 pixel = elem_quot(pixel_temp[i] - uv_offset,  uv_scale);
   
     // Pack them in the output vectors
     subvector(normalized_geodetics, RPCModel::GEODETIC_COORD_SIZE*i, RPCModel::GEODETIC_COORD_SIZE) = gdc;
-    subvector(normalized_pixels,    RPCModel::IMAGE_COORD_SIZE   *i, RPCModel::IMAGE_COORD_SIZE   ) = pixel;
+    subvector(normalized_pixels,    RPCModel::IMAGE_COORD_SIZE   *i, RPCModel::IMAGE_COORD_SIZE) = pixel;
    
   }
   vw_out() << "Loaded "<< num_points <<" processing point pairs from file\n";
@@ -190,8 +190,8 @@ void generate_point_pairs(RPC_gen_Options opt,
 
     // If the user provided a text file instead of a camera model, load the points
     // straight from the file.
-    if ( (opt.camera_model.find(".csv") != std::string::npos) ||
-         (opt.camera_model.find(".txt") != std::string::npos)   ) {
+    if ((opt.camera_model.find(".csv") != std::string::npos) ||
+        (opt.camera_model.find(".txt") != std::string::npos)) {
       load_pairs_from_file(opt.camera_model, normalized_geodetics, normalized_pixels,
                           llh_scale, llh_offset, uv_scale, uv_offset);
       return;
@@ -211,8 +211,8 @@ void generate_point_pairs(RPC_gen_Options opt,
 
     // Load up the RPC camera model from the camera file
     RPCXML xml;
-    xml.read_from_file( opt.camera_model );
-    boost::shared_ptr<RPCModel> cam_rpc( new RPCModel( *xml.rpc_ptr() ) );
+    xml.read_from_file(opt.camera_model);
+    boost::shared_ptr<RPCModel> cam_rpc(new RPCModel(*xml.rpc_ptr()));
     Vector2 image_size = xml_image_size(opt.camera_model);
 
     // Normalization in the lon-lat-height and pixel domains
@@ -254,9 +254,9 @@ void generate_point_pairs(RPC_gen_Options opt,
         for (int z = 0; z < num_pts; z++){
 
           // Test points are evenly spaced through the x/y/z -1 <> 1 range
-          Vector3 U( x/(num_pts - 1.0),
-                     y/(num_pts - 1.0),
-                     z/(num_pts - 1.0) );
+          Vector3 U(x/(num_pts - 1.0),
+                    y/(num_pts - 1.0),
+                    z/(num_pts - 1.0));
                   U = 2.0*U - Vector3(1, 1, 1); // in the box [-1, 1]^3.
 
           // Linear conversion from x/y/z to lat/lon/height
@@ -280,7 +280,7 @@ void generate_point_pairs(RPC_gen_Options opt,
           subvector(normalized_geodetics, RPCModel::GEODETIC_COORD_SIZE*count,
                     RPCModel::GEODETIC_COORD_SIZE) = U;
           subvector(normalized_pixels,    RPCModel::IMAGE_COORD_SIZE   *count,
-                    RPCModel::IMAGE_COORD_SIZE   ) = pxn;
+                    RPCModel::IMAGE_COORD_SIZE) = pxn;
           count++;
 
         } // End z loop
@@ -289,11 +289,11 @@ void generate_point_pairs(RPC_gen_Options opt,
 
 }
 
-int main( int argc, char* argv[] ) {
+int main(int argc, char* argv[]) {
 
   RPC_gen_Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     // Generate all the point pairs using the input options
     Vector<double> normalized_geodetics;
@@ -314,14 +314,14 @@ int main( int argc, char* argv[] ) {
             line_num, line_den, samp_num, samp_den);
     
     // Dump the output to stdout, to be parsed by python
-    print_vec("uv_scale",   uv_scale  );
-    print_vec("uv_offset",  uv_offset );
-    print_vec("llh_scale",  llh_scale );
+    print_vec("uv_scale",   uv_scale);
+    print_vec("uv_offset",  uv_offset);
+    print_vec("llh_scale",  llh_scale);
     print_vec("llh_offset", llh_offset);
-    print_vec("line_num",   line_num  );
-    print_vec("line_den",   line_den  );
-    print_vec("samp_num",   samp_num  );
-    print_vec("samp_den",   samp_den  );
+    print_vec("line_num",   line_num);
+    print_vec("line_den",   line_den);
+    print_vec("samp_num",   samp_num);
+    print_vec("samp_den",   samp_den);
 
   } ASP_STANDARD_CATCHES;
 

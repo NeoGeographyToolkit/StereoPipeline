@@ -39,7 +39,7 @@ public:
     ALSC();
     ALSC(cv::Mat imgL, cv::Mat imgR, CALSCParam paramALSC);
 
-    void performALSC(const std::vector<CTiePt>* pvecTpts , const float* pfAffStart = NULL);   // Nb. it is normally used for TC refinement (i.e., verification)
+    void performALSC(const std::vector<CTiePt>* pvecTpts, const float* pfAffStart = NULL);   // Nb. it is normally used for TC refinement (i.e., verification)
                                                                                          // pfAffStart might be needed if ALSC resumes from the previous TP results
     void getRefinedTps(std::vector<CTiePt>& vecRefTP) const {vecRefTP = m_pvecRefTP;}
     const std::vector<CTiePt>* getRefinedTps() {return &m_pvecRefTP;} // the result which passes the ALSC test

@@ -277,7 +277,7 @@ void handle_arguments(int argc, char *argv[], DemOptions& opt) {
   // Check for for non-positive input
   for (size_t i = 0; i < opt.dem_spacing.size(); i++) {
     if (opt.dem_spacing[i] <= 0.0)
-      vw_throw(ArgumentErr() << "The DEM spacing must be positive.\n" );
+      vw_throw(ArgumentErr() << "The DEM spacing must be positive.\n");
   }
       
   // Make sure we have a number      

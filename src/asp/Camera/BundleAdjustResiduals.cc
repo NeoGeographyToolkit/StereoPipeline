@@ -510,8 +510,8 @@ void write_residual_logs(std::string const& residual_prefix,
   index +=  ba_state.params_per_camera() * num_cam_position_residuals;
   
   if (index != num_residuals)
-    vw_throw( LogicErr() << "Have " << num_residuals << " residuals, but iterated through "
-              << index);
+    vw_throw(LogicErr() << "Have " << num_residuals << " residuals, but iterated through "
+             << index);
 
   // Generate the location based file
   std::string map_prefix = residual_prefix + "_pointmap";

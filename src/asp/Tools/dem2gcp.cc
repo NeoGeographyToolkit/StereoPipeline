@@ -503,7 +503,7 @@ int run_dem2gcp(int argc, char * argv[]) {
   double tol = 1e-6;
   if (std::abs(warped_trans(0, 0) - ref_trans(0, 0)) > tol ||
       std::abs(warped_trans(1, 1) - ref_trans(1, 1)) > tol)
-    vw::vw_throw( vw::ArgumentErr() 
+    vw::vw_throw(vw::ArgumentErr() 
                 << "The warped DEM and reference DEM have different grid sizes. Use "
                 << "gdalwarp -r cubicspline to resample the warped DEM.\n");
   
@@ -519,8 +519,8 @@ int run_dem2gcp(int argc, char * argv[]) {
   // Warped size must equal disparity size, otherwise there is a mistake
   if (masked_warped_dem.cols() != disparity.cols() ||
       masked_warped_dem.rows() != disparity.rows())
-    vw::vw_throw( vw::ArgumentErr() 
-                << "Error: The warped DEM and disparity sizes do not match.\n" );
+    vw::vw_throw(vw::ArgumentErr() 
+                << "Error: The warped DEM and disparity sizes do not match.\n");
   
   // If to use a gcp_sigma image
   bool have_gcp_sigma_image = (!opt.gcp_sigma_image.empty());

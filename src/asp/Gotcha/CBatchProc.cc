@@ -303,7 +303,7 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
             (dispX_tmp.at<float>(i-1,j-1)!=0.0 || dispX_tmp.at<float>(i-1,j)!=0.0 ||
              dispX_tmp.at<float>(i-1,j+1)!=0.0 || dispX_tmp.at<float>(i,j-1)!=0.0 ||
              dispX_tmp.at<float>(i,j+1)!=0.0 || dispX_tmp.at<float>(i+1,j-1)!=0.0 ||
-             dispX_tmp.at<float>(i+1,j)!=0.0 || dispX_tmp.at<float>(i+1,j+1)!=0.0 ) ){
+             dispX_tmp.at<float>(i+1,j)!=0.0 || dispX_tmp.at<float>(i+1,j+1)!=0.0)){
 
           dispX_tmp2.at<float>(i,j) = dispX.at<float>(i,j);
           dispY_tmp2.at<float>(i,j) = dispY.at<float>(i,j);

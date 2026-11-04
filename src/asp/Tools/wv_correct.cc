@@ -155,7 +155,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                              allow_unregistered, unregistered);
 
   if (!vm.count("camera-image") || !vm.count("camera-model") ||
-      !vm.count("output-image") )
+      !vm.count("output-image"))
     vw_throw(ArgumentErr() << "Requires <camera-image>, <camera-model> "
              << "and <output-image> in order to proceed.\n\n"
              << usage << general_options);
@@ -585,7 +585,7 @@ public:
 
   inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+  inline pixel_type operator()(double/*i*/, double/*j*/, int32/*p*/ = 0) const {
     vw_throw(NoImplErr() << "WVPerBlockCorrectView::operator()(...) is not implemented");
     return pixel_type();
   }
@@ -628,14 +628,14 @@ public:
       }
       
       for (int row = bbox.min().y(); row < bbox.max().y(); row++){
-        tile(col - bbox.min().x(), row - bbox.min().y() )
+        tile(col - bbox.min().x(), row - bbox.min().y())
           = interp_img(col - biased_box.min().x() + valx,
                        row - biased_box.min().y() + valy);
       }
     }
     
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
   }
 
   template <class DestT>
@@ -666,7 +666,7 @@ public:
     m_img(img), m_dx(dx), m_dy(dy){
 
     if (m_dx.size() != m_dy.size()) {
-      vw_throw( ArgumentErr() << "The x and y corrections must have the same dimensions.\n" );
+      vw_throw(ArgumentErr() << "The x and y corrections must have the same dimensions.\n");
     }
 
     // Add more zeros if the corrections are too short.
@@ -692,9 +692,9 @@ public:
   inline int32 rows() const { return m_img.rows(); }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+  inline pixel_type operator()(double/*i*/, double/*j*/, int32/*p*/ = 0) const {
     vw_throw(NoImplErr() << "WVPerColumnCorrectView::operator()(...) is not implemented");
     return pixel_type();
   }
@@ -721,14 +721,14 @@ public:
     for (int col = bbox.min().x(); col < bbox.max().x(); col++) {
       for (int row = bbox.min().y(); row < bbox.max().y(); row++) {
         // Note that the same correction is used for an entire column
-        tile(col - bbox.min().x(), row - bbox.min().y() )
+        tile(col - bbox.min().x(), row - bbox.min().y())
           = interp_img(col - biased_box.min().x() - m_dx[col],
                        row - biased_box.min().y() - m_dy[col]);
       }
     }
 
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
   }
 
   template <class DestT>
@@ -771,8 +771,8 @@ int main(int argc, char *argv[]) {
       
       scan_dir = boost::to_lower_copy(img.scan_direction);
       if (scan_dir != "forward" && scan_dir != "reverse")
-        vw_throw( ArgumentErr() << "XML file \"" << opt.camera_file
-                  << "\" is lacking a valid image scan direction.\n" );
+        vw_throw(ArgumentErr() << "XML file \"" << opt.camera_file
+                 << "\" is lacking a valid image scan direction.\n");
 
       // Read XML parameters and sanity checks
       sat_id = img.sat_id;
@@ -785,7 +785,7 @@ int main(int argc, char *argv[]) {
       } else if (band_id == "Multi") {
         per_column_correction = true;
         if (img.tdi_multi.size() != 8) 
-          vw_throw( ArgumentErr() << "Expecting 8 TDI values, one per multispectral band.\n" );
+          vw_throw(ArgumentErr() << "Expecting 8 TDI values, one per multispectral band.\n");
       }
       
       // For WV2 data generated on May 26, 2022 or later a new calibration scheme
@@ -801,19 +801,19 @@ int main(int argc, char *argv[]) {
 
       det_pitch = geo.detector_pixel_pitch;
       if (det_pitch <= 0.0)
-        vw_throw( ArgumentErr() << "XML file \"" << opt.camera_file
-                  << "\" has a non-positive pixel pitch.\n" );
+        vw_throw(ArgumentErr() << "XML file \"" << opt.camera_file
+                 << "\" has a non-positive pixel pitch.\n");
 
       
-    } catch ( const std::exception& e ) {                
-      vw_throw( ArgumentErr() << e.what() );
+    } catch (const std::exception& e) {                
+      vw_throw(ArgumentErr() << e.what());
     }
 
     if (sat_id != "WV01" && sat_id != "WV02" && sat_id != "WV03") 
       vw_throw(ArgumentErr() << "Only WV01, WV02, and WV03 satellites are supported.\n");
     
-    if ( (opt.dx != "" && opt.dy == "") || (opt.dx == "" && opt.dy != "") )
-      vw_throw( ArgumentErr() << "Only one of --dx and --dy was specified." );
+    if ((opt.dx != "" && opt.dy == "") || (opt.dx == "" && opt.dy != ""))
+      vw_throw(ArgumentErr() << "Only one of --dx and --dy was specified.");
               
     bool is_wv01 = (sat_id == "WV01");
     bool is_forward = (scan_dir == "forward");
@@ -823,19 +823,19 @@ int main(int argc, char *argv[]) {
 
     int num_bands = vw::get_num_channels(opt.image_file);
     if (num_bands != 1) 
-      vw_throw( ArgumentErr() << "Unsupported image with " << num_bands
-                << " bands. Use gdal_translate to pick the desired band.\n\n");
+      vw_throw(ArgumentErr() << "Unsupported image with " << num_bands
+               << " bands. Use gdal_translate to pick the desired band.\n\n");
     
     DiskImageView<float> input_img(opt.image_file);
     if (input_img.planes() != 1) 
-      vw_throw( ArgumentErr() << "Only single-band images are supported. "
-                << "For multispectral data, please extract first the desired "
-                << "band using gdal_translate per the documentation.\n");
+      vw_throw(ArgumentErr() << "Only single-band images are supported. "
+               << "For multispectral data, please extract first the desired "
+               << "band using gdal_translate per the documentation.\n");
     
     bool has_nodata = false;
     double nodata = std::numeric_limits<double>::quiet_NaN();
     boost::shared_ptr<DiskImageResource> img_rsrc
-      ( new DiskImageResourceGDAL(opt.image_file) );
+      (new DiskImageResourceGDAL(opt.image_file));
     if (img_rsrc->has_nodata_read()){
       has_nodata = true;
       nodata = img_rsrc->nodata_read();
@@ -859,13 +859,13 @@ int main(int argc, char *argv[]) {
       // Per column correction
       
       if (band_id != "Multi" && (opt.dx == "" || opt.dy == "")) 
-        vw_throw( ArgumentErr() << "Per column corrections were not specified.\n" );
+        vw_throw(ArgumentErr() << "Per column corrections were not specified.\n");
       
       if (band_id == "Multi" && (opt.dx == "" || opt.dy == "")) {
         
         if (opt.band <= 0 || opt.band > 8) 
-          vw_throw( ArgumentErr() << "For multispectral images, the band must "
-                    << "be between 1 and 8.\n" );
+          vw_throw(ArgumentErr() << "For multispectral images, the band must "
+                   << "be between 1 and 8.\n");
         
         tdi = img.tdi_multi[opt.band - 1];
         parse_ms_correction_table(sat_id, opt.band, tdi, scan_dir,
@@ -943,7 +943,7 @@ int main(int argc, char *argv[]) {
                                  vw::round_and_clamp<int32>(nodata),
                                  opt, tpc);
     else
-      vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
+      vw_throw(NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
     
     
   } ASP_STANDARD_CATCHES;

@@ -119,8 +119,8 @@ Vector3 EpipolarLinePointMatcher::epipolar_line(Vector2 const& feature,
     Vector3 p1  = p0 + 10*cam_ip->pixel_to_vector(feature); // Extend the point below the datum
     Vector2 ep0 = cam_obj->point_to_pixel(p0); // Project the intersection and extension into the other camera
     Vector2 ep1 = cam_obj->point_to_pixel(p1);
-    Matrix<double> matrix( 2, 3 );
-    select_col( matrix, 2 ) = Vector2(1,1);
+    Matrix<double> matrix(2, 3);
+    select_col(matrix, 2) = Vector2(1,1);
     matrix(0,0) = ep0.x();
     matrix(0,1) = ep0.y();
     matrix(1,0) = ep1.x();
@@ -158,7 +158,7 @@ Vector3 EpipolarLinePointMatcher::epipolar_line(Vector2 const& feature,
 // TODO(oalexan1): Use std::abs() instead of fabs(). May change the result.
 double EpipolarLinePointMatcher::distance_point_line(Vector3 const& line,
                                                      Vector2 const& point) {
-  return fabs(line.x() * point.x() + line.y() * point.y() + line.z() ) /
+  return fabs(line.x() * point.x() + line.y() * point.y() + line.z()) /
     norm_2(subvector(line, 0, 2));
 }
 
@@ -192,7 +192,7 @@ public:
     m_use_uchar_tree(use_uchar_tree), m_tree_float(tree_float), m_tree_uchar(tree_uchar),
     m_start(start), m_end(end), m_ip_other(ip2),
     m_cam1(cam1), m_cam2(cam2),
-    m_matcher( matcher), m_camera_mutex(camera_mutex), m_output(output) {}
+    m_matcher(matcher), m_camera_mutex(camera_mutex), m_output(output) {}
 
   void operator()() {
 
@@ -209,10 +209,10 @@ public:
       if (m_single_threaded_camera) {
         // ISIS camera is single-threaded
         Mutex::Lock lock(m_camera_mutex);
-        line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, 
+        line_eq = m_matcher.epipolar_line(ip_org_coord, m_matcher.m_datum, 
           m_cam1, m_cam2, found_epipolar);
       }else{
-        line_eq = m_matcher.epipolar_line( ip_org_coord, m_matcher.m_datum, 
+        line_eq = m_matcher.epipolar_line(ip_org_coord, m_matcher.m_datum, 
           m_cam1, m_cam2, found_epipolar);
       }
 
@@ -252,13 +252,13 @@ public:
       const double EPIPOLAR_BAND_EXPANSION = 200;
       double small_epipolar_threshold = m_matcher.m_epipolar_threshold;
       double large_epipolar_threshold = small_epipolar_threshold + EPIPOLAR_BAND_EXPANSION;
-      for ( size_t i = 0; i < num_matches_valid; i++ ) {
+      for (size_t i = 0; i < num_matches_valid; i++) {
         auto ip2_it = m_ip_other.begin();
-        std::advance( ip2_it, indices[i] );
+        std::advance(ip2_it, indices[i]);
 
         if (found_epipolar){
-          Vector2 ip2_org_coord = Vector2( ip2_it->x, ip2_it->y );
-          double  line_distance = m_matcher.distance_point_line( line_eq, ip2_org_coord );
+          Vector2 ip2_org_coord = Vector2(ip2_it->x, ip2_it->y);
+          double  line_distance = m_matcher.distance_point_line(line_eq, ip2_org_coord);
           if (line_distance < large_epipolar_threshold) {
             if (line_distance < small_epipolar_threshold)
               kept_indices.push_back(std::pair<float,int>(distances[i], indices[i]));
@@ -351,7 +351,7 @@ void EpipolarLinePointMatcher::operator()(vw::InterestPointList const& ip1,
                                            start_it, end_it,
                                            ip2, cam1, cam2, *this,
                                            camera_mutex, output_it));
-    matching_queue.add_task( match_task );
+    matching_queue.add_task(match_task);
     start_it = end_it;
     std::advance(output_it, ip1_size / number_of_jobs);
   }
@@ -1044,7 +1044,7 @@ bool match_ip_with_datum(bool single_threaded_camera,
     // We will use the homography matrix from left to right ip, stored in matrix2.
     // It is expected that matrix1 is the identity matrix.
     if (matrix1 != vw::math::identity_matrix<3>())
-      vw::vw_throw( ArgumentErr() << "Expecting identity matrix for left image alignment.\n");
+      vw::vw_throw(ArgumentErr() << "Expecting identity matrix for left image alignment.\n");
 
     match_per_tile = true;
     align_matrix = matrix2; // use the homography matrix
@@ -1129,7 +1129,7 @@ void match_ip_no_datum(vw::InterestPointList const& ip1,
     // We will use the homography matrix from left to right ip, stored in matrix2.
     // It is expected that matrix1 is the identity matrix.
     if (matrix1 != vw::math::identity_matrix<3>())
-      vw::vw_throw( ArgumentErr() << "Expecting identity matrix for left image alignment.\n");
+      vw::vw_throw(ArgumentErr() << "Expecting identity matrix for left image alignment.\n");
     vw::Matrix<double> align_matrix = matrix2; 
 
     // Initialize some quantities that won't be used but are part of the API.

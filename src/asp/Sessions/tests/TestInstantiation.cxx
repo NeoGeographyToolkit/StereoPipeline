@@ -49,9 +49,9 @@ typedef ::testing::Types<StereoSessionDG, StereoSessionDGMapRPC, StereoSessionRP
                          StereoSessionIsis,
 #endif
                          StereoSessionPinhole, StereoSessionNadirPinhole> SessionTypes;
-TYPED_TEST_CASE( InstantiationTest, SessionTypes );
+TYPED_TEST_CASE(InstantiationTest, SessionTypes);
 
-TYPED_TEST( InstantiationTest, Typedefs ) {
+TYPED_TEST(InstantiationTest, Typedefs) {
   try {
     // Verify object for left transform
     vw::TransformPtr left_tx =
@@ -59,33 +59,33 @@ TYPED_TEST( InstantiationTest, Typedefs ) {
     // Verify object for right transform
     vw::TransformPtr right_tx =
       this->session.tx_right();
-  } catch ( const vw::Exception& e ) {}
+  } catch (const vw::Exception& e) {}
 }
 
-TEST( Instantiation, Names ) {
+TEST(Instantiation, Names) {
   std::vector<StereoSession*> sessions;
   vw::GdalWriteOptions opt;
-  sessions.push_back( StereoSessionDG::construct() );
-  sessions.push_back( StereoSessionDGMapRPC::construct() );
-  sessions.push_back( StereoSessionRPC::construct() );
+  sessions.push_back(StereoSessionDG::construct());
+  sessions.push_back(StereoSessionDGMapRPC::construct());
+  sessions.push_back(StereoSessionRPC::construct());
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-  sessions.push_back( StereoSessionIsis::construct() );
+  sessions.push_back(StereoSessionIsis::construct());
 #endif
-  sessions.push_back( StereoSessionPinhole::construct() );
-  sessions.push_back( StereoSessionNadirPinhole::construct() );
+  sessions.push_back(StereoSessionPinhole::construct());
+  sessions.push_back(StereoSessionNadirPinhole::construct());
 
-  for ( size_t i = 0; i < sessions.size(); i++ ) {
-    EXPECT_TRUE( sessions[i] );
+  for (size_t i = 0; i < sessions.size(); i++) {
+    EXPECT_TRUE(sessions[i]);
   }
 
   std::set<std::string> names;
-  for ( size_t i = 0; i < sessions.size(); i++ ) {
-    EXPECT_EQ( names.end(), names.find( sessions[i]->name() ) );
-    names.insert( sessions[i]->name() );
+  for (size_t i = 0; i < sessions.size(); i++) {
+    EXPECT_EQ(names.end(), names.find(sessions[i]->name()));
+    names.insert(sessions[i]->name());
   }
-  EXPECT_EQ( names.size(), sessions.size() );
+  EXPECT_EQ(names.size(), sessions.size());
 
-  for ( size_t i = 0; i < sessions.size(); i++ ) {
+  for (size_t i = 0; i < sessions.size(); i++) {
     delete sessions[i];
   }
 }

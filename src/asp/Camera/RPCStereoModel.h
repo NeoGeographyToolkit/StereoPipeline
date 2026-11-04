@@ -56,7 +56,7 @@ namespace asp {
     
     // Note: This is a re-implementation of StereoModel::operator().
     virtual vw::Vector3 operator()(std::vector<vw::Vector2> const& pixVec,
-                                   vw::Vector3& errorVec ) const;
+                                   vw::Vector3& errorVec) const;
 
     virtual vw::Vector3 operator()(vw::Vector2 const& pix1,
                                    vw::Vector2 const& pix2,

@@ -53,14 +53,14 @@ struct Options : vw::GdalWriteOptions {
 };
 
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
     ("output-file,o",  po::value(&opt.out_file)->default_value(""),        "Specify the output file.")
     ("write-double,d", po::value(&opt.write_double)->default_value(false), "Write a double precision output file.");
 
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -73,18 +73,18 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   if (vm.count("input-files") == 0)
-    vw_throw( ArgumentErr() << "Missing input point clouds.\n"
-                            << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing input point clouds.\n"
+                           << usage << general_options);
   opt.pointcloud_files = vm["input-files"].as< std::vector<std::string> >();
 
   if (opt.out_file == "")
-    vw_throw( ArgumentErr() << "The output file must be specified!\n"
-              << usage << general_options );
+    vw_throw(ArgumentErr() << "The output file must be specified!\n"
+             << usage << general_options);
 
   vw::create_out_dir(opt.out_file);
 }
@@ -100,7 +100,7 @@ int check_num_channels(std::vector<std::string> const& pc_files){
   for (int i = 1; i < (int)pc_files.size(); ++i){
     int num_channels = get_num_channels(pc_files[i]);
     if (num_channels != target_num)
-      vw_throw( ArgumentErr() << "Input point clouds must all have the same number of channels!.\n" );
+      vw_throw(ArgumentErr() << "Input point clouds must all have the same number of channels!.\n");
   }
   return target_num;
 }
@@ -197,11 +197,11 @@ do_work(Vector3 const& shift, Options const& opt) {
 
 //-----------------------------------------------------------------------------------
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     // Determine the number of channels
     int num_channels = check_num_channels(opt.pointcloud_files);
@@ -218,7 +218,7 @@ int main( int argc, char *argv[] ) {
       case 3:  do_work<Vector3>(shift, opt); break;
       case 4:  do_work<Vector4>(shift, opt); break;
       case 6:  do_work<Vector6>(shift, opt); break;
-      default: vw_throw( ArgumentErr() << "Unsupported number of channels!.\n" );
+      default: vw_throw(ArgumentErr() << "Unsupported number of channels!.\n");
     }
 
   } ASP_STANDARD_CATCHES;

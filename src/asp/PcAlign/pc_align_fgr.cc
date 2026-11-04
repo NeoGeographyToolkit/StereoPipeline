@@ -51,7 +51,7 @@ void parse_fgr_options(std::string const & options,
 
   std::istringstream is(options);
   std::string name, val;
-  while( is >> name >> val){
+  while(is >> name >> val){
     if (name.find("div_factor") != std::string::npos)
       div_factor = atof(val.c_str());
     if (name.find("use_absolute_scale") != std::string::npos)
@@ -69,7 +69,7 @@ void parse_fgr_options(std::string const & options,
   // Sanity check
   if (div_factor <= 0 || max_corr_dist < 0 || iteration_number < 0 || tuple_scale <= 0 ||
       tuple_max_cnt <= 0) {
-    vw_throw( ArgumentErr() << "Could not parse correctly --fgr-options.");
+    vw_throw(ArgumentErr() << "Could not parse correctly --fgr-options.");
   }
 }
   
@@ -130,7 +130,7 @@ Eigen::MatrixXd fgr_alignment(DP const & source_point_cloud,
   // Export the transform
   Eigen::MatrixXd T = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
   if (T.cols() != S.cols() || T.rows() != S.rows()) 
-    vw_throw( LogicErr() << "Error: size mis-match in FGR.\n");
+    vw_throw(LogicErr() << "Error: size mis-match in FGR.\n");
   for (int row = 0; row < T.rows(); row++) {
     for (int col = 0; col < T.cols(); col++) {
       T(row, col) = S(row, col);

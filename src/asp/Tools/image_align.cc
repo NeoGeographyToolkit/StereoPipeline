@@ -494,13 +494,13 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // By default, use the same type on output as on input
   opt.output_data_type = input_data_type;
-  if      (opt.output_data_string == "uint8"  ) opt.output_data_type = VW_CHANNEL_UINT8;
-  else if (opt.output_data_string == "uint16" ) opt.output_data_type = VW_CHANNEL_UINT16;
-  else if (opt.output_data_string == "uint32" ) opt.output_data_type = VW_CHANNEL_UINT32;
+  if      (opt.output_data_string == "uint8") opt.output_data_type = VW_CHANNEL_UINT8;
+  else if (opt.output_data_string == "uint16") opt.output_data_type = VW_CHANNEL_UINT16;
+  else if (opt.output_data_string == "uint32") opt.output_data_type = VW_CHANNEL_UINT32;
   // GDAL does not support int8
   //else if (opt.output_data_string == "int8"   ) opt.output_data_type = VW_CHANNEL_INT8;
-  else if (opt.output_data_string == "int16"  ) opt.output_data_type = VW_CHANNEL_INT16;
-  else if (opt.output_data_string == "int32"  ) opt.output_data_type = VW_CHANNEL_INT32;
+  else if (opt.output_data_string == "int16") opt.output_data_type = VW_CHANNEL_INT16;
+  else if (opt.output_data_string == "int32") opt.output_data_type = VW_CHANNEL_INT32;
   else if (opt.output_data_string == "float32") opt.output_data_type = VW_CHANNEL_FLOAT32;
   else if (opt.output_data_string == "float64") opt.output_data_type = VW_CHANNEL_FLOAT64;
   else
@@ -525,14 +525,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // Write the aligned image with the specified output data type, casting and
 // clamping as needed. Integer types are rounded before clamping.
 #define WRITE_ALIGNED_INT(T)                                   \
-  vw::block_write_gdal_image(                     \
+  vw::block_write_gdal_image(\
     opt.output_image,                                          \
     per_pixel_filter(apply_mask(aligned_image2, nodata2),      \
                      vw::ClampRoundAndCastToInt<T, double>()), \
     has_georef2, georef2, has_nodata2, nodata2, opt, tpc)
 
 #define WRITE_ALIGNED_FLOAT(T)                                 \
-  vw::block_write_gdal_image(                     \
+  vw::block_write_gdal_image(\
     opt.output_image,                                          \
     per_pixel_filter(apply_mask(aligned_image2, nodata2),      \
                      vw::ClampAndCast<T, double>()),           \

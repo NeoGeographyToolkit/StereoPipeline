@@ -441,7 +441,7 @@ void ExtractSubmap(std::vector<std::string> const& images_to_keep,
   for (auto it = cid2cid.begin(); it != cid2cid.end(); it++) {
     auto it2 = it; it2++;
     if (it2 == cid2cid.end()) continue;
-    if (it->second + 1 != it2->second || cid2cid.begin()->second != 0 )
+    if (it->second + 1 != it2->second || cid2cid.begin()->second != 0)
       vw::vw_throw(vw::ArgumentErr()
                    << "Cannot extract a submap. Check if the images "
                    << "you want to keep are in the same order as in the original map.");

@@ -198,14 +198,14 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
       indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1);
     }
   } catch (...) {
-    vw_throw( ArgumentErr() << "Automatic alignment failed in the RANSAC fit.");
+    vw_throw(ArgumentErr() << "Automatic alignment failed in the RANSAC fit.");
   }
 
   // Keeping only inliers
   std::vector<vw::InterestPoint> inlier_ip1, inlier_ip2;
-  for ( size_t i = 0; i < indices.size(); i++ ) {
-    inlier_ip1.push_back( matched_ip1[indices[i]] );
-    inlier_ip2.push_back( matched_ip2[indices[i]] );
+  for (size_t i = 0; i < indices.size(); i++) {
+    inlier_ip1.push_back(matched_ip1[indices[i]]);
+    inlier_ip2.push_back(matched_ip2[indices[i]]);
   } 
 
   std::string match_file;
@@ -242,7 +242,7 @@ Matrix<double> compute_relative_transform(std::string const& image1,
   }
 
   if (roi1.empty() || roi2.empty())
-    vw_throw( ArgumentErr() << "Unrecognized image orientation!");
+    vw_throw(ArgumentErr() << "Unrecognized image orientation!");
 
   Matrix<double> tf;
   
@@ -402,9 +402,9 @@ public:
   inline int32 rows  () const { return m_output_image_size[1]; }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline result_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+  inline result_type operator()(double/*i*/, double/*j*/, int32/*p*/ = 0) const {
     vw_throw(NoImplErr() << "ImageMosaicView::operator()(...) is not implemented");
     return result_type();
   }
@@ -503,7 +503,7 @@ public:
     // Normalize output by the weight.
     for (int c = 0; c < bbox.width(); c++){
       for (int r = 0; r < bbox.height(); r++){
-        if ( weights(c, r) > 0 )
+        if (weights(c, r) > 0)
           tile(c, r) /= weights(c, r);
       } // End row loop
     } // End col loop
@@ -511,7 +511,7 @@ public:
     //write_image("tile_norm"+fix, tile);
     
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
   } // End function prerasterize
 
   template <class DestT>
@@ -588,14 +588,14 @@ void write_selected_image_type(ImageViewRef<float> const& out_img,
                                vw::round_and_clamp<int32>(output_nodata_value),
                                opt, tpc);
   else
-    vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
+    vw_throw(NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
   
 } // End function write_selected_image_type
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
   // Add the reverse option
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   general_options.add_options()
     ("orientation", po::value(&opt.orientation)->default_value("horizontal"),
      "Choose a supported image layout from [horizontal].")
@@ -644,31 +644,31 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
-  opt.has_input_nodata_value  = vm.count("input-nodata-value" );
+  opt.has_input_nodata_value  = vm.count("input-nodata-value");
   opt.has_output_nodata_value = vm.count("output-nodata-value");
 
-  if ( opt.image_files.empty() )
-    vw_throw( ArgumentErr() << "No images to mosaic.\n" << usage << general_options );
+  if (opt.image_files.empty())
+    vw_throw(ArgumentErr() << "No images to mosaic.\n" << usage << general_options);
 
-  if ( opt.output_image.empty() )
-    vw_throw( ArgumentErr() << "Missing output image name.\n" << usage << general_options );
+  if (opt.output_image.empty())
+    vw_throw(ArgumentErr() << "Missing output image name.\n" << usage << general_options);
 
-  if ( opt.blend_radius == 0 ) {
+  if (opt.blend_radius == 0) {
     opt.blend_radius = opt.overlap_width;
     vw_out() << "Using blend radius: " << opt.blend_radius << std::endl;
   }
 
   int check = 0; // Count the number of rotate options specified.
-  if (opt.rotate     ) ++check;
-  if (opt.rotate90   ) ++check;
+  if (opt.rotate) ++check;
+  if (opt.rotate90) ++check;
   if (opt.rotate90ccw) ++check;
   if (check > 1)
-    vw_throw( ArgumentErr() << "Cannot specify more than one rotate option.\n"
-                            << usage << general_options );
+    vw_throw(ArgumentErr() << "Cannot specify more than one rotate option.\n"
+                           << usage << general_options);
 
   // Reverse the order of files
   if (opt.reverse) {
@@ -687,14 +687,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   asp::log_to_file(argc, argv, "", opt.output_image);
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   
   try {
 
     // Find command line options
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     // Compute the transforms between all of the images on disk
     std::vector<boost::shared_ptr<vw::Transform> > transforms;

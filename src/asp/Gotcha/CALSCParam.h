@@ -39,4 +39,3 @@ public:
 } // end namespace gotcha
 
 #endif // ASP_GOTCHA_CALSCPARAM_H
-

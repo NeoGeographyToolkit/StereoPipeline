@@ -107,9 +107,9 @@ public:
   inline vw::int32 rows() const { return m_input_disp.rows(); }
   inline vw::int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double/*i*/, double/*j*/, vw::int32/*p*/ = 0 ) const {
+  inline pixel_type operator()(double/*i*/, double/*j*/, vw::int32/*p*/ = 0) const {
     vw::vw_throw(vw::NoImplErr() << "GotchaPerBlockView::operator()(...) is not implemented");
     return pixel_type();
   }

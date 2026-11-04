@@ -125,7 +125,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   positional.add_options()
     ("camera-image", po::value(&opt.image_file))
     ("camera-model", po::value(&opt.camera_file))
-    ("output-rpc" , po::value(&opt.output_rpc));
+    ("output-rpc", po::value(&opt.output_rpc));
 
   po::positional_options_description positional_desc;
   positional_desc.add("camera-image",1);

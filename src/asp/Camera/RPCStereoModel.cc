@@ -62,7 +62,7 @@ namespace asp {
 
         Vector2 pix = pixVec[p];
         if (pix != pix || // i.e., NaN
-            pix == vw::CameraModel::invalid_pixel() ) continue;
+            pix == vw::CameraModel::invalid_pixel()) continue;
 
         // The base class function would call point_and_dir twice, but we only need to call it once!
         Vector3 ctr, dir;
@@ -85,7 +85,7 @@ namespace asp {
       // Reflect points that fall behind one of the two cameras
       bool reflect = false;
       for (int p = 0; p < (int)camCtrs.size(); p++)
-        if (dot_prod(result - camCtrs[p], camDirs[p]) < 0 ) reflect = true;
+        if (dot_prod(result - camCtrs[p], camDirs[p]) < 0) reflect = true;
       if (reflect)
         result = -result + 2*camCtrs[0];
 
@@ -97,7 +97,7 @@ namespace asp {
 
   Vector3 RPCStereoModel::operator()(vw::Vector2 const& pix1,
                                      vw::Vector2 const& pix2,
-                                     double& error ) const {
+                                     double& error) const {
     return StereoModel::operator()(pix1, pix2, error);
   }
 

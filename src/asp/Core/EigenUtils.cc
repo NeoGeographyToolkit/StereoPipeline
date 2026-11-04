@@ -44,7 +44,7 @@ vw::Vector3 cartesian_to_geodetic_adj(vw::GeoReference const&
 
 void null_check(const char* token, std::string const& line){
   if (token == NULL)
-    vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
+    vw_throw(vw::IOErr() << "Failed to read line: " << line << "\n");
 }
 
 // Out of the elements 0, 1,..., n - 1, pick m unique
@@ -110,7 +110,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
 
   const std::int64_t bufSize = 1024;
   char temp[bufSize];
-  std::ifstream file( file_name.c_str() );
+  std::ifstream file(file_name.c_str());
   if (!file)
     vw_throw(vw::IOErr() << "Unable to open file: " << file_name << "\n");
 
@@ -121,7 +121,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
 
   // Peek at the first valid line and see how many elements it has
   std::string line;
-  while ( getline(file, line, '\n') ) {
+  while (getline(file, line, '\n')) {
     if (is_valid_csv_line(line))
       break;
   }
@@ -145,10 +145,10 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
   // TODO(oalexan1): We parse these guessed file types manually but we should
   // use a CsvConv object to do it!
 
-  if (is_lola_rdr_format && geo.datum().semi_major_axis() != geo.datum().semi_minor_axis() ){
-    vw_throw( vw::ArgumentErr() << "The CSV file was detected to be in the"
-              << " LOLA RDR format, yet the datum semi-axes are not equal "
-              << "as expected for the Moon.\n" );
+  if (is_lola_rdr_format && geo.datum().semi_major_axis() != geo.datum().semi_minor_axis()){
+    vw_throw(vw::ArgumentErr() << "The CSV file was detected to be in the"
+             << " LOLA RDR format, yet the datum semi-axes are not equal "
+             << "as expected for the Moon.\n");
   }
 
   bool shift_was_calc = false;
@@ -222,7 +222,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
       // Be prepared for the fact that the first line may be the header.
       if (ret != 3){
         if (!is_first_line){
-          vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
+          vw_throw(vw::IOErr() << "Failed to read line: " << line << "\n");
         }else{
           is_first_line = false;
           continue;
@@ -234,9 +234,9 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
       if (!lonlat_box.empty() && !lonlat_box.contains(vw::Vector2(lon, lat)))
         continue;
 
-      vw::Vector3 llh( lon, lat, height );
-      xyz = geo.datum().geodetic_to_cartesian( llh );
-      if ( xyz == vw::Vector3() || !(xyz == xyz) ) continue; // invalid and NaN check
+      vw::Vector3 llh(lon, lat, height);
+      xyz = geo.datum().geodetic_to_cartesian(llh);
+      if (xyz == vw::Vector3() || !(xyz == xyz)) continue; // invalid and NaN check
 
     }else{
 
@@ -253,7 +253,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
 
       std::int64_t ret = sscanf(token, "%lld-%lld-%lldT%lld:%lld:%lg", &year, &month, &day, &hour,
                        &min, &sec);
-      if( year <= 0 )
+      if(year <= 0)
         continue;
 
       token = strtok(NULL, sep); null_check(token, line);
@@ -273,7 +273,7 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
       // Be prepared for the fact that the first line may be the header.
       if (ret != 10){
         if (!is_first_line){
-          vw_throw( vw::IOErr() << "Failed to read line: " << line << "\n" );
+          vw_throw(vw::IOErr() << "Failed to read line: " << line << "\n");
         }else{
           is_first_line = false;
           continue;
@@ -288,10 +288,10 @@ std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_
       if (!lonlat_box.empty() && !lonlat_box.contains(vw::Vector2(lon, lat)))
         continue;
 
-      vw::Vector3 lonlatrad( lon, lat, 0 );
+      vw::Vector3 lonlatrad(lon, lat, 0);
 
-      xyz = geo.datum().geodetic_to_cartesian( lonlatrad );
-      if ( xyz == vw::Vector3() || !(xyz == xyz) )
+      xyz = geo.datum().geodetic_to_cartesian(lonlatrad);
+      if (xyz == vw::Vector3() || !(xyz == xyz))
         continue; // invalid and NaN check
 
       // Adjust the point so that it is at the right distance from
@@ -377,7 +377,7 @@ void load_dem_pixel_type(std::string const& file_name,
   data.conservativeResize(DIM+1, num_points_to_load);
 
   vw::GeoReference dem_geo;
-  bool has_georef = vw::read_georeference( dem_geo, file_name );
+  bool has_georef = vw::read_georeference(dem_geo, file_name);
   if (!has_georef)
     vw_throw(vw::ArgumentErr() << "DEM: " << file_name
                                << " does not have a georeference.\n");
@@ -385,7 +385,7 @@ void load_dem_pixel_type(std::string const& file_name,
   vw::DiskImageView<DemPixelType> dem(file_name);
   DemPixelType nodata = std::numeric_limits<DemPixelType>::quiet_NaN();
   {
-    boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
+    boost::shared_ptr<vw::DiskImageResource> dem_rsrc(new vw::DiskImageResourceGDAL(file_name));
     if (dem_rsrc->has_nodata_read())
       nodata = dem_rsrc->nodata_read();
   }
@@ -419,13 +419,13 @@ void load_dem_pixel_type(std::string const& file_name,
   std::int64_t points_count = 0;
 
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  double inc_amount = 1.0 / double(pix_box.width() );
+  double inc_amount = 1.0 / double(pix_box.width());
   if (verbose)
     tpc.report_progress(0);
 
-  for (std::int64_t i = pix_box.min().x(); i < pix_box.max().x(); i++ ) {
+  for (std::int64_t i = pix_box.min().x(); i < pix_box.max().x(); i++) {
 
-    for (std::int64_t j = pix_box.min().y(); j < pix_box.max().y(); j++ ) {
+    for (std::int64_t j = pix_box.min().y(); j < pix_box.max().y(); j++) {
       if (points_count >= num_points_to_load)
         break;
 
@@ -434,18 +434,18 @@ void load_dem_pixel_type(std::string const& file_name,
         continue;
 
       DemPixelType h = dem(i, j);
-      if ( h == nodata || std::isnan(h) || std::isinf(h) )
+      if (h == nodata || std::isnan(h) || std::isinf(h))
         continue;
       
-      vw::Vector2 lonlat = dem_geo.pixel_to_lonlat( vw::Vector2(i,j) );
+      vw::Vector2 lonlat = dem_geo.pixel_to_lonlat(vw::Vector2(i,j));
 
       // Skip points outside the given box
       if (!lonlat_box.empty() && !lonlat_box.contains(lonlat))
         continue;
 
-      vw::Vector3 llh( lonlat.x(), lonlat.y(), h );
-      vw::Vector3 xyz = dem_geo.datum().geodetic_to_cartesian( llh );
-      if ( xyz == vw::Vector3() || !(xyz == xyz) )
+      vw::Vector3 llh(lonlat.x(), lonlat.y(), h);
+      vw::Vector3 xyz = dem_geo.datum().geodetic_to_cartesian(llh);
+      if (xyz == vw::Vector3() || !(xyz == xyz))
         continue; // invalid and NaN check
 
       if (calc_shift && !shift_was_calc){
@@ -461,7 +461,7 @@ void load_dem_pixel_type(std::string const& file_name,
     } // end y loop
 
     if (verbose)
-      tpc.report_incremental_progress( inc_amount );
+      tpc.report_incremental_progress(inc_amount);
   } // end x loop
   if (verbose)
     tpc.report_finished();
@@ -476,7 +476,7 @@ void load_dem(std::string const& file_name,
               bool calc_shift, vw::Vector3 & shift,
               bool verbose, Eigen::MatrixXd & data){
 
-  boost::shared_ptr<vw::DiskImageResource> dem_rsrc( new vw::DiskImageResourceGDAL(file_name) );
+  boost::shared_ptr<vw::DiskImageResource> dem_rsrc(new vw::DiskImageResourceGDAL(file_name));
   vw::ImageFormat image_fmt = dem_rsrc->format();
   if (image_fmt.channel_type == vw::VW_CHANNEL_FLOAT64) {
     // We could have loaded this DEM as float, the difference in the
@@ -516,12 +516,12 @@ vw::int64 load_pc_aux(std::string const& file_name,
   vw::int64 points_count = 0;
 
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
-  double inc_amount = 1.0 / double(point_cloud.rows() );
+  double inc_amount = 1.0 / double(point_cloud.rows());
   if (verbose) tpc.report_progress(0);
 
-  for (std::int64_t j = 0; j < point_cloud.rows(); j++ ) {
+  for (std::int64_t j = 0; j < point_cloud.rows(); j++) {
 
-    for ( std::int64_t i = 0; i < point_cloud.cols(); i++ ) {
+    for (std::int64_t i = 0; i < point_cloud.cols(); i++) {
 
       if (points_count >= num_points_to_load)
         break;
@@ -531,7 +531,7 @@ vw::int64 load_pc_aux(std::string const& file_name,
         continue;
 
       vw::Vector3 xyz = point_cloud(i, j);
-      if ( xyz == vw::Vector3() || !(xyz == xyz) )
+      if (xyz == vw::Vector3() || !(xyz == xyz))
         continue; // invalid and NaN check
 
       if (calc_shift && !shift_was_calc){
@@ -542,7 +542,7 @@ vw::int64 load_pc_aux(std::string const& file_name,
       // Skip points outside the given box
       if (!lonlat_box.empty()){
         vw::Vector3 llh = geo.datum().cartesian_to_geodetic(xyz);
-        if ( !lonlat_box.contains(subvector(llh, 0, 2)))
+        if (!lonlat_box.contains(subvector(llh, 0, 2)))
           continue;
       }
 
@@ -552,7 +552,7 @@ vw::int64 load_pc_aux(std::string const& file_name,
 
       points_count++;
     }
-    if (verbose) tpc.report_incremental_progress( inc_amount );
+    if (verbose) tpc.report_incremental_progress(inc_amount);
   }
   if (verbose) tpc.report_finished();
 
@@ -596,7 +596,7 @@ void bestFitPlane(const std::vector<Eigen::Vector3d>& points, Eigen::Vector3d& c
   
   std::int64_t num_points = points.size();
   if (num_points < std::int64_t(3)) 
-    vw_throw( ArgumentErr() << "Need 3 points to fit a plane.\n");
+    vw_throw(ArgumentErr() << "Need 3 points to fit a plane.\n");
 
   // Copy coordinates to  matrix in Eigen format
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> coord(3, num_points);
@@ -652,7 +652,7 @@ void computeRigidTransform(const std::vector<Eigen::Vector3d>& src,
   Eigen::JacobiSVD<Eigen::MatrixXd> svd;
   Eigen::MatrixXd H_(3, 3);
   for (std::int64_t i=0; i<3; ++i) for (std::int64_t j=0; j<3; ++j) H_(i, j) = H(i, j);
-  svd.compute(H_, Eigen::ComputeThinU | Eigen::ComputeThinV );
+  svd.compute(H_, Eigen::ComputeThinU | Eigen::ComputeThinV);
   if (!svd.computeU() || !svd.computeV()) {
     // Nothing to do, return the identity transform
     return;
@@ -674,16 +674,16 @@ void read_transform(Eigen::MatrixXd & T, std::string const& transFile){
   for (std::int64_t row = 0; row < T.rows(); row++){
     for (std::int64_t col = 0; col < T.cols(); col++){
       double a;
-      if (! (is >> a) )
-        vw_throw( vw::IOErr() << "Failed to read initial transform from: "
-                  << transFile << "\n" );
+      if (! (is >> a))
+        vw_throw(vw::IOErr() << "Failed to read initial transform from: "
+                 << transFile << "\n");
       T(row, col) = a;
     }
   }
   
   if (T(3, 3) != 1) {
-    vw_throw( vw::ArgumentErr()
-              << "The transform must have a 1 in the lower-right corner.\n");
+    vw_throw(vw::ArgumentErr()
+             << "The transform must have a 1 in the lower-right corner.\n");
   }
   
 }
@@ -691,8 +691,8 @@ void read_transform(Eigen::MatrixXd & T, std::string const& transFile){
 /// Write a 4x4 rotation + translation + scale transform to disk.
 void write_transform(Eigen::MatrixXd const& T, std::string const& transFile){
   if (T(3, 3) != 1) {
-    vw_throw( vw::ArgumentErr()
-              << "The initial transform must have a 1 in the lower-right corner.\n");
+    vw_throw(vw::ArgumentErr()
+             << "The initial transform must have a 1 in the lower-right corner.\n");
   }
 
   std::ofstream tf(transFile.c_str());

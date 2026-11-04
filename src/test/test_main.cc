@@ -81,8 +81,8 @@ int main(int argc, char **argv) {
   int ret = RUN_ALL_TESTS();
   fs::path end_dir = fs::current_path();
 
-  VW_ASSERT( fs::equivalent(start_dir, end_dir),
-             vw::LogicErr() << "Something changed the working directory");
+  VW_ASSERT(fs::equivalent(start_dir, end_dir),
+            vw::LogicErr() << "Something changed the working directory");
   return ret;
 }
 

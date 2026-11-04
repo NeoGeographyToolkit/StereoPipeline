@@ -100,8 +100,8 @@ static const char define_h_rcsid[] = "$Id: define.h 16072 2010-01-30 19:39:09Z b
 #define PI 3.141592653589793
 #endif
 
-#define radians(t) ( (t) * PI / 180.0)
-#define degrees(t) ( (t) * 180.0 / PI)
+#define radians(t) ((t) * PI / 180.0)
+#define degrees(t) ((t) * 180.0 / PI)
 
 #define nint(x) ((int)((x)+.5))
 
@@ -252,7 +252,7 @@ int4 get_record_length(int4 *value, int4 *svalue, FILE *infile) {
     /*  read past first record */	 
     fread((char *)value,sizeof(*value),nvar,infile); // Read again but length of that first integer into infile
 
-    return( nvar );
+    return(nvar);
 }
 
 
@@ -371,17 +371,17 @@ int main(int argc, char *argv[]) {
     // Had to make some edits here to accept more than one argument at once!
 
     if (argc < 2) {
-      fprintf(stderr, "%s version %g\n", argv[0], version );
-      fprintf( stderr, "Usage:  %s [-S/-C/-L/-F/-P] inputfile\n", argv[0] );
-      fprintf( stderr, "  Use -S to print shortened version (only LAT,LONG,ELEVATION,TIME)\n" );
-      fprintf( stderr, "  Use -C to print coordinates only (for generating .spatial files)\n" );
-      fprintf( stderr, "  Use -L to assume data is little-endian\n" );
-      fprintf( stderr, "  Use -F to print only first and last valid lines in short form\n" );
-      fprintf( stderr, "  Use -P to forceably print all lines, even if garbage (for debug)\n" );
-      fprintf( stderr, "  By default the program assumes the data are big-endian\n" );
-      fprintf( stderr, "  In either case, it tests the host architecture and will\n" );
-      fprintf( stderr, "  try to match the data to that endianness.\n" );
-      fprintf( stderr, "(Enter any key to exit)\n" );
+      fprintf(stderr, "%s version %g\n", argv[0], version);
+      fprintf(stderr, "Usage:  %s [-S/-C/-L/-F/-P] inputfile\n", argv[0]);
+      fprintf(stderr, "  Use -S to print shortened version (only LAT,LONG,ELEVATION,TIME)\n");
+      fprintf(stderr, "  Use -C to print coordinates only (for generating .spatial files)\n");
+      fprintf(stderr, "  Use -L to assume data is little-endian\n");
+      fprintf(stderr, "  Use -F to print only first and last valid lines in short form\n");
+      fprintf(stderr, "  Use -P to forceably print all lines, even if garbage (for debug)\n");
+      fprintf(stderr, "  By default the program assumes the data are big-endian\n");
+      fprintf(stderr, "  In either case, it tests the host architecture and will\n");
+      fprintf(stderr, "  try to match the data to that endianness.\n");
+      fprintf(stderr, "(Enter any key to exit)\n");
       getchar();
       exit(1);
     }
@@ -408,7 +408,7 @@ int main(int argc, char *argv[]) {
     
     strncpy(infilename, argv[file_index], MAX_NAME_LENGTH); // Dump first arg name into 1024 long c string
 
-    fprintf(stderr, "%s version %g\n", argv[0], version );
+    fprintf(stderr, "%s version %g\n", argv[0], version);
     fprintf(stderr, " Input file:  %s\n", infilename);
     fprintf(stderr, "This machine is %s endian.\n", endian[host_endianness]);
     fprintf(stderr, "Assuming data are %s endian.\n", endian[data_endianness]);

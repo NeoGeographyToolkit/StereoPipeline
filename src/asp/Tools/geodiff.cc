@@ -361,7 +361,7 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
 
   std::string output_file = opt.output_prefix + "-diff.csv";
   vw_out() << "Writing difference file: " << output_file << "\n";
-  std::ofstream outfile( output_file.c_str() );
+  std::ofstream outfile(output_file.c_str());
   outfile.precision(16);
   outfile << "# longitude,latitude, height diff (m)" << "\n";
   outfile << "# " << dem_georef.datum() << "\n"; // dem's datum

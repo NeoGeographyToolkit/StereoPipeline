@@ -191,8 +191,8 @@ void initRpcAsAffine(// Inputs
     / RPCModel::IMAGE_COORD_SIZE;
   
   if (numPts != numPts2) 
-    vw_throw( ArgumentErr() << "Error in " << __FILE__
-              << ". Number of inputs and outputs do not agree.\n");
+    vw_throw(ArgumentErr() << "Error in " << __FILE__
+             << ". Number of inputs and outputs do not agree.\n");
   std::vector<Vector<double, RPCModel::GEODETIC_COORD_SIZE+1>> in(numPts), out(numPts);
   for (int p = 0; p < numPts; p++) {
 
@@ -275,7 +275,7 @@ void gen_rpc(// Inputs
              RPCModel::CoeffVec & samp_den) {
 
   VW_ASSERT(penalty_weight >= 0, 
-            ArgumentErr() << "The RPC penalty weight must be non-negative.\n" );
+            ArgumentErr() << "The RPC penalty weight must be non-negative.\n");
 
   // The percentage of the error that the penalty weights should represent
   double penalty_weight_fraction = penalty_weight;

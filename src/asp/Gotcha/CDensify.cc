@@ -75,7 +75,7 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
     ///////////////////////////////////////////
     // validate the input images
     ///////////////////////////////////////////
-    if ( m_imgL.data == NULL || m_imgR.data == NULL)
+    if (m_imgL.data == NULL || m_imgR.data == NULL)
         return CDensifyParam::FILE_IO_ERR;
 
 #if 0
@@ -112,7 +112,7 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
 
         double dYLimit = 100;
         vector<CTiePt>::iterator iter;
-        for (iter = m_vectpAdded.begin(); iter < m_vectpAdded.end(); ){
+        for (iter = m_vectpAdded.begin(); iter < m_vectpAdded.end();){
             double dy = iter->m_ptL.y - iter->m_ptR.y;
             dy = sqrt(dy*dy);
             if (dy > dYLimit)
@@ -147,7 +147,7 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
 
         double dYLimit = 100; //IMARS
         vector<CTiePt>::iterator iter;
-        for (iter = m_vectpAdded.begin(); iter < m_vectpAdded.end(); ){
+        for (iter = m_vectpAdded.begin(); iter < m_vectpAdded.end();){
             double dy = iter->m_ptL.y - iter->m_ptR.y;
             dy = sqrt(dy*dy);
             if (dy > dYLimit)
@@ -661,7 +661,7 @@ bool CDensify::isHavingTP(vector<CTiePt>& vecNeiTp, CTiePt tp){
 void CDensify::removeOutsideImage(vector<CTiePt>& vecNeiTp, const Rect_<float> rectTileL, const Rect_<float> rectImgR){
     vector<CTiePt>::iterator iter;
 
-    for (iter = vecNeiTp.begin(); iter < vecNeiTp.end(); ){
+    for (iter = vecNeiTp.begin(); iter < vecNeiTp.end();){
 
         if (!rectTileL.contains(iter->m_ptL) || !rectImgR.contains(iter->m_ptR))
             vecNeiTp.erase(iter);
@@ -674,7 +674,7 @@ void CDensify::removeOutsideImage(vector<CTiePt>& vecNeiTp, const Rect_<float> r
 void CDensify::removePtInLUT(vector<CTiePt>& vecNeiTp, const vector<bool>& pLUT, const int nWidth){
     vector<CTiePt>::iterator iter;
 
-    for (iter = vecNeiTp.begin(); iter < vecNeiTp.end(); ){        
+    for (iter = vecNeiTp.begin(); iter < vecNeiTp.end();){        
         int nX = (int)floor(iter->m_ptL.x);
         int nY = (int)floor(iter->m_ptL.y);
         //int nIdx = nY * m_imgL.cols + nX;
@@ -690,7 +690,7 @@ void CDensify::removePtInLUT(vector<CTiePt>& vecNeiTp, const vector<bool>& pLUT,
 void CDensify::makeTiles(vector< Rect_<float> >& vecRectTiles, int nMin){
 
     vector< Rect_<float> >::iterator iter;
-    for (iter = vecRectTiles.begin(); iter < vecRectTiles.end(); ){
+    for (iter = vecRectTiles.begin(); iter < vecRectTiles.end();){
         Rect_<float> rectParent = *iter;
         if (rectParent.width/2 > nMin && rectParent.height/2 > nMin){
             vecRectTiles.erase(iter);
@@ -889,7 +889,7 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
             const vector<CTiePt>* pvecRefTPtemp = alsc.getRefinedTps();
 
             int nLen = pvecRefTPtemp->size();
-            if( nLen > 0){
+            if(nLen > 0){
                 // append survived neighbours to the seed point list and the seed LUT
                 // vector<CRefinedTP>::iterator iterNei;
                 for (int i = 0 ; i < nLen; i++){
@@ -1035,7 +1035,7 @@ bool CDensify::doPGotcha(int nNeiType){
         }
 
         vector<CTiePt> seedIn;
-        seedIn.insert(seedIn.end(), vecSeedTemp.begin(), vecSeedTemp.end() );
+        seedIn.insert(seedIn.end(), vecSeedTemp.begin(), vecSeedTemp.end());
         seedIn.insert(seedIn.end(), vecAddedTemp.begin(), vecAddedTemp.end());
         vecSeedTemp.clear();
 

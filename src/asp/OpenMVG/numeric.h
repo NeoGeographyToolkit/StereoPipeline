@@ -179,7 +179,7 @@ using sRMat = Eigen::SparseMatrix<double, Eigen::RowMajor>;
 * @return square of x
 */
 template<typename T>
-inline T Square( T x )
+inline T Square(T x)
 {
   return x * x;
 }
@@ -195,9 +195,9 @@ inline T Square( T x )
 * @note Assuming range form a valid range (ie: min <= max )
 */
 template<typename T>
-inline T clamp( const T & val, const T& min, const T & max )
+inline T clamp(const T & val, const T& min, const T & max)
 {
-  return std::max( min, std::min( val, max ) );
+  return std::max(min, std::min(val, max));
   //(val < min) ? val : ((val>max) ? val : max);
 }
 
@@ -213,7 +213,7 @@ inline T clamp( const T & val, const T& min, const T & max )
 * @param x Input vector
 * @return Cross product matrix of a input vector
 */
-Mat3 CrossProductMatrix( const Vec3 &x );
+Mat3 CrossProductMatrix(const Vec3 &x);
 
 
 /**
@@ -221,7 +221,7 @@ Mat3 CrossProductMatrix( const Vec3 &x );
 * @param angle Angle of rotation in radian
 * @return Rotation matrix of given magnitude
 */
-Mat3 RotationAroundX( double angle );
+Mat3 RotationAroundX(double angle);
 
 
 /**
@@ -229,7 +229,7 @@ Mat3 RotationAroundX( double angle );
 * @param angle Angle of rotation in radian
 * @return Rotation matrix of given magnitude
 */
-Mat3 RotationAroundY( double angle );
+Mat3 RotationAroundY(double angle);
 
 
 /**
@@ -237,7 +237,7 @@ Mat3 RotationAroundY( double angle );
 * @param angle Angle sof rotation in radian
 * @return Rotation matrix of given magnitude
 */
-Mat3 RotationAroundZ( double angle );
+Mat3 RotationAroundZ(double angle);
 
 
 /**
@@ -246,7 +246,7 @@ Mat3 RotationAroundZ( double angle );
 * @return Same angle in radian
 * @note Assuming input angle is in range [0;360]
 */
-inline double D2R( double degree )
+inline double D2R(double degree)
 {
   return degree * M_PI / 180.0;
 }
@@ -258,7 +258,7 @@ inline double D2R( double degree )
 * @return Same angle in degree
 * @note Assuming input angle in range [0;2Pi]
 */
-inline double R2D( double radian )
+inline double R2D(double radian)
 {
   return radian / M_PI * 180.0;
 }
@@ -270,7 +270,7 @@ inline double R2D( double radian )
 * @note Assuming R2 is a correct rotation matrix
 * @note Mean is computed using the matrix column dot products to an Identity matrix
 */
-double  getRotationMagnitude( const Mat3 & R2 );
+double  getRotationMagnitude(const Mat3 & R2);
 
 /**
 * @brief Gives an indication of the sign of the input value
@@ -278,7 +278,7 @@ double  getRotationMagnitude( const Mat3 & R2 );
 * @retval 1.0 if value is nul or positive
 * @retval -1.0 if value is negative
 */
-inline double SIGN( double x )
+inline double SIGN(double x)
 {
   return x < 0.0 ? -1.0 : 1.0;
 }
@@ -290,7 +290,7 @@ inline double SIGN( double x )
 * @return L infinity norm of input vector
 */
 template<typename TVec>
-inline double NormLInfinity( const TVec &x )
+inline double NormLInfinity(const TVec &x)
 {
   return x.array().abs().maxCoeff();
 }
@@ -302,9 +302,9 @@ inline double NormLInfinity( const TVec &x )
 * @return distance between input vectors using L infinity norm
 */
 template<typename TVec>
-inline double DistanceLInfinity( const TVec &x, const TVec &y )
+inline double DistanceLInfinity(const TVec &x, const TVec &y)
 {
-  return NormLInfinity( x - y );
+  return NormLInfinity(x - y);
 }
 
 /**
@@ -323,20 +323,20 @@ inline double DistanceLInfinity( const TVec &x, const TVec &y )
 * @note Input vector nullspace may be resized to store the full result
 */
 template <typename TMat, typename TVec>
-double Nullspace( TMat *A, TVec *nullspace )
+double Nullspace(TMat *A, TVec *nullspace)
 {
-  if ( A->rows() >= A->cols() )
+  if (A->rows() >= A->cols())
   {
-    Eigen::JacobiSVD<TMat> svd( *A, Eigen::ComputeFullV );
-    ( *nullspace ) = svd.matrixV().col( A->cols() - 1 );
-    return svd.singularValues()( A->cols() - 1 );
+    Eigen::JacobiSVD<TMat> svd(*A, Eigen::ComputeFullV);
+    (*nullspace) = svd.matrixV().col(A->cols() - 1);
+    return svd.singularValues()(A->cols() - 1);
   }
   // Extend A with rows of zeros to make it square. It's a hack, but is
   // necessary until Eigen supports SVD with more columns than rows.
-  TMat A_extended( A->cols(), A->cols() );
-  A_extended.block( A->rows(), 0, A->cols() - A->rows(), A->cols() ).setZero();
-  A_extended.block( 0, 0, A->rows(), A->cols() ) = ( *A );
-  return Nullspace( &A_extended, nullspace );
+  TMat A_extended(A->cols(), A->cols());
+  A_extended.block(A->rows(), 0, A->cols() - A->rows(), A->cols()).setZero();
+  A_extended.block(0, 0, A->rows(), A->cols()) = (*A);
+  return Nullspace(&A_extended, nullspace);
 }
 
 /**
@@ -356,22 +356,22 @@ double Nullspace( TMat *A, TVec *nullspace )
 * @note Input vector nullspace may be resized to store the full result
 */
 template <typename TMat, typename TVec1, typename TVec2>
-inline double Nullspace2( TMat *A, TVec1 *x1, TVec2 *x2 )
+inline double Nullspace2(TMat *A, TVec1 *x1, TVec2 *x2)
 {
-  if ( A->rows() >= A->cols() )
+  if (A->rows() >= A->cols())
   {
-    Eigen::JacobiSVD<TMat> svd( *A, Eigen::ComputeFullV );
+    Eigen::JacobiSVD<TMat> svd(*A, Eigen::ComputeFullV);
     TMat V = svd.matrixV();
-    *x1 = V.col( A->cols() - 1 );
-    *x2 = V.col( A->cols() - 2 );
-    return svd.singularValues()( A->cols() - 1 );
+    *x1 = V.col(A->cols() - 1);
+    *x2 = V.col(A->cols() - 2);
+    return svd.singularValues()(A->cols() - 1);
   }
   // Extend A with rows of zeros to make it square. It's a hack, but is
   // necessary until Eigen supports SVD with more columns than rows.
-  TMat A_extended( A->cols(), A->cols() );
-  A_extended.block( A->rows(), 0, A->cols() - A->rows(), A->cols() ).setZero();
-  A_extended.block( 0, 0, A->rows(), A->cols() ) = ( *A );
-  return Nullspace2( &A_extended, x1, x2 );
+  TMat A_extended(A->cols(), A->cols());
+  A_extended.block(A->rows(), 0, A->cols() - A->rows(), A->cols()).setZero();
+  A_extended.block(0, 0, A->rows(), A->cols()) = (*A);
+  return Nullspace2(&A_extended, x1, x2);
 }
 
 
@@ -383,7 +383,7 @@ inline double Nullspace2( TMat *A, TVec1 *x1, TVec2 *x2 )
 * @param up Desired up vector (y-axis)
 * @return Rotation matrix
 */
-Mat3 LookAt( const Vec3 &center, const Vec3 & up = Vec3::UnitY() );
+Mat3 LookAt(const Vec3 &center, const Vec3 & up = Vec3::UnitY());
 
 
 /**
@@ -393,9 +393,9 @@ Mat3 LookAt( const Vec3 &center, const Vec3 & up = Vec3::UnitY() );
 * @param upVector3D Desired up vector (y-axis)
 * @return Rotation matrix conforming the given parameters
 */
-Mat3 LookAt2( const Vec3 &eyePosition3D,
-              const Vec3 &center3D = Vec3::Zero(),
-              const Vec3 &upVector3D = Vec3::UnitY() );
+Mat3 LookAt2(const Vec3 &eyePosition3D,
+             const Vec3 &center3D = Vec3::Zero(),
+             const Vec3 &upVector3D = Vec3::UnitY());
 
 #define SUM_OR_DYNAMIC(x,y) (x==Eigen::Dynamic||y==Eigen::Dynamic)?Eigen::Dynamic:(x+y)
 
@@ -406,10 +406,10 @@ struct hstack_return
   enum
   {
     RowsAtCompileTime = Derived1::RowsAtCompileTime,
-    ColsAtCompileTime = SUM_OR_DYNAMIC( Derived1::ColsAtCompileTime, Derived2::ColsAtCompileTime ),
+    ColsAtCompileTime = SUM_OR_DYNAMIC(Derived1::ColsAtCompileTime, Derived2::ColsAtCompileTime),
     Options = Derived1::Flags & Eigen::RowMajorBit ? Eigen::RowMajor : 0,
     MaxRowsAtCompileTime = Derived1::MaxRowsAtCompileTime,
-    MaxColsAtCompileTime = SUM_OR_DYNAMIC( Derived1::MaxColsAtCompileTime, Derived2::MaxColsAtCompileTime )
+    MaxColsAtCompileTime = SUM_OR_DYNAMIC(Derived1::MaxColsAtCompileTime, Derived2::MaxColsAtCompileTime)
   };
   using type =
     Eigen::Matrix<
@@ -423,10 +423,10 @@ struct hstack_return
 
 template<typename Derived1, typename Derived2>
 typename hstack_return<Derived1, Derived2>::type
-HStack ( const Eigen::MatrixBase<Derived1>& lhs, const Eigen::MatrixBase<Derived2>& rhs )
+HStack (const Eigen::MatrixBase<Derived1>& lhs, const Eigen::MatrixBase<Derived2>& rhs)
 {
   typename hstack_return<Derived1, Derived2>::type res;
-  res.resize( lhs.rows(), lhs.cols() + rhs.cols() );
+  res.resize(lhs.rows(), lhs.cols() + rhs.cols());
   res << lhs, rhs;
   return res;
 }
@@ -438,10 +438,10 @@ struct vstack_return
   using Scalar =  typename Derived1::Scalar;
   enum
   {
-    RowsAtCompileTime = SUM_OR_DYNAMIC( Derived1::RowsAtCompileTime, Derived2::RowsAtCompileTime ),
+    RowsAtCompileTime = SUM_OR_DYNAMIC(Derived1::RowsAtCompileTime, Derived2::RowsAtCompileTime),
     ColsAtCompileTime = Derived1::ColsAtCompileTime,
     Options = Derived1::Flags & Eigen::RowMajorBit ? Eigen::RowMajor : 0,
-    MaxRowsAtCompileTime = SUM_OR_DYNAMIC( Derived1::MaxRowsAtCompileTime, Derived2::MaxRowsAtCompileTime ),
+    MaxRowsAtCompileTime = SUM_OR_DYNAMIC(Derived1::MaxRowsAtCompileTime, Derived2::MaxRowsAtCompileTime),
     MaxColsAtCompileTime = Derived1::MaxColsAtCompileTime
   };
   using type = 
@@ -456,10 +456,10 @@ struct vstack_return
 
 template<typename Derived1, typename Derived2>
 typename vstack_return<Derived1, Derived2>::type
-VStack ( const Eigen::MatrixBase<Derived1>& lhs, const Eigen::MatrixBase<Derived2>& rhs )
+VStack (const Eigen::MatrixBase<Derived1>& lhs, const Eigen::MatrixBase<Derived2>& rhs)
 {
   typename vstack_return<Derived1, Derived2>::type res;
-  res.resize( lhs.rows() + rhs.rows(), lhs.cols() );
+  res.resize(lhs.rows() + rhs.rows(), lhs.cols());
   res << lhs, rhs;
   return res;
 }
@@ -472,9 +472,9 @@ VStack ( const Eigen::MatrixBase<Derived1>& lhs, const Eigen::MatrixBase<Derived
 * @return Frobenius norm of given matrix
 */
 template<typename TMat>
-inline double FrobeniusNorm( const TMat &A )
+inline double FrobeniusNorm(const TMat &A)
 {
-  return sqrt( A.array().abs2().sum() );
+  return sqrt(A.array().abs2().sum());
 }
 
 /**
@@ -484,9 +484,9 @@ inline double FrobeniusNorm( const TMat &A )
 * @return Distance between the input matrices given Frobenius norm
 */
 template<typename TMat>
-inline double FrobeniusDistance( const TMat &A, const TMat &B )
+inline double FrobeniusDistance(const TMat &A, const TMat &B)
 {
-  return FrobeniusNorm( A - B );
+  return FrobeniusNorm(A - B);
 }
 
 
@@ -498,10 +498,10 @@ inline double FrobeniusDistance( const TMat &A, const TMat &B )
 * @return cosine similarity mesure between the input matrices
 */
 template<class TMat>
-double CosinusBetweenMatrices( const TMat &a, const TMat &b )
+double CosinusBetweenMatrices(const TMat &a, const TMat &b)
 {
-  return ( a.array() * b.array() ).sum() /
-         FrobeniusNorm( a ) / FrobeniusNorm( b );
+  return (a.array() * b.array()).sum() /
+         FrobeniusNorm(a) / FrobeniusNorm(b);
 }
 
 /**
@@ -513,12 +513,12 @@ double CosinusBetweenMatrices( const TMat &a, const TMat &b )
 * @note Assuming columns contains a list of valid columns index
 */
 template <typename TMat, typename TCols>
-TMat ExtractColumns( const TMat &A, const TCols &columns )
+TMat ExtractColumns(const TMat &A, const TCols &columns)
 {
-  TMat compressed( A.rows(), columns.size() );
-  for ( size_t i = 0; i < static_cast<size_t>( columns.size() ); ++i )
+  TMat compressed(A.rows(), columns.size());
+  for (size_t i = 0; i < static_cast<size_t>(columns.size()); ++i)
   {
-    compressed.col( i ) = A.col( columns[i] );
+    compressed.col(i) = A.col(columns[i]);
   }
   return compressed;
 }
@@ -531,9 +531,9 @@ TMat ExtractColumns( const TMat &A, const TCols &columns )
 * @param[out] variance_pointer a pointer to a vector where variance values are stored
 * @note mean_pointer and variance_pointer vector may be resized to store all values
 */
-void MeanAndVarianceAlongRows( const Mat &A,
-                               Vec *mean_pointer,
-                               Vec *variance_pointer );
+void MeanAndVarianceAlongRows(const Mat &A,
+                              Vec *mean_pointer,
+                              Vec *variance_pointer);
 
 
 /**
@@ -544,8 +544,8 @@ void MeanAndVarianceAlongRows( const Mat &A,
 * @retval true if export is correct
 * @retval false if there was an error during export
 */
-bool exportMatToTextFile( const Mat & mat, const std::string & filename,
-                          const std::string & sPrefix = "A" );
+bool exportMatToTextFile(const Mat & mat, const std::string & filename,
+                         const std::string & sPrefix = "A");
 
 
 /**
@@ -554,12 +554,12 @@ bool exportMatToTextFile( const Mat & mat, const std::string & filename,
 * @retval 0 if input is not a finite one
 * @retval non-zero value if input is a finite one
 */
-inline int is_finite( const double val )
+inline int is_finite(const double val)
 {
 #ifdef _MSC_VER
-  return _finite( val );
+  return _finite(val);
 #else
-  return std::isfinite( val );
+  return std::isfinite(val);
 #endif
 }
 
@@ -575,20 +575,20 @@ inline int is_finite( const double val )
 * @return true if the statistical values can be estimated
 */
 template <typename Type, typename DataInputIterator>
-bool minMaxMeanMedian( DataInputIterator begin, DataInputIterator end,
-                       Type & min, Type & max, Type & mean, Type & median )
+bool minMaxMeanMedian(DataInputIterator begin, DataInputIterator end,
+                      Type & min, Type & max, Type & mean, Type & median)
 {
-  if( std::distance( begin, end ) < 1 )
+  if(std::distance(begin, end) < 1)
   {
     return false;
   }
 
-  std::vector<Type> vec_val( begin, end );
-  std::sort( vec_val.begin(), vec_val.end() );
+  std::vector<Type> vec_val(begin, end);
+  std::sort(vec_val.begin(), vec_val.end());
   min = vec_val[0];
   max = vec_val[vec_val.size() - 1];
-  mean = accumulate( vec_val.begin(), vec_val.end(), Type( 0 ) )
-         / static_cast<Type>( vec_val.size() );
+  mean = accumulate(vec_val.begin(), vec_val.end(), Type(0))
+         / static_cast<Type>(vec_val.size());
   median = vec_val[vec_val.size() / 2];
   return true;
 }
@@ -600,10 +600,10 @@ bool minMaxMeanMedian( DataInputIterator begin, DataInputIterator end,
 * @param end end of range
 */
 template <typename Type, typename DataInputIterator>
-void minMaxMeanMedian( DataInputIterator begin, DataInputIterator end )
+void minMaxMeanMedian(DataInputIterator begin, DataInputIterator end)
 {
   Type min, max, mean, median;
-  minMaxMeanMedian( begin, end, min, max, mean, median );
+  minMaxMeanMedian(begin, end, min, max, mean, median);
   std::cout << "\n"
             << "\t min: " << min << "\n"
             << "\t mean: " << mean << "\n"
@@ -625,25 +625,25 @@ void minMaxMeanMedian( DataInputIterator begin, DataInputIterator end )
  ** @param d_range Output splitted range
  **/
 template < typename T >
-void SplitRange( const T range_start , const T range_end , const int nb_split ,
-                 std::vector< T > & d_range )
+void SplitRange(const T range_start, const T range_end, const int nb_split,
+                std::vector< T > & d_range)
 {
   const T range_length = range_end - range_start ;
-  if( range_length < nb_split )
+  if(range_length < nb_split)
   {
-    d_range.push_back( range_start ) ;
-    d_range.push_back( range_end ) ;
+    d_range.push_back(range_start) ;
+    d_range.push_back(range_end) ;
   }
   else
   {
     const T delta_range = range_length / nb_split ;
 
-    d_range.push_back( range_start ) ;
-    for( int i = 1 ; i < nb_split ; ++i )
+    d_range.push_back(range_start) ;
+    for(int i = 1 ; i < nb_split ; ++i)
     {
-      d_range.push_back( range_start + i * delta_range ) ;
+      d_range.push_back(range_start + i * delta_range) ;
     }
-    d_range.push_back( range_end ) ;
+    d_range.push_back(range_end) ;
   }
 }
 

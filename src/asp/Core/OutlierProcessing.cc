@@ -124,7 +124,7 @@ public:
   
   ErrorRangeEstimAccum() { m_vals.clear(); }
   
-  void operator()( accum_type const& value ) {
+  void operator()(accum_type const& value) {
     // Don't add zero errors, those most likely came from invalid points
     if (value > 0)
       m_vals.push_back(value);
@@ -201,7 +201,7 @@ double estim_max_tri_error_and_proj_box(vw::ImageViewRef<vw::Vector3> const& pro
       for_each_pixel(subsample(error_image, sub_x, sub_y),
                     error_accum,
                     TerminalProgressCallback
-                    ("asp","Bounding box and triangulation error range estimation: ") );
+                    ("asp","Bounding box and triangulation error range estimation: "));
       if (error_accum.size() > 0)
         estim_max_error = error_accum.value(remove_outliers_params);
       else

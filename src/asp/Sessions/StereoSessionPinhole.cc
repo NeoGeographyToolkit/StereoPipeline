@@ -84,7 +84,7 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
   if (boost::ends_with(lcase_file, ".pinhole") || boost::ends_with(lcase_file, ".tsai")) {
     // Use PinholeModel epipolar code
 
-    PinholeModel left_pin (left_camera_file );
+    PinholeModel left_pin (left_camera_file);
     PinholeModel right_pin(right_camera_file);
 
     // Create epipolar rectified camera views
@@ -93,7 +93,7 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
     epipolar(left_pin,  right_pin, *epipolar_left_pin, *epipolar_right_pin);
 
     // Expand epipolar cameras to contain the entire source images.
-    Vector2i left_size  = file_image_size(left_image_file );
+    Vector2i left_size  = file_image_size(left_image_file);
     Vector2i right_size = file_image_size(right_image_file);
     Vector2i epi_size1, epi_size2; // TODO: Use these!
     resize_epipolar_cameras_to_fit(left_pin, right_pin,
@@ -115,7 +115,7 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
 
     // Fetch CAHV version of the two input pinhole files
     boost::shared_ptr<CAHVModel> left_cahv
-      = vw::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file );
+      = vw::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file);
     boost::shared_ptr<CAHVModel> right_cahv
       = vw::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
 
@@ -240,12 +240,12 @@ void StereoSessionPinhole::load_camera_models(
                    Vector2i &left_out_size, Vector2i &right_out_size) {
 
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
-  if ( (stereo_settings().alignment_method != "epipolar") ||
-       ( !boost::ends_with(lcase_file, ".pinhole") &&
-         !boost::ends_with(lcase_file, ".tsai"   )   ) ) {
+  if ((stereo_settings().alignment_method != "epipolar") ||
+      (!boost::ends_with(lcase_file, ".pinhole") &&
+        !boost::ends_with(lcase_file, ".tsai"))) {
     // Non-PinholeModel and non-epipolar case, just use the simpler handling method
     // and leave the sizes unset, they won't be used.
-    left_cam  = camera_model(m_left_image_file,  m_left_camera_file );
+    left_cam  = camera_model(m_left_image_file,  m_left_camera_file);
     right_cam = camera_model(m_right_image_file, m_right_camera_file);
     return;
   }
@@ -255,7 +255,7 @@ void StereoSessionPinhole::load_camera_models(
   // models have been shifted so that they are aligned after the crop
   // has been applied.
 
-  PinholeModel left_pin (m_left_camera_file );
+  PinholeModel left_pin (m_left_camera_file);
   PinholeModel right_pin(m_right_camera_file);
 
   // Create epipolar rectified camera views
@@ -358,7 +358,7 @@ void StereoSessionPinhole::pinhole_cam_trans(vw::TransformPtr & left_trans,
   PinModel* left_in_ptr = dynamic_cast<PinModel*>(&(*left_input_model));
   if (!left_in_ptr)
     vw_throw(NoImplErr() << "Detected CAHV-type cameras. Use an alignment "
-             << "method different than 'epipolar'.\n" );
+             << "method different than 'epipolar'.\n");
 
   // Set up transform objects
   left_trans.reset (new PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model)),

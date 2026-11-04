@@ -80,7 +80,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
              << usage << general_options);
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   

@@ -66,7 +66,7 @@ namespace vw {
 
     // Code copied from DiskImageResourceGDAL.cc, with some modifications,
     // to fix a crash in loading an ISIS .cub file with 4 bands.
-    if ( m_cube->bandCount() == 1) {
+    if (m_cube->bandCount() == 1) {
       m_format.pixel_format = VW_PIXEL_GRAY;
       m_format.planes = 1;
     } else if (m_cube->bandCount() == 2) {
@@ -132,7 +132,7 @@ namespace vw {
 
   // Write the given buffer into the disk image.
   void DiskImageResourceIsis::write(ImageBuffer const& /*src*/, BBox2i const& /*bbox*/) {
-    vw_throw ( NoImplErr() << "The Isis driver does not yet support creation of Isis files" );
+    vw_throw (NoImplErr() << "The Isis driver does not yet support creation of Isis files");
   }
 
   // A FileIO hook to open a file for reading

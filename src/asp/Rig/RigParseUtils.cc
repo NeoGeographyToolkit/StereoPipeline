@@ -477,8 +477,8 @@ void ParseHuginControlPoints(std::string const& hugin_file,
       char * ptr = const_cast<char*>(line.c_str());
       for (size_t i = 0; i < line.size(); i++) {
         // Wipe some extra chars
-        if ( (ptr[i] >= 'a' && ptr[i] <= 'z') ||
-             (ptr[i] >= 'A' && ptr[i] <= 'Z') )
+        if ((ptr[i] >= 'a' && ptr[i] <= 'z') ||
+            (ptr[i] >= 'A' && ptr[i] <= 'Z'))
           ptr[i] = ' ';
       }
 

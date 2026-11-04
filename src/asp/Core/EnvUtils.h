@@ -32,4 +32,3 @@ void set_asp_env_vars();
 } //end namespace asp
 
 #endif//__CORE_ENV_UTILS_H__
-

@@ -53,7 +53,7 @@ public:
   
   PercentileErrorAccum() { m_vals.clear(); }
   
-  void operator()( accum_type const& value ) {
+  void operator()(accum_type const& value) {
     // Don't add zero errors, those most likely came from invalid points
     if (value > 0)
       m_vals.push_back(value);
@@ -182,7 +182,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       "Do not attempt to read the georeference from the input point cloud.")
     ("help,h", "Display this help message");
   
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
 
   po::options_description positional("");
   positional.add_options()
@@ -216,21 +216,21 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   boost::to_lower(opt.reference_spheroid);
   boost::to_lower(opt.datum);
   if (opt.datum != "" && opt.reference_spheroid != "")
-    vw_throw( ArgumentErr() << "Both --datum and --reference-spheroid were specified.\n");
+    vw_throw(ArgumentErr() << "Both --datum and --reference-spheroid were specified.\n");
   if (opt.datum == "")
     opt.datum = opt.reference_spheroid;
 
   double pct = opt.outlier_removal_params[0], factor = opt.outlier_removal_params[1];
   if (pct <= 0.0 || pct > 100.0 || factor <= 0.0)
-    vw_throw( ArgumentErr() 
+    vw_throw(ArgumentErr() 
              << "Invalid values were provided for outlier removal parameters.\n");
 
   if (opt.max_valid_triangulation_error < 0.0) 
-    vw_throw( ArgumentErr() 
+    vw_throw(ArgumentErr() 
              << "The maximum valid triangulation error must be non-negative.\n");
 
   if (opt.num_samples <= 0) 
-    vw_throw( ArgumentErr() << "Must pick a positive number of samples.\n");
+    vw_throw(ArgumentErr() << "Must pick a positive number of samples.\n");
 
   // Create the output directory
   vw::create_out_dir(opt.out_prefix);

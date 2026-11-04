@@ -74,15 +74,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                             positional, positional_desc, usage,
                             allow_unregistered, unregistered);
   
-  if ( !vm.count("disparity") || !vm.count("dx") || !vm.count("dy") )
-    vw::vw_throw( vw::ArgumentErr() << "Not all inputs were specified.\n\n"
-                  << usage << general_options );
+  if (!vm.count("disparity") || !vm.count("dx") || !vm.count("dy"))
+    vw::vw_throw(vw::ArgumentErr() << "Not all inputs were specified.\n\n"
+                 << usage << general_options);
   
   // Create the directory in which the output image will be written.
   vw::create_out_dir(opt.dx);
 }
 
-int main( int argc, char *argv[] ){
+int main(int argc, char *argv[]){
 
   Options opt;
   try {

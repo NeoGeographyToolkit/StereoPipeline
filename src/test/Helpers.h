@@ -100,7 +100,7 @@ double value_diff(const vw::PixelMathBase<ElemT>& a, const vw::PixelMathBase<Ele
   BOOST_STATIC_ASSERT((boost::is_same<ElemT, Elem2T>::value));
   typedef typename CompoundChannelType<ElemT>::type channel_type;
   double acc = 0.0;
-  for( size_t c=0; c < PixelNumChannels<ElemT>::value; ++c ) {
+  for(size_t c=0; c < PixelNumChannels<ElemT>::value; ++c) {
     channel_type const& a_x = compound_select_channel<channel_type const&>(a.impl(),c);
     channel_type const& b_x = compound_select_channel<channel_type const&>(b.impl(),c);
     double diff = double(a_x) - double(b_x);
@@ -132,7 +132,7 @@ void mismatch_queue(InputIterator1 first1, InputIterator1 last1, InputIterator2 
                     std::queue<std::pair<InputIterator1, InputIterator2> >& answer,
                     const Pred& p)
 {
-  while ( first1!=last1 ) {
+  while (first1!=last1) {
     if (!p(*first1, *first2))
       answer.push(std::make_pair(first1, first2));
     ++first1; ++first2;
@@ -346,7 +346,7 @@ class _CheckNDRange {
     {
       SVec esize = size_helper(e), asize = size_helper(a);
 
-      if ( esize != asize )
+      if (esize != asize)
         return AssertionFailure() << "Cannot compare " << ename << " and " << aname << ": Different size: "
                                   << esize << " != " << asize;
 
@@ -406,10 +406,10 @@ _CheckNDRange<CmpT> check_nd_range(const CmpT& cmp) {
 #define ASSERT_VECTOR_NEAR(expect, actual, delta)\
   ASSERT_PRED_FORMAT2(t::check_range(t::CmpNear(#delta, delta)), expect, actual)
 
-#define EXPECT_TYPE_EQ( expect, actual )\
-  EXPECT_PRED_FORMAT2(t::check_one(t::CmpTypeEqual()), expect, actual )
-#define ASSERT_TYPE_EQ( expect, actual )\
-  ASSERT_PRED_FORMAT2(t::check_one(t::CmpTypeEqual()), expect, actual )
+#define EXPECT_TYPE_EQ(expect, actual)\
+  EXPECT_PRED_FORMAT2(t::check_one(t::CmpTypeEqual()), expect, actual)
+#define ASSERT_TYPE_EQ(expect, actual)\
+  ASSERT_PRED_FORMAT2(t::check_one(t::CmpTypeEqual()), expect, actual)
 
 #define EXPECT_PIXEL_NEAR(expect, actual, delta)\
   EXPECT_PRED_FORMAT2(t::check_one(t::CmpNear(#delta, delta)), expect, actual)

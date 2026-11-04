@@ -70,8 +70,8 @@ struct ImageData{
     // Read nodata-value from disk, if available. Overwrite with
     // user-provided nodata-value if given.
     DiskImageResourceGDAL in_rsrc(src_file);
-    if ( in_rsrc.has_nodata_read() ) nodata_value = in_rsrc.nodata_read();
-    if ( has_input_nodata_value    ) nodata_value = input_nodata_value;
+    if (in_rsrc.has_nodata_read()) nodata_value = in_rsrc.nodata_read();
+    if (has_input_nodata_value) nodata_value = input_nodata_value;
 
   }
 }; // End class ImageData
@@ -173,8 +173,8 @@ void parseImgData(std::string data, int band,
   double src_lenx, src_leny, dst_minx, dst_miny, dst_lenx, dst_leny;
   BBox2 src_box, dst_box;
   bool warned_about_bands = false;
-  while( is >> src_file >> src_lenx >> src_leny >> dst_minx >> dst_miny
-         >> dst_lenx >> dst_leny){
+  while(is >> src_file >> src_lenx >> src_leny >> dst_minx >> dst_miny
+        >> dst_lenx >> dst_leny){
     src_box = BBox2(0,        0,        src_lenx, src_leny);
     dst_box = BBox2(dst_minx, dst_miny, dst_lenx, dst_leny);
 
@@ -203,12 +203,12 @@ void parseImgData(std::string data, int band,
 
     for (int l = k - 1; l >= 0; l--){ // Go down all images before (below) this one
 
-      img_data[l].dst_box.max().y() = std::min( img_data[l].dst_box.max().y(),
-                                                img_data[k].dst_box.min().y() );
+      img_data[l].dst_box.max().y() = std::min(img_data[l].dst_box.max().y(),
+                                               img_data[k].dst_box.min().y());
 
       // Make sure min of box is <= max of box after the above adjustment.
-      img_data[l].dst_box.min().y() = std::min( img_data[l].dst_box.min().y(),
-                                                img_data[l].dst_box.max().y() );
+      img_data[l].dst_box.min().y() = std::min(img_data[l].dst_box.min().y(),
+                                               img_data[l].dst_box.max().y());
     }
 
     // Adjust the source box as well. Expand the box slightly before
@@ -258,9 +258,9 @@ public:
   inline int32 rows  () const { return m_dst_rows; }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double/*i*/, double/*j*/, int32/*p*/ = 0 ) const {
+  inline pixel_type operator()(double/*i*/, double/*j*/, int32/*p*/ = 0) const {
     vw_throw(NoImplErr() << "TifMosaicView::operator()(...) is not implemented");
     return pixel_type();
   }
@@ -298,8 +298,8 @@ public:
       box.crop(bounding_box(m_img_data[k].src_img));
       if (box.empty())
         continue;
-      src_vec[k] = ( box ); // Recording active area of the tile
-      box.expand( extra );  // Expanding to help interpolation
+      src_vec[k] = (box); // Recording active area of the tile
+      box.expand(extra);  // Expanding to help interpolation
       crop_vec[k] =
         InterpT(create_mask_less_or_equal
                 (crop(edge_extend(m_img_data[k].src_img, ConstantEdgeExtension()),
@@ -308,7 +308,7 @@ public:
     }
 
     ImageView<pixel_type> tile(bbox.width(), bbox.height());
-    fill( tile, m_output_nodata_value );
+    fill(tile, m_output_nodata_value);
 
     // TODO: Replace this code with the resample_aa function??
 
@@ -337,7 +337,7 @@ public:
           // we add back the 'extra' number used in expanding the image earlier.
           src_pix += elem_diff(extra, src_vec[k].min());
 
-          masked_pixel_type r = crop_vec[k](src_pix[0], src_pix[1] );
+          masked_pixel_type r = crop_vec[k](src_pix[0], src_pix[1]);
           if (is_valid(r)){
             tile(col, row) = r.child();
             break;
@@ -348,7 +348,7 @@ public:
     } // row iteration
 
     return prerasterize_type(tile, -bbox.min().x(), -bbox.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
   } // End function prerasterize
 
   template <class DestT>
@@ -367,9 +367,9 @@ struct Options : vw::GdalWriteOptions {
              output_nodata_value(std::numeric_limits<double>::quiet_NaN()){}
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
   po::options_description general_options("");
-  general_options.add( vw::GdalWriteOptionsDescription(opt) );
+  general_options.add(vw::GdalWriteOptionsDescription(opt));
   general_options.add_options()
     ("image-data", po::value(&opt.img_data)->default_value(""),
          "Information on the images to mosaic.")
@@ -392,32 +392,32 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
-  opt.has_input_nodata_value  = vm.count("input-nodata-value" );
+  opt.has_input_nodata_value  = vm.count("input-nodata-value");
   opt.has_output_nodata_value = vm.count("output-nodata-value");
 
-  if ( opt.img_data.empty() )
-    vw_throw( ArgumentErr() << "No images to mosaic.\n" << usage << general_options );
+  if (opt.img_data.empty())
+    vw_throw(ArgumentErr() << "No images to mosaic.\n" << usage << general_options);
 
-  if ( opt.output_image.empty() )
-    vw_throw( ArgumentErr() << "Missing output image name.\n" << usage << general_options );
+  if (opt.output_image.empty())
+    vw_throw(ArgumentErr() << "Missing output image name.\n" << usage << general_options);
 
-  if ( opt.percent > 100.0 || opt.percent <= 0.0 )
-    vw_throw( ArgumentErr() << "The percent amount must be between 0% and 100%.\n"
-                            << usage << general_options );
+  if (opt.percent > 100.0 || opt.percent <= 0.0)
+    vw_throw(ArgumentErr() << "The percent amount must be between 0% and 100%.\n"
+                           << usage << general_options);
 }
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
 
   try {
 
     // Find command line options
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     double scale = opt.percent/100.0;
 
@@ -427,8 +427,8 @@ int main( int argc, char *argv[] ) {
     parseImgData(opt.img_data, opt.band,
                  opt.has_input_nodata_value, opt.input_nodata_value,
                  opt.fix_seams, dst_cols, dst_rows, img_data);
-    if ( dst_cols <= 0 || dst_rows <= 0 || img_data.empty() )
-      vw_throw( ArgumentErr() << "Invalid input data.\n");
+    if (dst_cols <= 0 || dst_rows <= 0 || img_data.empty())
+      vw_throw(ArgumentErr() << "Invalid input data.\n");
 
     // We can handle individual images having different nodata
     // values. Pick the one of the first image as the output nodata
@@ -480,7 +480,7 @@ int main( int argc, char *argv[] ) {
                                  vw::round_and_clamp<int32>(output_nodata_value),
                                  opt, tpc);
     else
-      vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
+      vw_throw(NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n");
     
   } ASP_STANDARD_CATCHES;
   return 0;

@@ -67,7 +67,7 @@ public:
   float error_cutoff;
 };
 
-void handle_arguments( int argc, char *argv[], Options& opt ) {
+void handle_arguments(int argc, char *argv[], Options& opt) {
 
   po::options_description general_options("General Options");
   general_options.add_options()
@@ -84,12 +84,12 @@ void handle_arguments( int argc, char *argv[], Options& opt ) {
   bool allow_unregistered = false;
   std::vector<std::string> unregistered;
   po::variables_map vm =
-    asp::check_command_line( argc, argv, opt, general_options, general_options,
-                             positional, positional_desc, usage,
-                             allow_unregistered, unregistered );
+    asp::check_command_line(argc, argv, opt, general_options, general_options,
+                            positional, positional_desc, usage,
+                            allow_unregistered, unregistered);
 
   if (vm.count("input-prefix") == 0)
-    vw_throw( ArgumentErr() << "Missing input prefix.\n" << usage << general_options );
+    vw_throw(ArgumentErr() << "Missing input prefix.\n" << usage << general_options);
   opt.input_prefix = vm["input-prefix"].as<std::string>();
 
 }
@@ -138,11 +138,11 @@ public:
 
 //-----------------------------------------------------------------------------------
 
-int main( int argc, char *argv[] ) {
+int main(int argc, char *argv[]) {
 
   Options opt;
   try {
-    handle_arguments( argc, argv, opt );
+    handle_arguments(argc, argv, opt);
 
     // Find the two required input files
     std::string lmask_file = opt.input_prefix + "-lMask.tif";

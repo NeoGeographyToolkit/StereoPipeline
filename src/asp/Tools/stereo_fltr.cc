@@ -56,12 +56,12 @@ class TextureAwareDisparityFilter: public ImageViewBase<TextureAwareDisparityFil
   int   m_max_smooth_kernel_size; ///<         smooths more pixels, and the smooth_kernel_size increases the smoothing intensity.
   
 public:
-  TextureAwareDisparityFilter( ImageViewBase<ImageT    > const& img,
-                               ImageViewBase<DispImageT> const& disp_img,
-                               int   median_filter_size,
-                               int   texture_smooth_range,
-                               float texture_max,
-                               int   max_smooth_kernel_size):
+  TextureAwareDisparityFilter(ImageViewBase<ImageT    > const& img,
+                              ImageViewBase<DispImageT> const& disp_img,
+                              int   median_filter_size,
+                              int   texture_smooth_range,
+                              float texture_max,
+                              int   max_smooth_kernel_size):
     m_img(img.impl()), m_disp_img(disp_img.impl()),
     m_median_filter_size(median_filter_size),
     m_texture_smooth_range(texture_smooth_range),
@@ -78,9 +78,9 @@ public:
   inline int32 rows  () const { return m_disp_img.rows(); }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
+  inline pixel_type operator()(double /*i*/, double /*j*/, int32 /*p*/ = 0) const {
     vw_throw(NoImplErr() << "TextureAwareDisparityFilter::operator()(...) is not implemented");
     return pixel_type();
   }
@@ -117,7 +117,7 @@ public:
     // Fake the bounds on the returned image region
     return prerasterize_type(disp_tile_filtered,
                              -bbox2.min().x(), -bbox2.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
   }
 
   template <class DestT>
@@ -128,12 +128,12 @@ public:
 
 template <class ImageT, class DispImageT>
 TextureAwareDisparityFilter<ImageT, DispImageT>
-texture_aware_disparity_filter( ImageViewBase<ImageT    > const& img,
-                                ImageViewBase<DispImageT> const& disp_img,
-                                int   median_filter_size,
-                                int   texture_smooth_range,
-                                float texture_max,
-                                int   max_smooth_kernel_size) {
+texture_aware_disparity_filter(ImageViewBase<ImageT    > const& img,
+                               ImageViewBase<DispImageT> const& disp_img,
+                               int   median_filter_size,
+                               int   texture_smooth_range,
+                               float texture_max,
+                               int   max_smooth_kernel_size) {
   typedef TextureAwareDisparityFilter<ImageT, DispImageT> return_type;
   return return_type(img.impl(), disp_img.impl(), median_filter_size, 
                      texture_smooth_range, texture_max, max_smooth_kernel_size);
@@ -147,7 +147,7 @@ template <class ImageT>
 class PerTileErode: public ImageViewBase<PerTileErode<ImageT> >{
   ImageT m_img;
 public:
-  PerTileErode( ImageViewBase<ImageT>   const& img):
+  PerTileErode(ImageViewBase<ImageT>   const& img):
     m_img(img.impl()){}
 
   // Image View interface
@@ -159,9 +159,9 @@ public:
   inline int32 rows  () const { return m_img.rows(); }
   inline int32 planes() const { return 1; }
 
-  inline pixel_accessor origin() const { return pixel_accessor( *this, 0, 0 ); }
+  inline pixel_accessor origin() const { return pixel_accessor(*this, 0, 0); }
 
-  inline pixel_type operator()( double /*i*/, double /*j*/, int32 /*p*/ = 0 ) const {
+  inline pixel_type operator()(double /*i*/, double /*j*/, int32 /*p*/ = 0) const {
     vw_throw(NoImplErr() << "PerTileErode::operator()(...) is not implemented");
     return pixel_type();
   }
@@ -186,7 +186,7 @@ public:
                                                           smallBlobIndex);
     return prerasterize_type(clean_tile_img,
                              -bbox2.min().x(), -bbox2.min().y(),
-                             cols(), rows() );
+                             cols(), rows());
   }
 
   template <class DestT>
@@ -197,9 +197,9 @@ public:
 
 template <class ImageT>
 PerTileErode<ImageT>
-per_tile_erode( ImageViewBase<ImageT> const& img) {
+per_tile_erode(ImageViewBase<ImageT> const& img) {
   typedef PerTileErode<ImageT> return_type;
-  return return_type( img.impl() );
+  return return_type(img.impl());
 }
 
 // Run several cleanup passes with desired cleanup mode.
@@ -207,7 +207,7 @@ template <class ViewT>
 struct MultipleDisparityCleanUp {
   typedef ImageViewRef< typename ViewT::pixel_type > result_type;
 
-  inline result_type operator()( ImageViewBase<ViewT> const& input, int N) {
+  inline result_type operator()(ImageViewBase<ViewT> const& input, int N) {
 
     auto const& opts = asp::stereo_settings();
     result_type out = input;
@@ -228,8 +228,8 @@ struct MultipleDisparityCleanUp {
                                                  opts.rm_threshold,
                                                  opts.rm_min_matches/100.0);
       }else
-        vw_throw( ArgumentErr() << "\nExpecting value of 1 or 2 for filter-mode. "
-                  << "Got: " << mode << "\n" );
+        vw_throw(ArgumentErr() << "\nExpecting value of 1 or 2 for filter-mode. "
+                 << "Got: " << mode << "\n");
     }
 
     return out;
@@ -241,8 +241,8 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
                                    ASPGlobalOptions const& opt) {
   // Write Good Pixel Map
   // Sub-sampling so that the user can actually view it.
-  double sub_scale = double( std::min( inputview.impl().cols(),
-                                inputview.impl().rows() ) ) / 2048.0;
+  double sub_scale = double(std::min(inputview.impl().cols(),
+                                inputview.impl().rows())) / 2048.0;
   if (sub_scale < 1) // Don't use a sub_scale less than one.
     sub_scale = 1;
 
@@ -267,15 +267,15 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
   if (has_left_georef) {
     // Account for scale. Note that goodPixelImage is not guaranteed to respect
     // the sub_scale factor above, hence this calculation.
-    double good_pixel_scale = 0.5*( double(goodPixelImage.cols())/inputview.impl().cols()
-                                    + double(goodPixelImage.rows())/inputview.impl().rows());
+    double good_pixel_scale = 0.5*(double(goodPixelImage.cols())/inputview.impl().cols()
+                                   + double(goodPixelImage.rows())/inputview.impl().rows());
     good_pixel_georef = resample(left_georef, good_pixel_scale);
   }
 
   vw::block_write_gdal_image
-    ( goodPixelFile, goodPixelImage, has_left_georef, good_pixel_georef,
-      has_nodata, nodata,
-      opt, TerminalProgressCallback("asp", "\t--> Good pixel map: ") );
+    (goodPixelFile, goodPixelImage, has_left_georef, good_pixel_georef,
+     has_nodata, nodata,
+     opt, TerminalProgressCallback("asp", "\t--> Good pixel map: "));
 
   bool removeSmallBlobs = (stereo_settings().erode_max_size > 0);
 
@@ -287,11 +287,11 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
     // - This requires the entire input image to be read in
     //    and produces a single blob list for the entire image.
     vw_out() << "\t--> Filling holes with inpainting method.\n";
-    BlobIndexThreaded smallHoleIndex( invert_mask( inputview.impl() ),
-                                      stereo_settings().fill_hole_max_size,
-                                      vw::vw_settings().default_tile_size(),
-                                      vw::vw_settings().default_num_threads()
-                                      );
+    BlobIndexThreaded smallHoleIndex(invert_mask(inputview.impl()),
+                                     stereo_settings().fill_hole_max_size,
+                                     vw::vw_settings().default_tile_size(),
+                                     vw::vw_settings().default_num_threads()
+                                     );
     vw_out() << "\t    * Identified " << smallHoleIndex.num_blobs() << " holes\n";
     bool use_grassfire = true;
     typename ImageT::pixel_type default_inpaint_val;
@@ -300,38 +300,38 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
     if (!removeSmallBlobs) { // Skip small blob removal
       // Write out the image to disk, filling in the blobs in the process
       vw_out() << "Writing: " << outF << std::endl;
-      vw::block_write_gdal_image( outF,
-                                   inpaint(inputview.impl(), smallHoleIndex,
-                                           use_grassfire, default_inpaint_val),
-                                   has_left_georef, left_georef,
-                                   has_nodata, nodata, opt,
-                                   TerminalProgressCallback
-                                   ("asp","\t--> Filtering: ") );
+      vw::block_write_gdal_image(outF,
+                                  inpaint(inputview.impl(), smallHoleIndex,
+                                          use_grassfire, default_inpaint_val),
+                                  has_left_georef, left_georef,
+                                  has_nodata, nodata, opt,
+                                  TerminalProgressCallback
+                                  ("asp","\t--> Filtering: "));
     }
     else { // Add small blob removal step
       // Write out the image to disk, filling in and removing blobs in the process
       // - Blob removal is done second to make sure inner-blob holes are removed.
       vw_out() << "Writing: " << outF << std::endl;
-      vw::block_write_gdal_image( outF,
-                                   per_tile_erode
-                                   (inpaint(inputview.impl(),
-                                            smallHoleIndex,
-                                            use_grassfire,
-                                            default_inpaint_val) ),
-                                   has_left_georef, left_georef,
-                                   has_nodata, nodata, opt,
-                                   TerminalProgressCallback
-                                   ("asp","\t--> Filtering: ") );
+      vw::block_write_gdal_image(outF,
+                                  per_tile_erode
+                                  (inpaint(inputview.impl(),
+                                           smallHoleIndex,
+                                           use_grassfire,
+                                           default_inpaint_val)),
+                                  has_left_georef, left_georef,
+                                  has_nodata, nodata, opt,
+                                  TerminalProgressCallback
+                                  ("asp","\t--> Filtering: "));
     }
 
   } else { // No hole filling
     if (!removeSmallBlobs) { // Skip small blob removal
       vw_out() << "Writing: " << outF << std::endl;
-      vw::block_write_gdal_image( outF, inputview.impl(),
-                                   has_left_georef, left_georef,
-                                   has_nodata, nodata, opt,
-                                   TerminalProgressCallback
-                                   ("asp", "\t--> Filtering: ") );
+      vw::block_write_gdal_image(outF, inputview.impl(),
+                                  has_left_georef, left_georef,
+                                  has_nodata, nodata, opt,
+                                  TerminalProgressCallback
+                                  ("asp", "\t--> Filtering: "));
     }
     else { // Add small blob removal step
       vw_out() << "\t--> Removing small blobs.\n";
@@ -341,7 +341,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
                                   has_left_georef, left_georef,
                                   has_nodata, nodata, opt,
                                   TerminalProgressCallback
-                                  ("asp","\t--> Filtering: ") );
+                                  ("asp","\t--> Filtering: "));
     }
 
   } // End no hole filling case
@@ -363,8 +363,8 @@ void stereo_filtering(ASPGlobalOptions& opt) {
 
     // Applying additional clipping from the edge. We make new
     // mask files to avoid a weird and tricky segfault due to ownership issues.
-    DiskImageView<vw::uint8> left_mask ( opt.out_prefix+"-lMask.tif" );
-    DiskImageView<vw::uint8> right_mask( opt.out_prefix+"-rMask.tif" );
+    DiskImageView<vw::uint8> left_mask (opt.out_prefix+"-lMask.tif");
+    DiskImageView<vw::uint8> right_mask(opt.out_prefix+"-rMask.tif");
     
     // Erode at the edge. If not set, apply some logic as below.
     int32 edge_buffer = stereo_settings().edge_buffer_size;
@@ -386,7 +386,7 @@ void stereo_filtering(ASPGlobalOptions& opt) {
       stereo_settings().rm_cleanup_passes = 0;
 
     // No Erosion step
-    if ( stereo_settings().rm_cleanup_passes >= 1 ) {
+    if (stereo_settings().rm_cleanup_passes >= 1) {
       // Apply an outlier removal filter
       write_good_pixel_and_filtered
         (vw::disparity_mask
@@ -410,8 +410,8 @@ void stereo_filtering(ASPGlobalOptions& opt) {
     } // End cleanup passes check
 
   } catch (IOErr const& e) {
-    vw_throw( ArgumentErr() << "\nUnable to start at filtering stage -- could not read input files.\n"
-              << e.what() << "\nExiting.\n\n" );
+    vw_throw(ArgumentErr() << "\nUnable to start at filtering stage -- could not read input files.\n"
+             << e.what() << "\nExiting.\n\n");
   }
 } // end stereo_filtering()
 

@@ -1479,7 +1479,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
       // Sanity check. Temporarily load the left image.
       DiskImageView<float> left_image(left_aligned_file);
       if (aligned_disp.cols() != left_image.cols() || 
-          aligned_disp.rows() != left_image.rows() ) 
+          aligned_disp.rows() != left_image.rows()) 
         vw_throw(ArgumentErr() << "Expecting that the 1D disparity " << aligned_disp_file
                  << " would have the same dimensions as the left image " << left_aligned_file
                  << ".\n");

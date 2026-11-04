@@ -146,15 +146,15 @@ namespace asp {
     vw::Matrix<double> operator()(std::vector<InterestPointT> const& ip1,
                                   std::vector<InterestPointT> const& ip2,
                                   vw::Matrix<double> const& /*seed_input*/
-                                  = vw::Matrix<double>() ) const {
+                                  = vw::Matrix<double>()) const {
     
       // check consistency
-      VW_ASSERT( ip1.size() == ip2.size(),
-                 vw::ArgumentErr() << "Cannot compute fundamental matrix. "
-                 << "ip1 and ip2 are not the same size." );
-      VW_ASSERT( !ip1.empty() && ip1.size() >= min_elements_needed_for_fit(ip1[0]),
-                 vw::ArgumentErr() << "Cannot compute fundamental matrix. "
-                 << "Need at at least 8 points, but got: " << ip1.size() << ".\n");
+      VW_ASSERT(ip1.size() == ip2.size(),
+                vw::ArgumentErr() << "Cannot compute fundamental matrix. "
+                << "ip1 and ip2 are not the same size.");
+      VW_ASSERT(!ip1.empty() && ip1.size() >= min_elements_needed_for_fit(ip1[0]),
+                vw::ArgumentErr() << "Cannot compute fundamental matrix. "
+                << "Need at at least 8 points, but got: " << ip1.size() << ".\n");
 
       // Compute the affine fundamental matrix
       Matrix<double> fund = linear_affine_fundamental_matrix(ip1, ip2);
