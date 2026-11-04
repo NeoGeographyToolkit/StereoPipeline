@@ -57,7 +57,7 @@ double LunarLambertianReflectance(Vector3 const& sunPos,
                                   const double * refl_coeffs) {
 
   double len = dot_prod(normal, normal);
-  if (abs(len - 1.0) > 1.0e-4)
+  if (std::abs(len - 1.0) > 1.0e-4)
     vw::vw_throw(vw::ArgumentErr()
                  << "Expecting unit normal in the reflectance computation.\n");
 
@@ -142,7 +142,7 @@ double HapkeReflectance(Vector3 const& sunPos,
                         const double * refl_coeffs) {
 
   double len = dot_prod(normal, normal);
-  if (abs(len - 1.0) > 1.0e-4)
+  if (std::abs(len - 1.0) > 1.0e-4)
     vw::vw_throw(vw::ArgumentErr()
                  << "Expecting unit normal in the reflectance computation.\n");
 
@@ -203,7 +203,7 @@ double CharonReflectance(Vector3 const& sunPos,
                          const double * refl_coeffs) {
 
   double len = dot_prod(normal, normal);
-  if (abs(len - 1.0) > 1.0e-4)
+  if (std::abs(len - 1.0) > 1.0e-4)
     vw::vw_throw(vw::ArgumentErr()
                  << "Expecting unit normal in the reflectance computation.\n");
 

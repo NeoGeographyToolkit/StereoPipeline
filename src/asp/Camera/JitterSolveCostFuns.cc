@@ -2504,7 +2504,7 @@ private:
 // A function that first increases slowly, then very fast, but without being
 // numerically unstable for very small or very large values of the input.
 double signed_exp(double val) {
-  double ans = val * (exp(abs(val)) - 1.0);
+  double ans = val * (std::exp(std::abs(val)) - 1.0);
   return ans;
 }
 

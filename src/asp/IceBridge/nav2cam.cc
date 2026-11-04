@@ -664,7 +664,7 @@ int main(int argc, char* argv[]) {
 
         // Account for the camera mounting direction relative to aircraft motion.
         Vector3 vTemp;
-        switch(abs(opt.camera_mounting)) {
+        switch(std::abs(opt.camera_mounting)) {
         case 1: // Left forwards
           xDir = xDir * -1.0;
           yDir = yDir * -1.0;
