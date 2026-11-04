@@ -515,9 +515,9 @@ rough_homography_fit(vw::CameraModel* cam1,
   // Use RANSAC to determine a good homography transform between the images
   vw_out() << "Estimating rough homography using RANSAC with "
     << num_iter << " iterations.\n";
-  typedef math::HomographyFittingFunctor hfit_func;
-  math::RandomSampleConsensus<hfit_func, math::InterestPointErrorMetric>
-    ransac(hfit_func(), math::InterestPointErrorMetric(),
+  typedef vw::HomographyFittingFunctor hfit_func;
+  vw::RandomSampleConsensus<hfit_func, vw::InterestPointErrorMetric>
+    ransac(hfit_func(), vw::InterestPointErrorMetric(),
            num_iter, inlier_th, min_inliers, reduce_num_if_no_fit);
 
   Matrix<double> H = ransac(right_points, left_points);
@@ -540,7 +540,7 @@ void filter_ip_homog(std::vector<vw::InterestPoint> const& ip1_in,
                      std::vector<size_t> & indices) {
 
   // Initialize the outputs. Ensure H is a valid matrix, in case ransac fails.
-  H = vw::math::identity_matrix<3>();
+  H = vw::identity_matrix<3>();
   H.set_identity();
   indices.clear();
 
@@ -557,10 +557,10 @@ void filter_ip_homog(std::vector<vw::InterestPoint> const& ip1_in,
     vw_out() << "\t    RANSAC iterations:                     "
              << stereo_settings().ip_num_ransac_iterations << "\n";
 
-    typedef math::RandomSampleConsensus<math::HomographyFittingFunctor,
-      math::InterestPointErrorMetric> RansacT;
-    RansacT ransac(math::HomographyFittingFunctor(),
-                   math::InterestPointErrorMetric(),
+    typedef vw::RandomSampleConsensus<vw::HomographyFittingFunctor,
+      vw::InterestPointErrorMetric> RansacT;
+    RansacT ransac(vw::HomographyFittingFunctor(),
+                   vw::InterestPointErrorMetric(),
                    stereo_settings().ip_num_ransac_iterations,
                    inlier_th,
                    min_inliers, reduce_num_if_no_fit);
@@ -570,7 +570,7 @@ void filter_ip_homog(std::vector<vw::InterestPoint> const& ip1_in,
     vw_out() << "Number of inliers: " << indices.size() << ".\n";
     check_homography_matrix(H, ransac_ip1.size(), ransac_ip2.size(), indices.size());
     
-  } catch (const math::RANSACErr& e) {
+  } catch (const vw::RANSACErr& e) {
     vw_out() << "RANSAC failed: " << e.what() << "\n";
     return;
   }
@@ -609,7 +609,7 @@ Vector2i homography_rectification(bool adjust_left_image_size,
     inlier_th = std::max(inlier_th, 50.0);
   }
 
-  Matrix<double> H = vw::math::identity_matrix<3>();
+  Matrix<double> H = vw::identity_matrix<3>();
   std::vector<size_t> indices;
   filter_ip_homog(left_ip, right_ip, inlier_th,
                   H, indices); // outputs
@@ -625,7 +625,7 @@ Vector2i homography_rectification(bool adjust_left_image_size,
   // TODO(oalexan1): It is not clear if adjusting a homography transform's
   // translation coefficients is the right way of applying a translation to it,
   // because it has a denominator too.
-  left_matrix  = vw::math::identity_matrix<3>();
+  left_matrix  = vw::identity_matrix<3>();
   right_matrix = H;
 
   // Work out the ideal render size
@@ -836,8 +836,8 @@ bool stddev_ip_filtering(std::vector<vw::InterestPoint> const& ip1,
         Vector2(ip1[index].x,ip1[index].y);
       count++;
     }
-    math::FLANNTree<float> tree1(asp::stereo_settings().flann_method);
-    tree1.load_match_data(locations1, vw::math::FLANN_DistType_L2);
+    vw::FLANNTree<float> tree1(asp::stereo_settings().flann_method);
+    tree1.load_match_data(locations1, vw::FLANN_DistType_L2);
 
     std::pair<double,size_t> worse_index;
     worse_index.first = 0;
@@ -1049,7 +1049,7 @@ void filter_ip_using_cameras(std::vector<vw::InterestPoint> & ip1,
   // Find the outlier brackets
   double pct_fraction = 1.0 - pct/100.0;
   double b = -1.0, e = -1.0;
-  vw::math::find_outlier_brackets(vals, pct_fraction, factor, b, e);
+  vw::find_outlier_brackets(vals, pct_fraction, factor, b, e);
 
   // Apply the outlier threshold
   int count = 0;
@@ -1079,7 +1079,7 @@ void filter_ip_using_cameras(std::vector<vw::InterestPoint> & ip1,
   // Show some lenience below as due to jitter some errors could be somewhat bigger
   double factor2 = 2.0 * factor;
   b = -1.0; e = -1.0;
-  vw::math::find_outlier_brackets(vals, pct_fraction2, factor2, b, e);
+  vw::find_outlier_brackets(vals, pct_fraction2, factor2, b, e);
 
   // Apply the outlier threshold
   count = 0;
@@ -1312,16 +1312,16 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
   std::vector<size_t> indices;
   try {
 
-    vw::math::RandomSampleConsensus<vw::math::TranslationScaleFittingFunctor, vw::math::InterestPointErrorMetric>
-      ransac(vw::math::TranslationScaleFittingFunctor(),
-             vw::math::InterestPointErrorMetric(),
+    vw::RandomSampleConsensus<vw::TranslationScaleFittingFunctor, vw::InterestPointErrorMetric>
+      ransac(vw::TranslationScaleFittingFunctor(),
+             vw::InterestPointErrorMetric(),
              stereo_settings().ip_num_ransac_iterations,
              10, ransac_ip1.size()/2, true);
     T = ransac(ransac_ip2, ransac_ip1);
     indices = ransac.inlier_indices(T, ransac_ip2, ransac_ip1);
   } catch (...) {
     vw_out(WarningMessage,"console") << "Automatic Alignment Failed! Proceed with caution...\n";
-    T = vw::math::identity_matrix<3>();
+    T = vw::identity_matrix<3>();
   }
 
   { // Keeping only inliers
@@ -1381,7 +1381,7 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
   // Filter the interest points using a homography constraint
   Stopwatch sw;
   sw.start();
-  Matrix<double> H = vw::math::identity_matrix<3>();
+  Matrix<double> H = vw::identity_matrix<3>();
   std::vector<size_t> indices;
   filter_ip_homog(matched_ip1, matched_ip2, inlier_threshold,
                   H, indices); // outputs

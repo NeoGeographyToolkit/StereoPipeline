@@ -61,7 +61,7 @@ vw::Matrix<double> alignmentMatrix(std::string const& out_prefix,
   }
   
   // Initalize with the identity matrix      
-  vw::Matrix<double> align_matrix = vw::math::identity_matrix<3>();
+  vw::Matrix<double> align_matrix = vw::identity_matrix<3>();
 
   if (alignment_method == "homography" ||
       alignment_method == "affineepipolar" ||

@@ -420,9 +420,9 @@ void processMedianOrNmad(vw::BBox2i const& bbox,
         continue;
       // These reorder vals in place; the original order is kept in vals_all.
       if (is_median)
-        tile(c, r) = vw::math::median_in_place(vals);
+        tile(c, r) = vw::median_in_place(vals);
       else
-        tile(c, r) = vw::math::nmad_in_place(vals);
+        tile(c, r) = vw::nmad_in_place(vals);
 
       if (!save_index_map)
         continue;
@@ -1327,7 +1327,7 @@ void setupMosaicGeom(asp::DemMosaicOptions& opt,
     vw::BBox2 llbox = mosaic_georef.pixel_to_lonlat_bbox(bounding_box(dem0));
 
     // Reset transform with user provided spacing.
-    vw::math::Matrix<double,3,3> transform = mosaic_georef.transform();
+    vw::Matrix<double,3,3> transform = mosaic_georef.transform();
     transform.set_identity();
     transform(0, 0) =  spacing;
     transform(1, 1) = -spacing;

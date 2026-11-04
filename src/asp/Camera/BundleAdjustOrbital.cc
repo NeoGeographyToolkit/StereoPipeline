@@ -48,7 +48,7 @@ vw::Vector3 applyOrbitalGroupPose(double const* pose,
                                   vw::Vector3 const& centroid) {
   vw::Vector3 axis_angle(pose[0], pose[1], pose[2]);
   vw::Vector3 translation(pose[3], pose[4], pose[5]);
-  vw::Quat rot = vw::math::axis_angle_to_quaternion(axis_angle);
+  vw::Quat rot = vw::axis_angle_to_quaternion(axis_angle);
   return centroid + rot.rotate(orig_position - centroid) + translation;
 }
 

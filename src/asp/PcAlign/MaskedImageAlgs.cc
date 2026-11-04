@@ -61,7 +61,7 @@ double maskedMedian(vw::ImageView<vw::PixelMask<float>> const& img) {
   if (vals.empty())
     vw::vw_throw(vw::ArgumentErr() << "No valid pixels found in median calculation.\n");
   
-  return vw::math::median_in_place(vals);
+  return vw::median_in_place(vals);
 }
 
 // Comput normalized median absolute deviation
@@ -81,7 +81,7 @@ double normalizedMad(vw::ImageView<vw::PixelMask<float>> const& img,
   if (vals.empty())
     vw::vw_throw(vw::ArgumentErr() << "No valid pixels found in MAD calculation.\n");
   
-  double mad = vw::math::median_in_place(vals);
+  double mad = vw::median_in_place(vals);
 
   // The normalization factor is to make this equivalent to the standard deviation  
   return  1.4826 * mad;
@@ -230,11 +230,11 @@ void binnedStatistics(vw::ImageView<vw::PixelMask<float>> const& x,
     }
     
     if (stat == "mean")
-      bin_stat[i] = vw::math::mean(bin_values[i]);
+      bin_stat[i] = vw::mean(bin_values[i]);
      else if (stat == "count")
        bin_stat[i] = bin_values[i].size();
      else if (stat == "median")
-       bin_stat[i] = vw::math::median_in_place(bin_values[i]);
+       bin_stat[i] = vw::median_in_place(bin_values[i]);
     else
       vw::vw_throw(vw::ArgumentErr() << "Invalid statistic: " << stat << ".\n");
    }

@@ -77,7 +77,6 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace vw::math;
 
 namespace asp {
 

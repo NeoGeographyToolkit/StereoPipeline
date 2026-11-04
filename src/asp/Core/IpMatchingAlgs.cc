@@ -207,8 +207,8 @@ void filter_ip_by_disparity(double pct,    // for example, 90.0
     dispx.push_back(right_ip[it].x - left_ip[it].x);
     dispy.push_back(right_ip[it].y - left_ip[it].y);
   }
-  vw::math::find_outlier_brackets(dispx, pct_fraction, factor, bx, ex);
-  vw::math::find_outlier_brackets(dispy, pct_fraction, factor, by, ey);
+  vw::find_outlier_brackets(dispx, pct_fraction, factor, bx, ex);
+  vw::find_outlier_brackets(dispy, pct_fraction, factor, by, ey);
     
   //vw_out() << "Outlier statistics by disparity in x: b = " << bx << ", e = " << ex << ".\n";
   //vw_out() << "Outlier statistics by disparity in y: b = " << by << ", e = " << ey << ".\n";

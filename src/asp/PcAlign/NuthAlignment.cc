@@ -256,7 +256,7 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
   // A subset should be enough
   std::vector<int> sampleIndices;
   int maxSamples = 100000;  
-  vw::math::pick_random_indices_in_range(ref_pts.size(), maxSamples, sampleIndices);
+  vw::pick_random_indices_in_range(ref_pts.size(), maxSamples, sampleIndices);
   
   // Keep only the samples in the vectors. Copy in-place.
   int numSamples = sampleIndices.size();
@@ -275,9 +275,9 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
   std::string transform_type = "rigid";
   if (compute_translation_only)
     transform_type = "translation";
-  vw::math::find_3D_transform_no_outliers(src_pts, ref_pts,
-                                          rotation, translation, scale, // outputs
-                                          transform_type);
+  vw::find_3D_transform_no_outliers(src_pts, ref_pts,
+                                    rotation, translation, scale, // outputs
+                                    transform_type);
   
   // We do a rigid transform, as that's all Nuth supports.
   if (scale != 1.0)
@@ -485,7 +485,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
     dx_total += dx;
     dy_total += dy;
     dz_total += dz;
-    change_len = vw::math::norm_2(vw::Vector3(dx, dy, dz));
+    change_len = vw::norm_2(vw::Vector3(dx, dy, dz));
     vw::vw_out() << iter << '\t' << change_len << "\n";
     
     iter++;
@@ -501,7 +501,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   }
   
   // Warning. Not sure if it should be an error.
-  double horiz_total = vw::math::norm_2(vw::Vector2(dx_total, dy_total));
+  double horiz_total = vw::norm_2(vw::Vector2(dx_total, dy_total));
   if (horiz_total > opt.max_horiz_offset) 
     vw::vw_out(vw::WarningMessage)
       << "Total horizontal offset is: " << horiz_total << " meters. It exceeds the "

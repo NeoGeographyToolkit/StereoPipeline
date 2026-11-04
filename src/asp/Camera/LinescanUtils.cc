@@ -43,7 +43,7 @@ asp::CsmModel * csm_model(boost::shared_ptr<vw::CameraModel> cam) {
   if (adj_cam != NULL) {
     vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
     // must be the identity
-    if (ecef_transform != vw::math::identity_matrix<4>())
+    if (ecef_transform != vw::identity_matrix<4>())
       vw::vw_throw(vw::ArgumentErr()
         << "A CSM camera with an adjustment such as coming from "
         << "--bundle-adjust-prefix detected. Not supported in this workflow.\n");

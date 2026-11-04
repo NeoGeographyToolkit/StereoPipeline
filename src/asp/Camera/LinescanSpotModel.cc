@@ -38,9 +38,9 @@ using vw::Matrix3x3;
 //   Z2 = normalize(pos), X2 = normalize(vel x Z2), Y2 = Z2 x X2
 // Returns the matrix [X2 | Y2 | Z2] that converts from orbital to GCC.
 Matrix3x3 get_local_orbital_frame(Vector3 const& position, Vector3 const& velocity) {
-  Vector3 Z2 = vw::math::normalize(position);
-  Vector3 X2 = vw::math::normalize(vw::math::cross_prod(velocity, Z2));
-  Vector3 Y2 = vw::math::cross_prod(Z2, X2);
+  Vector3 Z2 = vw::normalize(position);
+  Vector3 X2 = vw::normalize(vw::cross_prod(velocity, Z2));
+  Vector3 Y2 = vw::cross_prod(Z2, X2);
   Matrix3x3 out;
   for (int r = 0; r < 3; r++) {
     out(r,0) = X2[r];

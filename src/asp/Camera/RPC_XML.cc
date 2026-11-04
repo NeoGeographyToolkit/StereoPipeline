@@ -984,7 +984,7 @@ bool asp::approximate_wv_georeference(std::string  const& wv_xml_path,
 
   // Compute the perspective transform
   // - To bad this does not give an indication of fit quality  
-  vw::math::HomographyFittingFunctor fitter;
+  vw::HomographyFittingFunctor fitter;
   Matrix<double> transform = fitter(pixel_corners3, lonlat_corners3);
 
   // Construct the approximated GeoReference

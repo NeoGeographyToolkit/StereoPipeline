@@ -171,14 +171,14 @@ void Point2Grid::normalize() {
       else if (m_filter == f_stddev) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
-        vw::math::StdDevAccumulator<double> V;
+        vw::StdDevAccumulator<double> V;
         for (std::size_t it = 0; it < m_vals(c, r).size(); it++)
           V(m_vals(c, r)[it]);
         m_buffer(c, r) = V.value();
       } else if (m_filter == f_median) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
-        vw::math::MedianAccumulator<double> V;
+        vw::MedianAccumulator<double> V;
         for (std::size_t it = 0; it < m_vals(c, r).size(); it++)
           V(m_vals(c, r)[it]);
         m_buffer(c, r) = V.value();
@@ -186,12 +186,12 @@ void Point2Grid::normalize() {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
         // Reorders m_vals(c, r) in place, which is fine (used once).
-        m_buffer(c, r) = vw::math::nmad_in_place(m_vals(c, r));
+        m_buffer(c, r) = vw::nmad_in_place(m_vals(c, r));
       } else if (m_filter == f_percentile) {
         if (m_vals(c, r).empty())
           continue; // nothing to compute
         // Reorders m_vals(c, r) in place, which is fine (used once).
-        m_buffer(c, r) = vw::math::percentile_in_place(m_vals(c, r), m_percentile);
+        m_buffer(c, r) = vw::percentile_in_place(m_vals(c, r), m_percentile);
       }
 
     }

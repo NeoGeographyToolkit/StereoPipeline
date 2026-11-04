@@ -175,10 +175,10 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
   std::vector<size_t> indices;
   try {
     if (opt.use_affine_transform) {
-      vw::math::RandomSampleConsensus<vw::math::AffineFittingFunctor,
-                                      vw::math::InterestPointErrorMetric>
-                                        ransac(vw::math::AffineFittingFunctor(),
-                                              vw::math::InterestPointErrorMetric(),
+      vw::RandomSampleConsensus<vw::AffineFittingFunctor,
+                                      vw::InterestPointErrorMetric>
+                                        ransac(vw::AffineFittingFunctor(),
+                                              vw::InterestPointErrorMetric(),
                                               opt.num_ransac_iterations,
                                               opt.inlier_threshold,
                                               min_num_output_inliers,
@@ -186,10 +186,10 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
       tf      = ransac(ransac_ip2, ransac_ip1);
       indices = ransac.inlier_indices(tf, ransac_ip2, ransac_ip1);
     } else { // More restricted transform
-      vw::math::RandomSampleConsensus<vw::math::TranslationRotationFittingFunctorN<2>,
-                                      vw::math::InterestPointErrorMetric>
-                                      ransac(vw::math::TranslationRotationFittingFunctorN<2>(),
-                                             vw::math::InterestPointErrorMetric(),
+      vw::RandomSampleConsensus<vw::TranslationRotationFittingFunctorN<2>,
+                                      vw::InterestPointErrorMetric>
+                                      ransac(vw::TranslationRotationFittingFunctorN<2>(),
+                                             vw::InterestPointErrorMetric(),
                                              opt.num_ransac_iterations,
                                              opt.inlier_threshold,
                                              min_num_output_inliers,

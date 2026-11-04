@@ -124,7 +124,7 @@ bool init_cams(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
   // Apply any initial transform to params
   if (initial_transform_file != "") {
     if (opt.stereo_session == "csm") {
-      double scale = pow(vw::math::det(initial_transform), 1.0/3.0);
+      double scale = pow(vw::det(initial_transform), 1.0/3.0);
       if (std::abs(scale - 1.0) > 1e-6) {
         // TODO(oalexan1): This gives wrong results for now so needs to be sorted out.
         // Likely the only way to apply a scale to a linescan camera is to multiply

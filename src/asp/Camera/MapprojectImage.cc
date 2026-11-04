@@ -56,10 +56,10 @@ OcclusionCam::OcclusionCam(vw::CamPtr inner): m_inner(inner) {}
 
 vw::Vector2 OcclusionCam::point_to_pixel(vw::Vector3 const& point) const {
   vw::Vector2 pix = m_inner->point_to_pixel(point);
-  double n = vw::math::norm_2(point);
+  double n = vw::norm_2(point);
   if (n > 0.0) {
     vw::Vector3 ray = m_inner->pixel_to_vector(pix);
-    if (vw::math::dot_prod(point / n, ray) > OCCLUSION_DOT_THRESH)
+    if (vw::dot_prod(point / n, ray) > OCCLUSION_DOT_THRESH)
       vw::vw_throw(vw::PointToPixelErr() << "Back-of-body occluded.");
   }
   return pix;

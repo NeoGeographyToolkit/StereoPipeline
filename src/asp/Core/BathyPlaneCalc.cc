@@ -425,7 +425,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
 
     // Select a subset
     std::vector<int> w;
-    vw::math::pick_random_indices_in_range(num_pts, num_samples, w);
+    vw::pick_random_indices_in_range(num_pts, num_samples, w);
     std::vector<Eigen::Vector3d> big_ecef_vec     = ecef_vec;     ecef_vec.clear();
     std::vector<vw::Vector3>     big_llh_vec       = llh_vec;       llh_vec.clear();
     std::vector<vw::Vector2>     big_shape_xy_vec = shape_xy_vec; shape_xy_vec.clear();
@@ -517,7 +517,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 
     // Select a subset
     std::vector<int> w;
-    vw::math::pick_random_indices_in_range(num_pts, num_samples, w);
+    vw::pick_random_indices_in_range(num_pts, num_samples, w);
     std::vector<Eigen::Vector3d> big_ecef_vec     = ecef_vec;     ecef_vec.clear();
     std::vector<vw::Vector3>     big_llh_vec      = llh_vec;      llh_vec.clear();
     std::vector<vw::Vector2>     big_shape_xy_vec = shape_xy_vec; shape_xy_vec.clear();
@@ -689,7 +689,7 @@ void saveShape(std::vector<Eigen::Vector3d> const& ecef_vec,
     vw::Vector3 xyz; // convert Eigen:Vector3 to vw::Vector3
     for (int c = 0; c < 3; c++) xyz[c] = ecef_vec[ptIter][c];
     vw::Vector3 llh = llh_georef.datum().cartesian_to_geodetic(xyz);
-    addPointToPoly(samplePoly, vw::math::subvector(llh, 0, 2));
+    addPointToPoly(samplePoly, vw::subvector(llh, 0, 2));
   }
 
   std::vector<vw::dPoly> samplePolyVec;
@@ -918,7 +918,7 @@ public:
         vw::Vector2 lon_lat = m_dem_georef.pixel_to_lonlat(pix);
 
         vw::Vector3 llh;
-        vw::math::subvector(llh, 0, 2) = lon_lat;
+        vw::subvector(llh, 0, 2) = lon_lat;
         llh[2] = cropped_dem(col, row);
 
         // Find the DEM point in local projection or ECEF.
@@ -936,8 +936,8 @@ public:
         vw::Vector3 plane_normal(m_plane(0, 0), m_plane(0, 1), m_plane(0, 2));
         double plane_intercept = m_plane(0, 3);
 
-        double t = -(vw::math::dot_prod(point1, plane_normal) + plane_intercept) /
-          vw::math::dot_prod(point2 - point1, plane_normal);
+        double t = -(vw::dot_prod(point1, plane_normal) + plane_intercept) /
+          vw::dot_prod(point2 - point1, plane_normal);
 
         vw::Vector3 P = point1 + t * (point2 - point1);
 
@@ -985,12 +985,12 @@ void calcBathyPlane(int num_ransac_iterations,
     // of scope prematurely, which will result in incorrect behavior.
     BestFitPlaneFunctor func;
     BestFitPlaneErrorMetric error_metric;
-    vw::math::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric>
+    vw::RandomSampleConsensus<BestFitPlaneFunctor, BestFitPlaneErrorMetric>
       ransac(func, error_metric, num_ransac_iterations, inlier_threshold,
              min_num_output_inliers, reduce_min_num_output_inliers_if_no_fit);
     plane = ransac(proj_vec, dummy_vec);
     inlier_indices = ransac.inlier_indices(plane, proj_vec, dummy_vec);
-  } catch (const vw::math::RANSACErr& e) {
+  } catch (const vw::RANSACErr& e) {
     vw::vw_out() << "RANSAC failed: " << e.what() << "\n";
   }
   vw::vw_out() << "Found " << inlier_indices.size() << " / " << proj_vec.size()
@@ -1006,7 +1006,7 @@ static double evalPlaneHeightAtLonLat(vw::Vector2 const& lon_lat,
                                       vw::Matrix<double> const& plane,
                                       vw::GeoReference const& stereo_georef) {
   vw::Vector3 llh;
-  vw::math::subvector(llh, 0, 2) = lon_lat;
+  vw::subvector(llh, 0, 2) = lon_lat;
   llh[2] = 0.0;
   vw::Vector3 point1 = stereo_georef.geodetic_to_point(llh);
   llh[2] = -100.0;
@@ -1014,8 +1014,8 @@ static double evalPlaneHeightAtLonLat(vw::Vector2 const& lon_lat,
 
   vw::Vector3 plane_normal(plane(0, 0), plane(0, 1), plane(0, 2));
   double plane_intercept = plane(0, 3);
-  double t = -(vw::math::dot_prod(point1, plane_normal) + plane_intercept) /
-    vw::math::dot_prod(point2 - point1, plane_normal);
+  double t = -(vw::dot_prod(point1, plane_normal) + plane_intercept) /
+    vw::dot_prod(point2 - point1, plane_normal);
   vw::Vector3 P = point1 + t * (point2 - point1);
   return stereo_georef.point_to_geodetic(P)[2];
 }

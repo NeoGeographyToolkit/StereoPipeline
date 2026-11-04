@@ -67,7 +67,7 @@ void axisAngleToCsmQuatVec(int num_poses,
   auto const & rot = axis_angle_vec;
   for (int i = 0; i < num_poses; i++) {
     vw::Vector3 axis_angle(rot[3*i+0], rot[3*i+1], rot[3*i+2]);
-    vw::Quat q = vw::math::axis_angle_to_quaternion(axis_angle);
+    vw::Quat q = vw::axis_angle_to_quaternion(axis_angle);
   
     // CSM wants the quaternion order to be (x, y, z, w)
     int j = 4*i;
@@ -115,7 +115,7 @@ struct SightMatError {
     
     // Find axis angle and then the rotation from the sensor to the world
     vw::Vector3 axis_angle(rotation[0], rotation[1], rotation[2]);
-    vw::Matrix3x3 rot = vw::math::axis_angle_to_quaternion(axis_angle).rotation_matrix();
+    vw::Matrix3x3 rot = vw::axis_angle_to_quaternion(axis_angle).rotation_matrix();
     
     // sight vec in sensor coordinates. Here likely the row index and min_row is 
     // not needed. Those are taken into account when the pixel is created later.
@@ -208,9 +208,9 @@ void fitBestRotationsIntrinsics(SightMatT const& world_sight_mat,
     vw::Matrix<double,3,3> rotation;
     vw::Vector3 translation;
     double scale = 1.0;
-    vw::math::find_3D_transform_no_outliers(in_vec, out_vec, 
-                                            rotation, translation, scale,
-                                            transform_type);
+    vw::find_3D_transform_no_outliers(in_vec, out_vec, 
+                                      rotation, translation, scale,
+                                      transform_type);
     
     // append the rotation to the vec
     rotation_vec.push_back(rotation);
@@ -256,7 +256,7 @@ void fitBestRotationsIntrinsics(SightMatT const& world_sight_mat,
   // Copy back from axis_angle_vec to rotation_vec
   for (int row = 0; row < num_rows; row++)
     rotation_vec[row] 
-      = vw::math::axis_angle_to_quaternion(axis_angle_vec[row]).rotation_matrix();
+      = vw::axis_angle_to_quaternion(axis_angle_vec[row]).rotation_matrix();
   
 #if 0 // for debugging
   vw::vw_out() << summary.FullReport() << "\n"; 
@@ -730,12 +730,12 @@ void computeCamStats(std::vector<vw::Vector2> const& pixels,
   // Sort the errors
   std::sort(errors.begin(), errors.end());
   
-  double mean = vw::math::mean(errors);
-  double stdev = vw::math::standard_deviation(errors, mean);
+  double mean = vw::mean(errors);
+  double stdev = vw::standard_deviation(errors, mean);
   
   vw::vw_out() << "Errors of pixel projection in the camera with refined intrinsics:\n";
   vw::vw_out() << "Min:    " << errors[0] << "\n";
-  vw::vw_out() << "Median: " << vw::math::median_in_place(errors) << "\n";
+  vw::vw_out() << "Median: " << vw::median_in_place(errors) << "\n";
   vw::vw_out() << "Mean:   " << mean << "\n";
   vw::vw_out() << "StDev:  " << stdev << "\n";
   vw::vw_out() << "Max:    " << errors.back() << "\n";

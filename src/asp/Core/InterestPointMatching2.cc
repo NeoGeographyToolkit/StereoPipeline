@@ -167,8 +167,8 @@ class EpipolarLineMatchTask: public Task, private boost::noncopyable {
   typedef vw::InterestPointList::const_iterator IPListIter;
   bool                            m_single_threaded_camera;
   bool                            m_use_uchar_tree;
-  math::FLANNTree<float>        & m_tree_float;
-  math::FLANNTree<unsigned char>& m_tree_uchar;
+  vw::FLANNTree<float>        & m_tree_float;
+  vw::FLANNTree<unsigned char>& m_tree_uchar;
   IPListIter                      m_start, m_end;
   vw::InterestPointList const&    m_ip_other;
   vw::CameraModel            *m_cam1, *m_cam2;
@@ -178,8 +178,8 @@ class EpipolarLineMatchTask: public Task, private boost::noncopyable {
 public:
   EpipolarLineMatchTask(bool single_threaded_camera,
                         bool use_uchar_tree,
-                        math::FLANNTree<float>        & tree_float,
-                        math::FLANNTree<unsigned char>& tree_uchar,
+                        vw::FLANNTree<float>        & tree_float,
+                        vw::FLANNTree<unsigned char>& tree_uchar,
                         vw::InterestPointList::const_iterator start,
                         vw::InterestPointList::const_iterator end,
                         vw::InterestPointList const& ip2,
@@ -312,8 +312,8 @@ void EpipolarLinePointMatcher::operator()(vw::InterestPointList const& ip1,
   output_indices.resize(ip1_size);
 
   // Set up FLANNTree objects of all the different types we may need.
-  math::FLANNTree<float>         kd_float(asp::stereo_settings().flann_method);
-  math::FLANNTree<unsigned char> kd_uchar(asp::stereo_settings().flann_method);
+  vw::FLANNTree<float>         kd_float(asp::stereo_settings().flann_method);
+  vw::FLANNTree<unsigned char> kd_uchar(asp::stereo_settings().flann_method);
 
   Matrix<float>         ip2_matrix_float;
   Matrix<unsigned char> ip2_matrix_uchar;
@@ -322,10 +322,10 @@ void EpipolarLinePointMatcher::operator()(vw::InterestPointList const& ip1,
   const bool use_uchar_FLANN = (ip_detect_method == DETECT_IP_METHOD_ORB);
   if (use_uchar_FLANN) {
     ip_list_to_matrix(ip2, ip2_matrix_uchar);
-    kd_uchar.load_match_data(ip2_matrix_uchar, vw::math::FLANN_DistType_Hamming);
+    kd_uchar.load_match_data(ip2_matrix_uchar, vw::FLANN_DistType_Hamming);
   }else {
     ip_list_to_matrix(ip2, ip2_matrix_float);
-    kd_float.load_match_data(ip2_matrix_float,  vw::math::FLANN_DistType_L2);
+    kd_float.load_match_data(ip2_matrix_float,  vw::FLANN_DistType_L2);
   }
 
   vw_out(InfoMessage,"interest_point") << "FLANN-Tree created. Searching...\n";
@@ -563,7 +563,7 @@ void pick_subset(int max_pairwise_matches,
   std::vector<vw::InterestPoint> & ip2) {
 
   std::vector<int> subset;
-  vw::math::pick_random_indices_in_range(ip1.size(), max_pairwise_matches, subset);
+  vw::pick_random_indices_in_range(ip1.size(), max_pairwise_matches, subset);
   std::sort(subset.begin(), subset.end()); // sort the indices; not strictly necessary
 
   std::vector<vw::InterestPoint> ip1_full, ip2_full;
@@ -982,7 +982,7 @@ bool match_ip_with_datum(bool single_threaded_camera,
   // This call aligns the right image to the left image then detects IPs in the two images.
   // Undo the alignment transform in the ip before returning, and return the transform.
   vw::InterestPointList ip1, ip2;
-  vw::Matrix<double> rough_homography = vw::math::identity_matrix<3>();
+  vw::Matrix<double> rough_homography = vw::identity_matrix<3>();
   bool use_cached_ip = false;
   if (use_rough_homography) 
     detect_ip_aligned_pair(cam1, cam2, image1, image2,
@@ -998,7 +998,7 @@ bool match_ip_with_datum(bool single_threaded_camera,
   // Match the detected IPs which are in the original image coordinates.
   std::vector<vw::InterestPoint> matched_ip1, matched_ip2;
   bool match_per_tile = false;
-  vw::Matrix<double> align_matrix = vw::math::identity_matrix<3>();
+  vw::Matrix<double> align_matrix = vw::identity_matrix<3>();
   vw::Stopwatch sw2;
   sw2.start();
   bool inlier = epipolar_ip_matching(single_threaded_camera, ip1, ip2, cam1, cam2, 
@@ -1017,8 +1017,8 @@ bool match_ip_with_datum(bool single_threaded_camera,
   // transform for the two images. This is always needed when finding matches
   // per tile or with rough homography.
   bool adjust_left_image_size = false, tight_inlier_threshold = false;
-  Matrix<double> matrix1 = vw::math::identity_matrix<3>();
-  Matrix<double> matrix2 = vw::math::identity_matrix<3>();
+  Matrix<double> matrix1 = vw::identity_matrix<3>();
+  Matrix<double> matrix2 = vw::identity_matrix<3>();
   if (use_rough_homography || asp::stereo_settings().matches_per_tile > 0) {
     vw_out() << "\t    Computing homography transform.\n";
     vw::Stopwatch sw3;
@@ -1043,7 +1043,7 @@ bool match_ip_with_datum(bool single_threaded_camera,
   if (asp::stereo_settings().matches_per_tile > 0) {
     // We will use the homography matrix from left to right ip, stored in matrix2.
     // It is expected that matrix1 is the identity matrix.
-    if (matrix1 != vw::math::identity_matrix<3>())
+    if (matrix1 != vw::identity_matrix<3>())
       vw::vw_throw(ArgumentErr() << "Expecting identity matrix for left image alignment.\n");
 
     match_per_tile = true;
@@ -1128,7 +1128,7 @@ void match_ip_no_datum(vw::InterestPointList const& ip1,
 
     // We will use the homography matrix from left to right ip, stored in matrix2.
     // It is expected that matrix1 is the identity matrix.
-    if (matrix1 != vw::math::identity_matrix<3>())
+    if (matrix1 != vw::identity_matrix<3>())
       vw::vw_throw(ArgumentErr() << "Expecting identity matrix for left image alignment.\n");
     vw::Matrix<double> align_matrix = matrix2; 
 

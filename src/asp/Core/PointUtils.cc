@@ -1039,8 +1039,8 @@ void asp::median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
     if (lons.empty() || lats.empty())
       continue;
 
-    lon = vw::math::median_in_place(lons);
-    lat = vw::math::median_in_place(lats);
+    lon = vw::median_in_place(lons);
+    lat = vw::median_in_place(lats);
     success = true;
     break;
   }
@@ -1164,7 +1164,7 @@ template<class PixelT>
 typename boost::disable_if<boost::is_same<PixelT, PixelGray<float>>,
                            ImageViewRef<PixelT>>::type
 read_point_cloud_compatible_file(std::string const& file) {
-  constexpr int N = vw::math::VectorSize<PixelT>::value;
+  constexpr int N = vw::VectorSize<PixelT>::value;
   if constexpr (N == 3)
     return asp::read_asp_point_cloud_3(file);
   else if constexpr (N == 4)

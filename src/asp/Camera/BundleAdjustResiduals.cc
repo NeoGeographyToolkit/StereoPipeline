@@ -643,8 +643,8 @@ void writeTriOffsetsPerCamera(int num_cams,
     auto & offsets = tri_offsets[icam];
     double mean = nan, median = nan, count = 0;
     if (!offsets.empty()) {
-      mean = vw::math::mean(offsets);
-      median = vw::math::median_in_place<double>(offsets);
+      mean = vw::mean(offsets);
+      median = vw::median_in_place<double>(offsets);
       count = offsets.size();
     }
     ofs << image_files[icam] << " " << mean << " " << median << " " << count << "\n";  
@@ -676,7 +676,7 @@ void saveCameraOffsets(vw::Datum   const& datum,
     
     vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
     vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
-    vw::Matrix3x3 EcefToNed = vw::math::inverse(NedToEcef);
+    vw::Matrix3x3 EcefToNed = vw::inverse(NedToEcef);
     vw::Vector3 NedDir = EcefToNed * (opt_ctr - orig_ctr);
     
     // Find horizontal and vertical change
@@ -727,7 +727,7 @@ void saveCameraOffsets(vw::Datum                const& datum,
       // Convert to geodetic
       vw::Vector3 llh = datum.cartesian_to_geodetic(orig_ctr);
       vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
-      vw::Matrix3x3 EcefToNed = vw::math::inverse(NedToEcef);
+      vw::Matrix3x3 EcefToNed = vw::inverse(NedToEcef);
       vw::Vector3 NedDir = EcefToNed * (opt_ctr - orig_ctr);
     
       // Find horizontal and vertical change
@@ -790,7 +790,7 @@ void saveGcpReport(std::string            const& out_prefix,
     // local tangent frame, as is done for the camera offsets.
     Vector3 llh = datum.cartesian_to_geodetic(opt_xyz);
     Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
-    Matrix3x3 EcefToNed = vw::math::inverse(NedToEcef);
+    Matrix3x3 EcefToNed = vw::inverse(NedToEcef);
     Vector3 NedDir = EcefToNed * (opt_xyz - input_xyz);
     double ground_offset = norm_2(subvector(NedDir, 0, 2));
     double height_offset = std::abs(NedDir[2]);
@@ -976,8 +976,8 @@ void saveJitterResiduals(ceres::Problem                             & problem,
     double nan = std::numeric_limits<double>::quiet_NaN();
     double mean = nan, median = nan, count = nan;
     if (!residuals_per_cam[icam].empty()) {
-      mean   = vw::math::mean(residuals_per_cam[icam]);
-      median = vw::math::median_in_place(residuals_per_cam[icam]);
+      mean   = vw::mean(residuals_per_cam[icam]);
+      median = vw::median_in_place(residuals_per_cam[icam]);
       count  = residuals_per_cam[icam].size();
     }
     residual_file << name   << ", " << mean   << ", " << median << ", " << count  << "\n";

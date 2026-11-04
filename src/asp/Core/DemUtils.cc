@@ -337,16 +337,16 @@ void calcGsd(vw::ImageViewRef<double> const& dem,
       lonlat3 = vw::Vector3(lonlat(0), lonlat(1), median_height);
       vw::Vector3 bottom = geo.datum().geodetic_to_cartesian(lonlat3);
 
-      gridx_vec.push_back(vw::math::norm_2(right-base));
-      gridy_vec.push_back(vw::math::norm_2(bottom-base));
+      gridx_vec.push_back(vw::norm_2(right-base));
+      gridy_vec.push_back(vw::norm_2(bottom-base));
     }
   }
 
   // Median grid size
   if (!gridx_vec.empty()) 
-    gridx = vw::math::median_in_place(gridx_vec);
+    gridx = vw::median_in_place(gridx_vec);
   if (!gridy_vec.empty()) 
-    gridy = vw::math::median_in_place(gridy_vec);
+    gridy = vw::median_in_place(gridy_vec);
   
   return;
 }

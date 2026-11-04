@@ -650,7 +650,7 @@ vw::BBox3 projected_pointcloud_bbox_estim(vw::ImageViewRef<vw::Vector3> const& e
                                           double margin) {
 
   int cols = ecef_image.cols(), rows = ecef_image.rows();
-  int sub = (int)(vw::math::norm_2(vw::Vector2(cols, rows)) / 256.0);
+  int sub = (int)(vw::norm_2(vw::Vector2(cols, rows)) / 256.0);
   if (sub < 1) sub = 1;
 
   int sub_x = 0, sub_y = 0;

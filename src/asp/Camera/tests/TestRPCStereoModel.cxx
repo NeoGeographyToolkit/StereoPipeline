@@ -31,7 +31,6 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace vw::math;
 using namespace asp;
 
 /// Load an RPC camera file
@@ -219,7 +218,7 @@ TEST(StereoSessionRPC, CheckRpcCrop) {
   // Now try the same thing with a cropped image
   Vector2 pixel_offset(40, 80);
   Vector3 position_correction;
-  Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
+  Quaternion<double> pose_correction = Quat(vw::identity_matrix<3>());
 
   boost::shared_ptr<vw::CameraModel> croppedRpc(
     new vw::AdjustedCameraModel(rpcModel, position_correction, pose_correction, pixel_offset));

@@ -742,7 +742,7 @@ void extract_rotation_translation(const double * transform, vw::Quat & rotation,
     translation[i] = transform[i];
     axis_angle[i]  = transform[i+3];
   }
-  rotation = vw::math::axis_angle_to_quaternion(axis_angle);
+  rotation = vw::axis_angle_to_quaternion(axis_angle);
 }
 
 /// Extracts the full GCC coordinate of a single point from a LibPointMatcher point cloud.

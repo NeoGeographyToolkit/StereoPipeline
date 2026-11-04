@@ -217,7 +217,7 @@ namespace asp {
       // Figure out an ideal search step size. Smaller means we're
       // more likely to catch small features. Bigger step size means
       // will move a lot faster.
-      int search_step = vw::math::norm_2(vw::Vector2i(m_view.cols(),m_view.rows())) / 500;
+      int search_step = vw::norm_2(vw::Vector2i(m_view.cols(),m_view.rows())) / 500;
       if (search_step < 1)
         search_step = 1;
       if (search_step > 10) 

@@ -68,7 +68,7 @@ void calcProjAlongAcross(vw::Vector3 const& first_proj,
   proj_along = proj_along / norm_2(proj_along);
   
   // Find the across-track direction, parallel to the ground, in projected coords
-  proj_across = vw::math::cross_prod(proj_along, vw::Vector3(0, 0, 1));
+  proj_across = vw::cross_prod(proj_along, vw::Vector3(0, 0, 1));
   proj_across = proj_across / norm_2(proj_across);
 }
 

@@ -130,11 +130,11 @@ void filter_D_sub(ASPGlobalOptions const& opt,
 
   // Find the outlier brackets based on values in x and y
   double bx = -1.0, ex = -1.0;
-  vw::math::find_outlier_brackets(dx, pct_fraction, factor, bx, ex);
+  vw::find_outlier_brackets(dx, pct_fraction, factor, bx, ex);
   vw_out() <<"Inlier range based on x coordinate of disparity: " << bx << ' ' << ex <<".\n";
 
   double by = -1.0, ey = -1.0;
-  vw::math::find_outlier_brackets(dy, pct_fraction, factor, by, ey);
+  vw::find_outlier_brackets(dy, pct_fraction, factor, by, ey);
   vw_out() <<"Inlier range based on y coordinate of disparity: " << by << ' ' << ey <<".\n";
 
   int count = 0;
@@ -244,7 +244,7 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   
   // Find the outlier brackets
   double b = -1.0, e = -1.0;
-  vw::math::find_outlier_brackets(vals, pct_fraction, factor, b, e);
+  vw::find_outlier_brackets(vals, pct_fraction, factor, b, e);
   vw_out() <<"Height above datum inlier range: " << b << ' ' << e <<".\n";
 
   // Apply the outlier threshold
@@ -280,7 +280,7 @@ void filter_D_sub(ASPGlobalOptions const& opt,
   double factor2 = 2.0 * factor;
   b = -1.0;
   e = -1.0;
-  vw::math::find_outlier_brackets(vals, pct_fraction2, factor2, b, e);
+  vw::find_outlier_brackets(vals, pct_fraction2, factor2, b, e);
   vw_out() <<"Triangulation error inlier range: " << b << ' ' << e <<".\n";
     
   // Apply the outlier threshold
@@ -1176,7 +1176,7 @@ void tripletsMatches(ASPGlobalOptions const& opt,
           continue;
         
         // Refine the guess with Newton-Raphson
-        vw::math::NewtonRaphson nr(dmap);
+        vw::NewtonRaphson nr(dmap);
         vw::Vector2 trans_left_pix = nr.solve(left_guess, trans_right_pix, step, tol);
         if (std::isnan(trans_left_pix[0]) || std::isnan(trans_left_pix[1]))
           continue;

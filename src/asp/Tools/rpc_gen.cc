@@ -102,7 +102,7 @@ void compute_scale_factors(vw::BBox3   const& gdc_box,
       llh_scale[i] = 1.0;
   }
 
-  double pixel_max = vw::math::max(image_size);
+  double pixel_max = vw::max(image_size);
   uv_scale  = Vector2(pixel_max/2.0, pixel_max/2.0); // The long axis pixel is scaled to 1.0
   uv_offset = image_size/2.0; // center point 
 }
@@ -226,7 +226,7 @@ void generate_point_pairs(RPC_gen_Options opt,
     // Use matched axis scaling for pixels so one axis does not get higher error weighting
     llh_scale  = (max_llh_coord - min_llh_coord)/2.0; // half range
     llh_offset = (max_llh_coord + min_llh_coord)/2.0; // center point
-    double pixel_max = vw::math::max(image_size);
+    double pixel_max = vw::max(image_size);
     uv_scale  = Vector2(pixel_max/2.0, pixel_max/2.0); // The long axis pixel is scaled to 1.0
     uv_offset = image_size/2.0; // center point
 

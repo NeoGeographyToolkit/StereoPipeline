@@ -158,7 +158,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
   double edt = eph.time_interval;
   double adt = att.time_interval;
 
-  vw::Quat sensor_rotation = vw::math::euler_xyz_to_quaternion
+  vw::Quat sensor_rotation = vw::euler_xyz_to_quaternion
     (vw::Vector3(0,0,geo.detector_rotation - M_PI/2)); // explained earlier
   vw::Quat sensor_to_body = geo.camera_attitude * sensor_rotation;
   vw::Vector2 final_detector_origin

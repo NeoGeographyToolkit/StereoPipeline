@@ -135,7 +135,7 @@ void MainWidget::addPolyVert(double px, double py) {
   if (pSize == 0)
     m_startPix = screen2world(S);
 
-  if (pSize <= 0 || vw::math::norm_2(world2screen(m_startPix) - S) > m_pixelTol) {
+  if (pSize <= 0 || vw::norm_2(world2screen(m_startPix) - S) > m_pixelTol) {
 
     // We did not arrive yet at the starting point of the polygon being
     // drawn. Add the current point.

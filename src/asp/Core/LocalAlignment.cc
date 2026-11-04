@@ -578,8 +578,8 @@ namespace asp {
     }
 
     // The matrices which take care of the crop to the current tile
-    Matrix<double> left_crop_mat  = math::identity_matrix<3>();
-    Matrix<double> right_crop_mat = math::identity_matrix<3>();
+    Matrix<double> left_crop_mat  = vw::identity_matrix<3>();
+    Matrix<double> right_crop_mat = vw::identity_matrix<3>();
 
     left_crop_mat (0, 2) = -left_trans_crop_win.min().x();
     left_crop_mat (1, 2) = -left_trans_crop_win.min().y();
@@ -636,8 +636,8 @@ namespace asp {
     // tile_local -> tile_L coords so the existing combined =
     // left_local_mat * left_crop_mat * left_global_mat formula below still
     // recovers the raw -> tile_L map.
-    Matrix<double> left_shift  = math::identity_matrix<3>();
-    Matrix<double> right_shift = math::identity_matrix<3>();
+    Matrix<double> left_shift  = vw::identity_matrix<3>();
+    Matrix<double> right_shift = vw::identity_matrix<3>();
     left_shift (0, 2) = -left_raw_bbox.min().x();
     left_shift (1, 2) = -left_raw_bbox.min().y();
     right_shift(0, 2) = -right_raw_bbox.min().x();
@@ -725,8 +725,8 @@ namespace asp {
     // This is a bugfix. Things can go out-of-whack when there are clouds.
     // Note that the determinant being 0.15 means that the scale ratio
     // among the two images is sqrt(0.15) = 0.38.
-    double det_left = vw::math::det(combined_left_mat);
-    double det_right = vw::math::det(combined_right_mat);
+    double det_left = vw::det(combined_left_mat);
+    double det_right = vw::det(combined_right_mat);
     if (det_left < 0.15 || det_right < 0.15)
       vw_throw(vw::ArgumentErr() << "Expecting the determinants of local alignment "
                << "transforms to not be too different from 1. Got the values: "
@@ -880,8 +880,8 @@ namespace asp {
                             vw::ImageViewRef<float> aligned_disp_1d,
                             vw::BBox2i const& left_crop_win,
                             vw::BBox2i const& right_crop_win,
-                            vw::math::Matrix<double> const& left_align_mat,
-                            vw::math::Matrix<double> const& right_align_mat,
+                            vw::Matrix<double> const& left_align_mat,
+                            vw::Matrix<double> const& right_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d) {
 
@@ -943,8 +943,8 @@ namespace asp {
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> const& aligned_disp_2d,
                             vw::BBox2i const& left_crop_win,
                             vw::BBox2i const& right_crop_win,
-                            vw::math::Matrix<double> const& left_align_mat,
-                            vw::math::Matrix<double> const& right_align_mat,
+                            vw::Matrix<double> const& left_align_mat,
+                            vw::Matrix<double> const& right_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d) {
 
@@ -1003,7 +1003,7 @@ namespace asp {
   void unalign_masked_image(// Inputs
                             vw::ImageView<vw::PixelMask<float>> const& aligned_image,
                             vw::BBox2i const& left_crop_win,
-                            vw::math::Matrix<double> const& left_align_mat,
+                            vw::Matrix<double> const& left_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<float>> & unaligned_image) {
 

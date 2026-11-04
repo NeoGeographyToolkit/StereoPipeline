@@ -214,7 +214,7 @@ int add_to_outliers(vw::ControlNetwork & cnet,
   double max_pix2 = opt.remove_outliers_params[3];
 
   double b, e;
-  vw::math::find_outlier_brackets(actual_residuals, pct, factor, b, e);
+  vw::find_outlier_brackets(actual_residuals, pct, factor, b, e);
   vw_out() << "Percentile-based outlier bounds: b = " << b << ", e = " << e << ".\n";
 
   // It is unreasonable to throw out pixel residuals as small as 1 or 2 pixels.

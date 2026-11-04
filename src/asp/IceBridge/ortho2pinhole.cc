@@ -153,7 +153,7 @@ void unpack_parameters(Vector<double> const &C,
 }
 
 /// Find the camera model that best explains the DEM pixel observations
-class OtpSolveLMA : public vw::math::LeastSquaresModelBase<OtpSolveLMA> {
+class OtpSolveLMA : public vw::LeastSquaresModelBase<OtpSolveLMA> {
 
   // TODO: Normalize!
   /// The normalized values are in the -1 to 1 range.
@@ -261,9 +261,9 @@ int solve_for_cam_adjust(boost::shared_ptr<PinholeModel> camera_model,
 
   // Run the observation
   Vector<double> final_params;
-  final_params = math::levenberg_marquardt(lma_model, seed_params, packed_observations,
-                                            status, abs_tolerance, rel_tolerance,
-                                            max_iterations);
+  final_params = vw::levenberg_marquardt(lma_model, seed_params, packed_observations,
+                                          status, abs_tolerance, rel_tolerance,
+                                          max_iterations);
 
   if (status < 1) { // This means the solver failed to converge!
     VW_OUT(DebugMessage, "asp") << "ortho2pinhole: WARNING --> Levenberg-Marquardt solver status = "
@@ -485,7 +485,7 @@ void get_estimated_camera_position(Options const& opt,
   int num_pts = raw_flat_xyz.size();
   vw_out() << "Using " << num_pts << " points to create the camera model.\n";
   vw::Matrix<double> points_in(3, num_pts), points_out(3, num_pts);
-  typedef vw::math::MatrixCol<vw::Matrix<double> > ColView;
+  typedef vw::MatrixCol<vw::Matrix<double> > ColView;
   for (int pt_iter = 0; pt_iter < num_pts; pt_iter++) {
     ColView colIn (points_in,  pt_iter);
     ColView colOut(points_out, pt_iter);
@@ -501,7 +501,7 @@ void get_estimated_camera_position(Options const& opt,
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
+  vw::find_3D_transform(points_in, points_out, rotation, translation, scale);
 
   vw_out() << "Determined camera extrinsics from orthoimage: " << std::endl;
   vw_out() << "scale: " << scale << std::endl;

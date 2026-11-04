@@ -71,7 +71,7 @@ public:
   FilterDisp(double max_disp): m_max_disp(max_disp) {}
   
   DpixT operator()(DpixT const& disp) const {
-    if (is_valid(disp) && vw::math::norm_2(disp.child()) > m_max_disp) {
+    if (is_valid(disp) && vw::norm_2(disp.child()) > m_max_disp) {
       // Invalidate the disparity
       DpixT invalid_disp = disp;
       invalid_disp.invalidate();
@@ -273,7 +273,7 @@ void genWriteGcp(vw::GeoReference const& ref_dem_georef,
   if (max_num_gcp > 0 && (int)gcp_vec.size() > max_num_gcp) {
     vw::vw_out() << "Reducing the number of GCP to " << max_num_gcp << ".\n";
     std::vector<int> indices;
-    vw::math::pick_random_indices_in_range(gcp_vec.size(), max_num_gcp, indices);
+    vw::pick_random_indices_in_range(gcp_vec.size(), max_num_gcp, indices);
     std::vector<Gcp> local_vec;
     for (size_t i = 0; i < indices.size(); i++)
       local_vec.push_back(gcp_vec[indices[i]]);

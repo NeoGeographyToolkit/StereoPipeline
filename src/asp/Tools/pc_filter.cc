@@ -297,11 +297,11 @@ int main(int argc, char *argv[]) {
 
     // Load the camera
     vw::PinholeModel cam;
-    vw::Matrix<double> cam2world = vw::math::identity_matrix(4);
+    vw::Matrix<double> cam2world = vw::identity_matrix(4);
     if (opt.camera_file != "") {
       vw_out() << "Reading camera mode: " << opt.camera_file << "\n";
       cam = vw::PinholeModel(opt.camera_file);
-      vw::math::submatrix(cam2world, 0, 0, 3, 3) = cam.get_rotation_matrix();
+      vw::submatrix(cam2world, 0, 0, 3, 3) = cam.get_rotation_matrix();
       for (int row = 0; row < 3; row++) 
         cam2world(row, 3) = cam.camera_center()[row];
       vw_out() << "Camera-to-world transform: " << cam2world << "\n";

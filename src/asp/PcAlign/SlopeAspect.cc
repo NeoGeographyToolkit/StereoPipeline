@@ -67,12 +67,12 @@ void SlopeAspectZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<float>> const& 
   // To find the local grid size in x, convert pixels to projected coordinates.
   vw::Vector2 left_pt = georef.pixel_to_point(vw::Vector2(col - 1, row));
   vw::Vector2 right_pt = georef.pixel_to_point(vw::Vector2(col + 1, row));
-  double grid_x = vw::math::norm_2(right_pt - left_pt) / 2.0;
+  double grid_x = vw::norm_2(right_pt - left_pt) / 2.0;
 
   // Same for y
   vw::Vector2 top_pt = georef.pixel_to_point(vw::Vector2(col, row - 1));
   vw::Vector2 bottom_pt = georef.pixel_to_point(vw::Vector2(col, row + 1));
-  double grid_y = vw::math::norm_2(bottom_pt - top_pt) / 2.0;
+  double grid_y = vw::norm_2(bottom_pt - top_pt) / 2.0;
   
   // Compute the slope
   double dx = (afWin[3] - afWin[5]) / grid_x;

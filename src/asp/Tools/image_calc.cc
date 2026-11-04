@@ -804,7 +804,7 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   const double numPixelSamples = 1000000;
   double num_pixels = double(image.cols()) * double(image.rows());
   vw::int64 stat_scale = vw::int64(ceil(sqrt(num_pixels / numPixelSamples)));
-  vw::math::CDFAccumulator<double> accumulator;
+  vw::CDFAccumulator<double> accumulator;
   vw::int64 num_valid_pixels = 0;
   vw::ImageView<vw::PixelMask<double>> sub_image = vw::subsample(masked_image, stat_scale);
   vw::vw_out() << "Computing image percentiles with subsampled image size: "

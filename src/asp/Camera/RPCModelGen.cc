@@ -160,9 +160,9 @@ int find_solution_from_seed(RpcSolveLMA    const& lma_model,
   double abs_tolerance  = 1e-10;
   double rel_tolerance  = 1e-10;
   int    max_iterations = 1000;
-  final_params = math::levenberg_marquardt(lma_model, seed_params, actual_observations,
-                                           status, abs_tolerance, rel_tolerance,
-                                           max_iterations);
+  final_params = vw::levenberg_marquardt(lma_model, seed_params, actual_observations,
+                                         status, abs_tolerance, rel_tolerance,
+                                         max_iterations);
 
   if (status < 1) { // This means the solver failed to converge
     VW_OUT(DebugMessage, "asp") 
@@ -208,7 +208,7 @@ void initRpcAsAffine(// Inputs
     P[RPCModel::IMAGE_COORD_SIZE+1] = 1; // P[3]
     out[p] = P;
   }
-  Matrix4x4 T = math::AffineFittingFunctorN<RPCModel::GEODETIC_COORD_SIZE>()(in, out);
+  Matrix4x4 T = vw::AffineFittingFunctorN<RPCModel::GEODETIC_COORD_SIZE>()(in, out);
 
   // Put this matrix in the format acceptable for the RPC solver
   for (int p = 0; p < int(line_num.size()); p++) {
@@ -254,9 +254,9 @@ void normalizeLlhPix(std::vector<vw::Vector3> const& llh_vec,
     // Normalize the pixel to the [-1, 1] range
     vw::Vector3 llh_n   = elem_quot(llh_vec[pt] - llh_offset, llh_scale);
     vw::Vector2 pixel_n = elem_quot(pix_vec[pt] - pixel_offset, pixel_scale);
-    vw::math::subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
+    vw::subvector(normalized_llh, asp::RPCModel::GEODETIC_COORD_SIZE*pt,
               asp::RPCModel::GEODETIC_COORD_SIZE) = llh_n;
-    vw::math::subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
+    vw::subvector(normalized_pixels, asp::RPCModel::IMAGE_COORD_SIZE*pt,
               asp::RPCModel::IMAGE_COORD_SIZE) = pixel_n;
   }
   

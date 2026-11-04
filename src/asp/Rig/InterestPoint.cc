@@ -146,7 +146,7 @@ void reduceMatches(std::vector<vw::InterestPoint> & left_ip,
 
   // pick a random subset
   std::vector<int> subset;
-  vw::math::pick_random_indices_in_range(left_ip.size(), FLAGS_max_pairwise_matches, subset);
+  vw::pick_random_indices_in_range(left_ip.size(), FLAGS_max_pairwise_matches, subset);
   std::sort(subset.begin(), subset.end());  // sort the indices (not strictly necessary)
 
   std::vector<vw::InterestPoint> left_ip_full, right_ip_full;

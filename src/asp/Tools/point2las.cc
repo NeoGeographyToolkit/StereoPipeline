@@ -75,11 +75,11 @@ public:
     int len = m_vals.size();
     vw_out() << "Collected a sample of " << len << " positive triangulation errors.\n";
 
-    double mean = vw::math::mean(m_vals);
+    double mean = vw::mean(m_vals);
     vw_out() << "For this sample: "
              << "min = "     << m_vals.front()
              << ", mean = "  << mean
-             << ", stdev = " << vw::math::standard_deviation(m_vals, mean)
+             << ", stdev = " << vw::standard_deviation(m_vals, mean)
              << ", max = " << m_vals.back() << "." << std::endl;
 
     int i25 = round((len - 1) * 0.25);

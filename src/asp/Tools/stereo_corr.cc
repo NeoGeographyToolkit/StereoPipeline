@@ -284,8 +284,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 } // End produce_lowres_disparity
 
 // TODO(oalexan1): move this to InterestPointMatching.cc
-BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
-                                     vw::math::Histogram const& hist_y,
+BBox2 get_search_range_from_ip_hists(vw::Histogram const& hist_x,
+                                     vw::Histogram const& hist_y,
                                      double edge_discard_percentile,
                                      double search_scale) {
 
@@ -454,8 +454,8 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   if (filter_using_histogram) {
     // Compute histograms
     const int NUM_BINS = 1000000; // Accuracy is important with scaled pixels
-    vw::math::Histogram hist_x(NUM_BINS, min_dx, max_dx);
-    vw::math::Histogram hist_y(NUM_BINS, min_dy, max_dy);
+    vw::Histogram hist_x(NUM_BINS, min_dx, max_dx);
+    vw::Histogram hist_y(NUM_BINS, min_dy, max_dy);
     for (size_t i = 0; i < dx.size(); ++i){
       hist_x.add_value(dx[i]);
       hist_y.add_value(dy[i]);
@@ -1093,8 +1093,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   // The left_trans_crop_win will be obtained by tile_crop_win by maybe growing it a bit
   BBox2i left_trans_crop_win, right_trans_crop_win;
   int max_tile_size = stereo_settings().corr_tile_size_ovr;
-  Matrix<double> left_local_mat  = math::identity_matrix<3>();
-  Matrix<double> right_local_mat = math::identity_matrix<3>();
+  Matrix<double> left_local_mat  = vw::identity_matrix<3>();
+  Matrix<double> right_local_mat = vw::identity_matrix<3>();
   std::string left_aligned_file, right_aligned_file;
   int min_disp = -1, max_disp = -1;
   std::string out_disp_file = opt.out_prefix + "-D.tif";

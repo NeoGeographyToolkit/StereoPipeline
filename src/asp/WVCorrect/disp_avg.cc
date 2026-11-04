@@ -126,9 +126,9 @@ int main(int argc, char *argv[]){
       double outlier_factor = opt.remove_outliers_params[1];
       
       double bx = 0, ex = 0, by = 0, ey = 0;
-      if (!vw::math::find_outlier_brackets(px, pct_factor, outlier_factor, bx, ex))
+      if (!vw::find_outlier_brackets(px, pct_factor, outlier_factor, bx, ex))
         continue;
-      if (!vw::math::find_outlier_brackets(py, pct_factor, outlier_factor, by, ey))
+      if (!vw::find_outlier_brackets(py, pct_factor, outlier_factor, by, ey))
         continue;
 
       int len = px.size();

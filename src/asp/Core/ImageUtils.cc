@@ -444,8 +444,8 @@ gather_stats(vw::ImageViewRef<vw::PixelMask<float>> image,
     // immune, and NMAD = 1.4826 * median(|x - median|) is the robust analog of
     // stddev, equal to it for Gaussian data. Use the VW utilities (they reorder
     // the buffer, which is fine here).
-    result[2] = vw::math::median_in_place(samples);
-    result[3] = vw::math::nmad_in_place(samples);
+    result[2] = vw::median_in_place(samples);
+    result[3] = vw::nmad_in_place(samples);
 
     // 2nd and 98th percentiles (used by the percentile-stretch normalization path).
     auto quantile = [&](double p) -> float {

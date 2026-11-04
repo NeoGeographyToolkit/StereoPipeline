@@ -38,7 +38,7 @@ void packCoeffs(RPCModel::CoeffVec const& lineNum, RPCModel::CoeffVec const& lin
 
 /// Find the best-fitting RPC coefficients for the camera transform
 /// mapping a set of normalized geodetics to a set of normalized pixel values.
-class RpcSolveLMA: public vw::math::LeastSquaresModelBase<RpcSolveLMA> {
+class RpcSolveLMA: public vw::LeastSquaresModelBase<RpcSolveLMA> {
   
   /// The normalized values are in the -1 to 1 range.
   vw::Vector<double> m_normalizedGeodetics; 

@@ -34,7 +34,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   // RPC models in dg_example1 and dg_example4 see.
   vw::GeoReference lowres_georef; // WGS84
   lowres_georef.set_equirectangular(37.745, -103.29, 37);
-  Matrix<double> tx = math::identity_matrix<3>();
+  Matrix<double> tx = vw::identity_matrix<3>();
   tx(0,0) = tx(1,1) = 500;
   tx(0,2) = tx(1,2) = -1000;
   lowres_georef.set_transform(tx);

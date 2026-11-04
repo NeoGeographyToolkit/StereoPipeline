@@ -194,17 +194,17 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
                    << " matched interest points.\n";
 
       // Filter interest point matches
-      vw::math::RandomSampleConsensus<vw::math::SimilarityFittingFunctor,
-                                      vw::math::InterestPointErrorMetric>
-        ransac(vw::math::SimilarityFittingFunctor(),
-               vw::math::InterestPointErrorMetric(),
+      vw::RandomSampleConsensus<vw::SimilarityFittingFunctor,
+                                      vw::InterestPointErrorMetric>
+        ransac(vw::SimilarityFittingFunctor(),
+               vw::InterestPointErrorMetric(),
                100, 5, 100, true);
       std::vector<vw::Vector3> ransac_ip1 = vw::iplist_to_vectorlist(matched_ip1);
       std::vector<vw::Vector3> ransac_ip2 = vw::iplist_to_vectorlist(matched_ip2);
 
       // Finding offset using RANSAC.
       try {
-        vw::math::Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
+        vw::Matrix<double> H(ransac(ransac_ip1, ransac_ip2));
         vw::vw_out() << "ipfind based similarity: " << H << "\n";
 
         ipFindXOffset = static_cast<int>(H[0][2]);

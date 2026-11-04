@@ -77,8 +77,8 @@ namespace asp {
                             vw::ImageViewRef<float> aligned_disp_1d, 
                             vw::BBox2i const& left_crop_win, 
                             vw::BBox2i const& right_crop_win,
-                            vw::math::Matrix<double> const& left_align_mat,
-                            vw::math::Matrix<double> const& right_align_mat,
+                            vw::Matrix<double> const& left_align_mat,
+                            vw::Matrix<double> const& right_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d);
   
@@ -88,8 +88,8 @@ namespace asp {
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> const& aligned_disp_2d,
                             vw::BBox2i const& left_crop_win, 
                             vw::BBox2i const& right_crop_win,
-                            vw::math::Matrix<double> const& left_align_mat,
-                            vw::math::Matrix<double> const& right_align_mat,
+                            vw::Matrix<double> const& left_align_mat,
+                            vw::Matrix<double> const& right_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<vw::Vector2f>> & unaligned_disp_2d);
 
@@ -99,7 +99,7 @@ namespace asp {
   void unalign_masked_image(// Inputs
                             vw::ImageView<vw::PixelMask<float>> const& aligned_image,
                             vw::BBox2i const& left_crop_win, 
-                            vw::math::Matrix<double> const& left_align_mat,
+                            vw::Matrix<double> const& left_align_mat,
                             // Output
                             vw::ImageView<vw::PixelMask<float>> & unaligned_image);
   

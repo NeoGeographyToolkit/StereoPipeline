@@ -31,7 +31,6 @@
 #include <vector>
 
 using namespace vw;
-using namespace vw::math;
 
 namespace asp {
 
@@ -102,10 +101,10 @@ namespace asp {
     }
 
     Vector<double> shear = least_squares(a, b);
-    Matrix<double> interm = math::identity_matrix<3>();
+    Matrix<double> interm = vw::identity_matrix<3>();
     interm(0, 1) = -shear[1] / 2.0;
     affine_left = interm * affine_left;
-    interm = math::identity_matrix<3>();
+    interm = vw::identity_matrix<3>();
     interm(0, 0) = shear[0];
     interm(0, 1) = shear[1] / 2.0;
     interm(0, 2) = shear[2];
@@ -172,8 +171,8 @@ namespace asp {
       epipole.y() = -epipole.y();
       epipole_prime.y() = -epipole_prime.y();
 
-      Matrix<double> left_matrix  = math::identity_matrix<3>();
-      Matrix<double> right_matrix = math::identity_matrix<3>();
+      Matrix<double> left_matrix  = vw::identity_matrix<3>();
+      Matrix<double> right_matrix = vw::identity_matrix<3>();
     
       left_matrix(0, 0)  = epipole[0]/Hl;
       left_matrix(0, 1)  = -epipole[1]/Hl;

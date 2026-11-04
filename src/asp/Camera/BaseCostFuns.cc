@@ -77,7 +77,7 @@ vw::Matrix3x3 setupPositionUnc(std::string const& tag, vw::Vector3 const& anchor
 
   vw::Vector3 llh = datum.cartesian_to_geodetic(anchor);
   vw::Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
-  return vw::math::inverse(NedToEcef);
+  return vw::inverse(NedToEcef);
 }
 
 CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
@@ -174,7 +174,7 @@ bool GroupCamUncertaintyError::operator()(const double* group_pose,
   // applyOrbitalGroupPose). This is the only difference from CamUncertaintyError.
   vw::Vector3 axis_angle(group_pose[0], group_pose[1], group_pose[2]);
   vw::Vector3 translation(group_pose[3], group_pose[4], group_pose[5]);
-  vw::Quat rot = vw::math::axis_angle_to_quaternion(axis_angle);
+  vw::Quat rot = vw::axis_angle_to_quaternion(axis_angle);
   vw::Vector3 cur_pos = m_centroid + rot.rotate(m_init_pos - m_centroid) + translation;
 
   // The difference between the original and current camera center

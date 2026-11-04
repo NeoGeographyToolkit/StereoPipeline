@@ -908,7 +908,7 @@ void handleLowLight(SfsOptions const& opt,
   }
   double median_err = 0.0;
   if (!errs.empty())
-    median_err = vw::math::median_in_place(errs);
+    median_err = vw::median_in_place(errs);
   
   // Find the adjustment weights for low light
   std::vector<ImageView<double>> adj_weights(num_images);

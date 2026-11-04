@@ -413,11 +413,11 @@ void calc_stats(std::string label, Eigen::MatrixXd const& dists) {
   // more careful job than the code below for even-length vectors. It looks
   // safer, if redundant, to work on a copy of the vector.
   std::vector<double> errs_copy = errs;
-  double median = vw::math::median_in_place(errs_copy);
+  double median = vw::median_in_place(errs_copy);
   
   // Find nmad. As before, copy the vector to be safe.
   errs_copy = errs;
-  double nmad = vw::math::nmad_in_place(errs_copy);
+  double nmad = vw::nmad_in_place(errs_copy);
   
   double p16 = errs[std::min(len-1, (int)round(len*0.16))];
   double p84 = errs[std::min(len-1, (int)round(len*0.84))];
@@ -815,7 +815,7 @@ initial_transform_from_match_file(std::string const& ref_file,
   // Go from pixels to 3D points
   int num_matches = ref_ip.size();
   vw::Matrix<double> points_ref(DIM, num_matches), points_src(DIM, num_matches);
-  typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
+  typedef vw::MatrixCol<vw::Matrix<double>> ColView;
   int count = 0;
   for (int match_id = 0; match_id < num_matches; match_id++) {
     int ref_x = ref_ip[match_id].x;
@@ -863,11 +863,11 @@ initial_transform_from_match_file(std::string const& ref_file,
   vw::Vector3   translation;
   double        scale;
   bool filter_outliers = true;
-  vw::math::find_3D_transform(points_src, points_ref,
-                              rotation, translation, scale,
-                              hillshading_transform,
-                              filter_outliers,
-                              initial_transform_ransac_params);
+  vw::find_3D_transform(points_src, points_ref,
+                        rotation, translation, scale,
+                        hillshading_transform,
+                        filter_outliers,
+                        initial_transform_ransac_params);
 
   // Convert to pc_align transform format.
   Eigen::MatrixXd globalT = Eigen::MatrixXd::Identity(DIM+1, DIM+1);
@@ -1457,9 +1457,9 @@ int main(int argc, char *argv[]) {
 
     Matrix3x3 rot_NED = inverse(NedToEcef) * rot * NedToEcef;
 
-    Vector3 euler_angles = math::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
-    Vector3 euler_angles_NED = math::rotation_matrix_to_euler_xyz(rot_NED) * 180/M_PI;
-    Vector3 axis_angles = math::matrix_to_axis_angle(rot) * 180/M_PI;
+    Vector3 euler_angles = vw::rotation_matrix_to_euler_xyz(rot) * 180/M_PI;
+    Vector3 euler_angles_NED = vw::rotation_matrix_to_euler_xyz(rot_NED) * 180/M_PI;
+    Vector3 axis_angles = vw::matrix_to_axis_angle(rot) * 180/M_PI;
     vw_out() << "Euler angles (degrees): " << euler_angles  << "\n";
     vw_out() << "Euler angles (North-East-Down, degrees): " << euler_angles_NED  << "\n";
     vw_out() << "Axis of rotation and angle (degrees): "

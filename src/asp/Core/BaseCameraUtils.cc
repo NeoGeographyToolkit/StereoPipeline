@@ -83,7 +83,7 @@ vw::CamPtr load_adjusted_model(vw::CamPtr cam,
   // Ensure these vectors are populated even when there are no corrections to read,
   // as we may still have pixel offset.
   position_correction = Vector3();
-  pose_correction = Quat(math::identity_matrix<3>());
+  pose_correction = Quat(vw::identity_matrix<3>());
 
   if (ba_prefix != "") { // If a bundle adjustment file was specified
 

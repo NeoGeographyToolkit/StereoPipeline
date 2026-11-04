@@ -208,10 +208,10 @@ void extrapolatePosition(vw::Datum const& datum,
     #if 0
     if (i < num_pos - 1) {
       std::cout << "Error in extrapolation at position " << i << " is = "
-        << vw::math::norm_2(positions[i+1] - next_pos) << std::endl;
+        << vw::norm_2(positions[i+1] - next_pos) << std::endl;
 
       std::cout << "Error in extrapolation at velocity " << i << " is = "
-        << vw::math::norm_2(velocities[i+1] - next_vel) << std::endl;
+        << vw::norm_2(velocities[i+1] - next_vel) << std::endl;
     }
     #endif
 
@@ -252,7 +252,7 @@ void createCsmModel(double first_line_time, double dt_line,
     vw::Vector3 beg_pos = positions[i];
     // Normalized velocity
     vw::Vector3 vel = velocities[i];
-    vel = vel / vw::math::norm_2(vel);
+    vel = vel / vw::norm_2(vel);
     vw::Vector3 end_pos = beg_pos + asp::satSimDelta() * vel;
 
     vw::Vector3 llh = georef.datum().cartesian_to_geodetic(beg_pos);
@@ -270,8 +270,8 @@ void createCsmModel(double first_line_time, double dt_line,
                               proj_along, proj_across, beg_proj,
                               along, across);
 
-    vw::Vector3 down = vw::math::cross_prod(along, across);
-    down = down / vw::math::norm_2(down);
+    vw::Vector3 down = vw::cross_prod(along, across);
+    down = down / vw::norm_2(down);
 
     // The satellite orientation if perfectly aligned with the trajectory
     vw::Matrix3x3 sat2world;
@@ -285,7 +285,7 @@ void createCsmModel(double first_line_time, double dt_line,
 
     // It looks that the PRISM camera is mounted in reverse, so need to use
     // the inverse of the rotation matrix.
-    vw::Matrix3x3 cam2cam = vw::math::inverse(asp::rotationXY());
+    vw::Matrix3x3 cam2cam = vw::inverse(asp::rotationXY());
 
     // Put it all together
     cam2world[i] = sat2world * sat2sat * cam2sat * cam2cam;
@@ -326,7 +326,7 @@ double calcCornersError(vw::GeoReference const& dem_georef,
     vw::Vector3 llh(lonlat[0], lonlat[1], dem_ht.child());
     vw::Vector3 xyz = dem_georef.datum().geodetic_to_cartesian(llh);
     vw::Vector2 cam_pix = model.point_to_pixel(xyz);
-    double err = vw::math::norm_2(cam_pix - raw_pix);
+    double err = vw::norm_2(cam_pix - raw_pix);
     total_err += err;
   }
 

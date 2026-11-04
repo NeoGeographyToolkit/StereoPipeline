@@ -72,7 +72,7 @@ vw::Quat    CameraAdjustment::pose    () const { return m_pose_data;     }
 /// Populate from a six element array.
 void CameraAdjustment::read_from_array(double const* array) {
   m_position_data = vw::Vector3(array[0], array[1], array[2]);
-  m_pose_data     = vw::math::axis_angle_to_quaternion(vw::Vector3(array[3], array[4], array[5]));
+  m_pose_data     = vw::axis_angle_to_quaternion(vw::Vector3(array[3], array[4], array[5]));
 }
 
 /// Populate from an AdjustedCameraModel
@@ -396,7 +396,7 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ControlNetwo
 
   // Populate matrices containing the current and known camera positions.
   vw::Matrix<double> points_in(3, num_matches_found), points_out(3, num_matches_found);
-  typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
+  typedef vw::MatrixCol<vw::Matrix<double>> ColView;
   int index = 0;
   for (int i = 0; i < num_cameras; i++) {
     // Skip cameras with no matching record
@@ -420,7 +420,7 @@ bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ControlNetwo
   vw::Matrix3x3 rotation;
   vw::Vector3   translation;
   double        scale;
-  vw::math::find_3D_transform(points_in, points_out, rotation, translation, scale);
+  vw::find_3D_transform(points_in, points_out, rotation, translation, scale);
 
   // Update the camera and point information with the new transform
   apply_rigid_transform(rotation, translation, scale, camera_models, cnet);
@@ -583,8 +583,8 @@ void transform_cameras_with_shared_gcp(
   std::vector<vw::Vector3> in_fit = in_xyz, out_fit = out_xyz;
   double outlier_factor = 20.0; // a drop must cut the RMS error by this factor
   while (true) {
-    vw::math::find_3D_transform_no_outliers(in_fit, out_fit, rotation, translation,
-                                            scale, transform_type);
+    vw::find_3D_transform_no_outliers(in_fit, out_fit, rotation, translation,
+                                      scale, transform_type);
     double full_rms = similarity_fit_rms(in_fit, out_fit, rotation, translation, scale);
     if (int(in_fit.size()) <= MIN_GCP_COUNT || full_rms <= 0.0)
       break;
@@ -603,8 +603,8 @@ void transform_cameras_with_shared_gcp(
       vw::Matrix3x3 sub_rotation;
       vw::Vector3   sub_translation;
       double        sub_scale = 1.0;
-      vw::math::find_3D_transform_no_outliers(in_sub, out_sub, sub_rotation,
-                                              sub_translation, sub_scale, transform_type);
+      vw::find_3D_transform_no_outliers(in_sub, out_sub, sub_rotation,
+                                        sub_translation, sub_scale, transform_type);
       double sub_rms = similarity_fit_rms(in_sub, out_sub, sub_rotation,
                                           sub_translation, sub_scale);
       if (sub_rms < best_rms) {
@@ -1451,20 +1451,20 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
 
   if (!horiz_errors.empty()) {
     stats.num_errors = horiz_errors.size();
-    stats.horiz_error_mean = vw::math::mean(horiz_errors);
-    stats.vert_error_mean = vw::math::mean(vert_errors);
+    stats.horiz_error_mean = vw::mean(horiz_errors);
+    stats.vert_error_mean = vw::mean(vert_errors);
 
     if (horiz_errors.size() > 1) {
       // This divides by num - 1
       stats.horiz_error_stddev
-        = vw::math::standard_deviation(horiz_errors, stats.horiz_error_mean);
+        = vw::standard_deviation(horiz_errors, stats.horiz_error_mean);
       stats.vert_error_stddev
-        = vw::math::standard_deviation(vert_errors, stats.vert_error_mean);
+        = vw::standard_deviation(vert_errors, stats.vert_error_mean);
     }
 
     // Leave this for the last
-    stats.horiz_error_median = vw::math::median_in_place(horiz_errors);
-    stats.vert_error_median = vw::math::median_in_place(vert_errors);
+    stats.horiz_error_median = vw::median_in_place(horiz_errors);
+    stats.vert_error_median = vw::median_in_place(vert_errors);
   }
 
   return;

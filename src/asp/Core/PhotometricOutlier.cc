@@ -70,7 +70,7 @@ void asp::photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
     diff(abs(apply_mask(copy_mask(left_image,right_mask))-right_proj),
          "tif", TerminalProgressCallback("asp","\tDifference:"),
          cache_dir);
-  ChannelAccumulator<math::CDFAccumulator<float32>> cdf;
+  ChannelAccumulator<vw::CDFAccumulator<float32>> cdf;
   cdf.resize(8000,2001);
   for_each_pixel(diff, cdf);
   float thresh = cdf.quantile(0.99985); // Pulling out last bin of CDF

@@ -524,7 +524,7 @@ vw::TransformPtr StereoSession::tx_right_homography() const {
 }
 
 vw::TransformPtr StereoSession::tx_identity() const {
-  Matrix<double> tx = math::identity_matrix<3>();
+  Matrix<double> tx = vw::identity_matrix<3>();
   return vw::TransformPtr(new vw::HomographyTransform(tx));
 }
 

@@ -176,7 +176,7 @@ void calcCameraPoses(bool                                no_poses_from_nvm,
       = dynamic_cast<asp::CsmModel const*>(adj_cam->unadjusted_model().get());
     if (csm_model != NULL && csm_model->isFrameCam()) {
       
-      vw::Matrix4x4 ecef_transform = vw::math::identity_matrix<4>();
+      vw::Matrix4x4 ecef_transform = vw::identity_matrix<4>();
       if (adj_cam != NULL) 
         ecef_transform = adj_cam->ecef_transform();
         
@@ -269,7 +269,7 @@ void updateCameraPoses(std::vector<Eigen::Affine3d> const& world_to_cam,
       // We expect the adjustment to be the identity, as this function is called
       // before any adjustment is applied.
       vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
-      if (ecef_transform != vw::math::identity_matrix(4))
+      if (ecef_transform != vw::identity_matrix(4))
         vw::vw_throw(vw::ArgumentErr() << "Expecting the adjustment to be the identity.\n");
       
       // Get the unadjusted pinhole camera

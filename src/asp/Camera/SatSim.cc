@@ -40,7 +40,6 @@
 
 #include <iomanip>
 
-using namespace vw::math;
 
 namespace fs = boost::filesystem;
 
@@ -97,7 +96,7 @@ bool calcCamPoseAndGroundPt(SatSimOptions const& opt,
                             cam_ctr, along, across);
 
   // Find the z vector as perpendicular to both along and across
-  vw::Vector3 down = vw::math::cross_prod(along, across);
+  vw::Vector3 down = vw::cross_prod(along, across);
   down = down / norm_2(down);
 
   // The camera to world rotation
@@ -168,7 +167,7 @@ vw::Vector2 demPixelErr(SatSimOptions const& opt,
 // LMA model for orbital camera placement. Dim 1 optimizes along-track only (s = 0);
 // Dim 2 optimizes along-track and across-track (to compensate roll).
 template <size_t Dim>
-class RayDemPixelLMA: public vw::math::LeastSquaresModelBase<RayDemPixelLMA<Dim>> {
+class RayDemPixelLMA: public vw::LeastSquaresModelBase<RayDemPixelLMA<Dim>> {
 
   SatSimOptions const& m_opt;
   vw::GeoReference const& m_dem_georef;
@@ -278,8 +277,8 @@ void solveCamLocation(RayDemPixelLMA<Dim> const& model, double spacing,
   double max_abs_tol = 1e-14;
   double max_rel_tol = max_abs_tol;
   int num_max_iter = 100;
-  best_len = vw::math::levenberg_marquardt(model, best_len, observation, status,
-                                          max_abs_tol, max_rel_tol, num_max_iter);
+  best_len = vw::levenberg_marquardt(model, best_len, observation, status,
+                                    max_abs_tol, max_rel_tol, num_max_iter);
 }
 
 // Find camera center in projected coordinates that best matches a ground point.
@@ -448,7 +447,7 @@ void cameraAdjustment(vw::Vector2 const& first_ground_pos,
   along = along - dot_prod(ground_dir, along) * ground_dir;
 
   // Find 'across' as y direction, given that 'along' is x, and 'ground_dir' is z
-  across = -vw::math::cross_prod(along, ground_dir);
+  across = -vw::cross_prod(along, ground_dir);
 
   // Make these vectors have norm 1, and make across perpendicular to along
   // Should already be that way by now, but do it just in case
@@ -600,7 +599,7 @@ vw::Vector3 calcJitterAmplitude(SatSimOptions const& opt,
   // Seed the random number generator. This will be reproducible each time the
   // program is run, but will be different for each set of input cameras.
   if (opt.random_pose_perturbation)
-    srand(vw::math::norm_2(curr_proj));
+    srand(vw::norm_2(curr_proj));
   
   double height_above_datum = curr_proj[2]; // curr satellite height
   vw::Vector3 amp(0, 0, 0);
@@ -824,19 +823,19 @@ void genCamPoses(SatSimOptions & opt,
           << " in DEM pixel coordinates, not lon/lat.\n");
   };
   checkPixInDem("first",
-                vw::math::subvector(opt.first, 0, 2));
+                vw::subvector(opt.first, 0, 2));
   checkPixInDem("last",
-                vw::math::subvector(opt.last,  0, 2));
+                vw::subvector(opt.last,  0, 2));
   checkPixInDem("first-ground-pos", opt.first_ground_pos);
   checkPixInDem("last-ground-pos",  opt.last_ground_pos);
 
   // Convert the first and last camera center positions to projected coordinates
   vw::Vector3 first_proj, last_proj;
   subvector(first_proj, 0, 2) = dem_georef.pixel_to_point
-      (vw::math::subvector(opt.first, 0, 2)); // x and y
+      (vw::subvector(opt.first, 0, 2)); // x and y
   first_proj[2] = opt.first[2]; // z
   subvector(last_proj, 0, 2) = dem_georef.pixel_to_point
-      (vw::math::subvector(opt.last,  0, 2)); // x and y
+      (vw::subvector(opt.last,  0, 2)); // x and y
   last_proj[2] = opt.last[2]; // z
 
   // Direction along the edge in proj coords (along track direction),
@@ -1003,7 +1002,7 @@ void genCamPoses(SatSimOptions & opt,
                        along, across);
     
     // Find the z vector as perpendicular to both along and across
-    vw::Vector3 down = vw::math::cross_prod(along, across);
+    vw::Vector3 down = vw::cross_prod(along, across);
     down = down / norm_2(down);
 
     // Camera position in ECEF
@@ -1031,7 +1030,7 @@ void genCamPoses(SatSimOptions & opt,
     }
     
     // The rotation without jitter
-    vw::Matrix3x3 R0 = vw::math::identity_matrix<3>();
+    vw::Matrix3x3 R0 = vw::identity_matrix<3>();
     if (have_roll_pitch_yaw)
       R0 = asp::rollPitchYaw(opt.roll, opt.pitch, opt.yaw);
     cam2world_no_jitter[i] = cam2world_no_jitter[i] * R0;
@@ -1154,7 +1153,7 @@ void perturbCameras(SatSimOptions const& opt,
     if (!std::isnan(opt.random_position_perturbation)) {
       // Seed the random number generator to ensure being in a different location
       // in orbit results in a different perturbation for same camera index.
-      srand(vw::math::norm_2(curr_proj_ctr));
+      srand(vw::norm_2(curr_proj_ctr));
       vw::Vector3 perturbation;
       for (int c = 0; c < 3; c++)
         perturbation[c] = (2 * double(rand())/double(RAND_MAX) - 1.0) 
@@ -1481,7 +1480,7 @@ public:
     // does not necessarily start at (0,0). We only adjust the starting
     // position, and not any other params
     vw::Vector3 translation(0, 0, 0);
-    vw::Quat    rotation(vw::math::identity_matrix<3>());
+    vw::Quat    rotation(vw::identity_matrix<3>());
     vw::Vector2 pixel_offset = crop_start;
     double      scale = 1.0;
     vw::CamPtr crop_cam(new vw::AdjustedCameraModel(m_cam, translation, rotation, 

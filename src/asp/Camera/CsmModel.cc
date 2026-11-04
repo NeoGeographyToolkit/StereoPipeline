@@ -1682,7 +1682,7 @@ void CsmModel::createApproxCam() {
     vw::Vector3 xyz = groundPts[i];
     vw::Vector2 pix2 = asp::applyProjTrans(xyz, m_approxCamCoeffs);
 
-    double err = vw::math::norm_2(pix - pix2);
+    double err = vw::norm_2(pix - pix2);
     m_maxApproxCamPixErr = std::max(m_maxApproxCamPixErr, err);
   }
   m_maxApproxCamPixErr = std::max(m_maxApproxCamPixErr, 10.0); // ensure it is not small
@@ -1707,7 +1707,7 @@ vw::Vector2 CsmModel::correctWithApproxCam(vw::Vector2 const& pix,
   if (pixIn && !apixIn) {
 
     // Likely the exact projection is not accurate
-    double dist = vw::math::norm_2(pix - apix);
+    double dist = vw::norm_2(pix - apix);
     if (m_maxApproxCamPixErr > 0 && dist > 1.5 * m_maxApproxCamPixErr) {
 
       double gsd = 0.0;
@@ -1719,10 +1719,10 @@ vw::Vector2 CsmModel::correctWithApproxCam(vw::Vector2 const& pix,
       if (gsd > 0) {
         // Do a geometric check. Project from the camera to the ground and see
         // if we get close enough to the input xyz.
-        double dist_to_ground = vw::math::norm_2(xyz - this->camera_center(pix));
+        double dist_to_ground = vw::norm_2(xyz - this->camera_center(pix));
         vw::Vector3 xyz2 = this->camera_center(pix)
           + this->pixel_to_vector(pix) * dist_to_ground;
-        if (vw::math::norm_2(xyz - xyz2) > 10 * gsd)
+        if (vw::norm_2(xyz - xyz2) > 10 * gsd)
           return apix; // Return the approximate pixel
       }
     }

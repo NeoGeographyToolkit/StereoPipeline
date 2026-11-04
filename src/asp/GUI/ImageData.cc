@@ -491,7 +491,7 @@ void findRobustBounds(std::vector<vw::Vector3> const& scattered_data,
     vals.push_back(scattered_data[pt_it][2]);
 
   double beg_inlier = -1, end_inlier = -1, pct_fraction = 0.25, factor = 3.0;
-  vw::math::find_outlier_brackets(vals, pct_fraction, factor, beg_inlier, end_inlier);
+  vw::find_outlier_brackets(vals, pct_fraction, factor, beg_inlier, end_inlier);
   min_val = end_inlier;
   max_val = beg_inlier;
 

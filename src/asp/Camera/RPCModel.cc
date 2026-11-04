@@ -549,7 +549,7 @@ Vector2 RPCModel::image_to_ground(Vector2 const& pixel, double height,
   // Set up Newton-Raphson. The RpcFunJac class computes both the function
   // and its Jacobian via two versions of operator().
   RpcFunJac rpc_fun_jac(*this, height);
-  vw::math::NewtonRaphson nr(rpc_fun_jac, rpc_fun_jac);
+  vw::NewtonRaphson nr(rpc_fun_jac, rpc_fun_jac);
   vw::Vector2 guess = normalized_lonlat;
   double step = 1e-6; // Not used with analytic Jacobian, but part of the API.
 

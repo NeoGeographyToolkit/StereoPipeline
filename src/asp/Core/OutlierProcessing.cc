@@ -41,11 +41,11 @@ void estimate_inliers_bbox(double pct_factor_x, double pct_factor_y, double pct_
   inliers_bbox = BBox3();
 
   double bx, ex, by, ey, bz, ez;
-  if (!vw::math::find_outlier_brackets(x_vals, pct_factor_x, outlier_factor, bx, ex))
+  if (!vw::find_outlier_brackets(x_vals, pct_factor_x, outlier_factor, bx, ex))
     return;
-  if (!vw::math::find_outlier_brackets(y_vals, pct_factor_y, outlier_factor, by, ey))
+  if (!vw::find_outlier_brackets(y_vals, pct_factor_y, outlier_factor, by, ey))
     return;
-  if (!vw::math::find_outlier_brackets(z_vals, pct_factor_z, outlier_factor, bz, ez))
+  if (!vw::find_outlier_brackets(z_vals, pct_factor_z, outlier_factor, bz, ez))
     return;
 
   // NaN values will result in an error further down

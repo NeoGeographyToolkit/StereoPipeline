@@ -478,7 +478,7 @@ weightedRollYawError::weightedRollYawError
                               along, across); // outputs
 
     // Find the z vector as perpendicular to both along and across
-    vw::Vector3 down = vw::math::cross_prod(along, across);
+    vw::Vector3 down = vw::cross_prod(along, across);
     down = down / norm_2(down);
 
     // Find the rotation matrix from satellite to world coordinates, and 90
@@ -502,7 +502,7 @@ bool weightedRollYawError::operator()(double const * const * parameters,
     // Find the new camera orientation relative to the initial camera, not
     // relative to the satellite along-track direction. Then find the roll and
     // yaw from it. This is experimental.
-    vw::Matrix3x3 cam2cam =  vw::math::inverse(cam2world) * m_initCam2World;
+    vw::Matrix3x3 cam2cam =  vw::inverse(cam2world) * m_initCam2World;
 
     double roll = 0.0, pitch = 0.0, yaw = 0.0;
     rollPitchYawFromRotationMatrix(cam2cam, roll, pitch, yaw);
@@ -523,7 +523,7 @@ bool weightedRollYawError::operator()(double const * const * parameters,
   }
 
   vw::Matrix3x3 rollPitchYaw
-    = vw::math::inverse(m_sat2World) * cam2world * vw::math::inverse(m_rotXY);
+    = vw::inverse(m_sat2World) * cam2world * vw::inverse(m_rotXY);
 
   double roll = 0.0, pitch = 0.0, yaw = 0.0;
   rollPitchYawFromRotationMatrix(rollPitchYaw, roll, pitch, yaw);
@@ -1054,7 +1054,7 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
     double median_gsd = 0.0;
     if (!anchor_gsd.empty()) {
       std::vector<double> gsd_copy = anchor_gsd;
-      median_gsd = vw::math::median_in_place<double>(gsd_copy);
+      median_gsd = vw::median_in_place<double>(gsd_copy);
     }
     if (use_anchor_uncertainty && median_gsd > 0) {
       // Convert the ground uncertainty (meters) to a pixel weight using the
@@ -1083,8 +1083,8 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
   if (max_anchor_points_total >= 0 &&
       (int)all_anchor.size() > max_anchor_points_total) {
     std::vector<int> subset;
-    vw::math::pick_random_indices_in_range(all_anchor.size(),
-                                           max_anchor_points_total, subset);
+    vw::pick_random_indices_in_range(all_anchor.size(),
+                                     max_anchor_points_total, subset);
     std::fill(keep.begin(), keep.end(), 0);
     for (size_t it = 0; it < subset.size(); it++)
       keep[subset[it]] = 1;
@@ -1256,7 +1256,7 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
       // Find the median weight and count. The median is more robust to outliers.
       count_per_cam[pass][icam] = this_cam_weights.size();
       if (count_per_cam[pass][icam] > 0)
-        weight_per_cam[pass][icam] = vw::math::median_in_place(this_cam_weights);
+        weight_per_cam[pass][icam] = vw::median_in_place(this_cam_weights);
       else
         weight_per_cam[pass][icam] = 0.0;
     } // end iteration through cameras
@@ -2438,7 +2438,7 @@ void estimCurvature(UsgsAstroLsSensorModel * ls_model,
     std::vector<double> vals;
     for (int it = 1; it < numQuats - 1; it++)
       vals.push_back(curvature[it * NUM_QUAT_PARAMS + c]);
-    median_curvature[c] = vw::math::median_in_place<double>(vals);
+    median_curvature[c] = vw::median_in_place<double>(vals);
   }
 
   // For synthetic cameras, the median initial curvature is 0. That is not good.
@@ -2590,7 +2590,7 @@ static bool buildOrientationSampleRays(asp::BaBaseOptions const& opt, int icam,
 
   vw::Matrix3x3 Rinit
     = asp::quaternionToMatrix(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
-  vw::Matrix3x3 RinitT = vw::math::transpose(Rinit);
+  vw::Matrix3x3 RinitT = vw::transpose(Rinit);
 
   for (int s = 0; s < 3; s++) {
     vw::Vector2 pix(lever_samples[s], line);
@@ -2775,7 +2775,7 @@ void saveOrientationOffsets(asp::BaBaseOptions          const& opt,
           = asp::quaternionToMatrix(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
         vw::Matrix3x3 Rinit = asp::quaternionToMatrix(&sample.init_quat[0]);
         // The rotation drift applied in the world frame.
-        vw::Matrix3x3 Rdelta = Ropt * vw::math::transpose(Rinit);
+        vw::Matrix3x3 Rdelta = Ropt * vw::transpose(Rinit);
 
         double sample_offset = 0.0;
         for (size_t s = 0; s < sample.look_rays.size(); s++) {
@@ -2789,10 +2789,10 @@ void saveOrientationOffsets(asp::BaBaseOptions          const& opt,
 
     double mean = nan, median = nan, mn = nan, mx = nan, count = 0;
     if (!offsets.empty()) {
-      mean  = vw::math::mean(offsets);
+      mean  = vw::mean(offsets);
       mn    = *std::min_element(offsets.begin(), offsets.end());
       mx    = *std::max_element(offsets.begin(), offsets.end());
-      median = vw::math::median_in_place<double>(offsets); // reorders offsets
+      median = vw::median_in_place<double>(offsets); // reorders offsets
       count = offsets.size();
     }
     ofs << opt.image_files[icam] << " " << mean << " " << median << " "

@@ -556,7 +556,7 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
     // DG), and bends the rays for bathymetry when do_bend is set.
     triangulationJacobian(datum, tri_nominal, cam1, cam2, pix1, pix2, J,
                           do_bend, refraction_index, bathy_plane_vec);
-    C = vw::math::identity_matrix(4);
+    C = vw::identity_matrix(4);
     // The first two covariances are the left camera horizontal square stddev,
     // and last two are for the right camera.
     C(0, 0) = variance[0]; C(1, 1) = variance[0];
@@ -582,7 +582,7 @@ vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
   // Useful debug code
   std::cout << "NED covariance " << P << std::endl;
   vw::Vector<std::complex<double>> e;
-  vw::math::eigen(P, e);
+  vw::eigen(P, e);
   std::cout << "Eigenvalues: " << e << std::endl;
 #endif
   

@@ -163,8 +163,8 @@ Matrix<double> do_ransac(std::vector<Vector3> const& ransac_ip1,
   indices.clear();
   Matrix<double> tf;
   try {
-    vw::math::RandomSampleConsensus<FunctorT, vw::math::InterestPointErrorMetric>
-      ransac(FunctorT(), vw::math::InterestPointErrorMetric(),
+    vw::RandomSampleConsensus<FunctorT, vw::InterestPointErrorMetric>
+      ransac(FunctorT(), vw::InterestPointErrorMetric(),
              asp::stereo_settings().ip_num_ransac_iterations, 
              asp::stereo_settings().epipolar_threshold,
              min_num_output_inliers, reduce_num_inliers_if_no_fit);
@@ -245,7 +245,7 @@ void calc_ecef_transform(std::vector<vw::InterestPoint> const& inlier_ip1,
       (vw::Vector3(img2_lonlat.x(), img2_lonlat.y(), dem2_val.child()));
     
     // Store in matrices
-    typedef vw::math::MatrixCol<vw::Matrix<double>> ColView;
+    typedef vw::MatrixCol<vw::Matrix<double>> ColView;
     ColView col_ref(points_ref, ip_it); 
     ColView col_src(points_src, ip_it);
     col_ref = xyz1;
@@ -260,11 +260,11 @@ void calc_ecef_transform(std::vector<vw::InterestPoint> const& inlier_ip1,
   Vector2 ransac_params;
   ransac_params[0] = asp::stereo_settings().ip_num_ransac_iterations;
   ransac_params[1] = 1.0; // factor; not the same as opt.inlier_threshold
-  vw::math::find_3D_transform(points_src, points_ref,
-                              rotation, translation, scale,
-                              opt.ecef_transform_type,
-                              filter_outliers,
-                              ransac_params);
+  vw::find_3D_transform(points_src, points_ref,
+                        rotation, translation, scale,
+                        opt.ecef_transform_type,
+                        filter_outliers,
+                        ransac_params);
 
   // Convert to pc_align transform format
   ecef_transform = identity_matrix(4);
@@ -298,23 +298,23 @@ calc_alignment_transform(std::string const& image_file1,
   Matrix<double> tf;
   std::vector<size_t> indices;
   if (opt.alignment_transform == "translation") {
-    tf = do_ransac<vw::math::TranslationFittingFunctor>
+    tf = do_ransac<vw::TranslationFittingFunctor>
       (ransac_ip1, ransac_ip2, opt, min_num_output_inliers,
        reduce_num_inliers_if_no_fit, indices);
   } else if (opt.alignment_transform == "rigid") {
-    tf = do_ransac<vw::math::TranslationRotationFittingFunctorN<2>>
+    tf = do_ransac<vw::TranslationRotationFittingFunctorN<2>>
       (ransac_ip1, ransac_ip2, opt, min_num_output_inliers,
        reduce_num_inliers_if_no_fit, indices);
   } else if (opt.alignment_transform == "similarity") {
-    tf = do_ransac<vw::math::SimilarityFittingFunctor>
+    tf = do_ransac<vw::SimilarityFittingFunctor>
       (ransac_ip1, ransac_ip2, opt, min_num_output_inliers,
        reduce_num_inliers_if_no_fit, indices);
   } else if (opt.alignment_transform == "affine") {
-    tf = do_ransac<vw::math::AffineFittingFunctor>
+    tf = do_ransac<vw::AffineFittingFunctor>
       (ransac_ip1, ransac_ip2, opt, min_num_output_inliers,
        reduce_num_inliers_if_no_fit, indices);
   } else if (opt.alignment_transform == "homography") {
-    tf = do_ransac<vw::math::HomographyFittingFunctor>
+    tf = do_ransac<vw::HomographyFittingFunctor>
       (ransac_ip1, ransac_ip2, opt, min_num_output_inliers,
        reduce_num_inliers_if_no_fit, indices);
   } else {
@@ -717,7 +717,7 @@ int main(int argc, char *argv[]) {
       std::string ecef_transform_inv_file = opt.output_prefix + "-ecef-inverse-transform.txt";
       vw_out() << "Writing the inverse of the ECEF transform to: " 
         << ecef_transform_inv_file << "\n";
-      write_matrix_as_txt(ecef_transform_inv_file, vw::math::inverse(ecef_transform));
+      write_matrix_as_txt(ecef_transform_inv_file, vw::inverse(ecef_transform));
     }
 
     // Write the match points to a GeoPackage, in georeference units. This uses the
