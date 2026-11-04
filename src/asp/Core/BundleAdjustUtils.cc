@@ -60,13 +60,13 @@ void camera_footprint(std::string const& dem_file,
                       vw::CamPtr  const& camera_model,
                       std::string const& out_prefix,
                       // Outputs
-                      vw::geometry::dPoly & footprint,
+                      vw::dPoly & footprint,
                       vw::BBox2 & footprint_bbox) {
 
   vw_out() << "Computing ground footprint bounding box of: " + image_file << std::endl;
 
   // Initialize outputs
-  footprint = vw::geometry::dPoly();
+  footprint = vw::dPoly();
   footprint_bbox = vw::BBox2();
 
   std::string stem = fs::path(image_file).stem().string();
@@ -117,7 +117,7 @@ void camera_footprint(std::string const& dem_file,
 
    // Compute the convex hull of the projected coordinates, for easier
    // intersection operations later
-   vw::geometry::convexHull(coords, footprint);
+   vw::convexHull(coords, footprint);
 
   } catch (std::exception const& e) {
     // Skip cameras whose ground footprint cannot be computed. Such an image
@@ -125,7 +125,7 @@ void camera_footprint(std::string const& dem_file,
     vw_out(WarningMessage) << "Could not compute the ground footprint of image: "
       << image_file << " onto DEM: " << dem_file << ". Skipping. Caught error: "
       << e.what() << "\n";
-    footprint = vw::geometry::dPoly();
+    footprint = vw::dPoly();
     footprint_bbox = vw::BBox2();
     return;
   }
@@ -158,7 +158,7 @@ void buildOverlapList(std::string const& out_prefix,
 
   int num_images = image_files.size();
   std::vector<vw::BBox2> boxes(num_images);
-  std::vector<vw::geometry::dPoly> footprints(num_images);
+  std::vector<vw::dPoly> footprints(num_images);
   for (int it = 0; it < num_images; it++) {
     // By this stage the camera bboxes are already computed and cached,
     // they just need to be loaded.

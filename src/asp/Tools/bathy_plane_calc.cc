@@ -412,9 +412,9 @@ int main(int argc, char *argv[]) {
 
       // Read the shapefile, overwriting shape_georef
       vw::vw_out() << "Reading the shapefile: " << opt.shapefile << "\n";
-      std::vector<vw::geometry::dPoly> polyVec;
-      vw::geometry::read_shapefile(opt.shapefile, poly_color, has_shape_georef, 
-                                   shape_georef, polyVec);
+      std::vector<vw::dPoly> polyVec;
+      vw::read_shapefile(opt.shapefile, poly_color, has_shape_georef, 
+                         shape_georef, polyVec);
       if (!has_shape_georef)
         vw::vw_throw(vw::ArgumentErr() << "The input shapefile has no georeference.\n");
 
@@ -464,21 +464,21 @@ int main(int argc, char *argv[]) {
 
     // Save the shape having the inliers.
     if (opt.output_inlier_shapefile != "") {
-      vw::geometry::dPoly inlierPoly;
+      vw::dPoly inlierPoly;
       for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++)
         asp::addPointToPoly(inlierPoly, shape_xy_vec[inlier_indices[inlier_it]]);
 
       if (opt.save_shapefiles_as_polygons) {
-        vw::geometry::dPoly localPoly;
+        vw::dPoly localPoly;
         asp::formSinglePoly(inlierPoly, localPoly);
         inlierPoly = localPoly;
       }
 
-      std::vector<vw::geometry::dPoly> inlierPolyVec;
+      std::vector<vw::dPoly> inlierPolyVec;
       inlierPolyVec.push_back(inlierPoly);
       vw::vw_out() << "Writing inlier shapefile: " << opt.output_inlier_shapefile << "\n";
-      vw::geometry::write_shapefile(opt.output_inlier_shapefile, has_shape_georef, 
-                                     shape_georef, inlierPolyVec);
+      vw::write_shapefile(opt.output_inlier_shapefile, has_shape_georef, 
+                           shape_georef, inlierPolyVec);
     }
 
     // Save the shape having the outliers.
@@ -489,7 +489,7 @@ int main(int argc, char *argv[]) {
       for (size_t inlier_it = 0; inlier_it < inlier_indices.size(); inlier_it++)
         inlier_set.insert(inlier_indices[inlier_it]);
 
-      vw::geometry::dPoly outlierPoly;
+      vw::dPoly outlierPoly;
       for (size_t it = 0; it < shape_xy_vec.size(); it++) {
 
         if (inlier_set.find(it) != inlier_set.end())
@@ -499,16 +499,16 @@ int main(int argc, char *argv[]) {
       }
 
       if (opt.save_shapefiles_as_polygons) {
-        vw::geometry::dPoly localPoly;
+        vw::dPoly localPoly;
         asp::formSinglePoly(outlierPoly, localPoly);
         outlierPoly = localPoly;
       }
 
-      std::vector<vw::geometry::dPoly> outlierPolyVec;
+      std::vector<vw::dPoly> outlierPolyVec;
       outlierPolyVec.push_back(outlierPoly);
       vw::vw_out() << "Writing outlier shapefile: " << opt.output_outlier_shapefile << "\n";
-      vw::geometry::write_shapefile(opt.output_outlier_shapefile, has_shape_georef, 
-                                     shape_georef, outlierPolyVec);
+      vw::write_shapefile(opt.output_outlier_shapefile, has_shape_georef, 
+                           shape_georef, outlierPolyVec);
     }
 
     if (opt.dem_minus_plane != "") {

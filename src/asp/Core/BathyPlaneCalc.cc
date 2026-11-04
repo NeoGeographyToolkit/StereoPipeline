@@ -40,8 +40,8 @@
 namespace asp {
 
 // Given a set of polygons stored in dPoly, create a single polygon with all those vertices
-void formSinglePoly(vw::geometry::dPoly const& inPoly,
-                    vw::geometry::dPoly & outPoly) {
+void formSinglePoly(vw::dPoly const& inPoly,
+                    vw::dPoly & outPoly) {
 
   int num_pts = inPoly.get_totalNumVerts();
   const double * xv = inPoly.get_xv();
@@ -55,14 +55,14 @@ void formSinglePoly(vw::geometry::dPoly const& inPoly,
 
 // Add a polygon made up of just one point to given set of polygons.
 // Later that set will be saved as a shapefile made up of points.
-void addPointToPoly(vw::geometry::dPoly & poly, vw::Vector2 const& p) {
+void addPointToPoly(vw::dPoly & poly, vw::Vector2 const& p) {
   std::vector<double> vx, vy;
   vx.push_back(p.x());
   vy.push_back(p.y());
   bool isPolyClosed = true;
   std::string poly_color = "green";
   std::string layer = "";
-  poly.appendPolygon(vx.size(), vw::geometry::vecPtr(vx), vw::geometry::vecPtr(vy),
+  poly.appendPolygon(vx.size(), vw::vecPtr(vx), vw::vecPtr(vy),
                      isPolyClosed, poly_color, layer);
 }
 
@@ -538,7 +538,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 // Compute the stereographic georeference with the projection center 
 // being the mean lon and lat, and make the 3D locations in reference 
 // to this projection.
-void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
+void find_points_at_shape_corners(std::vector<vw::dPoly> const& polyVec,
                                   vw::GeoReference const& shape_georef,
                                   vw::GeoReference const& dem_georef,
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
@@ -554,7 +554,7 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
   int total_num_pts = 0;
 
   for (size_t p = 0; p < polyVec.size(); p++) {
-    vw::geometry::dPoly const& poly = polyVec[p];
+    vw::dPoly const& poly = polyVec[p];
 
     const double * xv       = poly.get_xv();
     const double * yv       = poly.get_yv();
@@ -684,7 +684,7 @@ void saveShape(std::vector<Eigen::Vector3d> const& ecef_vec,
   llh_georef.set_geographic();
   vw::Datum datum("WGS_1984");
   llh_georef.set_datum(datum);
-  vw::geometry::dPoly samplePoly;
+  vw::dPoly samplePoly;
   for (size_t ptIter = 0; ptIter < ecef_vec.size(); ptIter++) {
     vw::Vector3 xyz; // convert Eigen:Vector3 to vw::Vector3
     for (int c = 0; c < 3; c++) xyz[c] = ecef_vec[ptIter][c];
@@ -692,13 +692,13 @@ void saveShape(std::vector<Eigen::Vector3d> const& ecef_vec,
     addPointToPoly(samplePoly, vw::math::subvector(llh, 0, 2));
   }
 
-  std::vector<vw::geometry::dPoly> samplePolyVec;
+  std::vector<vw::dPoly> samplePolyVec;
   samplePolyVec.push_back(samplePoly);
   vw::vw_out() << "Writing shapefile of samples at mask boundary: "
            << mask_boundary_shapefile << "\n";
   bool has_llh_georef = true;
-  vw::geometry::write_shapefile(mask_boundary_shapefile, has_llh_georef, llh_georef,
-                                samplePolyVec);
+  vw::write_shapefile(mask_boundary_shapefile, has_llh_georef, llh_georef,
+                      samplePolyVec);
 }
 
 // Best fit plane without outlier removal. The input points are in 3D coordinates.
@@ -1182,7 +1182,7 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
   std::vector<vw::GeoReference> lake_stereo(num_kept);
   std::vector<bool> lake_valid(num_kept, false);
   std::vector<double> lake_wse(num_kept, 0.0);
-  vw::geometry::dPoly inlierPoly; // accumulate inliers from all lakes
+  vw::dPoly inlierPoly; // accumulate inliers from all lakes
 
   // Reverse map dense lake index -> a representative full label, for reporting.
   std::vector<int> lake_to_label(num_kept, 0);
@@ -1257,16 +1257,16 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
   // Optionally save the combined inlier shapefile.
   if (!output_inlier_shapefile.empty()) {
     if (save_shapefiles_as_polygons) {
-      vw::geometry::dPoly localPoly;
+      vw::dPoly localPoly;
       formSinglePoly(inlierPoly, localPoly);
       inlierPoly = localPoly;
     }
-    std::vector<vw::geometry::dPoly> inlierPolyVec;
+    std::vector<vw::dPoly> inlierPolyVec;
     inlierPolyVec.push_back(inlierPoly);
     vw::vw_out() << "Writing inlier shapefile: " << output_inlier_shapefile << "\n";
     bool has_shape_georef = true;
-    vw::geometry::write_shapefile(output_inlier_shapefile, has_shape_georef,
-                                  mask_georef, inlierPolyVec);
+    vw::write_shapefile(output_inlier_shapefile, has_shape_georef,
+                        mask_georef, inlierPolyVec);
   }
 }
 

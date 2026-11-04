@@ -83,7 +83,7 @@ namespace asp {
       return m_variants.at(m_display_mode).image;
     }
 
-    std::vector<vw::geometry::dPoly> polyVec; // a shapefile
+    std::vector<vw::dPoly> polyVec; // a shapefile
     std::string color; // poly color
     std::string style; // plotting style
     std::string colormap; // colormap style

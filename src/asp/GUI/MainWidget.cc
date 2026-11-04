@@ -281,7 +281,7 @@ void MainWidget::setWorldBox(vw::BBox2 const& world_box) {
 void MainWidget::sizeToFit() {
 
   double aspect = double(m_window_width) / m_window_height;
-  m_current_view = vw::geometry::expandBoxToRatio(m_world_box, aspect);
+  m_current_view = vw::expandBoxToRatio(m_world_box, aspect);
 
   // If this is the first time we draw the image, so right when
   // we started, invoke update() which will invoke paintEvent().
@@ -523,7 +523,7 @@ void MainWidget::zoomToImage(int imageIndex) {
   BBox2 world_box = app_data.image2world_trans(
     app_data.images[imageIndex].image_bbox, imageIndex);
   double aspect = double(m_window_width) / m_window_height;
-  m_current_view = vw::geometry::expandBoxToRatio(world_box, aspect);
+  m_current_view = vw::expandBoxToRatio(world_box, aspect);
 
   // Redraw in the computed window
   refreshPixmap();
@@ -642,9 +642,9 @@ void MainWidget::resizeEvent(QResizeEvent*) {
   // corresponding pixel box will be computed automatically.
   double ratio = double(m_window_width) / double(m_window_height);
   if (m_current_view.empty())
-    m_current_view = vw::geometry::expandBoxToRatio(m_world_box, ratio);
+    m_current_view = vw::expandBoxToRatio(m_world_box, ratio);
   else
-    m_current_view = vw::geometry::expandBoxToRatio(m_current_view, ratio);
+    m_current_view = vw::expandBoxToRatio(m_current_view, ratio);
 
   if (m_firstPaintEvent) {
     // Avoid calling refreshPixmap() in this case, as resizeEvent()
@@ -1124,7 +1124,7 @@ void MainWidget::zoomToRegion(vw::BBox2 const& region) {
     return;
   }
   double ratio = double(m_window_width) / double(m_window_height);
-  m_current_view = vw::geometry::expandBoxToRatio(region, ratio);
+  m_current_view = vw::expandBoxToRatio(region, ratio);
   refreshPixmap();
 }
 
@@ -1232,10 +1232,10 @@ void MainWidget::paintEvent(QPaintEvent * /* event */) {
 
   // Plot the polygonal line which we are profiling
   if (m_profile.mode) {
-    vw::geometry::dPoly poly;
+    vw::dPoly poly;
     poly.appendPolygon(m_profile.x.size(),
-                        vw::geometry::vecPtr(m_profile.x),
-                        vw::geometry::vecPtr(m_profile.y),
+                        vw::vecPtr(m_profile.x),
+                        vw::vecPtr(m_profile.y),
                         isPolyClosed, polyColorStr, layer);
     bool showIndices = false;
     MainWidget::plotPoly(plotPoints, plotEdges, plotFilled, showIndices,

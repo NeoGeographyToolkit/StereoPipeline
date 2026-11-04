@@ -37,12 +37,12 @@
 namespace asp {
 
 // Given a set of polygons stored in dPoly, create a single polygon with all those vertices
-void formSinglePoly(vw::geometry::dPoly const& inPoly,
-                    vw::geometry::dPoly & outPoly);
+void formSinglePoly(vw::dPoly const& inPoly,
+                    vw::dPoly & outPoly);
 
 // Add a polygon made up of just one point to given set of polygons.
 // Later that set will be saved as a shapefile made up of points.
-void addPointToPoly(vw::geometry::dPoly & poly, vw::Vector2 const& p);
+void addPointToPoly(vw::dPoly & poly, vw::Vector2 const& p);
 
 // Add a point to the ecef_vec, llh_vec, and shape_xy_vec if it is valid
 void addPoint(vw::GeoReference const& dem_georef,
@@ -94,7 +94,7 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 // Compute the stereographic georeference with the projection center 
 // being the mean lon and lat, and make the 3D locations in reference 
 // to this projection.
-void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
+void find_points_at_shape_corners(std::vector<vw::dPoly> const& polyVec,
                                   vw::GeoReference const& shape_georef,
                                   vw::GeoReference const& dem_georef,
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,

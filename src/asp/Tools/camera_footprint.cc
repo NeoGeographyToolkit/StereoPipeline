@@ -207,11 +207,11 @@ int main(int argc, char *argv[]) {
       for (std::size_t i = 0; i < llh_coords.size(); i++)
         proj_coords[i] = target_georef.geodetic_to_point(llh_coords[i]);
       
-      vw::geometry::dPoly poly;
-      vw::geometry::convexHull(proj_coords, poly);
+      vw::dPoly poly;
+      vw::convexHull(proj_coords, poly);
       bool has_geo = true;
       vw::vw_out() << "Writing: " << opt.output_shp << "\n";
-      vw::geometry::write_shapefile(opt.output_shp, has_geo, target_georef, poly);
+      vw::write_shapefile(opt.output_shp, has_geo, target_georef, poly);
     }
     
     if (opt.output_kml != "") {

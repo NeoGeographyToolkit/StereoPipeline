@@ -124,7 +124,7 @@ public:
                 int drawVertIndex, // 0 is a good choice here
                 QColor const& color,
                 QPainter &paint,
-                vw::geometry::dPoly currPoly); // Make a local copy on purpose
+                vw::dPoly currPoly); // Make a local copy on purpose
 
   //void plotProfilePolyLine(QStylePainter & paint,
   void plotProfilePolyLine(QPainter & paint,
@@ -358,7 +358,7 @@ private:
   QColor m_backgroundColor;
 
   double pixelToWorldDist(double pd);
-  void   appendToPolyVec (vw::geometry::dPoly const& P);
+  void   appendToPolyVec (vw::dPoly const& P);
   void   addPolyVert     (double px, double py);
 
 };

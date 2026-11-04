@@ -40,9 +40,7 @@ namespace vw {
     class Datum;
     class GeoReference;
 
-  namespace geometry {
     class dPoly;
-  }
   
   template<typename PixelT>
   class ImageViewRef;
@@ -68,7 +66,7 @@ void camera_footprint(std::string const& dem_file,
                       vw::CamPtr  const& camera_model,
                       std::string const& out_prefix,
                       // Outputs
-                      vw::geometry::dPoly & footprint,
+                      vw::dPoly & footprint,
                       vw::BBox2 & footprint_bbox);
 
 // Determine which camera images overlap by finding the lon-lat

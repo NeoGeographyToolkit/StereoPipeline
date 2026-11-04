@@ -49,7 +49,6 @@
 #include <vector>
 
 using namespace vw;
-using namespace vw::geometry;
 
 namespace asp {
 
@@ -177,7 +176,7 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
 void contour_image(DiskImagePyramidMultiChannel const& img,
                    vw::GeoReference const & georef,
                    double threshold,
-                   std::vector<vw::geometry::dPoly> & polyVec) {
+                   std::vector<vw::dPoly> & polyVec) {
   
   std::vector<std::vector<cv::Point>> contours;
   std::vector<cv::Vec4i> hierarchy;
@@ -200,7 +199,7 @@ void contour_image(DiskImagePyramidMultiChannel const& img,
   // Add the contour to the list of polygons to display
   polyVec.clear();
   polyVec.resize(1);
-  vw::geometry::dPoly & poly = polyVec[0]; // alias
+  vw::dPoly & poly = polyVec[0]; // alias
 
   if (num_pixels_above_thresh == 0) 
     return; // Return early, nothing to do
@@ -249,7 +248,7 @@ bool read_georef_from_shapefile(vw::GeoReference & georef,
     vw_throw(ArgumentErr() << "Expecting a shapefile as input, got: " << file << ".\n");
   
   bool has_georef = false; // will change
-  std::vector<vw::geometry::dPoly> polyVec;
+  std::vector<vw::dPoly> polyVec;
   std::string poly_color;
   read_shapefile(file, poly_color, has_georef, georef, polyVec);
   

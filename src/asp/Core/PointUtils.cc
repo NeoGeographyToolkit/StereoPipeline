@@ -363,7 +363,7 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
                                     std::list<CsvRecord> & output_list,
                                     std::vector<int>         & contiguous_blocks,
                                     std::vector<std::string> & colors,
-                                    std::vector<vw::geometry::anno> & annotations) const {
+                                    std::vector<vw::anno> & annotations) const {
 
   // Clear output object
   output_list.clear();
@@ -389,7 +389,7 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
   bool success = false;
   bool first_line = true; // TODO(oalexan1): Rename this to: quiet_on_failure.
   std::string line = "";
-  vw::geometry::anno annotation;
+  vw::anno annotation;
 
   while (std::getline(file, line, '\n')) {
     
@@ -403,7 +403,7 @@ size_t asp::CsvConv::read_poly_file(std::string    const & file_path,
 
     // Search for annotations
     bool found_anno = false;
-    if (line.find("anno ") == 0 && vw::geometry::searchForAnnotation(line, annotation)) {
+    if (line.find("anno ") == 0 && vw::searchForAnnotation(line, annotation)) {
       annotations.push_back(annotation);
       found_anno = true;
       success = false;

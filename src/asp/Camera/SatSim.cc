@@ -41,7 +41,6 @@
 #include <iomanip>
 
 using namespace vw::math;
-using namespace vw::geometry;
 
 namespace fs = boost::filesystem;
 

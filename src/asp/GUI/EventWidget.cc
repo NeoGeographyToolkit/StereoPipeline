@@ -500,7 +500,7 @@ void MainWidget::zoomInOut(int mouseRelX, int mouseRelY) {
     // ends up having size 0 to numerical precision.
     if (!view.empty()) {
       double ratio = double(m_window_width) / double(m_window_height);
-      m_current_view = vw::geometry::expandBoxToRatio(view, ratio);
+      m_current_view = vw::expandBoxToRatio(view, ratio);
     }
 
     // Must redraw the entire image

@@ -36,9 +36,7 @@
 namespace vw{
     class Datum;
     class GeoReference;
-  namespace geometry {
     class anno;
-  }
 }
 
 const int ASP_POINT_CLOUD_TILE_LEN = 2048;
@@ -108,7 +106,7 @@ namespace asp {
                           std::list<CsvRecord>     & output_list,
                           std::vector<int>         & contiguous_blocks,
                           std::vector<std::string> & colors,
-                          std::vector<vw::geometry::anno> & annotations) const;
+                          std::vector<vw::anno> & annotations) const;
       
     /// Convert values read from a csv file using parse_csv_line (in
     /// the same order they appear in the file) to a Cartesian

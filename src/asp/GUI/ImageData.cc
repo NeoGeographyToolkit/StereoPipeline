@@ -40,7 +40,6 @@
 #include <vector>
 
 using namespace vw;
-using namespace vw::geometry;
 
 namespace asp {
 
@@ -391,7 +390,7 @@ void imageData::load() {
 
     std::vector<int> contiguous_blocks;
     std::vector<std::string> colors;
-    std::vector<vw::geometry::anno> annotations;
+    std::vector<vw::anno> annotations;
     colors.push_back(default_poly_color); // to provide a default color for the reader
 
     // Read the file
@@ -439,7 +438,7 @@ void imageData::load() {
 void imageData::writePoly(std::string const& polyFile) {
 
   // Put all the polygons into a single poly structure
-  vw::geometry::dPoly poly;
+  vw::dPoly poly;
   for (size_t polyIter = 0; polyIter < this->polyVec.size(); polyIter++)
     poly.appendPolygons(this->polyVec[polyIter]);
 

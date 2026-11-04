@@ -253,7 +253,7 @@ void computeStatsOrIp(asp::BaOptions const& opt,
 
     // Compute and cache the camera footprint polygon and its bbox
     if (opt.auto_overlap_params != "" && !calcIp) {
-      vw::geometry::dPoly footprint;
+      vw::dPoly footprint;
       vw::BBox2 footprint_bbox;
       asp::camera_footprint(dem_file_for_overlap,
                             opt.image_files[index], // use the original image

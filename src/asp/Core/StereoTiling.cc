@@ -39,7 +39,7 @@ namespace asp {
 void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
                       bool is_map_projected,
                       vw::GeoReference const& georef,
-                      vw::geometry::dPoly & poly,
+                      vw::dPoly & poly,
                       std::vector<int> & tile_id_vec,
                       size_t tile_id) {
 
@@ -68,7 +68,7 @@ void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
   // Follow the dPoly API
   bool isPolyClosed = true;
   std::string color = "green", layer = "";
-  poly.appendPolygon(x.size(), vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+  poly.appendPolygon(x.size(), vw::vecPtr(x), vw::vecPtr(y),
                      isPolyClosed, color, layer);
 
   // This will be needed for QGIS
@@ -101,8 +101,8 @@ void produceTiles(bool is_map_projected,
   
   // Will store here the tile structure for visualization. The API requires
   // a vector of dPoly.
-  std::vector<vw::geometry::dPoly> polyVec(1);
-  vw::geometry::dPoly & poly = polyVec[0]; // alias
+  std::vector<vw::dPoly> polyVec(1);
+  vw::dPoly & poly = polyVec[0]; // alias
   std::vector<int> tile_id_vec;
   std::string fieldId = "tile_id"; // Will be used on reading in stereo_gui as well
 
@@ -225,11 +225,11 @@ void produceTiles(bool is_map_projected,
   // mapprojected. In that case the shapefile can be overlaid on top of L.tif.
   std::string shapeFile = output_prefix + "-tiles.shp";
   vw::vw_out() << "Writing shape file: " << shapeFile << "\n";
-  vw::geometry::write_shapefile(shapeFile, is_map_projected, georef, polyVec,
-                                fieldId, tile_id_vec);
+  vw::write_shapefile(shapeFile, is_map_projected, georef, polyVec,
+                      fieldId, tile_id_vec);
   std::string qmlFile = output_prefix + "-tiles.qml"; // must match shapefile name
   vw::vw_out() << "Writing qml file: " << qmlFile << "\n";
-  vw::geometry::writeQml(qmlFile, fieldId);
+  vw::writeQml(qmlFile, fieldId);
 }
 
 // Produce the list of tiles covering the overlap region of two mapprojected images,
@@ -311,8 +311,8 @@ void produceDistTileList(std::string const& in_file1,
   vw::vw_out() << "Tile size: " << tile_size << ", padding: " << tile_padding << "\n";
 
   // Prepare shapefile structure
-  std::vector<vw::geometry::dPoly> polyVec(1);
-  vw::geometry::dPoly& poly = polyVec[0];
+  std::vector<vw::dPoly> polyVec(1);
+  vw::dPoly& poly = polyVec[0];
   std::vector<int> tile_id_vec;
   std::string fieldId = "tile_id";
 
@@ -345,7 +345,7 @@ void produceDistTileList(std::string const& in_file1,
       // Append polygon
       bool isPolyClosed = true;
       std::string color = "green", layer = "";
-      poly.appendPolygon(px.size(), vw::geometry::vecPtr(px), vw::geometry::vecPtr(py),
+      poly.appendPolygon(px.size(), vw::vecPtr(px), vw::vecPtr(py),
                          isPolyClosed, color, layer);
       tile_id_vec.push_back(num_tiles);
 
@@ -360,11 +360,11 @@ void produceDistTileList(std::string const& in_file1,
   std::string shapeFile = output_prefix + "-distTileList.shp";
   vw::vw_out() << "Writing shape file: " << shapeFile << "\n";
   bool is_map_projected = true; // These are mapprojected images
-  vw::geometry::write_shapefile(shapeFile, is_map_projected, georef1, polyVec,
-                                fieldId, tile_id_vec);
+  vw::write_shapefile(shapeFile, is_map_projected, georef1, polyVec,
+                      fieldId, tile_id_vec);
   std::string qmlFile = output_prefix + "-distTileList.qml";
   vw::vw_out() << "Writing qml file: " << qmlFile << "\n";
-  vw::geometry::writeQml(qmlFile, fieldId);
+  vw::writeQml(qmlFile, fieldId);
 }
 
 // Handle the crop windows for distributed stereo mode. Here the left crop

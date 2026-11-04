@@ -64,7 +64,7 @@ void findClosestPolyVertex(double world_x0, double world_y0,
 
 // Find the closest point in a given vector of polygons to a given point.
 void findClosestPolyVertex(double x0, double y0,
-                           std::vector<vw::geometry::dPoly> const& polyVec,
+                           std::vector<vw::dPoly> const& polyVec,
                            PolySearchResult & result) {
   result = PolySearchResult();
   result.minX = x0;
@@ -130,7 +130,7 @@ void findClosestPolyEdge(double world_x0, double world_y0,
 
 // Find the closest edge in a given vector of polygons to a given point.
 void findClosestPolyEdge(double x0, double y0,
-                         std::vector<vw::geometry::dPoly> const& polyVec,
+                         std::vector<vw::dPoly> const& polyVec,
                          PolySearchResult & result) {
   result = PolySearchResult();
   result.minX = x0;
@@ -159,9 +159,9 @@ void findClosestPolyEdge(double x0, double y0,
 void formPoly(std::string              const& override_color,
               std::vector<int>         const& contiguous_blocks,
               std::vector<std::string> const& colors,
-              std::vector<vw::geometry::anno> const& annotations,
+              std::vector<vw::anno> const& annotations,
               std::vector<vw::Vector3> const& vertices,
-              std::vector<vw::geometry::dPoly> & polyVec) {
+              std::vector<vw::dPoly> & polyVec) {
 
   // Wipe the output
   polyVec.clear();
@@ -193,7 +193,7 @@ void formPoly(std::string              const& override_color,
     bool isPolyClosed = true;
     std::string layer;
     polyVec[0].appendPolygon(x.size(),
-                             vw::geometry::vecPtr(x), vw::geometry::vecPtr(y),
+                             vw::vecPtr(x), vw::vecPtr(y),
                              isPolyClosed, curr_color, layer);
   }
   polyVec[0].set_annotations(annotations);
@@ -207,7 +207,7 @@ void formPoly(std::string              const& override_color,
 
 void mergePolys(asp::AppData & app_data, int beg_image_id, int end_image_id, int outIndex) {
 
-  std::vector<vw::geometry::dPoly> polyVec;
+  std::vector<vw::dPoly> polyVec;
 
   try {
     // We will infer these from existing polygons
@@ -235,7 +235,7 @@ void mergePolys(asp::AppData & app_data, int beg_image_id, int end_image_id, int
         }
 
         // Make a copy of the polygons
-        vw::geometry::dPoly poly = polyVec[vecIter];
+        vw::dPoly poly = polyVec[vecIter];
 
         double * xv         = poly.get_xv();
         double * yv         = poly.get_yv();
@@ -260,7 +260,7 @@ void mergePolys(asp::AppData & app_data, int beg_image_id, int end_image_id, int
           int numCurrPolyVerts = numVerts[pIter];
 
           OGRLinearRing R;
-          vw::geometry::toOGR(xv, yv, startPos, numCurrPolyVerts, R);
+          vw::toOGR(xv, yv, startPos, numCurrPolyVerts, R);
 
           OGRPolygon * P = new OGRPolygon; // the parent manages the allocation
           if (P->addRing(&R) != OGRERR_NONE)
@@ -272,7 +272,7 @@ void mergePolys(asp::AppData & app_data, int beg_image_id, int end_image_id, int
       }
     }
 
-    vw::geometry::mergeOGRPolygons(poly_color, layer_str, ogr_polys, polyVec);
+    vw::mergeOGRPolygons(poly_color, layer_str, ogr_polys, polyVec);
     
   } catch(std::exception &e) {
     vw::vw_out() << "OGR failed at " << e.what() << std::endl;
@@ -293,7 +293,7 @@ void deleteVerticesInBox(asp::AppData & app_data, vw::BBox2 const& box,
 
     for (size_t layerIt = 0; layerIt < app_data.images[clipIt].polyVec.size(); layerIt++) {
 
-      vw::geometry::dPoly & poly     = app_data.images[clipIt].polyVec[layerIt]; // alias
+      vw::dPoly & poly     = app_data.images[clipIt].polyVec[layerIt]; // alias
       int                   numPolys = poly.get_numPolys();
       const int           * numVerts = poly.get_numVerts();
       const double        * xv       = poly.get_xv();
@@ -301,7 +301,7 @@ void deleteVerticesInBox(asp::AppData & app_data, vw::BBox2 const& box,
       std::vector<std::string>   colors   = poly.get_colors();
       std::vector<std::string>   layers   = poly.get_layers();
 
-      vw::geometry::dPoly poly_out;
+      vw::dPoly poly_out;
       int start = 0;
       for (int polyIter = 0; polyIter < numPolys; polyIter++) {
 
@@ -324,8 +324,8 @@ void deleteVerticesInBox(asp::AppData & app_data, vw::BBox2 const& box,
 
         bool isPolyClosed = true;
         poly_out.appendPolygon(out_xv.size(),
-                               vw::geometry::vecPtr(out_xv),
-                               vw::geometry::vecPtr(out_yv),
+                               vw::vecPtr(out_xv),
+                               vw::vecPtr(out_yv),
                                isPolyClosed, colors[polyIter], layers[polyIter]);
       }
 

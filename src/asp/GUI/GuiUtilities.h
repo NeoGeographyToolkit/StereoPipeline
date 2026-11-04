@@ -121,7 +121,7 @@ namespace asp {
   void contour_image(DiskImagePyramidMultiChannel const& img,
                      vw::GeoReference const & georef,
                      double threshold,
-                     std::vector<vw::geometry::dPoly> & polyVec);
+                     std::vector<vw::dPoly> & polyVec);
   
   // QT conversion functions
   vw::Vector2 QPoint2Vec(QPoint      const& qpt);

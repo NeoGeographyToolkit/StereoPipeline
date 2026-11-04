@@ -92,7 +92,7 @@ void MainWidget::setPolyEditMode(bool polyEditMode, bool refresh) {
 }
 
 // TODO(oalexan1): Move out this non-gui function.
-void MainWidget::appendToPolyVec(vw::geometry::dPoly const& P) {
+void MainWidget::appendToPolyVec(vw::dPoly const& P) {
 
   // Append the new polygon to the list of polygons. If we have several
   // clips already, append it to the last clip. If we have no clips,
@@ -155,7 +155,7 @@ void MainWidget::addPolyVert(double px, double py) {
   }
 
   // Form the newly finished polygon
-  vw::geometry::dPoly poly;
+  vw::dPoly poly;
   poly.reset();
   bool isPolyClosed = true;
   std::string color = app_data.images[m_polyLayerIndex].color;
@@ -170,7 +170,7 @@ void MainWidget::addPolyVert(double px, double py) {
   }
   std::string layer = "";
   poly.appendPolygon(pSize,
-      vw::geometry::vecPtr(m_currPolyX), vw::geometry::vecPtr(m_currPolyY),
+      vw::vecPtr(m_currPolyX), vw::vecPtr(m_currPolyY),
                   isPolyClosed, color, layer);
   appendToPolyVec(poly);
   m_currPolyX.clear();
@@ -302,8 +302,8 @@ void MainWidget::saveVectorLayerAsShapeFile() {
   // Save only polygons in the given layer. Polygons in other layers
   // can have individual georeferences.
   vw::vw_out() << "Writing: " << shapeFile << "\n";
-  vw::geometry::write_shapefile(shapeFile, has_geo, geo, 
-                                app_data.images[m_polyLayerIndex].polyVec);
+  vw::write_shapefile(shapeFile, has_geo, geo, 
+                      app_data.images[m_polyLayerIndex].polyVec);
 }
 
 // Save the currently created vector layer. Its index is m_polyLayerIndex.
@@ -426,11 +426,9 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
                           QColor const& color,
                           QPainter & paint,
                           // Make a local copy of the poly on purpose
-                          vw::geometry::dPoly currPoly) {
+                          vw::dPoly currPoly) {
 
-  using namespace vw::geometry;
-
-  if (m_world_box.empty())
+  using namespace vw;
     return;
 
   // The box in world coordinates
@@ -470,7 +468,7 @@ void MainWidget::plotPoly(bool plotPoints, bool plotEdges,
   currPoly.clipPoly(x_min - extraX, y_min - extraY, x_max + extraX, y_max + extraY,
                     clippedPoly); // output
 
-  std::vector<vw::geometry::anno> annotations;
+  std::vector<vw::anno> annotations;
   if (showIndices) {
     clippedPoly.compVertIndexAnno();
     clippedPoly.get_vertIndexAnno(annotations);
@@ -618,20 +616,20 @@ void MainWidget::plotPolys(QPainter & paint) {
     // Let polyVec be the polygons for the current image, or,
     // at the end, the polygon we are in the middle of drawing
     // TODO(oalexan1): How to avoid a deep copy?
-    std::vector<vw::geometry::dPoly> polyVec;
+    std::vector<vw::dPoly> polyVec;
     if (!currDrawnPoly) {
       polyVec = app_data.images[image_it].polyVec; // deep copy
     } else {
       if (m_currPolyX.empty() || !m_polyEditMode)
         continue;
 
-      vw::geometry::dPoly poly;
+      vw::dPoly poly;
       poly.reset();
       bool isPolyClosed = false; // because we are in the middle of drawing it
       std::string layer = "";
       poly.appendPolygon(m_currPolyX.size(),
-                          vw::geometry::vecPtr(m_currPolyX),
-                          vw::geometry::vecPtr(m_currPolyY),
+                          vw::vecPtr(m_currPolyX),
+                          vw::vecPtr(m_currPolyY),
                           isPolyClosed, m_polyColor, layer);
       polyVec.push_back(poly);
     }
@@ -639,7 +637,7 @@ void MainWidget::plotPolys(QPainter & paint) {
     // Plot the polygon being drawn now, and pre-existing polygons
     for (size_t polyIter = 0; polyIter < polyVec.size(); polyIter++) {
 
-      vw::geometry::dPoly poly = polyVec[polyIter]; // make a deep copy
+      vw::dPoly poly = polyVec[polyIter]; // make a deep copy
       
       if (poly.get_totalNumVerts() == 0)
         continue;
@@ -655,10 +653,10 @@ void MainWidget::plotPolys(QPainter & paint) {
       }
 
       // Convert annotations to world units
-      std::vector<vw::geometry::anno> annotations;
+      std::vector<vw::anno> annotations;
       poly.get_annotations(annotations);
       for (size_t aIter = 0; aIter < annotations.size(); aIter++) {
-        vw::geometry::anno & A = annotations[aIter]; // alias
+        vw::anno & A = annotations[aIter]; // alias
         vw::Vector2 P = app_data.proj2world(vw::Vector2(A.x, A.y), image_it);
         A.x = P.x();
         A.y = P.y();

@@ -43,7 +43,7 @@ void findClosestPolyVertex(double world_x0, double world_y0,
 
 // Find the closest point in a given vector of polygons to a given point.
 void findClosestPolyVertex(double x0, double y0,
-                           std::vector<vw::geometry::dPoly> const& polyVec,
+                           std::vector<vw::dPoly> const& polyVec,
                            PolySearchResult & result);
 
 // Find the closest edge in a given set of polygons to a given point.
@@ -63,13 +63,13 @@ void deleteVerticesInBox(asp::AppData & app_data, vw::BBox2 const& box,
 void formPoly(std::string              const& override_color,
               std::vector<int>         const& contiguous_blocks,
               std::vector<std::string> const& colors,
-              std::vector<vw::geometry::anno> const& annotations,
+              std::vector<vw::anno> const& annotations,
               std::vector<vw::Vector3> const& vertices,
-              std::vector<vw::geometry::dPoly> & polyVec);
+              std::vector<vw::dPoly> & polyVec);
 
 // Find the closest edge in a given vector of polygons to a given point.
 void findClosestPolyEdge(double x0, double y0,
-                         std::vector<vw::geometry::dPoly> const& polyVec,
+                         std::vector<vw::dPoly> const& polyVec,
                          PolySearchResult & result);
 }
 #endif // __ASP_GUI_GUI_GEOM_H__
