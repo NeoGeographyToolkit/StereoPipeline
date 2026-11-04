@@ -72,10 +72,10 @@ namespace asp {
   // TODO: Add the case when multi-channel images also have float or double pixels
   struct DiskImagePyramidMultiChannel {
     vw::GdalWriteOptions m_opt;
-    vw::mosaic::DiskImagePyramid<float>                m_img_ch1_float;
-    vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 2>> m_img_ch2_uint8;
-    vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 3>> m_img_ch3_uint8;
-    vw::mosaic::DiskImagePyramid<vw::Vector<vw::uint8, 4>> m_img_ch4_uint8;
+    vw::DiskImagePyramid<float>                m_img_ch1_float;
+    vw::DiskImagePyramid<vw::Vector<vw::uint8, 2>> m_img_ch2_uint8;
+    vw::DiskImagePyramid<vw::Vector<vw::uint8, 3>> m_img_ch3_uint8;
+    vw::DiskImagePyramid<vw::Vector<vw::uint8, 4>> m_img_ch4_uint8;
     int m_num_channels;
     int m_rows, m_cols;
     ImgType m_type; // keeps track of which of the above images we use

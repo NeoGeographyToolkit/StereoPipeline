@@ -1183,7 +1183,7 @@ asp::form_point_cloud_composite(std::vector<std::string> const& files,
                                 int spacing) {
   VW_ASSERT(files.size() >= 1, ArgumentErr() << "Expecting at least one file.\n");
 
-  vw::mosaic::ImageComposite<PixelT> composite_image;
+  vw::ImageComposite<PixelT> composite_image;
   composite_image.set_draft_mode(true);
 
   for (int i = 0; i < (int)files.size(); i++) {

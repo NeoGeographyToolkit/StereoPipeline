@@ -132,13 +132,13 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
   oss << "_hillshade_a" << azimuth << "_e" << elevation << ".tif"; 
   std::string suffix = oss.str();
 
-  output_file = vw::mosaic::filename_from_suffix1(input_file, suffix);
+  output_file = vw::filename_from_suffix1(input_file, suffix);
   bool align_light_to_georef = false;
   try {
     DiskImageView<float> input(input_file);
     // TODO(oalexan1): Factor out repeated logic below.
     try {
-      bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
+      bool will_write = vw::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
       if (will_write) {
         vw_out() << "Writing: " << output_file << "\n";
@@ -149,8 +149,8 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
       // Failed to write, presumably because we have no write access.
       // Write the file in the current dir.
       vw_out() << "Failed to write: " << output_file << "\n";
-      output_file = vw::mosaic::filename_from_suffix2(input_file, suffix);
-      bool will_write = vw::mosaic::overwrite_if_no_good(input_file, output_file,
+      output_file = vw::filename_from_suffix2(input_file, suffix);
+      bool will_write = vw::overwrite_if_no_good(input_file, output_file,
                                              input.cols(), input.rows());
       if (will_write) {
         vw_out() << "Writing: " << output_file << "\n";
@@ -333,7 +333,7 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
                                       double nodata_val) {
 
   std::string output_file
-    = vw::mosaic::filename_from_suffix1(input_file, suffix);
+    = vw::filename_from_suffix1(input_file, suffix);
   vw::TerminalProgressCallback tpc("asp", ": ");
   vw::vw_out() << "Writing: " << output_file << "\n";
   try {
@@ -345,7 +345,7 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
     // Failed to write, presumably because we have no write access.
     // Write the file in the current dir.
     vw::vw_out() << "Failed to write: " << output_file << "\n";
-    output_file = vw::mosaic::filename_from_suffix2(input_file, suffix);
+    output_file = vw::filename_from_suffix2(input_file, suffix);
     vw::vw_out() << "Writing: " << output_file << "\n";
     vw::block_write_gdal_image(output_file, image,
                                has_georef, georef,

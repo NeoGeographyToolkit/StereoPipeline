@@ -189,8 +189,8 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
       // Single channel image with float pixels.
 
       m_img_ch1_float =
-        vw::mosaic::DiskImagePyramid<float>(image_file, m_opt, lowres_size,
-                                            2, valid_min, valid_max);
+        vw::DiskImagePyramid<float>(image_file, m_opt, lowres_size,
+                                    2, valid_min, valid_max);
       m_rows = m_img_ch1_float.rows();
       m_cols = m_img_ch1_float.cols();
       m_type = CH1_FLOAT;
@@ -198,7 +198,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
                                      m_img_ch1_float.get_temporary_files().end());
     } else if (m_num_channels == 2) {
       // uint8 image with an alpha channel.
-      m_img_ch2_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 2>>
+      m_img_ch2_uint8 = vw::DiskImagePyramid<Vector<vw::uint8, 2>>
         (image_file, m_opt, lowres_size);
       m_num_channels = 2; // we read only 1 channel
       m_rows = m_img_ch2_uint8.rows();
@@ -208,7 +208,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
                                      m_img_ch2_uint8.get_temporary_files().end());
     } else if (m_num_channels == 3) {
       // RGB image with three uint8 channels.
-      m_img_ch3_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 3>>
+      m_img_ch3_uint8 = vw::DiskImagePyramid<Vector<vw::uint8, 3>>
         (image_file, m_opt, lowres_size);
       m_num_channels = 3;
       m_rows = m_img_ch3_uint8.rows();
@@ -218,7 +218,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
                                      m_img_ch3_uint8.get_temporary_files().end());
     } else if (m_num_channels == 4) {
       // RGB image with three uint8 channels and an alpha channel
-      m_img_ch4_uint8 = vw::mosaic::DiskImagePyramid<Vector<vw::uint8, 4>>
+      m_img_ch4_uint8 = vw::DiskImagePyramid<Vector<vw::uint8, 4>>
         (image_file, m_opt, lowres_size);
       m_num_channels = 4;
       m_rows = m_img_ch4_uint8.rows();

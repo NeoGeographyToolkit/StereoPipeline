@@ -220,7 +220,7 @@ namespace asp {
   vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& filename);
 
   /// Read multiple image files and pack them into a single patchwork tiled image.
-  /// Relies on the vw::mosaic::ImageComposite class. Explicit instantiations
+  /// Relies on the vw::ImageComposite class. Explicit instantiations
   /// are in PointUtils.cc for PixelGray<float>, Vector3, Vector4, Vector6.
   template<class PixelT>
   vw::ImageViewRef<PixelT>

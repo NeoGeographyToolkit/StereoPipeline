@@ -1517,7 +1517,7 @@ void write_match_image(std::string const& out_file_name,
   //if (sub_scale > 1)
   sub_scale = 1;
 
-  vw::mosaic::ImageComposite<vw::PixelRGB<vw::uint8>> composite;
+  vw::ImageComposite<vw::PixelRGB<vw::uint8>> composite;
   //composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image1), sub_scale)), 0, 0);
   //composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(resample(normalize(image2), sub_scale)), vw::int32(image1.impl().cols() * sub_scale), 0);
   composite.insert(vw::pixel_cast_rescale<vw::PixelRGB<vw::uint8> >(image1), 0, 0);
