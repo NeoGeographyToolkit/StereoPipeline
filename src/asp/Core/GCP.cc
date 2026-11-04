@@ -153,7 +153,7 @@ void genWriteGcp(std::vector<std::string> const& image_files,
     for (size_t i = 0; i < num_images_to_save; i++) {
       // Add this IP to the current line
       vw::InterestPoint ip = matchlist.getPoint(i, p);
-      vw::ba::ControlMeasure cm;
+      vw::ControlMeasure cm;
       cm.set_image_id(i);
       cm.set_position(vw::Vector2(ip.x, ip.y));
       cm.set_sigma(vw::Vector2(1, 1));

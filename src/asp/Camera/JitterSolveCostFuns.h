@@ -114,7 +114,7 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
 void addDemConstraint(asp::BaBaseOptions       const& opt,
                       std::vector<vw::Vector3> const& dem_xyz_vec,
                       std::set<int>            const& outliers,
-                      vw::ba::ControlNetwork   const& cnet,
+                      vw::ControlNetwork   const& cnet,
                       // Outputs
                       std::vector<double>           & tri_points_vec,
                       std::vector<double>           & weight_per_residual, // append
@@ -124,7 +124,7 @@ void addDemConstraint(asp::BaBaseOptions       const& opt,
 // This does not need a DEM or alignment
 void addTriConstraint(asp::BaBaseOptions     const& opt,
                       std::set<int>          const& outliers,
-                      vw::ba::ControlNetwork const& cnet,
+                      vw::ControlNetwork const& cnet,
                       asp::CRN              const& crn,
                       // Outputs
                       std::vector<double>    & tri_points_vec,
@@ -137,7 +137,7 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
                       bool                          use_llh_error,
                       bool                          fix_gcp_xyz,
                       // Outputs
-                      vw::ba::ControlNetwork      & cnet,
+                      vw::ControlNetwork      & cnet,
                       std::vector<double>         & tri_points_vec,
                       std::vector<double>         & weight_per_residual, // append
                       ceres::Problem              & problem);

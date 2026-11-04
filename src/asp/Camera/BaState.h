@@ -26,9 +26,7 @@
 
 namespace vw {
     class Datum;
-  namespace ba {
     class ControlNetwork;
-  }
 }
 
 #include <string>

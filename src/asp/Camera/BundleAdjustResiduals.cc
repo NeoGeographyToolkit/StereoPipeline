@@ -32,7 +32,6 @@
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::ba;
 
 namespace  asp {
 
@@ -169,13 +168,13 @@ void compute_mean_residuals_at_xyz(asp::CRN const& crn,
 // is water if, for at least one pair of its observations (using the same pairing
 // window as triangulation), both pixels fall in the water region of their
 // per-image bathy masks. This mirrors the do_bathy decision made in
-// vw::ba::triangulate_control_point(), so the tag reflects whether the point's
+// vw::triangulate_control_point(), so the tag reflects whether the point's
 // rays were bent by refraction. The classification keys off the fixed pixel
 // observations and the masks, not the triangulated ground point, so it does not
 // change as the cameras are optimized (the initial and final pointmap.csv get
 // the same land/water tags). If bathymetry is not active, all points stay land
 // (unclassified) and the caller adds no land/water tag.
-static void classifyWaterPoints(vw::ba::ControlNetwork const& cnet,
+static void classifyWaterPoints(vw::ControlNetwork const& cnet,
                                 vw::BathyData const& bathy_data,
                                 std::vector<char> & is_water) {
 
@@ -186,7 +185,7 @@ static void classifyWaterPoints(vw::ba::ControlNetwork const& cnet,
     return;
 
   for (size_t ipt = 0; ipt < cnet.size(); ipt++) {
-    vw::ba::ControlPoint const& cp = cnet[ipt];
+    vw::ControlPoint const& cp = cnet[ipt];
     bool water = false;
     for (size_t j = 0; j < cp.size() && !water; j++) {
       for (size_t k = j + 1; k < std::min(j + 11, cp.size()); k++) {
@@ -215,7 +214,7 @@ void write_residual_map(std::string const& output_prefix,
                         // Num non-outlier pixels per point
                         std::vector<int> const& num_point_observations, 
                         asp::BaState const& ba_state,
-                        vw::ba::ControlNetwork const& cnet,
+                        vw::ControlNetwork const& cnet,
                         asp::BaBaseOptions const& opt) {
 
   std::string output_path = output_prefix + ".csv";
@@ -288,7 +287,7 @@ void write_residual_map(std::string const& output_prefix,
 // This is used in jitter_solve. There can be more tri points than in cnet,
 // because we add anchor points. Those do not get processed here.
 // TODO(oalexan1): Integrate with write_residual_map().
-void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
+void write_per_xyz_pixel_residuals(vw::ControlNetwork const& cnet,
                                    std::string            const& residual_prefix,
                                    vw::Datum const& datum,
                                    std::set<int>          const& outliers,
@@ -324,9 +323,9 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
     Vector3 llh = datum.cartesian_to_geodetic(xyz);
     
     std::string comment = "";
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+    if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint)
       comment = " # GCP";
-    else if (cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+    else if (cnet[ipt].type() == vw::ControlPoint::PointFromDem)
       comment = " # from DEM";
       
     file << llh[0] << ", " << llh[1] <<", " << llh[2] << ", "
@@ -372,7 +371,7 @@ void write_residual_logs(std::string const& residual_prefix,
                          size_t num_tri_residuals,
                          size_t num_cam_position_residuals,
                          std::vector<vw::Vector3> const& reference_vec,
-                         vw::ba::ControlNetwork const& cnet, 
+                         vw::ControlNetwork const& cnet, 
                          asp::CRN const& crn, 
                          ceres::Problem &problem) {
 
@@ -750,7 +749,7 @@ void saveCameraOffsets(vw::Datum                const& datum,
 // ground-plane component and a height component (meters). This is analogous to
 // how the camera and triangulation offsets are measured.
 void saveGcpReport(std::string            const& out_prefix,
-                   vw::ba::ControlNetwork const& cnet,
+                   vw::ControlNetwork const& cnet,
                    std::vector<double>    const& tri_points_vec,
                    std::set<int>          const& outliers,
                    vw::Datum const& datum) {
@@ -760,7 +759,7 @@ void saveGcpReport(std::string            const& out_prefix,
   // Do not write anything if there are no ground control points
   int num_gcp = 0;
   for (int ipt = 0; ipt < num_points; ipt++) {
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+    if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint)
       num_gcp++;
   }
   if (num_gcp == 0)
@@ -777,7 +776,7 @@ void saveGcpReport(std::string            const& out_prefix,
 
   for (int ipt = 0; ipt < num_points; ipt++) {
 
-    if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
+    if (cnet[ipt].type() != vw::ControlPoint::GroundControlPoint)
       continue; // only ground control points
 
     if (outliers.find(ipt) != outliers.end())
@@ -901,7 +900,7 @@ void writeRefTerrainResiduals(std::string                   const& residual_pref
 void saveJitterResiduals(ceres::Problem                             & problem,
                          std::string                           const& residual_prefix,
                          asp::BaBaseOptions                    const& opt,
-                         vw::ba::ControlNetwork                const& cnet,
+                         vw::ControlNetwork                const& cnet,
                          asp::CRN                             const& crn,
                          vw::Datum                const& datum,
                          std::vector<double>                   const& tri_points_vec,

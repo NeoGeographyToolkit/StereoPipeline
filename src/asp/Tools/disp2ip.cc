@@ -42,7 +42,7 @@ namespace asp {
 // Given a cnet between a set of left images, and disparities from left
 // to right images, add more interest points to the cnet based on the
 // disparities. 
-void completeCnetFromDisparities(vw::ba::ControlNetwork               & cnet,
+void completeCnetFromDisparities(vw::ControlNetwork               & cnet,
                                  std::map<int, int>              const& cnet_to_raw_index,
                                  std::vector<asp::DispImageType> const& interp_disparities,
                                  std::vector<vw::TransformPtr>   const& left_trans,
@@ -58,11 +58,11 @@ void completeCnetFromDisparities(vw::ba::ControlNetwork               & cnet,
   int net_size = cnet.size();    
   
   for (int i = 0; i < net_size; i++) {
-    vw::ba::ControlPoint & cp = cnet[i]; // alias
+    vw::ControlPoint & cp = cnet[i]; // alias
     
     int num_measures = cp.size();
     for (int j = 0; j < num_measures; j++) {
-      vw::ba::ControlMeasure & cm = cp[j];
+      vw::ControlMeasure & cm = cp[j];
       int cid = cm.image_id();
       vw::Vector2 pix = cm.position();
       vw::Vector2 sigma = cm.sigma();
@@ -90,9 +90,9 @@ void completeCnetFromDisparities(vw::ba::ControlNetwork               & cnet,
       right_pix = right_trans[raw_index]->reverse(right_pix);
       
       // Add the measure
-      cp.add_measure(vw::ba::ControlMeasure(right_pix[0], right_pix[1], 
-                                            sigma[0], sigma[1], 
-                                            num_left_images + raw_index));
+      cp.add_measure(vw::ControlMeasure(right_pix[0], right_pix[1], 
+                                        sigma[0], sigma[1], 
+                                        num_left_images + raw_index));
     }
   }
 }
@@ -175,7 +175,7 @@ void disp2ip(int argc, char *argv[], DispToIpOptions& opt) {
   bool nvm_no_shift = false; // have an offsets file
   asp::nvmData nvm;
   asp::readNvm(opt.input_nvm, nvm_no_shift, nvm);
-  vw::ba::ControlNetwork cnet("raw");
+  vw::ControlNetwork cnet("raw");
   std::vector<Eigen::Affine3d> world_to_cam;
   std::map<std::string, Eigen::Vector2d> raw_offsets;
   asp::nvmToCnet(nvm, cnet, raw_offsets, world_to_cam);

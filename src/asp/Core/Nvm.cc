@@ -552,12 +552,12 @@ void writeNvm(asp::nvmData const& nvm, std::string const& output_filename) {
 // Convert nvm to cnet
 void nvmToCnet(asp::nvmData const& nvm, 
                // Outputs
-               vw::ba::ControlNetwork                 & cnet,
+               vw::ControlNetwork                 & cnet,
                std::map<std::string, Eigen::Vector2d> & offsets,
                std::vector<Eigen::Affine3d>           & world_to_cam) {
 
   // Wipe the output
-  cnet = vw::ba::ControlNetwork("ASP_control_network");
+  cnet = vw::ControlNetwork("ASP_control_network");
 
   // Add the images
   for (size_t cid = 0; cid < nvm.cid_to_filename.size(); cid++)
@@ -565,10 +565,10 @@ void nvmToCnet(asp::nvmData const& nvm,
 
   // Add the points
   for (size_t pid = 0; pid < nvm.pid_to_cid_fid.size(); pid++) {
-    vw::ba::ControlPoint cp;
+    vw::ControlPoint cp;
     Eigen::Vector3d const& P = nvm.pid_to_xyz[pid];
     cp.set_position(vw::Vector3(P[0], P[1], P[2]));
-    cp.set_type(vw::ba::ControlPoint::TiePoint); // this is the default
+    cp.set_type(vw::ControlPoint::TiePoint); // this is the default
 
     for (const auto& cid_fid: nvm.pid_to_cid_fid[pid]) {
       int cid = cid_fid.first;
@@ -576,7 +576,7 @@ void nvmToCnet(asp::nvmData const& nvm,
       double x = nvm.cid_to_keypoint_map[cid].col(fid)[0];
       double y = nvm.cid_to_keypoint_map[cid].col(fid)[1];
       double sigma = 1.0;
-      cp.add_measure(vw::ba::ControlMeasure(x, y, sigma, sigma, cid));
+      cp.add_measure(vw::ControlMeasure(x, y, sigma, sigma, cid));
     }
    
     cnet.add_control_point(cp);
@@ -589,7 +589,7 @@ void nvmToCnet(asp::nvmData const& nvm,
 // Create an nvm from a cnet. There is no shift in the interest points. That is
 // applied only on loading and saving. Optionally, updated triangulated points
 // and outlier flags can be passed in.
-void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
+void cnetToNvm(vw::ControlNetwork                 const& cnet,
                std::map<std::string, Eigen::Vector2d> const& offsets,
                std::vector<Eigen::Affine3d>           const& world_to_cam,
                // Output
@@ -655,10 +655,10 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
     if (outliers.find(pid) != outliers.end())
       continue;
       
-    vw::ba::ControlPoint const& cp = cnet[pid];
+    vw::ControlPoint const& cp = cnet[pid];
     // Iterate through the measures
     for (int m = 0; m < cp.size(); m++) {
-      vw::ba::ControlMeasure const& cm = cp[m];
+      vw::ControlMeasure const& cm = cp[m];
       int cid = cm.image_id();
       vw::Vector2 pix = cm.position();
       
@@ -677,7 +677,7 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
   
   inlier_count = 0;   
   for (int pid = 0; pid < num_points; pid++) {
-    vw::ba::ControlPoint const& cp = cnet[pid];
+    vw::ControlPoint const& cp = cnet[pid];
     
     // Skip outliers
     if (outliers.find(pid) != outliers.end())
@@ -685,7 +685,7 @@ void cnetToNvm(vw::ba::ControlNetwork                 const& cnet,
 
     // Iterate through the measures
     for (int m = 0; m < cp.size(); m++) {
-      vw::ba::ControlMeasure const& cm = cp[m];
+      vw::ControlMeasure const& cm = cp[m];
       int cid = cm.image_id();
       vw::Vector2 pix = cm.position();
       Pair key = std::make_pair(pix[0], pix[1]);
@@ -748,7 +748,7 @@ void remapNvm(std::vector<std::string> const& image_files,
 void readNvmAsCnet(std::string const& input_filename, 
                    std::vector<std::string> const& image_files,
                    bool nvm_no_shift,
-                   vw::ba::ControlNetwork & cnet,
+                   vw::ControlNetwork & cnet,
                    std::vector<Eigen::Affine3d> & world_to_cam,
                    std::map<std::string, Eigen::Vector2d> & optical_offsets) {
 
@@ -767,7 +767,7 @@ void readNvmAsCnet(std::string const& input_filename,
 // Write a cnet to an NVM file. On writing, the feature matches from the cnet will be
 // shifted relative to the optical center. The optical center offsets are saved
 // to a separate file.
-void writeCnetAsNvm(vw::ba::ControlNetwork const& cnet,
+void writeCnetAsNvm(vw::ControlNetwork const& cnet,
                     std::map<std::string, Eigen::Vector2d> const& optical_offsets,
                     std::vector<Eigen::Affine3d> const& world_to_cam,
                     std::string const& output_filename) {

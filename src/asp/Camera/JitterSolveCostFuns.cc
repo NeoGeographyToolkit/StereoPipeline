@@ -1269,7 +1269,7 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
 void addDemConstraint(asp::BaBaseOptions       const& opt,
                       std::vector<vw::Vector3> const& dem_xyz_vec,
                       std::set<int>            const& outliers,
-                      vw::ba::ControlNetwork   const& cnet,
+                      vw::ControlNetwork   const& cnet,
                       // Outputs
                       std::vector<double>           & tri_points_vec,
                       std::vector<double>           & weight_per_residual, // append
@@ -1299,7 +1299,7 @@ void addDemConstraint(asp::BaBaseOptions       const& opt,
 
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
 
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+    if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint)
       continue; // Skip GCPs
 
     // Note that we get tri points from dem_xyz_vec, based on the input DEM
@@ -1324,7 +1324,7 @@ void addDemConstraint(asp::BaBaseOptions       const& opt,
 // This does not need a DEM or alignment
 void addTriConstraint(asp::BaBaseOptions     const& opt,
                       std::set<int>          const& outliers,
-                      vw::ba::ControlNetwork const& cnet,
+                      vw::ControlNetwork const& cnet,
                       asp::CRN              const& crn,
                       // Outputs
                       std::vector<double>    & tri_points_vec,
@@ -1338,8 +1338,8 @@ void addTriConstraint(asp::BaBaseOptions     const& opt,
 
   int num_tri_points = cnet.size();
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
-        cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+    if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint ||
+        cnet[ipt].type() == vw::ControlPoint::PointFromDem)
       continue; // Skip GCPs and height-from-dem points which have their own constraint
 
     if (outliers.find(ipt) != outliers.end())
@@ -1373,7 +1373,7 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
                       bool                          use_llh_error,
                       bool                          fix_gcp_xyz,
                       // Outputs
-                      vw::ba::ControlNetwork      & cnet,
+                      vw::ControlNetwork      & cnet,
                       std::vector<double>         & tri_points_vec,
                       std::vector<double>         & weight_per_residual, // append
                       ceres::Problem              & problem) {
@@ -1381,7 +1381,7 @@ void addGcpConstraint(asp::BaBaseOptions     const& opt,
   int num_tri_points = cnet.size();
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
 
-    if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint)
+    if (cnet[ipt].type() != vw::ControlPoint::GroundControlPoint)
       continue; // Applies only to GCPs
 
     if (outliers.find(ipt) != outliers.end())

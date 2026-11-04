@@ -137,7 +137,7 @@ DpixT find_disparity(vw::ImageViewRef<DpixT> disparity,
 }
 
 void genWriteGcp(vw::GeoReference const& ref_dem_georef,
-                 vw::ba::ControlNetwork const& cnet,
+                 vw::ControlNetwork const& cnet,
                  std::vector<vw::Vector3> const& dem_xyz_vec,
                  vw::ImageViewRef<DpixT> const& disparity,
                  vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
@@ -188,14 +188,14 @@ void genWriteGcp(vw::GeoReference const& ref_dem_georef,
     if (tid == 0 && count % report_interval == 0)
       tpc.report_progress(double(count) / std::max(num_pts, 1));
 
-    vw::ba::ControlPoint const& cp = cnet[ipt]; // alias
+    vw::ControlPoint const& cp = cnet[ipt]; // alias
 
     // Ground position in the warped DEM. Input GCP already have one, so use it.
     // Tie points use the ray-to-DEM intersection (convergence-free), not the
     // triangulated point, so near-parallel same-look observations do not
     // mislocate the point (see updateTriPtsFromDem).
     vw::Vector3 xyz;
-    if (cp.type() == vw::ba::ControlPoint::GroundControlPoint)
+    if (cp.type() == vw::ControlPoint::GroundControlPoint)
       xyz = cp.position();
     else
       xyz = dem_xyz_vec[ipt];
@@ -537,7 +537,7 @@ int run_dem2gcp(int argc, char * argv[]) {
   // case of one match files or a prefix pointing to many match files. When
   // --max-pairwise-matches is 0, skip match loading entirely; the cnet will
   // be populated only from --input-gcp-list below.
-  vw::ba::ControlNetwork cnet("asp");
+  vw::ControlNetwork cnet("asp");
   if (opt.max_pairwise_matches == 0) {
     // Register the image names so add_ground_control_points can resolve
     // image references in the input GCP files.
@@ -563,15 +563,15 @@ int run_dem2gcp(int argc, char * argv[]) {
     int min_matches = 0; // Not used as we are just loading
     double min_triangulation_angle = 1e-10;
     double forced_triangulation_distance = -1.0;
-    bool success = vw::ba::build_control_network(triangulate_control_points,
-                                                 cnet, camera_models,
-                                                 image_files,
-                                                 match_files,
-                                                 min_matches,
-                                                 min_triangulation_angle,
-                                                 forced_triangulation_distance,
-                                                 opt.max_pairwise_matches,
-                                                 stereo_settings().matches_as_txt);
+    bool success = vw::build_control_network(triangulate_control_points,
+                                             cnet, camera_models,
+                                             image_files,
+                                             match_files,
+                                             min_matches,
+                                             min_triangulation_angle,
+                                             forced_triangulation_distance,
+                                             opt.max_pairwise_matches,
+                                             stereo_settings().matches_as_txt);
     if (!success)
       vw::vw_throw(vw::ArgumentErr() << "Failed to load the interest points.\n");
   }
@@ -583,8 +583,8 @@ int run_dem2gcp(int argc, char * argv[]) {
     std::vector<std::string> input_gcp_files;
     asp::read_list(opt.input_gcp_list, input_gcp_files);
     int num_input_gcp
-      = vw::ba::add_ground_control_points(cnet, input_gcp_files,
-                                          warped_dem_georef.datum());
+      = vw::add_ground_control_points(cnet, input_gcp_files,
+                                      warped_dem_georef.datum());
     vw::vw_out() << "Loaded " << num_input_gcp
                  << " input GCP from " << input_gcp_files.size()
                  << " file(s) in " << opt.input_gcp_list << ".\n";

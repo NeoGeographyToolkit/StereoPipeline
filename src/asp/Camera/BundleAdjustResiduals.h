@@ -64,7 +64,7 @@ void write_residual_map(std::string const& output_prefix,
                         // Num non-outlier pixels per point
                         std::vector<int> const& num_point_observations, 
                         asp::BaState const& ba_state,
-                        vw::ba::ControlNetwork const& cnet,
+                        vw::ControlNetwork const& cnet,
                         asp::BaBaseOptions const& opt);
 
 /// Write log files describing all residual errors. The order of data stored
@@ -79,7 +79,7 @@ void write_residual_logs(std::string const& residual_prefix,
                          size_t num_tri_residuals,
                          size_t num_cam_position_residuals,
                          std::vector<vw::Vector3> const& reference_vec,
-                         vw::ba::ControlNetwork const& cnet, 
+                         vw::ControlNetwork const& cnet, 
                          asp::CRN const& crn, 
                          ceres::Problem &problem);
 
@@ -126,7 +126,7 @@ void saveCameraOffsets(vw::Datum                const& datum,
 // how the camera and triangulation offsets are measured. Used by both
 // bundle_adjust and jitter_solve.
 void saveGcpReport(std::string            const& out_prefix,
-                   vw::ba::ControlNetwork const& cnet,
+                   vw::ControlNetwork const& cnet,
                    std::vector<double>    const& tri_points_vec,
                    std::set<int>          const& outliers,
                    vw::Datum const& datum);
@@ -135,7 +135,7 @@ void saveGcpReport(std::string            const& out_prefix,
 void saveJitterResiduals(ceres::Problem                             & problem,
                          std::string                           const& residual_prefix,
                          asp::BaBaseOptions                    const& opt,
-                         vw::ba::ControlNetwork                const& cnet,
+                         vw::ControlNetwork                const& cnet,
                          asp::CRN                             const& crn,
                          vw::Datum                const& datum,
                          std::vector<double>                   const& tri_points_vec,

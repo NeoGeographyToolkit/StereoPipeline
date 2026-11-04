@@ -65,7 +65,7 @@ public:
   asp::MatchList    m_matchlist;
   pairwiseMatchList m_pairwiseMatches;
   pairwiseMatchList m_pairwiseCleanMatches;
-  vw::ba::ControlNetwork m_cnet;
+  vw::ControlNetwork m_cnet;
   int m_editMatchPointVecIndex; // Point being edited
   bool m_editingMatches;        // If we are in the middle of editing match points
   asp::AppData & m_app_data;   // Reference to AppData

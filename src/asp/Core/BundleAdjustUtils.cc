@@ -49,7 +49,6 @@
 using namespace vw;
 using namespace vw::camera;
 using namespace vw::stereo;
-using namespace vw::ba;
 
 namespace fs = boost::filesystem;
 
@@ -311,7 +310,7 @@ bool updatePointHeightFromDem(vw::GeoReference const& dem_georef,
 // load and have its own masked_dem image. Even then there may be some global
 // cache for all images, which would slow things down.
 // There is a function with the same name and logic for rig_calibrator.
-void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
+void updateTriPtsFromDem(vw::ControlNetwork const& cnet,
                          std::set<int> const& outliers,
                          std::vector<vw::CamPtr> const& camera_models,
                          vw::GeoReference const& dem_georef,
@@ -352,7 +351,7 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
     if (omp_get_thread_num() == 0 && count % report_interval == 0)
       tpc.report_progress(double(count) / std::max(num_tri_points, 1));
 
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+    if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint)
       continue; // GCP do not get modified
 
     if (outliers.find(ipt) != outliers.end())
@@ -420,7 +419,7 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
 
 // Update triangulated points using one or more DEMs. See the declaration in
 // the header for the full contract.
-void updateTriPtsFromDemList(vw::ba::ControlNetwork const& cnet,
+void updateTriPtsFromDemList(vw::ControlNetwork const& cnet,
                              std::set<int> const& outliers,
                              std::vector<vw::CamPtr> const& camera_models,
                              std::string const& heights_from_dem,
@@ -507,7 +506,7 @@ void updateTriPtsFromDemList(vw::ba::ControlNetwork const& cnet,
 
 // Flag outliers by reprojection error with input cameras. This assumes that
 // the input cameras are pretty accurate.
-void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
+void flag_initial_outliers(vw::ControlNetwork const& cnet,
                            asp::CRN const& crn,
                            std::vector<vw::CamPtr> const& camera_models,
                            double max_init_reproj_error,
@@ -615,7 +614,7 @@ void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
                 bool have_dem,
                 double heights_from_dem_uncertainty,
                 // Outputs
-                vw::ba::ControlNetwork & cnet,
+                vw::ControlNetwork & cnet,
                 std::vector<double>    & orig_tri_points_vec,
                 std::vector<double>    & tri_points_vec) {
 
@@ -639,7 +638,7 @@ void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
     for (int q = 0; q < NUM_XYZ_PARAMS; q++)
       orig_tri_points_vec[ipt*NUM_XYZ_PARAMS + q] = tri_point[q];
 
-    bool is_gcp = (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+    bool is_gcp = (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint);
 
     if (have_dem && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0) && !is_gcp) {
       tri_point = dem_xyz_vec.at(ipt);
@@ -648,7 +647,7 @@ void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
       cnet[ipt].set_position(Vector3(tri_point[0], tri_point[1], tri_point[2]));
 
       // Ensure we can track it later
-      cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem);
+      cnet[ipt].set_type(vw::ControlPoint::PointFromDem);
 
       // Set the uncertainty to the DEM uncertainty
       double s = heights_from_dem_uncertainty;
@@ -756,7 +755,7 @@ void stripTrailingNan(std::vector<double> & vec) {
 // Average all y pixel residuals per row then fill in from neighbors. This is
 // useful for producing a jitter residual per image row, from which one may try
 // to study its power spectrum and dominant frequencies.
-void residualsPerRow(vw::ba::ControlNetwork const& cnet,
+void residualsPerRow(vw::ControlNetwork const& cnet,
                      asp::CRN const& crn,
                      std::set<int> const& outliers,
                      std::vector<std::string> const& image_files,
@@ -789,7 +788,7 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
       // The index of the 3D point
       int ipt = feature_ptr->m_point_id;
 
-      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint)
         continue; // Skip GCP
 
       if (outliers.find(ipt) != outliers.end())
@@ -860,7 +859,7 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
 // ba_state, filtering outliers. For GCP, use the original position
 // from the cnet. For other points, use the optimized position from
 // ba_state. Includes GCP. For bundle_adjust.
-void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
+void saveCnetAsGcp(vw::ControlNetwork const& cnet,
                    asp::BaState const& ba_state,
                    vw::Datum const& datum,
                    std::vector<std::string> const& image_files,
@@ -873,7 +872,7 @@ void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
     asp::Gcp gcp;
     gcp.cp = cnet[ipt];
     bool is_gcp =
-      (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+      (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint);
     vw::Vector3 xyz = is_gcp ? cnet[ipt].position()
                              : ba_state.get_point(ipt);
     gcp.llh = datum.cartesian_to_geodetic(xyz);
@@ -890,7 +889,7 @@ void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
 // tri_points_vec, filtering outliers. For GCP, use the original position
 // from the cnet. For other points, use the optimized position from
 // tri_points_vec. Includes GCP. For jitter_solve.
-void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
+void saveCnetAsGcp(vw::ControlNetwork const& cnet,
                    std::vector<double> const& tri_points_vec,
                    std::set<int> const& outliers,
                    vw::Datum const& datum,
@@ -909,7 +908,7 @@ void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
     asp::Gcp gcp;
     gcp.cp = cnet[ipt];
     bool is_gcp =
-      (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+      (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint);
     vw::Vector3 xyz;
     if (is_gcp) {
       xyz = cnet[ipt].position();

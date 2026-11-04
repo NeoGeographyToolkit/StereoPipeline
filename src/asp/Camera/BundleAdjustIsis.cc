@@ -132,7 +132,7 @@ void readIsisCameras(std::vector<std::string> const& image_files,
 
 // Add a given control point to the ISIS cnet. Update the outlier counter.
 void addIsisControlPoint(Isis::ControlNet & icnet,
-                         vw::ba::ControlNetwork const& cnet,
+                         vw::ControlNetwork const& cnet,
                          asp::BaState const& ba_state,
                          std::vector<boost::shared_ptr<Isis::Camera>> const& cameras,
                          std::vector<std::string> const& serialNumbers,
@@ -160,7 +160,7 @@ void addIsisControlPoint(Isis::ControlNet & icnet,
   // constrained by sigma.
   vw::Vector3 sigma = cnet[ipt].sigma(); // point sigma
   double s = asp::FIXED_GCP_SIGMA;
-  if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint) {
+  if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint) {
     if (sigma == vw::Vector3(s, s, s)) {
       point->SetType(Isis::ControlPoint::Fixed);
     } else {
@@ -236,13 +236,13 @@ void addIsisControlPoint(Isis::ControlNet & icnet,
 void loadIsisCnet(std::string const& isisCnetFile,
                   std::vector<std::string> const& image_files,
                   // Outputs
-                  vw::ba::ControlNetwork & cnet,
+                  vw::ControlNetwork & cnet,
                   IsisCnetData & isisCnetData) {
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 
   // Reset the outputs
-  cnet = vw::ba::ControlNetwork("ASP_control_network");
+  cnet = vw::ControlNetwork("ASP_control_network");
   isisCnetData = IsisCnetData();
   
   // Aliases
@@ -306,7 +306,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
     // will be triangulated by bundle_adjust.
     // By default, a point is free, and its sigma is nominal and will not be
     // used. Will adjust below for constrained and fixed points.
-    vw::ba::ControlPoint cpoint(vw::ba::ControlPoint::TiePoint); // free
+    vw::ControlPoint cpoint(vw::ControlPoint::TiePoint); // free
     vw::Vector3 a(A.GetX().meters(), A.GetY().meters(), A.GetZ().meters());
     cpoint.set_position(a);
     cpoint.set_ignore(ignore);
@@ -340,13 +340,13 @@ void loadIsisCnet(std::string const& isisCnetFile,
                     << "loadIsisCnet: ISIS constrained point with index "
                     << i << " has a non-positive sigma.\n");
         // Set as gcp, but with given sigma, rather than tiny sigma.
-        cpoint.set_type(vw::ba::ControlPoint::GroundControlPoint); // gcp
+        cpoint.set_type(vw::ControlPoint::GroundControlPoint); // gcp
       }
     } else if (point->GetType() == Isis::ControlPoint::Free) {
        // Nothing to do here. The point and sigma is already set. 
     } else if (point->GetType() == Isis::ControlPoint::Fixed) {
       numFixed++;
-      cpoint.set_type(vw::ba::ControlPoint::GroundControlPoint); // gcp
+      cpoint.set_type(vw::ControlPoint::GroundControlPoint); // gcp
       double s = asp::FIXED_GCP_SIGMA; // Later will keep fixed
       cpoint.set_sigma(vw::Vector3(s, s, s));
     }
@@ -380,8 +380,8 @@ void loadIsisCnet(std::string const& isisCnetFile,
         vw_throw(vw::ArgumentErr() << "Could not find image with serial number: "
                  << cubeSerialNumber << ".\n");
       int image_id = it->second;
-      cpoint.add_measure(vw::ba::ControlMeasure(col, row, sample_sigma, line_sigma,
-                                                image_id));
+      cpoint.add_measure(vw::ControlMeasure(col, row, sample_sigma, line_sigma,
+                                            image_id));
     }
 
     // We do not skip any points, to preserve the one-to-one correspondence.
@@ -422,7 +422,7 @@ void loadIsisCnet(std::string const& isisCnetFile,
 // and outliers, and write it to disk at <outputPrefix>.net.
 // We do not change here if a point is fixed, constrained, or free.
 void saveUpdatedIsisCnet(std::string const& outputPrefix, 
-                         vw::ba::ControlNetwork const& cnet,
+                         vw::ControlNetwork const& cnet,
                          asp::BaState const& ba_state,
                          IsisCnetData & isisCnetData) {
 
@@ -512,8 +512,8 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
   // points rather than updating existing ones.
   for (int i = numControlPoints; i < ba_state.num_points(); i++) {
     
-    vw::ba::ControlPoint const& cpoint = cnet[i];
-    if (cpoint.type() != vw::ba::ControlPoint::GroundControlPoint)
+    vw::ControlPoint const& cpoint = cnet[i];
+    if (cpoint.type() != vw::ControlPoint::GroundControlPoint)
       vw_throw(vw::ArgumentErr() 
                << "saveUpdatedIsisCnet: Book-keeping failure. Expected GCP.\n");
       
@@ -539,7 +539,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
 // and latest param values.
 void saveIsisCnet(std::string const& outputPrefix, 
                   vw::Datum const& datum,
-                  vw::ba::ControlNetwork const& cnet,
+                  vw::ControlNetwork const& cnet,
                   asp::BaState const& ba_state) {
   
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1

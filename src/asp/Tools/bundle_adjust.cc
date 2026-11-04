@@ -79,7 +79,6 @@ namespace fs = boost::filesystem;
 using namespace vw;
 using namespace asp;
 using namespace vw::camera;
-using namespace vw::ba;
 
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.
@@ -488,16 +487,16 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
       // Read matches into a control network
       bool triangulate_control_points = true;
-      bool success = vw::ba::build_control_network(triangulate_control_points,
-                                                   cnet, opt.camera_models,
-                                                   opt.image_files,
-                                                   opt.match_files,
-                                                   opt.min_matches,
-                                                   opt.min_triangulation_angle*(M_PI/180.0),
-                                                   opt.forced_triangulation_distance,
-                                                   opt.max_pairwise_matches,
-                                                   stereo_settings().matches_as_txt,
-                                                   opt.bathy_data);
+      bool success = vw::build_control_network(triangulate_control_points,
+                                               cnet, opt.camera_models,
+                                               opt.image_files,
+                                               opt.match_files,
+                                               opt.min_matches,
+                                               opt.min_triangulation_angle*(M_PI/180.0),
+                                               opt.forced_triangulation_distance,
+                                               opt.max_pairwise_matches,
+                                               stereo_settings().matches_as_txt,
+                                               opt.bathy_data);
       vw_out() << "Number of triangulated control points: " << cnet.size() << "\n";
       if (!success) {
         vw_out() << "Failed to build a control network.\n"
@@ -512,14 +511,14 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   }
 
   if (!opt.gcp_files.empty()) {
-    num_gcp = vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    num_gcp = vw::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
     checkGcpRadius(opt.datum, cnet);
     vw::vw_out() << "Loaded " << num_gcp << " ground control points.\n";
   }
 
   // Balance GCP against triangulated points for large networks
   if (num_gcp > 0)
-    vw::ba::subsample_gcp_by_tri_ratio(cnet, opt.max_gcp_to_tri_points_ratio);
+    vw::subsample_gcp_by_tri_ratio(cnet, opt.max_gcp_to_tri_points_ratio);
 
   // If we change the cameras, we must rebuild the control network
   bool cameras_changed = false;
@@ -627,10 +626,10 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
   if (!opt.apply_initial_transform_only && cameras_changed) {
     vw_out() << "Re-triangulating the control points as the cameras changed.\n";
     // Do not triangulate the GCP or the height-from-dem points
-    vw::ba::triangulate_control_network(cnet, new_cam_models,
-                                        opt.min_triangulation_angle*(M_PI/180.0),
-                                        opt.forced_triangulation_distance,
-                                        opt.bathy_data);
+    vw::triangulate_control_network(cnet, new_cam_models,
+                                    opt.min_triangulation_angle*(M_PI/180.0),
+                                    opt.forced_triangulation_distance,
+                                    opt.bathy_data);
     if (num_points != cnet.size()) // Must not happen
       vw_throw(ArgumentErr() << "The number of points changed after re-triangulation.\n");
   }

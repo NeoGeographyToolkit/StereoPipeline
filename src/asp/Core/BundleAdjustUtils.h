@@ -59,7 +59,7 @@ const int NUM_XYZ_PARAMS  = 3;
 const int NUM_QUAT_PARAMS = 4;
 const int PIXEL_SIZE      = 2;
 
-typedef vw::ba::CameraRelationNetwork<vw::ba::JFeature> CRN;
+typedef vw::CameraRelationNetwork<vw::JFeature> CRN;
   
 // Compute the camera footprint polygon shape and its bounding box. Used a
 // cached result if available. Cache the current result if computed.
@@ -98,7 +98,7 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
 // models are thread-safe (e.g. pinhole, CSM), never for ISIS. DEM reads go
 // through the VW block cache, whose global lock serializes them, so the speedup
 // is limited. Default 1 keeps the serial behavior.
-void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
+void updateTriPtsFromDem(vw::ControlNetwork const& cnet,
                          std::set<int> const& outliers,
                          std::vector<vw::CamPtr> const& camera_models,
                          vw::GeoReference const& dem_georef,
@@ -109,7 +109,7 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
 
 // Update triangulated points using one or more DEMs. These come from
 // --heights-from-dem and --heights-from-dem-list.
-void updateTriPtsFromDemList(vw::ba::ControlNetwork const& cnet,
+void updateTriPtsFromDemList(vw::ControlNetwork const& cnet,
                              std::set<int> const& outliers,
                              std::vector<vw::CamPtr> const& camera_models,
                              std::string const& heights_from_dem,
@@ -129,7 +129,7 @@ bool updatePointHeightFromDem(vw::GeoReference const& dem_georef,
 
 // Flag outliers by reprojection error with input cameras. This assumes that
 // the input cameras are pretty accurate.
-void flag_initial_outliers(vw::ba::ControlNetwork const& cnet,
+void flag_initial_outliers(vw::ControlNetwork const& cnet,
                             asp::CRN const& crn,
                             std::vector<vw::CamPtr> const& camera_models,
                             double max_init_reproj_error,
@@ -148,12 +148,12 @@ void formTriVec(std::vector<vw::Vector3> const& dem_xyz_vec,
                 bool have_dem,
                 double heights_from_dem_uncertainty,
                 // Outputs
-                vw::ba::ControlNetwork & cnet,
+                vw::ControlNetwork & cnet,
                 std::vector<double>    & orig_tri_points_vec,
                 std::vector<double>    & tri_points_vec);
 
 // Average all y pixel residuals per row then fill in from neighbors 
-void residualsPerRow(vw::ba::ControlNetwork const& cnet,
+void residualsPerRow(vw::ControlNetwork const& cnet,
                      asp::CRN const& crn,
                      std::set<int> const& outliers,
                      std::vector<std::string> const& image_files,
@@ -164,7 +164,7 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
 
 // Save the control network in GCP format using optimized positions from
 // ba_state, filtering outliers. Includes GCP. For bundle_adjust.
-void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
+void saveCnetAsGcp(vw::ControlNetwork const& cnet,
                    asp::BaState const& ba_state,
                    vw::Datum const& datum,
                    std::vector<std::string> const& image_files,
@@ -172,7 +172,7 @@ void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
 
 // Save the control network in GCP format using optimized positions from
 // tri_points_vec, filtering outliers. Includes GCP. For jitter_solve.
-void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
+void saveCnetAsGcp(vw::ControlNetwork const& cnet,
                    std::vector<double> const& tri_points_vec,
                    std::set<int> const& outliers,
                    vw::Datum const& datum,

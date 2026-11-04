@@ -35,9 +35,7 @@
 #include <set>
 
 namespace vw {
-  namespace ba {
     class ControlNetwork;
-  }
     class Datum;
 }
 
@@ -71,13 +69,13 @@ struct IsisCnetData {
 void loadIsisCnet(std::string const& isisCnetFile, 
                   std::vector<std::string> const& image_files,
                   // Outputs
-                  vw::ba::ControlNetwork& cnet,
+                  vw::ControlNetwork& cnet,
                   IsisCnetData & isisCnetData);
 
 // Update an ISIS cnet with the latest info on triangulated points and outliers,
 // and write it to disk at <outputPrefix>.net.
 void saveUpdatedIsisCnet(std::string const& outputPrefix,
-                         vw::ba::ControlNetwork const& cnet,
+                         vw::ControlNetwork const& cnet,
                          asp::BaState const& ba_state,
                          IsisCnetData & isisCnetData);
 
@@ -85,7 +83,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
 // values.
 void saveIsisCnet(std::string const& outputPrefix, 
                   vw::Datum const& datum,
-                  vw::ba::ControlNetwork const& cnet,
+                  vw::ControlNetwork const& cnet,
                   asp::BaState const& ba_state);
 
 } // end namespace asp

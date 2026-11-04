@@ -176,7 +176,6 @@ bool MatchList::allPointsValid() const {
 
 bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
                                    std::vector<std::string> const& imageNames) {
-  using namespace vw::ba;
   if (getNumPoints() > 0) // Can't double-load points!
     return false;
 
@@ -234,7 +233,6 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
 bool MatchList::loadPointsFromVwip(std::vector<std::string> const& vwipFiles,
                                    std::vector<std::string> const& imageNames) {
 
-  using namespace vw::ba;
 
   if (getNumPoints() > 0) // Can't double-load points!
     return false;

@@ -479,7 +479,7 @@ void listExistingMatchFiles(std::string const& prefix,
 }
 
 // Given a pair of indices, return all the matches between them.
-void matchesForPair(vw::ba::ControlNetwork const& cnet,
+void matchesForPair(vw::ControlNetwork const& cnet,
                     int left_cid, int right_cid,
                     std::vector<vw::InterestPoint> & left_ip,
                     std::vector<vw::InterestPoint> & right_ip) {

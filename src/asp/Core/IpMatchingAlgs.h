@@ -35,9 +35,7 @@
 
 namespace vw {
     class InterestPoint;
-  namespace ba {
     class ControlNetwork;
-  }
 
   namespace camera {
     class CameraModel;
@@ -117,7 +115,7 @@ void listExistingMatchFiles(std::string const& prefix,
                             std::set<std::string> & existing_files);
 
 // Given a pair of indices, return all the matches between them.
-void matchesForPair(vw::ba::ControlNetwork const& cnet,
+void matchesForPair(vw::ControlNetwork const& cnet,
                     int left_cid, int right_cid,
                     std::vector<vw::InterestPoint> & left_ip,
                     std::vector<vw::InterestPoint> & right_ip);

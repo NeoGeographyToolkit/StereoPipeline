@@ -58,7 +58,6 @@
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::ba;
 
 namespace asp {
 
@@ -1608,7 +1607,7 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
 // Sanity check. This does not prevent the user from setting the wrong datum,
 // but it can catch unreasonable height values for GCP.
 void checkGcpRadius(vw::Datum const& datum,
-                    vw::ba::ControlNetwork const& cnet) {
+                    vw::ControlNetwork const& cnet) {
 
   int num_points = cnet.size();
   for (int ipt = 0; ipt < num_points; ipt++) {

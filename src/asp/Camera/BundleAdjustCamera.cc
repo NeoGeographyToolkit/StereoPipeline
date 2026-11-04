@@ -53,7 +53,6 @@
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::ba;
 
 namespace asp {
 
@@ -305,7 +304,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            vw::Vector3   const & translation,
                            double                scale,
                            std::vector<vw::CamPtr> &camera_models,
-                           boost::shared_ptr<vw::ba::ControlNetwork> const& cnet) {
+                           boost::shared_ptr<vw::ControlNetwork> const& cnet) {
 
   // Apply the transform to the cameras
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
@@ -332,7 +331,7 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
 /// swap in a GCP file. Compare the bounding box of the GCP with the bounding
 /// box of the tie points. Warn if these are more than 100 km apart. The cnet
 /// must already be triangulated, which is the case at the call site.
-void check_gcp_dists(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr) {
+void check_gcp_dists(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr) {
 
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
 
@@ -369,7 +368,7 @@ void check_gcp_dists(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr) 
 // Initialize the position and orientation of each pinhole camera model using
 // a least squares error transform to match the provided camera positions.
 // This function overwrites the camera parameters in-place
-bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet,
+bool init_pinhole_model_with_camera_positions(boost::shared_ptr<vw::ControlNetwork> const& cnet,
  std::vector<vw::CamPtr> & camera_models,
  std::vector<std::string> const& image_files,
  std::vector<vw::Vector3> const & estimated_camera_gcc) {
@@ -545,7 +544,7 @@ void transform_cameras_with_shared_gcp(
     ControlPoint untrans_cp = cnet[ipt];
     double minimum_angle = 1.0e-3; // Likely this is too small for a good GCP, but better than 0.
     double forced_triangulation_distance = -1.0;
-    double err = vw::ba::triangulate_control_point(untrans_cp, camera_models,
+    double err = vw::triangulate_control_point(untrans_cp, camera_models,
                            minimum_angle, forced_triangulation_distance);
 
     if (untrans_cp.position() != Vector3() && cnet[ipt].position()  != Vector3() &&
@@ -638,7 +637,7 @@ void transform_cameras_with_shared_gcp(
 
 /// Initialize the position and orientation of a pinhole camera model using
 /// GCP. It invokes OpenCV's PnP functionality.
-void init_camera_using_gcp(boost::shared_ptr<vw::ba::ControlNetwork> const& cnet_ptr,
+void init_camera_using_gcp(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr,
                            std::vector<vw::CamPtr> & camera_models) {
 
   // Sanity check
@@ -975,7 +974,7 @@ void processMatchPair(size_t left_index, size_t right_index,
 // if a DEM is given. These are done together as they rely on
 // reloading interest point matches, which is expensive so the matches
 // are used for both operations.
-void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
+void matchFilesProcessing(vw::ControlNetwork       const& cnet,
                           asp::BaBaseOptions           const& opt,
                           std::vector<vw::CamPtr>      const& optimized_cams,
                           bool                                remove_outliers,

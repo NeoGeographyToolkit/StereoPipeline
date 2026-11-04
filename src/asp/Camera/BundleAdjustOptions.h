@@ -45,7 +45,7 @@ struct BaOptions: public asp::BaBaseOptions {
   double semi_major, semi_minor, position_filter_dist;
   std::string remove_outliers_params_str;
   std::vector<double> intrinsics_limits;
-  boost::shared_ptr<vw::ba::ControlNetwork> cnet;
+  boost::shared_ptr<vw::ControlNetwork> cnet;
   int ip_detect_method, num_scales;
   double epipolar_threshold; // Max distance from epipolar line to search for IP matches.
   double ip_inlier_factor, ip_uniqueness_thresh, nodata_value, 

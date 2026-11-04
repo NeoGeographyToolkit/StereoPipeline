@@ -40,7 +40,7 @@ void exportTriPoints(asp::BaState                 const& ba_state,
 // triangulated points, and optical offsets, and write the cnet to an nvm file.
 void saveNvm(asp::BaBaseOptions                const& opt,
              bool                                     no_poses_from_nvm,   
-             vw::ba::ControlNetwork            const& cnet,
+             vw::ControlNetwork            const& cnet,
              asp::BaState                      const& ba_state,
              std::vector<Eigen::Affine3d>           & world_to_cam,
              std::map<std::string, Eigen::Vector2d> & optical_offsets);

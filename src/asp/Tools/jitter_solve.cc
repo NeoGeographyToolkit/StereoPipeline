@@ -857,7 +857,7 @@ void initResampleCsmCams(Options                     const& opt,
 // Here more points may be flagged as outliers.
 void createProblemStructure(Options                      const& opt,
                             asp::CRN                    const& crn,
-                            vw::ba::ControlNetwork       const& cnet,
+                            vw::ControlNetwork       const& cnet,
                             std::vector<double>          const& tri_points_vec,
                             // Outputs
                             std::set<int> & outliers,
@@ -938,7 +938,7 @@ void jitterSolvePass(int                                 pass,
                      std::vector<RigCamInfo>      const& rig_cam_info,
                      TimestampMap                 const& timestamp_map,
                      // Outputs
-                     ba::ControlNetwork                & cnet,
+                     vw::ControlNetwork                & cnet,
                      std::set<int>                     & outliers,
                      std::vector<asp::CsmModel*>       & csm_models,
                      std::vector<std::vector<vw::Vector3>> & orig_cam_positions,
@@ -1040,7 +1040,7 @@ void jitterSolvePass(int                                 pass,
     for (int ipt = 0; ipt < (int)cnet.size(); ipt++) {
       if (outliers.find(ipt) != outliers.end())
         continue;
-      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint)
         num_gcp++;
       else
         num_tri++; // DEM-constrained points counted as tri here too
@@ -1433,7 +1433,7 @@ void run_jitter_solve(int argc, char* argv[]) {
   }
 
   // Build control network and perform triangulation with adjusted input cameras
-  ba::ControlNetwork cnet("jitter_solve");
+  vw::ControlNetwork cnet("jitter_solve");
   if (opt.isis_cnet != "") {
     asp::IsisCnetData isisCnetData; // isis cnet (if loaded)
     vw::vw_out() << "Reading ISIS control network: " << opt.isis_cnet << "\n";
@@ -1449,20 +1449,20 @@ void run_jitter_solve(int argc, char* argv[]) {
   } else {
     PhaseTimer t("build control network (load matches + triangulate)");
     bool triangulate_control_points = true;
-    vw::ba::build_control_network(triangulate_control_points,
-                                  cnet, // output
-                                  opt.camera_models, opt.image_files,
-                                  opt.match_files, opt.min_matches,
-                                  opt.min_triangulation_angle*(M_PI/180.0),
-                                  opt.forced_triangulation_distance,
-                                  opt.max_pairwise_matches,
-                                  stereo_settings().matches_as_txt);
+    vw::build_control_network(triangulate_control_points,
+                              cnet, // output
+                              opt.camera_models, opt.image_files,
+                              opt.match_files, opt.min_matches,
+                              opt.min_triangulation_angle*(M_PI/180.0),
+                              opt.forced_triangulation_distance,
+                              opt.max_pairwise_matches,
+                              stereo_settings().matches_as_txt);
   }
 
   // The counts of triangulated points, GCP, and anchor points are printed later,
   // after any reductions, together as a summary (:numref:`jitter_anchor_points`).
   if (!opt.gcp_files.empty()) {
-    vw::ba::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
+    vw::add_ground_control_points(cnet, opt.gcp_files, opt.datum);
     checkGcpRadius(opt.datum, cnet);
   }
 
@@ -1505,7 +1505,7 @@ void run_jitter_solve(int argc, char* argv[]) {
     for (int ipt = 0; ipt < (int)cnet.size(); ipt++) {
       if (outliers.find(ipt) != outliers.end())
         continue;
-      if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+      if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint)
         cur_gcp++;
       else
         cur_tri++; // DEM-constrained points counted as tri here too
@@ -1523,7 +1523,7 @@ void run_jitter_solve(int argc, char* argv[]) {
                    (int)round(opt.max_gcp_to_tri_points_ratio * tri_budget));
 
     if (opt.max_num_tri_points >= 0 || opt.max_gcp_to_tri_points_ratio >= 0)
-      vw::ba::subsample_control_network(cnet, tri_budget, gcp_budget, outliers);
+      vw::subsample_control_network(cnet, tri_budget, gcp_budget, outliers);
 
     // The anchor points are created per image or per tile, then pruned at random
     // to this total. Creation and pruning are both needed. The actual reduction

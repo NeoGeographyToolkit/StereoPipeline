@@ -39,7 +39,7 @@ class BaOptions;
 class BaState;
 
 // Update the set of outliers based on ba_state
-void updateOutliers(vw::ba::ControlNetwork const& cnet, 
+void updateOutliers(vw::ControlNetwork const& cnet, 
                       asp::BaState const& ba_state,
                       std::set<int> & outliers);
 
@@ -48,14 +48,14 @@ void updateOutliers(vw::ba::ControlNetwork const& cnet,
 // TODO(oalexan1): This needs to be done before subsampling the matches
 void filterOutliersProjWin(asp::BaBaseOptions          & opt,
                            asp::BaState                & ba_state, 
-                           vw::ba::ControlNetwork const& cnet);
+                           vw::ControlNetwork const& cnet);
 
 void filterOutliersByConvergenceAngle(asp::BaBaseOptions const& opt,
-                                      vw::ba::ControlNetwork const& cnet,
+                                      vw::ControlNetwork const& cnet,
                                       asp::BaState & ba_state);
 
 /// Add to the outliers based on the large residuals
-int add_to_outliers(vw::ba::ControlNetwork & cnet,
+int add_to_outliers(vw::ControlNetwork & cnet,
                     asp::CRN const& crn,
                     asp::BaState & ba_state,
                     asp::BaOptions const& opt,
@@ -71,7 +71,7 @@ int add_to_outliers(vw::ba::ControlNetwork & cnet,
 // Filter GCP outliers based on mean reprojection error per triangulated point.
 // Adds to the existing outlier set (does not clear it).
 // Used by jitter_solve where outliers are tracked as std::set<int>.
-void filterGcpOutliers(vw::ba::ControlNetwork const& cnet,
+void filterGcpOutliers(vw::ControlNetwork const& cnet,
                        std::vector<double>    const& mean_residuals,
                        double                        max_gcp_reproj_err,
                        std::set<int>               & outliers);

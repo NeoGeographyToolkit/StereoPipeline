@@ -809,7 +809,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            bool have_dem,
                            asp::OrbitalGroups                      & orbital_groups,
                            // Outputs
-                           vw::ba::ControlNetwork                  & cnet,
+                           vw::ControlNetwork                  & cnet,
                            asp::BaState                            & ba_state,
                            ceres::SubsetManifold                   * dist_opts,
                            ceres::Problem                          & problem,
@@ -870,13 +870,13 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
 
       // Adjust non-GCP triangulated points based on the DEM, if
       // provided.
-      bool is_gcp = (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+      bool is_gcp = (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint);
       if (have_dem && !is_gcp && dem_xyz_vec.at(ipt) != Vector3(0, 0, 0)) {
         // Update the tri point in ba_state based on the DEM.
         for (int p = 0; p < 3; p++)
           point[p] = dem_xyz_vec.at(ipt)[p];
         // Set the point type, so we can track it later
-        cnet[ipt].set_type(vw::ba::ControlPoint::PointFromDem);
+        cnet[ipt].set_type(vw::ControlPoint::PointFromDem);
         // Update the cnet as well. This will be used later.
         cnet[ipt].set_position(Vector3(point[0], point[1], point[2]));
 
@@ -932,7 +932,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
 // Add a soft constraint that ties triangulated points close to their initial positions.
 // This is adjusted for GSD.
 void addTriConstraint(asp::BaOptions           const& opt,
-                      vw::ba::ControlNetwork   const& cnet,
+                      vw::ControlNetwork   const& cnet,
                       asp::CRN                 const& crn,
                       std::vector<std::string> const& image_files,
                       std::vector<vw::CamPtr>  const& orig_cams,
@@ -960,8 +960,8 @@ void addTriConstraint(asp::BaOptions           const& opt,
   std::vector<double> gsds;
   asp::estimateGsdPerTriPoint(image_files, orig_cams, crn, ba_state, gsds);
   for (int ipt = 0; ipt < num_points; ipt++) {
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint ||
-        cnet[ipt].type() == vw::ba::ControlPoint::PointFromDem)
+    if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint ||
+        cnet[ipt].type() == vw::ControlPoint::PointFromDem)
       continue; // Skip GCPs and height-from-dem points which have their own constraint
 
     if (ba_state.get_point_outlier(ipt))
@@ -1278,7 +1278,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
                            bool                      use_llh_error,
                            bool                      fix_gcp_xyz,
                            // Outputs
-                           vw::ba::ControlNetwork & cnet,
+                           vw::ControlNetwork & cnet,
                            int                    & num_gcp,
                            int                    & num_gcp_or_dem_residuals,
                            asp::BaState           & ba_state,
@@ -1293,14 +1293,14 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
   num_gcp_or_dem_residuals = 0;
 
   for (int ipt = 0; ipt < num_tri_points; ipt++) {
-    if (cnet[ipt].type() != vw::ba::ControlPoint::GroundControlPoint &&
-        cnet[ipt].type() != vw::ba::ControlPoint::PointFromDem)
+    if (cnet[ipt].type() != vw::ControlPoint::GroundControlPoint &&
+        cnet[ipt].type() != vw::ControlPoint::PointFromDem)
       continue; // Skip non-GCP's and points which do not need special treatment
 
     if (ba_state.get_point_outlier(ipt))
       continue; // skip outliers
 
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint)
+    if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint)
       num_gcp++;
 
     vw::Vector3 observation = cnet[ipt].position();
@@ -1322,7 +1322,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
     // the --heights-from-dem option uses a robust cost function with its own
     // robust threshold. The threshold acts on the residual already normalized
     // by the sigma (see XYZError / LLHError).
-    bool is_gcp = (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint);
+    bool is_gcp = (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint);
     ceres::LossFunction* loss_function = NULL;
     if (is_gcp && opt.gcp_robust_threshold > 0) {
       loss_function = get_loss_function(cost_function_str, opt.gcp_robust_threshold);
@@ -1342,7 +1342,7 @@ void addGcpOrDemConstraint(asp::BaBaseOptions const& opt,
 
     // Ground xyz whose sigma is asp::FIXED_GCP_SIGMA (a tiny positive value) are set to fixed
     double s = asp::FIXED_GCP_SIGMA;
-    if (cnet[ipt].type() == vw::ba::ControlPoint::GroundControlPoint &&
+    if (cnet[ipt].type() == vw::ControlPoint::GroundControlPoint &&
         (fix_gcp_xyz || xyz_sigma == vw::Vector3(s, s, s))) {
       cnet[ipt].set_sigma(Vector3(s, s, s)); // will be saved in the ISIS cnet
       problem.SetParameterBlockConstant(tri_point);

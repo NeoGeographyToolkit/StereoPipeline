@@ -199,7 +199,7 @@ void calcCameraPoses(bool                                no_poses_from_nvm,
 // an NVM file.
 void saveNvm(asp::BaBaseOptions                const& opt, 
              bool                                     no_poses_from_nvm,
-             vw::ba::ControlNetwork            const& cnet,
+             vw::ControlNetwork            const& cnet,
              asp::BaState                      const& ba_state,
              std::vector<Eigen::Affine3d>           & world_to_cam,
              std::map<std::string, Eigen::Vector2d> & optical_offsets) {
@@ -303,4 +303,3 @@ void updateCameraPoses(std::vector<Eigen::Affine3d> const& world_to_cam,
 }  
 
 } // end namespace asp
-

@@ -32,7 +32,7 @@ namespace asp {
 
   // A structure for storing a GCP
   struct Gcp {
-    vw::ba::ControlPoint cp;
+    vw::ControlPoint cp;
     vw::Vector3 llh;
     vw::Vector3 sigma;
   };
