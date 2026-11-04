@@ -38,7 +38,6 @@ namespace Isis {
 }
 
 namespace asp {
-namespace isis {
 
   class IsisInterfaceFrame : public IsisInterface {
 
@@ -67,6 +66,6 @@ namespace isis {
     vw::Quat    m_pose;
   };
 
-}}
+} // namespace asp
 
 #endif//__ASP_ISIS_INTERFACE_FRAME_H__

@@ -38,7 +38,6 @@ namespace Isis {
 }
 
 namespace asp {
-namespace isis {
 
   class IsisInterfaceLineScan : public IsisInterface {
 
@@ -74,6 +73,6 @@ namespace isis {
     void SetTime(vw::Vector2 const& px, bool calc_pose = false) const;
   };
 
-}}
+} // namespace asp
 
 #endif//__ASP_ISIS_INTERFACE_LINESCAN_H__

@@ -54,7 +54,7 @@ Vector2 generate_random(int const& xsize,
 }
 
 TEST(IsisCameraModel, mapprojected) {
-  if (!asp::isis::IsisEnv()) {
+  if (!asp::IsisEnv()) {
     vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
 	     << std::endl;
     return;
@@ -110,7 +110,7 @@ TEST(IsisCameraModel, groundmap_chk) {
   // solve for vector out with and without the groundmap solution
   // prove that they get the same values
 
-  if (!asp::isis::IsisEnv()) {
+  if (!asp::IsisEnv()) {
     vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
 	     << std::endl;
     return;
@@ -212,7 +212,7 @@ TEST(IsisCameraModel, groundmap_chk) {
 }
 
 TEST(IsisCameraModel, camera_model) {
-  if (!asp::isis::IsisEnv()) {
+  if (!asp::IsisEnv()) {
     vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
 	     << std::endl;
     return;

@@ -175,11 +175,11 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     } else if (boost::iends_with(boost::to_lower_copy(left_image_file), ".cub") &&
                left_camera_file == "" &&
-               asp::isis::IsisCubeHasCsmBlob(left_image_file)) {
+               asp::IsisCubeHasCsmBlob(left_image_file)) {
       // The image has a CSM blob and there is no separate camera file
       actual_session_type = "csm";
     } else if (boost::iends_with(boost::to_lower_copy(left_camera_file), ".cub") &&
-               asp::isis::IsisCubeHasCsmBlob(left_camera_file)) {
+               asp::IsisCubeHasCsmBlob(left_camera_file)) {
       // The camera file has a CSM blob
       actual_session_type = "csm";
 #endif // ASP_HAVE_PKG_ISIS

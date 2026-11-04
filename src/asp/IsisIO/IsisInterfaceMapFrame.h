@@ -39,7 +39,6 @@ namespace Isis {
 #include <Distance.h>
 
 namespace asp {
-namespace isis {
 
   /// ??
   class IsisInterfaceMapFrame : public IsisInterface {
@@ -69,6 +68,6 @@ namespace isis {
     Isis::Distance m_radii[3];
   };
 
-}}
+} // namespace asp
 
 #endif//__ASP_ISIS_INTERFACE_MAP_FRAME_H__

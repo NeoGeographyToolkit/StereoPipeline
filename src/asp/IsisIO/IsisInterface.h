@@ -45,7 +45,6 @@ namespace Isis {
 }
 
 namespace asp {
-namespace isis {
 
   /// The IsisInterface abstract base class
   // -------------------------------------------------------
@@ -122,6 +121,6 @@ namespace isis {
                               std::string const& pluginName,
                               std::string const& modelName,
                               std::string const& modelState);
-}}
+} // namespace asp
 
 #endif //__ASP_ISIS_INTERFACE_H__

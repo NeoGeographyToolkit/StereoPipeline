@@ -39,7 +39,6 @@ namespace Isis {
 }
 
 namespace asp {
-namespace isis {
 
   class IsisInterfaceSAR : public IsisInterface {
 
@@ -69,6 +68,6 @@ namespace isis {
     Isis::CameraGroundMap     *m_groundmap;
   };
 
-}}
+} // namespace asp
 
 #endif//__ASP_ISIS_INTERFACE_SAR_H__

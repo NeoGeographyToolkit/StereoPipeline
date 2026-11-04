@@ -47,7 +47,7 @@
 
 using namespace vw;
 
-namespace asp {namespace isis { 
+namespace asp {
                                
 IsisInterface::IsisInterface(std::string const& file) {
   
@@ -377,4 +377,4 @@ void saveCsmStateToIsisCube(std::string const& cubeFile,
   // done in ISIS code and the comments do not mention needing that.
 }
 
-}} // end namespace asp::isis
+} // end namespace asp

@@ -33,7 +33,6 @@
 using namespace vw;
 
 namespace asp {
-namespace isis {
 
 // Constructor
 IsisInterfaceMapFrame::IsisInterfaceMapFrame(std::string const& filename) :
@@ -108,4 +107,4 @@ Quat IsisInterfaceMapFrame::camera_pose(Vector2 const& /*pix*/) const {
   return m_pose;
 }
 
-}} // namespace asp::isis
+} // namespace asp

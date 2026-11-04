@@ -34,7 +34,6 @@
 #include <CameraFocalPlaneMap.h>
 
 namespace asp {
-namespace isis {
 
   class IsisInterfaceMapLineScan : public IsisInterface {
 
@@ -62,6 +61,6 @@ namespace isis {
 
   };
 
-}}
+} // namespace asp
 
 #endif//__ASP_ISIS_INTERFACE_MAP_LINESCAN_H__

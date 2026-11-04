@@ -42,7 +42,7 @@ namespace vw {
     // Constructors / Destructors
     //------------------------------------------------------------------
     IsisCameraModel(std::string cube_filename) :
-      m_interface(asp::isis::IsisInterface::open(cube_filename)) {}
+      m_interface(asp::IsisInterface::open(cube_filename)) {}
     virtual std::string type() const { return "Isis"; }
 
     //------------------------------------------------------------------
@@ -112,7 +112,7 @@ namespace vw {
     }
     
   protected:
-    boost::shared_ptr<asp::isis::IsisInterface> m_interface;
+    boost::shared_ptr<asp::IsisInterface> m_interface;
 
     friend std::ostream& operator<<(std::ostream&, IsisCameraModel const&);
   };

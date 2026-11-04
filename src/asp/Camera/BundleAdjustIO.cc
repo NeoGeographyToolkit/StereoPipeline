@@ -378,7 +378,7 @@ std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
       vw::vw_out() << "Adding updated CSM state to image file: " << image_name << "\n";
     }
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-    asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+    asp::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
 #endif // ASP_HAVE_PKG_ISIS
   }
 
@@ -523,7 +523,7 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
     }
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-    asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+    asp::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
 #endif // ASP_HAVE_PKG_ISIS
   }
 
@@ -715,7 +715,7 @@ void saveCsmCameras(std::string const& out_prefix,
       std::string model_state = csm_cam->model_state();
       vw::vw_out() << "Adding updated CSM state to image file: " << image_name << "\n";
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-      asp:isis::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
+      asp::saveCsmStateToIsisCube(image_name, plugin_name, model_name, model_state);
 #endif // ASP_HAVE_PKG_ISIS
     }
   }
