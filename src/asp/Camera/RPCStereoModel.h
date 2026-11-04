@@ -32,7 +32,7 @@ namespace asp {
 
   /// Derived StereoModel class implementing the RPC camera model.
   /// - Using a separate class allows us to get a speed improvement in ray generation.
-  class RPCStereoModel: public vw::stereo::StereoModel {
+  class RPCStereoModel: public vw::StereoModel {
 
   public:
 
@@ -41,12 +41,12 @@ namespace asp {
     //------------------------------------------------------------------
     RPCStereoModel(std::vector<const vw::CameraModel *> const& cameras,
                    double angle_tol = 0.0):
-      vw::stereo::StereoModel(cameras, angle_tol){}
+      vw::StereoModel(cameras, angle_tol){}
       
     RPCStereoModel(vw::CameraModel const* camera_model1,
                    vw::CameraModel const* camera_model2,
                    double angle_tol = 0.0):
-      vw::stereo::StereoModel(camera_model1, camera_model2, angle_tol){}
+      vw::StereoModel(camera_model1, camera_model2, angle_tol){}
     
     virtual ~RPCStereoModel() {}
     

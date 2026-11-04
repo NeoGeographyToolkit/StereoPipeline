@@ -217,7 +217,7 @@ bool skip_image_normalization(ASPGlobalOptions const& opt) {
 // use the numbers 0 (BM), 1 (SGM), 2 (MGM), 3 (Final MGM).  For
 // external algorithms will have to examine closer the algorithm
 // string. This function has a Python analog in parallel_stereo.
-vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
+vw::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
 
   // Make it lowercase first
   boost::to_lower(alg);
@@ -227,16 +227,16 @@ vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
     vw_throw(ArgumentErr() << "No stereo algorithm was specified.\n");
 
   if (alg.rfind("0", 0) == 0 || alg.rfind("asp_bm", 0) == 0)
-    return vw::stereo::VW_CORRELATION_BM;
+    return vw::VW_CORRELATION_BM;
 
   if (alg.rfind("1", 0) == 0 || alg.rfind("asp_sgm", 0) == 0)
-    return vw::stereo::VW_CORRELATION_SGM;
+    return vw::VW_CORRELATION_SGM;
 
   if (alg.rfind("2", 0) == 0 || alg.rfind("asp_mgm", 0) == 0)
-    return vw::stereo::VW_CORRELATION_MGM;
+    return vw::VW_CORRELATION_MGM;
 
   if (alg.rfind("3", 0) == 0 || alg.rfind("asp_final_mgm", 0) == 0)
-    return vw::stereo::VW_CORRELATION_FINAL_MGM;
+    return vw::VW_CORRELATION_FINAL_MGM;
 
   // Sanity check. Any numerical values except 0, 1, 2, 3 are not accepted.
   int num = atof(alg.c_str());
@@ -244,7 +244,7 @@ vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg) {
     vw_throw(ArgumentErr() << "Unknown algorithm: " << alg << ".\n");
 
   // An external stereo algorithm
-  return vw::stereo::VW_CORRELATION_OTHER;
+  return vw::VW_CORRELATION_OTHER;
 }
 
 // Find the median angle in degrees at which rays emanating from
@@ -909,10 +909,10 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
 
   // TODO: Modify SGM tile sizes?
 
-  vw::stereo::CorrelationAlgorithm stereo_alg
+  vw::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
 
-  if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
+  if (stereo_alg > vw::VW_CORRELATION_BM) {
     // If these parameters were not specified by the user, override
     // the normal default values.  Note that by setting
     // subpixel_mode to SGM_DEFAULT_SUBPIXEL_MODE, we will do no
@@ -968,17 +968,17 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
                               << ".\n";
   }
 
-  bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
+  bool using_tiles = (stereo_alg > vw::VW_CORRELATION_BM ||
                       stereo_settings().alignment_method == "local_epipolar");
 
   // Settings for asp_mgm / asp_sgm. For external algorithms, the low-res
   // disparity in stereo_corr will be created with asp_mgm, so override
   // user's choice in that case.
-  if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
+  if (stereo_alg > vw::VW_CORRELATION_BM) {
 
-    if (vm["cost-mode"].defaulted() || stereo_alg >= vw::stereo::VW_CORRELATION_OTHER)
+    if (vm["cost-mode"].defaulted() || stereo_alg >= vw::VW_CORRELATION_OTHER)
       stereo_settings().cost_mode = SGM_DEFAULT_COST_MODE;
-    if (vm["corr-kernel"].defaulted() || stereo_alg >= vw::stereo::VW_CORRELATION_OTHER)
+    if (vm["corr-kernel"].defaulted() || stereo_alg >= vw::VW_CORRELATION_OTHER)
       stereo_settings().corr_kernel
         = Vector2i(SGM_DEFAULT_KERNELSIZE, SGM_DEFAULT_KERNELSIZE);
 
@@ -996,7 +996,7 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
         << "Check your stereo.default or command-line options.\n");
   }
 
-  if (stereo_alg == vw::stereo::VW_CORRELATION_BM && stereo_settings().subpixel_mode > 6)
+  if (stereo_alg == vw::VW_CORRELATION_BM && stereo_settings().subpixel_mode > 6)
     vw::vw_throw(vw::ArgumentErr() << "Subpixel mode " << stereo_settings().subpixel_mode
               << " is not supported with block matching. Use mode <= 6.\n");
 
@@ -1005,7 +1005,7 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
     stereo_settings().sgm_collar_size = 0;
   }
 
-  if (stereo_alg >= vw::stereo::VW_CORRELATION_OTHER &&
+  if (stereo_alg >= vw::VW_CORRELATION_OTHER &&
       stereo_settings().alignment_method != "local_epipolar") {
     vw_throw(ArgumentErr() << "External stereo algorithms can be "
               << "used only with alignment method local_epipolar.\n");
@@ -1241,12 +1241,12 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
 
   // Check SGM-related settings
 
-  vw::stereo::CorrelationAlgorithm stereo_alg
+  vw::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
 
   // For external algorithms we will still use the MGM algorithm for low-res
   // disparity, so cost mode of 3 and 4 is fine unless for regular block matching.
-  if (stereo_alg == vw::stereo::VW_CORRELATION_BM) {
+  if (stereo_alg == vw::VW_CORRELATION_BM) {
     if (stereo_settings().cost_mode == 3 || stereo_settings().cost_mode == 4)
       vw_throw(ArgumentErr() << "Cannot use the census transform with "
                 << "the ASP_BM block matching algorithm.\n");
@@ -1285,7 +1285,7 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
       vw_throw(ArgumentErr() << "Must have a non-negative value of --xcorr-threshold "
                 << "to be able to use --save-left-right-disparity-difference.\n");
 
-    if (stereo_alg >= vw::stereo::VW_CORRELATION_OTHER)
+    if (stereo_alg >= vw::VW_CORRELATION_OTHER)
       vw_throw(ArgumentErr() << "Can use --save-left-right-disparity-difference "
                 << "only with stereo algorithms asp_bm, asp_sgm, asp_mgm, and "
                 << "asp_final_mgm.\n");
@@ -1344,7 +1344,7 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
                  << norm_2(cam1_ctr - cam2_ctr) << " meters.\n";
 
       // Can cameras triangulate to point at something in front of them?
-      stereo::StereoModel model(camera_model1.get(), camera_model2.get());
+      vw::StereoModel model(camera_model1.get(), camera_model2.get());
       double error;
       Vector3 point = model(Vector2(), Vector2(), error);
       if (point != Vector3() && // triangulation succeeded

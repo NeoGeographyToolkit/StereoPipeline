@@ -31,7 +31,6 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace vw::stereo;
 using namespace vw::math;
 using namespace asp;
 
@@ -61,7 +60,7 @@ void test_stereo_models(const std::string &path1, const std::string &path2) {
   camPtr2 = load_rpc_camera_model(path2);
 
   // Set up the stereo models
-  vw::stereo::StereoModel plainStereoModel(camPtr1.get(), camPtr2.get());
+  vw::StereoModel plainStereoModel(camPtr1.get(), camPtr2.get());
   asp::RPCStereoModel     rpcStereoModel  (camPtr1.get(), camPtr2.get());
 
   // Generate a bunch of pixel pairs

@@ -44,19 +44,18 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace vw::stereo;
 using namespace asp;
 
 typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> DispImageRef;
 
 /// Returns the properly cast cost mode type
-stereo::CostFunctionType get_cost_mode_value() {
+vw::CostFunctionType get_cost_mode_value() {
   switch(stereo_settings().cost_mode) {
-  case 0: return stereo::ABSOLUTE_DIFFERENCE;
-  case 1: return stereo::SQUARED_DIFFERENCE;
-  case 2: return stereo::CROSS_CORRELATION;
-  case 3: return stereo::CENSUS_TRANSFORM;
-  case 4: return stereo::TERNARY_CENSUS_TRANSFORM;
+  case 0: return vw::ABSOLUTE_DIFFERENCE;
+  case 1: return vw::SQUARED_DIFFERENCE;
+  case 2: return vw::CROSS_CORRELATION;
+  case 3: return vw::CENSUS_TRANSFORM;
+  case 4: return vw::TERNARY_CENSUS_TRANSFORM;
   default: 
     vw_throw(ArgumentErr() << "Unknown value " << stereo_settings().cost_mode
              << " for cost-mode.\n");
@@ -86,7 +85,7 @@ void read_search_range_from_D_sub(vw::ImageView<vw::PixelMask<vw::Vector2f>> con
   if (stereo_settings().seed_mode == 0)
     return;
 
-  BBox2 search_range = stereo::get_disparity_range(sub_disp);
+  BBox2 search_range = vw::get_disparity_range(sub_disp);
   search_range.min() = floor(elem_prod(search_range.min(), upsample_scale));
   search_range.max() = ceil (elem_prod(search_range.max(), upsample_scale));
   
@@ -132,7 +131,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   BBox2 search_range(floor(elem_prod(downsample_scale, stereo_settings().search_range.min())),
                      ceil(elem_prod(downsample_scale, stereo_settings().search_range.max())));
 
-  vw::stereo::CorrelationAlgorithm stereo_alg
+  vw::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
 
   std::string d_sub_file = opt.out_prefix + "-D_sub.tif";
@@ -159,7 +158,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
 
     //VW_OUT(DebugMessage,"asp") << "D_sub search range: " << search_range << " px\n";
     vw_out() << "D_sub search range: " << search_range << " px\n";
-    stereo::CostFunctionType cost_mode = get_cost_mode_value();
+    vw::CostFunctionType cost_mode = get_cost_mode_value();
     Vector2i kernel_size  = stereo_settings().corr_kernel;
     int corr_timeout      = 5*stereo_settings().corr_timeout; // 5x, so try hard
     // Half kernel size used by CorrelationView for low-confidence pixel
@@ -193,10 +192,10 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     vw::Stopwatch sw;
     sw.start();
     ImageView<PixelMask<Vector2f>> d_sub =
-      vw::stereo::pyramid_correlate
+      vw::pyramid_correlate
       (// Compute image correlation using the PyramidCorrelationView class
        left_sub, right_sub, left_mask_sub, right_mask_sub,
-       vw::stereo::PREFILTER_LOG, stereo_settings().slogW,
+       vw::PREFILTER_LOG, stereo_settings().slogW,
        search_range, kernel_size, cost_mode, corr_timeout, seconds_per_op, 
        stereo_settings().xcorr_threshold, stereo_settings().min_xcorr_level,
        rm_half_kernel, stereo_settings().corr_max_levels, stereo_alg, 
@@ -641,7 +640,7 @@ class SeededCorrelatorView: public ImageViewBase<SeededCorrelatorView> {
   Vector2  m_upscale_factor;
   BBox2i   m_seed_bbox;
   Vector2i m_kernel_size;
-  stereo::CostFunctionType m_cost_mode;
+  vw::CostFunctionType m_cost_mode;
   int      m_corr_timeout;
   double   m_seconds_per_op;
   Vector2  m_region_ul; // the upper-left corner of the region containing all pixels to process
@@ -659,7 +658,7 @@ public:
                        DispImageRef          const& sub_disp,
                        DispImageRef          const& sub_disp_spread,
                        Vector2i              const& kernel_size,
-                       stereo::CostFunctionType cost_mode,
+                       vw::CostFunctionType cost_mode,
                        int corr_timeout, double seconds_per_op,
                        Vector2i const& region_ul,
                        ImageView<PixelMask<float>> * lr_disp_diff):
@@ -694,7 +693,7 @@ public:
   typedef CropView<ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
-    vw::stereo::CorrelationAlgorithm stereo_alg
+    vw::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
     
     // User strategies
@@ -711,7 +710,7 @@ public:
         << "\nGetting disparity range for : " << seed_bbox << "\n";
       DispImageRef disparity_in_box = crop(m_sub_disp, seed_bbox);
 
-      local_search_range = stereo::get_disparity_range(disparity_in_box);
+      local_search_range = vw::get_disparity_range(disparity_in_box);
 
       bool has_sub_disp_spread = (m_sub_disp_spread.cols() != 0 &&
                                   m_sub_disp_spread.rows() != 0);
@@ -725,7 +724,7 @@ public:
       if (has_sub_disp_spread) {
         // Expand the disparity range by m_sub_disp_spread.
         DispImageRef spread_in_box = crop(m_sub_disp_spread, seed_bbox);
-        BBox2 spread = stereo::get_disparity_range(spread_in_box);
+        BBox2 spread = vw::get_disparity_range(spread_in_box);
         // The spread may be negative if the box is empty
         spread.max()[0] = std::max(spread.max()[0], 0.0); 
         spread.max()[1] = std::max(spread.max()[1], 0.0);
@@ -762,27 +761,27 @@ public:
     // --rm-half-kernel (previously hard-coded to 5). The low-res D_sub filter
     // uses it divided by 5, as D_sub is lower resolution.
     const int rm_half_kernel = stereo_settings().rm_half_kernel[0];
-    vw::stereo::PrefilterModeType prefilter_mode =
-      static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
+    vw::PrefilterModeType prefilter_mode =
+      static_cast<vw::PrefilterModeType>(stereo_settings().pre_filter_mode);
     DispImageRef disparity_map
-      = stereo::pyramid_correlate(m_left_image,   m_right_image,
-                                  m_left_mask,    m_right_mask,
-                                  prefilter_mode,
-                                  stereo_settings().slogW,
-                                  local_search_range,
-                                  m_kernel_size,  m_cost_mode,
-                                  m_corr_timeout, m_seconds_per_op,
-                                  stereo_settings().xcorr_threshold,
-                                  stereo_settings().min_xcorr_level,
-                                  rm_half_kernel,
-                                  stereo_settings().corr_max_levels,
-                                  stereo_alg,
-                                  stereo_settings().sgm_collar_size,
-                                  sgm_subpixel_mode, sgm_search_buffer,
-                                  stereo_settings().corr_memory_limit_mb,
-                                  stereo_settings().corr_blob_filter_area,
-                                  m_lr_disp_diff, m_region_ul, 
-                                  stereo_settings().stereo_debug);
+      = vw::pyramid_correlate(m_left_image,   m_right_image,
+                              m_left_mask,    m_right_mask,
+                              prefilter_mode,
+                              stereo_settings().slogW,
+                              local_search_range,
+                              m_kernel_size,  m_cost_mode,
+                              m_corr_timeout, m_seconds_per_op,
+                              stereo_settings().xcorr_threshold,
+                              stereo_settings().min_xcorr_level,
+                              rm_half_kernel,
+                              stereo_settings().corr_max_levels,
+                              stereo_alg,
+                              stereo_settings().sgm_collar_size,
+                              sgm_subpixel_mode, sgm_search_buffer,
+                              stereo_settings().corr_memory_limit_mb,
+                              stereo_settings().corr_blob_filter_area,
+                              m_lr_disp_diff, m_region_ul, 
+                              stereo_settings().stereo_debug);
 
     // Crop the disparity to given box, bringing all the computation in the box
     // in memory. 
@@ -870,7 +869,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   DiskImageView<vw::uint8> Lmask(opt.out_prefix + "-lMask.tif"),
     Rmask(opt.out_prefix + "-rMask.tif");
   
-  stereo::CostFunctionType cost_mode = get_cost_mode_value();
+  vw::CostFunctionType cost_mode = get_cost_mode_value();
   Vector2i kernel_size = stereo_settings().corr_kernel;
   BBox2i left_trans_crop_win = stereo_settings().trans_crop_win;
   int corr_timeout   = stereo_settings().corr_timeout;
@@ -911,11 +910,11 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   // With SGM, we must do the entire image chunk as one
   // tile. Otherwise, if it gets done in smaller tiles, there will be
   // artifacts at tile boundaries.
-  vw::stereo::CorrelationAlgorithm stereo_alg
+  vw::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
   
-  bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM &&
-                    stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
+  bool using_sgm = (stereo_alg > vw::VW_CORRELATION_BM &&
+                    stereo_alg < vw::VW_CORRELATION_OTHER);
   if (using_sgm) {
     Vector2i image_size = bounding_box(fullres_disparity).size();
     int max_dim = std::max(image_size[0], image_size[1]);
@@ -955,7 +954,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
   vw_out() << "Writing: " << d_file << "\n";
   auto tpc = TerminalProgressCallback("asp", "\t--> Correlation :");
 
-  if (stereo_alg > vw::stereo::VW_CORRELATION_BM) {
+  if (stereo_alg > vw::VW_CORRELATION_BM) {
     // SGM and external algorithms perform subpixel correlation in
     // this step, so write out floats.
     
@@ -1191,10 +1190,10 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   
   vw::ImageView<PixelMask<Vector2f>> unaligned_disp_2d;
   vw::ImageView<vw::PixelMask<float>> unaligned_lr_disp_diff;
-  vw::stereo::CorrelationAlgorithm stereo_alg
+  vw::CorrelationAlgorithm stereo_alg
     = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
   
-  if (stereo_alg < vw::stereo::VW_CORRELATION_OTHER) {
+  if (stereo_alg < vw::VW_CORRELATION_OTHER) {
 
     // ASP algorithms
 
@@ -1210,7 +1209,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
     ImageView<vw::uint8> right_mask
       = channel_cast_rescale<vw::uint8>(select_channel(right_image, 1));
     
-    stereo::CostFunctionType cost_mode = get_cost_mode_value();
+    vw::CostFunctionType cost_mode = get_cost_mode_value();
     Vector2i kernel_size = stereo_settings().corr_kernel;
     int corr_timeout = stereo_settings().corr_timeout;
     stereo_settings().seed_mode = 0; // no seed
@@ -1284,7 +1283,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
                                 // Output
                                 unaligned_lr_disp_diff);
       
-  } else if (stereo_alg == vw::stereo::VW_CORRELATION_OTHER) {
+  } else if (stereo_alg == vw::VW_CORRELATION_OTHER) {
 
     // External algorithms using 1D disparity
     // TODO(oalexan1): Make this into a function
@@ -1577,15 +1576,15 @@ int main(int argc, char* argv[]) {
     // - Thread handling is still a little confusing because opt.num_threads is ONLY used
     //   to control the number of parallel image blocks written at a time.  Everything else
     //   reads directly from vw_settings().default_num_threads()
-    vw::stereo::CorrelationAlgorithm stereo_alg
+    vw::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
-    bool using_sgm = (stereo_alg > vw::stereo::VW_CORRELATION_BM &&
-                      stereo_alg < vw::stereo::VW_CORRELATION_OTHER);
+    bool using_sgm = (stereo_alg > vw::VW_CORRELATION_BM &&
+                      stereo_alg < vw::VW_CORRELATION_OTHER);
     opt.num_threads = vw_settings().default_num_threads();
     if (using_sgm)
       opt.num_threads = 1;
 
-    if (stereo_alg != vw::stereo::VW_CORRELATION_BM) {
+    if (stereo_alg != vw::VW_CORRELATION_BM) {
       // SGM/MGM works best with no prefilter. That one is also turned
       // off in CorrelationView.h.
       vw_out() << "\t--> Using no pre-processing filter with stereo algorithm: "

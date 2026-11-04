@@ -1001,8 +1001,8 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
   for (size_t it1 = 0; it1 < ctrs.size(); it1++) {
     for (size_t it2 = it1 + 1; it2 < ctrs.size(); it2++) {
       vw::Vector3 err;
-      vw::Vector3 pt = vw::stereo::triangulate_pair(dirs[it1], ctrs[it1],
-                                                    dirs[it2], ctrs[it2], err);
+      vw::Vector3 pt = vw::triangulate_pair(dirs[it1], ctrs[it1],
+                                            dirs[it2], ctrs[it2], err);
       if (pt != Vector3(0, 0, 0)) {
         cam_ctr += pt;
         num += 1;

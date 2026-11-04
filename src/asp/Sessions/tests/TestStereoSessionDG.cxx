@@ -44,7 +44,7 @@ TEST(StereoSessionDG, CreateCamera) {
   Vector2 m1(13864, 5351), m2(15045, 5183);
   m1 *= 2; m2 *= 2;
 
-  stereo::StereoModel sm(cam1.get(), cam2.get());
+  vw::StereoModel sm(cam1.get(), cam2.get());
   double error;
   Vector3 pos = sm(m1,m2,error);
   EXPECT_LT( error, 5.0 ); // Triangulation should be better than 5 meters.

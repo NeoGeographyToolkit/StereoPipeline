@@ -714,9 +714,9 @@ bool tri_ip_filtering(std::vector<vw::InterestPoint> const& matched_ip1,
   ArrayT error_samples(valid_indices.size());
 
   // Create the 'error' samples. Which are triangulation error and distance to sphere.
-  double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
+  double angle_tol = vw::StereoModel::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
 
-  stereo::StereoModel model(cam1, cam2, angle_tol);
+  vw::StereoModel model(cam1, cam2, angle_tol);
   size_t count = 0;
   const double HIGH_ERROR = 9999999;
   BOOST_FOREACH(size_t i, valid_indices) {
@@ -937,10 +937,10 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
   ip2_out.reserve(num_ip);
 
   // Set up stereo model
-  double angle_tolerance = vw::stereo::StereoModel::robust_1_minus_cos
+  double angle_tolerance = vw::StereoModel::robust_1_minus_cos
     (stereo_settings().min_triangulation_angle*M_PI/180);
-  vw::stereo::StereoModel model(left_camera_model, right_camera_model,
-                                angle_tolerance);
+  vw::StereoModel model(left_camera_model, right_camera_model,
+                        angle_tolerance);
 
   // This function can be called with both unaligned and aligned interest points
   bool aligned_ip = (tx_left.get() != NULL && tx_right != NULL);
@@ -1010,9 +1010,9 @@ void filter_ip_using_cameras(std::vector<vw::InterestPoint> & ip1,
   std::vector<double> tri_errors(ip1.size()), heights(ip1.size());
 
   // Compute the triangulation errors
-  double angle_tol = vw::stereo::StereoModel
+  double angle_tol = vw::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
-  stereo::StereoModel model(cam1, cam2, angle_tol);
+  vw::StereoModel model(cam1, cam2, angle_tol);
   double HIGH_ERROR = std::numeric_limits<double>::max();
   for (size_t i = 0; i < ip1.size(); i++) {
     Vector3 xyz;
@@ -1156,10 +1156,10 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
     = interpolate(dem, BilinearInterpolation(), nodata_ext);
 
   // Set up the stereo model for doing triangulation
-  double angle_tol = vw::stereo::StereoModel
+  double angle_tol = vw::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
-  stereo::StereoModel model(left_camera_model.get(), right_camera_model.get(),
-                            angle_tol);
+  vw::StereoModel model(left_camera_model.get(), right_camera_model.get(),
+                        angle_tol);
 
   std::set<int> invalid_indices;
   for (size_t it = 0; it < left_aligned_ip.size(); it++) {

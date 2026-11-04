@@ -47,7 +47,6 @@
 #include <boost/filesystem.hpp>
 
 using namespace vw;
-using namespace vw::stereo;
 using namespace asp;
 
 typedef ImageView<double> WeightsType;

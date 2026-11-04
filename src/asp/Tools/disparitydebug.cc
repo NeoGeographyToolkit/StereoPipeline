@@ -38,7 +38,6 @@
 #include <vw/Image/PixelMask.h>
 
 using namespace vw;
-using namespace vw::stereo;
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;

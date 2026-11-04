@@ -243,11 +243,11 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   vw::vw_out() << "Offset search region = " << searchRegion << "\n";
 
   // Use correlation function to compute image disparity
-  vw::stereo::CostFunctionType corr_type = vw::stereo::ABSOLUTE_DIFFERENCE;
+  vw::CostFunctionType corr_type = vw::ABSOLUTE_DIFFERENCE;
   if (params.correlator_type == 1)
-    corr_type = vw::stereo::SQUARED_DIFFERENCE;
+    corr_type = vw::SQUARED_DIFFERENCE;
   else if (params.correlator_type == 2)
-    corr_type = vw::stereo::CROSS_CORRELATION;
+    corr_type = vw::CROSS_CORRELATION;
 
   vw::vw_out() << "Running stereo correlation.\n";
 
@@ -261,14 +261,14 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
   double seconds_per_op     = 0.0;
   vw::DiskCacheImageView<vw::PixelMask<vw::Vector2f>>
     disparity_map(
-      vw::stereo::pyramid_correlate(
+      vw::pyramid_correlate(
          vw::apply_mask(vw::create_mask_less_or_equal(
            vw::crop(left_disk_image, crop_roi), 0)),
          vw::apply_mask(vw::create_mask_less_or_equal(
            vw::crop(right_disk_image, crop_roi), 0)),
          vw::constant_view(vw::uint8(255), left_disk_image),
          vw::constant_view(vw::uint8(255), right_disk_image),
-         vw::stereo::PREFILTER_LOG, params.log,
+         vw::PREFILTER_LOG, params.log,
          searchRegion,
          params.kernel,
          corr_type, corr_timeout, seconds_per_op,

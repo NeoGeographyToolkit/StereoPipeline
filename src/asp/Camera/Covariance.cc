@@ -210,7 +210,7 @@ void scaledDGTriangulationJacobian(vw::Datum const& datum,
   }
   // If triangulation fails, it can return NaN
   tri_nominal
-    = vw::stereo::triangulate_pair(c1d, c1c, c2d, c2c, err_nominal);
+    = vw::triangulate_pair(c1d, c1c, c2d, c2c, err_nominal);
   if (tri_nominal != tri_nominal) // NaN
     vw::vw_throw(vw::ArgumentErr() << "Could not triangulate.\n");
 
@@ -271,10 +271,10 @@ void scaledDGTriangulationJacobian(vw::Datum const& datum,
     }
 
     vw::Vector3 tri_plus, err_plus, tri_minus, err_minus;
-    tri_plus = vw::stereo::triangulate_pair(cam1_dir_plus, cam1_ctr_plus,
-                                            cam2_dir_plus, cam2_ctr_plus, err_plus);
-    tri_minus = vw::stereo::triangulate_pair(cam1_dir_minus, cam1_ctr_minus,
-                                             cam2_dir_minus, cam2_ctr_minus, err_minus);
+    tri_plus = vw::triangulate_pair(cam1_dir_plus, cam1_ctr_plus,
+                                    cam2_dir_plus, cam2_ctr_plus, err_plus);
+    tri_minus = vw::triangulate_pair(cam1_dir_minus, cam1_ctr_minus,
+                                     cam2_dir_minus, cam2_ctr_minus, err_minus);
 
     // Find the triangulated points in the local NED (horizontal-vertical)
     // coordinate system.
@@ -417,7 +417,7 @@ vw::Vector3 nedTri(vw::Vector3 const& cam1_ctr, vw::Vector3 const& cam2_ctr,
 
   if (!do_bend) {
     // Straight rays, triangulate in NED, as before
-    tri = vw::stereo::triangulate_pair(cam1_dir, cam1_ctr, cam2_dir, cam2_ctr, err);
+    tri = vw::triangulate_pair(cam1_dir, cam1_ctr, cam2_dir, cam2_ctr, err);
     return tri;
   }
 
@@ -435,7 +435,7 @@ vw::Vector3 nedTri(vw::Vector3 const& cam1_ctr, vw::Vector3 const& cam2_ctr,
   bendRay(refraction_index, bathy_plane_vec, icam, c1e, d1e);
   icam = 1;
   bendRay(refraction_index, bathy_plane_vec, icam, c2e, d2e);
-  tri = vw::stereo::triangulate_pair(d1e, c1e, d2e, c2e, err);
+  tri = vw::triangulate_pair(d1e, c1e, d2e, c2e, err);
   return EcefToNed * (tri - tri_nominal);
 }
 

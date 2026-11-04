@@ -44,7 +44,6 @@ struct Options : vw::GdalWriteOptions {
 // Return an ImageRef, unlike prefilter_image() in VW, which returns
 // an in-memory image, which can be huge.
 namespace vw {
-namespace stereo {
 template <class ImageT>
 ImageViewRef<typename ImageT::pixel_type> 
 prefilter_image_ref(ImageViewBase<ImageT> const& image,
@@ -52,18 +51,18 @@ prefilter_image_ref(ImageViewBase<ImageT> const& image,
                     float             prefilter_width) {
   
   if (prefilter_mode == PREFILTER_LOG){  // LOG
-    stereo::LaplacianOfGaussian prefilter(prefilter_width);
+    vw::LaplacianOfGaussian prefilter(prefilter_width);
     return prefilter.filter(image);
   }
   if (prefilter_mode == PREFILTER_MEANSUB){  // Subtracted mean
-    stereo::SubtractedMean prefilter(prefilter_width);
+    vw::SubtractedMean prefilter(prefilter_width);
     return prefilter.filter(image);
   }
   //Default: PREFILTER_NONE
-  stereo::NullOperation prefilter;
+  vw::NullOperation prefilter;
   return prefilter.filter(image);
 }
-}}
+}
 
 void handle_arguments(int argc, char *argv[], Options& opt) {
   
@@ -170,11 +169,11 @@ int main(int argc, char *argv[]) {
 
     int m = opt.prefilter_mode; // to write less below
     if (m > 0) {
-      masked_left = vw::stereo::prefilter_image_ref(masked_left,
-                                                vw::stereo::PrefilterModeType(m),
+      masked_left = vw::prefilter_image_ref(masked_left,
+                                                vw::PrefilterModeType(m),
                                                 opt.prefilter_kernel_width);
-      masked_right = vw::stereo::prefilter_image_ref(masked_right,
-                                                vw::stereo::PrefilterModeType(m),
+      masked_right = vw::prefilter_image_ref(masked_right,
+                                                vw::PrefilterModeType(m),
                                                 opt.prefilter_kernel_width);
     }
     
@@ -185,11 +184,11 @@ int main(int argc, char *argv[]) {
     vw_out() << "Writing: " << output_image << "\n";
     asp::saveWithTempBigBlocks
       (bigBlockSize, output_image,
-       apply_mask(vw::stereo::corr_eval(masked_left, masked_right,
-                                        disp, opt.kernel_size, opt.metric,
-                                        opt.sample_rate, opt.round_to_int,
-                                        opt.prefilter_mode,
-                                        opt.prefilter_kernel_width),
+       apply_mask(vw::corr_eval(masked_left, masked_right,
+                                disp, opt.kernel_size, opt.metric,
+                                opt.sample_rate, opt.round_to_int,
+                                opt.prefilter_mode,
+                                opt.prefilter_kernel_width),
                   left_nodata),
        has_left_georef, left_georef,
        has_nodata, left_nodata, opt,

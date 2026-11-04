@@ -103,16 +103,16 @@ public:
     ImageView<pixel_type                 > input_disp_tile = crop(m_disp_img, bbox2);
 
     ImageView<float> texture_image;
-    vw::stereo::texture_measure(input_tile, texture_image, m_texture_smooth_range);
+    vw::texture_measure(input_tile, texture_image, m_texture_smooth_range);
     //write_image( "texture_image.tif", texture_image );
 
 
     ImageView<pixel_type > disp_tile_median;
-    vw::stereo::disparity_median_filter(input_disp_tile, disp_tile_median, m_median_filter_size);
+    vw::disparity_median_filter(input_disp_tile, disp_tile_median, m_median_filter_size);
     
     ImageView<pixel_type > disp_tile_filtered;
-    vw::stereo::texture_preserving_disparity_filter(disp_tile_median, disp_tile_filtered, texture_image, 
-                                                    m_texture_max, m_max_smooth_kernel_size);
+    vw::texture_preserving_disparity_filter(disp_tile_median, disp_tile_filtered, texture_image, 
+                                            m_texture_max, m_max_smooth_kernel_size);
 
     // Fake the bounds on the returned image region
     return prerasterize_type(disp_tile_filtered,
@@ -217,16 +217,16 @@ struct MultipleDisparityCleanUp {
           opts.rm_half_kernel.y() <= 0){
         // A zero filter half-kernel disables this disparity cleanup stage.
       }else if (mode == 1){
-        out = stereo::disparity_cleanup_using_mean(out.impl(),
-                                                   opts.rm_half_kernel.x(),
-                                                   opts.rm_half_kernel.y(),
-                                                   opts.max_mean_diff);
+        out = vw::disparity_cleanup_using_mean(out.impl(),
+                                               opts.rm_half_kernel.x(),
+                                               opts.rm_half_kernel.y(),
+                                               opts.max_mean_diff);
       }else if (mode == 2){
-        out = stereo::disparity_cleanup_using_thresh(out.impl(),
-                                                     opts.rm_half_kernel.x(),
-                                                     opts.rm_half_kernel.y(),
-                                                     opts.rm_threshold,
-                                                     opts.rm_min_matches/100.0);
+        out = vw::disparity_cleanup_using_thresh(out.impl(),
+                                                 opts.rm_half_kernel.x(),
+                                                 opts.rm_half_kernel.y(),
+                                                 opts.rm_threshold,
+                                                 opts.rm_min_matches/100.0);
       }else
         vw_throw( ArgumentErr() << "\nExpecting value of 1 or 2 for filter-mode. "
                   << "Got: " << mode << "\n" );
@@ -252,7 +252,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
   ImageViewRef<  PixelRGB<uint8> > goodPixelImage
     = subsample(apply_mask
                 (copy_mask
-                 (stereo::missing_pixel_image(inputview.impl()),
+                 (vw::missing_pixel_image(inputview.impl()),
                   create_mask(DiskImageView<vw::uint8>(opt.out_prefix+"-lMask.tif"), 0)
                   )
                  ), sub_scale);
@@ -389,7 +389,7 @@ void stereo_filtering(ASPGlobalOptions& opt) {
     if ( stereo_settings().rm_cleanup_passes >= 1 ) {
       // Apply an outlier removal filter
       write_good_pixel_and_filtered
-        (stereo::disparity_mask
+        (vw::disparity_mask
           (MultipleDisparityCleanUp<input_type>()
             (disparity_disk_image, stereo_settings().rm_cleanup_passes),
               apply_mask(asp::threaded_edge_mask(left_mask, 0,edge_buffer,1024)),
@@ -397,7 +397,7 @@ void stereo_filtering(ASPGlobalOptions& opt) {
             opt);
     } else { // No cleanup passes
       write_good_pixel_and_filtered
-        (stereo::disparity_mask
+        (vw::disparity_mask
           (
             texture_aware_disparity_filter(left_disk_image, disparity_disk_image, 
                                           stereo_settings().median_filter_size,

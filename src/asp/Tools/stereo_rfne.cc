@@ -40,7 +40,6 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace vw::stereo;
 using namespace asp;
 
 template <class Image1T, class Image2T>
@@ -53,7 +52,7 @@ refine_disparity(Image1T const& left_image,
   ImageViewRef<PixelMask<Vector2f>> refined_disp = integer_disp;
 
   PrefilterModeType prefilter_mode =
-    static_cast<vw::stereo::PrefilterModeType>(stereo_settings().pre_filter_mode);
+    static_cast<vw::PrefilterModeType>(stereo_settings().pre_filter_mode);
 
   // Mode 0 and SGM modes 7-12: no refinement in this stage
   if (stereo_settings().subpixel_mode == 0 ||

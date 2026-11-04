@@ -161,10 +161,10 @@ void filter_D_sub(ASPGlobalOptions const& opt,
            << count << " (" << double(count)/(sub_disp.cols() * sub_disp.rows()) << ").\n";
   
   // Set up the stereo model for doing triangulation
-  double angle_tol = vw::stereo::StereoModel
+  double angle_tol = vw::StereoModel
     ::robust_1_minus_cos(stereo_settings().min_triangulation_angle*M_PI/180);
-  stereo::StereoModel model(left_camera_model.get(), right_camera_model.get(),
-                            angle_tol);
+  vw::StereoModel model(left_camera_model.get(), right_camera_model.get(),
+                        angle_tol);
 
   float HIGH_ERROR = std::numeric_limits<float>::max();
   ImageView<float> tri_err(sub_disp.cols(), sub_disp.rows());
@@ -668,7 +668,7 @@ public:
     try{
       left_pix  = local_left_transform->reverse (Vector2(ucol, urow));
       right_pix = local_right_transform->reverse(Vector2(ucol, urow)
-                                                     + stereo::DispHelper(dpix));
+                                                     + vw::DispHelper(dpix));
     } catch(...) {
       continue;
     }
@@ -791,7 +791,7 @@ struct DispMap {
     if (!is_valid(dpix))
       vw::vw_throw(vw::ArgumentErr() << "Invalid disparity encountered.\n");
     
-    vw::Vector2 trans_right_pix = trans_left_pix + stereo::DispHelper(dpix);
+    vw::Vector2 trans_right_pix = trans_left_pix + vw::DispHelper(dpix);
 
     // Need to catch this before it goes to GDAL as it does not play nice with NaN.
     if (trans_right_pix != trans_right_pix)
@@ -993,7 +993,7 @@ void noTripletsMatches(ASPGlobalOptions const& opt,
       // De-warp left and right pixels to be in the camera coordinate system
       Vector2 left_pix  = left_trans->reverse (Vector2(posx, posy));
       Vector2 right_pix = right_trans->reverse(Vector2(posx, posy) 
-                                                + stereo::DispHelper(dpix));
+                                                + vw::DispHelper(dpix));
 
       left_ip.push_back(vw::InterestPoint(left_pix.x(), left_pix.y()));
       right_ip.push_back(vw::InterestPoint(right_pix.x(), right_pix.y()));

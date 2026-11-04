@@ -71,7 +71,7 @@ class StereoTriangulation:
   std::vector<vw::CamPtr>        m_cameras;
   std::vector<vw::TransformPtr>  m_transforms; // e.g., map-projection or homography to undo
   vw::Datum         m_datum;
-  vw::stereo::StereoModel        m_stereo_model;
+  vw::StereoModel        m_stereo_model;
   vw::BathyStereoModel           m_bathy_model;
   bool                           m_is_map_projected;
   bool                           m_bathy_correct;
@@ -95,7 +95,7 @@ public:
                       std::vector<vw::CamPtr>       const& cameras,
                       std::vector<vw::TransformPtr> const& transforms,
                       vw::Datum        const& datum,
-                      vw::stereo::StereoModel       const& stereo_model,
+                      vw::StereoModel       const& stereo_model,
                       vw::BathyStereoModel          const& bathy_model,
                       bool is_map_projected,
                       bool bathy_correct, OUTPUT_CLOUD_TYPE cloud_type,
@@ -131,7 +131,7 @@ public:
     pixVec[0] = m_transforms[0]->reverse(Vector2(i,j)); // De-warp "left" pixel
     DPixelT disp = m_disparity_maps[0](i,j,p); // Disparity value at this pixel
     if (is_valid(disp)) // De-warp the "right" pixel
-      pixVec[1] = m_transforms[1]->reverse(Vector2(i,j) + stereo::DispHelper(disp));
+      pixVec[1] = m_transforms[1]->reverse(Vector2(i,j) + vw::DispHelper(disp));
     else // Insert flag values
       pixVec[1] = Vector2(std::numeric_limits<double>::quiet_NaN(),
                           std::numeric_limits<double>::quiet_NaN());
@@ -193,7 +193,7 @@ public:
       do_bathy = vw::isWaterInOrthoMask(m_ortho_bathy_mask, m_ortho_bathy_georef, uncorr);
     } else {
       // Do bathy only when both left and right pixels are under water.
-      Vector2 rpix = lpix + stereo::DispHelper(disp);
+      Vector2 rpix = lpix + vw::DispHelper(disp);
       do_bathy = vw::areMasked(m_left_aligned_bathy_mask, m_right_aligned_bathy_mask,
                                lpix, rpix);
     }
@@ -282,7 +282,7 @@ private:
   // Find the region associated with the right image that we need to bring in memory
   // based on the disparity 
   BBox2i calc_right_bbox(BBox2i const& left_bbox, ImageView<DPixelT> const& disparity) const {
-      BBox2i disparity_range = stereo::get_disparity_range(disparity);
+      BBox2i disparity_range = vw::get_disparity_range(disparity);
       disparity_range.max() += Vector2i(1,1);
       BBox2i right_bbox = left_bbox + disparity_range.min();
       right_bbox.max() += disparity_range.size();
@@ -404,7 +404,7 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
                      std::vector<vw::CamPtr>        const& cameras,
                      std::vector<vw::TransformPtr>  const& transforms,
                      vw::Datum         const& datum,
-                     vw::stereo::StereoModel        const& stereo_model,
+                     vw::StereoModel        const& stereo_model,
                      vw::BathyStereoModel           const& bathy_model,
                      bool is_map_projected,
                      bool bathy_correct,
@@ -743,7 +743,7 @@ void stereo_triangulation(std::string const& output_prefix,
     //
     // We apply the universe radius here and then write the result directly to a
     // file on disk.
-    stereo::UniverseRadiusFunc universe_radius_func(Vector3(), 0, 0);
+    vw::UniverseRadiusFunc universe_radius_func(Vector3(), 0, 0);
     try{
       if (stereo_settings().universe_center == "camera") {
         if (opt.session->name() == "rpc") {
@@ -752,14 +752,14 @@ void stereo_triangulation(std::string const& output_prefix,
         }
 
         universe_radius_func
-          = stereo::UniverseRadiusFunc(cameras[0]->camera_center(Vector2()),
-                                       stereo_settings().near_universe_radius,
-                                       stereo_settings().far_universe_radius);
+          = vw::UniverseRadiusFunc(cameras[0]->camera_center(Vector2()),
+                                   stereo_settings().near_universe_radius,
+                                   stereo_settings().far_universe_radius);
       } else if (stereo_settings().universe_center == "zero") {
         universe_radius_func
-        = stereo::UniverseRadiusFunc(Vector3(),
-                                     stereo_settings().near_universe_radius,
-                                     stereo_settings().far_universe_radius);
+        = vw::UniverseRadiusFunc(Vector3(),
+                                 stereo_settings().near_universe_radius,
+                                 stereo_settings().far_universe_radius);
       }
     } catch (std::exception &e) {
       vw_out() << e.what() << "\n";
@@ -800,7 +800,7 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // Convert the angle tol to be in terms of dot product and pass it
     // to the stereo model.
-    double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
+    double angle_tol = vw::StereoModel::robust_1_minus_cos
       (stereo_settings().min_triangulation_angle*M_PI/180);
 
     // For bathymetry, apply alignment to masks, if it was not done already in preprocessing.
@@ -818,7 +818,7 @@ void stereo_triangulation(std::string const& output_prefix,
     // the regular stereo model and bathy stereo model can have
     // different interfaces and the former need not know about the
     // latter. Templates are avoided too.
-    vw::stereo::StereoModel stereo_model(camera_ptrs, angle_tol);
+    vw::StereoModel stereo_model(camera_ptrs, angle_tol);
     vw::BathyStereoModel bathy_stereo_model(camera_ptrs, angle_tol);
 
     // See if to return all triangulated points, the ones where bathy correction took

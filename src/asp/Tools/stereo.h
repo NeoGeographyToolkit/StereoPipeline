@@ -98,7 +98,7 @@ namespace asp {
   // use the numbers 0 (BM), 1 (SGM), 2 (MGM), 3 (Final MGM).  For
   // external algorithms will have to examine closer the algorithm
   // string. This function has a Python analog in parallel_stereo.
-  vw::stereo::CorrelationAlgorithm stereo_alg_to_num(std::string alg);
+  vw::CorrelationAlgorithm stereo_alg_to_num(std::string alg);
   
   // Find the median angle in degrees at which rays emanating from
   // matching points meet

@@ -1375,10 +1375,10 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           asp::HorizVertErrorStats & stats) {
 
   // Create a stereo model, to be used for triangulation
-  double angle_tol = vw::stereo::StereoModel::robust_1_minus_cos
+  double angle_tol = vw::StereoModel::robust_1_minus_cos
                         (asp::stereo_settings().min_triangulation_angle*M_PI/180);
-  vw::stereo::StereoModel stereo_model(left_cam, right_cam,
-                                       angle_tol);
+  vw::StereoModel stereo_model(left_cam, right_cam,
+                               angle_tol);
 
   // If bathymetry is modeled, set up a bathy stereo model with the two planes
   // for this pair, so underwater points are triangulated with bent rays and the

@@ -217,9 +217,9 @@ int main(int argc, char* argv[]) {
 
     // Apart from default block matching, correlation will be done tiles
     // with padding, which is called here collar_size.
-    vw::stereo::CorrelationAlgorithm stereo_alg
+    vw::CorrelationAlgorithm stereo_alg
       = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
-    bool using_tiles = (stereo_alg > vw::stereo::VW_CORRELATION_BM ||
+    bool using_tiles = (stereo_alg > vw::VW_CORRELATION_BM ||
                         stereo_settings().alignment_method == "local_epipolar");
     
     int sgm_collar_size = 0;

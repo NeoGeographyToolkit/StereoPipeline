@@ -50,7 +50,7 @@ void asp::photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
   // Projecting right into perspective of left
   DiskImageView<PixelGray<float>> right_disk_image(prefix+"-R.tif");
   DiskImageView<PixelMask<Vector2f>> disparity_disk_image( input_disparity );
-  stereo::DisparityTransform trans( disparity_disk_image );
+  vw::DisparityTransform trans( disparity_disk_image );
 
   std::string cache_dir = "/tmp"; // modify here to use a different cache dir if needed
   if (!fs::is_directory(cache_dir)) {
