@@ -22,7 +22,6 @@
 #include <iostream>
 #include <cmath>
 
-using namespace std;
 using namespace cv;
 
 namespace gotcha {
@@ -48,13 +47,13 @@ void CDensify::setParameters(CDensifyParam paramDense, std::vector<CTiePt> const
   
   // loadImages();
   // m_nCount = 0;
-  // cout << m_paramDense.m_paramGotcha.m_paramALSC.m_fEigThr<< endl;
+  // std::cout << m_paramDense.m_paramGotcha.m_paramALSC.m_fEigThr<< std::endl;
 }
 
 
 #if 0
 void CDensify::loadImages(){
-  string strImgL, strImgR;
+  std::string strImgL, strImgR;
   // get input images
   strImgL = m_paramDense.m_strImgL;
   strImgR = m_paramDense.m_strImgR;
@@ -63,7 +62,7 @@ void CDensify::loadImages(){
 #endif
 
 #if 0
-bool CDensify::loadTPForDensification(string strTPFile){    
+bool CDensify::loadTPForDensification(std::string strTPFile){    
     bool bRes = true;
     bRes = loadTP(strTPFile);
     return bRes;
@@ -94,7 +93,7 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
         //2. m_vectpAdded.insert(m_vectpAdded.end(), vecSeedTemp.begin(), vecSeedTemp.end());
         //3. need some change in doPGotcha
         //IMARS still need initial ALSC
-        vector<CTiePt> vecSeedTemp = getIntToFloatSeed(m_vecTPs);
+        std::vector<CTiePt> vecSeedTemp = getIntToFloatSeed(m_vecTPs);
         m_vecTPs.clear();
         for (int j = 0; j < (int)vecSeedTemp.size(); j++){
             CTiePt tpTemp = vecSeedTemp.at(j);
@@ -104,14 +103,14 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
 
 
 
-        //cout << "CASP-GO INFO: starting Gotcha" << endl;
+        //std::cout << "CASP-GO INFO: starting Gotcha" << std::endl;
         if (!doGotcha(m_imgL, m_imgR, m_vecTPs, m_paramDense.m_paramGotcha, m_vectpAdded))
             return CDensifyParam::GOTCHA_ERR;
         // remove TP with large y disparity
         // nb. sometimes large y disparity can be produced even from a rectified pair
 
         double dYLimit = 100;
-        vector<CTiePt>::iterator iter;
+        std::vector<CTiePt>::iterator iter;
         for (iter = m_vectpAdded.begin(); iter < m_vectpAdded.end();){
             double dy = iter->m_ptL.y - iter->m_ptR.y;
             dy = sqrt(dy*dy);
@@ -126,7 +125,7 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
         double end = getTickCount();
         procTime = (end - start)/getTickFrequency();
 
-        //cout << "CASP-GO INFO: making data products" << endl;
+        //std::cout << "CASP-GO INFO: making data products" << std::endl;
 
         makeDataProducts();
 
@@ -146,7 +145,7 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
         // remove TP with large y disparity
 
         double dYLimit = 100; //IMARS
-        vector<CTiePt>::iterator iter;
+        std::vector<CTiePt>::iterator iter;
         for (iter = m_vectpAdded.begin(); iter < m_vectpAdded.end();){
             double dy = iter->m_ptL.y - iter->m_ptR.y;
             dy = sqrt(dy*dy);
@@ -174,8 +173,8 @@ int CDensify::performDensitification(cv::Mat & output_dispX, cv::Mat & output_di
     return CDensifyParam::NO_ERR;
 }
 
-vector<CTiePt> CDensify::getIntToFloatSeed(vector<CTiePt>& vecTPSrc) {
-    vector<CTiePt> vecRes;
+std::vector<CTiePt> CDensify::getIntToFloatSeed(std::vector<CTiePt>& vecTPSrc) {
+    std::vector<CTiePt> vecRes;
 
     int nLen =  vecTPSrc.size();
     for (int i = 0; i < nLen; i++){
@@ -200,7 +199,7 @@ vector<CTiePt> CDensify::getIntToFloatSeed(vector<CTiePt>& vecTPSrc) {
         // collect 4 integer seed and validate
         /////////////////////////////////////////////////////
         CTiePt tpTemp = tp;
-        vector<CTiePt> vectpSeeds;
+        std::vector<CTiePt> vectpSeeds;
         // pt1 (top-left)
         tpTemp.m_ptL = ptIntL;
         tpTemp.m_ptR = ptIntR;
@@ -237,7 +236,7 @@ vector<CTiePt> CDensify::getIntToFloatSeed(vector<CTiePt>& vecTPSrc) {
     return vecRes;
 }
 
-bool CDensify::saveProjLog(string strFile){
+bool CDensify::saveProjLog(std::string strFile){
 
   return true;
 #if 0
@@ -245,21 +244,21 @@ bool CDensify::saveProjLog(string strFile){
   bool bRes = false;
   ofstream sfLog;
   sfLog.open(strFile.c_str(), ios::app | ios::out);
-  string strProcType = getProcType();
+  std::string strProcType = getProcType();
   
   if (sfLog.is_open()){
-    sfLog << "<Project I/O>" << endl;
-    sfLog << "Input left image path: " << m_paramDense.m_strImgL << endl;
-    sfLog << "Input right image path: " << m_paramDense.m_strImgR << endl;
-    sfLog << "Processing type: " << strProcType << endl;
+    sfLog << "<Project I/O>" << std::endl;
+    sfLog << "Input left image path: " << m_paramDense.m_strImgL << std::endl;
+    sfLog << "Input right image path: " << m_paramDense.m_strImgR << std::endl;
+    sfLog << "Processing type: " << strProcType << std::endl;
     
-    sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << endl;
-    sfLog << "Input y disparity map path: " << m_paramDense.m_strDispY << endl;
-    sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << endl;
-    sfLog << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << endl;
-    sfLog << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << endl;
-    sfLog << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << endl;
-    sfLog << endl;
+    sfLog << "Input x disparity map path: " << m_paramDense.m_strDispX << std::endl;
+    sfLog << "Input y disparity map path: " << m_paramDense.m_strDispY << std::endl;
+    sfLog << "Output tie-point file (from disparity) path: " << m_paramDense.m_strTPFile << std::endl;
+    sfLog << "Input/output mask file path: " << m_paramDense.m_paramGotcha.m_strMask << std::endl;
+    sfLog << "Output x disparity map path: " << m_paramDense.m_strUpdatedDispX << std::endl;
+    sfLog << "Output y disparity map path: " << m_paramDense.m_strUpdatedDispY << std::endl;
+    sfLog << std::endl;
     sfLog.close();
     bRes = true;
   }
@@ -274,9 +273,9 @@ bool CDensify::saveProjLog(string strFile){
 bool CDensify::saveLog(){
   return true;
 #if 0
-  string FILE_LOG = "-GLog.txt";
+  std::string FILE_LOG = "-GLog.txt";
 
-  string strFile = m_paramDense.m_strOutPath + FILE_LOG;
+  std::string strFile = m_paramDense.m_strOutPath + FILE_LOG;
   bool bRes = false;
   
   // save parameter log
@@ -290,7 +289,7 @@ bool CDensify::saveLog(){
 #endif
 }
 
-bool CDensify::saveResLog(string strFile){
+bool CDensify::saveResLog(std::string strFile){
   return true;
 #if 0
     bool bRes = false;
@@ -299,13 +298,13 @@ bool CDensify::saveResLog(string strFile){
     sfLog.open(strFile.c_str(), ios::app | ios::out);
 
     if (sfLog.is_open()){
-        sfLog << "<Processing results>" << endl;
-        sfLog << "Processing method: " << m_paramDense.getProcessingType() << endl;
-        sfLog << "Total number of seed TPs: " << nNumSeedTPs << endl;
-        sfLog << "Total number of final TPs: " << nNumFinalTPs << endl;
-        sfLog << "Total processing time(sec): " << procTime << endl;
-        sfLog << endl;
-        sfLog << endl;
+        sfLog << "<Processing results>" << std::endl;
+        sfLog << "Processing method: " << m_paramDense.getProcessingType() << std::endl;
+        sfLog << "Total number of seed TPs: " << nNumSeedTPs << std::endl;
+        sfLog << "Total number of final TPs: " << nNumFinalTPs << std::endl;
+        sfLog << "Total processing time(sec): " << procTime << std::endl;
+        sfLog << std::endl;
+        sfLog << std::endl;
         sfLog.close();
         bRes = true;
     }
@@ -352,10 +351,10 @@ bool CDensify::saveResult(cv::Mat & output_dispX, cv::Mat & output_dispY){
 
     bool bRes = true;
 
-    //string strFile = m_paramDense.m_strTPFile;
+    //std::string strFile = m_paramDense.m_strTPFile;
     //bRes = saveTP(m_vectpAdded, strFile);
     
-    //cout << "Writing results..." << endl;
+    //std::cout << "Writing results..." << std::endl;
 
     output_dispX = Mat::ones(m_matDisMapX.size(), CV_32FC1)*0.0;
     output_dispY = Mat::ones(m_matDisMapY.size(), CV_32FC1)*0.0;
@@ -454,26 +453,26 @@ bool CDensify::saveResult(cv::Mat & output_dispX, cv::Mat & output_dispY){
 #if 0
     // The outputs are now passed out rather than saved to disk
     
-    string strFileC1 = m_paramDense.m_strUpdatedDispX;
+    std::string strFileC1 = m_paramDense.m_strUpdatedDispX;
     bRes = bRes && saveMatrix(output_dispX, strFileC1);
     //imwrite(strFile, output_dispX);
-    string strFileC2 = m_paramDense.m_strUpdatedDispY;
+    std::string strFileC2 = m_paramDense.m_strUpdatedDispY;
     bRes = bRes && saveMatrix(output_dispY, strFileC2);
     //imwrite(strFile, output_dispY);
 
     // Do not write this file as it is not used. If needed, such a
     // file must be written for every tile ASP processes.
-    string strFileC3 = m_paramDense.m_strUpdatedDispSim;
+    std::string strFileC3 = m_paramDense.m_strUpdatedDispSim;
     std::cout << "Saving matrix: " << strFileC3 << std::endl;
     bRes = bRes && saveMatrix(m_matDisMapSim, strFileC3);
 
-    string strC1Tiff = "-c1_refined.tif";
-    string strC2Tiff = "-c2_refined.tif";
-    string strC3Tiff = "-uncertainty.tif";
+    std::string strC1Tiff = "-c1_refined.tif";
+    std::string strC2Tiff = "-c2_refined.tif";
+    std::string strC3Tiff = "-uncertainty.tif";
     
-    string strFileC1Tiff = m_paramDense.m_strOutPath + strC1Tiff;
-    string strFileC2Tiff = m_paramDense.m_strOutPath + strC2Tiff;
-    string strFileC3Tiff = m_paramDense.m_strOutPath + strC3Tiff;
+    std::string strFileC1Tiff = m_paramDense.m_strOutPath + strC1Tiff;
+    std::string strFileC2Tiff = m_paramDense.m_strOutPath + strC2Tiff;
+    std::string strFileC3Tiff = m_paramDense.m_strOutPath + strC3Tiff;
     
     ostringstream strCmdGdalConversionC1;
     strCmdGdalConversionC1 << "gdal_translate " << strFileC1 << " -of GTiff " << strFileC1Tiff;
@@ -494,7 +493,7 @@ bool CDensify::saveResult(cv::Mat & output_dispX, cv::Mat & output_dispY){
     return bRes;
 }
 
-void CDensify::getNeighbour(const CTiePt tp, vector<CTiePt>& vecNeiTp, const int nNeiType, const Mat& matSim){
+void CDensify::getNeighbour(const CTiePt tp, std::vector<CTiePt>& vecNeiTp, const int nNeiType, const Mat& matSim){
     //
     Point2f ptLeft = tp.m_ptL;
     Point2f ptRight = tp.m_ptR;
@@ -543,7 +542,7 @@ void CDensify::getNeighbour(const CTiePt tp, vector<CTiePt>& vecNeiTp, const int
     }
 }
 
-void CDensify::getDisffusedNei(vector<CTiePt>& vecNeiTp, const CTiePt tp, const Mat& matSim){
+void CDensify::getDisffusedNei(std::vector<CTiePt>& vecNeiTp, const CTiePt tp, const Mat& matSim){
     // estimate the growth
     // make a diffusion map
     int nSzDiff = m_paramDense.m_paramGotcha.m_paramALSC.m_nPatch;//12
@@ -646,7 +645,7 @@ void CDensify::getDisffusedNei(vector<CTiePt>& vecNeiTp, const CTiePt tp, const 
                 vecNeiTp.push_back(tp2);
 }
 
-bool CDensify::isHavingTP(vector<CTiePt>& vecNeiTp, CTiePt tp){
+bool CDensify::isHavingTP(std::vector<CTiePt>& vecNeiTp, CTiePt tp){
     bool bRes = false;
     int nLen = vecNeiTp.size();
     for (int i = 0; i < nLen; i++){
@@ -658,8 +657,8 @@ bool CDensify::isHavingTP(vector<CTiePt>& vecNeiTp, CTiePt tp){
     return bRes;
 }
 
-void CDensify::removeOutsideImage(vector<CTiePt>& vecNeiTp, const Rect_<float> rectTileL, const Rect_<float> rectImgR){
-    vector<CTiePt>::iterator iter;
+void CDensify::removeOutsideImage(std::vector<CTiePt>& vecNeiTp, const Rect_<float> rectTileL, const Rect_<float> rectImgR){
+    std::vector<CTiePt>::iterator iter;
 
     for (iter = vecNeiTp.begin(); iter < vecNeiTp.end();){
 
@@ -671,8 +670,8 @@ void CDensify::removeOutsideImage(vector<CTiePt>& vecNeiTp, const Rect_<float> r
 
 }
 
-void CDensify::removePtInLUT(vector<CTiePt>& vecNeiTp, const vector<bool>& pLUT, const int nWidth){
-    vector<CTiePt>::iterator iter;
+void CDensify::removePtInLUT(std::vector<CTiePt>& vecNeiTp, const std::vector<bool>& pLUT, const int nWidth){
+    std::vector<CTiePt>::iterator iter;
 
     for (iter = vecNeiTp.begin(); iter < vecNeiTp.end();){        
         int nX = (int)floor(iter->m_ptL.x);
@@ -687,14 +686,14 @@ void CDensify::removePtInLUT(vector<CTiePt>& vecNeiTp, const vector<bool>& pLUT,
     }
 }
 
-void CDensify::makeTiles(vector< Rect_<float> >& vecRectTiles, int nMin){
+void CDensify::makeTiles(std::vector< Rect_<float> >& vecRectTiles, int nMin){
 
-    vector< Rect_<float> >::iterator iter;
+    std::vector< Rect_<float> >::iterator iter;
     for (iter = vecRectTiles.begin(); iter < vecRectTiles.end();){
         Rect_<float> rectParent = *iter;
         if (rectParent.width/2 > nMin && rectParent.height/2 > nMin){
             vecRectTiles.erase(iter);
-            vector< Rect_<float> > vecChild;
+            std::vector< Rect_<float> > vecChild;
             breakIntoSubRect(rectParent, vecChild);
             vecRectTiles.insert(vecRectTiles.end(), vecChild.begin(),  vecChild.end());
             iter = vecRectTiles.begin();
@@ -704,7 +703,7 @@ void CDensify::makeTiles(vector< Rect_<float> >& vecRectTiles, int nMin){
     }
 }
 
-void CDensify::breakIntoSubRect(Rect_<float> rectParent, vector< Rect_<float> >& vecRes){
+void CDensify::breakIntoSubRect(Rect_<float> rectParent, std::vector< Rect_<float> >& vecRes){
 
     float fHalfW = rectParent.width/2.f;
     float fHalfH = rectParent.height/2.f;
@@ -734,24 +733,24 @@ void CDensify::breakIntoSubRect(Rect_<float> rectParent, vector< Rect_<float> >&
 }
 
 
-bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& vectpSeeds,
-                        const CGOTCHAParam& paramGotcha, vector<CTiePt>& vectpAdded){
+bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, std::vector<CTiePt>& vectpSeeds,
+                        const CGOTCHAParam& paramGotcha, std::vector<CTiePt>& vectpAdded){
 
 
     bool bRes = true;
     ////////////////////////////////////////////
     // parameter preparation
-    // cout << "CASP-GO INFO: initialisaing similarity map" << endl;
+    // std::cout << "CASP-GO INFO: initialisaing similarity map" << std::endl;
     Mat matSimMap = Mat::ones(matImgL.rows, matImgL.cols, CV_32FC1); // 2D similarity map for diffusion
     matSimMap = matSimMap*-1;
 
-    // cout << "DEBUG: matImgL has statistics: rows " << matImgL.rows << "; cols: " << matImgL.cols << "; channels: " << matImgL.channels() << "; bitdepth code: " << matImgL.depth() << endl;
+    // std::cout << "DEBUG: matImgL has statistics: rows " << matImgL.rows << "; cols: " << matImgL.cols << "; channels: " << matImgL.channels() << "; bitdepth code: " << matImgL.depth() << std::endl;
 
     Size szImgL(matImgL.cols, matImgL.rows);
-    // cout << "CASP-GO INFO: initialising pixel LUT" << endl;
+    // std::cout << "CASP-GO INFO: initialising pixel LUT" << std::endl;
 
     // IMARS bool pLUT[szImgL.area()]; // if true it indicates the pixel has already processed
-    vector<bool> pLUT; //IMARS
+    std::vector<bool> pLUT; //IMARS
 
     // initialise
     for (int i = 0; i< szImgL.area(); i++){
@@ -759,21 +758,21 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
         pLUT.push_back(bpLUT); //IMARS
     } //IMARS
 
-    vector< Rect_<float> > vecRectTiles;
+    std::vector< Rect_<float> > vecRectTiles;
     vecRectTiles.push_back(Rect(0., 0., matImgL.cols, matImgL.rows));
 
-    // cout << "CASP-GO INFO: Making tiles" << endl;
+    // std::cout << "CASP-GO INFO: Making tiles" << std::endl;
     makeTiles(vecRectTiles, paramGotcha.m_nMinTile);
 
     if (paramGotcha.m_bNeedInitALSC){
-        // cout << "CASP-GO INFO: Running initial ALSC refinement" << endl;
+        // std::cout << "CASP-GO INFO: Running initial ALSC refinement" << std::endl;
         ALSC alsc(matImgL, matImgR, paramGotcha.m_paramALSC);
         alsc.performALSC(&vectpSeeds);
         vectpSeeds.clear();
         alsc.getRefinedTps(vectpSeeds); // hard-copy
     }
 
-    // cout << "CASP-GO INFO: initialise similarity map with seed points" << endl;
+    // std::cout << "CASP-GO INFO: initialise similarity map with seed points" << std::endl;
     // initialise sim map with seedpoitns
     for (int i = 0; i < (int)vectpSeeds.size(); i++){
         int nX =  (int)floor(vectpSeeds.at(i).m_ptL.x);
@@ -783,10 +782,10 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
         int nIdx = nY*szImgL.width + nX;
         pLUT[nIdx] = true;
 
-        //cout << "DEBUG: pLUT change successfully to " << pLUT[nIdx] << endl;
+        //std::cout << "DEBUG: pLUT change successfully to " << pLUT[nIdx] << std::endl;
     }
 
-    // cout << "CASP-GO INFO: apply mask to remove area that no densification is required." << endl;
+    // std::cout << "CASP-GO INFO: apply mask to remove area that no densification is required." << std::endl;
     // apply mask, remove area where no densification is required
     //std::cout << "Reading mask: " << paramGotcha.m_strMask << std::endl;
     //Mat Mask = imread(paramGotcha.m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
@@ -795,23 +794,23 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
             if (m_Mask.at<uchar>(i,j)==0){
                 int nIdx = i*m_Mask.cols + j;
                 pLUT[nIdx] = true;
-                //cout << "DEBUG: pLUT change successfully to " << pLUT[nIdx] << endl;
+                //std::cout << "DEBUG: pLUT change successfully to " << pLUT[nIdx] << std::endl;
             }
         }
     }
 
     /////////////////////////
     vectpAdded.clear();
-    //cout << "CASP-GO INFO: Desifying disparity... ..." << endl;
+    //std::cout << "CASP-GO INFO: Desifying disparity... ..." << std::endl;
 
     for (int i = 0 ; i < (int)vecRectTiles.size(); i++){
-          vector<CTiePt> vecRes;
+          std::vector<CTiePt> vecRes;
           bRes = bRes && doTileGotcha(matImgL, matImgR, vectpSeeds, paramGotcha, vecRes, vecRectTiles.at(i), matSimMap, pLUT);
           // collect result
           vectpAdded.insert(vectpAdded.end(), vecRes.begin(), vecRes.end());
 
           // debug
-          //cout << "Tile " << i << " has been processed: " << vecRes.size() << " points are added" << endl;
+          //std::cout << "Tile " << i << " has been processed: " << vecRes.size() << " points are added" << std::endl;
     }
 
     return bRes;
@@ -819,11 +818,11 @@ bool CDensify::doGotcha(const Mat& matImgL, const Mat& matImgR, vector<CTiePt>& 
 
 
 bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
-                            vector<CTiePt>& vectpSeeds,
-                            const CGOTCHAParam& paramGotcha, vector<CTiePt>& vectpAdded,
-                            const Rect_<float> rectTileL, Mat& matSimMap, vector<bool>& pLUT){
+                            std::vector<CTiePt>& vectpSeeds,
+                            const CGOTCHAParam& paramGotcha, std::vector<CTiePt>& vectpAdded,
+                            const Rect_<float> rectTileL, Mat& matSimMap, std::vector<bool>& pLUT){
 
-    vector<CTiePt> vectpSeedTPs; //= vectpSeeds;                // need this hard copy for sorting
+    std::vector<CTiePt> vectpSeedTPs; //= vectpSeeds;                // need this hard copy for sorting
 
     Size szImgL(matImgL.cols, matImgL.rows);
     Rect_<float> rectImgR (0, 0, matImgR.cols, matImgR.rows);
@@ -860,7 +859,7 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
     //int nCount = 0; // for debug
 #if 0
       // Hide the verbose messages
-      cout << "[--------------------]  0% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+      std::cout << "[--------------------]  0% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
 #endif
       
     while (vectpSeedTPs.size() > 0) {
@@ -869,7 +868,7 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
 
 //        mvectpAdded.push_back(tp);
         vectpSeedTPs.erase(vectpSeedTPs.begin());
-        vector<CTiePt> vecNeiTp;        
+        std::vector<CTiePt> vecNeiTp;        
         getNeighbour(tp, vecNeiTp, paramGotcha.m_nNeiType, matSimMap);
         removeOutsideImage(vecNeiTp, rectTileL, rectImgR);
         removePtInLUT(vecNeiTp, pLUT, matImgL.cols);
@@ -886,12 +885,12 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
             ALSC alsc(matImgL, matImgR, paramGotcha.m_paramALSC);
 
             alsc.performALSC(&vecNeiTp, (float*) pfData);
-            const vector<CTiePt>* pvecRefTPtemp = alsc.getRefinedTps();
+            const std::vector<CTiePt>* pvecRefTPtemp = alsc.getRefinedTps();
 
             int nLen = pvecRefTPtemp->size();
             if(nLen > 0){
                 // append survived neighbours to the seed point list and the seed LUT
-                // vector<CRefinedTP>::iterator iterNei;
+                // std::vector<CRefinedTP>::iterator iterNei;
                 for (int i = 0 ; i < nLen; i++){
                     CTiePt tpNei = pvecRefTPtemp->at(i);
 
@@ -913,50 +912,50 @@ bool CDensify::doTileGotcha(const Mat& matImgL, const Mat& matImgR, const
         // Hide the verbose messages
         if (vectpAdded.size()>0){
         if (vectpAdded.size() >= (nGapSize)/20 && vectpAdded.size() < 2*(nGapSize)/20)
-            cout << "[*-------------------]  5% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[*-------------------]  5% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 2*(nGapSize)/20 && vectpAdded.size() < 3*(nGapSize)/20)
-            cout << "[**------------------] 10% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[**------------------] 10% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 3*(nGapSize)/20 && vectpAdded.size() < 4*(nGapSize)/20)
-            cout << "[***-----------------] 15% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[***-----------------] 15% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 4*(nGapSize)/20 && vectpAdded.size() < 5*(nGapSize)/20)
-            cout << "[****----------------] 20% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[****----------------] 20% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 5*(nGapSize)/20 && vectpAdded.size() < 6*(nGapSize)/20)
-            cout << "[*****---------------] 25% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[*****---------------] 25% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 6*(nGapSize)/20 && vectpAdded.size() < 7*(nGapSize)/20)
-            cout << "[******--------------] 30% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[******--------------] 30% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 7*(nGapSize)/20 && vectpAdded.size() < 8*(nGapSize)/20)
-            cout << "[*******-------------] 35% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[*******-------------] 35% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 8*(nGapSize)/20 && vectpAdded.size() < 9*(nGapSize)/20)
-            cout << "[********------------] 40% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[********------------] 40% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 9*(nGapSize)/20 && vectpAdded.size() < 10*(nGapSize)/20)
-            cout << "[*********-----------] 45% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[*********-----------] 45% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 10*(nGapSize)/20 && vectpAdded.size() < 11*(nGapSize)/20)
-            cout << "[**********----------] 50% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[**********----------] 50% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 11*(nGapSize)/20 && vectpAdded.size() < 12*(nGapSize)/20)
-            cout << "[***********---------] 55% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[***********---------] 55% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 12*(nGapSize)/20 && vectpAdded.size() < 13*(nGapSize)/20)
-            cout << "[************--------] 60% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[************--------] 60% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 13*(nGapSize)/20 && vectpAdded.size() < 14*(nGapSize)/20)
-            cout << "[*************-------] 65% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[*************-------] 65% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 14*(nGapSize)/20 && vectpAdded.size() < 15*(nGapSize)/20)
-            cout << "[**************------] 70% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[**************------] 70% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 15*(nGapSize)/20 && vectpAdded.size() < 16*(nGapSize)/20)
-            cout << "[***************-----] 75% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[***************-----] 75% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 16*(nGapSize)/20 && vectpAdded.size() < 17*(nGapSize)/20)
-            cout << "[****************----] 80% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[****************----] 80% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 17*(nGapSize)/20 && vectpAdded.size() < 18*(nGapSize)/20)
-            cout << "[*****************---] 85% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[*****************---] 85% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 18*(nGapSize)/20 && vectpAdded.size() < 19*(nGapSize)/20)
-            cout << "[******************--] 90% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[******************--] 90% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() >= 19*(nGapSize)/20 && vectpAdded.size() < 20*(nGapSize)/20)
-            cout << "[*******************-] 95% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
+            std::cout << "[*******************-] 95% OF THE GAP AREA HAS BEEN DENSIFIED\r" << std::flush;
         else if (vectpAdded.size() == nGapSize)
-          cout << "[********************]100% OF THE GAP AREA HAS BEEN DENSIFIED";
+          std::cout << "[********************]100% OF THE GAP AREA HAS BEEN DENSIFIED";
         }
 #endif
     }
 #if 0
-    cout << endl;
+    std::cout << std::endl;
 #endif
     
     return true;
@@ -966,12 +965,12 @@ bool CDensify::doPGotcha(int nNeiType){
 
     // pyramid construction
     int nTotLev = getTotPyramidLev(m_paramDense.m_paramGotcha.m_paramALSC.m_nPatch);
-    vector<Mat> vecImgPyL;
-    vector<Mat> vecImgPyR;
+    std::vector<Mat> vecImgPyL;
+    std::vector<Mat> vecImgPyR;
     buildPyramid(m_imgL, vecImgPyL, nTotLev);
     buildPyramid(m_imgR, vecImgPyR, nTotLev);
 
-    vector<CTiePt> vecOrgSeedClone = getIntToFloatSeed(m_vecTPs);
+    std::vector<CTiePt> vecOrgSeedClone = getIntToFloatSeed(m_vecTPs);
     if (m_paramDense.m_paramGotcha.m_bNeedInitALSC){
         ALSC alsc(m_imgL, m_imgR, m_paramDense.m_paramGotcha.m_paramALSC);
         alsc.performALSC(&vecOrgSeedClone);
@@ -988,7 +987,7 @@ bool CDensify::doPGotcha(int nNeiType){
     float fMinRate = 0.3f;
     float fMinRatePatch = 0.5f;
 
-    vector<CTiePt> vecAddedTemp; // addition from previous level
+    std::vector<CTiePt> vecAddedTemp; // addition from previous level
     bool bRes = true;
     for (int i = nTotLev-1; i >= 0; i--){
 
@@ -997,7 +996,7 @@ bool CDensify::doPGotcha(int nNeiType){
         paramG.m_paramALSC.m_fEigThr = fTempLim * (1.f + fMinRate * i/(nTotLev-1));
 
         // prepare seed for current level
-        vector<CTiePt> vecSeedTemp;
+        std::vector<CTiePt> vecSeedTemp;
         float fDenom = pow(2.f, i);
         int nLen = vecOrgSeedClone.size();
         for (int j = 0; j < nLen; j++){
@@ -1034,20 +1033,20 @@ bool CDensify::doPGotcha(int nNeiType){
             alsc.getRefinedTps(vecAddedTemp); // hard-copy
         }
 
-        vector<CTiePt> seedIn;
+        std::vector<CTiePt> seedIn;
         seedIn.insert(seedIn.end(), vecSeedTemp.begin(), vecSeedTemp.end());
         seedIn.insert(seedIn.end(), vecAddedTemp.begin(), vecAddedTemp.end());
         vecSeedTemp.clear();
 
         // debug
-        //cout << "# seed pts at the " << i << " level" << ": " << seedIn.size() << endl;
+        //std::cout << "# seed pts at the " << i << " level" << ": " << seedIn.size() << std::endl;
 
-        vector<CTiePt> vecResTemp;
+        std::vector<CTiePt> vecResTemp;
         bRes = bRes && doGotcha(vecImgPyL.at(i), vecImgPyR.at(i), seedIn, paramG, vecResTemp);
         vecAddedTemp.insert(vecAddedTemp.end(), vecResTemp.begin(), vecResTemp.end());
 
         // debug
-        // cout << "# added pts at the " << i << " level" << ": " << vecResTemp.size() << endl;
+        // std::cout << "# added pts at the " << i << " level" << ": " << vecResTemp.size() << std::endl;
     }
 
     m_vectpAdded.clear();

@@ -17,7 +17,6 @@
 
 #include <asp/Gotcha/ALSC.h>
 
-using namespace std;
 using namespace cv;
 
 namespace gotcha {
@@ -557,7 +556,7 @@ float ALSCF32::interpolate(double dNewX, double dNewY, const Mat &matImg){
 }
 
 // this function for the feature refinement
-void ALSC::performALSC(const vector<CTiePt> *pvecTpts, const float* pfAffStart){
+void ALSC::performALSC(const std::vector<CTiePt> *pvecTpts, const float* pfAffStart){
 
     //////////////////////////////////////////////////
     // Start processing for each seed point

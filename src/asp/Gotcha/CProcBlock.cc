@@ -17,7 +17,6 @@
 
 #include <asp/Gotcha/CProcBlock.h>
 
-using namespace std;
 using namespace cv;
 
 namespace gotcha {
@@ -26,7 +25,7 @@ CProcBlock::CProcBlock(){}
 
 // Images are passed in memory now
 #if 0
-void CProcBlock::setImages(string strImgL, string strImgR, bool bGrey){
+void CProcBlock::setImages(std::string strImgL, std::string strImgR, bool bGrey){
   
     // read image as a grey -> vital for alsc and gotcha
     if (bGrey){
@@ -40,9 +39,9 @@ void CProcBlock::setImages(string strImgL, string strImgR, bool bGrey){
 }
 #endif
 
-bool CProcBlock::saveTP(const vector<CTiePt>& vecTPs, const string strFile){
+bool CProcBlock::saveTP(const std::vector<CTiePt>& vecTPs, const std::string strFile){
 
-    ofstream sfTP;
+    std::ofstream sfTP;
     sfTP.open(strFile.c_str());
 
     int nLen = vecTPs.size();
@@ -50,7 +49,7 @@ bool CProcBlock::saveTP(const vector<CTiePt>& vecTPs, const string strFile){
 
     if (sfTP.is_open()){
         // header
-        sfTP << nLen << " " << nEle << endl;
+        sfTP << nLen << " " << nEle << std::endl;
         // data
         for (int i = 0 ; i < nLen ;i++){
             CTiePt tp = vecTPs.at(i);
@@ -59,7 +58,7 @@ bool CProcBlock::saveTP(const vector<CTiePt>& vecTPs, const string strFile){
                  << tp.m_fSimVal << " "<< tp.m_pfAffine[0] << " "
                  << tp.m_pfAffine[1] << " "<< tp.m_pfAffine[2] << " "
                  << tp.m_pfAffine[3] << " " << tp.m_ptOffset.x << " "
-                 << tp.m_ptOffset.y << endl;
+                 << tp.m_ptOffset.y << std::endl;
 
         }
         sfTP.close();
@@ -71,7 +70,7 @@ bool CProcBlock::saveTP(const vector<CTiePt>& vecTPs, const string strFile){
 }
 
 #if 0
-bool CProcBlock::loadTP(const string strFile){
+bool CProcBlock::loadTP(const std::string strFile){
   std::cout << "Reading " << strFile << std::endl;
     ifstream sfTPFile;
     sfTPFile.open(strFile.c_str());
@@ -109,7 +108,7 @@ bool CProcBlock::loadTP(const string strFile){
         return false;
 
     if (nTotLen < 8) {
-        //cerr << "TP should be more than 8 pts" << endl;
+        //cerr << "TP should be more than 8 pts" << std::endl;
         return false;
     }
 
@@ -117,18 +116,18 @@ bool CProcBlock::loadTP(const string strFile){
 }
 #endif
 
-bool CProcBlock::saveMatrix(const Mat& matData, const string strFile){
+bool CProcBlock::saveMatrix(const Mat& matData, const std::string strFile){
 
-    ofstream sfOut;
+    std::ofstream sfOut;
     sfOut.open(strFile.c_str());
 
     if (sfOut.is_open()){
 
-        sfOut << "ncols " << matData.cols << endl;
-        sfOut << "nrows " << matData.rows << endl;
-        sfOut << "xllcorner 0" << endl;
-        sfOut << "yllcorner 0" << endl;
-        sfOut << "cellsize 1" << endl;
+        sfOut << "ncols " << matData.cols << std::endl;
+        sfOut << "nrows " << matData.rows << std::endl;
+        sfOut << "xllcorner 0" << std::endl;
+        sfOut << "yllcorner 0" << std::endl;
+        sfOut << "cellsize 1" << std::endl;
 
         for (int i = 0; i < matData.rows; i++){
             for (int j = 0; j < matData.cols; j++){
@@ -139,7 +138,7 @@ bool CProcBlock::saveMatrix(const Mat& matData, const string strFile){
                 else if (matData.depth() == CV_8U)
                     sfOut << matData.at<uchar>(i,j) << " ";
             }
-            sfOut << endl;
+            sfOut << std::endl;
         }
         sfOut.close();
     }
@@ -150,7 +149,7 @@ bool CProcBlock::saveMatrix(const Mat& matData, const string strFile){
 }
 
 #if 0
-bool CProcBlock::loadMatrix(Mat &matData, const string strFile, bool bDoublePrecision){
+bool CProcBlock::loadMatrix(Mat &matData, const std::string strFile, bool bDoublePrecision){
     if (bDoublePrecision){
         ifstream sfIn;
         sfIn.open(strFile.c_str());
@@ -179,7 +178,7 @@ bool CProcBlock::loadMatrix(Mat &matData, const string strFile, bool bDoublePrec
     }
 }
 
-bool CProcBlock::loadMatrix(Mat &matData, const string strFile){
+bool CProcBlock::loadMatrix(Mat &matData, const std::string strFile){
 
     ifstream sfIn;
     sfIn.open(strFile.c_str());
@@ -204,7 +203,7 @@ bool CProcBlock::loadMatrix(Mat &matData, const string strFile){
     return true;
 }
 
-bool CProcBlock::loadMatrix(string strFile){
+bool CProcBlock::loadMatrix(std::string strFile){
     ifstream sfIn;
     sfIn.open(strFile.c_str());
 
@@ -230,21 +229,21 @@ bool CProcBlock::loadMatrix(string strFile){
 }
 #endif
 
-bool CProcBlock::saveALSCParam(const CALSCParam& paramALSC, const string strOut){
-    ofstream sfLog;
-    sfLog.open(strOut.c_str(), ios::app | ios::out);
+bool CProcBlock::saveALSCParam(const CALSCParam& paramALSC, const std::string strOut){
+    std::ofstream sfLog;
+    sfLog.open(strOut.c_str(), std::ios::app | std::ios::out);
 
     if (sfLog.is_open()){
 
-        sfLog << "<ALSC parameters>" << endl;
-        sfLog << "The size of a matching patch: " << paramALSC.m_nPatch << endl;
-        sfLog << "Maximum eigenval: " << paramALSC.m_fEigThr << endl;
-        sfLog << "Maximum iteration: " << paramALSC.m_nMaxIter << endl;
-        sfLog << "Affine distortion limit: " << paramALSC.m_fAffThr << endl;
-        sfLog << "Translation limit: " << paramALSC.m_fDriftThr << endl;
-        sfLog << "Use intensity offset parameter: " << paramALSC.m_bIntOffset << endl;
-        sfLog << "Use weighting coefficients: " << paramALSC.m_bWeighting << endl;
-        sfLog << endl;
+        sfLog << "<ALSC parameters>" << std::endl;
+        sfLog << "The size of a matching patch: " << paramALSC.m_nPatch << std::endl;
+        sfLog << "Maximum eigenval: " << paramALSC.m_fEigThr << std::endl;
+        sfLog << "Maximum iteration: " << paramALSC.m_nMaxIter << std::endl;
+        sfLog << "Affine distortion limit: " << paramALSC.m_fAffThr << std::endl;
+        sfLog << "Translation limit: " << paramALSC.m_fDriftThr << std::endl;
+        sfLog << "Use intensity offset parameter: " << paramALSC.m_bIntOffset << std::endl;
+        sfLog << "Use weighting coefficients: " << paramALSC.m_bWeighting << std::endl;
+        sfLog << std::endl;
 
         sfLog.close();
     }
@@ -254,20 +253,20 @@ bool CProcBlock::saveALSCParam(const CALSCParam& paramALSC, const string strOut)
     return true;
 }
 
-bool CProcBlock::saveGOTCHAParam(CGOTCHAParam& paramGOTCHA, const string strOut){
-    ofstream sfLog;
-    sfLog.open(strOut.c_str(), ios::app | ios::out);
+bool CProcBlock::saveGOTCHAParam(CGOTCHAParam& paramGOTCHA, const std::string strOut){
+    std::ofstream sfLog;
+    sfLog.open(strOut.c_str(), std::ios::app | std::ios::out);
 
     if (sfLog.is_open()){
 
-        sfLog << "<GOTCHA parameters>" << endl;
-        sfLog << "Neighbour type: " << paramGOTCHA.getNeiType()<< endl;
-        sfLog << "Diffusion iteration: " << paramGOTCHA.m_nDiffIter << endl;
-        sfLog << "Diffusion threshold: " << paramGOTCHA.m_fDiffThr << endl;
-        sfLog << "Diffusion coefficient: " << paramGOTCHA.m_fDiffCoef << endl;
-        //sfLog << "Minimum image tile size: " <<  paramGOTCHA.m_nMinTile << endl;
-        sfLog << "Need initial ALSC on seed TPs: " << paramGOTCHA.m_bNeedInitALSC << endl;
-        sfLog << endl;
+        sfLog << "<GOTCHA parameters>" << std::endl;
+        sfLog << "Neighbour type: " << paramGOTCHA.getNeiType()<< std::endl;
+        sfLog << "Diffusion iteration: " << paramGOTCHA.m_nDiffIter << std::endl;
+        sfLog << "Diffusion threshold: " << paramGOTCHA.m_fDiffThr << std::endl;
+        sfLog << "Diffusion coefficient: " << paramGOTCHA.m_fDiffCoef << std::endl;
+        //sfLog << "Minimum image tile size: " <<  paramGOTCHA.m_nMinTile << std::endl;
+        sfLog << "Need initial ALSC on seed TPs: " << paramGOTCHA.m_bNeedInitALSC << std::endl;
+        sfLog << std::endl;
 
         sfLog.close();
     }

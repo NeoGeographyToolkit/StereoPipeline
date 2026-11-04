@@ -24,7 +24,6 @@
 namespace fs = boost::filesystem;
 using namespace vw;
 using namespace cv;
-using namespace std;
 
 namespace gotcha {
   
@@ -165,7 +164,7 @@ void CBatchProc::doBatchProcessing(vw::ImageView<float> & output_dispX,
 void CBatchProc::generateMask() {
   // These are kept in memory now, no need to read them from disk
 #if 0
-  string strMask = "-GM.tif";
+  std::string strMask = "-GM.tif";
   m_strMask = m_strOutPath + strMask;
   m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
   m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
@@ -221,7 +220,7 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
   Mask.convertTo(Mask, CV_8UC1);
 #endif
   
-  //string strTPFile = "-TP.txt";
+  //std::string strTPFile = "-TP.txt";
   //m_strTPFile = m_strOutPath + strTPFile;
 
   if (dispX.depth()==2 && dispY.depth()==2){
@@ -321,8 +320,8 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
   if (dispX.depth()==2 && dispY.depth()==2){
     dispX.convertTo(dispX, CV_16UC1);
     dispY.convertTo(dispY, CV_16UC1);
-    vector<ushort> Lx, Ly;
-    vector<float> Rx, Ry;
+    std::vector<ushort> Lx, Ly;
+    std::vector<float> Rx, Ry;
     for (int i=0; i<dispX.rows; i++){
       for (int j=0; j<dispX.cols; j++){
         if(dispX.at<ushort>(i,j)!=65535 && dispY.at<ushort>(i,j)!=65535){
@@ -393,8 +392,8 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
   } else if (dispX.depth()==5 && dispY.depth()==5){
     dispX.convertTo(dispX, CV_32FC1);
     dispY.convertTo(dispY, CV_32FC1);
-    vector<ushort> Lx, Ly;
-    vector<float> Rx, Ry;
+    std::vector<ushort> Lx, Ly;
+    std::vector<float> Rx, Ry;
     for (int i=0; i<dispX.rows; i++){
       for (int j=0; j<dispX.cols; j++){
         if(dispX.at<float>(i,j)!= 0.0 && dispY.at<float>(i,j)!=0.0){
@@ -492,15 +491,15 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs,
   paramDense.m_paramGotcha.m_paramALSC.m_nPatch = (int)tl["nALSCKernel"];
 
 #if 0
-  string strBase = m_strOutPath;
-  string strTPFile = "-TP.txt";
+  std::string strBase = m_strOutPath;
+  std::string strTPFile = "-TP.txt";
   paramDense.m_strTPFile = strBase + strTPFile;
   paramDense.m_paramGotcha.m_strMask = m_strMask;
-  string strUpdatedDispX = "-c1_refined.txt";
+  std::string strUpdatedDispX = "-c1_refined.txt";
   paramDense.m_strUpdatedDispX = strBase + strUpdatedDispX;
-  string strUpdatedDispY = "-c2_refined.txt";
+  std::string strUpdatedDispY = "-c2_refined.txt";
   paramDense.m_strUpdatedDispY = strBase + strUpdatedDispY;
-  string strUpdatedDispSim = "-uncertainty.txt";
+  std::string strUpdatedDispSim = "-uncertainty.txt";
   paramDense.m_strUpdatedDispSim = strBase + strUpdatedDispSim;
 
   paramDense.m_strImgL = m_strImgL;
