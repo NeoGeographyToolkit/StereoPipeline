@@ -127,7 +127,7 @@ void bendRay(double refraction_index,
 // when we multiply by the actual covariances, which are huge, so
 // those will be pre-multiplied by the squares of deltaPosition and
 // deltaQuat, with the same final result.
-void scaledDGTriangulationJacobian(vw::cartography::Datum const& datum,
+void scaledDGTriangulationJacobian(vw::Datum const& datum,
                                    vw::camera::CameraModel const* cam1,
                                    vw::camera::CameraModel const* cam2,
                                    vw::Vector2 const& pix1,
@@ -446,7 +446,7 @@ vw::Vector3 nedTri(vw::Vector3 const& cam1_ctr, vw::Vector3 const& cam2_ctr,
 // propagate uncertainties from the North-East horizontal plane
 // through triangulation, with the result also being in NED.
 // Bundle-adjusted cameras need no special treatment.
-void triangulationJacobian(vw::cartography::Datum const& datum,
+void triangulationJacobian(vw::Datum const& datum,
                            vw::Vector3 const& tri_nominal,
                            vw::camera::CameraModel const* cam1,
                            vw::camera::CameraModel const* cam2,
@@ -530,7 +530,7 @@ void triangulationJacobian(vw::cartography::Datum const& datum,
 
 // Propagate the covariances. Return propagated stddev. See the .h file for more info.
 vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
-                                vw::cartography::Datum const& datum,
+                                vw::Datum const& datum,
                                 double stddev1, double stddev2,
                                 vw::camera::CameraModel const* cam1,
                                 vw::camera::CameraModel const* cam2,

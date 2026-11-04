@@ -60,7 +60,7 @@ void PeruSatCsmCameraModel::populateCsmModel() {
 
   // Populate CsmModel class members
   m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
-  vw::cartography::Datum datum("WGS84");
+  vw::Datum datum("WGS84");
   m_semi_major_axis = datum.semi_major_axis();
   m_semi_minor_axis = datum.semi_minor_axis();
 
@@ -326,4 +326,3 @@ load_perusat_camera_model_from_xml(std::string const& path) {
 }
 
 } // end namespace asp
-

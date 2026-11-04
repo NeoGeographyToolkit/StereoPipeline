@@ -289,10 +289,10 @@ void find_error_image_and_do_stats(Options& opt, ImageViewRef<double> & error_im
 void read_dem(std::string const& pointcloud_file, 
               bool ecef, bool no_input_georef,
               bool & has_georef,
-              cartography::GeoReference & georef,
+              vw::GeoReference & georef,
               ImageViewRef<Vector3> & point_image) {
 
-  has_georef = vw::cartography::read_georeference(georef, pointcloud_file);
+  has_georef = vw::read_georeference(georef, pointcloud_file);
   
   // Sanity checks
   if (!has_georef)
@@ -310,7 +310,7 @@ void read_dem(std::string const& pointcloud_file,
   
   // Form the point image as projected coordinates and elevation
   vw::DiskImageView<double> dem(pointcloud_file);
-  point_image = vw::cartography::dem_to_proj(vw::create_mask(dem, nodata_val), georef);
+  point_image = vw::dem_to_proj(vw::create_mask(dem, nodata_val), georef);
 }
 
 int main(int argc, char *argv[]) {
@@ -323,8 +323,8 @@ int main(int argc, char *argv[]) {
   try {
     handle_arguments(argc, argv, opt);
 
-    cartography::Datum datum;
-    cartography::GeoReference georef;
+    vw::Datum datum;
+    vw::GeoReference georef;
     bool have_user_datum = false, have_input_georef = false;
     bool have_out_georef = false;
     bool project_from_ecef = false; // point_image is ECEF, project it on write
@@ -334,13 +334,13 @@ int main(int argc, char *argv[]) {
       if (!opt.ecef) {
         have_user_datum = asp::read_user_datum(0, 0, opt.datum, datum);
         if (!opt.no_input_georef)
-          have_input_georef = vw::cartography::read_georeference(georef, opt.pointcloud_file);
+          have_input_georef = vw::read_georeference(georef, opt.pointcloud_file);
         if (have_input_georef && opt.target_srs_string.empty())
           opt.target_srs_string = georef.get_wkt();
       
         if (have_user_datum || !opt.target_srs_string.empty()) {
           // Set the srs string into georef
-          vw::cartography::set_srs_string(opt.target_srs_string,
+          vw::set_srs_string(opt.target_srs_string,
                               have_user_datum, datum, georef);
           have_out_georef = true;
           datum = georef.datum();

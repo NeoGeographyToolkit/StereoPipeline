@@ -22,15 +22,14 @@
 #include <vw/Image/PixelMask.h>
 #include <vw/Cartography/GeoReference.h>
 namespace vw {
-namespace cartography {
 
 // Calculate the DEM slope and aspect in degrees. Use the same logic as gdaldem. 
 void calcSlopeAspect(vw::ImageView<vw::PixelMask<float>> const& dem, 
-                     vw::cartography::GeoReference const& georef,
+                     vw::GeoReference const& georef,
                      // Outputs
                      vw::ImageView<vw::PixelMask<float>> & slope,
                      vw::ImageView<vw::PixelMask<float>> & aspect);
 
-}} // namespace vw::cartography
+} // namespace vw
 
 #endif // __ASP_PC_ALIGN_SLOPE_ASPECT_H__

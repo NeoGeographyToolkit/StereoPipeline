@@ -226,7 +226,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
     }
 
     vw_out() << "Writing: " << d_sub_file << std::endl;
-    vw::cartography::block_write_gdal_image
+    vw::block_write_gdal_image
       (// Write to disk
        d_sub_file, d_sub, opt,
        TerminalProgressCallback("asp", "\t--> Low-resolution disparity:"));
@@ -246,8 +246,8 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
       opt.session->camera_models(left_camera_model, right_camera_model);
       const bool use_sphere_for_non_earth = true;
-      vw::cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
-                                                            use_sphere_for_non_earth);
+      vw::Datum datum = opt.session->get_datum(left_camera_model.get(),
+                                               use_sphere_for_non_earth);
       
       asp::filter_D_sub(opt, tx_left, tx_right,
                         left_camera_model, right_camera_model, datum, d_sub_file,
@@ -360,8 +360,8 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   // TODO(oalexan1): This must go to stereo_pprc.
   if (!stereo_settings().correlator_mode && opt.session->have_datum()) {
     bool use_sphere_for_non_earth = true;
-    cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
-                                                      use_sphere_for_non_earth);
+    vw::Datum datum = opt.session->get_datum(left_camera_model.get(),
+                                             use_sphere_for_non_earth);
     // Set up the transforms before the call to avoid indeterminate behavior
     auto tx_left = opt.session->tx_left(); 
     auto tx_right = opt.session->tx_right();
@@ -946,7 +946,7 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     vw_out() << "\t--------------------------------------------------\n";
   }
   
-  cartography::GeoReference left_georef;
+  vw::GeoReference left_georef;
   bool   has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
   bool   has_nodata      = false;
   double nodata          = -32768.0;
@@ -965,16 +965,16 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     ImageView<PixelMask<Vector2f>> result = fullres_disparity;
     opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(), // small block size
                                     ASPGlobalOptions::rfne_tile_size());
-    vw::cartography::block_write_gdal_image(d_file, result,
-                                            has_left_georef, left_georef,
-                                            has_nodata, nodata, opt, tpc);
+    vw::block_write_gdal_image(d_file, result,
+                               has_left_georef, left_georef,
+                               has_nodata, nodata, opt, tpc);
 
   } else {
     // Otherwise cast back to integer results to save on storage space.
-    vw::cartography::block_write_gdal_image(d_file, 
-                                            pixel_cast<PixelMask<Vector2i>>(fullres_disparity),
-                                            has_left_georef, left_georef,
-                                            has_nodata, nodata, opt, tpc);
+    vw::block_write_gdal_image(d_file, 
+                               pixel_cast<PixelMask<Vector2i>>(fullres_disparity),
+                               has_left_georef, left_georef,
+                               has_nodata, nodata, opt, tpc);
   }
 
   if (stereo_settings().save_lr_disp_diff) {
@@ -985,10 +985,10 @@ void stereo_correlation_2D(ASPGlobalOptions& opt) {
     opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(), // small block size
                                     ASPGlobalOptions::rfne_tile_size());
     auto tpc = TerminalProgressCallback("asp", "\t--> L-R-disp-diff :");
-    vw::cartography::block_write_gdal_image(lr_disp_diff_file,
-                                            apply_mask(lr_disp_diff, lr_disp_nodata),
-                                            has_left_georef, left_georef,
-                                            has_lr_disp_nodata, lr_disp_nodata, opt, tpc);
+    vw::block_write_gdal_image(lr_disp_diff_file,
+                               apply_mask(lr_disp_diff, lr_disp_nodata),
+                               has_left_georef, left_georef,
+                               has_lr_disp_nodata, lr_disp_nodata, opt, tpc);
   }
   
   return;
@@ -1023,7 +1023,7 @@ void save_disparity(ASPGlobalOptions& opt,
                     ImageView<PixelMask<Vector2f>> unaligned_disp_2d,
                     std::string const& out_disp_file) {
   
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   bool   has_georef  = false;
   bool   has_nodata  = false;
   double nodata      = -32768.0;
@@ -1031,11 +1031,11 @@ void save_disparity(ASPGlobalOptions& opt,
   opt.raster_tile_size = Vector2i(ASPGlobalOptions::rfne_tile_size(),
                                   ASPGlobalOptions::rfne_tile_size());
   opt.gdal_options["TILED"] = "YES";
-  vw::cartography::block_write_gdal_image(out_disp_file, unaligned_disp_2d,
-                                          has_georef, georef,
-                                          has_nodata, nodata, opt,
-                                          TerminalProgressCallback
-                                          ("asp", "\t--> Correlation :"));
+  vw::block_write_gdal_image(out_disp_file, unaligned_disp_2d,
+                             has_georef, georef,
+                             has_nodata, nodata, opt,
+                             TerminalProgressCallback
+                             ("asp", "\t--> Correlation :"));
 }
 
 // A small function to save the l-r-diff file
@@ -1043,7 +1043,7 @@ void save_lr_disp_diff(ASPGlobalOptions& opt,
                     vw::ImageView<vw::PixelMask<float>> unaligned_lr_disp_diff,
                     std::string const& lr_disp_diff_file) {
   
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   bool  has_georef  = false;
   bool  has_lr_disp_nodata = true;
   float lr_disp_nodata = -32768.0;
@@ -1052,11 +1052,11 @@ void save_lr_disp_diff(ASPGlobalOptions& opt,
                                   ASPGlobalOptions::rfne_tile_size());
   opt.gdal_options["TILED"] = "YES";
   auto tpc = TerminalProgressCallback("asp", "\t--> L-R-disp-diff :");
-  vw::cartography::block_write_gdal_image(lr_disp_diff_file,
-                                          apply_mask(unaligned_lr_disp_diff, lr_disp_nodata),
-                                          has_georef, georef,
-                                          has_lr_disp_nodata, lr_disp_nodata, 
-                                          opt, tpc);
+  vw::block_write_gdal_image(lr_disp_diff_file,
+                             apply_mask(unaligned_lr_disp_diff, lr_disp_nodata),
+                             has_georef, georef,
+                             has_lr_disp_nodata, lr_disp_nodata, 
+                             opt, tpc);
 }
 
 // Write an empty disparity of given dimensions
@@ -1126,8 +1126,8 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
   bool use_sphere_for_non_earth = true;
-  cartography::Datum datum = opt.session->get_datum(left_camera_model.get(),
-                                                    use_sphere_for_non_earth);
+  vw::Datum datum = opt.session->get_datum(left_camera_model.get(),
+                                           use_sphere_for_non_earth);
   // Try local alignment. If a tile lacks enough interest points for the
   // epipolar fit, retry once with both tile boxes expanded, bringing in more
   // texture and interest points (growing the left box is what directly cures a
@@ -1257,17 +1257,17 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
     if (stereo_settings().local_alignment_debug) {
       // Write the aligned 2D disparity to disk, for debugging
-      vw::cartography::GeoReference georef;
+      vw::GeoReference georef;
       bool   has_georef = false;
       bool   has_nodata = false;
       double nodata = std::numeric_limits<float>::quiet_NaN();
       std::string aligned_disp_file = opt.out_prefix + "-aligned-disparity_2D.tif";
       vw_out() << "Writing: " << aligned_disp_file << "\n";
-      vw::cartography::block_write_gdal_image(aligned_disp_file, aligned_disp_2d,
-                                              has_georef, georef,
-                                              has_nodata, nan, opt,
-                                              TerminalProgressCallback
-                                              ("asp", "\t--> Disparity :"));
+      vw::block_write_gdal_image(aligned_disp_file, aligned_disp_2d,
+                                 has_georef, georef,
+                                 has_nodata, nan, opt,
+                                 TerminalProgressCallback
+                                 ("asp", "\t--> Disparity :"));
     }
     
     // Undo the alignment

@@ -50,7 +50,7 @@ struct HeightErrEstim {
 // a height can be from this before the computed intensity
 // due to that height is bigger than max_intensity_err.
 void estimateHeightError(vw::ImageView<double> const& dem,
-                         vw::cartography::GeoReference const& geo,
+                         vw::GeoReference const& geo,
                          vw::Vector3 const& cameraPosition,
                          vw::Vector3 const& sunPosition,
                          asp::ReflParams const& refl_params,
@@ -66,7 +66,7 @@ void estimateHeightError(vw::ImageView<double> const& dem,
 
 // Estimate the height error at each DEM pixel based on estimates for each image
 void combineHeightErrors(boost::shared_ptr<HeightErrEstim> const& heightErrEstim,
-                         SfsOptions const& opt, vw::cartography::GeoReference const& geo);
+                         SfsOptions const& opt, vw::GeoReference const& geo);
 
 } // end namespace asp
 

@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
                                                 opt.prefilter_kernel_width);
     }
     
-    vw::cartography::GeoReference left_georef;
+    vw::GeoReference left_georef;
     bool has_left_georef = read_georeference(left_georef, opt.left_image);
     bool has_nodata      = true;
     std::string output_image = opt.output_prefix + "-" + opt.metric + ".tif";

@@ -297,7 +297,7 @@ void MainWidget::saveVectorLayerAsShapeFile() {
     return;
 
   bool has_geo = app_data.images[m_polyLayerIndex].has_georef;
-  vw::cartography::GeoReference const& geo = app_data.images[m_polyLayerIndex].georef;
+  vw::GeoReference const& geo = app_data.images[m_polyLayerIndex].georef;
 
   // Save only polygons in the given layer. Polygons in other layers
   // can have individual georeferences.

@@ -31,7 +31,6 @@
 #include <cstdint>
 
 using namespace vw;
-using namespace vw::cartography;
 
 //------------------------------------------------------------------------------------------
 // Class CsvConv functions
@@ -195,7 +194,7 @@ void asp::CsvConv::parse_csv_format(std::string const& csv_format_str,
 // pass that info into the georeference for the purpose of converting
 // later from easting and northing to lon and lat.
 // TODO(oalexan1): This is fragile. It can quietly default to WGS84.
-bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
+bool asp::CsvConv::parse_georef(vw::GeoReference & georef) const {
 
   bool success = false;
   if (this->utm_zone >= 0) { // UTM case, for Earth only
@@ -209,7 +208,7 @@ bool asp::CsvConv::parse_georef(vw::cartography::GeoReference & georef) const {
   } else if (this->csv_srs != "") { // Not UTM, with PROJ string
     bool have_user_datum = false;
     Datum user_datum;
-    vw::cartography::set_srs_string(this->csv_srs, have_user_datum, user_datum, georef);
+    vw::set_srs_string(this->csv_srs, have_user_datum, user_datum, georef);
     success = true;
   }
 
@@ -530,7 +529,7 @@ Vector3 asp::CsvConv::csv_to_cartesian_or_point_height(CsvRecord const& csv,
 }
 
 vw::Vector3 asp::CsvConv::csv_to_cartesian(CsvRecord const& csv,
-                                           vw::cartography::GeoReference const& geo) const {
+                                           vw::GeoReference const& geo) const {
   Vector3 ordered_csv = sort_parsed_vector3(csv);
 
   Vector3 xyz;
@@ -561,7 +560,7 @@ vw::Vector3 asp::CsvConv::csv_to_cartesian(CsvRecord const& csv,
 
 // Returns Vector3(lon, lat, height_above_datum)
 vw::Vector3 asp::CsvConv::csv_to_geodetic(CsvRecord const& csv,
-                                          vw::cartography::GeoReference const& geo) const {
+                                          vw::GeoReference const& geo) const {
   Vector3 ordered_csv = sort_parsed_vector3(csv);
   Vector3 llh;
 
@@ -591,7 +590,7 @@ vw::Vector3 asp::CsvConv::csv_to_geodetic(CsvRecord const& csv,
 }
 
 vw::Vector2 asp::CsvConv::csv_to_lonlat(CsvRecord const& csv,
-                                        vw::cartography::GeoReference const& geo) const {
+                                        vw::GeoReference const& geo) const {
   Vector3 ordered_csv = sort_parsed_vector3(csv);
 
   if (this->format == XYZ) {
@@ -677,7 +676,7 @@ bool asp::is_las_or_csv_or_pcd(std::string const& file) {
 
 bool asp::read_user_datum(double semi_major, double semi_minor,
                           std::string const& reference_spheroid,
-                          cartography::Datum& datum) {
+                          vw::Datum& datum) {
   // Select a cartographic datum. There are several hard coded datums
   // that can be used here, or the user can specify their own.
   if (reference_spheroid != "") {
@@ -686,10 +685,10 @@ bool asp::read_user_datum(double semi_major, double semi_minor,
              std::abs(semi_minor - 6356752.3142451793) < 1e-6) {
     datum.set_well_known_datum("WGS84");
   } else if (semi_major > 0 && semi_minor > 0) {
-    datum = cartography::Datum("User Specified Datum",
-                               "User Specified Spheroid",
-                               "Reference Meridian",
-                               semi_major, semi_minor, 0.0);
+    datum = vw::Datum("User Specified Datum",
+                      "User Specified Spheroid",
+                      "Reference Meridian",
+                      semi_major, semi_minor, 0.0);
   } else {
     return false;
   }
@@ -920,7 +919,7 @@ void asp::setupSampleRate(vw::int32 cols, vw::int32 rows, vw::int32 subsample_am
 // results in a tighter range of longitudes, such as when crossing
 // the international date line.
 vw::BBox2 asp::estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image,
-                                vw::cartography::Datum const& datum) {
+                                vw::Datum const& datum) {
 
   Stopwatch sw;
   sw.start();
@@ -996,7 +995,7 @@ vw::BBox2 asp::estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image
 
 // Find the median longitude and latitude for a subset of the point cloud
 void asp::median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
-                         vw::cartography::GeoReference const& georef,
+                         vw::GeoReference const& georef,
                          double & lon, double & lat) {
 
   vw_out() << "Estimating the median longitude and latitude for the cloud.\n";
@@ -1067,8 +1066,8 @@ std::string asp::get_cloud_type(std::string const& file_name) {
   // interpreted as a DEM.
   int nc = vw::get_num_channels(file_name);
 
-  vw::cartography::GeoReference geo;
-  bool has_georef = vw::cartography::read_georeference(geo, file_name);
+  vw::GeoReference geo;
+  bool has_georef = vw::read_georeference(geo, file_name);
 
   if (nc == 1 && has_georef)
     return "DEM";
@@ -1112,12 +1111,12 @@ bool asp::has_stddev(std::vector<std::string> const& pc_files) {
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(pc_files[i]));
 
     std::string adj_key = "BAND5";
-    vw::cartography::read_header_string(*rsrc.get(), adj_key, val);
+    vw::read_header_string(*rsrc.get(), adj_key, val);
     if (val != "HorizontalStdDev")
       has_sd = false;
 
     adj_key = "BAND6";
-    vw::cartography::read_header_string(*rsrc.get(), adj_key, val);
+    vw::read_header_string(*rsrc.get(), adj_key, val);
     if (val != "VerticalStdDev")
       has_sd = false;
   }

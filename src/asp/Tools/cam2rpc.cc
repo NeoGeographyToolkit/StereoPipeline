@@ -52,7 +52,6 @@ namespace po = boost::program_options;
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::cartography;
 
 struct Options : public vw::GdalWriteOptions {
   double penalty_weight;
@@ -171,8 +170,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                                                 opt.datum_str, opt.datum);
     // Set the srs string into georef.
     if (!opt.target_srs_string.empty()) {
-      vw::cartography::GeoReference georef;
-      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, opt.datum, georef);
+      vw::GeoReference georef;
+      vw::set_srs_string(opt.target_srs_string, have_user_datum, opt.datum, georef);
       opt.datum = georef.datum();
     }
 
@@ -241,9 +240,9 @@ void sample_dem_perim_diag(BBox2 const& image_box,
   // Calc samples on box perimeter and diagonals
   int num_steps = 100;
   std::vector<vw::Vector2> points;
-  vw::cartography::sample_float_box(b, points, num_steps);
+  vw::sample_float_box(b, points, num_steps);
   
-  double height_guess = vw::cartography::demHeightGuess(dem);
+  double height_guess = vw::demHeightGuess(dem);
   vw::Vector3 xyz_guess(0, 0, 0); // will be updated
   
   for (std::size_t j = 0; j < points.size(); j++) {
@@ -258,7 +257,7 @@ void sample_dem_perim_diag(BBox2 const& image_box,
     try {
 
       // Intersect with the DEM
-      xyz = vw::cartography::
+      xyz = vw::
         camera_pixel_to_dem_xyz(cam->camera_center(pix),
                                 cam->pixel_to_vector(pix),
                                 dem,
@@ -516,12 +515,12 @@ int main(int argc, char *argv[]) {
       GeoReference img_geo;
       bool has_img_geo = false;
       vw::TerminalProgressCallback tpc("asp", "\t-->: ");
-      vw::cartography::block_write_gdal_image(out_img_file,
-                                              apply_mask(output_img, opt.output_nodata_value),
-                                              has_img_geo, img_geo,
-                                              opt.has_output_nodata,
-                                              opt.output_nodata_value,
-                                              opt, tpc);
+      vw::block_write_gdal_image(out_img_file,
+                                 apply_mask(output_img, opt.output_nodata_value),
+                                 has_img_geo, img_geo,
+                                 opt.has_output_nodata,
+                                 opt.output_nodata_value,
+                                 opt, tpc);
     }
 
     if (opt.skip_computing_rpc) 
@@ -556,7 +555,7 @@ int main(int argc, char *argv[]) {
 
     // Form and save the model
     vw::vw_out() << "Writing: " << opt.output_rpc << "\n";
-    vw::cartography::Datum datum(opt.datum);
+    vw::Datum datum(opt.datum);
     asp::RPCModel rpc(datum, line_num, line_den, samp_num, samp_den,
                       pixel_offset, pixel_scale, llh_offset, llh_scale);
     rpc.saveXML(opt.output_rpc);

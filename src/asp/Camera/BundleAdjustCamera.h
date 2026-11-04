@@ -119,7 +119,7 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
                            std::vector<vw::CamPtr>            const& optimized_cams,
                            std::vector<vw::ip::InterestPoint> const& left_ip,
                            std::vector<vw::ip::InterestPoint> const& right_ip,
-                           vw::cartography::GeoReference      const& dem_georef,
+                           vw::GeoReference      const& dem_georef,
                            vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                            // Will append below
                            std::vector<vw::Vector<float, 4>>       & mapprojPoints,
@@ -276,7 +276,7 @@ void saveHorizVertErrors(std::string const& horiz_vert_errors_file,
 
 // Save mapprojected matches offsets for each image pair having matches
 void saveMapprojOffsets(std::string                       const& out_prefix,
-                        vw::cartography::GeoReference     const& mapproj_dem_georef,
+                        vw::GeoReference     const& mapproj_dem_georef,
                         std::vector<vw::Vector<float, 4>> const& mapprojPoints,
                         std::vector<asp::MatchPairStats>  const& mapprojOffsets,
                         std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
@@ -285,18 +285,18 @@ void saveMapprojOffsets(std::string                       const& out_prefix,
 // Write a pinhole camera file to disk after updating the intrinsics and
 // extrinsics. Return the path to the saved file.
 std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
-                           vw::cartography::Datum const& datum,
+                           vw::Datum const& datum,
                            asp::BaState const& ba_state);
 
 // Write an optical bar camera file to disk after updating the intrinsics and
 // extrinsics. Return the path to the saved file.
 std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
-                              vw::cartography::Datum const& datum,
+                              vw::Datum const& datum,
                               asp::BaState const& ba_state);
 
 // Write a CSM camera file to disk. Assumes that the intrinsics are optimized.
 std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
-                                 vw::cartography::Datum const& datum,
+                                 vw::Datum const& datum,
                                  asp::BaState const& ba_state);
 
 // Write a camera adjustment file to disk, and potentially a camera file with
@@ -365,7 +365,7 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
 void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaState const& ba_state,
-                      vw::cartography::Datum const& datum,
+                      vw::Datum const& datum,
                       std::string const& prefix);
 
 /// For each option, the string must include a subset of the entries:
@@ -397,7 +397,7 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           std::vector<vw::ip::InterestPoint> const& left_ip,
                           std::vector<vw::ip::InterestPoint> const& right_ip,
                           double stddev1, double stddev2,
-                          vw::cartography::Datum const& datum,
+                          vw::Datum const& datum,
                           vw::BathyData const& bathy_data,
                           // Outputs
                           std::vector<vw::Vector<double, 5>> & uncertPoints,
@@ -472,7 +472,7 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
 
 // Sanity check. This does not prevent the user from setting the wrong datum,
 // but it can catch unreasonable height values for GCP.
-void checkGcpRadius(vw::cartography::Datum const& datum,
+void checkGcpRadius(vw::Datum const& datum,
                     vw::ba::ControlNetwork const& cnet);
 
 // Some logic for camera position uncertainty, used in bundle_adjust and jitter_solve

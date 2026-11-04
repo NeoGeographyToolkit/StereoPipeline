@@ -55,7 +55,6 @@
 #include <cmath>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

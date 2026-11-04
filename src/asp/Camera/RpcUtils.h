@@ -30,10 +30,8 @@
 #include <vector>
 
 namespace vw {
-  namespace cartography {
     class Datum;
     class GeoReference;
-  }
 }
 
 namespace asp {
@@ -43,7 +41,7 @@ namespace asp {
 void sample_llh_pix_bbox(vw::BBox2 const& ll_box,
                          vw::Vector2 const& h_range,
                          int num_samples,
-                         vw::cartography::Datum const& datum,
+                         vw::Datum const& datum,
                          vw::CamPtr cam,
                          vw::BBox2 const& image_box,
                          // Outputs
@@ -53,7 +51,7 @@ void sample_llh_pix_bbox(vw::BBox2 const& ll_box,
 // Add pixel and llh samples along the perimeter and diagonals of image_box.
 // Constrain by the ll box.
 void add_perimeter_diag_points(vw::BBox2 const& image_box, 
-                               vw::cartography::Datum const& datum,
+                               vw::Datum const& datum,
                                vw::CamPtr cam,
                                vw::BBox2 const& ll, // lon-lat box
                                vw::Vector2 const& H, // height range

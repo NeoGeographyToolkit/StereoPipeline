@@ -63,7 +63,7 @@ IsisInterfaceMapFrame::IsisInterfaceMapFrame(std::string const& filename) :
 
 Vector2 IsisInterfaceMapFrame::point_to_pixel(Vector3 const& point) const {
   // TODO(oalexan1): It looks that the code below assumes the datum to be spherical.
-  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius_estimate(point); // TODO: INACCURATE!!!
+  Vector3 lon_lat_radius = vw::xyz_to_lon_lat_radius_estimate(point); // TODO: INACCURATE!!!
   if (lon_lat_radius[0] < 0)
     lon_lat_radius[0] += 360.0;
 
@@ -95,7 +95,7 @@ Vector3 IsisInterfaceMapFrame::pixel_to_vector(Vector2 const& px) const {
                           m_camera->LocalRadius(m_projection->UniversalLatitude(),
                                                  m_projection->UniversalLongitude()).meters());
 
-  Vector3 point = cartography::lon_lat_radius_to_xyz_estimate(lon_lat_radius); // TODO: INACCURATE!!!
+  Vector3 point = vw::lon_lat_radius_to_xyz_estimate(lon_lat_radius); // TODO: INACCURATE!!!
   return normalize(point-m_center);
 }
 

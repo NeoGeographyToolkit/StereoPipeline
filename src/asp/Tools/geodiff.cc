@@ -29,7 +29,6 @@
 #include <vw/Cartography/PointImageManipulation.h>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -209,15 +208,15 @@ void dem2dem_diff(Options& opt) {
     
   if (opt.use_float) {
     ImageViewRef<float> difference_float = channel_cast<float>(masked_difference);
-    vw::cartography::block_write_gdal_image(output_file, difference_float,
-                                            has_georef, crop_georef,
-                                            has_nodata, opt.nodata_value,
-                                            opt, tpc);
+    vw::block_write_gdal_image(output_file, difference_float,
+                               has_georef, crop_georef,
+                               has_nodata, opt.nodata_value,
+                               opt, tpc);
   } else {
-    vw::cartography::block_write_gdal_image(output_file, masked_difference,
-                                            has_georef, crop_georef,
-                                            has_nodata, opt.nodata_value,
-                                            opt, tpc);
+    vw::block_write_gdal_image(output_file, masked_difference,
+                               has_georef, crop_georef,
+                               has_nodata, opt.nodata_value,
+                               opt, tpc);
   }
 }
 

@@ -58,10 +58,10 @@
 
 // Project rows [r0, r1) of an ECEF strip to gr's projection, in place, batching
 // one PROJ call per row. Invalid points become (0, 0, NaN).
-static void project_rows(vw::cartography::GeoReference const& gr,
+static void project_rows(vw::GeoReference const& gr,
                          vw::ImageView<vw::Vector3>& strip, int r0, int r1) {
 
-  vw::cartography::Datum const& datum = gr.datum();
+  vw::Datum const& datum = gr.datum();
   double nan = std::numeric_limits<double>::quiet_NaN();
   int cols = strip.cols();
   std::vector<vw::Vector2> ll;
@@ -93,7 +93,7 @@ static void project_rows(vw::cartography::GeoReference const& gr,
 // Project an ECEF block in place, splitting the rows across threads. Each thread
 // gets its own GeoReference copy, as a shared OGRCoordinateTransformation is not
 // thread-safe (the copy deep-copies and rebuilds the transform).
-static void project_ecef_block(vw::cartography::GeoReference const& gr,
+static void project_ecef_block(vw::GeoReference const& gr,
                                vw::ImageView<vw::Vector3>& block) {
 
   int rows = block.rows();
@@ -108,7 +108,7 @@ static void project_ecef_block(vw::cartography::GeoReference const& gr,
     return;
   }
 
-  std::vector<vw::cartography::GeoReference> georefs(nthreads, gr); // deep copies
+  std::vector<vw::GeoReference> georefs(nthreads, gr); // deep copies
   std::vector<std::thread> threads;
   int chunk = (rows + nthreads - 1) / nthreads;
   for (int t = 0; t < nthreads; t++) {
@@ -122,7 +122,7 @@ static void project_ecef_block(vw::cartography::GeoReference const& gr,
     th.join();
 }
 
-static void project_ecef_strip(vw::cartography::GeoReference const& gr,
+static void project_ecef_strip(vw::GeoReference const& gr,
                                vw::ImageView<vw::Vector3>& strip) {
   project_ecef_block(gr, strip);
 }
@@ -146,7 +146,7 @@ public:
                 bool save_triangulation_error,
                 double max_valid_triangulation_error,
                 bool project_from_ecef,
-                vw::cartography::GeoReference const& georef,
+                vw::GeoReference const& georef,
                 int block_w, int block_h,
                 vw::Vector3 const& offset, vw::Vector3 const& scale);
   ~StreamedCloud();
@@ -165,7 +165,7 @@ private:
 
   bool m_has_georef;
   bool m_project;                         // project m_point_image (ECEF) to m_georef
-  vw::cartography::GeoReference m_georef; // output projection, used if m_project
+  vw::GeoReference m_georef; // output projection, used if m_project
   vw::ImageViewRef<vw::Vector3> m_point_image;
   vw::ImageViewRef<double> m_error_image;
   vw::ImageViewRef<float> m_intensity;
@@ -210,7 +210,7 @@ StreamedCloud::StreamedCloud(bool has_georef,
                              bool save_triangulation_error,
                              double max_valid_triangulation_error,
                              bool project_from_ecef,
-                             vw::cartography::GeoReference const& georef,
+                             vw::GeoReference const& georef,
                              int block_w, int block_h,
                              vw::Vector3 const& offset, vw::Vector3 const& scale):
   m_has_georef(has_georef),
@@ -490,7 +490,7 @@ void StreamProcessor::writeView(const PointViewPtr view) {
 namespace asp {
 
 bool georef_from_las(std::string const& las_file,
-                     vw::cartography::GeoReference & georef) {
+                     vw::GeoReference & georef) {
   
   pdal::Options read_options;
   read_options.add("filename", las_file);
@@ -546,7 +546,7 @@ bool isCopc(std::string const& file) {
 } 
 
 // Save a point cloud and triangulation error to the LAS format.
-void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
+void write_las(bool has_georef, vw::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
                vw::ImageViewRef<float> intensity,
@@ -646,7 +646,7 @@ void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
 // without a full transform pass. The margin guards against the subsample
 // missing the true extremes.
 vw::BBox3 projected_pointcloud_bbox_estim(vw::ImageViewRef<vw::Vector3> const& ecef_image,
-                                          vw::cartography::GeoReference const& georef,
+                                          vw::GeoReference const& georef,
                                           double margin) {
 
   int cols = ecef_image.cols(), rows = ecef_image.rows();
@@ -695,7 +695,7 @@ class PDAL_DLL LasProcessor: public pdal::Writer, public pdal::Streamable {
 public:
   LasProcessor(std::string const& file_name, std::int64_t num_points_to_load,
               vw::BBox2 const& lonlat_box,
-              vw::cartography::GeoReference const& input_georef,
+              vw::GeoReference const& input_georef,
               bool verbose, bool calc_shift,
               std::int64_t num_total_points, 
               // Outputs
@@ -736,11 +736,11 @@ private:
   std::string m_file_name;
   std::int64_t m_num_points_to_load;
   vw::BBox2 m_lonlat_box;
-  vw::cartography::GeoReference m_input_georef;
+  vw::GeoReference m_input_georef;
   bool m_verbose;
   bool m_calc_shift;
   bool m_has_las_georef;
-  vw::cartography::GeoReference m_las_georef;
+  vw::GeoReference m_las_georef;
   double m_load_ratio;
   bool m_shift_was_calc;
   std::int64_t m_points_count;
@@ -835,7 +835,7 @@ public:
 
   TransformFilter(std::int64_t num_total_points, 
                   bool has_georef, 
-                  vw::cartography::GeoReference const& georef,
+                  vw::GeoReference const& georef,
                   Eigen::MatrixXd const& T): 
         m_has_georef(has_georef), m_georef(georef), m_T(T), 
         m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {
@@ -892,7 +892,7 @@ private:
   }
     
   bool m_has_georef;
-  vw::cartography::GeoReference m_georef;
+  vw::GeoReference m_georef;
   Eigen::MatrixXd m_T;
   std::int64_t m_spacing;
   double m_inc_amount;
@@ -951,7 +951,7 @@ void setupLasOrCopcReader(std::string const& in_file,
 std::int64_t load_las_aux(std::string const& file_name,
                           std::int64_t num_points_to_load,
                           vw::BBox2 const& lonlat_box,
-                          vw::cartography::GeoReference const& geo,
+                          vw::GeoReference const& geo,
                           bool verbose,
                           vw::BBox2 const& copc_win, bool copc_read_all,
                           bool calc_shift,
@@ -997,7 +997,7 @@ void load_las(std::string const& file_name,
               vw::BBox2 const& copc_win, bool copc_read_all,
               bool calc_shift,
               vw::Vector3 & shift,
-              vw::cartography::GeoReference const& geo,
+              vw::GeoReference const& geo,
               bool verbose, Eigen::MatrixXd & data) {
 
   std::int64_t num_total_points 
@@ -1075,7 +1075,7 @@ void apply_transform_to_las(std::string const& input_file,
     vw::vw_throw(vw::IOErr() << "Unknown LAS file type: " << input_file);
   }
   
-  vw::cartography::GeoReference las_georef;
+  vw::GeoReference las_georef;
   bool has_georef = asp::georef_from_las(input_file, las_georef);
 
   // Set up the filter

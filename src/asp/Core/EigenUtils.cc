@@ -26,11 +26,10 @@
 #include <vw/FileIO/DiskImageUtils.h>
 
 using namespace vw;
-using namespace vw::cartography;
 
 namespace asp {
 
-vw::Vector3 cartesian_to_geodetic_adj(vw::cartography::GeoReference const&
+vw::Vector3 cartesian_to_geodetic_adj(vw::GeoReference const&
                                       geo, vw::Vector3 xyz){
 
   // cartesian_to_geodetic() returns longitude between -180 and 180.
@@ -95,7 +94,7 @@ void random_pc_subsample(std::int64_t m, Eigen::MatrixXd& points){
 std::int64_t load_csv_aux(std::string const& file_name, std::int64_t num_points_to_load,
                           vw::BBox2 const& lonlat_box,
                           bool calc_shift, vw::Vector3 & shift,
-                          vw::cartography::GeoReference const& geo, CsvConv const& csv_conv,
+                          vw::GeoReference const& geo, CsvConv const& csv_conv,
                           bool & is_lola_rdr_format, double & median_longitude,
                           bool verbose, Eigen::MatrixXd & data) {
 
@@ -338,7 +337,7 @@ void load_csv(std::string const& file_name,
                  vw::BBox2 const& lonlat_box,
                  bool calc_shift,
                  vw::Vector3 & shift,
-                 vw::cartography::GeoReference const& geo,
+                 vw::GeoReference const& geo,
                  CsvConv const& csv_conv,
                  bool & is_lola_rdr_format,
                  double & median_longitude,
@@ -377,8 +376,8 @@ void load_dem_pixel_type(std::string const& file_name,
   
   data.conservativeResize(DIM+1, num_points_to_load);
 
-  vw::cartography::GeoReference dem_geo;
-  bool has_georef = vw::cartography::read_georeference( dem_geo, file_name );
+  vw::GeoReference dem_geo;
+  bool has_georef = vw::read_georeference( dem_geo, file_name );
   if (!has_georef)
     vw_throw(vw::ArgumentErr() << "DEM: " << file_name
                                << " does not have a georeference.\n");
@@ -500,7 +499,7 @@ vw::int64 load_pc_aux(std::string const& file_name,
                       vw::BBox2 const& lonlat_box,
                       bool calc_shift,
                       vw::Vector3 & shift,
-                      vw::cartography::GeoReference const& geo,
+                      vw::GeoReference const& geo,
                       bool verbose, Eigen::MatrixXd & data){
 
   data.conservativeResize(DIM+1, num_points_to_load);
@@ -567,7 +566,7 @@ void load_pc(std::string const& file_name,
              vw::BBox2 const& lonlat_box,
              bool calc_shift,
              vw::Vector3 & shift,
-             vw::cartography::GeoReference const& geo,
+             vw::GeoReference const& geo,
              bool verbose, Eigen::MatrixXd & data){
 
   vw::int64 num_total_points = load_pc_aux(file_name, num_points_to_load,

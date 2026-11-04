@@ -46,7 +46,6 @@
 #include <boost/filesystem/fstream.hpp>
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -270,7 +269,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Load up the datum
-    cartography::Datum datum(opt.datum);
+    vw::Datum datum(opt.datum);
     vw_out() << "Using datum: " << datum << std::endl;
 
     std::string csv_file = fs::path(opt.out_file).replace_extension("csv").string();

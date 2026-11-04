@@ -25,9 +25,7 @@
 #include <vw/Math/Vector.h>
 
 namespace vw {
-  namespace cartography {
     class Datum;
-  }
   namespace ba {
     class ControlNetwork;
   }
@@ -220,7 +218,7 @@ public:
   /// - Points are stored as x,y,z in the points vector up to num_points.
   /// - Only every skip'th point is recorded to the file.
   void record_points_to_kml(const std::string &kml_path,
-                            const vw::cartography::Datum& datum,
+                            const vw::Datum& datum,
                             size_t skip, const std::string name);
 
   /// Compute the offset index in the intrinsics

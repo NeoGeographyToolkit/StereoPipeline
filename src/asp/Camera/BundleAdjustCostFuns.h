@@ -440,7 +440,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            asp::CRN                              const& crn,
                            std::vector<int>                       const& count_map,
                            vw::ImageViewRef<vw::PixelMask<float>> const& weight_image,
-                           vw::cartography::GeoReference          const& weight_image_georef,
+                           vw::GeoReference          const& weight_image_georef,
                            std::vector<vw::Vector3>               const& dem_xyz_vec,
                            bool have_weight_image,
                            bool have_dem,
@@ -540,4 +540,3 @@ void addGroupCamUncertaintyResidual(int icam,
 } // end namespace asp
 
 #endif // __ASP_CAMERA_BUNDLE_ADJUST_COST_FUNCTIONS_H__
-

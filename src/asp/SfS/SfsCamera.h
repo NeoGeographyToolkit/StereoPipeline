@@ -32,7 +32,7 @@ namespace asp {
 class ApproxCameraModel: public vw::camera::CameraModel {
 private:
   mutable vw::Vector3 m_mean_dir;  // mean vector from camera to ground
-  vw::cartography::GeoReference m_geo;
+  vw::GeoReference m_geo;
   double m_mean_ht;
   mutable vw::ImageView<vw::PixelMask<vw::Vector3>> m_pixel_to_vec_mat;
   mutable vw::ImageView<vw::PixelMask<vw::Vector2>> m_point_to_pix_mat;
@@ -53,7 +53,7 @@ public:
   ApproxCameraModel(vw::CamPtr const& exact_camera,
                     vw::BBox2i img_bbox,
                     vw::ImageView<double> const& dem,
-                    vw::cartography::GeoReference const& geo,
+                    vw::GeoReference const& geo,
                     double nodata_val,
                     vw::Mutex& camera_mutex);
 

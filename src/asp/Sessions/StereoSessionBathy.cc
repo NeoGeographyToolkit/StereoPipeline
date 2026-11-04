@@ -36,7 +36,6 @@
 #include <boost/filesystem/operations.hpp>
 
 using namespace vw;
-using namespace vw::cartography;
 
 namespace asp {
 
@@ -62,7 +61,7 @@ void crop_bathy_mask(vw::GdalWriteOptions const& options,
   float mask_nodata_value = 0.0f;
   vw::read_nodata_val(input_mask_file, mask_nodata_value);
 
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   bool has_georef = read_georeference(georef, input_image_file);
 
   bool has_mask_nodata = true;
@@ -235,7 +234,7 @@ void StereoSession::align_bathy_masks(vw::GdalWriteOptions const& options) {
   float output_nodata = -32768.0;
 
   // Read the georef of the cropped left and right images saved before the masks
-  vw::cartography::GeoReference left_georef, right_georef;
+  vw::GeoReference left_georef, right_georef;
   bool has_left_georef  = read_georeference(left_georef,
                                             this->left_cropped_image(crop_left));
   bool has_right_georef = read_georeference(right_georef,

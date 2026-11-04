@@ -77,7 +77,6 @@
 namespace fs = boost::filesystem;
 
 using namespace vw::camera;
-using namespace vw::cartography;
 using namespace asp;
 
 // Run sfs
@@ -86,7 +85,7 @@ void runSfs(// Fixed quantities
             double                             gridx,
             double                             gridy,
             SfsOptions                       & opt,
-            GeoReference               const & geo,
+            vw::GeoReference           const & geo,
             double                             smoothness_weight,
             double                             max_dem_height,
             double                             dem_nodata_val,
@@ -158,7 +157,7 @@ void runSfs(// Fixed quantities
 void loadCamerasSunPos(SfsOptions &opt,
                        vw::ImageView<double> const& dem,
                        double dem_nodata_val,
-                       vw::cartography::GeoReference const& geo,
+                       vw::GeoReference const& geo,
                        std::vector<vw::CamPtr> &cameras,
                        std::vector<vw::Vector3> &sunPosition) {
 
@@ -222,7 +221,7 @@ void loadCamerasSunPos(SfsOptions &opt,
 } // end function loadCamerasSunPos
 
 void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
-                             vw::cartography::GeoReference const& geo,
+                             vw::GeoReference const& geo,
                              double dem_nodata_val,
                              // Outputs
                              SfsOptions &opt,
@@ -317,7 +316,7 @@ void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
 } // end function calcApproxCamsCropBoxes
 
 void calcCropBoxes(vw::ImageView<double> const& dem,
-                   vw::cartography::GeoReference const& geo,
+                   vw::GeoReference const& geo,
                    std::vector<vw::CamPtr> const& cameras,
                    // Outputs
                    SfsOptions &opt,
@@ -439,14 +438,14 @@ double setupDemNodata(SfsOptions const& opt) {
 
 // Read the georeference for the DEM and albedo
 void loadGeoref(SfsOptions const& opt,
-                vw::cartography::GeoReference &geo,
-                vw::cartography::GeoReference &albedo_geo) {
+                vw::GeoReference &geo,
+                vw::GeoReference &albedo_geo) {
 
-  if (!vw::cartography::read_georeference(geo, opt.input_dem))
+  if (!vw::read_georeference(geo, opt.input_dem))
       vw::vw_throw(vw::ArgumentErr() << "The input DEM has no georeference.\n");
       
   if (!opt.input_albedo.empty()) {
-    if (!vw::cartography::read_georeference(albedo_geo, opt.input_albedo))
+    if (!vw::read_georeference(albedo_geo, opt.input_albedo))
       vw::vw_throw(vw::ArgumentErr() << "The input albedo has no georeference.\n");
   } else {
     // Ensure initialization
@@ -472,15 +471,15 @@ void loadGeoref(SfsOptions const& opt,
 
 // If --ref-map is passed in, crop to its extent. This will create opt.crop_win.
 void setupRefMap(vw::ImageViewRef<double> const& full_dem,
-                 vw::cartography::GeoReference const& geo,
+                 vw::GeoReference const& geo,
                  SfsOptions & opt) {
 
   if (opt.ref_map.empty())
     return;
 
   // Read the georeference from the reference map
-  vw::cartography::GeoReference ref_map_georef;
-  bool has_ref_map_georef = vw::cartography::read_georeference(ref_map_georef, opt.ref_map);
+  vw::GeoReference ref_map_georef;
+  bool has_ref_map_georef = vw::read_georeference(ref_map_georef, opt.ref_map);
   if (!has_ref_map_georef)
     vw::vw_throw(vw::ArgumentErr() << "The image in --ref-map has no georeference.\n");
       
@@ -492,7 +491,7 @@ void setupRefMap(vw::ImageViewRef<double> const& full_dem,
   // same, do not use forward_bbox, as that expands the box by a pixel
   std::string dem_wkt = geo.get_wkt();
   std::string ref_wkt = ref_map_georef.get_wkt();
-  vw::cartography::GeoTransform ref2dem(ref_map_georef, geo);
+  vw::GeoTransform ref2dem(ref_map_georef, geo);
   if (dem_wkt == ref_wkt) {
     vw::Vector2 beg = ref2dem.forward(vw::Vector2(0, 0));
     vw::Vector2 end = ref2dem.forward(vw::Vector2(ref_size.x(), ref_size.y()));
@@ -517,7 +516,7 @@ void setupRefMap(vw::ImageViewRef<double> const& full_dem,
 void prepareDemAndAlbedo(SfsOptions& opt,
                          vw::ImageView<double>& dem,
                          vw::ImageView<double>& albedo,
-                         vw::cartography::GeoReference& geo,
+                         vw::GeoReference& geo,
                          double& dem_nodata_val) {
 
   // Manage no-data. Use here a value that is not overly large in magnitude,
@@ -548,7 +547,7 @@ void prepareDemAndAlbedo(SfsOptions& opt,
   }
 
   // Read the georeference
-  vw::cartography::GeoReference albedo_geo;
+  vw::GeoReference albedo_geo;
   loadGeoref(opt, geo, albedo_geo);
 
   // If --ref-map is passed in, need to crop to its extent. This modifies
@@ -562,10 +561,10 @@ void prepareDemAndAlbedo(SfsOptions& opt,
   // In either case, read the needed portion fully in memory.
   if (!opt.crop_win.empty()) {
     dem = vw::crop(full_dem, opt.crop_win);
-    geo = vw::cartography::crop(geo, opt.crop_win);
+    geo = vw::crop(geo, opt.crop_win);
     if (!opt.input_albedo.empty()) {
       albedo = vw::crop(full_albedo, opt.crop_win);
-      albedo_geo = vw::cartography::crop(albedo_geo, opt.crop_win);
+      albedo_geo = vw::crop(albedo_geo, opt.crop_win);
     }
   } else {
     // No cropping
@@ -630,7 +629,7 @@ void sfsSanityChecks(asp::SfsOptions const& opt,
 // motions to find the images to skip.
 void estimExposuresHazeSkipVec(asp::SfsOptions const& opt,
                                vw::ImageView<double> const& dem,
-                               vw::cartography::GeoReference const& geo,
+                               vw::GeoReference const& geo,
                                double max_dem_height,
                                double gridx, double gridy,
                                std::vector<vw::Vector3>   const& sunPosition,
@@ -698,7 +697,7 @@ int main(int argc, char* argv[]) {
 
     double dem_nodata_val = -1e+6; // Will change
     vw::ImageView<double> dem, albedo;
-    vw::cartography::GeoReference geo;
+    vw::GeoReference geo;
     prepareDemAndAlbedo(opt, dem, albedo, geo, dem_nodata_val);
 
     // See if to use provided initial DEM height

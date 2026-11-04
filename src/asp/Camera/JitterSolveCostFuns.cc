@@ -392,7 +392,7 @@ bool FramePixelReprojErr::operator()(double const * const * parameters,
 struct weightedRollYawError {
   weightedRollYawError(std::vector<double>       const& positions,
                    std::vector<double>           const& quaternions,
-                   vw::cartography::GeoReference const& georef,
+                   vw::GeoReference const& georef,
                    int cur_pos, double rollWeight, double yawWeight,
                    bool initial_camera_constraint);
 
@@ -405,7 +405,7 @@ struct weightedRollYawError {
   // the client code.
   static ceres::CostFunction* Create(std::vector<double>           const& positions,
                                      std::vector<double>           const& quaternions,
-                                     vw::cartography::GeoReference const& georef,
+                                     vw::GeoReference const& georef,
                                      int cur_pos,
                                      double rollWeight, double yawWeight,
                                      bool initial_camera_constraint) {
@@ -430,7 +430,7 @@ struct weightedRollYawError {
 weightedRollYawError::weightedRollYawError
                   (std::vector<double>           const& positions,
                    std::vector<double>           const& quaternions,
-                   vw::cartography::GeoReference const& georef,
+                   vw::GeoReference const& georef,
                    int cur_pos, double rollWeight, double yawWeight,
                    bool initial_camera_constraint):
                    m_rollWeight(rollWeight), m_yawWeight(yawWeight),
@@ -463,9 +463,9 @@ weightedRollYawError::weightedRollYawError
 
     // Orbital points before the current one, the current one, and after the
     // current one, in projected coordinates
-    vw::Vector3 beg_proj = vw::cartography::ecefToProj(georef, beg_pt);
-    vw::Vector3 cur_proj = vw::cartography::ecefToProj(georef, cur_pt);
-    vw::Vector3 end_proj = vw::cartography::ecefToProj(georef, end_pt);
+    vw::Vector3 beg_proj = vw::ecefToProj(georef, beg_pt);
+    vw::Vector3 cur_proj = vw::ecefToProj(georef, cur_pt);
+    vw::Vector3 end_proj = vw::ecefToProj(georef, end_pt);
 
     // Find satellite along and across track directions in projected coordinates
     vw::Vector3 proj_along, proj_across;
@@ -867,7 +867,7 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
                       double                                  anchor_weight,
                       std::string                     const & anchor_weight_image_file,
                       vw::ImageViewRef<vw::PixelMask<double>> interp_anchor_dem,
-                      vw::cartography::GeoReference   const & anchor_georef,
+                      vw::GeoReference   const & anchor_georef,
                       std::vector<asp::CsmModel*>     const & csm_models,
                       // Append to these, they already have entries
                       std::vector<std::vector<asp::JitterObs>> & obs_vec,
@@ -887,9 +887,9 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
   bool have_anchor_weight_image = (!anchor_weight_image_file.empty());
   vw::ImageViewRef<vw::PixelMask<float>> anchor_weight_image;
   float anchor_weight_image_nodata = -std::numeric_limits<float>::max();
-  vw::cartography::GeoReference anchor_weight_image_georef;
+  vw::GeoReference anchor_weight_image_georef;
   if (have_anchor_weight_image)
-    vw::cartography::readGeorefImage(anchor_weight_image_file,
+    vw::readGeorefImage(anchor_weight_image_file,
       anchor_weight_image_nodata, anchor_weight_image_georef, anchor_weight_image);
 
   int num_cams = opt.camera_models.size();
@@ -961,7 +961,7 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
         bool has_intersection = false;
         double height_error_tol = 0.001; // 1 mm should be enough
 
-        vw::Vector3 anchor_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+        vw::Vector3 anchor_dem_xyz = vw::camera_pixel_to_dem_xyz
           (opt.camera_models[icam]->camera_center(pix),
            opt.camera_models[icam]->pixel_to_vector(pix),
            vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem), anchor_georef,
@@ -985,9 +985,9 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
         double anchor_weight_from_image = 1.0;
         if (have_anchor_weight_image) {
           vw::PixelMask<float> img_wt
-            = vw::cartography::closestPixelVal(anchor_weight_image,
-                                               anchor_weight_image_georef,
-                                               anchor_dem_xyz);
+            = vw::closestPixelVal(anchor_weight_image,
+                                  anchor_weight_image_georef,
+                                  anchor_dem_xyz);
 
           // Skip bad weights
           if (!vw::is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0)
@@ -1724,7 +1724,7 @@ void addQuatNormRotationConstraints(
 void addRollYawConstraint(asp::BaBaseOptions              const& opt,
                           asp::CRN                       const& crn,
                           std::vector<asp::CsmModel*>     const& csm_models,
-                          vw::cartography::GeoReference   const& georef,
+                          vw::GeoReference   const& georef,
                           std::map<int, int>              const& cam2group,
                           bool initial_camera_constraint,
                           double roll_weight, double yaw_weight,
@@ -2122,7 +2122,7 @@ void loadReferenceTerrain(asp::BaBaseOptions            const& opt,
   vw::vw_out() << "Loading reference terrain points and then filtering them.\n";
 
   // Set up a GeoReference object using the datum, it may get modified later
-  vw::cartography::GeoReference geo;
+  vw::GeoReference geo;
   geo.set_datum(opt.datum); // We checked for a datum earlier
   // Ensure the read georef lives on the same planet
   bool warn_only = false;
@@ -2251,10 +2251,10 @@ void addRefTerrainCostFun(asp::BaBaseOptions            const& opt,
     auto & left_tx = left_trans[i];
     auto & right_tx = right_trans[i];
 
-    vw::cartography::Map2CamTrans* left_map2cam =
-      dynamic_cast<vw::cartography::Map2CamTrans*>(left_tx.get());
-    vw::cartography::Map2CamTrans* right_map2cam =
-      dynamic_cast<vw::cartography::Map2CamTrans*>(right_tx.get());
+    vw::Map2CamTrans* left_map2cam =
+      dynamic_cast<vw::Map2CamTrans*>(left_tx.get());
+    vw::Map2CamTrans* right_map2cam =
+      dynamic_cast<vw::Map2CamTrans*>(right_tx.get());
 
     // Either both must be null or both must be non-null.
     if ((left_map2cam == NULL) != (right_map2cam == NULL))

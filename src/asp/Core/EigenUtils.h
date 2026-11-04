@@ -46,7 +46,7 @@ void load_csv(std::string const& file_name,
               vw::BBox2 const& lonlat_box,
               bool calc_shift,
               vw::Vector3 & shift,
-              vw::cartography::GeoReference const& geo,
+              vw::GeoReference const& geo,
               asp::CsvConv const& csv_conv,
               bool & is_lola_rdr_format,
               double & median_longitude, bool verbose,
@@ -64,7 +64,7 @@ void load_pc(std::string const& file_name,
              vw::BBox2 const& lonlat_box,
              bool calc_shift,
              vw::Vector3 & shift,
-             vw::cartography::GeoReference const& geo,
+             vw::GeoReference const& geo,
              bool verbose, Eigen::MatrixXd & data);
 
 // Find the best-fitting plane to a set of points. It will throw an

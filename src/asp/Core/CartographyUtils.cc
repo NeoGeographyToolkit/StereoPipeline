@@ -27,18 +27,18 @@ namespace asp {
 // For Earth, use UTM or polar stereographic. For other datums, use
 // local stereographic.
 void setAutoProj(double lat, double lon,
-                 vw::cartography::GeoReference & output_georef) {
+                 vw::GeoReference & output_georef) {
 
-  vw::cartography::Datum datum = output_georef.datum();
+  vw::Datum datum = output_georef.datum();
   if (datum.name().find("WGS_1984") != std::string::npos) {
 
-    vw::cartography::Datum user_datum = output_georef.datum();
+    vw::Datum user_datum = output_georef.datum();
     if (lat > 84)
       output_georef.set_proj4_projection_str("+proj=stere +lat_0=90 +lat_ts=70 +lon_0=-45 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
     else if (lat < -80)
       output_georef.set_proj4_projection_str("+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs");
     else
-     output_georef.set_UTM(vw::cartography::getUTMZone(lat, lon));
+     output_georef.set_UTM(vw::getUTMZone(lat, lon));
 
   } else {
     output_georef.set_stereographic(lat, lon, 1, 0, 0);

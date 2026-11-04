@@ -269,7 +269,7 @@ static void parseEsriCameraCsv(std::string const& camera_csv,
 // direction, derived geometrically from the georeference (no PROJ factors needed,
 // no sign guessing). A small step north in grid coordinates is converted to
 // geographic; its azimuth is the convergence. Works for any projected CRS.
-static double gridConvergence(vw::cartography::GeoReference const& geo,
+static double gridConvergence(vw::GeoReference const& geo,
                               double E, double N) {
   double step = 1.0; // meters, in grid coordinates
   vw::Vector2 ll0 = geo.point_to_lonlat(vw::Vector2(E, N));
@@ -284,7 +284,7 @@ static double gridConvergence(vw::cartography::GeoReference const& geo,
 // the projected grid). Compose: ENU->ECEF * Rz(grid->true north) * R_opk *
 // (photo->computer-vision axis flip). The grid-to-true-north step is the
 // negative of the grid convergence, verified against known-good cameras.
-static vw::Matrix3x3 esriRotationToEcef(vw::cartography::GeoReference const& geo,
+static vw::Matrix3x3 esriRotationToEcef(vw::GeoReference const& geo,
                                         EoRecord const& r, double lon, double lat) {
   vw::Matrix3x3 R_io = Rz(deg2rad(r.kappa)) * Ry(deg2rad(r.phi)) * Rx(deg2rad(r.omega));
 
@@ -334,9 +334,9 @@ void camerasFromExteriorOrientation(EoOptions const& opt) {
   // Georeference for the projected CRS -> lon/lat and ECEF. Let the CRS string
   // (e.g. EPSG:32617) define the datum; do not force a user datum, which would
   // build a non-single CRS.
-  vw::cartography::Datum datum(opt.datum_str.empty() ? "WGS_1984" : opt.datum_str);
-  vw::cartography::GeoReference geo;
-  vw::cartography::set_srs_string(opt.proj_str, false, datum, geo);
+  vw::Datum datum(opt.datum_str.empty() ? "WGS_1984" : opt.datum_str);
+  vw::GeoReference geo;
+  vw::set_srs_string(opt.proj_str, false, datum, geo);
 
   // Interior orientation (in pixels, pitch = 1). dist is the radtan lens
   // distortion (TsaiLensDistortion order), empty if the camera is undistorted.
@@ -426,7 +426,7 @@ void camerasFromExtrinsics(EoOptions const& opt) {
 
   // Read the intrinsics from the sample camera, and the datum.
   vw::camera::PinholeModel pinhole(opt.sample_tsai);
-  vw::cartography::Datum datum(opt.datum_str);
+  vw::Datum datum(opt.datum_str);
 
   int num_cameras = str_map["image"].size();
   if (num_cameras == 0)

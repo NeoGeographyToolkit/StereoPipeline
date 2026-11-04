@@ -39,8 +39,8 @@ namespace asp {
 void RPCModel::initialize(DiskImageResourceGDAL* resource) {
 
   // Extract the datum (by means of georeference)
-  cartography::GeoReference georef;
-  cartography::read_georeference(georef, *resource);
+  vw::GeoReference georef;
+  vw::read_georeference(georef, *resource);
   m_datum = georef.datum();
 
   // Initialize to 0
@@ -111,7 +111,7 @@ RPCModel::RPCModel(DiskImageResourceGDAL* resource) {
 }
 
 // The constructor just copies all of the input data
-RPCModel::RPCModel(cartography::Datum const& datum,
+RPCModel::RPCModel(vw::Datum const& datum,
                     Vector<double,20> const& line_num_coeff,
                     Vector<double,20> const& line_den_coeff,
                     Vector<double,20> const& samp_num_coeff,

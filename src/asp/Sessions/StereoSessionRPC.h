@@ -40,8 +40,8 @@ namespace asp {
     static SessionPtr construct() { return SessionPtr(new StereoSessionRPC); }
 
     /// Returns the target datum to use for a given camera model.
-    virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                             bool use_sphere_for_non_earth) const {
+    virtual vw::Datum get_datum(const vw::camera::CameraModel* cam,
+                                bool use_sphere_for_non_earth) const {
       const asp::RPCModel *rpc_cam
         = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(cam));
       if (rpc_cam == NULL) 

@@ -71,7 +71,7 @@ ASTERCameraModel::ASTERCameraModel(
     vw::vw_throw(vw::ArgumentErr() << "Cannot use the CSM model with ASTER cameras "
                  << "if the first column index of the lattice matrix is not 0.\n");
 
-  vw::cartography::Datum datum("WGS84"); // ASTER is for Earth
+  vw::Datum datum("WGS84"); // ASTER is for Earth
   std::string sensor_id = "ASTER";
   vw::vw_out() << "Using the CSM model with " << sensor_id << " cameras.\n";
 
@@ -104,4 +104,3 @@ load_ASTER_camera_model_from_xml(std::string const& path) {
 }
 
 } // end namespace asp
-

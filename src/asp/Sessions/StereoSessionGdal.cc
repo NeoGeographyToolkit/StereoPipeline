@@ -47,8 +47,8 @@ using namespace vw;
 namespace asp {
 
 /// Returns the target datum to use for a given camera model
-vw::cartography::Datum StereoSessionCsm::get_datum(const vw::camera::CameraModel* cam,
-                                                   bool use_sphere_for_non_earth) const {
+vw::Datum StereoSessionCsm::get_datum(const vw::camera::CameraModel* cam,
+                                      bool use_sphere_for_non_earth) const {
 
   // Peek at the .cub file to get the planet name without reading
   // it as an ISIS camera (which can fail unless the ISISDATA
@@ -65,4 +65,3 @@ vw::cartography::Datum StereoSessionCsm::get_datum(const vw::camera::CameraModel
 }
 
 } // End namespace asp
-

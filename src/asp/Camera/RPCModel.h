@@ -58,7 +58,7 @@ namespace asp {
     RPCModel(std::string const& filename);
 
     RPCModel(vw::DiskImageResourceGDAL* resource);
-    RPCModel(vw::cartography::Datum const& datum,
+    RPCModel(vw::Datum const& datum,
              CoeffVec    const& line_num_coeff,
              CoeffVec    const& line_den_coeff,
              CoeffVec    const& samp_num_coeff,
@@ -101,7 +101,7 @@ namespace asp {
     vw::Vector2 geodetic_to_pixel(vw::Vector3 const& geodetic) const;
 
     // Access to constants
-    vw::cartography::Datum const& datum   () const { return m_datum;               }
+    vw::Datum const& datum   () const { return m_datum;               }
     CoeffVec    const& line_num_coeff     () const { return m_line_num_coeff;      }
     CoeffVec    const& line_den_coeff     () const { return m_line_den_coeff;      }
     CoeffVec    const& sample_num_coeff   () const { return m_sample_num_coeff;    }
@@ -147,7 +147,7 @@ namespace asp {
     vw::Vector3 m_lonlatheight_scale;
 
   private:
-    vw::cartography::Datum m_datum;
+    vw::Datum m_datum;
 
     // Scaling parameters
     CoeffVec    m_line_num_coeff,   m_line_den_coeff,

@@ -67,7 +67,7 @@ namespace asp {
 // Save mapprojected matches offsets for each image pair having matches
 void saveMapprojOffsets(
      std::string                       const& out_prefix,
-     vw::cartography::GeoReference     const& mapproj_dem_georef,
+     vw::GeoReference     const& mapproj_dem_georef,
      std::vector<vw::Vector<float, 4>> const& mapprojPoints,
      std::vector<asp::MatchPairStats>  const& mapprojOffsets,
      std::vector<std::vector<float>>        & mapprojOffsetsPerCam,
@@ -143,7 +143,7 @@ void saveMapprojOffsets(
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
 void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaState const& ba_state,
-                      vw::cartography::Datum const& datum,
+                      vw::Datum const& datum,
                       std::string const& prefix) {
 
   std::string output_path = opt.out_prefix + "-" + prefix + "-cameras.csv";
@@ -257,7 +257,7 @@ void saveHorizVertErrors(std::string const& horiz_vert_errors_file,
 /// Write a pinhole camera file to disk after updating the intrinsics and
 /// extrinsics. Return the path to the saved file.
 std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
-                           vw::cartography::Datum const& datum,
+                           vw::Datum const& datum,
                            asp::BaState const& ba_state) {
 
   // Get the output file path
@@ -295,7 +295,7 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
 /// Write an optical bar camera file to disk after updating the intrinsics and
 // extrinsics. Return the path to the saved file.
 std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
-                              vw::cartography::Datum const& datum,
+                              vw::Datum const& datum,
                               asp::BaState const& ba_state) {
 
   // Get the output file path
@@ -334,7 +334,7 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
 // Write a CSM camera file to disk. Assumes that the intrinsics are optimized.
 // Return the path to the saved file.
 std::string saveCsmCamUpdateIntr(asp::BaBaseOptions const& opt, int icam,
-                                 vw::cartography::Datum const& datum,
+                                 vw::Datum const& datum,
                                  asp::BaState const& ba_state) {
 
   // Get the output file path

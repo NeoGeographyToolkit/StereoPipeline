@@ -27,9 +27,7 @@
 #include <Eigen/Geometry>
 
 namespace vw {
-  namespace cartography {
     class GeoReference;
-  }
 }
 
 namespace asp {
@@ -42,7 +40,7 @@ class RigSet;
 // See the .cc file for more details.
 void genLinescanCameras(double                                 first_line_time,
                         double                                 orbit_len,     
-                        vw::cartography::GeoReference  const & dem_georef,
+                        vw::GeoReference  const & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,
                         int                                    first_pos,
                         std::vector<vw::Vector3>       const & positions,

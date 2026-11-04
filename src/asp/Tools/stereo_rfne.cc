@@ -328,14 +328,14 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
                           input_disp, sub_disp, opt),
             stereo_settings().trans_crop_win);
 
-  cartography::GeoReference left_georef;
+  vw::GeoReference left_georef;
   bool   has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
   bool   has_nodata      = false;
   double nodata          = -32768.0;
 
   std::string rd_file = opt.out_prefix + "-RD.tif";
   vw_out() << "Writing: " << rd_file << "\n";
-  vw::cartography::block_write_gdal_image(rd_file, refined_disp,
+  vw::block_write_gdal_image(rd_file, refined_disp,
                               has_left_georef, left_georef,
                               has_nodata, nodata, opt,
                               TerminalProgressCallback("asp", "\t--> Refinement :"));

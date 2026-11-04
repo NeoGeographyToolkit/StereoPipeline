@@ -308,12 +308,12 @@ int main(int argc, char ** argv) {
 
     tpc.report_finished();
     
-    vw::cartography::GeoReference left_georef;
+    vw::GeoReference left_georef;
     bool has_left_georef = read_georeference(left_georef, left_file);
     bool has_nodata      = true;
     std::string output_image = prefix + "-trans_right.tif";
     vw_out() << "Writing: " << output_image << "\n";
-    vw::cartography::block_write_gdal_image
+    vw::block_write_gdal_image
       (output_image,
        apply_mask(trans_right, right_nodata),
        has_left_georef, left_georef,

@@ -20,7 +20,6 @@
 #include <omp.h>
 
 namespace vw {
-namespace cartography {
 
 // Calculate the DEM slope and aspect in degrees at a given location.
 // The code below is adapted from GDAL.
@@ -30,7 +29,7 @@ namespace cartography {
 // real thing. Using same logic for consistency.
 inline 
 void SlopeAspectZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<float>> const& dem,
-                                     vw::cartography::GeoReference const& georef,
+                                     vw::GeoReference const& georef,
                                      int col, int row,
                                      vw::PixelMask<float> & slope,
                                      vw::PixelMask<float> & aspect) {
@@ -108,7 +107,7 @@ void SlopeAspectZevenbergenThorneAlg(vw::ImageView<vw::PixelMask<float>> const& 
 
 // Calculate the DEM slope and aspect in degrees. Use the same logic as gdaldem. 
 void calcSlopeAspect(vw::ImageView<vw::PixelMask<float>> const& dem, 
-                     vw::cartography::GeoReference const& georef,
+                     vw::GeoReference const& georef,
                      // Outputs
                      vw::ImageView<vw::PixelMask<float>> & slope,
                      vw::ImageView<vw::PixelMask<float>> & aspect) {
@@ -127,4 +126,4 @@ void calcSlopeAspect(vw::ImageView<vw::PixelMask<float>> const& dem,
 
 }
 
-}} // end namespace vw::cartography
+} // namespace vw

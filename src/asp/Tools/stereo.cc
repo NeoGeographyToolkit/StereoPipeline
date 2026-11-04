@@ -51,7 +51,6 @@
 #include <vw/InterestPoint/MatcherIO.h>
 
 using namespace vw;
-using namespace vw::cartography;
 
 namespace asp {
 
@@ -422,7 +421,7 @@ bool parseStereoFiles(bool override_out_prefix,
   std::string input_dem;
   bool has_georef = false;
   try{ // Just try to load the last file path as a dem
-    cartography::GeoReference georef;
+    vw::GeoReference georef;
     has_georef = read_georeference(georef, files.back());
   } catch (...) {}
 
@@ -524,8 +523,8 @@ void handleCropWins(ASPGlobalOptions const& opt) {
     
     // Read georef from left and right images
     GeoReference left_georef, right_georef;
-    bool has_left_georef = vw::cartography::read_georeference(left_georef, opt.in_file1);
-    bool has_right_georef = vw::cartography::read_georeference(right_georef, opt.in_file2);
+    bool has_left_georef = vw::read_georeference(left_georef, opt.in_file1);
+    bool has_right_georef = vw::read_georeference(right_georef, opt.in_file2);
     if (!has_left_georef || !has_right_georef)
       vw_throw(ArgumentErr() 
                << "Cannot use --proj-win: input images must be georeferenced.\n");
@@ -1096,8 +1095,8 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
 
   // Must use map-projected images if input DEM is provided
   GeoReference georef1, georef2;
-  bool has_georef1 = vw::cartography::read_georeference(georef1, opt.in_file1);
-  bool has_georef2 = vw::cartography::read_georeference(georef2, opt.in_file2);
+  bool has_georef1 = vw::read_georeference(georef1, opt.in_file1);
+  bool has_georef2 = vw::read_georeference(georef2, opt.in_file2);
   if (dem_provided && (!has_georef1 || !has_georef2)) {
     vw_throw(ArgumentErr() << "The images are not map-projected, "
               << "cannot use the provided DEM: " << opt.input_dem << "\n");
@@ -1327,10 +1326,10 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
       // Developer friendly help
       VW_OUT(DebugMessage,"asp") << "Camera 1 location: " << cam1_ctr << "\n"
                                   << "   in estimated Lon Lat Rad: "
-                                  << cartography::xyz_to_lon_lat_radius_estimate(cam1_ctr) << "\n";
+                                  << vw::xyz_to_lon_lat_radius_estimate(cam1_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 2 location: " << cam2_ctr << "\n"
                                   << "   in estimated Lon Lat Rad: "
-                                  << cartography::xyz_to_lon_lat_radius_estimate(cam2_ctr) << "\n";
+                                  << vw::xyz_to_lon_lat_radius_estimate(cam2_ctr) << "\n";
       VW_OUT(DebugMessage,"asp") << "Camera 1 pointing dir: " << cam1_vec << "\n"
                                   << "      dot against pos: " << dot_prod(cam1_vec, cam1_ctr)
                                   << "\n";

@@ -28,15 +28,13 @@
 #include <vw/Camera/CameraModel.h>
 // Full definition of vw::BathyPlane is needed, not a forward declaration:
 // it is used by value in the std::vector default argument below, and
-// BathyPlane embeds a vw::cartography::GeoReference member.
+// BathyPlane embeds a vw::GeoReference member.
 #include <vw/Cartography/BathyData.h>
 
 #include <vector>
 
 namespace vw {
-  namespace cartography {
     class Datum;
-  }
 }
 
 namespace asp {
@@ -69,7 +67,7 @@ namespace asp {
   // create a spurious derivative. bathy_plane_vec and refraction_index
   // are the same settings passed to BathyStereoModel::set_bathy.
   vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
-                                  vw::cartography::Datum const& datum,
+                                  vw::Datum const& datum,
                                   double stddev1, double stddev2,
                                   vw::camera::CameraModel const* cam1,
                                   vw::camera::CameraModel const* cam2,

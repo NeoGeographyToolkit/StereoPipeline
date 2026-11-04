@@ -48,7 +48,6 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace vw::cartography;
 using asp::RPCModel;
 
 struct Options : public vw::GdalWriteOptions {
@@ -120,7 +119,7 @@ void generate_point_pairs(Options opt,
     Vector2         image_size = Vector2(format.cols, format.rows);
 
     // Will have to change this if any SPOT5 data uses a different datum.
-    vw::cartography::Datum datum("WGS84");
+    vw::Datum datum("WGS84");
 
     // Only generate point pairs up to this far from the valid boundaries.
     // - There is no guarantee that a point right on the edge will safely project!

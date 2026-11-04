@@ -37,7 +37,7 @@ using namespace vw;
 // Find lon-lat-height in the center of the DEM
 void calcDemCenterLonLatHeight(vw::ImageView<double> const& dem,
                                double nodata_val,
-                               vw::cartography::GeoReference const& georef,
+                               vw::GeoReference const& georef,
                                vw::Vector3 & llh) {
 
   int cols = dem.cols(), rows = dem.rows();
@@ -55,7 +55,7 @@ void calcDemCenterLonLatHeight(vw::ImageView<double> const& dem,
 // Find the sun azimuth and elevation at the lon-lat position of the
 // center of the DEM. The result can change depending on the DEM.
 void sunAngles(ImageView<double> const& dem,
-               double nodata_val, vw::cartography::GeoReference const& georef,
+               double nodata_val, vw::GeoReference const& georef,
                vw::Vector3 const& sun_pos,
                double & azimuth, double & elevation) {
 
@@ -112,7 +112,7 @@ void readSunPositions(std::string const& sun_positions_list,
                       std::vector<std::string> const& input_images,
                       vw::ImageView<double> const& dem,
                       double nodata_val,
-                      vw::cartography::GeoReference const& georef,
+                      vw::GeoReference const& georef,
                       std::vector<vw::Vector3> & sun_positions) {
 
   // Initialize the sun position with something (the planet center)
@@ -145,7 +145,7 @@ void readSunAngles(std::string const& sun_positions_list,
                    std::vector<std::string> const& input_images,
                    vw::ImageView<double> const& dem,
                    double nodata_val,
-                   vw::cartography::GeoReference const& georef,
+                   vw::GeoReference const& georef,
                    std::vector<vw::Vector3> & sun_positions) {
 
   // Find lon-lat-height in the center of the DEM

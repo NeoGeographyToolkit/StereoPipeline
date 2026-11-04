@@ -298,14 +298,14 @@ private:
 // meaningful in the common frame).
 void filter_ip_by_ground_loc(vw::ip::InterestPointList & ip1,
                              vw::ip::InterestPointList & ip2,
-                             vw::cartography::GeoReference const& georef1,
-                             vw::cartography::GeoReference const& georef2,
+                             vw::GeoReference const& georef1,
+                             vw::GeoReference const& georef2,
                              double radius) {
 
   if (radius <= 0 || ip1.empty() || ip2.empty())
     return;
 
-  vw::cartography::GeoTransform left_to_right(georef1, georef2); // left pix -> right pix
+  vw::GeoTransform left_to_right(georef1, georef2); // left pix -> right pix
 
   std::vector<vw::ip::InterestPoint> v1(ip1.begin(), ip1.end());
   std::vector<vw::ip::InterestPoint> v2(ip2.begin(), ip2.end());
@@ -355,8 +355,8 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      vw::BBox2i const& bbox1,
                      vw::BBox2i const& bbox2,
                      bool filter_by_ground_loc,
-                     vw::cartography::GeoReference const& georef1,
-                     vw::cartography::GeoReference const& georef2) {
+                     vw::GeoReference const& georef1,
+                     vw::GeoReference const& georef2) {
 
   // Detect interest points in the two images. This is done on the full image,
   // so the per-image vwip files are full-image and pair-independent (cacheable).
@@ -432,7 +432,7 @@ Matrix<double>
 rough_homography_fit(camera::CameraModel* cam1,
                      camera::CameraModel* cam2,
                      BBox2i const& box1, BBox2i const& box2,
-                     cartography::Datum const& datum) {
+                     vw::Datum const& datum) {
 
   vw::Stopwatch sw;
   sw.start();
@@ -454,7 +454,7 @@ rough_homography_fit(camera::CameraModel* cam1,
         Vector2 l(double(box1.width()  - 1) * i / (num-1.0),
                    double(box1.height() - 1) * j / (num-1.0));
 
-        Vector3 intersection = cartography::datum_intersection(datum, cam1, l);
+        Vector3 intersection = vw::datum_intersection(datum, cam1, l);
         if (intersection == Vector3())
           continue;
 
@@ -470,7 +470,7 @@ rough_homography_fit(camera::CameraModel* cam1,
         Vector2 r(double(box2.width()  - 1) * i / (num-1.0),
                   double(box2.height() - 1) * j / (num-1.0));
 
-        Vector3 intersection = cartography::datum_intersection(datum, cam2, r);
+        Vector3 intersection = vw::datum_intersection(datum, cam2, r);
         if (intersection == Vector3())
           continue;
 
@@ -906,7 +906,7 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
                                          vw::TransformPtr         tx_right,
                                          vw::camera::CameraModel* left_camera_model,
                                          vw::camera::CameraModel* right_camera_model,
-                                         vw::cartography::Datum        const& datum,
+                                         vw::Datum        const& datum,
                                          std::vector<vw::ip::InterestPoint> const& ip1_in,
                                          std::vector<vw::ip::InterestPoint> const& ip2_in,
                                          vw::Vector2 const & elevation_limit,
@@ -1004,7 +1004,7 @@ void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
                              std::vector<vw::ip::InterestPoint> & ip2,
                              vw::camera::CameraModel const * cam1,
                              vw::camera::CameraModel const * cam2,
-                             vw::cartography::Datum  const & datum,
+                             vw::Datum  const & datum,
                              double pct, double factor) {
 
   std::vector<double> tri_errors(ip1.size()), heights(ip1.size());
@@ -1133,7 +1133,7 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
     vw_throw(ArgumentErr() << "Positive height diff value expected in --ip-filter-using-dem.\n");
 
   // Read the DEM and supporting data
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   DiskImageView<float> dem_disk_image(dem_file);
   ImageViewRef<PixelMask<float>> dem;
   boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(dem_file));
@@ -1142,7 +1142,7 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
   else
     dem = pixel_cast<PixelMask<float>>(dem_disk_image); // all pixels are valid
 
-  bool has_georef = vw::cartography::read_georeference(dem_georef, dem_file);
+  bool has_georef = vw::read_georeference(dem_georef, dem_file);
   if (!has_georef)
     vw_throw(ArgumentErr() << "There is no georeference information in: "
              << dem_file << ".\n");
@@ -1354,8 +1354,8 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
                             vw::BBox2i const& bbox1,
                             vw::BBox2i const& bbox2,
                             bool filter_by_ground_loc,
-                            vw::cartography::GeoReference const& georef1,
-                            vw::cartography::GeoReference const& georef2) {
+                            vw::GeoReference const& georef1,
+                            vw::GeoReference const& georef2) {
 
   vw_out() << "\t--> Matching interest points using homography.\n";
 
@@ -1419,7 +1419,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
                             vw::ImageViewRef<float> const& image2,
                             int ip_per_per_image,
                             int ip_per_tile,
-                            vw::cartography::Datum const& datum,
+                            vw::Datum const& datum,
                             std::string const left_vwip_file,
                             double nodata1, double nodata2,
                             // Outputs

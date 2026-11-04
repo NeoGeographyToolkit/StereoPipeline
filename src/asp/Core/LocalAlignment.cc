@@ -315,7 +315,7 @@ namespace asp {
                                      BBox2i                       const & right_trans_crop_win,
                                      vw::camera::CameraModel      const * left_camera_model,
                                      vw::camera::CameraModel      const * right_camera_model,
-                                     vw::cartography::Datum       const & datum,
+                                     vw::Datum       const & datum,
                                      // These get modified
                                      std::vector<vw::ip::InterestPoint> & left_local_ip,
                                      std::vector<vw::ip::InterestPoint> & right_local_ip,
@@ -440,7 +440,7 @@ namespace asp {
                        bool                            write_nodata,
                        vw::camera::CameraModel const * left_camera_model,
                        vw::camera::CameraModel const * right_camera_model,
-                       vw::cartography::Datum  const & datum,
+                       vw::Datum  const & datum,
                        // Outputs
                        vw::BBox2i                    & left_trans_crop_win,
                        vw::BBox2i                    & right_trans_crop_win,
@@ -550,7 +550,7 @@ namespace asp {
 
     if (stereo_settings().local_alignment_debug) {
       // These clips have global but not local alignment
-      vw::cartography::GeoReference georef;
+      vw::GeoReference georef;
       bool has_georef = false, has_nodata = true;
       float nan_nodata = std::numeric_limits<float>::quiet_NaN();
 
@@ -772,7 +772,7 @@ namespace asp {
     }
 
     // Write the locally aligned images to disk
-    vw::cartography::GeoReference georef;
+    vw::GeoReference georef;
     bool has_georef = false, has_aligned_nodata = write_nodata;
     std::string left_tile = "left-aligned-tile.tif";
     std::string right_tile = "right-aligned-tile.tif";
@@ -1450,15 +1450,15 @@ namespace asp {
     }
 
     // Write the disparity to disk
-    vw::cartography::GeoReference georef;
+    vw::GeoReference georef;
     bool   has_georef = false;
     bool   has_nodata = true;
     vw_out() << "Writing: " << disparity_file << "\n";
-    vw::cartography::block_write_gdal_image(disparity_file, asp_disp,
-                                            has_georef, georef,
-                                            has_nodata, nan, opt,
-                                            TerminalProgressCallback
-                                            ("asp", "\t--> Disparity :"));
+    vw::block_write_gdal_image(disparity_file, asp_disp,
+                               has_georef, georef,
+                               has_nodata, nan, opt,
+                               TerminalProgressCallback
+                               ("asp", "\t--> Disparity :"));
 
 
     // Assign the disparity to the output variable (this should not do a copy).

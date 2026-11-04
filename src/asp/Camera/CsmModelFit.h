@@ -44,7 +44,7 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
 // This is specific to ASTER.
 void fitCsmLinescan(
        std::string const& sensor_id, 
-       vw::cartography::Datum const& datum,
+       vw::Datum const& datum,
        vw::Vector2i const& image_size,
        std::vector<vw::Vector3> const& sat_pos,
        SightMatT const& world_sight_mat,
@@ -73,12 +73,12 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        asp::CsmModel & csm_model, // output
                        bool fix_pose = false,
                        vw::Vector2 const& camera_position_uncertainty = vw::Vector2(0, 0),
-                       vw::cartography::Datum const& datum = vw::cartography::Datum());
+                       vw::Datum const& datum = vw::Datum());
 
 // Fit a CSM camera to an optical bar camera. The .cc file has more details.
 void fitCsmLinescanToOpticalBar(std::string const& camFile,
                                 vw::Vector2i const& imageFize,
-                                vw::cartography::Datum const& datum,
+                                vw::Datum const& datum,
                                 asp::CsmModel & csm);
   
 } // end namespace asp

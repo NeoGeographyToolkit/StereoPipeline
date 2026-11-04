@@ -57,7 +57,7 @@ bool hasCsv(std::string const& fileName) {
 }
 
 // Read datum from a csv file, such as a pointmap file saved by bundle_adjust.
-bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum) {
+bool read_datum_from_csv(std::string const& file, vw::Datum & datum) {
 
   int count = 0;
   std::ifstream fh(file);
@@ -69,7 +69,7 @@ bool read_datum_from_csv(std::string const& file, vw::cartography::Datum & datum
       if (count > 10)
         return false;
 
-      if (vw::cartography::read_datum_from_str(line, datum))
+      if (vw::read_datum_from_str(line, datum))
         return true;
 
     }
@@ -84,7 +84,7 @@ void read_csv_metadata(std::string              const& csv_file,
                        asp::CsvConv                  & csv_conv,
                        bool                          & has_pixel_vals,
                        bool                          & has_georef,
-                       vw::cartography::GeoReference & georef) {
+                       vw::GeoReference & georef) {
 
   if (!fs::exists(csv_file)) {
     popUp("Could not load file: " + csv_file);
@@ -174,7 +174,7 @@ void read_csv_metadata(std::string              const& csv_file,
                     asp::hasCsv(csv_file));
 
   if (known_csv) {
-    vw::cartography::Datum datum;
+    vw::Datum datum;
     if (read_datum_from_csv(csv_file, datum)) {
       georef.set_datum(datum);
       has_datum = true;
@@ -184,14 +184,14 @@ void read_csv_metadata(std::string              const& csv_file,
   // Parse the datum and populate the georef
   csv_conv.parse_georef(georef);
   if (asp::stereo_settings().csv_datum != "") {
-    vw::cartography::Datum datum(asp::stereo_settings().csv_datum);
+    vw::Datum datum(asp::stereo_settings().csv_datum);
     georef.set_datum(datum);
     has_datum = true;
   }
 
   if (!has_datum && guessed_lola) {
     vw::vw_out() << "Guessing the datum for LOLA.\n";
-    vw::cartography::Datum datum("D_MOON");
+    vw::Datum datum("D_MOON");
     georef.set_datum(datum);
     has_datum = true;
   }
@@ -427,7 +427,7 @@ void imageData::load() {
     // Read an image
     int top_image_max_pix = TOP_IMAGE_MAX_PIX;
     int subsample = LOAD_SUBSAMPLE;
-    has_georef = vw::cartography::read_georeference(georef, name);
+    has_georef = vw::read_georeference(georef, name);
     variant.image = DiskImagePyramidMultiChannel(variant.name, m_opt,
                                                  top_image_max_pix, subsample);
     image_bbox = BBox2(0, 0, variant.image.cols(), variant.image.rows());
@@ -444,7 +444,7 @@ void imageData::writePoly(std::string const& polyFile) {
     poly.appendPolygons(this->polyVec[polyIter]);
 
   bool has_geo = this->has_georef;
-  vw::cartography::GeoReference const& geo = this->georef;
+  vw::GeoReference const& geo = this->georef;
 
   vw_out() << "Writing: " << polyFile << "\n";
 

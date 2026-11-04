@@ -135,8 +135,8 @@ void checkSpacing(std::vector<double> const& vals, double spacing, double tol,
 // A function to create a georeference in stereographic coordinates
 // at given position with given datum.
 void produceStereographicGeoref(vw::Vector3 const& pos,
-                                vw::cartography::Datum const& datum,
-                                vw::cartography::GeoReference & georef) {
+                                vw::Datum const& datum,
+                                vw::GeoReference & georef) {
 
   // Create a georeference at the last position
   vw::Vector3 llh = datum.cartesian_to_geodetic(pos);
@@ -154,7 +154,7 @@ void produceStereographicGeoref(vw::Vector3 const& pos,
 // km. Do this in projected coordinates, where the curvature is less, and the
 // error was validated to be half as much. Do this for velocity in ECEF. Add to
 // the time by incrementing the last time by the time interval.
-void extrapolatePosition(vw::cartography::Datum const& datum,
+void extrapolatePosition(vw::Datum const& datum,
                          double                        dt,
                          std::vector<double>         & times,
                          std::vector<vw::Vector3>    & positions,
@@ -174,7 +174,7 @@ void extrapolatePosition(vw::cartography::Datum const& datum,
   checkSpacing(times, dt, tol, "position");
 
   // Produce a georef at the last position
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   produceStereographicGeoref(positions.back(), datum, georef);
 
   // Find projected coordinates
@@ -232,14 +232,14 @@ void createCsmModel(double first_line_time, double dt_line,
                     std::string              const& view,
                     vw::Vector2              const& optical_center,
                     vw::Vector2              const& image_size,
-                    vw::cartography::Datum   const& datum,
+                    vw::Datum   const& datum,
                     std::vector<vw::Vector3> const& positions,
                     std::vector<vw::Vector3>const & velocities,
                     std::vector<vw::Vector3> const& rpy,
                     asp::CsmModel& model) {
 
   // Create a georeference at the last position
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   produceStereographicGeoref(positions.back(), datum, georef);
 
   // TODO(oalexan1): This is wrong. The positions and rpy arrays
@@ -301,7 +301,7 @@ void createCsmModel(double first_line_time, double dt_line,
 }
 
 // Put this in a function and compute the total error
-double calcCornersError(vw::cartography::GeoReference const& dem_georef,
+double calcCornersError(vw::GeoReference const& dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
                         std::vector<vw::Vector2> const& lonlat_vec,
                         std::vector<vw::Vector2> const& raw_pix_vec,
@@ -421,7 +421,7 @@ void prism2asp(Options const& opt) {
     rpy_times[i] -= time_shift;
 
   // WGS84 datum
-  vw::cartography::Datum datum("WGS84");
+  vw::Datum datum("WGS84");
 
   // Position sampling
   double t0_ephem = position_times[0];
@@ -535,8 +535,8 @@ void prism2asp(Options const& opt) {
   // Read and interpolate the DEM
   vw::ImageViewRef<vw::PixelMask<float>> dem;
   float dem_nodata_val = -std::numeric_limits<float>::max(); // will change
-  vw::cartography::GeoReference dem_georef;
-  vw::cartography::readGeorefImage(opt.dem, dem_nodata_val, dem_georef, dem);
+  vw::GeoReference dem_georef;
+  vw::readGeorefImage(opt.dem, dem_nodata_val, dem_georef, dem);
   vw::PixelMask<float> nodata_pix(0); nodata_pix.invalidate();
   vw::ValueEdgeExtension<vw::PixelMask<float>> nodata_ext(nodata_pix);
   auto interp_dem = interpolate(dem, vw::BicubicInterpolation(), nodata_ext);

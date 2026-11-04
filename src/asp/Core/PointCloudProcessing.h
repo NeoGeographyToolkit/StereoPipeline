@@ -31,9 +31,7 @@
 namespace vw {
   
   class GdalWriteOptions;
-  namespace cartography {
     class GeoReference;
-  }
 }
 namespace asp {
   
@@ -41,7 +39,7 @@ namespace asp {
   
   // Builds a GeoReference from the first cloud having a georeference in the list
   bool georef_from_pc_files(std::vector<std::string> const& files,
-			    vw::cartography::GeoReference & georef);
+			    vw::GeoReference & georef);
 
   /// Fetch a chunk of the las file of area ASP_POINT_CLOUD_TILE_LEN x ASP_POINT_CLOUD_TILE_LEN ,
   /// split it into bins of spatially close points, and write
@@ -51,7 +49,7 @@ namespace asp {
                          int num_rows, int block_size,
                          vw::BBox2 const& copc_win, bool copc_read_all,
                          vw::GdalWriteOptions & opt, // will change
-                         vw::cartography::GeoReference const& csv_georef,
+                         vw::GeoReference const& csv_georef,
                          asp::CsvConv const& csv_conv,
                          std::vector<std::string> & out_files);
   

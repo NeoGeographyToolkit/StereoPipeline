@@ -46,7 +46,7 @@ public:
               vw::ImageView<double>& dem,
               vw::ImageView<vw::Vector2>& pq,
               vw::ImageView<double>& albedo, 
-              vw::cartography::GeoReference const& geo, 
+              vw::GeoReference const& geo, 
               asp::ReflParams const& refl_params, 
               std::vector<vw::Vector3> const& sunPosition,
               std::vector<vw::BBox2i> const& crop_boxes, 
@@ -72,7 +72,7 @@ private:
   vw::ImageView<double>& dem;
   vw::ImageView<vw::Vector2>& pq;
   vw::ImageView<double>& albedo;
-  vw::cartography::GeoReference const& geo;
+  vw::GeoReference const& geo;
   asp::ReflParams const& refl_params;
   std::vector<vw::Vector3> const& sunPosition;
   std::vector<vw::BBox2i> const& crop_boxes;
@@ -101,7 +101,7 @@ void sfsCostFun(// Fixed quantities
                 double                                dem_nodata_val,
                 float                                 img_nodata_val,
                 bool                                  blend_weight_is_ground_weight,
-                vw::cartography::GeoReference const & geo,
+                vw::GeoReference const & geo,
                 std::vector<vw::BBox2i>       const & crop_boxes,
                 std::vector<MaskedImgRefT>    const & masked_images,
                 std::vector<DblImgT>          const & blend_weights,
@@ -130,7 +130,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
                              bool blend_weight_is_ground_weight,
                              vw::ImageView<double> const& dem,
                              double mean_albedo,
-                             vw::cartography::GeoReference const& geo,
+                             vw::GeoReference const& geo,
                              std::vector<vw::CamPtr> const& cameras,
                              double & max_dem_height,
                              std::vector<vw::BBox2i> const& crop_boxes,
@@ -143,7 +143,7 @@ void calcSaveSfsCovariances(SfsOptions const& opt,
                             vw::ImageView<double> const& dem,
                             vw::ImageView<double> const& albedo,
                             ceres::Problem &problem,
-                            vw::cartography::GeoReference const& geo,
+                            vw::GeoReference const& geo,
                             double dem_nodata_val);
 
 } // end namespace asp

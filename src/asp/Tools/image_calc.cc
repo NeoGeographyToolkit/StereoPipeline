@@ -779,7 +779,7 @@ void handle_arguments(int argc, char * argv[], Options & opt) {
 
 // Implement option --stretch
 void image_calc_stretch(Options const& opt, bool have_georef,
-                        vw::cartography::GeoReference const& georef,
+                        vw::GeoReference const& georef,
                         std::map<std::string, std::string> const& keywords,
                         bool has_nodata, double nodata_val) {
 
@@ -842,9 +842,9 @@ void image_calc_stretch(Options const& opt, bool have_georef,
   double out_nodata = 0.0;
   auto tpc = vw::TerminalProgressCallback("asp", ": ");
   vw::vw_out() << "Writing: " << opt.output_file << "\n";
-  vw::cartography::block_write_gdal_image(opt.output_file, cast_image, have_georef, georef,
-                                          has_out_nodata, out_nodata, opt, tpc,
-                                          keywords);
+  vw::block_write_gdal_image(opt.output_file, cast_image, have_georef, georef,
+                             has_out_nodata, out_nodata, opt, tpc,
+                             keywords);
 }
 
 /// This function call is just to clean up the case statement in proc_img
@@ -853,7 +853,7 @@ void write_out(std::string const& output_file,
                Options const& opt,
                calc_operation const& calc_tree,
                bool have_georef,
-               vw::cartography::GeoReference const& georef,
+               vw::GeoReference const& georef,
                std::vector<vw::ImageViewRef<PixelT>> const& input_images,
                std::vector<bool> const& has_nodata_vec,
                std::vector<double> const& nodata_vec) {
@@ -864,7 +864,7 @@ void write_out(std::string const& output_file,
   if (!opt.metadata.empty()) {
     if (!opt.input_files.empty()) {
       auto rsrc = vw::DiskImageResourcePtr(opt.input_files[0]);
-      vw::cartography::read_header_strings(*rsrc.get(), keywords);
+      vw::read_header_strings(*rsrc.get(), keywords);
     }
     // Parse each --mo occurrence (a value may contain spaces, like GDAL -mo).
     for (size_t i = 0; i < opt.metadata.size(); i++)
@@ -879,7 +879,7 @@ void write_out(std::string const& output_file,
       vw::vw_out() << "\t--> Writing output nodata value: " << opt.out_nodata_value << "\n";
     vw::vw_out() << "Writing: " << output_file << "\n";
     auto tpc = vw::TerminalProgressCallback("image_calc", "Writing:");
-    vw::cartography::block_write_gdal_image
+    vw::block_write_gdal_image
       (output_file,
       ImageCalcView<vw::ImageViewRef<PixelT>, OutputT>
         (input_images, has_nodata_vec, nodata_vec, opt.out_nodata_value, calc_tree),
@@ -888,7 +888,7 @@ void write_out(std::string const& output_file,
 }
 
 void handleGeoref(Options const& opt, bool & have_georef,
-                  vw::cartography::GeoReference & georef) {
+                  vw::GeoReference & georef) {
   have_georef = false;
   size_t numInputFiles = opt.input_files.size();
   for (size_t i = 0; i < numInputFiles; i++) {
@@ -897,7 +897,7 @@ void handleGeoref(Options const& opt, bool & have_georef,
     // If desired to not use a georef, skip reading it. Else read it.
     if (!opt.no_georef) {
       if (!have_georef) {
-        have_georef = vw::cartography::read_georeference(georef, input);
+        have_georef = vw::read_georeference(georef, input);
         if (have_georef) {
           vw::vw_out() << "\t--> Copying georef from input image " << input << "\n";
 
@@ -989,7 +989,7 @@ void proc_img(Options & opt, std::string const& output_file,
   std::vector<double> nodata_vec(numInputFiles);
 
   bool have_georef = false;
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   handleGeoref(opt, have_georef, georef);
 
   // Load images and nodata values
@@ -1038,7 +1038,7 @@ void median_filter_img(Options & opt) {
   vw::DiskImageView<double> image(rsrc);
 
   bool have_georef = false;
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   handleGeoref(opt, have_georef, georef);
 
   // The filter can null pixels, so the output always has a nodata value.
@@ -1068,7 +1068,7 @@ void median_filter_img(Options & opt) {
 
   // Carry over metadata from the input and any --mo additions.
   std::map<std::string, std::string> keywords;
-  vw::cartography::read_header_strings(*rsrc.get(), keywords);
+  vw::read_header_strings(*rsrc.get(), keywords);
   for (size_t i = 0; i < opt.metadata.size(); i++)
     asp::parse_append_metadata(opt.metadata[i], keywords);
 
@@ -1076,31 +1076,31 @@ void median_filter_img(Options & opt) {
   vw::vw_out() << "Writing: " << opt.output_file << "\n";
   switch (opt.output_data_type) {
   case vw::VW_CHANNEL_UINT8:
-    vw::cartography::block_write_gdal_image(opt.output_file,
+    vw::block_write_gdal_image(opt.output_file,
       vw::channel_cast_round_and_clamp<vw::uint8>(filtered),
       have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
   case vw::VW_CHANNEL_UINT16:
-    vw::cartography::block_write_gdal_image(opt.output_file,
+    vw::block_write_gdal_image(opt.output_file,
       vw::channel_cast_round_and_clamp<vw::uint16>(filtered),
       have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
   case vw::VW_CHANNEL_INT16:
-    vw::cartography::block_write_gdal_image(opt.output_file,
+    vw::block_write_gdal_image(opt.output_file,
       vw::channel_cast_round_and_clamp<vw::int16>(filtered),
       have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
   case vw::VW_CHANNEL_INT32:
-    vw::cartography::block_write_gdal_image(opt.output_file,
+    vw::block_write_gdal_image(opt.output_file,
       vw::channel_cast_round_and_clamp<vw::int32>(filtered),
       have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
   case vw::VW_CHANNEL_UINT32:
-    vw::cartography::block_write_gdal_image(opt.output_file,
+    vw::block_write_gdal_image(opt.output_file,
       vw::channel_cast_round_and_clamp<vw::uint32>(filtered),
       have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
   case vw::VW_CHANNEL_FLOAT64:
-    vw::cartography::block_write_gdal_image(opt.output_file,
+    vw::block_write_gdal_image(opt.output_file,
       filtered,
       have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
   default:
-    vw::cartography::block_write_gdal_image(opt.output_file,
+    vw::block_write_gdal_image(opt.output_file,
       vw::channel_cast<vw::float32>(filtered),
       have_georef, georef, true, out_nodata, opt, tpc, keywords); break;
   }

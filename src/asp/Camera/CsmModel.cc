@@ -1562,8 +1562,8 @@ bool CsmModel::isFrameCam() const {
 // the function StereoSessionCsm::get_datum() which calls this one, as
 // that one also knows about the image and can find the datum name.
 // If the spheroid name is not known, use "unknown".
-vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name,
-                                               bool use_sphere_for_non_earth) const {
+vw::Datum CsmModel::get_datum_csm(std::string spheroid_name,
+                                  bool use_sphere_for_non_earth) const {
 
   std::string datum_name = "D_" + spheroid_name; // may be refined later
 
@@ -1573,9 +1573,9 @@ vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name,
   double radius2 = radius1;
 
   // Auto-guess the datum if not available
-  vw::cartography::Datum wgs84("WGS84");
-  vw::cartography::Datum moon("D_MOON");
-  vw::cartography::Datum mars("D_MARS");
+  vw::Datum wgs84("WGS84");
+  vw::Datum moon("D_MOON");
+  vw::Datum mars("D_MARS");
   bool is_wgs84 = (std::abs(wgs84.semi_major_axis() - radius1)  < 1e-7 &&
                    std::abs(wgs84.semi_minor_axis() - radii[2]) < 1e-7);
   bool is_moon =  (std::abs(moon.semi_major_axis()  - radius1)  < 1e-7 &&
@@ -1599,8 +1599,8 @@ vw::cartography::Datum CsmModel::get_datum_csm(std::string spheroid_name,
   if (!use_sphere_for_non_earth || has_earth_radius)
     radius2 = radii[2]; // let the semi-minor axis be distinct from the semi-major axis
 
-  vw::cartography::Datum datum(datum_name, spheroid_name,
-                               "Reference Meridian", radius1, radius2, 0);
+  vw::Datum datum(datum_name, spheroid_name,
+                  "Reference Meridian", radius1, radius2, 0);
 
   return datum;
 
@@ -1654,10 +1654,10 @@ void CsmModel::createApproxCam() {
         vw::Vector2 pix((numCols - 1.0) * (double(col_samp) / (numSamples - 1.0)),
                         (numRows - 1.0) * (double(row_samp) / (numSamples - 1.0)));
         vw::Vector3 xyz =
-          vw::cartography::datum_intersection(m_semi_major_axis + curr_height,
-                                              m_semi_minor_axis + curr_height,
-                                              this->camera_center(pix),
-                                              this->pixel_to_vector(pix));
+          vw::datum_intersection(m_semi_major_axis + curr_height,
+                                 m_semi_minor_axis + curr_height,
+                                 this->camera_center(pix),
+                                 this->pixel_to_vector(pix));
 
         // Print a warning and quit
         if (xyz == vw::Vector3()) {

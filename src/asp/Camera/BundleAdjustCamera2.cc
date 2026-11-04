@@ -1607,7 +1607,7 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
 
 // Sanity check. This does not prevent the user from setting the wrong datum,
 // but it can catch unreasonable height values for GCP.
-void checkGcpRadius(vw::cartography::Datum const& datum,
+void checkGcpRadius(vw::Datum const& datum,
                     vw::ba::ControlNetwork const& cnet) {
 
   int num_points = cnet.size();

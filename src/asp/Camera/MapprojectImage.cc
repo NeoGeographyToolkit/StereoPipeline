@@ -43,7 +43,6 @@ namespace fs = boost::filesystem;
 namespace asp {
 
 using namespace vw;
-using namespace vw::cartography;
 
 // Detect occlusion as a sign test on dot_prod(xyz/|xyz|, ray) where ray =
 // pixel_to_vector(point_to_pixel(xyz)). For a visible point the camera ray
@@ -85,8 +84,8 @@ std::string OcclusionCam::type() const {
 // Estimate occlusion with some threshold for grazing angle
 bool isOccluded(vw::Vector2 const& proj_pt,
                 vw::ImageViewRef<MapprojDemPixel> const& dem,
-                vw::cartography::GeoReference const& dem_georef,
-                vw::cartography::GeoReference const& target_georef,
+                vw::GeoReference const& dem_georef,
+                vw::GeoReference const& target_georef,
                 vw::CamPtr const& camera_model) {
 
   Vector2 lonlat  = target_georef.point_to_lonlat(proj_pt);
@@ -128,8 +127,8 @@ bool isOccluded(vw::Vector2 const& proj_pt,
 
 bool anyCornerOccluded(vw::BBox2 const& cam_box,
                        vw::ImageViewRef<MapprojDemPixel> const& dem,
-                       vw::cartography::GeoReference const& dem_georef,
-                       vw::cartography::GeoReference const& target_georef,
+                       vw::GeoReference const& dem_georef,
+                       vw::GeoReference const& target_georef,
                        vw::CamPtr const& camera_model) {
   if (cam_box.empty())
     return false;
@@ -149,8 +148,8 @@ bool anyCornerOccluded(vw::BBox2 const& cam_box,
 // Estimate the camera bbox taking into account occlusion by planetary body.
 vw::BBox2 occlusionEstim(vw::BBox2 const& cam_box,
                          vw::ImageViewRef<MapprojDemPixel> const& dem,
-                         vw::cartography::GeoReference const& dem_georef,
-                         vw::cartography::GeoReference const& target_georef,
+                         vw::GeoReference const& dem_georef,
+                         vw::GeoReference const& target_georef,
                          vw::CamPtr const& camera_model) {
 
   if (cam_box.empty())
@@ -276,10 +275,10 @@ void write_parallel_cond(std::string              const& filename,
   // ISIS is not thread safe so we must switch out based on what the session is.
   vw_out() << "Writing: " << filename << "\n";
   if (opt.multithreaded_model) {
-    vw::cartography::block_write_gdal_image(filename, image.impl(), has_georef, georef,
+    vw::block_write_gdal_image(filename, image.impl(), has_georef, georef,
                                 has_nodata, nodata_val, opt, tpc, keywords);
   } else {
-    vw::cartography::write_gdal_image(filename, image.impl(), has_georef, georef,
+    vw::write_gdal_image(filename, image.impl(), has_georef, georef,
                           has_nodata, nodata_val, opt, tpc, keywords);
   }
 

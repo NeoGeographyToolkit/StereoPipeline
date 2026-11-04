@@ -36,7 +36,6 @@
 #include <limits>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -122,7 +121,7 @@ Vector3 determine_output_shift(std::vector<std::string> const& pc_files, Options
     std::string shift_str;
     boost::shared_ptr<vw::DiskImageResource> 
       rsrc(new vw::DiskImageResourceGDAL(pc_files[i]));
-    if (vw::cartography::read_header_string(*rsrc.get(), asp::ASP_POINT_OFFSET_TAG_STR, shift_str)) {
+    if (vw::read_header_string(*rsrc.get(), asp::ASP_POINT_OFFSET_TAG_STR, shift_str)) {
       //std::cout << "shift string = " << shift_str << std::endl;
       shift += vw::str_to_vec<vw::Vector3>(shift_str);
       shift_count += 1.0;
@@ -154,7 +153,7 @@ do_work(Vector3 const& shift, Options const& opt) {
   bool has_nodata = false;
   double nodata = -std::numeric_limits<float>::max(); // smallest float
   GeoReference georef;
-  vw::cartography::block_write_gdal_image(opt.out_file, merged_cloud, has_georef,
+  vw::block_write_gdal_image(opt.out_file, merged_cloud, has_georef,
                               georef,  has_nodata, nodata, opt,
                               TerminalProgressCallback("asp", "\t--> Merging: "));
 }
@@ -171,9 +170,9 @@ do_work(Vector3 const& shift, Options const& opt) {
   // when applied to the merged cloud, but it will at least have the correct datum
   // and projection.
   bool has_georef = false;
-  cartography::GeoReference georef;
+  vw::GeoReference georef;
   for (size_t i = 0; i < opt.pointcloud_files.size(); i++){
-    cartography::GeoReference local_georef;
+    vw::GeoReference local_georef;
 
     if (read_georeference(local_georef, opt.pointcloud_files[i])){
       georef = local_georef;

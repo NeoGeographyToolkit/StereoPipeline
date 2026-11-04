@@ -105,21 +105,21 @@ namespace asp {
                                         std::string const& input_file,
                                         std::string const& suffix,
                                         bool has_georef,
-                                        vw::cartography::GeoReference const & georef,
+                                        vw::GeoReference const & georef,
                                         bool has_nodata,
                                         double nodata_val);
 
   
   // This will tweak the georeference so that point_to_pixel() is the identity.
-  bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
+  bool read_georef_from_shapefile(vw::GeoReference & georef,
 				  std::string const& file);
   
-  bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
+  bool read_georef_from_image_or_shapefile(vw::GeoReference & georef,
 					   std::string const& file);
 
   // Create contours from given image
   void contour_image(DiskImagePyramidMultiChannel const& img,
-                     vw::cartography::GeoReference const & georef,
+                     vw::GeoReference const & georef,
                      double threshold,
                      std::vector<vw::geometry::dPoly> & polyVec);
   

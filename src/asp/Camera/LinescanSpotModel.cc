@@ -229,7 +229,7 @@ load_spot15_csm_camera_model_from_xml(std::string const& path) {
   double first_line_time = time_func(0);
   double dt_line = xml_reader.line_period;
 
-  vw::cartography::Datum datum("WGS84");
+  vw::Datum datum("WGS84");
   std::string sensor_id = "SPOT5";
 
   // Populate CSM model fields directly. We do this instead of calling

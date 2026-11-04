@@ -40,7 +40,7 @@ TEST( Common, separate_images_from_cameras_rpb ) {
 TEST( Common, StereoMultiCmdCheck ) {
 
   // Init a georef, the numbers are pretty arbitrary, it just must be valid
-  cartography::GeoReference georef;
+  vw::GeoReference georef;
   georef.set_geographic();
   georef.set_proj4_projection_str("+proj=longlat +a=3396190 +b=3396190 +no_defs ");
   georef.set_well_known_geogcs("D_MARS");
@@ -59,13 +59,13 @@ TEST( Common, StereoMultiCmdCheck ) {
   TerminalProgressCallback tpc("asp", ": ");
   vw::GdalWriteOptions opt;
 
-  vw::cartography::block_write_gdal_image("img1.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
-  vw::cartography::block_write_gdal_image("img2.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
-  vw::cartography::block_write_gdal_image("img3.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
-  vw::cartography::block_write_gdal_image("img4.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
-  vw::cartography::block_write_gdal_image("img1.cub", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
-  vw::cartography::block_write_gdal_image("img2.cub", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
-  vw::cartography::block_write_gdal_image("dem.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
+  vw::block_write_gdal_image("img1.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
+  vw::block_write_gdal_image("img2.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
+  vw::block_write_gdal_image("img3.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
+  vw::block_write_gdal_image("img4.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
+  vw::block_write_gdal_image("img1.cub", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
+  vw::block_write_gdal_image("img2.cub", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
+  vw::block_write_gdal_image("dem.tif", dem, has_georef, georef, has_nodata, nodata, opt, tpc);
 
   std::ofstream ofs1("img1.xml"); ofs1 << "test" << std::endl; ofs1.close();
   std::ofstream ofs2("img2.xml"); ofs2 << "test" << std::endl; ofs2.close();

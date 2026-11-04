@@ -446,39 +446,39 @@ int main( int argc, char *argv[] ) {
     
     // Write to disk using the specified output data type.
     if (opt.output_type == "Float32") 
-      vw::cartography::block_write_gdal_image(opt.output_image, out_img,
-                                              output_nodata_value, opt, tpc);
+      vw::block_write_gdal_image(opt.output_image, out_img,
+                                 output_nodata_value, opt, tpc);
     else if (opt.output_type == "Byte") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(out_img,
 							       RoundAndClamp<uint8, float>()),
-                                              vw::round_and_clamp<uint8>(output_nodata_value),
-                                              opt, tpc);
+                                 vw::round_and_clamp<uint8>(output_nodata_value),
+                                 opt, tpc);
     else if (opt.output_type == "UInt16") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(out_img,
 							       RoundAndClamp<uint16, float>()),
-                                              vw::round_and_clamp<uint16>(output_nodata_value),
-                                              opt, tpc);
+                                 vw::round_and_clamp<uint16>(output_nodata_value),
+                                 opt, tpc);
     else if (opt.output_type == "Int16") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(out_img,
 							       RoundAndClamp<int16, float>()),
-                                              vw::round_and_clamp<int16>(output_nodata_value),
-                                              opt, tpc);
+                                 vw::round_and_clamp<int16>(output_nodata_value),
+                                 opt, tpc);
     
     else if (opt.output_type == "UInt32") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(out_img,
 							       RoundAndClamp<uint32, float>()),
-                                              vw::round_and_clamp<uint32>(output_nodata_value),
-                                              opt, tpc);
+                                 vw::round_and_clamp<uint32>(output_nodata_value),
+                                 opt, tpc);
     else if (opt.output_type == "Int32") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(out_img,
 							       RoundAndClamp<int32, float>()),
-                                              vw::round_and_clamp<int32>(output_nodata_value),
-                                              opt, tpc);
+                                 vw::round_and_clamp<int32>(output_nodata_value),
+                                 opt, tpc);
     else
       vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
     

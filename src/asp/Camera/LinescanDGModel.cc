@@ -100,7 +100,7 @@ vw::CamPtr load_dg_camera_model_from_xml(std::string const& path) {
     mean_ground_elevation = (bbox.min()[2] + bbox.max()[2]) / 2.0;
     double lon = (bbox.min()[0] + bbox.max()[0])/2.0;
     double lat = (bbox.min()[1] + bbox.max()[1])/2.0;
-    vw::cartography::Datum datum("WGS84"); 
+    vw::Datum datum("WGS84"); 
     vw::Vector3 xyz = datum.geodetic_to_cartesian(vw::Vector3(lon, lat, 0));
     local_earth_radius = norm_2(xyz);
   }
@@ -276,7 +276,7 @@ void DGCameraModel::populateCsmModel() {
   // 2,002,252.25.
 
   // This sensor is used for Earth only
-  vw::cartography::Datum datum("WGS84"); 
+  vw::Datum datum("WGS84"); 
   this->m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
   this->m_semi_major_axis = datum.semi_major_axis(); 
   this->m_semi_minor_axis = datum.semi_minor_axis();
@@ -457,4 +457,3 @@ void DGCameraModel::interpSatelliteQuatCov(vw::Vector2 const& pix,
 }
 
 } // end namespace asp
-

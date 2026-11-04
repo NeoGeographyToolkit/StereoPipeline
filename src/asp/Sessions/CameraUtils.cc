@@ -157,14 +157,14 @@ void load_cameras(std::vector<std::string> const& image_files,
 
 // Guess the based on camera position. Usually one arrives here for pinhole
 // cameras. This function is to be used when anything else fails.
-bool guessDatum(double cam_center_radius, vw::cartography::Datum & datum) {
+bool guessDatum(double cam_center_radius, vw::Datum & datum) {
 
   bool success = false;
   
   // Datums for Earth, Mars, and Moon
-  vw::cartography::Datum earth("WGS84");
-  vw::cartography::Datum mars("D_MARS");
-  vw::cartography::Datum moon("D_MOON");
+  vw::Datum earth("WGS84");
+  vw::Datum mars("D_MARS");
+  vw::Datum moon("D_MOON");
   
   double km = 1000.0;
   if (cam_center_radius > earth.semi_major_axis() - 100*km && 
@@ -190,7 +190,7 @@ bool datum_from_camera(std::string const& image_file,
                        std::string & stereo_session, // may change
                        asp::SessionPtr & session, // may be null on input
                        // Outputs
-                       vw::cartography::Datum & datum) {
+                       vw::Datum & datum) {
   
   std::string out_prefix = "run";
 
@@ -451,7 +451,7 @@ transformFromMapProject(std::string dem_path,
       << "Must provide either a DEM file or a DEM height, not both.");
   
   vw::DiskImageView<float> img(img_file_path);
-  vw::cartography::GeoReference image_georef;
+  vw::GeoReference image_georef;
   if (!read_georeference(image_georef, img_file_path))
     vw::vw_throw(vw::ArgumentErr() << "Missing georeference in image: " << img_file_path);
 
@@ -462,11 +462,11 @@ transformFromMapProject(std::string dem_path,
                          dem_path);
   
   // Read in data necessary for the Map2CamTrans object
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   if (!read_georeference(dem_georef, dem_path))
     vw::vw_throw(vw::ArgumentErr() << "No georeference found in DEM: " << dem_path);
   bool call_from_mapproject = false;
-  return vw::TransformPtr(new vw::cartography::Map2CamTrans(map_proj_model_ptr.get(),
+  return vw::TransformPtr(new vw::Map2CamTrans(map_proj_model_ptr.get(),
                                    image_georef, dem_georef, dem_path,
                                    vw::Vector2(img.cols(), img.rows()),
                                    call_from_mapproject));

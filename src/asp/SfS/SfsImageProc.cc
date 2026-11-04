@@ -370,7 +370,7 @@ void saveWeights(std::set<int> const& skip_images,
                  std::vector<std::string> const& input_cameras,
                  std::string const& tag, 
                  std::vector<vw::ImageView<double>> const& ground_weights,
-                 vw::cartography::GeoReference const& geo,
+                 vw::GeoReference const& geo,
                  vw::GdalWriteOptions const& opt) {
 
   int num_images = input_images.size();
@@ -390,11 +390,11 @@ void saveWeights(std::set<int> const& skip_images,
     bool has_georef = true, has_nodata = false;
     std::string ground_weight_file = local_prefix + "-" + tag + "_weight.tif";
     vw_out() << "Writing: " << ground_weight_file << std::endl;
-    vw::cartography::block_write_gdal_image(ground_weight_file,
-                                            ground_weights[image_iter],
-                                            has_georef, geo, has_nodata,
-                                            img_nodata_val, opt,
-                                            TerminalProgressCallback("asp", ": "));
+    vw::block_write_gdal_image(ground_weight_file,
+                               ground_weights[image_iter],
+                               has_georef, geo, has_nodata,
+                               img_nodata_val, opt,
+                               TerminalProgressCallback("asp", ": "));
 
   }
 }
@@ -409,7 +409,7 @@ void saveWeights(std::set<int> const& skip_images,
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
                                  vw::GdalWriteOptions const& opt,
-                                 vw::cartography::GeoReference const& geo,
+                                 vw::GeoReference const& geo,
                                  std::set<int> const& skip_images,
                                  std::string const& out_prefix, // for debug data
                                  std::vector<std::string> const& input_images,
@@ -476,19 +476,19 @@ void adjustBorderlineDataWeights(int cols, int rows,
     float img_nodata_val = -std::numeric_limits<float>::max(); // part of api
     std::string max_weight_file = out_prefix + "-max_weight.tif";
     vw_out() << "Writing: " << max_weight_file << std::endl;
-    vw::cartography::block_write_gdal_image(max_weight_file,
-                                            max_weight,
-                                            has_georef, geo, has_nodata,
-                                            img_nodata_val, opt,
-                                            TerminalProgressCallback("asp", ": "));
+    vw::block_write_gdal_image(max_weight_file,
+                               max_weight,
+                               has_georef, geo, has_nodata,
+                               img_nodata_val, opt,
+                               TerminalProgressCallback("asp", ": "));
 
     std::string boundary_weight_file = out_prefix + "-boundary_weight.tif";
     vw_out() << "Writing: " << boundary_weight_file << std::endl;
-    vw::cartography::block_write_gdal_image(boundary_weight_file,
-                                            boundary_weight,
-                                            has_georef, geo, has_nodata,
-                                            img_nodata_val, opt,
-                                            TerminalProgressCallback("asp", ": "));
+    vw::block_write_gdal_image(boundary_weight_file,
+                               boundary_weight,
+                               has_georef, geo, has_nodata,
+                               img_nodata_val, opt,
+                               TerminalProgressCallback("asp", ": "));
 
     // Save the adjusted ground weights
     saveWeights(skip_images, out_prefix, input_images,
@@ -547,7 +547,7 @@ vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
 bool isInShadow(int col, int row, Vector3 const& sunPos,
                 ImageView<double> const& dem, double max_dem_height,
                 double gridx, double gridy,
-                cartography::GeoReference const& geo) {
+                vw::GeoReference const& geo) {
 
   // Here bicubic interpolation won't work. It is easier to interpret
   // the DEM as piecewise-linear when dealing with rays intersecting
@@ -608,7 +608,7 @@ bool isInShadow(int col, int row, Vector3 const& sunPos,
 
 void areInShadow(Vector3 const& sunPos, ImageView<double> const& dem,
                  double gridx, double gridy,
-                 cartography::GeoReference const& geo,
+                 vw::GeoReference const& geo,
                  ImageView<float> & shadow) {
 
   // Find the max DEM height
@@ -645,7 +645,7 @@ void deepenCraters(std::string const& dem_file,
     vw_out() << "Dem nodata: " << dem_nodata_val << "\n";
 
   ImageView<PixelMask<float>> dem (create_mask(DiskImageView<float>(dem_file), dem_nodata_val));
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   if (!read_georeference(georef, dem_file))
     vw_throw(ArgumentErr() << "The input DEM " << dem_file << " has no georeference.\n");
 
@@ -862,7 +862,7 @@ void updateMasksWeights(SfsOptions const& opt,
 // for seams. Must be used only in clips known to have seams.
 void handleLowLight(SfsOptions const& opt,
                     vw::ImageView<double> const& dem,
-                    vw::cartography::GeoReference const& geo,
+                    vw::GeoReference const& geo,
                     std::vector<MaskedDblImgT> const& meas_intensities,
                     std::vector<MaskedDblImgT> const& sim_intensities,
                     std::vector<vw::ImageView<double>> & blend_weights) {
@@ -991,7 +991,7 @@ void handleLowLight(SfsOptions const& opt,
 void handleBorderlineAndLowLight(SfsOptions & opt,
                                  int num_images,
                                  vw::ImageView<double> const& dem,
-                                 vw::cartography::GeoReference const& geo,
+                                 vw::GeoReference const& geo,
                                  std::vector<BBox2i> const& crop_boxes,
                                  std::vector<MaskedDblImgT> const& meas_intensities,
                                  std::vector<MaskedDblImgT> const& sim_intensities,
@@ -1107,7 +1107,7 @@ vw::ImageView<double> calcClampedBdDist(vw::ImageView<float> const& lit_grass_di
 // Calc the weight for option --curvature-in-shadow-weight
 void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,
                                  vw::ImageView<int> const& lit_image_mask,
-                                 vw::cartography::GeoReference const& geo,
+                                 vw::GeoReference const& geo,
                                  vw::ImageView<double> & curvature_in_shadow_weight) {
 
   TerminalProgressCallback tpc("asp", ": ");
@@ -1150,7 +1150,7 @@ void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,
 void saveIntensities(SfsOptions const& opt,
                      std::string const& input_image,
                      std::string const& input_camera,
-                     vw::cartography::GeoReference const& geo,
+                     vw::GeoReference const& geo,
                      MaskedDblImgT const& meas_intensity,
                      MaskedDblImgT const& sim_intensity,
                      float img_nodata_val) {
@@ -1165,19 +1165,19 @@ void saveIntensities(SfsOptions const& opt,
     std::string out_meas_intensity_file = local_prefix + "-meas-intensity.tif";
     vw::vw_out() << "Writing: " << out_meas_intensity_file << "\n";
     vw::TerminalProgressCallback tpc("asp", ": ");
-    vw::cartography::block_write_gdal_image(out_meas_intensity_file,
-                                            vw::apply_mask(meas_intensity, img_nodata_val),
-                                            has_georef, geo, has_nodata,
-                                            img_nodata_val, opt, tpc);
+    vw::block_write_gdal_image(out_meas_intensity_file,
+                               vw::apply_mask(meas_intensity, img_nodata_val),
+                               has_georef, geo, has_nodata,
+                               img_nodata_val, opt, tpc);
   }
   if (opt.save_sim_intensity_only) {
     std::string out_sim_intensity_file = local_prefix + "-sim-intensity.tif";
     vw::vw_out() << "Writing: " << out_sim_intensity_file << "\n";
     vw::TerminalProgressCallback tpc("asp", ": ");
-    vw::cartography::block_write_gdal_image(out_sim_intensity_file,
-                                            vw::apply_mask(sim_intensity, img_nodata_val),
-                                            has_georef, geo, has_nodata, img_nodata_val,
-                                            opt, tpc);
+    vw::block_write_gdal_image(out_sim_intensity_file,
+                               vw::apply_mask(sim_intensity, img_nodata_val),
+                               has_georef, geo, has_nodata, img_nodata_val,
+                               opt, tpc);
   }
 }
 

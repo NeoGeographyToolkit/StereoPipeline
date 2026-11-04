@@ -216,7 +216,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 void process_disparity(Options& opt) {
 
-  cartography::GeoReference georef;
+  vw::GeoReference georef;
   bool has_georef  = read_georeference(georef, opt.input_file_name);
   bool has_nodata = false;
   float output_nodata = -32768.0;

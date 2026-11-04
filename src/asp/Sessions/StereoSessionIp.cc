@@ -47,7 +47,6 @@
 #include <string>
 
 using namespace vw;
-using namespace vw::cartography;
 
 namespace fs = boost::filesystem;
 
@@ -189,7 +188,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     // Run an IP matching function that takes the camera and datum info into account
 
     bool use_sphere_for_non_earth = true; // Assume Mars is a sphere
-    cartography::Datum datum = this->get_datum(cam1, use_sphere_for_non_earth);
+    vw::Datum datum = this->get_datum(cam1, use_sphere_for_non_earth);
 
     // This is a bugfix. For RPC models, we must never intersect with
     // a datum whose height is outside of the domain of applicability
@@ -215,12 +214,12 @@ bool StereoSession::ip_matching(std::string const& input_file1,
         vw_out() << "The new datum height will be at " << mid_ht
                  << " meters relative to the previous one.\n";
         vw_out() << "Old datum: " << datum << "\n";
-        datum = vw::cartography::Datum(datum.name(),
-                                       datum.spheroid_name(),
-                                       datum.meridian_name(),
-                                       datum.semi_major_axis() + mid_ht,
-                                       datum.semi_minor_axis() + mid_ht,
-                                       datum.meridian_offset());
+        datum = vw::Datum(datum.name(),
+                          datum.spheroid_name(),
+                          datum.meridian_name(),
+                          datum.semi_major_axis() + mid_ht,
+                          datum.semi_minor_axis() + mid_ht,
+                          datum.meridian_offset());
         vw_out() << "New datum: " << datum << "\n";
       }
     } // End RPC case
@@ -269,10 +268,10 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     // counterpart within --ip-match-radius pixels in the other image, before
     // matching. Read the georeferences here to relate the two pixel frames.
     bool filter_by_ground_loc = false;
-    vw::cartography::GeoReference gr1, gr2;
+    vw::GeoReference gr1, gr2;
     if (have_mapproj_images && asp::stereo_settings().ip_match_radius > 0) {
-      bool ok1 = vw::cartography::read_georeference(gr1, input_file1);
-      bool ok2 = vw::cartography::read_georeference(gr2, input_file2);
+      bool ok1 = vw::read_georeference(gr1, input_file1);
+      bool ok2 = vw::read_georeference(gr2, input_file2);
       filter_by_ground_loc = (ok1 && ok2);
       if (!filter_by_ground_loc)
         vw_out() << "\t    --ip-match-radius set but a georeference is missing; "
@@ -445,9 +444,9 @@ void matchIp(std::string const& out_prefix,
   // can restrict the matching to a smaller region.
   vw::BBox2 bbox1, bbox2;
   if (pct_for_overlap >= 0 && have_mapproj_images && cam1 == NULL && cam2 == NULL) {
-    vw::cartography::GeoReference georef1, georef2;
-    bool has_georef1 = vw::cartography::read_georeference(georef1, image1_path);
-    bool has_georef2 = vw::cartography::read_georeference(georef2, image2_path);
+    vw::GeoReference georef1, georef2;
+    bool has_georef1 = vw::read_georeference(georef1, image1_path);
+    bool has_georef2 = vw::read_georeference(georef2, image2_path);
     if (has_georef1 && has_georef2) {
       bbox1 = vw::bounding_box(masked_image1);
       bbox2 = vw::bounding_box(masked_image2);
@@ -455,7 +454,7 @@ void matchIp(std::string const& out_prefix,
       expand_box_by_pct(bbox1, pct_for_overlap);
       expand_box_by_pct(bbox2, pct_for_overlap);
       // Transform each box to the other image's pixel coordinates
-      vw::cartography::GeoTransform trans(georef1, georef2);
+      vw::GeoTransform trans(georef1, georef2);
       vw::BBox2 trans_bbox1 = trans.forward_bbox(bbox1);
       vw::BBox2 trans_bbox2 = trans.reverse_bbox(bbox2);
       // The first box will be the 2nd transformed box, then cropped

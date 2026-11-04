@@ -34,12 +34,12 @@ TEST( InterestPointMatching, DatumIntersection ) {
                               Vector3(1,0,0), Vector3(0,1,0), Vector3(0,0,1));
 
   // Project back a forth against a flattened sphere
-  cartography::Datum datum("WGS84");
+  vw::Datum datum("WGS84");
   for ( size_t i = 0; i < 35000; i+= 2000 ) {
     for ( size_t j = 0; j < 35000; j+= 2000 ) {
       Vector2 meas( i, j );
 
-      Vector3 pos = cartography::datum_intersection( datum, &model, meas );
+      Vector3 pos = vw::datum_intersection( datum, &model, meas );
       Vector3 geo = datum.cartesian_to_geodetic( pos );
 
       // Verify that the geodetic height is zero (we are on the sphere).
@@ -56,7 +56,7 @@ TEST( InterestPointMatching, DatumIntersection ) {
     for ( size_t j = 0; j < 35000; j+= 2000 ) {
       Vector2 meas( i, j );
 
-      Vector3 pos = cartography::datum_intersection( datum, &model, meas );
+      Vector3 pos = vw::datum_intersection( datum, &model, meas );
       Vector3 geo = datum.cartesian_to_geodetic( pos );
 
       // Verify that the geodetic height is zero (we are on the sphere).

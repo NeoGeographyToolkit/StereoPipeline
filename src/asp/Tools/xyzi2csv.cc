@@ -82,8 +82,8 @@ void run_xyzi2csv(int argc, char* argv[]) {
   Options opt;
   handle_arguments(argc, argv, opt);
 
-  vw::cartography::GeoReference georef;
-  bool has_georef = vw::cartography::read_georeference(georef, opt.dem);
+  vw::GeoReference georef;
+  bool has_georef = vw::read_georeference(georef, opt.dem);
   if (!has_georef)
     vw_throw(ArgumentErr() << "There is no georeference information in: "
               << opt.dem << ".\n");

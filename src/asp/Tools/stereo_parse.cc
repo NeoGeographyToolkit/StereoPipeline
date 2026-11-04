@@ -53,7 +53,7 @@ void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& op
   if (!(iss >> lon >> lat >> h))
     vw_throw(ArgumentErr() << "Could not parse --tile-at-location.\n");
 
-  vw::cartography::GeoReference georef = opt.session->get_georef();
+  vw::GeoReference georef = opt.session->get_georef();
 
   vw::CamPtr left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
@@ -174,7 +174,7 @@ int main(int argc, char* argv[]) {
     // extract from a line of text the portion after the separator.
     std::string sep = "--non-comma-separator--";
      
-    cartography::GeoReference georef = opt.session->get_georef();
+    vw::GeoReference georef = opt.session->get_georef();
     vw_out() << "WKT" << sep << georef.get_wkt() << "\n";
 
     // Write the geotransform as a string as expected by GDAL's vrt xml format
@@ -241,7 +241,7 @@ int main(int argc, char* argv[]) {
     if (stereo_settings().attach_georeference_to_lowres_disparity &&
         fs::exists(left_image_file)) {
 
-      cartography::GeoReference left_georef, left_sub_georef;
+      vw::GeoReference left_georef, left_sub_georef;
       bool   has_left_georef = read_georeference(left_georef, left_image_file);
       bool   has_nodata      = false;
       double output_nodata   = -32768.0;
@@ -266,7 +266,7 @@ int main(int argc, char* argv[]) {
           double left_scale = 0.5*(double(d_sub.cols())/left_image.cols() +
                                    double(d_sub.rows())/left_image.rows());
           left_sub_georef = resample(left_georef, left_scale);
-          vw::cartography::block_write_gdal_image(d_sub_file, d_sub,
+          vw::block_write_gdal_image(d_sub_file, d_sub,
                                       has_left_georef, left_sub_georef,
                                       has_nodata, output_nodata,
                                       opt, TerminalProgressCallback("asp", "\t    D_sub: "));

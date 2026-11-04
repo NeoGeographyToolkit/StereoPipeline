@@ -33,9 +33,7 @@ namespace vw {
   namespace camera {
     class CameraModel;
   }
-  namespace cartography {
     class Datum;
-  }
 }
 
 namespace asp {
@@ -64,7 +62,7 @@ namespace asp {
                        bool                     write_nodata,
                        vw::camera::CameraModel const * left_camera_model,
                        vw::camera::CameraModel const * right_camera_model,
-                       vw::cartography::Datum  const & datum,
+                       vw::Datum  const & datum,
                        // Outputs
                        vw::BBox2i         & left_trans_crop_win,
                        vw::BBox2i         & right_trans_crop_win,

@@ -76,7 +76,7 @@ void load_cloud_as_mat(std::string const& file_name,
                        vw::BBox2 const& copc_win, bool copc_read_all,
                        bool calc_shift,
                        vw::Vector3 & shift,
-                       vw::cartography::GeoReference const& geo,
+                       vw::GeoReference const& geo,
                        CsvConv const& csv_conv,
                        bool   & is_lola_rdr_format,
                        double & median_longitude,
@@ -137,7 +137,7 @@ void load_cloud(std::string const& file_name,
                 vw::BBox2 const& copc_win, bool copc_read_all,
                 bool calc_shift,
                 vw::Vector3 & shift,
-                vw::cartography::GeoReference const& geo,
+                vw::GeoReference const& geo,
                 CsvConv const& csv_conv,
                 bool   & is_lola_rdr_format,
                 double & median_longitude,
@@ -157,7 +157,7 @@ void load_cloud(std::string const& file_name,
 // away points in the other cloud which are not within this box.
 // Handle the situation when there is an initial transform applied
 // to the source points.
-void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
+void calc_extended_lonlat_bbox(vw::GeoReference const& geo,
                                int num_sample_pts,
                                CsvConv const& csv_conv,
                                std::string const& file_name,
@@ -165,7 +165,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                Eigen::MatrixXd const & transform,
                                vw::BBox2 const& copc_win, bool copc_read_all,
                                bool need_projwin,
-                               vw::cartography::GeoReference const& projwin_georef,
+                               vw::GeoReference const& projwin_georef,
                                vw::BBox2 & out_box,
                                vw::BBox2 & trans_out_box,
                                vw::BBox2 & needed_projwin) {
@@ -277,8 +277,8 @@ void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box) {
   if (get_cloud_type(file_name) != "DEM")
     return;
 
-  cartography::GeoReference georef;
-  bool has_georef = cartography::read_georeference(georef, file_name);
+  vw::GeoReference georef;
+  bool has_georef = vw::read_georeference(georef, file_name);
   if (!has_georef)
     vw_throw(ArgumentErr() << "DEM: " << file_name << " does not have a georeference.\n");
 
@@ -341,7 +341,7 @@ double calc_rmse(std::vector<double> const& errs) {
 void calc_translation_vec(Eigen::MatrixXd const& initT,
                           DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
-                          vw::cartography::Datum const& datum,
+                          vw::Datum const& datum,
                           vw::Vector3 & source_ctr_vec,
                           vw::Vector3 & source_ctr_llh,
                           vw::Vector3 & trans_xyz,
@@ -407,15 +407,15 @@ double calc_max_displacement(DP const& source, DP const& trans_source) {
 /// Save a transformed point cloud with N bands
 template<int n> // Number of bands
 void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
-                              vw::cartography::GeoReference const& geo,
+                              vw::GeoReference const& geo,
                               std::string input_file,
                               std::string output_file,
                               Eigen::MatrixXd const& T) {
 
   // We will try to save the transformed cloud with a georef. Try to get it from
   // the input cloud, or otherwise from the "global" georef.
-  vw::cartography::GeoReference curr_geo;
-  bool has_georef = vw::cartography::read_georeference(curr_geo, input_file);
+  vw::GeoReference curr_geo;
+  bool has_georef = vw::read_georeference(curr_geo, input_file);
   if (!has_georef && geo.datum().name() != UNSPECIFIED_DATUM) {
     has_georef = true;
     curr_geo = geo;
@@ -429,7 +429,7 @@ void save_trans_point_cloud_n(vw::GdalWriteOptions const& opt,
   if constexpr (n == 3) point_cloud = read_asp_point_cloud_3(input_file);
   else if constexpr (n == 4) point_cloud = read_asp_point_cloud_4(input_file);
   else if constexpr (n == 6) point_cloud = read_asp_point_cloud_6(input_file);
-  vw::cartography::block_write_gdal_image(output_file,
+  vw::block_write_gdal_image(output_file,
                               per_pixel_filter(point_cloud, TransformPC(T)),
                               has_georef, curr_geo,
                               has_nodata, nodata,
@@ -444,7 +444,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::BBox2 const& copc_win, bool copc_read_all,
-                            vw::cartography::GeoReference const& geo,
+                            vw::GeoReference const& geo,
                             CsvConv const& csv_conv,
                             Eigen::MatrixXd const& T) {
 
@@ -461,8 +461,8 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
   if (file_type == "DEM") {
     // TODO(oalexan1): This must be a function.
-    vw::cartography::GeoReference dem_geo;
-    bool has_georef = vw::cartography::read_georeference(dem_geo, input_file);
+    vw::GeoReference dem_geo;
+    bool has_georef = vw::read_georeference(dem_geo, input_file);
     if (!has_georef) vw_throw(vw::ArgumentErr() << "DEM: " << input_file
                            << " does not have a georeference.\n");
 
@@ -479,7 +479,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 
     // Save the georeference with the cloud, to help point2dem later
     bool has_nodata2 = false; // the cloud should not use DEM nodata
-    vw::cartography::block_write_gdal_image(output_file,
+    vw::block_write_gdal_image(output_file,
                                 per_pixel_filter(point_cloud, TransformPC(T)),
                                 has_georef, dem_geo,
                                 has_nodata2, nodata,
@@ -586,9 +586,9 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
 } // end save_trans_point_cloud
 
 InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
-                                                   vw::cartography::GeoReference & georef) {
+                                                   vw::GeoReference & georef) {
   // Load the georeference from the DEM
-  bool has_georef = vw::cartography::read_georeference(georef, dem_path);
+  bool has_georef = vw::read_georeference(georef, dem_path);
   if (!has_georef)
     vw::vw_throw(vw::ArgumentErr() << "DEM: " << dem_path
                  << " does not have a georeference.\n");
@@ -616,12 +616,12 @@ void read_georef(std::vector<std::string> const& clouds,
                  double semi_major_axis,
                  double semi_minor_axis,
                  std::string & csv_format_str,
-                 asp::CsvConv& csv_conv, vw::cartography::GeoReference& geo) {
+                 asp::CsvConv& csv_conv, vw::GeoReference& geo) {
 
   // Use an initialized datum for the georef, so later we can check
   // if we manage to populate it.
   {
-    vw::cartography::Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
+    vw::Datum datum(UNSPECIFIED_DATUM, "User Specified Spheroid",
               "Reference Meridian", 1, 1, 0);
     geo.set_datum(datum);
   }
@@ -637,8 +637,8 @@ void read_georef(std::vector<std::string> const& clouds,
   }
 
   if (dem_file != "") {
-    vw::cartography::GeoReference local_geo;
-    bool have_georef = vw::cartography::read_georeference(local_geo, dem_file);
+    vw::GeoReference local_geo;
+    bool have_georef = vw::read_georeference(local_geo, dem_file);
     if (!have_georef)
       vw::vw_throw(vw::ArgumentErr()
                    << "DEM: " << dem_file << " does not have a georeference.\n");
@@ -653,8 +653,8 @@ void read_georef(std::vector<std::string> const& clouds,
     if (is_good)
       break;
     if (asp::get_cloud_type(clouds[it]) == "PC") {
-      vw::cartography::GeoReference local_geo;
-      if (vw::cartography::read_georeference(local_geo, clouds[it])) {
+      vw::GeoReference local_geo;
+      if (vw::read_georeference(local_geo, clouds[it])) {
         pc_file = clouds[it];
         geo = local_geo;
         vw::vw_out() << "Detected datum from " << pc_file << ":\n" << geo.datum() << std::endl;
@@ -671,7 +671,7 @@ void read_georef(std::vector<std::string> const& clouds,
     if (is_good)
       break;
     if (asp::get_cloud_type(clouds[it]) == "LAS") {
-      vw::cartography::GeoReference local_geo;
+      vw::GeoReference local_geo;
       if (asp::georef_from_las(clouds[it], local_geo)) {
         las_file = clouds[it];
         geo = local_geo;
@@ -685,15 +685,15 @@ void read_georef(std::vector<std::string> const& clouds,
   //  we should override it with input parameters.
   if (datum_str != "") {
     // If the user set the datum, use it.
-    vw::cartography::Datum datum;
+    vw::Datum datum;
     datum.set_well_known_datum(datum_str);
     geo.set_datum(datum);
     is_good = true;
   } else if (semi_major_axis > 0 && semi_minor_axis > 0) {
     // Otherwise, if the user set the semi-axes, use that.
-    vw::cartography::Datum datum("User Specified Datum", "User Specified Spheroid",
-                                 "Reference Meridian",
-                                 semi_major_axis, semi_minor_axis, 0.0);
+    vw::Datum datum("User Specified Datum", "User Specified Spheroid",
+                    "Reference Meridian",
+                    semi_major_axis, semi_minor_axis, 0.0);
     geo.set_datum(datum);
     is_good = true;
   }
@@ -756,7 +756,7 @@ Vector3 get_cloud_gcc_coord(DP const& point_cloud, vw::Vector3 const& shift, int
 }
 
 bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float> > const& dem,
-                       vw::cartography::GeoReference const & georef,
+                       vw::GeoReference const & georef,
                        vw::Vector3                   const & lonlat,
                        double                              & dem_height) {
   // Convert the lon/lat location into a pixel in the DEM.

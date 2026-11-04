@@ -461,7 +461,7 @@ void stereo_blending(ASPGlobalOptions const& opt, std::string const& in_file,
   // in parallel_stereo, it can be safely assumed that the input
   // images are small enough to load entirely into memory.
 
-  cartography::GeoReference left_georef;
+  vw::GeoReference left_georef;
   std::string left_image = opt.out_prefix + "-L.tif";
   bool   has_left_georef = read_georeference(left_georef, left_image);
   int num_channels       = 1;
@@ -482,10 +482,10 @@ void stereo_blending(ASPGlobalOptions const& opt, std::string const& in_file,
   vw_out() << "Writing: " << full_out_file << "\n";
   if (num_channels == 3) {
     // Write the blended disparity
-    vw::cartography::block_write_gdal_image(full_out_file, blended_disp,
-                                            has_left_georef, left_georef,
-                                            has_nodata, nodata, opt,
-                                            TerminalProgressCallback("asp", "\t--> Blending :"));
+    vw::block_write_gdal_image(full_out_file, blended_disp,
+                               has_left_georef, left_georef,
+                               has_nodata, nodata, opt,
+                               TerminalProgressCallback("asp", "\t--> Blending :"));
   } else if (num_channels == 1) {
     // Write a single-channel image with no-data
     ImageView<float> image(blended_disp.cols(), blended_disp.rows());
@@ -497,10 +497,10 @@ void stereo_blending(ASPGlobalOptions const& opt, std::string const& in_file,
           image(col, row) = nodata;
       }
     }
-    vw::cartography::block_write_gdal_image(full_out_file, image,
-                                            has_left_georef, left_georef,
-                                            has_nodata, nodata, opt,
-                                            TerminalProgressCallback("asp", "\t--> Blending:"));
+    vw::block_write_gdal_image(full_out_file, image,
+                               has_left_georef, left_georef,
+                               has_nodata, nodata, opt,
+                               TerminalProgressCallback("asp", "\t--> Blending:"));
   }
 }
 

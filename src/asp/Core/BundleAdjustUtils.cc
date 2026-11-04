@@ -85,7 +85,7 @@ void camera_footprint(std::string const& dem_file,
   }
 
   // Read the DEM and supporting data
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   DiskImageView<float> dem_disk_image(dem_file);
   ImageViewRef<PixelMask<float>> dem;
   boost::shared_ptr<DiskImageResource> dem_rsrc(DiskImageResourcePtr(dem_file));
@@ -94,7 +94,7 @@ void camera_footprint(std::string const& dem_file,
   else
     dem = pixel_cast<PixelMask<float>>(dem_disk_image); // all pixels are valid
 
-  bool has_georef = vw::cartography::read_georeference(dem_georef, dem_file);
+  bool has_georef = vw::read_georeference(dem_georef, dem_file);
   if (!has_georef)
     vw_throw(ArgumentErr() << "There is no georeference information in: "
               << dem_file << ".\n");
@@ -106,9 +106,9 @@ void camera_footprint(std::string const& dem_file,
     int num_samples = 100; // should be enough
     std::vector<Vector3> coords;
     footprint_bbox
-      = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
-                                     camera_model, img.cols(), img.rows(),
-                                     mean_gsd, quick, &coords, num_samples);
+      = vw::camera_bbox(dem, dem_georef, dem_georef,
+                        camera_model, img.cols(), img.rows(),
+                        mean_gsd, quick, &coords, num_samples);
 
    // Convert the coordinates from ECEF to points in the DEM projection 
    for (size_t i = 0;  i < coords.size(); i++) {
@@ -265,7 +265,7 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
 // Given an xyz point in ECEF coordinates, update its height above datum by
 // interpolating into a DEM. The input must already be prepared for
 // interpolation. The user must check the return status.
-bool updatePointHeightFromDem(vw::cartography::GeoReference const& dem_georef,
+bool updatePointHeightFromDem(vw::GeoReference const& dem_georef,
                               vw::ImageViewRef<PixelMask<double>> const& interp_dem,
                               // Output
                               vw::Vector3 & xyz) {
@@ -314,7 +314,7 @@ bool updatePointHeightFromDem(vw::cartography::GeoReference const& dem_georef,
 void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
                          std::set<int> const& outliers,
                          std::vector<vw::CamPtr> const& camera_models,
-                         vw::cartography::GeoReference const& dem_georef,
+                         vw::GeoReference const& dem_georef,
                          vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
                          // Output
                          std::vector<vw::Vector3> & dem_xyz_vec,
@@ -380,7 +380,7 @@ void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
       bool has_intersection = false;
       double height_error_tol = 0.001; // 1 mm should be enough
       int icam = cnet[ipt][m].image_id();
-      Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+      Vector3 dem_xyz = vw::camera_pixel_to_dem_xyz
         (camera_models[icam]->camera_center(observation),
          camera_models[icam]->pixel_to_vector(observation),
          vw::pixel_cast<vw::PixelMask<float>>(masked_dem),
@@ -425,10 +425,10 @@ void updateTriPtsFromDemList(vw::ba::ControlNetwork const& cnet,
                              std::vector<vw::CamPtr> const& camera_models,
                              std::string const& heights_from_dem,
                              std::string const& heights_from_dem_list,
-                             vw::cartography::Datum const* datum,
+                             vw::Datum const* datum,
                              // Outputs
                              std::vector<vw::Vector3> & dem_xyz_vec,
-                             vw::cartography::GeoReference & dem_georef) {
+                             vw::GeoReference & dem_georef) {
 
   // Assemble the list of DEM files. At most one of the two options is set,
   // which is enforced at parse time.
@@ -458,7 +458,7 @@ void updateTriPtsFromDemList(vw::ba::ControlNetwork const& cnet,
       vw::vw_out() << "Constraining against DEM " << idem + 1 << " of "
                    << dem_files.size() << ": " << dem_files[idem] << "\n";
 
-    vw::cartography::GeoReference georef;
+    vw::GeoReference georef;
     ImageViewRef<PixelMask<double>> masked_dem;
     asp::create_masked_dem(dem_files[idem], georef, masked_dem);
 
@@ -862,7 +862,7 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
 // ba_state. Includes GCP. For bundle_adjust.
 void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
                    asp::BaState const& ba_state,
-                   vw::cartography::Datum const& datum,
+                   vw::Datum const& datum,
                    std::vector<std::string> const& image_files,
                    std::string const& filename) {
 
@@ -881,7 +881,7 @@ void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
     gcp_vec.push_back(gcp);
   }
 
-  vw::cartography::GeoReference georef(datum);
+  vw::GeoReference georef(datum);
   bool ignore_pixel_sigma = false;
   asp::writeGcp(filename, georef, gcp_vec, image_files, ignore_pixel_sigma);
 }
@@ -893,7 +893,7 @@ void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
 void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
                    std::vector<double> const& tri_points_vec,
                    std::set<int> const& outliers,
-                   vw::cartography::Datum const& datum,
+                   vw::Datum const& datum,
                    std::vector<std::string> const& image_files,
                    std::string const& filename) {
 
@@ -922,7 +922,7 @@ void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
     gcp_vec.push_back(gcp);
   }
 
-  vw::cartography::GeoReference georef(datum);
+  vw::GeoReference georef(datum);
   bool ignore_pixel_sigma = false;
   asp::writeGcp(filename, georef, gcp_vec, image_files, ignore_pixel_sigma);
 }

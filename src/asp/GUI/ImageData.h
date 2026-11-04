@@ -58,7 +58,7 @@ namespace asp {
     std::string      name; // primary filename (REGULAR_VIEW)
     vw::GdalWriteOptions m_opt;
     bool             has_georef;
-    vw::cartography::GeoReference georef;
+    vw::GeoReference georef;
     vw::BBox2        image_bbox;
     vw::Vector2      val_range;
     // There are several display modes. The one being shown is

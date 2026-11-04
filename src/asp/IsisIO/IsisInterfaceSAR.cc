@@ -62,7 +62,7 @@ IsisInterfaceSAR::IsisInterfaceSAR(std::string const& filename):
 Vector2 IsisInterfaceSAR::point_to_pixel(Vector3 const& point) const {
 
   // TODO(oalexan1): It looks that the code below assumes the datum to be spherical.
-  Vector3 lon_lat_radius = cartography::xyz_to_lon_lat_radius_estimate(point); // TODO: INACCURATE!!!
+  Vector3 lon_lat_radius = vw::xyz_to_lon_lat_radius_estimate(point); // TODO: INACCURATE!!!
   if (lon_lat_radius[0] < 0)
     lon_lat_radius[0] += 360.0;
 

@@ -26,7 +26,7 @@
 #include <vector>
 
 // Vision Workbench includes
-#include <vw/Cartography/GeoTransform.h> // For vw::cartography::GeoTransform
+#include <vw/Cartography/GeoTransform.h> // For vw::GeoTransform
 
 // ASP includes
 #include <asp/GUI/ImageData.h>
@@ -60,8 +60,8 @@ struct AppData {
   asp::DisplayMode            display_mode;
   std::vector<std::string>    image_files;
   std::vector<asp::imageData> images;
-  std::vector<vw::cartography::GeoTransform> world2image;
-  std::vector<vw::cartography::GeoTransform> image2world;
+  std::vector<vw::GeoTransform> world2image;
+  std::vector<vw::GeoTransform> image2world;
 };
 
 } // namespace asp

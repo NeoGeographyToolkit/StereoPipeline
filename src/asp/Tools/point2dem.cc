@@ -47,7 +47,6 @@
 
 using namespace vw;
 using namespace asp;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -455,7 +454,7 @@ bool csv_input_requires_explicit_georef(asp::DemOptions const& opt,
 // Wrapper for rasterize_cloud that goes through all spacing values
 void rasterize_cloud_multi_spacing(const ImageViewRef<Vector3>& proj_points,
                                    DemOptions& opt,
-                                   cartography::GeoReference& georef,
+                                   vw::GeoReference& georef,
                                    ImageViewRef<double> const& error_image,
                                    double estim_max_error,
                                    vw::BBox3 const& estim_proj_box) {
@@ -516,7 +515,7 @@ int main(int argc, char *argv[]) {
     handle_arguments(argc, argv, opt);
 
     // Need to know for both CSV and point cloud parsing if have the user datum
-    cartography::Datum user_datum;
+    vw::Datum user_datum;
     bool have_user_datum = asp::read_user_datum(opt.semi_major, opt.semi_minor,
                                                 opt.datum, user_datum);
 
@@ -531,7 +530,7 @@ int main(int argc, char *argv[]) {
                << "--reference-spheroid, or both --semi-major-axis and --semi-minor-axis.\n");
     }
 
-    vw::cartography::GeoReference csv_georef;
+    vw::GeoReference csv_georef;
     // TODO(oalexan1): The logic below is fragile. Check all locations
     // where parse_georef is called and see if a datum is always set before being used.
     if (have_user_datum)
@@ -595,7 +594,7 @@ int main(int argc, char *argv[]) {
         vw::vw_throw(vw::ArgumentErr()
                      << "A datum, projection, or semi-axes must be set.\n");
     } else {
-      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
+      vw::set_srs_string(opt.target_srs_string, have_user_datum, user_datum, output_georef);
     }
 
     // Determine if we should be using a longitude range between [-180, 180] or

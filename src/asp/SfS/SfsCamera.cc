@@ -29,7 +29,7 @@ using namespace vw;
 ApproxCameraModel::ApproxCameraModel(vw::CamPtr const& exact_camera,
                                      BBox2i img_bbox,
                                      ImageView<double> const& dem,
-                                     vw::cartography::GeoReference const& geo,
+                                     vw::GeoReference const& geo,
                                      double nodata_val,
                                      vw::Mutex & camera_mutex):
     m_geo(geo),
@@ -185,7 +185,7 @@ vw::Vector2 ApproxCameraModel::point_to_pixel(Vector3 const& xyz) const {
       return m_exact_camera->point_to_pixel(xyz);
 
     Vector3 datum_pt
-      = vw::cartography::datum_intersection(major_radius, minor_radius, S, dir);
+      = vw::datum_intersection(major_radius, minor_radius, S, dir);
     Vector3 llh = m_geo.datum().cartesian_to_geodetic(datum_pt);
     Vector2 pt = m_geo.lonlat_to_point(subvector(llh, 0, 2));
 

@@ -109,8 +109,8 @@ bool MainWindow::sanityChecks(int num_images) {
       popUp("The DEM file does not exist or is not a valid image file.");
       return false;
     }
-    vw::cartography::GeoReference georef;
-    bool has_georef = vw::cartography::read_georeference(georef, stereo_settings().dem_file);
+    vw::GeoReference georef;
+    bool has_georef = vw::read_georeference(georef, stereo_settings().dem_file);
     if (!has_georef) {
       popUp("The DEM file does not have a georeference. Please provide one.");
       return false;

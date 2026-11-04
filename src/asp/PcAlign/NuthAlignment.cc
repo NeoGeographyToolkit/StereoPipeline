@@ -61,12 +61,12 @@ void prepareData(NuthOptions const& opt,
                  vw::ImageView<vw::PixelMask<float>> & ref,
                  vw::ImageView<vw::PixelMask<float>> & src,
                  double & ref_nodata, double & src_nodata,
-                 vw::cartography::GeoReference & ref_georef,
-                 vw::cartography::GeoReference & src_georef) {
+                 vw::GeoReference & ref_georef,
+                 vw::GeoReference & src_georef) {
 
   // The DEMs must have a georeference
-  bool has_ref_georef = vw::cartography::read_georeference(ref_georef, opt.ref);
-  bool has_src_georef = vw::cartography::read_georeference(src_georef, opt.src);
+  bool has_ref_georef = vw::read_georeference(ref_georef, opt.ref);
+  bool has_src_georef = vw::read_georeference(src_georef, opt.src);
   if (!has_ref_georef || !has_src_georef)
     vw::vw_throw(vw::ArgumentErr() << "The input DEMs must have georeferences.\n");
   
@@ -140,8 +140,8 @@ void prepareData(NuthOptions const& opt,
 // translation defined in the projected space of the reference DEM.
 void shiftWarp(int ref_cols, int ref_rows, 
                vw::ImageView<vw::PixelMask<float>> const& src,
-               vw::cartography::GeoReference const& ref_georef,
-               vw::cartography::GeoReference const& src_georef,
+               vw::GeoReference const& ref_georef,
+               vw::GeoReference const& src_georef,
                double dx_total, double dy_total, double dz_total,
                // Outputs
                vw::ImageView<vw::PixelMask<float>> & src_warp) {
@@ -153,7 +153,7 @@ void shiftWarp(int ref_cols, int ref_rows,
   vw::ImageViewRef<vw::PixelMask<float>> src_interp 
     = vw::interpolate(src, vw::BicubicInterpolation(), nodata_ext);
   src_warp.set_size(ref_cols, ref_rows);
-  vw::cartography::GeoTransform gt(ref_georef, src_georef);
+  vw::GeoTransform gt(ref_georef, src_georef);
   
   // Interpolate  
   #pragma omp parallel for
@@ -189,7 +189,7 @@ void shiftWarp(int ref_cols, int ref_rows,
 // filtered differences we employed to find the translation.
 void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
                        vw::ImageView<vw::PixelMask<float>> const& diff,
-                       vw::cartography::GeoReference const& ref_georef,
+                       vw::GeoReference const& ref_georef,
                        double dx_total, double dy_total, double dz_total,
                        bool compute_translation_only,
                        // Outputs
@@ -302,8 +302,8 @@ void calcEcefTransform(vw::ImageView<vw::PixelMask<float>> const& ref,
 void computeNuthOffset(NuthOptions const& opt,
                        vw::ImageView<vw::PixelMask<float>> const& ref,
                        vw::ImageView<vw::PixelMask<float>> const& src,
-                       vw::cartography::GeoReference const& ref_georef,
-                       vw::cartography::GeoReference const& src_georef,
+                       vw::GeoReference const& ref_georef,
+                       vw::GeoReference const& src_georef,
                        double ref_nodata, double src_nodata,
                        double max_horiz_offset, double max_vert_offset, 
                        vw::Vector2 const& slope_lim,
@@ -341,7 +341,7 @@ void computeNuthOffset(NuthOptions const& opt,
   
   // Calculate the slope and aspect of the src_warp_copy DEM
   vw::ImageView<vw::PixelMask<float>> slope, aspect;
-  vw::cartography::calcSlopeAspect(src_warp, ref_georef, slope, aspect);
+  vw::calcSlopeAspect(src_warp, ref_georef, slope, aspect);
   
   // Filter slopes by range
   vw::rangeFilter(slope, slope_lim[0], slope_lim[1]);
@@ -456,7 +456,7 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   vw::ImageView<vw::PixelMask<float>> ref, src;
   double ref_nodata = -std::numeric_limits<double>::max();
   double src_nodata = ref_nodata;
-  vw::cartography::GeoReference ref_georef, src_georef;
+  vw::GeoReference ref_georef, src_georef;
   // start stopwatch
   prepareData(opt, ref, src, ref_nodata, src_nodata, ref_georef, src_georef);
   
@@ -522,11 +522,11 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   bool has_ref_no_data = true;
   std::string ref_crop_file = opt.out_prefix + "-ref-crop.tif"; 
   vw::vw_out() << "Writing: " << ref_crop_file << "\n";
-  vw::cartography::block_write_gdal_image(ref_crop_file,
-                                          vw::apply_mask(ref_dem, ref_nodata),
-                                          has_ref_georef, ref_georef,
-                                          has_ref_no_data, ref_nodata,
-                                          opt, ref_tpc);
+  vw::block_write_gdal_image(ref_crop_file,
+                             vw::apply_mask(ref_dem, ref_nodata),
+                             has_ref_georef, ref_georef,
+                             has_ref_no_data, ref_nodata,
+                             opt, ref_tpc);
   }
     
   // Write the cropped src
@@ -535,11 +535,11 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   bool has_src_no_data = true;
   std::string src_crop_file = opt.out_prefix + "-src-crop.tif";
   vw::vw_out() << "Writing: " << src_crop_file << "\n";
-  vw::cartography::block_write_gdal_image(src_crop_file,
-                                          vw::apply_mask(src_trans, src_nodata),
-                                          has_src_georef, ref_georef,
-                                          has_src_no_data, src_nodata,
-                                          opt, src_tpc);
+  vw::block_write_gdal_image(src_crop_file,
+                             vw::apply_mask(src_trans, src_nodata),
+                             has_src_georef, ref_georef,
+                             has_src_no_data, src_nodata,
+                             opt, src_tpc);
   }
 
   // Write the slope
@@ -548,11 +548,11 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   bool has_src_no_data = true, has_src_georef = true;
   std::string src_slope_file = opt.out_prefix + "-src-slope.tif";
   vw::vw_out() << "Writing: " << src_slope_file << "\n";
-  vw::cartography::block_write_gdal_image(src_slope_file,
-                                          vw::apply_mask(slope, src_nodata),
-                                          has_src_georef, ref_georef,
-                                          has_src_no_data, src_nodata,
-                                          opt, src_tpc);
+  vw::block_write_gdal_image(src_slope_file,
+                             vw::apply_mask(slope, src_nodata),
+                             has_src_georef, ref_georef,
+                             has_src_no_data, src_nodata,
+                             opt, src_tpc);
   }
 
   // Write the aspect
@@ -561,11 +561,11 @@ Eigen::MatrixXd nuthAlignment(std::string const& ref_file,
   bool has_src_no_data = true, has_src_georef = true;
   std::string src_aspect_file = opt.out_prefix + "-src-aspect.tif";
   vw::vw_out() << "Writing: " << src_aspect_file << "\n";
-  vw::cartography::block_write_gdal_image(src_aspect_file,
-                                          vw::apply_mask(aspect, src_nodata),
-                                          has_src_georef, ref_georef,
-                                          has_src_no_data, src_nodata,
-                                          opt, src_tpc);
+  vw::block_write_gdal_image(src_aspect_file,
+                             vw::apply_mask(aspect, src_nodata),
+                             has_src_georef, ref_georef,
+                             has_src_no_data, src_nodata,
+                             opt, src_tpc);
   }
 #endif  
 

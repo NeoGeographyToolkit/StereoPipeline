@@ -542,7 +542,7 @@ void write_selected_image_type(ImageViewRef<float> const& out_img,
   
   bool has_georef = false;
   bool has_nodata = true;
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   
   boost::algorithm::to_lower(opt.output_type);
   

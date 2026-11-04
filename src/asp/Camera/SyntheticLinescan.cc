@@ -92,7 +92,7 @@ void PinLinescanTest(SatSimOptions                const & opt,
 // as initial guess and gets updated on output if the intersection succeeds. Return
 // true on success.
 bool intersectDemWithRay(SatSimOptions const& opt,
-                         vw::cartography::GeoReference const& dem_georef,vw::ImageViewRef<vw::PixelMask<float>> dem,
+                         vw::GeoReference const& dem_georef,vw::ImageViewRef<vw::PixelMask<float>> dem,
                          vw::Vector3 const& cam_ctr, 
                          vw::Vector3 const& cam_dir,
                          double height_guess,
@@ -104,7 +104,7 @@ bool intersectDemWithRay(SatSimOptions const& opt,
     bool has_intersection = false;
 
     vw::Vector3 local_xyz
-      = vw::cartography::camera_pixel_to_dem_xyz
+      = vw::camera_pixel_to_dem_xyz
         (cam_ctr, cam_dir, dem, dem_georef, treat_nodata_as_zero, has_intersection,
          // Below we use a prudent approach. Try to make the solver work
          // hard. It is not clear if this is needed.
@@ -121,7 +121,7 @@ bool intersectDemWithRay(SatSimOptions const& opt,
 
 // Estimate pixel aspect ratio (width / height) of a pixel on the ground
 double pixelAspectRatio(SatSimOptions                 const & opt,     
-                        vw::cartography::GeoReference const & dem_georef,
+                        vw::GeoReference const & dem_georef,
                         asp::CsmModel                 const & ls_cam,
                         vw::ImageViewRef<vw::PixelMask<float>>  dem,  
                         double height_guess) {
@@ -205,7 +205,7 @@ void populateCsmLinescanRig(double first_line_time, double dt_line,
                             double focal_length,
                             vw::Vector2                const & optical_center,
                             vw::Vector2i               const & image_size,
-                            vw::cartography::Datum     const & datum, 
+                            vw::Datum     const & datum, 
                             std::string                const & sensor_id, 
                             std::vector<vw::Vector3>   const & positions,
                             std::vector<vw::Vector3>   const & velocities,
@@ -243,7 +243,7 @@ void populateCsmLinescanRig(double first_line_time, double dt_line,
 // There will be just one of them, as all poses are part of the same linescan camera.
 void genLinescanCameras(double                                 first_line_time,
                         double                                 orbit_len,     
-                        vw::cartography::GeoReference  const & dem_georef,
+                        vw::GeoReference  const & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<float>> dem,
                         int                                    first_pos,
                         std::vector<vw::Vector3>       const & positions,

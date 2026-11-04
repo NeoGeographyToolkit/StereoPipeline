@@ -29,7 +29,7 @@ namespace asp {
 void sample_llh_pix_bbox(vw::BBox2 const& ll_box,
                          vw::Vector2 const& h_range,
                          int num_samples,
-                         vw::cartography::Datum const& datum,
+                         vw::Datum const& datum,
                          vw::CamPtr cam,
                          vw::BBox2 const& image_box,
                          // Outputs
@@ -76,7 +76,7 @@ void sample_llh_pix_bbox(vw::BBox2 const& ll_box,
 // Add pixel and llh samples along the perimeter and diagonals of image_box.
 // Constrain by the ll box.
 void add_perimeter_diag_points(vw::BBox2 const& image_box, 
-                               vw::cartography::Datum const& datum,
+                               vw::Datum const& datum,
                                vw::CamPtr cam,
                                vw::BBox2 const& ll, // lon-lat box
                                vw::Vector2 const& H, // height range
@@ -92,7 +92,7 @@ void add_perimeter_diag_points(vw::BBox2 const& image_box,
   // Add on the perimeter a non-small portion of points we added so far throughout
   int num_steps = std::max(100, int(all_llh.size()/10));
   std::vector<vw::Vector2> points;
-  vw::cartography::sample_float_box(b, points, num_steps);
+  vw::sample_float_box(b, points, num_steps);
   
   // Use only the min and max heights
   for (size_t i = 0; i < H.size(); i++) {
@@ -106,9 +106,9 @@ void add_perimeter_diag_points(vw::BBox2 const& image_box,
       vw::Vector3 intersection;
       try {
         intersection 
-          = vw::cartography::datum_intersection(semi_major, semi_minor, 
-                                                cam->camera_center(pix), 
-                                                cam->pixel_to_vector(pix));
+          = vw::datum_intersection(semi_major, semi_minor, 
+                                   cam->camera_center(pix), 
+                                   cam->pixel_to_vector(pix));
         if (intersection == vw::Vector3())
           continue;
       } catch (...) {

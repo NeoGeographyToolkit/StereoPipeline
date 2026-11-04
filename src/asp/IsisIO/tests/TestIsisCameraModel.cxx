@@ -95,7 +95,7 @@ TEST(IsisCameraModel, mapprojected) {
     double bc[3];
     cam->Coordinate( bc );
     VectorProxy<double,3> coord( bc );
-    Vector3 alt = cartography::lon_lat_radius_to_xyz_estimate( lon_lat_radius ); // INACCURATE
+    Vector3 alt = vw::lon_lat_radius_to_xyz_estimate( lon_lat_radius ); // INACCURATE
 
     Vector3 dir = normalize( alt - instru );
     Vector3 new_point = instru*1000+50000*dir;

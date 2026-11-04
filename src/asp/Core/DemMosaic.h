@@ -30,9 +30,7 @@
 
 // Forward declarations
 namespace vw {
-  namespace cartography {
     class GeoReference;
-  }
 }
 
 namespace asp {
@@ -70,11 +68,11 @@ void boundedEuclideanDist(vw::ImageView<int> const& mask, bool seed_borders,
 // Convert a projected-space bounding box to pixel coordinates with snapping.
 // Transforms all 4 corners, rounds near-integer values (within tol) to integers,
 // then floors/ceils to ensure integer pixel boundaries.
-vw::BBox2 pointToPixelBboxSnapped(vw::cartography::GeoReference const& georef,
+vw::BBox2 pointToPixelBboxSnapped(vw::GeoReference const& georef,
                                   vw::BBox2 const& point_bbox, double tol);
 
 // Read a georeference from a file and throw if not found.
-vw::cartography::GeoReference readGeorefOrThrow(std::string const& file);
+vw::GeoReference readGeorefOrThrow(std::string const& file);
 
 typedef vw::PixelGrayA<double> DoubleGrayA;
 DoubleGrayA interpDem(double x, double y,
@@ -112,8 +110,8 @@ void setWeightsAsAlphaChannel(vw::ImageView<double> const& weights,
 void divideByWeight(vw::ImageView<double> & tile,
                     vw::ImageView<double> const& weights);
 
-void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& georefs,
-                         vw::cartography::GeoReference const& out_georef);
+void demMosaicDatumCheck(std::vector<vw::GeoReference> const& georefs,
+                         vw::GeoReference const& out_georef);
 
 void accumWeightedTiles(double out_nodata_value,
                         int save_dem_weight,
@@ -132,7 +130,7 @@ void computeWeightedAverage(int save_dem_weight,
 
 void saveTileWeight(int dem_iter, vw::BBox2i const& bbox,
                     vw::ImageView<double> const& local_wts,
-                    vw::cartography::GeoReference const& georef);
+                    vw::GeoReference const& georef);
 
 } // end namespace asp
 

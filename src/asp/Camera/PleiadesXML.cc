@@ -45,7 +45,6 @@
 #include <boost/lexical_cast.hpp>
 
 using namespace vw;
-using namespace vw::cartography;
 using namespace xercesc;
 
 using asp::XmlUtils::get_node;

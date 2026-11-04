@@ -19,9 +19,9 @@
 
 #include <asp/GUI/WidgetBase.h>
 
-namespace vw { namespace cartography {
+namespace vw {
   class GeoTransform;
-}}
+} // namespace vw
 
 namespace asp {
 

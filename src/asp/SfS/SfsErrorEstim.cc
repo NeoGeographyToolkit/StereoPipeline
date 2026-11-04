@@ -59,7 +59,7 @@ HeightErrEstim(int num_cols, int num_rows, int num_height_samples_in,
 // a height can be from this before the computed intensity
 // due to that height is bigger than max_intensity_err.
 void estimateHeightError(vw::ImageView<double> const& dem,
-                         vw::cartography::GeoReference const& geo,
+                         vw::GeoReference const& geo,
                          vw::Vector3 const& cameraPosition,
                          vw::Vector3 const& sunPosition,
                          asp::ReflParams const& refl_params,
@@ -152,7 +152,7 @@ void estimateHeightError(vw::ImageView<double> const& dem,
 
 // Estimate the height error at each DEM pixel based on estimates for each image
 void combineHeightErrors(boost::shared_ptr<HeightErrEstim> const& heightErrEstim,
-                         SfsOptions const& opt, vw::cartography::GeoReference const& geo) {
+                         SfsOptions const& opt, vw::GeoReference const& geo) {
 
   // Find the height error from the range of heights
   vw::ImageView<float> height_error;
@@ -174,11 +174,11 @@ void combineHeightErrors(boost::shared_ptr<HeightErrEstim> const& heightErrEstim
   bool has_georef = true, has_nodata = true;
   std::string height_error_file = opt.out_prefix + "-height-error.tif";
   vw::vw_out() << "Writing: " << height_error_file << std::endl;
-  vw::cartography::block_write_gdal_image(height_error_file,
-                                          height_error,
-                                          has_georef, geo,
-                                          has_nodata, heightErrEstim->nodata_height_val,
-                                          opt, tpc);
+  vw::block_write_gdal_image(height_error_file,
+                             height_error,
+                             has_georef, geo,
+                             has_nodata, heightErrEstim->nodata_height_val,
+                             opt, tpc);
 }
 
 } // end namespace asp

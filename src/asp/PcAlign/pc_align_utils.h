@@ -66,7 +66,7 @@ void load_cloud_as_mat(std::string const& file_name,
                        vw::BBox2 const& copc_win, bool copc_read_all,
                        bool calc_shift,
                        vw::Vector3 & shift,
-                       vw::cartography::GeoReference const& geo,
+                       vw::GeoReference const& geo,
                        CsvConv const& csv_conv,
                        bool   & is_lola_rdr_format,
                        double & median_longitude,
@@ -80,7 +80,7 @@ void load_cloud(std::string const& file_name,
                 vw::BBox2 const& copc_win, bool copc_read_all,
                 bool calc_shift,
                 vw::Vector3 & shift,
-                vw::cartography::GeoReference const& geo,
+                vw::GeoReference const& geo,
                 CsvConv const& csv_conv,
                 bool   & is_lola_rdr_format,
                 double & median_longitude,
@@ -92,7 +92,7 @@ void load_cloud(std::string const& file_name,
 /// away points in the other cloud which are not within this box.
 /// Return a version of it with given transform applied to it.
 /// Also may calculate a proj win if needed.
-void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
+void calc_extended_lonlat_bbox(vw::GeoReference const& geo,
                                int num_sample_pts,
                                CsvConv const& csv_conv,
                                std::string const& file_name,
@@ -100,7 +100,7 @@ void calc_extended_lonlat_bbox(vw::cartography::GeoReference const& geo,
                                Eigen::MatrixXd const & transform,
                                vw::BBox2 const& copc_win, bool copc_read_all,
                                bool need_projwin, 
-                               vw::cartography::GeoReference const& projwin_georef,
+                               vw::GeoReference const& projwin_georef,
                                vw::BBox2 & out_box, 
                                vw::BBox2 & trans_out_box,
                                vw::BBox2 & needed_projwin);
@@ -118,7 +118,7 @@ double calc_rmse(std::vector<double> const& errs);
 void calc_translation_vec(Eigen::MatrixXd const& initT,
                           DP const& source, DP const& trans_source,
                           vw::Vector3 & shift, // from planet center to current origin
-                          vw::cartography::Datum const& datum,
+                          vw::Datum const& datum,
                           vw::Vector3 & source_ctr_vec,
                           vw::Vector3 & source_ctr_llh,
                           vw::Vector3 & trans_xyz,
@@ -139,7 +139,7 @@ void save_trans_point_cloud(vw::GdalWriteOptions const& opt,
                             std::string input_file,
                             std::string out_prefix,
                             vw::BBox2 const& copc_win, bool copc_read_all,
-                            vw::cartography::GeoReference const& geo,
+                            vw::GeoReference const& geo,
                             CsvConv const& csv_conv,
                             Eigen::MatrixXd const& T);
 
@@ -150,7 +150,7 @@ typedef vw::InterpolationView<vw::EdgeExtensionView<vw::ImageViewRef<vw::PixelMa
 
 /// Get ready to interpolate points on a DEM existing on disk.
 InterpolationReadyDem load_interpolation_ready_dem(std::string const& dem_path,
-                                                   vw::cartography::GeoReference & georef);
+                                                   vw::GeoReference & georef);
 
 // Extract rotation and translation from a vector of 6 elements
 void extract_rotation_translation(const double * transform, vw::Quat & rotation, 
@@ -163,7 +163,7 @@ vw::Vector3 get_cloud_gcc_coord(DP const& point_cloud,
 /// Interpolates the DEM height at the input coordinate.
 /// - Returns false if the coordinate falls outside the valid DEM area.
 bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float>> const& dem,
-                       vw::cartography::GeoReference          const& georef,
+                       vw::GeoReference          const& georef,
                        vw::Vector3                            const& lonlat,
                        double                                      & dem_height);
 
@@ -187,7 +187,7 @@ void read_georef(std::vector<std::string> const& clouds,
                  double semi_major_axis,
                  double semi_minor_axis,
                  std::string & csv_format_str,
-                 asp::CsvConv& csv_conv, vw::cartography::GeoReference& geo);
+                 asp::CsvConv& csv_conv, vw::GeoReference& geo);
 
 /// Filters out all points from point_cloud with an error entry higher than cutoff
 void filterPointsByError(DP & point_cloud, Eigen::MatrixXd &errors,

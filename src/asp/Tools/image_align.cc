@@ -192,14 +192,14 @@ void calc_ecef_transform(std::vector<ip::InterestPoint> const& inlier_ip1,
   PixelMask<float> invalid_pix; invalid_pix.invalidate();
   vw::ValueEdgeExtension<PixelMask<float>> invalid_ext(invalid_pix);
 
-  vw::cartography::GeoReference img1_geo, img2_geo, dem1_geo, dem2_geo;
+  vw::GeoReference img1_geo, img2_geo, dem1_geo, dem2_geo;
 
   // Read first image and DEM, and set up interpolation.  Out-of-range
   // values are set to invalid.
-  bool has_img1_geo = vw::cartography::read_georeference(img1_geo, opt.input_images[0]);
+  bool has_img1_geo = vw::read_georeference(img1_geo, opt.input_images[0]);
   if (!has_img1_geo)
     vw::vw_throw(vw::ArgumentErr() << "The first image does not have a georeference.\n");
-  bool has_dem1_geo = vw::cartography::read_georeference(dem1_geo, opt.dem1);
+  bool has_dem1_geo = vw::read_georeference(dem1_geo, opt.dem1);
   if (!has_dem1_geo)
     vw::vw_throw(vw::ArgumentErr() << "The first DEM does not have a georeference.\n");
   double dem1_nodata = -std::numeric_limits<double>::max();
@@ -209,10 +209,10 @@ void calc_ecef_transform(std::vector<ip::InterestPoint> const& inlier_ip1,
                                  BilinearInterpolation(), invalid_ext);
 
   // Repeat for 2nd DEM and image
-  bool has_img2_geo = vw::cartography::read_georeference(img2_geo, opt.input_images[1]);
+  bool has_img2_geo = vw::read_georeference(img2_geo, opt.input_images[1]);
   if (!has_img2_geo)
     vw::vw_throw(vw::ArgumentErr() << "The second image does not have a georeference.\n");
-  bool has_dem2_geo = vw::cartography::read_georeference(dem2_geo, opt.dem2);
+  bool has_dem2_geo = vw::read_georeference(dem2_geo, opt.dem2);
   if (!has_dem2_geo)
     vw::vw_throw(vw::ArgumentErr() << "The second DEM does not have a georeference.\n");
   double dem2_nodata = -std::numeric_limits<double>::max();
@@ -525,14 +525,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // Write the aligned image with the specified output data type, casting and
 // clamping as needed. Integer types are rounded before clamping.
 #define WRITE_ALIGNED_INT(T)                                   \
-  vw::cartography::block_write_gdal_image(                     \
+  vw::block_write_gdal_image(                     \
     opt.output_image,                                          \
     per_pixel_filter(apply_mask(aligned_image2, nodata2),      \
                      vw::ClampRoundAndCastToInt<T, double>()), \
     has_georef2, georef2, has_nodata2, nodata2, opt, tpc)
 
 #define WRITE_ALIGNED_FLOAT(T)                                 \
-  vw::cartography::block_write_gdal_image(                     \
+  vw::block_write_gdal_image(                     \
     opt.output_image,                                          \
     per_pixel_filter(apply_mask(aligned_image2, nodata2),      \
                      vw::ClampAndCast<T, double>()),           \
@@ -540,7 +540,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
                  bool has_nodata2, float nodata2,
-                 bool has_georef2, vw::cartography::GeoReference const& georef2,
+                 bool has_georef2, vw::GeoReference const& georef2,
                  Options const& opt) {
 
   vw_out() << "Writing: " << opt.output_image << "\n";
@@ -572,8 +572,8 @@ void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
 void write_match_geopackage(std::string const& gpkg_file,
                             std::vector<ip::InterestPoint> const& inlier_ip1,
                             std::vector<ip::InterestPoint> const& inlier_ip2,
-                            vw::cartography::GeoReference const& ref_georef,
-                            vw::cartography::GeoReference const& src_georef) {
+                            vw::GeoReference const& ref_georef,
+                            vw::GeoReference const& src_georef) {
 
   vw::create_out_dir(gpkg_file);
 
@@ -615,7 +615,7 @@ void write_match_geopackage(std::string const& gpkg_file,
   // Transform source-image points into the reference projection (projected units
   // to projected units), so dx/dy is valid even when the two images use
   // different projections. A no-op when they share a projection.
-  vw::cartography::GeoTransform src_to_ref(src_georef, ref_georef);
+  vw::GeoTransform src_to_ref(src_georef, ref_georef);
 
   vw_out() << "Writing match points to GeoPackage: " << gpkg_file << "\n";
   for (size_t i = 0; i < inlier_ip1.size(); i++) {
@@ -666,7 +666,7 @@ int main(int argc, char *argv[]) {
     ImageViewRef<double> image1,  image2;
     bool has_georef1 = false, has_georef2 = false;
     double nodata1_double, nodata2_double; // part of api, will not be used
-    vw::cartography::GeoReference georef1, georef2;
+    vw::GeoReference georef1, georef2;
     asp::load_image(image_file1, image1, nodata1_double, has_georef1, georef1);
     asp::load_image(image_file2, image2, nodata2_double, has_georef2, georef2);
 

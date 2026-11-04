@@ -254,7 +254,7 @@ void computeLatLonLattice(char** subdatasets,
   GDALClose(sight_ds);
 
   // Compute lat/lon for each lattice point using WGS84 datum
-  vw::cartography::Datum wgs84;
+  vw::Datum wgs84;
   wgs84.set_well_known_datum("WGS84");
 
   std::vector<double> lat_lattice(num_time_steps * num_lattice_cols);
@@ -308,7 +308,7 @@ void computeLatLonLattice(char** subdatasets,
       vw::Vector3 sv_ecef = R_orb_to_ecef * sv_orb;
 
       // Ray-datum intersection using VW's proven implementation
-      vw::Vector3 ground_pt = vw::cartography::datum_intersection(wgs84, sat_pos, sv_ecef);
+      vw::Vector3 ground_pt = vw::datum_intersection(wgs84, sat_pos, sv_ecef);
 
       // Check for failed intersection (returns zero vector)
       if (ground_pt == vw::Vector3()) {
@@ -525,8 +525,8 @@ void applyRadiometricCorrections(std::string const& input_image,
                   -std::numeric_limits<float>::max();
 
   // No georef, this being L1A imagery
-  vw::cartography::GeoReference georef;
-  bool has_georef = vw::cartography::read_georeference(georef, input_image);
+  vw::GeoReference georef;
+  bool has_georef = vw::read_georeference(georef, input_image);
   if (has_georef)
     vw::vw_throw(vw::ArgumentErr()
                  << "ASTER L1A images are not supposed to be georeferenced.\n");
@@ -535,8 +535,8 @@ void applyRadiometricCorrections(std::string const& input_image,
   vw::vw_out() << "Writing: " << out_image << std::endl;
   vw::TerminalProgressCallback tpc("asp", "\t-->: ");
   vw::ImageViewRef<float> corrected_img = radioCorrect(input_img, corr, has_nodata, nodata);
-  vw::cartography::block_write_gdal_image(out_image, corrected_img, has_georef,
-                                          georef, has_nodata, nodata, opt, tpc);
+  vw::block_write_gdal_image(out_image, corrected_img, has_georef,
+                             georef, has_nodata, nodata, opt, tpc);
 }
 
 } // namespace asp

@@ -67,7 +67,7 @@ void addPointToPoly(vw::geometry::dPoly & poly, vw::Vector2 const& p) {
 }
 
 // Add a point to the ecef_vec, llh_vec, and shape_xy_vec if it is valid
-void addPoint(vw::cartography::GeoReference const& dem_georef,
+void addPoint(vw::GeoReference const& dem_georef,
               vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
               vw::Vector2 const& lonlat,
               vw::Vector2 const& shape_xy,
@@ -103,11 +103,11 @@ void addPoint(vw::cartography::GeoReference const& dem_georef,
 
 // Estimate the projection and convert llh_vec to projected coordinates
 void find_projection(// Inputs
-                     vw::cartography::GeoReference const& dem_georef,
+                     vw::GeoReference const& dem_georef,
                      std::vector<vw::Vector3> const& llh_vec,
                      // Outputs
                      double & proj_lat, double & proj_lon,
-                     vw::cartography::GeoReference & stereographic_georef,
+                     vw::GeoReference & stereographic_georef,
                      std::vector<Eigen::Vector3d> & proj_vec) {
 
   // Must have positive number of points
@@ -199,8 +199,8 @@ class MaskBoundaryTask: public vw::Task, private boost::noncopyable {
   vw::ImageViewRef<float> m_mask;
   float m_mask_nodata_val;
   vw::CamPtr m_camera_model;
-  vw::cartography::GeoReference m_shape_georef;
-  vw::cartography::GeoReference m_dem_georef;
+  vw::GeoReference m_shape_georef;
+  vw::GeoReference m_dem_georef;
   vw::ImageViewRef<vw::PixelMask<float>> m_masked_dem;
 
   // Note how all of these are aliases
@@ -214,8 +214,8 @@ public:
                    vw::ImageViewRef<float> mask,
                    float mask_nodata_val,
                    vw::CamPtr camera_model,
-                   vw::cartography::GeoReference   const & shape_georef,
-                   vw::cartography::GeoReference   const & dem_georef,
+                   vw::GeoReference   const & shape_georef,
+                   vw::GeoReference   const & dem_georef,
                    vw::ImageViewRef<vw::PixelMask<float>>  masked_dem,
                    vw::Mutex                             & mutex,
                    std::vector<Eigen::Vector3d>          & ecef_vec,
@@ -269,7 +269,7 @@ public:
         bool has_intersection = false;
         double height_error_tol = 0.001; // in meters
         vw::Vector3 xyz_guess(0, 0, 0);
-        vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+        vw::Vector3 xyz = vw::camera_pixel_to_dem_xyz
           (cam_ctr, cam_dir, m_masked_dem,
            m_dem_georef, treat_nodata_as_zero,
            has_intersection, height_error_tol, xyz_guess);
@@ -308,8 +308,8 @@ public:
 void sampleMaskBd(vw::ImageViewRef<float> mask,
                   float mask_nodata_val,
                   vw::CamPtr camera_model,
-                  vw::cartography::GeoReference const& shape_georef,
-                  vw::cartography::GeoReference const& dem_georef,
+                  vw::GeoReference const& shape_georef,
+                  vw::GeoReference const& dem_georef,
                   vw::ImageViewRef<vw::PixelMask<float>> masked_dem,
                   int num_samples,
                   std::vector<Eigen::Vector3d> & ecef_vec,
@@ -389,7 +389,7 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
       bool has_intersection = false;
       double height_error_tol = 0.001; // in meters
       vw::Vector3 xyz_guess(0, 0, 0);
-      vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+      vw::Vector3 xyz = vw::camera_pixel_to_dem_xyz
         (cam_ctr, cam_dir, masked_dem,
          dem_georef, treat_nodata_as_zero,
          has_intersection, height_error_tol, xyz_guess);
@@ -443,8 +443,8 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
 // Find the mask boundary (points where the points in the mask have
 // neighbors not in the mask), and look up the height in the DEM.
 void sampleOrthoMaskBd(std::string const& mask_file,
-                       vw::cartography::GeoReference const& mask_georef,
-                       vw::cartography::GeoReference const& dem_georef,
+                       vw::GeoReference const& mask_georef,
+                       vw::GeoReference const& dem_georef,
                        vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                        int num_samples,
                        std::vector<Eigen::Vector3d> & ecef_vec,
@@ -539,8 +539,8 @@ void sampleOrthoMaskBd(std::string const& mask_file,
 // being the mean lon and lat, and make the 3D locations in reference 
 // to this projection.
 void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVec,
-                                  vw::cartography::GeoReference const& shape_georef,
-                                  vw::cartography::GeoReference const& dem_georef,
+                                  vw::GeoReference const& shape_georef,
+                                  vw::GeoReference const& dem_georef,
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                                   std::vector<Eigen::Vector3d> & ecef_vec,
                                   std::vector<vw::Vector3> & llh_vec,
@@ -589,7 +589,7 @@ void find_points_at_shape_corners(std::vector<vw::geometry::dPoly> const& polyVe
 // Read a set of measurements in CSV format, to use later to fit the water surface
 void find_points_from_meas_csv(std::string const& water_height_measurements,
                                std::string const& csv_format_str,
-                               vw::cartography::GeoReference const& shape_georef,
+                               vw::GeoReference const& shape_georef,
                                // Outputs
                                std::vector<Eigen::Vector3d> & ecef_vec,
                                std::vector<vw::Vector3> & llh_vec,
@@ -633,8 +633,8 @@ void find_points_from_meas_csv(std::string const& water_height_measurements,
 // with bilinear interpolation to find the height.
 void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
                                   std::string const& csv_format_str,
-                                  vw::cartography::GeoReference const& shape_georef,
-                                  vw::cartography::GeoReference const& dem_georef,
+                                  vw::GeoReference const& shape_georef,
+                                  vw::GeoReference const& dem_georef,
                                   vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                                   // Outputs
                                   std::vector<Eigen::Vector3d> & ecef_vec,
@@ -680,9 +680,9 @@ void find_points_from_lon_lat_csv(std::string const& lon_lat_measurements,
 void saveShape(std::vector<Eigen::Vector3d> const& ecef_vec,
                std::string const& mask_boundary_shapefile) {
 
-  vw::cartography::GeoReference llh_georef; // create a new explicit longlat WGS84 georef
+  vw::GeoReference llh_georef; // create a new explicit longlat WGS84 georef
   llh_georef.set_geographic();
-  vw::cartography::Datum datum("WGS_1984");
+  vw::Datum datum("WGS_1984");
   llh_georef.set_datum(datum);
   vw::geometry::dPoly samplePoly;
   for (size_t ptIter = 0; ptIter < ecef_vec.size(); ptIter++) {
@@ -806,7 +806,7 @@ struct BestFitPlaneErrorMetric {
 // Calculate a few properties of the plane fitted to the given points and print them out
 void calcPlaneProperties(std::vector<Eigen::Vector3d> const& proj_vec,
                          std::vector<size_t> const& inlier_indices,
-                         vw::cartography::GeoReference & dem_georef,
+                         vw::GeoReference & dem_georef,
                          vw::Matrix<double> const& plane) {
 
   double max_error = - 1.0, max_inlier_error = -1.0;
@@ -864,19 +864,19 @@ void saveBathyPlane(double proj_lat, double proj_lon,
 // converting that point to geodetic, and taking the height difference.
 class DemMinusPlaneView: public vw::ImageViewBase<DemMinusPlaneView>{
   vw::ImageViewRef<float> m_dem;
-  vw::cartography::GeoReference m_dem_georef;
+  vw::GeoReference m_dem_georef;
   vw::Matrix<double> m_plane;
   double m_dem_nodata_val;
-  vw::cartography::GeoReference m_stereographic_georef;
+  vw::GeoReference m_stereographic_georef;
 
   typedef float PixelT;
 
 public:
   DemMinusPlaneView(vw::ImageViewRef<float> const& dem,
-                    vw::cartography::GeoReference const& dem_georef,
+                    vw::GeoReference const& dem_georef,
                     vw::Matrix<double> const& plane,
                     double dem_nodata_val,
-                    vw::cartography::GeoReference const& stereographic_georef):
+                    vw::GeoReference const& stereographic_georef):
     m_dem(dem), m_dem_georef(dem_georef), m_plane(plane),
     m_dem_nodata_val(dem_nodata_val),
     m_stereographic_georef(stereographic_georef) {}
@@ -960,10 +960,10 @@ public:
 
 vw::ImageViewRef<float> 
 demMinusPlane(vw::ImageViewRef<float> const& dem,
-              vw::cartography::GeoReference const& dem_georef,
+              vw::GeoReference const& dem_georef,
               vw::Matrix<double> plane,
               double dem_nodata_val,
-              vw::cartography::GeoReference const& stereographic_georef) {
+              vw::GeoReference const& stereographic_georef) {
   return DemMinusPlaneView(dem, dem_georef, plane, dem_nodata_val,
                            stereographic_georef);
 }
@@ -1004,7 +1004,7 @@ void calcBathyPlane(int num_ransac_iterations,
 // math in DemMinusPlaneView.
 static double evalPlaneHeightAtLonLat(vw::Vector2 const& lon_lat,
                                       vw::Matrix<double> const& plane,
-                                      vw::cartography::GeoReference const& stereo_georef) {
+                                      vw::GeoReference const& stereo_georef) {
   vw::Vector3 llh;
   vw::math::subvector(llh, 0, 2) = lon_lat;
   llh[2] = 0.0;
@@ -1031,8 +1031,8 @@ static double evalPlaneHeightAtLonLat(vw::Vector2 const& lon_lat,
 // are nodata. The output WSE raster can be passed to parallel_stereo
 // --bathy-plane for multi-water-body bathymetry correction.
 void calcMultiWaterBodyPlanes(std::string const& mask_file,
-                              vw::cartography::GeoReference const& mask_georef,
-                              vw::cartography::GeoReference const& dem_georef,
+                              vw::GeoReference const& mask_georef,
+                              vw::GeoReference const& dem_georef,
                               vw::ImageViewRef<vw::PixelMask<float>> interp_dem,
                               double dem_nodata_val,
                               int min_water_body_pixels,
@@ -1179,7 +1179,7 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
 
   // Fit a plane to each lake in its own local stereographic frame.
   std::vector<vw::Matrix<double>> lake_plane(num_kept);
-  std::vector<vw::cartography::GeoReference> lake_stereo(num_kept);
+  std::vector<vw::GeoReference> lake_stereo(num_kept);
   std::vector<bool> lake_valid(num_kept, false);
   std::vector<double> lake_wse(num_kept, 0.0);
   vw::geometry::dPoly inlierPoly; // accumulate inliers from all lakes
@@ -1200,7 +1200,7 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
 
     double proj_lat = -1.0, proj_lon = -1.0;
     std::vector<Eigen::Vector3d> proj_vec;
-    vw::cartography::GeoReference stereo_georef;
+    vw::GeoReference stereo_georef;
     find_projection(dem_georef, llh_per_lake[lake],
                     proj_lat, proj_lon, stereo_georef, proj_vec);
 
@@ -1251,8 +1251,8 @@ void calcMultiWaterBodyPlanes(std::string const& mask_file,
 
   bool has_georef = true, has_nodata = true;
   vw::TerminalProgressCallback tpc("asp", ": ");
-  vw::cartography::block_write_gdal_image(output_wse_raster, wse, has_georef, mask_georef,
-                                          has_nodata, dem_nodata_val, write_opt, tpc);
+  vw::block_write_gdal_image(output_wse_raster, wse, has_georef, mask_georef,
+                             has_nodata, dem_nodata_val, write_opt, tpc);
 
   // Optionally save the combined inlier shapefile.
   if (!output_inlier_shapefile.empty()) {

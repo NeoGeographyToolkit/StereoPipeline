@@ -51,13 +51,13 @@ Mutex g_ip_mutex;
 class EpipolarLinePointMatcher {
   bool   m_single_threaded_camera;
   double m_uniqueness_threshold, m_epipolar_threshold;
-  vw::cartography::Datum m_datum;
+  vw::Datum m_datum;
 
 public:
   /// Constructor.
   EpipolarLinePointMatcher(bool single_threaded_camera,
           double uniqueness_threshold, double inlier_threshold,
-          vw::cartography::Datum const& datum);
+          vw::Datum const& datum);
 
   /// This only returns the indices
   /// - ip_detect_method must match the method used to obtain the interest points
@@ -72,7 +72,7 @@ public:
   /// Work out an epipolar line from interest point. Returns the
   /// coefficients for the following line equation: ax + by + c = 0
   static vw::Vector3 epipolar_line(vw::Vector2            const& feature,
-            vw::cartography::Datum const& datum,
+            vw::Datum const& datum,
             vw::camera::CameraModel     * cam_ip,
             vw::camera::CameraModel     * cam_obj,
             bool                        & success);
@@ -86,7 +86,7 @@ public:
 EpipolarLinePointMatcher::EpipolarLinePointMatcher(bool   single_threaded_camera,
                                                    double uniqueness_threshold,
                                                    double epipolar_threshold,
-                                                   vw::cartography::Datum const& datum):
+                                                   vw::Datum const& datum):
   m_single_threaded_camera(single_threaded_camera), m_uniqueness_threshold(uniqueness_threshold),
   m_epipolar_threshold(epipolar_threshold), m_datum(datum) {
   // Detect some problems before they result in strange math errors
@@ -99,7 +99,7 @@ EpipolarLinePointMatcher::EpipolarLinePointMatcher(bool   single_threaded_camera
 }
   
 Vector3 EpipolarLinePointMatcher::epipolar_line(Vector2 const& feature,
-                                                cartography::Datum const& datum,
+                                                vw::Datum const& datum,
                                                 camera::CameraModel* cam_ip,
                                                 camera::CameraModel* cam_obj,
                                                 bool & success) {
@@ -109,7 +109,7 @@ Vector3 EpipolarLinePointMatcher::epipolar_line(Vector2 const& feature,
   try {
 
     // Intersect the interest point pixel with the datum
-    Vector3 p0 = cartography::datum_intersection(datum, cam_ip, feature);
+    Vector3 p0 = vw::datum_intersection(datum, cam_ip, feature);
 
     if (p0 == Vector3()) { // No intersection
       success = false;
@@ -379,7 +379,7 @@ void epipolar_ip_matching_task(bool single_threaded_camera,
         int number_of_jobs,
         double epipolar_threshold,
         double uniqueness_threshold,
-        vw::cartography::Datum const& datum,
+        vw::Datum const& datum,
         bool quiet,
         vw::camera::CameraModel* cam1,
         vw::camera::CameraModel* cam2,
@@ -616,7 +616,7 @@ class MatchPerTileTask: public Task, private boost::noncopyable {
   std::map<std::pair<int, int>, std::vector<vw::ip::InterestPoint>> const& m_ip2_vec;
   vw::camera::CameraModel* m_cam1;
   vw::camera::CameraModel* m_cam2;
-  vw::cartography::Datum const& m_datum;
+  vw::Datum const& m_datum;
   double m_epipolar_threshold;
   double m_uniqueness_threshold;
   vw::Matrix<double> const& m_align_matrix;
@@ -639,7 +639,7 @@ public:
                    const& ip2_vec,
                    vw::camera::CameraModel* cam1,
                    vw::camera::CameraModel* cam2,
-                   vw::cartography::Datum const& datum,
+                   vw::Datum const& datum,
                    double epipolar_threshold,
                    double uniqueness_threshold,
                    vw::Matrix<double> const& align_matrix,
@@ -749,7 +749,7 @@ void matches_per_tile(bool have_datum,
                       std::vector<vw::ip::InterestPoint> const& ip2_copy,
                       vw::camera::CameraModel* cam1,
                       vw::camera::CameraModel* cam2,
-                      vw::cartography::Datum const& datum,
+                      vw::Datum const& datum,
                       size_t number_of_jobs,
                       double epipolar_threshold,
                       double uniqueness_threshold,
@@ -811,7 +811,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
         vw::camera::CameraModel* cam2,
         vw::ImageViewRef<float> const& image1,
         vw::ImageViewRef<float> const& image2,
-        vw::cartography::Datum const& datum,
+        vw::Datum const& datum,
         size_t number_of_jobs,
         double epipolar_threshold,
         double uniqueness_threshold,
@@ -962,7 +962,7 @@ bool match_ip_with_datum(bool single_threaded_camera,
                          vw::ImageViewRef<float> const& image1,
                          vw::ImageViewRef<float> const& image2,
                          int ip_per_tile,
-                         vw::cartography::Datum const& datum,
+                         vw::Datum const& datum,
                          std::string const& match_filename,
                          size_t number_of_jobs,
                          double epipolar_threshold,
@@ -1136,7 +1136,7 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
     bool have_datum = false, single_threaded_camera = false;
     double epipolar_threshold = -1, nodata1 = -1, nodata2 = -1;
     vw::camera::CameraModel *cam1 = NULL, *cam2 = NULL;
-    vw::cartography::Datum datum;
+    vw::Datum datum;
     vw::Stopwatch sw3;
     sw3.start();
     vw_out() << "\t    Performing matching per tile.\n";

@@ -312,7 +312,7 @@ void BaState::randomize_intrinsics(std::vector<double> const& intrinsic_limits) 
 }
 
 void BaState::record_points_to_kml(const std::string &kml_path,
-                            const vw::cartography::Datum& datum,
+                            const vw::Datum& datum,
                             size_t skip, const std::string name) {
 
   if (datum.name() == asp::UNSPECIFIED_DATUM) {

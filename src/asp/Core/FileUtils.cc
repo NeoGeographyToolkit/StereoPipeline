@@ -329,10 +329,10 @@ void separate_images_from_cameras(std::vector<std::string> const& inputs,
     int half = inputs2.size() / 2;
     bool first_half_has_georef = true;
     for (int i = 0; i < half; i++) {
-      vw::cartography::GeoReference georef;
+      vw::GeoReference georef;
       bool has_geo = false;
       try {
-        has_geo = vw::cartography::read_georeference(georef, inputs2[i]);
+        has_geo = vw::read_georeference(georef, inputs2[i]);
       } catch (...) {}
       if (!has_geo) {
         first_half_has_georef = false;

@@ -134,7 +134,7 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 // We will later wipe these temporary tif files.
 void chip_convert_to_tif(DemOptions const& opt,
                          asp::CsvConv const& csv_conv,
-                         vw::cartography::GeoReference const& csv_georef,
+                         vw::GeoReference const& csv_georef,
                          // Outputs
                          std::vector<std::string> & pc_files, 
                          std::vector<std::string> & conv_files) {
@@ -235,7 +235,7 @@ void chip_convert_to_tif(DemOptions const& opt,
 
 // Set the projection based on options. By now opt.proj_lon and opt.proj_lat
 // should have been set. 
-void setProjection(DemOptions const& opt, cartography::GeoReference & output_georef) {
+void setProjection(DemOptions const& opt, vw::GeoReference & output_georef) {
   
   // Can set a projection either via a string or via options
   if (!opt.target_srs_string.empty() && opt.target_srs_string != "auto")

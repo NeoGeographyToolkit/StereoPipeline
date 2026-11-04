@@ -168,9 +168,9 @@ void compute_ip_LR(std::string const & out_prefix) {
 
   // For mapprojected images, if --ip-match-radius is set, filter with 
   // --ip-match-radius before matching, with help of georeferences.
-  vw::cartography::GeoReference georef1, georef2;
-  bool has_georef1 = vw::cartography::read_georeference(georef1, left_aligned_image_file);
-  bool has_georef2 = vw::cartography::read_georeference(georef2, right_aligned_image_file);
+  vw::GeoReference georef1, georef2;
+  bool has_georef1 = vw::read_georeference(georef1, left_aligned_image_file);
+  bool has_georef2 = vw::read_georeference(georef2, right_aligned_image_file);
   bool filter_by_ground_loc = (has_georef1 && has_georef2 &&
                                asp::stereo_settings().ip_match_radius > 0);
 

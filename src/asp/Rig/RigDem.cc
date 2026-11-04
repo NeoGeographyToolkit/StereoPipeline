@@ -53,7 +53,7 @@ void updateTriPtsFromDem(std::vector<rig::CameraParameters> const& cam_params,
 
   // Load DEM for height constraints
   vw::vw_out() << "Updating triangulated points with DEM heights.\n";
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   vw::ImageViewRef<vw::PixelMask<double>> masked_dem;
   asp::create_masked_dem(dem_filename, dem_georef, masked_dem);
 
@@ -112,7 +112,7 @@ void updateTriPtsFromDem(std::vector<rig::CameraParameters> const& cam_params,
       bool treat_nodata_as_zero = false;
       bool has_intersection = false;
       double height_error_tol = 0.001; // 1 mm
-      vw::Vector3 dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+      vw::Vector3 dem_xyz = vw::camera_pixel_to_dem_xyz
         (cam_ctr_vw, ray_dir_vw,
          vw::pixel_cast<vw::PixelMask<float>>(masked_dem),
          dem_georef, treat_nodata_as_zero, has_intersection,

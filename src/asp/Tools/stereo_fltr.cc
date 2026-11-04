@@ -258,12 +258,12 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
                  ), sub_scale);
 
   // Determine if we can attach geo information to the output image
-  cartography::GeoReference left_georef;
+  vw::GeoReference left_georef;
   bool has_left_georef = read_georeference(left_georef,  opt.out_prefix + "-L.tif");
   bool has_nodata = false;
   double nodata = -32768.0;
 
-  vw::cartography::GeoReference good_pixel_georef;
+  vw::GeoReference good_pixel_georef;
   if (has_left_georef) {
     // Account for scale. Note that goodPixelImage is not guaranteed to respect
     // the sub_scale factor above, hence this calculation.
@@ -272,7 +272,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
     good_pixel_georef = resample(left_georef, good_pixel_scale);
   }
 
-  vw::cartography::block_write_gdal_image
+  vw::block_write_gdal_image
     ( goodPixelFile, goodPixelImage, has_left_georef, good_pixel_georef,
       has_nodata, nodata,
       opt, TerminalProgressCallback("asp", "\t--> Good pixel map: ") );
@@ -300,7 +300,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
     if (!removeSmallBlobs) { // Skip small blob removal
       // Write out the image to disk, filling in the blobs in the process
       vw_out() << "Writing: " << outF << std::endl;
-      vw::cartography::block_write_gdal_image( outF,
+      vw::block_write_gdal_image( outF,
                                    inpaint(inputview.impl(), smallHoleIndex,
                                            use_grassfire, default_inpaint_val),
                                    has_left_georef, left_georef,
@@ -312,7 +312,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
       // Write out the image to disk, filling in and removing blobs in the process
       // - Blob removal is done second to make sure inner-blob holes are removed.
       vw_out() << "Writing: " << outF << std::endl;
-      vw::cartography::block_write_gdal_image( outF,
+      vw::block_write_gdal_image( outF,
                                    per_tile_erode
                                    (inpaint(inputview.impl(),
                                             smallHoleIndex,
@@ -327,7 +327,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
   } else { // No hole filling
     if (!removeSmallBlobs) { // Skip small blob removal
       vw_out() << "Writing: " << outF << std::endl;
-      vw::cartography::block_write_gdal_image( outF, inputview.impl(),
+      vw::block_write_gdal_image( outF, inputview.impl(),
                                    has_left_georef, left_georef,
                                    has_nodata, nodata, opt,
                                    TerminalProgressCallback
@@ -337,7 +337,7 @@ void write_good_pixel_and_filtered(ImageViewBase<ImageT> const& inputview,
       vw_out() << "\t--> Removing small blobs.\n";
       // Write out the image to disk, removing the blobs in the process
       vw_out() << "Writing: " << outF << std::endl;
-      vw::cartography::block_write_gdal_image(outF, per_tile_erode(inputview.impl()),
+      vw::block_write_gdal_image(outF, per_tile_erode(inputview.impl()),
                                   has_left_georef, left_georef,
                                   has_nodata, nodata, opt,
                                   TerminalProgressCallback
@@ -456,7 +456,7 @@ void gotcha_disparity_refinement(ASPGlobalOptions& opt) {
   DiskImageView<float> right_image(R_file);
   
   // Determine if we can attach geo information to the output disparity
-  cartography::GeoReference left_georef;
+  vw::GeoReference left_georef;
   bool has_left_georef = read_georeference(left_georef, L_file);
   bool has_nodata = false;
   double nodata = -32768.0;

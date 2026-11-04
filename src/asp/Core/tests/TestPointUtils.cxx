@@ -25,7 +25,7 @@ using namespace asp;
 TEST( PointUtils, CsvConv ) {
   
   // Needed for the Lola tests below.
-  vw::cartography::GeoReference geo;
+  vw::GeoReference geo;
   geo.set_well_known_geogcs("D_MOON");
   
   // Check format parsing
@@ -150,5 +150,3 @@ TEST( PointUtils, PcdReader ) {
   EXPECT_FALSE(reader.ReadNextPoint());
 
 }
-
-

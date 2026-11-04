@@ -42,7 +42,6 @@
 #include <iomanip>
 
 using namespace vw;
-using namespace vw::cartography;
 using namespace xercesc;
 
 using asp::XmlUtils::get_node;
@@ -538,4 +537,3 @@ vw::LinearPiecewisePositionInterpolation SpotXML::setup_pose_func(
 }
 
 } // end namespace asp
-

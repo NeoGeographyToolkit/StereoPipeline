@@ -35,10 +35,8 @@ class UsgsAstroFrameSensorModel;
 class UsgsAstroLsSensorModel;
 
 namespace vw {
-  namespace cartography {
     class Datum;
     class GeoReference;
-  }
 }
 
 namespace asp {
@@ -74,7 +72,7 @@ void nearestNeibInterp(const int &numTimes, const double *valueArray,
 // Find interpolated/extrapolated positions at all camera pose times.
 // See the implementation for more details.
 void orbitInterpExtrap(UsgsAstroLsSensorModel const * ls_model,
-                       vw::cartography::GeoReference const& geo,
+                       vw::GeoReference const& geo,
                        std::vector<double> & positions_out);
 
 // Populate the CSM model with the given camera positions and orientations.
@@ -85,7 +83,7 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                          double focal_length,
                          vw::Vector2                const & optical_center,
                          vw::Vector2i               const & image_size,
-                         vw::cartography::Datum     const & datum, 
+                         vw::Datum     const & datum, 
                          std::string                const & sensor_id, 
                          std::vector<vw::Vector3>   const & positions,
                          std::vector<vw::Vector3>   const & velocities,

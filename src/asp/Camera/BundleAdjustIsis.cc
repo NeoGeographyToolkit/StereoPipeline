@@ -91,7 +91,7 @@ void readSerialNumbers(std::vector<std::string> const& image_files,
 // Set the Isis cnet target based on the image name. If that fails,
 // as for Earth, set it to the datum name.
 void setIsisCnetTarget(std::string const& image_name, 
-                       vw::cartography::Datum const& datum,
+                       vw::Datum const& datum,
                        Isis::ControlNet & icnet) {
 
   try {
@@ -538,7 +538,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
 // Create from scratch and and save an ISIS cnet from a given control network
 // and latest param values.
 void saveIsisCnet(std::string const& outputPrefix, 
-                  vw::cartography::Datum const& datum,
+                  vw::Datum const& datum,
                   vw::ba::ControlNetwork const& cnet,
                   asp::BaState const& ba_state) {
   

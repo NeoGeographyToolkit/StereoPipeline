@@ -38,9 +38,7 @@ namespace vw {
   namespace ba {
     class ControlNetwork;
   }
-  namespace cartography {
     class Datum;
-  }
 }
 
 namespace asp {
@@ -86,7 +84,7 @@ void saveUpdatedIsisCnet(std::string const& outputPrefix,
 // Create and save an ISIS cnet from a given control network and latest param
 // values.
 void saveIsisCnet(std::string const& outputPrefix, 
-                  vw::cartography::Datum const& datum,
+                  vw::Datum const& datum,
                   vw::ba::ControlNetwork const& cnet,
                   asp::BaState const& ba_state);
 

@@ -470,7 +470,7 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
 // At each position there several sight vectors, along the scanline.
 // We want: world_sight_mat[row][col] = csm_model.pixel_to_vector(col, row).
 void fitCsmLinescan(std::string const& sensor_id, 
-                    vw::cartography::Datum const& datum,
+                    vw::Datum const& datum,
                     vw::Vector2i const& image_size,
                     std::vector<vw::Vector3> const& sat_pos,
                     SightMatT const& world_sight_mat,
@@ -750,7 +750,7 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
                        asp::CsmModel & csm_model, // output
                        bool fix_pose,
                        vw::Vector2 const& camera_position_uncertainty,
-                       vw::cartography::Datum const& datum) {
+                       vw::Datum const& datum) {
 
   if (fix_pose)
     vw::vw_out() << "Refining camera intrinsics with the pose held fixed.\n";
@@ -873,7 +873,7 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
 // needs to be rotated 90 degrees counter-clockwise to match the CSM camera.
 void fitCsmLinescanToOpticalBar(std::string const& camFile, 
                                 vw::Vector2i const& OpticalBarimageColsRows,
-                                vw::cartography::Datum const& datum,
+                                vw::Datum const& datum,
                                 asp::CsmModel & csm) {
   
   // See above for why OpticalBar rows become CSM columns, and vise versa.

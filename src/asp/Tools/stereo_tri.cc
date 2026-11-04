@@ -70,7 +70,7 @@ class StereoTriangulation:
   std::vector<DispImageType>     m_disparity_maps;
   std::vector<vw::CamPtr>        m_cameras;
   std::vector<vw::TransformPtr>  m_transforms; // e.g., map-projection or homography to undo
-  vw::cartography::Datum         m_datum;
+  vw::Datum         m_datum;
   vw::stereo::StereoModel        m_stereo_model;
   vw::BathyStereoModel           m_bathy_model;
   bool                           m_is_map_projected;
@@ -80,7 +80,7 @@ class StereoTriangulation:
   ImageViewRef<PixelMask<float>> m_right_aligned_bathy_mask;
   bool                           m_use_ortho_bathy_mask;
   ImageView<PixelMask<float>>    m_ortho_bathy_mask;   // for --ortho-bathy-mask
-  vw::cartography::GeoReference  m_ortho_bathy_georef; // georef of the ortho mask
+  vw::GeoReference  m_ortho_bathy_georef; // georef of the ortho mask
 
   typedef typename DispImageType::pixel_type DPixelT;
 
@@ -94,7 +94,7 @@ public:
   StereoTriangulation(std::vector<DispImageType>    const& disparity_maps,
                       std::vector<vw::CamPtr>       const& cameras,
                       std::vector<vw::TransformPtr> const& transforms,
-                      vw::cartography::Datum        const& datum,
+                      vw::Datum        const& datum,
                       vw::stereo::StereoModel       const& stereo_model,
                       vw::BathyStereoModel          const& bathy_model,
                       bool is_map_projected,
@@ -102,7 +102,7 @@ public:
                       ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
                       ImageViewRef<PixelMask<float>> right_aligned_bathy_mask,
                       ImageView<PixelMask<float>>    ortho_bathy_mask,
-                      vw::cartography::GeoReference  ortho_bathy_georef):
+                      vw::GeoReference  ortho_bathy_georef):
     m_disparity_maps(disparity_maps), m_cameras(cameras),
     m_transforms(transforms), m_datum(datum),
     m_stereo_model(stereo_model),
@@ -346,7 +346,7 @@ private:
     // to manually copy the Map2CamTrans type which is pretty hacky.
     std::vector<T> transforms_copy(transforms.size());
     for (size_t i = 0; i < transforms.size(); ++i)
-      transforms_copy[i] = vw::cartography::mapproj_trans_copy(transforms[i]);
+      transforms_copy[i] = vw::mapproj_trans_copy(transforms[i]);
 
     // As a side effect, this call makes transforms_copy create a local cache we
     // want later. Caching is fast for dense rasterizing purposes, but slow for
@@ -403,7 +403,7 @@ StereoTriangulation
 stereo_triangulation(std::vector<DispImageType> const& disparities,
                      std::vector<vw::CamPtr>        const& cameras,
                      std::vector<vw::TransformPtr>  const& transforms,
-                     vw::cartography::Datum         const& datum,
+                     vw::Datum         const& datum,
                      vw::stereo::StereoModel        const& stereo_model,
                      vw::BathyStereoModel           const& bathy_model,
                      bool is_map_projected,
@@ -412,7 +412,7 @@ stereo_triangulation(std::vector<DispImageType> const& disparities,
                      ImageViewRef<PixelMask<float>> left_aligned_bathy_mask,
                      ImageViewRef<PixelMask<float>> right_aligned_bathy_mask,
                      ImageView<PixelMask<float>>    ortho_bathy_mask,
-                     vw::cartography::GeoReference  ortho_bathy_georef) {
+                     vw::GeoReference  ortho_bathy_georef) {
 
   typedef StereoTriangulation result_type;
   return result_type(disparities, cameras, transforms, datum, stereo_model, bathy_model,
@@ -443,7 +443,7 @@ inline point_and_error_norm(ImageViewBase<ImageT> const& image) {
 template <class ImageT>
 void save_point_cloud(Vector3 const& shift, ImageT const& point_cloud,
                       std::string const& point_cloud_file,
-                      vw::cartography::GeoReference const& georef,
+                      vw::GeoReference const& georef,
                       ASPGlobalOptions const& opt) {
 
   vw_out() << "Writing point cloud: " << point_cloud_file << "\n";
@@ -838,7 +838,7 @@ void stereo_triangulation(std::string const& output_prefix,
     std::vector<vw::BathyPlane> bathy_plane_vec;
     ImageViewRef<PixelMask<float>> left_aligned_bathy_mask, right_aligned_bathy_mask;
     ImageView<PixelMask<float>> ortho_bathy_mask; // for --ortho-bathy-mask
-    vw::cartography::GeoReference ortho_bathy_georef;
+    vw::GeoReference ortho_bathy_georef;
     if (bathy_correct) {
 
       bool use_ortho = asp::useOrthoBathyMask(asp::stereo_settings());
@@ -870,7 +870,7 @@ void stereo_triangulation(std::string const& output_prefix,
       // point in the triangulation functor. Rasterize fully (masks are small).
       if (use_ortho) {
         std::string ortho_file = asp::stereo_settings().ortho_bathy_mask;
-        bool has_georef = vw::cartography::read_georeference(ortho_bathy_georef, ortho_file);
+        bool has_georef = vw::read_georeference(ortho_bathy_georef, ortho_file);
         if (!has_georef)
           vw_throw(ArgumentErr() << "The ortho bathy mask must be georeferenced: "
                     << ortho_file << ".\n");
@@ -881,7 +881,7 @@ void stereo_triangulation(std::string const& output_prefix,
     }
 
     // Used to find the datum for the given planet
-    vw::cartography::GeoReference georef = opt.session->get_georef();
+    vw::GeoReference georef = opt.session->get_georef();
 
     // Apply radius function and stereo model in one go
     vw_out() << "\t--> Generating a 3D point cloud." << "\n";

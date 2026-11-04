@@ -67,8 +67,8 @@ void createSubsampledImages(ASPGlobalOptions const& opt,
                             std::string const& left_mask_file,
                             std::string const& right_mask_file,
                             bool has_left_georef, bool has_right_georef,
-                            cartography::GeoReference const& left_georef,
-                            cartography::GeoReference const& right_georef,
+                            vw::GeoReference const& left_georef,
+                            vw::GeoReference const& right_georef,
                             float output_nodata) {
 
   bool has_nodata = true;
@@ -170,7 +170,7 @@ void createSubsampledImages(ASPGlobalOptions const& opt,
     opt_nopred.gdal_options["PREDICTOR"] = "1";
     opt_nopred.cog = false;  // Do not use COG with preprocessing intermediates
 
-    vw::cartography::GeoReference left_sub_georef, right_sub_georef;
+    vw::GeoReference left_sub_georef, right_sub_georef;
     if (has_left_georef) {
       // Account for scale.
       double left_scale = 0.5 * (double(left_sub_image.cols())/left_image.cols() + 
@@ -184,22 +184,22 @@ void createSubsampledImages(ASPGlobalOptions const& opt,
       right_sub_georef = resample(right_georef, right_scale);
     }
 
-    vw::cartography::block_write_gdal_image(
+    vw::block_write_gdal_image(
       lsub, apply_mask(left_sub_image, output_nodata),
       has_left_georef, left_sub_georef,
       has_nodata, output_nodata,
       opt_nopred, TerminalProgressCallback("asp", "\t    Sub L: ") );
-    vw::cartography::block_write_gdal_image(
+    vw::block_write_gdal_image(
       rsub, apply_mask(right_sub_image, output_nodata),
       has_right_georef, right_sub_georef,
       has_nodata, output_nodata,
       opt_nopred, TerminalProgressCallback("asp", "\t    Sub R: ") );
-    vw::cartography::block_write_gdal_image(
+    vw::block_write_gdal_image(
       lmsub, channel_cast_rescale<uint8>(select_channel(left_sub_image, 1)),
       has_left_georef, left_sub_georef,
       has_nodata, output_nodata,
       opt_nopred, TerminalProgressCallback("asp", "\t    Sub L Mask: ") );
-    vw::cartography::block_write_gdal_image(
+    vw::block_write_gdal_image(
       rmsub, channel_cast_rescale<uint8>(select_channel(right_sub_image, 1)),
       has_right_georef, right_sub_georef,
       has_nodata, output_nodata,
@@ -215,8 +215,8 @@ void createImageMasks(ASPGlobalOptions & opt,
                       DiskImageView<PixelGray<float>> const& right_image,
                       bool skip_img_norm,
                       bool has_left_georef, bool has_right_georef,
-                      cartography::GeoReference const& left_georef,
-                      cartography::GeoReference const& right_georef,
+                      vw::GeoReference const& left_georef,
+                      vw::GeoReference const& right_georef,
                       bool has_nodata, float output_nodata,
                       std::string const& left_mask_file,
                       std::string const& right_mask_file) {
@@ -272,14 +272,14 @@ void createImageMasks(ASPGlobalOptions & opt,
     // instead, allowing the user to tune the threshold.
     // TODO(oalexan1): See if to wipe this code.
     if (stereo_settings().nodata_stddev_thresh < 0) {
-      vw::cartography::block_write_gdal_image
+      vw::block_write_gdal_image
         (opt.out_prefix + "-L_stddev_filter_output.tif",
          vw::stddev_filter_view(left_image, stddev_kernel),
          has_left_georef, left_georef,
          false, output_nodata,
          opt, TerminalProgressCallback
          ("asp", "\t  StdDev filter raw output (left): "));
-      vw::cartography::block_write_gdal_image
+      vw::block_write_gdal_image
         (opt.out_prefix + "-R_stddev_filter_output.tif",
          vw::stddev_filter_view(right_image, stddev_kernel),
          has_right_georef, right_georef,
@@ -320,13 +320,13 @@ void createImageMasks(ASPGlobalOptions & opt,
       // own scope to free up the memory of its bookkeeping as soon as
       // possible.
       ImageViewRef<PixelMask<uint8>> warped_right_mask
-        = crop(vw::cartography::geo_transform
+        = crop(vw::geo_transform
               (right_mask, right_georef, left_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()),
               bounding_box(left_mask));
       if (geoloc_unc > 0)
         warped_right_mask = asp::expandMask(warped_right_mask, geoloc_unc);
-      vw::cartography::block_write_gdal_image(left_mask_file,
+      vw::block_write_gdal_image(left_mask_file,
                                apply_mask(intersect_mask(left_mask, warped_right_mask)),
                                has_left_georef, left_georef,
                                has_nodata, output_nodata,
@@ -336,13 +336,13 @@ void createImageMasks(ASPGlobalOptions & opt,
       // Left image mask transformed into right coordinates. Keep it in its
       // own scope as per above.
       ImageViewRef<PixelMask<uint8>> warped_left_mask
-        = crop(vw::cartography::geo_transform
+        = crop(vw::geo_transform
               (left_mask, left_georef, right_georef,
                 ConstantEdgeExtension(), NearestPixelInterpolation()),
               bounding_box(right_mask));
       if (geoloc_unc > 0)
         warped_left_mask = asp::expandMask(warped_left_mask, geoloc_unc);
-      vw::cartography::block_write_gdal_image(right_mask_file,
+      vw::block_write_gdal_image(right_mask_file,
                                   apply_mask(intersect_mask(right_mask, warped_left_mask)),
                                   has_right_georef, right_georef,
                                   has_nodata, output_nodata,
@@ -357,11 +357,11 @@ void createImageMasks(ASPGlobalOptions & opt,
     // TODO: Even so, the trick above with intersecting the masks will still work,
     // if the images are map-projected (such as with cam2map-ed cubes),
     // but this would require careful research.
-    vw::cartography::block_write_gdal_image(left_mask_file, apply_mask(left_mask),
+    vw::block_write_gdal_image(left_mask_file, apply_mask(left_mask),
                                  has_left_georef, left_georef,
                                  has_nodata, output_nodata,
                                  opt, TerminalProgressCallback("asp", "\t Mask L: "));
-    vw::cartography::block_write_gdal_image(right_mask_file, apply_mask(right_mask),
+    vw::block_write_gdal_image(right_mask_file, apply_mask(right_mask),
                                  has_right_georef, right_georef,
                                  has_nodata, output_nodata,
                                  opt, TerminalProgressCallback("asp", "\t Mask R: "));
@@ -427,7 +427,7 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     rebuild = true;
   }
 
-  cartography::GeoReference left_georef, right_georef;
+  vw::GeoReference left_georef, right_georef;
   bool has_left_georef  = read_georeference(left_georef,  left_image_file);
   bool has_right_georef = read_georeference(right_georef, right_image_file);
 

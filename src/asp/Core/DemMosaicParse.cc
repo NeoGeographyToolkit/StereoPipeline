@@ -449,11 +449,11 @@ void handleDemMosaicArgs(int argc, char *argv[], asp::DemMosaicOptions& opt) {
         vw::vw_throw(vw::ArgumentErr() << "The DEM " << opt.dem_files[dem_iter] << " and its weight "
                  << opt.weight_files[dem_iter] << " have different dimensions.\n");
 
-      vw::cartography::GeoReference dem_georef, weight_georef;
+      vw::GeoReference dem_georef, weight_georef;
       bool has_dem_georef
-        = vw::cartography::read_georeference(dem_georef, opt.dem_files[dem_iter]);
+        = vw::read_georeference(dem_georef, opt.dem_files[dem_iter]);
       bool has_weight_georef
-      = vw::cartography::read_georeference(weight_georef, opt.weight_files[dem_iter]);
+      = vw::read_georeference(weight_georef, opt.weight_files[dem_iter]);
       if (!has_dem_georef)
         vw::vw_throw(vw::ArgumentErr() << "The DEM " << opt.dem_files[dem_iter]
                  << " has no georeference.\n");

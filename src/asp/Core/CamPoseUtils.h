@@ -25,9 +25,9 @@
 #include <vw/Math/Vector.h>
 #include <vw/Math/Matrix.h>
 
-namespace vw { namespace cartography {
+namespace vw {
   class GeoReference;
-}}
+} // namespace vw
 
 namespace asp {
 
@@ -59,7 +59,7 @@ void calcProjAlongAcross(vw::Vector3 const& first_proj,
 // Find normalized along and across directions in ECEF given these values in
 // projected coordinates. Use centered difference to compute the along and
 // across track points This achieves higher quality results.
-void calcEcefAlongAcross(vw::cartography::GeoReference const& dem_georef,
+void calcEcefAlongAcross(vw::GeoReference const& dem_georef,
                          double delta,
                          vw::Vector3 const& proj_along,
                          vw::Vector3 const& proj_across,

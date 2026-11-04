@@ -108,7 +108,7 @@ namespace camera {
     }
 
     // The datum
-    vw::cartography::Datum get_datum_isis(bool use_sphere_for_non_earth) const {
+    vw::Datum get_datum_isis(bool use_sphere_for_non_earth) const {
       return m_interface->get_datum_isis(use_sphere_for_non_earth);
     }
     

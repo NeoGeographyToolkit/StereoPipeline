@@ -22,7 +22,6 @@
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
 
-using namespace vw::cartography;
 
 namespace asp {
 
@@ -90,7 +89,7 @@ void normalizeOrthogonalizeAlongAcross(vw::Vector3 & along, vw::Vector3 & across
 // Find normalized along and across directions in ECEF given these values in
 // projected coordinates. Use centered difference to compute the along and
 // across track points This achieves higher quality results.
-void calcEcefAlongAcross(vw::cartography::GeoReference const& dem_georef,
+void calcEcefAlongAcross(vw::GeoReference const& dem_georef,
                          double delta,
                          vw::Vector3 const& proj_along,
                          vw::Vector3 const& proj_across,
@@ -115,10 +114,10 @@ void calcEcefAlongAcross(vw::cartography::GeoReference const& dem_georef,
   vw::Vector3 C2 = proj_pt + delta * proj_across; // across track point
 
   // Convert to cartesian
-  L1 = vw::cartography::projToEcef(dem_georef, L1);
-  C1 = vw::cartography::projToEcef(dem_georef, C1);
-  L2 = vw::cartography::projToEcef(dem_georef, L2);
-  C2 = vw::cartography::projToEcef(dem_georef, C2);
+  L1 = vw::projToEcef(dem_georef, L1);
+  C1 = vw::projToEcef(dem_georef, C1);
+  L2 = vw::projToEcef(dem_georef, L2);
+  C2 = vw::projToEcef(dem_georef, C2);
 
   // Create the along track and across track vectors
   along  = L2 - L1;

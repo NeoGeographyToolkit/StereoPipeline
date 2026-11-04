@@ -87,7 +87,7 @@ struct XYZError {
 /// sigma to the latter.
 struct LLHError {
   LLHError(vw::Vector3 const& observation_xyz, vw::Vector3 const& sigma, 
-           vw::cartography::Datum const& datum):
+           vw::Datum const& datum):
     m_observation_xyz(observation_xyz), m_sigma(sigma), m_datum(datum) {}
 
   bool operator()(const double* point, double* residuals) const;
@@ -96,11 +96,11 @@ struct LLHError {
   // the client code.
   static ceres::CostFunction* Create(vw::Vector3                const& observation_xyz,
                                      vw::Vector3                const& sigma,
-                                     vw::cartography::Datum const& datum);
+                                     vw::Datum const& datum);
 
   vw::Vector3 m_observation_xyz;
   vw::Vector3 m_sigma;
-  vw::cartography::Datum m_datum;
+  vw::Datum m_datum;
 };
 
 /// This cost function imposes a rather hard constraint on camera center
@@ -113,7 +113,7 @@ struct CamUncertaintyError {
   
   CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
                       vw::Vector2 const& uncertainty, double weight,
-                      vw::cartography::Datum const& datum,
+                      vw::Datum const& datum,
                       double camera_position_uncertainty_power);
     
   bool operator()(const double* cam_adj, double* residuals) const;
@@ -123,7 +123,7 @@ struct CamUncertaintyError {
   static ceres::CostFunction* 
     Create(vw::Vector3 const& orig_ctr, double const* orig_adj, int param_len,
            vw::Vector2 const& uncertainty, double weight,
-           vw::cartography::Datum const& datum, 
+           vw::Datum const& datum, 
            double camera_position_uncertainty_power) {
     // 2 residuals and 3 translation variables. For bundle_adjust must add the
     // rotation variables, as otherwise CERES says some params have inconsistent
@@ -161,7 +161,7 @@ struct GroupCamUncertaintyError {
 
   GroupCamUncertaintyError(vw::Vector3 const& init_pos, vw::Vector3 const& centroid,
                            vw::Vector2 const& uncertainty, double weight,
-                           vw::cartography::Datum const& datum,
+                           vw::Datum const& datum,
                            double camera_position_uncertainty_power);
 
   bool operator()(const double* group_pose, double* residuals) const;
@@ -171,7 +171,7 @@ struct GroupCamUncertaintyError {
   static ceres::CostFunction*
     Create(vw::Vector3 const& init_pos, vw::Vector3 const& centroid,
            vw::Vector2 const& uncertainty, double weight,
-           vw::cartography::Datum const& datum,
+           vw::Datum const& datum,
            double camera_position_uncertainty_power) {
     return (new ceres::NumericDiffCostFunction<GroupCamUncertaintyError, ceres::CENTRAL, 3, 6>
            (new GroupCamUncertaintyError(init_pos, centroid, uncertainty, weight,

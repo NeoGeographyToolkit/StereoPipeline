@@ -38,7 +38,6 @@
 #include <fstream>
 
 using namespace vw;
-using namespace vw::cartography;
 using namespace xercesc;
 
 namespace fs=boost::filesystem;
@@ -652,11 +651,11 @@ void asp::RPCXML::parse_rpb(xercesc::DOMElement* root) {
   // If the RPC model was generated with cam2rpc, use the datum that
   // tool set.
 
-  vw::cartography::Datum datum;
+  vw::Datum datum;
   if (rpc_datum_wkt == "") {
-    datum = vw::cartography::Datum("WGS_1984");
+    datum = vw::Datum("WGS_1984");
   } else {
-    vw::cartography::GeoReference georef;
+    vw::GeoReference georef;
     georef.set_wkt(rpc_datum_wkt);
     datum = georef.datum();
   }
@@ -728,7 +727,7 @@ void asp::RPCXML::parse_rational_function_model(xercesc::DOMElement* node,
     xy_offset -= Vector2i(1, 1);
 
   // No Earth example is known where the datum is anything but WGS_1984.
-  m_rpc = boost::make_shared<RPCModel>(cartography::Datum("WGS_1984"),
+  m_rpc = boost::make_shared<RPCModel>(vw::Datum("WGS_1984"),
                                        line_num_coeff, line_den_coeff,
                                        samp_num_coeff, samp_den_coeff,
                                        xy_offset, xy_scale,
@@ -795,7 +794,7 @@ void asp::RPCXML::parse_perusat_model(xercesc::DOMElement* node) {
 
   // Per "PP137 AO1-P04: Modelamiento Geometrico Orbital para
   // imagenes PeruSAT-1", the datum is WGS_1984.
-  m_rpc = boost::make_shared<RPCModel>(cartography::Datum("WGS_1984"),
+  m_rpc = boost::make_shared<RPCModel>(vw::Datum("WGS_1984"),
                                        line_num_coeff, line_den_coeff,
                                        samp_num_coeff, samp_den_coeff,
                                        xy_offset, xy_scale,

@@ -211,13 +211,13 @@ namespace asp {
   /// - This only works for unprojected WV images with four lonlat GCPs at the corner pixels.
   /// - The approximation is limited to using a perspective transform.
   bool approximate_wv_georeference(std::string const& wv_xml_path,
-                                   vw::cartography::GeoReference & approx_georef);
+                                   vw::GeoReference & approx_georef);
 
   /// Reads a georeference from the WorldView file.
   /// - If the image is not georegistered but there are
   ///   corner coordinates in xml_path, an approximate
   ///   georef file will be created.
-  bool read_wv_georeference(vw::cartography::GeoReference &georef,
+  bool read_wv_georeference(vw::GeoReference &georef,
                             std::string const &image_path,
                             std::string const &xml_path="");
 

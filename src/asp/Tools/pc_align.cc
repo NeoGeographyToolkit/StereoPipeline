@@ -57,7 +57,6 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace vw::cartography;
 using namespace asp;
 
 const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the largest double
@@ -538,7 +537,7 @@ void save_errors(DP const& point_cloud,
 /// - If there is a problem computing the point error, a very large number is used as a flag.
 void calcErrorsWithDem(DP                                 const& point_cloud,
                        vw::Vector3                        const& point_cloud_shift,
-                       vw::cartography::GeoReference      const& georef,
+                       vw::GeoReference      const& georef,
                        vw::ImageViewRef<PixelMask<float>> const& dem,
                        std::vector<double>                     & errors) {
 
@@ -590,7 +589,7 @@ double compute_registration_error(DP          const& ref_point_cloud,
                                   DP               & source_point_cloud, // Should not be modified
                                   PM::ICP          & pm_icp_object,
                                   vw::Vector3 const& shift,
-                                  vw::cartography::GeoReference        const& dem_georef,
+                                  vw::GeoReference        const& dem_georef,
                                   vw::ImageViewRef< PixelMask<float> > const& dem_ref,
                                   Options const& opt,
                                   Eigen::MatrixXd &error_matrix) {
@@ -624,7 +623,7 @@ void filter_source_cloud(DP          const& ref_point_cloud,
                          DP               & source_point_cloud,
                          PM::ICP          & pm_icp_object, // Must already be initialized
                          vw::Vector3 const& shift,
-                         vw::cartography::GeoReference        const& dem_georef,
+                         vw::GeoReference        const& dem_georef,
                          vw::ImageViewRef< PixelMask<float> > const& dem_ref,
                          Options const& opt) {
 
@@ -791,14 +790,14 @@ initial_transform_from_match_file(std::string const& ref_file,
   vw::ip::read_binary_match_file(match_file, ref_ip, source_ip);
 
   DiskImageView<float> ref(ref_file);
-  vw::cartography::GeoReference ref_geo;
-  bool has_ref_geo = vw::cartography::read_georeference(ref_geo, ref_file);
+  vw::GeoReference ref_geo;
+  bool has_ref_geo = vw::read_georeference(ref_geo, ref_file);
   double ref_nodata = -std::numeric_limits<double>::max();
   vw::read_nodata_val(ref_file, ref_nodata);
 
   DiskImageView<float> source(source_file);
-  vw::cartography::GeoReference source_geo;
-  bool has_source_geo = vw::cartography::read_georeference(source_geo, source_file);
+  vw::GeoReference source_geo;
+  bool has_source_geo = vw::read_georeference(source_geo, source_file);
   double source_nodata = -std::numeric_limits<double>::max();
   vw::read_nodata_val(source_file, source_nodata);
 
@@ -893,8 +892,8 @@ void apply_transform_to_cloud(Eigen::MatrixXd const& T, DP & point_cloud) {
 void processSourceCloud(Options                       const& opt,
                         DP                            const& ref_point_cloud,
                         Eigen::MatrixXd   const& shiftInitT,
-                        vw::cartography::GeoReference const& dem_georef,
-                        vw::cartography::GeoReference const& geo,
+                        vw::GeoReference const& dem_georef,
+                        vw::GeoReference const& geo,
                         asp::CsvConv                  const& csv_conv,
                         BBox2                         const& source_box,
                         vw::ImageViewRef<PixelMask<float>> reference_dem_ref,
@@ -970,7 +969,7 @@ void processSourceCloud(Options                       const& opt,
 // Convert a north-east-down vector at a given location to a vector in reference
 // to the center of the Earth and create a translation matrix from that vector. 
 Eigen::MatrixXd
-ned_to_cartesian_transform(vw::cartography::Datum const& datum,
+ned_to_cartesian_transform(vw::Datum const& datum,
                            std::string& ned_str,
                            vw::Vector3 const & location) {
 
@@ -992,7 +991,7 @@ ned_to_cartesian_transform(vw::cartography::Datum const& datum,
 
 // Estimate the centroid of the reference points
 vw::Vector3 estimate_ref_cloud_centroid(Options const& opt,
-                                        vw::cartography::GeoReference const& geo,
+                                        vw::GeoReference const& geo,
                                         CsvConv const& csv_conv,
                                         std::string const& reference) {
   Stopwatch sw;
@@ -1064,10 +1063,10 @@ void adjust_and_intersect_ref_source_boxes(BBox2 & ref_box, BBox2 & source_box,
 // files when this win is not set by the user.
 void checkNeeForSrcProjWin(Options const& opt,
                            bool & need_src_projwin,
-                           vw::cartography::GeoReference & src_georef) {
+                           vw::GeoReference & src_georef) {
 
   need_src_projwin = false;
-  src_georef = vw::cartography::GeoReference();
+  src_georef = vw::GeoReference();
 
   if (asp::isCopc(opt.source) && opt.src_copc_win == vw::BBox2() &&
       !opt.src_copc_read_all && opt.max_disp > 0.0) {
@@ -1174,7 +1173,7 @@ int main(int argc, char *argv[]) {
 
       // See if we have to estimate the proj win of the src points
       bool need_src_projwin = false, dummy_flag = false;
-      vw::cartography::GeoReference src_georef, dummy_georef;
+      vw::GeoReference src_georef, dummy_georef;
       vw::BBox2 src_projwin, dummy_projwin;
       checkNeeForSrcProjWin(opt, need_src_projwin, src_georef);
 
@@ -1277,7 +1276,7 @@ int main(int argc, char *argv[]) {
     Eigen::MatrixXd shiftInitT = apply_shift(opt.init_transform, shift);
 
     // If the reference point cloud came from a DEM, also load the data in DEM format.
-    cartography::GeoReference dem_georef;
+    vw::GeoReference dem_georef;
     vw::ImageViewRef<PixelMask<float>> reference_dem_ref;
     if (opt.use_dem_distances()) {
       // Load the dem, then wrap it inside an ImageViewRef object. This is done

@@ -43,7 +43,6 @@
 #include <iomanip>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -174,7 +173,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
 
     // Read the georeference from the reference map and get its wkt
     GeoReference ref_map_georef;
-    bool has_georef = vw::cartography::read_georeference(ref_map_georef, opt.ref_map);
+    bool has_georef = vw::read_georeference(ref_map_georef, opt.ref_map);
     if (!has_georef)
       vw_throw(ArgumentErr() << "The reference map has no georeference.\n");
     opt.target_srs_string = ref_map_georef.get_wkt();
@@ -186,7 +185,7 @@ void handle_arguments(int argc, char *argv[], asp::MapprojOptions& opt) {
   if (fs::path(opt.dem_file).extension() != "") {
     // A path to a real DEM file was provided, load it!
     GeoReference dem_georef;
-    bool has_georef = vw::cartography::read_georeference(dem_georef, opt.dem_file);
+    bool has_georef = vw::read_georeference(dem_georef, opt.dem_file);
     if (!has_georef)
       vw_throw(ArgumentErr() << "There is no georeference information in: "
                              << opt.dem_file << ".\n");
@@ -461,7 +460,7 @@ int main(int argc, char* argv[]) {
       // projected images. This should not be an error as sometimes
       // even raw images have some half-baked georeference attached to them.
       GeoReference dummy_georef;
-      bool has_georef = vw::cartography::read_georeference(dummy_georef, opt.image_file);
+      bool has_georef = vw::read_georeference(dummy_georef, opt.image_file);
       if (has_georef)
         vw_out(WarningMessage) << "Your input camera image is already map-"
                                << "projected. The expected input is required "
@@ -481,7 +480,7 @@ int main(int argc, char* argv[]) {
     if (fs::path(opt.dem_file).extension() != "") {
       // A path to a real DEM file was provided, load it!
 
-      bool has_georef = vw::cartography::read_georeference(dem_georef, opt.dem_file);
+      bool has_georef = vw::read_georeference(dem_georef, opt.dem_file);
       if (!has_georef)
         vw_throw(ArgumentErr() << "There is no georeference information in: "
                   << opt.dem_file << ".\n");
@@ -502,7 +501,7 @@ int main(int argc, char* argv[]) {
 
       // Use the camera center to determine whether to center the fake DEM on 0 or 180.
       Vector3 cam_ctr = opt.camera_model->camera_center(Vector2());
-      Vector3 llr_camera_loc = cartography::XYZtoLonLatRadEstimateFunctor::apply(cam_ctr);
+      Vector3 llr_camera_loc = vw::XYZtoLonLatRadEstimateFunctor::apply(cam_ctr);
       float lonstart = 0;
       if ((llr_camera_loc[0] < 0) && (llr_camera_loc[0] > -180))
         lonstart = -180;
@@ -530,7 +529,7 @@ int main(int argc, char* argv[]) {
       // Use specified proj4 string for the output georeference
       bool have_user_datum = false;
       Datum user_datum;
-      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
+      vw::set_srs_string(opt.target_srs_string, have_user_datum, user_datum,
                           target_georef);
     }
 
@@ -585,7 +584,7 @@ int main(int argc, char* argv[]) {
       crop_bbox = opt.target_pixelwin;
 
       // Update output georeference to match the reduced image size
-      out_georef = vw::cartography::crop(target_georef, crop_bbox);
+      out_georef = vw::crop(target_georef, crop_bbox);
     }
 
     // Print an explanation for a potential problem.

@@ -44,14 +44,14 @@ void matchesFromMapprojImages(int i, int j,
                               asp::BaOptions& opt, asp::SessionPtr session,
                               std::vector<std::string> const& map_files,
                               std::string mapproj_dem,
-                              vw::cartography::GeoReference const& dem_georef,
+                              vw::GeoReference const& dem_georef,
                               vw::ImageViewRef<vw::PixelMask<double>> & interp_dem,
                               std::string const& match_filename) {
 
-  vw::cartography::GeoReference georef1, georef2;
+  vw::GeoReference georef1, georef2;
   vw_out() << "Reading georef from " << map_files[i] << ' ' << map_files[j] << std::endl;
-  bool is_good1 = vw::cartography::read_georeference(georef1, map_files[i]);
-  bool is_good2 = vw::cartography::read_georeference(georef2, map_files[j]);
+  bool is_good1 = vw::read_georeference(georef1, map_files[i]);
+  bool is_good2 = vw::read_georeference(georef2, map_files[j]);
   if (!is_good1 || !is_good2)
     vw_throw(ArgumentErr() << "Error: Cannot read georeference.\n");
 
@@ -198,7 +198,7 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
     asp::listExistingMatchFiles(prefix, matches_as_txt, existing_files);
   }
 
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   ImageViewRef<PixelMask<double>> interp_dem;
   if (mapproj_dem != "")
       asp::create_interp_dem(mapproj_dem, dem_georef, interp_dem);

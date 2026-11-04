@@ -66,7 +66,7 @@ void readPinholeCameras(SatSimOptions const& opt,
 // A function to perturb the cameras
 void perturbCameras(SatSimOptions const& opt, 
                     std::string const& suffix,
-                    vw::cartography::GeoReference const& georef,
+                    vw::GeoReference const& georef,
                     std::vector<std::string> const& cam_names,
                     std::vector<vw::CamPtr> & cams);
 
@@ -77,7 +77,7 @@ std::string camPrefix(SatSimOptions const& opt, int iFrame, double timestamp, bo
 // A function to create and save the cameras. Assume no distortion, and pixel
 // pitch = 1.
 void genPinholeCameras(SatSimOptions          const& opt,
-                vw::cartography::GeoReference const& dem_georef,
+                vw::GeoReference const& dem_georef,
                 std::vector<vw::Vector3>      const& positions,
                 std::vector<vw::Matrix3x3>    const& cam2world,
                 std::vector<vw::Matrix3x3>    const& ref_cam2world,
@@ -95,10 +95,10 @@ void genImages(SatSimOptions      const& opt,
     std::vector<std::string>      const& cam_names,
     std::vector<vw::CamPtr>       const& cams,
     std::string                   const& suffix, 
-    vw::cartography::GeoReference const& dem_georef,
+    vw::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
     double height_guess,
-    vw::cartography::GeoReference const& ortho_georef,
+    vw::GeoReference const& ortho_georef,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val);
 
@@ -108,20 +108,20 @@ void genCamerasImages(float ortho_nodata_val,
             int rig_sensor_index,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
-            vw::cartography::GeoReference const& ortho_georef,
+            vw::GeoReference const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             SatSimOptions                      & opt,
             rig::RigSet                        & rig,
-            vw::cartography::GeoReference const& dem_georef,
+            vw::GeoReference const& dem_georef,
             std::string                   const& suffix);
 
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
             rig::RigSet                         & rig,
-            vw::cartography::GeoReference  const& dem_georef,
+            vw::GeoReference  const& dem_georef,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
-            vw::cartography::GeoReference  const& ortho_georef,
+            vw::GeoReference  const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             float ortho_nodata_val);
 

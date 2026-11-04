@@ -144,7 +144,7 @@ int baOnePass(asp::BaOptions                & opt,
   // when passing around an ImageViewRef.
   bool have_dem = (!opt.heights_from_dem.empty() || !opt.heights_from_dem_list.empty());
   std::vector<Vector3> dem_xyz_vec;
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   std::set<int> outliers;
   if (have_dem) {
     for (int ipt = 0; ipt < num_points; ipt++) {
@@ -170,9 +170,9 @@ int baOnePass(asp::BaOptions                & opt,
   bool have_weight_image = (!opt.weight_image.empty());
   vw::ImageViewRef<vw::PixelMask<float>> weight_image;
   float weight_image_nodata = -std::numeric_limits<float>::max();
-  vw::cartography::GeoReference weight_image_georef;
+  vw::GeoReference weight_image_georef;
   if (have_weight_image)
-    vw::cartography::readGeorefImage(opt.weight_image,
+    vw::readGeorefImage(opt.weight_image,
       weight_image_nodata, weight_image_georef, weight_image);
 
   // Add the various cost functions the solver will optimize over.

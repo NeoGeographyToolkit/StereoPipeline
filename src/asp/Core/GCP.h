@@ -40,7 +40,7 @@ namespace asp {
   // Write GCP to a file. If ignore_pixel_sigma is true, or if a measure's
   // pixel sigma is non-positive, use a pixel sigma of 1.
   void writeGcp(std::string const& gcpFile,
-                vw::cartography::GeoReference const& geo,
+                vw::GeoReference const& geo,
                 std::vector<Gcp> const& gcp_vec,
                 std::vector<std::string> const& image_files,
                 bool ignore_pixel_sigma);

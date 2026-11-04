@@ -28,9 +28,7 @@
 
 // Forward declarations
 namespace vw {
-  namespace cartography {
     class GeoReference;
-  }
   class GdalWriteOptions;
 }
 
@@ -45,7 +43,7 @@ void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
 // or reuse the one already available if agrees with what is intended.
 void setupOrCheckDem(vw::GdalWriteOptions const& options,
                      vw::ImageViewRef<float> img,
-                     vw::cartography::GeoReference const& image_georef,
+                     vw::GeoReference const& image_georef,
                      std::string const& tag, 
                      std::string const& out_prefix, 
                      double dem_height,
@@ -57,18 +55,17 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
 vw::ImageViewRef<vw::PixelMask<double>> 
   warpCrop(vw::ImageViewRef<double> dem2, 
            double dem2_nodata,
-           vw::cartography::GeoReference const& dem2_georef,
-           vw::cartography::GeoReference const& dem1_georef,
+           vw::GeoReference const& dem2_georef,
+           vw::GeoReference const& dem1_georef,
            vw::BBox2i const& dem1_crop_box,
            std::string const& interp_type);
 
 // Estimate the GSD of a DEM in meters
 void calcGsd(vw::ImageViewRef<double> const& dem,
-             vw::cartography::GeoReference const& geo, double nodata_val,
+             vw::GeoReference const& geo, double nodata_val,
              int sample_col_rate, int sample_row_rate,
              double & gridx, double & gridy);
 
 } //end namespace asp
 
 #endif//__CORE_DEM_UTILS_H__
-

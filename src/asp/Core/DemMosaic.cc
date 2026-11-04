@@ -393,7 +393,7 @@ void euclideanPlateauWeights(vw::ImageView<DoubleGrayA> const& dem,
 // Convert a projected-space bounding box to pixel coordinates with snapping.
 // Transforms all 4 corners, rounds near-integer values (within tol) to integers,
 // then floors/ceils to ensure integer pixel boundaries.
-vw::BBox2 pointToPixelBboxSnapped(vw::cartography::GeoReference const& georef,
+vw::BBox2 pointToPixelBboxSnapped(vw::GeoReference const& georef,
                                   vw::BBox2 const& point_bbox, double tol) {
 
   vw::BBox2 pix_box;
@@ -417,9 +417,9 @@ vw::BBox2 pointToPixelBboxSnapped(vw::cartography::GeoReference const& georef,
 }
 
 // Read a georeference from a file and throw if not found.
-vw::cartography::GeoReference readGeorefOrThrow(std::string const& file) {
-  vw::cartography::GeoReference geo;
-  bool is_good = vw::cartography::read_georeference(geo, file);
+vw::GeoReference readGeorefOrThrow(std::string const& file) {
+  vw::GeoReference geo;
+  bool is_good = vw::read_georeference(geo, file);
   if (!is_good)
     vw::vw_throw(vw::ArgumentErr() << "No georeference found in " << file << ".\n");
   return geo;
@@ -552,8 +552,8 @@ void divideByWeight(vw::ImageView<double> & tile,
   }
 }
 
-void demMosaicDatumCheck(std::vector<vw::cartography::GeoReference> const& georefs,
-                         vw::cartography::GeoReference const& out_georef) {
+void demMosaicDatumCheck(std::vector<vw::GeoReference> const& georefs,
+                         vw::GeoReference const& out_georef) {
   double out_major_axis = out_georef.datum().semi_major_axis();
   double out_minor_axis = out_georef.datum().semi_minor_axis();
   for (int i = 0; i < (int)georefs.size(); i++) {
@@ -628,14 +628,14 @@ void computeWeightedAverage(int save_dem_weight,
 
 void saveTileWeight(int dem_iter, vw::BBox2i const& bbox,
                     vw::ImageView<double> const& local_wts,
-                    vw::cartography::GeoReference const& georef) {
+                    vw::GeoReference const& georef) {
 
   std::ostringstream os;
   os << "weights_" << dem_iter << "_" << bbox.min().x() << "_" << bbox.min().y()
      << ".tif";
   vw::vw_out() << "Writing: " << os.str() << "\n";
   bool has_georef = true, has_nodata = true;
-  vw::cartography::block_write_gdal_image(os.str(), local_wts,
+  vw::block_write_gdal_image(os.str(), local_wts,
              has_georef, georef,
              has_nodata, -100,
              vw::GdalWriteOptions(),

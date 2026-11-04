@@ -25,10 +25,8 @@
 #include <asp/Core/OrthoRasterizer.h>
 
 namespace vw {
-  namespace cartography {
     class Datum;
     class GeoReference;
-  }
 }
 
 namespace asp {
@@ -97,19 +95,19 @@ void parse_input_clouds_textures(std::vector<std::string> const& files,
 // temporary tif files.
 void chip_convert_to_tif(DemOptions const& opt,
                          asp::CsvConv const& csv_conv,
-                         vw::cartography::GeoReference const& csv_georef,
+                         vw::GeoReference const& csv_georef,
                          std::vector<std::string> & pc_files, 
                          std::vector<std::string> & conv_files);
 
 // Rasterize a DEM
 void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
                      DemOptions& opt,
-                     vw::cartography::GeoReference& georef,
+                     vw::GeoReference& georef,
                      std::int64_t * num_invalid_pixels);
 
 // Set the projection based on options. By now opt.proj_lon and opt.proj_lat
 // should have been set. 
-void setProjection(DemOptions const& opt, vw::cartography::GeoReference & output_georef);
+void setProjection(DemOptions const& opt, vw::GeoReference & output_georef);
 
 } // end namespace asp
 

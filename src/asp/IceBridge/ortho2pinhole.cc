@@ -131,7 +131,7 @@ double get_cam_height_estimate(Options const& opt) {
     const std::string alt_key = "Altitude";
     std::string alt_str;
     boost::shared_ptr<vw::DiskImageResource> rsrc(new vw::DiskImageResourceGDAL(opt.ortho_image));
-    vw::cartography::read_header_string(*rsrc.get(), alt_key, alt_str);
+    vw::read_header_string(*rsrc.get(), alt_key, alt_str);
     if (alt_str == "")
       vw_throw(ArgumentErr() << "Cannot find the 'Altitude' metadata in the image: "
                               << opt.ortho_image
@@ -287,15 +287,15 @@ int solve_for_cam_adjust(boost::shared_ptr<PinholeModel> camera_model,
 
 /// Load the DEM and adjust some options depending on DEM statistics.
 void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const& rsrc_ortho,
-                        vw::cartography::GeoReference const& ortho_georef,
+                        vw::GeoReference const& ortho_georef,
                         ImageViewRef< PixelMask<float> > &dem,
-                        vw::cartography::GeoReference &dem_georef,
+                        vw::GeoReference &dem_georef,
                         bool &elevation_change_present) {
 
   // Set up the DEM if it was provided.
   float dem_nodata = -std::numeric_limits<float>::max();
 
-  bool is_good = vw::cartography::read_georeference(dem_georef, opt.reference_dem);
+  bool is_good = vw::read_georeference(dem_georef, opt.reference_dem);
   if (!is_good) {
     vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
                            << opt.reference_dem << ".\n");
@@ -320,7 +320,7 @@ void load_reference_dem(Options &opt, boost::shared_ptr<DiskImageResource> const
     BBox2 dem_bbox = bounding_box(tmp_dem);
 
     // The GeoTransform will hide the messy details of conversions
-    vw::cartography::GeoTransform geotrans(dem_georef, ortho_georef, dem_bbox, ortho_bbox);
+    vw::GeoTransform geotrans(dem_georef, ortho_georef, dem_bbox, ortho_bbox);
 
     // Get the ortho bbox in the DEM pixel domain
     BBox2 crop_box = geotrans.reverse_bbox(ortho_bbox);
@@ -535,7 +535,7 @@ void get_estimated_camera_position(Options const& opt,
 /// Use IPs from the ortho image and DEM to optimize the camera with a Lev-Mar solver.
 /// - Returns norm_error of the chosen solution.
 double refine_camera_with_dem_pts(Options const& opt,
-                                  vw::cartography::GeoReference const& dem_georef,
+                                  vw::GeoReference const& dem_georef,
                                   bool use_extra_caution,
                                   std::vector<Vector3> const& ortho_dem_xyz,
                                   std::vector<Vector2> const& raw_pixels2,
@@ -650,8 +650,8 @@ void ortho2pinhole(Options & opt) {
     vw_throw(ArgumentErr() << "Error: Input images can only have a single channel!\n\n");
 
   // Load GeoRef from the ortho image
-  vw::cartography::GeoReference ortho_georef;
-  bool is_good = vw::cartography::read_georeference(ortho_georef, opt.ortho_image);
+  vw::GeoReference ortho_georef;
+  bool is_good = vw::read_georeference(ortho_georef, opt.ortho_image);
   if (!is_good) {
     vw_throw(ArgumentErr() << "Error: Cannot read georeference from: "
                            << opt.ortho_image << ".\n");
@@ -659,7 +659,7 @@ void ortho2pinhole(Options & opt) {
 
   // Set up the DEM if it was provided.
   ImageViewRef< PixelMask<float> > dem;
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   bool has_ref_dem = (opt.reference_dem != "");
   bool elevation_change_present = false;
   if (has_ref_dem) {
@@ -893,10 +893,10 @@ std::string handle_rgb_input(std::string const& input_path, Options const& opt) 
   // Read the misc header strings from the file so we can propogate them
   // to the output file.
   std::map<std::string, std::string> keywords;
-  vw::cartography::read_header_strings(*rsrc.get(), keywords);
+  vw::read_header_strings(*rsrc.get(), keywords);
 
-  vw::cartography::GeoReference georef;
-  bool   has_georef = vw::cartography::read_georeference(georef, input_path);
+  vw::GeoReference georef;
+  bool   has_georef = vw::read_georeference(georef, input_path);
   bool   has_nodata = true;
   double nodata     = 0.0;
   block_write_gdal_image(gray_path,

@@ -30,9 +30,7 @@
 #include <vw/FileIO/DiskImageView.h>
 
 namespace vw {
-  namespace cartography {
     class Datum;
-  }
   namespace ip {
     class InterestPoint;
   }
@@ -56,7 +54,7 @@ void load_cameras(std::vector<std::string> const& image_files,
 
 // Guess the based on camera position. Usually one arrives here for pinhole
 // cameras.
-bool guessDatum(double cam_center_radius, vw::cartography::Datum & datum);
+bool guessDatum(double cam_center_radius, vw::Datum & datum);
   
 // Find the datum based on cameras. Return true on success.
 bool datum_from_camera(std::string const& image_file, 
@@ -64,7 +62,7 @@ bool datum_from_camera(std::string const& image_file,
                        std::string & stereo_session, // may change
                        asp::SessionPtr & session, // may be null on input
                        // Outputs
-                       vw::cartography::Datum & datum);
+                       vw::Datum & datum);
 
 // Given a list of stereo prefixes, extract some info about them
 void parseStereoRuns(std::string              const& prefix_file,

@@ -44,7 +44,6 @@
 #include <boost/filesystem.hpp>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 
 struct Options : vw::GdalWriteOptions {

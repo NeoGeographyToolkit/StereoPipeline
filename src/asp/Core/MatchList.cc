@@ -191,7 +191,7 @@ bool MatchList::loadPointsFromGCPs(std::string const gcpPath,
   gcp_files.push_back(gcpPath);
   // The actual datum does not matter here as the GCP will not be edited or processed
   bool skip_datum_check = true;
-  vw::cartography::Datum datum; 
+  vw::Datum datum; 
   try {
     add_ground_control_points(cnet, gcp_files, datum, skip_datum_check);
   } catch (...) {

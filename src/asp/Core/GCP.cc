@@ -29,7 +29,7 @@ namespace asp {
 // Write GCP to a file. If ignore_pixel_sigma is true, or if a measure's
 // pixel sigma is non-positive, use a pixel sigma of 1.
 void writeGcp(std::string const& gcpFile,
-              vw::cartography::GeoReference const& geo,
+              vw::GeoReference const& geo,
               std::vector<Gcp> const& gcp_vec,
               std::vector<std::string> const& image_files,
               bool ignore_pixel_sigma) {
@@ -99,17 +99,17 @@ void genWriteGcp(std::vector<std::string> const& image_files,
     vw::vw_throw(vw::ArgumentErr() << "At least two images are needed to write a GCP file.\n");
   
   // Load a georeference to use for the GCPs from the last image
-  vw::cartography::GeoReference image_georef;
+  vw::GeoReference image_georef;
   const size_t georef_index = image_files.size() - 1;
   const std::string image_georef_file = image_files[georef_index];
-  bool has_georef = vw::cartography::read_georeference(image_georef, image_georef_file);
+  bool has_georef = vw::read_georeference(image_georef, image_georef_file);
   if (!has_georef)
     vw::vw_throw(vw::ArgumentErr() << "Could not load a valid georeference to use for "
                  << "ground control points in file: " << image_georef_file << ".\n");
 
   // Init the DEM to use for height interpolation
   vw::ImageViewRef<vw::PixelMask<double>> interp_dem;
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   asp::create_interp_dem(dem_file, dem_georef, interp_dem);
   vw::BBox2 dem_bbox = vw::bounding_box(interp_dem);
 

@@ -49,7 +49,6 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 using namespace vw;
 using namespace asp;
-using namespace vw::cartography;
 using namespace xercesc;
 
 
@@ -842,7 +841,7 @@ int main(int argc, char *argv[]) {
       nodata = img_rsrc->nodata_read();
     }
 
-    vw::cartography::GeoReference georef;
+    vw::GeoReference georef;
     bool has_georef = false;
     
     ImageViewRef<float> corr_img;
@@ -905,44 +904,44 @@ int main(int argc, char *argv[]) {
     vw_out() << "Writing: " << opt.output_image << std::endl;
     TerminalProgressCallback tpc("asp", "\t--> ");
     if (opt.output_type == "Float32") 
-      vw::cartography::block_write_gdal_image(opt.output_image, corr_img,
-                                              has_georef, georef, has_nodata, nodata, opt, tpc);
+      vw::block_write_gdal_image(opt.output_image, corr_img,
+                                 has_georef, georef, has_nodata, nodata, opt, tpc);
     else if (opt.output_type == "Byte") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(corr_img,
 							       RoundAndClamp<uint8, float>()),
 					      has_georef, georef, has_nodata,
-                                              vw::round_and_clamp<uint8>(nodata),
-                                              opt, tpc);
+                                 vw::round_and_clamp<uint8>(nodata),
+                                 opt, tpc);
     else if (opt.output_type == "UInt16") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(corr_img,
 							       RoundAndClamp<uint16, float>()),
-                                              has_georef, georef, has_nodata,
-                                              vw::round_and_clamp<uint16>(nodata),
-                                              opt, tpc);
+                                 has_georef, georef, has_nodata,
+                                 vw::round_and_clamp<uint16>(nodata),
+                                 opt, tpc);
     else if (opt.output_type == "Int16") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(corr_img,
 							       RoundAndClamp<int16, float>()),
-                                              has_georef, georef, has_nodata,
-                                              vw::round_and_clamp<int16>(nodata),
-                                              opt, tpc);
+                                 has_georef, georef, has_nodata,
+                                 vw::round_and_clamp<int16>(nodata),
+                                 opt, tpc);
 
     else if (opt.output_type == "UInt32") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(corr_img,
 							       RoundAndClamp<uint32, float>()),
-                                              has_georef, georef, has_nodata,
-                                              vw::round_and_clamp<uint32>(nodata),
-                                              opt, tpc);
+                                 has_georef, georef, has_nodata,
+                                 vw::round_and_clamp<uint32>(nodata),
+                                 opt, tpc);
     else if (opt.output_type == "Int32") 
-      vw::cartography::block_write_gdal_image(opt.output_image,
+      vw::block_write_gdal_image(opt.output_image,
 					      per_pixel_filter(corr_img,
 							       RoundAndClamp<int32, float>()),
-                                              has_georef, georef, has_nodata,
-                                              vw::round_and_clamp<int32>(nodata),
-                                              opt, tpc);
+                                 has_georef, georef, has_nodata,
+                                 vw::round_and_clamp<int32>(nodata),
+                                 opt, tpc);
     else
       vw_throw( NoImplErr() << "Unsupported output type: " << opt.output_type << ".\n" );
     

@@ -82,7 +82,7 @@ namespace isis {
     vw::Vector3 sun_position  ( vw::Vector2 const& pix = vw::Vector2() ) const;
     vw::Vector3 target_radii  () const;
     std::string target_name   () const;
-    vw::cartography::Datum get_datum_isis(bool use_sphere_for_non_earth) const;
+    vw::Datum get_datum_isis(bool use_sphere_for_non_earth) const;
 
     // Frame-camera intrinsics: the focal length in pixels, and the optical
     // center (principal point) as detector sample and line. These let a CSM
@@ -97,7 +97,7 @@ namespace isis {
     std::unique_ptr<Isis::Camera> m_camera;
     std::unique_ptr<Isis::Cube> m_cube;
 
-    vw::cartography::Datum m_datum;
+    vw::Datum m_datum;
     
     friend std::ostream& operator<<( std::ostream&, IsisInterface* );
   };

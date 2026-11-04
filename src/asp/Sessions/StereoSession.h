@@ -107,12 +107,12 @@ public:
 
   // Returns the target datum to use for a given camera model.
   // Can be overridden by derived classes.
-  virtual vw::cartography::Datum get_datum(const vw::camera::CameraModel* cam,
-                                            bool use_sphere_for_non_earth) const;
+  virtual vw::Datum get_datum(const vw::camera::CameraModel* cam,
+                               bool use_sphere_for_non_earth) const;
 
   // Peek inside the images and camera models and return the datum and projection,
   // or at least the datum, packaged in a georef.
-  virtual vw::cartography::GeoReference get_georef();
+  virtual vw::GeoReference get_georef();
 
   /// Get the crop ROI applied to the two input images.
   void get_input_image_crops(vw::BBox2i &left_image_crop, vw::BBox2i &right_image_crop) const;
@@ -213,8 +213,8 @@ protected:
                           float                         & right_nodata_value,
                           bool                          & has_left_georef,
                           bool                          & has_right_georef,
-                          vw::cartography::GeoReference & left_georef,
-                          vw::cartography::GeoReference & right_georef);
+                          vw::GeoReference & left_georef,
+                          vw::GeoReference & right_georef);
 
   // These are all the currently supported transformation types
   vw::TransformPtr tx_identity        () const; // Not left or right specific

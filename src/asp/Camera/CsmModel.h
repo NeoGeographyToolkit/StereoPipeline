@@ -206,8 +206,8 @@ namespace asp {
     // the function StereoSessionCsm::get_datum() which calls this one, as
     // that one also knows about the image and can find the datum name.
     // If the spheroid name is not known, use "unknown".
-    vw::cartography::Datum get_datum_csm(std::string spheroid_name, 
-                                         bool use_sphere_for_non_earth) const;
+    vw::Datum get_datum_csm(std::string spheroid_name, 
+                            bool use_sphere_for_non_earth) const;
     
   protected:
 

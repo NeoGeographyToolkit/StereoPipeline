@@ -40,8 +40,8 @@ void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
                  << "The DEM file must be provided to be able to query a pixel.\n");
     
   // Read the georef. It must exist.
-  vw::cartography::GeoReference dem_georef;
-  bool has_georef = vw::cartography::read_georeference(dem_georef, dem_file);
+  vw::GeoReference dem_georef;
+  bool has_georef = vw::read_georeference(dem_georef, dem_file);
   if (!has_georef)
     vw::vw_throw(vw::ArgumentErr() << "The DEM file must have a georeference.\n");
   
@@ -55,7 +55,7 @@ void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
   
   vw::Vector3 cam_ctr = camera_model->camera_center(query_pixel);
   vw::Vector3 cam_dir = camera_model->pixel_to_vector(query_pixel);
-  double height_guess = vw::cartography::demHeightGuess(masked_dem);
+  double height_guess = vw::demHeightGuess(masked_dem);
 
   // Intersect the ray going from the given camera pixel with a DEM
   // Use xyz_guess as initial guess and overwrite it with the new value
@@ -63,7 +63,7 @@ void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
   bool has_intersection = false;
   double dem_height_error_tol = 1e-3; // 1 mm
   vw::Vector3 xyz_guess(0, 0, 0);
-  vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+  vw::Vector3 xyz = vw::camera_pixel_to_dem_xyz
     (cam_ctr, cam_dir, masked_dem,
       dem_georef, treat_nodata_as_zero,
       has_intersection, dem_height_error_tol,
@@ -86,14 +86,14 @@ void queryPixel(std::string const& dem_file, vw::CamPtr camera_model,
 
 // Prepare a DEM file that encompasses a given image and with a given height.
 void setupDem(vw::ImageViewRef<float> img,
-              vw::cartography::GeoReference const& image_georef,
+              vw::GeoReference const& image_georef,
               std::string const& tag, 
               std::string const& out_prefix, 
               double dem_height,
               // Outputs
               std::string & dem_path,
               double & dem_nodata,
-              vw::cartography::GeoReference & dem_georef,
+              vw::GeoReference & dem_georef,
               vw::ImageView<double> & dem) {
 
   dem_path = out_prefix + "-" + tag + "-ortho-dem.tif";
@@ -135,7 +135,7 @@ void setupDem(vw::ImageViewRef<float> img,
   vw::BBox2 dem_pix_box;
   dem_pix_box.grow(pix1);
   dem_pix_box.grow(pix2);
-  dem_georef = vw::cartography::crop(dem_georef, dem_pix_box);
+  dem_georef = vw::crop(dem_georef, dem_pix_box);
 
   // Recompute the corner pixels after the crop
   pix1 = dem_georef.point_to_pixel(dem_proj_box.min());
@@ -163,7 +163,7 @@ void setupDem(vw::ImageViewRef<float> img,
 // or reuse the one already available if agrees with what is intended.
 void setupOrCheckDem(vw::GdalWriteOptions const& options,
                      vw::ImageViewRef<float> img,
-                     vw::cartography::GeoReference const& image_georef,
+                     vw::GeoReference const& image_georef,
                      std::string const& tag, 
                      std::string const& out_prefix, 
                      double dem_height,
@@ -175,7 +175,7 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
   // up at the end).
   vw::ImageView<double> dem;
   double dem_nodata = -std::numeric_limits<float>::max(); // will change
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
 
   // Set it up, but don't write to to disk yet                     
   setupDem(img, image_georef, tag, out_prefix, dem_height,
@@ -186,7 +186,7 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
   if (fs::exists(dem_path)) {
 
     vw::DiskImageView<double> disk_dem(dem_path);
-    vw::cartography::GeoReference disk_dem_georef;
+    vw::GeoReference disk_dem_georef;
     bool has_georef = read_georeference(disk_dem_georef, dem_path);
     
     bool has_same_values = true;
@@ -220,8 +220,8 @@ void setupOrCheckDem(vw::GdalWriteOptions const& options,
     vw::vw_out() << "Writing mapprojection DEM for " << tag << " image: " << dem_path << "\n";
     bool has_georef = true, has_nodata = true;
     vw::TerminalProgressCallback tpc("asp", ": ");
-    vw::cartography::block_write_gdal_image(dem_path, dem, has_georef, dem_georef,
-                                            has_nodata, dem_nodata, options, tpc);
+    vw::block_write_gdal_image(dem_path, dem, has_georef, dem_georef,
+                               has_nodata, dem_nodata, options, tpc);
   } else {
     vw::vw_out() << "Mapprojection DEM for " << tag << " image: " 
       << dem_path << "\n";
@@ -257,8 +257,8 @@ public:
 vw::ImageViewRef<vw::PixelMask<double>> 
   warpCrop(vw::ImageViewRef<double> dem2, 
            double dem2_nodata,
-           vw::cartography::GeoReference const& dem2_georef,
-           vw::cartography::GeoReference const& dem1_georef,
+           vw::GeoReference const& dem2_georef,
+           vw::GeoReference const& dem1_georef,
            vw::BBox2i const& dem1_crop_box,
            std::string const& interp_type) {
   
@@ -269,17 +269,17 @@ vw::ImageViewRef<vw::PixelMask<double>>
   
   // Prepare the image for applying the geotransform
   // TODO(oalexan1): Why go from elevations to geodetic and then back?
-  auto dem2_geo = vw::cartography::dem_to_geodetic(masked_dem2, dem2_georef);
+  auto dem2_geo = vw::dem_to_geodetic(masked_dem2, dem2_georef);
   auto dem2_alt = vw::per_pixel_filter(dem2_geo, MGeodeticToMAltitude());
   auto ext = vw::ValueEdgeExtension<vw::PixelMask<double>>(vw::PixelMask<double>());
   
   vw::ImageViewRef<vw::PixelMask<double>> warped_dem2;
   if (interp_type == "bilinear") 
-    warped_dem2 = vw::cartography::geo_transform(dem2_alt, dem2_georef, dem1_georef, ext,
-                                                 vw::BilinearInterpolation());
+    warped_dem2 = vw::geo_transform(dem2_alt, dem2_georef, dem1_georef, ext,
+                                    vw::BilinearInterpolation());
   else if (interp_type == "bicubic") 
-    warped_dem2 = vw::cartography::geo_transform(dem2_alt, dem2_georef, dem1_georef, ext,
-                                                 vw::BicubicInterpolation());
+    warped_dem2 = vw::geo_transform(dem2_alt, dem2_georef, dem1_georef, ext,
+                                    vw::BicubicInterpolation());
   else 
     vw::vw_throw(vw::ArgumentErr() << "Unknown interpolation type: " << interp_type << ".\n");
   
@@ -293,7 +293,7 @@ vw::ImageViewRef<vw::PixelMask<double>>
 // Given that the DEM heights are in meters as well, having these grid sizes
 // will make it possible to handle heights and grids in same units.
 void calcGsd(vw::ImageViewRef<double> const& dem,
-             vw::cartography::GeoReference const& geo, double nodata_val,
+             vw::GeoReference const& geo, double nodata_val,
              int sample_col_rate, int sample_row_rate,
              double & gridx, double & gridy) {
 

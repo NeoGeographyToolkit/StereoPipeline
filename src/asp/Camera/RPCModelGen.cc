@@ -328,7 +328,7 @@ void extractRotTrans(vw::Matrix4x4 const& ecef_transform,
 // Transform a vector of lon-lat-height coordinates in place using a rotation matrix and translation vector
 void transformLlhVec(std::vector<vw::Vector3> const& llh,
                      vw::Matrix3x3 const& R, vw::Vector3 const& T,
-                     vw::cartography::Datum const& datum,
+                     vw::Datum const& datum,
                      std::vector<vw::Vector3> & trans_llh) {
 
   // Resize the output
@@ -353,7 +353,7 @@ void transformLlhBox(vw::Vector3 const& llh_offset_in,
                               Vector3 const& llh_scale_in, 
                               vw::Matrix3x3 const& R,
                               vw::Vector3 const& T,
-                              vw::cartography::Datum const& datum,
+                              vw::Datum const& datum,
                               // Outputs
                               vw::Vector3& llh_offset_out,
                               vw::Vector3& llh_scale_out) {
@@ -392,7 +392,7 @@ asp::RPCModel transformRpc(asp::RPCModel const& rpc_model,
   vw::Vector3 llh_scale        = rpc_model.lonlatheight_scale();
   vw::Vector2 pixel_offset     = rpc_model.xy_offset();
   vw::Vector2 pixel_scale      = rpc_model.xy_scale();
-  vw::cartography::Datum datum = rpc_model.datum();
+  vw::Datum datum = rpc_model.datum();
   
   vw::BBox2 lon_lat_range;
   lon_lat_range.min() = subvector(llh_offset - llh_scale, 0, 2);

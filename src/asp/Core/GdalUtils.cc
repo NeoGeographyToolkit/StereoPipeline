@@ -21,7 +21,6 @@
 #include <asp/Core/GdalUtils.h>
 
 using namespace vw;
-using namespace vw::cartography;
 
 // Unless user-specified, compute the rounding error for a given
 // planet (a point on whose surface is given by 'shift'). Return an

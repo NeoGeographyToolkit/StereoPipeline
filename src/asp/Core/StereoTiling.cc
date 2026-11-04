@@ -38,7 +38,7 @@ namespace asp {
 // Append a tile to a given set of polygons
 void appendTileToPoly(int beg_x, int beg_y, int curr_tile_x, int curr_tile_y,
                       bool is_map_projected,
-                      vw::cartography::GeoReference const& georef,
+                      vw::GeoReference const& georef,
                       vw::geometry::dPoly & poly,
                       std::vector<int> & tile_id_vec,
                       size_t tile_id) {
@@ -89,12 +89,12 @@ void produceTiles(bool is_map_projected,
       vw::vw_throw(vw::ArgumentErr() << "Cannot produce tiles without a valid L.tif.\n");
 
   // This georeference has at least the datum
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   // If is mapprojected, read the georef from L.tif, as that is what is used for tiling.
   // This should handle correctly --left-image-crop-win as well.
   if (is_map_projected) {
     std::string left_image_file = output_prefix + "-L.tif";
-    bool has_georef = vw::cartography::read_georeference(georef, left_image_file);
+    bool has_georef = vw::read_georeference(georef, left_image_file);
     if (!has_georef)
       vw::vw_throw(vw::ArgumentErr() << "L.tif has no georeference, cannot produce tiles.\n");
   }
@@ -246,9 +246,9 @@ void produceDistTileList(std::string const& in_file1,
     vw::vw_throw(vw::ArgumentErr() << "Tile size and padding must be positive.\n");
 
   // Read georefs from both images
-  vw::cartography::GeoReference georef1, georef2;
-  bool has_georef1 = vw::cartography::read_georeference(georef1, in_file1);
-  bool has_georef2 = vw::cartography::read_georeference(georef2, in_file2);
+  vw::GeoReference georef1, georef2;
+  bool has_georef1 = vw::read_georeference(georef1, in_file1);
+  bool has_georef2 = vw::read_georeference(georef2, in_file2);
   if (!has_georef1)
     vw::vw_throw(vw::ArgumentErr() << "Missing georeference in: " << in_file1 << "\n");
   if (!has_georef2)
@@ -265,7 +265,7 @@ void produceDistTileList(std::string const& in_file1,
 
   // Form bounding box for image2 in image1's projected coordinates
   // GeoTransform converts from source (georef2) to destination (georef1)
-  vw::cartography::GeoTransform geo_trans(georef2, georef1);
+  vw::GeoTransform geo_trans(georef2, georef1);
   vw::BBox2 bbox2_in_proj1 = geo_trans.pixel_to_point_bbox(bbox2_pix);
 
   // Find intersection in projected coordinates
@@ -389,9 +389,9 @@ void handleDistCropWins(std::string const& left_image,
               << "must not be set, as it will be auto-computed.\n");
 
   // Read georefs from both images
-  vw::cartography::GeoReference left_georef, right_georef;
-  bool has_left_georef = vw::cartography::read_georeference(left_georef, left_image);
-  bool has_right_georef = vw::cartography::read_georeference(right_georef, right_image);
+  vw::GeoReference left_georef, right_georef;
+  bool has_left_georef = vw::read_georeference(left_georef, left_image);
+  bool has_right_georef = vw::read_georeference(right_georef, right_image);
   if (!has_left_georef)
     vw::vw_throw(vw::ArgumentErr() << "Missing georeference in: " << left_image << "\n");
   if (!has_right_georef)
@@ -407,7 +407,7 @@ void handleDistCropWins(std::string const& left_image,
 
   // Use geo transform to convert left crop win (pixels) to right image pixels
   // GeoTransform::forward_bbox converts pixel bbox from source to destination
-  vw::cartography::GeoTransform geo_trans(left_georef, right_georef);
+  vw::GeoTransform geo_trans(left_georef, right_georef);
   right_crop_win = geo_trans.forward_bbox(left_crop_win);
 
   // Crop to right image bbox

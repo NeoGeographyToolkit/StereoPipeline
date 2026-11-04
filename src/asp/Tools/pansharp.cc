@@ -29,7 +29,6 @@ using std::endl;
 using std::string;
 
 using namespace vw;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -324,7 +323,7 @@ void load_inputs_and_process(Options           & opt,
   // - create_mask_less_or_equal seems to break on PixelRGB types.
 
   vw_out() << "Writing: " << opt.output_file << std::endl;
-  vw::cartography::block_write_gdal_image( opt.output_file,
+  vw::block_write_gdal_image( opt.output_file,
                                // The final output image is set up in these few lines:
                                pixel_cast<PixelRGBMask>
                                (apply_mask(pansharp_view

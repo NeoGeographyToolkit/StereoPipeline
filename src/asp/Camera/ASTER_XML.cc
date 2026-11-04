@@ -40,7 +40,6 @@
 #include <iomanip>
 
 using namespace vw;
-using namespace vw::cartography;
 using namespace xercesc;
 
 using asp::XmlUtils::get_node;
@@ -154,5 +153,3 @@ void ASTERXML::parse_xml(xercesc::DOMElement* node) {
 }
 
 } // end namespace asp
-
-

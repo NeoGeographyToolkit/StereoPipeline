@@ -29,7 +29,7 @@ namespace asp {
 void load_csv_or_dem(std::string const& csv_format_str, std::string const& csv_srs_str,
                      std::string const& reference_terrain,
                      int max_num_reference_points,
-                     vw::cartography::GeoReference & geo, // may change
+                     vw::GeoReference & geo, // may change
                      // Outputs
                      std::vector<vw::Vector3> & ref_data) {
   

@@ -40,7 +40,6 @@
 
 #include <iomanip>
 
-using namespace vw::cartography;
 using namespace vw::math;
 using namespace vw::geometry;
 
@@ -53,7 +52,7 @@ namespace asp {
 // the position along this line. Produced along and across vectors are
 // normalized and perpendicular to each other.
 void calcEcefTrajPtAlongAcross(vw::Vector3 const& curr_proj,
-                               vw::cartography::GeoReference const& dem_georef,
+                               vw::GeoReference const& dem_georef,
                                double delta,
                                vw::Vector3 const& proj_along,
                                vw::Vector3 const& proj_across,
@@ -68,7 +67,7 @@ void calcEcefTrajPtAlongAcross(vw::Vector3 const& curr_proj,
                           along, across);
 
   // Convert the point along trajectory to ECEF
-  P  = vw::cartography::projToEcef(dem_georef, curr_proj);
+  P  = vw::projToEcef(dem_georef, curr_proj);
 }
 
 // This is used to signify when the algorithm below fails to find a solution
@@ -79,7 +78,7 @@ const double g_big_val = 1e+100;
 // The guess for the xyz ground point will be updated if the solver converges.
 bool calcCamPoseAndGroundPt(SatSimOptions const& opt,
                             vw::Vector3 const& curr_proj,
-                            vw::cartography::GeoReference const& dem_georef,
+                            vw::GeoReference const& dem_georef,
                             vw::ImageViewRef<vw::PixelMask<float>> dem,
                             double delta,
                             vw::Vector3 const& proj_along,
@@ -115,7 +114,7 @@ bool calcCamPoseAndGroundPt(SatSimOptions const& opt,
   // Find the intersection of this ray with the ground
   bool treat_nodata_as_zero = false;
   bool has_intersection = false;
-  xyz = vw::cartography::camera_pixel_to_dem_xyz
+  xyz = vw::camera_pixel_to_dem_xyz
     (cam_ctr, cam_dir, dem,
       dem_georef, treat_nodata_as_zero,
       has_intersection,
@@ -133,7 +132,7 @@ bool calcCamPoseAndGroundPt(SatSimOptions const& opt,
   
 // DEM-pixel error from camera center to pixel_loc. Offset s absorbs roll.
 vw::Vector2 demPixelErr(SatSimOptions const& opt,
-                   vw::cartography::GeoReference const& dem_georef,
+                   vw::GeoReference const& dem_georef,
                    vw::ImageViewRef<vw::PixelMask<float>> dem,
                    vw::Vector3 const& first_proj,
                    vw::Vector3 const& last_proj,
@@ -173,7 +172,7 @@ template <size_t Dim>
 class RayDemPixelLMA: public vw::math::LeastSquaresModelBase<RayDemPixelLMA<Dim>> {
 
   SatSimOptions const& m_opt;
-  vw::cartography::GeoReference const& m_dem_georef;
+  vw::GeoReference const& m_dem_georef;
   vw::ImageViewRef<vw::PixelMask<float>> m_dem;
   double m_height_guess;
   vw::Vector3 m_first_proj;
@@ -191,7 +190,7 @@ public:
   typedef vw::Matrix<double>      jacobian_type;
 
   RayDemPixelLMA(SatSimOptions const& opt,
-                 vw::cartography::GeoReference const& dem_georef,
+                 vw::GeoReference const& dem_georef,
                  vw::ImageViewRef<vw::PixelMask<float>> dem,
                  double height_guess,
                  vw::Vector3 const& first_proj,
@@ -287,7 +286,7 @@ void solveCamLocation(RayDemPixelLMA<Dim> const& model, double spacing,
 // Find camera center in projected coordinates that best matches a ground point.
 // If roll is 0, optimizes along-track only. If roll != 0, also optimizes across-track.
 void findBestProjCamLocation(SatSimOptions const& opt,
-                             vw::cartography::GeoReference const& dem_georef,
+                             vw::GeoReference const& dem_georef,
                              vw::ImageViewRef<vw::PixelMask<float>> dem,
                              double height_guess,
                              vw::Vector3 const& first_proj,
@@ -304,8 +303,8 @@ void findBestProjCamLocation(SatSimOptions const& opt,
                                    << "the yaw must be zero.\n");
 
   double eps = 1e-7;
-  vw::Vector3 P1 = vw::cartography::projToEcef(dem_georef, first_proj);
-  vw::Vector3 P2 = vw::cartography::projToEcef(dem_georef, last_proj);
+  vw::Vector3 P1 = vw::projToEcef(dem_georef, first_proj);
+  vw::Vector3 P2 = vw::projToEcef(dem_georef, last_proj);
   double d = norm_2(P2 - P1);
   if (d < 1.0)
     vw::vw_throw(vw::ArgumentErr() 
@@ -314,8 +313,8 @@ void findBestProjCamLocation(SatSimOptions const& opt,
 
   double dt = 1e-3;
   double t1 = -dt, t2 = dt;
-  P1 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
-  P2 = vw::cartography::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
+  P1 = vw::projToEcef(dem_georef, first_proj * (1.0 - t1) + last_proj * t1);
+  P2 = vw::projToEcef(dem_georef, first_proj * (1.0 - t2) + last_proj * t2);
   double slope = norm_2(P2 - P1) / (2*dt);
   double spacing = 1000.0 / slope;
 
@@ -335,8 +334,8 @@ void findBestProjCamLocation(SatSimOptions const& opt,
   }
 
   // 2D solve (roll != 0)
-  P1 = vw::cartography::projToEcef(dem_georef, first_proj - dt * proj_across);
-  P2 = vw::cartography::projToEcef(dem_georef, first_proj + dt * proj_across);
+  P1 = vw::projToEcef(dem_georef, first_proj - dt * proj_across);
+  P2 = vw::projToEcef(dem_georef, first_proj + dt * proj_across);
   double across_slope = norm_2(P2 - P1) / (2 * dt);
   double across_scale_factor = 1.0 / (eps * across_slope);
 
@@ -372,12 +371,12 @@ void findBestProjCamLocation(SatSimOptions const& opt,
 // TODO(oalexan1): This may not be accurate enough for very long orbit segments.
 // TODO(oalexan1): The number of samples better depend on orbit length.
 double calcOrbitLength(vw::Vector3 const& first_proj, vw::Vector3 const& last_proj,
-                       vw::cartography::GeoReference const& dem_georef) {
+                       vw::GeoReference const& dem_georef) {
 
   int num = 1.0e+5;
 
   // Start of each segment
-  vw::Vector3 beg = vw::cartography::projToEcef(dem_georef, first_proj);
+  vw::Vector3 beg = vw::projToEcef(dem_georef, first_proj);
   // End of each segment
   vw::Vector3 end = beg;
   double orbitLength = 0.0;
@@ -388,7 +387,7 @@ double calcOrbitLength(vw::Vector3 const& first_proj, vw::Vector3 const& last_pr
     // Find the projected position of the current point
     vw::Vector3 curr_proj = first_proj + t * (last_proj - first_proj);
     // Find the ECEF position of the current point
-    end = vw::cartography::projToEcef(dem_georef, curr_proj);
+    end = vw::projToEcef(dem_georef, curr_proj);
 
     // Add the length of the segment
     orbitLength += norm_2(end - beg);
@@ -406,7 +405,7 @@ double calcOrbitLength(vw::Vector3 const& first_proj, vw::Vector3 const& last_pr
 void cameraAdjustment(vw::Vector2 const& first_ground_pos,
                       vw::Vector2 const& last_ground_pos,
                       double t,
-                      vw::cartography::GeoReference const& dem_georef,
+                      vw::GeoReference const& dem_georef,
                       vw::ImageViewRef<vw::PixelMask<float>> dem,
                       vw::Vector3 const& P, // camera center
                       // Outputs
@@ -434,7 +433,7 @@ void cameraAdjustment(vw::Vector2 const& first_ground_pos,
   ground_proj_pos[2] = val.child(); // z
 
   // Convert the ground point to ECEF
-  vw::Vector3 G = vw::cartography::projToEcef(dem_georef, ground_proj_pos);
+  vw::Vector3 G = vw::projToEcef(dem_georef, ground_proj_pos);
 
   // Find the ground direction
   vw::Vector3 ground_dir = G - P;
@@ -460,7 +459,7 @@ void cameraAdjustment(vw::Vector2 const& first_ground_pos,
 // Adjust the orbit end point and set the number of cameras given the frame rate
 // This is a bit tricky because need to sample finely the orbit
 void adjustForFrameRate(SatSimOptions                  const& opt,
-                        vw::cartography::GeoReference const& dem_georef,
+                        vw::GeoReference const& dem_georef,
                         vw::Vector3                   const& first_proj,
                         // Outputs
                         vw::Vector3                        & last_proj, // in/out
@@ -513,7 +512,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
   // before exceeding the orbit length. 
   int num = 1000000; // one million samples along the orbit should be enough
   // TODO(oalexan1): Something more clever and faster should be done.
-  vw::Vector3 beg = vw::cartography::projToEcef(dem_georef, first_proj);
+  vw::Vector3 beg = vw::projToEcef(dem_georef, first_proj);
   vw::Vector3 end = beg;
   vw::Vector3 out_proj = first_proj; // will keep the result here
   double curr_len = 0.0;
@@ -525,7 +524,7 @@ void adjustForFrameRate(SatSimOptions                  const& opt,
     vw::Vector3 curr_proj = first_proj + t * (last_proj - first_proj);
 
     // Find the ECEF position of the current point and distance from previous
-    end = vw::cartography::projToEcef(dem_georef, curr_proj);
+    end = vw::projToEcef(dem_georef, curr_proj);
     double curr_dist = norm_2(end - beg);
 
     if (curr_len + curr_dist > orbit_len)
@@ -585,7 +584,7 @@ double signedOrbitDistance(vw::Vector3 const& curr_proj,
                            vw::Vector3 const& ref_proj,
                            vw::Vector3 const& first_proj,
                            vw::Vector3 const& last_proj,
-                           vw::cartography::GeoReference const& dem_georef) {
+                           vw::GeoReference const& dem_georef) {
   double dist = calcOrbitLength(ref_proj, curr_proj, dem_georef);
   double sign = findDirectionAlongOrbit(ref_proj, first_proj, last_proj, curr_proj);
   return sign * dist;
@@ -683,7 +682,7 @@ void parseSensorRotationAngles(std::string const& angles_str,
 // Change the rig to have desired offsets in the sensor plane and ground plane.
 // These will determine the orientations. The offsets are in meters.
 void adjustRigForOffsets(SatSimOptions const& opt,
-                         vw::cartography::GeoReference const& dem_georef,
+                         vw::GeoReference const& dem_georef,
                          vw::ImageViewRef<vw::PixelMask<float>> dem,
                          double height_guess,
                          vw::Vector3 const& ref_proj,
@@ -782,7 +781,7 @@ void adjustRigForOffsets(SatSimOptions const& opt,
 // will adjust the end points of the produced path. The rig may get adjusted
 // if --rig-sensor-ground-offsets is set.
 void genCamPoses(SatSimOptions & opt,
-                 vw::cartography::GeoReference const& dem_georef,
+                 vw::GeoReference const& dem_georef,
                  vw::ImageViewRef<vw::PixelMask<float>> dem,
                  double height_guess,
                  bool have_rig,
@@ -1098,7 +1097,7 @@ void readPinholeCameras(SatSimOptions const& opt,
 // A function to perturb the cameras. A lot of logic is in asp::genCamPoses().
 void perturbCameras(SatSimOptions const& opt, 
                     std::string const& suffix,
-                    vw::cartography::GeoReference const& georef,
+                    vw::GeoReference const& georef,
                     std::vector<std::string> const& cam_names,
                     std::vector<vw::CamPtr> & cams) {
 
@@ -1241,7 +1240,7 @@ void applyRigTransform(Eigen::Affine3d const & ref_to_sensor,
 // A function to create and save Pinhole cameras. Assume no distortion, and pixel
 // pitch = 1.
 void genPinholeCameras(SatSimOptions          const& opt,
-                vw::cartography::GeoReference const& dem_georef,
+                vw::GeoReference const& dem_georef,
                 std::vector<vw::Vector3>      const& positions,
                 std::vector<vw::Matrix3x3>    const& cam2world,
                 std::vector<vw::Matrix3x3>    const& ref_cam2world,
@@ -1275,7 +1274,7 @@ void genPinholeCameras(SatSimOptions          const& opt,
     }
     
     // Always create the cameras, but only save them if we are not skipping
-    vw::cartography::Datum d = dem_georef.datum();
+    vw::Datum d = dem_georef.datum();
     if (opt.save_as_csm) {
       cams[i] = boost::make_shared<asp::CsmModel>();
       auto csmPtr = boost::dynamic_pointer_cast<asp::CsmModel>(cams[i]);
@@ -1361,15 +1360,15 @@ void genPinholeCameras(SatSimOptions          const& opt,
 void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
     vw::CamPtr const& cam,
     vw::ImageViewRef<vw::PixelMask<float>> const& dem,
-    vw::cartography::GeoReference const& dem_georef,
+    vw::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> const& ortho,
-    vw::cartography::GeoReference const& ortho_georef,
+    vw::GeoReference const& ortho_georef,
     double blur_sigma,
     // Outputs
     vw::ImageView<vw::PixelMask<float>> & crop_dem,
-    vw::cartography::GeoReference & crop_dem_georef,
+    vw::GeoReference & crop_dem_georef,
     vw::ImageView<vw::PixelMask<float>> & crop_ortho,
-    vw::cartography::GeoReference & crop_ortho_georef) {
+    vw::GeoReference & crop_ortho_georef) {
 
     // Find the bounding box of the dem and ortho portions seen in the camera,
     // in projected coordinates
@@ -1381,7 +1380,7 @@ void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
       // extent that does not fit fully with the input DEM/orthoimage.
       // We could use above quick = false, but then we'd get only partial
       // synthetic images, which isn't good.
-      dem_box = vw::cartography::camera_bbox(dem, dem_georef, dem_georef,
+      dem_box = vw::camera_bbox(dem, dem_georef, dem_georef,
         cam, image_size[0], image_size[1], mean_gsd, quick);
     } catch (const vw::Exception& e) {
        vw::vw_throw(vw::ArgumentErr() << "sat_sim: Failed to compute a synthetic image. "
@@ -1389,7 +1388,7 @@ void setupCroppedDemAndOrtho(vw::Vector2 const& image_size,
        << "the input DEM and orthoimage.\n");
     }
 
-    vw::cartography::GeoTransform d2o(dem_georef, ortho_georef);
+    vw::GeoTransform d2o(dem_georef, ortho_georef);
     vw::BBox2 ortho_box = d2o.point_to_point_bbox(dem_box);
 
     // Find the DEM pixel box and expand it in case there was some inaccuracies
@@ -1431,20 +1430,20 @@ class SynImageView: public vw::ImageViewBase<SynImageView> {
   typedef typename ImageT::pixel_type PixelT;
   SatSimOptions const& m_opt;
   vw::CamPtr m_cam;
-  vw::cartography::GeoReference m_dem_georef; // make a copy to be thread-safe
+  vw::GeoReference m_dem_georef; // make a copy to be thread-safe
   vw::ImageViewRef<vw::PixelMask<float>> m_dem;
   double m_height_guess;
-  vw::cartography::GeoReference m_ortho_georef; // make a copy to be thread-safe
+  vw::GeoReference m_ortho_georef; // make a copy to be thread-safe
   vw::ImageViewRef<vw::PixelMask<float>> m_ortho;
   float m_ortho_nodata_val;
 
 public:
   SynImageView(SatSimOptions const& opt,
                vw::CamPtr    const& cam,
-               vw::cartography::GeoReference   const& dem_georef,
+               vw::GeoReference   const& dem_georef,
                vw::ImageViewRef<vw::PixelMask<float>> dem,
                double height_guess,
-               vw::cartography::GeoReference   const& ortho_georef,
+               vw::GeoReference   const& ortho_georef,
                vw::ImageViewRef<vw::PixelMask<float>> ortho,
                float ortho_nodata_val):
                 m_opt(opt), m_cam(cam), 
@@ -1490,9 +1489,9 @@ public:
                         pixel_offset, scale));
 
     // Bring crops in memory. It greatly helps with multi-threading speed.  
-    vw::cartography::GeoReference crop_dem_georef; // make a copy to be thread-safe
+    vw::GeoReference crop_dem_georef; // make a copy to be thread-safe
     vw::ImageView<vw::PixelMask<float>> crop_dem;
-    vw::cartography::GeoReference crop_ortho_georef; // make a copy to be thread-safe
+    vw::GeoReference crop_ortho_georef; // make a copy to be thread-safe
     vw::ImageView<vw::PixelMask<float>> crop_ortho;
     setupCroppedDemAndOrtho(crop_image_size,
       crop_cam, m_dem, m_dem_georef, m_ortho, m_ortho_georef, m_opt.blur_sigma,
@@ -1535,7 +1534,7 @@ public:
         // Use xyz_guess as initial guess and overwrite it with the new value
         bool treat_nodata_as_zero = false;
         bool has_intersection = false;
-        vw::Vector3 xyz = vw::cartography::camera_pixel_to_dem_xyz
+        vw::Vector3 xyz = vw::camera_pixel_to_dem_xyz
           (cam_ctr, cam_dir, crop_dem,
             crop_dem_georef, treat_nodata_as_zero,
             has_intersection, m_opt.dem_height_error_tol,
@@ -1573,10 +1572,10 @@ void genImages(SatSimOptions      const& opt,
     std::vector<std::string>      const& cam_names,
     std::vector<vw::CamPtr>       const& cams,
     std::string                   const& suffix, 
-    vw::cartography::GeoReference const& dem_georef,
+    vw::GeoReference const& dem_georef,
     vw::ImageViewRef<vw::PixelMask<float>> dem,
     double height_guess,
-    vw::cartography::GeoReference const& ortho_georef,
+    vw::GeoReference const& ortho_georef,
     vw::ImageViewRef<vw::PixelMask<float>> ortho,
     float ortho_nodata_val) {
 
@@ -1671,11 +1670,11 @@ void genCamerasImages(float ortho_nodata_val,
             int rig_sensor_index,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
-            vw::cartography::GeoReference const& ortho_georef,
+            vw::GeoReference const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             SatSimOptions                      & opt,
             rig::RigSet                        & rig,
-            vw::cartography::GeoReference const& dem_georef,
+            vw::GeoReference const& dem_georef,
             std::string                   const& suffix) {
 
   std::vector<vw::Vector3> positions;
@@ -1721,10 +1720,10 @@ void genCamerasImages(float ortho_nodata_val,
 // Generate the cameras and images for a rig
 void genRigCamerasImages(SatSimOptions          & opt,
             rig::RigSet                         & rig,
-            vw::cartography::GeoReference  const& dem_georef,
+            vw::GeoReference  const& dem_georef,
             vw::ImageViewRef<vw::PixelMask<float>> dem,
             double height_guess,
-            vw::cartography::GeoReference  const& ortho_georef,
+            vw::GeoReference  const& ortho_georef,
             vw::ImageViewRef<vw::PixelMask<float>> ortho,
             float ortho_nodata_val) {
 

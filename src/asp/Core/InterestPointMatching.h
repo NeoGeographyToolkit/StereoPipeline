@@ -47,7 +47,7 @@ void write_match_image(std::string const& out_file_name,
                              vw::ImageViewRef<float> const& image1,
                              vw::ImageViewRef<float> const& image2,
                              int ip_per_tile,
-                             vw::cartography::Datum const& datum,
+                             vw::Datum const& datum,
                              std::string const& match_filename,
                              size_t number_of_jobs,
                              double epipolar_threshold,
@@ -100,7 +100,7 @@ void write_match_image(std::string const& out_file_name,
                                            vw::TransformPtr         tx_right,
                                            vw::camera::CameraModel* left_camera_model,
                                            vw::camera::CameraModel* right_camera_model,
-                                           vw::cartography::Datum const& datum,
+                                           vw::Datum const& datum,
                                            std::vector<vw::ip::InterestPoint> const& ip1_in,
                                            std::vector<vw::ip::InterestPoint> const& ip2_in,
                                            vw::Vector2 const & elevation_limit,
@@ -113,7 +113,7 @@ void write_match_image(std::string const& out_file_name,
                                std::vector<vw::ip::InterestPoint> & ip2,
                                vw::camera::CameraModel const* cam1,
                                vw::camera::CameraModel const* cam2,
-                               vw::cartography::Datum  const& datum,
+                               vw::Datum  const& datum,
                                double pct, double factor);
 
   // Filter IP using a given DEM and max height difference.  Assume that
@@ -144,7 +144,7 @@ void write_match_image(std::string const& out_file_name,
   rough_homography_fit(vw::camera::CameraModel* cam1,
             vw::camera::CameraModel* cam2,
             vw::BBox2i const& box1, vw::BBox2i const& box2,
-            vw::cartography::Datum const& datum);
+            vw::Datum const& datum);
 
   /// Homography rectification that aligns the right image to the left
   /// image via a homography transform. It returns a vector2i of the
@@ -186,8 +186,8 @@ void write_match_image(std::string const& out_file_name,
                               vw::BBox2i const& bbox1 = vw::BBox2i(),
                               vw::BBox2i const& bbox2 = vw::BBox2i(),
                               bool filter_by_ground_loc = false,
-                              vw::cartography::GeoReference const& georef1 = vw::cartography::GeoReference(),
-                              vw::cartography::GeoReference const& georef2 = vw::cartography::GeoReference());
+                              vw::GeoReference const& georef1 = vw::GeoReference(),
+                              vw::GeoReference const& georef2 = vw::GeoReference());
 
 // Match the ip and save the match file. No epipolar constraint
 // is used in this mode.
@@ -235,7 +235,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
                             vw::ImageViewRef<float> const& image1,
                             vw::ImageViewRef<float> const& image2,
                             int ip_per_image, int ip_per_tile,
-                            vw::cartography::Datum const& datum,
+                            vw::Datum const& datum,
                             std::string const left_vwip_file,
                             double nodata1, double nodata2,
                             // Outputs
@@ -265,8 +265,8 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
                      // no counterpart within --ip-match-radius pixels in the
                      // other image, using the georeferences to relate them.
                      bool filter_by_ground_loc = false,
-                     vw::cartography::GeoReference const& georef1 = vw::cartography::GeoReference(),
-                     vw::cartography::GeoReference const& georef2 = vw::cartography::GeoReference());
+                     vw::GeoReference const& georef1 = vw::GeoReference(),
+                     vw::GeoReference const& georef2 = vw::GeoReference());
 
 // A debug routine to save images with matches on top of them.
 void write_match_image(std::string const& out_file_name,

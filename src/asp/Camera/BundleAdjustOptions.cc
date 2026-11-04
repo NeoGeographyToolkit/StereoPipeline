@@ -160,7 +160,7 @@ int loadEstimCameraPositions(asp::BaOptions &opt,
   conv.read_csv_file(opt.camera_position_file, pos_records);
 
   // Set up a GeoReference object using the datum
-  vw::cartography::GeoReference geo;
+  vw::GeoReference geo;
   geo.set_datum(opt.datum); // We checked for a datum earlier
   conv.parse_georef(geo);
 

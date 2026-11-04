@@ -37,10 +37,8 @@
 // Forward declarations
 namespace vw {
 
-  namespace cartography {
     class Datum;
     class GeoReference;
-  }
 
   namespace geometry {
     class dPoly;
@@ -103,7 +101,7 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
 void updateTriPtsFromDem(vw::ba::ControlNetwork const& cnet,
                          std::set<int> const& outliers,
                          std::vector<vw::CamPtr> const& camera_models,
-                         vw::cartography::GeoReference const& dem_georef,
+                         vw::GeoReference const& dem_georef,
                          vw::ImageViewRef<vw::PixelMask<double>> const& masked_dem,
                          // Output
                          std::vector<vw::Vector3> & dem_xyz_vec,
@@ -116,15 +114,15 @@ void updateTriPtsFromDemList(vw::ba::ControlNetwork const& cnet,
                              std::vector<vw::CamPtr> const& camera_models,
                              std::string const& heights_from_dem,
                              std::string const& heights_from_dem_list,
-                             vw::cartography::Datum const* datum,
+                             vw::Datum const* datum,
                              // Outputs
                              std::vector<vw::Vector3> & dem_xyz_vec,
-                             vw::cartography::GeoReference & dem_georef);
+                             vw::GeoReference & dem_georef);
 
 // Given an xyz point in ECEF coordinates, update its height above datum by
 // interpolating into a DEM. The input must already be prepared for
 // interpolation. The user must check the return status.
-bool updatePointHeightFromDem(vw::cartography::GeoReference const& dem_georef,
+bool updatePointHeightFromDem(vw::GeoReference const& dem_georef,
                               vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                               // Output
                               vw::Vector3 & xyz);
@@ -168,7 +166,7 @@ void residualsPerRow(vw::ba::ControlNetwork const& cnet,
 // ba_state, filtering outliers. Includes GCP. For bundle_adjust.
 void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
                    asp::BaState const& ba_state,
-                   vw::cartography::Datum const& datum,
+                   vw::Datum const& datum,
                    std::vector<std::string> const& image_files,
                    std::string const& filename);
 
@@ -177,7 +175,7 @@ void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
 void saveCnetAsGcp(vw::ba::ControlNetwork const& cnet,
                    std::vector<double> const& tri_points_vec,
                    std::set<int> const& outliers,
-                   vw::cartography::Datum const& datum,
+                   vw::Datum const& datum,
                    std::vector<std::string> const& image_files,
                    std::string const& filename);
 

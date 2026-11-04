@@ -87,7 +87,7 @@ void asp::photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
     intersect_mask(disparity_disk_image,
                    intersect_mask(create_mask(threshold(dust,kernel_size,0.0,1.0)),right_mask));
 
-  vw::cartography::block_write_gdal_image(prefix + "-FDust.tif",
+  vw::block_write_gdal_image(prefix + "-FDust.tif",
                           cleaned_disparity, opt,
                           TerminalProgressCallback("asp", "Dust Removal:") );
 }

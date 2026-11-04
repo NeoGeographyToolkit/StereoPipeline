@@ -108,7 +108,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // requested.
 double calc_score_apply(Options const& opt, std::string const& image_file, 
                         double threshold, bool apply, 
-                        vw::cartography::GeoReference const& out_georef,
+                        vw::GeoReference const& out_georef,
                         // Output
                         vw::ImageView<vw::PixelMask<float>> & out_img) {
   
@@ -116,7 +116,7 @@ double calc_score_apply(Options const& opt, std::string const& image_file,
   vw::DiskImageResourceGDAL in_rsrc(image_file);
   
   // Read the georef
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   bool is_good = read_georeference(georef, in_rsrc);
   if (!is_good)
     vw::vw_throw(vw::ArgumentErr() << "No georeference found in " << image_file << ".\n");
@@ -135,8 +135,8 @@ double calc_score_apply(Options const& opt, std::string const& image_file,
   vw::BBox2 img_box = vw::bounding_box(img);
   
   // Form the geo transform from the output to the input image
-  vw::cartography::GeoTransform geotrans(out_georef, georef,
-                                         out_box, img_box);
+  vw::GeoTransform geotrans(out_georef, georef,
+                            out_box, img_box);
   
   // Find the current image bounding box in the output image coordinates
   vw::BBox2 trans_box = geotrans.reverse_bbox(vw::bounding_box(img));
@@ -209,7 +209,7 @@ void run_image_subset(Options const& opt) {
   asp::read_list(opt.image_list_file, image_files);
   
   vw::vw_out() << "Reading input georeferences.\n";
-  vw::cartography::GeoReference out_georef;
+  vw::GeoReference out_georef;
 
   // Loop through all input images
   int num_images = image_files.size();  
@@ -219,7 +219,7 @@ void run_image_subset(Options const& opt) {
     std::string image_file = image_files[image_iter]; 
     vw::DiskImageResourceGDAL in_rsrc(image_file);
     vw::DiskImageView<float> img(in_rsrc);
-    vw::cartography::GeoReference georef;
+    vw::GeoReference georef;
     bool is_good = read_georeference(georef, in_rsrc);
     if (!is_good)
       vw::vw_throw(vw::ArgumentErr() << "No georeference found in " << image_file << ".\n");
@@ -240,8 +240,8 @@ void run_image_subset(Options const& opt) {
                    << "--t_projwin option.\n");
 
     // The georef transform from current to output image
-    vw::cartography::GeoTransform geotrans(out_georef, georef,
-                                           out_box, img_box);
+    vw::GeoTransform geotrans(out_georef, georef,
+                              out_box, img_box);
 
     // Convert the bounding box of current image to output pixel coordinates
     vw::BBox2 trans_img_box = geotrans.reverse_bbox(img_box);

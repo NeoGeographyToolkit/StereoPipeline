@@ -70,9 +70,9 @@ vw::ImageViewRef<vw::Vector<double, m>> read_asp_point_cloud(std::string const& 
   std::string shift_str;
   boost::shared_ptr<vw::DiskImageResource> rsrc
     (new vw::DiskImageResourceGDAL(filename));
-  bool success = vw::cartography::read_header_string(*rsrc.get(),
-                                                     asp::ASP_POINT_OFFSET_TAG_STR,
-                                                     shift_str);
+  bool success = vw::read_header_string(*rsrc.get(),
+                                        asp::ASP_POINT_OFFSET_TAG_STR,
+                                        shift_str);
   if (success)
     shift = vw::str_to_vec<vw::Vector3>(shift_str);
 
@@ -123,7 +123,7 @@ void saveWithTempBigBlocks(int bigBlockSize,
                            const std::string &filename,
                            vw::ImageViewBase<ImageT> const& img,
                            bool hasGeoref,
-                           vw::cartography::GeoReference const& georef,
+                           vw::GeoReference const& georef,
                            bool hasNodata, double nodata,
                            vw::GdalWriteOptions const& opt,
                            vw::ProgressCallback const& tpc) {
@@ -155,8 +155,8 @@ void saveWithTempBigBlocks(int bigBlockSize,
   vw::vw_out() << "Re-writing with blocks of size: "
                << localOpt.raster_tile_size[0] << " x "
                << localOpt.raster_tile_size[1] << ".\n";
-  vw::cartography::block_write_gdal_image(filename, tmpImg, hasGeoref, georef,
-                                          hasNodata, nodata, localOpt, tpc);
+  vw::block_write_gdal_image(filename, tmpImg, hasGeoref, georef,
+                             hasNodata, nodata, localOpt, tpc);
   boost::filesystem::remove(tmpFile);
   return;
 }
@@ -169,7 +169,7 @@ void block_write_approx_gdal_image(const std::string &filename,
                                    double rounding_error,
                                    vw::ImageViewBase<ImageT> const& image,
                                    bool has_georef,
-                                   vw::cartography::GeoReference const& georef,
+                                   vw::GeoReference const& georef,
                                    bool has_nodata, double nodata,
                                    vw::GdalWriteOptions const& opt,
                                    vw::ProgressCallback const& progress_callback
@@ -206,7 +206,7 @@ void write_approx_gdal_image(const std::string &filename,
                               double rounding_error,
                               vw::ImageViewBase<ImageT> const& image,
                               bool has_georef,
-                              vw::cartography::GeoReference const& georef,
+                              vw::GeoReference const& georef,
                               bool has_nodata, double nodata,
                               vw::GdalWriteOptions const& opt,
                               vw::ProgressCallback const& progress_callback

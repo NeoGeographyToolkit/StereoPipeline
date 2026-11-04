@@ -803,7 +803,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
                            asp::CRN                              const& crn,
                            std::vector<int>                       const& count_map,
                            vw::ImageViewRef<vw::PixelMask<float>> const& weight_image,
-                           vw::cartography::GeoReference          const& weight_image_georef,
+                           vw::GeoReference          const& weight_image_georef,
                            std::vector<vw::Vector3>               const& dem_xyz_vec,
                            bool have_weight_image,
                            bool have_dem,
@@ -859,7 +859,7 @@ void addPixelReprojCostFun(asp::BaOptions                         const& opt,
       vw::PixelMask<float> img_wt = 1.0;
       if (have_weight_image) {
         Vector3 ecef(point[0], point[1], point[2]);
-        img_wt = vw::cartography::closestPixelVal(weight_image, weight_image_georef, ecef);
+        img_wt = vw::closestPixelVal(weight_image, weight_image_georef, ecef);
 
         // Flag bad weights as outliers
         if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) {
@@ -1006,7 +1006,7 @@ void addRefTerrainCostFun(asp::BaOptions                            & opt,
   size_t num_cameras = ba_state.num_cameras();
 
   // Set up a GeoReference object using the datum, it may get modified later
-  vw::cartography::GeoReference geo;
+  vw::GeoReference geo;
   geo.set_datum(opt.datum); // We checked for a datum earlier
 
   // Load the reference data

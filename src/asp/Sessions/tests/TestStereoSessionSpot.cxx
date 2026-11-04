@@ -94,7 +94,7 @@ TEST(StereoSessionDG, ProjectRPC) {
   boost::shared_ptr<camera::CameraModel> dg_model( session.camera_model("", "dg_example1.xml") );
 
   // Verify the measurement between the two cameras
-  cartography::Datum datum("WGS84");
+  vw::Datum datum("WGS84");
   // This should be 0,0
   Vector3 xyz = datum.geodetic_to_cartesian( Vector3(-105.42399,39.833107,2595.9) );
   EXPECT_VECTOR_NEAR( rpc_model->point_to_pixel( xyz ),

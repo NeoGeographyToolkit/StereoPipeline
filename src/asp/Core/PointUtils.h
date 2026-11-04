@@ -34,10 +34,8 @@
 #include <string>
 
 namespace vw{
-  namespace cartography {
     class Datum;
     class GeoReference;
-  }
   namespace geometry {
     class anno;
   }
@@ -91,7 +89,7 @@ namespace asp {
     /// above datum, and either a utm zone or a custom proj4 string,
     /// pass that info into the georeference for the purpose of converting
     /// later from easting and northing to lon and lat.
-    bool parse_georef(vw::cartography::GeoReference & georef) const;
+    bool parse_georef(vw::GeoReference & georef) const;
 
     /// Extract values we care about from a csv string and pack them in a vector.
     /// - This extracts the values in the same order they appear in the file.
@@ -118,20 +116,20 @@ namespace asp {
     /// not in xyz format, return instead the projected point and
     /// height above datum.
     vw::Vector3 csv_to_cartesian_or_point_height(CsvRecord const& csv,
-                                                 vw::cartography::GeoReference const& geo,
+                                                 vw::GeoReference const& geo,
                                                  bool return_point_height) const;
 
     /// Convert values read from a csv file using parse_csv_line to a Cartesian point.
     vw::Vector3 csv_to_cartesian(CsvRecord const& csv,
-                                 vw::cartography::GeoReference const& geo) const;
+                                 vw::GeoReference const& geo) const;
 
     /// Convert values read from a csv file using parse_csv_line to a lon/lat/height point.
     vw::Vector3 csv_to_geodetic(CsvRecord const& csv,
-                                vw::cartography::GeoReference const& geo) const;
+                                vw::GeoReference const& geo) const;
 
     /// Convert values read from a csv file using parse_csv_line to a lon/lat point.
     vw::Vector2 csv_to_lonlat(CsvRecord const& csv,
-                              vw::cartography::GeoReference const& geo) const;
+                              vw::GeoReference const& geo) const;
 
     /// Extracts the file name read from the csv line, or "" if it was not present.
     std::string file_from_csv(CsvRecord const& csv) const {return csv.file;}
@@ -140,7 +138,7 @@ namespace asp {
     /// did in the csv file. This function does nothing about all the fields we
     /// ignored when we read the file.
     vw::Vector3 cartesian_to_csv(vw::Vector3 const& xyz,
-                                 vw::cartography::GeoReference const& geo,
+                                 vw::GeoReference const& geo,
                                  double mean_longitude) const;
 
     /// Converts the point data vector from the order the fields appeared in the file
@@ -183,7 +181,7 @@ namespace asp {
   /// Builds a datum object out of the input arguments
   bool read_user_datum(double semi_major, double semi_minor,
                        std::string const& reference_spheroid,
-                       vw::cartography::Datum& datum );
+                       vw::Datum& datum );
 
   /// Parse a UTM string such as "58N"
   void parse_utm_str(std::string const& utm, int & zone, bool & north);
@@ -311,7 +309,7 @@ namespace asp {
   public:
     std::int64_t m_num_points = 0;
     bool         m_has_georef = false; // if the dataset has a georeference
-    vw::cartography::GeoReference m_georef;
+    vw::GeoReference m_georef;
     
     virtual bool        ReadNextPoint() = 0;
     virtual vw::Vector3 GetPoint() = 0;
@@ -356,11 +354,11 @@ void setupSampleRate(vw::int32 cols, vw::int32 rows, vw::int32 subsample_amt,
 // results in a tighter range of longitudes, such as when crossing
 // the international date line.
 vw::BBox2 estim_lonlat_box(vw::ImageViewRef<vw::Vector3> const& point_image,
-                           vw::cartography::Datum const& datum);
+                           vw::Datum const& datum);
 
 // Find the median longitude and latitude for a subset of the point cloud
 void median_lon_lat(vw::ImageViewRef<vw::Vector3> const& point_image,
-                    vw::cartography::GeoReference const& georef,
+                    vw::GeoReference const& georef,
                     double & lon, double & lat);
 
 std::string get_cloud_type(std::string const& file_name);

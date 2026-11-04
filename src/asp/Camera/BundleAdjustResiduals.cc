@@ -290,7 +290,7 @@ void write_residual_map(std::string const& output_prefix,
 // TODO(oalexan1): Integrate with write_residual_map().
 void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
                                    std::string            const& residual_prefix,
-                                   vw::cartography::Datum const& datum,
+                                   vw::Datum const& datum,
                                    std::set<int>          const& outliers,
                                    std::vector<double>    const& tri_points_vec,
                                    std::vector<double>    const& mean_pixel_residual_norm,
@@ -338,7 +338,7 @@ void write_per_xyz_pixel_residuals(vw::ba::ControlNetwork const& cnet,
 
 // This is used in jitter_solve
 void write_anchor_residuals(std::string              const& residual_prefix,
-                            vw::cartography::Datum   const& datum,
+                            vw::Datum   const& datum,
                             std::vector<vw::Vector3> const& anchor_xyz,
                             std::vector<double>      const& anchor_residual_norm) {
   
@@ -655,7 +655,7 @@ void writeTriOffsetsPerCamera(int num_cams,
 }
 
 // Compute the horizontal and vertical change in camera positions
-void saveCameraOffsets(vw::cartography::Datum   const& datum,
+void saveCameraOffsets(vw::Datum   const& datum,
                        std::vector<std::string> const& image_files,
                        std::vector<vw::Vector3> const& orig_cam_positions,
                        std::vector<vw::Vector3> const& opt_cam_positions,
@@ -694,7 +694,7 @@ void saveCameraOffsets(vw::cartography::Datum   const& datum,
 
 // Compute the horizontal and vertical change in camera positions. If more than 
 // one camera position, such as for linescan, find the biggest.
-void saveCameraOffsets(vw::cartography::Datum                const& datum,
+void saveCameraOffsets(vw::Datum                const& datum,
                        std::vector<std::string>              const& image_files,
                        std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
                        std::vector<std::vector<vw::Vector3>> const& opt_cam_positions,
@@ -753,7 +753,7 @@ void saveGcpReport(std::string            const& out_prefix,
                    vw::ba::ControlNetwork const& cnet,
                    std::vector<double>    const& tri_points_vec,
                    std::set<int>          const& outliers,
-                   vw::cartography::Datum const& datum) {
+                   vw::Datum const& datum) {
 
   int num_points = cnet.size();
 
@@ -823,7 +823,7 @@ void compute_residuals(asp::BaBaseOptions const& opt,
 
 // Residuals for option --reference-terrain
 void writeRefTerrainResiduals(std::string                   const& residual_prefix,
-                              vw::cartography::Datum        const& datum,
+                              vw::Datum        const& datum,
                               std::vector<double>           const&  residuals,
                               std::vector<double>           const& weight_per_residual,
                               std::vector<vw::Vector3>      const& reference_vec,
@@ -903,7 +903,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          asp::BaBaseOptions                    const& opt,
                          vw::ba::ControlNetwork                const& cnet,
                          asp::CRN                             const& crn,
-                         vw::cartography::Datum                const& datum,
+                         vw::Datum                const& datum,
                          std::vector<double>                   const& tri_points_vec,
                          std::set<int>                         const& outliers,
                          std::vector<double>                   const& weight_per_residual,

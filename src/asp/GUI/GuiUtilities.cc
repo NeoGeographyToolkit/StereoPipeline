@@ -117,8 +117,8 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
                      std::string      & output_file) {
 
   // Sanity check: Must have a georeference
-  cartography::GeoReference georef;
-  bool has_georef = vw::cartography::read_georeference(georef, input_file);
+  vw::GeoReference georef;
+  bool has_georef = vw::read_georeference(georef, input_file);
   if (!has_georef) {
     popUp("No georeference present in: " + input_file + ".");
     return false;
@@ -142,8 +142,8 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
                                              input.cols(), input.rows());
       if (will_write) {
         vw_out() << "Writing: " << output_file << "\n";
-        vw::cartography::do_multitype_hillshade(input_file, output_file, azimuth, elevation, scale,
-                                                nodata_val, blur_sigma, align_light_to_georef, opt);
+        vw::do_multitype_hillshade(input_file, output_file, azimuth, elevation, scale,
+                                   nodata_val, blur_sigma, align_light_to_georef, opt);
       }
     } catch(...) {
       // Failed to write, presumably because we have no write access.
@@ -154,10 +154,10 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
                                              input.cols(), input.rows());
       if (will_write) {
         vw_out() << "Writing: " << output_file << "\n";
-        vw::cartography::do_multitype_hillshade(input_file,  output_file,
-                                                azimuth, elevation, scale,
-                                                nodata_val, blur_sigma,
-                                                align_light_to_georef, opt);
+        vw::do_multitype_hillshade(input_file,  output_file,
+                                   azimuth, elevation, scale,
+                                   nodata_val, blur_sigma,
+                                   align_light_to_georef, opt);
       }
     }
   } catch (const Exception& e) {
@@ -175,7 +175,7 @@ bool write_hillshade(vw::GdalWriteOptions const& opt,
 // more overlaying an image which is above threshold in a rectangular region
 // and below it outside that region
 void contour_image(DiskImagePyramidMultiChannel const& img,
-                   vw::cartography::GeoReference const & georef,
+                   vw::GeoReference const & georef,
                    double threshold,
                    std::vector<vw::geometry::dPoly> & polyVec) {
   
@@ -242,7 +242,7 @@ void contour_image(DiskImagePyramidMultiChannel const& img,
 }
 
 // This will tweak the georeference so that point_to_pixel() is the identity.
-bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
+bool read_georef_from_shapefile(vw::GeoReference & georef,
                                 std::string const& file){
 
   if (!vw::has_shp_extension(file))
@@ -256,13 +256,13 @@ bool read_georef_from_shapefile(vw::cartography::GeoReference & georef,
   return has_georef;
 }
   
-bool read_georef_from_image_or_shapefile(vw::cartography::GeoReference & georef,
+bool read_georef_from_image_or_shapefile(vw::GeoReference & georef,
                                          std::string const& file){
 
   if (vw::has_shp_extension(file)) 
     return read_georef_from_shapefile(georef, file);
   
-  return vw::cartography::read_georeference(georef, file);
+  return vw::read_georeference(georef, file);
 }
 vw::Vector2 QPoint2Vec(QPoint const& qpt) {
   return vw::Vector2(qpt.x(), qpt.y());
@@ -328,7 +328,7 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
                                       std::string const& input_file,
                                       std::string const& suffix,
                                       bool has_georef,
-                                      vw::cartography::GeoReference const& georef,
+                                      vw::GeoReference const& georef,
                                       bool has_nodata,
                                       double nodata_val) {
 
@@ -337,20 +337,20 @@ std::string write_in_orig_or_curr_dir(vw::GdalWriteOptions const& opt,
   vw::TerminalProgressCallback tpc("asp", ": ");
   vw::vw_out() << "Writing: " << output_file << "\n";
   try {
-    vw::cartography::block_write_gdal_image(output_file, image,
-                                            has_georef, georef,
-                                            has_nodata, nodata_val,
-                                            opt, tpc);
+    vw::block_write_gdal_image(output_file, image,
+                               has_georef, georef,
+                               has_nodata, nodata_val,
+                               opt, tpc);
   } catch(...) {
     // Failed to write, presumably because we have no write access.
     // Write the file in the current dir.
     vw::vw_out() << "Failed to write: " << output_file << "\n";
     output_file = vw::mosaic::filename_from_suffix2(input_file, suffix);
     vw::vw_out() << "Writing: " << output_file << "\n";
-    vw::cartography::block_write_gdal_image(output_file, image,
-                                            has_georef, georef,
-                                            has_nodata, nodata_val,
-                                            opt, tpc);
+    vw::block_write_gdal_image(output_file, image,
+                               has_georef, georef,
+                               has_nodata, nodata_val,
+                               opt, tpc);
   }
   return output_file;
 }

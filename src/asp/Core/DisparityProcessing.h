@@ -49,7 +49,7 @@ namespace asp {
                     vw::TransformPtr tx_left, vw::TransformPtr tx_right,
                     boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
                     boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
-                    vw::cartography::Datum const& datum,
+                    vw::Datum const& datum,
                     std::string const& d_sub_file,
                     vw::Vector2 const& outlier_removal_params);
   

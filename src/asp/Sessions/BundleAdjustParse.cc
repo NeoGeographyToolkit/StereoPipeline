@@ -344,9 +344,9 @@ void loadValidateBaOptions(po::variables_map const& vm,
   // For pinhole session the guessed datum may be unreliable, so warn only
   bool warn_only = (opt.stereo_session.find("pinhole") != std::string::npos);
 
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
   for (size_t it = 0; it < opt.image_files.size(); it++) {
-    bool is_good = vw::cartography::read_georeference(georef, opt.image_files[it]);
+    bool is_good = vw::read_georeference(georef, opt.image_files[it]);
 
     // Must check the consistency of the datums
     if (is_good && have_datum)
@@ -363,8 +363,8 @@ void loadValidateBaOptions(po::variables_map const& vm,
   if (opt.reference_terrain != "") {
     std::string file_type = asp::get_cloud_type(opt.reference_terrain);
     if (file_type == "DEM") {
-      vw::cartography::GeoReference georef;
-      bool is_good = vw::cartography::read_georeference(georef, opt.reference_terrain);
+      vw::GeoReference georef;
+      bool is_good = vw::read_georeference(georef, opt.reference_terrain);
       if (!is_good)
         vw::vw_throw(vw::ArgumentErr()
                  << "The reference terrain DEM does not have a georeference.\n");
@@ -443,8 +443,8 @@ void loadValidateBaOptions(po::variables_map const& vm,
   if (dem_file != "") {
     std::string file_type = asp::get_cloud_type(dem_file);
     if (file_type == "DEM") {
-      vw::cartography::GeoReference georef;
-      bool is_good = vw::cartography::read_georeference(georef, dem_file);
+      vw::GeoReference georef;
+      bool is_good = vw::read_georeference(georef, dem_file);
       if (!is_good)
         vw::vw_throw(vw::ArgumentErr() << "The DEM " << dem_file
                   << " does not have a georeference.\n");
@@ -462,7 +462,7 @@ void loadValidateBaOptions(po::variables_map const& vm,
   }
 
   // Set the datum, either based on what the user specified or the axes
-  vw::cartography::Datum user_datum;
+  vw::Datum user_datum;
   bool have_user_datum = false;
   if (opt.datum_str != "") {
     try {
@@ -475,10 +475,10 @@ void loadValidateBaOptions(po::variables_map const& vm,
     }
   } else if (opt.semi_major > 0 && opt.semi_minor > 0) {
     // Otherwise, if the user set the semi-axes, use that.
-    user_datum = vw::cartography::Datum("User Specified Datum",
-                                        "User Specified Spheroid",
-                                        "Reference Meridian",
-                                        opt.semi_major, opt.semi_minor, 0.0);
+    user_datum = vw::Datum("User Specified Datum",
+                           "User Specified Spheroid",
+                           "Reference Meridian",
+                           opt.semi_major, opt.semi_minor, 0.0);
     have_user_datum = true;
   }
 
@@ -495,7 +495,7 @@ void loadValidateBaOptions(po::variables_map const& vm,
     opt.datum_str = opt.datum.name();
 
   // Try to find the datum from the cameras.
-  vw::cartography::Datum cam_datum;
+  vw::Datum cam_datum;
   bool have_cam_datum = asp::datum_from_camera(opt.image_files[0], opt.camera_files[0],
                                                // Outputs
                                                opt.stereo_session, session, cam_datum);

@@ -26,10 +26,8 @@
 #include <vw/InterestPoint/InterestPoint.h>
 
 namespace vw {
-  namespace cartography {
     class GeoReference;
     class Datum;
-  }
 }
 
 namespace asp {
@@ -37,16 +35,16 @@ namespace asp {
 /// Load an input image, georef, and nodata value
 void load_image(std::string const& image_file,
                 vw::ImageViewRef<double> & image, double & nodata,
-                bool & has_georef, vw::cartography::GeoReference & georef);
+                bool & has_georef, vw::GeoReference & georef);
 
 /// Create a masked DEM
 void create_masked_dem(std::string const& dem_file,
-                       vw::cartography::GeoReference & dem_georef,
+                       vw::GeoReference & dem_georef,
                        vw::ImageViewRef<vw::PixelMask<double>> & masked_dem);
 
 /// Create a DEM ready to use for interpolation
 void create_interp_dem(std::string const& dem_file,
-                        vw::cartography::GeoReference & dem_georef,
+                        vw::GeoReference & dem_georef,
                         vw::ImageViewRef<vw::PixelMask<double>> & interp_dem);
 
 /// Estimate the mean terrain radius (ECEF meters) by sampling a DEM on a grid,
@@ -54,15 +52,15 @@ void create_interp_dem(std::string const& dem_file,
 /// 1000x1000) only until enough valid pixels are found. Returns false if too
 /// few are found even on the finest grid; the caller then uses meanDatumRadius().
 bool meanDemRadius(vw::ImageViewRef<vw::PixelMask<double>> const& dem,
-                   vw::cartography::GeoReference const& georef,
-                   vw::cartography::Datum const& datum,
+                   vw::GeoReference const& georef,
+                   vw::Datum const& datum,
                    // Output
                    double & mean_radius);
 
 /// A representative datum radius (meters), used when no DEM is available: the
 /// average of the semi-major and semi-minor axes. Better than the equatorial
 /// radius alone for an oblate datum, such as Mars.
-double meanDatumRadius(vw::cartography::Datum const& datum);
+double meanDatumRadius(vw::Datum const& datum);
 
 /// Take an interest point from a map projected image and convert it
 /// to the corresponding IP in the original non-map-projected image.
@@ -70,8 +68,8 @@ double meanDatumRadius(vw::cartography::Datum const& datum);
 bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                             vw::CamPtr camera_model,
-                            vw::cartography::GeoReference const& georef,
-                            vw::cartography::GeoReference const& dem_georef);
+                            vw::GeoReference const& georef,
+                            vw::GeoReference const& dem_georef);
 
 // Read keywords that describe how the images were map-projected.
 void read_mapproj_header(std::string const& map_file,

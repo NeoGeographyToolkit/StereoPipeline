@@ -71,7 +71,7 @@ struct BaBaseOptions: public asp::OptimizerOptions {
   std::vector<std::string> image_files, camera_files, gcp_files;
   std::vector<vw::CamPtr> camera_models;
   std::map<std::pair<int, int>, std::string> match_files;
-  vw::cartography::Datum datum;
+  vw::Datum datum;
   vw::BBox2 proj_win; // Limit input triangulated points to this projwin
   double horizontal_stddev;
   vw::Vector<double> horizontal_stddev_vec; // may come from cameras or user
@@ -89,9 +89,9 @@ struct BaBaseOptions: public asp::OptimizerOptions {
    fix_gcp_xyz(false), use_llh_error(false), save_cnet_as_gcp(false),
    max_gcp_reproj_err(-1.0), max_gcp_to_tri_points_ratio(-1.0),
    camera_type(BaCameraType_Other), max_num_reference_points(-1),
-   datum(vw::cartography::Datum(asp::UNSPECIFIED_DATUM,
-                                "User Specified Spheroid",
-                                "Reference Meridian", 1, 1, 0)) {}
+   datum(vw::Datum(asp::UNSPECIFIED_DATUM,
+                   "User Specified Spheroid",
+                   "Reference Meridian", 1, 1, 0)) {}
 };
 
 } // namespace asp

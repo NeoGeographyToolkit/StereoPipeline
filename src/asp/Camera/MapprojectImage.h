@@ -54,9 +54,9 @@ struct MapprojOptions: vw::GdalWriteOptions {
 
 // Project the image depending on image format.
 void project_image(asp::MapprojOptions & opt,
-                   vw::cartography::GeoReference const& dem_georef,
-                   vw::cartography::GeoReference const& target_georef,
-                   vw::cartography::GeoReference const& out_georef,
+                   vw::GeoReference const& dem_georef,
+                   vw::GeoReference const& target_georef,
+                   vw::GeoReference const& out_georef,
                    vw::Vector2i const& input_size,
                    vw::Vector2i const& out_size,
                    vw::BBox2i const& out_bbox);
@@ -93,8 +93,8 @@ public:
 // visible. Used by anyCornerOccluded() and occlusionEstim().
 bool isOccluded(vw::Vector2 const& proj_pt,
                 vw::ImageViewRef<MapprojDemPixel> const& dem,
-                vw::cartography::GeoReference const& dem_georef,
-                vw::cartography::GeoReference const& target_georef,
+                vw::GeoReference const& dem_georef,
+                vw::GeoReference const& target_georef,
                 vw::CamPtr const& camera_model);
 
 // True if any of the four corners of cam_box is back-of-body occluded.
@@ -103,15 +103,15 @@ bool isOccluded(vw::Vector2 const& proj_pt,
 // per-tile invocation into per-pixel occlusion rejection.
 bool anyCornerOccluded(vw::BBox2 const& cam_box,
                        vw::ImageViewRef<MapprojDemPixel> const& dem,
-                       vw::cartography::GeoReference const& dem_georef,
-                       vw::cartography::GeoReference const& target_georef,
+                       vw::GeoReference const& dem_georef,
+                       vw::GeoReference const& target_georef,
                        vw::CamPtr const& camera_model);
 
 // Estimate the camera bbox taking into account occlusion by planetary body.
 vw::BBox2 occlusionEstim(vw::BBox2 const& cam_box,
                          vw::ImageViewRef<MapprojDemPixel> const& dem,
-                         vw::cartography::GeoReference const& dem_georef,
-                         vw::cartography::GeoReference const& target_georef,
+                         vw::GeoReference const& dem_georef,
+                         vw::GeoReference const& target_georef,
                          vw::CamPtr const& camera_model);
 
 } // end namespace asp

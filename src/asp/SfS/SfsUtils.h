@@ -31,7 +31,7 @@ namespace asp {
 // center of the DEM. The result can change depending on the DEM.
 void sunAngles(vw::ImageView<double> const& dem,
                double nodata_val,
-               vw::cartography::GeoReference const& georef,
+               vw::GeoReference const& georef,
                vw::Vector3 const& sun_pos,
                double & azimuth, double & elevation);
 
@@ -40,7 +40,7 @@ void readSunPositions(std::string const& sun_positions_list,
                       std::vector<std::string> const& input_images,
                       vw::ImageView<double> const& dem,
                       double nodata_val,
-                      vw::cartography::GeoReference const& georef,
+                      vw::GeoReference const& georef,
                       std::vector<vw::Vector3> & sun_positions);
 
 // Read the sun angles (azimuth and elevation) and convert them to sun positions.
@@ -48,7 +48,7 @@ void readSunAngles(std::string const& sun_positions_list,
                    std::vector<std::string> const& input_images,
                    vw::ImageView<double> const& dem,
                    double nodata_val,
-                   vw::cartography::GeoReference const& georef,
+                   vw::GeoReference const& georef,
                    std::vector<vw::Vector3> & sun_positions);
 
 // Query an ISIS or CSM camera to find the Sun position

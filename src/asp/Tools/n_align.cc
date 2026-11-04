@@ -58,7 +58,6 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace vw::cartography;
 using namespace asp;
 
 typedef PointMatcher<double> PM;
@@ -362,7 +361,7 @@ int main(int argc, char *argv[]) {
     csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs);
     
     // Try to read the georeference/datum info
-    vw::cartography::GeoReference geo;
+    vw::GeoReference geo;
     asp::read_georef(opt.cloud_files, opt.datum, opt.csv_srs,  
                      opt.semi_major_axis, opt.semi_minor_axis,  
                      opt.csv_format_str,  csv_conv, geo);

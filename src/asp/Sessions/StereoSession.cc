@@ -53,7 +53,6 @@
 #include <string>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace fs = boost::filesystem;
 
 namespace asp {
@@ -289,11 +288,11 @@ bool StereoSession::have_datum() const {
 // Can be overridden by derived classes.
 // If no success finding the datum, will return WGS84.
 // TODO(oalexan1): This must return a flag indicating if the datum was found.
-vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
-                                                bool use_sphere_for_non_earth) const {
+vw::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
+                                   bool use_sphere_for_non_earth) const {
 
   if (!stereo_settings().datum.empty())
-    return vw::cartography::Datum(stereo_settings().datum);
+    return vw::Datum(stereo_settings().datum);
 
   // For ISIS, can query the camera. This code is invoked for stereo with
   // mapprojected ISIS cameras, as that use the mapprojected session, and not
@@ -326,7 +325,7 @@ vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* c
   // TODO(oalexan1): This may result in a bad datum for other planets.
   double cam_center_radius
       = norm_2(cam->camera_center(vw::Vector2()));
-  vw::cartography::Datum datum;
+  vw::Datum datum;
   asp::guessDatum(cam_center_radius, datum);
 
   return datum;
@@ -335,15 +334,15 @@ vw::cartography::Datum StereoSession::get_datum(const vw::camera::CameraModel* c
 // Peek inside the images and camera models and return the datum and projection,
 // or at least the datum, packaged in a georef.
 // If no success finding the datum, will return WGS84.
-vw::cartography::GeoReference StereoSession::get_georef() {
+vw::GeoReference StereoSession::get_georef() {
 
-  vw::cartography::GeoReference georef;
+  vw::GeoReference georef;
 
   // First try to see if the image is map-projected.
   bool has_georef = read_georeference(georef, m_left_image_file);
 
   bool has_datum = false;
-  vw::cartography::Datum datum;
+  vw::Datum datum;
   if (!stereo_settings().correlator_mode) {
     has_datum = true;
     vw::CamPtr cam = this->camera_model(m_left_image_file, m_left_camera_file);
@@ -367,7 +366,7 @@ vw::cartography::GeoReference StereoSession::get_georef() {
     // go with this datum, otherwise we can't read the datum when we
     // needed it later.
 
-    georef = vw::cartography::GeoReference();
+    georef = vw::GeoReference();
     Matrix3x3 transform = georef.transform();
 
     // assume these are degrees, does not mater much, but it needs be small enough
@@ -404,7 +403,7 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
     vw::Vector2 v2(1.0, 1.0); // to avoid division by 0
     vw::Vector3 v3(1.0, 1.0, 1.0);
     boost::shared_ptr<vw::camera::CameraModel>
-      cam(new RPCModel(vw::cartography::Datum("WGS84"), v, v, v, v, v2, v2, v3, v3));
+      cam(new RPCModel(vw::Datum("WGS84"), v, v, v, v, v2, v2, v3, v3));
     return cam;
   }
 

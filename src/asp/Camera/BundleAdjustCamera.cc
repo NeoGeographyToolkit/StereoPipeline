@@ -851,7 +851,7 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
                             std::vector<vw::CamPtr>            const& optimized_cams,
                             std::vector<vw::ip::InterestPoint> const& left_ip,
                             std::vector<vw::ip::InterestPoint> const& right_ip,
-                            vw::cartography::GeoReference      const& dem_georef,
+                            vw::GeoReference      const& dem_georef,
                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                             // Will append below
                             std::vector<vw::Vector<float, 4>>       & mapprojPoints,
@@ -870,7 +870,7 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     Vector3 xyz_guess;
 
     Vector2 left_pix(left_ip[ip_it].x, left_ip[ip_it].y);
-    Vector3 left_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+    Vector3 left_dem_xyz = vw::camera_pixel_to_dem_xyz
       (optimized_cams[left_cam_index]->camera_center(left_pix),
        optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
        vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef,
@@ -882,7 +882,7 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     // Do the same for right. Use left pixel as initial guess
     xyz_guess = left_dem_xyz;
     Vector2 right_pix(right_ip[ip_it].x, right_ip[ip_it].y);
-    Vector3 right_dem_xyz = vw::cartography::camera_pixel_to_dem_xyz
+    Vector3 right_dem_xyz = vw::camera_pixel_to_dem_xyz
       (optimized_cams[right_cam_index]->camera_center(right_pix),
        optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
        vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef,
@@ -914,9 +914,9 @@ void processMatchPair(size_t left_index, size_t right_index,
                       std::vector<vw::ip::InterestPoint> const& left_ip,
                       std::vector<vw::ip::InterestPoint> const& right_ip,
                       std::vector<vw::CamPtr> const& optimized_cams,
-                      vw::cartography::GeoReference const& mapproj_dem_georef,
+                      vw::GeoReference const& mapproj_dem_georef,
                       vw::ImageViewRef<vw::PixelMask<double>> const& interp_mapproj_dem,
-                      vw::cartography::Datum const& datum,
+                      vw::Datum const& datum,
                       bool save_mapproj_match_points_offsets,
                       bool propagate_errors,
                       vw::Vector<double> const& horizontal_stddev_vec,
@@ -1004,7 +1004,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   horizVertErrors.clear();
 
   bool save_mapproj_match_points_offsets = (!mapproj_dem.empty());
-  vw::cartography::GeoReference mapproj_dem_georef;
+  vw::GeoReference mapproj_dem_georef;
   ImageViewRef<PixelMask<double>> interp_mapproj_dem;
   if (save_mapproj_match_points_offsets)
     asp::create_interp_dem(mapproj_dem, mapproj_dem_georef, interp_mapproj_dem);
@@ -1370,7 +1370,7 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           std::vector<vw::ip::InterestPoint> const& left_ip,
                           std::vector<vw::ip::InterestPoint> const& right_ip,
                           double stddev1, double stddev2,
-                          vw::cartography::Datum const& datum,
+                          vw::Datum const& datum,
                           vw::BathyData const& bathy_data,
                           // Outputs
                           std::vector<vw::Vector<double, 5>> & uncertPoints,

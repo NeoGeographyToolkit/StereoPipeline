@@ -45,7 +45,6 @@
 #include <vw/Core/Stopwatch.h>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -194,7 +193,7 @@ void print_diffs(std::string const& tag, std::vector<double> & diffs) {
 }
 
 void testErrorPropagation(Options const& opt,
-                          vw::cartography::Datum const& datum,
+                          vw::Datum const& datum,
                           vw::CamPtr cam1_model,
                           vw::CamPtr cam2_model) {
 
@@ -213,7 +212,7 @@ void testErrorPropagation(Options const& opt,
 
     // Shoot a ray from the cam1 camera, intersect it with the
     // given height above datum
-    triPt = vw::cartography::datum_intersection(major_axis, minor_axis, cam1_ctr, cam1_dir);
+    triPt = vw::datum_intersection(major_axis, minor_axis, cam1_ctr, cam1_dir);
 
     // Skip invalid intersections
     if (triPt == Vector3(0, 0, 0))
@@ -301,7 +300,7 @@ void run_cam_test(Options & opt) {
     asp::stereo_settings().bundle_adjust_prefix = ""; // reset
 
   bool found_datum = false;
-  vw::cartography::Datum datum;
+  vw::Datum datum;
   if (opt.datum != "") {
     // Use the datum specified by the user
     datum.set_well_known_datum(opt.datum);
@@ -309,7 +308,7 @@ void run_cam_test(Options & opt) {
   }
 
   // See if the first camera has a datum    
-  vw::cartography::Datum cam_datum;
+  vw::Datum cam_datum;
   bool warn_only = true; // warn about differences in the datums
   bool found_cam_datum = asp::datum_from_camera(opt.image_file, opt.cam1_file,
                                                 // Outputs
@@ -429,8 +428,8 @@ void run_cam_test(Options & opt) {
         // camera.
         Vector3 xyz;
         if (!have_bathy_plane)
-          xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                    cam1_ctr, cam1_dir);
+          xyz = vw::datum_intersection(major_axis, minor_axis,
+                                       cam1_ctr, cam1_dir);
         else
           xyz = vw::datumBathyIntersection(cam1_ctr, cam1_dir,
                                            major_axis, minor_axis,
@@ -455,8 +454,8 @@ void run_cam_test(Options & opt) {
         // given height above the datum, and project it back into the
         // cam1 camera.
         if (!have_bathy_plane)
-          xyz = vw::cartography::datum_intersection(major_axis, minor_axis,
-                                                    cam2_ctr, cam2_dir);
+          xyz = vw::datum_intersection(major_axis, minor_axis,
+                                       cam2_ctr, cam2_dir);
         else
           xyz = vw::datumBathyIntersection(cam2_ctr, cam2_dir,
                                            major_axis, minor_axis,

@@ -33,9 +33,7 @@
 
 // Forward declaration of georef
 namespace vw { 
-  namespace cartography {
     class GeoReference;
-  }
 }
 
 namespace pdal {
@@ -51,7 +49,7 @@ std::int64_t las_file_size(std::string const& las_file);
 
 // Read the georef from the las file and return true if the georef exists
 bool georef_from_las(std::string const& las_file,
-                    vw::cartography::GeoReference & georef);
+                    vw::GeoReference & georef);
 
 // Check if a file is in the LAS COPC format
 bool isCopc(std::string const& file);
@@ -60,14 +58,14 @@ bool isCopc(std::string const& file);
 // safety, to pick the LAS offset/scale without a full transform pass. Points
 // that fall outside (would overflow int32) are dropped on write.
 vw::BBox3 projected_pointcloud_bbox_estim(vw::ImageViewRef<vw::Vector3> const& ecef_image,
-                                          vw::cartography::GeoReference const& georef,
+                                          vw::GeoReference const& georef,
                                           double margin);
 
 // Save a point cloud and triangulation error to the LAS format. If
 // project_from_ecef is set, point_image holds ECEF points to be projected to
 // georef (batched); otherwise it is already in the output coordinates. block_w
 // and block_h are the input's native tile dimensions.
-void write_las(bool has_georef, vw::cartography::GeoReference const& georef,
+void write_las(bool has_georef, vw::GeoReference const& georef,
                vw::ImageViewRef<vw::Vector3> point_image,
                vw::ImageViewRef<double> error_image,
                vw::ImageViewRef<float> intensity,
@@ -88,7 +86,7 @@ void load_las(std::string const& file_name,
               vw::BBox2 const& copc_win, bool copc_read_all,
               bool calc_shift,
               vw::Vector3 & shift,
-              vw::cartography::GeoReference const& geo,
+              vw::GeoReference const& geo,
               bool verbose, Eigen::MatrixXd & data);
 
 // Apply a given transform to a LAS file and save it.

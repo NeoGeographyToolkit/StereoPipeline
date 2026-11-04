@@ -206,7 +206,7 @@ vw::Vector3 linearInterp(double t1, double t2, vw::Vector3 const& P1,
 // - Will return the original value at points at which the new time is the same as old
 //   time (within 1e-8 time tolerance).
 void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
-  std::vector<double> const& positions_in, vw::cartography::GeoReference const& geo, 
+  std::vector<double> const& positions_in, vw::GeoReference const& geo, 
   double t0_out, double dt_out, int num_out, std::vector<double> & positions_out) {
 
   // Wipe the output
@@ -237,13 +237,13 @@ void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
   vw::Vector3 P0 = it->second;
   it++; 
   vw::Vector3 P1 = it->second;
-  vw::Vector3 proj0 = vw::cartography::ecefToProj(geo, P0);
-  vw::Vector3 proj1 = vw::cartography::ecefToProj(geo, P1);
+  vw::Vector3 proj0 = vw::ecefToProj(geo, P0);
+  vw::Vector3 proj1 = vw::ecefToProj(geo, P1);
   double t = t0_in;
   while (t + 8 * dt_in >= t0_out) {
     t -= dt_in;
     vw::Vector3 proj = linearInterp(t0_in, t0_in + dt_in, proj0, proj1, t);
-    vw::Vector3 P = vw::cartography::projToEcef(geo, proj);
+    vw::Vector3 P = vw::projToEcef(geo, proj);
     time_to_pos[t] = P;
   }
 
@@ -256,8 +256,8 @@ void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
   it--;
   double t0 = it->first;
   P0 = it->second;
-  proj0 = vw::cartography::ecefToProj(geo, P0);
-  proj1 = vw::cartography::ecefToProj(geo, P1);
+  proj0 = vw::ecefToProj(geo, P0);
+  proj1 = vw::ecefToProj(geo, P1);
 
   // Add right extrapolated points. Need to have at least 8 to be able to
   // interpolate using Lagrange.
@@ -266,7 +266,7 @@ void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
   while (t - 8 * dt_in <= t_out_end) {
     t += dt_in;
     vw::Vector3 proj = linearInterp(t0, t1, proj0, proj1, t);
-    vw::Vector3 P = vw::cartography::projToEcef(geo, proj);
+    vw::Vector3 P = vw::projToEcef(geo, proj);
     time_to_pos[t] = P;
   }
 
@@ -316,7 +316,7 @@ void orbitInterpExtrap(double t0_in, double dt_in, int platformFlag,
 // Find interpolated/extrapolated positions at all camera pose times.
 // See the function being called below for more details.
 void orbitInterpExtrap(UsgsAstroLsSensorModel const * ls_model,
-                       vw::cartography::GeoReference const& geo,
+                       vw::GeoReference const& geo,
                        std::vector<double> & positions_out) {
 
   orbitInterpExtrap(ls_model->m_t0Ephem, ls_model->m_dtEphem, ls_model->m_platformFlag,  
@@ -333,7 +333,7 @@ void populateCsmLinescan(double first_line_time, double dt_line,
                          double focal_length,
                          vw::Vector2                const & optical_center,
                          vw::Vector2i               const & image_size,
-                         vw::cartography::Datum     const & datum, 
+                         vw::Datum     const & datum, 
                          std::string                const & sensor_id, 
                          std::vector<vw::Vector3>   const & positions,
                          std::vector<vw::Vector3>   const & velocities,

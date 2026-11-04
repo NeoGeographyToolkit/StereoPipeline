@@ -136,17 +136,17 @@ DpixT find_disparity(vw::ImageViewRef<DpixT> disparity,
   return DpixT();
 }
 
-void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
+void genWriteGcp(vw::GeoReference const& ref_dem_georef,
                  vw::ba::ControlNetwork const& cnet,
                  std::vector<vw::Vector3> const& dem_xyz_vec,
                  vw::ImageViewRef<DpixT> const& disparity,
                  vw::ImageViewRef<vw::PixelMask<double>> const& interp_ref_dem,
-                 vw::cartography::GeoReference const& warped_dem_georef,
+                 vw::GeoReference const& warped_dem_georef,
                  std::vector<std::string> const& image_files,
                  double gcp_sigma, int search_len,
                  int max_num_gcp, int num_threads,
                  vw::ImageViewRef<vw::PixelMask<float>> const& gcp_sigma_image,
-                 vw::cartography::GeoReference          const& gcp_sigma_image_georef,
+                 vw::GeoReference          const& gcp_sigma_image_georef,
                  std::string const& gcpFile) {
 
   int num_pts = cnet.size();
@@ -225,7 +225,7 @@ void genWriteGcp(vw::cartography::GeoReference const& ref_dem_georef,
     double local_gcp_sigma = gcp_sigma;
     if (have_gcp_sigma_image) {
       vw::PixelMask<float> img_gcp_sigma
-        = vw::cartography::closestPixelVal(gcp_sigma_image, gcp_sigma_image_georef, xyz);
+        = vw::closestPixelVal(gcp_sigma_image, gcp_sigma_image_georef, xyz);
 
       // Flag bad gcp_sigmas as outliers
       if (!is_valid(img_gcp_sigma) || std::isnan(img_gcp_sigma.child()) ||
@@ -412,8 +412,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // dynamic datum properties. WKT strings can differ in naming conventions while
 // representing the same projection (e.g., "Moon (2015)" vs "D_MOON"), so a
 // WKT mismatch alone is only a warning.
-void datumCheck(vw::cartography::GeoReference const& georef1,
-                vw::cartography::GeoReference const& georef2) {
+void datumCheck(vw::GeoReference const& georef1,
+                vw::GeoReference const& georef2) {
   std::string wkt1 = georef1.get_wkt();
   std::string wkt2 = georef2.get_wkt();
   OGRSpatialReference srs1, srs2;
@@ -484,12 +484,12 @@ int run_dem2gcp(int argc, char * argv[]) {
     
   // Load the warped DEM (masked) and its georef. Reused for the ray-to-DEM
   // intersection below.
-  vw::cartography::GeoReference warped_dem_georef;
+  vw::GeoReference warped_dem_georef;
   vw::ImageViewRef<vw::PixelMask<double>> masked_warped_dem;
   asp::create_masked_dem(opt.warped_dem_file, warped_dem_georef, masked_warped_dem);
 
   // Load the reference DEM
-  vw::cartography::GeoReference ref_dem_georef;
+  vw::GeoReference ref_dem_georef;
   vw::ImageViewRef<vw::PixelMask<double>> interp_ref_dem;
   asp::create_interp_dem(opt.ref_dem_file, ref_dem_georef, interp_ref_dem);
   
@@ -526,9 +526,9 @@ int run_dem2gcp(int argc, char * argv[]) {
   bool have_gcp_sigma_image = (!opt.gcp_sigma_image.empty());
   vw::ImageViewRef<vw::PixelMask<float>> gcp_sigma_image;
   float gcp_sigma_image_nodata = -std::numeric_limits<float>::max();
-  vw::cartography::GeoReference gcp_sigma_image_georef;
+  vw::GeoReference gcp_sigma_image_georef;
   if (have_gcp_sigma_image) {
-    vw::cartography::readGeorefImage(opt.gcp_sigma_image,
+    vw::readGeorefImage(opt.gcp_sigma_image,
       gcp_sigma_image_nodata, gcp_sigma_image_georef, gcp_sigma_image);
     vw::vw_out() << "Using GCP sigma image: " << opt.gcp_sigma_image << "\n";
   }

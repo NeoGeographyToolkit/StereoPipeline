@@ -38,7 +38,7 @@ namespace asp {
 
 // Write an image to disk while handling some common options.
 template<class ImageT>
-void save_image(DemOptions & opt, ImageT img, vw::cartography::GeoReference const& georef,
+void save_image(DemOptions & opt, ImageT img, vw::GeoReference const& georef,
                 int hole_fill_len, std::string const& imgName) {
 
   // When hole-filling is used, we need to look hole_fill_len beyond
@@ -69,7 +69,7 @@ void save_image(DemOptions & opt, ImageT img, vw::cartography::GeoReference cons
                                has_georef, georef,
                                has_nodata, opt.nodata_value, opt, tpc);
   else
-    vw::cartography::write_gdal_image(output_file, img, georef, opt, tpc);
+    vw::write_gdal_image(output_file, img, georef, opt, tpc);
 } // End function save_image
 
 // Round pixels in given image to multiple of given scale.
@@ -140,8 +140,8 @@ struct NaN2NoData: public ReturnFixedType<Vector3> {
 // Take a given point xyz and the error at that point. Convert the
 // error to the NED (North-East-Down) coordinate system.
 struct ErrorToNED: public ReturnFixedType<Vector3> {
-  vw::cartography::GeoReference m_georef;
-  ErrorToNED(vw::cartography::GeoReference const& georef):m_georef(georef) {}
+  vw::GeoReference m_georef;
+  ErrorToNED(vw::GeoReference const& georef):m_georef(georef) {}
 
   Vector3 operator() (Vector6 const& pt) const {
 
@@ -158,7 +158,7 @@ struct ErrorToNED: public ReturnFixedType<Vector3> {
 template <class ImageT>
 UnaryPerPixelView<ImageT, ErrorToNED>
 inline error_to_NED(ImageViewBase<ImageT> const& image,
-                    vw::cartography::GeoReference const& georef) {
+                    vw::GeoReference const& georef) {
   return UnaryPerPixelView<ImageT, ErrorToNED>(image.impl(), ErrorToNED(georef));
 }
 
@@ -238,7 +238,7 @@ CombinedAbsView combine_abs_channels(double nodata_value,
 
 // Save the DEM
 void save_dem(DemOptions & opt,
-              vw::cartography::GeoReference const& georef,
+              vw::GeoReference const& georef,
               asp::OrthoRasterizerView& rasterizer,
               Vector2 const& tile_size,
               std::int64_t * num_invalid_pixels) {
@@ -300,7 +300,7 @@ void save_dem(DemOptions & opt,
 // Save the intersection error
 void save_intersection_error(DemOptions & opt,
                              bool has_stddev,
-                             vw::cartography::GeoReference const& georef,
+                             vw::GeoReference const& georef,
                              Vector2 const& tile_size,
                              asp::OrthoRasterizerView& rasterizer) {
 
@@ -344,7 +344,7 @@ void save_intersection_error(DemOptions & opt,
 
 // Save horizontal and vertical stddev
 void save_stddev(DemOptions & opt,
-                 vw::cartography::GeoReference const& georef,
+                 vw::GeoReference const& georef,
                  asp::OrthoRasterizerView& rasterizer) {
 
   int num_channels = asp::num_channels(opt.pointcloud_files);
@@ -382,7 +382,7 @@ void save_stddev(DemOptions & opt,
 
 // Save the orthoimage. The texture comes form L.tif instead of the heights.
 void save_ortho(DemOptions & opt,
-                vw::cartography::GeoReference const& georef,
+                vw::GeoReference const& georef,
                 asp::OrthoRasterizerView& rasterizer) {
 
   Stopwatch sw3;
@@ -466,7 +466,7 @@ void save_ortho(DemOptions & opt,
 // This may be called several times, with different grid sizes.
 void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
                      DemOptions& opt,
-                     vw::cartography::GeoReference& georef,
+                     vw::GeoReference& georef,
                      std::int64_t * num_invalid_pixels) {
 
   vw_out() << "\tStarting DEM rasterization\n";
@@ -482,7 +482,7 @@ void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
   // Fix have pixel offset required if pixel_interpretation is
   // PixelAsArea. We could have done that earlier, but it makes
   // the above easier to not think about it.
-  if (georef.pixel_interpretation() == vw::cartography::GeoReference::PixelAsArea &&
+  if (georef.pixel_interpretation() == vw::GeoReference::PixelAsArea &&
       !rasterizer.m_gdal_tap) {
     Matrix3x3 transform = georef.transform();
     transform(0,2) -= 0.5 * transform(0,0);

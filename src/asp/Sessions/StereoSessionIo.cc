@@ -40,7 +40,6 @@
 #include <vw/Math/Geometry.h>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace fs = boost::filesystem;
 
 namespace asp {
@@ -125,7 +124,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
   vw::GdalWriteOptions options;
   float left_nodata_value, right_nodata_value;
   bool has_left_georef, has_right_georef;
-  vw::cartography::GeoReference left_georef, right_georef;
+  vw::GeoReference left_georef, right_georef;
   bool exit_early =
     StereoSession::prepareInputImages(options,
                                       left_input_file,    right_input_file,
@@ -304,8 +303,8 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
                                        float                         & right_nodata_value,
                                        bool                          & has_left_georef,
                                        bool                          & has_right_georef,
-                                       vw::cartography::GeoReference & left_georef,
-                                       vw::cartography::GeoReference & right_georef) {
+                                       vw::GeoReference & left_georef,
+                                       vw::GeoReference & right_georef) {
 
   // Retrieve nodata values and let the handles go out of scope right away.
   // For this to work the ISIS type must be registered with the

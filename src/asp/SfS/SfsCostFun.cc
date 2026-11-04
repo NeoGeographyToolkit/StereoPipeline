@@ -50,7 +50,7 @@ SfsCallback(asp::SfsOptions const& opt,
             vw::ImageView<double>& dem,
             vw::ImageView<vw::Vector2>& pq,
             vw::ImageView<double>& albedo,
-            vw::cartography::GeoReference const& geo,
+            vw::GeoReference const& geo,
             asp::ReflParams const& refl_params,
             std::vector<vw::Vector3> const& sunPosition,
             std::vector<vw::BBox2i> const& crop_boxes,
@@ -119,11 +119,11 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     std::string out_dem_file = opt.out_prefix + "-DEM"
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_dem_file << "\n";
-    vw::cartography::block_write_gdal_image(out_dem_file,
-                                            vw::pixel_cast<float>(dem),
-                                            has_georef, geo,
-                                            has_nodata, dem_nodata_val,
-                                            opt, tpc);
+    vw::block_write_gdal_image(out_dem_file,
+                               vw::pixel_cast<float>(dem),
+                               has_georef, geo,
+                               has_nodata, dem_nodata_val,
+                               opt, tpc);
   }
 
   if ((!opt.save_sparingly || (final_iter && opt.float_albedo)) &&
@@ -138,11 +138,11 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
      out_albedo_file = opt.out_prefix + "-albedo" + iter_str + ".tif";
     
     vw::vw_out() << "Writing: " << out_albedo_file << "\n";
-    vw::cartography::block_write_gdal_image(out_albedo_file,
-                                            vw::pixel_cast<float>(albedo),
-                                            has_georef, geo,
-                                            has_nodata, dem_nodata_val,
-                                            opt, tpc);
+    vw::block_write_gdal_image(out_albedo_file,
+                               vw::pixel_cast<float>(albedo),
+                               has_georef, geo,
+                               has_nodata, dem_nodata_val,
+                               opt, tpc);
   }
 
   // Print reflectance and other things
@@ -210,17 +210,17 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
 
     std::string out_meas_intensity_file = iter_str2 + "-meas-intensity.tif";
     vw::vw_out() << "Writing: " << out_meas_intensity_file << "\n";
-    vw::cartography::block_write_gdal_image(out_meas_intensity_file,
-                                            vw::apply_mask(intensity, img_nodata_val),
-                                            has_georef, geo, has_nodata, img_nodata_val,
-                                            opt, tpc);
+    vw::block_write_gdal_image(out_meas_intensity_file,
+                               vw::apply_mask(intensity, img_nodata_val),
+                               has_georef, geo, has_nodata, img_nodata_val,
+                               opt, tpc);
 
     std::string out_sim_intensity_file = iter_str2 + "-sim-intensity.tif";
     vw::vw_out() << "Writing: " << out_sim_intensity_file << "\n";
-    vw::cartography::block_write_gdal_image(out_sim_intensity_file,
-                                            vw::apply_mask(sim_intensity, img_nodata_val),
-                                            has_georef, geo, has_nodata, img_nodata_val,
-                                            opt, tpc);
+    vw::block_write_gdal_image(out_sim_intensity_file,
+                               vw::apply_mask(sim_intensity, img_nodata_val),
+                               has_georef, geo, has_nodata, img_nodata_val,
+                               opt, tpc);
 
     if (opt.save_sim_intensity_only || opt.save_meas_intensity_only)
       continue; // don't write too many things
@@ -228,16 +228,16 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
     // Not needed usually  
     // std::string out_weight_file = iter_str2 + "-blending-weight.tif";
     // vw::vw_out() << "Writing: " << out_weight_file << "\n";
-    // vw::cartography::block_write_gdal_image(out_weight_file, ground_weight,
+    // vw::block_write_gdal_image(out_weight_file, ground_weight,
     //                                         has_georef, geo, has_nodata, img_nodata_val,
     //                                         opt, tpc);
 
     std::string out_reflectance_file = iter_str2 + "-reflectance.tif";
     vw::vw_out() << "Writing: " << out_reflectance_file << "\n";
-    vw::cartography::block_write_gdal_image(out_reflectance_file,
-                                            vw::apply_mask(reflectance, img_nodata_val),
-                                            has_georef, geo, has_nodata, img_nodata_val,
-                                            opt, tpc);
+    vw::block_write_gdal_image(out_reflectance_file,
+                               vw::apply_mask(reflectance, img_nodata_val),
+                               has_georef, geo, has_nodata, img_nodata_val,
+                               opt, tpc);
 
     // Find the measured normalized albedo, after correcting for
     // reflectance. Do not save this for the final iteration. This is a debug product
@@ -258,8 +258,8 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
       }
       std::string out_albedo_file = iter_str2 + "-meas-albedo.tif";
       vw::vw_out() << "Writing: " << out_albedo_file << "\n";
-      vw::cartography::block_write_gdal_image(out_albedo_file, measured_albedo,
-                                              has_georef, geo, has_nodata, 0, opt, tpc);
+      vw::block_write_gdal_image(out_albedo_file, measured_albedo,
+                                 has_georef, geo, has_nodata, 0, opt, tpc);
     }
     
     vw::vw_out() << "Exposure for image " << image_iter << ": "
@@ -279,10 +279,10 @@ SfsCallback::operator()(const ceres::IterationSummary& summary) {
       + iter_str + ".tif";
     vw::vw_out() << "Writing: " << out_dem_nodata_file << "\n";
     vw::TerminalProgressCallback tpc("asp", ": ");
-    vw::cartography::block_write_gdal_image(out_dem_nodata_file,
-                                            vw::pixel_cast<float>(dem_nodata),
-                                            has_georef, geo,
-                                            has_nodata, dem_nodata_val, opt, tpc);
+    vw::block_write_gdal_image(out_dem_nodata_file,
+                               vw::pixel_cast<float>(dem_nodata),
+                               has_georef, geo,
+                               has_nodata, dem_nodata_val, opt, tpc);
   }
 
   return ceres::SOLVER_CONTINUE;
@@ -304,7 +304,7 @@ calc_intensity_residual(SfsOptions const& opt,
                         const G* const refl_coeffs,
                         int col, int row,
                         vw::ImageView<double>         const & dem,            // alias
-                        vw::cartography::GeoReference const & geo,            // alias
+                        vw::GeoReference const & geo,            // alias
                         bool                              model_shadows,
                         double                            camera_position_step_size,
                         double                    const & max_dem_height, // alias
@@ -381,7 +381,7 @@ calc_intensity_residual(SfsOptions const& opt,
 struct IntensityError {
   IntensityError(SfsOptions const& opt, int col, int row,
                  vw::ImageView<double> const& dem,
-                 vw::cartography::GeoReference const& geo,
+                 vw::GeoReference const& geo,
                  bool model_shadows,
                  double camera_position_step_size,
                  double const& max_dem_height, // note: this is an alias
@@ -442,7 +442,7 @@ struct IntensityError {
   // the client code.
   static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
                                      vw::ImageView<double> const& dem,
-                                     vw::cartography::GeoReference const& geo,
+                                     vw::GeoReference const& geo,
                                      bool model_shadows,
                                      double camera_position_step_size,
                                      double const& max_dem_height, // alias
@@ -469,7 +469,7 @@ struct IntensityError {
   SfsOptions                         const& m_opt;
   int                                       m_col, m_row;
   vw::ImageView<double>             const & m_dem;            // alias
-  vw::cartography::GeoReference     const & m_geo;            // alias
+  vw::GeoReference     const & m_geo;            // alias
   bool                                      m_model_shadows;
   double                                    m_camera_position_step_size;
   double                            const & m_max_dem_height; // alias
@@ -493,7 +493,7 @@ struct IntensityErrorFloatDemOnly {
                              double * refl_coeffs,
                              double * exposure,
                              double * haze,
-                             vw::cartography::GeoReference const& geo,
+                             vw::GeoReference const& geo,
                              bool model_shadows,
                              double camera_position_step_size,
                              double const& max_dem_height, // note: this is an alias
@@ -562,7 +562,7 @@ struct IntensityErrorFloatDemOnly {
                                      double * refl_coeffs,
                                      double * exposure,
                                      double * haze,
-                                     vw::cartography::GeoReference const& geo,
+                                     vw::GeoReference const& geo,
                                      bool model_shadows,
                                      double camera_position_step_size,
                                      double const& max_dem_height, // alias
@@ -596,7 +596,7 @@ struct IntensityErrorFloatDemOnly {
   double                          * m_refl_coeffs;
   double                          * m_exposure;
   double                          * m_haze;
-  vw::cartography::GeoReference const & m_geo;            // alias
+  vw::GeoReference const & m_geo;            // alias
   bool                              m_model_shadows;
   double                            m_camera_position_step_size;
   double                    const & m_max_dem_height; // alias
@@ -617,7 +617,7 @@ struct IntensityErrorFloatDemOnly {
 struct IntensityErrorPQ {
   IntensityErrorPQ(SfsOptions const& opt, int col, int row,
                    vw::ImageView<double> const& dem,
-                   vw::cartography::GeoReference const& geo,
+                   vw::GeoReference const& geo,
                    bool model_shadows,
                    double camera_position_step_size,
                    double const& max_dem_height, // note: this is an alias
@@ -678,7 +678,7 @@ struct IntensityErrorPQ {
   // code.
   static ceres::CostFunction* Create(SfsOptions const& opt, int col, int row,
                                      vw::ImageView<double> const& dem,
-                                     vw::cartography::GeoReference const& geo,
+                                     vw::GeoReference const& geo,
                                      bool model_shadows,
                                      double camera_position_step_size,
                                      double const& max_dem_height, // alias
@@ -706,7 +706,7 @@ struct IntensityErrorPQ {
   SfsOptions                    const & m_opt;
   int m_col, m_row;
   vw::ImageView<double>         const & m_dem;            // alias
-  vw::cartography::GeoReference const & m_geo;            // alias
+  vw::GeoReference const & m_geo;            // alias
   bool                                  m_model_shadows;
   double                                m_camera_position_step_size;
   double                        const & m_max_dem_height; // alias
@@ -1015,7 +1015,7 @@ void sfsCostFun(// Fixed quantities
                 double                                dem_nodata_val,
                 float                                 img_nodata_val,
                 bool                                  blend_weight_is_ground_weight,
-                vw::cartography::GeoReference const & geo,
+                vw::GeoReference const & geo,
                 std::vector<vw::BBox2i>       const & crop_boxes,
                 std::vector<MaskedImgRefT>    const & masked_images,
                 std::vector<DblImgT>          const & blend_weights,
@@ -1328,7 +1328,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
                              bool blend_weight_is_ground_weight,
                              vw::ImageView<double> const& dem,
                              double mean_albedo,
-                             vw::cartography::GeoReference const& geo,
+                             vw::GeoReference const& geo,
                              std::vector<vw::CamPtr> const& cameras,
                              double & max_dem_height,
                              std::vector<vw::BBox2i> const& crop_boxes,
@@ -1479,7 +1479,7 @@ void estimExposureHazeAlbedo(SfsOptions & opt,
     vw::vw_out() << "Writing: " << albedo_file << "\n";
     // Note: This logic produces junk if the SfsInterpView is initialized on a
     // separate line and then passed to block_write_gdal_image(). Not clear why.
-    vw::cartography::block_write_gdal_image(albedo_file, 
+    vw::block_write_gdal_image(albedo_file, 
                            SfsInterpView(dem.cols(), dem.rows(), sample_col_rate,
                                          sample_row_rate, albedo),
                            has_georef, geo, has_nodata, albedo_nodata_val, opt, tpc);
@@ -1563,7 +1563,7 @@ void saveSfsCovariances(SfsOptions const& opt,
                         std::vector<std::string> const& suffixes,
                         std::vector<int> const& dx,
                         std::vector<int> const& dy,
-                        vw::cartography::GeoReference const& geo,
+                        vw::GeoReference const& geo,
                         double nodata_val,
                         ceres::Problem &problem,
                         ceres::Covariance &covariance) {
@@ -1604,10 +1604,10 @@ void saveSfsCovariances(SfsOptions const& opt,
     std::string out_file = file_prefix + suffixes[i];
     vw::vw_out() << "Writing: " << out_file << "\n";
     vw::TerminalProgressCallback tpc("asp", ": ");
-    vw::cartography::block_write_gdal_image(out_file,
-                                            vw::pixel_cast<float>(cov_image),
-                                            has_georef, geo,
-                                            has_nodata, nodata_val, opt, tpc);
+    vw::block_write_gdal_image(out_file,
+                               vw::pixel_cast<float>(cov_image),
+                               has_georef, geo,
+                               has_nodata, nodata_val, opt, tpc);
   }
 }
 
@@ -1616,7 +1616,7 @@ void calcSaveSfsCovariances(SfsOptions const& opt,
                             vw::ImageView<double> const& dem,
                             vw::ImageView<double> const& albedo,
                             ceres::Problem &problem,
-                            vw::cartography::GeoReference const& geo,
+                            vw::GeoReference const& geo,
                             double dem_nodata_val) {
 
   // The variance is for a pixel with itself. For covariance will need the neighbors.

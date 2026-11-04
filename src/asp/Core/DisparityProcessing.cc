@@ -31,7 +31,6 @@
 #include <vw/Math/NewtonRaphson.h>
 
 using namespace vw;
-using namespace vw::cartography;
 
 namespace asp {
   
@@ -76,7 +75,7 @@ void filter_D_sub(ASPGlobalOptions const& opt,
                   vw::TransformPtr tx_left, vw::TransformPtr tx_right,
                   boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
                   boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
-                  vw::cartography::Datum const& datum,
+                  vw::Datum const& datum,
                   std::string const& d_sub_file,
                   Vector2 const& outlier_removal_params) {
   
@@ -570,8 +569,8 @@ public:
       local_left_transform = m_left_transform;
       local_right_transform = m_right_transform;
     }else{
-      local_left_transform = vw::cartography::mapproj_trans_copy(m_left_transform);
-      local_right_transform = vw::cartography::mapproj_trans_copy(m_right_transform);
+      local_left_transform = vw::mapproj_trans_copy(m_left_transform);
+      local_right_transform = vw::mapproj_trans_copy(m_right_transform);
     }
 
     // We will do some averaging
@@ -728,13 +727,13 @@ void unalign_disparity(bool is_map_projected,
   Stopwatch sw;
   sw.start();
 
-  cartography::GeoReference left_georef;
+  vw::GeoReference left_georef;
   bool   has_left_georef = false;
   bool   has_nodata      = false;
   double nodata          = -32768.0;
   vw_out() << "Unaligning the disparity.\n";
   vw_out() << "Writing: " << disp_file << "\n";
-  vw::cartography::block_write_gdal_image
+  vw::block_write_gdal_image
     (disp_file, 
      UnalignDisparityView(is_map_projected, disparity, left_trans, right_trans, opt),
      has_left_georef, left_georef,
@@ -1033,12 +1032,12 @@ void tripletsMatches(ASPGlobalOptions const& opt,
 
   // Turn off caching for Map2CamTrans. When the samples are far apart the
   // caching does not help, and only introduces extra overhead.
-  vw::cartography::Map2CamTrans* left_map2cam = 
-    dynamic_cast<vw::cartography::Map2CamTrans*>(left_trans.get());
+  vw::Map2CamTrans* left_map2cam = 
+    dynamic_cast<vw::Map2CamTrans*>(left_trans.get());
   if (left_map2cam != NULL)
     left_map2cam->set_use_cache(false);
-  vw::cartography::Map2CamTrans* right_map2cam = 
-    dynamic_cast<vw::cartography::Map2CamTrans*>(right_trans.get());
+  vw::Map2CamTrans* right_map2cam = 
+    dynamic_cast<vw::Map2CamTrans*>(right_trans.get());
   if (right_map2cam != NULL)
     right_map2cam->set_use_cache(false);
 

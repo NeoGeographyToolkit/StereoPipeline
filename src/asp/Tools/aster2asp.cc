@@ -60,7 +60,6 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace vw::cartography;
 
 struct Options: public vw::GdalWriteOptions {
   std::string input, output_prefix;
@@ -340,7 +339,7 @@ void generate_point_pairs(double min_height, double max_height,
                            << pixels.size() << ".\n");
 
   // Convert from geodetic coordinates to xyz
-  cartography::Datum datum;
+  vw::Datum datum;
   datum.set_well_known_datum("WGS84");
   std::vector<Vector3> ground_xyz(num_pts);
   for (std::int64_t i = 0; i < num_pts; i++)

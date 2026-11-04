@@ -42,11 +42,11 @@ std::string ctx_camera() {
 // Intersect the ray through a pixel with the datum, returning the ground point.
 // This is an independent way to find the GSD, by measuring the ground distance
 // between neighboring pixels, as a mapproject query onto the datum would.
-bool groundPoint(CsmModel const& cam, vw::cartography::Datum const& datum,
+bool groundPoint(CsmModel const& cam, vw::Datum const& datum,
                  vw::Vector2 const& pix, vw::Vector3 & ground) {
   vw::Vector3 ctr = cam.camera_center(pix);
   vw::Vector3 dir = cam.pixel_to_vector(pix);
-  ground = vw::cartography::datum_intersection(datum, ctr, dir);
+  ground = vw::datum_intersection(datum, ctr, dir);
   return (ground != vw::Vector3());
 }
 
@@ -57,7 +57,7 @@ TEST(CameraGSD, EstimatedGsdMatchesDatumIntersection) {
 
   vw::Vector2 image_size = cam.get_image_size();
   vw::BBox2i image_box(0, 0, image_size[0], image_size[1]);
-  vw::cartography::Datum datum = cam.get_datum_csm("unknown", false);
+  vw::Datum datum = cam.get_datum_csm("unknown", false);
 
   // Sample a grid of pixels well inside the image.
   std::vector<double> gsd_est, gsd_indep;

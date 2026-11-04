@@ -159,14 +159,14 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The GCP sigma must be positive.\n");
 
   // The ortho must have a geo reference
-  vw::cartography::GeoReference georef_ortho;
-  bool has_georef_ortho = vw::cartography::read_georeference(georef_ortho, opt.ortho_image);
+  vw::GeoReference georef_ortho;
+  bool has_georef_ortho = vw::read_georeference(georef_ortho, opt.ortho_image);
   if (!has_georef_ortho)
     vw_throw(ArgumentErr() << "The ortho image must have a georeference.\n");
     
   // Same for the DEM
-  vw::cartography::GeoReference georef_dem;
-  bool has_georef_dem = vw::cartography::read_georeference(georef_dem, opt.dem);
+  vw::GeoReference georef_dem;
+  bool has_georef_dem = vw::read_georeference(georef_dem, opt.dem);
   if (!has_georef_dem)
     vw_throw(ArgumentErr() << "The DEM must have a georeference.\n");
 
@@ -218,14 +218,14 @@ void undo_mapproj(Options & opt,
                                                        adj_prefix, zero_pixel_offset);
   
   // Prepare the DEM for interpolation  
-  vw::cartography::GeoReference dem_georef;
+  vw::GeoReference dem_georef;
   ImageViewRef<PixelMask<double>> interp_dem;
   asp::create_interp_dem(dem_file, dem_georef, interp_dem);
 
   // Read the mapproj_image georef
-  vw::cartography::GeoReference map_georef;
+  vw::GeoReference map_georef;
   bool has_mapproj_georef 
-    = vw::cartography::read_georeference(map_georef, opt.mapproj_image);
+    = vw::read_georeference(map_georef, opt.mapproj_image);
   if (!has_mapproj_georef)
     vw_throw(ArgumentErr() << "No georeference found in: " << opt.mapproj_image << ".\n");
   

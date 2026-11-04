@@ -34,9 +34,7 @@
 namespace vw {
   
   class GdalWriteOptions;
-  namespace cartography {
     class GeoReference;
-  }
 }
 
 namespace asp {
@@ -47,7 +45,7 @@ namespace asp {
 std::int64_t load_las_aux(std::string const& file_name,
                           std::int64_t num_points_to_load,
                           vw::BBox2 const& lonlat_box,
-                          vw::cartography::GeoReference const& geo,
+                          vw::GeoReference const& geo,
                           bool verbose,
                           bool calc_shift,
                           // Outputs

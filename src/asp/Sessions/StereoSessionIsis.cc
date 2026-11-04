@@ -32,7 +32,6 @@
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::cartography;
 
 namespace asp {
 
@@ -45,8 +44,8 @@ bool StereoSessionIsis::supports_multi_threading () const {
 /// accurate non-spherical datum, hence radii[2]. However, for the purpose of
 /// creating a DEM on non-Earth planets people usually just use a spherical
 /// datum, which we'll do as well.  Maybe at some point this needs to change.
-vw::cartography::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam,
-                                                    bool use_sphere_for_non_earth) const {
+vw::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam,
+                                       bool use_sphere_for_non_earth) const {
   const IsisCameraModel * isis_cam
     = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid camera.\n");

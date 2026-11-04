@@ -106,7 +106,7 @@ void writeTriOffsetsPerCamera(int num_cams,
                               std::string const& tri_offsets_file);
 
 // Compute the horizontal and vertical change in camera positions
-void saveCameraOffsets(vw::cartography::Datum   const& datum,
+void saveCameraOffsets(vw::Datum   const& datum,
                        std::vector<std::string> const& image_files,
                        std::vector<vw::Vector3>  const& orig_cam_positions,
                        std::vector<vw::Vector3>  const& opt_cam_positions,
@@ -114,7 +114,7 @@ void saveCameraOffsets(vw::cartography::Datum   const& datum,
 
 // Compute the horizontal and vertical change in camera positions. If more than 
 // one camera position, such as for linescan, find the biggest.
-void saveCameraOffsets(vw::cartography::Datum                const& datum,
+void saveCameraOffsets(vw::Datum                const& datum,
                        std::vector<std::string>              const& image_files,
                        std::vector<std::vector<vw::Vector3>> const& orig_cam_positions,
                        std::vector<std::vector<vw::Vector3>> const& opt_cam_positions,
@@ -129,7 +129,7 @@ void saveGcpReport(std::string            const& out_prefix,
                    vw::ba::ControlNetwork const& cnet,
                    std::vector<double>    const& tri_points_vec,
                    std::set<int>          const& outliers,
-                   vw::cartography::Datum const& datum);
+                   vw::Datum const& datum);
 
 // This is used in jitter_solve
 void saveJitterResiduals(ceres::Problem                             & problem,
@@ -137,7 +137,7 @@ void saveJitterResiduals(ceres::Problem                             & problem,
                          asp::BaBaseOptions                    const& opt,
                          vw::ba::ControlNetwork                const& cnet,
                          asp::CRN                             const& crn,
-                         vw::cartography::Datum                const& datum,
+                         vw::Datum                const& datum,
                          std::vector<double>                   const& tri_points_vec,
                          std::set<int>                         const& outliers,
                          std::vector<double>                   const& weight_per_residual,

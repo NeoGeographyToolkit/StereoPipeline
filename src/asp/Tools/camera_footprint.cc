@@ -46,7 +46,6 @@ namespace po = boost::program_options;
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::cartography;
 
 struct Options : public vw::GdalWriteOptions {
   std::string image_file, camera_file, stereo_session, bundle_adjust_prefix,
@@ -160,9 +159,9 @@ int main(int argc, char *argv[]) {
 
       // Initialize the georef/datum
       bool have_user_datum = (opt.datum_str != "");
-      cartography::Datum datum(opt.datum_str);
+      vw::Datum datum(opt.datum_str);
       target_georef = GeoReference(datum);
-      vw::cartography::set_srs_string(opt.target_srs_string, have_user_datum, datum, target_georef);
+      vw::set_srs_string(opt.target_srs_string, have_user_datum, datum, target_georef);
       vw_out() << "Using georef: " << target_georef << "\n";
 
       std::vector<Vector2> coords2;

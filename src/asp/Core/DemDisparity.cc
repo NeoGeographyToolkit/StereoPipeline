@@ -40,7 +40,6 @@
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace vw::cartography;
 
 namespace asp {
 
@@ -126,7 +125,7 @@ DemDisparity(ImgRefT const& left_image,
     m_disp_spread(disp_spread) {
 
   // This can speed up and make more reliable the intersection of rays with the DEM
-  m_height_guess = vw::cartography::demHeightGuess(m_dem);
+  m_height_guess = vw::demHeightGuess(m_dem);
 }
 
 // ImageView interface
@@ -163,12 +162,12 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
 
   // Sample the box on the diagonal and perimeter  
   std::vector<vw::Vector2> points;
-  vw::cartography::sample_int_box(bbox, points);
+  vw::sample_int_box(bbox, points);
 
   // Make local copies of Map2Camp transforms, as those are not thread-safe
   vw::TransformPtr local_tx_left;
   if (dynamic_cast<Map2CamTrans*>(m_tx_left.get()) != NULL) {
-    local_tx_left = vw::cartography::mapproj_trans_copy(m_tx_left);
+    local_tx_left = vw::mapproj_trans_copy(m_tx_left);
 
     // Do not cache the transform portion for this tile. That is good when lots
     // of points are queried from the tile. Here we need a low-resolution
@@ -191,7 +190,7 @@ inline prerasterize_type prerasterize(BBox2i const& bbox) const {
   // For the right transform we won't use the "reverse" function, so no need for caching.
   vw::TransformPtr local_tx_right;
   if (dynamic_cast<Map2CamTrans*>(m_tx_right.get()) != NULL)
-    local_tx_right = vw::cartography::mapproj_trans_copy(m_tx_right);
+    local_tx_right = vw::mapproj_trans_copy(m_tx_right);
   else
     local_tx_right = m_tx_right;
   
@@ -357,7 +356,7 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
               << "disparity-estimation-dem-error: " << dem_error << ".\n");
 
   GeoReference dem_georef;
-  bool has_georef = cartography::read_georeference(dem_georef, dem_file);
+  bool has_georef = vw::read_georeference(dem_georef, dem_file);
   if (!has_georef)
     vw::vw_throw(vw::ArgumentErr() << "There is no georeference information in: "
                     << dem_file << ".\n");
@@ -396,17 +395,17 @@ void produce_dem_disparity(ASPGlobalOptions & opt,
   auto tpc1 = TerminalProgressCallback("asp", "\t--> Low-resolution disparity:");
   if (session_name.find("isis") != std::string::npos) {
     // ISIS does not support multi-threading
-    auto drsrc = vw::cartography::build_gdal_rsrc(disparity_file, lowres_disparity, opt);
+    auto drsrc = vw::build_gdal_rsrc(disparity_file, lowres_disparity, opt);
     vw::write_image(*drsrc, lowres_disparity, tpc1);
   } else {
-    vw::cartography::block_write_gdal_image(disparity_file, lowres_disparity, opt, tpc1);
+    vw::block_write_gdal_image(disparity_file, lowres_disparity, opt, tpc1);
   }
 
   // The disparity spread is in memory by now, so can be written with multiple threads 
   std::string disp_spread_file = opt.out_prefix + "-D_sub_spread.tif";
   vw_out() << "Writing low-resolution disparity spread: " << disp_spread_file << "\n";
   auto tpc2 = TerminalProgressCallback("asp", "\t--> Low-resolution disparity spread:");
-  vw::cartography::block_write_gdal_image(disp_spread_file, disp_spread, opt, tpc2);
+  vw::block_write_gdal_image(disp_spread_file, disp_spread, opt, tpc2);
   
   sw.stop();
   vw_out() << "Low-res disparity elapsed time: " << sw.elapsed_seconds() << " s.\n";

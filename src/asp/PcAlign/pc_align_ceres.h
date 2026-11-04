@@ -35,7 +35,7 @@ namespace asp {
 Eigen::MatrixXd
 least_squares_alignment(DP const& source_point_cloud, // Should not be modified
 			vw::Vector3 const& point_cloud_shift,
-			vw::cartography::GeoReference        const& dem_georef,
+			vw::GeoReference        const& dem_georef,
 			vw::ImageViewRef<vw::PixelMask<float> > const& dem_ref,
       std::string const& alignment_method,
       int num_iter, int num_threads); 

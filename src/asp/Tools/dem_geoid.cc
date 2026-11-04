@@ -42,7 +42,6 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace vw::cartography;
 
 /// Image view which adds or subtracts the ellipsoid/geoid difference
 ///  from elevations in a DEM image.
@@ -390,7 +389,7 @@ int main(int argc, char *argv[]) {
     
     // These files usually go beyond [0, 360) in longitude, which can trigger
     // a waring that is not helpful here.                                      
-    vw::cartography::silence_warning_for_non_normal_georef(geoid_file);
+    vw::silence_warning_for_non_normal_georef(geoid_file);
 
     // Read the geoid containing the adjustments. Read it in memory
     // entirely to dramatically speed up the computations.

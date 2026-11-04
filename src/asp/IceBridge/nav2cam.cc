@@ -82,7 +82,6 @@ namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace vw::camera;
-using namespace vw::cartography;
 using namespace vw::math;
 
 // From DMS_1281706_09765_20111012_18060740.tif

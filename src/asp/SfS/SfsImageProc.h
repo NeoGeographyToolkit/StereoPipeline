@@ -30,9 +30,7 @@
 
 namespace vw {
   class GdalWriteOptions;
-  namespace cartography {
     class GeoReference;
-  }
 }
 
 namespace asp {
@@ -76,7 +74,7 @@ void maxImage(int cols, int rows,
 void adjustBorderlineDataWeights(int cols, int rows,
                                  int blending_dist, double blending_power,
                                  vw::GdalWriteOptions const& opt,
-                                 vw::cartography::GeoReference const& geo,
+                                 vw::GeoReference const& geo,
                                  std::set<int> const& skip_images,
                                  std::string const& out_prefix, // for debug data
                                  std::vector<std::string> const& input_images,
@@ -88,7 +86,7 @@ void adjustBorderlineDataWeights(int cols, int rows,
 void handleBorderlineAndLowLight(SfsOptions & opt,
                                  int num_images,
                                  vw::ImageView<double> const& dem,
-                                 vw::cartography::GeoReference const& geo,
+                                 vw::GeoReference const& geo,
                                  std::vector<vw::BBox2i> const& crop_boxes,
                                  std::vector<MaskedDblImgT> const& meas_intensities,
                                  std::vector<MaskedDblImgT> const& sim_intensities,
@@ -112,11 +110,11 @@ vw::ImageView<double> blendingWeights(MaskedImgRefT const& img,
 bool isInShadow(int col, int row, vw::Vector3 const& sunPos,
                 vw::ImageView<double> const& dem, double max_dem_height,
                 double gridx, double gridy,
-                vw::cartography::GeoReference const& geo);
+                vw::GeoReference const& geo);
 
 void areInShadow(vw::Vector3 const& sunPos, vw::ImageView<double> const& dem,
                  double gridx, double gridy,
-                 vw::cartography::GeoReference const& geo,
+                 vw::GeoReference const& geo,
                  vw::ImageView<float> & shadow);
 
 // Prototype code to identify permanently shadowed areas
@@ -153,14 +151,14 @@ vw::ImageView<double> calcClampedBdDist(vw::ImageView<float> const& lit_grass_di
 // Calc the weight for option --curvature-in-shadow-weight
 void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,
                                  vw::ImageView<int> const& lit_image_mask,
-                                 vw::cartography::GeoReference const& geo,
+                                 vw::GeoReference const& geo,
                                  vw::ImageView<double> & curvature_in_shadow_weight);
 
 // Save the measured and computed intensity images
 void saveIntensities(SfsOptions const& opt,
                      std::string const& input_image,
                      std::string const& input_camera,
-                     vw::cartography::GeoReference const& geo,
+                     vw::GeoReference const& geo,
                      MaskedDblImgT const& meas_intensity,
                      MaskedDblImgT const& sim_intensity,
                      float img_nodata_val);

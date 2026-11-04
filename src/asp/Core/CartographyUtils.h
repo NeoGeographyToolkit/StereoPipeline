@@ -29,7 +29,7 @@ namespace asp {
 // For Earth, use UTM or polar stereographic. For other datums, use
 // local stereographic.
 void setAutoProj(double lat, double lon,
-                 vw::cartography::GeoReference & output_georef);
+                 vw::GeoReference & output_georef);
 
 // Snap a BBox2 to a grid: floor on min, ceil on max. This ensures the box
 // covers at least the original extent with corners at integer multiples of

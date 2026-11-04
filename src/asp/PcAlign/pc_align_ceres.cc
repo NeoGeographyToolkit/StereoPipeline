@@ -35,7 +35,7 @@ using namespace vw;
 struct PointToDemError {
   PointToDemError(Vector3 const& point,
 		 ImageViewRef<vw::PixelMask<float> > const& dem,
-		 cartography::GeoReference const& geo):
+		 vw::GeoReference const& geo):
     m_point(point), m_dem(dem), m_geo(geo){}
 
   template <typename F>
@@ -70,7 +70,7 @@ struct PointToDemError {
   // the client code.
   static ceres::CostFunction* Create(Vector3 const& point,
 				     vw::ImageViewRef<vw::PixelMask<float> > const& dem,
-				     vw::cartography::GeoReference const& geo){
+				     vw::GeoReference const& geo){
     return (new ceres::NumericDiffCostFunction<PointToDemError,
 	    ceres::CENTRAL, 1, 6, 1>
 	    (new PointToDemError(point, dem, geo)));
@@ -78,14 +78,14 @@ struct PointToDemError {
 
   Vector3                                  m_point;
   ImageViewRef< PixelMask<float> > const & m_dem;    // alias
-  cartography::GeoReference        const & m_geo;    // alias
+  vw::GeoReference        const & m_geo;    // alias
 };
 
 /// Compute alignment using least squares
 Eigen::MatrixXd
 least_squares_alignment(DP const& source_point_cloud, // Should not be modified
 			vw::Vector3 const& point_cloud_shift,
-			vw::cartography::GeoReference        const& dem_georef,
+			vw::GeoReference        const& dem_georef,
 			vw::ImageViewRef< PixelMask<float> > const& dem_ref,
       std::string const& alignment_method,
       int num_iter, int num_threads) { 

@@ -32,7 +32,7 @@ using namespace vw::test;
 TEST(StereoSessionDGMapRPC, TransformCycle) {
   // Generate GeoReference projection that matches something that the
   // RPC models in dg_example1 and dg_example4 see.
-  cartography::GeoReference lowres_georef; // WGS84
+  vw::GeoReference lowres_georef; // WGS84
   lowres_georef.set_equirectangular( 37.745, -103.29, 37 );
   Matrix<double> tx = math::identity_matrix<3>();
   tx(0,0) = tx(1,1) = 500;
@@ -41,7 +41,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
 
   // Make low res images. We have to overcrop, otherwise the bicubic
   // interpolation of the DEM will have edge effects.
-  cartography::GeoReference lowres_overcrop_georef = lowres_georef;
+  vw::GeoReference lowres_overcrop_georef = lowres_georef;
   tx(0,2) = tx(1,2) = -2000;
   lowres_overcrop_georef.set_transform( tx );
   ImageView<float> lowres_overcrop_image(8,8);
@@ -51,7 +51,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   write_gdal_image(lowres_dem_name, lowres_overcrop_image, lowres_overcrop_georef, GdalWriteOptions());
 
   // Make hires images
-  cartography::GeoReference hires_georef = lowres_georef;
+  vw::GeoReference hires_georef = lowres_georef;
   tx(0,0) = tx(1,1) = 100;
   tx(0,2) = tx(1,2) = -1000;
   hires_georef.set_transform( tx );
@@ -74,7 +74,7 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
   right_xml.read_from_file( "dg_example4.xml" );
   vw::TransformPtr left_tx = session.tx_left();
   vw::TransformPtr right_tx = session.tx_right();
-  cartography::Datum datum;
+  vw::Datum datum;
 
   // Verify that LX matches what we got by hand.
   for ( size_t j = 0; j < 4; j++ ) {

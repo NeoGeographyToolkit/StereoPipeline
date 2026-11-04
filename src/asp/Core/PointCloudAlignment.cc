@@ -46,7 +46,7 @@ class PDAL_DLL LasProcessor: public pdal::Writer, public pdal::Streamable {
 public:
   LasProcessor(std::string const& file_name, std::int64_t num_points_to_load,
               vw::BBox2 const& lonlat_box,
-              vw::cartography::GeoReference const& input_georef,
+              vw::GeoReference const& input_georef,
               bool verbose, bool calc_shift,
               // Outputs
               std::int64_t & num_total_points, vw::Vector3 & shift, 
@@ -86,11 +86,11 @@ private:
   std::string m_file_name;
   std::int64_t m_num_points_to_load;
   vw::BBox2 m_lonlat_box;
-  vw::cartography::GeoReference m_input_georef;
+  vw::GeoReference m_input_georef;
   bool m_verbose;
   bool m_calc_shift;
   bool m_has_las_georef;
-  vw::cartography::GeoReference m_las_georef;
+  vw::GeoReference m_las_georef;
   double m_load_ratio;
   bool m_shift_was_calc;
   std::int64_t m_points_count;
@@ -185,7 +185,7 @@ public:
 
   TransformFilter(std::int64_t num_total_points, 
                   bool has_georef, 
-                  vw::cartography::GeoReference const& georef,
+                  vw::GeoReference const& georef,
                   Eigen::MatrixXd const& T): 
         m_has_georef(has_georef), m_georef(georef), m_T(T), 
         m_tpc(vw::TerminalProgressCallback("asp", "\t--> ")) {
@@ -242,7 +242,7 @@ private:
   }
     
   bool m_has_georef;
-  vw::cartography::GeoReference m_georef;
+  vw::GeoReference m_georef;
   Eigen::MatrixXd m_T;
   std::int64_t m_spacing;
   double m_inc_amount;
@@ -257,7 +257,7 @@ private:
 std::int64_t load_las_aux(std::string const& file_name,
                           std::int64_t num_points_to_load,
                           vw::BBox2 const& lonlat_box,
-                          vw::cartography::GeoReference const& geo,
+                          vw::GeoReference const& geo,
                           bool verbose,
                           bool calc_shift,
                           // Outputs
@@ -317,7 +317,7 @@ void apply_transform_to_las(std::string const& input_file,
   vw::Vector3 scale (header.scaleX(),  header.scaleY(),  header.scaleZ());
 
   std::int64_t num_total_points = asp::las_file_size(input_file);
-  vw::cartography::GeoReference las_georef;
+  vw::GeoReference las_georef;
   bool has_georef = asp::georef_from_las(input_file, las_georef);
 
   // Set up the filter

@@ -52,7 +52,7 @@ std::string getName() const { return "chip maker"; }
   // to ECEF.
   // tile_len is big, but chip_size is small.
   ChipMaker(std::int64_t tile_len, std::int64_t chip_size,
-            bool has_georef, vw::cartography::GeoReference const& georef,
+            bool has_georef, vw::GeoReference const& georef,
             vw::GdalWriteOptions & opt, // will change
             std::string const& out_prefix,
             std::vector<std::string> & out_files):
@@ -80,7 +80,7 @@ private:
   std::int64_t m_tile_len;
   std::int64_t m_chip_size;
   bool m_has_georef;
-  vw::cartography::GeoReference m_georef;
+  vw::GeoReference m_georef;
   vw::GdalWriteOptions & m_opt;
   std::string m_out_prefix; // output files will start with this prefix
   std::vector<std::string> & m_out_files; // alias, used for output
@@ -112,8 +112,8 @@ private:
     vw::TerminalProgressCallback tpc("asp", "\t--> ");
     vw::GdalWriteOptions local_opt = m_opt;
     local_opt.cog = false;  // Do not use COG with temporary files
-    vw::cartography::block_write_gdal_image(out_file, Img, m_has_georef, m_georef,
-                                            has_nodata, nodata, local_opt, tpc);
+    vw::block_write_gdal_image(out_file, Img, m_has_georef, m_georef,
+                               has_nodata, nodata, local_opt, tpc);
 
     // Wipe the buf when done and increment the tile count
     m_buf.clear();
@@ -166,7 +166,7 @@ public:
 
   CsvReader(std::string const & csv_file,
             asp::CsvConv const& csv_conv,
-            vw::cartography::GeoReference const& georef):
+            vw::GeoReference const& georef):
       m_csv_file(csv_file), m_csv_conv(csv_conv),
       m_is_first_line(true), m_has_valid_point(false) {
 
@@ -576,7 +576,7 @@ void las_or_csv_to_tif(std::string const& in_file,
                        int num_rows, int block_size,
                        vw::BBox2 const& copc_win, bool copc_read_all,
                        vw::GdalWriteOptions & opt, // will change
-                       vw::cartography::GeoReference const& csv_georef,
+                       vw::GeoReference const& csv_georef,
                        asp::CsvConv const& csv_conv,
                        std::vector<std::string> & out_files) {
 
@@ -619,7 +619,7 @@ void las_or_csv_to_tif(std::string const& in_file,
     int buf_size = 100;
     pdal::FixedPointTable t(buf_size);
     pdal_reader->prepare(t);
-    vw::cartography::GeoReference las_georef;
+    vw::GeoReference las_georef;
     bool has_georef = asp::georef_from_las(in_file, las_georef);
     asp::ChipMaker writer(ASP_POINT_CLOUD_TILE_LEN, block_size, has_georef, las_georef,
                           opt, out_prefix, out_files);
@@ -664,7 +664,7 @@ void las_or_csv_to_tif(std::string const& in_file,
     auto tpc = vw::TerminalProgressCallback("asp", "\t--> ");
     vw::GdalWriteOptions local_opt = opt;
     local_opt.cog = false;  // Do not use COG with temporary files
-    vw::cartography::write_gdal_image(out_file, Img, local_opt, tpc);
+    vw::write_gdal_image(out_file, Img, local_opt, tpc);
     out_files.push_back(out_file);
   }
 
@@ -676,13 +676,13 @@ void las_or_csv_to_tif(std::string const& in_file,
 
 /// Builds a GeoReference from the first cloud having a georeference in the list
 bool georef_from_pc_files(std::vector<std::string> const& files,
-                          vw::cartography::GeoReference & georef) {
+                          vw::GeoReference & georef) {
 
   // Initialize
-  georef = vw::cartography::GeoReference();
+  georef = vw::GeoReference();
 
   for (int i = 0; i < (int)files.size(); i++) {
-    vw::cartography::GeoReference local_georef;
+    vw::GeoReference local_georef;
 
     // Sometimes ASP PC files can have georef, written there by stereo
     try {

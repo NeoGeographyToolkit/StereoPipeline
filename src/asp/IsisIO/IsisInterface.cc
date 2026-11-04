@@ -163,7 +163,7 @@ std::string IsisInterface::target_name() const {
 }
 
 // Manufacture a datum
-vw::cartography::Datum IsisInterface::get_datum_isis(bool use_sphere_for_non_earth) const {
+vw::Datum IsisInterface::get_datum_isis(bool use_sphere_for_non_earth) const {
   
   vw::Vector3 radii = this->target_radii();
   double radius1 = (radii[0] + radii[1]) / 2.0; // average the x and y axes (semi-major) 
@@ -171,8 +171,8 @@ vw::cartography::Datum IsisInterface::get_datum_isis(bool use_sphere_for_non_ear
   if (!use_sphere_for_non_earth)
     radius2 = radii[2]; // the z radius (semi-minor axis)
   
-  vw::cartography::Datum datum("D_" + this->target_name(), this->target_name(),
-                               "Reference Meridian", radius1, radius2, 0);
+  vw::Datum datum("D_" + this->target_name(), this->target_name(),
+                  "Reference Meridian", radius1, radius2, 0);
   return datum;
 }
 
@@ -378,4 +378,3 @@ void saveCsmStateToIsisCube(std::string const& cubeFile,
 }
 
 }} // end namespace asp::isis
-

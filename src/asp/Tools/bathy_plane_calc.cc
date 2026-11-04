@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
     if (!opt.water_surface.empty()) {
       vw::BathyPlane bp;
       // Populate bp.plane_proj from the raster's georef
-      if (!vw::cartography::read_georeference(bp.plane_proj, opt.water_surface))
+      if (!vw::read_georeference(bp.plane_proj, opt.water_surface))
         vw::vw_throw(vw::ArgumentErr() << "The input water-surface raster "
                      << opt.water_surface << " has no georeference.\n");
       vw::readBathyPlaneFromRaster(opt.water_surface, bp);
@@ -313,12 +313,12 @@ int main(int argc, char *argv[]) {
 
     // Only WGS84 is supported. Note that dem_georef and shape_georef
     // may or may not be overwritten below depending on the case.
-    vw::cartography::GeoReference dem_georef;
-    vw::cartography::Datum datum("WGS_1984");
+    vw::GeoReference dem_georef;
+    vw::Datum datum("WGS_1984");
     dem_georef.set_datum(datum);
     dem_georef.set_geographic();
     bool has_shape_georef = true;
-    vw::cartography::GeoReference shape_georef = dem_georef;
+    vw::GeoReference shape_georef = dem_georef;
 
     float dem_nodata_val = -std::numeric_limits<float>::max();
     vw::ImageViewRef<float> dem;
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
       // Read the DEM and its associated data
       // TODO(oalexan1): Think more about the interpolation method
       vw::vw_out() << "Reading the DEM: " << opt.dem << "\n";
-      if (!vw::cartography::read_georeference(dem_georef, opt.dem))
+      if (!vw::read_georeference(dem_georef, opt.dem))
         vw::vw_throw(vw::ArgumentErr() << "The input DEM has no georeference.\n");
 
       // We assume the WGS_1984 datum
@@ -358,8 +358,8 @@ int main(int argc, char *argv[]) {
 
     // Multi-water-body mode: fit a separate plane per lake and write a WSE raster.
     if (use_ortho_mask && !opt.output_water_surface.empty()) {
-      vw::cartography::GeoReference mask_georef;
-      if (!vw::cartography::read_georeference(mask_georef, opt.ortho_mask))
+      vw::GeoReference mask_georef;
+      if (!vw::read_georeference(mask_georef, opt.ortho_mask))
         vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       asp::calcMultiWaterBodyPlanes(opt.ortho_mask, mask_georef, dem_georef,
                                     interp_dem, dem_nodata_val,
@@ -374,7 +374,7 @@ int main(int argc, char *argv[]) {
     std::vector<vw::Vector3> llh_vec;
     double proj_lat = -1.0, proj_lon = -1.0; 
     std::vector<vw::Vector2> shape_xy_vec;
-    vw::cartography::GeoReference stereographic_georef;
+    vw::GeoReference stereographic_georef;
     std::string poly_color = "green";
 
     if (use_mask) {
@@ -402,7 +402,7 @@ int main(int argc, char *argv[]) {
 
     } else if (use_ortho_mask) {
       // Read the ortho mask. Will overwrite shape_georef.
-      if (!vw::cartography::read_georeference(shape_georef, opt.ortho_mask))
+      if (!vw::read_georeference(shape_georef, opt.ortho_mask))
         vw::vw_throw(vw::ArgumentErr() << "The input ortho-mask has no georeference.\n");
       asp::sampleOrthoMaskBd(opt.ortho_mask, shape_georef, dem_georef, interp_dem,
                              opt.num_samples, ecef_vec, llh_vec,
@@ -518,9 +518,9 @@ int main(int argc, char *argv[]) {
       auto dem_minus_plane 
         = asp::demMinusPlane(dem, dem_georef, plane, dem_nodata_val,
                              stereographic_georef);
-      vw::cartography::block_write_gdal_image(opt.dem_minus_plane, dem_minus_plane, 
-                                              has_georef, dem_georef, 
-                                              has_nodata, dem_nodata_val, opt, tpc);
+      vw::block_write_gdal_image(opt.dem_minus_plane, dem_minus_plane, 
+                                 has_georef, dem_georef, 
+                                 has_nodata, dem_nodata_val, opt, tpc);
     }
 
   } ASP_STANDARD_CATCHES;

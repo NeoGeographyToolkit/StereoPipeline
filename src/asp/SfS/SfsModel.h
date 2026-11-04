@@ -28,9 +28,9 @@
 #include <vw/Image/ImageViewRef.h>
 #include <vw/Math/Vector.h>
 
-namespace vw { namespace cartography {
+namespace vw {
   class GeoReference;
-}} // namespace vw::cartography
+} // namespace vw
 
 namespace asp {
 
@@ -91,7 +91,7 @@ void calcPointAndNormal(int col, int row,
                         double left_h, double center_h, double right_h,
                         double bottom_h, double top_h,
                         bool use_pq, double p, double q, // dem partial derivatives
-                        vw::cartography::GeoReference const& geo,
+                        vw::GeoReference const& geo,
                         double gridx, double gridy,
                         // Outputs
                         vw::Vector3 & xyz, vw::Vector3 & normal);
@@ -103,7 +103,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
                              bool use_pq, double p, double q, // dem partial derivatives
                              int col, int row,
                              DblImgT         const& dem,
-                             vw::cartography::GeoReference const& geo,
+                             vw::GeoReference const& geo,
                              bool model_shadows,
                              double max_dem_height,
                              double gridx, double gridy,
@@ -126,7 +126,7 @@ bool calcPixReflectanceInten(double left_h, double center_h, double right_h,
 // in the full image. For i = 0 or j = 0 invalid values are stored.
 void computeReflectanceAndIntensity(DblImgT const& dem,
                                     vw::ImageView<vw::Vector2> const& pq,
-                                    vw::cartography::GeoReference const& geo,
+                                    vw::GeoReference const& geo,
                                     bool model_shadows,
                                     bool show_progress,
                                     double & max_dem_height, // alias
@@ -158,7 +158,7 @@ void setupReflectance(asp::ReflParams & refl_params, asp::SfsOptions & opt);
 void calcIntenEstimHeights(SfsOptions & opt,
                            vw::ImageView<double> const& dem,
                            vw::ImageView<double> const& albedo,
-                           vw::cartography::GeoReference const& geo,
+                           vw::GeoReference const& geo,
                            bool show_progress,
                            double max_dem_height,
                            double gridx, double gridy,

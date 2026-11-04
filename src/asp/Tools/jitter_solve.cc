@@ -668,9 +668,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
     // Must have --csv-format unless the reference terrain is a DEM
     if (opt.csv_format_str.empty()) {
-      vw::cartography::GeoReference georef;
+      vw::GeoReference georef;
       bool has_georef = vw::has_image_extension(opt.reference_terrain) &&
-                        vw::cartography::read_georeference(georef, opt.reference_terrain);
+                        vw::read_georeference(georef, opt.reference_terrain);
       if (!has_georef)
         vw_throw(ArgumentErr()
                  << "Must set --csv-format when --reference-terrain is set "
@@ -867,9 +867,9 @@ void createProblemStructure(Options                      const& opt,
   bool have_weight_image = (!opt.weight_image.empty());
   vw::ImageViewRef<vw::PixelMask<float>> weight_image;
   float weight_image_nodata = -std::numeric_limits<float>::max();
-  vw::cartography::GeoReference weight_image_georef;
+  vw::GeoReference weight_image_georef;
   if (have_weight_image)
-    vw::cartography::readGeorefImage(opt.weight_image,
+    vw::readGeorefImage(opt.weight_image,
       weight_image_nodata, weight_image_georef, weight_image);
 
   int num_cameras = opt.camera_models.size();
@@ -908,7 +908,7 @@ void createProblemStructure(Options                      const& opt,
         const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
         Vector3 ecef(tri_point[0], tri_point[1], tri_point[2]);
         vw::PixelMask<float> img_wt
-          = vw::cartography::closestPixelVal(weight_image, weight_image_georef, ecef);
+          = vw::closestPixelVal(weight_image, weight_image_georef, ecef);
 
         // Flag bad weights as outliers
         if (!is_valid(img_wt) || std::isnan(img_wt.child()) || img_wt.child() <= 0.0) {
@@ -961,7 +961,7 @@ void jitterSolvePass(int                                 pass,
   // Update tri points from DEM and create anchor xyz from DEM.
   bool have_dem = (!opt.heights_from_dem.empty() || !opt.heights_from_dem_list.empty());
   std::vector<Vector3> dem_xyz_vec;
-  vw::cartography::GeoReference dem_georef, anchor_georef;
+  vw::GeoReference dem_georef, anchor_georef;
   ImageViewRef<PixelMask<double>> interp_anchor_dem;
   bool warn_only = false; // for jitter solving we always know well the datum
   if (have_dem) {
@@ -980,7 +980,7 @@ void jitterSolvePass(int                                 pass,
   }
 
   // Handle the roll/yaw constraint DEM. We already checked that one of thse cases should work
-  vw::cartography::GeoReference roll_yaw_georef;
+  vw::GeoReference roll_yaw_georef;
   if (opt.roll_weight > 0 || opt.yaw_weight > 0) {
     if (have_dem) {
       // dem_georef is the first heights-from-dem DEM's georef
@@ -1205,7 +1205,7 @@ void jitterSolvePass(int                                 pass,
         ht_dem_file = dem_files[0];
     }
     if (!ht_dem_file.empty()) {
-      vw::cartography::GeoReference ht_georef;
+      vw::GeoReference ht_georef;
       vw::ImageViewRef<vw::PixelMask<double>> ht_masked_dem;
       asp::create_masked_dem(ht_dem_file, ht_georef, ht_masked_dem);
       got_radius = asp::meanDemRadius(ht_masked_dem, ht_georef, opt.datum,

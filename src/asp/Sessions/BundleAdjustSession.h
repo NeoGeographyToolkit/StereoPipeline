@@ -47,7 +47,7 @@ void matchesFromMapprojImages(int i, int j,
                               asp::BaOptions& opt, asp::SessionPtr session,
                               std::vector<std::string> const& map_files,
                               std::string mapproj_dem,
-                              vw::cartography::GeoReference const& dem_georef,
+                              vw::GeoReference const& dem_georef,
                               vw::ImageViewRef<vw::PixelMask<double>> & interp_dem,
                               std::string const& match_filename);
 

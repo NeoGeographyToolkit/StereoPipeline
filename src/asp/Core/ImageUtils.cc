@@ -46,7 +46,7 @@ namespace asp {
 /// Load an input image, georef, and nodata value
 void load_image(std::string const& image_file,
                 vw::ImageViewRef<double> & image, double & nodata,
-                bool & has_georef, vw::cartography::GeoReference & georef) {
+                bool & has_georef, vw::GeoReference & georef) {
   
   // Ensure the output variables are initialized
   nodata = -std::numeric_limits<double>::max();
@@ -64,12 +64,12 @@ void load_image(std::string const& image_file,
     nodata = vw::get_default_nodata(in_rsrc.channel_type());
   }
   
-  has_georef = vw::cartography::read_georeference(georef, image_file);
+  has_georef = vw::read_georeference(georef, image_file);
 }
 
 /// Create a masked DEM
 void create_masked_dem(std::string const& dem_file,
-                       vw::cartography::GeoReference & dem_georef,
+                       vw::GeoReference & dem_georef,
                        vw::ImageViewRef<vw::PixelMask<double>> & masked_dem) {
   
   vw_out() << "Loading DEM: " << dem_file << "\n";
@@ -86,7 +86,7 @@ void create_masked_dem(std::string const& dem_file,
   masked_dem = create_mask(DiskImageView<double>(dem_file), nodata_val);
 
   // Read the georef. It must exist.
-  bool is_good = vw::cartography::read_georeference(dem_georef, dem_file);
+  bool is_good = vw::read_georeference(dem_georef, dem_file);
   if (!is_good) {
     vw_throw(ArgumentErr() << "Error: Cannot read a georeference from DEM: "
              << dem_file << ".\n");
@@ -95,7 +95,7 @@ void create_masked_dem(std::string const& dem_file,
 
 /// Create a DEM ready to use for interpolation
 void create_interp_dem(std::string const& dem_file,
-                       vw::cartography::GeoReference & dem_georef,
+                       vw::GeoReference & dem_georef,
                        ImageViewRef<PixelMask<double>> & interp_dem) {
   
   vw::ImageViewRef<vw::PixelMask<double>> masked_dem;
@@ -109,8 +109,8 @@ void create_interp_dem(std::string const& dem_file,
 
 // Estimate the mean terrain radius by sampling a DEM on a grid. See the header.
 bool meanDemRadius(vw::ImageViewRef<vw::PixelMask<double>> const& dem,
-                   vw::cartography::GeoReference const& georef,
-                   vw::cartography::Datum const& datum,
+                   vw::GeoReference const& georef,
+                   vw::Datum const& datum,
                    // Output
                    double & mean_radius) {
 
@@ -162,7 +162,7 @@ bool meanDemRadius(vw::ImageViewRef<vw::PixelMask<double>> const& dem,
 }
 
 // A representative datum radius, used when no DEM is available. See the header.
-double meanDatumRadius(vw::cartography::Datum const& datum) {
+double meanDatumRadius(vw::Datum const& datum) {
   return 0.5 * (datum.semi_major_axis() + datum.semi_minor_axis());
 }
 
@@ -172,8 +172,8 @@ double meanDatumRadius(vw::cartography::Datum const& datum) {
 bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                             vw::CamPtr camera_model,
-                            vw::cartography::GeoReference const& georef,
-                            vw::cartography::GeoReference const& dem_georef) {
+                            vw::GeoReference const& georef,
+                            vw::GeoReference const& dem_georef) {
 
   // Get IP coordinate in the DEM
   Vector2 pix(P.x, P.y);
@@ -263,11 +263,11 @@ void read_mapproj_header(std::string const& map_file,
   cam_file_key = "CAMERA_FILE";
   dem_file_key = "DEM_FILE";
 
-  vw::cartography::read_header_string(*rsrc.get(), adj_key,      adj_prefix);
-  vw::cartography::read_header_string(*rsrc.get(), img_file_key, image_file);
-  vw::cartography::read_header_string(*rsrc.get(), cam_type_key, cam_type);
-  vw::cartography::read_header_string(*rsrc.get(), cam_file_key, cam_file);
-  vw::cartography::read_header_string(*rsrc.get(), dem_file_key, dem_file);
+  vw::read_header_string(*rsrc.get(), adj_key,      adj_prefix);
+  vw::read_header_string(*rsrc.get(), img_file_key, image_file);
+  vw::read_header_string(*rsrc.get(), cam_type_key, cam_type);
+  vw::read_header_string(*rsrc.get(), cam_file_key, cam_file);
+  vw::read_header_string(*rsrc.get(), dem_file_key, dem_file);
 
   // Fall back to reading cam2map asp_map PVL metadata from .cub files.
   if (dem_file.empty())

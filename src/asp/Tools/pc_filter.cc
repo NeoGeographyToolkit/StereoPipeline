@@ -52,7 +52,6 @@
 #include <limits>
 
 using namespace vw;
-using namespace vw::cartography;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -447,12 +446,12 @@ int main(int argc, char *argv[]) {
     
     // Save as .tif, .pcd, or .pcl
     if (ext == ".tif") {
-      vw::cartography::GeoReference georef;
-      bool has_georef = vw::cartography::read_georeference(georef, opt.input_cloud);
+      vw::GeoReference georef;
+      bool has_georef = vw::read_georeference(georef, opt.input_cloud);
       bool has_nodata = false;
       double nodata = 0.0;
       vw_out() << "Writing: " << opt.output_cloud << "\n";
-      vw::cartography::block_write_gdal_image
+      vw::block_write_gdal_image
         (opt.output_cloud, clean_points, has_georef, georef, has_nodata, nodata, opt,
          TerminalProgressCallback("asp", "\t--> Filter: "));
     } else {
@@ -460,12 +459,12 @@ int main(int argc, char *argv[]) {
     }
 
     if (opt.output_weight != "") {
-      vw::cartography::GeoReference georef;
+      vw::GeoReference georef;
       bool has_georef = false;
       bool has_nodata = false;
       double nodata = 0;
       vw_out() << "Writing weights: " << opt.output_weight << "\n";
-      vw::cartography::block_write_gdal_image
+      vw::block_write_gdal_image
         (opt.output_weight, weight, has_georef, georef, has_nodata, nodata, opt,
        TerminalProgressCallback("asp", "\t--> Weight per point:"));
     }

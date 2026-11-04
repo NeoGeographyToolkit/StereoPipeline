@@ -108,11 +108,11 @@ AppData::AppData(vw::GdalWriteOptions const& opt_in,
   if (use_georef) {
     for (int i = 0; i < num_images; i++) {  
       world2image[i]
-        = vw::cartography::GeoTransform(images[BASE_IMAGE_ID].georef,
-                                        images[i].georef);
+        = vw::GeoTransform(images[BASE_IMAGE_ID].georef,
+                           images[i].georef);
       image2world[i]
-        = vw::cartography::GeoTransform(images[i].georef,
-                                        images[BASE_IMAGE_ID].georef);
+        = vw::GeoTransform(images[i].georef,
+                           images[BASE_IMAGE_ID].georef);
     }
   }
   

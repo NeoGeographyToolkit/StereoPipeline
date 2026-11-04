@@ -62,7 +62,7 @@ void PleiadesCameraModel::populateCsmModel() {
   // Populate CsmModel class members
   // Do not use a precision below 1.0-e8 as then the linescan model will return junk.
   m_desired_precision = asp::DEFAULT_CSM_DESIRED_PRECISION;
-  vw::cartography::Datum datum("WGS84"); // this sensor is used for Earth only
+  vw::Datum datum("WGS84"); // this sensor is used for Earth only
   m_semi_major_axis = datum.semi_major_axis();
   m_semi_minor_axis = datum.semi_minor_axis();
   
@@ -408,4 +408,3 @@ load_spot_camera_model_from_xml(std::string const& path) {
 } // End function load_spot_camera_model()
 
 } // end namespace asp
-

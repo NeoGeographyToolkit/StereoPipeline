@@ -41,7 +41,7 @@ bool sanitizePixelSigma(vw::Vector2 & pixel_sigma) {
 // the client code.
 ceres::CostFunction* LLHError::Create(vw::Vector3            const& observation_xyz,
                                       vw::Vector3            const& sigma,
-                                      vw::cartography::Datum const& datum) {
+                                      vw::Datum const& datum) {
   return (new ceres::NumericDiffCostFunction<LLHError, ceres::CENTRAL, 3, 3>
           (new LLHError(observation_xyz, sigma, datum)));
 }
@@ -66,7 +66,7 @@ bool LLHError::operator()(const double* point, double* residuals) const {
 // vertical components. Shared by the two position-uncertainty cost functions.
 vw::Matrix3x3 setupPositionUnc(std::string const& tag, vw::Vector3 const& anchor,
                                vw::Vector2 const& uncertainty, double weight,
-                               vw::cartography::Datum const& datum) {
+                               vw::Datum const& datum) {
   if (weight <= 0)
     vw::vw_throw(vw::ArgumentErr() << tag << ": Invalid weight: "
               << weight << ". It must be positive.\n");
@@ -82,7 +82,7 @@ vw::Matrix3x3 setupPositionUnc(std::string const& tag, vw::Vector3 const& anchor
 
 CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
                                          vw::Vector2 const& uncertainty, double weight,
-                                         vw::cartography::Datum const& datum,
+                                         vw::Datum const& datum,
                                          double camera_position_uncertainty_power):
   m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_weight(weight),
   m_camera_position_uncertainty_power(camera_position_uncertainty_power) {
@@ -155,7 +155,7 @@ bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) c
 GroupCamUncertaintyError::GroupCamUncertaintyError
                           (vw::Vector3 const& init_pos, vw::Vector3 const& centroid,
                            vw::Vector2 const& uncertainty, double weight,
-                           vw::cartography::Datum const& datum,
+                           vw::Datum const& datum,
                            double camera_position_uncertainty_power):
   m_init_pos(init_pos), m_centroid(centroid), m_uncertainty(uncertainty), m_weight(weight),
   m_camera_position_uncertainty_power(camera_position_uncertainty_power) {
