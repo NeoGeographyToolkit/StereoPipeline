@@ -40,7 +40,6 @@
 #include <asp/Core/Macros.h>
 
 using namespace vw;
-using namespace vw::camera;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 

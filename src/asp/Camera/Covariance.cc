@@ -28,7 +28,6 @@
 
 #include <iostream>
 
-using namespace vw::camera;
 
 namespace asp {
 
@@ -128,8 +127,8 @@ void bendRay(double refraction_index,
 // those will be pre-multiplied by the squares of deltaPosition and
 // deltaQuat, with the same final result.
 void scaledDGTriangulationJacobian(vw::Datum const& datum,
-                                   vw::camera::CameraModel const* cam1,
-                                   vw::camera::CameraModel const* cam2,
+                                   vw::CameraModel const* cam1,
+                                   vw::CameraModel const* cam2,
                                    vw::Vector2 const& pix1,
                                    vw::Vector2 const& pix2,
                                    vw::Matrix<double> & J,
@@ -139,8 +138,8 @@ void scaledDGTriangulationJacobian(vw::Datum const& datum,
 
   // Handle adjusted cameras
   bool adjusted_cameras = false;
-  const AdjustedCameraModel *adj_cam1 = dynamic_cast<const AdjustedCameraModel*>(cam1);
-  const AdjustedCameraModel *adj_cam2 = dynamic_cast<const AdjustedCameraModel*>(cam2);
+  const vw::AdjustedCameraModel *adj_cam1 = dynamic_cast<const vw::AdjustedCameraModel*>(cam1);
+  const vw::AdjustedCameraModel *adj_cam2 = dynamic_cast<const vw::AdjustedCameraModel*>(cam2);
   if ((adj_cam1 == NULL) != (adj_cam2 == NULL))
     vw::vw_throw(vw::ArgumentErr() << "The cameras must be either both "
                  << "adjusted or both unadjusted.\n");
@@ -326,8 +325,8 @@ void insertBlock(int start, int size, double* inputVals, vw::Matrix<double> & C)
 // what is found in scaledDGTriangulationJacobian(). Later we will do
 // J * C * J^T. The same order of variables as in
 // scaledDGTriangulationJacobian must be used.
-void scaledDGSatelliteCovariance(vw::camera::CameraModel const* cam1,
-                                 vw::camera::CameraModel const* cam2,
+void scaledDGSatelliteCovariance(vw::CameraModel const* cam1,
+                                 vw::CameraModel const* cam2,
                                  vw::Vector2 const& pix1,
                                  vw::Vector2 const& pix2,
                                  vw::Matrix<double> & C) {
@@ -448,8 +447,8 @@ vw::Vector3 nedTri(vw::Vector3 const& cam1_ctr, vw::Vector3 const& cam2_ctr,
 // Bundle-adjusted cameras need no special treatment.
 void triangulationJacobian(vw::Datum const& datum,
                            vw::Vector3 const& tri_nominal,
-                           vw::camera::CameraModel const* cam1,
-                           vw::camera::CameraModel const* cam2,
+                           vw::CameraModel const* cam1,
+                           vw::CameraModel const* cam2,
                            vw::Vector2 const& pix1,
                            vw::Vector2 const& pix2,
                            vw::Matrix<double> & J,
@@ -532,8 +531,8 @@ void triangulationJacobian(vw::Datum const& datum,
 vw::Vector2 propagateCovariance(vw::Vector3 const& tri_nominal,
                                 vw::Datum const& datum,
                                 double stddev1, double stddev2,
-                                vw::camera::CameraModel const* cam1,
-                                vw::camera::CameraModel const* cam2,
+                                vw::CameraModel const* cam1,
+                                vw::CameraModel const* cam2,
                                 vw::Vector2 const& pix1,
                                 vw::Vector2 const& pix2,
                                 bool do_bend,

@@ -27,12 +27,12 @@
 namespace asp {
 
   // Read the horizontal error from some camera models
-  double horizontalStDevFromCamera(boost::shared_ptr<vw::camera::CameraModel> camera_model,
+  double horizontalStDevFromCamera(boost::shared_ptr<vw::CameraModel> camera_model,
                                    bool & message_printed) {
     
   // Try to create horizontal stddev based on the RPC camera file
   const asp::RPCModel *rpc
-    = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(camera_model.get()));
+    = dynamic_cast<const asp::RPCModel*>(vw::unadjusted_model(camera_model.get()));
   if (rpc != NULL) {
     if (!message_printed) {
       vw::vw_out() << "Input horizontal stddev values needed for error propagation "
@@ -56,7 +56,7 @@ namespace asp {
   // Try to create horizontal stddev based on the Pleiades camera files
   const asp::PleiadesCameraModel *pleiades
     = dynamic_cast<const asp::PleiadesCameraModel*>
-    (vw::camera::unadjusted_model(camera_model.get()));
+    (vw::unadjusted_model(camera_model.get()));
   if (pleiades != NULL) {
     double accuracy = pleiades->m_accuracy_stdv;
     if (!message_printed) {

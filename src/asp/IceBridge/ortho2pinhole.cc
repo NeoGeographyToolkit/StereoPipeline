@@ -72,7 +72,6 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace vw::camera;
 
 struct Options : public vw::GdalWriteOptions {
   std::string raw_image, ortho_image, input_cam, output_cam, reference_dem, camera_estimate;
@@ -211,7 +210,7 @@ public:
         result[2*i  ] = pixel[0];
         result[2*i+1] = pixel[1];
         mean_error += (fabs(pixel[0] - m_pixel_coords[i][0]) + fabs(pixel[1] - m_pixel_coords[i][1]))/2.0;
-      } catch(vw::camera::PointToPixelErr) {
+      } catch(vw::PointToPixelErr) {
         result[2*i  ] = NO_VIEW_ERROR;
         result[2*i+1] = NO_VIEW_ERROR;
         ++missedPixelCount;
@@ -456,8 +455,8 @@ void load_camera_and_find_ip(Options const& opt,
 
 /// Copy pertinent information from the nav camera estimate to the
 ///  pinhole camera model so that we keep the intrinsic parameters.
-void update_pinhole_from_nav_estimate(vw::camera::PinholeModel *pcam,
-                                      vw::camera::PinholeModel const& nav_camera) {
+void update_pinhole_from_nav_estimate(vw::PinholeModel *pcam,
+                                      vw::PinholeModel const& nav_camera) {
   // Copy the camera position
   pcam->set_camera_center(nav_camera.camera_center());
 
@@ -476,7 +475,7 @@ void update_pinhole_from_nav_estimate(vw::camera::PinholeModel *pcam,
 /// - pcam is the input camera model.
 void get_estimated_camera_position(Options const& opt,
                                    bool have_dem_points,
-                                   vw::camera::PinholeModel *pcam,
+                                   vw::PinholeModel *pcam,
                                    std::vector<Vector3> const& raw_flat_xyz,
                                    std::vector<Vector3> const& ortho_flat_xyz) {
 
@@ -539,7 +538,7 @@ double refine_camera_with_dem_pts(Options const& opt,
                                   bool use_extra_caution,
                                   std::vector<Vector3> const& ortho_dem_xyz,
                                   std::vector<Vector2> const& raw_pixels2,
-                                  vw::camera::PinholeModel *pcam) {
+                                  vw::PinholeModel *pcam) {
 
   int num_pts = ortho_dem_xyz.size();
 
@@ -691,7 +690,7 @@ void ortho2pinhole(Options & opt) {
 
   std::vector<vw::InterestPoint> raw_ip, ortho_ip;
   vw::read_binary_match_file(match_filename, raw_ip, ortho_ip);
-  vw::camera::PinholeModel *pcam = dynamic_cast<vw::camera::PinholeModel*>(cam.get());
+  vw::PinholeModel *pcam = dynamic_cast<vw::PinholeModel*>(cam.get());
   if (pcam == NULL) {
     vw_throw(ArgumentErr() << "Expecting a pinhole camera model.\n");
   }

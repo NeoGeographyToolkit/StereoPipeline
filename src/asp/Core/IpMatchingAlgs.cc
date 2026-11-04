@@ -400,8 +400,8 @@ std::string unwarped_disp_file(std::string const& prefix) {
 }
   
 // Find and sort the convergence angles for given cameras and interest points
-void convergence_angles(vw::camera::CameraModel const * left_cam,
-                        vw::camera::CameraModel const * right_cam,
+void convergence_angles(vw::CameraModel const * left_cam,
+                        vw::CameraModel const * right_cam,
                         std::vector<vw::InterestPoint> const& left_ip,
                         std::vector<vw::InterestPoint> const& right_ip,
                         std::vector<double> & sorted_angles) {

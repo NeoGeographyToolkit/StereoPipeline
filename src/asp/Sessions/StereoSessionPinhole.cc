@@ -39,7 +39,6 @@
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace vw::camera;
 
 // This class assumes pinhole cameras with no datum, such as on a rover.
 // For pinhole satellite images the nadirpinhole mode is suggested.
@@ -66,7 +65,7 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
   if (stereo_settings().alignment_method != "epipolar") {
     // Not epipolar, just load the camera model.
     return asp::load_adjusted_model(
-      vw::camera::load_pinhole_camera_model(camera_file),
+      vw::load_pinhole_camera_model(camera_file),
       image_file, camera_file, ba_prefix, pixel_offset);
   }
   // Otherwise handle the epipolar case
@@ -116,9 +115,9 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
 
     // Fetch CAHV version of the two input pinhole files
     boost::shared_ptr<CAHVModel> left_cahv
-      = vw::camera::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file );
+      = vw::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file );
     boost::shared_ptr<CAHVModel> right_cahv
-      = vw::camera::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
+      = vw::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
 
     // Create epipolar rectified camera views
     boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
@@ -144,7 +143,7 @@ bool StereoSessionPinhole::have_datum() const {
          StereoSession::have_datum();
 }
 
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 StereoSessionPinhole::load_camera_model
   (std::string const& image_file, std::string const& camera_file, 
    std::string const& ba_prefix, Vector2 pixel_offset) const {
@@ -165,7 +164,7 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
                    vw::ImageViewRef<vw::PixelMask<float>> & Rimg) {
 
   // Load the two images and fetch the two camera models
-  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+  boost::shared_ptr<vw::CameraModel> left_cam, right_cam;
 
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
   if (boost::ends_with(lcase_file, ".pinhole") || boost::ends_with(lcase_file, ".tsai")) {
@@ -208,8 +207,8 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
 }
 
 void StereoSessionPinhole::get_unaligned_camera_models(
-                                 boost::shared_ptr<vw::camera::CameraModel> &left_cam,
-                                 boost::shared_ptr<vw::camera::CameraModel> &right_cam,
+                                 boost::shared_ptr<vw::CameraModel> &left_cam,
+                                 boost::shared_ptr<vw::CameraModel> &right_cam,
                                  std::string ba_prefix) const{
 
   // Retrieve the pixel offset (if any) to cropped images
@@ -222,22 +221,22 @@ void StereoSessionPinhole::get_unaligned_camera_models(
 
   // Load the camera models adjusted for cropping
   
-  left_cam  = load_adjusted_model(vw::camera::load_pinhole_camera_model(m_left_camera_file),
+  left_cam  = load_adjusted_model(vw::load_pinhole_camera_model(m_left_camera_file),
                                   m_left_image_file, m_left_camera_file, ba_prefix, left_pixel_offset);
-  right_cam = load_adjusted_model(vw::camera::load_pinhole_camera_model(m_right_camera_file),
+  right_cam = load_adjusted_model(vw::load_pinhole_camera_model(m_right_camera_file),
                                   m_right_image_file, m_right_camera_file, ba_prefix, right_pixel_offset);
 }
 
 
-void StereoSessionPinhole::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                         boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+void StereoSessionPinhole::camera_models(boost::shared_ptr<vw::CameraModel> &cam1,
+                                         boost::shared_ptr<vw::CameraModel> &cam2) {
   vw::Vector2i left_out_size, right_out_size;
   load_camera_models(cam1, cam2, left_out_size, right_out_size);
 }
 
 void StereoSessionPinhole::load_camera_models(
-                   boost::shared_ptr<vw::camera::CameraModel> &left_cam,
-                   boost::shared_ptr<vw::camera::CameraModel> &right_cam,
+                   boost::shared_ptr<vw::CameraModel> &left_cam,
+                   boost::shared_ptr<vw::CameraModel> &right_cam,
                    Vector2i &left_out_size, Vector2i &right_out_size) {
 
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
@@ -343,19 +342,19 @@ void StereoSessionPinhole::pinhole_cam_trans(vw::TransformPtr & left_trans,
                                              vw::TransformPtr & right_trans) {
 
   // Load the epipolar aligned camera models
-  boost::shared_ptr<camera::CameraModel> left_aligned_model, right_aligned_model;
+  boost::shared_ptr<vw::CameraModel> left_aligned_model, right_aligned_model;
 
   // TODO(oalexan1): Models must be loaded by now, presumably. Then
   // pinhole_cam_trans can be const, and we don't to cast away the const in tx_left()
   // and tx_right() above.
   this->camera_models(left_aligned_model, right_aligned_model);
   
-  boost::shared_ptr<camera::CameraModel> left_input_model, right_input_model;
+  boost::shared_ptr<vw::CameraModel> left_input_model, right_input_model;
   std::string ba_prefix = asp::stereo_settings().bundle_adjust_prefix;
   this->get_unaligned_camera_models(left_input_model, right_input_model, ba_prefix);
 
   // Check the type, CAHV* type models are not supported!
-  typedef vw::camera::PinholeModel PinModel;
+  typedef vw::PinholeModel PinModel;
   PinModel* left_in_ptr = dynamic_cast<PinModel*>(&(*left_input_model));
   if (!left_in_ptr)
     vw_throw(NoImplErr() << "Detected CAHV-type cameras. Use an alignment "

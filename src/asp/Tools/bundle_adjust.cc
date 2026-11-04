@@ -78,7 +78,6 @@ namespace fs = boost::filesystem;
 
 using namespace vw;
 using namespace asp;
-using namespace vw::camera;
 
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.

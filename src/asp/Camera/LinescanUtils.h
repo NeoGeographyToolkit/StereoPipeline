@@ -32,7 +32,7 @@ namespace asp {
 
   // Find the underlying CSM camera. Applies to all linescan CSM sessions.
   class CsmModel;
-  CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam);
+  CsmModel * csm_model(boost::shared_ptr<vw::CameraModel> cam);
 
 } // end namespace asp
 

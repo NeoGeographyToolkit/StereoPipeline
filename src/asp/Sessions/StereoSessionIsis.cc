@@ -31,7 +31,6 @@
 #include <boost/shared_ptr.hpp>
 
 using namespace vw;
-using namespace vw::camera;
 
 namespace asp {
 
@@ -44,16 +43,16 @@ bool StereoSessionIsis::supports_multi_threading () const {
 /// accurate non-spherical datum, hence radii[2]. However, for the purpose of
 /// creating a DEM on non-Earth planets people usually just use a spherical
 /// datum, which we'll do as well.  Maybe at some point this needs to change.
-vw::Datum StereoSessionIsis::get_datum(const vw::camera::CameraModel* cam,
+vw::Datum StereoSessionIsis::get_datum(const vw::CameraModel* cam,
                                        bool use_sphere_for_non_earth) const {
   const IsisCameraModel * isis_cam
-    = dynamic_cast<const IsisCameraModel*>(vw::camera::unadjusted_model(cam));
+    = dynamic_cast<const IsisCameraModel*>(vw::unadjusted_model(cam));
   VW_ASSERT(isis_cam != NULL, ArgumentErr() << "StereoSessionISIS: Invalid camera.\n");
 
   return isis_cam->get_datum_isis(use_sphere_for_non_earth);
 }
 
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 StereoSessionIsis::load_camera_model(std::string const& image_file,
                                      std::string const& camera_file,
                                      std::string const& ba_prefix,

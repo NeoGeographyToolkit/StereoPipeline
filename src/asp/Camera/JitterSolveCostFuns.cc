@@ -1026,8 +1026,8 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
         double gsd = 0.0;
         if (use_anchor_uncertainty) {
           try {
-            gsd = vw::camera::estimatedGSD(opt.camera_models[icam].get(), image_box,
-                                           pix, anchor_dem_xyz);
+            gsd = vw::estimatedGSD(opt.camera_models[icam].get(), image_box,
+                                   pix, anchor_dem_xyz);
           } catch (...) {
             continue; // cannot convert the uncertainty to pixels without a GSD
           }
@@ -1240,8 +1240,8 @@ void addReprojCamErrs(asp::BaBaseOptions                    const & opt,
         vw::Vector3 xyz_obs(tri_point[0], tri_point[1], tri_point[2]);
         double gsd = 0.0;
         try {
-          gsd = vw::camera::estimatedGSD(opt.camera_models[icam].get(), image_box,
-                                         pix_obs, xyz_obs);
+          gsd = vw::estimatedGSD(opt.camera_models[icam].get(), image_box,
+                                 pix_obs, xyz_obs);
         } catch (...) {
           continue;
         }
@@ -2355,8 +2355,8 @@ void addRefTerrainCostFun(asp::BaBaseOptions            const& opt,
       double gsd = 0.0;
       try {
         vw::Vector2 pix_obs = csm_models[left_index]->point_to_pixel(reference_xyz);
-        gsd = vw::camera::estimatedGSD(csm_models[left_index], image_boxes[left_index],
-                                        pix_obs, reference_xyz);
+        gsd = vw::estimatedGSD(csm_models[left_index], image_boxes[left_index],
+                                pix_obs, reference_xyz);
       } catch (...) {
         continue;
       }

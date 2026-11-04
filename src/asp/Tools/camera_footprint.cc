@@ -45,7 +45,6 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace vw::camera;
 
 struct Options : public vw::GdalWriteOptions {
   std::string image_file, camera_file, stereo_session, bundle_adjust_prefix,

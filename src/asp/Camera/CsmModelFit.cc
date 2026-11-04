@@ -913,7 +913,7 @@ void fitCsmLinescanToOpticalBar(std::string const& camFile,
       << num_csm_cols - 1 << ". This may lead to problems with the best-fit CSM model.\n";
   
   // Open the Optical bar file
-  vw::camera::OpticalBarModel optical_bar_cam(camFile);
+  vw::OpticalBarModel optical_bar_cam(camFile);
   vw::Vector2 optical_center = optical_bar_cam.get_optical_center();
   vw::Vector2 image_size = optical_bar_cam.get_image_size();
 

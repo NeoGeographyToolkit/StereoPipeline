@@ -29,9 +29,7 @@
 #include <string>
 
 namespace vw {
-  namespace camera {
     class CameraModel;
-  }
 }
 
 namespace asp {

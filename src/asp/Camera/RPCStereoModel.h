@@ -25,9 +25,7 @@
 // TODO: Why not just include the file in the .h file?
 // forward declaration
 namespace vw {
-  namespace camera {
     class CameraModel;
-  }
 }
 
 namespace asp {
@@ -41,12 +39,12 @@ namespace asp {
     //------------------------------------------------------------------
     // Constructors / Destructors
     //------------------------------------------------------------------
-    RPCStereoModel(std::vector<const vw::camera::CameraModel *> const& cameras,
+    RPCStereoModel(std::vector<const vw::CameraModel *> const& cameras,
                    double angle_tol = 0.0):
       vw::stereo::StereoModel(cameras, angle_tol){}
       
-    RPCStereoModel(vw::camera::CameraModel const* camera_model1,
-                   vw::camera::CameraModel const* camera_model2,
+    RPCStereoModel(vw::CameraModel const* camera_model1,
+                   vw::CameraModel const* camera_model2,
                    double angle_tol = 0.0):
       vw::stereo::StereoModel(camera_model1, camera_model2, angle_tol){}
     

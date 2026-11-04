@@ -191,8 +191,8 @@ vw::Vector3 sunPositionFromCamera(vw::CamPtr camera) {
 
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   // Try isis
-  vw::camera::IsisCameraModel* isis_cam
-    = dynamic_cast<vw::camera::IsisCameraModel*>(ucam.get());
+  vw::IsisCameraModel* isis_cam
+    = dynamic_cast<vw::IsisCameraModel*>(ucam.get());
   if (isis_cam != NULL)
     return isis_cam->sun_position();
 #endif // ASP_HAVE_PKG_ISIS

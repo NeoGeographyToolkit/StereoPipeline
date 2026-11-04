@@ -27,9 +27,9 @@
 #include <algorithm>
 
 // forward decl
-namespace vw { namespace camera {
+namespace vw {
   class PinholeModel;
-}}  // namespace vw::camera
+}  // namespace vw
 
 namespace rig {
 
@@ -39,7 +39,7 @@ class cameraImage;
 // A utility for creating a pinhole camera model
 void createPinholeCamera(rig::CameraParameters const& cam_params,
                          Eigen::Affine3d const& world_to_cam,
-                         vw::camera::PinholeModel& pinhole_cam);
+                         vw::PinholeModel& pinhole_cam);
 
 // A utility for saving a camera in a format ASP understands. For now do not save
 // the distortion.

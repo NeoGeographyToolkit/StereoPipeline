@@ -952,7 +952,7 @@ std::vector<double> stripSign(std::vector<double> const & vals) {
 
 // Create a CSM frame camera model. This requires a lot of bookkeeping. Use
 // cam_test to compare such model with ASP's Pinhole model with same data. That
-// is created as: vw::camera::PinholeModel pin(C, R, focal_length,
+// is created as: vw::PinholeModel pin(C, R, focal_length,
 // focal_length, cx, cy);
 void CsmModel::createFrameModel(int cols, int rows,  // in pixels
         double cx, double cy, // col and row of optical center, in units of pixel pitch
@@ -1084,7 +1084,7 @@ void CsmModel::createFrameModel(int cols, int rows,  // in pixels
 }
 
 // Create a CSM frame camera model from pinhole camera model.
-void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
+void CsmModel::createFrameModel(vw::PinholeModel const& pin_model,
                                 int cols, int rows,  // in pixels
                                 double semi_major_axis, double semi_minor_axis, // in meters
                                 std::string const& distortionType,
@@ -1116,7 +1116,7 @@ void CsmModel::createFrameModel(vw::camera::PinholeModel const& pin_model,
 // lens distortion and no unusual line or sample adjustments in CSM. Compare
 // these with cam_test.
 // TODO(oalexan1): This code is not used and not tested.
-vw::camera::PinholeModel CsmModel::pinhole() const {
+vw::PinholeModel CsmModel::pinhole() const {
 
   // Camera center
   double x = 0, y = 0, z = 0;
@@ -1140,9 +1140,9 @@ vw::camera::PinholeModel CsmModel::pinhole() const {
   vw::Vector2 optical_center = this->optical_center() * this->frame_pixel_pitch();
 
   // Create a pinhole model with zero distortion
-  vw::camera::PinholeModel pin(cam_ctr, cam_rot, f, f,
-                               optical_center[0], optical_center[1],
-                               NULL, this->frame_pixel_pitch());
+  vw::PinholeModel pin(cam_ctr, cam_rot, f, f,
+                       optical_center[0], optical_center[1],
+                       NULL, this->frame_pixel_pitch());
 
   // Distortion
   DistortionType dist_type = this->distortion_type();
@@ -1159,7 +1159,7 @@ vw::camera::PinholeModel CsmModel::pinhole() const {
     for (size_t i = 0; i < dist.size(); i++)
       coeffs[i] = dist[i];
 
-    vw::camera::TsaiLensDistortion distModel(coeffs);
+    vw::TsaiLensDistortion distModel(coeffs);
     pin.set_lens_distortion(&distModel);
   }
 

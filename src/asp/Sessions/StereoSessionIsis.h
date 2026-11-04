@@ -38,7 +38,7 @@ public:
   virtual bool supports_multi_threading() const;
 
   /// Returns the target datum to use for a given camera model
-  virtual vw::Datum get_datum(const vw::camera::CameraModel* cam,
+  virtual vw::Datum get_datum(const vw::CameraModel* cam,
                                bool use_sphere_for_non_earth) const;
 
   /// Simple factory function
@@ -46,7 +46,7 @@ public:
 
 protected:
   /// Function to load a camera model of the particular type
-  virtual boost::shared_ptr<vw::camera::CameraModel>
+  virtual boost::shared_ptr<vw::CameraModel>
   load_camera_model(std::string const& image_file,
                     std::string const& camera_file,
                     std::string const& ba_prefix,

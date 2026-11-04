@@ -70,7 +70,7 @@ std::string pinholeFile(std::string const& out_dir,
 // A utility for creating a pinhole camera model
 void createPinholeCamera(rig::CameraParameters const& cam_params,
                          Eigen::Affine3d const& world_to_cam,
-                         vw::camera::PinholeModel& pinhole_cam) {
+                         vw::PinholeModel& pinhole_cam) {
 
   // Go from world_to_cam to cam_to_world
   Eigen::MatrixXd T = world_to_cam.inverse().matrix();
@@ -88,19 +88,19 @@ void createPinholeCamera(rig::CameraParameters const& cam_params,
   double cv = cam_params.GetOpticalOffset()[1];
 
   auto dist = cam_params.GetDistortion();
-  boost::shared_ptr<vw::camera::LensDistortion> distortion;
+  boost::shared_ptr<vw::LensDistortion> distortion;
   if (dist.size() == 0) {
-    distortion.reset(new vw::camera::NullLensDistortion());
+    distortion.reset(new vw::NullLensDistortion());
   } else if (dist.size() == 1) {
     vw::Vector<double> params(dist.size());
     for (int i = 0; i < dist.size(); i++)
       params[i] = dist[i];
-    distortion.reset(new vw::camera::FovLensDistortion(params));
+    distortion.reset(new vw::FovLensDistortion(params));
   } else if (dist.size() == 4 && cam_params.m_distortion_type == rig::FISHEYE_DISTORTION) {
     vw::Vector<double> params(dist.size());
     for (int i = 0; i < dist.size(); i++)
       params[i] = dist[i];
-    distortion.reset(new vw::camera::FisheyeLensDistortion(params));
+    distortion.reset(new vw::FisheyeLensDistortion(params));
   } else if (dist.size() == 4 || dist.size() == 5) {
     // Tsai distortion model always has 5 parameters
     vw::Vector<double> params(5); 
@@ -109,13 +109,13 @@ void createPinholeCamera(rig::CameraParameters const& cam_params,
     // If having only 4 parameters, add zero
     for (int i = dist.size(); i < 5; i++)
       params[i] = 0;
-    distortion.reset(new vw::camera::TsaiLensDistortion(params));
+    distortion.reset(new vw::TsaiLensDistortion(params));
   } else if (dist.size() > 5 && cam_params.m_distortion_type == rig::RPC_DISTORTION) {
     // RPC
     vw::Vector<double> params(dist.size());
     for (int i = 0; i < dist.size(); i++)
       params[i] = dist[i];
-    distortion.reset(new vw::camera::RPCLensDistortion(params));
+    distortion.reset(new vw::RPCLensDistortion(params));
   } else {
     LOG(FATAL) << "Expecting 0, 1, 4, or 5 distortion coefficients.\n";
   }
@@ -123,7 +123,7 @@ void createPinholeCamera(rig::CameraParameters const& cam_params,
   // We assume the focal length and optical center are already in pixels, so the
   // pitch is 1.0.
   double pitch = 1.0;
-  pinhole_cam = vw::camera::PinholeModel(C, R, fu, fv, cu, cv, distortion.get(), pitch);
+  pinhole_cam = vw::PinholeModel(C, R, fu, fv, cu, cv, distortion.get(), pitch);
 }
 
 // A utility for saving a camera in a format ASP understands 

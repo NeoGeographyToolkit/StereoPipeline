@@ -41,7 +41,6 @@
 namespace  asp {
 
 using namespace vw;
-using namespace vw::camera;
 
 // Update the set of outliers based on ba_state
 void updateOutliers(vw::ControlNetwork const& cnet, 

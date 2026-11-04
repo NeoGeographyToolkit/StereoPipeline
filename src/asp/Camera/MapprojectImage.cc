@@ -60,7 +60,7 @@ vw::Vector2 OcclusionCam::point_to_pixel(vw::Vector3 const& point) const {
   if (n > 0.0) {
     vw::Vector3 ray = m_inner->pixel_to_vector(pix);
     if (vw::math::dot_prod(point / n, ray) > OCCLUSION_DOT_THRESH)
-      vw::vw_throw(vw::camera::PointToPixelErr() << "Back-of-body occluded.");
+      vw::vw_throw(vw::PointToPixelErr() << "Back-of-body occluded.");
   }
   return pix;
 }
@@ -246,8 +246,8 @@ void write_parallel_cond(std::string              const& filename,
     // for how the image got mapprojected and is good to keep.
     Vector3 t(0, 0, 0);
     vw::Quaternion<double> q(1, 0, 0, 0);
-    vw::camera::AdjustedCameraModel * adj_cam
-      = dynamic_cast<vw::camera::AdjustedCameraModel*>(opt.camera_model.get());
+    vw::AdjustedCameraModel * adj_cam
+      = dynamic_cast<vw::AdjustedCameraModel*>(opt.camera_model.get());
     if (adj_cam != NULL) {
       q = adj_cam->rotation();
       t = adj_cam->translation();

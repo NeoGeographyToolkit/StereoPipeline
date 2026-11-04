@@ -32,7 +32,6 @@
 #include <asp/IsisIO/IsisInterface.h>
 
 namespace vw {
-namespace camera {
 
   // This is largely just a shortened reimplementation of ISIS's
   // Camera.cpp.
@@ -127,6 +126,6 @@ namespace camera {
     return os;
   }
 
-}}
+}
 
 #endif  //__VW_CAMERA_ISIS_H__

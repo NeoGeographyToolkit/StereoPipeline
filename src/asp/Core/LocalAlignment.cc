@@ -313,8 +313,8 @@ namespace asp {
                                      vw::HomographyTransform      const & right_global_trans,
                                      BBox2i                       const & left_trans_crop_win,
                                      BBox2i                       const & right_trans_crop_win,
-                                     vw::camera::CameraModel      const * left_camera_model,
-                                     vw::camera::CameraModel      const * right_camera_model,
+                                     vw::CameraModel      const * left_camera_model,
+                                     vw::CameraModel      const * right_camera_model,
                                      vw::Datum       const & datum,
                                      // These get modified
                                      std::vector<vw::InterestPoint> & left_local_ip,
@@ -438,8 +438,8 @@ namespace asp {
                        double                          right_extra_factor,
                        vw::BBox2i              const & tile_crop_win,
                        bool                            write_nodata,
-                       vw::camera::CameraModel const * left_camera_model,
-                       vw::camera::CameraModel const * right_camera_model,
+                       vw::CameraModel const * left_camera_model,
+                       vw::CameraModel const * right_camera_model,
                        vw::Datum  const & datum,
                        // Outputs
                        vw::BBox2i                    & left_trans_crop_win,

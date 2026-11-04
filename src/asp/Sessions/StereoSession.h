@@ -94,8 +94,8 @@ public:
                     Vector6f     const& stats1,
                     Vector6f     const& stats2,
                     float nodata1, float nodata2,
-                    vw::camera::CameraModel* cam1,
-                    vw::camera::CameraModel* cam2,
+                    vw::CameraModel* cam1,
+                    vw::CameraModel* cam2,
                     std::string const& match_filename,
                     std::string const left_ip_file = "",
                     std::string const right_ip_file = "",
@@ -105,7 +105,7 @@ public:
 
   // Returns the target datum to use for a given camera model.
   // Can be overridden by derived classes.
-  virtual vw::Datum get_datum(const vw::camera::CameraModel* cam,
+  virtual vw::Datum get_datum(const vw::CameraModel* cam,
                                bool use_sphere_for_non_earth) const;
 
   // Peek inside the images and camera models and return the datum and projection,
@@ -295,7 +295,7 @@ void matchIp(std::string const& out_prefix,
              double pct_for_overlap,
              asp::SessionPtr session,
              std::string const& image1_path,  std::string const& image2_path,
-             vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
+             vw::CameraModel* cam1,   vw::CameraModel* cam2,
              std::string const& match_filename,
              // True only when matching the actual --mapprojected-data orthos.
              // The overlap-region restriction is applied only then, never for

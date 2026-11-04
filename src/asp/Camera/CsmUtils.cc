@@ -462,7 +462,7 @@ void applyAdjustmentToCsmCamera(std::string const& image_file,
   std::string adjust_file = asp::bundle_adjust_file_name(adjust_prefix, image_file, 
                                                          camera_file);
   vw::vw_out() << "Reading input adjustment: " << adjust_file << std::endl;
-  vw::camera::AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(cam));
+  vw::AdjustedCameraModel adj_cam(vw::unadjusted_model(cam));
   adj_cam.read(adjust_file);
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   csm_cam->applyTransform(ecef_transform);
@@ -851,7 +851,7 @@ void orbitalCorrections(asp::CsmModel * csm_model,
     
     if (correct_atmospheric_refraction) {
       // Find and apply the atmospheric refraction correction
-      cam_dir = vw::camera::apply_atmospheric_refraction_correction
+      cam_dir = vw::apply_atmospheric_refraction_correction
                       (cam_ctr, local_earth_radius, mean_ground_elevation, cam_dir, 
                        corr_rot); // output
       q = corr_rot * q;
@@ -859,7 +859,7 @@ void orbitalCorrections(asp::CsmModel * csm_model,
 
     if (correct_velocity_aberration) {
       // Find and apply the velocity aberration correction
-      cam_dir = vw::camera::apply_velocity_aberration_correction
+      cam_dir = vw::apply_velocity_aberration_correction
                       (cam_ctr, vel, local_earth_radius, cam_dir, 
                       corr_rot); // output
       q = corr_rot * q;

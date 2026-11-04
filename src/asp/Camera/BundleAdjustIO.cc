@@ -59,7 +59,6 @@
 #include <string>
 
 using namespace vw;
-using namespace vw::camera;
 
 namespace asp {
 
@@ -166,12 +165,12 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaState const& ba_stat
         // Get the camera model from the original one with parameters in
         // ba_state applied to it (which could be original ones or optimized). 
         // Note that we do not modify the original camera.
-        vw::camera::PinholeModel const* in_cam
-          = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+        vw::PinholeModel const* in_cam
+          = dynamic_cast<vw::PinholeModel const*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
         // Apply current intrinsics and extrinsics to the camera
-        vw::camera::PinholeModel out_cam
+        vw::PinholeModel out_cam
           = transformedPinholeCamera(icam, ba_state, *in_cam);
         cam_ctr = out_cam.camera_center(vw::Vector2());
         cam2ecef = out_cam.get_rotation_matrix();
@@ -198,7 +197,7 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaState const& ba_stat
         // to the original camera to get the adjustments needed to apply.
         // TODO(oalexan1): This is a little awkward.
         PinholeModel out_cam = *in_cam;
-        AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+        AdjustedCameraModel adj_cam(vw::unadjusted_model(opt.camera_models[icam]),
                                     adjustment.position(), adjustment.pose());
         vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
         out_cam.apply_transform(ecef_transform);
@@ -268,11 +267,11 @@ std::string savePinholeCam(asp::BaBaseOptions const& opt, int icam,
   // Get the camera model from the original one with parameters in
   // ba_state applied to it (which could be original ones or optimized). 
   // Note that we do not modify the original camera.
-  vw::camera::PinholeModel const* in_cam
-    = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+  vw::PinholeModel const* in_cam
+    = dynamic_cast<vw::PinholeModel const*>(opt.camera_models[icam].get());
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-  vw::camera::PinholeModel out_cam = transformedPinholeCamera(icam, ba_state, *in_cam);
+  vw::PinholeModel out_cam = transformedPinholeCamera(icam, ba_state, *in_cam);
 
   #pragma omp critical
   {
@@ -306,11 +305,11 @@ std::string saveOpticalBarCam(asp::BaBaseOptions const& opt, int icam,
   // Get the final camera model from the original one with optimized
   // parameters applied to it. Note that we do not modify the original
   // camera.
-  vw::camera::OpticalBarModel* in_cam
-    = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+  vw::OpticalBarModel* in_cam
+    = dynamic_cast<vw::OpticalBarModel*>(opt.camera_models[icam].get());
   if (in_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
-  vw::camera::OpticalBarModel out_cam
+  vw::OpticalBarModel out_cam
     = transformedOpticalBarCamera(icam, ba_state, *in_cam);
 
   #pragma omp critical
@@ -493,12 +492,12 @@ std::string saveUpdatedCsm(asp::BaBaseOptions const& opt, int icam,
 
   // Get the unadjusted CSM model and the adjustment as a transform
   CameraAdjustment cam_adjust(ba_state.get_camera_ptr(icam));
-  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+  AdjustedCameraModel adj_cam(vw::unadjusted_model(opt.camera_models[icam]),
                               cam_adjust.position(), cam_adjust.pose());
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   std::string csmFile          = asp::csmStateFile(adjustFile);
   asp::CsmModel * csm_model
-    = asp::csm_model(vw::camera::unadjusted_model(opt.camera_models[icam]));
+    = asp::csm_model(vw::unadjusted_model(opt.camera_models[icam]));
 
   // Apply the adjustment and save a transformed copy of the camera model
   boost::shared_ptr<asp::CsmModel> out_cam;
@@ -541,14 +540,14 @@ std::string saveUpdatedRpc(asp::BaBaseOptions const& opt, int icam,
   BBox2 image_box = vw::bounding_box(image);
 
   CameraAdjustment cam_adjust(ba_state.get_camera_ptr(icam));
-  AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+  AdjustedCameraModel adj_cam(vw::unadjusted_model(opt.camera_models[icam]),
                               cam_adjust.position(), cam_adjust.pose());
 
   vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
   std::string rpcFile = asp::rpcAdjustedFile(adjustFile);
 
   // Get the underlying RPC model
-  vw::CamPtr unadjCam = vw::camera::unadjusted_model(opt.camera_models[icam]);
+  vw::CamPtr unadjCam = vw::unadjusted_model(opt.camera_models[icam]);
   asp::RPCModel * rpc = dynamic_cast<asp::RPCModel*>(unadjCam.get());
   if (rpc == NULL)
     vw_throw(ArgumentErr() << "Expecting an RPC camera.\n");

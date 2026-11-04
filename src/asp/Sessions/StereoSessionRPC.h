@@ -40,10 +40,10 @@ namespace asp {
     static SessionPtr construct() { return SessionPtr(new StereoSessionRPC); }
 
     /// Returns the target datum to use for a given camera model.
-    virtual vw::Datum get_datum(const vw::camera::CameraModel* cam,
+    virtual vw::Datum get_datum(const vw::CameraModel* cam,
                                 bool use_sphere_for_non_earth) const {
       const asp::RPCModel *rpc_cam
-        = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(cam));
+        = dynamic_cast<const asp::RPCModel*>(vw::unadjusted_model(cam));
       if (rpc_cam == NULL) 
         vw::vw_throw(vw::ArgumentErr() << "Could not get an RPC camera model as expected.");
       
@@ -53,7 +53,7 @@ namespace asp {
     
   protected:
     /// Function to load a camera model of the particular type.
-    virtual boost::shared_ptr<vw::camera::CameraModel>
+    virtual boost::shared_ptr<vw::CameraModel>
     load_camera_model(std::string const& image_file, 
                       std::string const& camera_file,
                       std::string const& ba_prefix, 

@@ -36,7 +36,7 @@ using namespace vw::test;
 TEST(StereoSessionDG, CreateCamera) {
   StereoSessionDG session;
 
-  boost::shared_ptr<camera::CameraModel> cam1( session.camera_model("", "dg_example1.xml") ),
+  boost::shared_ptr<vw::CameraModel> cam1( session.camera_model("", "dg_example1.xml") ),
     cam2( session.camera_model("", "dg_example2.xml") );
   ASSERT_TRUE( cam1.get() != 0 );
   ASSERT_TRUE( cam2.get() != 0 );
@@ -75,7 +75,7 @@ TEST(StereoSessionDG, CreateCamera) {
   // Create a camera that only has a single TLC entry. It will throw
   // an error in the event that first line time and TLC entry lookup
   // don't agree. That should be good enough for a test.
-  EXPECT_NO_THROW( boost::shared_ptr<camera::CameraModel> cam3( session.camera_model("", "dg_example3.xml") ) );
+  EXPECT_NO_THROW( boost::shared_ptr<vw::CameraModel> cam3( session.camera_model("", "dg_example3.xml") ) );
 }
 
 
@@ -89,7 +89,7 @@ TEST(StereoSessionDG, ProjectRPC) {
 
   // Read the Digital Globe camera model
   StereoSessionDG session;
-  boost::shared_ptr<camera::CameraModel> dg_model( session.camera_model("", "dg_example1.xml") );
+  boost::shared_ptr<vw::CameraModel> dg_model( session.camera_model("", "dg_example1.xml") );
 
   // Verify the measurement between the two cameras
   vw::Datum datum("WGS84");

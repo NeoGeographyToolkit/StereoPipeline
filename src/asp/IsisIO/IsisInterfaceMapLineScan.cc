@@ -71,7 +71,7 @@ Vector2 IsisInterfaceMapLineScan::point_to_pixel(Vector3 const& point) const {
       Isis::Displacement(point[1], Isis::Displacement::Meters),
       Isis::Displacement(point[2], Isis::Displacement::Meters));
   if (!m_camera->SetGround(sp))
-    vw_throw(camera::PointToPixelErr()
+    vw_throw(vw::PointToPixelErr()
              << " ISIS Camera::SetGround failed for point " << point);
 
   // Convert lat/lon at the ground point through the mapprojection to get
@@ -88,12 +88,12 @@ Vector3 IsisInterfaceMapLineScan::camera_center(Vector2 const& px) const {
     m_cache_px = px;
     if (!m_projection->SetWorld(px[0]+1,
                                  px[1]+1))
-      vw_throw(camera::PixelToRayErr() << "Failed to SetWorld.");
+      vw_throw(vw::PixelToRayErr() << "Failed to SetWorld.");
     if (!m_groundmap->SetGround(Isis::Latitude(m_projection->UniversalLatitude(),
                                                Isis::Angle::Degrees),
                                 Isis::Longitude(m_projection->UniversalLongitude(),
                                                 Isis::Angle::Degrees)))
-      vw_throw(camera::PixelToRayErr() << "Failed to SetGround.");
+      vw_throw(vw::PixelToRayErr() << "Failed to SetGround.");
   }
   Vector3 position;
   m_camera->instrumentPosition(&position[0]);

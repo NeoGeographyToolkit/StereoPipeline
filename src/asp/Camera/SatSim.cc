@@ -1088,7 +1088,7 @@ void readPinholeCameras(SatSimOptions const& opt,
 
   cams.resize(cam_names.size());
   for (int i = 0; i < int(cam_names.size()); i++)
-    cams[i] = vw::CamPtr(new vw::camera::PinholeModel(cam_names[i])); // managed pointer
+    cams[i] = vw::CamPtr(new vw::PinholeModel(cam_names[i])); // managed pointer
 
   return;
 }
@@ -1115,8 +1115,8 @@ void perturbCameras(SatSimOptions const& opt,
   for (int i = 0; i < int(cam_names.size()); i++) {
     
     // Camera must be pinhole
-    vw::camera::PinholeModel * pin 
-      = dynamic_cast<vw::camera::PinholeModel*>(cams[i].get());
+    vw::PinholeModel * pin 
+      = dynamic_cast<vw::PinholeModel*>(cams[i].get());
     if (pin == NULL)
       vw::vw_throw(vw::ArgumentErr() << "Expecting a Pinhole camera for: " 
                    << cam_names[i] << "\n");
@@ -1283,13 +1283,13 @@ void genPinholeCameras(SatSimOptions          const& opt,
                               d.semi_major_axis(), d.semi_minor_axis(),
                               P, R);
     } else {
-      cams[i] = boost::make_shared<vw::camera::PinholeModel>
+      cams[i] = boost::make_shared<vw::PinholeModel>
                   (P, R, opt.focal_length, opt.focal_length,
                    opt.optical_center[0], opt.optical_center[1]);
     }
 
     // This is useful for understanding things in the satellite frame
-    vw::camera::PinholeModel pinRefCam;
+    vw::PinholeModel pinRefCam;
     asp::CsmModel csmRefCam;
     if (opt.save_ref_cams) {
       if (opt.save_as_csm) 
@@ -1299,9 +1299,9 @@ void genPinholeCameras(SatSimOptions          const& opt,
                                    d.semi_major_axis(), d.semi_minor_axis(),
                                    P0, R0);
       else
-        pinRefCam = vw::camera::PinholeModel(P0, R0,
-                                             opt.focal_length, opt.focal_length,
-                                             opt.optical_center[0], opt.optical_center[1]);
+        pinRefCam = vw::PinholeModel(P0, R0,
+                                     opt.focal_length, opt.focal_length,
+                                     opt.optical_center[0], opt.optical_center[1]);
     }
 
     std::string ext;
@@ -1323,7 +1323,7 @@ void genPinholeCameras(SatSimOptions          const& opt,
       auto csmPtr = boost::dynamic_pointer_cast<asp::CsmModel>(cams[i]);
       csmPtr->saveState(camName);
     } else {
-      auto pinPtr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cams[i]);
+      auto pinPtr = boost::dynamic_pointer_cast<vw::PinholeModel>(cams[i]);
       pinPtr->write(camName);
     }
 
@@ -1484,7 +1484,7 @@ public:
     vw::Quat    rotation(vw::math::identity_matrix<3>());
     vw::Vector2 pixel_offset = crop_start;
     double      scale = 1.0;
-    vw::CamPtr crop_cam(new vw::camera::AdjustedCameraModel(m_cam, translation, rotation, 
+    vw::CamPtr crop_cam(new vw::AdjustedCameraModel(m_cam, translation, rotation, 
                         pixel_offset, scale));
 
     // Bring crops in memory. It greatly helps with multi-threading speed.  

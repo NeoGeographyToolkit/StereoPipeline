@@ -55,14 +55,14 @@ namespace asp {
       for (int p = 0; p < num_cams; p++){
 
         // Get the RPC pointer so we can call RPC specific functions on it
-        const RPCModel *rpc_cam = dynamic_cast<const RPCModel*>(vw::camera::unadjusted_model(m_cameras[p]));
+        const RPCModel *rpc_cam = dynamic_cast<const RPCModel*>(vw::unadjusted_model(m_cameras[p]));
         VW_ASSERT(rpc_cam != NULL,
                   vw::ArgumentErr() << "Camera models are not RPC.\n");
         rpc_cams.push_back(rpc_cam);
 
         Vector2 pix = pixVec[p];
         if (pix != pix || // i.e., NaN
-            pix == camera::CameraModel::invalid_pixel() ) continue;
+            pix == vw::CameraModel::invalid_pixel() ) continue;
 
         // The base class function would call point_and_dir twice, but we only need to call it once!
         Vector3 ctr, dir;
@@ -91,7 +91,7 @@ namespace asp {
 
       return result;
 
-    } catch (const camera::PixelToRayErr& /*e*/) {}
+    } catch (const vw::PixelToRayErr& /*e*/) {}
     return Vector3();
   }
 

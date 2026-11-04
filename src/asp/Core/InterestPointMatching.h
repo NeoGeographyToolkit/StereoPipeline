@@ -42,8 +42,8 @@ void write_match_image(std::string const& out_file_name,
   //   modified.
   bool match_ip_with_datum(bool single_threaded_camera,
                              bool use_rough_homography,
-                             vw::camera::CameraModel* cam1,
-                             vw::camera::CameraModel* cam2,
+                             vw::CameraModel* cam1,
+                             vw::CameraModel* cam2,
                              vw::ImageViewRef<float> const& image1,
                              vw::ImageViewRef<float> const& image2,
                              int ip_per_tile,
@@ -83,8 +83,8 @@ void write_match_image(std::string const& out_file_name,
   /// something to start with.
   bool tri_ip_filtering(std::vector<vw::InterestPoint> const& ip1,
                         std::vector<vw::InterestPoint> const& ip2,
-                        vw::camera::CameraModel* cam1,
-                        vw::camera::CameraModel* cam2,
+                        vw::CameraModel* cam1,
+                        vw::CameraModel* cam2,
                         std::list<size_t>& valid_indices);
 
   /// 4 stddev filtering. Deletes any disparity measurement that is 4
@@ -98,8 +98,8 @@ void write_match_image(std::string const& out_file_name,
   // Filter IP by ensuring that the triangulated IP are in the given lon-lat-height box
   size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
                                            vw::TransformPtr         tx_right,
-                                           vw::camera::CameraModel* left_camera_model,
-                                           vw::camera::CameraModel* right_camera_model,
+                                           vw::CameraModel* left_camera_model,
+                                           vw::CameraModel* right_camera_model,
                                            vw::Datum const& datum,
                                            std::vector<vw::InterestPoint> const& ip1_in,
                                            std::vector<vw::InterestPoint> const& ip2_in,
@@ -111,8 +111,8 @@ void write_match_image(std::string const& out_file_name,
   // Filter ip by triangulation error, reprojection error, and height range
   void filter_ip_using_cameras(std::vector<vw::InterestPoint> & ip1,
                                std::vector<vw::InterestPoint> & ip2,
-                               vw::camera::CameraModel const* cam1,
-                               vw::camera::CameraModel const* cam2,
+                               vw::CameraModel const* cam1,
+                               vw::CameraModel const* cam2,
                                vw::Datum  const& datum,
                                double pct, double factor);
 
@@ -122,8 +122,8 @@ void write_match_image(std::string const& out_file_name,
   void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
                            vw::TransformPtr                 tx_left,
                            vw::TransformPtr                 tx_right,
-                           boost::shared_ptr<vw::camera::CameraModel> left_camera_model,
-                           boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
+                           boost::shared_ptr<vw::CameraModel> left_camera_model,
+                           boost::shared_ptr<vw::CameraModel> right_camera_model,
                            std::vector<vw::InterestPoint> & left_aligned_ip,
                            std::vector<vw::InterestPoint> & right_aligned_ip);
 
@@ -141,8 +141,8 @@ void write_match_image(std::string const& out_file_name,
   /// and datum information.
   /// - This intersects rays with the datum, then projects them into the other camera.
   vw::Matrix<double>
-  rough_homography_fit(vw::camera::CameraModel* cam1,
-            vw::camera::CameraModel* cam2,
+  rough_homography_fit(vw::CameraModel* cam1,
+            vw::CameraModel* cam2,
             vw::BBox2i const& box1, vw::BBox2i const& box2,
             vw::Datum const& datum);
 
@@ -230,8 +230,8 @@ bool detect_ip_pair(vw::InterestPointList& ip1,
 
 // Detect interest points. Return also the rough homography that aligns the right image
 // to the left.
-bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
-                            vw::camera::CameraModel* cam2,
+bool detect_ip_aligned_pair(vw::CameraModel* cam1,
+                            vw::CameraModel* cam2,
                             vw::ImageViewRef<float> const& image1,
                             vw::ImageViewRef<float> const& image2,
                             int ip_per_image, int ip_per_tile,

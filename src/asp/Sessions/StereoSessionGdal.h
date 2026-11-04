@@ -115,7 +115,7 @@ namespace asp {
     static SessionPtr construct() { return SessionPtr(new StereoSessionCsm);}
     
     /// Returns the target datum to use for a given camera model
-    virtual vw::Datum get_datum(const vw::camera::CameraModel* cam,
+    virtual vw::Datum get_datum(const vw::CameraModel* cam,
                                 bool use_sphere_for_non_earth) const;
 
   protected:

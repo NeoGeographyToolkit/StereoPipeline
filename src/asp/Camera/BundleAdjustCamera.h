@@ -45,11 +45,9 @@
 
 namespace vw {
     class InterestPoint;
-  namespace camera {
     class PinholeModel;
     class OpticalBarModel;
     class AdjustedCameraModel;
-  }
 }
 
 namespace asp {
@@ -141,13 +139,13 @@ public:
   void read_from_array(double const* array);
 
   /// Populate from an AdjustedCameraModel
-  void copy_from_adjusted_camera(vw::camera::AdjustedCameraModel const& cam);
+  void copy_from_adjusted_camera(vw::AdjustedCameraModel const& cam);
 
   /// Populate from a PinholeModel
-  void copy_from_pinhole(vw::camera::PinholeModel const& cam);
+  void copy_from_pinhole(vw::PinholeModel const& cam);
 
   /// Populate from OpticalBarModel
-  void copy_from_optical_bar(vw::camera::OpticalBarModel const& cam);
+  void copy_from_optical_bar(vw::OpticalBarModel const& cam);
 
   /// Populate from CSM. Since with CSM we apply adjustments to existing
   /// cameras, these start as 0.
@@ -167,10 +165,10 @@ private:
 
 /// Packs info from various camera models into the provided arrays.
 /// - It is up to the caller to make sure the arrays are properly sized.
-void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
+void pack_pinhole_to_arrays(vw::PinholeModel const& camera,
                             int camera_index,
                             asp::BaState & ba_state);
-void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
+void pack_optical_bar_to_arrays(vw::OpticalBarModel const& camera,
                                 int camera_index,
                                 asp::BaState & ba_state);
 // This does not copy the camera position and orientation
@@ -180,15 +178,15 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
 
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera.
-vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
-                                                  asp::BaState const& ba_state,
-                                                  vw::camera::PinholeModel const& in_cam);
+vw::PinholeModel transformedPinholeCamera(int camera_index,
+                                          asp::BaState const& ba_state,
+                                          vw::PinholeModel const& in_cam);
 
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.
-vw::camera::OpticalBarModel transformedOpticalBarCamera(int camera_index,
-                                                        asp::BaState const& ba_state,
-                                                        vw::camera::OpticalBarModel const& in_cam);
+vw::OpticalBarModel transformedOpticalBarCamera(int camera_index,
+                                                asp::BaState const& ba_state,
+                                                vw::OpticalBarModel const& in_cam);
 
 // Given an input CSM camera and param changes, apply those, returning
 // the new camera.
@@ -390,8 +388,8 @@ void setup_error_propagation(std::string const& session_name,
 
 // Find stats of propagated errors
 void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
-                          vw::camera::CameraModel const * left_cam,
-                          vw::camera::CameraModel const * right_cam,
+                          vw::CameraModel const * left_cam,
+                          vw::CameraModel const * right_cam,
                           std::vector<vw::InterestPoint> const& left_ip,
                           std::vector<vw::InterestPoint> const& right_ip,
                           double stddev1, double stddev2,
@@ -439,12 +437,12 @@ void calcCameraCenters(std::string const& stereo_session,
                        std::vector<std::vector<vw::Vector3>> & cam_positions);
 
 // Interface for setting/getting intrinsics for all supported camera models
-void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center);
-void set_optical_center(vw::camera::CameraModel* cam, vw::Vector2 const& center);
-void get_focal_length(vw::camera::CameraModel const* cam, double & focal);
-void set_focal_length(vw::camera::CameraModel* cam, double const& focal);
-void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist);
-void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist);
+void get_optical_center(vw::CameraModel const* cam, vw::Vector2 & center);
+void set_optical_center(vw::CameraModel* cam, vw::Vector2 const& center);
+void get_focal_length(vw::CameraModel const* cam, double & focal);
+void set_focal_length(vw::CameraModel* cam, double const& focal);
+void get_distortion(vw::CameraModel const* cam, vw::Vector<double> &dist);
+void set_distortion(vw::CameraModel* cam, vw::Vector<double> const& dist);
 
 // If some cameras share an intrinsic parameter, that parameter must start with
 // the same value for all cameras sharing it. This is a bugfix. Return

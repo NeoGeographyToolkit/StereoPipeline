@@ -33,13 +33,13 @@ bool isLinescanCsmSession(std::string const& session) {
 // Find the underlying CSM camera. Applies to all linescan CSM sessions.
 // All linescan CSM models (Pleiades, DG, PeruSat, Spot, ASTER) inherit
 // directly from CsmModel, so a simple dynamic_cast suffices.
-asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam) {
+asp::CsmModel * csm_model(boost::shared_ptr<vw::CameraModel> cam) {
 
   // In some places the camera models have an external adjustment.
   // If that is the case, this function only works if the adjustment
   // is the identity, as it does not know how to apply it.
-  vw::camera::AdjustedCameraModel *adj_cam
-    = dynamic_cast<vw::camera::AdjustedCameraModel*>(cam.get());
+  vw::AdjustedCameraModel *adj_cam
+    = dynamic_cast<vw::AdjustedCameraModel*>(cam.get());
   if (adj_cam != NULL) {
     vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
     // must be the identity
@@ -50,7 +50,7 @@ asp::CsmModel * csm_model(boost::shared_ptr<vw::camera::CameraModel> cam) {
   }
 
   asp::CsmModel * csm_model
-    = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam.get()));
+    = dynamic_cast<asp::CsmModel*>(vw::unadjusted_model(cam.get()));
 
   if (csm_model == NULL)
       vw::vw_throw(vw::ArgumentErr() << "Expected a CSM camera model.");

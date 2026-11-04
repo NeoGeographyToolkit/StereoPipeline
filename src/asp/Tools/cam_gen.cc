@@ -73,7 +73,6 @@ namespace po = boost::program_options;
 using json = nlohmann::json;
 
 using namespace vw;
-using namespace vw::camera;
 
 /// Find the best camera that fits the current GCP
 void fit_camera_to_xyz_ht(Vector3 const& known_cam_ctr, // may not be known
@@ -117,10 +116,10 @@ void fit_camera_to_xyz_ht(Vector3 const& known_cam_ctr, // may not be known
   double scale;
   find_3D_transform(in, out, rotation, translation, scale);
   if (camera_type == "opticalbar") {
-    ((vw::camera::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
+    ((vw::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
                                    translation, scale);
     if (known_cam_ctr != Vector3(0, 0, 0))
-    ((vw::camera::OpticalBarModel*)out_cam.get())->set_camera_center(known_cam_ctr);
+    ((vw::OpticalBarModel*)out_cam.get())->set_camera_center(known_cam_ctr);
   } else if (camera_type == "pinhole") {
 
     // The logic based on fake points can give junk results. Use instead the
@@ -160,7 +159,7 @@ void fit_camera_to_xyz_ht(Vector3 const& known_cam_ctr, // may not be known
   if (refine_camera) {
     if (camera_type == "opticalbar")
       fitOpticalBar(xyz_vec, cam_height, cam_weight, cam_ctr_weight, datum, pixel_values,
-                             *((vw::camera::OpticalBarModel*)out_cam.get()));
+                             *((vw::OpticalBarModel*)out_cam.get()));
     else if (camera_type == "pinhole")
       fitPinhole(xyz_vec, cam_height, cam_weight, cam_ctr_weight, datum, pixel_values,
                           *((PinholeModel*)out_cam.get()));
@@ -775,11 +774,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       // if the distortion is radtan (tsai) or no distortion.
       std::vector<double> local_distortion;
       if (input_ext == ".tsai") {
-        vw::camera::PinholeModel pin(opt.input_camera);
-        vw::camera::NullLensDistortion const* zero_dist =
-          dynamic_cast<vw::camera::NullLensDistortion const*>(pin.lens_distortion());
-        vw::camera::TsaiLensDistortion const* radtan_dist =
-          dynamic_cast<vw::camera::TsaiLensDistortion const*>(pin.lens_distortion());
+        vw::PinholeModel pin(opt.input_camera);
+        vw::NullLensDistortion const* zero_dist =
+          dynamic_cast<vw::NullLensDistortion const*>(pin.lens_distortion());
+        vw::TsaiLensDistortion const* radtan_dist =
+          dynamic_cast<vw::TsaiLensDistortion const*>(pin.lens_distortion());
         if (zero_dist != NULL) {
           // Zero distortion can be thought of as radtan distortion with all zeros
           local_distortion.resize(5, 0.0);
@@ -844,8 +843,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // Form a camera based on info the user provided
 void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
   if (opt.camera_type == "opticalbar") {
-    boost::shared_ptr<vw::camera::OpticalBarModel> opticalbar_cam =
-      boost::make_shared<vw::camera::OpticalBarModel>(opt.sample_file);
+    boost::shared_ptr<vw::OpticalBarModel> opticalbar_cam =
+      boost::make_shared<vw::OpticalBarModel>(opt.sample_file);
     // Make sure the image size matches the input image file.
     // TODO(oalexan1): This looks fishy if the pitch is not 1.
     opticalbar_cam->set_image_size(Vector2i(wid, hgt));
@@ -888,7 +887,7 @@ void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
       if (std::isnan(opt_ctr[0]) || std::isnan(opt_ctr[1]))
         opt_ctr = Vector2(opt.pixel_pitch * wid/2.0, opt.pixel_pitch * hgt/2.0);
 
-      vw::camera::LensDistortion const* distortion = NULL; // no distortion info yet
+      vw::LensDistortion const* distortion = NULL; // no distortion info yet
       pinhole_cam = boost::make_shared<PinholeModel>
                       (ctr, rotation, opt.focal_length, opt.focal_length,
                        opt_ctr[0], opt_ctr[1], distortion, 
@@ -1214,7 +1213,7 @@ void form_camera(Options & opt, vw::GeoReference & geo,
   // The current logic re-fits the camera pose to ground points, which does not
   // respect the precise pose and intrinsics of the input CSM camera.
   if (vw::get_extension(opt.out_camera) == ".tsai" && input_camera_ptr.get() != NULL &&
-      asp::csm_model(vw::camera::unadjusted_model(input_camera_ptr)) != NULL)
+      asp::csm_model(vw::unadjusted_model(input_camera_ptr)) != NULL)
     vw_throw(ArgumentErr()
              << "Converting a CSM camera to a Pinhole (.tsai) camera is not "
              << "supported.\n");
@@ -1346,14 +1345,14 @@ void read_pinhole_from_json(Options & opt, vw::GeoReference & geo,
   vw::Matrix<double> intrinsic = json_mat(j["P_intrinsic"], 4, 4);
 
   // Adjust for the fact that Planet likes negative focal lengths, while
-  // vw::camera::PinholeModel uses positive values.
+  // vw::PinholeModel uses positive values.
   vw::Matrix<double> flip;
   flip.set_identity(4);
   flip(0, 0) = -1;
   flip(1, 1) = -1;
 
   // Create a blank pinhole model and get an alias to it
-  out_cam = boost::make_shared<vw::camera::PinholeModel>();
+  out_cam = boost::make_shared<vw::PinholeModel>();
   PinholeModel & pin = *((PinholeModel*)out_cam.get());
 
   // Populate the model
@@ -1430,7 +1429,7 @@ void save_rpc(Options & opt) {
     = session->camera_model(opt.image_file, opt.input_camera);
   
   asp::RPCModel const* rpc_cam 
-    = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(camera_model.get()));
+    = dynamic_cast<const asp::RPCModel*>(vw::unadjusted_model(camera_model.get()));
   if (rpc_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting an RPC camera.\n");
   
@@ -1459,7 +1458,7 @@ void isisCubMetadata(vw::CamPtr in_cam,
     return;
   
   IsisCameraModel const * isis_cam
-    = dynamic_cast<IsisCameraModel const*>(vw::camera::unadjusted_model(in_cam.get()));
+    = dynamic_cast<IsisCameraModel const*>(vw::unadjusted_model(in_cam.get()));
   if (isis_cam == NULL)
     return;
   
@@ -1477,19 +1476,19 @@ void save_pinhole(Options const& opt,
                   ImageViewRef<PixelMask<float>> interp_dem,
                   boost::shared_ptr<CameraModel> out_cam) {
 
-  vw::camera::PinholeModel* pin = NULL;
-  boost::shared_ptr<vw::camera::PinholeModel> input_pin;
+  vw::PinholeModel* pin = NULL;
+  boost::shared_ptr<vw::PinholeModel> input_pin;
   std::string out_ext = vw::get_extension(opt.out_camera);
   if (opt.exact_tsai_to_csm_conv) {
     // Get the input pinhole model, to be converted below exactly to CSM
-    input_pin = boost::make_shared<vw::camera::PinholeModel>(opt.input_camera);
+    input_pin = boost::make_shared<vw::PinholeModel>(opt.input_camera);
     pin = input_pin.get();
     // Must make another copy to satisfy another path in the logic below
     // TODO(oalexan1): This looks like a hack.
-    input_camera_ptr = boost::make_shared<vw::camera::PinholeModel>(opt.input_camera);
+    input_camera_ptr = boost::make_shared<vw::PinholeModel>(opt.input_camera);
   } else {
     // Use the manufactured camera
-    pin = (vw::camera::PinholeModel*)out_cam.get();
+    pin = (vw::PinholeModel*)out_cam.get();
   }
 
   if (out_ext == ".tsai") {
@@ -1518,7 +1517,7 @@ void save_pinhole(Options const& opt,
       IsisCameraModel const* isis_frame = NULL;
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
       isis_frame = dynamic_cast<IsisCameraModel const*>
-        (vw::camera::unadjusted_model(input_camera_ptr.get()));
+        (vw::unadjusted_model(input_camera_ptr.get()));
 #endif
       if (isis_frame != NULL) {
         Vector2 ctr_pix(width / 2.0, height / 2.0);
@@ -1664,7 +1663,7 @@ int main(int argc, char * argv[]) {
         vw_out() << "Output camera center lon, lat, and height above datum: "
                  << llh << "\n";
         vw_out() << "Writing: " << opt.out_camera << "\n";
-      ((vw::camera::OpticalBarModel*)out_cam.get())->write(opt.out_camera);
+      ((vw::OpticalBarModel*)out_cam.get())->write(opt.out_camera);
     } else if (opt.camera_type == "pinhole") {
       save_pinhole(opt, geo, input_camera_ptr, interp_dem, out_cam);
     }

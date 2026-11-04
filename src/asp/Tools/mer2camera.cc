@@ -159,28 +159,28 @@ int main( int argc, char** argv ) {
 
     // Writing out our results
     if ( camera_type == "cahv" ) {
-      camera::CAHVModel camera( camera_vectors[0],
-                                camera_vectors[1],
-                                camera_vectors[2],
-                                camera_vectors[3] );
+      vw::CAHVModel camera( camera_vectors[0],
+                            camera_vectors[1],
+                            camera_vectors[2],
+                            camera_vectors[3] );
       camera.write( opt.output_prefix + ".cahv" );
     } else if ( camera_type == "cahvor" ) {
-      camera::CAHVORModel camera( camera_vectors[0],
-                                  camera_vectors[1],
-                                  camera_vectors[2],
-                                  camera_vectors[3],
-                                  camera_vectors[4],
-                                  camera_vectors[5] );
+      vw::CAHVORModel camera( camera_vectors[0],
+                              camera_vectors[1],
+                              camera_vectors[2],
+                              camera_vectors[3],
+                              camera_vectors[4],
+                              camera_vectors[5] );
       camera.write( opt.output_prefix + ".cahvor" );
     } else if ( camera_type == "cahvore" ) {
-      camera::CAHVOREModel camera( camera_vectors[0],
-                                   camera_vectors[1],
-                                   camera_vectors[2],
-                                   camera_vectors[3],
-                                   camera_vectors[4],
-                                   camera_vectors[5],
-                                   camera_vectors[6],
-                                   camera_vectors[8][0]);
+      vw::CAHVOREModel camera( camera_vectors[0],
+                               camera_vectors[1],
+                               camera_vectors[2],
+                               camera_vectors[3],
+                               camera_vectors[4],
+                               camera_vectors[5],
+                               camera_vectors[6],
+                               camera_vectors[8][0]);
       camera.write( opt.output_prefix + ".cahvore" );
     }
   } ASP_STANDARD_CATCHES;

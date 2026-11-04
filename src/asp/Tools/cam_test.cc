@@ -239,7 +239,7 @@ void testErrorPropagation(Options const& opt,
 // range of valid heights above datum.
 void rpc_datum_sanity_check(std::string const& cam_file,
                             double height_above_datum,
-                            vw::camera::CameraModel const* cam) {
+                            vw::CameraModel const* cam) {
   // Cast the camera to RPC
   asp::RPCModel const* rpc_cam = dynamic_cast<asp::RPCModel const*>(cam);
   if (rpc_cam == NULL)
@@ -280,7 +280,7 @@ void run_cam_test(Options & opt) {
                               opt.image_file, opt.image_file,
                               opt.cam1_file, opt.cam1_file,
                               out_prefix));
-  boost::shared_ptr<vw::camera::CameraModel> cam1_model
+  boost::shared_ptr<vw::CameraModel> cam1_model
     = cam1_session->camera_model(opt.image_file, opt.cam1_file);
 
   // Load cam2
@@ -293,7 +293,7 @@ void run_cam_test(Options & opt) {
                           opt.image_file, opt.image_file,
                           opt.cam2_file, opt.cam2_file,
                           out_prefix));
-  boost::shared_ptr<vw::camera::CameraModel> cam2_model
+  boost::shared_ptr<vw::CameraModel> cam2_model
     = cam2_session->camera_model(opt.image_file, opt.cam2_file);
 
   if (indiv_adjust_prefix)
@@ -356,10 +356,10 @@ void run_cam_test(Options & opt) {
   // Sanity checks for RPC cameras
   if (opt.session1 == "rpc")
     rpc_datum_sanity_check(opt.cam1_file, opt.height_above_datum,
-                            vw::camera::unadjusted_model(cam1_model.get()));
+                            vw::unadjusted_model(cam1_model.get()));
   if (opt.session2 == "rpc")
     rpc_datum_sanity_check(opt.cam2_file, opt.height_above_datum,
-                            vw::camera::unadjusted_model(cam2_model.get()));
+                            vw::unadjusted_model(cam2_model.get()));
 
   if (opt.test_error_propagation && opt.session1 == "dg" && opt.session2 == "dg") {
     testErrorPropagation(opt, datum, cam1_model, cam2_model);
@@ -376,7 +376,7 @@ void run_cam_test(Options & opt) {
     // For CSM-to-CSM ground-to-image and image-to-ground comparisons only,
     // the camera has the dimensions if the .cub image is missing.
     asp::CsmModel * csm_model
-      = dynamic_cast<asp::CsmModel*>(vw::camera::unadjusted_model(cam1_model.get()));
+      = dynamic_cast<asp::CsmModel*>(vw::unadjusted_model(cam1_model.get()));
     if (csm_model != NULL) {
       image_cols = csm_model->get_image_size()[0];
       image_rows = csm_model->get_image_size()[1];

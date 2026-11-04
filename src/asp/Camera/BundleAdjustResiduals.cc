@@ -31,7 +31,6 @@
 #include <string>
 
 using namespace vw;
-using namespace vw::camera;
 
 namespace  asp {
 

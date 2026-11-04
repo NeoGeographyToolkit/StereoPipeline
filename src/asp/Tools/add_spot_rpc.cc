@@ -110,8 +110,8 @@ void generate_point_pairs(Options opt,
     xercesc::XMLPlatformUtils::Initialize();
 
     // Load the input camera model (CSM linescan)
-    boost::shared_ptr<camera::CameraModel> cam_ptr
-      = boost::dynamic_pointer_cast<camera::CameraModel>(
+    boost::shared_ptr<vw::CameraModel> cam_ptr
+      = boost::dynamic_pointer_cast<vw::CameraModel>(
           asp::load_spot15_csm_camera_model_from_xml(opt.input_path));
 
     // Load some image info
@@ -207,7 +207,7 @@ void generate_point_pairs(Options opt,
             // Project the GCC coordinate into the SPOT5 camera model
             pxg = cam_ptr->point_to_pixel(P);
             //vw_out() << "SUCESS location " << G << " === " << u << " === " << U << " into camera!  Skipping it.\n";
-          } catch (vw::camera::PointToPixelErr) {
+          } catch (vw::PointToPixelErr) {
             //vw_out() << "Failed to project location " << G << " === " << u << " === " << U << " into camera!  Skipping it.\n";
             ++fail_count;
             continue;

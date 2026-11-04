@@ -71,7 +71,7 @@ Vector2 IsisInterfaceSAR::point_to_pixel(Vector3 const& point) const {
       (Isis::SurfacePoint(Isis::Latitude (lon_lat_radius[1], Isis::Angle::Degrees  ),
                           Isis::Longitude(lon_lat_radius[0], Isis::Angle::Degrees  ),
                           Isis::Distance (lon_lat_radius[2], Isis::Distance::Meters))))
-    vw_throw(camera::PixelToRayErr() << "Failed in SetGround().");
+    vw_throw(vw::PixelToRayErr() << "Failed in SetGround().");
       
   m_distortmap->SetUndistortedFocalPlane(m_groundmap->FocalPlaneX(), m_groundmap->FocalPlaneY());
 
@@ -103,7 +103,7 @@ Vector3 IsisInterfaceSAR::camera_center(Vector2 const& pix) const {
   Vector2 isis_pix = pix + Vector2(1,1);
 
   if (!m_camera->SetImage(isis_pix[0], isis_pix[1]))
-    vw_throw(camera::PixelToRayErr() << "Failed in SetImage().");
+    vw_throw(vw::PixelToRayErr() << "Failed in SetImage().");
 
   vw::Vector3 center;
   m_camera->instrumentPosition(&center[0]);

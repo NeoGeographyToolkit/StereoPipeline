@@ -97,8 +97,8 @@ class DemDisparity: public ImageViewBase<DemDisparity> {
   ImageViewRef<PixelMask<float>> m_dem;
   Vector2f          m_downsample_scale;
   vw::TransformPtr  m_tx_left, m_tx_right;
-  boost::shared_ptr<camera::CameraModel> m_left_camera_model;
-  boost::shared_ptr<camera::CameraModel> m_right_camera_model;
+  boost::shared_ptr<vw::CameraModel> m_left_camera_model;
+  boost::shared_ptr<vw::CameraModel> m_right_camera_model;
   int               m_pixel_sample;
   ImageView<PixelMask<Vector2f>> & m_disp_spread;
   double m_height_guess;
@@ -110,8 +110,8 @@ DemDisparity(ImgRefT const& left_image,
               ImageViewRef<PixelMask<float>> const& dem,
               Vector2f const& downsample_scale,
               vw::TransformPtr tx_left, vw::TransformPtr tx_right, 
-              boost::shared_ptr<camera::CameraModel> left_camera_model,
-              boost::shared_ptr<camera::CameraModel> right_camera_model,
+              boost::shared_ptr<vw::CameraModel> left_camera_model,
+              boost::shared_ptr<vw::CameraModel> right_camera_model,
               int pixel_sample, ImageView<PixelMask<Vector2f>> & disp_spread):
     m_left_image(left_image.impl()),
     m_dem_error(dem_error),
@@ -328,8 +328,8 @@ inline void rasterize(DestT const& dest, BBox2i bbox) const {
 
 void produce_dem_disparity(ASPGlobalOptions & opt,
                             vw::TransformPtr tx_left, vw::TransformPtr tx_right,
-                            boost::shared_ptr<camera::CameraModel> left_camera_model,
-                            boost::shared_ptr<camera::CameraModel> right_camera_model,
+                            boost::shared_ptr<vw::CameraModel> left_camera_model,
+                            boost::shared_ptr<vw::CameraModel> right_camera_model,
                             std::string const& session_name) {
 
   if (stereo_settings().is_search_defined())

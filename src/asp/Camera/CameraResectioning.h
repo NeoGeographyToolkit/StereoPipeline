@@ -32,7 +32,7 @@ namespace asp {
 
 void findCameraPose(std::vector<vw::Vector3> const& ground_points, 
                     std::vector<vw::Vector2> const& pixel_observations,
-                    vw::camera::PinholeModel & cam);
+                    vw::PinholeModel & cam);
 }
 
 #endif // __ASP_CAMERA_CAMERA_RESECTIONING_H__

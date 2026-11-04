@@ -131,9 +131,9 @@ vw::CamPtr load_adjusted_model(vw::CamPtr cam,
 
   // Create the adjusted camera model object with the info we loaded
   return vw::CamPtr
-             (new vw::camera::AdjustedCameraModel(cam, position_correction,
-                                                 pose_correction, local_pixel_offset,
-                                                 local_scale));
+             (new vw::AdjustedCameraModel(cam, position_correction,
+                                         pose_correction, local_pixel_offset,
+                                         local_scale));
 }
 
 // Read adjustments

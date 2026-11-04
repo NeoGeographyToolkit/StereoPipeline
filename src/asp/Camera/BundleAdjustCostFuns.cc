@@ -31,7 +31,6 @@
 #include <vw/Cartography/GeoReferenceBaseUtils.h>
 
 using namespace vw;
-using namespace vw::camera;
 
 namespace asp {
 
@@ -63,7 +62,7 @@ vw::Vector2 BaAdjCam::evaluate(std::vector<double const*> const param_blocks) co
   CameraAdjustment correction(raw_pose);
 
   // Create adjusted camera that applies corrections to the underlying camera
-  vw::camera::AdjustedCameraModel cam(m_underlying_camera,
+  vw::AdjustedCameraModel cam(m_underlying_camera,
         correction.position(),
         correction.pose());
   try {
@@ -81,7 +80,7 @@ vw::Vector2 BaAdjCam::evaluate(std::vector<double const*> const param_blocks) co
   return vw::Vector2(g_big_pixel_value, g_big_pixel_value);
 }
 
-BaPinholeCam::BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam,
+BaPinholeCam::BaPinholeCam(boost::shared_ptr<vw::PinholeModel> cam,
                            vw::BathyData const& bathy_data,
                            int camera_index):
   m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
@@ -133,7 +132,7 @@ vw::Vector2 BaPinholeCam::evaluate(std::vector<double const*> const param_blocks
 
   // Duplicate the input camera model with the pose, focus, center, and lens updated.
   // Respect m_u_direction, m_v_direction, m_w_direction in the original model.
-  vw::camera::PinholeModel cam = *m_underlying_camera;
+  vw::PinholeModel cam = *m_underlying_camera;
   cam.set_camera_center(correction.position());
   cam.set_camera_pose(correction.pose().rotation_matrix());
   cam.set_focal_length(vw::Vector2(focus, focus));
@@ -155,7 +154,7 @@ vw::Vector2 BaPinholeCam::evaluate(std::vector<double const*> const param_blocks
 }
 
 BaOpticalBarCam::BaOpticalBarCam(
-    boost::shared_ptr<vw::camera::OpticalBarModel> cam,
+    boost::shared_ptr<vw::OpticalBarModel> cam,
     vw::BathyData const& bathy_data,
     int camera_index):
     m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
@@ -212,16 +211,16 @@ vw::Vector2  BaOpticalBarCam::evaluate(std::vector<double const*> const param_bl
   }
 
   // Create an optical bar camera with updated pose, focus, center, speed, and MCF
-  vw::camera::OpticalBarModel cam(m_underlying_camera->get_image_size(),
-                                  vw::Vector2(center_x, center_y),
-                                  m_underlying_camera->get_pixel_size(),
-                                  focus,
-                                  scan_time,
-                                  m_underlying_camera->get_scan_dir(),
-                                  m_underlying_camera->get_forward_tilt(),
-                                  correction.position(),
-                                  correction.pose().axis_angle(),
-                                  speed, mcf, have_velocity_vec, vel, final_pose);
+  vw::OpticalBarModel cam(m_underlying_camera->get_image_size(),
+                          vw::Vector2(center_x, center_y),
+                          m_underlying_camera->get_pixel_size(),
+                          focus,
+                          scan_time,
+                          m_underlying_camera->get_scan_dir(),
+                          m_underlying_camera->get_forward_tilt(),
+                          correction.position(),
+                          correction.pose().axis_angle(),
+                          speed, mcf, have_velocity_vec, vel, final_pose);
 
   // Project the point into the camera.
   try {
@@ -421,7 +420,7 @@ bool BaDispXyzErr::operator()(double const* const* parameters, double* residuals
       return true;
     }
 
-  } catch (const camera::PointToPixelErr& e) {
+  } catch (const vw::PointToPixelErr& e) {
     // Failed to project into the camera
     for (size_t it = 0; it < 2; it++)
       residuals[it] = m_max_disp_error * m_reference_terrain_weight;
@@ -622,8 +621,8 @@ void addReprojResidual(vw::Vector2 const& observation,
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
 
-      boost::shared_ptr<vw::camera::OpticalBarModel> bar_model =
-        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam);
+      boost::shared_ptr<vw::OpticalBarModel> bar_model =
+        boost::dynamic_pointer_cast<vw::OpticalBarModel>(cam);
       if (bar_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
@@ -755,19 +754,19 @@ void addDispResidual(vw::Vector3 const& reference_xyz,
 
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
       boost::shared_ptr<PinholeModel> left_pinhole_model =
-        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(left_cam);
+        boost::dynamic_pointer_cast<vw::PinholeModel>(left_cam);
       boost::shared_ptr<PinholeModel> right_pinhole_model =
-        boost::dynamic_pointer_cast<vw::camera::PinholeModel>(right_cam);
+        boost::dynamic_pointer_cast<vw::PinholeModel>(right_cam);
       left_ba_cam = boost::make_shared<BaPinholeCam>(left_pinhole_model, opt.bathy_data, 
                                                      left_cam_index);
       right_ba_cam = boost::make_shared<BaPinholeCam>(right_pinhole_model, opt.bathy_data, 
                                                       right_cam_index);
 
     } else if (opt.camera_type == asp::BaCameraType_OpticalBar) {
-      boost::shared_ptr<vw::camera::OpticalBarModel> left_bar_model =
-        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(left_cam);
-      boost::shared_ptr<vw::camera::OpticalBarModel> right_bar_model =
-        boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(right_cam);
+      boost::shared_ptr<vw::OpticalBarModel> left_bar_model =
+        boost::dynamic_pointer_cast<vw::OpticalBarModel>(left_cam);
+      boost::shared_ptr<vw::OpticalBarModel> right_bar_model =
+        boost::dynamic_pointer_cast<vw::OpticalBarModel>(right_cam);
       left_ba_cam = boost::make_shared<BaOpticalBarCam>(left_bar_model, opt.bathy_data,
                                                         left_cam_index);
       right_ba_cam = boost::make_shared<BaOpticalBarCam>(right_bar_model, opt.bathy_data, 
@@ -1067,7 +1066,7 @@ void addRefTerrainCostFun(asp::BaOptions                            & opt,
       try {
         left_pred  = left_cam->point_to_pixel (reference_xyz);
         right_pred = right_cam->point_to_pixel(reference_xyz);
-      } catch (const camera::PointToPixelErr& e) {
+      } catch (const vw::PointToPixelErr& e) {
         continue; // Skip point if there is a projection issue.
       }
 
@@ -1161,8 +1160,8 @@ void addCamPosCostFun(asp::BaOptions                          const& opt,
 
       double gsd = 0.0;
       try {
-        gsd = vw::camera::estimatedGSD(orig_cams[icam].get(), bboxes[icam],
-                                       pixel_obs, xyz_obs);
+        gsd = vw::estimatedGSD(orig_cams[icam].get(), bboxes[icam],
+                               pixel_obs, xyz_obs);
       } catch (...) {
         continue;
       }

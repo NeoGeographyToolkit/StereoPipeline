@@ -47,7 +47,6 @@
 #include <string>
 
 using namespace vw;
-using namespace vw::camera;
 using namespace vw::stereo;
 
 namespace fs = boost::filesystem;

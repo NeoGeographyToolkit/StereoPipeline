@@ -39,4 +39,3 @@ vw::Vector2 applyProjTrans(vw::Vector3 const& xyz,
 } // End namespace asp
 
 #endif // __ASP_CORE_PROJECTIVE_CAM_APPROX_H__
-

@@ -628,7 +628,7 @@ void disp_or_matches_work(std::string const& output_prefix,
                           std::vector<std::string> const& image_files,
                           std::vector<std::string> const& camera_files,
                           // Cameras can change
-                          std::vector<boost::shared_ptr<camera::CameraModel>> & cameras) {
+                          std::vector<boost::shared_ptr<vw::CameraModel>> & cameras) {
   // Sanity check for some of the operations below
   VW_ASSERT(disparity_maps.size() == 1 && transforms.size() == 2,
             vw::ArgumentErr() << "Expecting two images and one disparity.\n");
@@ -718,10 +718,10 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // Collect the left and right images, cameras, and transforms.
     std::vector<std::string> image_files, camera_files;
-    std::vector<boost::shared_ptr<camera::CameraModel>> cameras;
+    std::vector<boost::shared_ptr<vw::CameraModel>> cameras;
     std::vector<vw::TransformPtr> transforms;
     {
-      boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+      boost::shared_ptr<vw::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1, camera_model2);
 
       boost::shared_ptr<StereoSession> sPtr = opt.session;
@@ -793,7 +793,7 @@ void stereo_triangulation(std::string const& output_prefix,
 
     // The VW stereo models take raw pointers, so form those just for their
     // construction. Everything downstream keeps the smart pointers (cameras).
-    std::vector<const vw::camera::CameraModel*> camera_ptrs;
+    std::vector<const vw::CameraModel*> camera_ptrs;
     int num_cams = cameras.size();
     for (int c = 0; c < num_cams; c++)
       camera_ptrs.push_back(cameras[c].get());

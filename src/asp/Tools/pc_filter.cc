@@ -296,11 +296,11 @@ int main(int argc, char *argv[]) {
     vw_throw(ArgumentErr() << "The input point cloud and texture must have the same dimensions.");
 
     // Load the camera
-    vw::camera::PinholeModel cam;
+    vw::PinholeModel cam;
     vw::Matrix<double> cam2world = vw::math::identity_matrix(4);
     if (opt.camera_file != "") {
       vw_out() << "Reading camera mode: " << opt.camera_file << "\n";
-      cam = vw::camera::PinholeModel(opt.camera_file);
+      cam = vw::PinholeModel(opt.camera_file);
       vw::math::submatrix(cam2world, 0, 0, 3, 3) = cam.get_rotation_matrix();
       for (int row = 0; row < 3; row++) 
         cam2world(row, 3) = cam.camera_center()[row];

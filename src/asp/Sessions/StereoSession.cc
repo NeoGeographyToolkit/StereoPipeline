@@ -273,8 +273,8 @@ namespace asp {
   }
 
   // Default implementation of this function.  Derived classes will probably override this.
-  void StereoSession::camera_models(boost::shared_ptr<vw::camera::CameraModel> &cam1,
-                                    boost::shared_ptr<vw::camera::CameraModel> &cam2) {
+  void StereoSession::camera_models(boost::shared_ptr<vw::CameraModel> &cam1,
+                                    boost::shared_ptr<vw::CameraModel> &cam2) {
     cam1 = camera_model(m_left_image_file,  m_left_camera_file);
     cam2 = camera_model(m_right_image_file, m_right_camera_file);
   }
@@ -288,7 +288,7 @@ bool StereoSession::have_datum() const {
 // Can be overridden by derived classes.
 // If no success finding the datum, will return WGS84.
 // TODO(oalexan1): This must return a flag indicating if the datum was found.
-vw::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
+vw::Datum StereoSession::get_datum(const vw::CameraModel* cam,
                                    bool use_sphere_for_non_earth) const {
 
   if (!stereo_settings().datum.empty())
@@ -299,8 +299,8 @@ vw::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
   // the ISIS one. In the latter case the ISIS session has this own
   // implementation of this function.
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-  vw::camera::IsisCameraModel const* isis_cam
-    = dynamic_cast<vw::camera::IsisCameraModel const*>(unadjusted_model(cam));
+  vw::IsisCameraModel const* isis_cam
+    = dynamic_cast<vw::IsisCameraModel const*>(unadjusted_model(cam));
   if (isis_cam != NULL)
     return isis_cam->get_datum_isis(use_sphere_for_non_earth);
 #endif // ASP_HAVE_PKG_ISIS
@@ -313,7 +313,7 @@ vw::Datum StereoSession::get_datum(const vw::camera::CameraModel* cam,
 
   // Same for RPC
   asp::RPCModel const* rpc_cam
-     = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(cam));
+     = dynamic_cast<const asp::RPCModel*>(vw::unadjusted_model(cam));
   if (rpc_cam != NULL)
      return rpc_cam->datum();
 
@@ -386,7 +386,7 @@ vw::GeoReference StereoSession::get_georef() {
   return georef;
 }
 
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 StereoSession::camera_model(std::string const& image_file, std::string const& camera_file,
                             bool quiet) {
 
@@ -402,7 +402,7 @@ StereoSession::camera_model(std::string const& image_file, std::string const& ca
     vw::Vector<double, 20> v; v[0] = 1.0; // to a void a zero denominator
     vw::Vector2 v2(1.0, 1.0); // to avoid division by 0
     vw::Vector3 v3(1.0, 1.0, 1.0);
-    boost::shared_ptr<vw::camera::CameraModel>
+    boost::shared_ptr<vw::CameraModel>
       cam(new RPCModel(vw::Datum("WGS84"), v, v, v, v, v2, v2, v3, v3));
     return cam;
   }
@@ -556,7 +556,7 @@ vw::TransformPtr StereoSession::tx_right_map_trans() const {
 
 // Load an RPC model. Any adjustment in ba_prefix and pixel_offset
 // will be applied.
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 StereoSession::load_rpc_camera_model(std::string const& image_file,
                                      std::string const& camera_file,
                                      std::string const& ba_prefix,

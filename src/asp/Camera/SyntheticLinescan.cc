@@ -64,10 +64,10 @@ void PinLinescanTest(SatSimOptions                const & opt,
   for (int i = 0; i < int(positions.size()); i++) {
 
     auto pin_cam 
-      = vw::camera::PinholeModel(asp::mapVal(positions, i),
-                                 asp::mapVal(cam2world, i),
-                                 opt.focal_length, opt.focal_length,
-                                 opt.optical_center[0], opt.optical_center[1]);
+      = vw::PinholeModel(asp::mapVal(positions, i),
+                         asp::mapVal(cam2world, i),
+                         opt.focal_length, opt.focal_length,
+                         opt.optical_center[0], opt.optical_center[1]);
   
     double line = (opt.image_size[1] - 1.0) * i / std::max((positions.size() - 1.0), 1.0);
   

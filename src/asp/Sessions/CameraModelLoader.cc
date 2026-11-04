@@ -64,14 +64,14 @@ CameraModelLoader::~CameraModelLoader() {
   xercesc::XMLPlatformUtils::Terminate();
 }
 
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_pinhole_camera_model(std::string const& path) const {
-  return vw::camera::load_pinhole_camera_model(path);
+  return vw::load_pinhole_camera_model(path);
 }
 
 // Load an RPC camera file
 // - TODO: Move to another file
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_rpc_camera_model(std::string const& path) const {
   
   // Try the default loading method
@@ -92,14 +92,14 @@ CameraModelLoader::load_rpc_camera_model(std::string const& path) const {
 }
 
 // Load a DG camera file
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_dg_camera_model(std::string const& path) const {
   // Redirect to the call from LinescanDGModel.h file
   return vw::CamPtr(load_dg_camera_model_from_xml(path));
 }
 
 // Load a SPOT 1-5 camera file
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_spot15_camera_model(std::string const& path) const {
   vw::Stopwatch sw;
   sw.start();
@@ -113,34 +113,34 @@ CameraModelLoader::load_spot15_camera_model(std::string const& path) const {
 }
 
 // Load a PeruSat linescan camera file
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_perusat_camera_model(std::string const& path) const {
   return vw::CamPtr(load_perusat_camera_model_from_xml(path));
 }
 
 // Load a Pleiades linescan camera file
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_pleiades_camera_model(std::string const& path) const {
   return vw::CamPtr(load_pleiades_camera_model_from_xml(path));
 }
 
 // Load a SPOT 6/7 linescan camera file
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_spot_camera_model(std::string const& path) const {
   return vw::CamPtr(load_spot_camera_model_from_xml(path));
 }
 
 // Load a ASTER camera file
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_ASTER_camera_model(std::string const& path) const {
   return vw::CamPtr(load_ASTER_camera_model_from_xml(path));
 }
 
 // Load an ISIS camera model
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_isis_camera_model(std::string const& path) const {
 #if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-  return vw::CamPtr(new vw::camera::IsisCameraModel(path));
+  return vw::CamPtr(new vw::IsisCameraModel(path));
 #endif
   // If ISIS was not enabled in the build, just throw an exception.
   vw::vw_throw(vw::NoImplErr()
@@ -149,13 +149,13 @@ CameraModelLoader::load_isis_camera_model(std::string const& path) const {
 } // End function load_isis_camera_model()
 
 // Load an optical bar camera file
-boost::shared_ptr<vw::camera::CameraModel>
+boost::shared_ptr<vw::CameraModel>
 CameraModelLoader::load_optical_bar_camera_model(std::string const& path) const {
-  return vw::CamPtr(new vw::camera::OpticalBarModel(path));
+  return vw::CamPtr(new vw::OpticalBarModel(path));
 }
 
 // Load a CSM camera file
-boost::shared_ptr<vw::camera::CameraModel> 
+boost::shared_ptr<vw::CameraModel> 
 CameraModelLoader::load_csm_camera_model(std::string const& path) const {
   
   boost::shared_ptr<asp::CsmModel> cam_ptr(new asp::CsmModel());

@@ -45,7 +45,6 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
 using namespace vw;
-using namespace vw::camera;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -286,7 +285,7 @@ int main(int argc, char* argv[]) {
     // Building Camera Models and then writing to KML
     std::vector<Vector3> camera_positions(num_cameras);
     for (size_t i=0; i < num_cameras; i++) {
-      boost::shared_ptr<camera::CameraModel> current_camera;
+      boost::shared_ptr<vw::CameraModel> current_camera;
 
       // This is so clumsy, a new stereo session needs to be loaded for each
       // input camera.

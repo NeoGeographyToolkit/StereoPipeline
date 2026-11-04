@@ -83,7 +83,7 @@ IsisInterfaceLineScan::point_to_pixel(Vector3 const& point) const {
       Isis::Displacement(point[1], Isis::Displacement::Meters),
       Isis::Displacement(point[2], Isis::Displacement::Meters));
   if (!m_camera->SetGround(sp))
-    vw_throw(vw::camera::PointToPixelErr()
+    vw_throw(vw::PointToPixelErr()
              << " ISIS Camera::SetGround failed for point " << point);
 
   Vector2 pixel(m_camera->Sample(), m_camera->Line());

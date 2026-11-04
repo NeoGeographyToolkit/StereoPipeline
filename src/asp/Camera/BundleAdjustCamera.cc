@@ -52,7 +52,6 @@
 #include <algorithm>
 
 using namespace vw;
-using namespace vw::camera;
 
 namespace asp {
 
@@ -78,19 +77,19 @@ void CameraAdjustment::read_from_array(double const* array) {
 
 /// Populate from an AdjustedCameraModel
 void CameraAdjustment::copy_from_adjusted_camera
-  (vw::camera::AdjustedCameraModel const& cam) {
+  (vw::AdjustedCameraModel const& cam) {
   m_position_data = cam.translation();
   m_pose_data     = cam.rotation();
 }
 
 /// Populate from a PinholeModel
-void CameraAdjustment::copy_from_pinhole(vw::camera::PinholeModel const& cam) {
+void CameraAdjustment::copy_from_pinhole(vw::PinholeModel const& cam) {
   m_position_data = cam.camera_center();
   m_pose_data     = cam.camera_pose();
 }
 
 /// Populate from OpticalBarModel
-void CameraAdjustment::copy_from_optical_bar(vw::camera::OpticalBarModel const& cam) {
+void CameraAdjustment::copy_from_optical_bar(vw::OpticalBarModel const& cam) {
   m_position_data = cam.camera_center();
   m_pose_data     = cam.camera_pose();
 }
@@ -127,7 +126,7 @@ void CameraAdjustment::pack_to_array(double* array) const {
   }
 }
 
-void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
+void pack_pinhole_to_arrays(vw::PinholeModel const& camera,
                             int camera_index,
                             asp::BaState & ba_state) {
 
@@ -152,7 +151,7 @@ void pack_pinhole_to_arrays(vw::camera::PinholeModel const& camera,
     distortion_ptr[i] = 1.0;
 }
 
-void pack_optical_bar_to_arrays(vw::camera::OpticalBarModel const& camera,
+void pack_optical_bar_to_arrays(vw::OpticalBarModel const& camera,
                                 int camera_index,
                                 asp::BaState & ba_state) {
 
@@ -216,8 +215,8 @@ void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaState &ba_state,
     CameraAdjustment cam_adjust(cam_ptr);
 
     // Create the adjusted camera model
-    vw::camera::AdjustedCameraModel cam(cam_ptrs[i], cam_adjust.position(),
-                                        cam_adjust.pose());
+    vw::AdjustedCameraModel cam(cam_ptrs[i], cam_adjust.position(),
+                                cam_adjust.pose());
     // Apply the transform
     cam.apply_transform(M);
 
@@ -236,8 +235,8 @@ void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
 
   for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
     // Apply the transform
-    boost::shared_ptr<camera::PinholeModel> pin_ptr =
-      boost::dynamic_pointer_cast<vw::camera::PinholeModel>(cam_ptrs[i]);
+    boost::shared_ptr<vw::PinholeModel> pin_ptr =
+      boost::dynamic_pointer_cast<vw::PinholeModel>(cam_ptrs[i]);
     pin_ptr->apply_transform(M);
 
     // Write out to ba_state
@@ -266,8 +265,8 @@ void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
 
   for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
     // Apply the transform
-    boost::shared_ptr<vw::camera::OpticalBarModel> bar_ptr =
-      boost::dynamic_pointer_cast<vw::camera::OpticalBarModel>(cam_ptrs[i]);
+    boost::shared_ptr<vw::OpticalBarModel> bar_ptr =
+      boost::dynamic_pointer_cast<vw::OpticalBarModel>(cam_ptrs[i]);
     bar_ptr->apply_transform(R, T, scale);
 
     // Write out to ba_state
@@ -308,8 +307,8 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
 
   // Apply the transform to the cameras
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
-    vw::camera::PinholeModel * pincam
-      = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
+    vw::PinholeModel * pincam
+      = dynamic_cast<vw::PinholeModel*>(camera_models[icam].get());
     VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
 
     pincam->apply_transform(rotation, translation, scale);
@@ -442,8 +441,8 @@ void transform_cameras_with_indiv_image_gcp
   // Create pinhole cameras
   std::vector<PinholeModel> pinhole_cams;
   for (int icam = 0; icam < num_cams; icam++) {
-    vw::camera::PinholeModel * pincam
-      = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
+    vw::PinholeModel * pincam
+      = dynamic_cast<vw::PinholeModel*>(camera_models[icam].get());
     VW_ASSERT(pincam != NULL,
           vw::ArgumentErr() << "A pinhole camera expected.\n");
     pinhole_cams.push_back(*pincam);
@@ -477,7 +476,7 @@ void transform_cameras_with_indiv_image_gcp
   Matrix3x3 rotation;
   Vector3   translation;
   double    scale;
-  vw::camera::align_cameras_to_ground(xyz, pix, pinhole_cams, rotation, translation, scale);
+  vw::align_cameras_to_ground(xyz, pix, pinhole_cams, rotation, translation, scale);
 
   // Update the camera and point information with the new transform
   vw_out() << "Applying transform based on GCP:\n";
@@ -521,8 +520,8 @@ void transform_cameras_with_shared_gcp(
 
   // Verify that all cameras are pinhole
   for (size_t icam = 0; icam < camera_models.size(); icam++) {
-    vw::camera::PinholeModel * pincam
-      = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
+    vw::PinholeModel * pincam
+      = dynamic_cast<vw::PinholeModel*>(camera_models[icam].get());
     VW_ASSERT(pincam != NULL,
           vw::ArgumentErr() << "A pinhole camera expected.\n");
   }
@@ -650,8 +649,8 @@ void init_camera_using_gcp(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr
   vw_out() << "Initializing a Pinhole camera using GCP.\n";
 
   int icam = 0;
-  vw::camera::PinholeModel * pincam
-    = dynamic_cast<vw::camera::PinholeModel*>(camera_models[icam].get());
+  vw::PinholeModel * pincam
+    = dynamic_cast<vw::PinholeModel*>(camera_models[icam].get());
   VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
 
   std::vector<vw::Vector2> pixel_observations;
@@ -691,13 +690,13 @@ void init_camera_using_gcp(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera. Note that all intrinsic parameters are stored as multipliers
 // in asp::BaState.
-vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
-                                                  asp::BaState const& ba_state,
-                                                  vw::camera::PinholeModel const& in_cam) {
+vw::PinholeModel transformedPinholeCamera(int camera_index,
+                                          asp::BaState const& ba_state,
+                                          vw::PinholeModel const& in_cam) {
 
   // Start by making a copy of the camera. Note that this does not make a copy of the
   // distortion params, as that's a pointer. So will have to make a copy of it further down.
-  vw::camera::PinholeModel out_cam = in_cam;
+  vw::PinholeModel out_cam = in_cam;
 
   double const* pos_pose_ptr   = ba_state.get_camera_ptr(camera_index);
   double const* center_ptr     = ba_state.get_intrinsic_center_ptr    (camera_index);
@@ -733,13 +732,13 @@ vw::camera::PinholeModel transformedPinholeCamera(int camera_index,
 
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.
-vw::camera::OpticalBarModel
+vw::OpticalBarModel
 transformedOpticalBarCamera(int camera_index,
                             asp::BaState const& ba_state,
-                            vw::camera::OpticalBarModel const& in_cam) {
+                            vw::OpticalBarModel const& in_cam) {
 
   // Start by making a copy of the camera
-  vw::camera::OpticalBarModel out_cam = in_cam;
+  vw::OpticalBarModel out_cam = in_cam;
 
   double const* pos_pose_ptr  = ba_state.get_camera_ptr(camera_index);
   double const* center_ptr    = ba_state.get_intrinsic_center_ptr    (camera_index);
@@ -1364,8 +1363,8 @@ void matchFilesProcessing(vw::ControlNetwork       const& cnet,
 
 // Find stats of propagated errors
 void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
-                          vw::camera::CameraModel const * left_cam,
-                          vw::camera::CameraModel const * right_cam,
+                          vw::CameraModel const * left_cam,
+                          vw::CameraModel const * right_cam,
                           std::vector<vw::InterestPoint> const& left_ip,
                           std::vector<vw::InterestPoint> const& right_ip,
                           double stddev1, double stddev2,

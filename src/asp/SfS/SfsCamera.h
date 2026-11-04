@@ -29,7 +29,7 @@
 
 namespace asp {
 
-class ApproxCameraModel: public vw::camera::CameraModel {
+class ApproxCameraModel: public vw::CameraModel {
 private:
   mutable vw::Vector3 m_mean_dir;  // mean vector from camera to ground
   vw::GeoReference m_geo;

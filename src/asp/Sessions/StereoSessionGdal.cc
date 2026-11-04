@@ -47,7 +47,7 @@ using namespace vw;
 namespace asp {
 
 /// Returns the target datum to use for a given camera model
-vw::Datum StereoSessionCsm::get_datum(const vw::camera::CameraModel* cam,
+vw::Datum StereoSessionCsm::get_datum(const vw::CameraModel* cam,
                                       bool use_sphere_for_non_earth) const {
 
   // Peek at the .cub file to get the planet name without reading
@@ -57,7 +57,7 @@ vw::Datum StereoSessionCsm::get_datum(const vw::camera::CameraModel* cam,
   std::string spheroid_name = asp::read_target_name(m_left_image_file);
 
   const asp::CsmModel * csm_cam
-    = dynamic_cast<const asp::CsmModel*>(vw::camera::unadjusted_model(cam));
+    = dynamic_cast<const asp::CsmModel*>(vw::unadjusted_model(cam));
   VW_ASSERT(csm_cam != NULL,
             vw::ArgumentErr() << "Could not load a CSM camera.\n");
 

@@ -243,7 +243,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
       
       vw::TransformPtr tx_left = opt.session->tx_left();
       vw::TransformPtr tx_right = opt.session->tx_right();
-      boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+      boost::shared_ptr<vw::CameraModel> left_camera_model, right_camera_model;
       opt.session->camera_models(left_camera_model, right_camera_model);
       const bool use_sphere_for_non_earth = true;
       vw::Datum datum = opt.session->get_datum(left_camera_model.get(),
@@ -260,7 +260,7 @@ void produce_lowres_disparity(ASPGlobalOptions & opt) {
   } else if (stereo_settings().seed_mode == 2) {
 
     // Use a DEM to get the low-res disparity
-    boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+    boost::shared_ptr<vw::CameraModel> left_camera_model, right_camera_model;
     opt.session->camera_models(left_camera_model, right_camera_model);
     vw::TransformPtr tx_left = opt.session->tx_left();
     vw::TransformPtr tx_right = opt.session->tx_right();
@@ -353,7 +353,7 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
     align_ip(opt.session->tx_left(), opt.session->tx_right(), in_left_ip, in_right_ip);
   
   // Camera models
-  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  boost::shared_ptr<vw::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
 
   // Filter out IPs which fall outside the specified elevation range
@@ -1123,7 +1123,7 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
   double left_extra_factor = 1.0, right_extra_factor = 1.0;
   bool success = false;
   std::string err_msg;
-  boost::shared_ptr<camera::CameraModel> left_camera_model, right_camera_model;
+  boost::shared_ptr<vw::CameraModel> left_camera_model, right_camera_model;
   opt.session->camera_models(left_camera_model, right_camera_model);
   bool use_sphere_for_non_earth = true;
   vw::Datum datum = opt.session->get_datum(left_camera_model.get(),

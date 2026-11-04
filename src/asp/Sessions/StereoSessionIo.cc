@@ -200,7 +200,7 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
              stereo_settings().alignment_method == "local_epipolar") {
 
     // Load the cameras
-    boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+    boost::shared_ptr<vw::CameraModel> left_cam, right_cam;
     this->camera_models(left_cam, right_cam);
 
     // Get the image sizes. Later alignment options can choose to

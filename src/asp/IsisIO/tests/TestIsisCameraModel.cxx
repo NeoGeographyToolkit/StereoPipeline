@@ -40,7 +40,6 @@
 #include <boost/foreach.hpp>
 
 using namespace vw;
-using namespace vw::camera;
 
 double DELTA = 1e-8;
 

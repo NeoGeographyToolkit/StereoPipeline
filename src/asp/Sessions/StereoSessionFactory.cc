@@ -60,9 +60,9 @@ void handleOrthoHeights(std::string const& left_image_file,
   vw::CamPtr cam2 = session.camera_model(right_image_file, right_camera_file, quiet);
   
   asp::RPCModel const* rpc1 
-    = dynamic_cast<asp::RPCModel const*>(vw::camera::unadjusted_model(cam1.get()));
+    = dynamic_cast<asp::RPCModel const*>(vw::unadjusted_model(cam1.get()));
   asp::RPCModel const* rpc2 
-    = dynamic_cast<asp::RPCModel const*>(vw::camera::unadjusted_model(cam2.get()));
+    = dynamic_cast<asp::RPCModel const*>(vw::unadjusted_model(cam2.get()));
   
   if ((rpc1 == NULL) != (rpc2 == NULL))
     vw::vw_throw(vw::ArgumentErr() << "Expecting both or neither cameras to be RPC.\n");
@@ -151,13 +151,13 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
       // There can be several types of .tsai files
       std::string error_pinhole, error_opticalbar;
       try {
-        boost::shared_ptr<vw::camera::CameraModel> P = 
-          vw::camera::load_pinhole_camera_model(left_camera_file);
+        boost::shared_ptr<vw::CameraModel> P = 
+          vw::load_pinhole_camera_model(left_camera_file);
         actual_session_type = "pinhole";
       }catch (std::exception & e) {
         error_pinhole = e.what();
         try {
-          vw::camera::OpticalBarModel P;
+          vw::OpticalBarModel P;
           P.read(left_camera_file);
           actual_session_type = "opticalbar";
         }catch (std::exception & e) {
@@ -205,7 +205,7 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
         // Try DG exact linescan model
         try {
           StereoSessionDG session;
-          boost::shared_ptr<vw::camera::CameraModel>
+          boost::shared_ptr<vw::CameraModel>
             left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
             right_model = session.camera_model(right_image_file, right_camera_file, quiet);
           actual_session_type = "dg";
@@ -216,7 +216,7 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
         // Try PeruSat exact linescan model
         try {
           StereoSessionPeruSat session;
-          boost::shared_ptr<vw::camera::CameraModel>
+          boost::shared_ptr<vw::CameraModel>
             left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
             right_model = session.camera_model(right_image_file, right_camera_file, quiet);
           actual_session_type = "perusat";
@@ -227,7 +227,7 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
         // Try SPOT 6/7 exact linescan model (before Pleiades, same DIMAP V2 family)
         try {
           StereoSessionSpot67 session;
-          boost::shared_ptr<vw::camera::CameraModel>
+          boost::shared_ptr<vw::CameraModel>
             left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
             right_model = session.camera_model(right_image_file, right_camera_file, quiet);
           actual_session_type = "spot";
@@ -238,7 +238,7 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
         // Try Pleiades exact linescan model
         try {
           StereoSessionPleiades session;
-          boost::shared_ptr<vw::camera::CameraModel>
+          boost::shared_ptr<vw::CameraModel>
             left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
             right_model = session.camera_model(right_image_file, right_camera_file, quiet);
           actual_session_type = "pleiades";
@@ -249,7 +249,7 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
         // Try the ASTER exact linescan model
         try {
           StereoSessionASTER session;
-          boost::shared_ptr<vw::camera::CameraModel>
+          boost::shared_ptr<vw::CameraModel>
             left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
             right_model = session.camera_model(right_image_file, right_camera_file, quiet);
           actual_session_type = "aster";
@@ -263,7 +263,7 @@ SessionPtr StereoSessionFactory::create(std::string      & session_type, // in-o
     if (actual_session_type.empty()) {
       try {
         StereoSessionRPC session;
-        boost::shared_ptr<vw::camera::CameraModel>
+        boost::shared_ptr<vw::CameraModel>
           left_model  = session.camera_model(left_image_file,  left_camera_file, quiet),
           right_model = session.camera_model(right_image_file, right_camera_file, quiet);
         actual_session_type = "rpc";

@@ -43,7 +43,7 @@ namespace vw {
 
 namespace asp {
 
-  class RPCModel : public vw::camera::CameraModel {
+  class RPCModel : public vw::CameraModel {
 
   public:
 

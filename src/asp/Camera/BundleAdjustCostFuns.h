@@ -37,9 +37,7 @@ typedef vw::PixelMask<vw::Vector<float, 2>> DispPixelT;
 
 // Forward declaration
 namespace vw {
-  namespace camera {
     class OpticalBarModel;
-  }
 }
 namespace asp {
   struct BaOptions;
@@ -80,14 +78,14 @@ public:
 
 }; // End class BaCamBase
 
-/// Simple wrapper for the vw::camera::AdjustedCameraModel class with a 
+/// Simple wrapper for the vw::AdjustedCameraModel class with a 
 /// preconfigured underlying camera.  Only uses translation and rotation.
 /// - Just vary the six camera adjustment parameters which are all in 
 ///   a single parameter block.
 class BaAdjCam: public BaCamBase {
 public:
 
-  BaAdjCam(boost::shared_ptr<vw::camera::CameraModel> cam,
+  BaAdjCam(boost::shared_ptr<vw::CameraModel> cam,
            vw::BathyData const& bathy_data,
            int camera_index):
     m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
@@ -104,7 +102,7 @@ public:
 private:
 
   /// This camera will be adjusted by the input parameters.
-  boost::shared_ptr<vw::camera::CameraModel> m_underlying_camera;
+  boost::shared_ptr<vw::CameraModel> m_underlying_camera;
   vw::BathyData const& m_bathy_data;
   int m_camera_index;
 
@@ -116,7 +114,7 @@ private:
 class BaPinholeCam: public BaCamBase {
 public:
 
-  BaPinholeCam(boost::shared_ptr<vw::camera::PinholeModel> cam,
+  BaPinholeCam(boost::shared_ptr<vw::PinholeModel> cam,
                vw::BathyData const& bathy_data,
                int camera_index);
 
@@ -143,7 +141,7 @@ private:
 
   // TODO: Make const
   /// This camera is used for all of the intrinsic values.
-  boost::shared_ptr<vw::camera::PinholeModel> m_underlying_camera;
+  boost::shared_ptr<vw::PinholeModel> m_underlying_camera;
   vw::BathyData const& m_bathy_data;
   int m_camera_index;
 
@@ -155,7 +153,7 @@ private:
 class BaOpticalBarCam: public BaCamBase {
 public:
 
-  BaOpticalBarCam(boost::shared_ptr<vw::camera::OpticalBarModel> cam,
+  BaOpticalBarCam(boost::shared_ptr<vw::OpticalBarModel> cam,
                   vw::BathyData const& bathy_data,
                   int camera_index);
 
@@ -177,7 +175,7 @@ private:
 
   // TODO: Make const
   /// This camera is used for all of the intrinsic values.
-  boost::shared_ptr<vw::camera::OpticalBarModel> m_underlying_camera;
+  boost::shared_ptr<vw::OpticalBarModel> m_underlying_camera;
   vw::BathyData const& m_bathy_data;
   int m_camera_index;
 

@@ -65,16 +65,16 @@ public:
       vw::InterestPointList const& ip2,
       DetectIpMethod  ip_detect_method,
       size_t          number_of_jobs,
-      vw::camera::CameraModel        * cam1,
-      vw::camera::CameraModel        * cam2,
+      vw::CameraModel        * cam1,
+      vw::CameraModel        * cam2,
       std::vector<size_t>            & output_indices) const;
 
   /// Work out an epipolar line from interest point. Returns the
   /// coefficients for the following line equation: ax + by + c = 0
   static vw::Vector3 epipolar_line(vw::Vector2            const& feature,
             vw::Datum const& datum,
-            vw::camera::CameraModel     * cam_ip,
-            vw::camera::CameraModel     * cam_obj,
+            vw::CameraModel     * cam_ip,
+            vw::CameraModel     * cam_obj,
             bool                        & success);
 
   /// Calculate distance between a line of equation ax + by + c = 0
@@ -100,8 +100,8 @@ EpipolarLinePointMatcher::EpipolarLinePointMatcher(bool   single_threaded_camera
   
 Vector3 EpipolarLinePointMatcher::epipolar_line(Vector2 const& feature,
                                                 vw::Datum const& datum,
-                                                camera::CameraModel* cam_ip,
-                                                camera::CameraModel* cam_obj,
+                                                vw::CameraModel* cam_ip,
+                                                vw::CameraModel* cam_obj,
                                                 bool & success) {
   success = true;
 
@@ -171,7 +171,7 @@ class EpipolarLineMatchTask: public Task, private boost::noncopyable {
   math::FLANNTree<unsigned char>& m_tree_uchar;
   IPListIter                      m_start, m_end;
   vw::InterestPointList const&    m_ip_other;
-  camera::CameraModel            *m_cam1, *m_cam2;
+  vw::CameraModel            *m_cam1, *m_cam2;
   EpipolarLinePointMatcher const& m_matcher;
   Mutex&                          m_camera_mutex;
   std::vector<size_t>::iterator   m_output;
@@ -183,8 +183,8 @@ public:
                         vw::InterestPointList::const_iterator start,
                         vw::InterestPointList::const_iterator end,
                         vw::InterestPointList const& ip2,
-                        vw::camera::CameraModel* cam1,
-                        vw::camera::CameraModel* cam2,
+                        vw::CameraModel* cam1,
+                        vw::CameraModel* cam2,
                         EpipolarLinePointMatcher const& matcher,
                         Mutex& camera_mutex,
                         std::vector<size_t>::iterator output):
@@ -294,8 +294,8 @@ void EpipolarLinePointMatcher::operator()(vw::InterestPointList const& ip1,
                                           vw::InterestPointList const& ip2,
                                           DetectIpMethod  ip_detect_method,
                                           size_t          number_of_jobs,
-                                          camera::CameraModel        * cam1,
-                                          camera::CameraModel        * cam2,
+                                          vw::CameraModel        * cam1,
+                                          vw::CameraModel        * cam2,
                                           std::vector<size_t>        & output_indices) const {
   typedef vw::InterestPointList::const_iterator IPListIter;
 
@@ -381,8 +381,8 @@ void epipolar_ip_matching_task(bool single_threaded_camera,
         double uniqueness_threshold,
         vw::Datum const& datum,
         bool quiet,
-        vw::camera::CameraModel* cam1,
-        vw::camera::CameraModel* cam2,
+        vw::CameraModel* cam1,
+        vw::CameraModel* cam2,
         vw::InterestPointList const& ip1,
         vw::InterestPointList const& ip2,
         // Outputs
@@ -614,8 +614,8 @@ class MatchPerTileTask: public Task, private boost::noncopyable {
   DetectIpMethod m_detect_method;
   std::map<std::pair<int, int>, std::vector<vw::InterestPoint>> const& m_ip1_vec;
   std::map<std::pair<int, int>, std::vector<vw::InterestPoint>> const& m_ip2_vec;
-  vw::camera::CameraModel* m_cam1;
-  vw::camera::CameraModel* m_cam2;
+  vw::CameraModel* m_cam1;
+  vw::CameraModel* m_cam2;
   vw::Datum const& m_datum;
   double m_epipolar_threshold;
   double m_uniqueness_threshold;
@@ -637,8 +637,8 @@ public:
                    const& ip1_vec,
                    std::map<std::pair<int, int>, std::vector<vw::InterestPoint>> 
                    const& ip2_vec,
-                   vw::camera::CameraModel* cam1,
-                   vw::camera::CameraModel* cam2,
+                   vw::CameraModel* cam1,
+                   vw::CameraModel* cam2,
                    vw::Datum const& datum,
                    double epipolar_threshold,
                    double uniqueness_threshold,
@@ -747,8 +747,8 @@ void matches_per_tile(bool have_datum,
                       DetectIpMethod detect_method,
                       std::vector<vw::InterestPoint> const& ip1_copy, 
                       std::vector<vw::InterestPoint> const& ip2_copy,
-                      vw::camera::CameraModel* cam1,
-                      vw::camera::CameraModel* cam2,
+                      vw::CameraModel* cam1,
+                      vw::CameraModel* cam2,
                       vw::Datum const& datum,
                       size_t number_of_jobs,
                       double epipolar_threshold,
@@ -807,8 +807,8 @@ void matches_per_tile(bool have_datum,
 bool epipolar_ip_matching(bool single_threaded_camera,
         vw::InterestPointList const& ip1,
         vw::InterestPointList const& ip2,
-        vw::camera::CameraModel* cam1,
-        vw::camera::CameraModel* cam2,
+        vw::CameraModel* cam1,
+        vw::CameraModel* cam2,
         vw::ImageViewRef<float> const& image1,
         vw::ImageViewRef<float> const& image2,
         vw::Datum const& datum,
@@ -957,8 +957,8 @@ bool epipolar_ip_matching(bool single_threaded_camera,
 // See the .h file for documentation.
 bool match_ip_with_datum(bool single_threaded_camera,
                          bool use_rough_homography,
-                         vw::camera::CameraModel* cam1,
-                         vw::camera::CameraModel* cam2,
+                         vw::CameraModel* cam1,
+                         vw::CameraModel* cam2,
                          vw::ImageViewRef<float> const& image1,
                          vw::ImageViewRef<float> const& image2,
                          int ip_per_tile,
@@ -1135,7 +1135,7 @@ void match_ip_no_datum(vw::InterestPointList const& ip1,
     // Initialize some quantities that won't be used but are part of the API.
     bool have_datum = false, single_threaded_camera = false;
     double epipolar_threshold = -1, nodata1 = -1, nodata2 = -1;
-    vw::camera::CameraModel *cam1 = NULL, *cam2 = NULL;
+    vw::CameraModel *cam1 = NULL, *cam2 = NULL;
     vw::Datum datum;
     vw::Stopwatch sw3;
     sw3.start();

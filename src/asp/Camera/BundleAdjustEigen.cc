@@ -45,8 +45,8 @@ void calcOpticalOffsets(std::vector<std::string>               const& image_file
   optical_offsets.clear();
   for (size_t i = 0; i < image_files.size(); i++) {
     
-    vw::camera::PinholeModel * pinhole_model 
-      = dynamic_cast<vw::camera::PinholeModel*>(vw::camera::unadjusted_model(cams[i].get()));
+    vw::PinholeModel * pinhole_model 
+      = dynamic_cast<vw::PinholeModel*>(vw::unadjusted_model(cams[i].get()));
     if (pinhole_model != NULL) {
       vw::Vector2 offset = pinhole_model->point_offset(); 
       optical_offsets[image_files[i]] = Eigen::Vector2d(offset[0], offset[1]);
@@ -54,7 +54,7 @@ void calcOpticalOffsets(std::vector<std::string>               const& image_file
     } 
     
     asp::CsmModel const* csm_model 
-      = dynamic_cast<asp::CsmModel const*>(vw::camera::unadjusted_model(cams[i].get()));    
+      = dynamic_cast<asp::CsmModel const*>(vw::unadjusted_model(cams[i].get()));    
     if (csm_model != NULL) {
       // For CSM, for frame can do, for others cannot
       if (csm_model->isFrameCam()) {
@@ -72,7 +72,7 @@ void calcOpticalOffsets(std::vector<std::string>               const& image_file
 
 // Given a pinhole camera model, find the world-to-camera transform
 // TODO(oalexan1): Move this out
-Eigen::Affine3d calcWorldToCam(vw::camera::PinholeModel const& pin) {
+Eigen::Affine3d calcWorldToCam(vw::PinholeModel const& pin) {
 
   // The rotation and translation matrices in the pinhole camera  
   vw::Matrix3x3 R = pin.get_rotation_matrix();
@@ -148,23 +148,23 @@ void calcCameraPoses(bool                                no_poses_from_nvm,
     }
     
     // Try pinhole
-    vw::camera::PinholeModel * pinhole_model
-       = dynamic_cast<vw::camera::PinholeModel*>(cams[i].get());
+    vw::PinholeModel * pinhole_model
+       = dynamic_cast<vw::PinholeModel*>(cams[i].get());
     if (pinhole_model != NULL) {
       world_to_cam[i] = calcWorldToCam(*pinhole_model);
       continue;
     }
     
     // Try adjusted pinhole
-    vw::camera::AdjustedCameraModel * adj_cam = 
-      dynamic_cast<vw::camera::AdjustedCameraModel*>(cams[i].get());
-    vw::camera::PinholeModel const* pin 
-      = dynamic_cast<vw::camera::PinholeModel const*>(adj_cam->unadjusted_model().get());
+    vw::AdjustedCameraModel * adj_cam = 
+      dynamic_cast<vw::AdjustedCameraModel*>(cams[i].get());
+    vw::PinholeModel const* pin 
+      = dynamic_cast<vw::PinholeModel const*>(adj_cam->unadjusted_model().get());
     if (pin != NULL && adj_cam != NULL) {
       // Apply the adjustment to the pinhole camera    
       vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
       // Make a copy of the pinhole camera
-      vw::camera::PinholeModel local_pin = *pin;
+      vw::PinholeModel local_pin = *pin;
       // Apply the transform
       local_pin.apply_transform(ecef_transform);
       world_to_cam[i] = calcWorldToCam(local_pin);
@@ -252,8 +252,8 @@ void updateCameraPoses(std::vector<Eigen::Affine3d> const& world_to_cam,
     for (int r = 0; r < 3; r++)
       T(r) = E(r, 3);
       
-    vw::camera::PinholeModel * pin
-       = dynamic_cast<vw::camera::PinholeModel*>(cams[i].get());
+    vw::PinholeModel * pin
+       = dynamic_cast<vw::PinholeModel*>(cams[i].get());
     if (pin != NULL) {
       pin->set_camera_pose(R);
       pin->set_camera_center(T);
@@ -261,8 +261,8 @@ void updateCameraPoses(std::vector<Eigen::Affine3d> const& world_to_cam,
     }
     
     // Try adjusted pinhole camera
-    vw::camera::AdjustedCameraModel * adj_cam = 
-      dynamic_cast<vw::camera::AdjustedCameraModel*>(cams[i].get());
+    vw::AdjustedCameraModel * adj_cam = 
+      dynamic_cast<vw::AdjustedCameraModel*>(cams[i].get());
     
     // If null, we are doing something wrong
     if (adj_cam != NULL) {
@@ -273,7 +273,7 @@ void updateCameraPoses(std::vector<Eigen::Affine3d> const& world_to_cam,
         vw::vw_throw(vw::ArgumentErr() << "Expecting the adjustment to be the identity.\n");
       
       // Get the unadjusted pinhole camera
-      pin = dynamic_cast<vw::camera::PinholeModel*>(adj_cam->unadjusted_model().get());
+      pin = dynamic_cast<vw::PinholeModel*>(adj_cam->unadjusted_model().get());
       if (pin != NULL) {
         pin->set_camera_pose(R);
         pin->set_camera_center(T);

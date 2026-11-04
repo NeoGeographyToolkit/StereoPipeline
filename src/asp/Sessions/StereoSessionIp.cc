@@ -59,8 +59,8 @@ bool StereoSession::ip_matching(std::string const& input_file1,
                                 Vector6f    const& stats1,
                                 Vector6f    const& stats2,
                                 float nodata1, float nodata2,
-                                vw::camera::CameraModel* cam1,
-                                vw::camera::CameraModel* cam2,
+                                vw::CameraModel* cam1,
+                                vw::CameraModel* cam2,
                                 std::string const& match_filename,
                                 std::string const  left_ip_file,
                                 std::string const  right_ip_file,
@@ -194,7 +194,7 @@ bool StereoSession::ip_matching(std::string const& input_file1,
     // a datum whose height is outside of the domain of applicability
     // of the RPC model, as that can lead to very incorrect results.
     const asp::RPCModel *rpc_cam
-      = dynamic_cast<const asp::RPCModel*>(vw::camera::unadjusted_model(cam1));
+      = dynamic_cast<const asp::RPCModel*>(vw::unadjusted_model(cam1));
     if (rpc_cam != NULL) {
       Vector3 lonlatheight_offset = rpc_cam->lonlatheight_offset();
       Vector3 lonlatheight_scale  = rpc_cam->lonlatheight_scale();
@@ -389,7 +389,7 @@ void matchIp(std::string const& out_prefix,
              double pct_for_overlap,
              asp::SessionPtr session,
              std::string const& image1_path,  std::string const& image2_path,
-             vw::camera::CameraModel* cam1,   vw::camera::CameraModel* cam2,
+             vw::CameraModel* cam1,   vw::CameraModel* cam2,
              std::string const& match_filename,
              bool have_mapproj_images) {
 
@@ -505,7 +505,7 @@ void matchIpNoCams(std::string const& image1,
                         image1, image2,
                         output_prefix, input_dem, allow_map_promote, total_quiet);
 
-  vw::camera::CameraModel* cam1 = NULL, *cam2 = NULL;
+  vw::CameraModel* cam1 = NULL, *cam2 = NULL;
   bool enable_rough_homography = false;
   double pct_for_overlap = -1.0;
   asp::matchIp(output_prefix, enable_rough_homography, pct_for_overlap,

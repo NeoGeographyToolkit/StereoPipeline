@@ -76,7 +76,6 @@
 
 namespace fs = boost::filesystem;
 
-using namespace vw::camera;
 using namespace asp;
 
 // Run sfs
@@ -244,7 +243,7 @@ void calcApproxCamsCropBoxes(vw::ImageView<double> const& dem,
     vw::BBox2i img_bbox = crop_boxes[image_iter];
     vw::Stopwatch sw;
     sw.start();
-    boost::shared_ptr<CameraModel> apcam;
+    boost::shared_ptr<vw::CameraModel> apcam;
     apcam.reset(new asp::ApproxCameraModel(exact_camera, img_bbox, dem, geo,
                                            dem_nodata_val, camera_mutex));
     cameras[image_iter] = apcam;
@@ -892,7 +891,7 @@ int main(int argc, char* argv[]) {
       if (opt.skip_images.find(image_iter) != opt.skip_images.end()) {
         masked_images[image_iter] = vw::ImageView<vw::PixelMask<float>>();
         blend_weights[image_iter] = vw::ImageView<double>();
-        cameras[image_iter] = boost::shared_ptr<CameraModel>();
+        cameras[image_iter] = boost::shared_ptr<vw::CameraModel>();
       }
     }
 

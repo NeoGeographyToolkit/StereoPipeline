@@ -26,7 +26,6 @@
 #include <string>
 
 using namespace vw;
-using namespace vw::camera;
 
 namespace asp {
 
@@ -41,7 +40,7 @@ void RodriguesToRotation(Eigen::Vector3d const& vector,
 /// based on image pixels and corresponding ground positions
 void findCameraPose(std::vector<vw::Vector3> const& ground_points, 
                     std::vector<vw::Vector2> const& pixel_observations,
-                    vw::camera::PinholeModel & cam) {
+                    vw::PinholeModel & cam) {
 
   if (ground_points.size() != pixel_observations.size())
     vw::vw_throw(vw::ArgumentErr()

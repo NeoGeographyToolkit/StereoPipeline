@@ -51,7 +51,6 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace vw::camera;
 
 struct Options : public vw::GdalWriteOptions {
   double penalty_weight;

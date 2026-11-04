@@ -26,7 +26,7 @@
 namespace asp {
 
   // Read the horizontal error from some camera models
-  double horizontalStDevFromCamera(boost::shared_ptr<vw::camera::CameraModel> camera_model,
+  double horizontalStDevFromCamera(boost::shared_ptr<vw::CameraModel> camera_model,
                                    bool & message_printed);
   
   // Some sanity checks and printing of horizontal stddevs
@@ -35,4 +35,3 @@ namespace asp {
 } // end namespace asp
 
 #endif // __CAMERA_CAMERAERRORPROPAGATION_H__
-

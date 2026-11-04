@@ -72,7 +72,7 @@ typedef vw::PixelMask<float> MapprojDemPixel;
 // the output, so wrapping the camera is all that is needed to opt into
 // per-pixel occlusion rejection. Costs an extra pixel_to_vector + dot
 // product per output pixel that the camera was going to project.
-class OcclusionCam: public vw::camera::CameraModel {
+class OcclusionCam: public vw::CameraModel {
   vw::CamPtr m_inner;
 public:
   explicit OcclusionCam(vw::CamPtr inner);

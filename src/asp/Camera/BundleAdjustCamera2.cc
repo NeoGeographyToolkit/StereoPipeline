@@ -57,7 +57,6 @@
 #include <string>
 
 using namespace vw;
-using namespace vw::camera;
 
 namespace asp {
 
@@ -93,7 +92,7 @@ void create_corrected_cameras(std::vector<vw::CamPtr> const& input_cameras,
   for (size_t icam = 0; icam < num_cameras; icam++) {
     CameraAdjustment correction(ba_state.get_camera_ptr(icam));
     // The pointer is managed by vw::CamPtr
-    out_cameras[icam] = vw::CamPtr(new camera::AdjustedCameraModel(input_cameras[icam],
+    out_cameras[icam] = vw::CamPtr(new vw::AdjustedCameraModel(input_cameras[icam],
                                    correction.position(), correction.pose()));
   }
 }
@@ -177,7 +176,7 @@ bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
 
       // Strictly speaking, it is not necessary to call unadjusted_model(), as
       // in bundle_adjust the input cameras are loaded unadjusted, unlike in stereo.
-      AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+      AdjustedCameraModel adj_cam(vw::unadjusted_model(opt.camera_models[icam]),
                                   adjustment.position(), adjustment.pose());
       vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
       pin_cam.apply_transform(ecef_transform);
@@ -228,8 +227,8 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaState & ba_stat
   // Copy the camera parameters from the models to ba_state
   const size_t num_cameras = ba_state.num_cameras();
   for (int icam = 0; icam < num_cameras; icam++) {
-    vw::camera::OpticalBarModel* bar_ptr
-      = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+    vw::OpticalBarModel* bar_ptr
+      = dynamic_cast<vw::OpticalBarModel*>(opt.camera_models[icam].get());
     pack_optical_bar_to_arrays(*bar_ptr, icam, ba_state);
   } // End loop through cameras
 
@@ -244,14 +243,14 @@ bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaState & ba_stat
   new_cam_models.resize(num_cameras);
   for (size_t icam = 0; icam < num_cameras; icam++) {
 
-    vw::camera::OpticalBarModel* in_cam
-      = dynamic_cast<vw::camera::OpticalBarModel*>(opt.camera_models[icam].get());
+    vw::OpticalBarModel* in_cam
+      = dynamic_cast<vw::OpticalBarModel*>(opt.camera_models[icam].get());
 
     // Start with a copy of the input camera, then overwrite its content.
     // The pointer is managed below.
-    vw::camera::OpticalBarModel* out_cam = new vw::camera::OpticalBarModel(*in_cam);
+    vw::OpticalBarModel* out_cam = new vw::OpticalBarModel(*in_cam);
     *out_cam = transformedOpticalBarCamera(icam, ba_state, *in_cam);
-    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
+    new_cam_models[icam] = boost::shared_ptr<vw::CameraModel>(out_cam);
   }
 
   return cameras_changed;
@@ -286,7 +285,7 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
 
       // Strictly speaking, it is not necessary to call unadjusted_model(), as
       // in bundle_adjust the input cameras are loaded unadjusted, unlike in stereo.
-      AdjustedCameraModel adj_cam(vw::camera::unadjusted_model(opt.camera_models[icam]),
+      AdjustedCameraModel adj_cam(vw::unadjusted_model(opt.camera_models[icam]),
                                   adjustment.position(), adjustment.pose());
       vw::Matrix4x4 ecef_transform = adj_cam.ecef_transform();
       csm_ptr->applyTransform(ecef_transform);
@@ -316,7 +315,7 @@ bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
       vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
 
     auto out_cam = transformedCsmCamera(icam, ba_state, *in_cam);
-    new_cam_models[icam] = boost::shared_ptr<camera::CameraModel>(out_cam);
+    new_cam_models[icam] = boost::shared_ptr<vw::CameraModel>(out_cam);
   }
 
   return cameras_changed;
@@ -876,22 +875,22 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
     switch (opt.camera_type) {
     case BaCameraType_Pinhole:
       {
-        vw::camera::PinholeModel const* in_cam
-          = dynamic_cast<vw::camera::PinholeModel const*>(opt.camera_models[icam].get());
+        vw::PinholeModel const* in_cam
+          = dynamic_cast<vw::PinholeModel const*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting a pinhole camera.\n");
-        vw::camera::PinholeModel * out_cam = new PinholeModel(); // pointer managed below
+        vw::PinholeModel * out_cam = new PinholeModel(); // pointer managed below
         *out_cam = transformedPinholeCamera(icam, ba_state, *in_cam);
         optimized_cams.push_back(vw::CamPtr(out_cam));
       }
       break;
     case BaCameraType_OpticalBar:
       {
-        vw::camera::OpticalBarModel const* in_cam
-          = dynamic_cast<vw::camera::OpticalBarModel const*>(opt.camera_models[icam].get());
+        vw::OpticalBarModel const* in_cam
+          = dynamic_cast<vw::OpticalBarModel const*>(opt.camera_models[icam].get());
         if (in_cam == NULL)
           vw_throw(ArgumentErr() << "Expecting an optical bar camera.\n");
-        vw::camera::OpticalBarModel * out_cam = new OpticalBarModel(); // pointer managed below
+        vw::OpticalBarModel * out_cam = new OpticalBarModel(); // pointer managed below
         *out_cam = transformedOpticalBarCamera(icam, ba_state, *in_cam);
         optimized_cams.push_back(vw::CamPtr(out_cam)); // will manage the memory
       }
@@ -911,7 +910,7 @@ void calcOptimizedCameras(asp::BaBaseOptions const& opt,
         CameraAdjustment cam_adjust(ba_state.get_camera_ptr(icam));
         // The pointer is managed by the smart pointer vw::CamPtr
         vw::CamPtr out_cam
-          (new AdjustedCameraModel(vw::camera::unadjusted_model(opt.camera_models[icam]),
+          (new AdjustedCameraModel(vw::unadjusted_model(opt.camera_models[icam]),
                                           cam_adjust.position(), cam_adjust.pose()));
         optimized_cams.push_back(out_cam);
       }
@@ -977,7 +976,7 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       // Estimate the GSD at the given pixel given an estimate of the ground point
       double gsd = 0.0;
       try {
-        gsd = vw::camera::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);
+        gsd = vw::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);
       } catch (...) {
         continue;
       }
@@ -1048,7 +1047,7 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
       // Estimate the GSD at the given pixel given an estimate of the ground point
       double gsd = 0.0;
       try {
-        gsd = vw::camera::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);
+        gsd = vw::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);
       } catch (...) {
         continue;
       }
@@ -1093,7 +1092,7 @@ void calcCameraCenters(std::string const& stereo_session,
     asp::CsmModel * csm_cam = NULL;
     try {
       csm_cam
-        = asp::csm_model(vw::camera::unadjusted_model(camera_models[icam]));
+        = asp::csm_model(vw::unadjusted_model(camera_models[icam]));
     } catch(...) {}
     if (csm_cam == NULL) {
       // Not a CSM camera, pull directly the camera center
@@ -1113,8 +1112,8 @@ void calcCameraCenters(std::string const& stereo_session,
 
     // Handle the case when the CSM camera has an external adjustment. In that case
     // need to apply it before can find the camera positions, and update ls_model.
-    vw::camera::AdjustedCameraModel *adj_cam
-      = dynamic_cast<vw::camera::AdjustedCameraModel*>(camera_models[icam].get());
+    vw::AdjustedCameraModel *adj_cam
+      = dynamic_cast<vw::AdjustedCameraModel*>(camera_models[icam].get());
     asp::CsmModel local_csm; // Ensure it does not go out of scope
     if (adj_cam != NULL) {
       vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
@@ -1143,19 +1142,19 @@ void calcCameraCenters(std::string const& stereo_session,
   return;
 }
 
-void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center) {
+void get_optical_center(vw::CameraModel const* cam, vw::Vector2 & center) {
 
   // Cast to pinhole model
-  vw::camera::PinholeModel const* pin_ptr
-    = dynamic_cast<vw::camera::PinholeModel const*>(cam);
+  vw::PinholeModel const* pin_ptr
+    = dynamic_cast<vw::PinholeModel const*>(cam);
   if (pin_ptr != NULL) {
     center = pin_ptr->point_offset();
     return;
   }
 
   // Cast to optical bar model
-  vw::camera::OpticalBarModel const* bar_ptr
-    = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
+  vw::OpticalBarModel const* bar_ptr
+    = dynamic_cast<vw::OpticalBarModel const*>(cam);
   if (bar_ptr != NULL) {
     center = bar_ptr->get_optical_center();
     return;
@@ -1172,19 +1171,19 @@ void get_optical_center(vw::camera::CameraModel const* cam, vw::Vector2 & center
   vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in get_optical_center().\n");
 }
 
-void set_optical_center(vw::camera::CameraModel* cam, vw::Vector2 const& center) {
+void set_optical_center(vw::CameraModel* cam, vw::Vector2 const& center) {
 
   // Cast to pinhole model
-  vw::camera::PinholeModel* pin_ptr
-    = dynamic_cast<vw::camera::PinholeModel*>(cam);
+  vw::PinholeModel* pin_ptr
+    = dynamic_cast<vw::PinholeModel*>(cam);
   if (pin_ptr != NULL) {
     pin_ptr->set_point_offset(center);
     return;
   }
 
   // Cast to optical bar model
-  vw::camera::OpticalBarModel* bar_ptr
-    = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
+  vw::OpticalBarModel* bar_ptr
+    = dynamic_cast<vw::OpticalBarModel*>(cam);
   if (bar_ptr != NULL) {
     bar_ptr->set_optical_center(center);
     return;
@@ -1202,19 +1201,19 @@ void set_optical_center(vw::camera::CameraModel* cam, vw::Vector2 const& center)
 }
 
 // Get the focal length
-void get_focal_length(vw::camera::CameraModel const* cam, double & focal) {
+void get_focal_length(vw::CameraModel const* cam, double & focal) {
 
   // Cast to pinhole model
-  vw::camera::PinholeModel const* pin_ptr
-    = dynamic_cast<vw::camera::PinholeModel const*>(cam);
+  vw::PinholeModel const* pin_ptr
+    = dynamic_cast<vw::PinholeModel const*>(cam);
   if (pin_ptr != NULL) {
     focal = pin_ptr->focal_length()[0];
     return;
   }
 
   // Cast to optical bar model
-  vw::camera::OpticalBarModel const* bar_ptr
-    = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
+  vw::OpticalBarModel const* bar_ptr
+    = dynamic_cast<vw::OpticalBarModel const*>(cam);
   if (bar_ptr != NULL) {
     focal = bar_ptr->get_focal_length();
     return;
@@ -1232,19 +1231,19 @@ void get_focal_length(vw::camera::CameraModel const* cam, double & focal) {
 }
 
 // Set the focal length
-void set_focal_length(vw::camera::CameraModel* cam, double const& focal) {
+void set_focal_length(vw::CameraModel* cam, double const& focal) {
 
   // Cast to pinhole model
-  vw::camera::PinholeModel* pin_ptr
-    = dynamic_cast<vw::camera::PinholeModel*>(cam);
+  vw::PinholeModel* pin_ptr
+    = dynamic_cast<vw::PinholeModel*>(cam);
   if (pin_ptr != NULL) {
     pin_ptr->set_focal_length(vw::Vector2(focal, focal));
     return;
   }
 
   // Cast to optical bar model
-  vw::camera::OpticalBarModel* bar_ptr
-    = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
+  vw::OpticalBarModel* bar_ptr
+    = dynamic_cast<vw::OpticalBarModel*>(cam);
   if (bar_ptr != NULL) {
     bar_ptr->set_focal_length(focal);
     return;
@@ -1261,11 +1260,11 @@ void set_focal_length(vw::camera::CameraModel* cam, double const& focal) {
   vw::vw_throw(vw::ArgumentErr() << "Unknown camera type in set_focal_length().\n");
 }
 
-void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist) {
+void get_distortion(vw::CameraModel const* cam, vw::Vector<double> &dist) {
 
   // Cast to pinhole model
-  vw::camera::PinholeModel const* pin_ptr
-    = dynamic_cast<vw::camera::PinholeModel const*>(cam);
+  vw::PinholeModel const* pin_ptr
+    = dynamic_cast<vw::PinholeModel const*>(cam);
   if (pin_ptr != NULL) {
     dist = pin_ptr->lens_distortion()->distortion_parameters();
     return;
@@ -1273,8 +1272,8 @@ void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist
 
   // Cast to optical bar model
   // TODO(oalexan1): This must be member function and called in a couple of other places.
-  vw::camera::OpticalBarModel const* bar_ptr
-    = dynamic_cast<vw::camera::OpticalBarModel const*>(cam);
+  vw::OpticalBarModel const* bar_ptr
+    = dynamic_cast<vw::OpticalBarModel const*>(cam);
   if (bar_ptr != NULL) {
     dist.set_size(asp::NUM_OPTICAL_BAR_EXTRA_PARAMS);
     dist[0] = bar_ptr->get_speed();
@@ -1318,11 +1317,11 @@ void get_distortion(vw::camera::CameraModel const* cam, vw::Vector<double> &dist
 }
 
 // Set the distortion. The underlying model must already have distortion of this size.
-void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist) {
+void set_distortion(vw::CameraModel* cam, vw::Vector<double> const& dist) {
 
   // Cast to pinhole model
-  vw::camera::PinholeModel* pin_ptr
-    = dynamic_cast<vw::camera::PinholeModel*>(cam);
+  vw::PinholeModel* pin_ptr
+    = dynamic_cast<vw::PinholeModel*>(cam);
   if (pin_ptr != NULL) {
     boost::shared_ptr<LensDistortion> distortion = pin_ptr->lens_distortion()->copy();
     if (dist.size() != distortion->distortion_parameters().size())
@@ -1336,8 +1335,8 @@ void set_distortion(vw::camera::CameraModel* cam, vw::Vector<double> const& dist
 
   // Cast to optical bar model
   // TODO(oalexan1): This must be a member function and called in a couple of other places.
-  vw::camera::OpticalBarModel* bar_ptr
-    = dynamic_cast<vw::camera::OpticalBarModel*>(cam);
+  vw::OpticalBarModel* bar_ptr
+    = dynamic_cast<vw::OpticalBarModel*>(cam);
   if (bar_ptr != NULL) {
     if (dist.size() != asp::NUM_OPTICAL_BAR_EXTRA_PARAMS)
       vw::vw_throw(vw::ArgumentErr() << "Expecting " << asp::NUM_OPTICAL_BAR_EXTRA_PARAMS
@@ -1484,7 +1483,7 @@ int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
   std::vector<int> num_dist_params(num_cameras, 0);
   for (size_t cam_it  = 0; cam_it < camera_models.size(); cam_it++) {
     if (camera_type == BaCameraType_Pinhole) {
-      auto pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>
+      auto pin_ptr = boost::dynamic_pointer_cast<vw::PinholeModel>
                       (camera_models[cam_it]);
       if (!pin_ptr)
         vw_throw(ArgumentErr() << "Expecting a Pinhole camera.\n");
@@ -1553,7 +1552,7 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
     // See if this logic is needed
     if (camera_type == BaCameraType_Pinhole) {
 
-      auto pin_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>
+      auto pin_ptr = boost::dynamic_pointer_cast<vw::PinholeModel>
                       (camera_models[cam_it]);
       if (!pin_ptr)
         vw_throw(ArgumentErr() << "Expecting a Pinhole camera.\n");

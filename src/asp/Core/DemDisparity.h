@@ -31,9 +31,7 @@ namespace asp {
   struct ASPGlobalOptions;
 }
 namespace vw {
-  namespace camera {
     class CameraModel;
-  }
 }
 
 
@@ -43,8 +41,8 @@ namespace asp {
   void produce_dem_disparity(ASPGlobalOptions & opt,
                              vw::TransformPtr tx_left,
                              vw::TransformPtr tx_right,
-                             boost::shared_ptr<vw::camera::CameraModel> left_camera_model,
-                             boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
+                             boost::shared_ptr<vw::CameraModel> left_camera_model,
+                             boost::shared_ptr<vw::CameraModel> right_camera_model,
                              std::string const& session_name);
 
 }

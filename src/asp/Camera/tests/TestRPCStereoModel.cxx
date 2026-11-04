@@ -32,13 +32,12 @@
 
 using namespace vw;
 using namespace vw::stereo;
-using namespace vw::camera;
 using namespace vw::math;
 using namespace asp;
 
 /// Load an RPC camera file
 /// - TODO: Remove this once we have a nice RPC load function outside the Loader class.
-boost::shared_ptr<vw::camera::CameraModel> load_rpc_camera_model(std::string const& path) {
+boost::shared_ptr<vw::CameraModel> load_rpc_camera_model(std::string const& path) {
   // Try the default loading method
   RPCModel* rpc_model = NULL;
   try {
@@ -55,7 +54,7 @@ boost::shared_ptr<vw::camera::CameraModel> load_rpc_camera_model(std::string con
 void test_stereo_models(const std::string &path1, const std::string &path2) {
 
   // Load the camera models
-  boost::shared_ptr<vw::camera::CameraModel> camPtr1, camPtr2;
+  boost::shared_ptr<vw::CameraModel> camPtr1, camPtr2;
 
   // Object to handle camera model loading
   camPtr1 = load_rpc_camera_model(path1);
@@ -208,9 +207,9 @@ TEST(StereoSessionRPC, CheckRpcCrop) {
   xercesc::XMLPlatformUtils::Initialize();
 
   // Load the camera model as DG and RPC
-  boost::shared_ptr<vw::camera::CameraModel> rpcModel = load_rpc_camera_model("dg_example1.xml");
+  boost::shared_ptr<vw::CameraModel> rpcModel = load_rpc_camera_model("dg_example1.xml");
 
-  boost::shared_ptr<vw::camera::CameraModel> dgModel  = load_dg_camera_model_from_xml("dg_example1.xml");
+  boost::shared_ptr<vw::CameraModel> dgModel  = load_dg_camera_model_from_xml("dg_example1.xml");
 
   // Verify that the RPC and DG models are similar
   Vector2 testPix(100, 200);
@@ -223,10 +222,10 @@ TEST(StereoSessionRPC, CheckRpcCrop) {
   Vector3 position_correction;
   Quaternion<double> pose_correction = Quat(math::identity_matrix<3>());
 
-  boost::shared_ptr<camera::CameraModel> croppedRpc(
-    new vw::camera::AdjustedCameraModel(rpcModel, position_correction, pose_correction, pixel_offset));
-  boost::shared_ptr<camera::CameraModel> croppedDg(
-    new vw::camera::AdjustedCameraModel(dgModel, position_correction, pose_correction, pixel_offset));
+  boost::shared_ptr<vw::CameraModel> croppedRpc(
+    new vw::AdjustedCameraModel(rpcModel, position_correction, pose_correction, pixel_offset));
+  boost::shared_ptr<vw::CameraModel> croppedDg(
+    new vw::AdjustedCameraModel(dgModel, position_correction, pose_correction, pixel_offset));
 
   rpcVector = croppedRpc->pixel_to_vector(testPix);
   dgVector  = croppedDg->pixel_to_vector(testPix);

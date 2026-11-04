@@ -345,7 +345,7 @@ void camerasFromExteriorOrientation(EoOptions const& opt) {
   if (!opt.intrinsics_file.empty()) {
     parseEsriCameraCsv(opt.intrinsics_file, focal_px, cu_px, cv_px, dist);
   } else {
-    vw::camera::PinholeModel s(opt.sample_tsai);
+    vw::PinholeModel s(opt.sample_tsai);
     double pitch = s.pixel_pitch();
     focal_px = s.focal_length()[0] / pitch;
     cu_px = s.point_offset()[0] / pitch;
@@ -384,14 +384,14 @@ void camerasFromExteriorOrientation(EoOptions const& opt) {
     // Build the Pinhole. A metric aerial camera is typically undistorted (dist
     // empty); otherwise apply the radtan lens distortion read from the vendor file.
     double pixel_pitch = 1.0;
-    vw::camera::PinholeModel pin(ctr, R, focal_px, focal_px, cu_px, cv_px,
-                                 NULL, pixel_pitch);
+    vw::PinholeModel pin(ctr, R, focal_px, focal_px, cu_px, cv_px,
+                         NULL, pixel_pitch);
     if (!dist.empty()) {
       vw::Vector<double> coeffs;
       coeffs.set_size(dist.size());
       for (size_t k = 0; k < dist.size(); k++)
         coeffs[k] = dist[k];
-      vw::camera::TsaiLensDistortion distModel(coeffs);
+      vw::TsaiLensDistortion distModel(coeffs);
       pin.set_lens_distortion(&distModel);
     }
 
@@ -425,7 +425,7 @@ void camerasFromExtrinsics(EoOptions const& opt) {
                       str_map, num_map);
 
   // Read the intrinsics from the sample camera, and the datum.
-  vw::camera::PinholeModel pinhole(opt.sample_tsai);
+  vw::PinholeModel pinhole(opt.sample_tsai);
   vw::Datum datum(opt.datum_str);
 
   int num_cameras = str_map["image"].size();

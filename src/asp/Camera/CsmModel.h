@@ -32,9 +32,7 @@
 #include <boost/shared_ptr.hpp>
 
 namespace vw {
-  namespace camera {
     class PinholeModel;
-  }
 }
 
 namespace csm {
@@ -52,7 +50,7 @@ namespace asp {
   const double DEFAULT_CSM_DESIRED_PRECISION = 1.0e-8;
   
   /// Class to load any cameras described by the Community Sensor Model (CSM)
-  class CsmModel : public vw::camera::CameraModel {
+  class CsmModel : public vw::CameraModel {
   public:
     //------------------------------------------------------------------
     // Constructors / Destructors
@@ -120,7 +118,7 @@ namespace asp {
     // Create a CSM frame camera model from pinhole camera model.
     // The distortion model must be set separately, as ASP pinhole
     // and CSM use different distortion models.
-    void createFrameModel(vw::camera::PinholeModel const& pin_model,
+    void createFrameModel(vw::PinholeModel const& pin_model,
                           int cols, int rows,  // in pixels
                           double semi_major_axis, double semi_minor_axis, // in meters
                           std::string const& distortionType = "", 
@@ -133,7 +131,7 @@ namespace asp {
     // Approximate conversion to a pinhole model. Will be exact only for the rad-tan
     // lens distortion and no unusual line or sample adjustments in CSM. Compare
     // these with cam_test.
-    vw::camera::PinholeModel pinhole() const;
+    vw::PinholeModel pinhole() const;
     
     // Sun position in ECEF
     vw::Vector3 sun_position() const;

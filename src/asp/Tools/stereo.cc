@@ -101,7 +101,7 @@ void setup_error_propagation(ASPGlobalOptions const& opt) {
   bool message_printed = false; // will print the message only once
   if (v[0] == 0 && v[1] == 0) {
     // This will not reload the cameras
-    boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+    boost::shared_ptr<vw::CameraModel> camera_model1, camera_model2;
     opt.session->camera_models(camera_model1, camera_model2);
     v[0] = asp::horizontalStDevFromCamera(camera_model1, message_printed);
     v[1] = asp::horizontalStDevFromCamera(camera_model2, message_printed);
@@ -296,7 +296,7 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   }
 
   std::vector<double> sorted_angles;
-  boost::shared_ptr<camera::CameraModel> left_cam, right_cam;
+  boost::shared_ptr<vw::CameraModel> left_cam, right_cam;
   opt.session->camera_models(left_cam, right_cam);
   asp::convergence_angles(left_cam.get(), right_cam.get(), left_ip, right_ip, sorted_angles);
 
@@ -1027,7 +1027,7 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
                                                   allow_map_promote, total_quiet);
 
   // Load the cameras. They will be cached in the session.
-  boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+  boost::shared_ptr<vw::CameraModel> camera_model1, camera_model2;
   opt.session->camera_models(camera_model1, camera_model2);
 
   // Run a set of checks to make sure the settings are compatible.
@@ -1308,7 +1308,7 @@ void validateStereoOptions(ASPGlobalOptions const& opt) {
       // Note. Cameras are loaded just once, and repeated invocation of camera_models()
       // will not reload them. Hence this check does not incur a performance hit
       // due to loading of the cameras.
-      boost::shared_ptr<camera::CameraModel> camera_model1, camera_model2;
+      boost::shared_ptr<vw::CameraModel> camera_model1, camera_model2;
       opt.session->camera_models(camera_model1, camera_model2);
 
       Vector3 cam1_ctr = camera_model1->camera_center(Vector2());

@@ -640,7 +640,7 @@ int main(int argc, char* argv[]) {
     // projection very slow, so we disable it here.  The check is very important
     // for computing the bounding box safely but we don't really need it when
     // projecting the pixels back in to the camera.
-    auto pinhole_ptr = boost::dynamic_pointer_cast<vw::camera::PinholeModel>(opt.camera_model);
+    auto pinhole_ptr = boost::dynamic_pointer_cast<vw::PinholeModel>(opt.camera_model);
     if (pinhole_ptr)
       pinhole_ptr->set_do_point_to_pixel_check(false);
 

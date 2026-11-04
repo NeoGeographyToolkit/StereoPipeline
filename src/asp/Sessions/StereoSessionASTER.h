@@ -41,7 +41,7 @@ public:
 
 protected:
   /// Function to load a camera model of the particular type.
-  virtual boost::shared_ptr<vw::camera::CameraModel>
+  virtual boost::shared_ptr<vw::CameraModel>
   load_camera_model(std::string const& image_file, 
                     std::string const& camera_file,
                     std::string const& ba_prefix, 

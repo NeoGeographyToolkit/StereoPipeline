@@ -73,7 +73,7 @@ TEST(CameraGSD, EstimatedGsdMatchesDatumIntersection) {
       continue;
 
     // The GSD from estimatedGSD, using the datum ground point along the ray.
-    double est = vw::camera::estimatedGSD(&cam, image_box, pix, ground);
+    double est = vw::estimatedGSD(&cam, image_box, pix, ground);
 
     // The independent GSD, from the ground spacing of neighboring pixels.
     double indep = (norm_2(ground - ground_col) + norm_2(ground - ground_row)) / 2.0;

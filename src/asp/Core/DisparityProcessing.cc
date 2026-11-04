@@ -73,8 +73,8 @@ void load_D_sub_and_scale(std::string                           const & out_pref
 // Filter D_sub. All alignment methods are supported.
 void filter_D_sub(ASPGlobalOptions const& opt,
                   vw::TransformPtr tx_left, vw::TransformPtr tx_right,
-                  boost::shared_ptr<vw::camera::CameraModel> left_camera_model, 
-                  boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
+                  boost::shared_ptr<vw::CameraModel> left_camera_model, 
+                  boost::shared_ptr<vw::CameraModel> right_camera_model,
                   vw::Datum const& datum,
                   std::string const& d_sub_file,
                   Vector2 const& outlier_removal_params) {
