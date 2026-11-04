@@ -27,7 +27,6 @@
 #include <vw/Cartography/GeoTransform.h>
 
 using namespace vw;
-using namespace asp;
 using namespace xercesc;
 using namespace vw::test;
 

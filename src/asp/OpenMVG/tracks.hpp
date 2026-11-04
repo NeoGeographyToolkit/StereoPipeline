@@ -44,11 +44,7 @@
 #include <set>
 #include <vector>
 
-namespace aspOpenMVG  {
-
-using namespace aspOpenMVG::matching;
-
-namespace tracks  {
+namespace asp {
 
 // Data structure to store a track: collection of {ImageId,FeatureId}
 //  The corresponding image points with their imageId and FeatureId.
@@ -372,7 +368,6 @@ struct TracksUtilsMap
   }
 };
 
-} // namespace tracks
-} // namespace aspOpenMVG
+} // namespace asp
 
 #endif // OPENMVG_TRACKS_TRACKS_HPP

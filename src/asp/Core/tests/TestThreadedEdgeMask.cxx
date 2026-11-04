@@ -27,7 +27,8 @@
 #include <vector>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 TEST(ThreadedEdgeMask, active_area) {
   ImageView<uint8> input(10,10);
@@ -54,3 +55,5 @@ TEST(ThreadedEdgeMask, active_area) {
   output = threaded_edge_mask(input,0);
   EXPECT_EQ(input, output);
 }
+
+} // namespace asp

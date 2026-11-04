@@ -30,7 +30,7 @@
 
 #include <asp/OpenMVG/numeric.h>
 
-namespace aspOpenMVG
+namespace asp
 {
 
 /**
@@ -61,6 +61,6 @@ void TriangulateDLT( const Mat34 &P1, const Vec2 &x1,
                      const Mat34 &P2, const Vec2 &x2,
                      Vec3 *X_euclidean );
 
-} // namespace aspOpenMVG
+} // namespace asp
 
 #endif  // OPENMVG_MULTIVIEW_TRIANGULATION_HPP

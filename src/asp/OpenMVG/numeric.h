@@ -47,7 +47,7 @@
 #include <string>
 #include <vector>
 
-namespace aspOpenMVG
+namespace asp
 {
 
 // Check MSVC
@@ -648,7 +648,7 @@ void SplitRange(const T range_start, const T range_end, const int nb_split,
 }
 
 
-} // namespace aspOpenMVG
+} // namespace asp
 
 
 #endif  // OPENMVG_NUMERIC_NUMERIC_H

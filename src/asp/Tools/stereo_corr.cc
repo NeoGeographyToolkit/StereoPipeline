@@ -44,7 +44,8 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 typedef vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> DispImageRef;
 
@@ -1556,17 +1557,19 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
 } // End function stereo_correlation_1D
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
     
-    stereo_register_sessions();
+    asp::stereo_register_sessions();
 
     bool verbose = false;
-    ASPGlobalOptions opt;
+    asp::ASPGlobalOptions opt;
     std::string output_prefix;
-    asp::parseStereoArgs(argc, argv, CorrelationDescription(),
+    asp::parseStereoArgs(argc, argv, asp::CorrelationDescription(),
                          verbose, output_prefix, opt);
 
     // Leave the number of parallel block threads equal to the default unless we
@@ -1577,7 +1580,7 @@ int main(int argc, char* argv[]) {
     //   to control the number of parallel image blocks written at a time.  Everything else
     //   reads directly from vw_settings().default_num_threads()
     vw::CorrelationAlgorithm stereo_alg
-      = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+      = asp::stereo_alg_to_num(asp::stereo_settings().stereo_algorithm);
     bool using_sgm = (stereo_alg > vw::VW_CORRELATION_BM &&
                       stereo_alg < vw::VW_CORRELATION_OTHER);
     opt.num_threads = vw_settings().default_num_threads();
@@ -1588,17 +1591,17 @@ int main(int argc, char* argv[]) {
       // SGM/MGM works best with no prefilter. That one is also turned
       // off in CorrelationView.h.
       vw_out() << "\t--> Using no pre-processing filter with stereo algorithm: "
-               << stereo_settings().stereo_algorithm << std::endl;
-      stereo_settings().pre_filter_mode = 0;
+               << asp::stereo_settings().stereo_algorithm << std::endl;
+      asp::stereo_settings().pre_filter_mode = 0;
     } else {
-      switch (stereo_settings().pre_filter_mode){
+      switch (asp::stereo_settings().pre_filter_mode){
       case 2:
         vw_out() << "\t--> Using LOG pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n"; 
+                 << asp::stereo_settings().slogW << " sigma blur.\n"; 
       break;
       case 1:
         vw_out() << "\t--> Using subtracted mean pre-processing filter with "
-                 << stereo_settings().slogW << " sigma blur.\n";
+                 << asp::stereo_settings().slogW << " sigma blur.\n";
         break;
       default:
         vw_out() << "\t--> Using No pre-processing filter." << std::endl;
@@ -1607,7 +1610,7 @@ int main(int argc, char* argv[]) {
 
     // Integer correlator requires large tiles
     //---------------------------------------------------------
-    int ts = stereo_settings().corr_tile_size_ovr;
+    int ts = asp::stereo_settings().corr_tile_size_ovr;
 
     // GDAL block write sizes must be a multiple to 16 so if the input value is
     //  not a multiple of 16 increase it until it is.
@@ -1616,27 +1619,27 @@ int main(int argc, char* argv[]) {
       ts = ((ts / TILE_MULTIPLE) + 1) * TILE_MULTIPLE;
       
     opt.raster_tile_size = Vector2i(ts, ts);
-    vw_out() << "\n[ " << current_posix_time_string() << " ]: Stage 1 --> CORRELATION\n";
+    vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: Stage 1 --> CORRELATION\n";
 
-    if (stereo_settings().alignment_method == "local_epipolar") {
+    if (asp::stereo_settings().alignment_method == "local_epipolar") {
       // Need to have the low-res 2D disparity to later guide the
       // per-tile correlation. Use here the ASP MGM algorithm as the
       // most reliable one, unless we do good old block-matching
-      if (stereo_settings().compute_low_res_disparity_only) {
-        if (stereo_settings().stereo_algorithm != "asp_bm")
-          stereo_settings().stereo_algorithm = "asp_mgm";
-        stereo_correlation_2D(opt);
+      if (asp::stereo_settings().compute_low_res_disparity_only) {
+        if (asp::stereo_settings().stereo_algorithm != "asp_bm")
+          asp::stereo_settings().stereo_algorithm = "asp_mgm";
+        asp::stereo_correlation_2D(opt);
         return 0;
       }
       // This will be invoked per-tile.
-      stereo_correlation_1D(opt);
+      asp::stereo_correlation_1D(opt);
     } else {
       // Do 2D correlation. The first time this is invoked it will
       // compute the low-res disparity unless told not to.
-      stereo_correlation_2D(opt);
+      asp::stereo_correlation_2D(opt);
     }
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ]: CORRELATION FINISHED\n";
+    vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: CORRELATION FINISHED\n";
     
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;

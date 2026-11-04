@@ -21,7 +21,8 @@
 #include <iomanip>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 TEST(CSM_camera, basic_check) {
 
@@ -57,3 +58,5 @@ TEST(CSM_camera, basic_check) {
 
   EXPECT_TRUE(false);
 }
+
+} // namespace asp

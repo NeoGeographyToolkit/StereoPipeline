@@ -20,7 +20,8 @@
 #include <asp/Core/AspProgramOptions.h>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 TEST(Common, separate_images_from_cameras_rpb) {
 
@@ -143,3 +144,5 @@ TEST(Common, StereoMultiCmdCheck) {
   EXPECT_EQ("dem.tif", dem_path);
 
 } // End test StereoMultiCmdCheck
+
+} // namespace asp

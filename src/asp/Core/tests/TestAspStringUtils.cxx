@@ -18,7 +18,7 @@
 #include <test/Helpers.h>
 #include <asp/Core/AspStringUtils.h>
 
-using namespace asp;
+namespace asp {
 
 TEST(AspStringUtils, ParseAppendMetadataPreservesEqualsInValues) {
   std::map<std::string, std::string> keywords;
@@ -62,3 +62,5 @@ TEST(AspStringUtils, ParseAppendMetadataRejectsLeadingValueWord) {
   std::map<std::string, std::string> keywords;
   EXPECT_THROW(parse_append_metadata("word A=1", keywords), vw::ArgumentErr);
 }
+
+} // namespace asp

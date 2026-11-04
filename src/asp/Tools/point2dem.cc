@@ -46,9 +46,10 @@
 #include <limits>
 
 using namespace vw;
-using namespace asp;
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
+
+namespace asp {
 
 /// To help with compression, round to about 1mm, but
 /// use for rounding a number with few digits in binary.
@@ -508,11 +509,13 @@ void rasterize_cloud_multi_spacing(const ImageViewRef<Vector3>& proj_points,
   opt.out_prefix = base_out_prefix; // Restore the original value
 }
 
+} // namespace asp
+
 int main(int argc, char *argv[]) {
   
-  DemOptions opt;
+  asp::DemOptions opt;
   try {
-    handle_arguments(argc, argv, opt);
+    asp::handle_arguments(argc, argv, opt);
 
     // Need to know for both CSV and point cloud parsing if have the user datum
     vw::Datum user_datum;
@@ -523,7 +526,7 @@ int main(int argc, char *argv[]) {
     asp::CsvConv csv_conv;
     csv_conv.parse_csv_format(opt.csv_format_str, opt.csv_srs); // Modifies csv_conv
 
-    if (csv_input_requires_explicit_georef(opt, csv_conv, have_user_datum)) {
+    if (asp::csv_input_requires_explicit_georef(opt, csv_conv, have_user_datum)) {
       vw_throw(ArgumentErr()
                << "CSV point clouds with geographic or projected coordinates require "
                << "an explicit datum or SRS. Set one of --csv-srs, --t_srs, --datum, "
@@ -547,8 +550,8 @@ int main(int argc, char *argv[]) {
     // - The vector conv_files holds the names of the new files that got created,
     //   so they can be deleted later.
     std::vector<std::string> conv_files;
-    chip_convert_to_tif(opt, csv_conv, csv_georef, 
-                        opt.pointcloud_files, conv_files); // outputs
+    asp::chip_convert_to_tif(opt, csv_conv, csv_georef, 
+                             opt.pointcloud_files, conv_files); // outputs
 
     // Generate a merged xyz point cloud consisting of all inputs. By now, each
     // input exists in xyz tif format.
@@ -616,7 +619,7 @@ int main(int argc, char *argv[]) {
         if (std::isnan(opt.proj_lon) && std::isnan(opt.proj_lat)) // estimate proj center
           asp::median_lon_lat(point_image, output_georef, opt.proj_lon, opt.proj_lat);
         // Auto-determine the projection
-        setProjection(opt, output_georef);
+        asp::setProjection(opt, output_georef);
       }
     }
     
@@ -660,8 +663,8 @@ int main(int argc, char *argv[]) {
                                               estim_proj_box);
 
     // Create the DEM
-    rasterize_cloud_multi_spacing(proj_points, opt, output_georef, error_image,
-                                  estim_max_error, estim_proj_box);
+    asp::rasterize_cloud_multi_spacing(proj_points, opt, output_georef, error_image,
+                                       estim_max_error, estim_proj_box);
     // Wipe the temporary converted files
     for (size_t i = 0; i < conv_files.size(); i++)
       if (fs::exists(conv_files[i])) 

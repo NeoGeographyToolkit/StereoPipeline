@@ -41,8 +41,9 @@
 
 
 using namespace vw;
-using namespace asp;
-using namespace asp::isis;
+
+namespace asp {
+namespace isis {
 
 // Constructor
 IsisInterfaceMapLineScan::IsisInterfaceMapLineScan(std::string const& filename) :
@@ -115,3 +116,5 @@ Quat IsisInterfaceMapLineScan::camera_pose(Vector2 const& px) const {
   MatrixProxy<double,3,3> R_body(&(rot_body[0]));
   return Quat(R_body*transpose(R_inst));
 }
+
+}} // namespace asp::isis

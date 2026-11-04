@@ -57,7 +57,8 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 const double BIG_NUMBER = 1e+300; // libpointmatcher does not like here the largest double
 
@@ -1088,14 +1089,16 @@ void checkNeeForSrcProjWin(Options const& opt,
 
 }
 
+} // namespace asp
+
 int main(int argc, char *argv[]) {
 
   // Mandatory line for Eigen
   Eigen::initParallel();
 
-  Options opt;
+  asp::Options opt;
   try {
-    handle_arguments(argc, argv, opt);
+    asp::handle_arguments(argc, argv, opt);
 
     // Set the number of threads for OpenMP. This honors --threads when set,
     // otherwise it is the number of cores (via ~/.vwrc or the default).
@@ -1112,13 +1115,13 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> clouds;
     clouds.push_back(opt.reference);
     clouds.push_back(opt.source);
-    read_georef(clouds, opt.datum, opt.csv_srs,
-                opt.semi_major_axis, opt.semi_minor_axis,
-                opt.csv_format_str,  csv_conv, geo);
+    asp::read_georef(clouds, opt.datum, opt.csv_srs,
+                     opt.semi_major_axis, opt.semi_minor_axis,
+                     opt.csv_format_str,  csv_conv, geo);
 
     // Use hillshading to create a match file
     if (opt.hillshading_transform != "" && opt.match_file == "")
-      opt.match_file = find_matches_from_hillshading(opt, argv[0]);
+      opt.match_file = asp::find_matches_from_hillshading(opt, argv[0]);
 
     // Create a transform based on a match file, either automatically generated, or
     // user-made (normally with stereo_gui).
@@ -1126,9 +1129,9 @@ int main(int argc, char *argv[]) {
       if (opt.hillshading_transform == "")
         opt.hillshading_transform = "similarity";
       opt.init_transform
-        = initial_transform_from_match_file(opt.reference, opt.source,
-                                            opt.match_file, opt.hillshading_transform,
-                                            opt.initial_transform_ransac_params);
+        = asp::initial_transform_from_match_file(opt.reference, opt.source,
+                                                 opt.match_file, opt.hillshading_transform,
+                                                 opt.initial_transform_ransac_params);
     }
 
     // See if to apply an initial north-east-down translation relative
@@ -1137,22 +1140,22 @@ int main(int argc, char *argv[]) {
     // happens first.
     if (opt.initial_rotation_angle != 0 || opt.initial_ned_translation != "") {
 
-      vw::Vector3 centroid = estimate_ref_cloud_centroid(opt, geo, csv_conv, opt.reference);
+      vw::Vector3 centroid = asp::estimate_ref_cloud_centroid(opt, geo, csv_conv, opt.reference);
 
       // Ignore any other initializations so far
-      opt.init_transform = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
+      opt.init_transform = Eigen::MatrixXd::Identity(asp::DIM + 1, asp::DIM + 1);
 
       // Form the rotation around the axis
       Eigen::Vector3d axis(centroid[0], centroid[1], centroid[2]);
       axis.normalize();
       Eigen::Matrix3d rot
         = Eigen::AngleAxisd(opt.initial_rotation_angle * M_PI/180.0, axis).matrix();
-      opt.init_transform.block(0, 0, DIM, DIM) = rot;
+      opt.init_transform.block(0, 0, asp::DIM, asp::DIM) = rot;
 
       // The NED translation
       if (opt.initial_ned_translation != "")
         opt.init_transform =
-          ned_to_cartesian_transform(geo.datum(), opt.initial_ned_translation, centroid)
+          asp::ned_to_cartesian_transform(geo.datum(), opt.initial_ned_translation, centroid)
           * opt.init_transform;
     }
 
@@ -1175,14 +1178,14 @@ int main(int argc, char *argv[]) {
       bool need_src_projwin = false, dummy_flag = false;
       vw::GeoReference src_georef, dummy_georef;
       vw::BBox2 src_projwin, dummy_projwin;
-      checkNeeForSrcProjWin(opt, need_src_projwin, src_georef);
+      asp::checkNeeForSrcProjWin(opt, need_src_projwin, src_georef);
 
       Eigen::MatrixXd inv_init_trans = opt.init_transform.inverse();
-      calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                                opt.reference, opt.max_horiz_offset, inv_init_trans,
-                                opt.ref_copc_win, opt.ref_copc_read_all,
-                                need_src_projwin, src_georef,
-                                ref_box, trans_ref_box, src_projwin); // outputs
+      asp::calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
+                                     opt.reference, opt.max_horiz_offset, inv_init_trans,
+                                     opt.ref_copc_win, opt.ref_copc_read_all,
+                                     need_src_projwin, src_georef,
+                                     ref_box, trans_ref_box, src_projwin); // outputs
 
       if (need_src_projwin) {
         opt.src_copc_win = src_projwin;
@@ -1191,11 +1194,11 @@ int main(int argc, char *argv[]) {
           << opt.src_copc_win.max().x() << " " << opt.src_copc_win.max().y() << "\n";
       }
 
-      calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
-                                opt.source, opt.max_horiz_offset, opt.init_transform,
-                                opt.src_copc_win, opt.src_copc_read_all,
-                                dummy_flag, dummy_georef,
-                                source_box, trans_source_box, dummy_projwin); // outputs
+      asp::calc_extended_lonlat_bbox(geo, num_sample_pts, csv_conv,
+                                     opt.source, opt.max_horiz_offset, opt.init_transform,
+                                     opt.src_copc_win, opt.src_copc_read_all,
+                                     dummy_flag, dummy_georef,
+                                     source_box, trans_source_box, dummy_projwin); // outputs
       sw0.stop();
       vw_out() << "Computation of bounding boxes took "
               << sw0.elapsed_seconds() << " s\n";
@@ -1221,10 +1224,10 @@ int main(int argc, char *argv[]) {
       vw_out() << "Source points box:    " << source_box << "\n";
 
       if (!ref_box.empty() && !source_box.empty()) {
-        adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box,
-                                              opt.reference, opt.source);
-        adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box,
-                                              opt.reference, opt.source);
+        asp::adjust_and_intersect_ref_source_boxes(ref_box, trans_source_box,
+                                                   opt.reference, opt.source);
+        asp::adjust_and_intersect_ref_source_boxes(trans_ref_box, source_box,
+                                                   opt.reference, opt.source);
       }
       if (ref_box == source_box) {
         // Leave some space here to align the text to the earlier printouts
@@ -1247,11 +1250,11 @@ int main(int argc, char *argv[]) {
     double mean_source_longitude = 0.0;  // may get overwritten
     Stopwatch sw1;
     sw1.start();
-    DP ref_point_cloud;
-    load_cloud(opt.reference, opt.max_num_reference_points, ref_box,
-               opt.ref_copc_win, opt.ref_copc_read_all,
-               calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
-               mean_ref_longitude, opt.verbose, ref_point_cloud);
+    asp::DP ref_point_cloud;
+    asp::load_cloud(opt.reference, opt.max_num_reference_points, ref_box,
+                    opt.ref_copc_win, opt.ref_copc_read_all,
+                    calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
+                    mean_ref_longitude, opt.verbose, ref_point_cloud);
     sw1.stop();
     if (opt.verbose)
       vw_out() << "Loading the reference point cloud took "
@@ -1266,14 +1269,14 @@ int main(int argc, char *argv[]) {
     // the operation below needs to be re-implemented to be accurate.
     int numRefPts = ref_point_cloud.features.cols();
     Eigen::VectorXd meanRef = ref_point_cloud.features.rowwise().sum() / numRefPts;
-    ref_point_cloud.features.topRows(DIM).colwise()    -= meanRef.head(DIM);
-    for (int row = 0; row < DIM; row++)
+    ref_point_cloud.features.topRows(asp::DIM).colwise()    -= meanRef.head(asp::DIM);
+    for (int row = 0; row < asp::DIM; row++)
       shift[row] += meanRef(row); // Update the shift variable as well as the points
     if (opt.verbose)
       vw_out() << "Data shifted internally by subtracting: " << shift << "\n";
 
     // The point clouds are shifted, so shift the initial transform as well.
-    Eigen::MatrixXd shiftInitT = apply_shift(opt.init_transform, shift);
+    Eigen::MatrixXd shiftInitT = asp::apply_shift(opt.init_transform, shift);
 
     // If the reference point cloud came from a DEM, also load the data in DEM format.
     vw::GeoReference dem_georef;
@@ -1282,31 +1285,31 @@ int main(int argc, char *argv[]) {
       // Load the dem, then wrap it inside an ImageViewRef object. This is done
       // because the actual DEM type cannot be created without being
       // initialized.
-      InterpolationReadyDem
-      reference_dem(load_interpolation_ready_dem(opt.reference, dem_georef));
+      asp::InterpolationReadyDem
+      reference_dem(asp::load_interpolation_ready_dem(opt.reference, dem_georef));
       reference_dem_ref.reset(reference_dem);
     }
 
     // Filter the reference and initialize the reference tree
     double elapsed_time;
-    PM::ICP icp; // libpointmatcher object
+    asp::PM::ICP icp; // libpointmatcher object
 
     Stopwatch sw3;
     if (opt.verbose)
       vw_out() << "Building the reference cloud tree.\n";
     sw3.start();
-    icp.initRefTree(ref_point_cloud, alignment_method_fallback(opt.alignment_method),
+    icp.initRefTree(ref_point_cloud, asp::alignment_method_fallback(opt.alignment_method),
             opt.highest_accuracy, false /*opt.verbose*/);
     sw3.stop();
     if (opt.verbose)
       vw_out() << "Reference point cloud processing took " << sw3.elapsed_seconds() << " s\n";
 
    // Load, filter, transform, and resample the source point cloud
-   DP source_point_cloud;
-   processSourceCloud(opt, ref_point_cloud, shiftInitT, dem_georef, geo, csv_conv,
-                      source_box, reference_dem_ref, is_lola_rdr_format,
-                      mean_source_longitude, icp, shift,
-                      source_point_cloud); // output
+   asp::DP source_point_cloud;
+   asp::processSourceCloud(opt, ref_point_cloud, shiftInitT, dem_georef, geo, csv_conv,
+                           source_box, reference_dem_ref, is_lola_rdr_format,
+                           mean_source_longitude, icp, shift,
+                           source_point_cloud); // output
 
     // Make the libpointmatcher error message clearer
     std::string libpointmatcher_error = "no point to minimize";
@@ -1317,9 +1320,9 @@ int main(int argc, char *argv[]) {
 
     Eigen::MatrixXd beg_errors;
     try {
-      elapsed_time = compute_registration_error(ref_point_cloud, source_point_cloud, icp,
-                                                shift, dem_georef, reference_dem_ref,
-                                                opt, beg_errors);
+      elapsed_time = asp::compute_registration_error(ref_point_cloud, source_point_cloud, icp,
+                                                     shift, dem_georef, reference_dem_ref,
+                                                     opt, beg_errors);
     } catch(std::exception const& e) {
       std::string error = e.what();
       if (error.find(libpointmatcher_error) != std::string::npos)
@@ -1327,7 +1330,7 @@ int main(int argc, char *argv[]) {
       vw_throw(ArgumentErr() << error);
     }
 
-    calc_stats("Input", beg_errors);
+    asp::calc_stats("Input", beg_errors);
     if (opt.verbose)
       vw_out() << "Initial error computation took " << elapsed_time << " s\n";
 
@@ -1335,11 +1338,11 @@ int main(int argc, char *argv[]) {
     Stopwatch sw4;
     sw4.start();
     bool verbose = false;
-    Eigen::MatrixXd Id = Eigen::MatrixXd::Identity(DIM + 1, DIM + 1);
+    Eigen::MatrixXd Id = Eigen::MatrixXd::Identity(asp::DIM + 1, asp::DIM + 1);
     icp.setParams(opt.out_prefix, opt.num_iter, opt.outlier_ratio,
                   (2.0*M_PI/360.0)*opt.diff_rotation_err, // convert to radians
                   opt.diff_translation_err,
-                  alignment_method_fallback(opt.alignment_method),
+                  asp::alignment_method_fallback(opt.alignment_method),
                   verbose);
 
     // Compute the transformation to align the source to reference.
@@ -1353,9 +1356,9 @@ int main(int argc, char *argv[]) {
                                opt.num_threads, opt.compute_translation_only,
                                opt.nuth_options);
         // Nuth does not use the shift, so apply it after it is returned.
-        T = apply_shift(T, shift);
+        T = asp::apply_shift(T, shift);
       } else if (opt.alignment_method == "fgr") {
-        T = fgr_alignment(source_point_cloud, ref_point_cloud, opt.fgr_options);
+        T = asp::fgr_alignment(source_point_cloud, ref_point_cloud, opt.fgr_options);
       } else if (opt.alignment_method == "point-to-plane" ||
                  opt.alignment_method == "point-to-point" ||
                  opt.alignment_method == "similarity-point-to-point" ||
@@ -1375,9 +1378,9 @@ int main(int argc, char *argv[]) {
       } else if (opt.alignment_method == "least-squares" ||
                 opt.alignment_method == "similarity-least-squares") {
         // Compute alignment using least squares
-        T = least_squares_alignment(source_point_cloud, shift,
-                                    dem_georef, reference_dem_ref, opt.alignment_method,
-                                    opt.num_iter, opt.num_threads);
+        T = asp::least_squares_alignment(source_point_cloud, shift,
+                                         dem_georef, reference_dem_ref, opt.alignment_method,
+                                         opt.num_iter, opt.num_threads);
       } else
         vw_throw(ArgumentErr() << "Unknown alignment method: " << opt.alignment_method);
     }
@@ -1386,31 +1389,31 @@ int main(int argc, char *argv[]) {
       vw_out() << "Alignment took " << sw4.elapsed_seconds() << " s\n";
 
     // Transform the source to make it close to reference.
-    DP trans_source_point_cloud(source_point_cloud);
-    apply_transform_to_cloud(T, trans_source_point_cloud);
+    asp::DP trans_source_point_cloud(source_point_cloud);
+    asp::apply_transform_to_cloud(T, trans_source_point_cloud);
 
     // Calculate by how much points move as result of T
-    double max_obtained_disp = calc_max_displacement(source_point_cloud, trans_source_point_cloud);
+    double max_obtained_disp = asp::calc_max_displacement(source_point_cloud, trans_source_point_cloud);
     Vector3 source_ctr_vec, source_ctr_llh;
     Vector3 trans_xyz, trans_ned, trans_llh;
     vw::Matrix3x3 NedToEcef;
-    calc_translation_vec(shiftInitT, source_point_cloud, trans_source_point_cloud, shift,
-                         geo.datum(), source_ctr_vec, source_ctr_llh,
-                         trans_xyz, trans_ned, trans_llh, NedToEcef);
+    asp::calc_translation_vec(shiftInitT, source_point_cloud, trans_source_point_cloud, shift,
+                              geo.datum(), source_ctr_vec, source_ctr_llh,
+                              trans_xyz, trans_ned, trans_llh, NedToEcef);
 
     // For each point, compute the distance to the nearest reference point.
     Eigen::MatrixXd end_errors;
     elapsed_time
-      = compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
-                                   shift, dem_georef, reference_dem_ref, opt,
-                                   end_errors);
-    calc_stats("Output", end_errors);
+      = asp::compute_registration_error(ref_point_cloud, trans_source_point_cloud, icp,
+                                       shift, dem_georef, reference_dem_ref, opt,
+                                       end_errors);
+    asp::calc_stats("Output", end_errors);
     if (opt.verbose)
       vw_out() << "Final error computation took " << elapsed_time << " s\n";
 
     // Go back to the original coordinate system, by applying the shifted initial
     // transform to the shifted computed transform and then undoing the shift.
-    Eigen::MatrixXd globalT = apply_shift(T * shiftInitT, -shift);
+    Eigen::MatrixXd globalT = asp::apply_shift(T * shiftInitT, -shift);
 
     // Print statistics
     vw_out() << std::setprecision(16)
@@ -1443,13 +1446,13 @@ int main(int argc, char *argv[]) {
     vw_out() << "\n";
 
     Matrix3x3 rot;
-    for (int r = 0; r < DIM; r++)
-      for (int c = 0; c < DIM; c++)
+    for (int r = 0; r < asp::DIM; r++)
+      for (int c = 0; c < asp::DIM; c++)
         rot(r, c) = globalT(r, c);
 
     double scale = pow(det(rot), 1.0/3.0);
-    for (int r = 0; r < DIM; r++)
-      for (int c = 0; c < DIM; c++)
+    for (int r = 0; r < asp::DIM; r++)
+      for (int c = 0; c < asp::DIM; c++)
         rot(r, c) /= scale;
 
     // Subtract one before printing the scale, to see a lot of digits of precision
@@ -1467,26 +1470,26 @@ int main(int argc, char *argv[]) {
 
     Stopwatch sw5;
     sw5.start();
-    write_transforms(opt, globalT);
+    asp::write_transforms(opt, globalT);
 
     if (opt.save_trans_ref) {
       std::string trans_ref_prefix = opt.out_prefix + "-trans_reference";
-      save_trans_point_cloud(opt, opt.reference, trans_ref_prefix,
-                             opt.ref_copc_win, opt.ref_copc_read_all,
-                             geo, csv_conv, globalT.inverse());
+      asp::save_trans_point_cloud(opt, opt.reference, trans_ref_prefix,
+                                  opt.ref_copc_win, opt.ref_copc_read_all,
+                                  geo, csv_conv, globalT.inverse());
     }
 
     if (opt.save_trans_source) {
       std::string trans_source_prefix = opt.out_prefix + "-trans_source";
-      save_trans_point_cloud(opt, opt.source, trans_source_prefix,
-                             opt.src_copc_win, opt.src_copc_read_all,
-                             geo, csv_conv, globalT);
+      asp::save_trans_point_cloud(opt, opt.source, trans_source_prefix,
+                                  opt.src_copc_win, opt.src_copc_read_all,
+                                  geo, csv_conv, globalT);
     }
 
-    save_errors(source_point_cloud, beg_errors,  opt.out_prefix + "-beg_errors.csv",
-                shift, geo, csv_conv, is_lola_rdr_format, mean_source_longitude);
-    save_errors(trans_source_point_cloud, end_errors,  opt.out_prefix + "-end_errors.csv",
-                shift, geo, csv_conv, is_lola_rdr_format, mean_source_longitude);
+    asp::save_errors(source_point_cloud, beg_errors,  opt.out_prefix + "-beg_errors.csv",
+                     shift, geo, csv_conv, is_lola_rdr_format, mean_source_longitude);
+    asp::save_errors(trans_source_point_cloud, end_errors,  opt.out_prefix + "-end_errors.csv",
+                     shift, geo, csv_conv, is_lola_rdr_format, mean_source_longitude);
 
     if (opt.verbose) 
       vw_out() << "Writing: " << opt.out_prefix + "-iterationInfo.csv" << "\n";

@@ -27,7 +27,7 @@
 
 #include <asp/OpenMVG/projection.hpp>
 
-namespace aspOpenMVG {
+namespace asp {
 
 /// Compute P = K[R|t]
 void P_From_KRt(
@@ -269,4 +269,4 @@ double RootMeanSquareError(const Mat2X &x_image,
     return dx.norm() / num_points;
 }
 
-} // namespace aspOpenMVG
+} // namespace asp

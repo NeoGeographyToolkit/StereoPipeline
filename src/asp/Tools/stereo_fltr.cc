@@ -41,8 +41,8 @@
 #include <vw/Image/Manipulation.h>
 
 using namespace vw;
-using namespace asp;
 
+namespace asp {
 
 /// Apply a set of smoothing filters to the subpixel disparity results.
 template <class ImageT, class DispImageT>
@@ -470,30 +470,32 @@ void gotcha_disparity_refinement(ASPGlobalOptions& opt) {
                          TerminalProgressCallback("asp","\t  Gotcha:  "));
 }
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
 
-    vw_out() << "\n[ " << current_posix_time_string()
+    vw_out() << "\n[ " << asp::current_posix_time_string()
              << " ]: Stage 4 --> FILTERING\n";
 
-    stereo_register_sessions();
+    asp::stereo_register_sessions();
 
     bool verbose = false;
-    ASPGlobalOptions opt;
+    asp::ASPGlobalOptions opt;
     std::string output_prefix;
-    asp::parseStereoArgs(argc, argv, FilteringDescription(),
+    asp::parseStereoArgs(argc, argv, asp::FilteringDescription(),
                          verbose, output_prefix, opt);
 
     // Internal Processes
     //---------------------------------------------------------
-    stereo_filtering(opt);
+    asp::stereo_filtering(opt);
 
-    if (stereo_settings().gotcha_disparity_refinement)
-      gotcha_disparity_refinement(opt);
+    if (asp::stereo_settings().gotcha_disparity_refinement)
+      asp::gotcha_disparity_refinement(opt);
     
-    vw_out() << "\n[ " << current_posix_time_string()
+    vw_out() << "\n[ " << asp::current_posix_time_string()
              << " ]: FILTERING FINISHED\n";
 
     xercesc::XMLPlatformUtils::Terminate();

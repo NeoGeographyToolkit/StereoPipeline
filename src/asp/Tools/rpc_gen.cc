@@ -39,8 +39,9 @@ namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace asp;
 using namespace xercesc;
+
+namespace asp {
 
 /// Structure for storing user options
 struct RPC_gen_Options : vw::GdalWriteOptions {
@@ -289,39 +290,41 @@ void generate_point_pairs(RPC_gen_Options opt,
 
 }
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
-  RPC_gen_Options opt;
+  asp::RPC_gen_Options opt;
   try {
-    handle_arguments(argc, argv, opt);
+    asp::handle_arguments(argc, argv, opt);
 
     // Generate all the point pairs using the input options
     Vector<double> normalized_geodetics;
     Vector<double> normalized_pixels;
     Vector3 llh_scale, llh_offset;
     Vector2 uv_scale,  uv_offset;
-    generate_point_pairs(opt, normalized_geodetics, normalized_pixels,
-                         llh_scale, llh_offset, uv_scale, uv_offset);
+    asp::generate_point_pairs(opt, normalized_geodetics, normalized_pixels,
+                              llh_scale, llh_offset, uv_scale, uv_offset);
 
     // Find the RPC coefficients
-    RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
+    asp::RPCModel::CoeffVec line_num, line_den, samp_num, samp_den;
     bool refine_only = false;
-    gen_rpc(// Inputs
-            opt.penalty_weight,
-            normalized_geodetics, normalized_pixels,  
-            refine_only,
-            // Outputs
-            line_num, line_den, samp_num, samp_den);
+    asp::gen_rpc(// Inputs
+                 opt.penalty_weight,
+                 normalized_geodetics, normalized_pixels,  
+                 refine_only,
+                 // Outputs
+                 line_num, line_den, samp_num, samp_den);
     
     // Dump the output to stdout, to be parsed by python
-    print_vec("uv_scale",   uv_scale);
-    print_vec("uv_offset",  uv_offset);
-    print_vec("llh_scale",  llh_scale);
-    print_vec("llh_offset", llh_offset);
-    print_vec("line_num",   line_num);
-    print_vec("line_den",   line_den);
-    print_vec("samp_num",   samp_num);
-    print_vec("samp_den",   samp_den);
+    asp::print_vec("uv_scale",   uv_scale);
+    asp::print_vec("uv_offset",  uv_offset);
+    asp::print_vec("llh_scale",  llh_scale);
+    asp::print_vec("llh_offset", llh_offset);
+    asp::print_vec("line_num",   line_num);
+    asp::print_vec("line_den",   line_den);
+    asp::print_vec("samp_num",   samp_num);
+    asp::print_vec("samp_den",   samp_den);
 
   } ASP_STANDARD_CATCHES;
 

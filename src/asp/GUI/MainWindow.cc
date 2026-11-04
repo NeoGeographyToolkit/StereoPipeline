@@ -57,10 +57,11 @@
 #include <set>
 #include <sstream>
 
-using namespace asp;
 using namespace vw;
 
 namespace fs = boost::filesystem;
+
+namespace asp {
 
 // Need this class to manage what happens when keys are pressed while
 // the ChooseFilesDlg table is in focus. Do not let it accept key
@@ -90,27 +91,27 @@ bool MainWindow::sanityChecks(int num_images) {
     return false;
   }
 
-  if (stereo_settings().dem_file == "" && stereo_settings().gcp_file != "" && 
-      !fs::exists(stereo_settings().gcp_file)) {
+  if (asp::stereo_settings().dem_file == "" && asp::stereo_settings().gcp_file != "" && 
+      !fs::exists(asp::stereo_settings().gcp_file)) {
     popUp("The GCP file does not exist. If desired to create it, please specify --dem-file.");
     return false;
   }
   
-  if (stereo_settings().gcp_sigma <= 0) {
+  if (asp::stereo_settings().gcp_sigma <= 0) {
     popUp("The GCP sigma must be positive.");
     return false;
   }
   
   // The dem file must exist if not empty. Must also have a georef.
-  if (stereo_settings().dem_file != "") {
+  if (asp::stereo_settings().dem_file != "") {
     try {
-      DiskImageView<float> dem(stereo_settings().dem_file);
+      DiskImageView<float> dem(asp::stereo_settings().dem_file);
     } catch (...) {
       popUp("The DEM file does not exist or is not a valid image file.");
       return false;
     }
     vw::GeoReference georef;
-    bool has_georef = vw::read_georeference(georef, stereo_settings().dem_file);
+    bool has_georef = vw::read_georeference(georef, asp::stereo_settings().dem_file);
     if (!has_georef) {
       popUp("The DEM file does not have a georeference. Please provide one.");
       return false;
@@ -118,16 +119,16 @@ bool MainWindow::sanityChecks(int num_images) {
   }
                     
   // This is for the workflow of creating GCP from a DEM and images
-  bool gcp_exists = !stereo_settings().gcp_file.empty() && 
-                    fs::exists(stereo_settings().gcp_file);
-  if (gcp_exists && stereo_settings().dem_file != "") {
+  bool gcp_exists = !asp::stereo_settings().gcp_file.empty() && 
+                    fs::exists(asp::stereo_settings().gcp_file);
+  if (gcp_exists && asp::stereo_settings().dem_file != "") {
     popUp("A DEM file and GCP file were specified. Then, the GCP file passed in "
           "must not exist, since it is supposed to be created based on the DEM.");
     return false;
   }
   
-  if (int(!stereo_settings().match_file.empty()) +
-      int(!stereo_settings().vwip_files.empty()) +
+  if (int(!asp::stereo_settings().match_file.empty()) +
+      int(!asp::stereo_settings().vwip_files.empty()) +
       int(gcp_exists) > 1) {
     // We make an exception for the non-existing GCP file, per the above
     popUp("Cannot load at the same time more than one of: matches, GCP, or .vwip files.");
@@ -139,20 +140,20 @@ bool MainWindow::sanityChecks(int num_images) {
     m_saved_gcp_and_ip = false; // will need to save GCP and IP files
    
   // If a gcp file was passed in, we will interpret those as matches
-  if (stereo_settings().gcp_file != "")
+  if (asp::stereo_settings().gcp_file != "")
     asp::stereo_settings().view_matches = true;
 
   // If .vwip files were passed in, we will interpret those as matches.
-  if (!stereo_settings().vwip_files.empty()) {
+  if (!asp::stereo_settings().vwip_files.empty()) {
     asp::stereo_settings().view_matches = true;
-    if (app_data.image_files.size() != stereo_settings().vwip_files.size()) {
+    if (app_data.image_files.size() != asp::stereo_settings().vwip_files.size()) {
       popUp("There must be as many .vwip files as images.");
       return false;
     }    
   }
   
   // If a match file was explicitly specified, use it.
-  if (stereo_settings().match_file != "") {
+  if (asp::stereo_settings().match_file != "") {
     if (app_data.image_files.size() != 2) {
       popUp("The --match-file option only works with two valid input images.");
       return false;
@@ -173,17 +174,17 @@ bool MainWindow::sanityChecks(int num_images) {
   if (num > 0)
     app_data.use_georef = false;
 
-  if (num > 0 && !stereo_settings().zoom_proj_win.empty()) {
+  if (num > 0 && !asp::stereo_settings().zoom_proj_win.empty()) {
     popUp("Cannot zoom to proj win when showing matches.");
     return false;
   }
   
   // Need at least two images to view matches, but make an exception for vwip files
-  if (num_images <= 1 && stereo_settings().vwip_files.empty() &&
+  if (num_images <= 1 && asp::stereo_settings().vwip_files.empty() &&
       (asp::stereo_settings().view_matches ||
        asp::stereo_settings().pairwise_matches ||
        asp::stereo_settings().pairwise_clean_matches)
-      && stereo_settings().gcp_file.empty()) {
+      && asp::stereo_settings().gcp_file.empty()) {
     popUp("Cannot view matches if there is at most one image.");
     return false;
   }
@@ -598,7 +599,7 @@ void MainWindow::createLayout() {
   if (asp::stereo_settings().pairwise_matches || asp::stereo_settings().pairwise_clean_matches) 
     MainWindow::viewPairwiseMatchesOrCleanMatches();
 
-  double nodata_value = stereo_settings().nodata_value;
+  double nodata_value = asp::stereo_settings().nodata_value;
   if (!std::isnan(nodata_value)) {
     for (size_t i = 0; i < m_widgets.size(); i++) {
       if (!m_widgets[i])
@@ -635,9 +636,9 @@ void MainWindow::createLayout() {
       asp::stereo_settings().right_image_crop_win != BBox2()) {
     // Draw crop windows passed as arguments
     if (m_widgets[0])
-      m_widgets[0]->setCropWin(stereo_settings().left_image_crop_win);
+      m_widgets[0]->setCropWin(asp::stereo_settings().left_image_crop_win);
     if (m_widgets[1])
-      m_widgets[1]->setCropWin(stereo_settings().right_image_crop_win);
+      m_widgets[1]->setCropWin(asp::stereo_settings().right_image_crop_win);
     // Do this just once, on startup
     asp::stereo_settings().left_image_crop_win  = BBox2();
     asp::stereo_settings().right_image_crop_win = BBox2();
@@ -722,8 +723,8 @@ bool MainWindow::editingMatches() const {
 // We can create GCP when --gcp-file and --dem-file got specified,
 // and the GCP file does not exist yet.
 bool MainWindow::creatingGcp() const {
- return (stereo_settings().dem_file != "" && 
-         stereo_settings().gcp_file != "" && 
+ return (asp::stereo_settings().dem_file != "" && 
+         asp::stereo_settings().gcp_file != "" && 
          !fs::exists(asp::stereo_settings().gcp_file));
 }
 
@@ -943,7 +944,7 @@ void MainWindow::zoomToProjWin() {
   
 }
 
-// Update the checkboxes for the matches menu entries based on stereo_settings()
+// Update the checkboxes for the matches menu entries based on asp::stereo_settings()
 // values.
 void MainWindow::updateViewMenuEntries() {
   auto& wm = m_win_menu_mgr;
@@ -1025,8 +1026,8 @@ void MainWindow::viewMatches() {
     m_match_mgr.m_matches_exist = true;
     
     size_t num_images = app_data.image_files.size();
-    bool gcp_exists = !stereo_settings().gcp_file.empty() && 
-                      fs::exists(stereo_settings().gcp_file);
+    bool gcp_exists = !asp::stereo_settings().gcp_file.empty() && 
+                      fs::exists(asp::stereo_settings().gcp_file);
 
     if (gcp_exists) {
       
@@ -1034,19 +1035,19 @@ void MainWindow::viewMatches() {
       // try to load the matches instead, which later will be used to make the
       // gcp.
       try {
-        m_match_mgr.m_matchlist.loadPointsFromGCPs(stereo_settings().gcp_file, app_data.image_files);
+        m_match_mgr.m_matchlist.loadPointsFromGCPs(asp::stereo_settings().gcp_file, app_data.image_files);
       } catch (std::exception const& e) {
         popUp(e.what());
         return;
       }
 
-    } else if (!stereo_settings().vwip_files.empty()) {
+    } else if (!asp::stereo_settings().vwip_files.empty()) {
       // Try to read matches from vwip files
-      m_match_mgr.m_matchlist.loadPointsFromVwip(stereo_settings().vwip_files, app_data.image_files);
+      m_match_mgr.m_matchlist.loadPointsFromVwip(asp::stereo_settings().vwip_files, app_data.image_files);
     } else {
         
       // If no match file was specified by now, ask the user for the output prefix.
-      if (stereo_settings().match_file == "") {
+      if (asp::stereo_settings().match_file == "") {
         if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
           return;
       }
@@ -1056,12 +1057,12 @@ void MainWindow::viewMatches() {
       std::vector<size_t> leftIndices;
       bool matchfiles_found = false;
       asp::populateMatchFiles(app_data.image_files, m_output_prefix,
-                              stereo_settings().match_file,
-                              stereo_settings().matches_as_txt,
+                              asp::stereo_settings().match_file,
+                              asp::stereo_settings().matches_as_txt,
                               matchFiles, leftIndices, matchfiles_found);      
       if (matchfiles_found)
         m_match_mgr.m_matchlist.loadPointsFromMatchFiles(matchFiles, leftIndices,
-                                                         stereo_settings().matches_as_txt);
+                                                         asp::stereo_settings().matches_as_txt);
     }
 
   } // End case where we tried to load the matches
@@ -1140,8 +1141,8 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
   }
 
   if (m_output_prefix == "" && 
-      stereo_settings().nvm.empty() && 
-      stereo_settings().isis_cnet.empty()) {
+      asp::stereo_settings().nvm.empty() && 
+      asp::stereo_settings().isis_cnet.empty()) {
     popUp("Cannot show pairwise (clean) matches, as the output prefix was not set.");
     asp::stereo_settings().pairwise_matches = false;
     asp::stereo_settings().pairwise_clean_matches = false;
@@ -1179,15 +1180,15 @@ void MainWindow::viewPairwiseMatchesOrCleanMatches() {
 
 void MainWindow::saveMatches() {
 
-  if (stereo_settings().match_file == "") {
+  if (asp::stereo_settings().match_file == "") {
     if (!supplyOutputPrefixIfNeeded(this, m_output_prefix))
       return;
   }
 
   try {
     m_match_mgr.m_matchlist.savePointsToDisk(m_output_prefix, app_data.image_files,
-                                             stereo_settings().match_file,
-                                             stereo_settings().matches_as_txt);
+                                             asp::stereo_settings().match_file,
+                                             asp::stereo_settings().matches_as_txt);
   } catch (std::exception const& e) {
     popUp(e.what());
     return;
@@ -1229,9 +1230,9 @@ void MainWindow::writeGroundControlPoints() {
     return popUp("Cannot save matches. No matches have been created.");
 
   // Prompt the user for a DEM path unless specified via --dem-file.
-  if (stereo_settings().dem_file == "") {
+  if (asp::stereo_settings().dem_file == "") {
     try {
-      stereo_settings().dem_file = 
+      asp::stereo_settings().dem_file = 
         QFileDialog::getOpenFileName(0,
                                      "Select DEM to use for point elevations",
                                      m_output_prefix.c_str()).toStdString();
@@ -1240,19 +1241,19 @@ void MainWindow::writeGroundControlPoints() {
     }
   }
 
-  if (stereo_settings().dem_file == "") 
+  if (asp::stereo_settings().dem_file == "") 
     return; // Likely the user did not choose a file, so cancel the save.
   
   // Have a DEM file, need to save GCP, and did not save it yet
   m_saved_gcp_and_ip = false;
   
   // Prompt the user for the desired output path unless specified in --gcp-file.
-  if (stereo_settings().gcp_file == "") {
+  if (asp::stereo_settings().gcp_file == "") {
     try {
       std::string default_path = m_output_prefix + "/ground_control_points.gcp";
       if (m_output_prefix.empty()) // Default to current dir if prefix not set
 	      default_path = "ground_control_points.gcp";
-      stereo_settings().gcp_file = QFileDialog::getSaveFileName(0,
+      asp::stereo_settings().gcp_file = QFileDialog::getSaveFileName(0,
 					       "Select a path to save the GCP file to",
 					       default_path.c_str()).toStdString();
     }catch(...) {
@@ -1265,8 +1266,8 @@ void MainWindow::writeGroundControlPoints() {
   MainWindow::saveMatches();
 
   try {
-    asp::genWriteGcp(app_data.image_files, stereo_settings().gcp_file, 
-                     stereo_settings().dem_file, m_match_mgr.m_matchlist, 
+    asp::genWriteGcp(app_data.image_files, asp::stereo_settings().gcp_file, 
+                     asp::stereo_settings().dem_file, m_match_mgr.m_matchlist, 
                      asp::stereo_settings().gcp_sigma);
     m_saved_gcp_and_ip = true;
   } catch (std::exception const& e) {
@@ -1839,3 +1840,5 @@ void MainWindow::keyPressEvent(QKeyEvent *event) {
   }
   
 }
+
+} // namespace asp

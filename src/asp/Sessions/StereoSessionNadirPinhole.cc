@@ -43,7 +43,6 @@ namespace fs = boost::filesystem;
 #include <algorithm>
 
 using namespace vw;
-using namespace asp;
 
 namespace asp {
 

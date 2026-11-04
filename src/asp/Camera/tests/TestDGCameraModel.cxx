@@ -28,9 +28,10 @@
 #include <vw/Cartography/GeoTransform.h>
 
 using namespace vw;
-using namespace asp;
 using namespace xercesc;
 using namespace vw::test;
+
+namespace asp {
 
 TEST(StereoSessionDG, XMLReading) {
   XMLPlatformUtils::Initialize();
@@ -160,3 +161,5 @@ TEST(DGCameraModel, CreateCamera) {
 
   XMLPlatformUtils::Terminate();
 }
+
+} // namespace asp

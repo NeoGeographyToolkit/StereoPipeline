@@ -31,8 +31,9 @@
 #include <Longitude.h>
 
 using namespace vw;
-using namespace asp;
-using namespace asp::isis;
+
+namespace asp {
+namespace isis {
 
 // Constructor
 IsisInterfaceMapFrame::IsisInterfaceMapFrame(std::string const& filename) :
@@ -106,3 +107,5 @@ Vector3 IsisInterfaceMapFrame::camera_center(Vector2 const& /*pix*/) const {
 Quat IsisInterfaceMapFrame::camera_pose(Vector2 const& /*pix*/) const {
   return m_pose;
 }
+
+}} // namespace asp::isis

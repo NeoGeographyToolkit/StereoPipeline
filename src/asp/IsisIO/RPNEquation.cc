@@ -27,7 +27,8 @@
 #include <boost/algorithm/string/split.hpp>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 // Constructors
 //-----------------------------------------------------
@@ -237,3 +238,5 @@ double& RPNEquation::operator[](size_t n) {
     return m_y_consts[n-m_x_consts.size()];
   return m_z_consts[n-m_x_consts.size()-m_y_consts.size()];
 }
+
+} // namespace asp

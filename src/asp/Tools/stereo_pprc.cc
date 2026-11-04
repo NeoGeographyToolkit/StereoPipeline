@@ -46,7 +46,8 @@
 #include <vw/Image/Manipulation.h>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 // Check that the images in file1 and file2 have same size, and throw
 // an exception if they don't.
@@ -484,19 +485,21 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
     
 } // End function stereo_preprocessing
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
   
-    vw_out() << "\n[ " << current_posix_time_string() << " ]: Stage 0 --> PREPROCESSING\n";
+    vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: Stage 0 --> PREPROCESSING\n";
 
-    stereo_register_sessions();
+    asp::stereo_register_sessions();
 
     bool verbose = false;
-    ASPGlobalOptions opt;
+    asp::ASPGlobalOptions opt;
     std::string output_prefix;
-    asp::parseStereoArgs(argc, argv, PreProcessingDescription(),
+    asp::parseStereoArgs(argc, argv, asp::PreProcessingDescription(),
                          verbose, output_prefix, opt);
 
     vw_out() << "Image files:  " << opt.in_file1  << ", " << opt.in_file2  << "\n";
@@ -508,13 +511,13 @@ int main(int argc, char* argv[]) {
     // Do not crop the images to their shared region when --no-crop-on-alignment
     // is set, to keep a one-to-one correspondence between the input left image
     // pixels and the output disparity and point cloud.
-    bool adjust_left_image_size = !stereo_settings().no_crop_on_alignment;
+    bool adjust_left_image_size = !asp::stereo_settings().no_crop_on_alignment;
 
-    stereo_preprocessing(adjust_left_image_size, opt);
-    if (!stereo_settings().stereo_dist_mode)
+    asp::stereo_preprocessing(adjust_left_image_size, opt);
+    if (!asp::stereo_settings().stereo_dist_mode)
       asp::estimate_convergence_angle(opt);
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ]: PREPROCESSING FINISHED\n";
+    vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: PREPROCESSING FINISHED\n";
 
     xercesc::XMLPlatformUtils::Terminate();
   } ASP_STANDARD_CATCHES;

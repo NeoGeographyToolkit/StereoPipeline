@@ -52,7 +52,6 @@
 #include <omp.h>
 
 using namespace vw;
-using namespace asp;
 namespace fs = boost::filesystem;
 
 namespace asp {
@@ -208,7 +207,7 @@ int main(int argc, char** argv) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
-    stereo_register_sessions();
+    asp::stereo_register_sessions();
 
     // Redirect GDAL sidecar files (overviews, .aux.xml) for a read-only input
     // to a writable cache. Must be set before any image opens, as GDAL's proxy
@@ -224,7 +223,7 @@ int main(int argc, char** argv) {
     asp::preprocessArgs(argc, argv, properties);
 
     bool verbose = false;
-    ASPGlobalOptions opt;
+    asp::ASPGlobalOptions opt;
     std::string output_prefix;
     std::vector<std::string> images;
 
@@ -234,19 +233,19 @@ int main(int argc, char** argv) {
 
     asp::readImageNames(all_files, images, output_prefix);
 
-    if (stereo_settings().create_image_pyramids_only) {
+    if (asp::stereo_settings().create_image_pyramids_only) {
       // Just create the image pyramids and exit. 
       for (size_t i = 0; i < images.size(); i++) {
         asp::imageData img;
         img.read(images[i], opt);
-        if (stereo_settings().hillshade || stereo_settings().color_hillshade) {
+        if (asp::stereo_settings().hillshade || asp::stereo_settings().color_hillshade) {
           // Create hillshaded images. For color-hillshade, this is the shade
           // source; the colorization is applied on the fly at display time.
           std::string hillshaded_file;
           bool have_gui = false; // so we don't use a pop up before the gui got started
           bool success = asp::write_hillshade(opt, have_gui,
-                                              stereo_settings().hillshade_azimuth,
-                                              stereo_settings().hillshade_elevation,
+                                              asp::stereo_settings().hillshade_azimuth,
+                                              asp::stereo_settings().hillshade_elevation,
                                               images[i],
                                               hillshaded_file); // output
           if (success) // build the pyramids
@@ -282,10 +281,10 @@ int main(int argc, char** argv) {
 
     // Start up the Qt GUI
     asp::MainWindow main_window(opt, images, output_prefix,
-                                stereo_settings().grid_cols,
-                                stereo_settings().window_size,
-                                stereo_settings().single_window,
-                                stereo_settings().use_georef,
+                                asp::stereo_settings().grid_cols,
+                                asp::stereo_settings().window_size,
+                                asp::stereo_settings().single_window,
+                                asp::stereo_settings().use_georef,
                                 properties,
                                 argc, argv);
 

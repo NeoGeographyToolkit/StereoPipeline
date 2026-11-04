@@ -29,7 +29,7 @@
 
 #include <fstream>
 
-namespace aspOpenMVG {
+namespace asp {
 
 Mat3 CrossProductMatrix(const Vec3 &x) {
   Mat3 X;
@@ -151,4 +151,4 @@ bool exportMatToTextFile(const Mat & mat, const std::string & filename,
   return bOk;
 }
 
-}  // namespace aspOpenMVG
+} // namespace asp

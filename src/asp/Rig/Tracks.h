@@ -27,17 +27,15 @@
 
 // TODO(oalexan1): Move here all tracks logic from interest_point.cc.
 
-namespace aspOpenMVG {
-  namespace matching {
-    class PairWiseMatches;
-  }
+namespace asp {
+  struct PairWiseMatches;
 }
 
 namespace rig {
 
 class cameraImage;
 
-void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
+void buildTracks(asp::PairWiseMatches const& match_map,
                  rig::PidCidFid                             & pid_to_cid_fid);
 
 // Remove duplicate tracks. There can still be two tracks with one contained

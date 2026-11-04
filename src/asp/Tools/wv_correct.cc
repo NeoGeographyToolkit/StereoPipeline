@@ -48,9 +48,9 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 using namespace vw;
-using namespace asp;
 using namespace xercesc;
 
+namespace asp {
 
 struct Options: vw::GdalWriteOptions {
   int band;
@@ -743,17 +743,19 @@ WVPerColumnCorrectView<ImageT> wv_correct(ImageT const& img,
   return WVPerColumnCorrectView<ImageT>(img, dx, dy);
 }
 
+} // namespace asp
+
 int main(int argc, char *argv[]) {
 
-  Options opt;
+  asp::Options opt;
   try {
-    handle_arguments(argc, argv, opt);
+    asp::handle_arguments(argc, argv, opt);
 
-    GeometricXML geo;
-    AttitudeXML att;
-    EphemerisXML eph;
-    ImageXML img;
-    RPCXML rpc;
+    asp::GeometricXML geo;
+    asp::AttitudeXML att;
+    asp::EphemerisXML eph;
+    asp::ImageXML img;
+    asp::RPCXML rpc;
     std::string scan_dir, sat_id, band_id;
     double det_pitch = 0.0;
     int tdi = 0;
@@ -767,7 +769,7 @@ int main(int argc, char *argv[]) {
     
     try{
       XMLPlatformUtils::Initialize();
-      read_xml(opt.camera_file, geo, att, eph, img, rpc);
+      asp::read_xml(opt.camera_file, geo, att, eph, img, rpc);
       
       scan_dir = boost::to_lower_copy(img.scan_direction);
       if (scan_dir != "forward" && scan_dir != "reverse")
@@ -849,12 +851,12 @@ int main(int argc, char *argv[]) {
     if ((!per_column_correction) || no_correction) {
       // Per block correction or no correction
       if (has_nodata) 
-        corr_img = apply_mask(wv_correct(create_mask(input_img, nodata),
-                                         tdi, is_wv01, is_forward, no_correction,
-                                         pitch_ratio), nodata);
+        corr_img = apply_mask(asp::wv_correct(create_mask(input_img, nodata),
+                                              tdi, is_wv01, is_forward, no_correction,
+                                              pitch_ratio), nodata);
       else
-        corr_img = wv_correct(input_img, tdi, is_wv01, is_forward, no_correction,
-                              pitch_ratio);
+        corr_img = asp::wv_correct(input_img, tdi, is_wv01, is_forward, no_correction,
+                                   pitch_ratio);
     } else {
       // Per column correction
       
@@ -868,9 +870,9 @@ int main(int argc, char *argv[]) {
                    << "be between 1 and 8.\n");
         
         tdi = img.tdi_multi[opt.band - 1];
-        parse_ms_correction_table(sat_id, opt.band, tdi, scan_dir,
-                                  // outputs
-                                  dx, dy);
+        asp::parse_ms_correction_table(sat_id, opt.band, tdi, scan_dir,
+                                       // outputs
+                                       dx, dy);
         
         
         if (dx.size() == 0 || dy.size() == 0)
@@ -896,9 +898,9 @@ int main(int argc, char *argv[]) {
       }
       
       if (has_nodata) 
-        corr_img = apply_mask(wv_correct(create_mask(input_img, nodata), dx, dy), nodata);
+        corr_img = apply_mask(asp::wv_correct(create_mask(input_img, nodata), dx, dy), nodata);
       else
-        corr_img = wv_correct(input_img, dx, dy);
+        corr_img = asp::wv_correct(input_img, dx, dy);
     }
     
     vw_out() << "Writing: " << opt.output_image << std::endl;

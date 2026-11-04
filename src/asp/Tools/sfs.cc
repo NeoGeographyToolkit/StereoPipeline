@@ -76,7 +76,7 @@
 
 namespace fs = boost::filesystem;
 
-using namespace asp;
+namespace asp {
 
 // Run sfs
 void runSfs(// Fixed quantities
@@ -681,6 +681,8 @@ void estimExposuresHazeSkipVec(asp::SfsOptions const& opt,
     }
 }
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
   vw::Stopwatch sw_total;
@@ -691,13 +693,13 @@ int main(int argc, char* argv[]) {
     asp::handleSfsArgs(argc, argv, opt);
 
     // Set up model information
-    ReflParams refl_params;
-    setupReflectance(refl_params, opt);
+    asp::ReflParams refl_params;
+    asp::setupReflectance(refl_params, opt);
 
     double dem_nodata_val = -1e+6; // Will change
     vw::ImageView<double> dem, albedo;
     vw::GeoReference geo;
-    prepareDemAndAlbedo(opt, dem, albedo, geo, dem_nodata_val);
+    asp::prepareDemAndAlbedo(opt, dem, albedo, geo, dem_nodata_val);
 
     // See if to use provided initial DEM height
     if (!std::isnan(opt.init_dem_height)) {
@@ -711,14 +713,14 @@ int main(int argc, char* argv[]) {
     // Read in the camera models and the sun positions
     std::vector<vw::CamPtr> cameras;
     std::vector<vw::Vector3> sunPosition;
-    loadCamerasSunPos(opt, dem, dem_nodata_val, geo, cameras, sunPosition);
+    asp::loadCamerasSunPos(opt, dem, dem_nodata_val, geo, cameras, sunPosition);
 
     // Stop here if all we wanted was some information
     if (opt.query)
       return 0;
 
     // Do the sanity checks after the query, as that one better not fail  
-    sfsSanityChecks(opt, dem, dem_nodata_val);
+    asp::sfsSanityChecks(opt, dem, dem_nodata_val);
 
     // This check must be here, after we find the session
     if (opt.stereo_session != "isis" && opt.use_approx_camera_models) {
@@ -749,17 +751,17 @@ int main(int argc, char* argv[]) {
     // Declare the lock here, as we want it to live until the end of the program.
     vw::Mutex camera_mutex;
     if (opt.use_approx_camera_models) // calc approx camera models and crop boxes
-      calcApproxCamsCropBoxes(dem, geo, dem_nodata_val,
-                              opt, cameras, crop_boxes, camera_mutex); // outputs
+      asp::calcApproxCamsCropBoxes(dem, geo, dem_nodata_val,
+                                  opt, cameras, crop_boxes, camera_mutex); // outputs
     else if (opt.crop_input_images) // calc crop boxes with the exact camera models
-      calcCropBoxes(dem, geo, cameras, opt, crop_boxes);
+      asp::calcCropBoxes(dem, geo, cameras, opt, crop_boxes);
 
     // Masked images and weights
     float img_nodata_val = -std::numeric_limits<float>::max(); // will change
-    std::vector<MaskedImgRefT> masked_images;
+    std::vector<asp::MaskedImgRefT> masked_images;
     std::vector<vw::ImageView<double>> blend_weights;
-    loadMaskedImagesCalcWeights(opt, crop_boxes,
-                                masked_images, blend_weights, img_nodata_val); // outputs
+    asp::loadMaskedImagesCalcWeights(opt, crop_boxes,
+                                     masked_images, blend_weights, img_nodata_val); // outputs
 
     // Find the grid sizes in meters. Note that dem heights are in meters too,
     // so we treat both horizontal and vertical measurements in same units.
@@ -780,13 +782,13 @@ int main(int argc, char* argv[]) {
     // Initalize the exposure, haze, and skip images
     bool blend_weight_is_ground_weight = false; // will change later
     std::vector<double> local_exposures_vec, local_haze_vec;
-    estimExposuresHazeSkipVec(opt, dem, geo, max_dem_height, gridx, gridy,
-                              sunPosition, refl_params, crop_boxes, masked_images,
-                              blend_weights, blend_weight_is_ground_weight,
-                              cameras, mean_albedo,
-                              // Outputs
-                              local_exposures_vec, local_haze_vec,
-                              opt.skip_images);
+    asp::estimExposuresHazeSkipVec(opt, dem, geo, max_dem_height, gridx, gridy,
+                                   sunPosition, refl_params, crop_boxes, masked_images,
+                                   blend_weights, blend_weight_is_ground_weight,
+                                   cameras, mean_albedo,
+                                   // Outputs
+                                   local_exposures_vec, local_haze_vec,
+                                   opt.skip_images);
     
     // Only overwrite the exposures if we don't have them supplied
     if (opt.image_exposures_vec.empty())
@@ -799,7 +801,7 @@ int main(int argc, char* argv[]) {
       for (int image_iter = 0; image_iter < num_images; image_iter++) {
         // Pad the haze vec with zeros
         std::vector<double> curr_image_haze_vec;
-        while (curr_image_haze_vec.size() < g_max_num_haze_coeffs)
+        while (curr_image_haze_vec.size() < asp::g_max_num_haze_coeffs)
           curr_image_haze_vec.push_back(0);
         curr_image_haze_vec[0] = local_haze_vec[image_iter];
         opt.image_haze_vec.push_back(curr_image_haze_vec);
@@ -809,12 +811,12 @@ int main(int argc, char* argv[]) {
     // TODO(oalexan1): Check if --num-haze-coeffs is non-zero.
     // TODO(oalexan1): This should work even if albedo is not modeled.
     if (opt.estim_exposure_haze_albedo && (opt.float_albedo || opt.num_haze_coeffs > 0))
-      estimExposureHazeAlbedo(opt, masked_images, blend_weights,
-                              blend_weight_is_ground_weight,
-                              dem, mean_albedo,
-                              geo, cameras, max_dem_height,
-                              crop_boxes, sunPosition,
-                              refl_params, gridx, gridy);
+      asp::estimExposureHazeAlbedo(opt, masked_images, blend_weights,
+                                   blend_weight_is_ground_weight,
+                                   dem, mean_albedo,
+                                   geo, cameras, max_dem_height,
+                                   crop_boxes, sunPosition,
+                                   refl_params, gridx, gridy);
 
     if (opt.compute_exposures_only || opt.estim_exposure_haze_albedo) {
       asp::saveExposures(opt.out_prefix, opt.input_images, opt.image_exposures_vec);
@@ -840,8 +842,8 @@ int main(int argc, char* argv[]) {
     // and/or compute weights for borderline data.
     // Show progress when the DEM is big
     std::vector<vw::ImageView<double>> ground_weights(num_images);
-    std::vector<MaskedDblImgT> meas_intensities(num_images);
-    std::vector<MaskedDblImgT> sim_intensities(num_images);
+    std::vector<asp::MaskedDblImgT> meas_intensities(num_images);
+    std::vector<asp::MaskedDblImgT> sim_intensities(num_images);
     bool show_progress = (opt.save_sim_intensity_only || opt.save_meas_intensity_only);
     if (opt.save_sim_intensity_only || opt.save_meas_intensity_only ||
         opt.estimate_height_errors || opt.curvature_in_shadow_weight > 0.0 ||
@@ -898,14 +900,14 @@ int main(int argc, char* argv[]) {
     // orig_dem will keep the input DEMs and won't change. Keep to the optimized
     // DEMs close to orig_dem. Make a deep copy below. Then run sfs.
     vw::ImageView<double> orig_dem = vw::copy(dem);
-    runSfs(opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
-           max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images,
-           blend_weights, blend_weight_is_ground_weight,
-           refl_params, sunPosition, orig_dem,
-           lit_image_mask, curvature_in_shadow_weight,
-           // Variable quantities
-           dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,
-           opt.model_coeffs_vec);
+    asp::runSfs(opt.max_iterations, gridx, gridy, opt, geo, opt.smoothness_weight,
+                max_dem_height, dem_nodata_val, img_nodata_val,  crop_boxes, masked_images,
+                blend_weights, blend_weight_is_ground_weight,
+                refl_params, sunPosition, orig_dem,
+                lit_image_mask, curvature_in_shadow_weight,
+                // Variable quantities
+                dem, albedo, cameras, opt.image_exposures_vec, opt.image_haze_vec,
+                opt.model_coeffs_vec);
 
   } ASP_STANDARD_CATCHES;
 

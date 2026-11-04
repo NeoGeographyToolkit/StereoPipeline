@@ -31,7 +31,8 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 /// Load an RPC camera file
 /// - TODO: Remove this once we have a nice RPC load function outside the Loader class.
@@ -231,3 +232,5 @@ TEST(StereoSessionRPC, CheckRpcCrop) {
 
   xercesc::XMLPlatformUtils::Terminate();
 }
+
+} // namespace asp

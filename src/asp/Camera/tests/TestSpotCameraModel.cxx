@@ -20,9 +20,10 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace asp;
 using namespace xercesc;
 using namespace vw::test;
+
+namespace asp {
 
 // This test is split to a separate function so that the SpotXML destructor is called
 //  before the Xerces platform terminate function is called.
@@ -88,3 +89,5 @@ TEST(SPOT_camera, XMLReading) {
   xml_reading_test();
   XMLPlatformUtils::Terminate();
 }
+
+} // namespace asp

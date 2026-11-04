@@ -35,8 +35,9 @@
 #include <vector>
 
 using namespace vw;
-using namespace asp;
-using namespace asp::isis;
+
+namespace asp {
+namespace isis {
 
 // Construct
 IsisInterfaceLineScan::IsisInterfaceLineScan(std::string const& filename): IsisInterface(filename), m_alphacube(*m_cube) {
@@ -124,3 +125,5 @@ IsisInterfaceLineScan::camera_pose(Vector2 const& pix) const {
   SetTime(px, true);
   return m_pose;
 }
+
+}} // namespace asp::isis

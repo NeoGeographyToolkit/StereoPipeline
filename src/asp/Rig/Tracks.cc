@@ -104,20 +104,20 @@ void splitTracksOneToOne(// Inputs
 }
 
 // Build tracks from pairs  
-void buildTracks(aspOpenMVG::matching::PairWiseMatches const& match_map,
-                 rig::PidCidFid                             & pid_to_cid_fid) { // output
+void buildTracks(asp::PairWiseMatches const& match_map,
+                 rig::PidCidFid             & pid_to_cid_fid) { // output
 
   pid_to_cid_fid.clear(); // wipe the output
   
-  aspOpenMVG::tracks::TracksBuilder trackBuilder;
+  asp::TracksBuilder trackBuilder;
   trackBuilder.Build(match_map);  // Build:  Efficient fusion of correspondences
   trackBuilder.Filter();          // Filter: Remove tracks that have conflict
   // trackBuilder.ExportToStream(std::cout);
   // Export tracks as a map (each entry is a sequence of imageId and featureIndex):
   //  {TrackIndex => {(imageIndex, featureIndex), ... ,(imageIndex, featureIndex)}
-  aspOpenMVG::tracks::STLMAPTracks map_tracks;
+  asp::STLMAPTracks map_tracks;
   trackBuilder.ExportToSTL(map_tracks);
-  trackBuilder = aspOpenMVG::tracks::TracksBuilder();   // wipe it
+  trackBuilder = asp::TracksBuilder();   // wipe it
 
   if (map_tracks.empty())
     LOG(FATAL) << "No tracks left after filtering. Perhaps images "

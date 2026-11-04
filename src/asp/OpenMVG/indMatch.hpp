@@ -17,8 +17,7 @@
 #include <set>
 #include <vector>
 
-namespace aspOpenMVG {
-namespace matching {
+namespace asp {
 
 /// Structure in order to save pairwise indexed references.
 /// A sort operator exist in order to remove duplicates of IndMatch series.
@@ -65,7 +64,7 @@ inline std::istream& operator>>(std::istream & in, IndMatch & obj) {
   return in >> obj.i_ >> obj.j_;
 }
 
-using IndMatches = std::vector<matching::IndMatch>;
+using IndMatches = std::vector<IndMatch>;
 
 /// Pairwise matches (indexed matches for a pair <I,J>)
 /// The interface used to store corresponding point indexes per images pairs
@@ -104,8 +103,7 @@ inline Pair_Set getPairs(const PairWiseMatches & matches)
   return pairs;
 }
 
-}  // namespace matching
-}  // namespace aspOpenMVG
+} // namespace asp
 
 // namespace cereal
 // {
@@ -113,7 +111,7 @@ inline Pair_Set getPairs(const PairWiseMatches & matches)
 //   template <class Archive>
 //   struct specialize<
 //     Archive,
-//     aspOpenMVG::matching::PairWiseMatches,
+//     asp::PairWiseMatches,
 //     cereal::specialization::member_serialize>
 //   {};
 // } // namespace cereal 

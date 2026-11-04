@@ -23,7 +23,6 @@
 #include <vw/Cartography/CameraBBox.h>
 
 using namespace vw;
-using namespace asp;
 
 TEST(InterestPointMatching, DatumIntersection) {
 

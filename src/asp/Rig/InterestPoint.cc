@@ -479,7 +479,7 @@ void addMatchPairs(// Append from these
                    std::vector<Eigen::Vector2d>          const& keypoint_offsets,
                    KeyPointMap                           const& merged_keypoint_map,
                    int cid_shift, size_t num_out_cams,
-                   aspOpenMVG::matching::PairWiseMatches      & match_map) {  // append here
+                   asp::PairWiseMatches                       & match_map) {  // append here
 
   // Sanity checks
   if (num_out_cams != merged_keypoint_map.size())
@@ -534,9 +534,9 @@ void addMatchPairs(// Append from these
       int fid2 = it2->second;
 
       // Append the pair
-      std::vector<aspOpenMVG::matching::IndMatch> & mvg_matches
+      std::vector<asp::IndMatch> & mvg_matches
         = match_map[std::make_pair(cid1, cid2)];  // alias
-      mvg_matches.push_back(aspOpenMVG::matching::IndMatch(fid1, fid2));
+      mvg_matches.push_back(asp::IndMatch(fid1, fid2));
     }  // end iterating over the track
   }
   return;
@@ -705,7 +705,7 @@ void detectMatchFeatures(// Inputs
 
   // Collect all keypoints in keypoint_map, and put the fid (indices of keypoints) in
   // match_map. It will be used to find the tracks.
-  aspOpenMVG::matching::PairWiseMatches match_map;
+  asp::PairWiseMatches match_map;
   for (auto it = matches.begin(); it != matches.end(); it++) {
     std::pair<int, int> const& cid_pair = it->first;      // alias
 
@@ -727,7 +727,7 @@ void detectMatchFeatures(// Inputs
       findFid(right_ip, right_cid,
               keypoint_map, fid_count, right_fid);  // may change
 
-      match_map[cid_pair].push_back(aspOpenMVG::matching::IndMatch(left_fid, right_fid));
+      match_map[cid_pair].push_back(asp::IndMatch(left_fid, right_fid));
     }
   }
   matches.clear(); matches = MATCH_MAP();  // mo longer needed
@@ -737,7 +737,7 @@ void detectMatchFeatures(// Inputs
   // a track, and will have a single triangulated xyz. Build such a track.
   buildTracks(match_map, pid_to_cid_fid);
   std::cout << "Tracks obtained after matching: " << pid_to_cid_fid.size() << std::endl;
-  match_map = aspOpenMVG::matching::PairWiseMatches();  // wipe this, no longer needed
+  match_map = asp::PairWiseMatches();  // wipe this, no longer needed
 }
 
 void detectAddFeatures(// Inputs

@@ -27,7 +27,8 @@
 #include <test/Helpers.h>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 // This is to make sure the developers provide types for their
 // sessions. The test is to see if this even compiles. Not if it
@@ -89,3 +90,5 @@ TEST(Instantiation, Names) {
     delete sessions[i];
   }
 }
+
+} // namespace asp

@@ -28,7 +28,7 @@
 #include <asp/OpenMVG/projection.hpp>
 #include <asp/OpenMVG/triangulation_nview.hpp>
 
-namespace aspOpenMVG {
+namespace asp {
 
   void TriangulateNView(const Mat2X &x,
     const std::vector< Mat34 > &Ps,
@@ -163,4 +163,4 @@ namespace aspOpenMVG {
   }
 
 
-}  // namespace aspOpenMVG
+}  // namespace asp

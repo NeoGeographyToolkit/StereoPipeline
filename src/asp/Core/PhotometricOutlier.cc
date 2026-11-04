@@ -40,13 +40,14 @@
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace asp;
 
-void asp::photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
-                                        std::string const& prefix,
-                                        std::string const& input_disparity,
-                                        std::string & output_disparity,
-                                        int kernel_size) {
+namespace asp {
+
+void photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
+                                   std::string const& prefix,
+                                   std::string const& input_disparity,
+                                   std::string & output_disparity,
+                                   int kernel_size) {
   // Projecting right into perspective of left
   DiskImageView<PixelGray<float>> right_disk_image(prefix+"-R.tif");
   DiskImageView<PixelMask<Vector2f>> disparity_disk_image(input_disparity);
@@ -88,6 +89,8 @@ void asp::photometric_outlier_rejection(vw::GdalWriteOptions const& opt,
                    intersect_mask(create_mask(threshold(dust,kernel_size,0.0,1.0)),right_mask));
 
   vw::block_write_gdal_image(prefix + "-FDust.tif",
-                          cleaned_disparity, opt,
-                          TerminalProgressCallback("asp", "Dust Removal:"));
+                             cleaned_disparity, opt,
+                             TerminalProgressCallback("asp", "Dust Removal:"));
 }
+
+} // namespace asp

@@ -30,7 +30,7 @@
 
 #include <asp/OpenMVG/numeric.h>
 
-namespace aspOpenMVG {
+namespace asp {
 
   /// Compute a 3D position of a point from several images of it. In particular,
   ///  compute the projective point X in R^4 such that x = PX.
@@ -87,6 +87,6 @@ namespace aspOpenMVG {
       std::vector< std::pair<Mat34, Vec2> > views; // Proj matrix and associated image point
   };
 
-}  // namespace aspOpenMVG
+}  // namespace asp
 
 #endif  // OPENMVG_MULTIVIEW_TRIANGULATION_NVIEW_HPP

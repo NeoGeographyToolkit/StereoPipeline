@@ -40,8 +40,9 @@
 #include <vector>
 
 using namespace vw;
-using namespace asp;
-using namespace asp::isis;
+
+namespace asp {
+namespace isis {
 
 // Constructor
 IsisInterfaceSAR::IsisInterfaceSAR(std::string const& filename):
@@ -117,3 +118,5 @@ Quat IsisInterfaceSAR::camera_pose(Vector2 const& pix) const {
 
   return vw::Quat();
 }
+
+}} // namespace asp::isis

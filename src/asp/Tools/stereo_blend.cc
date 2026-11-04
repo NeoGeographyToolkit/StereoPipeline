@@ -47,7 +47,8 @@
 #include <boost/filesystem.hpp>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 typedef ImageView<double> WeightsType;
 typedef PixelMask<Vector2f> MaskedPixType;
@@ -503,23 +504,25 @@ void stereo_blending(ASPGlobalOptions const& opt, std::string const& in_file,
   }
 }
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
   try {
 
-    vw_out() << "\n[ " << current_posix_time_string() << " ]: Stage 2 --> BLENDING\n";
+    vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: Stage 2 --> BLENDING\n";
 
-    stereo_register_sessions();
+    asp::stereo_register_sessions();
 
     bool verbose = false;
-    ASPGlobalOptions opt;
+    asp::ASPGlobalOptions opt;
     std::string output_prefix;
-    asp::parseStereoArgs(argc, argv, SubpixelDescription(),
+    asp::parseStereoArgs(argc, argv, asp::SubpixelDescription(),
                          verbose, output_prefix, opt);
 
     // Subpixel refinement uses smaller tiles.
     //---------------------------------------------------------
-    int ts = ASPGlobalOptions::rfne_tile_size();
+    int ts = asp::ASPGlobalOptions::rfne_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
     // This tool is only intended to run as part of parallel_stereo, which
@@ -527,20 +530,20 @@ int main(int argc, char* argv[]) {
     std::string in_file =  "Dnosym.tif";
 
     std::string out_file = "B.tif";
-    if (stereo_settings().subpixel_mode > 6){
+    if (asp::stereo_settings().subpixel_mode > 6){
       // No further subpixel refinement, skip to the -RD output.
       out_file = "RD.tif";
     }
-    stereo_blending(opt, in_file, out_file);
+    asp::stereo_blending(opt, in_file, out_file);
 
     // See if to also blend L-R disp differences
-    if (stereo_settings().save_lr_disp_diff) {
+    if (asp::stereo_settings().save_lr_disp_diff) {
       in_file  = "L-R-disp-diff.tif";
       out_file = "L-R-disp-diff-blend.tif";
-      stereo_blending(opt, in_file, out_file);
+      asp::stereo_blending(opt, in_file, out_file);
     }
     
-    vw_out() << "\n[ " << current_posix_time_string() << " ]: BLENDING FINISHED\n";
+    vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: BLENDING FINISHED\n";
 
   } ASP_STANDARD_CATCHES;
 

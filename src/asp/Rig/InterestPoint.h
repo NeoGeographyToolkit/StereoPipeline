@@ -41,14 +41,9 @@ namespace rig {
   class CameraParameters;
 }
 
-namespace aspOpenMVG {
-  namespace matching {
-    class PairWiseMatches;
-  }
-}
-
 namespace asp {
   class nvmData;
+  struct PairWiseMatches;
 }
 
 namespace rig {
@@ -115,7 +110,7 @@ void addMatchPairs(// Append from these
                    std::vector<Eigen::Vector2d>          const& keypoint_offsets,
                    KeyPointMap                           const& merged_keypoint_map,
                    int cid_shift, size_t num_out_cams,
-                   aspOpenMVG::matching::PairWiseMatches      & match_map);  // append here
+                   asp::PairWiseMatches                       & match_map);  // append here
 
 // Given some tracks read from nvm from disk, append the ones from
 // nvm. Some remapping is needed.  given that 'fid' values already

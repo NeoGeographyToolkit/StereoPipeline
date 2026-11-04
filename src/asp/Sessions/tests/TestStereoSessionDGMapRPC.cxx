@@ -26,8 +26,9 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 
 using namespace vw;
-using namespace asp;
 using namespace vw::test;
+
+namespace asp {
 
 TEST(StereoSessionDGMapRPC, TransformCycle) {
   // Generate GeoReference projection that matches something that the
@@ -100,3 +101,5 @@ TEST(StereoSessionDGMapRPC, TransformCycle) {
     }
   }
 }
+
+} // namespace asp

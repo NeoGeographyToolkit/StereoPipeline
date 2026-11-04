@@ -32,7 +32,7 @@
 
 /// Collection of function related to the classic Projection matrix used
 ///  in computer vision. P = K[R|t] with [t]=[-RC] Cf HZ
-namespace aspOpenMVG
+namespace asp
 {
 
 /**
@@ -197,6 +197,6 @@ double RootMeanSquareError( const Mat2X &x_image,
                             const Mat3 &R,
                             const Vec3 &t );
 
-} // namespace aspOpenMVG
+} // namespace asp
 
 #endif // OPENMVG_MULTIVIEW_PROJECTION_HPP

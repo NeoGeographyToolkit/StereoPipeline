@@ -29,8 +29,9 @@
 #include <CameraFocalPlaneMap.h>
 
 using namespace vw;
-using namespace asp;
-using namespace asp::isis;
+
+namespace asp {
+namespace isis {
 
 // Constructor
 IsisInterfaceFrame::IsisInterfaceFrame(std::string const& filename):
@@ -107,3 +108,5 @@ Quat
 IsisInterfaceFrame::camera_pose(Vector2 const& /*pix*/) const {
   return m_pose;
 }
+
+}} // namespace asp::isis

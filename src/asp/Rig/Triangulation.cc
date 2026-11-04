@@ -36,17 +36,17 @@ void Triangulate(bool rm_invalid_xyz, double focal_length,
     0, focal_length, 0,
     0, 0, 1;
 
-  // Build p matrices for all of the cameras. aspOpenMVG::Triangulation
+  // Build p matrices for all of the cameras. asp::Triangulation
   // will be holding pointers to all of the cameras.
-  std::vector<aspOpenMVG::Mat34> cid_to_p(world_to_cam.size());
+  std::vector<asp::Mat34> cid_to_p(world_to_cam.size());
   for (size_t cid = 0; cid < cid_to_p.size(); cid++) {
-    aspOpenMVG::P_From_KRt(k, world_to_cam[cid].linear(),
-                        world_to_cam[cid].translation(), &cid_to_p[cid]);
+    asp::P_From_KRt(k, world_to_cam[cid].linear(),
+                    world_to_cam[cid].translation(), &cid_to_p[cid]);
   }
 
   pid_to_xyz->resize(pid_to_cid_fid->size());
   for (int pid = pid_to_cid_fid->size() - 1; pid >= 0; pid--) {
-    aspOpenMVG::Triangulation tri;
+    asp::Triangulation tri;
     for (std::pair<int, int> const& cid_fid : pid_to_cid_fid->at(pid)) {
       tri.add(cid_to_p[cid_fid.first],  // they're holding a pointer to this
               cid_to_keypoint_map[cid_fid.first].col(cid_fid.second));
@@ -74,11 +74,11 @@ Eigen::Vector3d TriangulatePair(double focal_length1, double focal_length2,
   Eigen::Matrix3d k2;
   k2 << focal_length2, 0, 0, 0, focal_length2, 0, 0, 0, 1;
 
-  aspOpenMVG::Mat34 cid_to_p1, cid_to_p2;
-  aspOpenMVG::P_From_KRt(k1, world_to_cam1.linear(), world_to_cam1.translation(), &cid_to_p1);
-  aspOpenMVG::P_From_KRt(k2, world_to_cam2.linear(), world_to_cam2.translation(), &cid_to_p2);
+  asp::Mat34 cid_to_p1, cid_to_p2;
+  asp::P_From_KRt(k1, world_to_cam1.linear(), world_to_cam1.translation(), &cid_to_p1);
+  asp::P_From_KRt(k2, world_to_cam2.linear(), world_to_cam2.translation(), &cid_to_p2);
 
-  aspOpenMVG::Triangulation tri;
+  asp::Triangulation tri;
   tri.add(cid_to_p1, pix1);
   tri.add(cid_to_p2, pix2);
 
@@ -97,16 +97,16 @@ Eigen::Vector3d Triangulate(std::vector<double>          const& focal_length_vec
   if (focal_length_vec.size() <= 1)
     LOG(FATAL) << "At least two rays must be passed to Triangulate().";
 
-  aspOpenMVG::Triangulation tri;
+  asp::Triangulation tri;
 
   for (size_t it = 0; it < focal_length_vec.size(); it++) {
     Eigen::Matrix3d k;
     k << focal_length_vec[it], 0, 0, 0, focal_length_vec[it], 0, 0, 0, 1;
 
-    aspOpenMVG::Mat34 cid_to_p;
-    aspOpenMVG::P_From_KRt(k, world_to_cam_vec[it].linear(),
-                        world_to_cam_vec[it].translation(),
-                        &cid_to_p);
+    asp::Mat34 cid_to_p;
+    asp::P_From_KRt(k, world_to_cam_vec[it].linear(),
+                    world_to_cam_vec[it].translation(),
+                    &cid_to_p);
 
     tri.add(cid_to_p, pix_vec[it]);
   }

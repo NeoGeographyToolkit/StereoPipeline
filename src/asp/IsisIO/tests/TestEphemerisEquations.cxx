@@ -22,7 +22,8 @@
 #include <asp/IsisIO/RPNEquation.h>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 double DELTA = 1e-6;
 
@@ -126,3 +127,5 @@ TEST(EphemerisEquations, reversepolish) {
   EXPECT_NEAR(15.4176744337735, test[1], DELTA);
   EXPECT_NEAR(2737.72972972973, test[2], DELTA);
 }
+
+} // namespace asp

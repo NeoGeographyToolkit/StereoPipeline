@@ -11,7 +11,7 @@
 #include <numeric>
 #include <vector>
 
-namespace aspOpenMVG  {
+namespace asp {
 
 // Union-Find/Disjoint-Set data structure
 //--
@@ -102,6 +102,6 @@ struct UnionFind
   }
 };
 
-} // namespace aspOpenMVG
+} // namespace asp
 
 #endif // OPENMVG_TRACKS_UNION_FIND_DISJOINT_SET_HPP

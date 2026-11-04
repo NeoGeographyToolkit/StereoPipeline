@@ -20,7 +20,8 @@
 #include <asp/Core/PointUtils.h>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 TEST(PointUtils, CsvConv) {
   
@@ -150,3 +151,5 @@ TEST(PointUtils, PcdReader) {
   EXPECT_FALSE(reader.ReadNextPoint());
 
 }
+
+} // namespace asp

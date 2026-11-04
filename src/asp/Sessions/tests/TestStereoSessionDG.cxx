@@ -28,9 +28,10 @@
 #include <vw/Cartography/GeoTransform.h>
 
 using namespace vw;
-using namespace asp;
 using namespace xercesc;
 using namespace vw::test;
+
+namespace asp {
 
 
 TEST(StereoSessionDG, CreateCamera) {
@@ -110,3 +111,5 @@ TEST(StereoSessionDG, ProjectRPC) {
   EXPECT_VECTOR_NEAR(rpc_model->point_to_pixel(xyz),
                      dg_model->point_to_pixel(xyz), 25);
 }
+
+} // namespace asp

@@ -18,7 +18,7 @@
 /**
 * @brief Main namespace of openMVG API
 */
-namespace aspOpenMVG
+namespace asp
 {
 
 /// Portable type used to store an index
@@ -36,6 +36,6 @@ using Pair_Set = std::set<Pair>;
 /// Vector of Pair
 using Pair_Vec = std::vector<Pair>;
 
-} // namespace aspOpenMVG
+} // namespace asp
 
 #endif  // OPENMVG_TYPES_HPP

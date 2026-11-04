@@ -32,7 +32,8 @@
 #include <algorithm>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 // The sample CTX linescan camera that ships with the tests.
 std::string ctx_camera() {
@@ -130,3 +131,5 @@ TEST(CameraGSD, MetersUncertaintyToPixelWeight) {
   double buggy_weight = 1.0 / uncertainty;
   EXPECT_NEAR(weight / buggy_weight, gsd, 1e-12);
 }
+
+} // namespace asp

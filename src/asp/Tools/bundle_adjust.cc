@@ -77,7 +77,8 @@
 namespace fs = boost::filesystem;
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 // A callback to invoke at each iteration if desiring to save the cameras
 // at that time.
@@ -802,6 +803,8 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
 
 } // end do_ba_ceres
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
   asp::BaOptions opt;
@@ -809,7 +812,7 @@ int main(int argc, char* argv[]) {
     xercesc::XMLPlatformUtils::Initialize();
 
     // Process the bundle_adjust options and sanity checks
-    handleBaArgs(argc, argv, opt);
+    asp::handleBaArgs(argc, argv, opt);
 
     asp::load_cameras(opt.image_files, opt.camera_files, opt.out_prefix, opt,
                       opt.approximate_pinhole_intrinsics,
@@ -851,8 +854,8 @@ int main(int argc, char* argv[]) {
 
     bool calcIp = false;
     if (!skip_stats)
-      computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap,
-                       boundsFile, calcIp);
+      asp::computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap,
+                            boundsFile, calcIp);
 
     if (opt.stop_after_stats) {
       vw_out() << "Quitting after statistics computation.\n";
@@ -863,7 +866,7 @@ int main(int argc, char* argv[]) {
     // Compute normalization bounds if requested. This is done in a separate
     // process in parallel_bundle_adjust.
     if (opt.calc_normalization_bounds) {
-      calcNormalizationBounds(opt.out_prefix, files_for_stats, boundsFile);
+      asp::calcNormalizationBounds(opt.out_prefix, files_for_stats, boundsFile);
       vw_out() << "Quitting after calculating normalization bounds.\n";
       xercesc::XMLPlatformUtils::Terminate();
       return 0;
@@ -874,8 +877,8 @@ int main(int argc, char* argv[]) {
     // happen when matching occurs, which is then serial.
     if (opt.calc_ip) {
       bool calcIp = true;
-      computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap,
-                       boundsFile, calcIp);
+      asp::computeStatsOrIp(opt, files_for_stats, opt.dem_file_for_overlap,
+                            boundsFile, calcIp);
       vw_out() << "Quitting after computing interest points.\n";
       xercesc::XMLPlatformUtils::Terminate();
       return 0;
@@ -906,7 +909,7 @@ int main(int argc, char* argv[]) {
     }
 
     // All the work happens here. It also writes out the results.
-    do_ba_ceres(opt, estimated_camera_gcc);
+    asp::do_ba_ceres(opt, estimated_camera_gcc);
 
     xercesc::XMLPlatformUtils::Terminate();
 

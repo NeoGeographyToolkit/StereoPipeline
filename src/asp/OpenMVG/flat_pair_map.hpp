@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace aspOpenMVG  {
+namespace asp {
 
 /// Lightweight copy of the flat_map of BOOST library
 /// Use a vector to speed up insertion (preallocated array)
@@ -52,6 +52,6 @@ private:
   static bool superiorToFirst(const P &a, const T1 &b) {return a.first<b;}
 };
 
-} // namespace aspOpenMVG
+} // namespace asp
 
 #endif // OPENMVG_FLAT_PAIR_MAP_HPP

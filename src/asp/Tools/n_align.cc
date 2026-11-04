@@ -58,7 +58,8 @@ namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 typedef PointMatcher<double> PM;
 typedef PM::DataPoints DP;
@@ -350,11 +351,13 @@ void read_transforms_from_list(std::vector<Eigen::MatrixXd> & transVec,
   }
 }
 
+} // namespace asp
+
 int main(int argc, char *argv[]) {
 
-  Options opt;
+  asp::Options opt;
   try {
-    handle_arguments(argc, argv, opt);
+    asp::handle_arguments(argc, argv, opt);
 
     // Parse the csv format string and csv projection string
     asp::CsvConv csv_conv;
@@ -392,29 +395,29 @@ int main(int argc, char *argv[]) {
     double mean_ref_longitude    = 0.0;  // may get overwritten
     double mean_source_longitude = 0.0;  // may get overwritten
     BBox2 empty_box;                     // the lon-lat box, not used here
-    DP in_cloud;
+    asp::DP in_cloud;
     bool verbose = true;
-    load_cloud(opt.cloud_files[0], opt.max_num_points, empty_box,
+    asp::load_cloud(opt.cloud_files[0], opt.max_num_points, empty_box,
                 opt.copc_win, opt.copc_read_all,
                 calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                 mean_ref_longitude, verbose, in_cloud);
-    convert_cloud(in_cloud, clouds[0]);
+    asp::convert_cloud(in_cloud, clouds[0]);
     
     vw_out() << "Data shifted internally by subtracting: " << shift << std::endl;
     
     calc_shift = false; // We will use the same shift from here on
       
     for (int cloudIter = 1; cloudIter < numClouds; cloudIter++) {
-      load_cloud(opt.cloud_files[cloudIter], opt.max_num_points, empty_box,
+      asp::load_cloud(opt.cloud_files[cloudIter], opt.max_num_points, empty_box,
                  opt.copc_win, opt.copc_read_all,
                  calc_shift, shift, geo, csv_conv, is_lola_rdr_format,
                  mean_ref_longitude, verbose, in_cloud);
-      convert_cloud(in_cloud, clouds[cloudIter]);
+      asp::convert_cloud(in_cloud, clouds[cloudIter]);
     }
     
     // Read the clouds
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
-      sort_and_make_unique(clouds[cloudIter]);
+      asp::sort_and_make_unique(clouds[cloudIter]);
     }
 
     // Read any initial transforms, either using a prefix or an explicit list
@@ -422,27 +425,27 @@ int main(int argc, char *argv[]) {
     if (opt.in_prefix != "" || opt.in_transforms != "") {
       has_init_transform = true;
       if (opt.in_prefix != "") 
-        read_transforms(transVec, opt.in_prefix);
+        asp::read_transforms(transVec, opt.in_prefix);
       else if (opt.in_transforms != "")
-        read_transforms_from_list(transVec, opt.in_transforms);
+        asp::read_transforms_from_list(transVec, opt.in_transforms);
       
       // The point clouds are shifted, so shift the initial transforms as well.
       for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) 
-        transVec[cloudIter] = apply_shift(transVec[cloudIter], shift);
+        transVec[cloudIter] = asp::apply_shift(transVec[cloudIter], shift);
     }
 
     // Apply the initial transforms to the clouds
     if (has_init_transform) {
       for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) 
-        apply_transform_to_cloud(clouds[cloudIter], transVec[cloudIter]);
+        asp::apply_transform_to_cloud(clouds[cloudIter], transVec[cloudIter]);
     }
     
     // Build the trees
-    std::vector<boost::shared_ptr<KDTree_double>> Trees;
+    std::vector<boost::shared_ptr<asp::KDTree_double>> Trees;
     for (int it = 0; it < numClouds; it++) {
-      boost::shared_ptr<KDTree_double>
-        tree(new KDTree_double(flann::KDTreeSingleIndexParams(FIFTEEN)));
-      BuildKDTree_double(clouds[it], tree.get());
+      boost::shared_ptr<asp::KDTree_double>
+        tree(new asp::KDTree_double(flann::KDTreeSingleIndexParams(FIFTEEN)));
+      asp::BuildKDTree_double(clouds[it], tree.get());
       Trees.push_back(tree);
     }
 
@@ -513,12 +516,12 @@ int main(int argc, char *argv[]) {
         
           std::vector<int> match, match2;
           std::vector<double> dist;
-          typedef std::set<std::pair<int, int>, CustomCompare> PairType;
+          typedef std::set<std::pair<int, int>, asp::CustomCompare> PairType;
 
           // For each point in cloud i, find a match in cloud j
           PairType Corr1;
           for (std::size_t index_i = 0; index_i < clouds[i].size(); index_i++) {
-            SearchKDTree_double(Trees[j].get(), clouds[i][index_i], match, dist, 1);
+            asp::SearchKDTree_double(Trees[j].get(), clouds[i][index_i], match, dist, 1);
             if (match.empty()) continue; // should not happen
             int index_j = match[0];
             Corr1.insert(std::pair<int, int>(index_j, index_i));
@@ -527,7 +530,7 @@ int main(int argc, char *argv[]) {
           // Now do it in reverse
           PairType Corr2;
           for (std::size_t index_j = 0; index_j < clouds[j].size(); index_j++) {
-            SearchKDTree_double(Trees[i].get(), clouds[j][index_j], match, dist, 1);
+            asp::SearchKDTree_double(Trees[i].get(), clouds[j][index_j], match, dist, 1);
             if (match.empty()) continue; // should not happen
             int index_i = match[0];
             Corr2.insert(std::pair<int, int>(index_j, index_i));
@@ -552,7 +555,7 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      std::sort(CentroidPtsBelMod.begin(), CentroidPtsBelMod.end(), vector_less);
+      std::sort(CentroidPtsBelMod.begin(), CentroidPtsBelMod.end(), asp::vector_less);
 
       // Remove non-unique elements, and remove entries which exist only in one cloud
       int pos = 0;
@@ -617,7 +620,7 @@ int main(int argc, char *argv[]) {
           numErrors++;
         }
 	
-        computeRigidTransform(src, dst, rot, trans);
+        asp::computeRigidTransform(src, dst, rot, trans);
 
         // Update the output transforms
         Eigen::MatrixXd currT = Eigen::MatrixXd::Identity(4, 4);;
@@ -629,7 +632,7 @@ int main(int argc, char *argv[]) {
         transVec[cloudIter] = currT*transVec[cloudIter];
 
         // Move the clouds to the new location for the next iteration
-        apply_transform_to_cloud(clouds[cloudIter], currT);
+        asp::apply_transform_to_cloud(clouds[cloudIter], currT);
         
         // Compute the error after the transform is applied
         for (int row = 0; row < CentroidPtsBelMod.size(); row++) {
@@ -693,19 +696,19 @@ int main(int argc, char *argv[]) {
   
     // Undo the shift when the clouds were read
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) 
-      transVec[cloudIter] = apply_shift(transVec[cloudIter], -shift);
+      transVec[cloudIter] = asp::apply_shift(transVec[cloudIter], -shift);
     
     for (int cloudIter = 0; cloudIter < numClouds; cloudIter++)
       vw_out() << "Final transform for cloud: " << cloudIter << ":\n"
                << transVec[cloudIter] << std::endl;
-    write_n_transforms(transVec, opt.out_prefix);
+    asp::write_n_transforms(transVec, opt.out_prefix);
 
     if (opt.save_transformed_clouds) {
       for (int cloudIter = 0; cloudIter < numClouds; cloudIter++) {
         std::ostringstream os;
         os << opt.out_prefix << "-trans_cloud-" << cloudIter;
         std::string trans_prefix = os.str();
-        save_trans_point_cloud(opt, opt.cloud_files[cloudIter], trans_prefix,
+        asp::save_trans_point_cloud(opt, opt.cloud_files[cloudIter], trans_prefix,
                                opt.copc_win, opt.copc_read_all,
                                geo, csv_conv, transVec[cloudIter]);
       }

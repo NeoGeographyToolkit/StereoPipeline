@@ -23,7 +23,6 @@
 #include <test/Helpers.h>
 
 using namespace vw;
-using namespace asp;
 using namespace xercesc;
 
 // Placeholder test for when we have a real test case

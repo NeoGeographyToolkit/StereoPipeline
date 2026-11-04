@@ -37,8 +37,9 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace asp;
 namespace fs = boost::filesystem;
+
+namespace asp {
 
 // Find the tile at given location for a parallel_stereo run with local epipolar
 // alignment.
@@ -96,30 +97,32 @@ void find_tile_at_loc(std::string const& tile_at_loc, ASPGlobalOptions const& op
     vw_out() << "No tile found at location.\n"; 
 }
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
-    stereo_register_sessions();
+    asp::stereo_register_sessions();
 
     bool verbose = true;
-    ASPGlobalOptions opt;
+    asp::ASPGlobalOptions opt;
     std::string output_prefix;
-    asp::parseStereoArgs(argc, argv, ParseDescription(),
+    asp::parseStereoArgs(argc, argv, asp::ParseDescription(),
                          verbose, output_prefix, opt);
 
     // This is needed for the stereo_dist distributed processing program. Save
     // the needed list of tiles to disk (and their mapprojected versions as a
     // shapefile) and exit.
     if (asp::stereo_settings().stereo_dist_tile_params != vw::Vector2i(0, 0)) {
-      produceDistTileList(opt.in_file1, opt.in_file2, output_prefix,
-                          asp::stereo_settings().stereo_dist_tile_params);
+      asp::produceDistTileList(opt.in_file1, opt.in_file2, output_prefix,
+                               asp::stereo_settings().stereo_dist_tile_params);
       return 0;
     }
 
     // Use this as a small utility in debugging parallel_stereo runs
-    if (!stereo_settings().tile_at_loc.empty()) {
-      find_tile_at_loc(stereo_settings().tile_at_loc, opt);
+    if (!asp::stereo_settings().tile_at_loc.empty()) {
+      asp::find_tile_at_loc(asp::stereo_settings().tile_at_loc, opt);
       return 0;
     }
     
@@ -135,17 +138,17 @@ int main(int argc, char* argv[]) {
     vw_out() << "stereo_session,"   << opt.stereo_session << "\n";
     vw_out() << "stereo_default_filename," << opt.stereo_default_filename << "\n";
     vw_out() << "left_image_crop_win,"
-             << stereo_settings().left_image_crop_win.min().x() << ","
-             << stereo_settings().left_image_crop_win.min().y() << ","
-             << stereo_settings().left_image_crop_win.width()   << ","
-             << stereo_settings().left_image_crop_win.height()  << "\n";
+             << asp::stereo_settings().left_image_crop_win.min().x() << ","
+             << asp::stereo_settings().left_image_crop_win.min().y() << ","
+             << asp::stereo_settings().left_image_crop_win.width()   << ","
+             << asp::stereo_settings().left_image_crop_win.height()  << "\n";
 
     vw_out() << "out_prefix," << output_prefix << "\n";
 
     // Output only the named options (no positional args) so that callers
     // like stereo_dist can safely reconstruct command lines.
     std::vector<std::string> opts_vals;
-    asp::parseStereoOptsVals(argc, argv, ParseDescription(), opts_vals);
+    asp::parseStereoOptsVals(argc, argv, asp::ParseDescription(), opts_vals);
     vw_out() << "named_options";
     for (size_t i = 0; i < opts_vals.size(); i++)
       vw_out() << "," << opts_vals[i];
@@ -194,51 +197,51 @@ int main(int argc, char* argv[]) {
     // if just left-image-crop-win was set, we still use the full images,
     // but just the domain of computation is restricted. Hence we take user's
     // crop window, transform it to be in the L.tif coordinates, and use that one.
-    bool crop_left = (stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
+    bool crop_left = (asp::stereo_settings().left_image_crop_win  != BBox2i(0, 0, 0, 0));
     BBox2i transformed_window;
     if (crop_left) {
       transformed_window.min() = Vector2(0, 0);
       transformed_window.max() = trans_left_image_size;
     }else{
-      transformed_window = transformed_crop_win(opt);
+      transformed_window = asp::transformed_crop_win(opt);
     }
     vw_out() << "transformed_window," << transformed_window.min().x() << ","
              << transformed_window.min().y() << ","
              << transformed_window.width()   << ","
              << transformed_window.height()  << "\n";
 
-    //vw_out() << "corr_tile_size," << ASPGlobalOptions::corr_tile_size() << "\n";
-    vw_out() << "corr_tile_size," << stereo_settings().corr_tile_size_ovr << "\n";
-    vw_out() << "rfne_tile_size," << ASPGlobalOptions::rfne_tile_size() << "\n";
-    vw_out() << "tri_tile_size,"  << ASPGlobalOptions::tri_tile_size()  << "\n";
-    vw_out() << "stereo_algorithm," << stereo_settings().stereo_algorithm << "\n";
-    vw_out() << "alignment_method,"  << stereo_settings().alignment_method << "\n";
-    vw_out() << "subpixel_mode," << stereo_settings().subpixel_mode << "\n";
+    //vw_out() << "corr_tile_size," << asp::ASPGlobalOptions::corr_tile_size() << "\n";
+    vw_out() << "corr_tile_size," << asp::stereo_settings().corr_tile_size_ovr << "\n";
+    vw_out() << "rfne_tile_size," << asp::ASPGlobalOptions::rfne_tile_size() << "\n";
+    vw_out() << "tri_tile_size,"  << asp::ASPGlobalOptions::tri_tile_size()  << "\n";
+    vw_out() << "stereo_algorithm," << asp::stereo_settings().stereo_algorithm << "\n";
+    vw_out() << "alignment_method,"  << asp::stereo_settings().alignment_method << "\n";
+    vw_out() << "subpixel_mode," << asp::stereo_settings().subpixel_mode << "\n";
 
     // Apart from default block matching, correlation will be done tiles
     // with padding, which is called here collar_size.
     vw::CorrelationAlgorithm stereo_alg
-      = asp::stereo_alg_to_num(stereo_settings().stereo_algorithm);
+      = asp::stereo_alg_to_num(asp::stereo_settings().stereo_algorithm);
     bool using_tiles = (stereo_alg > vw::VW_CORRELATION_BM ||
-                        stereo_settings().alignment_method == "local_epipolar");
+                        asp::stereo_settings().alignment_method == "local_epipolar");
     
     int sgm_collar_size = 0;
     if (using_tiles)
-      sgm_collar_size = stereo_settings().sgm_collar_size;
+      sgm_collar_size = asp::stereo_settings().sgm_collar_size;
     vw_out() << "collar_size," << sgm_collar_size << "\n";
 
-    vw_out() << "corr_memory_limit_mb," << stereo_settings().corr_memory_limit_mb << "\n";
-    vw_out() << "save_lr_disp_diff," << stereo_settings().save_lr_disp_diff << "\n";
-    vw_out() << "correlator_mode," << stereo_settings().correlator_mode << "\n";
+    vw_out() << "corr_memory_limit_mb," << asp::stereo_settings().corr_memory_limit_mb << "\n";
+    vw_out() << "save_lr_disp_diff," << asp::stereo_settings().save_lr_disp_diff << "\n";
+    vw_out() << "correlator_mode," << asp::stereo_settings().correlator_mode << "\n";
 
     if (asp::stereo_settings().parallel_tile_size != vw::Vector2i(0, 0))
-      produceTiles(opt.session->isMapProjected(), output_prefix, trans_left_image_size,
-                   asp::stereo_settings().parallel_tile_size, sgm_collar_size);
+      asp::produceTiles(opt.session->isMapProjected(), output_prefix, trans_left_image_size,
+                        asp::stereo_settings().parallel_tile_size, sgm_collar_size);
     
     // Attach a georeference to this disparity. 
     // TODO(oalexan1): Make this into a function
     std::string left_image_file = opt.out_prefix + "-L.tif";
-    if (stereo_settings().attach_georeference_to_lowres_disparity &&
+    if (asp::stereo_settings().attach_georeference_to_lowres_disparity &&
         fs::exists(left_image_file)) {
 
       vw::GeoReference left_georef, left_sub_georef;

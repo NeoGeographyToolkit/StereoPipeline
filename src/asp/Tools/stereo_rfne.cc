@@ -40,7 +40,8 @@
 #include <xercesc/util/PlatformUtils.hpp>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 template <class Image1T, class Image2T>
 ImageViewRef<PixelMask<Vector2f>>
@@ -340,32 +341,34 @@ void stereo_refinement(ASPGlobalOptions const& opt) {
                               TerminalProgressCallback("asp", "\t--> Refinement :"));
 }
 
+} // namespace asp
+
 int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
 
-    vw_out() << "\n[ " << current_posix_time_string()
+    vw_out() << "\n[ " << asp::current_posix_time_string()
              << " ]: Stage 3 --> REFINEMENT\n";
 
-    stereo_register_sessions();
+    asp::stereo_register_sessions();
 
     bool verbose = false;
-    ASPGlobalOptions opt;
+    asp::ASPGlobalOptions opt;
     std::string output_prefix;
-    asp::parseStereoArgs(argc, argv, SubpixelDescription(),
+    asp::parseStereoArgs(argc, argv, asp::SubpixelDescription(),
                          verbose, output_prefix, opt);
 
     // Subpixel refinement uses smaller tiles.
     //---------------------------------------------------------
-    int ts = ASPGlobalOptions::rfne_tile_size();
+    int ts = asp::ASPGlobalOptions::rfne_tile_size();
     opt.raster_tile_size = Vector2i(ts, ts);
 
     // Internal Processes
     //---------------------------------------------------------
-    stereo_refinement(opt);
+    asp::stereo_refinement(opt);
 
-    vw_out() << "\n[ " << current_posix_time_string()
+    vw_out() << "\n[ " << asp::current_posix_time_string()
              << " ]: REFINEMENT FINISHED\n";
 
     xercesc::XMLPlatformUtils::Terminate();

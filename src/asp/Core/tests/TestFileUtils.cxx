@@ -20,7 +20,6 @@
 
 #include <cpl_vsi.h>
 
-using namespace asp;
 
 TEST(FileUtils, isVsiPath) {
 

@@ -28,7 +28,8 @@
 #include <boost/algorithm/string/classification.hpp>
 
 using namespace vw;
-using namespace asp;
+
+namespace asp {
 
 // Constructors
 //---------------------------------------------
@@ -161,3 +162,5 @@ double& PolyEquation::operator[](size_t n) {
     return m_z_coeff[n - m_x_coeff.size() - m_y_coeff.size()];
   }
 }
+
+} // namespace asp
