@@ -25,12 +25,6 @@
 
 /// \file sfs.cc
 
-// Turn off warnings from boost and other packages
-#if defined(__GNUC__) || defined(__GNUG__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
-#endif
-
 #include <asp/SfS/SfsImageProc.h>
 #include <asp/SfS/SfsUtils.h>
 #include <asp/SfS/SfsOptions.h>
@@ -68,11 +62,6 @@
 #include <iostream>
 #include <set>
 #include <string>
-
-#if defined(__GNUC__) || defined(__GNUG__)
-#pragma GCC diagnostic pop
-#undef LOCAL_GCC_VERSION
-#endif
 
 namespace fs = boost::filesystem;
 

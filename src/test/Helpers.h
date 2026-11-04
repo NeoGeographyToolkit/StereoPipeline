@@ -64,7 +64,12 @@ namespace t  = vw::test;
 namespace vw {
   namespace test {
 
-using namespace ::testing;
+using ::testing::AssertionResult;
+using ::testing::AssertionSuccess;
+using ::testing::AssertionFailure;
+using ::testing::Message;
+using ::testing::PrintToString;
+using ::testing::IsSubstring;
 
 #ifndef TEST_OBJDIR
 #error TEST_OBJDIR is not defined! Define it before including this header.

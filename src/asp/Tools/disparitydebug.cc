@@ -17,16 +17,6 @@
 
 /// \file disparitydebug.cc
 
-#ifdef _MSC_VER
-#pragma warning(disable:4244)
-#pragma warning(disable:4267)
-#pragma warning(disable:4996)
-#endif
-
-#ifdef NDEBUG
-#undef NDEBUG
-#endif
-
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
 

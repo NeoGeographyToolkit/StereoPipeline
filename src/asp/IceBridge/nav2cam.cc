@@ -56,27 +56,6 @@
 #include <ctime>
 #include <stdlib.h>
 
-// Turn off warnings from eigen
-#if defined(__GNUC__) || defined(__GNUG__)
-#define LOCAL_GCC_VERSION (__GNUC__ * 10000                    \
-                           + __GNUC_MINOR__ * 100              \
-                           + __GNUC_PATCHLEVEL__)
-#if LOCAL_GCC_VERSION >= 40600
-#pragma GCC diagnostic push
-#endif
-#if LOCAL_GCC_VERSION >= 40202
-#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
-#endif
-#endif
-
-#if defined(__GNUC__) || defined(__GNUG__)
-#if LOCAL_GCC_VERSION >= 40600
-#pragma GCC diagnostic pop
-#endif
-#undef LOCAL_GCC_VERSION
-#endif
-
-
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
