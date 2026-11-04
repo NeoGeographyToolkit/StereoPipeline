@@ -57,4 +57,3 @@ TEST(CSM_camera, basic_check) {
 
   EXPECT_TRUE(false);
 }
-

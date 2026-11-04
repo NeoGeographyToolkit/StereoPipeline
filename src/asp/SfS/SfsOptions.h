@@ -67,4 +67,3 @@ struct SfsOptions: public vw::GdalWriteOptions {
 } // end namespace asp
 
 #endif // __ASP_SFS_SFS_OPTIONS_H__
-

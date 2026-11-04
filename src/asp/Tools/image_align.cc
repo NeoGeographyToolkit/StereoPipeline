@@ -58,8 +58,8 @@ struct Options: vw::GdalWriteOptions {
 };
 
 /// Get a list of matched IP based on an input disparity
-void find_matches_from_disp(std::vector<ip::InterestPoint> &matched_ip1,
-                            std::vector<ip::InterestPoint> &matched_ip2,
+void find_matches_from_disp(std::vector<vw::InterestPoint> &matched_ip1,
+                            std::vector<vw::InterestPoint> &matched_ip2,
                             Options const& opt) {
 
   // Clear the outputs
@@ -121,8 +121,8 @@ void find_matches_from_disp(std::vector<ip::InterestPoint> &matched_ip1,
       Vector2 left_pix(col, row);
       Vector2 right_pix = left_pix + d.child();
       
-      vw::ip::InterestPoint lip(left_pix.x(), left_pix.y());
-      vw::ip::InterestPoint rip(right_pix.x(), right_pix.y());
+      vw::InterestPoint lip(left_pix.x(), left_pix.y());
+      vw::InterestPoint rip(right_pix.x(), right_pix.y());
       if (have_lr) {
         // The difference is a non-negative magnitude; a negative value is no-data.
         // Floor the uncertainty at 0.5 pixels (the integer check cannot resolve a
@@ -179,8 +179,8 @@ Matrix<double> do_ransac(std::vector<Vector3> const& ransac_ip1,
 
 // Compute the ECEF transform (around planet center) given the
 // interest point matches
-void calc_ecef_transform(std::vector<ip::InterestPoint> const& inlier_ip1,
-                         std::vector<ip::InterestPoint> const& inlier_ip2,
+void calc_ecef_transform(std::vector<vw::InterestPoint> const& inlier_ip1,
+                         std::vector<vw::InterestPoint> const& inlier_ip2,
                          Options const& opt,
                          Matrix<double> & ecef_transform) { // output
 
@@ -278,13 +278,13 @@ void calc_ecef_transform(std::vector<ip::InterestPoint> const& inlier_ip1,
 Matrix<double>
 calc_alignment_transform(std::string const& image_file1,
                          std::string const& image_file2,
-                         std::vector<ip::InterestPoint> &matched_ip1,
-                         std::vector<ip::InterestPoint> &matched_ip2,
+                         std::vector<vw::InterestPoint> &matched_ip1,
+                         std::vector<vw::InterestPoint> &matched_ip2,
                          Options const& opt,
                          // Outputs
                          Matrix<double> & ecef_transform,
-                         std::vector<ip::InterestPoint> & inlier_ip1,
-                         std::vector<ip::InterestPoint> & inlier_ip2) {
+                         std::vector<vw::InterestPoint> & inlier_ip1,
+                         std::vector<vw::InterestPoint> & inlier_ip2) {
   
   // Convert to 3D points with the third coordinate being 1, obtaining
   // homogeneous coordinates.
@@ -337,10 +337,10 @@ calc_alignment_transform(std::string const& image_file1,
     // Write a match file for debugging
     bool matches_as_txt = asp::stereo_settings().matches_as_txt;
     std::string clean_match_file
-      = ip::clean_match_filename(ip::match_filename(opt.output_prefix, image_file1, image_file2,
+      = vw::clean_match_filename(vw::match_filename(opt.output_prefix, image_file1, image_file2,
                                                     matches_as_txt), matches_as_txt);
     vw_out() << "Writing inlier matches after RANSAC to: " << clean_match_file << std::endl;
-    ip::write_match_file(clean_match_file, inlier_ip1, inlier_ip2, matches_as_txt);
+    vw::write_match_file(clean_match_file, inlier_ip1, inlier_ip2, matches_as_txt);
   }
 
   vw_out() << "Alignment transform (in pixels):\n" << tf << std::endl;
@@ -570,8 +570,8 @@ void save_output(ImageViewRef<PixelMask<double>> aligned_image2,
 // bundle_adjust for the pixel sigma). No alignment transform is applied. This
 // only reports where matched features land in each image.
 void write_match_geopackage(std::string const& gpkg_file,
-                            std::vector<ip::InterestPoint> const& inlier_ip1,
-                            std::vector<ip::InterestPoint> const& inlier_ip2,
+                            std::vector<vw::InterestPoint> const& inlier_ip1,
+                            std::vector<vw::InterestPoint> const& inlier_ip2,
                             vw::GeoReference const& ref_georef,
                             vw::GeoReference const& src_georef) {
 
@@ -680,9 +680,9 @@ int main(int argc, char *argv[]) {
    }
    
     Matrix<double> tf, ecef_transform;
-    std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
+    std::vector<vw::InterestPoint> inlier_ip1, inlier_ip2;
     if (opt.input_transform.empty()) {
-      std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+      std::vector<vw::InterestPoint> matched_ip1, matched_ip2;
       if (opt.disparity_params == "")
         asp::matchIpNoCams(image_file1, image_file2, opt.output_prefix,
                            matched_ip1, matched_ip2);

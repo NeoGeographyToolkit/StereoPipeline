@@ -239,11 +239,11 @@ void check_for_duplicates(std::vector<std::string> const& image_files,
 
   std::set<std::string> img_set, cam_set, adj_set;
   for (size_t i = 0; i < camera_files.size(); i++) {
-    std::string img = vw::ip::strip_path("", image_files[i]);
-    std::string cam = vw::ip::strip_path("", camera_files[i]);
+    std::string img = vw::strip_path("", image_files[i]);
+    std::string cam = vw::strip_path("", camera_files[i]);
     std::string ba_name = asp::bundle_adjust_file_name(out_prefix,
                                                        image_files[i], camera_files[i]);
-    std::string adj_base = vw::ip::strip_path(out_prefix, ba_name);
+    std::string adj_base = vw::strip_path(out_prefix, ba_name);
 
     if (img_set.find(img) != img_set.end())
       vw_throw(vw::ArgumentErr() << "Found duplicate image: " << img << "\n");

@@ -71,7 +71,7 @@ void matchesFromMapprojImages(int i, int j,
   // If the match file does not exist, create it. The user can create this manually
   // too.
   bool matches_as_txt = asp::stereo_settings().matches_as_txt;
-  std::string map_match_file = ip::match_filename(opt.out_prefix,
+  std::string map_match_file = vw::match_filename(opt.out_prefix,
                                                   map_files[i], map_files[j],
                                                   matches_as_txt);
   // These are mapprojected images, so confine matching to the overlap region.
@@ -95,9 +95,9 @@ void matchesFromMapprojImages(int i, int j,
   }
 
   vw_out() << "Reading: " << map_match_file << std::endl;
-  std::vector<ip::InterestPoint> ip1,     ip2;
-  std::vector<ip::InterestPoint> ip1_cam, ip2_cam;
-  ip::read_match_file(map_match_file, ip1, ip2, matches_as_txt);
+  std::vector<vw::InterestPoint> ip1,     ip2;
+  std::vector<vw::InterestPoint> ip1_cam, ip2_cam;
+  vw::read_match_file(map_match_file, ip1, ip2, matches_as_txt);
 
   // Undo the map-projection
   vw::CamPtr left_map_proj_cam, right_map_proj_cam;
@@ -107,8 +107,8 @@ void matchesFromMapprojImages(int i, int j,
                              left_map_proj_cam, right_map_proj_cam);
 
   for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
-    vw::ip::InterestPoint P1 = ip1[ip_iter];
-    vw::ip::InterestPoint P2 = ip2[ip_iter];
+    vw::InterestPoint P1 = ip1[ip_iter];
+    vw::InterestPoint P2 = ip2[ip_iter];
     if (!asp::projected_ip_to_raw_ip(P1, interp_dem, left_map_proj_cam,
                                      georef1, dem_georef))
       continue;
@@ -123,7 +123,7 @@ void matchesFromMapprojImages(int i, int j,
   vw::vw_out() << "Saving " << ip1_cam.size() << " matches.\n";
 
   vw::vw_out() << "Writing: " << match_filename << std::endl;
-  vw::ip::write_match_file(match_filename, ip1_cam, ip2_cam, matches_as_txt);
+  vw::write_match_file(match_filename, ip1_cam, ip2_cam, matches_as_txt);
 
 } // End function matchesFromMapprojImages()
 
@@ -279,8 +279,8 @@ void findPairwiseMatches(asp::BaOptions & opt, // will change
                                        dem_georef, interp_dem, match_file);
 
       // Compute the coverage fraction
-      std::vector<ip::InterestPoint> ip1, ip2;
-      ip::read_match_file(match_file, ip1, ip2, matches_as_txt);
+      std::vector<vw::InterestPoint> ip1, ip2;
+      vw::read_match_file(match_file, ip1, ip2, matches_as_txt);
       int right_ip_width = rsrc1->cols() *
                             static_cast<double>(100-opt.ip_edge_buffer_percent)/100.0;
       Vector2i ip_size(right_ip_width, rsrc1->rows());

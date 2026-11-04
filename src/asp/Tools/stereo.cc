@@ -263,8 +263,8 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
   std::string match_filename;
   bool matches_as_txt = stereo_settings().matches_as_txt;
   if (have_aligned_matches)
-    match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif",
-                                            matches_as_txt);
+    match_filename = vw::match_filename(opt.out_prefix, "L.tif", "R.tif",
+                                        matches_as_txt);
   else
     match_filename = asp::stereoMatchFile(opt.session->left_cropped_image(crop_left),
                                           opt.session->right_cropped_image(crop_right),
@@ -278,8 +278,8 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
     return;
   }
 
-  std::vector<ip::InterestPoint> left_ip, right_ip;
-  ip::read_match_file(match_filename, left_ip, right_ip, stereo_settings().matches_as_txt);
+  std::vector<vw::InterestPoint> left_ip, right_ip;
+  vw::read_match_file(match_filename, left_ip, right_ip, stereo_settings().matches_as_txt);
 
   if (have_aligned_matches) {
     // Create the transforms ahead of time for clarity. When these are created
@@ -288,7 +288,7 @@ void estimate_convergence_angle(ASPGlobalOptions const& opt) {
     auto right_tx = opt.session->tx_right();
 
     // Unalign the interest point matches
-    std::vector<vw::ip::InterestPoint> unaligned_left_ip, unaligned_right_ip;
+    std::vector<vw::InterestPoint> unaligned_left_ip, unaligned_right_ip;
     asp::unalign_ip(left_tx, right_tx, left_ip, right_ip,
                     unaligned_left_ip, unaligned_right_ip);
     left_ip  = unaligned_left_ip;

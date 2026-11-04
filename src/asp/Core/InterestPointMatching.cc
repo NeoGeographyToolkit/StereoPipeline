@@ -55,7 +55,7 @@ namespace asp {
 // use_cached_ip flag is set. This is not meant to be used directly. Use
 // ip_matching() or homography_ip_matching(). The caller is responsible for
 // checking if this cached file is not older than the input image. 
-void detect_ip(vw::ip::InterestPointList& ip,
+void detect_ip(vw::InterestPointList& ip,
                vw::ImageViewRef<float> const& image,
                int ip_per_image, int ip_per_tile, 
                std::string const vwip_file, 
@@ -72,7 +72,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
                    << "--right-image-crop-win, or --skip-rough-homography.\n");
     
     vw::vw_out() << "\t    Loading cached interest points file: " << vwip_file << "\n";
-    ip = vw::ip::read_binary_ip_file_list(vwip_file);
+    ip = vw::read_binary_ip_file_list(vwip_file);
     return;
   }
   
@@ -118,12 +118,12 @@ void detect_ip(vw::ip::InterestPointList& ip,
     // Zack's custom detector
     int num_scales = stereo_settings().num_scales;
     if (num_scales <= 0)
-      num_scales = vw::ip::IntegralAutoGainDetector::IP_DEFAULT_SCALES;
+      num_scales = vw::IntegralAutoGainDetector::IP_DEFAULT_SCALES;
     else
       vw::vw_out() << "\t    Using " << num_scales
         << " scales in OBALoG interest point detection.\n";
 
-    vw::ip::IntegralAutoGainDetector detector(ip_per_tile, num_scales);
+    vw::IntegralAutoGainDetector detector(ip_per_tile, num_scales);
 
     // This detector can't handle a mask so if there is nodata just set those pixels to zero.
 
@@ -136,15 +136,15 @@ void detect_ip(vw::ip::InterestPointList& ip,
 
     // Initialize the OpenCV detector.  Conveniently we can just pass in the type argument.
     // - If VW was not build with OpenCV, this call will just throw an exception.
-    vw::ip::OpenCvIpDetectorType cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_SIFT;
+    vw::OpenCvIpDetectorType cv_method = vw::OPENCV_IP_DETECTOR_TYPE_SIFT;
     if (detect_method == DETECT_IP_METHOD_ORB)
-      cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_ORB;
+      cv_method = vw::OPENCV_IP_DETECTOR_TYPE_ORB;
     else if (detect_method == DETECT_IP_METHOD_AKAZE)
-      cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_AKAZE;
+      cv_method = vw::OPENCV_IP_DETECTOR_TYPE_AKAZE;
     else if (detect_method == DETECT_IP_METHOD_BRISK)
-      cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_BRISK;
+      cv_method = vw::OPENCV_IP_DETECTOR_TYPE_BRISK;
     else if (detect_method == DETECT_IP_METHOD_KAZE)
-      cv_method = vw::ip::OPENCV_IP_DETECTOR_TYPE_KAZE;
+      cv_method = vw::OPENCV_IP_DETECTOR_TYPE_KAZE;
 
     // The opencv detector only works if the inputs are normalized, so do it here if it was not done before.
     // - If the images are already normalized most of the data will be in the 0-1 range.
@@ -157,7 +157,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
       vw::vw_out() << "\t    Using per-tile image normalization for interest points detection...\n";
 
     bool build_opencv_descriptors = true;
-    vw::ip::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, ip_per_tile);
+    vw::OpenCvInterestPointDetector detector(cv_method, opencv_normalize, build_opencv_descriptors, ip_per_tile);
 
     // These detectors do accept a mask so use one if applicable.
 
@@ -184,7 +184,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
     vw::Stopwatch sw2;
     sw2.start();
     vw::vw_out() << "\t    Building descriptors" << std::endl;
-    vw::ip::SGradDescriptorGenerator descriptor;
+    vw::SGradDescriptorGenerator descriptor;
     if (!has_nodata)
       describe_interest_points(image.impl(), descriptor, ip);
     else
@@ -199,7 +199,7 @@ void detect_ip(vw::ip::InterestPointList& ip,
   // If a file path was provided, record the IP (before matching) to disk.
   if (vwip_file != "") {
     vw::vw_out() << "\t    Writing interest points: " << vwip_file << "\n";
-    vw::ip::write_binary_ip_file(vwip_file, ip);
+    vw::write_binary_ip_file(vwip_file, ip);
   }
 
   return;
@@ -207,8 +207,8 @@ void detect_ip(vw::ip::InterestPointList& ip,
 
 // Detect IP in a pair of images and apply rudimentary filtering.
 // Returns false if either image ended up with zero IP.
-bool detect_ip_pair(vw::ip::InterestPointList& ip1,
-                    vw::ip::InterestPointList& ip2,
+bool detect_ip_pair(vw::InterestPointList& ip1,
+                    vw::InterestPointList& ip2,
                     vw::ImageViewRef<float> const& image1,
                     vw::ImageViewRef<float> const& image2,
                     int ip_per_image, int ip_per_tile,
@@ -296,8 +296,8 @@ private:
 // plausible but wrong matches; descriptor matching does the one-to-one work.
 // Both images must share the same ground sample distance (so a pixel radius is
 // meaningful in the common frame).
-void filter_ip_by_ground_loc(vw::ip::InterestPointList & ip1,
-                             vw::ip::InterestPointList & ip2,
+void filter_ip_by_ground_loc(vw::InterestPointList & ip1,
+                             vw::InterestPointList & ip2,
                              vw::GeoReference const& georef1,
                              vw::GeoReference const& georef2,
                              double radius) {
@@ -307,8 +307,8 @@ void filter_ip_by_ground_loc(vw::ip::InterestPointList & ip1,
 
   vw::GeoTransform left_to_right(georef1, georef2); // left pix -> right pix
 
-  std::vector<vw::ip::InterestPoint> v1(ip1.begin(), ip1.end());
-  std::vector<vw::ip::InterestPoint> v2(ip2.begin(), ip2.end());
+  std::vector<vw::InterestPoint> v1(ip1.begin(), ip1.end());
+  std::vector<vw::InterestPoint> v2(ip2.begin(), ip2.end());
   std::vector<vw::Vector2> p1(v1.size()), p2(v2.size());
   double const FAR = 1e20;
   for (size_t i = 0; i < v1.size(); i++) {
@@ -323,7 +323,7 @@ void filter_ip_by_ground_loc(vw::ip::InterestPointList & ip1,
 
   PointGrid grid2(radius, p2), grid1(radius, p1);
 
-  vw::ip::InterestPointList keep1, keep2;
+  vw::InterestPointList keep1, keep2;
   for (size_t i = 0; i < v1.size(); i++)
     if (grid2.has_neighbor(p1[i]))
       keep1.push_back(v1[i]);
@@ -341,8 +341,8 @@ void filter_ip_by_ground_loc(vw::ip::InterestPointList & ip1,
 
 } // end anonymous namespace
 
-void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
-                     std::vector<vw::ip::InterestPoint>& matched_ip2,
+void detect_match_ip(std::vector<vw::InterestPoint>& matched_ip1,
+                     std::vector<vw::InterestPoint>& matched_ip2,
                      vw::ImageViewRef<float> const& image1,
                      vw::ImageViewRef<float> const& image2,
                      int ip_per_tile, size_t number_of_jobs,
@@ -360,7 +360,7 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 
   // Detect interest points in the two images. This is done on the full image,
   // so the per-image vwip files are full-image and pair-independent (cacheable).
-  vw::ip::InterestPointList ip1, ip2;
+  vw::InterestPointList ip1, ip2;
   detect_ip_pair(ip1, ip2, image1, image2,
                  asp::stereo_settings().ip_per_image, ip_per_tile,
                  left_vwip_file, right_vwip_file, nodata1, nodata2,
@@ -377,14 +377,14 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
   // boxes before correspondence. Detection above was full-image, so this does
   // not affect the cached vwip and is correct for every pair the image is in.
   if (!bbox1.empty()) {
-    vw::ip::InterestPointList kept1;
+    vw::InterestPointList kept1;
     for (auto const& ip : ip1)
       if (bbox1.contains(vw::Vector2i(int(ip.x), int(ip.y))))
         kept1.push_back(ip);
     ip1 = kept1;
   }
   if (!bbox2.empty()) {
-    vw::ip::InterestPointList kept2;
+    vw::InterestPointList kept2;
     for (auto const& ip : ip2)
       if (bbox2.contains(vw::Vector2i(int(ip.x), int(ip.y))))
         kept2.push_back(ip);
@@ -487,7 +487,7 @@ rough_homography_fit(camera::CameraModel* cam1,
   tpc.report_finished();
 
   // At most 5000 points should be enough for rough homography as it is a simple transform.
-  vw::ip::pick_pair_subset(left_points, right_points, 5000);
+  vw::pick_pair_subset(left_points, right_points, 5000);
 
   vw_out() << "Projected " << left_points.size()
            << " rays for rough homography.\n";
@@ -532,8 +532,8 @@ rough_homography_fit(camera::CameraModel* cam1,
 }
 
 // Filter ip with homography. This is a wrapper around RANSAC.
-void filter_ip_homog(std::vector<vw::ip::InterestPoint> const& ip1_in,
-                     std::vector<vw::ip::InterestPoint> const& ip2_in,
+void filter_ip_homog(std::vector<vw::InterestPoint> const& ip1_in,
+                     std::vector<vw::InterestPoint> const& ip2_in,
                      double inlier_th,
                      // Outputs
                      vw::Matrix<double> & H,
@@ -583,8 +583,8 @@ Vector2i homography_rectification(bool adjust_left_image_size,
                                   bool tight_inlier_threshold,
                                   Vector2i const& left_size,
                                   Vector2i const& right_size,
-                                  std::vector<ip::InterestPoint> const& left_ip,
-                                  std::vector<ip::InterestPoint> const& right_ip,
+                                  std::vector<vw::InterestPoint> const& left_ip,
+                                  std::vector<vw::InterestPoint> const& right_ip,
                                   vw::Matrix<double>& left_matrix,
                                   vw::Matrix<double>& right_matrix) {
 
@@ -668,21 +668,21 @@ Vector2i homography_rectification(bool adjust_left_image_size,
 
 /// Remove points in/out of a bounding box depending on "remove_outside".
 /// - Returns the number of points removed.
-size_t remove_ip_bbox(vw::BBox2i const& roi, vw::ip::InterestPointList & ip_list,
+size_t remove_ip_bbox(vw::BBox2i const& roi, vw::InterestPointList & ip_list,
                       bool remove_outside) {
   // Decide per point whether to drop it, then compact in one O(n) pass. A
   // per-point erase on the vector ip_list would be O(n^2).
   size_t prior_size = ip_list.size();
   auto keep_end = std::remove_if(ip_list.begin(), ip_list.end(),
-    [&](vw::ip::InterestPoint const& ip) {
+    [&](vw::InterestPoint const& ip) {
       return roi.contains(vw::Vector2i(ip.ix,ip.iy)) xor remove_outside;
     });
   ip_list.erase(keep_end, ip_list.end());
   return prior_size - ip_list.size();
 } // End function remove_ip_bbox
 
-void side_ip_filtering(vw::ip::InterestPointList& ip1,
-                       vw::ip::InterestPointList& ip2,
+void side_ip_filtering(vw::InterestPointList& ip1,
+                       vw::InterestPointList& ip2,
                        vw::BBox2i const& bbox1, vw::BBox2i const& bbox2) {
 
   // Filter out IP from the opposite sides of the two images.
@@ -705,8 +705,8 @@ void side_ip_filtering(vw::ip::InterestPointList& ip1,
            << num_removed_right << " points from the right side of the right image.\n";
 } // End side IP filtering
 
-bool tri_ip_filtering(std::vector<ip::InterestPoint> const& matched_ip1,
-                  std::vector<ip::InterestPoint> const& matched_ip2,
+bool tri_ip_filtering(std::vector<vw::InterestPoint> const& matched_ip1,
+                  std::vector<vw::InterestPoint> const& matched_ip2,
                   vw::camera::CameraModel* cam1,
                   vw::camera::CameraModel* cam2,
                   std::list<size_t>& valid_indices) {
@@ -813,8 +813,8 @@ bool tri_ip_filtering(std::vector<ip::InterestPoint> const& matched_ip1,
   return (!valid_indices.empty());
 }
 
-bool stddev_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
-                         std::vector<vw::ip::InterestPoint> const& ip2,
+bool stddev_ip_filtering(std::vector<vw::InterestPoint> const& ip1,
+                         std::vector<vw::InterestPoint> const& ip2,
                          std::list<size_t>& valid_indices) {
   const int NUM_STD_FILTER = 4;
   // 4 stddev filtering. Deletes any disparity measurement that is 4
@@ -907,12 +907,12 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
                                          vw::camera::CameraModel* left_camera_model,
                                          vw::camera::CameraModel* right_camera_model,
                                          vw::Datum        const& datum,
-                                         std::vector<vw::ip::InterestPoint> const& ip1_in,
-                                         std::vector<vw::ip::InterestPoint> const& ip2_in,
+                                         std::vector<vw::InterestPoint> const& ip1_in,
+                                         std::vector<vw::InterestPoint> const& ip2_in,
                                          vw::Vector2 const & elevation_limit,
                                          vw::BBox2   const & lon_lat_limit,
-                                         std::vector<vw::ip::InterestPoint> & ip1_out,
-                                         std::vector<vw::ip::InterestPoint> & ip2_out) {
+                                         std::vector<vw::InterestPoint> & ip1_out,
+                                         std::vector<vw::InterestPoint> & ip2_out) {
 
   // Handle case where the elevation or lonlat range are not set
   const size_t num_ip = ip1_in.size();
@@ -1000,8 +1000,8 @@ size_t filter_ip_by_lonlat_and_elevation(vw::TransformPtr         tx_left,
 // This assumes the interest points are for the original images, without alignment
 // or mapprojection.
 // TODO(oalexan1): Add here the ability to reverse the alignment
-void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
-                             std::vector<vw::ip::InterestPoint> & ip2,
+void filter_ip_using_cameras(std::vector<vw::InterestPoint> & ip1,
+                             std::vector<vw::InterestPoint> & ip2,
                              vw::camera::CameraModel const * cam1,
                              vw::camera::CameraModel const * cam2,
                              vw::Datum  const & datum,
@@ -1118,8 +1118,8 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
                          vw::TransformPtr                 tx_right,
                          boost::shared_ptr<vw::camera::CameraModel> left_camera_model,
                          boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
-                         std::vector<vw::ip::InterestPoint> & left_aligned_ip,
-                         std::vector<vw::ip::InterestPoint> & right_aligned_ip) {
+                         std::vector<vw::InterestPoint> & left_aligned_ip,
+                         std::vector<vw::InterestPoint> & right_aligned_ip) {
 
   vw_out() << "Filtering interest point matches with --ip-filter-using-dem.\n";
 
@@ -1225,8 +1225,8 @@ void ip_filter_using_dem(std::string              const & ip_filter_using_dem,
 // interest points. Note that this box may be an overestimate,
 // so it should be intersected with a previously existing box.
 vw::BBox2 search_range_using_spread(double max_disp_spread,
-                                    std::vector<vw::ip::InterestPoint> const& left_ip,
-                                    std::vector<vw::ip::InterestPoint> const& right_ip) {
+                                    std::vector<vw::InterestPoint> const& left_ip,
+                                    std::vector<vw::InterestPoint> const& right_ip) {
     std::vector<double> dx, dy;
 
     for (size_t i = 0; i < left_ip.size(); i++) {
@@ -1253,8 +1253,8 @@ vw::BBox2 search_range_using_spread(double max_disp_spread,
 // (while still having potentially a global alignment applied to them).
 void aligned_ip_from_D_sub(vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const & sub_disp,
                            vw::Vector2                                   const & upsample_scale,
-                           std::vector<vw::ip::InterestPoint>                  & left_ip,
-                           std::vector<vw::ip::InterestPoint>                  & right_ip) {
+                           std::vector<vw::InterestPoint>                  & left_ip,
+                           std::vector<vw::InterestPoint>                  & right_ip) {
 
   left_ip.clear();
   right_ip.clear();
@@ -1271,7 +1271,7 @@ void aligned_ip_from_D_sub(vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const &
       left_pix  = elem_prod(left_pix, upsample_scale);
       right_pix = elem_prod(right_pix, upsample_scale);
 
-      vw::ip::InterestPoint left, right;
+      vw::InterestPoint left, right;
       left.x  = left_pix.x();   left.y = left_pix.y();
       right.x = right_pix.x(); right.y = right_pix.y();
 
@@ -1291,7 +1291,7 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
 
   using namespace vw;
 
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+  std::vector<vw::InterestPoint> matched_ip1, matched_ip2;
   size_t number_of_jobs = 1;
   bool use_cached_ip = false;
   detect_match_ip(matched_ip1, matched_ip2,
@@ -1325,7 +1325,7 @@ vw::Matrix<double> translation_ip_matching(vw::ImageView<vw::PixelGray<float>> c
   }
 
   { // Keeping only inliers
-    std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
+    std::vector<vw::InterestPoint> inlier_ip1, inlier_ip2;
     for (size_t i = 0; i < indices.size(); i++) {
       inlier_ip1.push_back(matched_ip1[indices[i]]);
       inlier_ip2.push_back(matched_ip2[indices[i]]);
@@ -1365,7 +1365,7 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
   // before correspondence. This is done inside detect_match_ip. The earlier
   // approach cropped the image before detection, which made the cached vwip
   // pair-dependent and caused most pairs in a multi-image run to find no matches.
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+  std::vector<vw::InterestPoint> matched_ip1, matched_ip2;
   detect_match_ip(matched_ip1, matched_ip2,
                   image1, image2,
                   ip_per_tile, number_of_jobs,
@@ -1392,7 +1392,7 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
     return false;
 
   // Form the filtered interest points
-  std::vector<ip::InterestPoint> final_ip1(num_left), final_ip2(num_left);
+  std::vector<vw::InterestPoint> final_ip1(num_left), final_ip2(num_left);
   for (size_t i = 0; i < num_left; i++) {
     final_ip1[i] = matched_ip1[indices[i]];
     final_ip2[i] = matched_ip2[indices[i]];
@@ -1406,7 +1406,7 @@ bool homography_ip_matching(vw::ImageViewRef<float> const& image1,
 
   vw_out() << "\t    * Writing match file: " << match_filename << "\n";
   bool matches_as_txt = stereo_settings().matches_as_txt;
-  ip::write_match_file(match_filename, final_ip1, final_ip2, matches_as_txt);
+  vw::write_match_file(match_filename, final_ip1, final_ip2, matches_as_txt);
 
   return true;
 }
@@ -1423,8 +1423,8 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
                             std::string const left_vwip_file,
                             double nodata1, double nodata2,
                             // Outputs
-                            vw::ip::InterestPointList& ip1,
-                            vw::ip::InterestPointList& ip2,
+                            vw::InterestPointList& ip1,
+                            vw::InterestPointList& ip2,
                             vw::Matrix<double> & rough_homography) {
 
   BBox2i box1 = bounding_box(image1), box2 = bounding_box(image2);
@@ -1486,7 +1486,7 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
   }
 
   // Undo the rough homography transform for the interest points
-  ip::InterestPointList::iterator ip_it;
+  vw::InterestPointList::iterator ip_it;
   for (ip_it = ip2.begin(); ip_it != ip2.end(); ip_it++) {
     Vector2 pt(ip_it->x, ip_it->y);
     pt = rough_trans.reverse(pt);
@@ -1502,8 +1502,8 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
 void write_match_image(std::string const& out_file_name,
                        vw::ImageViewRef<float> const& image1,
                        vw::ImageViewRef<float> const& image2,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip1,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip2) {
+                       std::vector<vw::InterestPoint> const& matched_ip1,
+                       std::vector<vw::InterestPoint> const& matched_ip2) {
 
   // Skip image pairs with no matches.
   if (matched_ip1.empty())

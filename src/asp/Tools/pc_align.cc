@@ -765,8 +765,8 @@ std::string find_matches_from_hillshading(Options & opt, std::string const& curr
 
   // The name of the file where the matches are written to
   bool matches_as_txt = false;
-  std::string match_file = vw::ip::match_filename(opt.out_prefix, ref_hillshade, source_hillshade,
-                                                  matches_as_txt);
+  std::string match_file = vw::match_filename(opt.out_prefix, ref_hillshade, source_hillshade,
+                                              matches_as_txt);
 
   return match_file;
 }
@@ -785,9 +785,9 @@ initial_transform_from_match_file(std::string const& ref_file,
              << "point matches only works for DEMs. Use point2dem to first create "
              << "DEMs from the input point clouds.\n");
 
-  std::vector<vw::ip::InterestPoint> ref_ip, source_ip;
+  std::vector<vw::InterestPoint> ref_ip, source_ip;
   vw_out() << "Reading match file: " << match_file << "\n";
-  vw::ip::read_binary_match_file(match_file, ref_ip, source_ip);
+  vw::read_binary_match_file(match_file, ref_ip, source_ip);
 
   DiskImageView<float> ref(ref_file);
   vw::GeoReference ref_geo;

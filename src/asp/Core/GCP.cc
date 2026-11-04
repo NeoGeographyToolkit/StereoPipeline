@@ -130,7 +130,7 @@ void genWriteGcp(std::vector<std::string> const& image_files,
   for (size_t p = 0; p < num_ips; p++) { // Loop through IPs
     
     // Compute the GDC coordinate of the point
-    vw::ip::InterestPoint ip = matchlist.getPoint(georef_index, p);
+    vw::InterestPoint ip = matchlist.getPoint(georef_index, p);
     vw::Vector2 lonlat    = image_georef.pixel_to_lonlat(vw::Vector2(ip.x, ip.y));
     vw::Vector2 dem_pixel = dem_georef.lonlat_to_pixel(lonlat);
     vw::PixelMask<float> height = interp_dem(dem_pixel[0], dem_pixel[1])[0];
@@ -152,7 +152,7 @@ void genWriteGcp(std::vector<std::string> const& image_files,
     size_t num_images_to_save = num_images - 1; 
     for (size_t i = 0; i < num_images_to_save; i++) {
       // Add this IP to the current line
-      vw::ip::InterestPoint ip = matchlist.getPoint(i, p);
+      vw::InterestPoint ip = matchlist.getPoint(i, p);
       vw::ba::ControlMeasure cm;
       cm.set_image_id(i);
       cm.set_position(vw::Vector2(ip.x, ip.y));

@@ -28,7 +28,6 @@
 #include <boost/random/normal_distribution.hpp>
 
 using namespace vw;
-using namespace vw::ip;
 
 TEST( IntegralAutoGainDetector, VerifyMaxima ) {
 
@@ -51,7 +50,7 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
 
   // Detect interest points
   IntegralAutoGainDetector detector;
-  ip::InterestPointList list = detector.process_image( test_image );
+  vw::InterestPointList list = detector.process_image( test_image );
 
   // On 32-bit Linux the answer is different
 #if __GNUC__
@@ -63,9 +62,9 @@ TEST( IntegralAutoGainDetector, VerifyMaxima ) {
 #endif
 
   // Find the best IP
-  const ip::InterestPoint* best_ip = &list.front();
+  const vw::InterestPoint* best_ip = &list.front();
   float best_ip_value = list.begin()->interest;
-  BOOST_FOREACH( ip::InterestPoint const& ip, list ) {
+  BOOST_FOREACH( vw::InterestPoint const& ip, list ) {
     if ( ip.interest > best_ip_value ) {
       best_ip_value = ip.interest;
       best_ip = &ip;

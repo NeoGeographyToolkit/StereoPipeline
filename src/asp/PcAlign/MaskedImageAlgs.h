@@ -70,4 +70,3 @@ void binnedStatistics(vw::ImageView<vw::PixelMask<float>> const& x,
 } // end namespace vw
 
 #endif // __ASP_PC_ALIGN_MASKEDIMAGEALGS_H__
-

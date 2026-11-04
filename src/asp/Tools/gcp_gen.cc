@@ -188,8 +188,8 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 // only to ip1, as ip2 is for the ortho image. Both of these may be modified if the
 // mapprojection is not undone successfully for all matches.
 void undo_mapproj(Options & opt,
-                  std::vector<vw::ip::InterestPoint> & ip1,
-                  std::vector<vw::ip::InterestPoint> & ip2) {
+                  std::vector<vw::InterestPoint> & ip1,
+                  std::vector<vw::InterestPoint> & ip2) {
   
   // Read the needed information from the mapproj header
   std::string adj_key, img_file_key, cam_type_key, cam_file_key, dem_file_key;
@@ -230,7 +230,7 @@ void undo_mapproj(Options & opt,
     vw_throw(ArgumentErr() << "No georeference found in: " << opt.mapproj_image << ".\n");
   
   // Undo the mapprojection. Skip the matches for which cannot do that.
-  std::vector<vw::ip::InterestPoint> local_ip1, local_ip2;
+  std::vector<vw::InterestPoint> local_ip1, local_ip2;
   for (size_t ip_iter = 0; ip_iter < ip1.size(); ip_iter++) {
     if (!asp::projected_ip_to_raw_ip(ip1[ip_iter], interp_dem, map_proj_cam,
                                     map_georef, dem_georef))
@@ -246,7 +246,7 @@ void undo_mapproj(Options & opt,
 
 void gcp_gen(Options & opt) {
 
-  std::vector<vw::ip::InterestPoint> ip1, ip2;
+  std::vector<vw::InterestPoint> ip1, ip2;
   if (opt.match_file == "") {
 
     bool is_mapproj = false;
@@ -261,7 +261,7 @@ void gcp_gen(Options & opt) {
   } else {
     vw::vw_out() << "Reading matches from: " << opt.match_file << "\n";
     bool matches_as_txt = asp::stereo_settings().matches_as_txt;
-    vw::ip::read_match_file(opt.match_file, ip1, ip2, matches_as_txt);
+    vw::read_match_file(opt.match_file, ip1, ip2, matches_as_txt);
   }
 
   // If too few matches, fail, rather than give incorrect results

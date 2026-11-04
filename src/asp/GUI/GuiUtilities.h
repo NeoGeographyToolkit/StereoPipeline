@@ -148,10 +148,10 @@ namespace asp {
   // Load these on-demand, and once loaded, keep them in memory.
   struct pairwiseMatchList {
     std::map<std::pair<int, int>, std::string> match_files;
-    std::map<std::pair<int, int>, std::pair<std::vector<vw::ip::InterestPoint>, std::vector<vw::ip::InterestPoint>>> matches;
+    std::map<std::pair<int, int>, std::pair<std::vector<vw::InterestPoint>, std::vector<vw::InterestPoint>>> matches;
 
     // We will copy here only the ip that need to be shown for the moment
-    std::vector<std::vector<vw::ip::InterestPoint>> ip_to_show;
+    std::vector<std::vector<vw::InterestPoint>> ip_to_show;
   };
 
 // See if we are in the mode where the images are displayed side-by-side with a

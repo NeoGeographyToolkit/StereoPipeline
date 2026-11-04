@@ -160,4 +160,3 @@ TEST(DGCameraModel, CreateCamera) {
 
   XMLPlatformUtils::Terminate();
 }
-

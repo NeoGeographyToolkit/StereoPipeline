@@ -675,7 +675,7 @@ void disp_or_matches_work(std::string const& output_prefix,
     }
   }
   bool matches_as_txt = stereo_settings().matches_as_txt;
-  std::string match_file = ip::match_filename(output_prefix + "-disp",
+  std::string match_file = vw::match_filename(output_prefix + "-disp",
                                               left_raw_image, right_raw_image,
                                               matches_as_txt);
 

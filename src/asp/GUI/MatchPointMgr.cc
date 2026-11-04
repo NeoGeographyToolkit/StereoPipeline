@@ -147,20 +147,20 @@ void MatchPointMgr::loadPairwiseMatches(int left_index, int right_index,
     } else if (pairwiseMatches->match_files.find(index_pair) ==
                pairwiseMatches->match_files.end()) {
       // Load pairwise matches
-      match_file = vw::ip::match_filename(output_prefix,
-                                          m_app_data.images[left_index].name,
-                                          m_app_data.images[right_index].name,
-                                          matches_as_txt);
+      match_file = vw::match_filename(output_prefix,
+                                      m_app_data.images[left_index].name,
+                                      m_app_data.images[right_index].name,
+                                      matches_as_txt);
     }
   } else {
     // Load pairwise clean matches
     pairwiseMatches = &m_pairwiseCleanMatches;
     if (pairwiseMatches->match_files.find(index_pair) == 
         pairwiseMatches->match_files.end()) {
-      match_file = vw::ip::clean_match_filename(output_prefix,
-                                                m_app_data.images[left_index].name,
-                                                m_app_data.images[right_index].name,
-                                                matches_as_txt);
+      match_file = vw::clean_match_filename(output_prefix,
+                                            m_app_data.images[left_index].name,
+                                            m_app_data.images[right_index].name,
+                                            matches_as_txt);
     }
   }
   
@@ -183,7 +183,7 @@ void MatchPointMgr::loadPairwiseMatches(int left_index, int right_index,
     try {
       // Load it
       vw_out() << "Loading match file: " << match_file << "\n";
-      vw::ip::read_match_file(match_file, left_ip, right_ip, matches_as_txt);
+      vw::read_match_file(match_file, left_ip, right_ip, matches_as_txt);
       vw_out() << "Read: " << left_ip.size() << " matches.\n";
     } catch (...) {
       // Having this pop-up for a large number of images is annoying

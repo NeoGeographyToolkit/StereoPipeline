@@ -752,4 +752,3 @@ void MergeMaps(asp::nvmData const& A,
 }
 
 }
-

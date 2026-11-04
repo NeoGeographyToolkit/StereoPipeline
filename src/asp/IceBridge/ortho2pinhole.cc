@@ -689,8 +689,8 @@ void ortho2pinhole(Options & opt) {
   double cam_height = get_cam_height_estimate(opt);
   vw_out() << "Using estimated cam height: " << cam_height << std::endl;
 
-  std::vector<vw::ip::InterestPoint> raw_ip, ortho_ip;
-  ip::read_binary_match_file(match_filename, raw_ip, ortho_ip);
+  std::vector<vw::InterestPoint> raw_ip, ortho_ip;
+  vw::read_binary_match_file(match_filename, raw_ip, ortho_ip);
   vw::camera::PinholeModel *pcam = dynamic_cast<vw::camera::PinholeModel*>(cam.get());
   if (pcam == NULL) {
     vw_throw(ArgumentErr() << "Expecting a pinhole camera model.\n");

@@ -57,7 +57,7 @@ namespace asp {
     /// Add a single point to the list.
     /// - Points must be added in order, low index to high index.
     /// - Returns false if the point could not be added.
-    bool addPoint(size_t image, vw::ip::InterestPoint const &pt, bool valid=true);
+    bool addPoint(size_t image, vw::InterestPoint const &pt, bool valid=true);
 
     /// Return the number of images.
     size_t getNumImages() const;
@@ -66,7 +66,7 @@ namespace asp {
     size_t getNumPoints(size_t image=0) const;
 
     /// Get a handle to a specific IP.
-    vw::ip::InterestPoint const& getPoint(size_t image, size_t point) const;
+    vw::InterestPoint const& getPoint(size_t image, size_t point) const;
 
     /// Returns the x/y coordinate of a point.
     vw::Vector2 getPointCoord(size_t image, size_t point) const;
@@ -115,8 +115,8 @@ namespace asp {
                             std::vector<std::string> const& imageNames);
     
     // Populate from two vectors of interest point matches
-    void populateFromIpPair(std::vector<vw::ip::InterestPoint> const& ip1,
-                            std::vector<vw::ip::InterestPoint> const& ip2);
+    void populateFromIpPair(std::vector<vw::InterestPoint> const& ip1,
+                            std::vector<vw::InterestPoint> const& ip2);
     
     /// Write all points out using a given prefix.
     bool savePointsToDisk(std::string const& prefix,
@@ -137,7 +137,7 @@ namespace asp {
     /// - The only way the counts can differ is if the user is in the process of manually
     ///   adding an interest point to the images.
     /// - The length of the outer vector is equal to the number of MainWidget objects
-    std::vector<std::vector<vw::ip::InterestPoint>> m_matches;
+    std::vector<std::vector<vw::InterestPoint>> m_matches;
     /// Stay synced with m_matches, set to false if that match is not 
     std::vector<std::vector<bool>> m_valid_matches;
 

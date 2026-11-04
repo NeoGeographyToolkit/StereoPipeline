@@ -175,7 +175,7 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
       vw::crop(right_disk_image, crop_roi);
 
     // Gather interest points and match them
-    std::vector<vw::ip::InterestPoint> matched_ip1, matched_ip2;
+    std::vector<vw::InterestPoint> matched_ip1, matched_ip2;
     size_t number_of_jobs = 1;
     bool use_cached_ip = false;
     asp::detect_match_ip(matched_ip1, matched_ip2,
@@ -199,8 +199,8 @@ bool determineShifts(Parameters & params, double &dX, double &dY) {
         ransac(vw::math::SimilarityFittingFunctor(),
                vw::math::InterestPointErrorMetric(),
                100, 5, 100, true);
-      std::vector<vw::Vector3> ransac_ip1 = vw::ip::iplist_to_vectorlist(matched_ip1);
-      std::vector<vw::Vector3> ransac_ip2 = vw::ip::iplist_to_vectorlist(matched_ip2);
+      std::vector<vw::Vector3> ransac_ip1 = vw::iplist_to_vectorlist(matched_ip1);
+      std::vector<vw::Vector3> ransac_ip2 = vw::iplist_to_vectorlist(matched_ip2);
 
       // Finding offset using RANSAC.
       try {

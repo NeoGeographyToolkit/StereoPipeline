@@ -59,7 +59,7 @@ class ImageMessage;
 
 // Copy IP information from an OpenCV KeyPoint object.
 void setFromCvKeypoint(Eigen::Vector2d const& key, cv::Mat const& cv_descriptor,
-                       vw::ip::InterestPoint& ip);
+                       vw::InterestPoint& ip);
 
 void detectFeatures(const cv::Mat& image, bool verbose,
                     // Outputs

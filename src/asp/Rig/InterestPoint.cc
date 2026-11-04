@@ -73,7 +73,7 @@ namespace rig {
 
 // Copy IP information from an OpenCV KeyPoint object.
 void setFromCvKeypoint(Eigen::Vector2d const& key, cv::Mat const& cv_descriptor,
-                       vw::ip::InterestPoint& ip) {
+                       vw::InterestPoint& ip) {
   ip.x = key[0];
   ip.y = key[1];
   ip.ix = round(ip.x);
@@ -141,15 +141,15 @@ void detectFeatures(const cv::Mat& image, bool verbose,
   }
 }
 
-void reduceMatches(std::vector<vw::ip::InterestPoint> & left_ip,
-                   std::vector<vw::ip::InterestPoint> & right_ip) {
+void reduceMatches(std::vector<vw::InterestPoint> & left_ip,
+                   std::vector<vw::InterestPoint> & right_ip) {
 
   // pick a random subset
   std::vector<int> subset;
   vw::math::pick_random_indices_in_range(left_ip.size(), FLAGS_max_pairwise_matches, subset);
   std::sort(subset.begin(), subset.end());  // sort the indices (not strictly necessary)
 
-  std::vector<vw::ip::InterestPoint> left_ip_full, right_ip_full;
+  std::vector<vw::InterestPoint> left_ip_full, right_ip_full;
   left_ip_full.swap(left_ip);
   right_ip_full.swap(right_ip);
 
@@ -234,7 +234,7 @@ void matchFeatures(std::mutex* match_mutex,
   cv::Mat H = cv::estimateAffine2D(left_vec, right_vec, inlier_mask, cv::RANSAC,
                                    ransacReprojThreshold, maxIters, confidence);
 
-  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+  std::vector<vw::InterestPoint> left_ip, right_ip;
   for (size_t j = 0; j < cv_matches.size(); j++) {
     if (inlier_mask.at<uchar>(j, 0) == 0) continue;
 
@@ -244,10 +244,10 @@ void matchFeatures(std::mutex* match_mutex,
     cv::Mat left_desc = left_descriptors.row(left_ip_index);
     cv::Mat right_desc = right_descriptors.row(right_ip_index);
 
-    vw::ip::InterestPoint left;
+    vw::InterestPoint left;
     setFromCvKeypoint(left_keypoints.col(left_ip_index), left_desc, left);
 
-    vw::ip::InterestPoint right;
+    vw::InterestPoint right;
     setFromCvKeypoint(right_keypoints.col(right_ip_index), right_desc, right);
 
     left_ip.push_back(left);
@@ -369,7 +369,7 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
   cv::Mat H = cv::estimateAffine2D(left_vec, right_vec, inlier_mask, cv::RANSAC,
                                    ransacReprojThreshold, maxIters, confidence);
 
-  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+  std::vector<vw::InterestPoint> left_ip, right_ip;
   for (size_t j = 0; j < filtered_cv_matches.size(); j++) {
     int left_ip_index = filtered_cv_matches.at(j).queryIdx;
     int right_ip_index = filtered_cv_matches.at(j).trainIdx;
@@ -379,10 +379,10 @@ void matchFeaturesWithCams(std::mutex* match_mutex,
     cv::Mat left_desc = left_descriptors.row(left_ip_index);
     cv::Mat right_desc = right_descriptors.row(right_ip_index);
 
-    vw::ip::InterestPoint left;
+    vw::InterestPoint left;
     setFromCvKeypoint(left_keypoints.col(left_ip_index), left_desc, left);
 
-    vw::ip::InterestPoint right;
+    vw::InterestPoint right;
     setFromCvKeypoint(right_keypoints.col(right_ip_index), right_desc, right);
 
     left_ip.push_back(left);
@@ -694,12 +694,12 @@ void detectMatchFeatures(// Inputs
       std::string const& right_image = cams[right_cid].image_name;  // alias
 
       bool matches_as_txt = false;
-      std::string match_file = vw::ip::match_filename(match_dir + "/run",
-                                                      left_image, right_image,
-                                                      matches_as_txt);
+      std::string match_file = vw::match_filename(match_dir + "/run",
+                                                  left_image, right_image,
+                                                  matches_as_txt);
       std::cout << "Writing: " << left_image << " " << right_image << " "
                 << match_file << std::endl;
-      vw::ip::write_match_file(match_file, match_pair.first, match_pair.second, matches_as_txt);
+      vw::write_match_file(match_file, match_pair.first, match_pair.second, matches_as_txt);
     }
   }
 
@@ -713,8 +713,8 @@ void detectMatchFeatures(// Inputs
     int right_cid = cid_pair.second;
 
     rig::MATCH_PAIR const& match_pair = it->second;   // alias
-    std::vector<vw::ip::InterestPoint> const& left_ip_vec = match_pair.first;
-    std::vector<vw::ip::InterestPoint> const& right_ip_vec = match_pair.second;
+    std::vector<vw::InterestPoint> const& left_ip_vec = match_pair.first;
+    std::vector<vw::InterestPoint> const& right_ip_vec = match_pair.second;
 
     for (size_t ip_it = 0; ip_it < left_ip_vec.size(); ip_it++) {
       auto left_ip  = std::make_pair(left_ip_vec[ip_it].x, left_ip_vec[ip_it].y);

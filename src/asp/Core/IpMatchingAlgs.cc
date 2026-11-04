@@ -63,8 +63,8 @@ std::string stereoMatchFile(std::string const& left_cropped_file,
 
   // Fall back to creating one if no luck
   if (match_filename == "" || !boost::filesystem::exists(match_filename))
-      match_filename = vw::ip::match_filename(out_prefix, left_cropped_file, right_cropped_file,
-                                              matches_as_txt);
+      match_filename = vw::match_filename(out_prefix, left_cropped_file, right_cropped_file,
+                                          matches_as_txt);
 
   return match_filename;
 }
@@ -82,8 +82,8 @@ void compute_ip_LR(std::string const & out_prefix) {
   // StereoSession::preprocessing_hook() where we know left_cropped_file, etc.
   // Must then also test with ISIS mapprojected images.
   bool matches_as_txt = stereo_settings().matches_as_txt;
-  std::string match_filename = vw::ip::match_filename(out_prefix, "L.tif", "R.tif",
-                                                      matches_as_txt);
+  std::string match_filename = vw::match_filename(out_prefix, "L.tif", "R.tif",
+                                                  matches_as_txt);
 
   // Make sure the match file is newer than these files
   std::vector<std::string> ref_list;
@@ -111,8 +111,8 @@ void compute_ip_LR(std::string const & out_prefix) {
     left_rsrc(DiskImageResourcePtr(left_aligned_image_file)),
     right_rsrc(DiskImageResourcePtr(right_aligned_image_file));
 
-  std::string left_ip_filename  = ip::ip_filename(out_prefix, left_aligned_image_file);
-  std::string right_ip_filename = ip::ip_filename(out_prefix, right_aligned_image_file);
+  std::string left_ip_filename  = vw::ip_filename(out_prefix, left_aligned_image_file);
+  std::string right_ip_filename = vw::ip_filename(out_prefix, right_aligned_image_file);
 
   // Read the no-data values written to disk previously when
   // the normalized left and right sub-images were created.
@@ -197,8 +197,8 @@ void compute_ip_LR(std::string const & out_prefix) {
 void filter_ip_by_disparity(double pct,    // for example, 90.0
                             double factor, // for example, 3.0
                             bool quiet,    // if not to print a lot of text
-                            std::vector<vw::ip::InterestPoint> & left_ip,
-                            std::vector<vw::ip::InterestPoint> & right_ip){
+                            std::vector<vw::InterestPoint> & left_ip,
+                            std::vector<vw::InterestPoint> & right_ip){
 
   double pct_fraction = 1.0 - pct/100.0;
   double bx, ex, by, ey;
@@ -234,7 +234,7 @@ void filter_ip_by_disparity(double pct,    // for example, 90.0
   return;
 }
 
-double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
+double calc_ip_coverage_fraction(std::vector<vw::InterestPoint> const& ip,
                                  vw::Vector2i const& image_size, int tile_size,
                                  int min_ip_per_tile) {
 
@@ -282,8 +282,8 @@ double calc_ip_coverage_fraction(std::vector<ip::InterestPoint> const& ip,
 /// Apply alignment transform to ip. Not to be used with mapprojected images.
 void align_ip(vw::TransformPtr const& tx_left,
               vw::TransformPtr const& tx_right,
-              std::vector<vw::ip::InterestPoint> & ip_left,
-              std::vector<vw::ip::InterestPoint> & ip_right) {
+              std::vector<vw::InterestPoint> & ip_left,
+              std::vector<vw::InterestPoint> & ip_right) {
 
   // Loop through all the IP we found
   for (size_t i = 0; i < ip_left.size(); i++) {
@@ -309,10 +309,10 @@ void align_ip(vw::TransformPtr const& tx_left,
 // that will mean there is no alignment to undo.
 void unalign_ip(vw::TransformPtr tx_left,
                vw::TransformPtr  tx_right,
-               std::vector<vw::ip::InterestPoint> const& ip1_in,
-               std::vector<vw::ip::InterestPoint> const& ip2_in,
-               std::vector<vw::ip::InterestPoint> & ip1_out,
-               std::vector<vw::ip::InterestPoint> & ip2_out) {
+               std::vector<vw::InterestPoint> const& ip1_in,
+               std::vector<vw::InterestPoint> const& ip2_in,
+               std::vector<vw::InterestPoint> & ip1_out,
+               std::vector<vw::InterestPoint> & ip2_out) {
 
   // Init the output vectors
   ip1_out.clear();
@@ -389,9 +389,9 @@ std::string matchFileMultiPrefix(std::string const& clean_match_files_prefix,
                                                   out_prefix);
 
   if (clean_match_files_prefix != "")
-    return vw::ip::clean_match_filename(curr_prefix, image1_path, image2_path, matches_as_txt);
+    return vw::clean_match_filename(curr_prefix, image1_path, image2_path, matches_as_txt);
 
-  return vw::ip::match_filename(curr_prefix, image1_path, image2_path, matches_as_txt);
+  return vw::match_filename(curr_prefix, image1_path, image2_path, matches_as_txt);
 }
 
 /// The unwarped disparity file name
@@ -402,8 +402,8 @@ std::string unwarped_disp_file(std::string const& prefix) {
 // Find and sort the convergence angles for given cameras and interest points
 void convergence_angles(vw::camera::CameraModel const * left_cam,
                         vw::camera::CameraModel const * right_cam,
-                        std::vector<vw::ip::InterestPoint> const& left_ip,
-                        std::vector<vw::ip::InterestPoint> const& right_ip,
+                        std::vector<vw::InterestPoint> const& left_ip,
+                        std::vector<vw::InterestPoint> const& right_ip,
                         std::vector<double> & sorted_angles) {
 
   int num_ip = left_ip.size();
@@ -481,8 +481,8 @@ void listExistingMatchFiles(std::string const& prefix,
 // Given a pair of indices, return all the matches between them.
 void matchesForPair(vw::ba::ControlNetwork const& cnet,
                     int left_cid, int right_cid,
-                    std::vector<vw::ip::InterestPoint> & left_ip,
-                    std::vector<vw::ip::InterestPoint> & right_ip) {
+                    std::vector<vw::InterestPoint> & left_ip,
+                    std::vector<vw::InterestPoint> & right_ip) {
 
   // Wipe the outputs
   left_ip.clear();
@@ -493,7 +493,7 @@ void matchesForPair(vw::ba::ControlNetwork const& cnet,
     
     // Iterate over all measures for the current control point 
     bool has_left = false, has_right = false;
-    vw::ip::InterestPoint lip, rip;
+    vw::InterestPoint lip, rip;
     for (auto m = cnet[ipt].begin(); m != cnet[ipt].end(); m++) {
       int cid = m->image_id();
       

@@ -34,9 +34,7 @@
 #include <vector>
 
 namespace vw {
-  namespace ip {
     class InterestPoint;
-  }
   namespace ba {
     class ControlNetwork;
   }
@@ -65,30 +63,30 @@ void compute_ip_LR(std::string const & out_prefix);
 void filter_ip_by_disparity(double pct,    // for example, 90.0
                             double factor, // for example, 3.0
                             bool quiet,    // if not to print a lot of text
-                            std::vector<vw::ip::InterestPoint> & left_ip,
-                            std::vector<vw::ip::InterestPoint> & right_ip);
+                            std::vector<vw::InterestPoint> & left_ip,
+                            std::vector<vw::InterestPoint> & right_ip);
   
 // Estimate the "spread" of IP coverage in an image.
 // - Returns a value between 0 and 1.
 // - Breaks the image into tiles and checks how many tiles have at least N IP.
-double calc_ip_coverage_fraction(std::vector<vw::ip::InterestPoint> const& ip,
+double calc_ip_coverage_fraction(std::vector<vw::InterestPoint> const& ip,
                                  vw::Vector2i const& image_size, int tile_size=1024,
                                  int min_ip_per_tile=2);
   
 /// Apply alignment transform to ip. Not to be used with mapprojected images.
 void align_ip(vw::TransformPtr const& tx_left,
               vw::TransformPtr const& tx_right,
-              std::vector<vw::ip::InterestPoint> & ip_left,
-              std::vector<vw::ip::InterestPoint> & ip_right);
+              std::vector<vw::InterestPoint> & ip_left,
+              std::vector<vw::InterestPoint> & ip_right);
 
 // Undo the alignment of interest points. If tx_left and tx_right are null,
 // that will mean there is no alignment to undo.
 void unalign_ip(vw::TransformPtr tx_left,
                vw::TransformPtr  tx_right,
-               std::vector<vw::ip::InterestPoint> const& ip1_in,
-               std::vector<vw::ip::InterestPoint> const& ip2_in,
-               std::vector<vw::ip::InterestPoint> & ip1_out,
-               std::vector<vw::ip::InterestPoint> & ip2_out);
+               std::vector<vw::InterestPoint> const& ip1_in,
+               std::vector<vw::InterestPoint> const& ip2_in,
+               std::vector<vw::InterestPoint> & ip1_out,
+               std::vector<vw::InterestPoint> & ip2_out);
 
 // Heuristics for match file prefix
 std::string matchMultiPrefix(std::string const& clean_match_files_prefix,
@@ -109,8 +107,8 @@ std::string unwarped_disp_file(std::string const& prefix);
 // Find and sort the convergence angles for given cameras and interest points
 void convergence_angles(vw::camera::CameraModel const * left_cam,
                         vw::camera::CameraModel const * right_cam,
-                        std::vector<vw::ip::InterestPoint> const& left_ip,
-                        std::vector<vw::ip::InterestPoint> const& right_ip,
+                        std::vector<vw::InterestPoint> const& left_ip,
+                        std::vector<vw::InterestPoint> const& right_ip,
                         std::vector<double> & sorted_angles);
 
 // Find all match files stored on disk having this prefix
@@ -121,8 +119,8 @@ void listExistingMatchFiles(std::string const& prefix,
 // Given a pair of indices, return all the matches between them.
 void matchesForPair(vw::ba::ControlNetwork const& cnet,
                     int left_cid, int right_cid,
-                    std::vector<vw::ip::InterestPoint> & left_ip,
-                    std::vector<vw::ip::InterestPoint> & right_ip);
+                    std::vector<vw::InterestPoint> & left_ip,
+                    std::vector<vw::InterestPoint> & right_ip);
 
 // Find interest point matches by loading them from files for a given set of images.
 void findMatchFiles(// Inputs

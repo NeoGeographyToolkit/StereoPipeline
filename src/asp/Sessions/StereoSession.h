@@ -35,9 +35,7 @@
 
 // Forward declarations
 namespace vw {
-  namespace ip {
     struct InterestPoint;
-  }
 }
 
 namespace asp {
@@ -308,8 +306,8 @@ void matchIp(std::string const& out_prefix,
 void matchIpNoCams(std::string const& image1, 
                    std::string const& image2,
                    std::string const& output_prefix, 
-                   std::vector<vw::ip::InterestPoint> & matched_ip1,
-                   std::vector<vw::ip::InterestPoint> & matched_ip2);
+                   std::vector<vw::InterestPoint> & matched_ip1,
+                   std::vector<vw::InterestPoint> & matched_ip2);
 
 } // end namespace asp
 

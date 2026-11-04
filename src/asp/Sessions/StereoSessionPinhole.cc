@@ -369,4 +369,3 @@ void StereoSessionPinhole::pinhole_cam_trans(vw::TransformPtr & left_trans,
 }
 
 } // end namespace asp
-

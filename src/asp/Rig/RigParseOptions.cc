@@ -397,4 +397,3 @@ void parseAuxRigOptions(RigOptions& opt, RigSet const& R) {
 }
 
 } // end namespace rig
-

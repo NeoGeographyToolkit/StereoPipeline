@@ -38,8 +38,8 @@ namespace asp {
   // Solves for Affine Fundamental Matrix as per instructions in
   // Multiple View Geometry. Outlier elimination happens later. 
   Matrix<double>
-  linear_affine_fundamental_matrix(std::vector<ip::InterestPoint> const& ip1,
-                                   std::vector<ip::InterestPoint> const& ip2) {
+  linear_affine_fundamental_matrix(std::vector<vw::InterestPoint> const& ip1,
+                                   std::vector<vw::InterestPoint> const& ip2) {
 
     // (i) Compute the centroid of X and delta X
     Matrix<double> delta_x(ip1.size(), 4);
@@ -70,8 +70,8 @@ namespace asp {
     return f;
   }
 
-  void solve_y_scaling(std::vector<ip::InterestPoint> const & ip1,
-                       std::vector<ip::InterestPoint> const & ip2,
+  void solve_y_scaling(std::vector<vw::InterestPoint> const & ip1,
+                       std::vector<vw::InterestPoint> const & ip2,
                        Matrix<double>                       & affine_left,
                        Matrix<double>                       & affine_right) {
     
@@ -88,8 +88,8 @@ namespace asp {
     affine_right(1,2) = scaling[1];
   }
   
-  void solve_x_shear(std::vector<ip::InterestPoint> const & ip1,
-                     std::vector<ip::InterestPoint> const & ip2,
+  void solve_x_shear(std::vector<vw::InterestPoint> const & ip1,
+                     std::vector<vw::InterestPoint> const & ip2,
                      Matrix<double>                       & affine_left,
                      Matrix<double>                       & affine_right) {
     
@@ -287,8 +287,8 @@ namespace asp {
                                          Vector2i const& right_image_dims,
                                          double inlier_threshold,
                                          int num_ransac_iterations,
-                                         std::vector<ip::InterestPoint> const& ip1,
-                                         std::vector<ip::InterestPoint> const& ip2,
+                                         std::vector<vw::InterestPoint> const& ip1,
+                                         std::vector<vw::InterestPoint> const& ip2,
                                          bool crop_to_shared_area,
                                          Matrix<double>& left_matrix,
                                          Matrix<double>& right_matrix,
@@ -358,8 +358,8 @@ namespace asp {
       vw::HomographyTransform right_local_trans(right_matrix);
       
       // Find the transformed IP
-      std::vector<vw::ip::InterestPoint> left_trans_local_ip;
-      std::vector<vw::ip::InterestPoint> right_trans_local_ip;
+      std::vector<vw::InterestPoint> left_trans_local_ip;
+      std::vector<vw::InterestPoint> right_trans_local_ip;
 
       for (size_t it = 0; it < inlier_indices.size(); it++) {
         int i = inlier_indices[it];

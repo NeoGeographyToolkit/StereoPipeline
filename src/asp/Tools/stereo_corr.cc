@@ -328,14 +328,14 @@ BBox2 get_search_range_from_ip_hists(vw::math::Histogram const& hist_x,
 BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_filename) {
 
   vw_out() << "\t--> Using interest points to determine search window.\n";
-  std::vector<ip::InterestPoint> in_left_ip, in_right_ip, matched_left_ip, matched_right_ip;
+  std::vector<vw::InterestPoint> in_left_ip, in_right_ip, matched_left_ip, matched_right_ip;
 
   // The interest points must have been created outside this function
   if (!fs::exists(match_filename))
     vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
   
   vw_out() << "\t    * Loading match file: " << match_filename << "\n";
-  ip::read_match_file(match_filename, in_left_ip, in_right_ip, stereo_settings().matches_as_txt);
+  vw::read_match_file(match_filename, in_left_ip, in_right_ip, stereo_settings().matches_as_txt);
 
   // TODO(oalexan1): Add here filter_ip_using_cameras, but take into account
   // that the datum may not exist!
@@ -347,8 +347,8 @@ BBox2 approximate_search_range(ASPGlobalOptions & opt, std::string const& match_
   // then do nothing.
   // TODO(oalexan1): Having this as a special case is annoying. Do something about this.
   bool matches_as_txt = stereo_settings().matches_as_txt;
-  std::string aligned_match_file = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif",
-                                                          matches_as_txt);
+  std::string aligned_match_file = vw::match_filename(opt.out_prefix, "L.tif", "R.tif",
+                                                      matches_as_txt);
   if (match_filename != aligned_match_file)
     align_ip(opt.session->tx_left(), opt.session->tx_right(), in_left_ip, in_right_ip);
   
@@ -552,8 +552,8 @@ void lowres_correlation(ASPGlobalOptions & opt) {
     bool have_aligned_matches = (stereo_settings().alignment_method == "none" ||
                                   stereo_settings().alignment_method == "epipolar");
     if (have_aligned_matches)
-      match_filename = vw::ip::match_filename(opt.out_prefix, "L.tif", "R.tif",
-                                              matches_as_txt);
+      match_filename = vw::match_filename(opt.out_prefix, "L.tif", "R.tif",
+                                          matches_as_txt);
     else
       match_filename = asp::stereoMatchFile(opt.session->left_cropped_image(crop_left),
                                             opt.session->right_cropped_image(crop_right),

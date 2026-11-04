@@ -532,4 +532,3 @@ void evalRpcDistUndist(int num_samples, rig::CameraParameters const& cam_params,
 }
   
 }  // end namespace rig
-

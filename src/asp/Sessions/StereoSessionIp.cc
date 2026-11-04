@@ -331,8 +331,8 @@ void StereoSession::imageAlignment(// Inputs
     = asp::stereoMatchFile(left_cropped_file, right_cropped_file, out_prefix,
                            matches_as_txt);
 
-  std::string left_ip_filename  = ip::ip_filename(out_prefix, left_cropped_file);
-  std::string right_ip_filename = ip::ip_filename(out_prefix, right_cropped_file);
+  std::string left_ip_filename  = vw::ip_filename(out_prefix, left_cropped_file);
+  std::string right_ip_filename = vw::ip_filename(out_prefix, right_cropped_file);
 
   // Detect matching interest points between the left and right input images.
   // The output is written directly to a file.
@@ -346,9 +346,9 @@ void StereoSession::imageAlignment(// Inputs
                     match_filename, left_ip_filename, right_ip_filename);
 
   // Load the interest points results from the file we just wrote
-  std::vector<ip::InterestPoint> left_ip, right_ip;
+  std::vector<vw::InterestPoint> left_ip, right_ip;
   vw::vw_out() << "Reading match file: " << match_filename << "\n";
-  ip::read_match_file(match_filename, left_ip, right_ip, matches_as_txt);
+  vw::read_match_file(match_filename, left_ip, right_ip, matches_as_txt);
 
   // Compute the appropriate alignment matrix based on the input points
   if (stereo_settings().alignment_method == "homography") {
@@ -436,8 +436,8 @@ void matchIp(std::string const& out_prefix,
       << "point matches per image before matching (vwip), as these depend "
       << "on the pair of images used.\n";
   } else {
-    vwip_file1 = ip::ip_filename(out_prefix, image1_path);
-    vwip_file2 = ip::ip_filename(out_prefix, image2_path);
+    vwip_file1 = vw::ip_filename(out_prefix, image1_path);
+    vwip_file2 = vw::ip_filename(out_prefix, image2_path);
   }
   
   // For mapprojected images and given the overlap params,
@@ -480,8 +480,8 @@ void matchIp(std::string const& out_prefix,
 void matchIpNoCams(std::string const& image1, 
                    std::string const& image2,
                    std::string const& output_prefix, 
-                   std::vector<vw::ip::InterestPoint> & matched_ip1,
-                   std::vector<vw::ip::InterestPoint> & matched_ip2) {
+                   std::vector<vw::InterestPoint> & matched_ip1,
+                   std::vector<vw::InterestPoint> & matched_ip2) {
 
   // Alias for interest point matching settings 
   auto & ip_opt = asp::stereo_settings();
@@ -492,7 +492,7 @@ void matchIpNoCams(std::string const& image1,
   bool matches_as_txt = ip_opt.matches_as_txt; // for loading matches
 
   std::string match_file
-    = vw::ip::match_filename(output_prefix, image1, image2, matches_as_txt);
+    = vw::match_filename(output_prefix, image1, image2, matches_as_txt);
 
   asp::SessionPtr session(NULL);
   std::string stereo_session = "pinhole", input_dem = "";
@@ -515,7 +515,7 @@ void matchIpNoCams(std::string const& image1,
                
   // Read the match files from disk
   vw::vw_out() << "Reading matches from: " << match_file << "\n";
-  vw::ip::read_match_file(match_file, matched_ip1, matched_ip2, matches_as_txt);
+  vw::read_match_file(match_file, matched_ip1, matched_ip2, matches_as_txt);
    
   return;
 }

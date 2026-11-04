@@ -44,9 +44,7 @@
 #include <string>
 
 namespace vw {
-  namespace ip {
     class InterestPoint;
-  }
   namespace camera {
     class PinholeModel;
     class OpticalBarModel;
@@ -117,8 +115,8 @@ int loadRefDisp(std::string const& disp_list_filename,
 // the latest adjustments applied to them.
 void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
                            std::vector<vw::CamPtr>            const& optimized_cams,
-                           std::vector<vw::ip::InterestPoint> const& left_ip,
-                           std::vector<vw::ip::InterestPoint> const& right_ip,
+                           std::vector<vw::InterestPoint> const& left_ip,
+                           std::vector<vw::InterestPoint> const& right_ip,
                            vw::GeoReference      const& dem_georef,
                            vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                            // Will append below
@@ -394,8 +392,8 @@ void setup_error_propagation(std::string const& session_name,
 void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           vw::camera::CameraModel const * left_cam,
                           vw::camera::CameraModel const * right_cam,
-                          std::vector<vw::ip::InterestPoint> const& left_ip,
-                          std::vector<vw::ip::InterestPoint> const& right_ip,
+                          std::vector<vw::InterestPoint> const& left_ip,
+                          std::vector<vw::InterestPoint> const& right_ip,
                           double stddev1, double stddev2,
                           vw::Datum const& datum,
                           vw::BathyData const& bathy_data,

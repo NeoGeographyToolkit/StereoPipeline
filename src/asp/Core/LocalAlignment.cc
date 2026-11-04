@@ -189,7 +189,7 @@ namespace asp {
     bool matches_as_txt = stereo_settings().matches_as_txt;
 
     vw_out() << "\t--> Reading unaligned interest points.\n";
-    std::vector<vw::ip::InterestPoint> left_unaligned_ip, right_unaligned_ip;
+    std::vector<vw::InterestPoint> left_unaligned_ip, right_unaligned_ip;
     // Handle --clean-match-files-prefix / --match-files-prefix.
     std::string match_filename
       = asp::matchFileMultiPrefix(stereo_settings().clean_match_files_prefix,
@@ -202,8 +202,8 @@ namespace asp {
       vw_throw(ArgumentErr() << "Missing IP file: " << match_filename);
 
     vw_out() << "\t    * Loading match file: " << match_filename << "\n";
-    vw::ip::read_match_file(match_filename, left_unaligned_ip, right_unaligned_ip, 
-                            matches_as_txt);
+    vw::read_match_file(match_filename, left_unaligned_ip, right_unaligned_ip, 
+                        matches_as_txt);
 
     right_trans_crop_win = BBox2i(); // wipe the output
     size_t min_num_ip = 20;
@@ -212,11 +212,11 @@ namespace asp {
 
     for (int pass = 0; pass < 2; pass++) {
 
-      std::vector<vw::ip::InterestPoint> left_trans_ip, right_trans_ip;
+      std::vector<vw::InterestPoint> left_trans_ip, right_trans_ip;
 
       // Read the ip from D_sub and scale them
       //vw_out() << "Creating IP from D_sub.\n";
-      std::vector<vw::ip::InterestPoint> left_ip_from_dsub, right_ip_from_dsub;
+      std::vector<vw::InterestPoint> left_ip_from_dsub, right_ip_from_dsub;
       if (stereo_settings().seed_mode > 0) {
         vw::ImageView<vw::PixelMask<vw::Vector2f>> sub_disp;
         vw::Vector2 upsample_scale;
@@ -287,10 +287,10 @@ namespace asp {
 
       if (stereo_settings().local_alignment_debug) {
         std::string out_match_filename
-          = vw::ip::match_filename(opt.out_prefix + "-tile", "L.tif", "R.tif", matches_as_txt);
+          = vw::match_filename(opt.out_prefix + "-tile", "L.tif", "R.tif", matches_as_txt);
         vw_out() << "Writing match file: " << out_match_filename << "\n";
-        vw::ip::write_match_file(out_match_filename, left_trans_ip, right_trans_ip, 
-                                 matches_as_txt);
+        vw::write_match_file(out_match_filename, left_trans_ip, right_trans_ip, 
+                             matches_as_txt);
       }
 
       if (left_trans_ip.size() >= min_num_ip)
@@ -317,15 +317,15 @@ namespace asp {
                                      vw::camera::CameraModel      const * right_camera_model,
                                      vw::Datum       const & datum,
                                      // These get modified
-                                     std::vector<vw::ip::InterestPoint> & left_local_ip,
-                                     std::vector<vw::ip::InterestPoint> & right_local_ip,
+                                     std::vector<vw::InterestPoint> & left_local_ip,
+                                     std::vector<vw::InterestPoint> & right_local_ip,
                                      std::vector<size_t>                & ip_inlier_indices) {
 
     bool matches_as_txt = stereo_settings().matches_as_txt;
 
     // Convert ip to original unaligned and uncropped coordinates
-    std::vector<vw::ip::InterestPoint> left_global_ip;
-    std::vector<vw::ip::InterestPoint> right_global_ip;
+    std::vector<vw::InterestPoint> left_global_ip;
+    std::vector<vw::InterestPoint> right_global_ip;
 
     for (size_t it = 0; it < ip_inlier_indices.size(); it++) {
       int i = ip_inlier_indices[it];
@@ -347,11 +347,11 @@ namespace asp {
 
     if (stereo_settings().local_alignment_debug) {
       std::string unaligned_match_filename 
-        = vw::ip::match_filename(opt.out_prefix + "-cropped-noalign-ip",
-                                 opt.in_file1, opt.in_file2, matches_as_txt);
+        = vw::match_filename(opt.out_prefix + "-cropped-noalign-ip",
+                             opt.in_file1, opt.in_file2, matches_as_txt);
       vw_out() << "Writing match file: " << unaligned_match_filename << "\n";
-      vw::ip::write_match_file(unaligned_match_filename, left_global_ip, right_global_ip,
-                               matches_as_txt);
+      vw::write_match_file(unaligned_match_filename, left_global_ip, right_global_ip,
+                           matches_as_txt);
     }
 
     filter_ip_using_cameras(left_global_ip, right_global_ip,
@@ -383,14 +383,14 @@ namespace asp {
   }
 
   // Apply transforms to ip
-  void apply_transforms_to_ip(std::vector<vw::ip::InterestPoint> const & left_input_ip,
-                              std::vector<vw::ip::InterestPoint> const & right_input_ip,
+  void apply_transforms_to_ip(std::vector<vw::InterestPoint> const & left_input_ip,
+                              std::vector<vw::InterestPoint> const & right_input_ip,
                               std::vector<size_t>                const & ip_inlier_indices,
                               vw::Matrix<double>                 const & left_trans_mat,
                               vw::Matrix<double>                 const & right_trans_mat,
                               // Outputs
-                              std::vector<vw::ip::InterestPoint>       & left_trans_ip,
-                              std::vector<vw::ip::InterestPoint>       & right_trans_ip) {
+                              std::vector<vw::InterestPoint>       & left_trans_ip,
+                              std::vector<vw::InterestPoint>       & right_trans_ip) {
 
     // Wipe the outputs
     left_trans_ip.reserve(ip_inlier_indices.size());
@@ -532,7 +532,7 @@ namespace asp {
     // tile failed for lack of extent or lack of ip density, and hedging both is
     // cheap because the retry only fires on the few tiles that failed the first
     // pass.
-    std::vector<vw::ip::InterestPoint> left_local_ip, right_local_ip;
+    std::vector<vw::InterestPoint> left_local_ip, right_local_ip;
     size_t number_of_jobs = 1;
     bool use_cached_ip = false;
     int local_ip_per_tile = stereo_settings().ip_per_tile;
@@ -571,10 +571,10 @@ namespace asp {
                              TerminalProgressCallback("asp","\t  Right:  "));
 
       std::string local_match_filename 
-        = vw::ip::match_filename(opt.out_prefix, left_crop, right_crop, matches_as_txt);
+        = vw::match_filename(opt.out_prefix, left_crop, right_crop, matches_as_txt);
       vw_out() << "Writing match file: " << local_match_filename << "\n";
-      vw::ip::write_match_file(local_match_filename, left_local_ip, right_local_ip,
-                               matches_as_txt);
+      vw::write_match_file(local_match_filename, left_local_ip, right_local_ip,
+                           matches_as_txt);
     }
 
     // The matrices which take care of the crop to the current tile
@@ -589,8 +589,8 @@ namespace asp {
     // Fit the local affine on IPs un-projected back to raw cub coords
     // (not the post-global tile-local coords they come in as). Decouples
     // the local fit from any distortion baked into the global rectification.
-    std::vector<vw::ip::InterestPoint> left_local_ip_raw  = left_local_ip;
-    std::vector<vw::ip::InterestPoint> right_local_ip_raw = right_local_ip;
+    std::vector<vw::InterestPoint> left_local_ip_raw  = left_local_ip;
+    std::vector<vw::InterestPoint> right_local_ip_raw = right_local_ip;
     for (size_t i = 0; i < left_local_ip_raw.size(); i++) {
       Vector2 lpt(left_local_ip[i].x  + left_trans_crop_win.min().x(),
                   left_local_ip[i].y  + left_trans_crop_win.min().y());
@@ -803,8 +803,8 @@ namespace asp {
                                     left_local_ip, right_local_ip, ip_inlier_indices);
 
     // Apply the local alignment transform to ip in the tile
-    std::vector<vw::ip::InterestPoint> left_trans_local_ip;
-    std::vector<vw::ip::InterestPoint> right_trans_local_ip;
+    std::vector<vw::InterestPoint> left_trans_local_ip;
+    std::vector<vw::InterestPoint> right_trans_local_ip;
     apply_transforms_to_ip(left_local_ip, right_local_ip, ip_inlier_indices,
                            left_local_mat, right_local_mat,
                            // Outputs
@@ -826,10 +826,10 @@ namespace asp {
 
     if (stereo_settings().local_alignment_debug) {
       std::string local_aligned_match_filename
-        = vw::ip::match_filename(opt.out_prefix, left_tile, right_tile, matches_as_txt);
+        = vw::match_filename(opt.out_prefix, left_tile, right_tile, matches_as_txt);
       vw_out() << "Writing match file: " << local_aligned_match_filename << "\n";
-      vw::ip::write_match_file(local_aligned_match_filename, left_trans_local_ip,
-                               right_trans_local_ip, matches_as_txt);
+      vw::write_match_file(local_aligned_match_filename, left_trans_local_ip,
+                           right_trans_local_ip, matches_as_txt);
     }
 
     // Expand the disparity search range a bit

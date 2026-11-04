@@ -849,8 +849,8 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
 // the latest adjustments applied to them.
 void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
                             std::vector<vw::CamPtr>            const& optimized_cams,
-                            std::vector<vw::ip::InterestPoint> const& left_ip,
-                            std::vector<vw::ip::InterestPoint> const& right_ip,
+                            std::vector<vw::InterestPoint> const& left_ip,
+                            std::vector<vw::InterestPoint> const& right_ip,
                             vw::GeoReference      const& dem_georef,
                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                             // Will append below
@@ -911,8 +911,8 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
 
 // This is called either with original or inlier ip
 void processMatchPair(size_t left_index, size_t right_index,
-                      std::vector<vw::ip::InterestPoint> const& left_ip,
-                      std::vector<vw::ip::InterestPoint> const& right_ip,
+                      std::vector<vw::InterestPoint> const& left_ip,
+                      std::vector<vw::InterestPoint> const& right_ip,
                       std::vector<vw::CamPtr> const& optimized_cams,
                       vw::GeoReference const& mapproj_dem_georef,
                       vw::ImageViewRef<vw::PixelMask<double>> const& interp_mapproj_dem,
@@ -1113,10 +1113,10 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       if (left_index > right_index)
         continue;
       std::string match_file
-        = vw::ip::match_filename(opt.out_prefix,
-                                 opt.image_files[left_index],
-                                 opt.image_files[right_index],
-                                 matches_as_txt);
+        = vw::match_filename(opt.out_prefix,
+                             opt.image_files[left_index],
+                             opt.image_files[right_index],
+                             matches_as_txt);
       local_match_files[std::make_pair(left_index, right_index)] = match_file;
     }
   }
@@ -1141,7 +1141,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     std::map<Quadruplet, std::pair<float, float>> curr_quads
       = makePairQuads((int)left_index, (int)right_index);
 
-    std::vector<ip::InterestPoint> orig_left_ip, orig_right_ip;
+    std::vector<vw::InterestPoint> orig_left_ip, orig_right_ip;
     if (opt.isis_cnet != "" || opt.nvm != "") {
       // Must create the matches from the cnet.
       auto const& match_pair = curr_quads; // alias
@@ -1150,15 +1150,15 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       for (auto const& q: match_pair) {
         auto const& pos = q.first; // position quadruplet (x1, y1, x2, y2)
         double s = 1.0; // scale
-        orig_left_ip.push_back(vw::ip::InterestPoint(std::get<0>(pos), std::get<1>(pos), s));
-        orig_right_ip.push_back(vw::ip::InterestPoint(std::get<2>(pos), std::get<3>(pos), s));
+        orig_left_ip.push_back(vw::InterestPoint(std::get<0>(pos), std::get<1>(pos), s));
+        orig_right_ip.push_back(vw::InterestPoint(std::get<2>(pos), std::get<3>(pos), s));
       }
 
       // Write the matches formed from the cnet to disk
       if (opt.output_cnet_type == "match-files") {
         if (num_match_msgs < max_verbose_match_msgs)
           vw::vw_out() << "Writing: " << match_file << "\n";
-        vw::ip::write_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
+        vw::write_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
       }
 
     } else if (remove_outliers && !curr_quads.empty()) {
@@ -1172,9 +1172,9 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         auto const& pos   = q.first;  // position quadruplet (x1, y1, x2, y2)
         auto const& scale = q.second; // interest point scale (left, right)
         orig_left_ip.push_back
-          (vw::ip::InterestPoint(std::get<0>(pos), std::get<1>(pos), scale.first));
+          (vw::InterestPoint(std::get<0>(pos), std::get<1>(pos), scale.first));
         orig_right_ip.push_back
-          (vw::ip::InterestPoint(std::get<2>(pos), std::get<3>(pos), scale.second));
+          (vw::InterestPoint(std::get<2>(pos), std::get<3>(pos), scale.second));
       }
     } else {
       // Read existing matches. Skip over match files that don't exist.
@@ -1186,7 +1186,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       // Read the original IP, to ensure later we write to disk only the subset
       // of the IP from the control network which are part of these original
       // ones.
-      vw::ip::read_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
+      vw::read_match_file(match_file, orig_left_ip, orig_right_ip, matches_as_txt);
     }
 
     num_match_msgs++;
@@ -1213,7 +1213,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
     }
     // Keep only inliers and non-gcp. GCP are used in optimization but are not
     // part of the originally found interest point matches.
-    std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+    std::vector<vw::InterestPoint> left_ip, right_ip;
     for (size_t ip_iter = 0; ip_iter < orig_left_ip.size(); ip_iter++) {
       Quadruplet q(orig_left_ip[ip_iter].x, orig_left_ip[ip_iter].y,
                    orig_right_ip[ip_iter].x, orig_right_ip[ip_iter].y);
@@ -1222,10 +1222,10 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
         continue;
 
       // We do not copy descriptors, those take storage
-      left_ip.push_back(ip::InterestPoint(orig_left_ip[ip_iter].x,
+      left_ip.push_back(vw::InterestPoint(orig_left_ip[ip_iter].x,
                                           orig_left_ip[ip_iter].y,
                                           orig_left_ip[ip_iter].scale));
-      right_ip.push_back(ip::InterestPoint(orig_right_ip[ip_iter].x,
+      right_ip.push_back(vw::InterestPoint(orig_right_ip[ip_iter].x,
                                            orig_right_ip[ip_iter].y,
                                            orig_right_ip[ip_iter].scale));
     }
@@ -1269,7 +1269,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
       continue; // Do not write match files
 
     // Make a clean copy of the file
-    std::string clean_match_file = ip::clean_match_filename(match_file, matches_as_txt);
+    std::string clean_match_file = vw::clean_match_filename(match_file, matches_as_txt);
     if (opt.clean_match_files_prefix != "") {
       // Ensure "clean" does not show up twice
       clean_match_file = match_file;
@@ -1282,7 +1282,7 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
 
     vw_out() << "Saving " << left_ip.size() << " filtered interest points.\n";
     vw_out() << "Writing: " << clean_match_file << "\n";
-    vw::ip::write_match_file(clean_match_file, left_ip, right_ip, matches_as_txt);
+    vw::write_match_file(clean_match_file, left_ip, right_ip, matches_as_txt);
 
   } // End loop through the match files
 
@@ -1290,8 +1290,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
   // covered by a match file above. So the report is the union of the two.
   {
     std::map<std::pair<int, int>,
-             std::pair<std::vector<vw::ip::InterestPoint>,
-                       std::vector<vw::ip::InterestPoint>>> gcp_pairs;
+             std::pair<std::vector<vw::InterestPoint>,
+                       std::vector<vw::InterestPoint>>> gcp_pairs;
     for (int ipt = 0; ipt < cnet.size(); ipt++) {
       if (outliers.find(ipt) != outliers.end())
         continue;
@@ -1311,9 +1311,9 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
             continue;
           auto & pr = gcp_pairs[std::make_pair(left_index, right_index)];
           pr.first.push_back
-            (vw::ip::InterestPoint(m1->position()[0], m1->position()[1], 1.0));
+            (vw::InterestPoint(m1->position()[0], m1->position()[1], 1.0));
           pr.second.push_back
-            (vw::ip::InterestPoint(m2->position()[0], m2->position()[1], 1.0));
+            (vw::InterestPoint(m2->position()[0], m2->position()[1], 1.0));
         }
       }
     }
@@ -1367,8 +1367,8 @@ void matchFilesProcessing(vw::ba::ControlNetwork       const& cnet,
 void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           vw::camera::CameraModel const * left_cam,
                           vw::camera::CameraModel const * right_cam,
-                          std::vector<vw::ip::InterestPoint> const& left_ip,
-                          std::vector<vw::ip::InterestPoint> const& right_ip,
+                          std::vector<vw::InterestPoint> const& left_ip,
+                          std::vector<vw::InterestPoint> const& right_ip,
                           double stddev1, double stddev2,
                           vw::Datum const& datum,
                           vw::BathyData const& bathy_data,

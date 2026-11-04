@@ -271,8 +271,8 @@ void computeStatsOrIp(asp::BaOptions const& opt,
       }
 
       // Detect ip and write them to file. Skip if cached ip newer than image exist.
-      vw::ip::InterestPointList ip;
-      std::string vwip_file = vw::ip::ip_filename(opt.out_prefix, image_path);
+      vw::InterestPointList ip;
+      std::string vwip_file = vw::ip_filename(opt.out_prefix, image_path);
       bool use_cached_ip = false;
       if (fs::exists(vwip_file) && first_is_newer(vwip_file, image_path))
         use_cached_ip = true;

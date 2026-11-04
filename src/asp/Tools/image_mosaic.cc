@@ -95,8 +95,8 @@ void match_ip_in_regions(std::string const& image_file1,
                          std::string const& image_file2,
                          BBox2i const& roi1,
                          BBox2i const& roi2,
-                         std::vector<ip::InterestPoint> &matched_ip1,
-                         std::vector<ip::InterestPoint> &matched_ip2,
+                         std::vector<vw::InterestPoint> &matched_ip1,
+                         std::vector<vw::InterestPoint> &matched_ip2,
                          Options const& opt) {
 
   // Load the input images
@@ -112,12 +112,12 @@ void match_ip_in_regions(std::string const& image_file1,
   bool matches_as_txt = false;
   if (opt.out_prefix != "") {
     // Write a match file for debugging
-    match_file = ip::match_filename(opt.out_prefix, image_file1, image_file2, matches_as_txt);
+    match_file = vw::match_filename(opt.out_prefix, image_file1, image_file2, matches_as_txt);
 
     // If the match file already exists, load it instead of finding new points.
     if (fs::exists(match_file)) {
       vw_out() << "Reading matched interest points from file: " << match_file << std::endl;
-      ip::read_match_file(match_file, matched_ip1, matched_ip2, matches_as_txt);
+      vw::read_match_file(match_file, matched_ip1, matched_ip2, matches_as_txt);
       vw_out() << "Read in " << matched_ip1.size() << " matched IP.\n";
     }
   }
@@ -157,7 +157,7 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
                                    Options & opt) {
 
   // Find IP, looking in only the specified regions.
-  std::vector<ip::InterestPoint> matched_ip1, matched_ip2;
+  std::vector<vw::InterestPoint> matched_ip1, matched_ip2;
   match_ip_in_regions(image_file1, image_file2, roi1, roi2,
                       matched_ip1,  matched_ip2, opt);
 
@@ -202,7 +202,7 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
   }
 
   // Keeping only inliers
-  std::vector<ip::InterestPoint> inlier_ip1, inlier_ip2;
+  std::vector<vw::InterestPoint> inlier_ip1, inlier_ip2;
   for ( size_t i = 0; i < indices.size(); i++ ) {
     inlier_ip1.push_back( matched_ip1[indices[i]] );
     inlier_ip2.push_back( matched_ip2[indices[i]] );
@@ -212,10 +212,10 @@ Matrix<double> compute_ip_matching(std::string const& image_file1,
   bool matches_as_txt = false;
   if (opt.out_prefix != "") {
     // Write a match file for debugging
-    match_file = ip::clean_match_filename(opt.out_prefix, image_file1, image_file2,
+    match_file = vw::clean_match_filename(opt.out_prefix, image_file1, image_file2,
                                           matches_as_txt);
     vw_out() << "Writing inlier matches after RANSAC to: " << match_file << std::endl;
-    ip::write_match_file(match_file, inlier_ip1, inlier_ip2, matches_as_txt);
+    vw::write_match_file(match_file, inlier_ip1, inlier_ip2, matches_as_txt);
   }
   
   return tf;
@@ -266,7 +266,7 @@ Matrix<double> compute_relative_transform(std::string const& image1,
     std::string match_file;
     bool matches_as_txt = false;
     if (opt.out_prefix != "")
-      match_file = ip::match_filename(opt.out_prefix, image1, image2, matches_as_txt);
+      match_file = vw::match_filename(opt.out_prefix, image1, image2, matches_as_txt);
     if (!match_file.empty() && fs::exists(match_file)) {
       vw::vw_out() << "Removing old match file: " << match_file << "\n";
       fs::remove(match_file);

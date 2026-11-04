@@ -949,8 +949,8 @@ void noTripletsMatches(ASPGlobalOptions const& opt,
                        int max_num_matches, 
                        double multiplier, 
                        // Output
-                       std::vector<vw::ip::InterestPoint> & left_ip, 
-                       std::vector<vw::ip::InterestPoint> & right_ip) {
+                       std::vector<vw::InterestPoint> & left_ip, 
+                       std::vector<vw::InterestPoint> & right_ip) {
 
   // Clear the outputs
   left_ip.clear();
@@ -995,8 +995,8 @@ void noTripletsMatches(ASPGlobalOptions const& opt,
       Vector2 right_pix = right_trans->reverse(Vector2(posx, posy) 
                                                 + stereo::DispHelper(dpix));
 
-      left_ip.push_back(ip::InterestPoint(left_pix.x(), left_pix.y()));
-      right_ip.push_back(ip::InterestPoint(right_pix.x(), right_pix.y()));
+      left_ip.push_back(vw::InterestPoint(left_pix.x(), left_pix.y()));
+      right_ip.push_back(vw::InterestPoint(right_pix.x(), right_pix.y()));
     }
 
     tpc.report_incremental_progress(inc_amount);
@@ -1021,8 +1021,8 @@ void tripletsMatches(ASPGlobalOptions const& opt,
                      int max_num_matches,
                      bool append,
                      // Output
-                     std::vector<vw::ip::InterestPoint> & left_ip, 
-                     std::vector<vw::ip::InterestPoint> & right_ip) {
+                     std::vector<vw::InterestPoint> & left_ip, 
+                     std::vector<vw::InterestPoint> & right_ip) {
   
   if (!append) {
     // Clear the outputs
@@ -1114,8 +1114,8 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         if (right_pix[1] < 0 || right_pix[1] > right_img.rows() - 1) continue;
         
         // Store the match pair
-        ip::InterestPoint lip(left_pix.x(), left_pix.y());
-        ip::InterestPoint rip(right_pix.x(), right_pix.y());
+        vw::InterestPoint lip(left_pix.x(), left_pix.y());
+        vw::InterestPoint rip(right_pix.x(), right_pix.y());
         left_ip.push_back(lip); 
         right_ip.push_back(rip);
         lr_count++;
@@ -1199,8 +1199,8 @@ void tripletsMatches(ASPGlobalOptions const& opt,
         if (left_pix[1] < 0 || left_pix[1] > left_img.rows() - 1) continue;
         
         // Store the match pair
-        vw::ip::InterestPoint lip(left_pix.x(), left_pix.y());
-        vw::ip::InterestPoint rip(right_pix.x(), right_pix.y());
+        vw::InterestPoint lip(left_pix.x(), left_pix.y());
+        vw::InterestPoint rip(right_pix.x(), right_pix.y());
         left_ip.push_back(lip); 
         right_ip.push_back(rip);
         rl_count++;
@@ -1235,7 +1235,7 @@ void matchesFromDisp(ASPGlobalOptions const& opt,
                      bool gen_triplets, bool is_map_projected,
                      bool matches_as_txt) {
 
-  std::vector<vw::ip::InterestPoint> left_ip, right_ip;
+  std::vector<vw::InterestPoint> left_ip, right_ip;
   
   if (gen_triplets) {
     
@@ -1326,7 +1326,7 @@ void matchesFromDisp(ASPGlobalOptions const& opt,
   }
 
   vw_out() << "Writing: " << match_file << "\n";
-  ip::write_match_file(match_file, left_ip, right_ip, matches_as_txt);
+  vw::write_match_file(match_file, left_ip, right_ip, matches_as_txt);
 }
   
 } // end namespace asp

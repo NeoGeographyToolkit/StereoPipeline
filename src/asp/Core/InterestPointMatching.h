@@ -32,8 +32,8 @@ namespace asp {
 void write_match_image(std::string const& out_file_name,
                        vw::ImageViewRef<float> const& image1,
                        vw::ImageViewRef<float> const& image2,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip1,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip2);
+                       std::vector<vw::InterestPoint> const& matched_ip1,
+                       std::vector<vw::InterestPoint> const& matched_ip2);
 
   // Calls ip matching assuming a datum. We may or not apply a homography to
   // make right image like left image. This is useful so that both images have
@@ -72,8 +72,8 @@ void write_match_image(std::string const& out_file_name,
 
   /// Optionally remove pixels from the opposite sides of the images.
   /// - This is a very simple filter for the left/right image common case.
-  void side_ip_filtering(vw::ip::InterestPointList& ip1,
-                         vw::ip::InterestPointList& ip2,
+  void side_ip_filtering(vw::InterestPointList& ip1,
+                         vw::InterestPointList& ip2,
                          vw::BBox2i const& bbox1, vw::BBox2i const& bbox2);
 
   /// IP matching that uses clustering on triangulation error to
@@ -81,8 +81,8 @@ void write_match_image(std::string const& out_file_name,
   ///
   /// Input and output is the valid indices. Valid indices must have
   /// something to start with.
-  bool tri_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
-                        std::vector<vw::ip::InterestPoint> const& ip2,
+  bool tri_ip_filtering(std::vector<vw::InterestPoint> const& ip1,
+                        std::vector<vw::InterestPoint> const& ip2,
                         vw::camera::CameraModel* cam1,
                         vw::camera::CameraModel* cam2,
                         std::list<size_t>& valid_indices);
@@ -90,8 +90,8 @@ void write_match_image(std::string const& out_file_name,
   /// 4 stddev filtering. Deletes any disparity measurement that is 4
   /// stddev away from the measurements of it's local neighbors. We
   /// kill off worse offender one at a time until everyone is compliant.
-  bool stddev_ip_filtering(std::vector<vw::ip::InterestPoint> const& ip1,
-          std::vector<vw::ip::InterestPoint> const& ip2,
+  bool stddev_ip_filtering(std::vector<vw::InterestPoint> const& ip1,
+          std::vector<vw::InterestPoint> const& ip2,
           std::list<size_t>& valid_indices);
 
 
@@ -101,16 +101,16 @@ void write_match_image(std::string const& out_file_name,
                                            vw::camera::CameraModel* left_camera_model,
                                            vw::camera::CameraModel* right_camera_model,
                                            vw::Datum const& datum,
-                                           std::vector<vw::ip::InterestPoint> const& ip1_in,
-                                           std::vector<vw::ip::InterestPoint> const& ip2_in,
+                                           std::vector<vw::InterestPoint> const& ip1_in,
+                                           std::vector<vw::InterestPoint> const& ip2_in,
                                            vw::Vector2 const & elevation_limit,
                                            vw::BBox2   const & lon_lat_limit,
-                                           std::vector<vw::ip::InterestPoint> & ip1_out,
-                                           std::vector<vw::ip::InterestPoint> & ip2_out);
+                                           std::vector<vw::InterestPoint> & ip1_out,
+                                           std::vector<vw::InterestPoint> & ip2_out);
 
   // Filter ip by triangulation error, reprojection error, and height range
-  void filter_ip_using_cameras(std::vector<vw::ip::InterestPoint> & ip1,
-                               std::vector<vw::ip::InterestPoint> & ip2,
+  void filter_ip_using_cameras(std::vector<vw::InterestPoint> & ip1,
+                               std::vector<vw::InterestPoint> & ip2,
                                vw::camera::CameraModel const* cam1,
                                vw::camera::CameraModel const* cam2,
                                vw::Datum  const& datum,
@@ -124,15 +124,15 @@ void write_match_image(std::string const& out_file_name,
                            vw::TransformPtr                 tx_right,
                            boost::shared_ptr<vw::camera::CameraModel> left_camera_model,
                            boost::shared_ptr<vw::camera::CameraModel> right_camera_model,
-                           std::vector<vw::ip::InterestPoint> & left_aligned_ip,
-                           std::vector<vw::ip::InterestPoint> & right_aligned_ip);
+                           std::vector<vw::InterestPoint> & left_aligned_ip,
+                           std::vector<vw::InterestPoint> & right_aligned_ip);
 
   // Estimate the search range by finding the median disparity and
   // creating a box of given dimensions around it. This assumes aligned
   // interest points.
   vw::BBox2 search_range_using_spread(double max_disp_spread,
-                                     std::vector<vw::ip::InterestPoint> const& left_ip,
-                                     std::vector<vw::ip::InterestPoint> const& right_ip);
+                                     std::vector<vw::InterestPoint> const& left_ip,
+                                     std::vector<vw::InterestPoint> const& right_ip);
 
   //-----------------------------------------------------------------------------
   // Miscellaneous IP functions
@@ -156,8 +156,8 @@ void write_match_image(std::string const& out_file_name,
                            bool tight_inlier_threshold,
           vw::Vector2i const& left_size,
           vw::Vector2i const& right_size,
-          std::vector<vw::ip::InterestPoint> const& left_ip,
-          std::vector<vw::ip::InterestPoint> const& right_ip,
+          std::vector<vw::InterestPoint> const& left_ip,
+          std::vector<vw::InterestPoint> const& right_ip,
           vw::Matrix<double>& left_matrix,
           vw::Matrix<double>& right_matrix);
 
@@ -166,8 +166,8 @@ void write_match_image(std::string const& out_file_name,
   void aligned_ip_from_D_sub(
     vw::ImageViewRef<vw::PixelMask<vw::Vector2f>> const & sub_disp,
     vw::Vector2                                   const & upsample_scale,
-    std::vector<vw::ip::InterestPoint>                  & left_ip,
-    std::vector<vw::ip::InterestPoint>                  & right_ip);
+    std::vector<vw::InterestPoint>                  & left_ip,
+    std::vector<vw::InterestPoint>                  & right_ip);
 
   // Homography IP matching
   // This applies only the homography constraint. Not the best.
@@ -191,14 +191,14 @@ void write_match_image(std::string const& out_file_name,
 
 // Match the ip and save the match file. No epipolar constraint
 // is used in this mode.
-void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
-                   vw::ip::InterestPointList const& ip2,
+void match_ip_no_datum(vw::InterestPointList const& ip1,
+                   vw::InterestPointList const& ip2,
                    vw::ImageViewRef<float> const& image1,
                    vw::ImageViewRef<float> const& image2,
                    size_t number_of_jobs,
                    // Outputs
-                   std::vector<vw::ip::InterestPoint>& matched_ip1,
-                   std::vector<vw::ip::InterestPoint>& matched_ip2,
+                   std::vector<vw::InterestPoint>& matched_ip1,
+                   std::vector<vw::InterestPoint>& matched_ip2,
                    std::string const& match_file);
 
   // Choose the method used for IP matching
@@ -211,15 +211,15 @@ void match_ip_no_datum(vw::ip::InterestPointList const& ip1,
 
 /// Detect interest points
 /// This is not meant to be used directly. Use ip_matching().
-void detect_ip(vw::ip::InterestPointList& ip,
+void detect_ip(vw::InterestPointList& ip,
                vw::ImageViewRef<float> const& image,
                int ip_per_image, int ip_per_tile, std::string const vwip_file, 
                double nodata, bool use_cached_ip);
 
 // Detect IP in a pair of images and apply rudimentary filtering.
 // Returns false if either image ended up with zero IP.
-bool detect_ip_pair(vw::ip::InterestPointList& ip1,
-                    vw::ip::InterestPointList& ip2,
+bool detect_ip_pair(vw::InterestPointList& ip1,
+                    vw::InterestPointList& ip2,
                     vw::ImageViewRef<float> const& image1,
                     vw::ImageViewRef<float> const& image2,
                     int ip_per_image, int ip_per_tile,
@@ -239,14 +239,14 @@ bool detect_ip_aligned_pair(vw::camera::CameraModel* cam1,
                             std::string const left_vwip_file,
                             double nodata1, double nodata2,
                             // Outputs
-                            vw::ip::InterestPointList& ip1,
-                            vw::ip::InterestPointList& ip2,
+                            vw::InterestPointList& ip1,
+                            vw::InterestPointList& ip2,
                             vw::Matrix<double> &rough_homography);
 
 /// Detect interest points and use a simple matching technique.
 /// This is not meant to be used directly. Use ip_matching().
-void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
-                     std::vector<vw::ip::InterestPoint>& matched_ip2,
+void detect_match_ip(std::vector<vw::InterestPoint>& matched_ip1,
+                     std::vector<vw::InterestPoint>& matched_ip2,
                      vw::ImageViewRef<float> const& image1,
                      vw::ImageViewRef<float> const& image2,
                      int ip_per_tile, size_t number_of_jobs,
@@ -272,8 +272,8 @@ void detect_match_ip(std::vector<vw::ip::InterestPoint>& matched_ip1,
 void write_match_image(std::string const& out_file_name,
                        vw::ImageViewRef<float> const& image1,
                        vw::ImageViewRef<float> const& image2,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip1,
-                       std::vector<vw::ip::InterestPoint> const& matched_ip2);
+                       std::vector<vw::InterestPoint> const& matched_ip1,
+                       std::vector<vw::InterestPoint> const& matched_ip2);
 
 } // End namespace asp
 

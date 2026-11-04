@@ -384,8 +384,8 @@ void saveInlierMatchPairs(// Inputs
 
         auto cid_pair = std::make_pair(cid1, cid2);
 
-        vw::ip::InterestPoint ip1(keypoint_vec[cid1][fid1].first, keypoint_vec[cid1][fid1].second);
-        vw::ip::InterestPoint ip2(keypoint_vec[cid2][fid2].first, keypoint_vec[cid2][fid2].second);
+        vw::InterestPoint ip1(keypoint_vec[cid1][fid1].first, keypoint_vec[cid1][fid1].second);
+        vw::InterestPoint ip2(keypoint_vec[cid2][fid2].first, keypoint_vec[cid2][fid2].second);
 
         matches[cid_pair].first.push_back(ip1);
         matches[cid_pair].second.push_back(ip2);
@@ -404,13 +404,13 @@ void saveInlierMatchPairs(// Inputs
     rig::createDir(match_dir);
 
     bool matches_as_txt = false;
-    std::string match_file = vw::ip::match_filename(match_dir + "/run",
-                                                    cams[left_cid].image_name,
-                                                    cams[right_cid].image_name,
-                                                    matches_as_txt);
+    std::string match_file = vw::match_filename(match_dir + "/run",
+                                                cams[left_cid].image_name,
+                                                cams[right_cid].image_name,
+                                                matches_as_txt);
 
     std::cout << "Writing: " << match_file << std::endl;
-    vw::ip::write_match_file(match_file, match_pair.first, match_pair.second, matches_as_txt);
+    vw::write_match_file(match_file, match_pair.first, match_pair.second, matches_as_txt);
   }
 
   // The image names (without directory) must be unique, or else bundle
@@ -507,4 +507,3 @@ void savePairwiseConvergenceAngles(// Inputs
 } // end function savePairwiseConvergenceAngles
 
 }  // namespace rig
-

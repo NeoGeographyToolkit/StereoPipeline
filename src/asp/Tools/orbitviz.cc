@@ -135,9 +135,9 @@ size_t get_files_from_solver_folder(std::string                 const& solver_fo
   
   // Ignore any match files where there are not many matches
   const size_t MIN_MATCHES = 30; // This is the default value, but it could be made an option.
-  std::vector<ip::InterestPoint> ip1, ip2;
+  std::vector<vw::InterestPoint> ip1, ip2;
   for (size_t m=0; m<num_matches; ++m) {
-    vw::ip::read_binary_match_file(solver_folder+ "/"+match_files[m], ip1, ip2);
+    vw::read_binary_match_file(solver_folder+ "/"+match_files[m], ip1, ip2);
     if (ip1.size() < MIN_MATCHES)
       match_files[m] = "";
   }

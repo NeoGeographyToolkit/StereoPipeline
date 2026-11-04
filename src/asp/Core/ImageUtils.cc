@@ -169,7 +169,7 @@ double meanDatumRadius(vw::Datum const& datum) {
 /// Take an interest point from a map projected image and convert it
 /// to the corresponding IP in the original non-map-projected image.
 /// - Return false if the pixel could not be converted.
-bool projected_ip_to_raw_ip(vw::ip::InterestPoint &P,
+bool projected_ip_to_raw_ip(vw::InterestPoint &P,
                             vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
                             vw::CamPtr camera_model,
                             vw::GeoReference const& georef,

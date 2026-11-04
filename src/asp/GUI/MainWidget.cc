@@ -1337,7 +1337,7 @@ void MainWidget::addMatchPoint() {
   Vector2 P              = app_data.world2image_trans(world_coord, m_base_image_id);
 
   // Try to add the new IP.
-  bool is_good = m_match_mgr.m_matchlist.addPoint(m_beg_image_id, ip::InterestPoint(P.x(), P.y()));
+  bool is_good = m_match_mgr.m_matchlist.addPoint(m_beg_image_id, vw::InterestPoint(P.x(), P.y()));
 
   if (!is_good) {
     popUp(std::string("Add matches by adding a point in the left-most ")

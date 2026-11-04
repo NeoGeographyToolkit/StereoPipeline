@@ -29,7 +29,7 @@
 
 namespace rig {
   
-typedef std::pair<std::vector<vw::ip::InterestPoint>, std::vector<vw::ip::InterestPoint>> MATCH_PAIR;
+typedef std::pair<std::vector<vw::InterestPoint>, std::vector<vw::InterestPoint>> MATCH_PAIR;
 typedef std::map<std::pair<int, int>, rig::MATCH_PAIR> MATCH_MAP;
 
 class DynamicDetector {
@@ -91,4 +91,3 @@ class FeatureDetector {
 }  // namespace rig
 
 #endif  // ASP_RIG_DETECTOR_H
-

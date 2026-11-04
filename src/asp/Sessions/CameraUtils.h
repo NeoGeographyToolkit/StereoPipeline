@@ -31,9 +31,7 @@
 
 namespace vw {
     class Datum;
-  namespace ip {
     class InterestPoint;
-  }
 }
 
 namespace asp {

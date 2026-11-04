@@ -131,4 +131,3 @@ void rollPitchYawFromRotationMatrix(vw::Matrix3x3 const& R,
 }
 
 } //end namespace asp
-

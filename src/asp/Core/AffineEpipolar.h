@@ -23,9 +23,7 @@
 #include <vw/Math/Matrix.h>
 
 namespace vw {
-  namespace ip {
     struct InterestPoint;
-  }
 }
 
 namespace asp {
@@ -38,8 +36,8 @@ namespace asp {
                                              vw::Vector2i const& right_size,
                                              double inlier_threshold,
                                              int num_ransac_iterations,
-                                             std::vector<vw::ip::InterestPoint> const& left,
-                                             std::vector<vw::ip::InterestPoint> const& right,
+                                             std::vector<vw::InterestPoint> const& left,
+                                             std::vector<vw::InterestPoint> const& right,
                                              bool crop_to_shared_area,
                                              vw::Matrix<double>& left_matrix,
                                              vw::Matrix<double>& right_matrix,
