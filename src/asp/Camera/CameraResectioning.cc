@@ -18,6 +18,9 @@
 /// \file CameraResectioning.cc
 
 #include <asp/Camera/CameraResectioning.h>
+#include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/CameraModel.h>
+#include <vw/Cartography/Datum.h>
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Math/Statistics.h>

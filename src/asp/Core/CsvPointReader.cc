@@ -25,6 +25,7 @@
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Cartography/Datum.h>
 #include <vw/Cartography/GeoReferenceUtils.h>
+#include <vw/Geometry/geomUtils.h>
 #include <vw/Math/Vector.h>
 
 #include <boost/filesystem.hpp>

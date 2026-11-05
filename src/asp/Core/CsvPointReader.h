@@ -24,13 +24,16 @@
 #define __ASP_CORE_CSV_POINT_READER_H__
 
 #include <vw/Math/Vector.h>
-#include <vw/Cartography/GeoReference.h>
-#include <vw/Geometry/geomUtils.h>
 
 #include <map>
 #include <string>
 #include <vector>
 #include <list>
+
+namespace vw {
+  class GeoReference;
+  class anno;
+}
 
 namespace asp {
 

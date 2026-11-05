@@ -22,12 +22,17 @@
 #ifndef __ASP_CAMERA_CAMERA_RESECTIONING_H__
 #define __ASP_CAMERA_CAMERA_RESECTIONING_H__
 
-#include <vw/Camera/PinholeModel.h>
-#include <vw/Camera/CameraModel.h>
-#include <vw/Cartography/Datum.h>
+#include <vw/Math/Vector.h>
+#include <boost/shared_ptr.hpp>
 
 #include <vector>
 #include <string>
+
+namespace vw {
+  class CameraModel;
+  class PinholeModel;
+  class Datum;
+}
 
 namespace asp {
 
