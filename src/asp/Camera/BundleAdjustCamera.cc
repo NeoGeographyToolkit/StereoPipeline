@@ -695,6 +695,96 @@ void processMatchPair(size_t left_index, size_t right_index,
 // if a DEM is given. These are done together as they rely on
 // reloading interest point matches, which is expensive so the matches
 // are used for both operations.
+typedef std::tuple<float, float, float, float> Quadruplet;
+
+// Iterate over the control network and record, for each image, the (control point
+// index, measure index) of every surviving inlier measure, sorted by control point.
+// Optionally record image pairs contributing to at least one surviving measure.
+// This uses a linear per-image index rather than quadratic pairwise storage.
+void build_cnet_image_index(vw::ControlNetwork const& cnet,
+                            bool remove_outliers,
+                            bool need_match_pairs,
+                            std::set<int> const& outliers,
+                            std::set<std::pair<int, int>> const& outlier_obs,
+                            std::map<int, std::vector<std::pair<int, int>>> & image_index,
+                            std::set<std::pair<int, int>> & match_pairs) {
+
+  image_index.clear();
+  match_pairs.clear();
+
+  if (!remove_outliers && !need_match_pairs)
+    return;
+
+  for (int ipt = 0; ipt < cnet.size(); ipt++) {
+    // Skip outliers
+    if (outliers.find(ipt) != outliers.end())
+      continue;
+    // Skip gcp
+    if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
+      continue;
+
+    int num_meas = cnet[ipt].size();
+    // Record the surviving measures of this point, by image.
+    for (int m = 0; m < num_meas; m++) {
+      int img = cnet[ipt][m].image_id();
+      // Skip measurements dropped as per-observation outliers, so the clean
+      // match files and the stats reflect only the measurements that survived.
+      if (outlier_obs.find(std::make_pair(img, ipt)) != outlier_obs.end())
+        continue;
+      image_index[img].push_back(std::make_pair(ipt, m));
+    }
+    // Record the image pairs this point contributes to. Only needed to create
+    // match files from scratch, so skip the quadratic loop otherwise.
+    if (need_match_pairs) {
+      for (int i1 = 0; i1 < num_meas; i1++) {
+        for (int i2 = 0; i2 < num_meas; i2++) {
+          int a = cnet[ipt][i1].image_id(), b = cnet[ipt][i2].image_id();
+          if (a == b)
+            continue;
+          if (outlier_obs.find(std::make_pair(a, ipt)) != outlier_obs.end() ||
+              outlier_obs.find(std::make_pair(b, ipt)) != outlier_obs.end())
+            continue;
+          match_pairs.insert(std::make_pair(a, b));
+        }
+      }
+    }
+  }
+
+  // Sort each image's measures by control point index for the merge below.
+  for (auto & kv: image_index)
+    std::sort(kv.second.begin(), kv.second.end());
+}
+
+// Reconstruct, for a single image pair, the map from a match's position
+// quadruplet to its (left, right) interest-point scales, by intersecting the two
+// images' sorted point lists. Built on demand for one pair at a time, so memory
+// stays bounded. The std::map reproduces the exact sorted, de-duplicated per-pair
+// structure used below, so the clean match files are byte-identical to before.
+void makePairQuads(vw::ControlNetwork const& cnet,
+                   std::map<int, std::vector<std::pair<int, int>>> const& image_index,
+                   int left_index, int right_index,
+                   std::map<Quadruplet, std::pair<float, float>> & quads) {
+  quads.clear();
+  auto la = image_index.find(left_index), ra = image_index.find(right_index);
+  if (la == image_index.end() || ra == image_index.end())
+    return;
+  std::vector<std::pair<int, int>> const& lv = la->second;
+  std::vector<std::pair<int, int>> const& rv = ra->second;
+  size_t i = 0, j = 0;
+  while (i < lv.size() && j < rv.size()) {
+    if (lv[i].first < rv[j].first) { i++; continue; }
+    if (rv[j].first < lv[i].first) { j++; continue; }
+    // Same control point: a match for this image pair.
+    int ipt = lv[i].first;
+    auto const& ml = cnet[ipt][lv[i].second];
+    auto const& mr = cnet[ipt][rv[j].second];
+    quads[Quadruplet(ml.position()[0], ml.position()[1],
+                     mr.position()[0], mr.position()[1])]
+      = std::make_pair(ml.sigma()[0], mr.sigma()[0]);
+    i++; j++;
+  }
+}
+
 void matchFilesProcessing(vw::ControlNetwork       const& cnet,
                           asp::BaBaseOptions           const& opt,
                           std::vector<vw::CamPtr>      const& optimized_cams,
@@ -732,92 +822,16 @@ void matchFilesProcessing(vw::ControlNetwork       const& cnet,
   int num_cameras = opt.image_files.size();
   mapprojOffsetsPerCam.resize(num_cameras);
 
-  // Iterate over the control network, and, for each inlier pair of matches,
-  // remember what pair it is from. Needed only if there is outlier filtering
-  // or matches were read from an isis cnet.
-  // TODO(oalexan1): This uses a lot of memory. Need to keep just indices,
-  // somehow, not quadruplets of floats.
-  // TODO(oalexan1): Make this into a function.
-  typedef std::tuple<float, float, float, float> Quadruplet;
   // A per-image index: for each image, the (control point index, local measure
   // index) of every surviving measure in it, sorted by control point index. This
-  // is linear in the number of measures. A track seen in k images used to add
-  // k*(k-1) per-pair entries (quadratic in the overlap, a large memory cost).
-  // Instead, a single image pair's matches are derived on demand by intersecting
-  // the two images' point lists (makePairQuads below), so nothing quadratic is
-  // stored. The positions and scales are read from the control measures on demand.
+  // is linear in the number of measures.
   std::map<int, std::vector<std::pair<int, int>>> image_index;
   // The set of image pairs sharing at least one surviving measure. Needed only to
   // enumerate match files when there are no input match files (ISIS cnet or nvm).
   std::set<std::pair<int, int>> match_pairs;
   bool need_match_pairs = (!opt.isis_cnet.empty() || !opt.nvm.empty());
-  if (remove_outliers || need_match_pairs) {
-    for (int ipt = 0; ipt < cnet.size(); ipt++) {
-      // Skip outliers
-      if (outliers.find(ipt) != outliers.end())
-        continue;
-      // Skip gcp
-      if (cnet[ipt].type() == ControlPoint::GroundControlPoint)
-        continue;
-
-      int num_meas = cnet[ipt].size();
-      // Record the surviving measures of this point, by image.
-      for (int m = 0; m < num_meas; m++) {
-        int img = cnet[ipt][m].image_id();
-        // Skip measurements dropped as per-observation outliers, so the clean
-        // match files and the stats reflect only the measurements that survived.
-        if (outlier_obs.find(std::make_pair(img, ipt)) != outlier_obs.end())
-          continue;
-        image_index[img].push_back(std::make_pair(ipt, m));
-      }
-      // Record the image pairs this point contributes to. Only needed to create
-      // match files from scratch, so skip the quadratic loop otherwise.
-      if (need_match_pairs) {
-        for (int i1 = 0; i1 < num_meas; i1++) {
-          for (int i2 = 0; i2 < num_meas; i2++) {
-            int a = cnet[ipt][i1].image_id(), b = cnet[ipt][i2].image_id();
-            if (a == b)
-              continue;
-            if (outlier_obs.find(std::make_pair(a, ipt)) != outlier_obs.end() ||
-                outlier_obs.find(std::make_pair(b, ipt)) != outlier_obs.end())
-              continue;
-            match_pairs.insert(std::make_pair(a, b));
-          }
-        }
-      }
-    }
-    // Sort each image's measures by control point index for the merge below.
-    for (auto & kv: image_index)
-      std::sort(kv.second.begin(), kv.second.end());
-  }
-
-  // Reconstruct, for a single image pair, the map from a match's position
-  // quadruplet to its (left, right) interest-point scales, by intersecting the two
-  // images' sorted point lists. Built on demand for one pair at a time, so memory
-  // stays bounded. The std::map reproduces the exact sorted, de-duplicated per-pair
-  // structure used below, so the clean match files are byte-identical to before.
-  auto makePairQuads = [&cnet, &image_index](int left_index, int right_index) {
-    std::map<Quadruplet, std::pair<float, float>> quads;
-    auto la = image_index.find(left_index), ra = image_index.find(right_index);
-    if (la == image_index.end() || ra == image_index.end())
-      return quads;
-    std::vector<std::pair<int, int>> const& lv = la->second;
-    std::vector<std::pair<int, int>> const& rv = ra->second;
-    size_t i = 0, j = 0;
-    while (i < lv.size() && j < rv.size()) {
-      if (lv[i].first < rv[j].first) { i++; continue; }
-      if (rv[j].first < lv[i].first) { j++; continue; }
-      // Same control point: a match for this image pair.
-      int ipt = lv[i].first;
-      auto const& ml = cnet[ipt][lv[i].second];
-      auto const& mr = cnet[ipt][rv[j].second];
-      quads[Quadruplet(ml.position()[0], ml.position()[1],
-                       mr.position()[0], mr.position()[1])]
-        = std::make_pair(ml.sigma()[0], mr.sigma()[0]);
-      i++; j++;
-    }
-    return quads;
-  };
+  build_cnet_image_index(cnet, remove_outliers, need_match_pairs,
+                         outliers, outlier_obs, image_index, match_pairs);
 
   // If we read the matches from an ISIS cnet or nvm, there are no match files.
   // Then create them. 
@@ -858,8 +872,8 @@ void matchFilesProcessing(vw::ControlNetwork       const& cnet,
 
     // Reconstruct this pair's position->scale map from the control network, once,
     // for the uses below. Empty if the pair shares no surviving measures.
-    std::map<Quadruplet, std::pair<float, float>> curr_quads
-      = makePairQuads((int)left_index, (int)right_index);
+    std::map<Quadruplet, std::pair<float, float>> curr_quads;
+    makePairQuads(cnet, image_index, (int)left_index, (int)right_index, curr_quads);
 
     std::vector<vw::InterestPoint> orig_left_ip, orig_right_ip;
     if (opt.isis_cnet != "" || opt.nvm != "") {
