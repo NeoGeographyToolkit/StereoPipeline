@@ -31,14 +31,10 @@
 
 #include <asp/Camera/BundleAdjustParamMap.h>
 
-#include <asp/Core/BaBaseOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
-#include <asp/Camera/CsmModel.h>
-#include <asp/Camera/BaState.h>
 #include <asp/Core/Bathymetry.h>
 
 #include <vw/Cartography/Datum.h>
-#include <vw/FileIO/GdalWriteOptions.h>
 #include <vw/FileIO/DiskImageView.h>
 
 #include <map>
