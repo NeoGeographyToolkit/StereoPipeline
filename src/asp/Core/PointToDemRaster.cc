@@ -15,22 +15,25 @@
 //  limitations under the License.
 // __END_LICENSE__
 
+/// \file PointToDemRaster.h
+/// Point cloud rasterization routines for point2dem
+
+#include <asp/Core/PointToDemRaster.h>
 #include <asp/Core/PointToDem.h>
+#include <asp/Core/OrthoRasterizer.h>
 #include <asp/Core/PointUtils.h>
 #include <asp/Core/GdalUtils.h>
 
-#include <vw/Image/AntiAliasing.h>
+#include <vw/Core/ProgressCallback.h>
+#include <vw/Core/Stopwatch.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/FileIO/DiskImageUtils.h>
 #include <vw/Image/FillHoles.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/InpaintView.h>
-
-#include <boost/filesystem.hpp>
+#include <vw/Image/Manipulation.h>
 
 #include <cmath>
-
-namespace fs = boost::filesystem;
-
-// Moved here some logic from PointToDem.cc to speed up compilation.
 
 using namespace vw;
 
@@ -48,7 +51,7 @@ void save_image(DemOptions & opt, ImageT img, vw::GeoReference const& georef,
   // temporarily with big blocks, and then re-save with small blocks.
   if (hole_fill_len > 512)
     vw_out(WarningMessage) << "Detected large hole-fill length. "
-                            << "Memory usage and run-time may go up.\n";
+                           << "Memory usage and run-time may go up.\n";
 
   int block_size = nextpow2(2.0*hole_fill_len);
   block_size = std::max(256, block_size);
@@ -155,6 +158,7 @@ struct ErrorToNED: public ReturnFixedType<Vector3> {
     return ned_err;
   }
 };
+
 template <class ImageT>
 UnaryPerPixelView<ImageT, ErrorToNED>
 inline error_to_NED(ImageViewBase<ImageT> const& image,
@@ -223,6 +227,7 @@ public:
     vw::rasterize(prerasterize(bbox), dest, bbox);
   }
 };
+
 CombinedAbsView combine_abs_channels(double nodata_value,
                                      ImageViewRef<PixelGray<float>> image1,
                                      ImageViewRef<PixelGray<float>> image2,
@@ -434,7 +439,7 @@ void save_ortho(DemOptions & opt,
     }
 
     // Fill the holes
-    point_image_mask =vw::fill_holes_grass(point_image_mask, hole_fill_len);
+    point_image_mask = vw::fill_holes_grass(point_image_mask, hole_fill_len);
 
     // back to NaNs
     point_image = per_pixel_filter(point_image_mask, asp::Mask2NaN<Vector3>());
@@ -479,7 +484,7 @@ void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
   // already incorporated that.
   georef.set_transform(rasterizer.geo_transform());
 
-  // Fix have pixel offset required if pixel_interpretation is
+  // Fix half-pixel offset required if pixel_interpretation is
   // PixelAsArea. We could have done that earlier, but it makes
   // the above easier to not think about it.
   if (georef.pixel_interpretation() == vw::GeoReference::PixelAsArea &&
@@ -502,7 +507,7 @@ void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
   // Write out the DEM. We've set the texture to be the height.
   // This must happen before we set the texture to something else.
   if (!opt.no_dem)
-     save_dem(opt, georef, rasterizer, tile_size, num_invalid_pixels);
+    save_dem(opt, georef, rasterizer, tile_size, num_invalid_pixels);
 
   // If the point cloud has propagated stddev affects how we write the error image.
   bool has_stddev = asp::has_stddev(opt.pointcloud_files);
@@ -539,7 +544,7 @@ void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
   // This must be at the end, as we may be messing with the point
   // image in irreversible ways.
   if (opt.do_ortho)
-   save_ortho(opt, georef, rasterizer);
+    save_ortho(opt, georef, rasterizer);
 
 } // End rasterize_cloud
 

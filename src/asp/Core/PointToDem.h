@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2024, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -23,6 +23,7 @@
 
 #include <vw/FileIO/GdalWriteOptions.h>
 #include <asp/Core/OrthoRasterizer.h>
+#include <asp/Core/PointToDemRaster.h>
 
 namespace vw {
     class Datum;
@@ -98,12 +99,6 @@ void chip_convert_to_tif(DemOptions const& opt,
                          vw::GeoReference const& csv_georef,
                          std::vector<std::string> & pc_files, 
                          std::vector<std::string> & conv_files);
-
-// Rasterize a DEM
-void rasterize_cloud(asp::OrthoRasterizerView& rasterizer,
-                     DemOptions& opt,
-                     vw::GeoReference& georef,
-                     std::int64_t * num_invalid_pixels);
 
 // Set the projection based on options. By now opt.proj_lon and opt.proj_lat
 // should have been set. 
