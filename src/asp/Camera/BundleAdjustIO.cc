@@ -51,6 +51,7 @@
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/LensDistortion.h>
+#include <vw/Image/Interpolation.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Core/StringUtils.h>
 
