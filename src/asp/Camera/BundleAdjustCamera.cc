@@ -19,27 +19,19 @@
 ///
 
 #include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Camera/BundleAdjustParamMapping.h>
+#include <asp/Camera/BundleAdjustParamMap.h>
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/Covariance.h>
 #include <asp/Camera/LinescanUtils.h>
 #include <asp/Camera/RPC_XML.h>
-#include <asp/Camera/RPCModel.h>
-#include <asp/Camera/RPCModelGen.h>
 #include <asp/Camera/CameraErrorPropagation.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/FileUtils.h>
-#include <asp/asp_config.h>
 
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-#include <asp/IsisIO/IsisInterface.h>
-#endif
-
-#include <vw/Image/ImageChannels.h>
 #include <vw/Math/Statistics.h>
 #include <vw/BundleAdjustment/CameraRelation.h>
 #include <vw/BundleAdjustment/ControlNetwork.h>
@@ -49,14 +41,15 @@
 #include <vw/Cartography/BathyData.h>
 #include <vw/InterestPoint/MatcherIO.h>
 #include <vw/Stereo/StereoModel.h>
-#include <vw/Math/Statistics.h>
 #include <vw/Math/Geometry.h>
-#include <vw/Math/Functors.h>
 #include <vw/Math/BBox.h>
+#include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraUtilities.h>
-#include <vw/Camera/LensDistortion.h>
 #include <vw/Camera/CameraImage.h>
+#include <vw/Camera/LensDistortion.h>
+#include <vw/Image/PixelMask.h>
+#include <vw/Image/ImageChannels.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Core/StringUtils.h>
 

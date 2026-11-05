@@ -15,11 +15,11 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file BundleAdjustParamMapping.h
+/// \file BundleAdjustParamMap.h
 /// Camera parameter packing, unpacking, initialization, and mapping for bundle adjustment.
 
-#ifndef __BUNDLE_ADJUST_PARAM_MAPPING_H__
-#define __BUNDLE_ADJUST_PARAM_MAPPING_H__
+#ifndef __BUNDLE_ADJUST_PARAM_MAP_H__
+#define __BUNDLE_ADJUST_PARAM_MAP_H__
 
 #include <asp/Core/BaBaseOptions.h>
 #include <asp/Camera/CsmModel.h>
@@ -168,4 +168,4 @@ void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
 
 } // namespace asp
 
-#endif // __BUNDLE_ADJUST_PARAM_MAPPING_H__
+#endif // __BUNDLE_ADJUST_PARAM_MAP_H__

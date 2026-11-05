@@ -29,7 +29,7 @@
 #ifndef __BUNDLE_ADJUST_CAMERA_H__
 #define __BUNDLE_ADJUST_CAMERA_H__
 
-#include <asp/Camera/BundleAdjustParamMapping.h>
+#include <asp/Camera/BundleAdjustParamMap.h>
 
 #include <asp/Core/BaBaseOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>

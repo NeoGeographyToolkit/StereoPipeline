@@ -15,10 +15,10 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file BundleAdjustParamMapping.cc
+/// \file BundleAdjustParamMap.cc
 /// Camera parameter packing, unpacking, initialization, and mapping for bundle adjustment.
 
-#include <asp/Camera/BundleAdjustParamMapping.h>
+#include <asp/Camera/BundleAdjustParamMap.h>
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
