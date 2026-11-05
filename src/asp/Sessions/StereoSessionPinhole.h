@@ -38,9 +38,6 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
                                   std::string const& ba_prefix, 
                                   bool isMapProjected);
 
-  typedef vw::CameraTransform<vw::PinholeModel, vw::PinholeModel> PinholeCamTrans;
-  typedef boost::shared_ptr<PinholeCamTrans> PinholeCamTransPtr;
-
  class StereoSessionPinhole: public StereoSession {
   public:
     StereoSessionPinhole() {}
@@ -55,34 +52,33 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
     static SessionPtr construct() { return SessionPtr(new StereoSessionPinhole); }
 
 
-    /// Override this function to make sure it properly generates the
-    ///  aligned camera models.
+    /// Return the camera models used for triangulation. For epipolar alignment with
+    /// pinhole cameras these are the unaligned input cameras (the rectification is a
+    /// transform, see tx_left/tx_right); for the legacy CAHV epipolar path they are the
+    /// aligned cameras.
     virtual void camera_models(boost::shared_ptr<vw::CameraModel> &cam1,
                                boost::shared_ptr<vw::CameraModel> &cam2);
 
-    /// Specialized function to load both camera models and find their output sizes
-    void load_camera_models(boost::shared_ptr<vw::CameraModel> &left_cam,
-                            boost::shared_ptr<vw::CameraModel> &right_cam,
-                            vw::Vector2i &left_out_size, vw::Vector2i &right_out_size);
+    /// Load the epipolar-rectified (aligned) camera models and the sizes of the aligned
+    /// images. These are the cameras used to warp the input images into -L.tif/-R.tif.
+    void load_aligned_camera_models(boost::shared_ptr<vw::CameraModel> &left_cam,
+                                    boost::shared_ptr<vw::CameraModel> &right_cam,
+                                    vw::Vector2i &left_out_size, vw::Vector2i &right_out_size);
 
     /// Return the input camera models with no alignment applied.
-    /// - This only matters in the epipolar alignment case, where the normal camera model
-    ///   functions return the aligned camera models.
     void get_unaligned_camera_models(boost::shared_ptr<vw::CameraModel> &left_cam,
                                      boost::shared_ptr<vw::CameraModel> &right_cam,
                                      std::string ba_prefix) const;
 
-
-    /// Transforms from the aligned image coordinates back to coordinates in the camera models.
-    /// - Note that for epipolar aligned images these return identity transforms since the 
-    ///   epipolar aligned images are consisted with the (new epipolar) camera models returned
-    ///   from this class.
+    /// Transforms from the aligned image coordinates back to coordinates in the camera
+    /// models. For epipolar alignment this is a camera transform mapping aligned pixels
+    /// to the unaligned input cameras; otherwise it is the usual homography transform.
     virtual vw::TransformPtr tx_left () const;
     virtual vw::TransformPtr tx_right() const;
 
-    /// Get the transforms from the unaligned input images to the epipolar aligned images.
-    /// - CAHV* type models are not currently supported!
-    void pinhole_cam_trans(vw::TransformPtr & left_trans, vw::TransformPtr & right_trans);
+    /// Build the transforms mapping the epipolar aligned images back to the unaligned
+    /// input cameras. Works for pinhole and CAHV-type cameras.
+    void epipolar_cam_trans(vw::TransformPtr & left_trans, vw::TransformPtr & right_trans);
     
   protected:
     /// Function to load a camera model of the particular type.

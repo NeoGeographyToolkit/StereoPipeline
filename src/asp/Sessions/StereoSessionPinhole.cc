@@ -54,86 +54,28 @@ vw::CamPtr load_adj_pinhole_model(std::string const& image_file,
                                   std::string const& ba_prefix,
                                   bool isMapProjected) { 
 
-  // Unfortunately the pinhole case is more complicated since the left
-  // and right files are inter-dependent.
-
   // Retrieve the pixel offset (if any) to cropped images
   vw::Vector2 pixel_offset 
     = asp::camera_pixel_offset(isMapProjected, left_image_file, right_image_file, 
                                          image_file);
   
-  if (stereo_settings().alignment_method != "epipolar") {
-    // Not epipolar, just load the camera model.
+  // The rectification for epipolar alignment is applied as a transform (see
+  // tx_left/tx_right), not baked into the camera model, consistent with the other
+  // alignment methods. So always return the unaligned camera model.
+  std::string lcase_file = boost::to_lower_copy(camera_file);
+  bool is_pinhole = boost::ends_with(lcase_file, ".pinhole") ||
+                    boost::ends_with(lcase_file, ".tsai");
+
+  if (stereo_settings().alignment_method == "epipolar" && !is_pinhole)
+    // CAHV-type camera: use the linearized CAHV model, which is what the epipolar
+    // rectification is built from.
     return asp::load_adjusted_model(
-      vw::load_pinhole_camera_model(camera_file),
+      vw::load_cahv_pinhole_camera_model(image_file, camera_file),
       image_file, camera_file, ba_prefix, pixel_offset);
-  }
-  // Otherwise handle the epipolar case
 
-  bool is_left_camera = true;
-  if (image_file == left_image_file)
-    is_left_camera = true;
-  else if (image_file == right_image_file)
-    is_left_camera = false;
-  else
-    vw::vw_throw(vw::ArgumentErr() 
-                 << "StereoSessionPinhole: supplied camera model filename "
-                 << "does not match the name supplied in the constructor.");
-
-  std::string lcase_file = boost::to_lower_copy(left_camera_file);
-  if (boost::ends_with(lcase_file, ".pinhole") || boost::ends_with(lcase_file, ".tsai")) {
-    // Use PinholeModel epipolar code
-
-    PinholeModel left_pin (left_camera_file);
-    PinholeModel right_pin(right_camera_file);
-
-    // Create epipolar rectified camera views
-    boost::shared_ptr<PinholeModel> epipolar_left_pin (new PinholeModel);
-    boost::shared_ptr<PinholeModel> epipolar_right_pin(new PinholeModel);
-    epipolar(left_pin,  right_pin, *epipolar_left_pin, *epipolar_right_pin);
-
-    // Expand epipolar cameras to contain the entire source images.
-    Vector2i left_size  = file_image_size(left_image_file);
-    Vector2i right_size = file_image_size(right_image_file);
-    Vector2i epi_size1, epi_size2; // TODO: Use these!
-    resize_epipolar_cameras_to_fit(left_pin, right_pin,
-                                   *(epipolar_left_pin.get()), *(epipolar_right_pin.get()),
-                                   BBox2i(Vector2i(0,0), left_size),
-                                   BBox2i(Vector2i(0,0), right_size),
-                                   epi_size1, epi_size2);
-
-    // Left camera
-    if (is_left_camera)
-      return asp::load_adjusted_model(epipolar_left_pin, image_file, camera_file, 
-                                 ba_prefix, pixel_offset);
-
-    // Right camera
-    return asp::load_adjusted_model(epipolar_right_pin, image_file, camera_file, 
-                               ba_prefix, pixel_offset);
-       
-  } else { // Not PinholeModel, use CAHV epipolar code.
-
-    // Fetch CAHV version of the two input pinhole files
-    boost::shared_ptr<CAHVModel> left_cahv
-      = vw::load_cahv_pinhole_camera_model(left_image_file,  left_camera_file);
-    boost::shared_ptr<CAHVModel> right_cahv
-      = vw::load_cahv_pinhole_camera_model(right_image_file, right_camera_file);
-
-    // Create epipolar rectified camera views
-    boost::shared_ptr<CAHVModel> epipolar_left_cahv (new CAHVModel);
-    boost::shared_ptr<CAHVModel> epipolar_right_cahv(new CAHVModel);
-    epipolar(*(left_cahv.get()),  *(right_cahv.get()),
-             *epipolar_left_cahv, *epipolar_right_cahv);
-
-    // Left camera
-    if (is_left_camera)
-      return asp::load_adjusted_model(epipolar_left_cahv, image_file, camera_file, 
-                                 ba_prefix, pixel_offset);
-
-    // Right camera
-    return asp::load_adjusted_model(epipolar_right_cahv, image_file, camera_file, 
-                               ba_prefix, pixel_offset);
-  }
+  return asp::load_adjusted_model(
+    vw::load_pinhole_camera_model(camera_file),
+    image_file, camera_file, ba_prefix, pixel_offset);
 }
 
 // The pinhole session is used with rovers and other non-satellite cameras,
@@ -170,9 +112,9 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
   if (boost::ends_with(lcase_file, ".pinhole") || boost::ends_with(lcase_file, ".tsai")) {
       
     // This loads epipolar-aligned camera models.
-    // - The out sizes incorporate the crop amount if any, the camera models 
+    // - The out sizes incorporate the crop amount if any, the camera models
     Vector2i left_out_size, right_out_size;
-    load_camera_models(left_cam, right_cam, left_out_size, right_out_size);
+    load_aligned_camera_models(left_cam, right_cam, left_out_size, right_out_size);
       
     // Get the input image crop regions, if any.
     BBox2i left_image_in_roi, right_image_in_roi;
@@ -198,7 +140,8 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
                                 ext_nodata);
 
   } else { // Handle CAHV derived models
-    camera_models(left_cam, right_cam);
+    Vector2i left_out_size, right_out_size;
+    load_aligned_camera_models(left_cam, right_cam, left_out_size, right_out_size);
     epipolar_transformed_cahv_images(m_left_camera_file, m_right_camera_file,
                                     left_cam, right_cam,
                                     left_masked_image, right_masked_image,
@@ -209,52 +152,66 @@ epipolar_alignment(vw::ImageViewRef<vw::PixelMask<float>> left_masked_image,
 void StereoSessionPinhole::get_unaligned_camera_models(
                                  boost::shared_ptr<vw::CameraModel> &left_cam,
                                  boost::shared_ptr<vw::CameraModel> &right_cam,
-                                 std::string ba_prefix) const{
+                                 std::string ba_prefix) const {
 
-  // Retrieve the pixel offset (if any) to cropped images
-  vw::Vector2 left_pixel_offset
-   = camera_pixel_offset(isMapProjected(), m_left_image_file, m_right_image_file, 
-                         m_left_image_file);
-  vw::Vector2 right_pixel_offset
-     = camera_pixel_offset(isMapProjected(), m_left_image_file, m_right_image_file, 
-                           m_right_image_file);
-
-  // Load the camera models adjusted for cropping
-  
-  left_cam  = load_adjusted_model(vw::load_pinhole_camera_model(m_left_camera_file),
-                                  m_left_image_file, m_left_camera_file, ba_prefix, left_pixel_offset);
-  right_cam = load_adjusted_model(vw::load_pinhole_camera_model(m_right_camera_file),
-                                  m_right_image_file, m_right_camera_file, ba_prefix, right_pixel_offset);
+  // The unaligned, crop-adjusted camera models. Handles pinhole and CAHV uniformly.
+  left_cam  = load_adj_pinhole_model(m_left_image_file, m_left_camera_file,
+                                     m_left_image_file, m_right_image_file,
+                                     m_left_camera_file, m_right_camera_file,
+                                     ba_prefix, isMapProjected());
+  right_cam = load_adj_pinhole_model(m_right_image_file, m_right_camera_file,
+                                     m_left_image_file, m_right_image_file,
+                                     m_left_camera_file, m_right_camera_file,
+                                     ba_prefix, isMapProjected());
 }
 
 
 void StereoSessionPinhole::camera_models(boost::shared_ptr<vw::CameraModel> &cam1,
                                          boost::shared_ptr<vw::CameraModel> &cam2) {
-  vw::Vector2i left_out_size, right_out_size;
-  load_camera_models(cam1, cam2, left_out_size, right_out_size);
+
+  // For epipolar alignment return the unaligned input cameras (pinhole or CAHV). The
+  // rectification is a transform (tx_left/tx_right), not baked into the cameras, and
+  // triangulation un-does the transform and uses these cameras. The epipolar image warp
+  // uses the raw cameras (no bundle adjustment), so the triangulation cameras match.
+  if (stereo_settings().alignment_method == "epipolar") {
+    get_unaligned_camera_models(cam1, cam2, "");
+    return;
+  }
+
+  // Non-epipolar: the usual camera models, unchanged.
+  cam1 = camera_model(m_left_image_file,  m_left_camera_file);
+  cam2 = camera_model(m_right_image_file, m_right_camera_file);
 }
 
-void StereoSessionPinhole::load_camera_models(
+// Load the epipolar-rectified (aligned) camera models and the sizes of the aligned
+// images. These are the cameras used to warp the input images into -L.tif and -R.tif.
+void StereoSessionPinhole::load_aligned_camera_models(
                    boost::shared_ptr<vw::CameraModel> &left_cam,
                    boost::shared_ptr<vw::CameraModel> &right_cam,
                    Vector2i &left_out_size, Vector2i &right_out_size) {
 
   std::string lcase_file = boost::to_lower_copy(m_left_camera_file);
-  if ((stereo_settings().alignment_method != "epipolar") ||
-      (!boost::ends_with(lcase_file, ".pinhole") &&
-        !boost::ends_with(lcase_file, ".tsai"))) {
-    // Non-PinholeModel and non-epipolar case, just use the simpler handling method
-    // and leave the sizes unset, they won't be used.
-    left_cam  = camera_model(m_left_image_file,  m_left_camera_file);
-    right_cam = camera_model(m_right_image_file, m_right_camera_file);
+  bool is_pinhole = boost::ends_with(lcase_file, ".pinhole") ||
+                    boost::ends_with(lcase_file, ".tsai");
+
+  if (!is_pinhole) {
+    // CAHV-type cameras: build the aligned CAHV models used to warp the images. The
+    // output sizes are not used for the CAHV warp.
+    boost::shared_ptr<CAHVModel> left_cahv
+      = vw::load_cahv_pinhole_camera_model(m_left_image_file,  m_left_camera_file);
+    boost::shared_ptr<CAHVModel> right_cahv
+      = vw::load_cahv_pinhole_camera_model(m_right_image_file, m_right_camera_file);
+    boost::shared_ptr<CAHVModel> epi_left (new CAHVModel);
+    boost::shared_ptr<CAHVModel> epi_right(new CAHVModel);
+    epipolar(*left_cahv, *right_cahv, *epi_left, *epi_right);
+    left_cam = epi_left;
+    right_cam = epi_right;
+    left_out_size = right_out_size = Vector2i();
     return;
   }
 
-  // The case of epipolar alignment is more complicated. The camera models
-  // returned do not include a crop offset, but the aligned camera
-  // models have been shifted so that they are aligned after the crop
-  // has been applied.
-
+  // Pinhole epipolar. The aligned camera models are shifted so that they line up after
+  // any crop has been applied.
   PinholeModel left_pin (m_left_camera_file);
   PinholeModel right_pin(m_right_camera_file);
 
@@ -279,92 +236,51 @@ void StereoSessionPinhole::load_camera_models(
   right_cam = epipolar_right_pin;
 }
 
-// Return the left transform used in alignment
+// Return the left transform used in alignment. For epipolar alignment this maps an
+// aligned-image pixel back to the unaligned input image, so triangulation can use the
+// unaligned cameras, like the other alignment methods. Otherwise it is the usual
+// homography transform.
 vw::TransformPtr StereoSessionPinhole::tx_left() const {
-  
-  // TODO(oalexan1): Find a relevant test case then wipe the commented-out logic
-  // below.
-  
-  // A very annoying feature of epipolar alignment is that the cameras
-  // returned in this mode already have alignment applied to them.
-  // See StereoSessionPinhole::load_camera_models() above.
-  
-  // Then, the alignment need not happen in here, so we always return
-  // tx_left_homography(), even though for epipolar alignment that
-  // becomes the identity matrix instead of the expected alignment
-  // transform.
-
-  // It has to be that way since the cameras are aligned. Otherwise,
-  // since triangulation is done with aligned cameras, if tx_left()
-  // would return unaligned pixels, the results end up wrong.
-  
-  // That was likely a clever optimization, but it wreaks havoc with
-  // usual conventions.  It also results in having two camera loaders,
-  // namely camera_models() and get_unaligned_camera_models().
-
-  // All this must be wiped and one must go back to the normal way of
-  // doing things consistent with the other modes.  It would require
-  // very careful understanding of the many camera loading functions
-  // in this class, which have repeated logic, and how they deal with
-  // alignment and crop windows. Lots of work.
-
-  // So, for now leave things so that this class is consistent with
-  // itself for epipolar alignment, and the produced triangulated 
-  // point cloud is correct, even though that is not consistent
-  // with the usual way of doing things.
-  
-  //if (stereo_settings().alignment_method != "epipolar")
-  return StereoSession::tx_left_homography(); // see above
-
-  // Comment out the logic below, per the text above.
-  // TODO(oalexan1): Figure out if things can work without casting
-  // away the const.
-  //vw::TransformPtr trans_left, trans_right;
-  //((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
-  //return trans_left;
+  if (stereo_settings().alignment_method == "epipolar") {
+    vw::TransformPtr trans_left, trans_right;
+    ((StereoSessionPinhole*)this)->epipolar_cam_trans(trans_left, trans_right);
+    return trans_left;
+  }
+  return StereoSession::tx_left_homography();
 }
 
-// Return the right transform used in alignment
+// Return the right transform used in alignment. See tx_left() above.
 vw::TransformPtr StereoSessionPinhole::tx_right() const {
-
-  //if (stereo_settings().alignment_method != "epipolar")
-  return StereoSession::tx_right_homography(); // see above
-
-  // See the lengthy rant in tx_left() above.
-  // TODO(oalexan1): Figure out if things can work without casting
-  // away the const.
-  //vw::TransformPtr trans_left, trans_right;
-  //((StereoSessionPinhole*)this)->pinhole_cam_trans(trans_left, trans_right);
-  //return trans_right;
+  if (stereo_settings().alignment_method == "epipolar") {
+    vw::TransformPtr trans_left, trans_right;
+    ((StereoSessionPinhole*)this)->epipolar_cam_trans(trans_left, trans_right);
+    return trans_right;
+  }
+  return StereoSession::tx_right_homography();
 }
 
-void StereoSessionPinhole::pinhole_cam_trans(vw::TransformPtr & left_trans,
-                                             vw::TransformPtr & right_trans) {
+void StereoSessionPinhole::epipolar_cam_trans(vw::TransformPtr & left_trans,
+                                              vw::TransformPtr & right_trans) {
 
-  // Load the epipolar aligned camera models
+  // The epipolar-rectified (aligned) camera models, the same ones used to warp the
+  // input images into the aligned -L.tif and -R.tif.
   boost::shared_ptr<vw::CameraModel> left_aligned_model, right_aligned_model;
+  vw::Vector2i left_size, right_size;
+  this->load_aligned_camera_models(left_aligned_model, right_aligned_model,
+                                   left_size, right_size);
 
-  // TODO(oalexan1): Models must be loaded by now, presumably. Then
-  // pinhole_cam_trans can be const, and we don't to cast away the const in tx_left()
-  // and tx_right() above.
-  this->camera_models(left_aligned_model, right_aligned_model);
-  
+  // The unaligned input camera models. No bundle adjustment is applied, matching the
+  // epipolar image warp and the cameras returned by camera_models() for triangulation.
   boost::shared_ptr<vw::CameraModel> left_input_model, right_input_model;
-  std::string ba_prefix = asp::stereo_settings().bundle_adjust_prefix;
-  this->get_unaligned_camera_models(left_input_model, right_input_model, ba_prefix);
+  this->get_unaligned_camera_models(left_input_model, right_input_model, "");
 
-  // Check the type, CAHV* type models are not supported!
-  typedef vw::PinholeModel PinModel;
-  PinModel* left_in_ptr = dynamic_cast<PinModel*>(&(*left_input_model));
-  if (!left_in_ptr)
-    vw_throw(NoImplErr() << "Detected CAHV-type cameras. Use an alignment "
-             << "method different than 'epipolar'.\n");
-
-  // Set up transform objects
-  left_trans.reset (new PinholeCamTrans(*dynamic_cast<PinModel*>(&(*left_input_model)),
-                                        *dynamic_cast<PinModel*>(&(*left_aligned_model))));
-  right_trans.reset(new PinholeCamTrans(*dynamic_cast<PinModel*>(&(*right_input_model)),
-                                        *dynamic_cast<PinModel*>(&(*right_aligned_model))));
+  // Build a transform whose reverse() maps an aligned-image pixel back to the
+  // unaligned input-image pixel (source = input camera, destination = aligned camera).
+  // vw::epipolar preserves each camera center, so this exactly reproduces the ray the
+  // aligned camera would cast, letting triangulation use the unaligned cameras. The
+  // smart-pointer form works for any camera type, including cropped (adjusted) models.
+  left_trans.reset (new vw::SmartPtrCameraTransform(left_input_model,  left_aligned_model));
+  right_trans.reset(new vw::SmartPtrCameraTransform(right_input_model, right_aligned_model));
 }
 
 } // end namespace asp
