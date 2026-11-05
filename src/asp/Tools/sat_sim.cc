@@ -23,6 +23,7 @@
 #include <asp/Core/AspLog.h>
 #include <asp/Camera/SyntheticLinescan.h>
 #include <asp/Camera/SatSim.h>
+#include <asp/Camera/SatSimSensor.h>
 #include <asp/Rig/RigConfig.h>
 
 #include <vw/Cartography/GeoReferenceBaseUtils.h>

@@ -22,10 +22,8 @@
 
 #include <vw/Cartography/GeoReference.h>
 #include <vw/Image/ImageViewRef.h>
-#include <vw/FileIO/DiskImageView.h>
 #include <vw/Image/PixelMask.h>
 #include <vw/FileIO/GdalWriteOptions.h>
-#include <vw/Camera/CameraModel.h>
 #include <vw/Core/Exception.h>
 
 #include <Eigen/Dense>
@@ -101,8 +99,5 @@ A mapVal(std::map<B, A> const& m, B const& key) {
 }
 
 } // end namespace asp
-
-#include <asp/Camera/SatSimTrajectory.h>
-#include <asp/Camera/SatSimSensor.h>
 
 #endif // __ASP_CAMERA_SATSIM_H__
