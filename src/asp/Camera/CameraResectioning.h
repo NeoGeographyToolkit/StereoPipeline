@@ -23,16 +23,33 @@
 #define __ASP_CAMERA_CAMERA_RESECTIONING_H__
 
 #include <vw/Camera/PinholeModel.h>
+#include <vw/Camera/CameraModel.h>
+#include <vw/Cartography/Datum.h>
+
 #include <vector>
+#include <string>
 
 namespace asp {
 
 /// Use OpenCV to find a Pinhole camera's position and orientation
 /// based on image pixels and corresponding ground positions
-
 void findCameraPose(std::vector<vw::Vector3> const& ground_points, 
                     std::vector<vw::Vector2> const& pixel_observations,
                     vw::PinholeModel & cam);
-}
+
+/// Find the best camera that fits the given ground points and pixel observations,
+/// with optional known or estimated camera center, and refine it.
+void fit_camera_to_xyz_ht(vw::Vector3 const& known_cam_ctr,
+                          vw::Vector3 const& estim_cam_ctr,
+                          std::string const& camera_type,
+                          bool refine_camera,
+                          std::vector<vw::Vector3> const& xyz_vec,
+                          std::vector<double> const& pixel_values,
+                          double cam_height, double cam_weight, double cam_ctr_weight,
+                          vw::Datum const& datum,
+                          bool verbose,
+                          boost::shared_ptr<vw::CameraModel> & out_cam);
+
+} // end namespace asp
 
 #endif // __ASP_CAMERA_CAMERA_RESECTIONING_H__

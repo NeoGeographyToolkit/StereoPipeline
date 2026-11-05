@@ -19,6 +19,11 @@
 
 #include <asp/Camera/CameraResectioning.h>
 #include <vw/Math/BBox.h>
+#include <vw/Math/Geometry.h>
+#include <vw/Math/Statistics.h>
+#include <vw/Camera/OpticalBarModel.h>
+#include <vw/Cartography/CameraDatumFit.h>
+#include <vw/Core/Log.h>
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <Eigen/Dense>
@@ -128,5 +133,112 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
 
   return;
 }
-  
+
+/// Find the best camera that fits the given ground points and pixel observations,
+/// with optional known or estimated camera center, and refine it.
+void fit_camera_to_xyz_ht(vw::Vector3 const& known_cam_ctr,
+                          vw::Vector3 const& estim_cam_ctr,
+                          std::string const& camera_type,
+                          bool refine_camera,
+                          std::vector<vw::Vector3> const& xyz_vec,
+                          std::vector<double> const& pixel_values,
+                          double cam_height, double cam_weight, double cam_ctr_weight,
+                          vw::Datum const& datum,
+                          bool verbose,
+                          boost::shared_ptr<vw::CameraModel> & out_cam) {
+
+  // Create fake points in space at given distance from this camera's
+  // center and corresponding actual points on the ground. Use 500
+  // km, just some height not too far from actual satellite height.
+  double ht = 500000.0;
+  int num_pts = pixel_values.size()/2;
+  vw::Matrix<double> in, out;
+  std::vector<vw::Vector2> pixel_vec;
+  in.set_size(3, num_pts);
+  out.set_size(3, num_pts);
+  for (int col = 0; col < in.cols(); col++) {
+    if (estim_cam_ctr != Vector3(0, 0, 0)) {
+      // We know the camera center. Use that.
+      // TODO(oalexan1): Problem with RPC!
+      ht = norm_2(xyz_vec[col] - estim_cam_ctr);
+    }
+    Vector2 pix = Vector2(pixel_values[2*col], pixel_values[2*col+1]);
+    Vector3 a = out_cam->camera_center(Vector2(0, 0)) + ht * out_cam->pixel_to_vector(pix);
+    pixel_vec.push_back(pix);
+    for (int row = 0; row < in.rows(); row++) {
+      in(row, col)  = a[row];
+      out(row, col) = xyz_vec[col][row];
+    }
+  }
+
+  // Apply a transform to the camera so that the fake points are on top of the real points
+  Matrix<double, 3, 3> rotation;
+  Vector3 translation;
+  double scale;
+  find_3D_transform(in, out, rotation, translation, scale);
+  if (camera_type == "opticalbar") {
+    ((vw::OpticalBarModel*)out_cam.get())->apply_transform(rotation,
+                                   translation, scale);
+    if (known_cam_ctr != Vector3(0, 0, 0))
+    ((vw::OpticalBarModel*)out_cam.get())->set_camera_center(known_cam_ctr);
+  } else if (camera_type == "pinhole") {
+
+    // The logic based on fake points can give junk results. Use instead the
+    // state-of-the-art OpenCV solver. TODO(oalexan1): Need to consider using
+    // this solution also for OpticalBar.
+    try {
+      asp::findCameraPose(xyz_vec, pixel_vec, *(PinholeModel*)out_cam.get());
+    } catch(std::exception const& e) {
+      vw_out() << "Failed to find the camera pose using OpenCV. Falling back "
+                << "to ASP's internal approach. This is not as robust. "
+                << "Check your inputs and validate the produced camera.\n";
+      // Fall back to previous logic
+      ((PinholeModel*)out_cam.get())->apply_transform(rotation, translation, scale);
+    }
+
+    // Overwrite the solved camera center with what is surely known
+    if (known_cam_ctr != Vector3(0, 0, 0))
+      ((PinholeModel*)out_cam.get())->set_camera_center(known_cam_ctr);
+  }
+
+  // Print out some errors
+  if (verbose) {
+    std::vector<double> errors;
+    for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
+      vw::Vector2 pix1 = out_cam.get()->point_to_pixel(xyz_vec[corner_it]);
+      vw::Vector2 pix2 = Vector2(pixel_values[2*corner_it], pixel_values[2*corner_it+1]);
+      errors.push_back(norm_2(pix1 - pix2));
+    }
+    vw::vw_out() << "Median pixel projection error in the coarse camera: "
+                 << vw::median_in_place(errors) << "\n";
+  }
+
+  Vector3 xyz0 = out_cam.get()->camera_center(vw::Vector2());
+
+  // Solve a little optimization problem to make the points on the ground project
+  // as much as possible exactly into the image corners.
+  if (refine_camera) {
+    if (camera_type == "opticalbar")
+      fitOpticalBar(xyz_vec, cam_height, cam_weight, cam_ctr_weight, datum, pixel_values,
+                             *((vw::OpticalBarModel*)out_cam.get()));
+    else if (camera_type == "pinhole")
+      fitPinhole(xyz_vec, cam_height, cam_weight, cam_ctr_weight, datum, pixel_values,
+                          *((PinholeModel*)out_cam.get()));
+    else
+      vw_throw(ArgumentErr() << "Unknown camera type: " << camera_type << ".\n");
+
+    if (verbose) {
+      std::vector<double> errors;
+      for (size_t corner_it = 0; corner_it < num_pts; corner_it++) {
+        vw::Vector2 pix1 = out_cam.get()->point_to_pixel(xyz_vec[corner_it]);
+        vw::Vector2 pix2 = Vector2(pixel_values[2*corner_it], pixel_values[2*corner_it+1]);
+        errors.push_back(norm_2(pix1 - pix2));
+      }
+      vw::vw_out() << "Median pixel projection error in the refined camera: "
+                   << vw::median_in_place(errors) << "\n";
+    }
+
+  } // End camera refinement case
+}
+
 } // end namespace asp
