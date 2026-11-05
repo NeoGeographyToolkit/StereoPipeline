@@ -19,13 +19,25 @@
 ///
 
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BundleAdjustParamMapping.h>
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/Covariance.h>
+#include <asp/Camera/LinescanUtils.h>
+#include <asp/Camera/RPC_XML.h>
+#include <asp/Camera/RPCModel.h>
+#include <asp/Camera/RPCModelGen.h>
+#include <asp/Camera/CameraErrorPropagation.h>
 #include <asp/Core/IpMatchingAlgs.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/BaseCameraUtils.h>
 #include <asp/Core/ImageUtils.h>
+#include <asp/Core/FileUtils.h>
+#include <asp/asp_config.h>
+
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
+#include <asp/IsisIO/IsisInterface.h>
+#endif
 
 #include <vw/Image/ImageChannels.h>
 #include <vw/Math/Statistics.h>
@@ -44,6 +56,12 @@
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraUtilities.h>
 #include <vw/Camera/LensDistortion.h>
+#include <vw/Camera/CameraImage.h>
+#include <vw/Core/Stopwatch.h>
+#include <vw/Core/StringUtils.h>
+
+#include <usgscsm/UsgsAstroLsSensorModel.h>
+#include <boost/algorithm/string.hpp>
 
 #include <cmath>
 #include <string>
@@ -60,276 +78,7 @@ namespace asp {
 ///   bundle adjustment files, and the position of pinhole cameras.
 
 // Constructors
-CameraAdjustment::CameraAdjustment() {}
-CameraAdjustment::CameraAdjustment(double const* array) {
-  this->read_from_array(array);
-}
 
-// Data access
-vw::Vector3 CameraAdjustment::position() const { return m_position_data; }
-vw::Quat    CameraAdjustment::pose    () const { return m_pose_data;     }
-
-/// Populate from a six element array.
-void CameraAdjustment::read_from_array(double const* array) {
-  m_position_data = vw::Vector3(array[0], array[1], array[2]);
-  m_pose_data     = vw::axis_angle_to_quaternion(vw::Vector3(array[3], array[4], array[5]));
-}
-
-/// Populate from an AdjustedCameraModel
-void CameraAdjustment::copy_from_adjusted_camera
-  (vw::AdjustedCameraModel const& cam) {
-  m_position_data = cam.translation();
-  m_pose_data     = cam.rotation();
-}
-
-/// Populate from a PinholeModel
-void CameraAdjustment::copy_from_pinhole(vw::PinholeModel const& cam) {
-  m_position_data = cam.camera_center();
-  m_pose_data     = cam.camera_pose();
-}
-
-/// Populate from OpticalBarModel
-void CameraAdjustment::copy_from_optical_bar(vw::OpticalBarModel const& cam) {
-  m_position_data = cam.camera_center();
-  m_pose_data     = cam.camera_pose();
-}
-
-/// Populate from CSM. Since with CSM we apply adjustments to existing
-/// cameras, these start as 0.
-void CameraAdjustment::copy_from_csm(asp::CsmModel const& cam) {
-  // Zero position and identity rotation
-  m_position_data = vw::Vector3(0, 0, 0);
-  vw::Matrix3x3 I;
-  I.set_identity();
-  m_pose_data = vw::Quat(I);
-}
-
-/// Populate from an adjustment file on disk.
-void CameraAdjustment::read_from_adjust_file(std::string const& filename) {
-
-  // Not used, just for the api
-  vw::Vector2 pixel_offset = vw::Vector2();
-  double scale = 1.0;
-
-  vw::vw_out() << "Reading camera adjustment: " << filename << std::endl;
-  asp::read_adjustments(filename, m_position_data, m_pose_data,
-                        pixel_offset, scale);
-}
-
-/// Pack the data to a six element array.
-void CameraAdjustment::pack_to_array(double* array) const {
-  vw::Vector3 pose_vec = m_pose_data.axis_angle();
-  const int VEC_SIZE = 3;
-  for (size_t i = 0; i < VEC_SIZE; i++) {
-    array[i           ] = m_position_data[i];
-    array[i + VEC_SIZE] = pose_vec[i];
-  }
-}
-
-void pack_pinhole_to_arrays(vw::PinholeModel const& camera,
-                            int camera_index,
-                            asp::BaState & ba_state) {
-
-  double* pos_pose_ptr   = ba_state.get_camera_ptr              (camera_index);
-  double* center_ptr     = ba_state.get_intrinsic_center_ptr    (camera_index);
-  double* focus_ptr      = ba_state.get_intrinsic_focus_ptr     (camera_index);
-  double* distortion_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
-
-  // Handle position and pose
-  CameraAdjustment pos_pose_info;
-  pos_pose_info.copy_from_pinhole(camera);
-  pos_pose_info.pack_to_array(pos_pose_ptr);
-
-  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
-  // Center point and focal length
-  center_ptr[0] = 1.0;
-  center_ptr[1] = 1.0;
-  focus_ptr [0] = 1.0;
-  // Lens distortion
-  vw::Vector<double> lens = camera.lens_distortion()->distortion_parameters();
-  for (size_t i = 0; i < lens.size(); i++)
-    distortion_ptr[i] = 1.0;
-}
-
-void pack_optical_bar_to_arrays(vw::OpticalBarModel const& camera,
-                                int camera_index,
-                                asp::BaState & ba_state) {
-
-  double* pos_pose_ptr   = ba_state.get_camera_ptr              (camera_index);
-  double* center_ptr     = ba_state.get_intrinsic_center_ptr    (camera_index);
-  double* focus_ptr      = ba_state.get_intrinsic_focus_ptr     (camera_index);
-  double* intrinsics_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
-
-  // Handle position and pose
-  CameraAdjustment pos_pose_info;
-  pos_pose_info.copy_from_optical_bar(camera);
-  pos_pose_info.pack_to_array(pos_pose_ptr);
-
-  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
-  // Center point and focal length
-  center_ptr[0] = 1.0;
-  center_ptr[1] = 1.0;
-  focus_ptr [0] = 1.0;
-  // Pack the speed, MCF, and scan time into the distortion pointer.
-  for (size_t i = 0; i < asp::NUM_OPTICAL_BAR_EXTRA_PARAMS; i++)
-    intrinsics_ptr[i] = 1.0;
-}
-
-// This does not copy the camera position and orientation
-void pack_csm_to_arrays(asp::CsmModel const& camera,
-                        int camera_index,
-                        asp::BaState & ba_state) {
-
-  double* pos_pose_ptr   = ba_state.get_camera_ptr              (camera_index);
-  double* center_ptr     = ba_state.get_intrinsic_center_ptr    (camera_index);
-  double* focus_ptr      = ba_state.get_intrinsic_focus_ptr     (camera_index);
-  double* distortion_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
-
-  // Handle position and pose. We start with 0 pose and identity rotation. Nothing
-  // gets copied from camera position and orientation.
-  CameraAdjustment pos_pose_info;
-  pos_pose_info.copy_from_csm(camera);
-  pos_pose_info.pack_to_array(pos_pose_ptr);
-
-  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
-  // Center point and focal length
-  center_ptr[0] = 1.0;
-  center_ptr[1] = 1.0;
-  focus_ptr [0] = 1.0;
-  // Distortion
-  for (size_t i = 0; i < camera.distortion().size(); i++)
-    distortion_ptr[i] = 1.0;
-}
-
-/// Given a transform with origin at the planet center, like output by pc_align,
-/// read the adjustments from param storage, apply this transform on top of
-/// them, and write the adjustments back to the param storage. Cameras
-/// do not change.
-void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaState &ba_state,
-                                std::vector<vw::CamPtr> const& cam_ptrs) {
-
-  for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
-
-    // Load the current position/pose of this camera.
-    double* cam_ptr = ba_state.get_camera_ptr(i);
-    CameraAdjustment cam_adjust(cam_ptr);
-
-    // Create the adjusted camera model
-    vw::AdjustedCameraModel cam(cam_ptrs[i], cam_adjust.position(),
-                                cam_adjust.pose());
-    // Apply the transform
-    cam.apply_transform(M);
-
-    // Copy back the adjustments to the camera array.
-    cam_adjust.copy_from_adjusted_camera(cam);
-    cam_adjust.pack_to_array(cam_ptr);
-  }
-} // end function apply_transform_to_cameras
-
-// This function takes advantage of the fact that when it is called the cam_ptrs
-//  have the same information as is in ba_state!
-void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
-                                        asp::BaState & ba_state,
-                                        std::vector<vw::CamPtr>
-                                        const& cam_ptrs) {
-
-  for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
-    // Apply the transform
-    boost::shared_ptr<vw::PinholeModel> pin_ptr =
-      boost::dynamic_pointer_cast<vw::PinholeModel>(cam_ptrs[i]);
-    pin_ptr->apply_transform(M);
-
-    // Write out to ba_state
-    pack_pinhole_to_arrays(*pin_ptr, i, ba_state);
-  }
-
-} // end function apply_transform_to_cameras_pinhole
-
-// This function takes advantage of the fact that when it is called the cam_ptrs have the same
-// information as is in ba_state.
-void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            asp::BaState & ba_state,
-                                            std::vector<vw::CamPtr>
-                                            const& cam_ptrs) {
-
-  // Convert the transform format
-  vw::Matrix3x3 R = submatrix(M, 0, 0, 3, 3);
-  vw::Vector3   T;
-  for (int r = 0; r < 3; r++)
-    T[r] = M(r, 3);
-
-  double scale = pow(det(R), 1.0/3.0);
-  for (size_t r = 0; r < R.rows(); r++)
-    for (size_t c = 0; c < R.cols(); c++)
-      R(r, c) /= scale;
-
-  for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
-    // Apply the transform
-    boost::shared_ptr<vw::OpticalBarModel> bar_ptr =
-      boost::dynamic_pointer_cast<vw::OpticalBarModel>(cam_ptrs[i]);
-    bar_ptr->apply_transform(R, T, scale);
-
-    // Write out to ba_state
-    pack_optical_bar_to_arrays(*bar_ptr, i, ba_state);
-  }
-
-} // end function apply_transform_to_cameras_optical_bar
-
-// This function takes advantage of the fact that when it is called the cam_ptrs
-//  have the same information as is in ba_state.
-// This applies the transform to the camera inline, but does not copy
-// the camera position and orientation to the arrays.
-void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
-                                    asp::BaState & ba_state,
-                                    std::vector<vw::CamPtr>
-                                    const& cam_ptrs) {
-  for (unsigned i = 0; i < ba_state.num_cameras(); i++) {
-    // Apply the transform
-    boost::shared_ptr<asp::CsmModel> csm_ptr =
-      boost::dynamic_pointer_cast<asp::CsmModel>(cam_ptrs[i]);
-    if (csm_ptr == NULL)
-        vw_throw(ArgumentErr() << "Expecting a CSM camera.\n");
-    csm_ptr->applyTransform(M);
-    // Write out to ba_state. This does not copy camera position 
-    // and orientation. The adjustment stays as 0 pose and identity rotation.
-    // That is why the transform M does not get applied twice.
-    pack_csm_to_arrays(*csm_ptr, i, ba_state);
-  }
-
-} // end function apply_transform_to_cameras_csm
-
-/// Apply a scale-rotate-translate transform to pinhole cameras and control points
-void apply_rigid_transform(vw::Matrix3x3 const & rotation,
-                           vw::Vector3   const & translation,
-                           double                scale,
-                           std::vector<vw::CamPtr> &camera_models,
-                           boost::shared_ptr<vw::ControlNetwork> const& cnet) {
-
-  // Apply the transform to the cameras
-  for (size_t icam = 0; icam < camera_models.size(); icam++) {
-    vw::PinholeModel * pincam
-      = dynamic_cast<vw::PinholeModel*>(camera_models[icam].get());
-    VW_ASSERT(pincam != NULL, vw::ArgumentErr() << "A pinhole camera expected.\n");
-
-    pincam->apply_transform(rotation, translation, scale);
-  } // End loop through cameras
-
-  // Apply the transform to all of the world points in the ControlNetwork
-  ControlNetwork::iterator iter;
-  for (iter = cnet->begin(); iter != cnet->end(); iter++) {
-    if (iter->type() == ControlPoint::GroundControlPoint)
-      continue; // Don't convert the ground control points!
-
-    Vector3 position     = iter->position();
-    Vector3 new_position = scale*rotation*position + translation;
-    iter->set_position(new_position);
-  }
-} // End function ApplyRigidTransform
-
-/// Warn if the GCP are far from the tie points, to catch the common lat/lon
-/// swap in a GCP file. Compare the bounding box of the GCP with the bounding
-/// box of the tie points. Warn if these are more than 100 km apart. The cnet
-/// must already be triangulated, which is the case at the call site.
 void check_gcp_dists(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr) {
 
   const ControlNetwork & cnet = *cnet_ptr.get(); // Helper alias
@@ -1469,5 +1218,850 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
 
   return;
 } // End function propagatedErrorStats
+
+void distortion_sanity_check(std::vector<int> const& num_dist_params,
+                             IntrinsicOptions const& intrinsics_opts,
+                             std::vector<double> const& intrinsics_limits) {
+
+  // If nothing is shared, there is nothing to do
+
+  // If all distortion params are shared, all sizes must agree
+  if (!intrinsics_opts.share_intrinsics_per_sensor &&
+      intrinsics_opts.distortion_shared) {
+    for (size_t it = 1; it < num_dist_params.size(); it++) {
+      if (num_dist_params[it] != num_dist_params[0])
+           vw_throw(ArgumentErr() << "When sharing distortion parameters, "
+             << "they must have the same size.\n");
+    }
+  }
+
+  // If distortion is shared per sensor
+  if (intrinsics_opts.share_intrinsics_per_sensor) {
+    std::vector<std::set<int>> dist_sizes(intrinsics_opts.num_sensors);
+    for (size_t cam_it = 0; cam_it < num_dist_params.size(); cam_it++) {
+      int sensor_it = intrinsics_opts.cam2sensor[cam_it];
+      dist_sizes[sensor_it].insert(num_dist_params[cam_it]); // all found sizes
+    }
+    // Now check that each dist_sizes[sensor_it] has size 1
+    for (size_t sensor_it = 0; sensor_it < intrinsics_opts.num_sensors; sensor_it++) {
+      if (dist_sizes[sensor_it].size() != 1)
+        vw_throw(ArgumentErr() << "When sharing distortion parameters per sensor, "
+         << "they must have the same size for all cameras of the same sensor.\n");
+    }
+  }
+
+  // Intrinsics limits only can be used for now when all distortion vectors have
+  // the same size. This could be fixed but it is a rarely used option
+  // and would require a lot of bookkeeping.
+  if (!intrinsics_limits.empty()) {
+    bool have_same_size = true;
+    for (size_t it = 1; it < num_dist_params.size(); it++) {
+      if (num_dist_params[it] != num_dist_params[0]) {
+        have_same_size = false;
+        break;
+      }
+    }
+    if (!have_same_size)
+      vw_throw(ArgumentErr() << "When using --intrinsics-limits, all cameras "
+               << "must have the same number of distortion coefficients.\n");
+  }
+
+  return;
+}
+
+// A little function to replace separators with space. Note that the backslash
+// is a separator, in case, it used as a continuation line.
+void replace_separators_with_space(std::string & str) {
+  std::string sep = "\\:;, \t\r\n";
+  for (size_t it = 0; it < sep.size(); it++)
+    std::replace(str.begin(), str.end(), sep[it], ' ');
+}
+
+// Split a string into a vector of strings with space as separator
+std::vector<std::string> split_str_with_space(std::string const& str) {
+  std::istringstream is(str);
+  std::vector<std::string> ret;
+  std::string val;
+  while (is >> val)
+    ret.push_back(val);
+  return ret;
+}
+
+// Function that tells if a string is a non-negative integer
+bool is_str_non_neg_integer(std::string const& str) {
+  if (str.empty()) return false;
+  for (size_t it = 0; it < str.size(); it++) {
+    if (!isdigit(str[it])) return false;
+  }
+  return true;
+}
+
+// Parse format:
+// "1:focal_length,optical_center 2:focal_length,other_intrinsics 3:none"  
+// Applies when optimizing intrinsics per sensor.
+// The numbers are sensor indices, starting with 1.
+void fine_grained_parse(bool share_intrinsics_per_sensor,
+                        int num_sensors,
+                        std::vector<std::string> const& options,
+                        // Outputs
+                        std::vector<bool> & float_center,
+                        std::vector<bool> & float_focus,
+                        std::vector<bool> & float_distortion) {
+
+  // Sanity checks
+  if (!share_intrinsics_per_sensor)
+    vw_throw(ArgumentErr() << "Intrinsics are not being optimized per sensor. Remove any "
+             << "fields of the form 1:, etc., from the options for floating intrinsics.\n");
+
+  if (num_sensors <= 0)
+    vw_throw(ArgumentErr() << "Expecting a positive number of sensors.\n");
+  if (options.empty())
+    vw_throw(ArgumentErr() << "Expecting at least one option.\n");
+
+  // Wipe the outputs
+  float_center.clear();
+  float_focus.clear();
+  float_distortion.clear();
+
+  // It is convenient to initialize all to false. 0th element must always exist.
+  for (int i = 0; i < std::max(num_sensors, 1); i++) {
+    float_center.push_back(false);
+    float_focus.push_back(false);
+    float_distortion.push_back(false);
+  }
+
+  // First entity must be an integer. That is sensor id, starting from 1.
+  if (!is_str_non_neg_integer(options[0]))
+    vw_throw(ArgumentErr() << "Expecting an integer as the first option.\n");
+
+  int sensor_id = atoi(options[0].c_str()) - 1; // subtract 1 to make it zero-based
+
+  // check for duplicate ids
+  std::set<int> seen_ids;
+  // Iterate over options
+  for (size_t it = 0; it < options.size(); it++) {
+
+    // If it is an integer, update the sensor id, and continue.
+    // Subtract 1 to make it zero-based.
+    if (is_str_non_neg_integer(options[it])) {
+      sensor_id = atoi(options[it].c_str()) - 1;
+
+      // Sensor id must be in bounds
+      if (sensor_id < 0 || sensor_id >= num_sensors)
+        vw_throw(ArgumentErr() << "Sensor id " << options[it] << " is out of bounds.\n");
+
+      // If seen, that's a problem
+      if (seen_ids.find(sensor_id) != seen_ids.end())
+        vw_throw(ArgumentErr() << "Sensor id " << options[it] << " is repeated.\n");
+      // Record as seen
+      seen_ids.insert(sensor_id);
+
+      continue;
+    }
+
+    // Handle the optical center
+    if (options[it] == "optical_center") {
+      float_center[sensor_id] = true;
+      continue;
+    }
+
+    // Handle the focal length
+    if (options[it] == "focal_length") {
+      float_focus[sensor_id] = true;
+      continue;
+    }
+
+    // Handle the distortion (other_intrinsics)
+    if (options[it] == "other_intrinsics" || options[it] == "distortion") {
+      float_distortion[sensor_id] = true;
+      continue;
+    }
+
+    // For all, populate all fields
+    if (options[it] == "all") {
+      float_center[sensor_id]     = true;
+      float_focus[sensor_id]      = true;
+      float_distortion[sensor_id] = true;
+      continue;
+    }
+
+    // For none, just skip
+    if (options[it] == "none") {
+      continue;
+    }
+
+    vw_throw(ArgumentErr() << "Found unknown option when parsing which "
+              << "sensor intrinsics to float: " << options[it] << ".\n");
+  }
+}
+
+// Parse format:
+// "focal_length optical_center other_intrinsics"
+// Applies to all sensors and when not optimizing intrinsics per sensor.
+void coarse_grained_parse(int num_sensors,
+                          std::vector<std::string> const& options,
+                          // Outputs
+                          std::vector<bool> & float_center,
+                          std::vector<bool> & float_focus,
+                          std::vector<bool> & float_distortion) {
+
+  // Wipe the outputs
+  float_center.clear();
+  float_focus.clear();
+  float_distortion.clear();
+
+  if (num_sensors < 0)
+    vw_throw(ArgumentErr() << "Cameras were not parsed correctly.\n");
+
+   // It is convenient to initialize all to false. 0th element must always exist.
+  for (int i = 0; i < std::max(num_sensors, 1); i++) {
+    float_center.push_back(false);
+    float_focus.push_back(false);
+    float_distortion.push_back(false);
+  }
+
+  // For now, populate only for sensor with id 0
+  int sensor_id = 0;
+
+  // Iterate over options
+  for (size_t it = 0; it < options.size(); it++) {
+
+     // Must not have an integer here
+     if (is_str_non_neg_integer(options[0]))
+        vw_throw(ArgumentErr() << "When parsing intrinsics to float, expecting a "
+                 << "string, not an integer. Check your inputs.\n");
+
+    // Handle the optical center
+    if (options[it] == "optical_center") {
+      float_center[sensor_id] = true;
+      continue;
+    }
+
+    // Handle the focal length
+    if (options[it] == "focal_length") {
+      float_focus[sensor_id] = true;
+      continue;
+    }
+
+    // Handle the distortion (other_intrinsics)
+    if (options[it] == "other_intrinsics" || options[it] == "distortion") {
+      float_distortion[sensor_id] = true;
+      continue;
+    }
+
+    // For all, populate all fields
+    if (options[it] == "all") {
+      float_center[sensor_id]     = true;
+      float_focus[sensor_id]      = true;
+      float_distortion[sensor_id] = true;
+      continue;
+    }
+
+    // For none, just skip
+    if (options[it] == "none") {
+      continue;
+    }
+
+    // We should not arrive here
+    vw_throw(ArgumentErr() << "Found unknown option when parsing which "
+              << "sensor intrinsics to float: " << options[it] << ".\n");
+  }
+
+  // Distribute for all sensors.
+  // This will happen only if we share intrinsics per sensor.
+  for (int sensor_id = 0; sensor_id < num_sensors; sensor_id++) {
+     float_center[sensor_id]     = float_center[0];
+     float_focus[sensor_id]      = float_focus[0];
+     float_distortion[sensor_id] = float_distortion[0];
+  }
+
+  return;
+}
+
+void print_float(bool do_float) {
+  if (do_float)
+    vw_out() << "floated\n";
+  else
+    vw_out() << "fixed\n";
+}
+
+void print_float_vec(std::vector<bool> const& intrinsics, std::string const& name) {
+  vw_out() << name << ": ";
+  for (size_t it = 0; it < intrinsics.size(); it++) {
+    if (intrinsics[it])
+      vw_out() << "floated ";
+    else
+      vw_out() << "fixed ";
+  }
+  vw_out() << "\n";
+}
+
+void print_shared(bool shared) {
+  if (shared)
+    vw_out() << "shared\n";
+  else
+    vw_out() << "not shared\n";
+}
+
+/// For each option, the string must include a subset of the entries:
+///  "focal_length, optical_center, distortion_params"
+/// - Need the extra boolean to handle the case where --intrinsics-to-share
+///   is provided as "" in order to share none of them.
+void load_intrinsics_options(bool        solve_intrinsics,
+                             bool        shared_is_specified,
+                             std::string intrinsics_to_float_str, // make a copy
+                             std::string intrinsics_to_share_str, // make a copy
+                             asp::IntrinsicOptions & intrinsics_options) {
+
+  // Share everything unless told otherwise or not solving for intrinsics
+  intrinsics_options.focus_shared        = solve_intrinsics;
+  intrinsics_options.center_shared       = solve_intrinsics;
+  intrinsics_options.distortion_shared   = solve_intrinsics;
+
+  // We need these to be initialized even when not solving for intrinsics, as
+  // the intrinsics are always added to the cost function when
+  // --inline-adjustments is used. In that case they are just expected to be
+  // kept fixed.
+  intrinsics_options.float_center.resize(1, false);
+  intrinsics_options.float_focus.resize(1, false);
+  intrinsics_options.float_distortion.resize(1, false);
+
+  if (((intrinsics_to_float_str != "" && intrinsics_to_float_str != "none") ||
+      (intrinsics_to_share_str != "" && intrinsics_to_share_str != "none"))
+      && !solve_intrinsics) {
+    vw::vw_throw(vw::ArgumentErr() << "To be able set intrinsics to float or share, "
+             << "the option --solve-intrinsics must be on.\n");
+  }
+
+  if (!solve_intrinsics)
+    return;
+
+  // If the user did not specify which intrinsics to float, float all of them.
+  boost::to_lower(intrinsics_to_float_str);
+  if (intrinsics_to_float_str == "" || intrinsics_to_float_str == "all")
+    intrinsics_to_float_str = "focal_length optical_center other_intrinsics";
+  // This is the right place in which to turn 'none' to empty string,
+  // which now will mean float nothing.
+  if (intrinsics_to_float_str == "none")
+    intrinsics_to_float_str = "";
+
+  // If the user did not specify which intrinsics to share, share all of them.
+  boost::to_lower(intrinsics_to_share_str);
+  if (!shared_is_specified) {
+    intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
+  } else {
+    // Otherwise, 'all' also means share all of them, 'none' means share none
+    if (intrinsics_to_share_str == "all")
+      intrinsics_to_share_str = "focal_length optical_center other_intrinsics";
+    if (intrinsics_to_share_str == "none")
+      intrinsics_to_share_str = "";
+  }
+
+  if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified)
+    vw_out() << "When sharing intrinsics per sensor, option "
+              << "--intrinsics-to-share is ignored. The intrinsics will "
+              << "always be shared for a sensor and never across sensors.\n";
+
+  // If sharing intrinsics per sensor, the only supported mode is that 
+  // the intrinsics are always shared per sensor and never across sensors.
+  if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
+    intrinsics_options.focus_shared      = false;
+    intrinsics_options.center_shared     = false;
+    intrinsics_options.distortion_shared = false;
+  }
+
+  // Replace any separators (:;, \t\r\n) with spaces. It can be convenient to
+  // use commas and colons as separators when passing in the options from the command line.
+  asp::replace_separators_with_space(intrinsics_to_float_str);
+  asp::replace_separators_with_space(intrinsics_to_share_str);
+
+  // Parse float options. Supported formats:
+  // "1:focal_length,optical_center 2:focal_length,other_intrinsics 3:none"  
+  // "focal_length optical_center other_intrinsics"
+  // In the first case, the numbers are sensor indices, starting with 1.
+  std::vector<std::string> float_options = asp::split_str_with_space(intrinsics_to_float_str);
+  if (!float_options.empty() && asp::is_str_non_neg_integer(float_options[0])) {
+    asp::fine_grained_parse(intrinsics_options.share_intrinsics_per_sensor,
+                            intrinsics_options.num_sensors,
+                            float_options,
+                            intrinsics_options.float_center,
+                            intrinsics_options.float_focus,
+                            intrinsics_options.float_distortion);
+  } else {
+    asp::coarse_grained_parse(intrinsics_options.num_sensors,
+                              float_options,
+                              intrinsics_options.float_center,
+                              intrinsics_options.float_focus,
+                              intrinsics_options.float_distortion);
+  }
+
+  // Useful reporting
+  std::string center_name = "Optical center";
+  std::string focus_name  = "Focal length";
+  std::string dist_name   = "Other intrinsics (distortion)";
+  if (intrinsics_options.share_intrinsics_per_sensor) {
+    vw_out() << "Intrinsics are shared for all cameras with given sensor.\n";
+    vw_out() << "Number of sensors: " << intrinsics_options.num_sensors << "\n";
+    vw_out() << "For each sensor:\n";
+    print_float_vec(intrinsics_options.float_center, center_name);
+    print_float_vec(intrinsics_options.float_focus, focus_name);
+    print_float_vec(intrinsics_options.float_distortion, dist_name);
+  } else {
+    vw_out() << center_name << ": "; print_float(intrinsics_options.float_center[0]);
+    vw_out() << focus_name  << ": "; print_float(intrinsics_options.float_focus[0]);
+    vw_out() << dist_name   << ": "; print_float(intrinsics_options.float_distortion[0]);
+  }
+
+  // No parsing is done when sharing intrinsics per sensor, per above 
+  std::string val;
+  if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
+    std::istringstream is(intrinsics_to_share_str);
+    while (is >> val) {
+      if (val == "focal_length")
+        intrinsics_options.focus_shared = true;
+      else if (val == "optical_center")
+        intrinsics_options.center_shared = true;
+      else if (val == "other_intrinsics" || val == "distortion")
+        intrinsics_options.distortion_shared = true;
+      else
+        vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to share: "
+          << val << ".\n");
+    }
+  }
+
+  // Useful info
+  std::string sensor_mode = " (across sensors): ";
+  if (intrinsics_options.share_intrinsics_per_sensor)
+    sensor_mode = " (per sensor): "; // useful clarification
+  vw_out() << center_name << sensor_mode; print_shared(intrinsics_options.center_shared);
+  vw_out() << focus_name << sensor_mode;  print_shared(intrinsics_options.focus_shared);
+  vw_out() << dist_name << sensor_mode;   print_shared(intrinsics_options.distortion_shared);
+
+} // End function load_intrinsics_options
+
+/// Parse the string of limits and make sure they are all valid pairs.
+void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
+                             std::vector<double> & intrinsics_limits) {
+
+  intrinsics_limits.clear();
+  std::istringstream is(intrinsics_limits_str);
+  double val;
+  int    count = 0;
+  while (is >> val) {
+    intrinsics_limits.push_back(val);
+    if (count % 2 == 1) {
+      if (intrinsics_limits[count] < intrinsics_limits[count-1])
+        vw_throw(vw::ArgumentErr()
+                  << "Error: Intrinsic limit pairs must be min before max.\n");
+    }
+    count++;
+  }
+
+  if (count % 2 != 0)
+    vw::vw_throw(vw::ArgumentErr()
+              << "Error: Intrinsic limits must always be provided in min max pairs.\n");
+}
+
+/// Attempt to automatically create the overlap list file estimated
+///  footprints for each of the input images.
+/// - Currently this only supports cameras with Worldview style XML files.
+void auto_build_overlap_list(asp::BaBaseOptions &opt, double lonlat_buffer) {
+
+  typedef std::pair<std::string, std::string> StringPair;
+
+  const size_t num_images = opt.camera_files.size();
+  opt.overlap_list.clear();
+
+  vw_out() << "Attempting to automatically estimate image overlaps...\n";
+  int  num_overlaps = 0;
+  bool read_success = false;
+
+  // Loop through all image pairs
+  for (size_t i = 0; i < num_images - 1; i++) {
+
+    // Try to get the lonlat bounds for this image
+    std::vector<vw::Vector2> pixel_corners_i, lonlat_corners_i;
+    try {
+      read_success = asp::read_WV_XML_corners(opt.camera_files[i], pixel_corners_i,
+                                              lonlat_corners_i);
+    } catch(...) {
+      read_success = false;
+    }
+    if (!read_success) {
+      vw_throw(ArgumentErr() << "Unable to get corner estimate from file: "
+                              << opt.camera_files[i] << ".\n");
+    }
+
+    vw::BBox2 bbox_i; // Convert to BBox
+    for (size_t p = 0; p < lonlat_corners_i.size(); p++)
+      bbox_i.grow(lonlat_corners_i[p]);
+    bbox_i.expand(lonlat_buffer); // Only expand this bounding box by the buffer.
+
+    for (size_t j = i+1; j < num_images; j++) {
+
+      std::vector<vw::Vector2> pixel_corners_j, lonlat_corners_j;
+      try {
+        read_success = asp::read_WV_XML_corners(opt.camera_files[j], pixel_corners_j,
+                                                lonlat_corners_j);
+      } catch(...) {
+        read_success = false;
+      }
+      if (!read_success) {
+        vw_throw(ArgumentErr() << "Unable to get corner estimate from file: "
+                                << opt.camera_files[j] << ".\n");
+      }
+
+      vw::BBox2 bbox_j; // Convert to BBox
+      for (size_t p = 0;  p < lonlat_corners_j.size(); p++)
+        bbox_j.grow(lonlat_corners_j[p]);
+
+      // Record the files if the bboxes overlap
+      // - TODO: Use polygon intersection instead of bounding boxes!
+      if (bbox_i.intersects(bbox_j)) {
+        vw_out() << "Predicted overlap between images " << opt.image_files[i]
+                 << " and " << opt.image_files[j] << "\n";
+        opt.overlap_list.insert(StringPair(opt.image_files[i], opt.image_files[j]));
+        opt.overlap_list.insert(StringPair(opt.image_files[j], opt.image_files[i]));
+        ++num_overlaps;
+      }
+    } // End inner loop through cameras
+  } // End outer loop through cameras
+
+  if (num_overlaps == 0)
+    vw_throw(ArgumentErr() << "Failed to automatically detect any overlapping images!");
+
+  vw_out() << "Will try to match at " << num_overlaps << " detected overlaps\n.";
+} // End function auto_build_overlap_list
+
+// Parse data needed for error propagation. Note that horizontal_stddevs
+// comes from the user, or is otherwise populated from cameras.
+void setup_error_propagation(std::string const& session_name,
+                             double horizontal_stddev,
+                             std::vector<vw::CamPtr> const& cameras,
+                             vw::Vector<double> & horizontal_stddev_vec) {
+
+  // Initialize the output
+  horizontal_stddev_vec.set_size(cameras.size());
+  horizontal_stddev_vec.set_all(horizontal_stddev);
+
+  bool message_printed = false;
+  if (horizontal_stddev == 0.0) {
+    // Read from cameras
+    for (size_t icam = 0; icam < cameras.size(); icam++)
+      horizontal_stddev_vec[icam]
+        = asp::horizontalStDevFromCamera(cameras[icam], message_printed);
+  }
+
+  asp::horizontalStdDevCheck(horizontal_stddev_vec, session_name);
+}
+
+// Find the cameras with the latest adjustments. Note that we do not modify
+// opt.camera_models, but make copies as needed. The optimizations (adjustments)
+// may be inline, or external.
+
+void estimateGsdPerTriPoint(std::vector<std::string> const& images,
+                            std::vector<vw::CamPtr>  const& cameras,
+                            asp::CRN                const& crn,
+                            asp::BaState             const& ba_state,
+                            // Output
+                            std::vector<double>     & gsds) {
+
+  // Sanity checks
+  if (crn.size() != images.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and crn points.\n");
+  if (crn.size() != cameras.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
+  if (crn.size() != ba_state.num_cameras())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
+
+  // Image bboxes
+  std::vector<vw::BBox2> bboxes;
+  for (size_t i = 0; i < images.size(); i++) {
+    vw::DiskImageView<float> img(images[i]);
+    bboxes.push_back(bounding_box(img));
+  }
+
+  int num_cameras = ba_state.num_cameras();
+  int num_points  = ba_state.num_points();
+
+  // Initialize all gsd to 0
+  gsds.resize(num_points, 0.0);
+  std::vector<int> count(num_points, 0);
+
+  for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
+
+      // The index of the 3D point this IP is for.
+      int ipt = (**fiter).m_point_id;
+
+      VW_ASSERT(int(icam) < num_cameras,
+                ArgumentErr() << "Out of bounds in the number of cameras.");
+      VW_ASSERT(int(ipt)  < num_points,
+                ArgumentErr() << "Out of bounds in the number of points.");
+
+      if (ba_state.get_point_outlier(ipt))
+        continue; // skip outliers
+
+      vw::Vector2 pix = (**fiter).m_location;
+
+      double const* point = ba_state.get_point_ptr(ipt);
+      Vector3 xyz(point[0], point[1], point[2]);
+
+      // Estimate the GSD at the given pixel given an estimate of the ground point
+      double gsd = 0.0;
+      try {
+        gsd = vw::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);
+      } catch (...) {
+        continue;
+      }
+      gsds[ipt] += gsd;
+      count[ipt]++;
+    }
+  }
+
+  // Find the average gsd
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (count[ipt] > 0)
+      gsds[ipt] /= count[ipt];
+  }
+
+  return;
+}
+
+// Find the average for the gsd for all pixels whose rays intersect at the given
+// triangulated point. This is used in jitter solving. Note that tri_points_vec
+// may have anchor points at the end, but we don't get to those.
+void estimateGsdPerTriPoint(std::vector<std::string> const& images,
+                            std::vector<vw::CamPtr>  const& cameras,
+                            asp::CRN                const& crn,
+                            std::set<int>            const& outliers,
+                            std::vector<double>      const& tri_points_vec,
+                            // Output
+                            std::vector<double>     & gsds) {
+
+  // Sanity checks
+  if (crn.size() != images.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and crn points.\n");
+  if (crn.size() != cameras.size())
+    vw_throw(ArgumentErr() << "Expecting the same number of images and cameras.\n");
+
+  // Image bboxes
+  std::vector<vw::BBox2> bboxes;
+  for (size_t i = 0; i < images.size(); i++) {
+    vw::DiskImageView<float> img(images[i]);
+    bboxes.push_back(bounding_box(img));
+  }
+
+  int num_cameras = cameras.size();
+  int num_points  = tri_points_vec.size()/3;
+
+  // Initialize all gsd to 0
+  gsds.resize(num_points, 0.0);
+  std::vector<int> count(num_points, 0);
+
+  for (int icam = 0; icam < num_cameras; icam++) { // Camera loop
+    for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) { // IP loop
+
+      // The index of the 3D point this IP is for.
+      int ipt = (**fiter).m_point_id;
+
+      VW_ASSERT(int(icam) < num_cameras,
+                ArgumentErr() << "Out of bounds in the number of cameras.");
+      VW_ASSERT(int(ipt)  < num_points,
+                ArgumentErr() << "Out of bounds in the number of points.");
+
+      if (outliers.find(ipt) != outliers.end())
+        continue; // Skip outliers
+
+      vw::Vector2 pix = (**fiter).m_location;
+
+      double const* point = &tri_points_vec[3*ipt];
+      Vector3 xyz(point[0], point[1], point[2]);
+
+      // Estimate the GSD at the given pixel given an estimate of the ground point
+      double gsd = 0.0;
+      try {
+        gsd = vw::estimatedGSD(cameras[icam].get(), bboxes[icam], pix, xyz);
+      } catch (...) {
+        continue;
+      }
+
+      gsds[ipt] += gsd;
+      count[ipt]++;
+    }
+  }
+
+  // Find the average gsd
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (count[ipt] > 0)
+      gsds[ipt] /= count[ipt];
+  }
+
+  return;
+}
+
+// This function returns only one camera center per camera. See below
+// for linescan.
+void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
+                       std::vector<vw::Vector3>      & cam_positions) {
+
+  cam_positions.resize(cams.size());
+  for (size_t icam = 0; icam < cams.size(); icam++) {
+    vw::Vector3 ctr = cams[icam]->camera_center(vw::Vector2());
+    cam_positions[icam] = ctr;
+  }
+}
+
+// This function returns all camera center samples for linescan cameras. These
+// cameras may have an external adjustment. Otherwise it returns only the adjusted
+// camera center at pixel (0,0).
+void calcCameraCenters(std::string const& stereo_session,
+                       std::vector<vw::CamPtr> const& camera_models,
+                       std::vector<std::vector<vw::Vector3>> & cam_positions) {
+
+  cam_positions.resize(camera_models.size());
+  for (size_t icam = 0; icam < camera_models.size(); icam++) {
+
+    // Fetch the CSM model without any adjustment
+    asp::CsmModel * csm_cam = NULL;
+    try {
+      csm_cam
+        = asp::csm_model(vw::unadjusted_model(camera_models[icam]));
+    } catch(...) {}
+    if (csm_cam == NULL) {
+      // Not a CSM camera, pull directly the camera center
+      vw::Vector3 ctr = camera_models[icam]->camera_center(vw::Vector2());
+      cam_positions[icam].push_back(ctr);
+      continue;
+    }
+    csm::RasterGM const* gm = csm_cam->m_gm_model.get();
+    UsgsAstroLsSensorModel const* ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel const*>(gm);
+    if (ls_model == NULL) {
+      // Not a linescan camera. Return, as before the adjusted camera center
+      vw::Vector3 ctr = camera_models[icam]->camera_center(vw::Vector2());
+      cam_positions[icam].push_back(ctr);
+      continue;
+    }
+
+    // Handle the case when the CSM camera has an external adjustment. In that case
+    // need to apply it before can find the camera positions, and update ls_model.
+    vw::AdjustedCameraModel *adj_cam
+      = dynamic_cast<vw::AdjustedCameraModel*>(camera_models[icam].get());
+    asp::CsmModel local_csm; // Ensure it does not go out of scope
+    if (adj_cam != NULL) {
+      vw::Matrix4x4 ecef_transform = adj_cam->ecef_transform();
+      csm_cam->deep_copy(local_csm);
+      local_csm.applyTransform(ecef_transform);
+      csm::RasterGM const* gm = local_csm.m_gm_model.get();
+      ls_model = dynamic_cast<UsgsAstroLsSensorModel const*>(gm);
+      if (ls_model == NULL)
+        vw::vw_throw(vw::ArgumentErr() << "Expecting a linescan camera.\n");
+    }
+
+    // Get the number of positions
+    int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+
+    // The positions are in a single vector, ls_model->m_positions
+    // Append them to cam_positions[icam]
+    for (int i = 0; i < numPos; i++) {
+      int j = i * NUM_XYZ_PARAMS;
+      double x = ls_model->m_positions[j+0];
+      double y = ls_model->m_positions[j+1];
+      double z = ls_model->m_positions[j+2];
+      cam_positions[icam].push_back(vw::Vector3(x, y, z));
+    }
+  }
+
+  return;
+}
+
+void checkGcpRadius(vw::Datum const& datum,
+                    vw::ControlNetwork const& cnet) {
+
+  int num_points = cnet.size();
+  for (int ipt = 0; ipt < num_points; ipt++) {
+    if (cnet[ipt].type() != ControlPoint::GroundControlPoint)
+      continue;
+
+    vw::Vector3 observation = cnet[ipt].position();
+    double thresh = 2e+5; // 200 km
+    if (std::abs(norm_2(observation) - datum.semi_major_axis()) > thresh ||
+        std::abs(norm_2(observation) - datum.semi_minor_axis()) > thresh)
+      vw_out(vw::WarningMessage) << "GCP " << ipt
+        << " has ECEF radius differing from the datum by more than "
+        << thresh << " m. Check your GCPs and datum.\n";
+  }
+
+  return;
+}
+
+// Some logic for camera position uncertainty, used in bundle_adjust and jitter_solve
+void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum) {
+
+  // Create map from image name to index
+  std::map<std::string, int> image_name_to_index;
+  for (int i = 0; i < (int)opt.image_files.size(); i++)
+    image_name_to_index[opt.image_files[i]] = i;
+
+  // Resize opt.camera_position_uncertainty to the number of images
+  opt.camera_position_uncertainty.resize(opt.image_files.size(), vw::Vector2(0, 0));
+
+  // Handle the case when uncertainty is two values separated by a comma
+  std::string sep = ",";
+  std::vector<double> vals = vw::str_to_std_vec(opt.camera_position_uncertainty_str, sep);
+  if (vals.size() == 2) {
+    for (int i = 0; i < (int)opt.image_files.size(); i++)
+      opt.camera_position_uncertainty[i] = vw::Vector2(vals[0], vals[1]);
+  } else {
+    // Read the uncertainties per image from file
+    std::string image_name;
+    double horiz = 0, vert = 0;
+    std::ifstream ifs(opt.camera_position_uncertainty_str.c_str());
+    if (!ifs.good())
+      vw_throw(ArgumentErr() << "Cannot read camera position uncertainty from: "
+                << opt.camera_position_uncertainty_str << ".\n");
+    while (ifs >> image_name >> horiz >> vert) {
+      auto it = image_name_to_index.find(image_name);
+      if (it == image_name_to_index.end())
+        continue; // skip images having uncertainty that are not in the image list
+      int index = it->second;
+      opt.camera_position_uncertainty[index] = Vector2(horiz, vert);
+    }
+  }
+
+  // This constraint requires the solver to work harder to converge.
+  opt.parameter_tolerance = std::min(opt.parameter_tolerance, 1e-10);
+
+  // Ensure each horizontal and vertical uncertainty is positive
+  for (int i = 0; i < (int)opt.image_files.size(); i++) {
+    if (opt.camera_position_uncertainty[i][0] <= 0 ||
+        opt.camera_position_uncertainty[i][1] <= 0)
+      vw::vw_throw(vw::ArgumentErr()
+                  << "The camera uncertainty for each image must be set and be positive.\n");
+  }
+
+  // The power must be positive
+  if (opt.camera_position_uncertainty_power <= 0.0)
+    vw::vw_throw(vw::ArgumentErr()
+                << "The value of --camera-position-uncertainty-power must be positive.\n");
+
+  // When there is camera position uncertainty, the other camera weights must be 0.    
+  if (opt.camera_position_weight > 0) {
+    vw::vw_out() << "Setting --camera-position-weight to 0 as "
+                  << "--camera-position-uncertainty is positive.\n";
+    opt.camera_position_weight = 0;
+  }
+
+  if (opt.camera_weight > 0) {
+    vw::vw_out() << "Setting --camera-weight to 0 as --camera-position-uncertainty "
+                  << "is positive.\n";
+    opt.camera_weight = 0;
+  }
+
+  if (!have_datum)
+    vw::vw_throw(vw::ArgumentErr()
+            << "Cannot use camera uncertainties without a datum. Set --datum.\n");
+}
 
 } // end namespace asp

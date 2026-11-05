@@ -29,6 +29,8 @@
 #ifndef __BUNDLE_ADJUST_CAMERA_H__
 #define __BUNDLE_ADJUST_CAMERA_H__
 
+#include <asp/Camera/BundleAdjustParamMapping.h>
+
 #include <asp/Core/BaBaseOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Camera/CsmModel.h>
@@ -120,61 +122,6 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
                            // Will append below
                            std::vector<vw::Vector<float, 4>>       & mapprojPoints,
                            std::vector<float>                      & mapprojOffsets);
-
-/// Simple class to manage position/rotation information.
-/// - This is the data type stored in pc_align output files,
-///   bundle adjustment files, and the position of pinhole cameras.
-class CameraAdjustment {
-public:
-
-  // Constructors
-  CameraAdjustment();
-  CameraAdjustment(double const* array);
-
-  // Data access
-  vw::Vector3 position() const;
-  vw::Quat    pose    () const;
-
-  /// Populate from a six element array.
-  void read_from_array(double const* array);
-
-  /// Populate from an AdjustedCameraModel
-  void copy_from_adjusted_camera(vw::AdjustedCameraModel const& cam);
-
-  /// Populate from a PinholeModel
-  void copy_from_pinhole(vw::PinholeModel const& cam);
-
-  /// Populate from OpticalBarModel
-  void copy_from_optical_bar(vw::OpticalBarModel const& cam);
-
-  /// Populate from CSM. Since with CSM we apply adjustments to existing
-  /// cameras, these start as 0.
-  void copy_from_csm(asp::CsmModel const& cam);
-
-  /// Populate from an adjustment file on disk.
-  void read_from_adjust_file(std::string const& filename);
-
-  /// Pack the data to a six element array.
-  void pack_to_array(double* array) const;
-
-private:
-  vw::Vector3 m_position_data;
-  vw::Quat    m_pose_data;
-
-}; // End class CameraAdjustment
-
-/// Packs info from various camera models into the provided arrays.
-/// - It is up to the caller to make sure the arrays are properly sized.
-void pack_pinhole_to_arrays(vw::PinholeModel const& camera,
-                            int camera_index,
-                            asp::BaState & ba_state);
-void pack_optical_bar_to_arrays(vw::OpticalBarModel const& camera,
-                                int camera_index,
-                                asp::BaState & ba_state);
-// This does not copy the camera position and orientation
-void pack_csm_to_arrays(asp::CsmModel const& camera,
-                        int camera_index,
-                        asp::BaState & ba_state);
 
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera.
@@ -331,33 +278,6 @@ void matchFilesProcessing(vw::ControlNetwork       const& cnet,
                           std::map<std::pair<int, int>, std::string> const& match_files,
                           bool                                matches_as_txt);
 
-/// This is for the BundleAdjustmentModel class where the camera parameters
-/// are a rotation/offset that is applied on top of the existing camera model.
-/// First read initial adjustments, if any, and apply perhaps a pc_align transform.
-/// We assume the initial transform was already read and validated.
-bool init_cams(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
-       std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
-       std::vector<vw::CamPtr> & new_cam_models);
-
-/// Specialization for pinhole cameras.
-bool init_cams_pinhole(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
-     std::string const& initial_transform_file, vw::Matrix<double> const& initial_transform,
-     std::vector<vw::CamPtr> & new_cam_models);
-
-// TODO: Share more code with the similar pinhole case.
-/// Specialization for optical bar cameras.
-bool init_cams_optical_bar(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
-                    std::string const& initial_transform_file,
-                    vw::Matrix<double> const& initial_transform,
-                    std::vector<vw::CamPtr> &new_cam_models);
-
-// TODO: Share more code with the similar pinhole case.
-/// Specialization for CSM cameras.
-bool init_cams_csm(asp::BaBaseOptions const& opt, asp::BaState & ba_state,
-                   std::string const& initial_transform_file,
-                   vw::Matrix<double> const& initial_transform,
-                   std::vector<vw::CamPtr> &new_cam_models);
-
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
 void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaState const& ba_state,
@@ -399,12 +319,6 @@ void propagatedErrorStats(size_t left_cam_index, size_t right_cam_index,
                           std::vector<vw::Vector<double, 5>> & uncertPoints,
                           asp::HorizVertErrorStats & stats);
 
-// Find the cameras with the latest adjustments. Note that we do not modify
-// opt.camera_models, but make copies as needed.
-void calcOptimizedCameras(asp::BaBaseOptions const& opt,
-                          asp::BaState const& ba_state,
-                          std::vector<vw::CamPtr> & optimized_cams);
-
 // Find the average for the gsd for all pixels whose rays intersect at the given
 // triangulated point. This is used in jitter solving.
 void estimateGsdPerTriPoint(std::vector<std::string> const& images,
@@ -435,36 +349,6 @@ void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
 void calcCameraCenters(std::string const& stereo_session,
                        std::vector<vw::CamPtr>  const& cams,
                        std::vector<std::vector<vw::Vector3>> & cam_positions);
-
-// Interface for setting/getting intrinsics for all supported camera models
-void get_optical_center(vw::CameraModel const* cam, vw::Vector2 & center);
-void set_optical_center(vw::CameraModel* cam, vw::Vector2 const& center);
-void get_focal_length(vw::CameraModel const* cam, double & focal);
-void set_focal_length(vw::CameraModel* cam, double const& focal);
-void get_distortion(vw::CameraModel const* cam, vw::Vector<double> &dist);
-void set_distortion(vw::CameraModel* cam, vw::Vector<double> const& dist);
-
-// If some cameras share an intrinsic parameter, that parameter must start with
-// the same value for all cameras sharing it. This is a bugfix. Return
-// true if the cameras were modified.
-bool syncUpInitialSharedParams(BACameraType camera_type,
-                               asp::BaState const& ba_state,
-                               std::vector<vw::CamPtr>& camera_models);
-
-// This is needed to allocate enough storage for the distortion parameters.
-int calcMaxNumDistParams(std::vector<vw::CamPtr> const& camera_models,
-                         BACameraType camera_type,
-                         IntrinsicOptions const& intrinsics_opts,
-                         std::vector<double> const& intrinsics_limits);
-
-// This is needed to ensure distortion coefficients are not so small
-// that they don't get optimized. This modifies the camera models in place.
-void ensureMinDistortion(std::vector<vw::CamPtr> & camera_models,
-                         BACameraType camera_type,
-                         IntrinsicOptions const& intrinsics_opts,
-                         std::vector<int> const& fixed_distortion_indices,
-                         int max_num_dist_params,
-                         double min_distortion);
 
 // Sanity check. This does not prevent the user from setting the wrong datum,
 // but it can catch unreasonable height values for GCP.
