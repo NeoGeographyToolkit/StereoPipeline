@@ -102,23 +102,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   
 }
 
-// ASP assumes pixel-is-area (value at cell center). A raster tagged
-// AREA_OR_POINT=Point puts the value at the cell corner, a half-pixel offset.
-// Refuse it rather than silently producing a shifted difference.
-void check_area_or_point(std::string const& file) {
-  DiskImageResourceGDAL rsrc(file);
-  const char* const* metadata = rsrc.get_metadata();
-  if (metadata == NULL)
-    return;
-  for (int i = 0; metadata[i] != NULL; i++) {
-    if (std::string(metadata[i]) == "AREA_OR_POINT=Point")
-      vw_throw(NoImplErr() << "The file: " << file << " has the metadata entry "
-               << "AREA_OR_POINT=Point. This is not supported. ASP assumes the "
-               << "pixel-is-area convention, with each value at the center of its "
-               << "cell. Regrid the input to this convention before running geodiff.\n");
-  }
-}
-
 void georef_sanity_checks(GeoReference const& georef1, GeoReference const& georef2){
 
   // We don't support datum changes!
@@ -141,9 +124,6 @@ void georef_sanity_checks(GeoReference const& georef1, GeoReference const& geore
 }
 
 void dem2dem_diff(Options& opt) {
-
-  check_area_or_point(opt.dem1_file);
-  check_area_or_point(opt.dem2_file);
 
   DiskImageResourceGDAL dem1_rsrc(opt.dem1_file), dem2_rsrc(opt.dem2_file);
   double dem1_nodata = opt.nodata_value, dem2_nodata = opt.nodata_value;
@@ -227,8 +207,6 @@ void dem2csv_diff(Options & opt, std::string const& dem_file,
   if (opt.csv_format_str == "")
     vw_throw(ArgumentErr() << "CSV files were passed in, but the "
              << "option --csv-format was not set.\n");
-
-  check_area_or_point(dem_file);
 
   // Read the DEM
   DiskImageView<double> dem(dem_file);
