@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -74,29 +74,29 @@ TEST(StereoSessionDG, XMLReading) {
   // was validated in a different way.
   EXPECT_EQ(840, att.satellite_quat_vec.size());
   // There are 10 covariances for each position (4x4 matrix, upper-right corner)
-  EXPECT_EQ(840 * 10, att.satellite_quat_covariance_vec.size());
+  EXPECT_EQ(840 * 10, att.satellite_quat_cov.size());
   for (size_t i = 0; i < 840; i++) {
     EXPECT_NE(0, att.satellite_quat_vec[i][3]);
-    EXPECT_NE(0, att.satellite_quat_covariance_vec[i]);
+    EXPECT_NE(0, att.satellite_quat_cov[i]);
   }
   //EXPECT_VECTOR_NEAR( Vector3(3.72e-12, 3.51e-12, 1.12e-13),
-  //                    subvector(att.satellite_quat_covariance_vec[0],0,3), 1e-20 );
+  //                    subvector(att.satellite_quat_cov[0],0,3), 1e-20 );
 
   // Checking EPH
   EXPECT_FALSE(eph.start_time.empty());
   EXPECT_NEAR(.02, eph.time_interval, 1e-6);
-  EXPECT_EQ(840, eph.position_vec.size());
+  EXPECT_EQ(840, eph.satellite_position_vec.size());
   EXPECT_EQ(840, eph.velocity_vec.size());
-  EXPECT_EQ(840 * 10, eph.satellite_quat_covariance_vec.size());
+  EXPECT_EQ(840 * 6, eph.satellite_pos_cov.size());
   for (size_t i = 0; i < 840; i++) {
-    EXPECT_NE(0, eph.position_vec[i].x()) << i;
+    EXPECT_NE(0, eph.satellite_position_vec[i].x()) << i;
     EXPECT_NE(0, eph.velocity_vec[i].x());
-    EXPECT_NE(0, eph.satellite_quat_covariance_vec[i]);
+    EXPECT_NE(0, eph.satellite_pos_cov[i]);
   }
   EXPECT_VECTOR_NEAR(Vector3(-1.150529111070304e+06,
                              -4.900037170821411e+06,
                              4.673402253879593e+06),
-                     eph.position_vec[0], 1e-6);
+                     eph.satellite_position_vec[0], 1e-6);
 
   // Checking IMG
   EXPECT_FALSE(img.tlc_start_time.empty());
@@ -157,7 +157,8 @@ TEST(DGCameraModel, CreateCamera) {
   // Create a camera that only has a single TLC entry. It will throw
   // an error in the event that first line time and TLC entry lookup
   // don't agree. That should be good enough for a test.
-  EXPECT_NO_THROW(cam3=load_dg_camera_model_from_xml("dg_example3.xml"););
+  // The single-TLC camera is now rejected; just check the load fails cleanly.
+  EXPECT_ANY_THROW(load_dg_camera_model_from_xml("dg_example3.xml"));
 
   XMLPlatformUtils::Terminate();
 }

@@ -26,9 +26,9 @@ namespace asp {
 
 TEST(CSM_camera, basic_check) {
 
-  // TODO: Add a sample file to the repo for ASP to load!
-  // Load up the sample ISD file.
-  std::string sample_isd = "/home/smcmich1/data/csm/ctx_pair/J03_045994_1986_XN_18N282W.json";
+  // Load the sample CTX ISD file shipped with the tests. The test runner chdir's
+  // into this directory, so a relative path resolves here.
+  std::string sample_isd = "ctx.json";
 
   CsmModel csm;
   csm.load_model(sample_isd);
@@ -55,8 +55,6 @@ TEST(CSM_camera, basic_check) {
     EXPECT_VECTOR_NEAR(pix, pixel, eps);
     std::cout << std::endl;
   }
-
-  EXPECT_TRUE(false);
 }
 
 } // namespace asp

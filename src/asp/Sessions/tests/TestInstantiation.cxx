@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -64,7 +64,9 @@ TYPED_TEST(InstantiationTest, Typedefs) {
 }
 
 TEST(Instantiation, Names) {
-  std::vector<StereoSession*> sessions;
+  // construct() now returns a SessionPtr (boost::shared_ptr<StereoSession>),
+  // so store shared pointers and let them self-delete.
+  std::vector<SessionPtr> sessions;
   vw::GdalWriteOptions opt;
   sessions.push_back(StereoSessionDG::construct());
   sessions.push_back(StereoSessionDGMapRPC::construct());
@@ -76,7 +78,7 @@ TEST(Instantiation, Names) {
   sessions.push_back(StereoSessionNadirPinhole::construct());
 
   for (size_t i = 0; i < sessions.size(); i++) {
-    EXPECT_TRUE(sessions[i]);
+    EXPECT_TRUE(sessions[i].get() != nullptr);
   }
 
   std::set<std::string> names;
@@ -85,10 +87,6 @@ TEST(Instantiation, Names) {
     names.insert(sessions[i]->name());
   }
   EXPECT_EQ(names.size(), sessions.size());
-
-  for (size_t i = 0; i < sessions.size(); i++) {
-    delete sessions[i];
-  }
 }
 
 } // namespace asp

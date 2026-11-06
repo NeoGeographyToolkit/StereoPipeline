@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -52,9 +52,9 @@ TEST(IntegralAutoGainDetector, VerifyMaxima) {
   IntegralAutoGainDetector detector;
   vw::InterestPointList list = detector.process_image(test_image);
 
-  // On 32-bit Linux the answer is different
+  // On 32-bit Linux the answer is different. 64-bit x86, ppc, and arm all agree.
 #if __GNUC__
-#if __x86_64__ || __ppc64__
+#if __x86_64__ || __ppc64__ || __aarch64__ || __arm64__
   EXPECT_EQ(list.size(), 9); // Digitization error
 #else
   EXPECT_EQ(list.size(), 13); // Digitization error
