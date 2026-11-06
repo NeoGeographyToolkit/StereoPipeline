@@ -666,17 +666,6 @@ void computeDemWeights(vw::ImageView<asp::DoubleGrayA> const& dem,
   }
 }
 
-// Copy weights from separate weight image into the alpha channel of the DEM.
-void setWeightsAsAlphaChannel(vw::ImageView<double> const& weights,
-                              // Outputs
-                              vw::ImageView<asp::DoubleGrayA>& dem) {
-  for (int col = 0; col < dem.cols(); col++) {
-    for (int row = 0; row < dem.rows(); row++) {
-      dem(col, row).a() = weights(col, row);
-    }
-  }
-}
-
 /// Class that does the actual image processing work
 class DemMosaicView: public vw::ImageViewBase<DemMosaicView> {
   int m_cols, m_rows, m_bias;
