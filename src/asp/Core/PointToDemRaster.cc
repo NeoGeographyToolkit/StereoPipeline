@@ -15,7 +15,7 @@
 //  limitations under the License.
 // __END_LICENSE__
 
-/// \file PointToDemRaster.h
+/// \file PointToDemRaster.cc
 /// Point cloud rasterization routines for point2dem
 
 #include <asp/Core/PointToDemRaster.h>
