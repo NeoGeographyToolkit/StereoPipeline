@@ -7,6 +7,7 @@
 # Infrastructure failures (build, packaging) are fatal.
 # Test validation failures are reported but not fatal.
 build_failed=0
+unit_test_failed=0
 
 # Record the location where the script is running, which should
 # be the base of the StereoPipeline repo. This must happen first.
@@ -237,6 +238,18 @@ make install > $out_build_vw 2>&1
 tail -n 500 $out_build_vw
 echo Log of VW build will be saved with the artifacts in $(basename $out_build_vw)
 
+# Run the VisionWorkbench unit tests. Reported, not fatal to the build.
+echo Running VisionWorkbench unit tests
+out_gtest_vw=$(pwd)/output_gtest_vw.txt
+( export DYLD_FALLBACK_LIBRARY_PATH=$envPath/lib
+  export ISISROOT=$envPath
+  export PROJ_DATA=$envPath/share/proj
+  export GDAL_DATA=$envPath/share/gdal
+  export PROJ_LIB=$envPath/share/proj
+  make gtest_all ) > $out_gtest_vw 2>&1
+if [ $? -ne 0 ]; then echo "VisionWorkbench unit tests failed"; unit_test_failed=1; fi
+tail -n 200 $out_gtest_vw
+
 # Build StereoPipeline
 cd $aspRepoDir
 mkdir -p build
@@ -262,6 +275,19 @@ out_build_asp=$(pwd)/output_build_asp.txt
 make install > $out_build_asp 2>&1
 tail -n 500 $out_build_asp
 echo Log of ASP build will be saved with the artifacts in $(basename $out_build_asp)
+
+# Run the StereoPipeline unit tests. Reported, not fatal to the build.
+echo Running StereoPipeline unit tests
+out_gtest_asp=$(pwd)/output_gtest_asp.txt
+( export DYLD_FALLBACK_LIBRARY_PATH=$envPath/lib
+  export ISISROOT=$envPath
+  export ISISDATA=$HOME/isisdata
+  export PROJ_DATA=$envPath/share/proj
+  export GDAL_DATA=$envPath/share/gdal
+  export PROJ_LIB=$envPath/share/proj
+  make gtest_all ) > $out_gtest_asp 2>&1
+if [ $? -ne 0 ]; then echo "StereoPipeline unit tests failed"; unit_test_failed=1; fi
+tail -n 200 $out_gtest_asp
 
 # Bugfix for duplicate LC_PATH failure. Wipe all values of LC_PATH.
 for lib in $installDir/lib/*dylib; do
@@ -399,7 +425,7 @@ echo Copying the build
 
 # Save these logs as part of the artifacts
 echo Copying the logs
-cp -rfv $out_build_vw $out_build_asp $reportFile $packageDir
+cp -rfv $out_build_vw $out_build_asp $out_gtest_vw $out_gtest_asp $reportFile $packageDir
 
 # Wipe the extracted tarball so we do not upload it
 # TODO(oalexan1): Consider extracting it to a different location to start with
@@ -410,6 +436,9 @@ if [ "$build_failed" -ne 0 ]; then
     echo "Build or packaging failed (see errors above)"
     exit 1
 fi
+
+# Fold unit-test failures into the test status
+if [ "$unit_test_failed" -ne 0 ]; then ans=1; fi
 
 # Exit with test status so CI reports failure when tests fail
 exit $ans

@@ -7,6 +7,7 @@
 # cloud model. See env_update_06_2026_coordination.sh for the 4-bot file matrix.
 
 build_failed=0
+unit_test_failed=0
 
 # Base of the StereoPipeline repo (where this runs).
 aspRepoDir=$(pwd)
@@ -168,6 +169,18 @@ make install > $out_build_vw 2>&1
 tail -n 500 $out_build_vw
 echo Log of VW build will be saved with the artifacts in $(basename $out_build_vw)
 
+# Run the VisionWorkbench unit tests. Reported, not fatal to the build.
+echo Running VisionWorkbench unit tests
+out_gtest_vw=$(pwd)/output_gtest_vw.txt
+( export LD_LIBRARY_PATH=$installDir/lib:$envPath/lib:$LD_LIBRARY_PATH
+  export ISISROOT=$envPath
+  export PROJ_DATA=$envPath/share/proj
+  export GDAL_DATA=$envPath/share/gdal
+  export PROJ_LIB=$envPath/share/proj
+  make gtest_all ) > $out_gtest_vw 2>&1
+if [ $? -ne 0 ]; then echo "VisionWorkbench unit tests failed"; unit_test_failed=1; fi
+tail -n 200 $out_gtest_vw
+
 # Build StereoPipeline (master has the aarch64 SSE + OpenMP fixes)
 cd $aspRepoDir
 mkdir -p build
@@ -189,6 +202,19 @@ out_build_asp=$(pwd)/output_build_asp.txt
 make install > $out_build_asp 2>&1
 tail -n 500 $out_build_asp
 echo Log of ASP build will be saved with the artifacts in $(basename $out_build_asp)
+
+# Run the StereoPipeline unit tests. Reported, not fatal to the build.
+echo Running StereoPipeline unit tests
+out_gtest_asp=$(pwd)/output_gtest_asp.txt
+( export LD_LIBRARY_PATH=$installDir/lib:$envPath/lib:$LD_LIBRARY_PATH
+  export ISISROOT=$envPath
+  export ISISDATA=$HOME/isisdata
+  export PROJ_DATA=$envPath/share/proj
+  export GDAL_DATA=$envPath/share/gdal
+  export PROJ_LIB=$envPath/share/proj
+  make gtest_all ) > $out_gtest_asp 2>&1
+if [ $? -ne 0 ]; then echo "StereoPipeline unit tests failed"; unit_test_failed=1; fi
+tail -n 200 $out_gtest_asp
 
 # Package with BinaryBuilder.
 echo Packaging the build
@@ -283,11 +309,14 @@ mkdir -p $packageDir
 echo Copying the build
 (cd $testDir/..; tar cf $packageDir/$(basename $testDir).tar $(basename $testDir))
 echo Copying the logs
-cp -rfv $out_build_vw $out_build_asp $reportFile $packageDir
+cp -rfv $out_build_vw $out_build_asp $out_gtest_vw $out_gtest_asp $reportFile $packageDir
 rm -rfv $(dirname $binDir) > /dev/null 2>&1
 
 if [ "$build_failed" -ne 0 ]; then
     echo "Build or packaging failed (see errors above)"
     exit 1
 fi
+
+# Fold unit-test failures into the test status
+if [ "$unit_test_failed" -ne 0 ]; then ans=1; fi
 exit $ans
