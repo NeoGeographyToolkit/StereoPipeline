@@ -21,9 +21,6 @@
 
 #include <vw/Core/Exception.h>
 
-#include <boost/filesystem.hpp>
-
-namespace fs = boost::filesystem;
 using namespace vw;
 using namespace cv;
 
@@ -64,15 +61,7 @@ CBatchProc::CBatchProc(std::string          const & strMetaFile,
   
   // initialize
   m_strMetaFile = strMetaFile;
-  
-#if 0
-  m_strImgL = strLeftImagePath;
-  m_strImgR = strRightImagePath;
-  m_strDispX = strDisparityX;
-  m_strDispY = strDisparityY;
-  m_strOutPath = strOutputPrefix;
-#endif
-  
+
   // Convert the inputs to cv::Mat, which is what Gotcha prefers
   aspMatToCvMat(imgL, m_imgL);
   aspMatToCvMat(imgR, m_imgR);
@@ -90,31 +79,6 @@ CBatchProc::~CBatchProc() {
 
 bool CBatchProc::validateProjParam() {
   bool bRes = true;
-
-#if 0
-  // image file existence
-  if (!fs::exists(m_strImgL)){
-    std::cerr << "ERROR: Left image file does not exist." << std::endl;
-    bRes = false;
-  }
-
-  if (!fs::exists(m_strImgR)){
-    std::cerr << "ERROR: Right image file does not exist." << std::endl;
-    bRes = false;
-  }
-
-  // These are passed in-memory now
-  if (!fs::exists(m_strDispX)){
-    std::cerr << "Gotcha on given disparity map. ERROR: X disparity file does not exist." << std::endl;
-    bRes = false;
-  }
-
-  if (!fs::exists(m_strDispY)){
-    std::cerr << "Gotcha on given disparity map. ERROR: Y disparity file does not exist." << std::endl;
-    bRes = false;
-  }
-#endif
-  
   return bRes;
 }
 
@@ -161,13 +125,6 @@ void CBatchProc::doBatchProcessing(vw::ImageView<float> & output_dispX,
 
 void CBatchProc::generateMask() {
   // These are kept in memory now, no need to read them from disk
-#if 0
-  std::string strMask = "-GM.tif";
-  m_strMask = m_strOutPath + strMask;
-  m_input_dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-  m_input_dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-#endif
-  
   m_Mask = Mat::zeros(m_input_dispX.size(), CV_8UC1);
 
   if (m_input_dispX.depth()==2 && m_input_dispY.depth()==2){
@@ -210,14 +167,6 @@ void CBatchProc::generateTPFile(std::vector<CTiePt> & vecTPs) {
   m_input_dispY.copyTo(dispY);
 
   // Turn this logic off, as the data is kept in memory
-#if 0
-  dispX = imread(m_strDispX, CV_LOAD_IMAGE_ANYDEPTH);
-  dispY = imread(m_strDispY, CV_LOAD_IMAGE_ANYDEPTH);
-  std::cout << "Reading mask: " << m_strMask << std::endl;
-  Mat Mask = imread(m_strMask, CV_LOAD_IMAGE_ANYDEPTH);
-  Mask.convertTo(Mask, CV_8UC1);
-#endif
-  
   //std::string strTPFile = "-TP.txt";
   //m_strTPFile = m_strOutPath + strTPFile;
 
@@ -488,26 +437,6 @@ void CBatchProc::refinement(std::vector<CTiePt> const& vecTPs,
   paramDense.m_paramGotcha.m_paramALSC.m_nMaxIter = (int)tl["nALSCIteration"];
   paramDense.m_paramGotcha.m_paramALSC.m_nPatch = (int)tl["nALSCKernel"];
 
-#if 0
-  std::string strBase = m_strOutPath;
-  std::string strTPFile = "-TP.txt";
-  paramDense.m_strTPFile = strBase + strTPFile;
-  paramDense.m_paramGotcha.m_strMask = m_strMask;
-  std::string strUpdatedDispX = "-c1_refined.txt";
-  paramDense.m_strUpdatedDispX = strBase + strUpdatedDispX;
-  std::string strUpdatedDispY = "-c2_refined.txt";
-  paramDense.m_strUpdatedDispY = strBase + strUpdatedDispY;
-  std::string strUpdatedDispSim = "-uncertainty.txt";
-  paramDense.m_strUpdatedDispSim = strBase + strUpdatedDispSim;
-
-  paramDense.m_strImgL = m_strImgL;
-  paramDense.m_strImgR = m_strImgR;
-  paramDense.m_strOutPath = m_strOutPath;
-  paramDense.m_strDispX = m_strDispX;
-  paramDense.m_strDispY = m_strDispY;
-  paramDense.m_Mask = m_Mask;
-#endif
-  
   CDensify densify(paramDense, vecTPs, m_imgL, m_imgR, m_input_dispX, m_input_dispY, m_Mask);
   //std::cout << "CASP-GO INFO: performing Gotcha densification" << std::endl;
 
