@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -14,6 +14,9 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 // __END_LICENSE__
+
+#ifndef __ASP_CAMERA_TIME_PROCESSING_H__
+#define __ASP_CAMERA_TIME_PROCESSING_H__
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <string>
@@ -45,5 +48,7 @@ namespace asp {
   
   // Return the time in seconds since the January 1, 2000, down to the microsecond
   double to_seconds(const boost::posix_time::ptime& pt);
-  
+
 } // end namespace asp
+
+#endif // __ASP_CAMERA_TIME_PROCESSING_H__

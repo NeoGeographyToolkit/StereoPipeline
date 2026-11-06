@@ -397,7 +397,7 @@ void calc_stats(std::string label, Eigen::MatrixXd const& dists) {
   VW_ASSERT(dists.rows() == 1,
             LogicErr() << "Expecting only one row.");
 
-  std::vector<double> errs(dists.cols()*dists.rows());
+  std::vector<double> errs(size_t(dists.rows()) * size_t(dists.cols()));
   int count = 0;
   for (int col = 0; col < dists.cols(); col++) {
     errs[count] = dists(0, col);
@@ -405,7 +405,7 @@ void calc_stats(std::string label, Eigen::MatrixXd const& dists) {
   }
   std::sort(errs.begin(), errs.end());
 
-  int len = errs.size();
+  size_t len = errs.size();
   vw_out() << "Number of errors: " << len << "\n";
   if (len == 0)
     return;
@@ -420,8 +420,8 @@ void calc_stats(std::string label, Eigen::MatrixXd const& dists) {
   errs_copy = errs;
   double nmad = vw::nmad_in_place(errs_copy);
   
-  double p16 = errs[std::min(len-1, (int)round(len*0.16))];
-  double p84 = errs[std::min(len-1, (int)round(len*0.84))];
+  double p16 = errs[std::min(len - 1, (size_t)round(len*0.16))];
+  double p84 = errs[std::min(len - 1, (size_t)round(len*0.84))];
   vw_out() << label << ": error percentile of smallest errors (meters):"
            << " 16%: " << p16 << ", 50%: " << median << ", 84%: " << p84 << "\n";
 

@@ -294,14 +294,14 @@ void adjust_lonlat_bbox(std::string const& file_name, vw::BBox2 & box) {
   box += Vector2(lon_offset, 0);
 }
 
-double calc_mean(std::vector<double> const& errs, int len) {
+double calc_mean(std::vector<double> const& errs, size_t len) {
 
   // Check that len is valid
-  if (len < 0 || len > static_cast<int>(errs.size()))
+  if (len > errs.size())
     vw::vw_throw(vw::ArgumentErr() << "Invalid length in calc_mean.\n");
 
   double mean = 0.0;
-  for (int i = 0; i < len; i++) {
+  for (size_t i = 0; i < len; i++) {
     mean += errs[i];
   }
   if (len == 0) return 0;
@@ -310,14 +310,14 @@ double calc_mean(std::vector<double> const& errs, int len) {
 
 double calc_stddev(std::vector<double> const& errs) {
 
-  int len = errs.size();
+  size_t len = errs.size();
   if (len == 0)
     return 0;
 
   double mean = calc_mean(errs, len);
   double variance_sum = 0.0;
 
-  for (int i = 0; i < len; i++)
+  for (size_t i = 0; i < len; i++)
       variance_sum += (errs[i] - mean) * (errs[i] - mean);
 
   return std::sqrt(variance_sum / len);
@@ -325,10 +325,10 @@ double calc_stddev(std::vector<double> const& errs) {
 
 double calc_rmse(std::vector<double> const& errs) {
 
-  int len = errs.size();
+  size_t len = errs.size();
 
   double sum = 0.0;
-  for (int i = 0; i < len; i++)
+  for (size_t i = 0; i < len; i++)
     sum += errs[i] * errs[i];
 
   if (len == 0)

@@ -160,11 +160,11 @@ void StereoSession::preprocessing_hook(bool adjust_left_image_size,
                               left_masked_image, right_masked_image,
                               left_stats, right_stats);
 
-  // If the user only wanted stats, stop here. Doing exit(0) seems to be simpler
-  // than tracing back a flag. This is needed for stereo_dist.
+  // If the user only wanted stats, stop here. The caller (stereo_preprocessing)
+  // checks the same flag and returns, so no later stage runs. Needed for stereo_dist.
   if (stereo_settings().stop_after_stats) {
     vw_out() << "Stopping after computing image statistics.\n";
-    exit(0);
+    return;
   }
 
   // For skip_image_normalization, we created symlinks above and computed stats.

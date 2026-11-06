@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -382,6 +382,11 @@ void stereo_preprocessing(bool adjust_left_image_size, ASPGlobalOptions& opt) {
                                   opt.in_file1, opt.in_file2,
                                   left_image_file, right_image_file);
 
+  // If the user only wanted stats, stop here. The normalized images are not
+  // written in that mode, so no later stage can run. Needed for stereo_dist.
+  if (stereo_settings().stop_after_stats)
+    return;
+
   boost::shared_ptr<DiskImageResource>
     left_rsrc (vw::DiskImageResourcePtr(left_image_file)),
     right_rsrc(vw::DiskImageResourcePtr(right_image_file));
@@ -514,6 +519,13 @@ int main(int argc, char* argv[]) {
     bool adjust_left_image_size = !asp::stereo_settings().no_crop_on_alignment;
 
     asp::stereo_preprocessing(adjust_left_image_size, opt);
+
+    // If the user only wanted stats, stop here. Needed for stereo_dist.
+    if (asp::stereo_settings().stop_after_stats) {
+      xercesc::XMLPlatformUtils::Terminate();
+      return 0;
+    }
+
     if (!asp::stereo_settings().stereo_dist_mode)
       asp::estimate_convergence_angle(opt);
 

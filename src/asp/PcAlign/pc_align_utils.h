@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -106,7 +106,7 @@ void calc_extended_lonlat_bbox(vw::GeoReference const& geo,
                                vw::BBox2 & needed_projwin);
   
 /// Compute the mean value of an std::vector out to a length
-double calc_mean(std::vector<double> const& errs, int len);
+double calc_mean(std::vector<double> const& errs, size_t len);
 
 /// Compute the standard deviation of an std::vector
 double calc_stddev(std::vector<double> const& errs);

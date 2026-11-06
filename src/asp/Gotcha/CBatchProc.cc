@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -18,6 +18,8 @@
 #include <asp/Gotcha/CBatchProc.h>
 #include <asp/Gotcha/CDensifyParam.h>
 #include <asp/Gotcha/CDensify.h>
+
+#include <vw/Core/Exception.h>
 
 #include <boost/filesystem.hpp>
 
@@ -77,14 +79,10 @@ CBatchProc::CBatchProc(std::string          const & strMetaFile,
   aspMatToCvMat(input_dispX, m_input_dispX);
   aspMatToCvMat(input_dispY, m_input_dispY);
   
-  if (!validateProjParam()){
-    std::cerr << "ERROR: The project input files cannot be validated" << std::endl;
-    exit(1);
-  }
-  if (!validateProjInputs()){
-    std::cerr << "ERROR: The project input files not in correct format" << std::endl;
-    exit(1);
-  }
+  if (!validateProjParam())
+    vw_throw(ArgumentErr() << "The project input files cannot be validated.");
+  if (!validateProjInputs())
+    vw_throw(ArgumentErr() << "The project input files are not in the correct format.");
 }
 
 CBatchProc::~CBatchProc() {
