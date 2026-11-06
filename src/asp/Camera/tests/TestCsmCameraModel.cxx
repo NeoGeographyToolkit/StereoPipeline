@@ -26,8 +26,7 @@ namespace asp {
 
 TEST(CSM_camera, basic_check) {
 
-  // Load the sample CTX ISD file shipped with the tests. The test runner chdir's
-  // into this directory, so a relative path resolves here.
+  // Shipped sample CTX ISD file.
   std::string sample_isd = "ctx.json";
 
   CsmModel csm;

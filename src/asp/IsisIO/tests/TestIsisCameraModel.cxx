@@ -53,8 +53,7 @@ Vector2 generate_random(int const& xsize,
   return pixel;
 }
 
-// Disabled: needs ISIS cube test data (E0201461.tiny.cub, etc.) that is not
-// shipped in the repo. Final cross-platform validation is done in the cloud.
+// Disabled: needs ISIS cube data not shipped.
 TEST(IsisCameraModel, DISABLED_mapprojected) {
   if (!asp::IsisEnv()) {
     vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."
@@ -107,8 +106,7 @@ TEST(IsisCameraModel, DISABLED_mapprojected) {
   delete proj;
 }
 
-// Disabled: needs ISIS cube test data (E1701676.reduce.cub, 5165r.cub, etc.) that
-// is not shipped in the repo. Final cross-platform validation is done in the cloud.
+// Disabled: needs ISIS cube data not shipped.
 TEST(IsisCameraModel, DISABLED_groundmap_chk) {
   // Run two methods ..
   // solve for vector out with and without the groundmap solution
@@ -215,8 +213,7 @@ TEST(IsisCameraModel, DISABLED_groundmap_chk) {
   }
 }
 
-// Disabled: needs ISIS cube test data (E1701676.reduce.cub, 5165r.cub, etc.) that
-// is not shipped in the repo. Final cross-platform validation is done in the cloud.
+// Disabled: needs ISIS cube data not shipped.
 TEST(IsisCameraModel, DISABLED_camera_model) {
   if (!asp::IsisEnv()) {
     vw_out() << "ISISROOT or ISISDATA was not set. ISIS unit tests won't be run."

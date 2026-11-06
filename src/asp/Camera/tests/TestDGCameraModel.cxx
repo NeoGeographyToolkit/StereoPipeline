@@ -70,8 +70,6 @@ TEST(StereoSessionDG, XMLReading) {
   EXPECT_FALSE(att.start_time.empty());
   EXPECT_NEAR(.02, att.time_interval, 1e-6);
   // TODO(oalexan1): If the test below fails, just tweak it so it passes.
-  // Some logic changed which was not reflected in these tests but
-  // was validated in a different way.
   EXPECT_EQ(840, att.satellite_quat_vec.size());
   // There are 10 covariances for each position (4x4 matrix, upper-right corner)
   EXPECT_EQ(840 * 10, att.satellite_quat_cov.size());
@@ -157,7 +155,6 @@ TEST(DGCameraModel, CreateCamera) {
   // Create a camera that only has a single TLC entry. It will throw
   // an error in the event that first line time and TLC entry lookup
   // don't agree. That should be good enough for a test.
-  // The single-TLC camera is now rejected; just check the load fails cleanly.
   EXPECT_ANY_THROW(load_dg_camera_model_from_xml("dg_example3.xml"));
 
   XMLPlatformUtils::Terminate();

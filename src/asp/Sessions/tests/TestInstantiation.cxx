@@ -64,8 +64,6 @@ TYPED_TEST(InstantiationTest, Typedefs) {
 }
 
 TEST(Instantiation, Names) {
-  // construct() now returns a SessionPtr (boost::shared_ptr<StereoSession>),
-  // so store shared pointers and let them self-delete.
   std::vector<SessionPtr> sessions;
   vw::GdalWriteOptions opt;
   sessions.push_back(StereoSessionDG::construct());

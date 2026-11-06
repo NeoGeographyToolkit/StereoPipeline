@@ -18,13 +18,13 @@
 
 #include <test/Helpers.h>
 #include <asp/Core/AspProgramOptions.h>
-#include <asp/Core/FileUtils.h> // separate_images_from_cameras moved here
+#include <asp/Core/FileUtils.h>
 
 using namespace vw;
 
 namespace asp {
 
-// Disabled: separate_images_from_cameras now throws on a .tiff plus .RPB set.
+// Disabled: separate_images_from_cameras rejects this input.
 TEST(Common, DISABLED_separate_images_from_cameras_rpb) {
 
   std::vector<std::string> inputs, images, cameras;
@@ -40,11 +40,7 @@ TEST(Common, DISABLED_separate_images_from_cameras_rpb) {
   EXPECT_EQ(2, cameras.size());
 }
 
-// Disabled: parseStereoFiles is now an internal function of stereo.cc with a
-// changed signature (it takes an override_out_prefix flag, reads stereo_settings,
-// and detects the DEM via a georeference probe), so it is no longer callable from
-// this unit test. The image/camera separation it relied on is covered by the test
-// above via separate_images_from_cameras.
+// Disabled: no longer callable from a unit test.
 TEST(Common, DISABLED_StereoMultiCmdCheck) {
 }
 
