@@ -183,10 +183,17 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
     target_compile_definitions(${executableName} PRIVATE "TEST_OBJDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
     target_compile_definitions(${executableName} PRIVATE "TEST_SRCDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
 
-    # Find libomp, ISIS, and the other deps libs at runtime without a DYLD/LD env var.
+    # The test binaries run in place from the build tree (via 'make gtest_all'),
+    # not from the install tree, so they use the build-time RPATH, not the install
+    # RPATH from src/asp/CMakeLists.txt. Bake into it the dirs holding the shared
+    # libs the test needs: the deps libs (libomp, ISIS, ...), the VisionWorkbench
+    # libs (libVw*.so), and the installed ASP libs. This lets the test run with no
+    # DYLD/LD env var. BUILD_RPATH is a set, not an append, so list all dirs here.
+    set(ASP_TEST_BUILD_RPATH "${VISIONWORKBENCH_INSTALL_DIR}/lib" "${CMAKE_INSTALL_PREFIX}/lib")
     if(ASP_DEPS_DIR)
-      set_target_properties(${executableName} PROPERTIES BUILD_RPATH "${ASP_DEPS_DIR}/lib")
+      list(APPEND ASP_TEST_BUILD_RPATH "${ASP_DEPS_DIR}/lib")
     endif()
+    set_target_properties(${executableName} PROPERTIES BUILD_RPATH "${ASP_TEST_BUILD_RPATH}")
 
     # These variables need to be set for each test directory
     #set_property (TARGET ${executableName} APPEND PROPERTY COMPILE_DEFINITIONS "TEST_OBJDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
