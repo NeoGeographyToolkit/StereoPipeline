@@ -721,7 +721,7 @@ public:
     return pixel_type();
   }
 
-  typedef vw::CropView<vw::ImageView<pixel_type> > prerasterize_type;
+  typedef vw::CropView<vw::ImageView<pixel_type>> prerasterize_type;
   inline prerasterize_type prerasterize(vw::BBox2i bbox) const {
 
     vw::BBox2i orig_box = bbox;

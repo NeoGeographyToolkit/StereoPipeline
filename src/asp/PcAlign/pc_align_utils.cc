@@ -755,7 +755,7 @@ Vector3 get_cloud_gcc_coord(DP const& point_cloud, vw::Vector3 const& shift, int
   return gcc_coord;
 }
 
-bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float> > const& dem,
+bool interp_dem_height(vw::ImageViewRef<vw::PixelMask<float>> const& dem,
                        vw::GeoReference const & georef,
                        vw::Vector3                   const & lonlat,
                        double                              & dem_height) {

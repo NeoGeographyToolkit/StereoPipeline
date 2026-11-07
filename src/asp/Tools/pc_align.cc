@@ -591,7 +591,7 @@ double compute_registration_error(DP          const& ref_point_cloud,
                                   PM::ICP          & pm_icp_object,
                                   vw::Vector3 const& shift,
                                   vw::GeoReference        const& dem_georef,
-                                  vw::ImageViewRef< PixelMask<float> > const& dem_ref,
+                                  vw::ImageViewRef<PixelMask<float>> const& dem_ref,
                                   Options const& opt,
                                   Eigen::MatrixXd &error_matrix) {
   Stopwatch sw;
@@ -625,7 +625,7 @@ void filter_source_cloud(DP          const& ref_point_cloud,
                          PM::ICP          & pm_icp_object, // Must already be initialized
                          vw::Vector3 const& shift,
                          vw::GeoReference        const& dem_georef,
-                         vw::ImageViewRef< PixelMask<float> > const& dem_ref,
+                         vw::ImageViewRef<PixelMask<float>> const& dem_ref,
                          Options const& opt) {
 
   // Filter gross outliers
