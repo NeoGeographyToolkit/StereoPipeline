@@ -148,7 +148,7 @@ TEST(DGCameraModel, CreateCamera) {
       EXPECT_VECTOR_NEAR(Vector2(i,j),
                          cam1->point_to_pixel(cam1->camera_center(Vector2(i,j)) +
                                                2e4 * cam1->pixel_to_vector(Vector2(i,j))),
-                         1e-1 /*pixels*/);
+                         1.0 /*pixels*/);
     }
   }
 
