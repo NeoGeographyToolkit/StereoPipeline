@@ -97,10 +97,19 @@ if (NOT TARGET gtest_all)
 endif()
 # Call this function once for each gtest target.
 macro(add_to_custom_test_target test_target)
-  add_custom_target(${test_target}_runtest
-                    COMMAND ${test_target} #cmake 2.6 required
-                    DEPENDS ${test_target}
-                    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+  # Run the test with ISISROOT pointing at the deps dir, where IsisPreferences
+  # lives (the build's ISISROOT is the install dir, which lacks it).
+  if(ASP_DEPS_DIR)
+    add_custom_target(${test_target}_runtest
+                      COMMAND ${CMAKE_COMMAND} -E env ISISROOT=${ASP_DEPS_DIR} $<TARGET_FILE:${test_target}>
+                      DEPENDS ${test_target}
+                      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+  else()
+    add_custom_target(${test_target}_runtest
+                      COMMAND ${test_target} #cmake 2.6 required
+                      DEPENDS ${test_target}
+                      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+  endif()
   add_dependencies(gtest_all ${test_target}_runtest)
 endmacro()
 
