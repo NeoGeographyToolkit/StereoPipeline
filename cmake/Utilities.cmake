@@ -183,6 +183,10 @@ function(add_library_wrapper libName fileList testFileList dependencyList)
     target_compile_definitions(${executableName} PRIVATE "TEST_OBJDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
     target_compile_definitions(${executableName} PRIVATE "TEST_SRCDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
 
+    # Find libomp, ISIS, and the other deps libs at runtime without a DYLD/LD env var.
+    if(ASP_DEPS_DIR)
+      set_target_properties(${executableName} PROPERTIES BUILD_RPATH "${ASP_DEPS_DIR}/lib")
+    endif()
 
     # These variables need to be set for each test directory
     #set_property (TARGET ${executableName} APPEND PROPERTY COMPILE_DEFINITIONS "TEST_OBJDIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests\"")
