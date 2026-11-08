@@ -20,28 +20,37 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/FileUtils.h>
 
+#include <fstream>
+#include <cstdio>
+
 using namespace vw;
 
 namespace asp {
 
-// Disabled: separate_images_from_cameras rejects this input.
-TEST(Common, DISABLED_separate_images_from_cameras_rpb) {
+// Two .tiff images paired with two .RPB cameras must split into two images and
+// two cameras. The separation only checks each input's existence and extension,
+// so create empty placeholder files and remove them at the end.
+TEST(Common, separate_images_from_cameras_rpb) {
 
   std::vector<std::string> inputs, images, cameras;
   bool ensure_equal_sizes = true;
 
-  inputs.push_back("1220996672.27391028_sc00110_c1_PAN.tiff");
-  inputs.push_back("1220996702.11131644_sc00110_c1_PAN.tiff");
-  inputs.push_back("1220996672.27391028_sc00110_c1_PAN.RPB");
-  inputs.push_back("1220996702.11131644_sc00110_c1_PAN.RPB");
+  inputs.push_back("sep_rpb_test_c1_PAN.tiff");
+  inputs.push_back("sep_rpb_test_c2_PAN.tiff");
+  inputs.push_back("sep_rpb_test_c1_PAN.RPB");
+  inputs.push_back("sep_rpb_test_c2_PAN.RPB");
+
+  for (size_t i = 0; i < inputs.size(); i++) {
+    std::ofstream ofs(inputs[i].c_str());
+    ofs.close();
+  }
 
   EXPECT_NO_THROW(separate_images_from_cameras(inputs, images, cameras, ensure_equal_sizes));
   EXPECT_EQ(2, images.size ());
   EXPECT_EQ(2, cameras.size());
-}
 
-// Disabled: no longer callable from a unit test.
-TEST(Common, DISABLED_StereoMultiCmdCheck) {
+  for (size_t i = 0; i < inputs.size(); i++)
+    std::remove(inputs[i].c_str());
 }
 
 } // namespace asp
