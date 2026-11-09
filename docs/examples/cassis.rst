@@ -734,22 +734,25 @@ same order, one per image), and the dense interest-point matches from
 constraint in both is the CTX reference DEM.
 
 The first run anchors the horizontal registration. It starts from the frame
-cameras, adds the ground control points made with :ref:`dem2gcp`, and holds
-their coordinates fixed with ``--fix-gcp-xyz``. The height constraint is kept
-loose (uncertainty 200 m), so the fixed ground control drives the horizontal
-fit::
+cameras and adds the ground control points made with :ref:`dem2gcp`. The ground
+control is applied as a soft constraint, not held fixed: the points are weighted
+by the sigma written into the ground control file (40), and
+``--gcp-robust-threshold 1`` attenuates noisy or wrong boot points, so the
+consistent control still pulls the cameras while the dense matches keep framelet
+continuity. The height constraint is kept loose (uncertainty 100 m), so the
+ground control drives the horizontal fit::
 
     bundle_adjust                                 \
       --image-list images.txt                     \
       --camera-list cameras.txt                   \
       gcp.gcp                                     \
-      --fix-gcp-xyz                               \
+      --gcp-robust-threshold 1                    \
       --max-gcp-reproj-err 100                    \
       --inline-adjustments                        \
       --match-files-prefix dense/matches/run-disp \
       --heights-from-dem ctx.tif                  \
-      --heights-from-dem-uncertainty 200          \
-      --heights-from-dem-robust-threshold 0.1     \
+      --heights-from-dem-uncertainty 100          \
+      --heights-from-dem-robust-threshold 1000000 \
       --camera-position-uncertainty 500,500       \
       --robust-threshold 0.5                      \
       --num-iterations 50                         \
@@ -760,13 +763,13 @@ fit::
       --max-pairwise-matches 2000                 \
       -o ba_fixed_gcp/run
 
-The value ``--heights-from-dem-uncertainty 200`` is likely unnecessarily loose,
-even if the goal is prioritizing GCP.
+The large ``--heights-from-dem-robust-threshold`` keeps the loose height from
+being down-weighted, so the soft ground control sets the vertical.
 
 The second run settles the vertical. It reuses the cameras from the first run
 through the image and camera lists that run wrote, ``ba_fixed_gcp/run-image_list.txt``
 and ``ba_fixed_gcp/run-camera_list.txt``. It uses no ground control, and tightens the
-height constraint to an uncertainty of 1 m, so the heights lock onto the CTX DEM
+height constraint to an uncertainty of 10 m, so the heights lock onto the CTX DEM
 while the matches hold the horizontal in place::
 
     bundle_adjust                                     \
@@ -776,7 +779,7 @@ while the matches hold the horizontal in place::
       --match-files-prefix dense/matches/run-disp     \
       --heights-from-dem ctx.tif                      \
       --heights-from-dem-uncertainty 10               \
-      --heights-from-dem-robust-threshold 0.1         \
+      --heights-from-dem-robust-threshold 1000000     \
       --camera-position-uncertainty 500,500           \
       --robust-threshold 0.5                          \
       --num-iterations 50                             \
