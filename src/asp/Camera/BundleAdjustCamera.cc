@@ -524,22 +524,13 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
   optical_center[1] = center_ptr[1] * optical_center[1];
   focal_length      = focus_ptr [0] * focal_length;
 
-  // Update the lens distortion parameters in the new camera.
-  // - These values are also optimized as scale factors.
+  // Update the lens distortion parameters. These are optimized as scale
+  // factors, so a frozen parameter (scale 1) passes through unchanged and a
+  // zero value stays zero. Zero-seeded distortion that is being floated is
+  // made nonzero earlier and in one place, by ensureMinDistortion.
   std::vector<double> distortion = in_cam.distortion();
-  for (size_t i = 0; i < distortion.size(); i++) {
-
-    // Ensure this approach does not fail when the input distortion is 0.
-    // TODO(oalexan1): This is not enough, however. The user must choose
-    // to manually enter some small fake distortion, maybe on the order
-    // of 1e-8. It is hard to tell what numbers to put below. They should
-    // not be as small as 1e-16 but sometimes 1e-8 (for higher order polynomial
-    // coefficients) may be too much.
-    if (distortion[i] == 0.0)
-      distortion[i] = 1e-16;
-
+  for (size_t i = 0; i < distortion.size(); i++)
     distortion[i] = dist_ptr[i] * distortion[i];
-  }
 
   // Duplicate the input camera model
   boost::shared_ptr<asp::CsmModel> copy;
