@@ -265,9 +265,22 @@ echo Testing the build.
 # verify the issuer's authority"); the deps wgets above run before activation and
 # use the system certs, so they succeed. This is a public test tarball, so
 # skipping cert verification here is fine and avoids depending on a CA-bundle path.
-wget --tries=5 --timeout=30 --no-check-certificate https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar > /dev/null 2>&1
-if [ ! -f "StereoPipelineTest.tar" ]; then
-    echo "Error: File: StereoPipelineTest.tar does not exist. Test failed."
+# Retry in an outer loop and validate: this ~770 MB asset is served through a
+# short-lived signed redirect, so a single slow transfer can expire mid-download
+# and leave no file, which then fails the whole suite. gzip -t cannot validate it
+# (a plain .tar, not .tar.gz), so check with tar tf.
+testUrl=https://github.com/NeoGeographyToolkit/StereoPipelineTest/releases/download/0.0.1/StereoPipelineTest.tar
+for i in 1 2 3 4; do
+    rm -f StereoPipelineTest.tar
+    if wget --tries=5 --timeout=30 --no-check-certificate -O StereoPipelineTest.tar "$testUrl" 2>/dev/null \
+         && [ -s StereoPipelineTest.tar ] && tar tf StereoPipelineTest.tar > /dev/null 2>&1; then
+        break
+    fi
+    echo "Retry $i/4: StereoPipelineTest.tar download failed or corrupt"
+    sleep 15
+done
+if [ ! -f "StereoPipelineTest.tar" ] || ! tar tf StereoPipelineTest.tar > /dev/null 2>&1; then
+    echo "Error: File: StereoPipelineTest.tar does not exist or is corrupt. Test failed."
     build_failed=1
 fi
 tar xf StereoPipelineTest.tar > /dev/null 2>&1
