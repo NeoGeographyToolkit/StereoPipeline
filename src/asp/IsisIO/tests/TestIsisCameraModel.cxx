@@ -43,6 +43,20 @@ using namespace vw;
 
 double DELTA = 1e-8;
 
+// ISIS camera construction pulls in an embedded Python (through ALE) that the bare
+// unit-test harness cannot initialize on macOS: with no PYTHONHOME it aborts with a
+// fatal "No module named 'encodings'" error that no C++ catch can trap. These tests
+// run on Linux, where the embedded Python resolves its standard library. Skip on macOS.
+bool skipIsisUnitTestOnMac() {
+#ifdef __APPLE__
+  vw_out() << "Skipping ISIS camera unit test: the macOS unit-test harness cannot "
+	   << "initialize ISIS's embedded Python." << std::endl;
+  return true;
+#else
+  return false;
+#endif
+}
+
 Vector2 generate_random(int const& xsize,
 			 int const& ysize) {
   Vector2 pixel;
@@ -62,6 +76,8 @@ TEST(IsisCameraModel, mapprojected) {
 	     << std::endl;
     return;
   }
+  if (skipIsisUnitTestOnMac())
+    return;
   try {
   std::string file("E0201461.tiny.cub");
   Isis::FileName cubefile(file.c_str());
@@ -125,6 +141,9 @@ TEST(IsisCameraModel, groundmap_chk) {
 	     << std::endl;
     return;
   }
+
+  if (skipIsisUnitTestOnMac())
+    return;
 
   try {
   std::vector<std::string> files;
@@ -235,6 +254,9 @@ TEST(IsisCameraModel, camera_model) {
 	     << std::endl;
     return;
   }
+
+  if (skipIsisUnitTestOnMac())
+    return;
 
   try {
   // Circle Check
