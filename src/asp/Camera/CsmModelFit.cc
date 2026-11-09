@@ -771,25 +771,6 @@ void refineCsmFrameFit(std::vector<vw::Vector2> const& pixels,
   vw::Vector2 optical_center = csm_model.optical_center();
   std::vector<double> distortion = csm_model.distortion();
   
-#if 0 // This does not work and may not be needed
-  // Find the longest distance from optical center to each pixel
-  if (!fix_other_intrinsics) {
-    double r = 0;
-    for (size_t i = 0; i < pixels.size(); i++) 
-      r = std::max(r, norm_2(pixels[i] - optical_center));
-    if (r == 0)
-      vw::vw_throw(vw::ArgumentErr() << "Error: Not enough samples.\n");
-  
-    // Give CERES a hint to not perturb the high order distortion terms too much
-    // TODO(oalexan1): This should depend on image dimensions.
-    // k2 gets multiplied by r^5, k3 gets multiplied by r^7. 
-    if (distortion[1] == 0)
-      distortion[1] = 1e-7 / pow(r, 5); // k2
-    if (distortion[4] == 0)
-      distortion[4] = 1e-7 / pow(r, 7);  // k3
-  }
-#endif
-      
   // The position vector
   std::vector<double> position = {x, y, z};
       
