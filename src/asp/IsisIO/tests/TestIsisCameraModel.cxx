@@ -43,10 +43,8 @@ using namespace vw;
 
 double DELTA = 1e-8;
 
-// ISIS camera construction pulls in an embedded Python (through ALE) that the bare
-// unit-test harness cannot initialize on macOS: with no PYTHONHOME it aborts with a
-// fatal "No module named 'encodings'" error that no C++ catch can trap. These tests
-// run on Linux, where the embedded Python resolves its standard library. Skip on macOS.
+// On macOS the bare test harness cannot bootstrap ISIS's embedded Python (via ALE):
+// a fatal, uncatchable "No module named 'encodings'". Linux resolves it. Skip on macOS.
 bool skipIsisUnitTestOnMac() {
 #ifdef __APPLE__
   vw_out() << "Skipping ISIS camera unit test: the macOS unit-test harness cannot "
