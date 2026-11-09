@@ -752,7 +752,7 @@ ground control drives the horizontal fit::
       --match-files-prefix dense/matches/run-disp \
       --heights-from-dem ctx.tif                  \
       --heights-from-dem-uncertainty 100          \
-      --heights-from-dem-robust-threshold 1000000 \
+      --heights-from-dem-robust-threshold 1e+6    \
       --camera-position-uncertainty 500,500       \
       --robust-threshold 0.5                      \
       --num-iterations 50                         \
@@ -772,22 +772,22 @@ and ``ba_fixed_gcp/run-camera_list.txt``. It uses no ground control, and tighten
 height constraint to an uncertainty of 10 m, so the heights lock onto the CTX DEM
 while the matches hold the horizontal in place::
 
-    bundle_adjust                                     \
-      --image-list ba_fixed_gcp/run-image_list.txt    \
-      --camera-list ba_fixed_gcp/run-camera_list.txt  \
-      --inline-adjustments                            \
-      --match-files-prefix dense/matches/run-disp     \
-      --heights-from-dem ctx.tif                      \
-      --heights-from-dem-uncertainty 10               \
-      --heights-from-dem-robust-threshold 1000000     \
-      --camera-position-uncertainty 500,500           \
-      --robust-threshold 0.5                          \
-      --num-iterations 50                             \
-      --num-passes 2                                  \
-      --remove-outliers-params "75 3 100 100"         \
-      --min-triangulation-angle 1e-10                 \
-      --forced-triangulation-distance 392000          \
-      --max-pairwise-matches 2000                     \
+    bundle_adjust                                    \
+      --image-list ba_fixed_gcp/run-image_list.txt   \
+      --camera-list ba_fixed_gcp/run-camera_list.txt \
+      --inline-adjustments                           \
+      --match-files-prefix dense/matches/run-disp    \
+      --heights-from-dem ctx.tif                     \
+      --heights-from-dem-uncertainty 10              \
+      --heights-from-dem-robust-threshold 1e+6       \
+      --camera-position-uncertainty 500,500          \
+      --robust-threshold 0.5                         \
+      --num-iterations 50                            \
+      --num-passes 2                                 \
+      --remove-outliers-params "75 3 100 100"        \
+      --min-triangulation-angle 1e-10                \
+      --forced-triangulation-distance 392000         \
+      --max-pairwise-matches 2000                    \
       -o ba_tight_dem/run
 
 The ``--inline-adjustments`` option writes each refined camera as a full camera
