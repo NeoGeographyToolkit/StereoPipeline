@@ -249,8 +249,8 @@ void BaState::randomize_cameras() {
 
 /// Randomly scale each intrinsic value.
 void BaState::randomize_intrinsics(std::vector<double> const& intrinsic_limits) {
-  // Intrinsic values are stored as multipliers, here we 
-  //  multiply from 0.5 to 1.5, being careful about shared and constant values.
+  // Intrinsics are stored as their values. Here we jitter each by a random
+  //  factor from 0.5 to 1.5, being careful about shared and constant values.
   // - If intrinsic limits are specified, use that range instead.
   boost::random::uniform_int_distribution<> dist(0, 100);
   const double DENOM = 100.0;
