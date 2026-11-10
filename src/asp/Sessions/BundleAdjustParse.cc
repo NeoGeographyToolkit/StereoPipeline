@@ -1122,10 +1122,11 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "sharing intrinsics per sensor, this option is ignored, as then the sharing is more "
      "fine-grained.")
     ("intrinsics-limits", po::value(&intrinsics_limit_str)->default_value(""),
-     "Specify minimum and maximum ratios for the intrinsic parameters. Values must be in "
-     "min max pairs and are applied in the order [focal length, optical center, other "
-     "intrinsics] until all of the limits are used. Check the documentation to determine "
-     "how many intrinsic parameters are used for your cameras.")
+     "Specify minimum and maximum bounds for the intrinsic parameters. These are absolute "
+     "bounds on the parameter values, not ratios relative to the initial values. Values "
+     "must be in min max pairs and are applied in the order [focal length, optical center, "
+     "other intrinsics] until all of the limits are used. Check the documentation to "
+     "determine how many intrinsic parameters are used for your cameras.")
     ("min-distortion",
      po::value(&opt.min_distortion)->default_value(0.0),
      "Distortion parameters that are optimized and that are smaller in magnitude than this "
@@ -1133,9 +1134,8 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "The default is 0, so each parameter is optimized from its provided value directly. If "
      "the solver does not adequately optimize a lens distortion parameter, set a small "
      "initial value here. Can be negative. This is affected by --fixed-distortion-indices. "
-     "Applies to "
-     "Pinhole cameras (all distortion models) and CSM (radial-tangential distortion only). "
-     "Does not apply to optical bar models. See also --fixed-distortion-indices.")
+     "Applies to Pinhole cameras (all distortion models) and CSM (radial-tangential "
+     "distortion only). Does not apply to optical bar models.")
     ("fixed-distortion-indices",
      po::value(&opt.fixed_distortion_indices_str)->default_value(""),
      "A sequence indices, separated by commas (with no spaces) starting from 0, "
