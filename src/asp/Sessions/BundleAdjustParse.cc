@@ -1129,7 +1129,7 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("min-distortion",
      po::value(&opt.min_distortion)->default_value(0.0),
      "Distortion parameters that are optimized and that are smaller in magnitude than this "
-     "value are raised to this value, to ensure they are large enough to be optimized. The "
+     "value are set to this value, to ensure they are large enough to be optimized. The "
      "default is 0, which applies no floor, as the solver optimizes each parameter from its "
      "seed value directly. Set a positive value only if a distortion solve conditions "
      "poorly. Can be negative. This is affected by --fixed-distortion-indices. Applies to "
