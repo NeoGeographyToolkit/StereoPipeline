@@ -159,11 +159,6 @@ bar (:numref:`panoramic`), or CSM (:numref:`csm`), it is possible to optimize
 distortion, with a somewhat different list for optical bar cameras), in addition
 to the extrinsics.
 
-As of build 2026/11 (:numref:`release`), each intrinsic is optimized directly, by
-refining the provided value itself. Earlier, a parameter was optimized as a
-multiplicative factor relative to its initial value, which froze any value that
-started at zero and could condition poorly.
-
 It is also possible to take advantage of an existing terrain ground truth, such
 as a lidar file or a DEM, to correct imperfectly calibrated intrinsic
 parameters, which can result in greatly improved results, such as creating less
