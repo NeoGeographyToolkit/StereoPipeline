@@ -1404,8 +1404,9 @@ camera models with RPC distortion.
 As of build 2026/11 (:numref:`release`), the distortion coefficients are
 optimized directly from their initial values, including when they start at zero,
 so no manual modification is needed. In older builds they had to be set to about
-1e-7 or more, as otherwise they would be hard to optimize and stay small. A floor
-can still be applied with ``--min-distortion`` if a solve conditions poorly.
+1e-7 or more, as otherwise they would be hard to optimize and stay small. If the
+solver does not adequately optimize a distortion parameter, a small initial value
+can be set with ``--min-distortion``.
 
 See :numref:`intrinsics_ground_truth` and :numref:`kaguya_ba` for examples of
 how to to optimize the lens distortion. An example specifically using RPC is

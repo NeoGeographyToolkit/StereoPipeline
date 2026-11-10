@@ -1129,10 +1129,11 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("min-distortion",
      po::value(&opt.min_distortion)->default_value(0.0),
      "Distortion parameters that are optimized and that are smaller in magnitude than this "
-     "value are set to this value, to ensure they are large enough to be optimized. The "
-     "default is 0, which applies no floor, as the solver optimizes each parameter from its "
-     "seed value directly. Set a positive value only if a distortion solve conditions "
-     "poorly. Can be negative. This is affected by --fixed-distortion-indices. Applies to "
+     "value are set to this value, to give the solver a larger initial value to work with. "
+     "The default is 0, so each parameter is optimized from its provided value directly. If "
+     "the solver does not adequately optimize a lens distortion parameter, set a small "
+     "initial value here. Can be negative. This is affected by --fixed-distortion-indices. "
+     "Applies to "
      "Pinhole cameras (all distortion models) and CSM (radial-tangential distortion only). "
      "Does not apply to optical bar models. See also --fixed-distortion-indices.")
     ("fixed-distortion-indices",
