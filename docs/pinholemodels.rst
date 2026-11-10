@@ -669,7 +669,13 @@ elevation are in meters.
 The initial camera center ``iC`` is in meters (in ECEF coordinates),
 and the rotation matrix ``iR`` stores the absolute pose, that is,
 the camera-to-world rotation. This is analogous to the ``C`` and ``R``
-fields in the Tsai model (:numref:`pinholemodels`). 
+fields in the Tsai model (:numref:`pinholemodels`).
+
+In the velocity-vector mode (:numref:`ghuffar_method`), used for the KH-9 cameras
+(:numref:`kh9`), the file also has a ``velocity`` field, the satellite velocity as
+a 3D ECEF vector, and a ``final_pose`` field, the camera pose at the end of the
+scan in axis-angle format, with ``iR`` the pose at the start and *slerp*
+interpolation in between. The presence of the ``velocity`` line selects this mode.
 
 The ``scan_dir`` must be set to ``left`` or ``right``. It is the direction in
 which the optical bar sweeps the slit across the film. Together with
