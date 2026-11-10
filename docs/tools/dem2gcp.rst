@@ -212,7 +212,7 @@ RPC lens distortion model (:numref:`rpc_distortion`) as in
 If solving for intrinsics and using RPC lens distortion, as of build 2026/11
 (:numref:`release`) the coefficients are optimized directly from their initial
 values, including zero. In older builds the small RPC coefficients had to be
-changed manually to be at least 1e-7, or raised with ``--min-distortion``,
+changed manually to be at least 1e-7, or set via ``--min-distortion``,
 otherwise they would not get optimized. Here, RPC of degree 3 is used. A higher
 degree can be employed, either initially, or for subsequent iterations.
 
