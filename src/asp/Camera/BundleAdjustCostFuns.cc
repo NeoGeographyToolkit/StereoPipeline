@@ -114,20 +114,18 @@ vw::Vector2 BaPinholeCam::evaluate(std::vector<double const*> const param_blocks
   Vector3          point(raw_point[0], raw_point[1], raw_point[2]);
   CameraAdjustment correction(raw_pose);
 
-  // We actually solve for scale factors for intrinsic values, so multiply them
-  //  by the original intrinsic values to get the updated values.
-  double center_x = raw_center[0] * m_underlying_camera->point_offset()[0];
-  double center_y = raw_center[1] * m_underlying_camera->point_offset()[1];
-  double focus    = raw_focus [0] * m_underlying_camera->focal_length()[0];
+  // Intrinsics are solved directly (additive), so the raw arrays hold the
+  // values themselves.
+  double center_x = raw_center[0];
+  double center_y = raw_center[1];
+  double focus    = raw_focus [0];
 
   // Update the lens distortion parameters in the new camera.
-  // - These values are also optimized as scale factors.
-  // TODO: This approach FAILS when the input value is zero!!
   boost::shared_ptr<LensDistortion> distortion
     = m_underlying_camera->lens_distortion()->copy();
   vw::Vector<double> lens = distortion->distortion_parameters();
   for (size_t i = 0; i < lens.size(); i++)
-    lens[i] *= raw_lens[i];
+    lens[i] = raw_lens[i];
   distortion->set_distortion_parameters(lens);
 
   // Duplicate the input camera model with the pose, focus, center, and lens updated.
@@ -185,29 +183,27 @@ vw::Vector2  BaOpticalBarCam::evaluate(std::vector<double const*> const param_bl
   Vector3          point(raw_point[0], raw_point[1], raw_point[2]);
   CameraAdjustment correction(raw_pose);
 
-  // We actually solve for scale factors for intrinsic values, so multiply them
-  //  by the original intrinsic values to get the updated values.
-  double center_x  = raw_center[0] * m_underlying_camera->get_optical_center()[0];
-  double center_y  = raw_center[1] * m_underlying_camera->get_optical_center()[1];
-  double focus     = raw_focus [0] * m_underlying_camera->get_focal_length();
-  double speed     = raw_intrin[0] * m_underlying_camera->get_speed();
-  double mcf       = raw_intrin[1] * m_underlying_camera->get_motion_compensation();
-  double scan_time = raw_intrin[2] * m_underlying_camera->get_scan_time();
+  // Intrinsics are solved directly (additive), so the raw arrays hold the
+  // values themselves.
+  double center_x  = raw_center[0];
+  double center_y  = raw_center[1];
+  double focus     = raw_focus [0];
+  double speed     = raw_intrin[0];
+  double mcf       = raw_intrin[1];
+  double scan_time = raw_intrin[2];
 
-  // The velocity is a 3-vector 
+  // The velocity is a 3-vector
   bool have_velocity_vec = m_underlying_camera->get_have_velocity_vec();
   vw::Vector3 vel(0, 0, 0);
   vw::Vector3 final_pose(std::numeric_limits<double>::quiet_NaN(), 0, 0);
 
   if (have_velocity_vec) {
-    vel = m_underlying_camera->get_velocity();
-    final_pose = m_underlying_camera->get_final_pose();
-    vel[0] *= raw_intrin[3];
-    vel[1] *= raw_intrin[4];
-    vel[2] *= raw_intrin[5];
-    final_pose[0] *= raw_intrin[6];
-    final_pose[1] *= raw_intrin[7];
-    final_pose[2] *= raw_intrin[8];
+    vel[0] = raw_intrin[3];
+    vel[1] = raw_intrin[4];
+    vel[2] = raw_intrin[5];
+    final_pose[0] = raw_intrin[6];
+    final_pose[1] = raw_intrin[7];
+    final_pose[2] = raw_intrin[8];
   }
 
   // Create an optical bar camera with updated pose, focus, center, speed, and MCF
@@ -277,19 +273,18 @@ vw::Vector2 BaCsmCam::evaluate(std::vector<double const*> const param_blocks) co
     position_adj = derived - m_init_pos; // adjustment relative to the original position
   }
 
-  // We actually solve for scale factors for intrinsic values, so multiply them
-  //  by the original intrinsic values to get the updated values.
+  // Intrinsics are solved directly (additive), so the raw arrays hold the
+  // values themselves.
   vw::Vector2 optical_center = m_underlying_camera->optical_center();
   double focal_length        = m_underlying_camera->focal_length();
-  optical_center[0] = raw_center[0] * optical_center[0];
-  optical_center[1] = raw_center[1] * optical_center[1];
-  focal_length      = raw_focus [0] * focal_length;
+  optical_center[0] = raw_center[0];
+  optical_center[1] = raw_center[1];
+  focal_length      = raw_focus [0];
 
   // Update the lens distortion parameters in the new camera.
-  // - These values are also optimized as scale factors.
   std::vector<double> distortion = m_underlying_camera->distortion();
   for (size_t i = 0; i < distortion.size(); i++)
-    distortion[i] = raw_dist[i] * distortion[i];
+    distortion[i] = raw_dist[i];
 
   // Duplicate the input camera model
   boost::shared_ptr<asp::CsmModel> copy;

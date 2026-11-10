@@ -127,15 +127,18 @@ void pack_pinhole_to_arrays(vw::PinholeModel const& camera,
   pos_pose_info.copy_from_pinhole(camera);
   pos_pose_info.pack_to_array(pos_pose_ptr);
 
-  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
-  // Center point and focal length
-  center_ptr[0] = 1.0;
-  center_ptr[1] = 1.0;
-  focus_ptr [0] = 1.0;
+  // We solve for the intrinsic values directly (additive). Seed each at the
+  // camera's own value, so a zero coefficient can still be optimized, as the
+  // gradient does not depend on the seed.
+  vw::Vector2 center = camera.point_offset();
+  vw::Vector2 focus  = camera.focal_length();
+  center_ptr[0] = center[0];
+  center_ptr[1] = center[1];
+  focus_ptr [0] = focus[0];
   // Lens distortion
   vw::Vector<double> lens = camera.lens_distortion()->distortion_parameters();
   for (size_t i = 0; i < lens.size(); i++)
-    distortion_ptr[i] = 1.0;
+    distortion_ptr[i] = lens[i];
 }
 
 void pack_optical_bar_to_arrays(vw::OpticalBarModel const& camera,
@@ -152,14 +155,28 @@ void pack_optical_bar_to_arrays(vw::OpticalBarModel const& camera,
   pos_pose_info.copy_from_optical_bar(camera);
   pos_pose_info.pack_to_array(pos_pose_ptr);
 
-  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
-  // Center point and focal length
-  center_ptr[0] = 1.0;
-  center_ptr[1] = 1.0;
-  focus_ptr [0] = 1.0;
-  // Pack the speed, MCF, and scan time into the distortion pointer.
-  for (size_t i = 0; i < asp::NUM_OPTICAL_BAR_EXTRA_PARAMS; i++)
-    intrinsics_ptr[i] = 1.0;
+  // We solve for the intrinsic values directly (additive). Seed each at the
+  // camera's own value.
+  vw::Vector2 center = camera.get_optical_center();
+  center_ptr[0] = center[0];
+  center_ptr[1] = center[1];
+  focus_ptr [0] = camera.get_focal_length();
+  // Motion state, stored in the distortion slot:
+  // [speed, MCF, scan_time, velocity(3), final_pose(3)].
+  intrinsics_ptr[0] = camera.get_speed();
+  intrinsics_ptr[1] = camera.get_motion_compensation();
+  intrinsics_ptr[2] = camera.get_scan_time();
+  vw::Vector3 vel(0, 0, 0), final_pose(0, 0, 0);
+  if (camera.get_have_velocity_vec()) {
+    vel        = camera.get_velocity();
+    final_pose = camera.get_final_pose();
+  }
+  intrinsics_ptr[3] = vel[0];
+  intrinsics_ptr[4] = vel[1];
+  intrinsics_ptr[5] = vel[2];
+  intrinsics_ptr[6] = final_pose[0];
+  intrinsics_ptr[7] = final_pose[1];
+  intrinsics_ptr[8] = final_pose[2];
 }
 
 // This does not copy the camera position and orientation
@@ -178,14 +195,16 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
   pos_pose_info.copy_from_csm(camera);
   pos_pose_info.pack_to_array(pos_pose_ptr);
 
-  // We are solving for multipliers to the intrinsic values, so they all start at 1.0.
-  // Center point and focal length
-  center_ptr[0] = 1.0;
-  center_ptr[1] = 1.0;
-  focus_ptr [0] = 1.0;
+  // We solve for the intrinsic values directly (additive). Seed each at the
+  // camera's own value, so a zero coefficient can still be optimized.
+  vw::Vector2 center = camera.optical_center();
+  center_ptr[0] = center[0];
+  center_ptr[1] = center[1];
+  focus_ptr [0] = camera.focal_length();
   // Distortion
-  for (size_t i = 0; i < camera.distortion().size(); i++)
-    distortion_ptr[i] = 1.0;
+  std::vector<double> dist = camera.distortion();
+  for (size_t i = 0; i < dist.size(); i++)
+    distortion_ptr[i] = dist[i];
 }
 
 /// Given a transform with origin at the planet center, like output by pc_align,

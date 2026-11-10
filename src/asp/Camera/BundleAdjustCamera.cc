@@ -430,22 +430,19 @@ vw::PinholeModel transformedPinholeCamera(int camera_index,
   out_cam.set_camera_center(pos_pose_info.position());
   out_cam.set_camera_pose(pos_pose_info.pose());
 
-  // Update the lens distortion parameters. Note how we make a new copy of the
-  // distortion object.
+  // Update the lens distortion parameters. The arrays hold the values
+  // directly (additive). Note how we make a new copy of the distortion object.
   boost::shared_ptr<LensDistortion> distortion = out_cam.lens_distortion()->copy();
   vw::Vector<double> lens = distortion->distortion_parameters();
   for (size_t i = 0; i < lens.size(); i++)
-    lens[i] *= distortion_ptr[i];
+    lens[i] = distortion_ptr[i];
   distortion->set_distortion_parameters(lens);
   out_cam.set_lens_distortion(distortion.get());
 
   // Update the center and focus
-  Vector2 old_center = out_cam.point_offset();
-  Vector2 old_focus  = out_cam.focal_length();
-  out_cam.set_point_offset(Vector2(center_ptr[0]*old_center[0],
-                                  center_ptr[1]*old_center[1]),
+  out_cam.set_point_offset(Vector2(center_ptr[0], center_ptr[1]),
                            false); // do not update the internals yet
-  double new_focus = old_focus[0]*focus_ptr[0];
+  double new_focus = focus_ptr[0];
   // At the last step, recompute the internals given the new values
   out_cam.set_focal_length(Vector2(new_focus,new_focus), true);
 
@@ -472,32 +469,23 @@ transformedOpticalBarCamera(int camera_index,
   out_cam.set_camera_center(pos_pose_info.position());
   out_cam.set_camera_pose  (pos_pose_info.pose    ());
 
-  // All intrinsic parameters are stored as multipliers!
+  // Intrinsic parameters are stored as values (additive).
 
   // Update the other intrinsic parameters.
-  out_cam.set_speed              (out_cam.get_speed()*intrinsic_ptr[0]);
-  out_cam.set_motion_compensation(out_cam.get_motion_compensation()*intrinsic_ptr[1]);
-  out_cam.set_scan_time          (out_cam.get_scan_time()*intrinsic_ptr[2]);
+  out_cam.set_speed              (intrinsic_ptr[0]);
+  out_cam.set_motion_compensation(intrinsic_ptr[1]);
+  out_cam.set_scan_time          (intrinsic_ptr[2]);
 
   if (out_cam.get_have_velocity_vec()) {
-    vw::Vector3 vel = out_cam.get_velocity();
-    vw::Vector3 final_pose = out_cam.get_final_pose();
-    vel[0] *= intrinsic_ptr[3];
-    vel[1] *= intrinsic_ptr[4];
-    vel[2] *= intrinsic_ptr[5];
-    final_pose[0] *= intrinsic_ptr[6];
-    final_pose[1] *= intrinsic_ptr[7];
-    final_pose[2] *= intrinsic_ptr[8];
+    vw::Vector3 vel(intrinsic_ptr[3], intrinsic_ptr[4], intrinsic_ptr[5]);
+    vw::Vector3 final_pose(intrinsic_ptr[6], intrinsic_ptr[7], intrinsic_ptr[8]);
     out_cam.set_velocity(vel);
     out_cam.set_final_pose(final_pose);
   }
 
   // Update the center and focus
-  Vector2 old_center = out_cam.get_optical_center();
-  float   old_focus  = out_cam.get_focal_length();
-  out_cam.set_optical_center(Vector2(center_ptr[0]*old_center[0],
-                                    center_ptr[1]*old_center[1]));
-  double new_focus = old_focus*focus_ptr[0];
+  out_cam.set_optical_center(Vector2(center_ptr[0], center_ptr[1]));
+  double new_focus = focus_ptr[0];
   out_cam.set_focal_length(new_focus);
 
   return out_cam;
@@ -517,20 +505,18 @@ boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
   // Read the position and pose
   CameraAdjustment correction(pos_pose_ptr);
 
-  // All intrinsic parameters are stored as multipliers
+  // All intrinsic parameters are stored as values (additive).
   vw::Vector2 optical_center = in_cam.optical_center();
   double focal_length        = in_cam.focal_length();
-  optical_center[0] = center_ptr[0] * optical_center[0];
-  optical_center[1] = center_ptr[1] * optical_center[1];
-  focal_length      = focus_ptr [0] * focal_length;
+  optical_center[0] = center_ptr[0];
+  optical_center[1] = center_ptr[1];
+  focal_length      = focus_ptr [0];
 
-  // Update the lens distortion parameters. These are optimized as scale
-  // factors, so a frozen parameter (scale 1) passes through unchanged and a
-  // zero value stays zero. Zero-seeded distortion that is being floated is
-  // made nonzero earlier and in one place, by ensureMinDistortion.
+  // Update the lens distortion parameters. The arrays hold the values
+  // directly, so a zero-seeded coefficient can be optimized.
   std::vector<double> distortion = in_cam.distortion();
   for (size_t i = 0; i < distortion.size(); i++)
-    distortion[i] = dist_ptr[i] * distortion[i];
+    distortion[i] = dist_ptr[i];
 
   // Duplicate the input camera model
   boost::shared_ptr<asp::CsmModel> copy;
