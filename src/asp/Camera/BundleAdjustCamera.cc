@@ -1260,8 +1260,21 @@ bool is_str_non_neg_integer(std::string const& str) {
   return true;
 }
 
+// Map a named optical-bar motion sub-group to its indices in the 9-element
+// distortion vector [speed, MCF, scan_time, velocity(3), final_pose(3)]. This
+// floats a subset of the velocity-mode scan-motion model. Returns true if the
+// name is recognized. The layout matches pack_optical_bar_to_arrays. Validation
+// that the cameras are actually optical bar happens later, in handleBaArgs.
+bool optical_bar_float_param(std::string const& name, std::vector<int> & idx) {
+  idx.clear();
+  if (name == "velocity")                   { idx = {3, 4, 5}; return true; }
+  if (name == "motion_compensation_factor") { idx = {1};       return true; }
+  if (name == "final_pose")                 { idx = {6, 7, 8}; return true; }
+  return false;
+}
+
 // Parse format:
-// "1:focal_length,optical_center 2:focal_length,other_intrinsics 3:none"  
+// "1:focal_length,optical_center 2:focal_length,other_intrinsics 3:none"
 // Applies when optimizing intrinsics per sensor.
 // The numbers are sensor indices, starting with 1.
 void fine_grained_parse(bool share_intrinsics_per_sensor,
@@ -1270,7 +1283,8 @@ void fine_grained_parse(bool share_intrinsics_per_sensor,
                         // Outputs
                         std::vector<bool> & float_center,
                         std::vector<bool> & float_focus,
-                        std::vector<bool> & float_distortion) {
+                        std::vector<bool> & float_distortion,
+                        std::set<int>     & float_distortion_indices) {
 
   // Sanity checks
   if (!share_intrinsics_per_sensor)
@@ -1349,6 +1363,19 @@ void fine_grained_parse(bool share_intrinsics_per_sensor,
       continue;
     }
 
+    // Named optical bar motion sub-groups (velocity, motion_compensation_factor,
+    // final_pose) float a subset of the distortion vector. Optical-bar-only,
+    // validated in handleBaArgs.
+    {
+      std::vector<int> ob_idx;
+      if (optical_bar_float_param(options[it], ob_idx)) {
+        float_distortion[sensor_id] = true;
+        for (size_t k = 0; k < ob_idx.size(); k++)
+          float_distortion_indices.insert(ob_idx[k]);
+        continue;
+      }
+    }
+
     // For none, just skip
     if (options[it] == "none") {
       continue;
@@ -1367,7 +1394,8 @@ void coarse_grained_parse(int num_sensors,
                           // Outputs
                           std::vector<bool> & float_center,
                           std::vector<bool> & float_focus,
-                          std::vector<bool> & float_distortion) {
+                          std::vector<bool> & float_distortion,
+                          std::set<int>     & float_distortion_indices) {
 
   // Wipe the outputs
   float_center.clear();
@@ -1419,6 +1447,19 @@ void coarse_grained_parse(int num_sensors,
       float_focus[sensor_id]      = true;
       float_distortion[sensor_id] = true;
       continue;
+    }
+
+    // Named optical bar motion sub-groups (velocity, motion_compensation_factor,
+    // final_pose) float a subset of the distortion vector. Optical-bar-only,
+    // validated in handleBaArgs.
+    {
+      std::vector<int> ob_idx;
+      if (optical_bar_float_param(options[it], ob_idx)) {
+        float_distortion[sensor_id] = true;
+        for (size_t k = 0; k < ob_idx.size(); k++)
+          float_distortion_indices.insert(ob_idx[k]);
+        continue;
+      }
     }
 
     // For none, just skip
@@ -1550,13 +1591,15 @@ void load_intrinsics_options(bool        solve_intrinsics,
                             float_options,
                             intrinsics_options.float_center,
                             intrinsics_options.float_focus,
-                            intrinsics_options.float_distortion);
+                            intrinsics_options.float_distortion,
+                            intrinsics_options.float_distortion_indices);
   } else {
     asp::coarse_grained_parse(intrinsics_options.num_sensors,
                               float_options,
                               intrinsics_options.float_center,
                               intrinsics_options.float_focus,
-                              intrinsics_options.float_distortion);
+                              intrinsics_options.float_distortion,
+                              intrinsics_options.float_distortion_indices);
   }
 
   // Useful reporting
@@ -1587,6 +1630,12 @@ void load_intrinsics_options(bool        solve_intrinsics,
         intrinsics_options.center_shared = true;
       else if (val == "other_intrinsics" || val == "distortion")
         intrinsics_options.distortion_shared = true;
+      else if (val == "velocity" || val == "motion_compensation_factor" ||
+               val == "final_pose")
+        // Sharing an individual optical bar motion parameter is not yet
+        // supported. The left and right cameras usually have different values.
+        vw_throw(ArgumentErr() << "Sharing the optical bar motion parameter '"
+          << val << "' is not yet supported.\n");
       else
         vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to share: "
           << val << ".\n");

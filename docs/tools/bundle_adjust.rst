@@ -1700,7 +1700,9 @@ Solving for intrinsics
     specifying anything will float all of them. Also can specify ``all`` or
     ``none``. See :numref:`ba_frame_linescan` for controlling these per each
     group of cameras sharing a sensor. See also ``--fixed-distortion-indices``.
-
+    For optical bar cameras see the discussion of finer-grained controls in
+    :numref:`kh9_controls`.
+    
 --intrinsics-to-share <string (default: "")>
     If solving for intrinsics and desired to share only a few of them across all
     cameras, specify here, in quotes, one or more of: ``focal_length``,
@@ -1708,7 +1710,8 @@ Solving for intrinsics
     default all of the intrinsics are shared, so to not share any of them pass
     in an empty string. Also can specify as ``all`` or ``none``. If sharing
     intrinsics per sensor, this option is ignored, as then the sharing is more
-    fine-grained (:numref:`kaguya_ba`).
+    fine-grained (:numref:`kaguya_ba`). For optical bar cameras see
+    :numref:`kh9_controls`.
 
 --intrinsics-limits <string (default: "")>
     Set a string in quotes that contains min max pairs bounding the intrinsic

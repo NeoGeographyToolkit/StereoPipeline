@@ -931,6 +931,35 @@ the various report files that are produced.
    Fwd and Aft mapprojected images, after optimization of intrinsics. The images 
    are much better aligned.
 
+.. _kh9_controls:
+
+Fine control of optical bar parameters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The three optical bar motion parameters can also be floated individually, rather
+than all together as ``other_intrinsics``, using the names ``velocity``,
+``motion_compensation_factor``, and ``final_pose``. For example, to float only
+the velocity vector::
+
+    bundle_adjust                    \
+      fwd_sub16.tif aft_sub16.tif    \
+      fwd_sub16.tsai aft_sub16.tsai  \
+      fwd_sub16.gcp aft_sub16.gcp    \
+      --inline-adjustments           \
+      --solve-intrinsics             \
+      --intrinsics-to-float velocity \
+      --intrinsics-to-share none     \
+      --heights-from-dem ref.tif     \
+      -o ba/run
+
+They can be combined, as in ``--intrinsics-to-float 'velocity final_pose'``.
+This invocation cannot be combined with ``--fixed-distortion-indices``.
+Supported as of build 2026/11 (:numref:`release`).
+
+Sharing these with ``--intrinsics-to-share`` is not yet supported and gives an
+error, because the left and right cameras usually have different values for
+them.
+
 Creation of a terrain model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

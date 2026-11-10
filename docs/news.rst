@@ -58,6 +58,8 @@ bundle_adjust (:numref:`bundle_adjust`):
   * The ``--min-distortion`` default is now 0, so distortion is optimized from
     its provided value, and ``--intrinsics-limits`` now bounds absolute parameter
     values rather than ratios (:numref:`bundle_adjust`).
+  * For optical bar cameras, individual parameters can be controlled, such as
+    ``motion_compensation_factor`` (:numref:`kh9_controls`).
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added the ``--mapproject`` option, to mapproject the raw input images onto a

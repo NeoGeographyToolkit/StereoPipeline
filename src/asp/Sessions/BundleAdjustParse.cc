@@ -1113,14 +1113,15 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "If solving for intrinsics and is desired to float only a few of them, specify here, "
      "in quotes, one or more of: focal_length, optical_center, other_intrinsics "
      "(distortion). Not specifying anything will float all of them. Also can specify 'all' "
-     "or 'none'. See the documentation for when intrinsics are optimized per sensor.")
+     "or 'none'. See the documentation for when intrinsics are optimized per sensor, and for "
+     "finer-grained controls for optical bar cameras.")
     ("intrinsics-to-share", po::value(&intrinsics_to_share_str)->default_value(""),
      "If solving for intrinsics and is desired to share only a few of them across all "
      "cameras, specify here, in quotes, one or more of: focal_length, optical_center, "
      "other_intrinsics (distortion). By default all of the intrinsics are shared, so to "
      "not share any of them pass in an empty string. Also can specify 'all' or 'none'. If "
      "sharing intrinsics per sensor, this option is ignored, as then the sharing is more "
-     "fine-grained.")
+     "fine-grained. For optical bar cameras, see the documentation.")
     ("intrinsics-limits", po::value(&intrinsics_limit_str)->default_value(""),
      "Specify minimum and maximum bounds for the intrinsic parameters. These are absolute "
      "bounds on the parameter values, not ratios relative to the initial values. Values "
@@ -1352,6 +1353,35 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
   load_intrinsics_options(opt.solve_intrinsics, !vm["intrinsics-to-share"].defaulted(),
                           intrinsics_to_float_str, intrinsics_to_share_str,
                           opt.intrinsics_options);
+
+  // The named optical-bar motion float sub-groups (velocity,
+  // motion_compensation_factor, final_pose) are expanded into
+  // fixed_distortion_indices: every distortion index not named to float is
+  // frozen, via the SubsetManifold. These apply only to optical bar.
+  if (!opt.intrinsics_options.float_distortion_indices.empty()) {
+    if (opt.camera_type != BaCameraType_OpticalBar)
+      vw::vw_throw(vw::ArgumentErr()
+               << "The intrinsics float parameters velocity, "
+               << "motion_compensation_factor, and final_pose apply only to "
+               << "optical bar cameras.\n");
+    // Per-sensor mode would need a per-sensor index set, not the single global
+    // one used here, so a sub-group would otherwise float on every sensor.
+    if (opt.intrinsics_options.share_intrinsics_per_sensor)
+      vw::vw_throw(vw::ArgumentErr()
+               << "The intrinsics float parameters velocity, "
+               << "motion_compensation_factor, and final_pose are not yet "
+               << "supported when sharing intrinsics per sensor.\n");
+    if (!opt.fixed_distortion_indices.empty())
+      vw::vw_throw(vw::ArgumentErr()
+               << "Cannot combine the named optical-bar float parameters "
+               << "(velocity, motion_compensation_factor, final_pose) with "
+               << "--fixed-distortion-indices.\n");
+    for (int i = 0; i < asp::NUM_OPTICAL_BAR_EXTRA_PARAMS; i++) {
+      if (opt.intrinsics_options.float_distortion_indices.count(i) == 0)
+        opt.fixed_distortion_indices.push_back(i);
+    }
+  }
+
   asp::parse_intrinsics_limits(intrinsics_limit_str, opt.intrinsics_limits);
 }
 

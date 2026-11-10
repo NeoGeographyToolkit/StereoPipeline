@@ -54,7 +54,12 @@ struct IntrinsicOptions {
   
   // If to float these intrinsics. All, none, or per sensor
   std::vector<bool> float_center, float_focus, float_distortion;
-  
+
+  // Distortion-vector indices to float when named optical-bar motion sub-groups
+  // (velocity, motion_compensation_factor, final_pose) are requested. Empty
+  // means the whole distortion block is floated or fixed per float_distortion.
+  std::set<int> float_distortion_indices;
+
   bool share_intrinsics_per_sensor;
   std::vector<int> cam2sensor; // cam index to sensor index, when sharing intrinsics per sensor
   int num_sensors; // will be nonzero only if sharing intrinsics per sensor is true
