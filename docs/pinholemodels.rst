@@ -672,10 +672,17 @@ the camera-to-world rotation. This is analogous to the ``C`` and ``R``
 fields in the Tsai model (:numref:`pinholemodels`).
 
 In the velocity-vector mode (:numref:`ghuffar_method`), used for the KH-9 cameras
-(:numref:`kh9`), the file also has a ``velocity`` field, the satellite velocity as
-a 3D ECEF vector, and a ``final_pose`` field, the camera pose at the end of the
-scan in axis-angle format, with ``iR`` the pose at the start and *slerp*
+(:numref:`kh9`), the file has two more fields::
+
+   velocity = 3000 2000 1000
+   final_pose = 0.667 2.363 1.598
+
+The ``velocity`` field is the satellite velocity, a 3D ECEF vector. The
+``final_pose`` field is the camera pose at the end of the scan, in axis-angle
+format, while the ``iR`` matrix is the pose at the start, with *slerp*
 interpolation in between. The presence of the ``velocity`` line selects this mode.
+The scalar ``speed`` and ``scan_time`` fields are then unused, being absorbed into
+the motion compensation factor. A fuller sample is in :numref:`ghuffar_method`.
 
 The ``scan_dir`` must be set to ``left`` or ``right``. It is the direction in
 which the optical bar sweeps the slit across the film. Together with
