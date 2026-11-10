@@ -133,9 +133,9 @@ int baOnePass(asp::BaOptions                & opt,
       count_map[i] = cnet[i].size(); // Get number of observations of this point.
   }
 
-  // We will optimize multipliers of the intrinsics. This way each intrinsic
-  // changes by a scale specific to it. Note: See --min-distortion for initial
-  // values of the lens distortion coeffs when distortion is optimized.
+  // Each intrinsic is optimized directly as its own value, initialized to the
+  // seed (additive, not a multiplier of the seed). Note: See --min-distortion for
+  // initial values of the lens distortion coeffs when distortion is optimized.
 
   // Prepare for the DEM constraint.
   // TODO(oalexan1): Study how to best pass the DEM to avoid the code
