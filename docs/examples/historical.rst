@@ -404,9 +404,10 @@ use the ``--heights-from-dem`` option as in that example. Here we use the more
 complicated ``--reference-terrain`` option. 
 
 We will float the RPC coefficients of the left and right images independently,
-as they are unrelated. The initial coefficients must be manually modified to be
-at least 1e-7, as otherwise they will not be optimized. In the latest builds
-this is done automatically by ``bundle_adjust`` (option ``--min-distortion``).
+as they are unrelated. As of build 2026/11 (:numref:`release`), the coefficients
+are optimized directly from their initial values, including zero, so no manual
+modification is needed. In older builds they had to be set to at least 1e-7, or
+raised with ``--min-distortion``, as otherwise they would not be optimized.
 
 The command we will use is::
 

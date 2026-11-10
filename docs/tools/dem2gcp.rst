@@ -209,12 +209,12 @@ The most recent bundle-adjusted and aligned cameras can be converted to use the
 RPC lens distortion model (:numref:`rpc_distortion`) as in
 :numref:`convert_pinhole_model`. Or, the cameras can be used as is.
 
-If solving for intrinsics and using RPC lens distortion, the small RPC
-coefficients *must be changed manually to be at least 1e-7* in older builds,
-otherwise they will not get optimized. Here, RPC of degree 3 is used. A higher
-degree can be employed, either initially, or for subsequent iterations. In the
-latest builds this is done automatically by ``bundle_adjust`` (option
-``--min-distortion``).
+If solving for intrinsics and using RPC lens distortion, as of build 2026/11
+(:numref:`release`) the coefficients are optimized directly from their initial
+values, including zero. In older builds the small RPC coefficients had to be
+changed manually to be at least 1e-7, or raised with ``--min-distortion``,
+otherwise they would not get optimized. Here, RPC of degree 3 is used. A higher
+degree can be employed, either initially, or for subsequent iterations.
 
 The command when it is desired to refine the intrinsics as well::
 

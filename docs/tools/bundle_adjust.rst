@@ -1711,20 +1711,25 @@ Solving for intrinsics
     fine-grained (:numref:`kaguya_ba`).
 
 --intrinsics-limits <string (default: "")>
-    Set a string in quotes that contains min max ratio pairs for intrinsic
-    parameters. For example, "0.8 1.2" limits the parameter to changing by no
-    more than 20 percent. The first pair is for focal length, the next two are
-    for the center pixel, and the remaining pairs are for other intrinsic
-    parameters. If too many pairs are passed in the program will throw an
-    exception and print the number of intrinsic parameters the cameras use.
-    Cameras adjust all of the parameters in the order they are specified in the
-    camera model unless it is specified otherwise in :numref:`pinholemodels`.
-    Setting limits can greatly slow down the solver.
+    Set a string in quotes that contains min max pairs bounding the intrinsic
+    parameters. As of build 2026/11 (:numref:`release`), these are absolute
+    bounds on the parameter values (earlier they were ratios relative to the
+    initial values). For example, a focal length near 1000 pixels can be bounded
+    with "900 1100". The first pair is for focal length, the next two are for the
+    center pixel, and the remaining pairs are for other intrinsic parameters. If
+    too many pairs are passed in the program will throw an exception and print
+    the number of intrinsic parameters the cameras use. Cameras adjust all of the
+    parameters in the order they are specified in the camera model unless it is
+    specified otherwise in :numref:`pinholemodels`. Setting limits can greatly
+    slow down the solver.
 
---min-distortion <double (default: 1e-7)>
+--min-distortion <double (default: 0)>
     Distortion parameters that are optimized and that are smaller in magnitude
-    than this value are set to this value. This is to ensure the parameters are
-    big enough to be optimized. Can be negative. This is affected by
+    than this value are set to this value, to ensure they are large enough to be
+    optimized. The default is 0 as of build 2026/11 (:numref:`release`), which
+    applies no floor, as the solver optimizes each parameter from its seed value
+    directly (:numref:`floatingintrinsics`). Set a positive value only if a
+    distortion solve conditions poorly. Can be negative. This is affected by
     ``--fixed-distortion-indices``. Applies to Pinhole cameras (all distortion
     models) and CSM (radial-tangential distortion only). Does not apply to
     optical bar models.

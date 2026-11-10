@@ -52,6 +52,12 @@ bundle_adjust (:numref:`bundle_adjust`):
     robust to outlier GCP (:numref:`bundle_adjust`).
   * Added the equisolid, stereographic, and orthographic fisheye lens
     distortion models (:numref:`pinhole_distortion`).
+  * Intrinsics are now optimized directly, as the provided values, rather than
+    as multiplicative factors, so a parameter seeded at zero, such as optical
+    bar velocity or lens distortion, can be solved (:numref:`floatingintrinsics`).
+  * The ``--min-distortion`` default is now 0 (no distortion floor), and
+    ``--intrinsics-limits`` now bounds absolute parameter values rather than
+    ratios (:numref:`bundle_adjust`).
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added the ``--mapproject`` option, to mapproject the raw input images onto a

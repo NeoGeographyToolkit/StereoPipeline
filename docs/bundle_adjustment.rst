@@ -157,7 +157,12 @@ When the input cameras are of Pinhole type (:numref:`pinholemodels`), optical
 bar (:numref:`panoramic`), or CSM (:numref:`csm`), it is possible to optimize
 (float, refine) the intrinsic parameters (focal length, optical center,
 distortion, with a somewhat different list for optical bar cameras), in addition
-to the extrinsics. 
+to the extrinsics.
+
+As of build 2026/11 (:numref:`release`), each intrinsic is optimized directly, by
+refining the provided value itself. Earlier, a parameter was optimized as a
+multiplicative factor relative to its initial value, which froze any value that
+started at zero and could condition poorly.
 
 It is also possible to take advantage of an existing terrain ground truth, such
 as a lidar file or a DEM, to correct imperfectly calibrated intrinsic
@@ -1396,10 +1401,11 @@ where other simpler models cannot.
 The tool ``convert_pinhole_model`` (:numref:`convert_pinhole_model`) can create
 camera models with RPC distortion. 
 
-It is very important for the input distortion coefficients to be manually
-modified so they are on the order of 1e-7 or more, as otherwise they will be
-hard to optimize and may stay small. In the latest builds this is done
-automatically by ``bundle_adjust`` (option ``--min-distortion``).
+As of build 2026/11 (:numref:`release`), the distortion coefficients are
+optimized directly from their initial values, including when they start at zero,
+so no manual modification is needed. In older builds they had to be set to about
+1e-7 or more, as otherwise they would be hard to optimize and stay small. A floor
+can still be applied with ``--min-distortion`` if a solve conditions poorly.
 
 See :numref:`intrinsics_ground_truth` and :numref:`kaguya_ba` for examples of
 how to to optimize the lens distortion. An example specifically using RPC is
