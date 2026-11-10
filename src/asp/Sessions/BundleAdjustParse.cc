@@ -1127,12 +1127,14 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "intrinsics] until all of the limits are used. Check the documentation to determine "
      "how many intrinsic parameters are used for your cameras.")
     ("min-distortion",
-     po::value(&opt.min_distortion)->default_value(1e-7),
+     po::value(&opt.min_distortion)->default_value(0.0),
      "Distortion parameters that are optimized and that are smaller in magnitude than this "
-     "value are set to this value. This is to ensure the parameters are big enough to be "
-     "optimized. Can be negative. This is affected by --fixed-distortion-indices. Applies "
-     "to Pinhole cameras (all distortion models) and CSM (radial-tangential distortion "
-     "only). Does not apply to optical bar models. See also --fixed-distortion-indices.")
+     "value are raised to this value, to ensure they are large enough to be optimized. The "
+     "default is 0, which applies no floor, as the solver optimizes each parameter from its "
+     "seed value directly. Set a positive value only if a distortion solve conditions "
+     "poorly. Can be negative. This is affected by --fixed-distortion-indices. Applies to "
+     "Pinhole cameras (all distortion models) and CSM (radial-tangential distortion only). "
+     "Does not apply to optical bar models. See also --fixed-distortion-indices.")
     ("fixed-distortion-indices",
      po::value(&opt.fixed_distortion_indices_str)->default_value(""),
      "A sequence indices, separated by commas (with no spaces) starting from 0, "
