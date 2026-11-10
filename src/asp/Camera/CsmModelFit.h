@@ -38,7 +38,8 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
                           int d_col, int d_row,
                           asp::CsmModel & csm_model,
                           bool fix_rotations = false,
-                          int distortion_type = -1);
+                          int distortion_type = -1,
+                          double min_distortion = 0.0);
 
 // Fit a CSM sensor with distortion to given tabulated sight directions.
 // This is specific to ASTER.

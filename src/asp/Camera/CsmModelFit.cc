@@ -382,7 +382,8 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
                           // This model will be modified
                           asp::CsmModel & csm_model,
                           bool fix_rotations,
-                          int distortion_type) {
+                          int distortion_type,
+                          double min_distortion) {
 
   // Read data from the model
   double focal_length = csm_model.focal_length();
@@ -404,15 +405,16 @@ void refineCsmLinescanFit(SightMatT const& world_sight_mat,
   std::vector<double> distortion;
   if (distortion_type == TRANSVERSE) {
     dist_type = TRANSVERSE;
-    distortion.resize(20, 1e-6);
-    // Identity for linear terms, small nonzero for rest so Ceres sees gradient
+    distortion.resize(20, min_distortion);
+    // Identity for the linear terms. The rest start at min_distortion, which
+    // is 0 by default, so the solver optimizes them from zero directly.
     distortion[0] = 0.0;  // x constant (no offset)
     distortion[1] = 1.0;  // x coeff for ux (identity)
     distortion[10] = 0.0; // y constant
     distortion[12] = 1.0; // y coeff for uy (identity)
   } else {
     dist_type = RADTAN;
-    distortion.assign(5, 1e-8);
+    distortion.assign(5, min_distortion);
   }
   
   // Set up an optimization problem to refine the CSM model.
