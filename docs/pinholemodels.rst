@@ -671,18 +671,29 @@ and the rotation matrix ``iR`` stores the absolute pose, that is,
 the camera-to-world rotation. This is analogous to the ``C`` and ``R``
 fields in the Tsai model (:numref:`pinholemodels`). 
 
-The ``scan_dir`` must be set to ``left`` or ``right``. The values ``scan_dir``
-and ``use_motion_compensation`` control how the sensor model accounts accounts
-for the motion of the satellite during the image scan. Without the benefit of
-detailed historical documents it may require experimentation to find the good
-initial values for these cameras. 
+The ``scan_dir`` must be set to ``left`` or ``right``. It is the direction in
+which the optical bar sweeps the slit across the film. Together with
+``motion_compensation_factor`` it accounts for the motion of the satellite during
+the scan: the compensation shifts the projected ray in the cross-scan direction
+by an amount proportional to the focal length, the sine of the scan angle (zero
+at the along-scan center, largest at the edges), and the factor. 
+
+The sign of the motion compensation factor is tied with the scan direction, so a
+given physical compensation corresponds to opposite factor signs for a left and
+a right scan. In the velocity-vector mode (:numref:`ghuffar_method`) both scan
+directions are supported, with ``iR`` the pose at the start of the sweep and
+``final_pose`` the pose at its end, for either direction. Without the benefit of
+detailed historical documents it may require experimentation to find good
+initial values for these cameras.
 
 When using ``bundle_adjust`` (:numref:`floatingintrinsics`), the intrinsic
-parameters that are solved for are ``speed``, ``motion_compensation_factor``,
-and ``scan_time``, as part of the ``other_intrinsics`` group, and also the focal
-length and optical center (image center). The option in ``bundle_adjust`` that
-controls these is ``--intrinsics-to-float`` (:numref:`ba_options`). An example of
-solving for intrinsics is in :numref:`kh9`.
+parameters that are solved for are the focal length, the optical center (image
+center), and the ``other_intrinsics`` group, controlled by
+``--intrinsics-to-float`` (:numref:`ba_options`). In the velocity-vector mode the
+``other_intrinsics`` group is the scan-motion model, whose parts can also be
+floated individually by name, as ``velocity``, ``motion_compensation_factor``,
+and ``final_pose`` (:numref:`kh9_controls`). An example of solving for intrinsics
+is in :numref:`kh9`.
 
 The ``convert_pinhole_model`` program (:numref:`convert_pinhole_model`) can
 convert a Panoramic (optical bar) model to a Pinhole model with lens distortion.
