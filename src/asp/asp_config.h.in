@@ -189,9 +189,6 @@
 /* Define to 1 if the HSVMERGE app is available. */
 //#cmakedefine ASP_HAVE_PKG_HSVMERGE
 
-/* Define to 1 if the ICEBRIDGE app is available. */
-//#cmakedefine ASP_HAVE_PKG_ICEBRIDGE
-
 /* Define to 1 if the ILMBASE package is available. */
 #cmakedefine ASP_HAVE_PKG_ILMBASE 1
 

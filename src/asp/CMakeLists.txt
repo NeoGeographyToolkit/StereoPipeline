@@ -102,8 +102,6 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_BINARY_DIR}/src)  # For generated config headers
 
-set(ASP_HAVE_PKG_ICEBRIDGE 1)
-
 if (APPLE)
   set(ASP_OSX_BUILD 1)
 endif()
@@ -495,7 +493,6 @@ add_subdirectory(PclIO)
 add_subdirectory(Python)
 add_subdirectory(Tools)
 add_subdirectory(WVCorrect)
-add_subdirectory(IceBridge)
 
 # On macOS the linker auto-adds the conda env lib rpath ahead of install/lib,
 # so a stale libAsp*/libVw* there can shadow our build. Delete every copy and

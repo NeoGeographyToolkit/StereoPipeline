@@ -259,6 +259,8 @@ Misc:
     launches others as parallel processes, the per-process thread count is
     balanced against the number of processes (:numref:`vwrc`).
   * Moved the ``.vwrc`` configuration file to its own page (:numref:`vwrc`).
+  * Removed the historical IceBridge processing scripts. The general-purpose
+    ``ortho2pinhole`` tool is kept (:numref:`ortho2pinhole`).
 
 RELEASE 3.7.0, June 2026
 ------------------------

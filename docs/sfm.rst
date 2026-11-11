@@ -344,10 +344,9 @@ was to collect images of polar terrain.
 The approach is, with a few exceptions, very similar to the one for the Apollo
 Metric camera. 
 
-The DMS images are available for download at the `IceBridge ftp site
-<ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE_FTP/IODMS0_DMSraw_v01/>`_. A list
-of the available data types can be found at the `mission data summary
-<https://nsidc.org/data/icebridge/instr_data_summary.html>`_ page.
+The DMS images are available for download from NSIDC, as dataset `IODMS0
+<https://nsidc.org/data/iodms0>`_. A free NASA Earthdata Login is needed to
+fetch the data.
 
 Several ways of creating cameras are discussed below, with or without SfM.
  
@@ -404,11 +403,10 @@ than combining the three. This tool is shipped with ASP (:numref:`gdal_tools`).
 Obtaining ground control points for icy locations on Earth can be particularly
 difficult because they are not well surveyed or because the terrain shifts over
 time. This may force you to use estimated camera positions to convert the local
-camera models into global coordinates. To make this easier for IceBridge data
-sets, ASP provides the ``icebridge_kmz_to_csv`` tool (see
-:numref:`icebridgekmztocsv`) which extracts a list of estimated camera positions
-(in ECEF coordinates) from the kmz files available for each IceBridge flight at
-http://asapdata.arc.nasa.gov/dms/missions.html.
+camera models into global coordinates. These positions can be stored in a
+plain text file, one row per image, as the image name together with the camera
+longitude, latitude, and height above the datum. For IceBridge they can be read
+from the flight navigation data.
 
 For such logic based on camera positions to work well, the camera positions
 must not be along a line, as then the 3D transform computed based on these
@@ -419,16 +417,12 @@ Another option which is useful when processing IceBridge data is the
 IceBridge data sets contain a large number of images and when processing many at
 once you can significantly decrease your processing time by using this option to
 limit interest-point matching to image pairs which are actually close enough to
-overlap. A good way to determine what distance to use is to load the camera
-position kmz file from their website into Google Earth and use the ruler tool to
-measure the distance between a pair of frames that are as far apart as you want
-to match. 
+overlap. A good way to determine what distance to use is to examine the
+estimated camera positions and measure the distance between a pair of frames
+that are as far apart as you want to match.
 
 Commands using these options may look like this::
 
-    icebridge_kmz_to_csv 1000123_DMS_Frame_Events.kmz \
-      camera_positions.csv
-      
     camera_solve out                                          \
       2009_11_05_00667.JPG 2009_11_05_00668.JPG               \
       2009_11_05_00669.JPG 2009_11_05_00670.JPG               \
@@ -486,16 +480,13 @@ information.
 
 Some IceBridge flights contain data from the Land, Vegetation, and Ice
 Sensor (LVIS) lidar which can be used to register DEMs created using DMS
-images. LVIS data can be downloaded at
-ftp://n5eil01u.ecs.nsidc.org/SAN2/ICEBRIDGE/ILVIS2.001/. The lidar data
-comes in plain text files that ``pc_align`` and ``point2dem`` can parse
-using the following option:: 
+images. LVIS data is available from NSIDC, as dataset `ILVIS2
+<https://nsidc.org/data/ilvis2>`_. The lidar data comes in plain text files
+that ``pc_align`` and ``point2dem`` can parse using the following option::
 
-     --csv-format "5:lat 4:lon 6:height_above_datum"  
+     --csv-format "5:lat 4:lon 6:height_above_datum"
 
-ASP provides the ``lvis2kml`` tool to help visualize the coverage and
-terrain contained in LVIS files, see :numref:`lvis2kml`
-for details. The LVIS lidar coverage is sparse compared to the image
+The LVIS lidar coverage is sparse compared to the image
 coverage and you will have difficulty getting a good registration unless
 the region has terrain features such as hills or you are registering
 very large point clouds that overlap with the lidar coverage across a
@@ -576,33 +567,6 @@ For processing multiple images, see :numref:`sfm_multiview`.
    bottom-right should go away if running a second-pass stereo with mapprojected
    images (:numref:`mapproj-example`), with a blurred version of this DEM
    as an initial guess.
-
-Other IceBridge flights contain data from the Airborne Topographic
-Mapper (ATM) lidar sensor. Data from this sensor comes packed in one of
-several formats (variants of .qi or .h5) so ASP provides the
-``extract_icebridge_ATM_points`` tool to convert them into plain text
-files, which later can be read into other ASP tools using the
-formatting::
-
-     --csv-format "1:lat 2:lon 3:height_above_datum"
-
-To run the tool, just pass in the name of the input file as an argument
-and a new file with a csv extension will be created in the same
-directory. Using the ATM sensor data is similar to using the LVIS sensor
-data.
-
-For some IceBridge flights, lidar-aligned DEM files generated from the
-DMS image files are available, see the web page here:
-http://nsidc.org/data/iodms3 These files are improperly formatted and
-cannot be used by ASP as is. To correct them, run the
-``correct_icebridge_l3_dem`` tool as follows::
-
-   correct_icebridge_l3_dem IODMS3_20120315_21152106_07371_DEM.tif \
-     fixed_dem.tif 1  
-
-The third argument should be 1 if the DEM is in the northern hemisphere
-and 0 otherwise. The corrected DEM files can be used with ASP like any
-other DEM file.
 
 :numref:`nextsteps` will discuss the ``parallel_stereo`` program
 in more detail and the other tools in ASP.

@@ -859,7 +859,6 @@ void ortho2pinhole(Options & opt) {
 
 /// If an rgb input image was passed in, convert to a temporary grayscale
 ///  image and work on that instead.
-/// - This is useful for the Icebridge case.
 std::string handle_rgb_input(std::string const& input_path, Options const& opt) {
 
   boost::shared_ptr<DiskImageResource> rsrc(vw::DiskImageResourcePtr(input_path));

@@ -36,6 +36,10 @@ add_executable(aster2asp aster2asp.cc)
 target_link_libraries(aster2asp AspSessions)
 install(TARGETS aster2asp DESTINATION bin)
 
+add_executable(ortho2pinhole ortho2pinhole.cc)
+target_link_libraries(ortho2pinhole AspSessions)
+install(TARGETS ortho2pinhole DESTINATION bin)
+
 add_executable(prism2asp prism2asp.cc)
 target_link_libraries(prism2asp AspSessions)
 install(TARGETS prism2asp DESTINATION bin)
