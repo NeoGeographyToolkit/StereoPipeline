@@ -22,6 +22,7 @@
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Camera/CameraResectioning.h>
+#include <asp/Camera/CameraGenUtils.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/ExteriorOrientation.h>
 #include <asp/Camera/LinescanUtils.h>
@@ -734,63 +735,6 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
 } // End function handle_arguments
 
-// Form a camera based on info the user provided
-void manufacture_cam(Options & opt, int wid, int hgt, vw::CamPtr & out_cam) {
-  if (opt.camera_type == "opticalbar") {
-    boost::shared_ptr<vw::OpticalBarModel> opticalbar_cam =
-      boost::make_shared<vw::OpticalBarModel>(opt.sample_file);
-    // Make sure the image size matches the input image file.
-    // TODO(oalexan1): This looks fishy if the pitch is not 1.
-    opticalbar_cam->set_image_size(Vector2i(wid, hgt));
-    opticalbar_cam->set_optical_center(Vector2(wid/2.0, hgt/2.0));
-    out_cam = opticalbar_cam;
-  } else if (opt.camera_type == "pinhole") { // csm frame comes here too
-    
-    std::string sample_ext = vw::get_extension(opt.sample_file);
-    if (opt.sample_file != "" && sample_ext == ".json") {
-      // Read the intrinsics from the csm file. The distortion will be set later.
-      asp::CsmModel csm(opt.sample_file);
-      opt.focal_length = csm.focal_length();
-      opt.pixel_pitch = csm.frame_pixel_pitch();
-      opt.optical_center = csm.optical_center() * csm.frame_pixel_pitch();
-      // TODO(oalexan1): Must copy the target name from CSM
-      opt.distortion = csm.distortion();
-      if (opt.distortion.size() == 5)
-        opt.distortion_type = "radtan";
-      else if (opt.distortion.size() == 3)
-        opt.distortion_type = "radial";
-      else if (opt.distortion.size() == 20)
-        opt.distortion_type = "transverse";
-      else
-        vw_throw(ArgumentErr()
-                 << "Unsupported distortion model in: " << opt.sample_file << ".\n");
-    }
-
-    boost::shared_ptr<PinholeModel> pinhole_cam;
-    if (opt.sample_file != "" &&  sample_ext != ".json") {
-      // Use the initial guess from file
-      pinhole_cam = boost::make_shared<PinholeModel>(opt.sample_file);
-    } else {
-      // Use the intrinsics from the command line or read from the CSM sample
-      // file. Use trivial rotation and translation.
-      Vector3 ctr(0, 0, 0);
-      Matrix<double, 3, 3> rotation;
-      rotation.set_identity();
-      // When the user does not set the optical center, use the image center
-      Vector2 opt_ctr = opt.optical_center;
-      if (std::isnan(opt_ctr[0]) || std::isnan(opt_ctr[1]))
-        opt_ctr = Vector2(opt.pixel_pitch * wid/2.0, opt.pixel_pitch * hgt/2.0);
-
-      vw::LensDistortion const* distortion = NULL; // no distortion info yet
-      pinhole_cam = boost::make_shared<PinholeModel>
-                      (ctr, rotation, opt.focal_length, opt.focal_length,
-                       opt_ctr[0], opt_ctr[1], distortion, 
-                       opt.pixel_pitch);
-    }
-    out_cam = pinhole_cam;
-  }
-}
-
 // Trace rays from pixel corners to DEM to see where they intersect the DEM.
 // Save a pointer to the camera, georef, and interp_dem, as we may need these later.
 void extract_lon_lat_cam_ctr_from_camera(Options & opt,
@@ -1166,7 +1110,9 @@ void form_camera(Options & opt, vw::GeoReference & geo,
   if (wid <= 0 || hgt <= 0)
     vw_throw(ArgumentErr() << "Could not read an image with positive dimensions from: "
               << opt.image_file << ".\n");
-  manufacture_cam(opt, wid, hgt, out_cam);
+  asp::manufacture_cam(opt.camera_type, opt.sample_file, wid, hgt,
+                       opt.focal_length, opt.pixel_pitch, opt.optical_center,
+                       opt.distortion, opt.distortion_type, out_cam);
   
   // Transform it and optionally refine it
   bool verbose = true;
