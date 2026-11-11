@@ -21,6 +21,8 @@
 #include <vw/Camera/PinholeModel.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Cartography/Datum.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/Cartography/CameraBBox.h>
 #include <vw/Math/BBox.h>
 #include <vw/Math/Geometry.h>
 #include <vw/Math/Statistics.h>
@@ -135,6 +137,37 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
   cam.set_camera_center(ctr);
 
   return;
+}
+
+// Intersect a ray with the DEM or the datum. Return the zero vector on failure.
+void dem_or_datum_intersect(double height_above_datum,
+                            vw::GeoReference const& geo,
+                            vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
+                            boost::shared_ptr<vw::CameraModel> input_camera_ptr,
+                            vw::Vector2 const& pix,
+                            vw::Vector3 & xyz) { // output
+
+  if (input_camera_ptr.get() == NULL)
+    vw_throw(ArgumentErr() << "Input camera was not provided.\n");
+
+  Vector3 camera_ctr = input_camera_ptr->camera_center(pix);
+  Vector3 camera_vec = input_camera_ptr->pixel_to_vector(pix);
+
+  bool treat_nodata_as_zero = false;
+  bool has_intersection = false;
+  double height_error_tol = 0.01; // error in DEM height, in meters
+  Vector3 xyz_guess  = Vector3();
+
+  xyz = vw::camera_pixel_to_dem_xyz(camera_ctr, camera_vec,
+                                    interp_dem, geo, treat_nodata_as_zero,
+                                    has_intersection, height_error_tol,
+                                    xyz_guess);
+
+  // If we could not intersect the DEM, use the datum to estimate the height
+  if (xyz == Vector3() || !has_intersection)
+    xyz = datum_intersection(geo.datum().semi_major_axis() + height_above_datum,
+                             geo.datum().semi_minor_axis() + height_above_datum,
+                             camera_ctr, camera_vec);
 }
 
 /// Find the best camera that fits the given ground points and pixel observations,

@@ -23,6 +23,8 @@
 #define __ASP_CAMERA_CAMERA_RESECTIONING_H__
 
 #include <vw/Math/Vector.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/PixelMask.h>
 #include <boost/shared_ptr.hpp>
 
 #include <vector>
@@ -32,15 +34,26 @@ namespace vw {
   class CameraModel;
   class PinholeModel;
   class Datum;
+  class GeoReference;
 }
 
 namespace asp {
 
 /// Use OpenCV to find a Pinhole camera's position and orientation
 /// based on image pixels and corresponding ground positions
-void findCameraPose(std::vector<vw::Vector3> const& ground_points, 
+void findCameraPose(std::vector<vw::Vector3> const& ground_points,
                     std::vector<vw::Vector2> const& pixel_observations,
                     vw::PinholeModel & cam);
+
+/// Intersect the ray from the given camera pixel with the DEM. If that fails,
+/// intersect with the datum raised by height_above_datum. The interpolated DEM
+/// may be empty. Return the zero vector on failure.
+void dem_or_datum_intersect(double height_above_datum,
+                            vw::GeoReference const& geo,
+                            vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
+                            boost::shared_ptr<vw::CameraModel> input_camera_ptr,
+                            vw::Vector2 const& pix,
+                            vw::Vector3 & xyz); // output
 
 /// Find the best camera that fits the given ground points and pixel observations,
 /// with optional known or estimated camera center, and refine it.
