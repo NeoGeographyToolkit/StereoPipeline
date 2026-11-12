@@ -37,7 +37,6 @@
 #include <Projection.h>
 #include <Distance.h>
 
-#include <boost/foreach.hpp>
 
 using namespace vw;
 
@@ -265,7 +264,7 @@ TEST(IsisCameraModel, camera_model) {
   files.push_back("5165r.map.cub");
 
   srand(42);
-  BOOST_FOREACH(std::string const& cube, files) {
+  for (std::string const& cube : files) {
     IsisCameraModel cam(cube);
 
     vw_out() << "File: " << cube << "\n";

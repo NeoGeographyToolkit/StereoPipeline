@@ -39,7 +39,6 @@
 #include <vw/FileIO/FileUtils.h>
 
 #include <boost/smart_ptr/shared_ptr.hpp>
-#include <boost/foreach.hpp>
 
 #include <algorithm>
 #include <cmath>

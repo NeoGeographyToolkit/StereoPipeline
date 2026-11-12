@@ -44,7 +44,6 @@ namespace asp {
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/foreach.hpp> // Must be before Qt headers
 #include <boost/mpl/or.hpp>
 #include <omp.h>
 

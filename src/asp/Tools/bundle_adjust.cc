@@ -67,7 +67,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/fstream.hpp>
-#include <boost/foreach.hpp>
 #pragma GCC diagnostic pop
 
 #include <xercesc/util/PlatformUtils.hpp>

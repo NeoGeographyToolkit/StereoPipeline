@@ -39,7 +39,6 @@
 #include <vw/Math/BBox.h>
 #include <vw/Math/Statistics.h>
 
-#include <boost/foreach.hpp>
 #include <cmath>
 #include <valarray>
 
@@ -579,7 +578,7 @@ namespace asp{
       std::vector<double> vx, vy;
       vx.reserve(len); vx.clear();
       vy.reserve(len); vy.clear();
-      BOOST_FOREACH(BBoxPair const& boundary, m_point_image_boundaries) {
+      for (BBoxPair const& boundary : m_point_image_boundaries) {
         if (boundary.first.empty())
           continue;
         vx.push_back(boundary.first.width() /sub_block_size);
@@ -735,7 +734,7 @@ namespace asp{
     typedef std::map<BBox2i, BBox2i, compare_bboxes> BlockMapType;
     typedef BlockMapType::iterator MapIterType;
     BlockMapType blocks_map;
-    BOOST_FOREACH(BBoxPair const& boundary, m_point_image_boundaries) {
+    for (BBoxPair const& boundary : m_point_image_boundaries) {
       if (! local_3d_bbox.intersects(boundary.first))
         continue;
 

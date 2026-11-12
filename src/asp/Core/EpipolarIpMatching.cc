@@ -908,7 +908,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
 
   // Subselect and copy ip1
   size_t w_index = 0;
-  BOOST_FOREACH(size_t index, good_indices) {
+  for (size_t index : good_indices) {
     Vector2 l(matched_ip1[index].x, matched_ip1[index].y);
     matched_ip1[index].ix = matched_ip1[index].x = l.x();
     matched_ip1[index].iy = matched_ip1[index].y = l.y();
@@ -919,7 +919,7 @@ bool epipolar_ip_matching(bool single_threaded_camera,
 
   // Subselect and copy ip2
   w_index = 0;
-  BOOST_FOREACH(size_t index, good_indices) {
+  for (size_t index : good_indices) {
     Vector2 r(matched_ip2[index].x, matched_ip2[index].y);
     matched_ip2[index].ix = matched_ip2[index].x = r.x();
     matched_ip2[index].iy = matched_ip2[index].y = r.y();

@@ -38,7 +38,6 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/mpl/or.hpp>
-#include <boost/foreach.hpp> // Must be before Qt headers
 #include <omp.h>
 
 #include <QWidget>

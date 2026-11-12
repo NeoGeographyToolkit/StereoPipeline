@@ -24,7 +24,6 @@
 #include <vw/InterestPoint/IntegralDetector.h>
 #include <vw/InterestPoint/InterestPoint.h>
 
-#include <boost/foreach.hpp>
 #include <boost/random/normal_distribution.hpp>
 
 using namespace vw;
@@ -64,7 +63,7 @@ TEST(IntegralAutoGainDetector, VerifyMaxima) {
   // Find the best IP
   const vw::InterestPoint* best_ip = &list.front();
   float best_ip_value = list.begin()->interest;
-  BOOST_FOREACH(vw::InterestPoint const& ip, list) {
+  for (vw::InterestPoint const& ip : list) {
     if (ip.interest > best_ip_value) {
       best_ip_value = ip.interest;
       best_ip = &ip;

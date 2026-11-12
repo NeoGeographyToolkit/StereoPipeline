@@ -28,7 +28,6 @@
 namespace fs = boost::filesystem;
 #include <boost/program_options.hpp>
 namespace po = boost::program_options;
-#include <boost/foreach.hpp>
 
 using namespace vw;
 
@@ -132,7 +131,7 @@ int main(int argc, char** argv) {
 
     // Convert the camera properties to Vector3
     std::vector<Vector3> camera_vectors;
-    BOOST_FOREACH(std::string const& str, camera_params) {
+    for (std::string const& str : camera_params) {
       std::vector<std::string> tokens;
       boost::split(tokens, str, boost::is_any_of("(), "),
                    boost::token_compress_on);

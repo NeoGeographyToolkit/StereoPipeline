@@ -18,7 +18,6 @@
 #include <vw/Core/System.h>
 #include <vw/Core/ThreadPool.h>
 #include <vw/Image/MaskViews.h>
-#include <boost/foreach.hpp>
 
 #ifndef __ASP_CORE_THREADEDEDGEMASK_H__
 #define __ASP_CORE_THREADEDEDGEMASK_H__
@@ -226,7 +225,7 @@ namespace asp {
                                                << search_step << std::endl;
                                               
       // Find the outermost valid pixel coming in from each line/direction.
-      BOOST_FOREACH(vw::BBox2i const& box, bboxes) {
+      for (vw::BBox2i const& box : bboxes) {
         vw::vw_out(vw::DebugMessage, "threadededgemask") 
           << "Created EdgeMaskTask for " << box << std::endl;
         boost::shared_ptr<EdgeMaskTask> 

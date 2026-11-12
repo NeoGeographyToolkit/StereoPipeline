@@ -25,7 +25,6 @@
 
 // Must include foreach.hpp before Cube.h as otherwise there will be
 // an issue with Qt imported by Cube.h.
-#include <boost/foreach.hpp>
 
 // VW & ASP
 #include <vw/Math/Vector.h>
