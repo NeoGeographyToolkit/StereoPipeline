@@ -263,13 +263,13 @@ if (NOT CORE_ASP_ONLY)
   install(TARGETS dem_geoid DESTINATION bin)
   
   add_executable(pc_align pc_align.cc)
-  target_link_libraries(pc_align 
-    AspPcAlign AspSessions)
+  target_link_libraries(pc_align
+    AspPcAlign)
   install(TARGETS pc_align DESTINATION bin)
 
   add_executable(n_align n_align.cc)
   target_link_libraries(n_align
-    AspPcAlign AspSessions)
+    AspPcAlign)
   install(TARGETS n_align DESTINATION bin)
 
   # This must be built with C++14 as otherwise it fails. Must be set
