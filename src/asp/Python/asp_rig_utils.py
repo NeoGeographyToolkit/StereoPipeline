@@ -516,7 +516,7 @@ def findSensorNames(images, rig_config, image_sensor_list):
         cam_type = ""
         try:
           cam_type = os.path.basename(os.path.dirname(image))
-        except:
+        except Exception:
           pass
         # See if the directory name is sensor name 
         if cam_type in sensor_names:

@@ -168,7 +168,7 @@ def isVrt(filename):
             line = f.readline().lower()
             if line.startswith('<vrtdataset'):
                 return True
-    except:
+    except Exception:
         # Binary files will be handled here
         return False
     

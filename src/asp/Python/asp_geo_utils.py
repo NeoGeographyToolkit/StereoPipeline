@@ -133,7 +133,7 @@ def getImageGeoInfo(imagePath, getStats=True):
         pointOffsetLine = asp_string_utils.getLineAfterText(textOutput, 'POINT_OFFSET=') # Tag name must be synced with C++ code
         offsetValues    = pointOffsetLine.split(' ')
         outputDict['point_offset'] =  (float(offsetValues[0]), float(offsetValues[1]), float(offsetValues[2]))        
-    except:
+    except Exception:
         pass # In most cases this line will not be present
 
     # TODO: Currently this does not find much information, and there

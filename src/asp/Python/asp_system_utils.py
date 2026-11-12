@@ -53,7 +53,7 @@ def get_prog_version(prog):
     try:
         p = subprocess.Popen([prog,"--version"], stdout=subprocess.PIPE, universal_newlines=True)
         out, err = p.communicate()
-    except:
+    except Exception:
         raise Exception("Could not find: " + prog)
     if p.returncode != 0 and ('stereo_parse' not in prog):
         # Our own stereo_parse returns 1 even if the version check
@@ -468,7 +468,7 @@ def executeCommand(cmd,
                     pid = psutil.Process(p.pid)
                     try:
                         kill_proc_tree(p.pid)
-                    except:
+                    except Exception:
                         pass
                     
                 status = 1

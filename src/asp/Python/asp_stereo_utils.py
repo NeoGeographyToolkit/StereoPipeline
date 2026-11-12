@@ -561,7 +561,7 @@ def create_subdirs_symlink(opt, args, settings):
     try:
         parentDir = os.path.dirname(out_prefix)
         mkdir_p(parentDir)
-    except:
+    except Exception:
         pass
 
     for tile_id in range(len(subdirs)):

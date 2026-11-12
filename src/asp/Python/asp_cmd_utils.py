@@ -40,7 +40,7 @@ def replace_opt_val(argv, opt, old_val, new_val):
     # Find the index of opt in argv
     try:
         r = argv.index(opt)
-    except:
+    except Exception:
         return argv
     
     # There must be another value after the option
@@ -58,7 +58,7 @@ def option_val(argv, opt):
   # If the value is not found, return None.
   try:
     r = argv.index(opt)
-  except:
+  except Exception:
     return None
   
   # There must be another value after the option

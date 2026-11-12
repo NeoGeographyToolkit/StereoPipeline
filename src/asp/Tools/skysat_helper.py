@@ -147,13 +147,13 @@ def main(argsIn):
         try:
             addJsonFileToKml(path, kml, color)
             count += 1
-        except:
+        except Exception:
             print('Failed to add file: ' + path + ' to the kml footprint.')
 
         if options.demPath:
             try:
                 convertToTsai(path, options.demPath)
-            except:
+            except Exception:
                 print('Failed to generate .tsai model for file: ' + path)
 
     print('Wrote ' + str(count) + ' polygons to file: ' + options.outputPath)

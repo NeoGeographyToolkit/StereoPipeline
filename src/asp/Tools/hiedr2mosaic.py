@@ -334,7 +334,7 @@ def fetch_files( url, output_folder, image_type='RED' ):
         # python2 
         from BeautifulSoup import BeautifulSoup
         parsedDataPage = BeautifulSoup(urlopen(url).read())
-    except:
+    except Exception:
         # python3
         try:
             from bs4 import BeautifulSoup        
