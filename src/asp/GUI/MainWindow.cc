@@ -31,7 +31,7 @@
 #include <asp/Core/GCP.h>
 #include <asp/Core/Nvm.h>
 #include <asp/Core/IpMatchingAlgs.h>
-#include <asp/Camera/BundleAdjustIsis.h>
+#include <asp/IsisIO/BundleAdjustIsis.h>
 
 #include <vw/vw_config.h>
 #include <vw/Core/CmdUtils.h>

@@ -19,10 +19,9 @@
 
 // Utilities for handling ISIS's jigsaw control network format.
 
-#include <asp/Camera/BundleAdjustIsis.h>
-#include <asp/Camera/BundleAdjustCamera.h>
-#include <asp/Camera/BaseCostFuns.h>
-#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
+#include <asp/IsisIO/BundleAdjustIsis.h>
+#include <asp/Core/BaState.h>
+#include <asp/asp_config.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/Core/Exception.h>
