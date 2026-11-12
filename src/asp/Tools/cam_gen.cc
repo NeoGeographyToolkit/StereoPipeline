@@ -1041,63 +1041,23 @@ void form_camera(Options & opt, vw::GeoReference & geo,
               << "The number of lon-lat pairs must equal the number of pixel pairs.\n");
   }
 
-  size_t num_lon_lat_pairs = opt.lon_lat_values.size()/2;
+  // Compute the ground point for each lon-lat corner
+  std::vector<Vector3> xyz_vec, llh_vec;
+  asp::cornersToGroundXyz(opt.lon_lat_values, cam_heights, opt.input_camera != "",
+                          interp_dem, has_dem, geo, opt.height_above_datum,
+                          xyz_vec, llh_vec);
 
-  Vector2 pix;
-  Vector3 llh, xyz;
-  std::vector<Vector3> xyz_vec;
-
-  // TODO(oalexan1): Use asp::writeGcp() instead of inline GCP writing.
-  // If to write a gcp file
-  std::ostringstream gcp;
-  gcp.precision(17);
-  bool write_gcp = (opt.gcp_file != "");
-
-  // TODO(oalexan1): Make this into a function
-  for (size_t corner_it = 0; corner_it < num_lon_lat_pairs; corner_it++) {
-
-    // Get the height from the DEM if possible
-    llh[0] = opt.lon_lat_values[2*corner_it+0];
-    llh[1] = opt.lon_lat_values[2*corner_it+1];
-
-    if (llh[1] < -90 || llh[1] > 90)
-      vw_throw(ArgumentErr() << "Detected a latitude out of bounds. "
-                << "Perhaps the longitude and latitude are reversed?\n");
-
-    double height = opt.height_above_datum;
-    if (opt.input_camera != "") {
-      height = cam_heights[corner_it]; // already computed
-    } else {
-      if (has_dem) {
-        bool success = false;
-        pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
-        int len =  BilinearInterpolation::pixel_buffer;
-        if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
-            pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
-          PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
-          if (is_valid(masked_height)) {
-            height = masked_height.child();
-            success = true;
-          }
-        }
-        if (!success)
-          vw_out() << "Could not determine a valid height value at lon-lat: "
-                   << llh[0] << ' ' << llh[1] << ". Will use a height of " << height << ".\n";
-      }
-    }
-
-    llh[2] = height;
-    xyz = geo.datum().geodetic_to_cartesian(llh);
-    xyz_vec.push_back(xyz);
-
-    if (write_gcp)
+  // Write a gcp file if requested
+  if (opt.gcp_file != "") {
+    std::ostringstream gcp;
+    gcp.precision(17);
+    for (size_t corner_it = 0; corner_it < llh_vec.size(); corner_it++) {
+      Vector3 const& llh = llh_vec[corner_it];
       gcp << corner_it << ' ' << llh[1] << ' ' << llh[0] << ' ' << llh[2] << ' '
           << 1 << ' ' << 1 << ' ' << 1 << ' ' << opt.image_file << ' '
           << opt.pixel_values[2*corner_it] << ' ' << opt.pixel_values[2*corner_it+1] << ' '
           << opt.gcp_std << ' ' << opt.gcp_std << "\n";
-  } // End loop through lon-lat pairs
-
-  if (write_gcp) {
+    }
     vw_out() << "Writing: " << opt.gcp_file << "\n";
     std::ofstream fs(opt.gcp_file.c_str());
     fs << gcp.str();

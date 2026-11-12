@@ -24,9 +24,12 @@
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Camera/CameraModel.h>
 #include <vw/Camera/LensDistortion.h>
+#include <vw/Cartography/GeoReference.h>
+#include <vw/Image/Interpolation.h>
 #include <vw/FileIO/FileTypes.h>
 #include <vw/Math/Matrix.h>
 #include <vw/Core/Exception.h>
+#include <vw/Core/Log.h>
 
 #include <boost/make_shared.hpp>
 
@@ -99,6 +102,62 @@ void manufacture_cam(std::string const& camera_type,
                        pixel_pitch);
     }
     out_cam = pinhole_cam;
+  }
+}
+
+// For each lon-lat pair, compute the ground xyz point and its lon-lat-height.
+void cornersToGroundXyz(std::vector<double> const& lon_lat_values,
+                        std::vector<double> const& cam_heights,
+                        bool has_input_camera,
+                        vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
+                        bool has_dem,
+                        vw::GeoReference const& geo,
+                        double height_above_datum,
+                        std::vector<vw::Vector3> & xyz_vec,
+                        std::vector<vw::Vector3> & llh_vec) {
+
+  xyz_vec.clear();
+  llh_vec.clear();
+  size_t num_lon_lat_pairs = lon_lat_values.size()/2;
+
+  Vector2 pix;
+  Vector3 llh, xyz;
+  for (size_t corner_it = 0; corner_it < num_lon_lat_pairs; corner_it++) {
+
+    // Get the height from the DEM if possible
+    llh[0] = lon_lat_values[2*corner_it+0];
+    llh[1] = lon_lat_values[2*corner_it+1];
+
+    if (llh[1] < -90 || llh[1] > 90)
+      vw_throw(ArgumentErr() << "Detected a latitude out of bounds. "
+                << "Perhaps the longitude and latitude are reversed?\n");
+
+    double height = height_above_datum;
+    if (has_input_camera) {
+      height = cam_heights[corner_it]; // already computed
+    } else {
+      if (has_dem) {
+        bool success = false;
+        pix = geo.lonlat_to_pixel(subvector(llh, 0, 2));
+        int len = BilinearInterpolation::pixel_buffer;
+        if (pix[0] >= 0 && pix[0] <= interp_dem.cols() - 1 - len &&
+            pix[1] >= 0 && pix[1] <= interp_dem.rows() - 1 - len) {
+          PixelMask<float> masked_height = interp_dem(pix[0], pix[1]);
+          if (is_valid(masked_height)) {
+            height = masked_height.child();
+            success = true;
+          }
+        }
+        if (!success)
+          vw_out() << "Could not determine a valid height value at lon-lat: "
+                   << llh[0] << ' ' << llh[1] << ". Will use a height of " << height << ".\n";
+      }
+    }
+
+    llh[2] = height;
+    xyz = geo.datum().geodetic_to_cartesian(llh);
+    xyz_vec.push_back(xyz);
+    llh_vec.push_back(llh);
   }
 }
 

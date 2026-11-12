@@ -24,6 +24,8 @@
 #define __ASP_CAMERA_CAMERA_GEN_UTILS_H__
 
 #include <vw/Math/Vector.h>
+#include <vw/Image/ImageViewRef.h>
+#include <vw/Image/PixelMask.h>
 #include <boost/shared_ptr.hpp>
 
 #include <vector>
@@ -31,9 +33,24 @@
 
 namespace vw {
   class CameraModel;
+  class GeoReference;
 }
 
 namespace asp {
+
+/// For each lon-lat pair, compute the ground xyz point. The height is taken from
+/// cam_heights (when an input camera was used to trace rays to the ground),
+/// otherwise from the DEM at that location, otherwise from height_above_datum.
+/// Also return the per-corner longitude-latitude-height.
+void cornersToGroundXyz(std::vector<double> const& lon_lat_values,
+                        std::vector<double> const& cam_heights,
+                        bool has_input_camera,
+                        vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
+                        bool has_dem,
+                        vw::GeoReference const& geo,
+                        double height_above_datum,
+                        std::vector<vw::Vector3> & xyz_vec,   // output
+                        std::vector<vw::Vector3> & llh_vec);  // output
 
 /// Build an initial camera of the given image dimensions. For camera_type
 /// "pinhole", use the intrinsics passed in, or read them from a sample file
