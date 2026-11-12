@@ -23,7 +23,11 @@
 #include <asp/Camera/MapprojectImage.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/AspStringUtils.h>
+#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
+
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
 #include <asp/IsisIO/IsisSpecialPixels.h>
+#endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/Map2CamTrans.h>
@@ -408,8 +412,10 @@ void project_image_nodata(asp::MapprojOptions & opt,
 
     // For ISIS .cub files, also mask special pixels (LIS, LRS, HIS, HRS)
     // that are not covered by the single nodata value
+#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     if (fs::path(opt.image_file).extension() == ".cub")
       asp::adjustIsisImage(opt.image_file, opt.nodata_value, masked_input);
+#endif // ASP_HAVE_PKG_ISIS
 
     bool            has_img_nodata = true;
     ImageMaskPixelT nodata_mask = ImageMaskPixelT(); // invalid value for a PixelMask
