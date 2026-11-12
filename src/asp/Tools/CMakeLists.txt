@@ -49,11 +49,11 @@ target_link_libraries(bundle_adjust AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS bundle_adjust DESTINATION bin)
 
 add_executable(opencv_calibrate opencv_calibrate.cc) 
-target_link_libraries(opencv_calibrate AspCore AspSessions)
+target_link_libraries(opencv_calibrate AspCore)
 install(TARGETS opencv_calibrate DESTINATION libexec)
 
 add_executable(opencv_imagelist_creator opencv_imagelist_creator.cc)
-target_link_libraries(opencv_imagelist_creator AspCore AspSessions)
+target_link_libraries(opencv_imagelist_creator AspCore)
 install(TARGETS opencv_imagelist_creator DESTINATION libexec)
 
 add_executable(camera_footprint camera_footprint.cc)
@@ -73,7 +73,7 @@ target_link_libraries(geodiff AspCore)
 install(TARGETS geodiff DESTINATION bin)
 
 add_executable(lronacjitreg lronacjitreg.cc)
-target_link_libraries(lronacjitreg AspSessions)
+target_link_libraries(lronacjitreg AspCore)
 install(TARGETS lronacjitreg DESTINATION bin)
 
 add_executable(mapproject_single mapproject_single.cc)
@@ -81,7 +81,7 @@ target_link_libraries(mapproject_single AspSessions)
 install(TARGETS mapproject_single DESTINATION bin)
 
 add_executable(mer2camera mer2camera.cc)
-target_link_libraries(mer2camera AspCore AspSessions)
+target_link_libraries(mer2camera AspCore)
 install(TARGETS mer2camera DESTINATION bin)
 
 add_executable(orbitviz orbitviz.cc)
@@ -129,11 +129,11 @@ target_link_libraries(sfs ${SOLVER_LIBRARIES} AspSfS AspSessions)
 install(TARGETS sfs DESTINATION bin)
 
 add_executable(sfs_blend sfs_blend.cc)
-target_link_libraries(sfs_blend AspSfS AspSessions)
+target_link_libraries(sfs_blend AspSfS)
 install(TARGETS sfs_blend DESTINATION bin)
 
 add_executable(image_subset image_subset.cc)
-target_link_libraries(image_subset AspCore AspSessions)
+target_link_libraries(image_subset AspCore)
 install(TARGETS image_subset DESTINATION bin)
 
 add_executable(stereo_blend stereo_blend.cc stereo.h stereo.cc)
@@ -230,15 +230,15 @@ target_link_libraries(disp2ip AspCore AspSessions AspRig)
 install(TARGETS disp2ip DESTINATION bin)
 
 add_executable(pc_filter pc_filter.cc)
-target_link_libraries(pc_filter AspPclIO AspSessions)
+target_link_libraries(pc_filter AspPclIO)
 install(TARGETS pc_filter DESTINATION bin)
 
 add_executable(sfm_submap sfm_submap.cc)
-target_link_libraries(sfm_submap AspRig AspPclIO AspSessions)
+target_link_libraries(sfm_submap AspRig AspPclIO)
 install(TARGETS sfm_submap DESTINATION bin)
 
 add_executable(sfm_merge sfm_merge.cc)
-target_link_libraries(sfm_merge AspRig AspPclIO AspSessions)
+target_link_libraries(sfm_merge AspRig AspPclIO)
 install(TARGETS sfm_merge DESTINATION bin)
 
 add_executable(dem2gcp dem2gcp.cc)
@@ -250,7 +250,7 @@ target_link_libraries(sat_sim AspSessions)
 install(TARGETS sat_sim DESTINATION bin)
 
 add_executable(undistort_image_texrecon undistort_image_texrecon.cc)
-target_link_libraries(undistort_image_texrecon AspRig AspPclIO AspSessions)
+target_link_libraries(undistort_image_texrecon AspRig AspPclIO)
 install(TARGETS undistort_image_texrecon DESTINATION bin)
 
 if (NOT CORE_ASP_ONLY)
