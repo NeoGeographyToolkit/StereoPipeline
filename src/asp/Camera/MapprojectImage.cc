@@ -20,7 +20,7 @@
 // Much templated logic here that is very slow to compile.
 // It is best to avoid adding more code here.
 
-#include <asp/Sessions/MapprojectImage.h>
+#include <asp/Camera/MapprojectImage.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/AspStringUtils.h>
 #include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS

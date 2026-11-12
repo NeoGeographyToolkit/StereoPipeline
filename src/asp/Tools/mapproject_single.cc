@@ -27,7 +27,7 @@
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/Sessions/MapprojectImage.h>
+#include <asp/Camera/MapprojectImage.h>
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Core/DemUtils.h>
 #include <asp/Core/CartographyUtils.h>
