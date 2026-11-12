@@ -39,7 +39,8 @@ namespace asp {
 
 IntrinsicOptions::IntrinsicOptions():
   center_shared(true), focus_shared(true), distortion_shared(true),
-  share_intrinsics_per_sensor(false), num_sensors(0) {}
+  share_intrinsics_per_sensor(false), num_sensors(0),
+  velocity_shared(false), velocity_float(false) {}
 
 // Control per each group of cameras or for all cameras which intrinsics
 // should be floated.
@@ -147,6 +148,7 @@ BaState::BaState(BaState const& other):
       m_max_num_dist_params(other.m_max_num_dist_params),
       m_focus_offset      (other.m_focus_offset),
       m_distortion_offset (other.m_distortion_offset),
+      m_shared_velocity   (other.m_shared_velocity),
       m_intrinsics_opts    (other.m_intrinsics_opts),
       m_points_vec        (other.m_points_vec.size()),
       m_cameras_vec       (other.m_cameras_vec.size()),
@@ -226,6 +228,36 @@ size_t BaState::get_distortion_offset(int cam_index) const {
   // Share intrinsics per sensor
   int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
   return sensor_id * m_num_intrinsics_per_camera + NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
+}
+
+// The optical bar velocity occupies distortion indices 3, 4, 5.
+namespace {
+  const int VELOCITY_START = 3;
+}
+
+// Seed the shared velocity with the mean of the per-camera velocity seeds.
+void BaState::init_shared_velocity() {
+  if (m_intrinsics_vec.empty() || m_num_cameras <= 0)
+    return;
+  m_shared_velocity.assign(3, 0.0);
+  for (int c = 0; c < m_num_cameras; c++) {
+    double const* dist = get_intrinsic_distortion_ptr(c);
+    for (int i = 0; i < 3; i++)
+      m_shared_velocity[i] += dist[VELOCITY_START + i];
+  }
+  for (int i = 0; i < 3; i++)
+    m_shared_velocity[i] /= m_num_cameras;
+}
+
+// After the solve, copy the shared velocity back into each camera's velocity slots.
+void BaState::write_back_shared_velocity() {
+  if (!has_shared_velocity())
+    return;
+  for (int c = 0; c < m_num_cameras; c++) {
+    double* dist = get_intrinsic_distortion_ptr(c);
+    for (int i = 0; i < 3; i++)
+      dist[VELOCITY_START + i] = m_shared_velocity[i];
+  }
 }
 
 /// Apply a random offset to each camera position.

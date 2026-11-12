@@ -60,6 +60,8 @@ bundle_adjust (:numref:`bundle_adjust`):
     values rather than ratios (:numref:`bundle_adjust`).
   * For optical bar cameras, individual parameters can be controlled, such as
     ``motion_compensation_factor`` (:numref:`kh9_controls`).
+  * For optical bar cameras, the velocity can be shared across all cameras of a
+    block with ``--intrinsics-to-share velocity`` (:numref:`kh9_controls`).
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added the ``--mapproject`` option, to mapproject the raw input images onto a

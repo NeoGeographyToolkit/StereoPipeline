@@ -161,13 +161,19 @@ public:
   virtual int num_intrinsic_params() const;
 
   /// Return the number of Ceres input parameter blocks.
-  /// - (camera), (point), (center), (focus), (other intrinsic parameters)
-  virtual int num_parameter_blocks() const {return 5;}
+  /// - (camera), (point), (center), (focus), (other intrinsic parameters), and,
+  ///   when the velocity is shared, one more block: the shared velocity.
+  virtual int num_parameter_blocks() const {return m_shared_velocity ? 6 : 5;}
 
   virtual std::vector<int> get_block_sizes() const;
 
   /// Read in all of the parameters and compute the residuals.
   virtual vw::Vector2 evaluate(std::vector<double const*> const param_blocks) const;
+
+  /// Mark this camera as reading its velocity from a shared block (an extra
+  /// parameter block) rather than its own distortion slots. The per-camera
+  /// velocity slots are then frozen by the caller.
+  void set_shared_velocity() { m_shared_velocity = true; }
 
 private:
 
@@ -178,6 +184,7 @@ private:
   boost::shared_ptr<vw::OpticalBarModel> m_underlying_camera;
   vw::BathyData const& m_bathy_data;
   int m_camera_index;
+  bool m_shared_velocity;
 
 }; // End class BaOpticalBarCam
 

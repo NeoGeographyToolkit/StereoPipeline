@@ -63,6 +63,14 @@ struct IntrinsicOptions {
   bool share_intrinsics_per_sensor;
   std::vector<int> cam2sensor; // cam index to sensor index, when sharing intrinsics per sensor
   int num_sensors; // will be nonzero only if sharing intrinsics per sensor is true
+
+  // Optical bar velocity shared as one vector across every camera in the run
+  // (one block = one orbit pass). The per-camera velocity slots are frozen and
+  // the shared vector is the optimized quantity. velocity_float says whether that
+  // shared vector is floated or held at its seed.
+  bool velocity_shared;
+  bool velocity_float;
+
   IntrinsicOptions();
 
   // Control per each group of cameras or for all cameras which intrinsics
@@ -161,7 +169,22 @@ public:
     if (m_intrinsics_vec.empty()) return 0;
     return &(m_intrinsics_vec[get_distortion_offset(cam_index)]);
   }
-  
+
+  // One optical bar velocity vector shared across every camera in the run. It is
+  // active (size 3) only when intrinsics_options.velocity_shared is set. The
+  // reprojection functor reads velocity from this block instead of the per-camera
+  // distortion slots, and all cameras passing the same pointer makes Ceres share it.
+  bool has_shared_velocity() const { return m_shared_velocity.size() == 3; }
+  double* shared_velocity_ptr() {
+    if (m_shared_velocity.size() != 3) return 0;
+    return &m_shared_velocity[0];
+  }
+  // Seed the shared velocity with the mean of the per-camera velocity seeds.
+  void init_shared_velocity();
+  // After the solve, copy the shared velocity back into each camera's velocity
+  // slots, so camera writing and the final residuals see the solved value.
+  void write_back_shared_velocity();
+
   // End functions needed when solving for intrinsics
   
   void set_point_outlier(int point_index, bool status) {
@@ -244,7 +267,11 @@ private: // Variables
   //  either the shared parameters at the start of m_intrinsics_vec or from
   //  the block of intrinsics data for the specified camera.
   int m_focus_offset, m_distortion_offset;
-  
+
+  // The shared optical bar velocity (empty = inactive, size 3 = active). See
+  // the accessors above.
+  std::vector<double> m_shared_velocity;
+
   IntrinsicOptions m_intrinsics_opts;
   
   // Raw data storage

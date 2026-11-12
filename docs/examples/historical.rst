@@ -956,9 +956,11 @@ They can be combined, as in ``--intrinsics-to-float 'velocity final_pose'``.
 This invocation cannot be combined with ``--fixed-distortion-indices``.
 Supported as of build 2026/11 (:numref:`release`).
 
-Sharing these with ``--intrinsics-to-share`` is not yet supported and gives an
-error, because the left and right cameras usually have different values for
-them.
+The ``velocity`` can be shared across all cameras with ``--intrinsics-to-share
+velocity``. It is shared across the whole run. It is not possible to have more
+than one group of cameras, with velocity shared only within each group. Sharing
+``motion_compensation_factor`` or ``final_pose`` is not supported, as these
+usually differ between the forward and aft cameras.
 
 Creation of a terrain model
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

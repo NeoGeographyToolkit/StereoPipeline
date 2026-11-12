@@ -1630,12 +1630,16 @@ void load_intrinsics_options(bool        solve_intrinsics,
         intrinsics_options.center_shared = true;
       else if (val == "other_intrinsics" || val == "distortion")
         intrinsics_options.distortion_shared = true;
-      else if (val == "velocity" || val == "motion_compensation_factor" ||
-               val == "final_pose")
-        // Sharing an individual optical bar motion parameter is not yet
-        // supported. The left and right cameras usually have different values.
+      else if (val == "velocity")
+        // Share one velocity vector across every camera in the run (one block =
+        // one orbit pass). The per-camera velocity slots are frozen and the shared
+        // vector is optimized. Set up in handleBaArgs and BaState.
+        intrinsics_options.velocity_shared = true;
+      else if (val == "motion_compensation_factor" || val == "final_pose")
+        // Sharing these is not supported. The fore and aft cameras usually have
+        // different values (the motion compensation sign and the end attitude).
         vw_throw(ArgumentErr() << "Sharing the optical bar motion parameter '"
-          << val << "' is not yet supported.\n");
+          << val << "' is not supported.\n");
       else
         vw_throw(ArgumentErr() << "Error: Found unknown intrinsic to share: "
           << val << ".\n");

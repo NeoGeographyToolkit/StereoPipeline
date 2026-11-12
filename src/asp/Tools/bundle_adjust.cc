@@ -183,6 +183,11 @@ int baOnePass(asp::BaOptions                & opt,
     dist_opts = new ceres::SubsetManifold(ba_state.m_max_num_dist_params,
                                           opt.fixed_distortion_indices);
 
+  // Shared optical bar velocity: seed it once (from the mean of the per-camera
+  // velocity seeds) before the residuals reference its pointer.
+  if (opt.intrinsics_options.velocity_shared && !ba_state.has_shared_velocity())
+    ba_state.init_shared_velocity();
+
   // Pixel reprojection error
   std::vector<size_t> cam_residual_counts, num_pixels_per_cam;
   std::vector<std::vector<vw::Vector2>> pixels_per_cam;
@@ -194,6 +199,11 @@ int baOnePass(asp::BaOptions                & opt,
                              cnet, ba_state, dist_opts, problem, cam_residual_counts,
                              num_pixels_per_cam, pixels_per_cam, tri_points_per_cam,
                              pixel_sigmas);
+
+  // Hold the shared velocity fixed unless the user asked to float it.
+  if (ba_state.has_shared_velocity() && !opt.intrinsics_options.velocity_float &&
+      problem.HasParameterBlock(ba_state.shared_velocity_ptr()))
+    problem.SetParameterBlockConstant(ba_state.shared_velocity_ptr());
 
   // Add ground control points or points based on a DEM constraint
   int num_gcp = 0, num_gcp_or_dem_residuals = 0;
@@ -345,6 +355,10 @@ int baOnePass(asp::BaOptions                & opt,
   // pose. Write the derived positions back into each camera's translation adjustment,
   // so all downstream code (final residuals, camera writing) sees the correct positions.
   asp::updateGroupedCameraPositions(orbital_groups, ba_state);
+
+  // The optimized shared velocity lives in its own block. Write it back into each
+  // camera's velocity slots, so camera writing and the final residuals see it.
+  ba_state.write_back_shared_velocity();
 
   // Write the condition files after each pass, as we never know which pass will be the last
   // since we may stop the passes prematurely if no more outliers are present.
@@ -819,6 +833,20 @@ int main(int argc, char* argv[]) {
                       opt.stereo_session,
                       opt.single_threaded_cameras,
                       opt.camera_models);
+
+    // Sharing the velocity requires velocity-mode (Ghuffar) optical bar cameras,
+    // as only those carry a velocity vector. This is checked here, after the
+    // cameras are loaded (handleBaArgs runs before that).
+    if (opt.intrinsics_options.velocity_shared) {
+      for (size_t i = 0; i < opt.camera_models.size(); i++) {
+        boost::shared_ptr<vw::OpticalBarModel> bar =
+          boost::dynamic_pointer_cast<vw::OpticalBarModel>(opt.camera_models[i]);
+        if (bar.get() == NULL || !bar->get_have_velocity_vec())
+          vw::vw_throw(vw::ArgumentErr()
+            << "Sharing the velocity requires velocity-mode optical bar cameras "
+            << "(with a velocity vector).\n");
+      }
+    }
 
     // Parse data needed for error propagation
     if (opt.propagate_errors)

@@ -38,6 +38,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
+#include <algorithm>
+
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
@@ -1378,6 +1380,34 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
                << "--fixed-distortion-indices.\n");
     for (int i = 0; i < asp::NUM_OPTICAL_BAR_EXTRA_PARAMS; i++) {
       if (opt.intrinsics_options.float_distortion_indices.count(i) == 0)
+        opt.fixed_distortion_indices.push_back(i);
+    }
+  }
+
+  // Shared optical bar velocity (--intrinsics-to-share velocity): one velocity
+  // vector across the whole run. The per-camera velocity slots (3,4,5) are frozen
+  // and the shared vector carries velocity. velocity_float records whether the
+  // user also asked to float velocity (by name, or via other_intrinsics).
+  if (opt.intrinsics_options.velocity_shared) {
+    if (opt.camera_type != BaCameraType_OpticalBar)
+      vw::vw_throw(vw::ArgumentErr()
+               << "Sharing the velocity applies only to optical bar cameras.\n");
+    if (opt.intrinsics_options.share_intrinsics_per_sensor)
+      vw::vw_throw(vw::ArgumentErr()
+               << "Sharing the velocity is not yet supported when sharing "
+               << "intrinsics per sensor.\n");
+    bool named = !opt.intrinsics_options.float_distortion_indices.empty();
+    if (named)
+      opt.intrinsics_options.velocity_float =
+        (opt.intrinsics_options.float_distortion_indices.count(3) > 0);
+    else
+      opt.intrinsics_options.velocity_float =
+        opt.intrinsics_options.float_distortion_params(0);
+    // Freeze the per-camera velocity slots so only the shared block moves.
+    for (int i = 3; i <= 5; i++) {
+      if (std::find(opt.fixed_distortion_indices.begin(),
+                    opt.fixed_distortion_indices.end(), i)
+          == opt.fixed_distortion_indices.end())
         opt.fixed_distortion_indices.push_back(i);
     }
   }

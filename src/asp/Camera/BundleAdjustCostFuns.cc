@@ -155,7 +155,8 @@ BaOpticalBarCam::BaOpticalBarCam(
     boost::shared_ptr<vw::OpticalBarModel> cam,
     vw::BathyData const& bathy_data,
     int camera_index):
-    m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index) {}
+    m_underlying_camera(cam), m_bathy_data(bathy_data), m_camera_index(camera_index),
+    m_shared_velocity(false) {}
 
 int BaOpticalBarCam::num_intrinsic_params() const {
    return asp::NUM_CENTER_PARAMS + asp::NUM_FOCUS_PARAMS + asp::NUM_OPTICAL_BAR_EXTRA_PARAMS;
@@ -166,6 +167,9 @@ std::vector<int> BaOpticalBarCam::get_block_sizes() const {
   result.push_back(asp::NUM_CENTER_PARAMS);
   result.push_back(asp::NUM_FOCUS_PARAMS);
   result.push_back(asp::NUM_OPTICAL_BAR_EXTRA_PARAMS);
+  // When the velocity is shared, one more block: the shared velocity (3 values).
+  if (m_shared_velocity)
+    result.push_back(3);
   return result;
 }
 
@@ -204,6 +208,14 @@ vw::Vector2  BaOpticalBarCam::evaluate(std::vector<double const*> const param_bl
     final_pose[0] = raw_intrin[6];
     final_pose[1] = raw_intrin[7];
     final_pose[2] = raw_intrin[8];
+    // When the velocity is shared, it comes from the extra block, not the
+    // per-camera distortion slots (which are frozen).
+    if (m_shared_velocity) {
+      double const* raw_vel = param_blocks[5];
+      vel[0] = raw_vel[0];
+      vel[1] = raw_vel[1];
+      vel[2] = raw_vel[2];
+    }
   }
 
   // Create an optical bar camera with updated pose, focus, center, speed, and MCF
@@ -601,8 +613,10 @@ void addReprojResidual(vw::Vector2 const& observation,
     double* focus      = ba_state.get_intrinsic_focus_ptr     (camera_index);
     double* distortion = ba_state.get_intrinsic_distortion_ptr(camera_index);
 
-    // Set only for a CSM camera that is in an orbital group (see below).
-    double* group_pose = NULL;
+    // An extra shared parameter block, when present: the CSM orbital-group pose,
+    // or the optical bar shared velocity. Ceres couples all cameras that pass the
+    // same pointer.
+    double* extra_block = NULL;
 
     boost::shared_ptr<BaCamBase> ba_cam;
     if (opt.camera_type == asp::BaCameraType_Pinhole) {
@@ -621,7 +635,15 @@ void addReprojResidual(vw::Vector2 const& observation,
       if (bar_model.get() == NULL)
         vw::vw_throw(vw::ArgumentErr() << "Tried to add optical bar block with "
                       << "non-optical bar camera.");
-      ba_cam = boost::make_shared<BaOpticalBarCam>(bar_model, opt.bathy_data, camera_index);
+      boost::shared_ptr<BaOpticalBarCam> bar_cam
+        = boost::make_shared<BaOpticalBarCam>(bar_model, opt.bathy_data, camera_index);
+      // When the velocity is shared, read it from the single shared block (the
+      // same pointer for every camera) rather than the per-camera distortion slots.
+      if (ba_state.has_shared_velocity()) {
+        bar_cam->set_shared_velocity();
+        extra_block = ba_state.shared_velocity_ptr();
+      }
+      ba_cam = bar_cam;
 
     } else if (opt.camera_type == asp::BaCameraType_CSM) {
       boost::shared_ptr<asp::CsmModel> csm_model =
@@ -636,7 +658,7 @@ void addReprojResidual(vw::Vector2 const& observation,
       if (orbital_groups.grouped(camera_index)) {
         csm_cam->set_group(orbital_groups.init_pos[camera_index],
                            orbital_groups.centroid_of(camera_index));
-        group_pose = orbital_groups.pose_ptr(camera_index);
+        extra_block = orbital_groups.pose_ptr(camera_index);
       }
       ba_cam = csm_cam;
     } else {
@@ -645,11 +667,11 @@ void addReprojResidual(vw::Vector2 const& observation,
 
     ceres::CostFunction* cost_function =
       BaReprojErr::Create(observation, pixel_sigma, ba_cam);
-    // The group pose, when present, is an extra parameter block shared by all
-    // cameras of the orbit (Ceres couples them because it is the same pointer).
-    if (group_pose != NULL)
+    // The extra block, when present, is shared by all cameras of the group
+    // (Ceres couples them because it is the same pointer).
+    if (extra_block != NULL)
       problem.AddResidualBlock(cost_function, loss_function, point, camera,
-                               center, focus, distortion, group_pose);
+                               center, focus, distortion, extra_block);
     else
       problem.AddResidualBlock(cost_function, loss_function, point, camera,
                                center, focus, distortion);
