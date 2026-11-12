@@ -18,8 +18,8 @@
 /// \file BaState.h
 ///
 
-#ifndef __ASP_CAMERA_BA_STATE_H__
-#define __ASP_CAMERA_BA_STATE_H__
+#ifndef __ASP_CORE_BA_STATE_H__
+#define __ASP_CORE_BA_STATE_H__
 
 #include <asp/Core/BaBaseOptions.h>
 #include <vw/Math/Vector.h>
@@ -256,4 +256,4 @@ private: // Variables
 
 } // end namespace asp
 
-#endif // __ASP_CAMERA_BA_STATE_H__
+#endif // __ASP_CORE_BA_STATE_H__

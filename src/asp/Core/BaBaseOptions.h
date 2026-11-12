@@ -39,6 +39,12 @@ namespace asp {
 // This must be const or else there's a crash
 const std::string UNSPECIFIED_DATUM = "unspecified_datum";
 
+// A triangulated point with this sigma will be declared fixed. This should be
+// positive and somewhat reasonable, as it will show up in the cost function,
+// though, in theory, it should not matter as it shows up as a term like
+// (x-x0)^2/sigma^2, with x starting as x0 and kept fixed.
+const double FIXED_GCP_SIGMA = 1e-10;
+
 /// These are the different camera modes that bundle_adjust supports.
 enum BACameraType {BaCameraType_Pinhole    = 0,
                    BaCameraType_OpticalBar = 1,

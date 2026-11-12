@@ -23,7 +23,7 @@
 #include <asp/Core/GCP.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Core/FileUtils.h>
-#include <asp/Camera/BaState.h>
+#include <asp/Core/BaState.h>
 
 #include <vw/Core/Log.h>
 #include <vw/Camera/CameraModel.h>

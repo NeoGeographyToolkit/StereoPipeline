@@ -23,7 +23,7 @@
 
 #include <asp/Core/BaBaseOptions.h>
 #include <asp/Camera/CsmModel.h>
-#include <asp/Camera/BaState.h>
+#include <asp/Core/BaState.h>
 
 #include <vw/Math/Vector.h>
 #include <vw/Math/Quaternion.h>

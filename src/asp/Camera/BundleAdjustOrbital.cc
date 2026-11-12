@@ -19,7 +19,7 @@
 
 #include <asp/Camera/BundleAdjustOrbital.h>
 #include <asp/Camera/BundleAdjustOptions.h>
-#include <asp/Camera/BaState.h>
+#include <asp/Core/BaState.h>
 #include <asp/Core/FileUtils.h>
 
 #include <vw/Math/Quaternion.h>

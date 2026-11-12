@@ -23,6 +23,7 @@
 #define __ASP_CAMERA_BASE_COST_FUNS_H__
 
 #include <asp/Core/BundleAdjustUtils.h>
+#include <asp/Core/BaBaseOptions.h>
 
 #include <ceres/ceres.h>
 #include <ceres/loss_function.h>
@@ -31,12 +32,6 @@
 #include <vector>
 
 namespace asp {
-
-// A triangulated point with this sigma will be declared fixed. This should be
-// positive and somewhat reasonable, as it will show up in the cost function,
-// though, in theory, it should not matter as it shows up as a term like
-// (x-x0)^2/sigma^2, with x starting as x0 and kept fixed.
-const double FIXED_GCP_SIGMA = 1e-10;
 
 // Sanitize a per-interest-point pixel sigma. A NaN sigma is treated as a
 // sigma of 1.0 (component reset in place). A non-positive sigma is skipped

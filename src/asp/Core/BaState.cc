@@ -18,7 +18,7 @@
 /// \file BaState.cc
 ///
 
-#include <asp/Camera/BaState.h>
+#include <asp/Core/BaState.h>
 
 #include <vw/Cartography/Datum.h>
 #include <vw/FileIO/KML.h>
