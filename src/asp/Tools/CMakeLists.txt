@@ -61,15 +61,15 @@ target_link_libraries(camera_footprint AspSessions)
 install(TARGETS camera_footprint DESTINATION bin)
 
 add_executable(coverage_fraction coverage_fraction.cc)
-target_link_libraries(coverage_fraction AspCore AspSessions)
+target_link_libraries(coverage_fraction AspCore)
 install(TARGETS coverage_fraction DESTINATION bin)
 
 add_executable(disparitydebug disparitydebug.cc)
-target_link_libraries(disparitydebug AspCore AspSessions)
+target_link_libraries(disparitydebug AspCore)
 install(TARGETS disparitydebug DESTINATION bin)
 
 add_executable(geodiff geodiff.cc)
-target_link_libraries(geodiff AspCore AspSessions)
+target_link_libraries(geodiff AspCore)
 install(TARGETS geodiff DESTINATION bin)
 
 add_executable(lronacjitreg lronacjitreg.cc)
@@ -89,7 +89,7 @@ target_link_libraries(orbitviz AspSessions)
 install(TARGETS orbitviz DESTINATION bin)
 
 add_executable(pc_merge pc_merge.cc)
-target_link_libraries(pc_merge AspSessions)
+target_link_libraries(pc_merge AspCore)
 install(TARGETS pc_merge DESTINATION bin)
 
 add_executable(pansharp pansharp.cc)
@@ -101,15 +101,15 @@ target_link_libraries(image_calc AspCore AspSessions)
 install(TARGETS image_calc DESTINATION bin)
 
 add_executable(point2dem point2dem.cc)
-target_link_libraries(point2dem AspCore AspSessions)
+target_link_libraries(point2dem AspCore)
 install(TARGETS point2dem DESTINATION bin)
 
 add_executable(point2las point2las.cc)
-target_link_libraries(point2las AspCore AspSessions)
+target_link_libraries(point2las AspCore)
 install(TARGETS point2las DESTINATION bin)
 
 add_executable(point2mesh point2mesh.cc)
-target_link_libraries(point2mesh AspCore AspSessions)
+target_link_libraries(point2mesh AspCore)
 install(TARGETS point2mesh DESTINATION bin)
 
 add_executable(add_spot_rpc add_spot_rpc.cc)
@@ -178,15 +178,15 @@ target_link_libraries(jitter_solve AspSessions ${SOLVER_LIBRARIES})
 install(TARGETS jitter_solve DESTINATION bin)
 
 add_executable(xyzi2csv xyzi2csv.cc) 
-target_link_libraries(xyzi2csv AspCore AspSessions)
+target_link_libraries(xyzi2csv AspCore)
 install(TARGETS xyzi2csv DESTINATION bin)
 
 add_executable(dem_mosaic dem_mosaic.cc) 
-target_link_libraries(dem_mosaic AspCore AspSessions)
+target_link_libraries(dem_mosaic AspCore)
 install(TARGETS dem_mosaic DESTINATION bin)
 
 add_executable(image_mosaic image_mosaic.cc) 
-target_link_libraries(image_mosaic AspCore AspSessions)
+target_link_libraries(image_mosaic AspCore)
 install(TARGETS image_mosaic DESTINATION bin)
 
 add_executable(image_align image_align.cc) 
@@ -194,7 +194,7 @@ target_link_libraries(image_align AspCore AspSessions)
 install(TARGETS image_align DESTINATION bin)
 
 add_executable(tif_mosaic tif_mosaic.cc) 
-target_link_libraries(tif_mosaic AspCore AspSessions)
+target_link_libraries(tif_mosaic AspCore)
 install(TARGETS tif_mosaic DESTINATION libexec)
 
 add_executable(wv_correct wv_correct.cc) 
@@ -218,11 +218,11 @@ target_link_libraries(cam_test AspSessions)
 install(TARGETS cam_test DESTINATION bin)
 
 add_executable(otsu_threshold otsu_threshold.cc) 
-target_link_libraries(otsu_threshold AspCore AspSessions)
+target_link_libraries(otsu_threshold AspCore)
 install(TARGETS otsu_threshold DESTINATION bin)
 
 add_executable(corr_eval corr_eval.cc) 
-target_link_libraries(corr_eval AspCore AspSessions)
+target_link_libraries(corr_eval AspCore)
 install(TARGETS corr_eval DESTINATION bin)
 
 add_executable(disp2ip disp2ip.cc)
@@ -259,7 +259,7 @@ if (NOT CORE_ASP_ONLY)
   install(TARGETS rig_calibrator DESTINATION bin)
 
   add_executable(dem_geoid dem_geoid.cc)
-  target_link_libraries(dem_geoid ${GEOID_LIBRARIES} AspCore AspSessions)
+  target_link_libraries(dem_geoid ${GEOID_LIBRARIES} AspCore)
   install(TARGETS dem_geoid DESTINATION bin)
   
   add_executable(pc_align pc_align.cc)
