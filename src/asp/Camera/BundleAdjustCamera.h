@@ -33,6 +33,7 @@
 #include <asp/Camera/BundleAdjustIntrinsics.h>
 #include <asp/Camera/BundleAdjustMatchFiles.h>
 #include <asp/Camera/BundleAdjustGcp.h>
+#include <asp/Camera/BundleAdjustTransform.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/Bathymetry.h>
@@ -66,58 +67,6 @@ void read_image_cam_lists(std::string const& image_list,
 int loadRefDisp(std::string const& disp_list_filename,
                 std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> & disp_vec,
                 std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp);
-
-// Given an input pinhole camera and param changes, apply those, returning
-// the new camera.
-vw::PinholeModel transformedPinholeCamera(int camera_index,
-                                          asp::BaState const& ba_state,
-                                          vw::PinholeModel const& in_cam);
-
-// Given an input optical bar camera and param changes, apply those, returning
-// the new camera.
-vw::OpticalBarModel transformedOpticalBarCamera(int camera_index,
-                                                asp::BaState const& ba_state,
-                                                vw::OpticalBarModel const& in_cam);
-
-// Given an input CSM camera and param changes, apply those, returning
-// the new camera.
-boost::shared_ptr<asp::CsmModel> transformedCsmCamera(int camera_index,
-                                                      asp::BaState const& ba_state,
-                                                      asp::CsmModel const& in_cam);
-
-/// Given a transform with origin at the planet center, like output by pc_align,
-/// read the adjustments from param storage, apply this transform on top of
-/// them, and write the adjustments back to the param storage. Cameras
-/// do not change.
-void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaState &ba_state,
-                                std::vector<vw::CamPtr>
-                                const& cam_ptrs);
-
-// This function takes advantage of the fact that when it is called the cam_ptrs have the same
-//  information as is in ba_state!
-void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
-                                        asp::BaState & ba_state,
-                                        std::vector<vw::CamPtr>
-                                        const& cam_ptrs);
-
-// This function takes advantage of the fact that when it is called the cam_ptrs have the same
-//  information as is in ba_state!
-void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            asp::BaState & ba_state,
-                                            std::vector<vw::CamPtr>
-                                            const& cam_ptrs);
-
-void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
-                                    asp::BaState & ba_state,
-                                    std::vector<vw::CamPtr>
-                                    const& cam_ptrs);
-
-/// Apply a scale-rotate-translate transform to pinhole cameras and control points
-void apply_rigid_transform(vw::Matrix3x3 const & rotation,
-                           vw::Vector3   const & translation,
-                           double                scale,
-                           std::vector<vw::CamPtr> &camera_models,
-                           boost::shared_ptr<vw::ControlNetwork> const& cnet);
 
 // TODO(oalexan1): Move the asp namespace to encompass the whole header file
 // Save convergence angle percentiles for each image pair having matches
