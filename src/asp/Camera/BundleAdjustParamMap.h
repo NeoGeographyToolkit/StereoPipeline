@@ -76,32 +76,6 @@ void pack_csm_to_arrays(asp::CsmModel const& camera,
                         int camera_index,
                         asp::BaState & ba_state);
 
-// Apply a transform to the camera parameters
-void apply_transform_to_params(vw::Matrix4x4 const& M, asp::BaState &ba_state,
-                               std::vector<vw::CamPtr> const& camera_models,
-                               asp::IntrinsicOptions const& intrinsics_opts,
-                               std::vector<int> const& num_dist_params);
-
-void apply_transform_to_cameras_pinhole(vw::Matrix4x4 const& M,
-                                        asp::BaState &ba_state,
-                                        std::vector<vw::CamPtr> const& camera_models,
-                                        asp::IntrinsicOptions const& intrinsics_opts,
-                                        std::vector<int> const& num_dist_params);
-
-void apply_transform_to_cameras_optical_bar(vw::Matrix4x4 const& M,
-                                            asp::BaState &ba_state,
-                                            std::vector<vw::CamPtr> const& camera_models);
-
-void apply_transform_to_cameras_csm(vw::Matrix4x4 const& M,
-                                    asp::BaState &ba_state,
-                                    std::vector<vw::CamPtr> const& camera_models);
-
-void apply_rigid_transform(vw::Matrix3x3 const & rotation,
-                           vw::Vector3   const & translation,
-                           double scale,
-                           std::vector<vw::CamPtr> const& camera_models,
-                           asp::BaState & ba_state);
-
 // Read adjustments from a previous run and put them into the parameters
 void put_adjustments_in_params(std::string const& input_prefix,
                                std::vector<std::string> const& image_files,
