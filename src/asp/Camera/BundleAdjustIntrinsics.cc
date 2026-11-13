@@ -520,6 +520,20 @@ void load_intrinsics_options(bool        solve_intrinsics,
   vw_out() << focus_name << sensor_mode;  print_shared(intrinsics_options.focus_shared);
   vw_out() << dist_name << sensor_mode;   print_shared(intrinsics_options.distortion_shared);
 
+  // Optical bar motion sub-state. The lines above are too coarse for it: the
+  // velocity can be shared on its own (not as part of the distortion block), and
+  // the motion parameters float by name. Spell that out when the user set it.
+  if (intrinsics_options.velocity_shared)
+    vw_out() << "Optical bar velocity: shared across all cameras.\n";
+  if (!intrinsics_options.float_distortion_indices.empty()) {
+    std::string floated;
+    if (intrinsics_options.float_distortion_indices.count(3)) floated += " velocity";
+    if (intrinsics_options.float_distortion_indices.count(1))
+      floated += " motion_compensation_factor";
+    if (intrinsics_options.float_distortion_indices.count(6)) floated += " final_pose";
+    vw_out() << "Optical bar motion parameters floated:" << floated << ".\n";
+  }
+
 } // End function load_intrinsics_options
 
 /// Parse the string of limits and make sure they are all valid pairs.
