@@ -20,7 +20,6 @@
 
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/StereoSessionFactory.h>
-#include <asp/IsisIO/IsisSpecialPixels.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/Bathymetry.h>
 #include <asp/Core/ImageUtils.h>
@@ -31,6 +30,7 @@
 #include <vw/Core/Log.h>
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/PixelMask.h>
+#include <vw/Image/IsisSpecialPixels.h>
 #include <vw/FileIO/DiskImageResource.h>
 #include <vw/FileIO/DiskImageView.h>
 #include <vw/FileIO/DiskImageUtils.h>
@@ -64,12 +64,17 @@ calcStatsMaskedImages(// Inputs
   left_masked_image = create_mask(left_cropped_image, left_nodata_value);
   right_masked_image = create_mask(right_cropped_image, right_nodata_value);
 
-  // Handle ISIS special pixels for .cub files (isis and csm sessions)
+  // Handle ISIS special pixels for .cub files (isis and csm sessions). Read the
+  // channel type via the normal GDAL path; the valid range keys on it.
   bool isIsis = (fs::path(left_input_file).extension() == ".cub");
-  if (isIsis)
-    adjustIsisImage(left_input_file, left_nodata_value, left_masked_image);
-  if (fs::path(right_input_file).extension() == ".cub")
-    adjustIsisImage(right_input_file, right_nodata_value, right_masked_image);
+  if (isIsis) {
+    vw::ChannelTypeEnum ct = vw::DiskImageResourcePtr(left_input_file)->channel_type();
+    left_masked_image = vw::maskIsisSpecialPixels(left_cropped_image, ct, left_nodata_value);
+  }
+  if (fs::path(right_input_file).extension() == ".cub") {
+    vw::ChannelTypeEnum ct = vw::DiskImageResourcePtr(right_input_file)->channel_type();
+    right_masked_image = vw::maskIsisSpecialPixels(right_cropped_image, ct, right_nodata_value);
+  }
 
   // In --stereo-dist-mode, want the stats from the original images which should already exist
   std::string left_file, right_file;

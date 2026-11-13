@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -20,13 +20,9 @@
 // Apply specified arithmetic operations to given input images and save the
 // output with desired pixel type.
 
-#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspStringUtils.h>
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-#include <asp/IsisIO/IsisSpecialPixels.h>
-#endif
 
 #include <vw/Core/FundamentalTypes.h>
 #include <vw/Core/Log.h>
@@ -34,6 +30,7 @@
 #include <vw/Image/ImageIO.h>
 #include <vw/Image/ImageView.h>
 #include <vw/Image/ImageViewRef.h>
+#include <vw/Image/IsisSpecialPixels.h>
 #include <vw/Image/Manipulation.h>
 #include <vw/Image/MaskViews.h>
 #include <vw/Image/PixelMath.h>
@@ -964,15 +961,12 @@ void loadImagesNodata(Options & opt,
     // For an ISIS cube, mask the special pixels (Null, Lrs, Lis, Hrs, His) using
     // the file's valid range, as mapproject and stereo do. Read as GDAL, only the
     // Null special maps to nodata; the others leak through as very large values.
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     if (has_nodata_vec[i] && boost::filesystem::path(input).extension() == ".cub") {
       float nd_f = float(nodata_vec[i]);
       vw::ImageViewRef<vw::PixelMask<float>> masked
-        = vw::create_mask(vw::pixel_cast<float>(img), nd_f);
-      asp::adjustIsisImage(input, nd_f, masked);
+        = vw::maskIsisSpecialPixels(vw::pixel_cast<float>(img), rsrc->channel_type(), nd_f);
       img = vw::pixel_cast<DoublePixelT>(vw::apply_mask(masked, nd_f));
     }
-#endif
 
     input_images[i] = img;
   }
@@ -1050,17 +1044,14 @@ void median_filter_img(Options & opt) {
   // only the Null special becomes nodata; the others leak through as very large
   // values, so this step is what lets a cube be filtered honestly.
   vw::ImageViewRef<double> clean_image = image;
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
   if (boost::filesystem::path(input).extension() == ".cub") {
     float nd_f = has_nodata ? float(nodata) : float(out_nodata);
     vw::ImageViewRef<vw::PixelMask<float>> masked
-      = vw::create_mask(vw::pixel_cast<float>(image), nd_f);
-    asp::adjustIsisImage(input, nd_f, masked);
+      = vw::maskIsisSpecialPixels(vw::pixel_cast<float>(image), rsrc->channel_type(), nd_f);
     // Special and prior nodata pixels are now invalid; write them as out_nodata.
     clean_image = vw::pixel_cast<double>(vw::apply_mask(masked, float(out_nodata)));
     has_nodata = true; nodata = out_nodata;
   }
-#endif
 
   vw::ImageViewRef<double> filtered
     = MedianFilterView<vw::ImageViewRef<double>>(clean_image, win, min_count,

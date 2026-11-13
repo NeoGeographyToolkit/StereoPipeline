@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -23,11 +23,6 @@
 #include <asp/Camera/MapprojectImage.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Core/AspStringUtils.h>
-#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
-
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-#include <asp/IsisIO/IsisSpecialPixels.h>
-#endif // ASP_HAVE_PKG_ISIS
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/Map2CamTrans.h>
@@ -35,6 +30,7 @@
 #include <vw/Cartography/GeoReferenceUtils.h>
 #include <vw/Image/Filter.h>
 #include <vw/Image/ImageChannels.h>
+#include <vw/Image/IsisSpecialPixels.h>
 #include <vw/Image/RoundAndClamp.h>
 #include <vw/FileIO/FileUtils.h>
 
@@ -412,10 +408,9 @@ void project_image_nodata(asp::MapprojOptions & opt,
 
     // For ISIS .cub files, also mask special pixels (LIS, LRS, HIS, HRS)
     // that are not covered by the single nodata value
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     if (fs::path(opt.image_file).extension() == ".cub")
-      asp::adjustIsisImage(opt.image_file, opt.nodata_value, masked_input);
-#endif // ASP_HAVE_PKG_ISIS
+      masked_input = vw::maskIsisSpecialPixels(disk_img, img_rsrc->channel_type(),
+                                               opt.nodata_value);
 
     bool            has_img_nodata = true;
     ImageMaskPixelT nodata_mask = ImageMaskPixelT(); // invalid value for a PixelMask

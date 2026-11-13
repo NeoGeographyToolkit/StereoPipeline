@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2006-2024, United States Government as represented by the
+//  Copyright (c) 2006-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -17,14 +17,10 @@
 
 #include <asp/GUI/DiskImagePyramidMultiChannel.h>
 #include <asp/Core/StereoSettings.h>
-#include <asp/asp_config.h>
-
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-#include <asp/IsisIO/DiskImageResourceIsis.h>
-#endif
 
 #include <vw/Core/Stopwatch.h>
 #include <vw/Image/Colormap.h>
+#include <vw/Image/IsisSpecialPixels.h>
 #include <QtWidgets>
 
 #include <cmath>
@@ -173,15 +169,12 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
     // masks special pixels (LIS, LRS, HIS, HRS) during subsampling.
     float valid_min = std::numeric_limits<float>::quiet_NaN();
     float valid_max = std::numeric_limits<float>::quiet_NaN();
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
     if (boost::filesystem::path(image_file).extension() == ".cub") {
-      try {
-        vw::DiskImageResourceIsis isis_rsrc(image_file);
-        valid_min = isis_rsrc.valid_minimum();
-        valid_max = isis_rsrc.valid_maximum();
-      } catch (...) {}
+      double vmin = 0.0, vmax = 0.0;
+      vw::isisValidRange(image_fmt.channel_type, vmin, vmax);
+      valid_min = vmin;
+      valid_max = vmax;
     }
-#endif
     m_valid_min = valid_min;
     m_valid_max = valid_max;
 

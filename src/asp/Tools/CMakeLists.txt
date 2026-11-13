@@ -97,7 +97,7 @@ target_link_libraries(pansharp AspSessions)
 install(TARGETS pansharp DESTINATION bin)
 
 add_executable(image_calc image_calc.cc)
-target_link_libraries(image_calc AspCore AspSessions)
+target_link_libraries(image_calc AspCore)
 install(TARGETS image_calc DESTINATION bin)
 
 add_executable(point2dem point2dem.cc)
