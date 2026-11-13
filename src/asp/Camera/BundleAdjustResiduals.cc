@@ -743,15 +743,46 @@ void saveCameraOffsets(vw::Datum                const& datum,
   return;
 }
 
+// Pixel reprojection error of a ground point into a camera: the norm of
+// (observed pixel - projected pixel). Returns false if the projection fails, so
+// the caller can skip that observation.
+static bool gcpReprojError(vw::CamPtr const& cam,
+                           vw::Vector2 const& observation,
+                           vw::Vector3 const& xyz,
+                           double & err) {
+  try {
+    vw::Vector2 proj = cam->point_to_pixel(xyz);
+    err = norm_2(observation - proj);
+  } catch (...) {
+    return false;
+  }
+  return true;
+}
+
+// Median of a vector, using the same middle-element convention as the other
+// residual stats in this file. Returns NaN for an empty vector.
+static double vectorMedian(std::vector<double> v) {
+  if (v.empty())
+    return std::numeric_limits<double>::quiet_NaN();
+  std::sort(v.begin(), v.end());
+  return v[v.size()/2];
+}
+
 // Write a report with, for each ground control point, the offset of its
 // optimized position from its input (surveyed) position, split into a
-// ground-plane component and a height component (meters). This is analogous to
-// how the camera and triangulation offsets are measured.
+// ground-plane component and a signed height component (meters), and the pixel
+// reprojection error of that point against both the optimized (moved) control
+// and the input control as written. The reprojection against the input control
+// is the honest fit of the cameras to the control, as the solver is free to
+// move the GCP (unless --fix-gcp-xyz). Reprojection is written only when the
+// optimized cameras are passed in; otherwise those columns are NaN.
 void saveGcpReport(std::string            const& out_prefix,
                    vw::ControlNetwork const& cnet,
                    std::vector<double>    const& tri_points_vec,
                    std::set<int>          const& outliers,
-                   vw::Datum const& datum) {
+                   vw::Datum const& datum,
+                   std::vector<vw::CamPtr> const& opt_cams,
+                   asp::CRN const& crn) {
 
   int num_points = cnet.size();
 
@@ -764,13 +795,62 @@ void saveGcpReport(std::string            const& out_prefix,
   if (num_gcp == 0)
     return;
 
+  // Accumulate the per-point reprojection error, as a mean over the cameras
+  // that observe each point, against the optimized and the input position.
+  // Also collect every GCP observation for the global medians in the header.
+  bool have_reproj = !opt_cams.empty();
+  std::vector<double> sum_reproj_opt(num_points, 0.0), sum_reproj_input(num_points, 0.0);
+  std::vector<int>    reproj_count(num_points, 0);
+  std::vector<double> all_reproj_opt, all_reproj_input;
+  if (have_reproj) {
+    for (size_t icam = 0; icam < opt_cams.size(); icam++) {
+      for (auto fiter = crn[icam].begin(); fiter != crn[icam].end(); fiter++) {
+        int ipt = (**fiter).m_point_id;
+        if (cnet[ipt].type() != vw::ControlPoint::GroundControlPoint)
+          continue;
+        if (outliers.find(ipt) != outliers.end())
+          continue;
+        Vector2 observation = (**fiter).m_location;
+        Vector3 input_xyz = cnet[ipt].position();
+        const double * tri_point = &tri_points_vec[0] + ipt * NUM_XYZ_PARAMS;
+        Vector3 opt_xyz(tri_point[0], tri_point[1], tri_point[2]);
+        double e_opt = 0.0, e_input = 0.0;
+        bool ok_opt   = gcpReprojError(opt_cams[icam], observation, opt_xyz,   e_opt);
+        bool ok_input = gcpReprojError(opt_cams[icam], observation, input_xyz, e_input);
+        if (!ok_opt || !ok_input)
+          continue; // projection failed, skip this observation
+        sum_reproj_opt[ipt]   += e_opt;
+        sum_reproj_input[ipt] += e_input;
+        reproj_count[ipt]     += 1;
+        all_reproj_opt.push_back(e_opt);
+        all_reproj_input.push_back(e_input);
+      }
+    }
+  }
+
   std::string output_path = out_prefix + "-gcp-report.csv";
   vw_out() << "Writing: " << output_path << std::endl;
 
   std::ofstream ofs(output_path.c_str());
   ofs.precision(8);
-  ofs << "# GCP offset from initial to optimized GCP (meters)\n";
-  ofs << "# lon, lat, ground_offset_m, height_offset_m\n";
+  ofs << "# GCP offset from input (as-written) to optimized position (meters) "
+      << "and GCP reprojection error (pixels)\n";
+  ofs << "# height_offset_signed_m is positive when the point moved up. "
+      << "reproj_opt_px is the reprojection against the optimized (moved) "
+      << "control; reproj_input_px against the input control as written, which "
+      << "is the honest fit of the cameras to the control.\n";
+  if (have_reproj) {
+    double med_opt = vectorMedian(all_reproj_opt);
+    double med_input = vectorMedian(all_reproj_input);
+    ofs << "# median GCP reprojection (px): vs optimized control " << med_opt
+        << ", vs input control " << med_input << " (" << all_reproj_opt.size()
+        << " observations)\n";
+    vw_out() << "GCP reprojection error median (px): vs optimized control "
+             << med_opt << ", vs input control as written " << med_input
+             << " (" << all_reproj_opt.size() << " GCP observations)\n";
+  }
+  ofs << "# lon, lat, ground_offset_m, height_offset_m, height_offset_signed_m, "
+      << "reproj_opt_px, reproj_input_px\n";
   ofs << "# " << datum << std::endl;
 
   for (int ipt = 0; ipt < num_points; ipt++) {
@@ -787,16 +867,27 @@ void saveGcpReport(std::string            const& out_prefix,
     Vector3 opt_xyz(tri_point[0], tri_point[1], tri_point[2]);
 
     // Decompose the offset into a ground-plane and a height component, in the
-    // local tangent frame, as is done for the camera offsets.
+    // local tangent frame, as is done for the camera offsets. NedDir[2] is the
+    // down component, so the signed height (up positive) is its negative.
     Vector3 llh = datum.cartesian_to_geodetic(opt_xyz);
     Matrix3x3 NedToEcef = datum.lonlat_to_ned_matrix(llh);
     Matrix3x3 EcefToNed = vw::inverse(NedToEcef);
     Vector3 NedDir = EcefToNed * (opt_xyz - input_xyz);
     double ground_offset = norm_2(subvector(NedDir, 0, 2));
-    double height_offset = std::abs(NedDir[2]);
+    double height_offset_signed = -NedDir[2];
+    double height_offset = std::abs(height_offset_signed);
+
+    double rp_opt = std::numeric_limits<double>::quiet_NaN();
+    double rp_input = std::numeric_limits<double>::quiet_NaN();
+    if (have_reproj && reproj_count[ipt] > 0) {
+      rp_opt   = sum_reproj_opt[ipt]   / reproj_count[ipt];
+      rp_input = sum_reproj_input[ipt] / reproj_count[ipt];
+    }
 
     ofs << llh[0] << ", " << llh[1] << ", "
-        << ground_offset << ", " << height_offset << std::endl;
+        << ground_offset << ", " << height_offset << ", "
+        << height_offset_signed << ", "
+        << rp_opt << ", " << rp_input << std::endl;
   }
 
   ofs.close();

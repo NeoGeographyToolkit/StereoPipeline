@@ -160,7 +160,8 @@ int baOnePass(asp::BaOptions                & opt,
     asp::updateTriPtsFromDemList(cnet, outliers, curr_cams,
                                  opt.heights_from_dem, opt.heights_from_dem_list,
                                  NULL,
-                                 dem_xyz_vec, dem_georef); // outputs
+                                 dem_xyz_vec, dem_georef, // outputs
+                                 opt.single_threaded_cameras ? 1 : opt.num_threads);
   }
 
   // If to use a weight image
@@ -764,7 +765,8 @@ void do_ba_ceres(asp::BaOptions & opt, std::vector<Vector3> const& estimated_cam
       for (int q = 0; q < 3; q++)
         tri_points_vec[ipt*3 + q] = pt[q];
     }
-    asp::saveGcpReport(opt.out_prefix, cnet, tri_points_vec, outliers, opt.datum);
+    asp::saveGcpReport(opt.out_prefix, cnet, tri_points_vec, outliers, opt.datum,
+                       optimized_cams, crn);
   }
 
   // Write clean matches and many types of stats. These are done together as

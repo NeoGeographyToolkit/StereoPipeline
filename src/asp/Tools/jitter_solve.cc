@@ -971,7 +971,8 @@ void jitterSolvePass(int                                 pass,
     asp::updateTriPtsFromDemList(cnet, outliers, opt.camera_models,
                                  opt.heights_from_dem, opt.heights_from_dem_list,
                                  &opt.datum,
-                                 dem_xyz_vec, dem_georef); // outputs
+                                 dem_xyz_vec, dem_georef, // outputs
+                                 opt.num_threads); // CSM cameras are thread-safe
   }
   if (opt.anchor_dem != "") {
     vw::vw_out() << "Reading the DEM for the --anchor-dem constraint.\n";
@@ -1357,8 +1358,11 @@ void jitterSolvePass(int                                 pass,
                                orig_tri_points_vec, tri_points_vec,
                                crn, tri_offsets_file);
 
-  // Write the ground control point offset report
-  asp::saveGcpReport(opt.out_prefix, cnet, tri_points_vec, outliers, opt.datum);
+  // Write the ground control point offset report. The cameras have been updated
+  // in place, so pass them to also report the GCP reprojection against the
+  // optimized and the input (as-written) control.
+  asp::saveGcpReport(opt.out_prefix, cnet, tri_points_vec, outliers, opt.datum,
+                     opt.camera_models, crn);
 
   // Save the optimized control network in GCP format, after outlier filtering
   if (opt.save_cnet_as_gcp) {

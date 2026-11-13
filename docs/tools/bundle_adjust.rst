@@ -904,7 +904,8 @@ This is undone when the pixel reprojection errors are later computed.
 
 The command::
 
-    geodiff --absolute --csv-format '1:lon 2:lat 3:height_above_datum' \
+    geodiff --absolute                                \
+      --csv-format '1:lon 2:lat 3:height_above_datum' \
       {output-prefix}-final_residuals_pointmap.csv dem.tif
 
 (:numref:`geodiff`) can be called to evaluate how well the residuals agree with
@@ -934,27 +935,37 @@ If ground control points are present (:numref:`bagcp`), the file::
     {output-prefix}-gcp-report.csv
 
 will be written. For each GCP it stores the offset between its input (surveyed)
-and optimized position, split into a ground-plane component and a height
-component, in meters. This is analogous to the camera position changes
-(:numref:`ba_camera_offsets`) and the changes in triangulated points
-(:numref:`ba_tri_offsets`).
+and optimized position (:numref:`ba_camera_offsets`, :numref:`ba_tri_offsets`)
+and the pixel reprojection error of that point.
 
 Here is a sample file::
 
-    # GCP offset from initial to optimized GCP (meters)
-    # lon, lat, ground_offset_m, height_offset_m
+    # GCP offset (m) and reprojection error (px)
+    # median GCP reprojection (px): vs optimized 0.07,
+    #   vs input 2.31 (288058 observations)
+    # lon, lat, ground_offset_m, height_offset_m,
+    #   height_offset_signed_m, reproj_opt_px, reproj_input_px
     # <datum information>
-    77.478407, 18.567131, 109.36, 0.53
+    77.478407, 18.567131, 109.36, 0.53, -0.53, 1.84, 2.31
 
 The ``ground_offset_m`` field is the norm of the offset in the local ground
-(tangent) plane, and ``height_offset_m`` is the offset along the datum normal.
-Both are absolute values, computed in the local North-East-Down coordinate
-system at each GCP.
+(tangent) plane. The ``height_offset_m`` field is the absolute offset along the
+datum normal, and ``height_offset_signed_m`` is the same offset with a sign,
+positive when the point moved up. All are in the local North-East-Down frame at
+each GCP.
 
-If the GCP are held fixed with ``--fix-gcp-xyz``, these offsets will be zero.
+The ``reproj_opt_px`` field is the reprojection error of the GCP against its
+optimized (moved) position, averaged over the cameras that observe it. This is
+the quantity reported in the residual files (:numref:`ba_err_per_point`). The
+``reproj_input_px`` field is the reprojection against the input position as
+written. The GCP are free parameters constrained only by their sigma (unless
+``--fix-gcp-xyz`` is set), so the solver can move them to reduce the reported
+error. That makes ``reproj_input_px`` the honest fit of the cameras to the
+control. The header prints the median of each column over all GCP observations.
 
-The reprojection error file (:numref:`ba_err_per_point`) can also be helpful.
-The GCP are flagged there with the string ``# GCP``.
+These reprojection columns are written by both :ref:`bundle_adjust` and
+:ref:`jitter_solve`. The GCP are also flagged in the per-point residual files
+(:numref:`ba_err_per_point`) with the string ``# GCP``.
 
 .. _ba_out_cams:
 

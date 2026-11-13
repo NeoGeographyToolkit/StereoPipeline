@@ -121,15 +121,18 @@ void saveCameraOffsets(vw::Datum                const& datum,
                        std::string                           const& camera_offset_file);
 
 // Write a report with, for each ground control point, the offset of its
-// optimized position from its input (surveyed) position, split into a
-// ground-plane component and a height component (meters). This is analogous to
-// how the camera and triangulation offsets are measured. Used by both
-// bundle_adjust and jitter_solve.
+// optimized position from its input (surveyed) position (ground-plane and
+// signed height, meters) and the pixel reprojection error against both the
+// optimized (moved) control and the input control as written. Used by both
+// bundle_adjust and jitter_solve. Pass the optimized cameras and the camera
+// relation network to get the reprojection columns; otherwise those are NaN.
 void saveGcpReport(std::string            const& out_prefix,
                    vw::ControlNetwork const& cnet,
                    std::vector<double>    const& tri_points_vec,
                    std::set<int>          const& outliers,
-                   vw::Datum const& datum);
+                   vw::Datum const& datum,
+                   std::vector<vw::CamPtr> const& opt_cams,
+                   asp::CRN const& crn);
 
 // This is used in jitter_solve
 void saveJitterResiduals(ceres::Problem                             & problem,
