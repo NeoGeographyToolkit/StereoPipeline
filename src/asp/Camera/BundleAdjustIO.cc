@@ -19,6 +19,7 @@
 ///
 
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BundleAdjustMatchFiles.h>
 #include <asp/Camera/BundleAdjustOptions.h>
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>

@@ -31,6 +31,7 @@
 
 #include <asp/Camera/BundleAdjustParamMap.h>
 #include <asp/Camera/BundleAdjustIntrinsics.h>
+#include <asp/Camera/BundleAdjustMatchFiles.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/Bathymetry.h>
@@ -51,42 +52,6 @@ namespace vw {
 
 namespace asp {
 
-// A structure to hold percentiles of given sorted values. This sorts the inputs.
-// The input can be float or double. We will keep the result as double.
-struct MatchPairStats {
-  int left_cam_index, right_cam_index, num_vals;
-  double val25, val50, val75, val85, val95;
-  MatchPairStats(): left_cam_index(0), right_cam_index(0), num_vals(0), val25(0), val50(0),
-                    val75(0), val85(0), val95(0) {}
-  template<class T>
-  void populate(int left_index, int right_index, std::vector<T> & vals) {
-    std::sort(vals.begin(), vals.end());
-    left_cam_index  = left_index;
-    right_cam_index = right_index;
-    num_vals = vals.size();
-    if (num_vals > 0) {
-      val25 = vals[0.25*num_vals];
-      val50 = vals[0.50*num_vals];
-      val75 = vals[0.75*num_vals];
-      val85 = vals[0.85*num_vals];
-      val95 = vals[0.95*num_vals];
-    }
-  }
-};
-
-struct HorizVertErrorStats {
-  int left_cam_index, right_cam_index;
-  float horiz_error_median, vert_error_median;
-  float horiz_error_mean, vert_error_mean;
-  float horiz_error_stddev, vert_error_stddev;
-  int num_errors;
-  HorizVertErrorStats(): left_cam_index(0), right_cam_index(0),
-                         horiz_error_median(0), vert_error_median(0),
-                         horiz_error_mean(0), vert_error_mean(0),
-                         horiz_error_stddev(0), vert_error_stddev(0),
-                         num_errors(0) {}
-};
-
 // Read image and camera lists. Can have several comma-separated lists
 // in image_list and camera_list, when sharing intrinsics per sensor.
 void read_image_cam_lists(std::string const& image_list,
@@ -100,20 +65,6 @@ void read_image_cam_lists(std::string const& image_list,
 int loadRefDisp(std::string const& disp_list_filename,
                 std::vector<vw::ImageView<vw::PixelMask<vw::Vector2f>>> & disp_vec,
                 std::vector<vw::ImageViewRef<vw::PixelMask<vw::Vector2f>>> & interp_disp);
-
-// Mapproject interest points onto a DEM and find the norm of their
-// disagreement in meters. It is assumed that dem_georef
-// was created by bilinear interpolation. The cameras must be with
-// the latest adjustments applied to them.
-void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
-                           std::vector<vw::CamPtr>            const& optimized_cams,
-                           std::vector<vw::InterestPoint> const& left_ip,
-                           std::vector<vw::InterestPoint> const& right_ip,
-                           vw::GeoReference      const& dem_georef,
-                           vw::ImageViewRef<vw::PixelMask<double>> const& interp_dem,
-                           // Will append below
-                           std::vector<vw::Vector<float, 4>>       & mapprojPoints,
-                           std::vector<float>                      & mapprojOffsets);
 
 // Given an input pinhole camera and param changes, apply those, returning
 // the new camera.
@@ -250,25 +201,6 @@ void saveCsmCameras(std::string const& out_prefix,
                     std::vector<std::string> const& camera_files,
                     std::vector<vw::CamPtr>  const& camera_models,
                     bool update_isis_cubes_with_csm_state);
-
-// Calculate convergence angles. Remove the outliers flagged earlier,
-// if remove_outliers is true. Compute offsets of mapprojected matches,
-// if a DEM is given. These are done together as they rely on
-// reloading interest point matches, which is expensive so the matches
-// are used for both operations.
-
-void matchFilesProcessing(vw::ControlNetwork       const& cnet,
-                          asp::BaBaseOptions           const& opt,
-                          std::vector<vw::CamPtr>      const& optimized_cams,
-                          bool                                remove_outliers,
-                          std::set<int>                const& outliers,
-                          std::set<std::pair<int, int>> const& outlier_obs,
-                          std::string                  const& mapproj_dem,
-                          bool                                propagate_errors,
-                          vw::Vector<double>           const& horizontal_stddev_vec,
-                          bool                                save_clean_matches,
-                          std::map<std::pair<int, int>, std::string> const& match_files,
-                          bool                                matches_as_txt);
 
 // Save pinhole camera positions and orientations in a single file.
 // Only works with Pinhole cameras.
