@@ -436,11 +436,11 @@ void handleArguments(int argc, char *argv[], Options& opt) {
 
   if (!opt.planet_pinhole && opt.frame_index != "")
     asp::parseFrameIndex(opt.frame_index, opt.image_file,
-                    opt.parse_ecef,
-                    opt.cam_weight,
-                    opt.lon_lat_values_str, 
-                    opt.parsed_camera_center_str,
-                    opt.parsed_cam_quat_str);
+                         opt.parse_ecef,
+                         opt.cam_weight,
+                         opt.lon_lat_values_str, 
+                         opt.parsed_camera_center_str,
+                         opt.parsed_cam_quat_str);
   
   // Parse the pixel values
   opt.pixel_values = vw::str_to_std_vec(opt.pixel_values_str, ",");
@@ -547,12 +547,12 @@ void handleArguments(int argc, char *argv[], Options& opt) {
 // Trace rays from pixel corners to DEM to see where they intersect the DEM.
 // Save a pointer to the camera, georef, and interp_dem, as we may need these later.
 void extractLonLatCamCtrFromCamera(Options & opt,
-                                         ImageViewRef<PixelMask<float>> const& interp_dem,
-                                         GeoReference const& geo,
-                                         // Outputs
-                                         vw::CamPtr & input_camera_ptr,
-                                         std::vector<double> & cam_heights,
-                                         vw::Vector3 & cam_ctr) {
+                                   ImageViewRef<PixelMask<float>> const& interp_dem,
+                                   GeoReference const& geo,
+                                   // Outputs
+                                   vw::CamPtr & input_camera_ptr,
+                                   std::vector<double> & cam_heights,
+                                   vw::Vector3 & cam_ctr) {
 
   cam_heights.clear();
   cam_ctr = Vector3(0, 0, 0);
@@ -669,9 +669,9 @@ void refineIntrinsics(Options const& opt, vw::GeoReference const& geo,
 // Create a camera using user-specified options. Keep record
 // of the georeference and the datum.
 void formCamera(Options & opt, vw::GeoReference & geo,
-                 ImageViewRef<PixelMask<float>> & interp_dem,
-                 vw::CamPtr & input_camera_ptr,
-                 boost::shared_ptr<CameraModel> & out_cam) {
+                ImageViewRef<PixelMask<float>> & interp_dem,
+                vw::CamPtr & input_camera_ptr,
+                boost::shared_ptr<CameraModel> & out_cam) {
 
   ImageView<float> dem;
   float nodata_value = -std::numeric_limits<float>::max();
@@ -773,9 +773,9 @@ void formCamera(Options & opt, vw::GeoReference & geo,
     // Extract lon and lat from tracing rays from the camera to the ground.
     // This can modify opt.pixel_values. Also calc the camera center.
     extractLonLatCamCtrFromCamera(opt, create_mask(dem, nodata_value),
-                                        geo,
-                                        // Outputs
-                                        input_camera_ptr, cam_heights, estim_cam_ctr);
+                                  geo,
+                                  // Outputs
+                                  input_camera_ptr, cam_heights, estim_cam_ctr);
   }
 
   // With --csm-refit-distortion (and --csm-refit-pose) the output CSM starts as an exact
@@ -836,8 +836,8 @@ void formCamera(Options & opt, vw::GeoReference & geo,
     vw_throw(ArgumentErr() << "Could not read an image with positive dimensions from: "
               << opt.image_file << ".\n");
   asp::manufactureCam(opt.camera_type, opt.sample_file, wid, hgt,
-                       opt.focal_length, opt.pixel_pitch, opt.optical_center,
-                       opt.distortion, opt.distortion_type, out_cam);
+                      opt.focal_length, opt.pixel_pitch, opt.optical_center,
+                      opt.distortion, opt.distortion_type, out_cam);
   
   // Transform it and optionally refine it
   bool verbose = true;
@@ -925,10 +925,10 @@ void saveRpc(Options & opt) {
 
 // Save a pinhole camera, in tsai or csm format
 void savePinhole(Options const& opt,
-                  vw::GeoReference const& geo,
-                  vw::CamPtr input_camera_ptr,
-                  ImageViewRef<PixelMask<float>> interp_dem,
-                  boost::shared_ptr<CameraModel> out_cam) {
+                 vw::GeoReference const& geo,
+                 vw::CamPtr input_camera_ptr,
+                 ImageViewRef<PixelMask<float>> interp_dem,
+                 boost::shared_ptr<CameraModel> out_cam) {
 
   vw::PinholeModel* pin = NULL;
   boost::shared_ptr<vw::PinholeModel> input_pin;
@@ -962,7 +962,7 @@ void savePinhole(Options const& opt,
     vw::Vector3 sun_pos(0, 0, 0);
     std::string serial_number = "", target_name = "";
     asp::isisCubMetadata(input_camera_ptr,
-                    ephem_time, sun_pos, serial_number, target_name);
+                         ephem_time, sun_pos, serial_number, target_name);
     
     if (opt.csm_refit_distortion) {
       // Keep the exact pose, focal length, and optical center, then replace the

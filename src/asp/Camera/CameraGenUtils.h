@@ -107,14 +107,14 @@ void cornersToGroundXyz(std::vector<double> const& lon_lat_values,
 /// parameters). For "opticalbar", read the sample optical bar camera and set its
 /// image size and optical center.
 void manufactureCam(std::string const& camera_type,
-                     std::string const& sample_file,
-                     int wid, int hgt,
-                     double & focal_length,
-                     double & pixel_pitch,
-                     vw::Vector2 & optical_center,
-                     std::vector<double> & distortion,
-                     std::string & distortion_type,
-                     boost::shared_ptr<vw::CameraModel> & out_cam);
+                    std::string const& sample_file,
+                    int wid, int hgt,
+                    double & focal_length,
+                    double & pixel_pitch,
+                    vw::Vector2 & optical_center,
+                    std::vector<double> & distortion,
+                    std::string & distortion_type,
+                    boost::shared_ptr<vw::CameraModel> & out_cam);
 
 } // end namespace asp
 

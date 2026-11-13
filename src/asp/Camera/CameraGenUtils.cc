@@ -82,14 +82,14 @@ static vw::Matrix<double> jsonToMatrix(json const& j, int rows, int cols) {
 // Build an initial camera (pinhole or optical bar) from the given intrinsics or
 // a sample camera file. For a CSM (.json) sample, read its intrinsics back.
 void manufactureCam(std::string const& camera_type,
-                     std::string const& sample_file,
-                     int wid, int hgt,
-                     double & focal_length,
-                     double & pixel_pitch,
-                     vw::Vector2 & optical_center,
-                     std::vector<double> & distortion,
-                     std::string & distortion_type,
-                     boost::shared_ptr<vw::CameraModel> & out_cam) {
+                    std::string const& sample_file,
+                    int wid, int hgt,
+                    double & focal_length,
+                    double & pixel_pitch,
+                    vw::Vector2 & optical_center,
+                    std::vector<double> & distortion,
+                    std::string & distortion_type,
+                    boost::shared_ptr<vw::CameraModel> & out_cam) {
   if (camera_type == "opticalbar") {
     boost::shared_ptr<vw::OpticalBarModel> opticalbar_cam =
       boost::make_shared<vw::OpticalBarModel>(sample_file);
