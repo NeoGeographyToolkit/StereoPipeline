@@ -106,7 +106,9 @@ void updateTriPtsFromDem(vw::ControlNetwork const& cnet,
                          int num_threads = 1);
 
 // Update triangulated points using one or more DEMs. These come from
-// --heights-from-dem and --heights-from-dem-list.
+// --heights-from-dem and --heights-from-dem-list. num_threads is forwarded to
+// updateTriPtsFromDem; pass it only when the cameras are thread-safe (pinhole,
+// CSM), never for ISIS. Default 1 keeps the serial behavior.
 void updateTriPtsFromDemList(vw::ControlNetwork const& cnet,
                              std::set<int> const& outliers,
                              std::vector<vw::CamPtr> const& camera_models,
@@ -115,7 +117,8 @@ void updateTriPtsFromDemList(vw::ControlNetwork const& cnet,
                              vw::Datum const* datum,
                              // Outputs
                              std::vector<vw::Vector3> & dem_xyz_vec,
-                             vw::GeoReference & dem_georef);
+                             vw::GeoReference & dem_georef,
+                             int num_threads = 1);
 
 // Given an xyz point in ECEF coordinates, update its height above datum by
 // interpolating into a DEM. The input must already be prepared for

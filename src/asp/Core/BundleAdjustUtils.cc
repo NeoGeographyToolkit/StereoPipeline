@@ -301,13 +301,9 @@ bool updatePointHeightFromDem(vw::GeoReference const& dem_georef,
 
 // Shoot rays from all matching interest points. Intersect those with a DEM. Find
 // their average. Project it vertically onto the DEM. Invalid or uncomputable
-// xyz are set to the zero vector.
-// TODO(oalexan1): This code can be slow, but using multiple threads makes it
-// even slower, likely because of having to share the masked_dem image. To speed
-// it up one could break the loop over features into several parts. Each would
-// load and have its own masked_dem image. Even then there may be some global
-// cache for all images, which would slow things down.
-// There is a function with the same name and logic for rig_calibrator.
+// xyz are set to the zero vector. When the DEM fits in memory it is held there
+// so the reads are lock-free, which lets the per-point loop run with num_threads
+// threads. There is a function with the same name and logic for rig_calibrator.
 void updateTriPtsFromDem(vw::ControlNetwork const& cnet,
                          std::set<int> const& outliers,
                          std::vector<vw::CamPtr> const& camera_models,
@@ -323,15 +319,43 @@ void updateTriPtsFromDem(vw::ControlNetwork const& cnet,
   int num_tri_points = cnet.size();
   dem_xyz_vec.assign(num_tri_points, vw::Vector3(0, 0, 0));
 
-  // Project vertically onto the DEM. This needs interpolation into the DEM
-  vw::PixelMask<double> invalid_val;
-  vw::ImageViewRef<vw::PixelMask<double>> interp_dem
-   = vw::interpolate(masked_dem, vw::BilinearInterpolation(),
-                     vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
-
   // Each point is independent, so the result does not depend on num_threads.
   // Callers must ensure the cameras are thread-safe when num_threads > 1.
   int nthreads = std::max(1, num_threads);
+
+  // Lazy DEM reads go through the VW block cache, whose global lock serializes
+  // them and, under OpenMP, lets the cache grow without bound. Hold the DEM in
+  // memory so the per-point ray-to-DEM reads are lock-free: this both lets the
+  // loop thread safely and speeds the serial path. Skip it for a DEM too large
+  // to hold (the in-memory byte size must stay well under 2^31) and run serial
+  // in that case, since threading the lazy reads is not safe.
+  double max_in_mem_bytes = 1.6e9; // safely under 2^31; ~1.6 GB
+  double dem_bytes = double(masked_dem.cols()) * double(masked_dem.rows())
+                     * double(sizeof(vw::PixelMask<float>));
+  bool in_memory = (dem_bytes <= max_in_mem_bytes);
+
+  vw::ImageView<vw::PixelMask<float>> dem_copy;
+  vw::ImageViewRef<vw::PixelMask<float>> dem_image
+    = vw::pixel_cast<vw::PixelMask<float>>(masked_dem);
+  if (in_memory) {
+    vw::vw_out() << "Loading the DEM in memory for the height-from-DEM step ("
+                 << int(dem_bytes / 1.0e6) << " MB).\n";
+    dem_copy = vw::pixel_cast<vw::PixelMask<float>>(masked_dem); // rasterize once
+    dem_image = dem_copy;
+  } else if (nthreads > 1) {
+    vw::vw_out(vw::WarningMessage)
+      << "The DEM is too large to hold in memory. Running the height-from-DEM "
+      << "step single-threaded, as threading the cached DEM reads is not safe.\n";
+    nthreads = 1;
+  }
+
+  // Project vertically onto the DEM. This needs interpolation into the DEM.
+  // Reads from the same in-memory (or lazy) DEM as the ray intersection.
+  vw::PixelMask<double> invalid_val;
+  vw::ImageViewRef<vw::PixelMask<double>> interp_dem
+   = vw::interpolate(vw::pixel_cast<vw::PixelMask<double>>(dem_image),
+                     vw::BilinearInterpolation(),
+                     vw::ValueEdgeExtension<vw::PixelMask<double>>(invalid_val));
 
   // Progress and elapsed time. In parallel, report from thread 0 only, as the
   // callback is not thread-safe.
@@ -380,7 +404,7 @@ void updateTriPtsFromDem(vw::ControlNetwork const& cnet,
       Vector3 dem_xyz = vw::camera_pixel_to_dem_xyz
         (camera_models[icam]->camera_center(observation),
          camera_models[icam]->pixel_to_vector(observation),
-         vw::pixel_cast<vw::PixelMask<float>>(masked_dem),
+         dem_image,
          dem_georef, treat_nodata_as_zero, has_intersection,
          height_error_tol, xyz_guess);
 
@@ -425,7 +449,8 @@ void updateTriPtsFromDemList(vw::ControlNetwork const& cnet,
                              vw::Datum const* datum,
                              // Outputs
                              std::vector<vw::Vector3> & dem_xyz_vec,
-                             vw::GeoReference & dem_georef) {
+                             vw::GeoReference & dem_georef,
+                             int num_threads) {
 
   // Assemble the list of DEM files. At most one of the two options is set,
   // which is enforced at parse time.
@@ -472,7 +497,8 @@ void updateTriPtsFromDemList(vw::ControlNetwork const& cnet,
     std::vector<Vector3> local_xyz;
     asp::updateTriPtsFromDem(cnet, outliers, camera_models,
                              georef, masked_dem,
-                             local_xyz); // output
+                             local_xyz, // output
+                             num_threads);
 
     // Merge into the accumulator. The first DEM to cover a point wins. Note
     // any disagreement where a later DEM also covers the point.
