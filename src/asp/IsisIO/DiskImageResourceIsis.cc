@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -149,7 +149,7 @@ namespace vw {
     switch (m_format.channel_type) {
       case VW_CHANNEL_FLOAT64: return Isis::NULL8;
       case VW_CHANNEL_FLOAT32: return Isis::NULL4;
-      case VW_CHANNEL_INT32:   return Isis::INULL4;
+      case VW_CHANNEL_INT32:   return Isis::NULLI4;
       case VW_CHANNEL_INT16:   return Isis::NULL2;
       default:                 return 0.0;
     }
@@ -158,7 +158,7 @@ namespace vw {
     switch (m_format.channel_type) {
       case VW_CHANNEL_FLOAT64: return Isis::ValidMinimum;
       case VW_CHANNEL_FLOAT32: return Isis::VALID_MIN4;
-      case VW_CHANNEL_INT32:   return Isis::IVALID_MIN4;
+      case VW_CHANNEL_INT32:   return Isis::VALID_MINI4;
       case VW_CHANNEL_INT16:   return Isis::VALID_MIN2;
       case VW_CHANNEL_UINT16:  return Isis::VALID_MINU2;
       default:                 return Isis::VALID_MIN1;
