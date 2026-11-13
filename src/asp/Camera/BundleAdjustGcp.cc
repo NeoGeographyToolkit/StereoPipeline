@@ -21,6 +21,7 @@
 /// for bundle_adjust.
 
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BundleAdjustTransform.h>
 #include <asp/Camera/CameraResectioning.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>

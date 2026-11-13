@@ -21,6 +21,8 @@
 // must be in this directory.
 
 #include <asp/Sessions/BundleAdjustParse.h>
+#include <asp/Camera/BundleAdjustGcp.h>
+#include <asp/Camera/BundleAdjustIntrinsics.h>
 #include <asp/Core/StereoSettings.h>
 #include <asp/Sessions/StereoSessionFactory.h>
 #include <asp/Core/AspProgramOptions.h>

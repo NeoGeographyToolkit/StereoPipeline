@@ -30,10 +30,7 @@
 #define __BUNDLE_ADJUST_CAMERA_H__
 
 #include <asp/Camera/BundleAdjustParamMap.h>
-#include <asp/Camera/BundleAdjustIntrinsics.h>
 #include <asp/Camera/BundleAdjustMatchFiles.h>
-#include <asp/Camera/BundleAdjustGcp.h>
-#include <asp/Camera/BundleAdjustTransform.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/Bathymetry.h>

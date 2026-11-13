@@ -30,6 +30,7 @@
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/CsmUtils.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BundleAdjustGcp.h>
 #include <asp/Camera/BundleAdjustOutliers.h>
 #include <asp/IsisIO/BundleAdjustIsis.h>
 #include <asp/Camera/JitterSolveCostFuns.h>

@@ -24,6 +24,7 @@
 #include <asp/Sessions/CameraUtils.h>
 #include <asp/Sessions/BundleAdjustSession.h>
 #include <asp/Camera/BundleAdjustOptions.h>
+#include <asp/Camera/BundleAdjustGcp.h>
 #include <asp/Camera/BundleAdjustResiduals.h>
 #include <asp/Camera/BundleAdjustOutliers.h>
 #include <asp/IsisIO/BundleAdjustIsis.h>

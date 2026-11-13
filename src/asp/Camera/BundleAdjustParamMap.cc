@@ -20,6 +20,8 @@
 
 #include <asp/Camera/BundleAdjustParamMap.h>
 #include <asp/Camera/BundleAdjustCamera.h>
+#include <asp/Camera/BundleAdjustTransform.h>
+#include <asp/Camera/BundleAdjustIntrinsics.h>
 #include <asp/Camera/CameraResectioning.h>
 #include <asp/Camera/CsmModel.h>
 #include <asp/Camera/LinescanUtils.h>
