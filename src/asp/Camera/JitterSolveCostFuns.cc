@@ -21,7 +21,6 @@
 #include <asp/Camera/BundleAdjustCamera.h>
 #include <asp/Camera/BaseCostFuns.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
-#include <asp/Camera/JitterSolveCostFunsInternal.h>
 #include <asp/Camera/JitterSolveRigCostFuns.h>
 #include <asp/Camera/BundleAdjustCostFuns.h> // for get_loss_function
 #include <asp/Rig/TransformUtils.h>

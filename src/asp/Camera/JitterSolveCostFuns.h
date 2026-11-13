@@ -59,6 +59,15 @@ void calcIndexBounds(double time1, double time2, double t0, double dt, int numVa
                      // Outputs
                      int & begIndex, int & endIndex);
 
+// Find the positions and orientations in the current linescan model
+// that can affect the given pixel.
+void calcPosQuatIndexBounds(double line_extra,
+                            UsgsAstroLsSensorModel * ls_model,
+                            vw::Vector2 const& observation,
+                            // Outputs
+                            int & begPosIndex,  int & endPosIndex,
+                            int & begQuatIndex, int & endQuatIndex);
+
 // Update the linescan model with the latest optimized values of the position
 // and quaternion parameters. Also update the triangulated point.
 void updateLsModelTriPt(double const * const * parameters,
