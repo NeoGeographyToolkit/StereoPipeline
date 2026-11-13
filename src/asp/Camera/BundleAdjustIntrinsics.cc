@@ -416,10 +416,22 @@ void load_intrinsics_options(bool        solve_intrinsics,
       intrinsics_to_share_str = "";
   }
 
-  if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified)
+  if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified) {
+    // The share string is otherwise ignored in per-sensor mode. The optical bar
+    // motion tokens are not handled by per-sensor sharing, so flag them with an
+    // error rather than silently dropping the request.
+    std::istringstream is(intrinsics_to_share_str);
+    std::string tok;
+    while (is >> tok) {
+      if (tok == "velocity" || tok == "motion_compensation_factor" ||
+          tok == "final_pose")
+        vw_throw(ArgumentErr() << "Sharing the optical bar motion parameter '"
+          << tok << "' is not supported when sharing intrinsics per sensor.\n");
+    }
     vw_out() << "When sharing intrinsics per sensor, option "
               << "--intrinsics-to-share is ignored. The intrinsics will "
               << "always be shared for a sensor and never across sensors.\n";
+  }
 
   // If sharing intrinsics per sensor, the only supported mode is that 
   // the intrinsics are always shared per sensor and never across sensors.
