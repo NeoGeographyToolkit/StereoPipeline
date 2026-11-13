@@ -32,6 +32,7 @@
 #include <asp/Camera/BundleAdjustParamMap.h>
 #include <asp/Camera/BundleAdjustIntrinsics.h>
 #include <asp/Camera/BundleAdjustMatchFiles.h>
+#include <asp/Camera/BundleAdjustGcp.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/Bathymetry.h>
@@ -117,37 +118,6 @@ void apply_rigid_transform(vw::Matrix3x3 const & rotation,
                            double                scale,
                            std::vector<vw::CamPtr> &camera_models,
                            boost::shared_ptr<vw::ControlNetwork> const& cnet);
-
-/// Generate a warning if the GCP are really far from the tie points, to catch
-/// the common lat/lon swap in a GCP file. The cnet must already be triangulated.
-void check_gcp_dists(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr);
-
-/// Initialize the position and orientation of each pinhole camera model using
-///  a least squares error transform to match the provided camera positions.
-/// - This function overwrites the camera parameters in-place
-bool init_pinhole_model_with_camera_positions
-(boost::shared_ptr<vw::ControlNetwork> const& cnet,
- std::vector<vw::CamPtr> & camera_models,
- std::vector<std::string> const& image_files,
- std::vector<vw::Vector3> const & estimated_camera_gcc);
-
-/// Initialize the position and orientation of a pinhole camera model using
-/// GCP. It invokes OpenCV's PnP functionality.
-void init_camera_using_gcp(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr,
-                           std::vector<vw::CamPtr> & camera_models);
-
-/// Initialize the position and orientation of each pinhole camera model using
-///  a least squares error transform to match the provided control points file.
-/// This function overwrites the camera parameters in-place. It works
-/// if at least three GCP are seen in no less than two images.
-void transform_cameras_with_shared_gcp(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr,
-                       std::vector<vw::CamPtr> & camera_models);
-
-// Given at least two images, each having at least 3 GCP that are not seen in other
-// images, find and apply a transform to the camera system based on them.
-void transform_cameras_with_indiv_image_gcp
-  (boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr,
-   std::vector<vw::CamPtr> & camera_models);
 
 // TODO(oalexan1): Move the asp namespace to encompass the whole header file
 // Save convergence angle percentiles for each image pair having matches
@@ -259,11 +229,6 @@ void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
 void calcCameraCenters(std::string const& stereo_session,
                        std::vector<vw::CamPtr>  const& cams,
                        std::vector<std::vector<vw::Vector3>> & cam_positions);
-
-// Sanity check. This does not prevent the user from setting the wrong datum,
-// but it can catch unreasonable height values for GCP.
-void checkGcpRadius(vw::Datum const& datum,
-                    vw::ControlNetwork const& cnet);
 
 // Some logic for camera position uncertainty, used in bundle_adjust and jitter_solve
 void handleCameraPositionUncertainty(asp::BaBaseOptions & opt, bool have_datum);
