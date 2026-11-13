@@ -30,6 +30,7 @@
 #define __BUNDLE_ADJUST_CAMERA_H__
 
 #include <asp/Camera/BundleAdjustParamMap.h>
+#include <asp/Camera/BundleAdjustIntrinsics.h>
 
 #include <asp/Core/BundleAdjustUtils.h>
 #include <asp/Core/Bathymetry.h>
@@ -85,11 +86,6 @@ struct HorizVertErrorStats {
                          horiz_error_stddev(0), vert_error_stddev(0),
                          num_errors(0) {}
 };
-
-// When distortion params are shared, their number must agree
-void distortion_sanity_check(std::vector<int> const& num_dist_params,
-                             IntrinsicOptions const& intrinsics_opts,
-                             std::vector<double> const& intrinsics_limits);
 
 // Read image and camera lists. Can have several comma-separated lists
 // in image_list and camera_list, when sharing intrinsics per sensor.
@@ -280,16 +276,6 @@ void saveCameraReport(asp::BaBaseOptions const& opt, asp::BaState const& ba_stat
                       vw::Datum const& datum,
                       std::string const& prefix);
 
-/// For each option, the string must include a subset of the entries:
-///  "focal_length, optical_center, distortion_params"
-/// - Need the extra boolean to handle the case where --intrinsics-to-share
-///   is provided as "" in order to share none of them.
-void load_intrinsics_options(bool        solve_intrinsics,
-                             bool        shared_is_specified,
-                             std::string intrinsics_to_float_str, // make a copy
-                             std::string intrinsics_to_share_str, // make a copy
-                             asp::IntrinsicOptions & intrinsics_options);
-
 /// Attempt to automatically create the overlap list file estimated
 ///  footprints for each of the input images.
 /// - Currently this only supports cameras with Worldview style XML files.
@@ -332,10 +318,6 @@ void estimateGsdPerTriPoint(std::vector<std::string> const& images,
                             std::vector<double>      const& tri_points_vec,
                             // Output
                             std::vector<double>     & gsds);
-
-// Parse the string of limits and make sure they are all valid pairs.
-void parse_intrinsics_limits(std::string const& intrinsics_limits_str,
-                             std::vector<double> & intrinsics_limits);
 
 // This function returns only one camera center per camera
 void calcCameraCenters(std::vector<vw::CamPtr>  const& cams,
