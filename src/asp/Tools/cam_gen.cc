@@ -53,7 +53,6 @@
 #include <vw/Cartography/CameraBBox.h>
 #include <vw/Math/LevenbergMarquardt.h>
 #include <vw/Math/Geometry.h>
-#include <vw/Stereo/StereoModel.h>
 #include <vw/Camera/OpticalBarModel.h>
 #include <vw/Cartography/DatumUtils.h>
 #include <vw/FileIO/FileTypes.h>
@@ -64,138 +63,13 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
-#include <nlohmann/json.hpp>
-
 #include <cstring>
 #include <limits>
 #include <set>
 
 namespace po = boost::program_options;
-using json = nlohmann::json;
 
 using namespace vw;
-
-// Parse numbers or strings from a list where they are separated by commas or spaces.
-template<class T>
-void parse_values(std::string list, std::vector<T> & values) {
-
-  values.clear();
-
-  // Replace commas with spaces
-  std::string oldStr = ",", newStr = " ";
-  size_t pos = 0;
-  while ((pos = list.find(oldStr, pos)) != std::string::npos) {
-    list.replace(pos, oldStr.length(), newStr);
-    pos += newStr.length();
-  }
-
-  // Read the values one by one
-  std::istringstream is(list);
-  T val;
-  while (is >> val)
-    values.push_back(val);
-}
-
-// Parse the frame index to extract lon_lat_values_str. Look for a line
-// having this image, and search for "POLYGON" followed by spaces and "((".
-void parseFrameIndex(std::string const& frame_index,
-                     std::string const& image_file,
-                     bool parse_eci, bool parse_ecef,
-                     double cam_weight, 
-                     std::string & lon_lat_values_str,
-                     std::string & parsed_camera_center_str,
-                     std::string & parsed_cam_quat_str) { 
-  
-  boost::filesystem::path p(image_file);
-  std::string image_base = p.stem().string(); // strip the directory name and suffix
-  std::ifstream file(frame_index.c_str());
-  std::string line;
-  std::string beg1 = "POLYGON";
-  std::string beg2 = "((";
-  std::string end = "))";
-  
-  while (getline(file, line, '\n')) {
-    if (line.find(image_base) != std::string::npos) {
-      // Find POLYGON first.
-      int beg_pos = line.find(beg1);
-      if (beg_pos == std::string::npos)
-        vw_throw(ArgumentErr() << "Cannot find " << beg1 << " in line: " << line << ".\n");
-      beg_pos += beg1.size();
-
-      // Move forward skipping any spaces until finding "(("
-      beg_pos = line.find(beg2, beg_pos);
-      if (beg_pos == std::string::npos)
-        vw_throw(ArgumentErr() << "Cannot find " << beg2 << " in line: " << line << ".\n");
-      beg_pos += beg2.size();
-
-      // Find "))"
-      int end_pos = line.find(end, beg_pos);
-      if (end_pos == std::string::npos)
-        vw_throw(ArgumentErr() << "Cannot find " << end << " in line: " << line << ".\n");
-      lon_lat_values_str = line.substr(beg_pos, end_pos - beg_pos);
-      vw_out() << "Parsed the lon-lat corner values: "
-                << lon_lat_values_str << "\n";
-
-      if (parse_eci && parse_ecef)
-        vw_throw(ArgumentErr() << "Cannot parse both ECI end ECEF at the same time.\n");
-
-      // Also parse the camera height constraint, unless manually specified
-      if (cam_weight > 0 || parse_eci || parse_ecef) {
-        std::vector<std::string> vals;
-        parse_values<std::string>(line, vals);
-
-        if (vals.size() < 12)
-          vw_throw(ArgumentErr() << "Could not parse 12 values from: " << line << ".\n");
-
-        // Extract the ECI or ECEF coordinates of camera
-        // center. Keep them as string until we can convert to
-        // height above datum.
-
-        if (parse_eci) {
-          std::string x = vals[5];
-          std::string y = vals[6];
-          std::string z = vals[7];
-          parsed_camera_center_str = x + " " + y + " " + z;
-          vw_out() << "Parsed the ECI camera center in km: "
-                   << parsed_camera_center_str <<".\n";
-
-          std::string q0 = vals[8];
-          std::string q1 = vals[9];
-          std::string q2 = vals[10];
-          std::string q3 = vals[11];
-          parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
-          vw_out() << "Parsed the ECI quaternion: " << parsed_cam_quat_str <<".\n";
-        }
-
-        if (parse_ecef) {
-          if (vals.size() < 19)
-            vw_throw(ArgumentErr() << "Could not parse 19 values from: " << line << ".\n");
-
-          std::string x = vals[12];
-          std::string y = vals[13];
-          std::string z = vals[14];
-          parsed_camera_center_str = x + " " + y + " " + z;
-          vw_out() << "Parsed the ECEF camera center in km: " 
-                   << parsed_camera_center_str <<".\n";
-
-          std::string q0 = vals[15];
-          std::string q1 = vals[16];
-          std::string q2 = vals[17];
-          std::string q3 = vals[18];
-          parsed_cam_quat_str = q0 + " " + q1 + " " + q2 + " " + q3;
-          vw_out() << "Parsed the ECEF quaternion: "
-                   << parsed_cam_quat_str <<".\n";
-        }
-      } // End parsing camera height constraint
-      
-      break;
-    } // end of if we found the image name in the line
-  } // end of loop through lines in frame index file
-
-  if (lon_lat_values_str == "")
-    vw_throw(ArgumentErr() << "Could not parse the entry for " << image_base
-              << " in file: " << frame_index << ".\n");
-}
 
 struct Options : public vw::GdalWriteOptions {
   std::string image_file, out_camera, lon_lat_values_str, pixel_values_str, datum_str,
@@ -209,17 +83,17 @@ struct Options : public vw::GdalWriteOptions {
   Vector2 optical_center, camera_position_uncertainty;
   vw::Vector3 camera_center, camera_center_llh;
   std::vector<double> lon_lat_values, pixel_values, distortion;
-  bool refine_camera, parse_eci, parse_ecef, planet_pinhole;
+  bool refine_camera, parse_ecef, planet_pinhole;
   int num_pixel_samples;
   bool exact_tsai_to_csm_conv, csm_refit_distortion, csm_refit_pose;
   vw::Datum datum;
   Options(): focal_length(-1), pixel_pitch(-1), gcp_std(1), height_above_datum(0), refine_camera(false), cam_height(0), cam_weight(0), cam_ctr_weight(0),
   camera_position_uncertainty(vw::Vector2(0, 0)),
-  planet_pinhole(false), parse_eci(false), parse_ecef(false), num_pixel_samples(0),
+  planet_pinhole(false), parse_ecef(false), num_pixel_samples(0),
   exact_tsai_to_csm_conv(false), csm_refit_distortion(false), csm_refit_pose(false) {}
 };
 
-void handle_arguments(int argc, char *argv[], Options& opt) {
+void handleArguments(int argc, char *argv[], Options& opt) {
 
   double nan = std::numeric_limits<double>::quiet_NaN();
   po::options_description general_options("");
@@ -306,9 +180,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
      "If positive, try to enforce the option --cam-height with this weight (bigger weight means try harder to enforce).")
     ("cam-ctr-weight", po::value(&opt.cam_ctr_weight)->default_value(0),
      "If positive, try to enforce that during camera refinement the camera center stays close to the initial value (bigger weight means try harder to enforce this; a value like 1000.0 is good enough).")
-    ("parse-eci", po::bool_switch(&opt.parse_eci)->default_value(false)->implicit_value(true),
-     "Create cameras based on ECI positions and orientations (not working).")
-    ("parse-ecef", 
+    ("parse-ecef",
       po::bool_switch(&opt.parse_ecef)->default_value(false)->implicit_value(true),
      "Create cameras based on ECEF position (but not orientation).")
     ("input-camera", po::value(&opt.input_camera)->default_value(""),
@@ -485,7 +357,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
       vw_throw(ArgumentErr() << "Option --camera-position-uncertainty is only "
                "supported with --csm-refit-pose.\n");
     std::vector<double> vals;
-    parse_values<double>(opt.camera_position_uncertainty_str, vals);
+    vals = vw::str_to_std_vec(opt.camera_position_uncertainty_str, ",");
     if (vals.size() != 2)
       vw_throw(ArgumentErr() << "Expecting two values (horizontal, vertical, in meters) "
                "for --camera-position-uncertainty, got: "
@@ -563,15 +435,15 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                  << "height constraint at the same time.\n");
 
   if (!opt.planet_pinhole && opt.frame_index != "")
-    parseFrameIndex(opt.frame_index, opt.image_file,
-                    opt.parse_eci, opt.parse_ecef,
+    asp::parseFrameIndex(opt.frame_index, opt.image_file,
+                    opt.parse_ecef,
                     opt.cam_weight,
                     opt.lon_lat_values_str, 
                     opt.parsed_camera_center_str,
                     opt.parsed_cam_quat_str);
   
   // Parse the pixel values
-  parse_values<double>(opt.pixel_values_str, opt.pixel_values);
+  opt.pixel_values = vw::str_to_std_vec(opt.pixel_values_str, ",");
 
   // If none were provided, use the image corners
   if (!opt.planet_pinhole && opt.pixel_values.empty()) {
@@ -600,7 +472,7 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
 
   // Parse the lon-lat values
   if (!opt.planet_pinhole && opt.input_camera == "") {
-    parse_values<double>(opt.lon_lat_values_str, opt.lon_lat_values);
+    opt.lon_lat_values = vw::str_to_std_vec(opt.lon_lat_values_str, ",");
     // Bug fix for some frame_index files repeating the first point at the end
     int len = opt.lon_lat_values.size();
     if (opt.frame_index != "" && opt.lon_lat_values.size() == opt.pixel_values.size() + 2 &&
@@ -642,11 +514,11 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
     vw_throw(ArgumentErr() << "The pixel pitch is read from the sample file for "
              << "optical bar cameras and cannot be set separately.\n");
 
-  if ((opt.parse_eci || opt.parse_ecef) && opt.camera_type == "opticalbar")
+  if (opt.parse_ecef && opt.camera_type == "opticalbar")
     vw_throw(ArgumentErr() << "Cannot parse ECI/ECEF data for an optical bar camera.\n");
 
   // Parse the lens distortion
-  parse_values<double>(opt.distortion_str, opt.distortion);
+  opt.distortion = vw::str_to_std_vec(opt.distortion_str, ",");
 
   // Sanity checks for lens distortion
   if (opt.camera_type != "pinhole" || out_ext != ".json") {
@@ -658,74 +530,10 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
                << "Refining intrinsics is only supported for CSM Frame cameras.\n");
   }
 
-  // Populate the distortion parameters for CSM, if not set. Not for --csm-refit-pose:
-  // there, if no --distortion is given, the input camera's own distortion is kept as-is
-  // (a no-op transplant), rather than being reset to zero.
-  if (opt.distortion.size() == 0 && opt.camera_type == "pinhole" && out_ext == ".json" &&
-      !opt.csm_refit_pose) {
-    if (opt.distortion_type == "radtan") {
-
-      // Consider the special case when we can precisely convert tsai to json,
-      // if the distortion is radtan (tsai) or no distortion.
-      std::vector<double> local_distortion;
-      if (input_ext == ".tsai") {
-        vw::PinholeModel pin(opt.input_camera);
-        vw::NullLensDistortion const* zero_dist =
-          dynamic_cast<vw::NullLensDistortion const*>(pin.lens_distortion());
-        vw::TsaiLensDistortion const* radtan_dist =
-          dynamic_cast<vw::TsaiLensDistortion const*>(pin.lens_distortion());
-        if (zero_dist != NULL) {
-          // Zero distortion can be thought of as radtan distortion with all zeros
-          local_distortion.resize(5, 0.0);
-          opt.exact_tsai_to_csm_conv = true;
-        } else if (radtan_dist != NULL) {
-          vw::Vector<double> dist = radtan_dist->distortion_parameters();
-          // Must have 5 parameters, else throw an error
-          if (dist.size() != 5)
-            vw_throw(ArgumentErr() << "Expecting 5 distortion coefficients for tsai "
-                      << "distortion, got: " << dist.size() << ".\n");
-          // resize local dist to 5 elem and copy one by one
-          local_distortion.resize(5, 0.0);
-          for (size_t i = 0; i < 5; i++)
-            local_distortion[i] = dist[i];
-          opt.exact_tsai_to_csm_conv = true;
-        }
-      }
-
-      // See if can copy the exact distortion from the tsai file
-      if (!local_distortion.empty())
-        opt.distortion = local_distortion;
-      else
-        opt.distortion.resize(5, 0.0);
-
-    } else if (opt.distortion_type == "radial") {
-      opt.distortion.resize(3, 0.0);
-    } else if (opt.distortion_type == "transverse") {
-      // This distortion model is a pair of polynomials of degree 3 in x and y.
-      opt.distortion.resize(20, 0.0);
-      // Great care is needed below
-      // Free term for first polynomial
-      opt.distortion[0] = 0;
-      opt.distortion[1] = 1; // Set the x term coeff of first poly to 1.0
-      // Free term for second polynomial
-      opt.distortion[10] = 0;
-      opt.distortion[12] = 1; // Set the y term coeff of second poly to 1.0
-    } else {
-      vw_throw(ArgumentErr() << "Unknown distortion type: " << opt.distortion_type << ".\n");
-    }
-  }
-
-  if (opt.distortion.size() != 0) {
-    if (opt.distortion_type == "radtan" && opt.distortion.size() != 5)
-      vw_throw(ArgumentErr() << "Expecting 5 distortion coefficients for radtan "
-               << "distortion, got: " << opt.distortion.size() << ".\n");
-    if (opt.distortion_type == "radial" && opt.distortion.size() != 3)
-      vw_throw(ArgumentErr() << "Expecting 3 distortion coefficients for radial "
-               << "distortion, got: " << opt.distortion.size() << ".\n");
-    if (opt.distortion_type == "transverse" && opt.distortion.size() != 20)
-      vw_throw(ArgumentErr() << "Expecting 20 distortion coefficients for transverse "
-               << "distortion, got: " << opt.distortion.size() << ".\n");
-  }
+  // Populate and validate the CSM lens distortion parameters.
+  asp::setupCsmDistortion(opt.camera_type, out_ext, input_ext, opt.input_camera,
+                          opt.csm_refit_pose, opt.distortion_type,
+                          opt.distortion, opt.exact_tsai_to_csm_conv);
 
   if (opt.refine_intrinsics != "" && opt.input_camera == "")
     vw_throw(ArgumentErr() << "Must provide an input camera to refine its intrinsics.\n");
@@ -733,11 +541,12 @@ void handle_arguments(int argc, char *argv[], Options& opt) {
   if (opt.num_pixel_samples <= 0)
     vw_throw(ArgumentErr() << "The number of pixel samples must be positive.\n");
 
-} // End function handle_arguments
+
+} // End function handleArguments
 
 // Trace rays from pixel corners to DEM to see where they intersect the DEM.
 // Save a pointer to the camera, georef, and interp_dem, as we may need these later.
-void extract_lon_lat_cam_ctr_from_camera(Options & opt,
+void extractLonLatCamCtrFromCamera(Options & opt,
                                          ImageViewRef<PixelMask<float>> const& interp_dem,
                                          GeoReference const& geo,
                                          // Outputs
@@ -805,42 +614,12 @@ void extract_lon_lat_cam_ctr_from_camera(Options & opt,
   }
 
   // Estimate camera center by triangulating back to the camera. This is necessary
-  // for RPC, which does not store a camera center
-  int num = 0;
-  for (size_t it1 = 0; it1 < ctrs.size(); it1++) {
-    for (size_t it2 = it1 + 1; it2 < ctrs.size(); it2++) {
-      vw::Vector3 err;
-      vw::Vector3 pt = vw::triangulate_pair(dirs[it1], ctrs[it1],
-                                            dirs[it2], ctrs[it2], err);
-      if (pt != Vector3(0, 0, 0)) {
-        cam_ctr += pt;
-        num += 1;
-      }
-    }
-  }
-  if (num > 0)
-    cam_ctr = cam_ctr / num;
+  // for RPC, which does not store a camera center.
+  cam_ctr = asp::triangulateCameraCenter(ctrs, dirs);
 
   // Update with the values at which we were successful
   opt.pixel_values = good_pixel_values;
-}
 
-vw::Matrix<double> vec2matrix(int rows, int cols, std::vector<double> const& vals) {
-  int len = vals.size();
-  if (len != rows * cols)
-    vw::vw_throw(vw::ArgumentErr() << "Size mis-match.\n");
-
-  vw::Matrix<double> M;
-  M.set_size(rows, cols);
-
-  int count = 0;
-  for (int row = 0; row < rows; row++) {
-    for (int col = 0; col < cols; col++) {
-      M(row, col) = vals[count];
-      count++;
-    }
-  }
-  return M;
 }
 
 // Refine the camera intrinsics and pose. Only applicable to CSM Frame cameras.
@@ -887,23 +666,9 @@ void refineIntrinsics(Options const& opt, vw::GeoReference const& geo,
                          opt.camera_position_uncertainty, geo.datum());
 }
 
-// Read a matrix in json format. This will throw an error if the json object
-// does not have the expected data.
-vw::Matrix<double> json_mat(json const& j, int rows, int cols) {
-
-  vw::Matrix<double> M;
-  M.set_size(rows, cols);
-  for (int row = 0; row < rows; row++) {
-    for (int col = 0; col < cols; col++) {
-      M(row, col) = j[row][col].get<double>();
-    }
-  }
-  return M;
-}
-
 // Create a camera using user-specified options. Keep record
 // of the georeference and the datum.
-void form_camera(Options & opt, vw::GeoReference & geo,
+void formCamera(Options & opt, vw::GeoReference & geo,
                  ImageViewRef<PixelMask<float>> & interp_dem,
                  vw::CamPtr & input_camera_ptr,
                  boost::shared_ptr<CameraModel> & out_cam) {
@@ -949,7 +714,7 @@ void form_camera(Options & opt, vw::GeoReference & geo,
   Vector3 known_cam_ctr(0, 0, 0);
   if (opt.parsed_camera_center_str != "") {
     std::vector<double> vals;
-    parse_values<double>(opt.parsed_camera_center_str, vals);
+    vals = vw::str_to_std_vec(opt.parsed_camera_center_str, ",");
     if (vals.size() != 3)
       vw_throw(ArgumentErr() << "Could not parse 3 values from: "
                 << opt.parsed_camera_center_str << ".\n");
@@ -985,7 +750,7 @@ void form_camera(Options & opt, vw::GeoReference & geo,
   vw::Quat parsed_cam_quat;
   if (opt.parsed_cam_quat_str != "") {
     std::vector<double> vals;
-    parse_values<double>(opt.parsed_cam_quat_str, vals);
+    vals = vw::str_to_std_vec(opt.parsed_cam_quat_str, ",");
     if (vals.size() != 4)
       vw_throw(ArgumentErr() << "Could not parse 4 values from: "
                 << opt.parsed_cam_quat_str << ".\n");
@@ -1007,7 +772,7 @@ void form_camera(Options & opt, vw::GeoReference & geo,
   if (opt.input_camera != "") {
     // Extract lon and lat from tracing rays from the camera to the ground.
     // This can modify opt.pixel_values. Also calc the camera center.
-    extract_lon_lat_cam_ctr_from_camera(opt, create_mask(dem, nodata_value),
+    extractLonLatCamCtrFromCamera(opt, create_mask(dem, nodata_value),
                                         geo,
                                         // Outputs
                                         input_camera_ptr, cam_heights, estim_cam_ctr);
@@ -1070,7 +835,7 @@ void form_camera(Options & opt, vw::GeoReference & geo,
   if (wid <= 0 || hgt <= 0)
     vw_throw(ArgumentErr() << "Could not read an image with positive dimensions from: "
               << opt.image_file << ".\n");
-  asp::manufacture_cam(opt.camera_type, opt.sample_file, wid, hgt,
+  asp::manufactureCam(opt.camera_type, opt.sample_file, wid, hgt,
                        opt.focal_length, opt.pixel_pitch, opt.optical_center,
                        opt.distortion, opt.distortion_type, out_cam);
   
@@ -1085,61 +850,7 @@ void form_camera(Options & opt, vw::GeoReference & geo,
   return;
 }
 
-// Read a pinhole camera from Planet's json file format (*_pinhole.json). Then
-// the WGS84 datum is assumed.
-void read_pinhole_from_json(Options & opt, vw::GeoReference & geo,
-                            boost::shared_ptr<CameraModel> & out_cam) {
-
-  if (opt.datum_str.empty())
-    vw_throw(ArgumentErr() << "Must provide a datum to read a pinhole camera.\n");
-
-  // Set the datum
-  geo.set_datum(opt.datum);
-
-  std::ifstream f(opt.input_camera);
-  json j = json::parse(f);
-
-  // Parse the focal length and optical center. Negate the focal
-  // length to make it positive. We adjust for that later.
-  json const& cam = j["P_camera"];
-  double fx = -cam[0][0].get<double>();
-  double fy = -cam[1][1].get<double>();
-  double ox = cam[0][2].get<double>();
-  double oy = cam[1][2].get<double>();
-
-  json const& exterior = j["exterior_orientation"];
-  double ecef_x = exterior["x_ecef_meters"].get<double>();
-  double ecef_y = exterior["y_ecef_meters"].get<double>();
-  double ecef_z = exterior["z_ecef_meters"].get<double>();
-
-  // Following the Planet convention of naming things
-  vw::Matrix<double> extrinsic = json_mat(j["P_extrinsic"], 4, 4);
-  vw::Matrix<double> intrinsic = json_mat(j["P_intrinsic"], 4, 4);
-
-  // Adjust for the fact that Planet likes negative focal lengths, while
-  // vw::PinholeModel uses positive values.
-  vw::Matrix<double> flip;
-  flip.set_identity(4);
-  flip(0, 0) = -1;
-  flip(1, 1) = -1;
-
-  // Create a blank pinhole model and get an alias to it
-  out_cam = boost::make_shared<vw::PinholeModel>();
-  PinholeModel & pin = *((PinholeModel*)out_cam.get());
-
-  // Populate the model
-  pin.set_pixel_pitch(1.0); // not necessary, but better be explicit
-  pin.set_focal_length(vw::Vector2(fx, fy));
-  pin.set_point_offset(vw::Vector2(ox, oy));
-
-  pin.set_camera_center(vw::Vector3(ecef_x, ecef_y, ecef_z));
-
-  vw::Matrix<double> world2cam = flip * intrinsic * extrinsic;
-  vw::Matrix<double> cam2world = inverse(world2cam);
-  pin.set_camera_pose(submatrix(cam2world, 0, 0, 3, 3));
-}
-
-void save_linescan(Options & opt) {
+void saveLinescan(Options & opt) {
 
   // Load the cameras. For now load without any adjustment, which will be applied later.
   auto local_prefix = asp::stereo_settings().bundle_adjust_prefix;
@@ -1165,11 +876,12 @@ void save_linescan(Options & opt) {
                                      camera_model,
                                      csm_cam);
 
+
   vw_out() << "Writing: " << opt.out_camera << "\n";
   csm_cam->saveState(opt.out_camera);
 }
 
-void opticalbar2linescan(Options & opt) {
+void opticalBarToLinescan(Options & opt) {
   if (opt.bundle_adjust_prefix != "") 
     vw_throw(ArgumentErr() 
              << "Option --bundle-adjust-prefix is not supported when converting "
@@ -1180,11 +892,12 @@ void opticalbar2linescan(Options & opt) {
   asp::CsmModel csm;
   asp::fitCsmLinescanToOpticalBar(opt.input_camera, image_size, opt.datum, csm);
 
+
   vw_out() << "Writing: " << opt.out_camera << "\n";
   csm.saveState(opt.out_camera);
 }
 
-void save_rpc(Options & opt) {
+void saveRpc(Options & opt) {
 
   // Load the cameras. Must use the RPC session even if a linescan model exists as well
   // in the file, such as for WorldView images.
@@ -1204,45 +917,14 @@ void save_rpc(Options & opt) {
     = dynamic_cast<const asp::RPCModel*>(vw::unadjusted_model(camera_model.get()));
   if (rpc_cam == NULL)
     vw_throw(ArgumentErr() << "Expecting an RPC camera.\n");
-  
+
+
   vw::vw_out() << "Writing: " << opt.out_camera << "\n";
   rpc_cam->saveXML(opt.out_camera);
 }
 
-// See --extrinsics.
-// Fetch metadata from an ISIS cube for saving to the output CSM camera.
-void isisCubMetadata(vw::CamPtr in_cam,
-                     double & ephem_time,
-                     vw::Vector3 & sun_pos,
-                     std::string & serial_number,
-                     std::string & target_name) { 
-                
-
-  // Initialize the output variables
-  ephem_time    = 0.0;
-  sun_pos       = vw::Vector3(0, 0, 0);
-  serial_number = "";
-  target_name   = "";
-
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-
-  if (in_cam.get() == NULL)
-    return;
-  
-  IsisCameraModel const * isis_cam
-    = dynamic_cast<IsisCameraModel const*>(vw::unadjusted_model(in_cam.get()));
-  if (isis_cam == NULL)
-    return;
-  
-  ephem_time    = isis_cam->ephemeris_time();
-  sun_pos       = isis_cam->sun_position();
-  serial_number = isis_cam->serial_number();
-  target_name   = isis_cam->target_name();
-#endif  
-}
-
 // Save a pinhole camera, in tsai or csm format
-void save_pinhole(Options const& opt,
+void savePinhole(Options const& opt,
                   vw::GeoReference const& geo,
                   vw::CamPtr input_camera_ptr,
                   ImageViewRef<PixelMask<float>> interp_dem,
@@ -1279,7 +961,7 @@ void save_pinhole(Options const& opt,
     double ephem_time = 0.0;
     vw::Vector3 sun_pos(0, 0, 0);
     std::string serial_number = "", target_name = "";
-    isisCubMetadata(input_camera_ptr,
+    asp::isisCubMetadata(input_camera_ptr,
                     ephem_time, sun_pos, serial_number, target_name);
     
     if (opt.csm_refit_distortion) {
@@ -1367,21 +1049,21 @@ int main(int argc, char * argv[]) {
   Options opt;
   try {
 
-    handle_arguments(argc, argv, opt);
+    handleArguments(argc, argv, opt);
     
     if (opt.camera_type == "linescan") {
       // The linescan workflow is very different than the rest of the code.
       if (opt.stereo_session != "opticalbar")
-        save_linescan(opt);
+        saveLinescan(opt);
       else
-        opticalbar2linescan(opt);
+        opticalBarToLinescan(opt);
       
       return 0;
     }
     
     // Same for rpc
     if (opt.camera_type == "rpc") {
-      save_rpc(opt);
+      saveRpc(opt);
       return 0;
     }
 
@@ -1422,11 +1104,11 @@ int main(int argc, char * argv[]) {
 
     if (!opt.planet_pinhole && !opt.exact_tsai_to_csm_conv) {
       // Create a camera using user-specified options. Read geo and interp_dem.
-      form_camera(opt, geo, interp_dem, input_camera_ptr, out_cam);
+      formCamera(opt, geo, interp_dem, input_camera_ptr, out_cam);
     } else if (!opt.exact_tsai_to_csm_conv) {
       // Read a pinhole camera from Planet's json file format (*_pinhole.json). Then
       // the WGS84 datum is assumed. Ignore all other input options. Read geo datum.
-      read_pinhole_from_json(opt, geo, out_cam);
+      asp::readPlanetPinhole(opt.input_camera, opt.datum, geo, out_cam);
     }
 
     if (opt.camera_type == "opticalbar") {
@@ -1437,7 +1119,7 @@ int main(int argc, char * argv[]) {
         vw_out() << "Writing: " << opt.out_camera << "\n";
       ((vw::OpticalBarModel*)out_cam.get())->write(opt.out_camera);
     } else if (opt.camera_type == "pinhole") {
-      save_pinhole(opt, geo, input_camera_ptr, interp_dem, out_cam);
+      savePinhole(opt, geo, input_camera_ptr, interp_dem, out_cam);
     }
 
   } ASP_STANDARD_CATCHES;

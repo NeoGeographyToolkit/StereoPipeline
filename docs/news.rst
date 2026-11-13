@@ -158,6 +158,7 @@ cam_gen (:numref:`cam_gen`):
     (:numref:`csm_refit_dist`).
   * Added ``--vendor esri`` to create cameras from a vendor exterior orientation
     format (:numref:`aerial_bathymetry`).
+  * Removed the obsolete ``--parse-eci`` option.
 
 sparse_disp (:numref:`sparse_disp`):
   * Added the ability to produce subpixel-level match files (parabola subpixel)
