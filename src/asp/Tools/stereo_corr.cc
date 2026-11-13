@@ -33,6 +33,7 @@
 
 #include <vw/Stereo/CorrelationView.h>
 #include <vw/Stereo/CostFunctions.h>
+#include <vw/Stereo/SGM.h>
 #include <vw/Stereo/DisparityMap.h>
 #include <vw/Core/StringUtils.h>
 #include <vw/InterestPoint/MatcherIO.h>
@@ -1559,6 +1560,19 @@ void stereo_correlation_1D(ASPGlobalOptions& opt) {
 
 } // namespace asp
 
+// Report how many SGM tiles this process emptied (no valid search ranges, from a
+// small mask, a degenerate search range, or the memory limit), so a run that
+// silently emptied many tiles does not look fully successful.
+void reportSgmEmptyTiles() {
+  long long total = 0, empty = 0;
+  vw::get_sgm_tile_counts(total, empty);
+  if (empty > 0)
+    vw_out(vw::WarningMessage) << "SGM/MGM left " << empty << " of " << total
+      << " tiles empty (" << (100.0 * double(empty) / double(total))
+      << "%), for lack of valid search ranges. If this fraction is large, raise "
+      << "--corr-memory-limit-mb.\n";
+}
+
 int main(int argc, char* argv[]) {
 
   try {
@@ -1621,6 +1635,9 @@ int main(int argc, char* argv[]) {
     opt.raster_tile_size = Vector2i(ts, ts);
     vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: Stage 1 --> CORRELATION\n";
 
+    // Track how many SGM tiles come back empty in this process (reported below).
+    vw::reset_sgm_tile_counts();
+
     if (asp::stereo_settings().alignment_method == "local_epipolar") {
       // Need to have the low-res 2D disparity to later guide the
       // per-tile correlation. Use here the ASP MGM algorithm as the
@@ -1629,6 +1646,7 @@ int main(int argc, char* argv[]) {
         if (asp::stereo_settings().stereo_algorithm != "asp_bm")
           asp::stereo_settings().stereo_algorithm = "asp_mgm";
         asp::stereo_correlation_2D(opt);
+        reportSgmEmptyTiles();
         return 0;
       }
       // This will be invoked per-tile.
@@ -1638,6 +1656,10 @@ int main(int argc, char* argv[]) {
       // compute the low-res disparity unless told not to.
       asp::stereo_correlation_2D(opt);
     }
+
+    // This will have no effect for non asp_sgm/asp_mgm algorithms as the
+    // counter won't be incremented.
+    reportSgmEmptyTiles();
 
     vw_out() << "\n[ " << asp::current_posix_time_string() << " ]: CORRELATION FINISHED\n";
     
