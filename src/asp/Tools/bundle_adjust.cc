@@ -17,8 +17,6 @@
 
 /// \file bundle_adjust.cc
 
-// TODO(oalexan1): Break this up into several files grouped by functionality.
-// See existing BundleAdjustCamera.cc, etc.
 #include <asp/Sessions/BundleAdjustParse.h>
 #include <asp/Sessions/StereoSession.h>
 #include <asp/Sessions/CameraUtils.h>
