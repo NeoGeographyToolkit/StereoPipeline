@@ -129,7 +129,7 @@ target_link_libraries(sfs ${SOLVER_LIBRARIES} AspSfS AspSessions)
 install(TARGETS sfs DESTINATION bin)
 
 add_executable(sfs_blend sfs_blend.cc)
-target_link_libraries(sfs_blend AspSfS)
+target_link_libraries(sfs_blend AspCore)
 install(TARGETS sfs_blend DESTINATION bin)
 
 add_executable(image_subset image_subset.cc)

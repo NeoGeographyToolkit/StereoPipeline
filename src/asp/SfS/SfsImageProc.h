@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -138,15 +138,6 @@ double meanAlbedo(vw::ImageView<double> const& dem,
                   double dem_nodata_val);
 
 double maxDemHeight(vw::ImageView<double> const& dem);
-
-// Find the clamped signed distance to the boundary. Here it is assumed that
-// there is a region in which lit_grass_dist is positive, while in its
-// complement the shadow_grass_dist is positive. The boundary is where both are
-// no more than 1 in value. Likely this logic could be made more generic.
-vw::ImageView<double> calcClampedBdDist(vw::ImageView<float> const& lit_grass_dist,
-                                        vw::ImageView<float> const& shadow_grass_dist,
-                                        double lit_blend_length,
-                                        double shadow_blend_length);
 
 // Calc the weight for option --curvature-in-shadow-weight
 void calcCurvatureInShadowWeight(asp::SfsOptions const& opt,

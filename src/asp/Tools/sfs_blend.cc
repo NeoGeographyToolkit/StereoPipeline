@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2025, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -28,9 +28,9 @@
 #include <asp/Core/Macros.h>
 #include <asp/Core/AspProgramOptions.h>
 #include <asp/Core/GdalUtils.h>
-#include <asp/SfS/SfsImageProc.h>
 
 #include <vw/FileIO/DiskImageManager.h>
+#include <vw/Image/DistanceFunction.h>
 #include <vw/Image/InpaintView.h>
 #include <vw/Image/RoundAndClamp.h>
 #include <vw/Image/Filter.h>
@@ -710,7 +710,7 @@ public:
     // of these are <= 1. Here must use double pixels as otherwise there's not
     // enough precision for the final weights (even though they are float).
     ImageView<double> dist_to_bd 
-      = asp::calcClampedBdDist(lit_grass_dist, shadow_grass_dist,
+      = vw::clamped_blend_dist(lit_grass_dist, shadow_grass_dist,
                                m_opt.lit_blend_length, m_opt.shadow_blend_length);
 
     // Apply the blur
