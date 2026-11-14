@@ -67,6 +67,12 @@ void updateTriPtsFromDem(std::vector<rig::CameraParameters> const& cam_params,
    = vw::interpolate(masked_dem, vw::BilinearInterpolation(),
                      vw::ValueEdgeExtension<vw::PixelMask<float>>(invalid_val));
 
+  // The height guess scans the whole DEM, so compute it once here and pass it to
+  // every intersection below, rather than re-estimating it per point.
+  vw::ImageViewRef<vw::PixelMask<float>> dem_image
+    = vw::pixel_cast<vw::PixelMask<float>>(masked_dem);
+  double height_guess = vw::demHeightGuess(dem_image);
+
   // Progress reporting
   vw::TerminalProgressCallback tpc("asp", "\t--> ");
   double inc_amount = 1.0 / std::max(1, num_tri_points);
@@ -114,9 +120,9 @@ void updateTriPtsFromDem(std::vector<rig::CameraParameters> const& cam_params,
       double height_error_tol = 0.001; // 1 mm
       vw::Vector3 dem_xyz = vw::camera_pixel_to_dem_xyz
         (cam_ctr_vw, ray_dir_vw,
-         vw::pixel_cast<vw::PixelMask<float>>(masked_dem),
+         dem_image,
          dem_georef, treat_nodata_as_zero, has_intersection,
-         height_error_tol, xyz_guess);
+         height_error_tol, xyz_guess, height_guess);
 
       if (!has_intersection)
         continue;

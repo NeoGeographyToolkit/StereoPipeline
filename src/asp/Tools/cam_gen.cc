@@ -579,11 +579,15 @@ void extractLonLatCamCtrFromCamera(Options & opt,
   std::vector<vw::Vector3> ctrs, dirs;
   int fail_count = 0;
 
+  // Compute the DEM height guess once (it scans the whole DEM) and pass it to
+  // every intersection in the loop below.
+  double height_guess = vw::demHeightGuess(interp_dem);
+
   for (int it = 0; it < num_points; it++) {
 
     Vector2 pix(opt.pixel_values[2*it], opt.pixel_values[2*it+1]);
     vw::Vector3 xyz;
-    asp::dem_or_datum_intersect(opt.height_above_datum, geo, interp_dem,
+    asp::dem_or_datum_intersect(opt.height_above_datum, geo, interp_dem, height_guess,
                                 input_camera_ptr, pix, xyz);
 
     if (xyz == Vector3()) {
@@ -641,11 +645,14 @@ void refineIntrinsics(Options const& opt, vw::GeoReference const& geo,
   // Populate the corresponding ground points
   std::vector<vw::Vector2> pix_samples;
   std::vector<vw::Vector3> xyz_samples;
+  // Compute the DEM height guess once (it scans the whole DEM) and pass it to
+  // every intersection in the loop below.
+  double height_guess = vw::demHeightGuess(interp_dem);
   for (size_t i = 0; i < all_pix_samples.size(); i++) {
 
     vw::Vector2 pix = all_pix_samples[i];
     vw::Vector3 xyz;
-    asp::dem_or_datum_intersect(opt.height_above_datum, geo, interp_dem,
+    asp::dem_or_datum_intersect(opt.height_above_datum, geo, interp_dem, height_guess,
                                 input_camera_ptr, pix, xyz);
     if (xyz == Vector3())
       continue;

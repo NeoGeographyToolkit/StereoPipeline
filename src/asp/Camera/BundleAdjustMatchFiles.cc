@@ -60,6 +60,13 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
 
   // Will append to mapprojPoints, so don't wipe it
 
+  // The height guess scans the whole DEM, so compute it once here and pass it to
+  // every intersection below, rather than letting camera_pixel_to_dem_xyz
+  // re-estimate it per interest point (which would scan the whole DEM each call).
+  vw::ImageViewRef<vw::PixelMask<float>> dem_image
+    = vw::pixel_cast<vw::PixelMask<float>>(interp_dem);
+  double height_guess = vw::demHeightGuess(dem_image);
+
   for (size_t ip_it = 0; ip_it < left_ip.size(); ip_it++) {
 
     bool treat_nodata_as_zero = false;
@@ -71,9 +78,9 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     Vector3 left_dem_xyz = vw::camera_pixel_to_dem_xyz
       (optimized_cams[left_cam_index]->camera_center(left_pix),
        optimized_cams[left_cam_index]->pixel_to_vector(left_pix),
-       vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef,
+       dem_image, dem_georef,
        treat_nodata_as_zero, has_intersection,
-       height_error_tol, xyz_guess);
+       height_error_tol, xyz_guess, height_guess);
     if (!has_intersection)
       continue;
 
@@ -83,9 +90,9 @@ void calcPairMapprojOffsets(int left_cam_index, int right_cam_index,
     Vector3 right_dem_xyz = vw::camera_pixel_to_dem_xyz
       (optimized_cams[right_cam_index]->camera_center(right_pix),
        optimized_cams[right_cam_index]->pixel_to_vector(right_pix),
-       vw::pixel_cast<vw::PixelMask<float>>(interp_dem), dem_georef,
+       dem_image, dem_georef,
        treat_nodata_as_zero, has_intersection,
-       height_error_tol, xyz_guess);
+       height_error_tol, xyz_guess, height_guess);
     if (!has_intersection)
       continue;
 

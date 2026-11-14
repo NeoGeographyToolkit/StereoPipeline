@@ -237,6 +237,12 @@ public:
     // Make a local copy of the tile
     vw::ImageView<float> mask_tile = vw::crop(m_mask, extra_box);
 
+    // Compute the DEM height guess once and pass it to every intersection below,
+    // rather than re-estimating it per pixel.
+    vw::ImageViewRef<vw::PixelMask<float>> dem_image
+      = vw::pixel_cast<vw::PixelMask<float>>(m_masked_dem);
+    double height_guess = vw::demHeightGuess(dem_image);
+
     for (int col = 0; col < mask_tile.cols(); col++) {
       for (int row = 0; row < mask_tile.rows(); row++) {
 
@@ -270,9 +276,9 @@ public:
         double height_error_tol = 0.001; // in meters
         vw::Vector3 xyz_guess(0, 0, 0);
         vw::Vector3 xyz = vw::camera_pixel_to_dem_xyz
-          (cam_ctr, cam_dir, m_masked_dem,
+          (cam_ctr, cam_dir, dem_image,
            m_dem_georef, treat_nodata_as_zero,
-           has_intersection, height_error_tol, xyz_guess);
+           has_intersection, height_error_tol, xyz_guess, height_guess);
 
         if (!has_intersection)
           continue;
@@ -368,6 +374,12 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
   double inc_amount = 1.0 / mask.cols();
   tpc.report_progress(0);
 
+  // Compute the DEM height guess once and pass it to every intersection below,
+  // rather than re-estimating it per pixel.
+  vw::ImageViewRef<vw::PixelMask<float>> dem_image
+    = vw::pixel_cast<vw::PixelMask<float>>(masked_dem);
+  double height_guess = vw::demHeightGuess(dem_image);
+
   for (int col = 0; col < mask.cols(); col++) {
     for (int row = 0; row < mask.rows(); row++) {
 
@@ -390,9 +402,9 @@ void sampleMaskBd(vw::ImageViewRef<float> mask,
       double height_error_tol = 0.001; // in meters
       vw::Vector3 xyz_guess(0, 0, 0);
       vw::Vector3 xyz = vw::camera_pixel_to_dem_xyz
-        (cam_ctr, cam_dir, masked_dem,
+        (cam_ctr, cam_dir, dem_image,
          dem_georef, treat_nodata_as_zero,
-         has_intersection, height_error_tol, xyz_guess);
+         has_intersection, height_error_tol, xyz_guess, height_guess);
 
       if (!has_intersection)
         continue;

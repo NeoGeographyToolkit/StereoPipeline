@@ -323,38 +323,19 @@ void updateTriPtsFromDem(vw::ControlNetwork const& cnet,
   // Callers must ensure the cameras are thread-safe when num_threads > 1.
   int nthreads = std::max(1, num_threads);
 
-  // Lazy DEM reads go through the VW block cache, whose global lock serializes
-  // them and, under OpenMP, lets the cache grow without bound. Hold the DEM in
-  // memory so the per-point ray-to-DEM reads are lock-free: this both lets the
-  // loop thread safely and speeds the serial path. Skip it for a DEM too large
-  // to hold (the in-memory byte size must stay well under 2^31) and run serial
-  // in that case, since threading the lazy reads is not safe.
-  double max_in_mem_bytes = 1.6e9; // safely under 2^31; ~1.6 GB
-  double dem_bytes = double(masked_dem.cols()) * double(masked_dem.rows())
-                     * double(sizeof(vw::PixelMask<float>));
-  bool in_memory = (dem_bytes <= max_in_mem_bytes);
-
-  vw::ImageView<vw::PixelMask<float>> dem_copy;
+  // Read the DEM lazily through the VW block cache. Each ray intersects the DEM
+  // near the camera footprint, so only a small set of tiles is touched.
   vw::ImageViewRef<vw::PixelMask<float>> dem_image
     = vw::pixel_cast<vw::PixelMask<float>>(masked_dem);
-  if (in_memory) {
-    vw::vw_out() << "Loading the DEM in memory for the height-from-DEM step ("
-                 << int(dem_bytes / 1.0e6) << " MB).\n";
-    dem_copy = vw::pixel_cast<vw::PixelMask<float>>(masked_dem); // rasterize once
-    dem_image = dem_copy;
-  } else if (nthreads > 1) {
-    vw::vw_out(vw::WarningMessage)
-      << "The DEM is too large to hold in memory. Running the height-from-DEM "
-      << "step single-threaded, as threading the cached DEM reads is not safe.\n";
-    nthreads = 1;
-  }
+
+  // The height guess scans the whole DEM. Compute it once and pass it to every
+  // intersection below, rather than re-estimating it per point (for speed).
+  double height_guess = vw::demHeightGuess(dem_image);
 
   // Project vertically onto the DEM. This needs interpolation into the DEM.
-  // Reads from the same in-memory (or lazy) DEM as the ray intersection.
   vw::PixelMask<double> invalid_val;
   vw::ImageViewRef<vw::PixelMask<double>> interp_dem
-   = vw::interpolate(vw::pixel_cast<vw::PixelMask<double>>(dem_image),
-                     vw::BilinearInterpolation(),
+   = vw::interpolate(masked_dem, vw::BilinearInterpolation(),
                      vw::ValueEdgeExtension<vw::PixelMask<double>>(invalid_val));
 
   // Progress and elapsed time. In parallel, report from thread 0 only, as the
@@ -406,7 +387,7 @@ void updateTriPtsFromDem(vw::ControlNetwork const& cnet,
          camera_models[icam]->pixel_to_vector(observation),
          dem_image,
          dem_georef, treat_nodata_as_zero, has_intersection,
-         height_error_tol, xyz_guess);
+         height_error_tol, xyz_guess, height_guess);
 
       if (!has_intersection)
         continue;

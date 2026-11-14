@@ -582,6 +582,13 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
   // pixel uncertainty by dividing by GSD.
   bool use_anchor_uncertainty = (anchor_dem_uncertainty > 0);
 
+  // The height guess scans the whole DEM, so compute it once here and pass it to
+  // every intersection below, rather than letting camera_pixel_to_dem_xyz
+  // re-estimate it per anchor (which would scan the whole DEM on every call).
+  vw::ImageViewRef<vw::PixelMask<float>> anchor_dem_image
+    = vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem);
+  double anchor_height_guess = vw::demHeightGuess(anchor_dem_image);
+
   for (int icam = 0; icam < num_cams; icam++) {
 
     vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
@@ -641,9 +648,9 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
         vw::Vector3 anchor_dem_xyz = vw::camera_pixel_to_dem_xyz
           (opt.camera_models[icam]->camera_center(pix),
            opt.camera_models[icam]->pixel_to_vector(pix),
-           vw::pixel_cast<vw::PixelMask<float>>(interp_anchor_dem), anchor_georef,
+           anchor_dem_image, anchor_georef,
            treat_nodata_as_zero, has_intersection,
-           height_error_tol, xyz_guess);
+           height_error_tol, xyz_guess, anchor_height_guess);
 
         if (!has_intersection || anchor_dem_xyz == vw::Vector3())
           continue;

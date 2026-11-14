@@ -47,10 +47,13 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
 
 /// Intersect the ray from the given camera pixel with the DEM. If that fails,
 /// intersect with the datum raised by height_above_datum. The interpolated DEM
-/// may be empty. Return the zero vector on failure.
+/// may be empty. Return the zero vector on failure. height_guess must be
+/// precomputed once with demHeightGuess (it scans the whole DEM) and passed in,
+/// as this is typically called in a loop over many pixels.
 void dem_or_datum_intersect(double height_above_datum,
                             vw::GeoReference const& geo,
                             vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
+                            double height_guess,
                             boost::shared_ptr<vw::CameraModel> input_camera_ptr,
                             vw::Vector2 const& pix,
                             vw::Vector3 & xyz); // output

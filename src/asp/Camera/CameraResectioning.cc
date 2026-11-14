@@ -143,6 +143,7 @@ void findCameraPose(std::vector<vw::Vector3> const& ground_points,
 void dem_or_datum_intersect(double height_above_datum,
                             vw::GeoReference const& geo,
                             vw::ImageViewRef<vw::PixelMask<float>> const& interp_dem,
+                            double height_guess,
                             boost::shared_ptr<vw::CameraModel> input_camera_ptr,
                             vw::Vector2 const& pix,
                             vw::Vector3 & xyz) { // output
@@ -161,7 +162,7 @@ void dem_or_datum_intersect(double height_above_datum,
   xyz = vw::camera_pixel_to_dem_xyz(camera_ctr, camera_vec,
                                     interp_dem, geo, treat_nodata_as_zero,
                                     has_intersection, height_error_tol,
-                                    xyz_guess);
+                                    xyz_guess, height_guess);
 
   // If we could not intersect the DEM, use the datum to estimate the height
   if (xyz == Vector3() || !has_intersection)
