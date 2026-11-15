@@ -580,13 +580,7 @@ hillshades, from a dense correlation (``asp_mgm``, :ref:`correlator-mode`).
 
 If this check fails, the pipeline falls through to matching sparse interest
 points on the two hillshades (:numref:`pc_hillshade`), again for a translation
-only::
-
-    pc_align --max-displacement -1 --num-iterations 0  \
-      --initial-transform-from-hillshading translation \
-      --initial-transform-ransac-params 1000 3         \
-      --save-transformed-source-points                 \
-      ctx_win.tif linescan_win.tif -o align/run
+only.
 
 If that also fails, it falls through to the dense method from :numref:`pc_corr`.
 We noticed for that approach that the stereo correlation with the ``asp_bm``
