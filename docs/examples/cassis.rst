@@ -532,18 +532,21 @@ which we call the left and right looks. Within each look the framelets and their
 published poses are self-consistent, yet the two looks can be misregistered by
 hundreds of meters relative to each other and to the ground.
 
-A simple bundle adjustment of all sixty framelets, especially with the initially
-inaccurate lens distortion, gives an unstable, non-unique solution that is hard
-to recover from. Instead, in the earliest stage, each look is merged into a
-single image, for which an *approximate* CSM linescan model
-(:numref:`csm_linescan`) is created from the individual poses and intrinsics.
-This results in some seams and pose artifacts, which will be removed later.
+A simple bundle adjustment of all sixty framelets gives an unstable, non-unique
+solution that is hard to recover from. Instead, in the earliest stage, each look
+is merged into a single image, for which an *approximate* CSM linescan model
+(:numref:`csm_linescan`) is created from the individual framelet cameras. These
+already carry the optimized lens distortion (:numref:`cassis_refit`), so the
+linescan and every later stage use the same lens. This results in some seams and
+pose artifacts, which will be removed later.
 
-These two linescan images are bundle-adjusted and a DEM is made.
+These two linescan images are bundle-adjusted and a DEM is made. The left camera
+is held fixed in this bundle adjustment. With only left-right matches, the pair
+could otherwise rotate as a whole at no cost, which tilts the DEM in a way that
+the later registration to CTX cannot undo.
 
-This DEM is registered to the reference CTX DEM by matching sparse interest
-points on the two hillshades (:numref:`pc_hillshade`). It is assumed that both
-DEMs are already on the same 18 m/pixel grid and share the same projection
+This DEM is registered to the reference CTX DEM. It is assumed that both DEMs
+are already on the same 18 m/pixel grid and share the same projection
 (:numref:`cassis_ctx_ref`).
 
 The reference CTX for this step is first cropped to the linescan DEM footprint,
@@ -563,32 +566,41 @@ bounds the matching to the region that actually overlaps::
 The projection in ``$proj`` is here for completeness, as by now both sites
 normally already have been regridded to the same local projection.
 
-A rigid transform is fit with :ref:`pc_align`, which hillshades both DEMs,
-matches sparse interest points between them, and fits the transform with RANSAC,
-at zero iterations::
+The registration is a translation only. A rotation fit over a strip some 30 km
+long is poorly determined, and a fraction of a degree of it moves the cameras by
+kilometers at orbit distance.
 
-    pc_align --max-displacement -1 --num-iterations 0 \
-      --initial-transform-from-hillshading rigid      \
-      --initial-transform-ransac-params 1000 3        \
-      --save-transformed-source-points                \
-      ctx_win.tif linescan_win.tif -o align/run
+The translation is found by correlating the linescan hillshade against the CTX
+hillshade over the whole window. This cannot settle into a wrong local minimum.
+The resulting shift is applied with :ref:`pc_align` at zero iterations, with the
+``--initial-ned-translation`` option.
 
 The alignment is checked by the residual disparity between the two aligned
-hillshades, from a dense correlation (``asp_mgm``, :ref:`correlator-mode`). 
+hillshades, from a dense correlation (``asp_mgm``, :ref:`correlator-mode`).
 
-On very smooth terrain this sparse method can lock onto a wrong feature and fail
-this check. When it does, the pipeline falls through to the dense method from
-:numref:`pc_corr`. We noticed however for that approach that the stereo
-correlation with the ``asp_bm`` block-matching method is more robust than
-``asp_mgm`` for terrains that have few features.
+If this check fails, the pipeline falls through to matching sparse interest
+points on the two hillshades (:numref:`pc_hillshade`), again for a translation
+only::
 
-Careful visual inspection is suggested as well a automated methods can fail. 
+    pc_align --max-displacement -1 --num-iterations 0  \
+      --initial-transform-from-hillshading translation \
+      --initial-transform-ransac-params 1000 3         \
+      --save-transformed-source-points                 \
+      ctx_win.tif linescan_win.tif -o align/run
+
+If that also fails, it falls through to the dense method from
+:numref:`pc_corr`. We noticed for that approach that the stereo correlation with
+the ``asp_bm`` block-matching method is more robust than ``asp_mgm`` for terrains
+that have few features.
+
+Careful visual inspection is suggested as well, as automated methods can fail.
 
 Some warping, a few to about ten pixels at 18 m/pixel, can remain, but this is
 close enough to proceed. The alignment transform is applied to the
 bundle-adjusted linescan cameras, which are then split back into individual
-framelet cameras carrying the updated and registered poses, that preserve the
-consistency within each look.
+framelet cameras. Each framelet keeps its own pose, moved by the correction that
+the bundle adjustment and the alignment applied to the linescan at that framelet.
+This preserves the consistency within each look.
 
 .. _cassis_dense_matches:
 
@@ -596,10 +608,10 @@ Dense matches
 ^^^^^^^^^^^^^
 
 Dense interest-point matches (:numref:`dense_ip`) are computed once and reused
-across the bundle adjustment runs. They are found in two ways, by look. Both use
-the option ``--num-matches-from-disparity``, which runs a dense correlation and
-then keeps that many matches spread across the overlap. The cameras at this
-stage are not yet bundle-adjusted.
+across the bundle adjustment runs. They use the option
+``--num-matches-from-disparity``, which runs a dense correlation and then keeps
+that many matches spread across the overlap. The cameras at this stage are not
+yet bundle-adjusted.
 
 Creating such matches is computationally intensive, but it is a required step
 that ensures each framelet is tightly coupled with the next framelet in the
@@ -607,60 +619,42 @@ sequence, with which it may have only 50 pixels or so of overlap. Some
 left-right stereo pairs may also overlap very little, and could not be
 controlled otherwise either.
 
-Cross-look matches (left-to-right) are found in the mapprojected domain
+Both the cross-look matches (left-to-right) and the same-look matches
+(left-to-left and right-to-right) are found in the mapprojected domain
 (:numref:`mapip`), which removes the large difference in perspective and makes
 the correlation reliable.
 
 Each framelet is mapprojected onto a low-resolution blurred CTX DEM
 (:numref:`mapproj-example`), which is made from the reference CTX DEM
 (:numref:`cassis_ctx_ref`). This process happens after the earlier alignment
-step, so this DEM is reasonably well-registered with the data (up to some
-warping due to lens distortion).
+step, so the framelets of a pair agree on the ground to within about ten pixels.
 
-The overlapping pairs are correlated. Because the cameras still carry error, a
-search collar is allowed with ``--mapproj-geolocation-uncertainty`` (about 30
-pixels)::
-
-    parallel_stereo                        \
-      --processes 1                        \
-      --threads-multiprocess 2             \
-      --threads-singleprocess 2            \
-      --alignment-method none              \
-      --stereo-algorithm asp_mgm           \
-      --subpixel-mode 9                    \
-      --corr-seed-mode 1                   \
-      --mapproj-geolocation-uncertainty 30 \
-      --num-matches-from-disparity 20000   \
-      --max-disp-spread 120                \
-      left_map.tif right_map.tif           \
-      left.json right.json                 \
-      pair/run mapprojDem.tif
-
-Same-look matches (left-to-left and right-to-right) are found in the raw image
-domain, with affine-epipolar alignment::
+For each pair, that remaining integer shift is first measured by correlating the
+two mapprojected framelets over their overlap. Both framelets are then
+mapprojected onto the overlap window, with the second one moved by that shift,
+and correlated with a small fixed search range::
 
     parallel_stereo                      \
       --processes 1                      \
       --threads-multiprocess 2           \
       --threads-singleprocess 2          \
-      --alignment-method affineepipolar  \
+      --alignment-method none            \
       --stereo-algorithm asp_mgm         \
       --subpixel-mode 9                  \
-      --corr-seed-mode 1                 \
-      --ip-detect-method 1               \
-      --ip-per-image 12000               \
+      --corr-seed-mode 0                 \
+      --corr-search -8 -8 8 8            \
       --num-matches-from-disparity 20000 \
       --min-triangulation-angle 1e-10    \
-      left.cub right.cub                 \
+      left_win.tif right_win.tif         \
       left.json right.json               \
-      pair/run
+      pair/run mapprojDem.tif
 
-The option ``--ip-detect-method 1`` (the SIFT detector) is important here. The
-default interest-point detector barely matches CaSSIS imagery, while SIFT finds
-many more matches on the same images.
+The bounded search is important. With an open search range, a bland overlap can
+lock onto a wrong feature, and the resulting false matches pull adjacent
+framelets apart. With the bounded search such an overlap gives few or no matches
+instead.
 
-The matches from both are written per pair, in original framelet pixel
-coordinates. This is what :ref:`bundle_adjust` reads through
+The matches are written per pair, in original framelet pixel coordinates. This is what :ref:`bundle_adjust` reads through
 ``--match-files-prefix`` (:numref:`cassis_ba`).
 
 Here, ``parallel_stereo`` was called with one process only, because multiple
@@ -713,8 +707,9 @@ reproduced here. The complete set is in `cassis_common.conf
 <https://github.com/NeoGeographyToolkit/CassisPipeline/blob/main/config/cassis_common.conf>`_
 in the CaSSIS pipeline repository.
 
-These start cameras go into bundle adjustment. This corrects the residual
-across-track warping that a fixed distortion would otherwise leave behind.
+This refit is done first, before the linescan cameras of
+:numref:`cassis_init_reg` are made, so all cameras use the same lens. The
+framelet cameras that come out of the registration go into bundle adjustment.
 
 .. _cassis_ba:
 
@@ -822,7 +817,12 @@ framelets and yields a blocky DEM::
 Each cross-look pair is then correlated with :ref:`parallel_stereo` in the
 mapprojected domain, with no further alignment, and turned into a small DEM with
 :ref:`point2dem`. The triangulation-error cap removes blunders without carving
-holes. The reference DEM used for mapprojection is passed as the last argument::
+holes. The reference DEM used for mapprojection is passed as the last argument.
+
+The low-resolution disparity that seeds the correlation is predicted from the
+CTX DEM and the cameras (``--corr-seed-mode 2``), rather than found by
+correlation. On a thin or streaky overlap, a correlation-based seed can lock
+along the texture and give a smooth but wrong disparity::
 
     parallel_stereo                       \
       --processes 1                       \
@@ -831,7 +831,9 @@ holes. The reference DEM used for mapprojection is passed as the last argument::
       --alignment-method none             \
       --stereo-algorithm asp_mgm          \
       --subpixel-mode 9                   \
-      --corr-seed-mode 1                  \
+      --corr-seed-mode 2                  \
+      --disparity-estimation-dem ctx.tif  \
+      --disparity-estimation-dem-error 20 \
       --min-matches 5                     \
       --ip-per-tile 2000                  \
       --ip-match-radius 20                \
