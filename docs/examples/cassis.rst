@@ -588,10 +588,10 @@ only::
       --save-transformed-source-points                 \
       ctx_win.tif linescan_win.tif -o align/run
 
-If that also fails, it falls through to the dense method from
-:numref:`pc_corr`. We noticed for that approach that the stereo correlation with
-the ``asp_bm`` block-matching method is more robust than ``asp_mgm`` for terrains
-that have few features.
+If that also fails, it falls through to the dense method from :numref:`pc_corr`.
+We noticed for that approach that the stereo correlation with the ``asp_bm``
+block-matching method is more robust than ``asp_mgm`` for terrains that have few
+features.
 
 Careful visual inspection is suggested as well, as automated methods can fail.
 
@@ -599,8 +599,8 @@ Some warping, a few to about ten pixels at 18 m/pixel, can remain, but this is
 close enough to proceed. The alignment transform is applied to the
 bundle-adjusted linescan cameras, which are then split back into individual
 framelet cameras. Each framelet keeps its own pose, moved by the correction that
-the bundle adjustment and the alignment applied to the linescan at that framelet.
-This preserves the consistency within each look.
+the bundle adjustment and the alignment applied to the linescan at that
+framelet. This preserves the consistency within each look.
 
 .. _cassis_dense_matches:
 
@@ -654,8 +654,9 @@ lock onto a wrong feature, and the resulting false matches pull adjacent
 framelets apart. With the bounded search such an overlap gives few or no matches
 instead.
 
-The matches are written per pair, in original framelet pixel coordinates. This is what :ref:`bundle_adjust` reads through
-``--match-files-prefix`` (:numref:`cassis_ba`).
+The matches are written per pair, in original framelet pixel coordinates. This
+is what :ref:`bundle_adjust` reads through ``--match-files-prefix``
+(:numref:`cassis_ba`).
 
 Here, ``parallel_stereo`` was called with one process only, because multiple
 such invocations will run in parallel.
@@ -670,8 +671,8 @@ distortion operations. Simultaneous refinement of these is not supported in
 :ref:`bundle_adjust`.
 
 For this reason, we convert the cameras with :ref:`cam_gen` to the CSM
-``transverse`` lens distortion mode (:numref:`csm_frame_def`). This preserves the
-existing pose and all other intrinsics.
+``transverse`` lens distortion mode (:numref:`csm_frame_def`). This preserves
+the existing pose and all other intrinsics.
 
 Because it is one physical lens, the fitted distortion comes out the same for
 every framelet, so it is effectively one shared model, even when this is run
@@ -762,10 +763,11 @@ The large ``--heights-from-dem-robust-threshold`` keeps the loose height from
 being down-weighted, so the soft ground control sets the vertical.
 
 The second run settles the vertical. It reuses the cameras from the first run
-through the image and camera lists that run wrote, ``ba_fixed_gcp/run-image_list.txt``
-and ``ba_fixed_gcp/run-camera_list.txt``. It uses no ground control, and tightens the
-height constraint to an uncertainty of 10 m, so the heights lock onto the CTX DEM
-while the matches hold the horizontal in place::
+through the image and camera lists that run wrote,
+``ba_fixed_gcp/run-image_list.txt`` and ``ba_fixed_gcp/run-camera_list.txt``. It
+uses no ground control, and tightens the height constraint to an uncertainty of
+10 m, so the heights lock onto the CTX DEM while the matches hold the horizontal
+in place::
 
     bundle_adjust                                    \
       --image-list ba_fixed_gcp/run-image_list.txt   \
@@ -803,8 +805,8 @@ The stereo runs on the cameras from the second bundle adjustment run. It has
 three parts: mapproject each framelet, correlate the cross-look pairs into small
 DEMs, and blend those into the frame DEM.
 
-Each framelet is first mapprojected onto the low-resolution blurred CTX DEM, with
-its refined camera, at the native image resolution (about 4.6 m/pixel). The
+Each framelet is first mapprojected onto the low-resolution blurred CTX DEM,
+with its refined camera, at the native image resolution (about 4.6 m/pixel). The
 correlation grid must stay native. Mapprojecting onto a coarse grid blurs the
 framelets and yields a blocky DEM::
 
@@ -874,9 +876,9 @@ per-pair triangulation errors are mosaicked as a diagnostic, on the same grid::
       -o max_tri_err.tif
 
 The ``gdalwarp`` step is what puts the frame DEM on the exact CTX grid. Its
-``$proj`` projection and ``-te`` extent are read from the CTX reference DEM. This
-is done for ease of comparison. The frame DEM and CTX then share one grid, so the
-evaluation (:numref:`cassis_eval`) is a direct difference with no further
+``$proj`` projection and ``-te`` extent are read from the CTX reference DEM.
+This is done for ease of comparison. The frame DEM and CTX then share one grid,
+so the evaluation (:numref:`cassis_eval`) is a direct difference with no further
 resampling.
 
 .. _cassis_refine:
