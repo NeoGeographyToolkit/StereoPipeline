@@ -663,10 +663,7 @@ namespace asp {
     float right_unaligned_nodata_value = -32768.0;
     {
       // Retrieve nodata values and let the handles go out of scope
-      // right away.  For this to work, the ISIS type must be
-      // registered with the DiskImageResource class. This happens in
-      // "stereo.cc", so these calls will create DiskImageResourceIsis
-      // objects.
+      // right away.
       boost::shared_ptr<DiskImageResource>
         left_unaligned_rsrc (DiskImageResourcePtr(left_unaligned_file)),
         right_unaligned_rsrc(DiskImageResourcePtr(right_unaligned_file));

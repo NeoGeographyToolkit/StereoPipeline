@@ -207,8 +207,6 @@ int main(int argc, char** argv) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
-    asp::stereo_register_sessions();
-
     // Redirect GDAL sidecar files (overviews, .aux.xml) for a read-only input
     // to a writable cache. Must be set before any image opens, as GDAL's proxy
     // database initializes on first use.

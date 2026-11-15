@@ -312,9 +312,6 @@ bool StereoSession::prepareInputImages(vw::GdalWriteOptions          & options,
                                        vw::GeoReference & right_georef) {
 
   // Retrieve nodata values and let the handles go out of scope right away.
-  // For this to work the ISIS type must be registered with the
-  // DiskImageResource class. This happens in "stereo.cc", so
-  // these calls will create DiskImageResourceIsis objects.
   {
     boost::shared_ptr<DiskImageResource>
       left_rsrc (DiskImageResourcePtr(left_input_file)),

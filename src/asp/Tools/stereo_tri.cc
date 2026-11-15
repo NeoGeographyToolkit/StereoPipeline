@@ -974,8 +974,6 @@ int main(int argc, char* argv[]) {
     vw_out() << "\n[ " << asp::current_posix_time_string()
              << " ]: Stage 5 --> TRIANGULATION\n";
 
-    asp::stereo_register_sessions();
-
     bool verbose = false;
     asp::ASPGlobalOptions opt;
     std::string output_prefix;

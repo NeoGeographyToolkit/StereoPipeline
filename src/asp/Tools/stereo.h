@@ -85,9 +85,6 @@ namespace asp {
                          std::vector<std::string> & unregistered,
                          std::string & usage, bool exit_early = false);
 
-  /// Register DiskImageResource types that are not included in Vision Workbench.
-  void stereo_register_sessions();
-
   /// Checks for obvious user mistakes
   /// - Throws if any incompatible settings are found.
   void validateStereoOptions(ASPGlobalOptions const& opt);

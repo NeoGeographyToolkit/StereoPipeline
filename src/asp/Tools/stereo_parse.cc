@@ -103,8 +103,6 @@ int main(int argc, char* argv[]) {
 
   try {
     xercesc::XMLPlatformUtils::Initialize();
-    asp::stereo_register_sessions();
-
     bool verbose = true;
     asp::ASPGlobalOptions opt;
     std::string output_prefix;

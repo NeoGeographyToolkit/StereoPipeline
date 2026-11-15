@@ -30,12 +30,6 @@
 #include <asp/Core/StereoTiling.h>
 #include <asp/Core/ImageUtils.h>
 #include <asp/Tools/stereo.h>
-#include <asp/asp_config.h> // defines ASP_HAVE_PKG_ISIS
-
-// Support for ISIS image files
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-#include <asp/IsisIO/DiskImageResourceIsis.h>
-#endif
 
 #include <vw/Cartography/PointImageManipulation.h>
 #include <vw/Cartography/GeoTransform.h>
@@ -1044,17 +1038,6 @@ void parseStereoHelper(int argc, char *argv[], ASPGlobalOptions& opt,
   asp::stereo_settings().write_copy(argc, argv,
                                     opt.stereo_default_filename,
                                     opt.out_prefix + "-stereo.default");
-}
-
-// Register session types
-void stereo_register_sessions() {
-  // Register the Isis file handler with the Vision Workbench DiskImageResource system.
-#if defined(ASP_HAVE_PKG_ISIS) && ASP_HAVE_PKG_ISIS == 1
-  DiskImageResource::register_file_type(".cub",
-                                        DiskImageResourceIsis::type_static(),
-                                        &DiskImageResourceIsis::construct_open,
-                                        &DiskImageResourceIsis::construct_create);
-#endif
 }
 
 // Error checking for stereo
