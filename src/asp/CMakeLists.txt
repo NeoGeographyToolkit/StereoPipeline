@@ -208,6 +208,8 @@ find_external_library(PNG     ${ASP_DEPS_DIR} "" "png;png16" REQUIRED)
 find_external_library(TIFF    ${ASP_DEPS_DIR} "" "tiff"      REQUIRED)
 find_external_library(GEOTIFF ${ASP_DEPS_DIR} "" "geotiff"   REQUIRED)
 find_external_library(GDAL    ${ASP_DEPS_DIR} "" "gdal"      REQUIRED)
+# Link PROJ directly so it can find proj.db
+find_external_library(PROJ    ${ASP_DEPS_DIR} "" "proj"      REQUIRED)
 
 if (USE_OPENEXR)
   set(ILMBASE_LIB_NAMES Half Iex Imath IlmThread)
@@ -332,7 +334,7 @@ find_external_library(TBB ${ASP_DEPS_DIR} "" "${TBB_LIB_NAMES}" REQUIRED)
 
 # For convenience, list some libraries that ASP deneds on
 set(ASP_3RD_PARTY_LIBS ${Z_LIBRARIES} ${OPENCV_LIBRARIES}
-    ${GDAL_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}  
+    ${GDAL_LIBRARIES} ${PROJ_LIBRARIES} ${LAPACK_LIBRARIES} ${Boost_LIBRARIES}
     ${GEOTIFF_LIBRARIES}  ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} 
     ${PNG_LIBRARIES} ${FLANN_LIBRARIES} ${LZ4_LIBRARIES}
     Qt6::Core ${PROTOBUF_LIBRARIES} 
