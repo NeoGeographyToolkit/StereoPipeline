@@ -98,10 +98,14 @@ endif()
 # Call this function once for each gtest target.
 macro(add_to_custom_test_target test_target)
   # Run the test with ISISROOT pointing at the deps dir, where IsisPreferences
-  # lives (the build's ISISROOT is the install dir, which lacks it).
+  # lives (the build's ISISROOT is the install dir, which lacks it). Set the
+  # PROJ and GDAL data dirs, as the shipped tool wrappers do.
   if(ASP_DEPS_DIR)
     add_custom_target(${test_target}_runtest
-                      COMMAND ${CMAKE_COMMAND} -E env ISISROOT=${ASP_DEPS_DIR} $<TARGET_FILE:${test_target}>
+                      COMMAND ${CMAKE_COMMAND} -E env ISISROOT=${ASP_DEPS_DIR}
+                        PROJ_DATA=${ASP_DEPS_DIR}/share/proj
+                        GDAL_DATA=${ASP_DEPS_DIR}/share/gdal
+                        $<TARGET_FILE:${test_target}>
                       DEPENDS ${test_target}
                       WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
   else()
