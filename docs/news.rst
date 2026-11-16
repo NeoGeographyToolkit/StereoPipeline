@@ -116,18 +116,16 @@ jitter_solve (:numref:`jitter_solve`):
     (:numref:`ba_gcp_report`).
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
+  * The ``--anchor-weight`` option is deprecated in favor of
+    ``--anchor-dem-uncertainty`` (:numref:`jitter_anchor_points`).
   * Bugfix: The anchor DEM uncertainty (``--anchor-dem-uncertainty``) was
     documented as being in meters but was applied internally in pixels. It is
     now applied in meters (:numref:`jitter_anchor_points`).
-  * The ``--anchor-weight`` option is deprecated in favor of
-    ``--anchor-dem-uncertainty``.
   * Made the solver about two to three times faster on large problems, by
     optimizing the pixel reprojection cost function and reading the match files
     in parallel.
   * The camera position uncertainty constraint uses the analytical cost function
     (:numref:`ba_cam_constraints`).
-  * The anchor uncertainty is converted to pixels using the ground sample
-    distance at each anchor point (:numref:`jitter_anchor_points`).
 
 sfs (:numref:`sfs`):
   * Added the `SfsPipeline repository

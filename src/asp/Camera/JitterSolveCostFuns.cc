@@ -22,7 +22,7 @@
 #include <asp/Camera/BaseCostFuns.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveRigCostFuns.h>
-#include <asp/Camera/BundleAdjustCostFuns.h> // for get_loss_function
+#include <asp/Camera/BundleAdjustCostFuns.h>
 #include <asp/Rig/TransformUtils.h>
 #include <asp/Rig/RigConfig.h>
 #include <asp/Core/EigenTransformUtils.h>
@@ -627,7 +627,6 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
     tpc.report_progress(0);
 
     int numAnchorPoints = 0;
-    int numBadGsd = 0;
     for (int binx = 0; binx <= lenx; binx++) {
 
       tpc.report_incremental_progress(inc_amount);
@@ -717,10 +716,8 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
             gsd = 0.0;
           }
           // Cannot convert the uncertainty to pixels without a valid GSD
-          if (!std::isfinite(gsd) || gsd <= 0) {
-            numBadGsd++;
+          if (!std::isfinite(gsd) || gsd <= 0)
             continue;
-          }
         }
 
         anchor_pix[icam].push_back(pix);
@@ -736,32 +733,28 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
 
     // Convert the ground uncertainty (meters) to a pixel weight per anchor point,
     // using the GSD at that point, so the uncertainty is the same in meters
-    // across the image. The pixel sigma is anchor_dem_uncertainty/gsd. Each GSD
-    // is kept within a factor of the image median, to guard against a bad
-    // estimate. Without the uncertainty, the legacy pixel weight is used.
-    double median_gsd = 0.0;
+    // across the image. The pixel sigma is anchor_dem_uncertainty/gsd. Without
+    // the uncertainty, the legacy pixel weight is used.
+    double medianGsd = 0.0;
     if (!anchor_gsd.empty()) {
-      std::vector<double> gsd_copy = anchor_gsd;
-      median_gsd = vw::median_in_place<double>(gsd_copy);
+      std::vector<double> gsdCopy = anchor_gsd;
+      medianGsd = vw::median_in_place<double>(gsdCopy);
     }
-    double max_gsd_ratio = 10.0;
+    // Keep each GSD in [medianGsd/100, 100*medianGsd], for robustness
+    double maxGsdRatio = 100.0;
     anchor_pix_weight[icam].resize(anchor_img_mult.size());
     for (size_t k = 0; k < anchor_img_mult.size(); k++) {
-      double base_wt = anchor_weight; // legacy pixel weight path
+      double baseWt = anchor_weight; // legacy pixel weight path
       if (use_anchor_uncertainty) {
-        double gsd = std::max(anchor_gsd[k], median_gsd / max_gsd_ratio);
-        gsd = std::min(gsd, median_gsd * max_gsd_ratio);
-        base_wt = gsd / anchor_dem_uncertainty; // = 1/sigma_pix
+        double gsd = std::max(anchor_gsd[k], medianGsd / maxGsdRatio);
+        gsd = std::min(gsd, medianGsd * maxGsdRatio);
+        baseWt = gsd / anchor_dem_uncertainty; // = 1/sigma_pix
       }
-      anchor_pix_weight[icam][k] = base_wt * anchor_img_mult[k];
+      anchor_pix_weight[icam][k] = baseWt * anchor_img_mult[k];
     }
 
     vw::vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
     vw::vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
-    if (numBadGsd > 0)
-      vw::vw_out(vw::WarningMessage) << "Skipped " << numBadGsd << " anchor points "
-                                     << "where the ground sample distance could not "
-                                     << "be found.\n";
   }
 
   // Flatten the candidate indices as (camera, local index) pairs, in camera order
