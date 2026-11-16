@@ -271,9 +271,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "anchor ground point, where a ray through an anchor pixel meets the anchor DEM, is "
      "held fixed, and this sets the strength of the reprojection error that ties the camera "
      "to that point. A smaller value holds the cameras more firmly. The anchor cost is in "
-     "pixels, so this ground uncertainty is converted, per image, to pixels by dividing by "
-     "the median ground sample distance. Set also --num-anchor-points and --anchor-dem. See "
-     "the manual for the full discussion.")
+     "pixels, so this ground uncertainty is converted to pixels by dividing by the ground "
+     "sample distance at each anchor point. Set also --num-anchor-points and --anchor-dem. "
+     "See the manual for the full discussion.")
     ("anchor-weight", po::value(&opt.anchor_weight)->default_value(0.0),
      "Obsolete. A raw weight on each anchor point reprojection error, in pixels, not "
      "adjusted for the ground sample distance. Use --anchor-dem-uncertainty instead, which "
@@ -732,8 +732,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
   // preferred way to set the anchor constraint strength, instead of the
   // harder-to-interpret anchor weight. The two are mutually exclusive. The
   // uncertainty is in meters, but the anchor cost is a reprojection error in
-  // pixels, so the uncertainty is converted per image to a pixel value by
-  // dividing by the median ground sample distance (see calcAnchorPoints). The
+  // pixels, so the uncertainty is converted to a pixel value by dividing by the
+  // ground sample distance at each anchor point (see calcAnchorPoints). The
   // legacy --anchor-weight is a raw pixel weight (deprecated).
   if (!vm["anchor-weight"].defaulted() && !vm["anchor-dem-uncertainty"].defaulted())
     vw_throw(ArgumentErr() << "Cannot set both --anchor-weight and "

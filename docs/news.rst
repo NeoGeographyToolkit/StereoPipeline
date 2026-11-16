@@ -126,6 +126,8 @@ jitter_solve (:numref:`jitter_solve`):
     in parallel.
   * The camera position uncertainty constraint uses the analytical cost function
     (:numref:`ba_cam_constraints`).
+  * The anchor uncertainty is converted to pixels using the ground sample
+    distance at each anchor point (:numref:`jitter_anchor_points`).
 
 sfs (:numref:`sfs`):
   * Added the `SfsPipeline repository

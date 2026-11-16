@@ -330,7 +330,9 @@ drifts off its anchor point. The strength of this constraint is proportional wit
 ``--anchor-dem-uncertainty``, a 1-sigma value measured in meters on the ground.
 A smaller value gives the reprojection error more weight, so the cameras are
 held more firmly. This option was introduced in build 2026/6 (:numref:`release`),
-and fixed in 2026/10 by properly converting meter values to pixels.
+and fixed in 2026/10 by properly converting meter values to pixels. Since build
+2026/11, this conversion uses the ground sample distance at each anchor point,
+rather than one value per image.
 
 This constraint is normally used together with the camera position uncertainty
 (``--camera-position-uncertainty``, :numref:`jitter_camera`). These two together
