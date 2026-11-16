@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as XYZError2represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -101,40 +101,36 @@ struct LLHError {
 /// This cost function imposes a rather hard constraint on camera center
 /// horizontal and vertical motion. It does so by knowing how many reprojection
 /// errors exist for this camera and making this cost function big enough to
-/// overcome then when the motion is going out of bounds. The residual here is
-/// raised to 4th power and will be squared when added to the cost function.
-/// Two residuals are computed, for horizontal and vertical motion.
-struct CamUncertaintyError {
-  
+/// overcome then when the motion is going out of bounds. The squared residual
+/// is the average of the squared normalized motion and the normalized motion
+/// raised to camera_position_uncertainty_power. Three residuals
+/// are computed, two for horizontal and one for vertical motion. The Jacobian is
+/// analytic, as numerical differences on large ECEF coordinates are inaccurate.
+class CamUncertaintyError: public ceres::CostFunction {
+public:
+
   CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
-                      vw::Vector2 const& uncertainty, double weight,
+                      int param_len, vw::Vector2 const& uncertainty, double weight,
                       vw::Datum const& datum,
                       double camera_position_uncertainty_power);
-    
-  bool operator()(const double* cam_adj, double* residuals) const;
-  
+
+  bool Evaluate(double const* const* parameters, double* residuals,
+                double** jacobians) const override;
+
   // Factory to hide the construction of the CostFunction object from
-  // the client code.
-  static ceres::CostFunction* 
+  // the client code. The parameter block has 3 translation variables. For
+  // bundle_adjust it also has the rotation variables, as otherwise Ceres says
+  // some params have inconsistent sizes.
+  static ceres::CostFunction*
     Create(vw::Vector3 const& orig_ctr, double const* orig_adj, int param_len,
            vw::Vector2 const& uncertainty, double weight,
-           vw::Datum const& datum, 
+           vw::Datum const& datum,
            double camera_position_uncertainty_power) {
-    // 2 residuals and 3 translation variables. For bundle_adjust must add the
-    // rotation variables, as otherwise CERES says some params have inconsistent
-    // sizes. ceres::RIDDER works better than ceres::CENTRAL for this cost
-    // function, especially when the uncertainty is 0.1 m or less.
-    if (param_len == 3)
-     return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 3, 3>
-            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, weight, 
-                                     datum, camera_position_uncertainty_power)));
-    else if (param_len == 6)
-     return (new ceres::NumericDiffCostFunction<CamUncertaintyError, ceres::CENTRAL, 3, 6>
-            (new CamUncertaintyError(orig_ctr, orig_adj, uncertainty, weight, 
-                                     datum, camera_position_uncertainty_power)));
-    else
+    if (param_len != 3 && param_len != 6)
       vw::vw_throw(vw::ArgumentErr() << "CamUncertaintyError: Invalid param_len: "
                << param_len << ". Must be 3 or 6.\n");
+    return new CamUncertaintyError(orig_ctr, orig_adj, param_len, uncertainty, weight,
+                                   datum, camera_position_uncertainty_power);
   }
 
   // orig_ctr is the original camera center, orig_cam_ptr is the original

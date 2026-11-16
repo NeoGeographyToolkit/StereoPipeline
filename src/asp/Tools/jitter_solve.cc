@@ -295,8 +295,8 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     ("camera-position-uncertainty-power",
      po::value(&opt.camera_position_uncertainty_power)->default_value(2.0),
      "A higher value makes the cost function rise more steeply when "
-     "--camera-position-uncertainty is close to being violated. This is an advanced "
-      "option. The default should be good enough.")
+     "--camera-position-uncertainty is close to being violated. Must be at least 2. "
+     "See the documentation for details.")
     ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
      "A soft constraint to keep the camera positions close to the original values. "
      "It is meant to prevent a wholesale shift of the cameras. It can impede "

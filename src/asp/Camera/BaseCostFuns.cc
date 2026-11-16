@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -81,11 +81,17 @@ vw::Matrix3x3 setupPositionUnc(std::string const& tag, vw::Vector3 const& anchor
 }
 
 CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double const* orig_adj,
+                                         int param_len,
                                          vw::Vector2 const& uncertainty, double weight,
                                          vw::Datum const& datum,
                                          double camera_position_uncertainty_power):
-  m_orig_ctr(orig_ctr), m_uncertainty(uncertainty), m_weight(weight),
+  m_orig_ctr(orig_ctr), m_param_len(param_len), m_uncertainty(uncertainty),
+  m_weight(weight),
   m_camera_position_uncertainty_power(camera_position_uncertainty_power) {
+
+  // Three residuals and one parameter block
+  set_num_residuals(3);
+  mutable_parameter_block_sizes()->push_back(param_len);
 
   // The first three parameters are the camera center adjustments.
   m_orig_adj = vw::Vector3(orig_adj[0], orig_adj[1], orig_adj[2]);
@@ -95,17 +101,30 @@ CamUncertaintyError::CamUncertaintyError(vw::Vector3 const& orig_ctr, double con
                                  weight, datum);
 }
 
-// The signed power is a better-behaved version of pow that respects the sign of the input.
-double signed_power(double val, double power) {
-  if (val < 0)
-    return -pow(-val, power);
-  return pow(val, power);
+// Residual for a normalized motion x, whose square is the average of x^2 and
+// |x|^power. That is x^2 for power 2, and for a higher power it is quadratic near
+// zero and rises steeply past one sigma, where it equals 1 for any power.
+double posUncResidual(double x, double power) {
+  if (power == 2.0)
+    return x;
+  double a = std::abs(x);
+  double r = a * sqrt((1.0 + pow(a, power - 2.0)) / 2.0);
+  return (x < 0) ? -r : r;
+}
+
+// Derivative of posUncResidual() with respect to x. It is 1/sqrt(2) at zero for a
+// power above 2, so the constraint is felt at the initial position.
+double posUncDerivative(double x, double power) {
+  if (power == 2.0)
+    return 1.0;
+  double b = pow(std::abs(x), power - 2.0);
+  return (1.0 + 0.5 * power * b) / (2.0 * sqrt((1.0 + b) / 2.0));
 }
 
 // Fill 3 residuals from an ECEF position error. The error is rotated into NED,
 // split into horizontal and vertical components, each normalized by the horizontal
-// and vertical uncertainty, then raised to the given power (power 1 gives a plain
-// sum of squares) and weighted by sqrt(weight). Shared by CamUncertaintyError and
+// and vertical uncertainty, passed through posUncResidual() with the given power,
+// and weighted by sqrt(weight). Shared by CamUncertaintyError and
 // GroupCamUncertaintyError.
 void positionUncResidual(vw::Vector3 const& diff,
                          vw::Matrix3x3 const& EcefToNed,
@@ -124,31 +143,48 @@ void positionUncResidual(vw::Vector3 const& diff,
   horiz /= uncertainty[0];
   vert  /= uncertainty[1];
 
-  double p = camera_position_uncertainty_power / 2.0;
-
-  // Regular sum of squares, by default, which corresponds to p above being 1.
-  // Multiply by sqrt(weight), to give the squared residual the correct weight.
-  // This was shown to work better than a more abrupt function.
-  if (p == 1.0) {
-    residuals[0] = sqrt(weight) * horiz[0];
-    residuals[1] = sqrt(weight) * horiz[1];
-    residuals[2] = sqrt(weight) * vert;
-  } else { // More general power
-    residuals[0] = sqrt(weight) * signed_power(horiz[0], p);
-    residuals[1] = sqrt(weight) * signed_power(horiz[1], p);
-    residuals[2] = sqrt(weight) * signed_power(vert,     p);
-  }
+  // Regular sum of squares, by default, for power 2. Multiply by sqrt(weight), to
+  // give the squared residual the correct weight. This was shown to work better
+  // than a more abrupt function.
+  double power = camera_position_uncertainty_power;
+  residuals[0] = sqrt(weight) * posUncResidual(horiz[0], power);
+  residuals[1] = sqrt(weight) * posUncResidual(horiz[1], power);
+  residuals[2] = sqrt(weight) * posUncResidual(vert,     power);
 }
 
-bool CamUncertaintyError::operator()(const double* cam_adj, double* residuals) const {
+bool CamUncertaintyError::Evaluate(double const* const* parameters, double* residuals,
+                                   double** jacobians) const {
 
   // The difference between the original and current camera center
+  double const* cam_adj = parameters[0];
   vw::Vector3 diff;
   for (size_t p = 0; p < 3; p++)
     diff[p] = cam_adj[p] - m_orig_adj[p];
 
   positionUncResidual(diff, m_EcefToNed, m_uncertainty, m_weight,
                       m_camera_position_uncertainty_power, residuals);
+
+  if (jacobians == NULL || jacobians[0] == NULL)
+    return true;
+
+  // Residual i is sqrt(w) * posUncResidual(x_i), with x_i = (EcefToNed * diff)_i / s_i.
+  // Its derivative is sqrt(w) * posUncDerivative(x_i) / s_i times row i of EcefToNed.
+  // The rotation variables, if present, do not affect the residual.
+  vw::Vector3 ned = m_EcefToNed * diff;
+  vw::Vector3 sigma(m_uncertainty[0], m_uncertainty[0], m_uncertainty[1]);
+  double power = m_camera_position_uncertainty_power;
+  double * jac = jacobians[0];
+  for (int row = 0; row < 3; row++) {
+    double x = ned[row] / sigma[row];
+    double factor = sqrt(m_weight) / sigma[row] * posUncDerivative(x, power);
+    for (int col = 0; col < m_param_len; col++) {
+      if (col < 3)
+        jac[row * m_param_len + col] = factor * m_EcefToNed(row, col);
+      else
+        jac[row * m_param_len + col] = 0.0;
+    }
+  }
+
   return true;
 }
 

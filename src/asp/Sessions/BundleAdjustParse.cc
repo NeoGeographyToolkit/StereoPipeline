@@ -1024,8 +1024,8 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
     ("camera-position-uncertainty-power",
      po::value(&opt.camera_position_uncertainty_power)->default_value(2.0),
      "A higher value makes the cost function rise more steeply when "
-     "--camera-position-uncertainty is close to being violated. This is an advanced "
-      "option. The default should be good enough.")
+     "--camera-position-uncertainty is close to being violated. Must be at least 2. "
+     "See the documentation for details.")
     ("orbital-group-list", po::value(&opt.orbital_group_list)->default_value(""),
      "A comma-separated list of text files (no spaces), one per orbital group. Each "
      "file lists the images (one per line) of the frame cameras acquired along one "

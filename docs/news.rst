@@ -124,6 +124,8 @@ jitter_solve (:numref:`jitter_solve`):
   * Made the solver about two to three times faster on large problems, by
     optimizing the pixel reprojection cost function and reading the match files
     in parallel.
+  * The camera position uncertainty constraint uses the analytical cost function
+    (:numref:`ba_cam_constraints`).
 
 sfs (:numref:`sfs`):
   * Added the `SfsPipeline repository

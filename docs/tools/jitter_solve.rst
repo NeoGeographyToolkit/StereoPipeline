@@ -2561,8 +2561,8 @@ Command-line options for jitter_solve
     
 --camera-position-uncertainty-power <double (default: 2.0)>
     A higher value makes the cost function rise more steeply when
-    ``--camera-position-uncertainty`` is close to being violated. This is an
-    advanced option. The default should be good enough.
+    ``--camera-position-uncertainty`` is close to being violated. Must be at least
+    2. See :numref:`ba_cam_constraints` for details.
 
 --camera-position-weight <double (default: 0.0)>
     A soft constraint to keep the camera positions close to the original values.

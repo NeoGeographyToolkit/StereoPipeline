@@ -415,15 +415,17 @@ horizontal and vertical components result in separate terms.
 This performs better than prior alternatives, but the camera motion may be perhaps
 1-10 times more than expected.
 
-For the jitter solver (:numref:`jitter_solve`) and a linescan camera, such a
-term exists for each position sample in the camera, and then each is divided
-(after squaring) by the number of samples.
+To make this constraint stronger, use the option::
 
-The advanced option ``--camera-position-uncertainty-power`` can be used to change
-the power to which the normalized position difference is raised before being
-added to the cost function. The default value is 2. A value such as 4 may result
-in stricter enforcement of this constraint, but may also make the problem harder to
-solve. The default behavior is preferred.
+  --camera-position-uncertainty-power
+
+As of build 2026/11, this introduces in the sum of squares terms such as::
+
+  (x^2 + |x|^p) / 2
+
+where ``p`` is the power and ``x`` is the earlier ratio. A power of 4 is
+recommended. Especially :ref:`jitter_solve` may benefit from this, as there the
+constraint is divided among all the position samples of a linescan camera.
 
 It is suggested to avoid the older options ``--camera-position-weight``
 and ``--rotation-weight``, which will be removed in the future.
@@ -1591,8 +1593,8 @@ Camera and ground constraints
 
 --camera-position-uncertainty-power <double (default: 2.0)>
     A higher value makes the cost function rise more steeply when
-    ``--camera-position-uncertainty`` is close to being violated. This is an
-    advanced option. The default should be good enough.
+    ``--camera-position-uncertainty`` is close to being violated. Must be at least
+    2. See :numref:`ba_cam_constraints` for details.
 
 --camera-position-weight <double (default: 0.0)>
     A soft constraint to keep the camera positions close to the original values.
