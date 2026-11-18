@@ -627,6 +627,7 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
     tpc.report_progress(0);
 
     int numAnchorPoints = 0;
+    int numBadGsd = 0;
     for (int binx = 0; binx <= lenx; binx++) {
 
       tpc.report_incremental_progress(inc_amount);
@@ -716,8 +717,10 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
             gsd = 0.0;
           }
           // Cannot convert the uncertainty to pixels without a valid GSD
-          if (!std::isfinite(gsd) || gsd <= 0)
+          if (!std::isfinite(gsd) || gsd <= 0) {
+            numBadGsd++;
             continue;
+          }
         }
 
         anchor_pix[icam].push_back(pix);
@@ -755,6 +758,10 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
 
     vw::vw_out() << "Lines and samples: " << numLines << ' ' << numSamples << std::endl;
     vw::vw_out() << "Num anchor points per image: " << numAnchorPoints     << std::endl;
+    if (numBadGsd > 0)
+      vw::vw_out(vw::WarningMessage) << "Skipped " << numBadGsd << " anchor points "
+                                     << "where the ground sample distance could not "
+                                     << "be computed.\n";
   }
 
   // Flatten the candidate indices as (camera, local index) pairs, in camera order
