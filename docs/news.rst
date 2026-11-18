@@ -118,6 +118,7 @@ jitter_solve (:numref:`jitter_solve`):
   * The GCP report was reorganized to match ``bundle_adjust``, giving the
     ground-plane and height offset of each optimized GCP from its input position
     (:numref:`ba_gcp_report`).
+  * Added the option ``--fixed-image-list``.
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
   * The ``--anchor-weight`` option is deprecated in favor of

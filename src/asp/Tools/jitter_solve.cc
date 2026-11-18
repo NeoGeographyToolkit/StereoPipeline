@@ -107,6 +107,7 @@ struct Options: public asp::BaBaseOptions {
   double max_anchor_to_tri_points_ratio;
   int max_anchor_points_total; // computed from the ratio, not a direct option
   std::map<int, int> cam2group;
+  std::set<int> fixed_cameras_indices;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
@@ -346,6 +347,9 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "mean terrain radius) relative to its initial value. Use a value similar to "
      "--anchor-dem-uncertainty. The resulting orientation changes are reported in "
      "meters, see the orientation offsets file.")
+    ("fixed-image-list", po::value(&opt.fixed_image_list_str)->default_value(""),
+     "A file having a list of images (separated by spaces or newlines) whose "
+     "cameras should be kept fixed during optimization. Not supported with a rig.")
     ("mapproj-dem", po::value(&opt.mapproj_dem)->default_value(""),
      "If specified, mapproject every pair of matched interest points onto this DEM "
      "and compute their distance, then percentiles of such distances for each image "
@@ -547,6 +551,28 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
 
   if (opt.image_files.empty())
     vw_throw(ArgumentErr() << "Missing input image files.\n");
+
+  // Find the indices of the images whose cameras are kept fixed
+  opt.fixed_cameras_indices.clear();
+  if (!opt.fixed_image_list_str.empty()) {
+    if (!opt.rig_config.empty())
+      vw_throw(ArgumentErr() << "The option --fixed-image-list is not supported "
+               << "with a rig.\n");
+    std::vector<std::string> fixed_images;
+    asp::read_list(opt.fixed_image_list_str, fixed_images);
+    std::map<std::string, int> all_indices;
+    for (size_t it = 0; it < opt.image_files.size(); it++)
+      all_indices[opt.image_files[it]] = it;
+    for (size_t it = 0; it < fixed_images.size(); it++) {
+      auto map_it = all_indices.find(fixed_images[it]);
+      if (map_it == all_indices.end())
+        vw_throw(ArgumentErr() << "Could not find image " << fixed_images[it]
+                 << " read via --fixed-image-list among the input images.\n");
+      opt.fixed_cameras_indices.insert(map_it->second);
+    }
+    vw_out() << "Number of cameras to keep fixed: "
+             << opt.fixed_cameras_indices.size() << "\n";
+  }
 
   // Must have this early check to print a clear message about unsupported
   // camera before any error thrown by StereoSessionFactory.
@@ -839,8 +865,10 @@ void initResampleCsmCams(Options                     const& opt,
       asp::normalizeQuaternions(ls_model);
       // The provided tabulated positions, velocities and quaternions may be too few,
       // so resample them with --num-lines-per-position and --num-lines-per-orientation,
-      // if those are set.
-      resampleModel(opt.num_lines_per_position, opt.num_lines_per_orientation, ls_model);
+      // if those are set. A fixed camera is kept as given.
+      if (opt.fixed_cameras_indices.find(icam) == opt.fixed_cameras_indices.end())
+        resampleModel(opt.num_lines_per_position, opt.num_lines_per_orientation,
+                      ls_model);
     } else if (frame_model != NULL) {
       normalizeQuaternions(frame_model);
     } else {
@@ -1024,6 +1052,7 @@ void jitterSolvePass(int                                 pass,
                           opt.num_anchor_points_per_tile,
                           opt.num_anchor_points_extra_lines,
                           opt.max_anchor_points_total,
+                          opt.fixed_cameras_indices,
                           opt.anchor_dem_uncertainty,
                           opt.anchor_weight,
                           opt.anchor_weight_image,
@@ -1229,6 +1258,10 @@ void jitterSolvePass(int                                 pass,
                                              opt.orientation_uncertainty, mean_radius,
                                              // Outputs
                                              weight_per_residual, problem);
+
+  // Hold constant the pose blocks of the cameras in --fixed-image-list
+  if (!opt.fixed_cameras_indices.empty())
+    asp::setFixedCameras(opt.fixed_cameras_indices, csm_models, frame_params, problem);
 
   // Save residuals before optimization
   std::vector<double> mean_pixel_residuals;

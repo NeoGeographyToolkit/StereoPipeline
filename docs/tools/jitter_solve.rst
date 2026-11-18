@@ -2600,6 +2600,12 @@ Command-line options for jitter_solve
     in meters (:numref:`jitter_orientation_offsets`). See also
     :numref:`jitter_camera`.
 
+--fixed-image-list <string (default: "")>
+    A file having a list of images (separated by spaces or newlines) whose
+    cameras should be kept fixed during optimization. These cameras are not
+    resampled and get no anchor points. Their matches with the other images
+    still constrain the cameras being optimized. Not supported with a rig.
+
 --smoothness-weight <double (default: 0.0)>
     A weight to penalize high-frequency changes in the sequence of orientations
     in the linescan cameras being optimized. This is internally adjusted based

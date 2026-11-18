@@ -627,4 +627,47 @@ void addQuatNormRotationConstraints(
   }
 }
 
+// Hold constant the position and orientation blocks of the given cameras, for
+// those blocks that are in the problem.
+void setFixedCameras(std::set<int>               const& fixed_cameras_indices,
+                     std::vector<asp::CsmModel*> const& csm_models,
+                     std::vector<double>              & frame_params,
+                     ceres::Problem                   & problem) {
+
+  int num_fixed_blocks = 0;
+  for (int icam: fixed_cameras_indices) {
+
+    UsgsAstroLsSensorModel * ls_model
+      = dynamic_cast<UsgsAstroLsSensorModel*>((csm_models[icam]->m_gm_model).get());
+    UsgsAstroFrameSensorModel * frame_model
+      = dynamic_cast<UsgsAstroFrameSensorModel*>((csm_models[icam]->m_gm_model).get());
+
+    std::vector<double*> blocks;
+    if (ls_model != NULL) {
+      int numPos = ls_model->m_positions.size() / NUM_XYZ_PARAMS;
+      for (int ip = 0; ip < numPos; ip++)
+        blocks.push_back(&ls_model->m_positions[ip * NUM_XYZ_PARAMS]);
+      int numQuat = ls_model->m_quaternions.size() / NUM_QUAT_PARAMS;
+      for (int iq = 0; iq < numQuat; iq++)
+        blocks.push_back(&ls_model->m_quaternions[iq * NUM_QUAT_PARAMS]);
+    } else if (frame_model != NULL) {
+      // The translation, then the quaternion
+      double * curr_params = &frame_params[icam * (NUM_XYZ_PARAMS + NUM_QUAT_PARAMS)];
+      blocks.push_back(curr_params);
+      blocks.push_back(curr_params + NUM_XYZ_PARAMS);
+    } else {
+      vw::vw_throw(vw::ArgumentErr() << "Unknown camera model.\n");
+    }
+
+    for (size_t ib = 0; ib < blocks.size(); ib++) {
+      if (!problem.HasParameterBlock(blocks[ib]))
+        continue;
+      problem.SetParameterBlockConstant(blocks[ib]);
+      num_fixed_blocks++;
+    }
+  }
+
+  vw::vw_out() << "Number of camera pose blocks kept fixed: " << num_fixed_blocks << "\n";
+}
+
 } // end namespace asp

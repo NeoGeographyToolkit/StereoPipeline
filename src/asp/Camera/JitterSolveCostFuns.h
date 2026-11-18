@@ -85,6 +85,7 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
                       int                                     num_anchor_points_per_tile,
                       int                                     num_anchor_points_extra_lines,
                       int                                     max_anchor_points_total,
+                      std::set<int>                   const & fixed_cameras_indices,
                       double                                  anchor_dem_uncertainty,
                       double                                  anchor_weight,
                       std::string                     const & anchor_weight_image_file,
@@ -250,6 +251,13 @@ void addOrientationUncertaintyConstraint(asp::BaBaseOptions          const& opt,
                                          // Outputs
                                          std::vector<double>              & weight_per_residual,
                                          ceres::Problem                   & problem);
+
+// Hold constant the position and orientation blocks of the given cameras, for
+// those blocks that are in the problem.
+void setFixedCameras(std::set<int>               const& fixed_cameras_indices,
+                     std::vector<asp::CsmModel*> const& csm_models,
+                     std::vector<double>              & frame_params,
+                     ceres::Problem                   & problem);
 
 // Look rays of one orientation sample, captured from the initial pose for the
 // orientation-offset report. The same rays the constraint (GroundRotationError)

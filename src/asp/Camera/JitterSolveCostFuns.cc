@@ -540,6 +540,7 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
                       int                                     num_anchor_points_per_tile,
                       int                                     num_anchor_points_extra_lines,
                       int                                     max_anchor_points_total,
+                      std::set<int>                   const & fixed_cameras_indices,
                       double                                  anchor_dem_uncertainty,
                       double                                  anchor_weight,
                       std::string                     const & anchor_weight_image_file,
@@ -590,6 +591,10 @@ void calcAnchorPoints(asp::BaBaseOptions              const & opt,
   double anchor_height_guess = vw::demHeightGuess(anchor_dem_image);
 
   for (int icam = 0; icam < num_cams; icam++) {
+
+    // A fixed camera does not move, so anchors on it would only use up the budget
+    if (fixed_cameras_indices.find(icam) != fixed_cameras_indices.end())
+      continue;
 
     vw::Vector2 dims = vw::file_image_size(opt.image_files[icam]);
     int numLines   = dims[1];
