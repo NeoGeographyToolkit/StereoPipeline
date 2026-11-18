@@ -1722,8 +1722,8 @@ Solving for intrinsics
     ``optical_center``, ``other_intrinsics`` (same as ``distortion``). By
     default all of the intrinsics are shared, so to not share any of them pass
     in an empty string. Also can specify as ``all`` or ``none``. If sharing
-    intrinsics per sensor, this option is ignored, as then the sharing is more
-    fine-grained (:numref:`kaguya_ba`). For optical bar cameras see
+    intrinsics per sensor (:numref:`kaguya_ba`), the listed intrinsics are shared
+    within each sensor and the rest are per camera. For optical bar cameras see
     :numref:`kh9_controls`.
 
 --intrinsics-limits <string (default: "")>

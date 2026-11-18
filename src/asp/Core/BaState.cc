@@ -130,9 +130,19 @@ BaState::BaState(int num_points, int num_cameras,
                               num_cameras*m_num_intrinsics_per_camera,
                               0); // Initialize to 0
     } else {
-      m_num_intrinsics_per_camera = NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS
-                                    + max_num_dist_params;
-      m_intrinsics_vec.resize(intrinsics_opts.num_sensors * m_num_intrinsics_per_camera,
+      // One block per sensor with the intrinsics shared within a sensor, then one
+      // block per camera with the rest.
+      int sizes[3] = {NUM_CENTER_PARAMS, NUM_FOCUS_PARAMS, max_num_dist_params};
+      bool shared[3] = {intrinsics_opts.center_shared, intrinsics_opts.focus_shared,
+                        intrinsics_opts.distortion_shared};
+      for (int i = 0; i < 3; i++) {
+        if (shared[i])
+          m_num_shared_intrinsics += sizes[i];
+        else
+          m_num_intrinsics_per_camera += sizes[i];
+      }
+      m_intrinsics_vec.resize(intrinsics_opts.num_sensors * m_num_shared_intrinsics +
+                              num_cameras * m_num_intrinsics_per_camera,
                               0); // Initialize to 0
     }
   }
@@ -196,9 +206,7 @@ size_t BaState::get_center_offset(int cam_index) const {
       return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera;
   }
 
-  // Share intrinsics per sensor
-  int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
-  return sensor_id * m_num_intrinsics_per_camera;
+  return per_sensor_offset(cam_index, 0);
 }
 
 size_t BaState::get_focus_offset(int cam_index) const {
@@ -210,9 +218,7 @@ size_t BaState::get_focus_offset(int cam_index) const {
       return m_num_shared_intrinsics + cam_index*m_num_intrinsics_per_camera + m_focus_offset;
   }
 
-  // Share intrinsics per sensor
-  int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
-  return sensor_id * m_num_intrinsics_per_camera + NUM_CENTER_PARAMS;
+  return per_sensor_offset(cam_index, 1);
 }
 
 size_t BaState::get_distortion_offset(int cam_index) const {
@@ -225,9 +231,31 @@ size_t BaState::get_distortion_offset(int cam_index) const {
               m_distortion_offset;
   }
 
-  // Share intrinsics per sensor
-  int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
-  return sensor_id * m_num_intrinsics_per_camera + NUM_CENTER_PARAMS + NUM_FOCUS_PARAMS;
+  return per_sensor_offset(cam_index, 2);
+}
+
+// Offset when sharing intrinsics per sensor. The intrinsic is 0 for the optical
+// center, 1 for the focal length, 2 for distortion. A shared one lives in the
+// block of the camera's sensor, the others in the block of the camera.
+size_t BaState::per_sensor_offset(int cam_index, int intrinsic) const {
+  int sizes[3] = {NUM_CENTER_PARAMS, NUM_FOCUS_PARAMS, m_max_num_dist_params};
+  bool shared[3] = {m_intrinsics_opts.center_shared, m_intrinsics_opts.focus_shared,
+                    m_intrinsics_opts.distortion_shared};
+
+  // Skip the earlier intrinsics stored in the same block
+  size_t offset = 0;
+  for (int i = 0; i < intrinsic; i++) {
+    if (shared[i] == shared[intrinsic])
+      offset += sizes[i];
+  }
+
+  if (shared[intrinsic]) {
+    int sensor_id = m_intrinsics_opts.cam2sensor.at(cam_index);
+    return sensor_id * m_num_shared_intrinsics + offset;
+  }
+
+  return m_intrinsics_opts.num_sensors * m_num_shared_intrinsics +
+         cam_index * m_num_intrinsics_per_camera + offset;
 }
 
 // The optical bar velocity occupies distortion indices 3, 4, 5.

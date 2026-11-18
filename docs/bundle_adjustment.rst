@@ -611,6 +611,12 @@ Given a set of sensors, with each acquiring several images, the intrinsics are
 optimized per sensor. All images acquired with the same sensor will share the
 same intrinsics, and none will be shared across sensors.
 
+To share only some intrinsics within each sensor, list them with
+``--intrinsics-to-share``. The rest are per camera. For example, with
+``--intrinsics-to-share 'focal_length other_intrinsics'`` each image keeps its
+own optical center, which is useful when the images of a sensor have different
+sizes.
+
 This example uses Kaguya TC linescan cameras and the CSM camera model
 (:numref:`csm`). Pinhole cameras in .tsai format (:numref:`pinholemodels`) and
 Frame cameras in CSM format (:numref:`csm_frame_def`) can be used as well.

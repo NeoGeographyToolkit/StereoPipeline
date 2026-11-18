@@ -66,6 +66,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     orientation now rotates the start and end poses together (while still
     allowing the end pose to float separately if desired). The start pose is now
     also read correctly for right-to-left scans.
+  * When optimizing intrinsics per sensor, ``--intrinsics-to-share`` selects
+    which intrinsics are shared within each sensor. The rest are per camera,
+    such as the optical center for images of different sizes (:numref:`kaguya_ba`).
   * The options ``--transform-cameras-using-gcp``,
     ``--transform-cameras-with-shared-gcp``, and ``--init-camera-using-gcp``
     now fail for non-pinhole cameras, where they had no effect.

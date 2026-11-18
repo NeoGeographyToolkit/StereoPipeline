@@ -54,7 +54,7 @@ void distortion_sanity_check(std::vector<int> const& num_dist_params,
   }
 
   // If distortion is shared per sensor
-  if (intrinsics_opts.share_intrinsics_per_sensor) {
+  if (intrinsics_opts.share_intrinsics_per_sensor && intrinsics_opts.distortion_shared) {
     std::vector<std::set<int>> dist_sizes(intrinsics_opts.num_sensors);
     for (size_t cam_it = 0; cam_it < num_dist_params.size(); cam_it++) {
       int sensor_it = intrinsics_opts.cam2sensor[cam_it];
@@ -416,26 +416,9 @@ void load_intrinsics_options(bool        solve_intrinsics,
       intrinsics_to_share_str = "";
   }
 
-  if (intrinsics_options.share_intrinsics_per_sensor && shared_is_specified) {
-    // The share string is otherwise ignored in per-sensor mode. The optical bar
-    // motion tokens are not handled by per-sensor sharing, so flag them with an
-    // error rather than silently dropping the request.
-    std::istringstream is(intrinsics_to_share_str);
-    std::string tok;
-    while (is >> tok) {
-      if (tok == "velocity" || tok == "motion_compensation_factor" ||
-          tok == "final_pose")
-        vw_throw(ArgumentErr() << "Sharing the optical bar motion parameter '"
-          << tok << "' is not supported when sharing intrinsics per sensor.\n");
-    }
-    vw_out() << "When sharing intrinsics per sensor, option "
-              << "--intrinsics-to-share is ignored. The intrinsics will "
-              << "always be shared for a sensor and never across sensors.\n";
-  }
-
-  // If sharing intrinsics per sensor, the only supported mode is that 
-  // the intrinsics are always shared per sensor and never across sensors.
-  if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
+  // When sharing per sensor, the listed intrinsics are shared among the cameras
+  // of each sensor, and the rest are per camera. Nothing is shared across sensors.
+  if (shared_is_specified) {
     intrinsics_options.focus_shared      = false;
     intrinsics_options.center_shared     = false;
     intrinsics_options.distortion_shared = false;
@@ -485,9 +468,8 @@ void load_intrinsics_options(bool        solve_intrinsics,
     vw_out() << dist_name   << ": "; print_float(intrinsics_options.float_distortion[0]);
   }
 
-  // No parsing is done when sharing intrinsics per sensor, per above 
   std::string val;
-  if (shared_is_specified && !intrinsics_options.share_intrinsics_per_sensor) {
+  if (shared_is_specified) {
     std::istringstream is(intrinsics_to_share_str);
     while (is >> val) {
       if (val == "focal_length")
@@ -496,6 +478,11 @@ void load_intrinsics_options(bool        solve_intrinsics,
         intrinsics_options.center_shared = true;
       else if (val == "other_intrinsics" || val == "distortion")
         intrinsics_options.distortion_shared = true;
+      else if (intrinsics_options.share_intrinsics_per_sensor &&
+               (val == "velocity" || val == "motion_compensation_factor" ||
+                val == "final_pose"))
+        vw_throw(ArgumentErr() << "Sharing the optical bar motion parameter '"
+          << val << "' is not supported when sharing intrinsics per sensor.\n");
       else if (val == "velocity")
         // Share one velocity vector across every camera in the run (one block =
         // one orbit pass). The per-camera velocity slots are frozen and the shared

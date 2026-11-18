@@ -1,5 +1,5 @@
 // __BEGIN_LICENSE__
-//  Copyright (c) 2009-2013, United States Government as represented by the
+//  Copyright (c) 2009-2026, United States Government as represented by the
 //  Administrator of the National Aeronautics and Space Administration. All
 //  rights reserved.
 //
@@ -251,6 +251,7 @@ public:
   size_t get_center_offset(int cam_index) const;
   size_t get_focus_offset(int cam_index) const;
   size_t get_distortion_offset(int cam_index) const;
+  size_t per_sensor_offset(int cam_index, int intrinsic) const;
 
   // Not much of a point of having set/get functions for this one
   int m_max_num_dist_params;
@@ -261,6 +262,7 @@ private: // Variables
   
   // m_intrinsics_vec starts out with m_num_shared_intrinsics values which are
   //  shared between all cameras, followed by the per-camera intrinsics for each camera.
+  //  When sharing per sensor, there are m_num_shared_intrinsics values per sensor.
   int m_num_shared_intrinsics, m_num_intrinsics_per_camera;
   
   // These store the offset to the focus or distortion data from the start of

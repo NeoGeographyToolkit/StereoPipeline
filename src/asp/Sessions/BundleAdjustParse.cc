@@ -1122,8 +1122,8 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "cameras, specify here, in quotes, one or more of: focal_length, optical_center, "
      "other_intrinsics (distortion). By default all of the intrinsics are shared, so to "
      "not share any of them pass in an empty string. Also can specify 'all' or 'none'. If "
-     "sharing intrinsics per sensor, this option is ignored, as then the sharing is more "
-     "fine-grained. For optical bar cameras, see the documentation.")
+     "sharing intrinsics per sensor, the listed intrinsics are shared within each sensor "
+     "and the rest are per camera. For optical bar cameras, see the documentation.")
     ("intrinsics-limits", po::value(&intrinsics_limit_str)->default_value(""),
      "Specify minimum and maximum bounds for the intrinsic parameters. These are absolute "
      "bounds on the parameter values, not ratios relative to the initial values. Values "
