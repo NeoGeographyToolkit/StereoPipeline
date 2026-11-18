@@ -143,6 +143,10 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
   if (lowres_size <= 0) // bug fix, longer term need to improve the workflow
     lowres_size = LOWRES_SIZE_DEFAULT;
 
+  // Where to store the image pyramids, if not next to the image
+  std::string const& cache_dir = asp::stereo_settings().pyramid_cache_dir;
+  float nan_val = std::numeric_limits<float>::quiet_NaN();
+
   boost::shared_ptr<DiskImageResource> image_rsrc
     = vw::DiskImageResourcePtr(image_file);
   ImageFormat image_fmt = image_rsrc->format();
@@ -183,7 +187,8 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
 
       m_img_ch1_float =
         vw::DiskImagePyramid<float>(image_file, m_opt, lowres_size,
-                                    2, valid_min, valid_max);
+                                    2, valid_min, valid_max,
+                                    cache_dir);
       m_rows = m_img_ch1_float.rows();
       m_cols = m_img_ch1_float.cols();
       m_type = CH1_FLOAT;
@@ -192,7 +197,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
     } else if (m_num_channels == 2) {
       // uint8 image with an alpha channel.
       m_img_ch2_uint8 = vw::DiskImagePyramid<Vector<vw::uint8, 2>>
-        (image_file, m_opt, lowres_size);
+        (image_file, m_opt, lowres_size, 2, nan_val, nan_val, cache_dir);
       m_num_channels = 2; // we read only 1 channel
       m_rows = m_img_ch2_uint8.rows();
       m_cols = m_img_ch2_uint8.cols();
@@ -202,7 +207,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
     } else if (m_num_channels == 3) {
       // RGB image with three uint8 channels.
       m_img_ch3_uint8 = vw::DiskImagePyramid<Vector<vw::uint8, 3>>
-        (image_file, m_opt, lowres_size);
+        (image_file, m_opt, lowres_size, 2, nan_val, nan_val, cache_dir);
       m_num_channels = 3;
       m_rows = m_img_ch3_uint8.rows();
       m_cols = m_img_ch3_uint8.cols();
@@ -212,7 +217,7 @@ DiskImagePyramidMultiChannel(std::string const& image_file,
     } else if (m_num_channels == 4) {
       // RGB image with three uint8 channels and an alpha channel
       m_img_ch4_uint8 = vw::DiskImagePyramid<Vector<vw::uint8, 4>>
-        (image_file, m_opt, lowres_size);
+        (image_file, m_opt, lowres_size, 2, nan_val, nan_val, cache_dir);
       m_num_channels = 4;
       m_rows = m_img_ch4_uint8.rows();
       m_cols = m_img_ch4_uint8.cols();

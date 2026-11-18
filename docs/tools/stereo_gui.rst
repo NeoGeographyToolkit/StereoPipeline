@@ -774,6 +774,24 @@ is not writable, the overviews go to a per-user cache directory instead. They
 are reused on later runs, and can be removed with
 ``--delete-temporary-files-on-exit``.
 
+To keep all overviews in one directory, such as when the data directories have
+a limit on the number of files, use ``--pyramid-cache-dir``. Then nothing is
+written next to the input images. For each input image, two files are created
+in the cache directory: a small ``.vrt`` file that points to the image, and the
+``.ovr`` file with the overviews, stored next to that ``.vrt`` file. For
+example, for an input ``data/image.tif`` and a cache directory ``cache``, these
+are::
+
+    cache/<hash>_image.tif.vrt
+    cache/<hash>_image.tif.vrt.ovr
+
+The ``<hash>`` prefix is made from the full path of the input image, so images
+with the same name in different directories do not collide. GDAL always stores
+the overviews next to the file it is given, so the ``.vrt`` file is what makes
+them go to the cache directory. The ``.vrt`` file preserves the input's nodata
+value, mask, and georeference. These files are rebuilt if the input image is
+newer.
+
 See also
 ~~~~~~~~
 
@@ -985,6 +1003,11 @@ accept all other ``parallel_stereo`` options as well.
 --delete-temporary-files-on-exit
     Delete any subsampled and other files created by the GUI when
     exiting.
+
+--pyramid-cache-dir <string (default="")>
+    Store the image pyramids (overviews) in this directory, rather than
+    in a ``.ovr`` file next to each input image. See :numref:`gui_pyr`
+    for the files that are created.
 
 --create-image-pyramids-only
     Without starting the GUI, build multi-resolution pyramids for

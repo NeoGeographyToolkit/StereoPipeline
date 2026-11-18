@@ -603,6 +603,9 @@ GUIDescription::GUIDescription(): po::options_description("GUI options") {
       "Start with all images turned off (if all images are in the same window, useful with a large number of images).")
     ("delete-temporary-files-on-exit", po::bool_switch(&global.delete_temporary_files_on_exit)->default_value(false)->implicit_value(true),
       "Delete any subsampled and other files created by the GUI when exiting.")
+    ("pyramid-cache-dir", po::value(&global.pyramid_cache_dir)->default_value(""),
+      "Store the image pyramids (overviews) in this directory, rather than in a .ovr "
+      "file next to each input image.")
     ("create-image-pyramids-only", po::bool_switch(&global.create_image_pyramids_only)->default_value(false)->implicit_value(true),
       "Without starting the GUI, build multi-resolution pyramids for the inputs, to be able to load them fast later.")
     ("pairwise-matches", po::bool_switch(&global.pairwise_matches)->default_value(false)->implicit_value(true), "Show images side-by-side. If just two of them are selected, load their corresponding match file, determined by the output prefix. Also accessible from the menu.")

@@ -225,7 +225,9 @@ stereo_gui (:numref:`stereo_gui`):
   * The colorized hillshade view uses the chosen ``--colormap-style``
     (:numref:`colorize`).
   * Added ``--opacity``, to blend overlaid images (:numref:`opacity`).
-  * Uses GDAL overviews (gdaladdo) to speed up access (:numref:`gui_pyr`).
+  * Uses GDAL overviews (gdaladdo) to speed up access. These are stored next
+    to each image, or in a directory set with ``--pyramid-cache-dir``
+    (:numref:`gui_pyr`).
   * Added the ``terrain``, ``ocean``, ``gist_earth``, and ``gist_stern``
     colormaps to the ``colormap`` tool and ``stereo_gui`` (:numref:`colormap`).
   * Reduced-resolution images for processing should be made with
