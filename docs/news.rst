@@ -268,6 +268,8 @@ Misc:
   * Moved the ``.vwrc`` configuration file to its own page (:numref:`vwrc`).
   * Removed the historical IceBridge processing scripts. The general-purpose
     ``ortho2pinhole`` tool is kept (:numref:`ortho2pinhole`).
+  * The optical bar camera model can have a different pixel pitch along columns
+    and rows (:numref:`panoramic`).
 
 RELEASE 3.7.0, June 2026
 ------------------------

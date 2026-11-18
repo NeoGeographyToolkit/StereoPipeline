@@ -666,6 +666,10 @@ meters. The scan time is seconds, the forward tilt is in radians, the
 speed is in meters per second, and the Earth radius and mean surface
 elevation are in meters. 
 
+As of build 2026/11 (:numref:`release`), the pixel pitch along columns (x) and
+rows (y) can differ. Then both are set, as ``pitch = 6.97e-06 7.0e-06``. A single
+value applies to both.
+
 The initial camera center ``iC`` is in meters (in ECEF coordinates),
 and the rotation matrix ``iR`` stores the absolute pose, that is,
 the camera-to-world rotation. This is analogous to the ``C`` and ``R``

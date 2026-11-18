@@ -168,7 +168,8 @@ To create optical bar camera models, an example camera model file is
 needed. This needs to contain all of the expected values for the camera,
 though image_size, image_center, iC, and IR can be any value since they
 will be recalculated. The pitch is determined by the resolution of the
-scanner used, which is seven microns. The other values are determined by
+scanner used, which is seven microns. The pitch along columns and rows can
+differ (:numref:`panoramic`). The other values are determined by
 looking at available information about the satellite. For the first
 image (DS1105-2248DF076) the following values were used::
 
@@ -802,7 +803,7 @@ compatibility.
 The focal length is 1.52 m, per existing documentation. The pixel pitch (at
 which the film is scanned) is known to be 7e-6 m. Here it is multiplied by 16 to
 account for the fact that we work at 1/16th the resolution of the original
-images.
+images. The pitch along columns and rows can differ (:numref:`panoramic`).
 
 The image size comes from the image file (at the current lower resolution). The
 image center is set to half the image size.
