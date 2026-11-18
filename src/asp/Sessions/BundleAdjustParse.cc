@@ -227,12 +227,10 @@ void loadValidateBaOptions(po::variables_map const& vm,
     vw::vw_throw(vw::ArgumentErr() << "Cannot use more than one of: ISIS cnet, nvm file, "
              << "match files.\n");
 
-  if (opt.transform_cameras_using_gcp &&
-      (!inline_adjustments) &&
-      (opt.camera_type != BaCameraType_Pinhole)) {
-    vw::vw_throw(vw::ArgumentErr() << "Transforming cameras using GCP works only for pinhole "
-              << "cameras and with the --inline-adjustments flag.\n");
-  }
+  asp::checkGcpInitCameraType(opt.camera_type, !opt.camera_position_file.empty(),
+                              opt.transform_cameras_using_gcp,
+                              opt.transform_cameras_with_shared_gcp,
+                              opt.init_camera_using_gcp);
 
   if (opt.overlap_list_file != "" && opt.overlap_limit > 0)
     vw::vw_throw(vw::ArgumentErr()
@@ -1182,17 +1180,20 @@ void handleBaArgs(int argc, char *argv[], asp::BaOptions& opt) {
      "files to match locations to cameras.")
     ("init-camera-using-gcp",  po::bool_switch(&opt.init_camera_using_gcp)->default_value(false)->implicit_value(true),
      "Given an image, a pinhole camera lacking correct position and orientation, and a GCP "
-     "file, find the pinhole camera with given intrinsics most consistent with the GCP.")
+     "file, find the pinhole camera with given intrinsics most consistent with the GCP. "
+     "Only for pinhole cameras with --inline-adjustments.")
     ("transform-cameras-with-shared-gcp",
      po::bool_switch(&opt.transform_cameras_with_shared_gcp)->default_value(false)->implicit_value(true),
      "Given at least 3 GCP, with each seen in at least 2 images, find the triangulated "
      "positions based on pixels values in the GCP, and apply a rotation + translation + "
      "scale transform to the entire camera system so that the triangulated points get "
-     "mapped to the ground coordinates in the GCP.")
+     "mapped to the ground coordinates in the GCP. Only for pinhole cameras with "
+     "--inline-adjustments.")
     ("transform-cameras-using-gcp",  po::bool_switch(&opt.transform_cameras_using_gcp)->default_value(false)->implicit_value(true),
      "Given a set of GCP, with at least two images having at least three GCP each (but "
      "with each GCP not shared among the images), transform the cameras to ground "
-     "coordinates. This is not as robust as --transform-cameras-with-shared-gcp.")
+     "coordinates. This is not as robust as --transform-cameras-with-shared-gcp. Only "
+     "for pinhole cameras with --inline-adjustments.")
     ("disable-pinhole-gcp-init",  po::bool_switch(&opt.disable_pinhole_gcp_init)->default_value(false)->implicit_value(true),
      "Do not initialize the positions of pinhole cameras based on input GCP. This is now "
      "the default, so this option has no effect. To opt in to such initialization, use "

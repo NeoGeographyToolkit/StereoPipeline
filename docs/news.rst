@@ -66,6 +66,9 @@ bundle_adjust (:numref:`bundle_adjust`):
     orientation now rotates the start and end poses together (while still
     allowing the end pose to float separately if desired). The start pose is now
     also read correctly for right-to-left scans.
+  * The options ``--transform-cameras-using-gcp``,
+    ``--transform-cameras-with-shared-gcp``, and ``--init-camera-using-gcp``
+    now fail for non-pinhole cameras, where they had no effect.
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added the ``--mapproject`` option, to mapproject the raw input images onto a

@@ -24,6 +24,7 @@
 #define __BUNDLE_ADJUST_GCP_H__
 
 #include <asp/Camera/BundleAdjustParamMap.h>
+#include <asp/Core/BaBaseOptions.h>
 #include <asp/Core/BundleAdjustUtils.h>
 
 #include <vw/BundleAdjustment/ControlNetwork.h>
@@ -64,6 +65,15 @@ void transform_cameras_with_shared_gcp(boost::shared_ptr<vw::ControlNetwork> con
 void transform_cameras_with_indiv_image_gcp
   (boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr,
    std::vector<vw::CamPtr> & camera_models);
+
+// The GCP-based camera initializations and transforms work only for pinhole
+// cameras with --inline-adjustments, and not with --camera-position-file. Throw
+// if any is requested otherwise, as then it would have no effect.
+void checkGcpInitCameraType(asp::BACameraType camera_type,
+                            bool have_camera_position_file,
+                            bool transform_cameras_using_gcp,
+                            bool transform_cameras_with_shared_gcp,
+                            bool init_camera_using_gcp);
 
 // Sanity check. This does not prevent the user from setting the wrong datum,
 // but it can catch unreasonable height values for GCP.

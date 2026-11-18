@@ -395,6 +395,35 @@ void init_camera_using_gcp(boost::shared_ptr<vw::ControlNetwork> const& cnet_ptr
 
 } // End function init_camera_using_gcp
 
+// The GCP-based camera initializations and transforms work only for pinhole
+// cameras with --inline-adjustments, and not with --camera-position-file. Throw
+// if any is requested otherwise, as then it would have no effect.
+void checkGcpInitCameraType(asp::BACameraType camera_type,
+                            bool have_camera_position_file,
+                            bool transform_cameras_using_gcp,
+                            bool transform_cameras_with_shared_gcp,
+                            bool init_camera_using_gcp) {
+
+  bool gcp_init = transform_cameras_using_gcp || transform_cameras_with_shared_gcp ||
+                  init_camera_using_gcp;
+  if (!gcp_init)
+    return;
+
+  std::string opts = "The options --transform-cameras-using-gcp, "
+    "--transform-cameras-with-shared-gcp, and --init-camera-using-gcp";
+
+  if (camera_type != asp::BaCameraType_Pinhole)
+    vw_throw(vw::ArgumentErr()
+             << opts << " work only for pinhole cameras with --inline-adjustments. "
+             << "For other cameras they have no effect, so remove them. The GCP "
+             << "are still used in the optimization. To transform the cameras "
+             << "before the optimization, use --initial-transform.\n");
+
+  if (have_camera_position_file)
+    vw_throw(vw::ArgumentErr()
+             << opts << " cannot be used with --camera-position-file.\n");
+}
+
 void checkGcpRadius(vw::Datum const& datum,
                     vw::ControlNetwork const& cnet) {
 

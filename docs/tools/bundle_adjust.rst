@@ -1808,6 +1808,7 @@ Camera initialization and transforms
     Given an image, a pinhole camera lacking correct position and
     orientation, and a GCP file, find the pinhole camera with given
     intrinsics most consistent with the GCP (:numref:`camera_solve_gcp`).
+    Only for pinhole cameras with ``--inline-adjustments``.
 
 --transform-cameras-with-shared-gcp
     Given at least 3 GCP, with each seen in at least 2 images,
@@ -1816,12 +1817,14 @@ Camera initialization and transforms
     camera system so that the triangulated points get
     mapped to the ground coordinates in the GCP. This fit is robust to
     an outlier GCP, such as one with a lat-lon coordinate swap.
+    Only for pinhole cameras with ``--inline-adjustments``.
 
 --transform-cameras-using-gcp
     Given a set of GCP, with at least two images having at least three
     GCP each (but with each GCP not shared among the images),
     transform the cameras to ground coordinates. This is not as robust
-    as ``--transform-cameras-with-shared-gcp``.
+    as ``--transform-cameras-with-shared-gcp``. Only for pinhole cameras
+    with ``--inline-adjustments``.
 
 --disable-pinhole-gcp-init
     Do not initialize pinhole camera coordinates using provided GCP
