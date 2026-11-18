@@ -187,8 +187,8 @@ should be used as a constraint.
 Note that when solving for intrinsics, ``bundle_adjust`` will by default
 optimize all intrinsic parameters and will share them across all cameras. This
 behavior can be controlled with the ``--intrinsics-to-float`` and
-``--intrinsics-to-share`` parameters, or in a finer-grained way, as shown in
-:numref:`kaguya_ba`.
+``--intrinsics-to-share`` parameters (:numref:`ba_share_intrinsics`), or in a
+finer-grained way, as shown in :numref:`kaguya_ba`.
 
 The first invocation of camera optimization should be with intrinsics fixed::
 
@@ -602,6 +602,42 @@ to the reference terrain.
 Also note the earlier comment about sharing and floating the intrinsics
 individually.
 
+.. _ba_share_intrinsics:
+
+Controlling which intrinsics are shared
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The intrinsics are the focal length, the optical center, and the other
+intrinsics (lens distortion, or for optical bar cameras the remaining model
+parameters). Each can be shared by a group of cameras, so that one value is
+solved for the group, or kept separate for each camera.
+
+By default, with a single list of images, all intrinsics are shared by all
+cameras. With an image list per sensor (:numref:`kaguya_ba`), all intrinsics
+are shared by the cameras of each sensor, and none are shared across sensors.
+
+The option ``--intrinsics-to-share`` changes this. The intrinsics listed there
+are shared, and the rest are kept separate for each camera. With a single list,
+the listed ones are shared by all cameras. With a list per sensor, they are
+shared within each sensor.
+
+For example, the images of one sensor may have been cropped differently, so
+the optical center is at a different pixel in each, while the optics are the
+same. Then use::
+
+    --intrinsics-to-share 'focal_length other_intrinsics'
+
+so that each image keeps its own optical center, while the focal length and
+distortion are solved once per sensor.
+
+Which intrinsics are shared is separate from which are optimized, which is set
+with ``--intrinsics-to-float``. An intrinsic that is held fixed can still be
+shared or not.
+
+The other intrinsics are shared or kept separate together, as one block. For
+optical bar cameras, see :numref:`kh9_controls` for the velocity, which can be
+shared by all cameras with a single list.
+
 .. _kaguya_ba:
 
 Refining the intrinsics per sensor
@@ -609,13 +645,8 @@ Refining the intrinsics per sensor
 
 Given a set of sensors, with each acquiring several images, the intrinsics are
 optimized per sensor. All images acquired with the same sensor will share the
-same intrinsics, and none will be shared across sensors.
-
-To share only some intrinsics within each sensor, list them with
-``--intrinsics-to-share``. The rest are per camera. For example, with
-``--intrinsics-to-share 'focal_length other_intrinsics'`` each image keeps its
-own optical center, which is useful when the images of a sensor have different
-sizes.
+same intrinsics, and none will be shared across sensors. To keep some
+intrinsics separate for each camera, see :numref:`ba_share_intrinsics`.
 
 This example uses Kaguya TC linescan cameras and the CSM camera model
 (:numref:`csm`). Pinhole cameras in .tsai format (:numref:`pinholemodels`) and
