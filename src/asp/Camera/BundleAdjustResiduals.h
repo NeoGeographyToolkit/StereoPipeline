@@ -31,6 +31,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 namespace asp {
 
@@ -155,6 +156,27 @@ void compute_residuals(asp::BaBaseOptions const& opt,
                        ceres::Problem & problem,
                        // Output
                        std::vector<double> & residuals);
+
+// A named range [begin, end) of residual blocks, in the order they were added
+// to the problem. Used to report the cost of each constraint type.
+struct CostTerm {
+  std::string name;
+  int begin, end;
+  CostTerm(std::string const& name_in, int begin_in, int end_in):
+    name(name_in), begin(begin_in), end(end_in) {}
+};
+
+// Record under the given name the residual blocks added after the last term,
+// up to the given end. Nothing is recorded if no blocks were added.
+void recordCostTerm(std::string const& name, int end,
+                    std::vector<asp::CostTerm> & terms);
+
+// Print the cost of each constraint type and its percent of the total cost.
+// The robust loss is applied, so this is the effective weight of each type.
+// Return the cost per term.
+std::vector<double> reportCostPerTerm(ceres::Problem & problem,
+                                      std::vector<asp::CostTerm> const& terms,
+                                      std::string const& when, int num_threads);
 
 } // end namespace asp
 

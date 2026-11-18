@@ -1118,6 +1118,23 @@ void jitterSolvePass(int                                 pass,
                    weight_per_cam, count_per_cam, ref_to_curr_sensor_vec,
                    problem);
 
+  // Label the residual blocks of each constraint type, to report their cost.
+  // There is one reprojection block per residual_meta entry, ties before anchors.
+  std::vector<asp::CostTerm> cost_terms;
+  if (residual_meta.size() != size_t(problem.NumResidualBlocks()))
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Book-keeping error for the reprojection residuals.\n");
+  int num_ties = 0;
+  for (size_t i = 0; i < residual_meta.size(); i++) {
+    if (residual_meta[i].is_anchor)
+      continue;
+    if (num_ties != int(i))
+      vw::vw_throw(vw::ArgumentErr() << "Expecting tie points before anchor points.\n");
+    num_ties++;
+  }
+  asp::recordCostTerm("tie points", num_ties, cost_terms);
+  asp::recordCostTerm("anchor points", residual_meta.size(), cost_terms);
+
   // Add the DEM constraint. We check earlier that only one
   // of the two options below can be set at a time.
   if (have_dem)
@@ -1126,6 +1143,7 @@ void jitterSolvePass(int                                 pass,
                      tri_points_vec,
                      weight_per_residual,  // append
                      problem);
+  asp::recordCostTerm("heights from DEM", problem.NumResidualBlocks(), cost_terms);
 
   // Add the constraint to keep triangulated points close to initial values
   // This does not need a DEM or alignment.
@@ -1138,6 +1156,8 @@ void jitterSolvePass(int                                 pass,
                      tri_points_vec,
                      weight_per_residual,  // append
                      problem);
+  asp::recordCostTerm("triangulated points (tri-weight)", problem.NumResidualBlocks(),
+                      cost_terms);
 
   // Add a cost function meant to tie up to known disparities (option
   // --reference-terrain). The structures below must persist until the end.
@@ -1161,10 +1181,12 @@ void jitterSolvePass(int                                 pass,
                               weight_per_residual, // append
                                          reference_vec, ref_indices);
   }
+  asp::recordCostTerm("reference terrain", problem.NumResidualBlocks(), cost_terms);
 
   // Add the GCP constraint. GCP can come from GCP files or ISIS cnet.
   addGcpConstraint(opt, outliers, opt.use_llh_error, opt.fix_gcp_xyz,
                    cnet, tri_points_vec, weight_per_residual, problem); // outputs
+  asp::recordCostTerm("GCP", problem.NumResidualBlocks(), cost_terms);
 
   // Add the constraint to keep the camera positions close to initial values.
   // Note that in the second pass the initial values are the ones optimized in
@@ -1176,6 +1198,8 @@ void jitterSolvePass(int                                 pass,
                                  have_rig, rig, rig_cam_info,
                                  // Outputs
                                  frame_params, weight_per_residual, problem);
+  asp::recordCostTerm("camera position uncertainty", problem.NumResidualBlocks(),
+                      cost_terms);
 
   // Add another type of constraint to keep the camera positions close to initial values.
   // The earlier one is recommended as this one was not fully sorted out.
@@ -1186,6 +1210,8 @@ void jitterSolvePass(int                                 pass,
                                  have_rig, rig, rig_cam_info,
                                  // Outputs
                                  frame_params, weight_per_residual, problem);
+  asp::recordCostTerm("camera position weight", problem.NumResidualBlocks(),
+                      cost_terms);
 
   // Add constraints to keep quat norm close to 1, and make rotations 
   // not change too much.
@@ -1198,6 +1224,8 @@ void jitterSolvePass(int                                 pass,
                                  frame_params,
                                  weight_per_residual,  // append
                                  problem);
+  asp::recordCostTerm("quaternion norm and rotation weight",
+                      problem.NumResidualBlocks(), cost_terms);
 
   if (opt.roll_weight > 0 || opt.yaw_weight > 0)
     addRollYawConstraint(opt, crn, csm_models, roll_yaw_georef,
@@ -1206,6 +1234,7 @@ void jitterSolvePass(int                                 pass,
                          opt.roll_weight, opt.yaw_weight,
                          // Outputs
                          frame_params, weight_per_residual, problem); // outputs
+  asp::recordCostTerm("roll and yaw", problem.NumResidualBlocks(), cost_terms);
 
   // Add the smoothness constraint. This is a constraint on the curvature of the
   // sequence of poses.
@@ -1215,6 +1244,7 @@ void jitterSolvePass(int                                 pass,
                                  // Outputs
                                  weight_per_residual, orig_curvatures,
                                  problem);
+  asp::recordCostTerm("smoothness", problem.NumResidualBlocks(), cost_terms);
 
   // The mean terrain radius (ECEF meters) for the orientation constraint and
   // report, from sampling a DEM: prefer the anchor DEM, then the first
@@ -1258,6 +1288,11 @@ void jitterSolvePass(int                                 pass,
                                              opt.orientation_uncertainty, mean_radius,
                                              // Outputs
                                              weight_per_residual, problem);
+  asp::recordCostTerm("orientation uncertainty", problem.NumResidualBlocks(),
+                      cost_terms);
+  if (cost_terms.empty() || cost_terms.back().end != problem.NumResidualBlocks())
+    vw::vw_throw(vw::ArgumentErr()
+                 << "Some residual blocks are not assigned a constraint type.\n");
 
   // Hold constant the pose blocks of the cameras in --fixed-image-list
   if (!opt.fixed_cameras_indices.empty())
@@ -1293,6 +1328,9 @@ void jitterSolvePass(int                                 pass,
   options.preconditioner_type = ceres::SCHUR_JACOBI;
   options.use_explicit_schur_complement = false; // Only matters with ITERATIVE_SCHUR
 
+  int num_eval_threads = options.num_threads;
+  asp::reportCostPerTerm(problem, cost_terms, "before optimization", num_eval_threads);
+
   // Solve the problem
   vw_out() << "Starting the Ceres optimizer.\n";
 
@@ -1302,6 +1340,7 @@ void jitterSolvePass(int                                 pass,
     ceres::Solve(options, &problem, &summary);
   }
   vw_out() << summary.FullReport() << "\n";
+  asp::reportCostPerTerm(problem, cost_terms, "after optimization", num_eval_threads);
   if (summary.termination_type == ceres::NO_CONVERGENCE)
     vw_out() << "Found a valid solution, but did not reach the actual minimum. "
              << "This is expected, and likely the produced solution is good enough.\n";

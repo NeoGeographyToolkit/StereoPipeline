@@ -2183,6 +2183,18 @@ ideally under 1 pixel, as otherwise this means that the cameras are not
 well-registered to each other, or that systematic effects exist, such as
 uncorrected lens distortion.
 
+.. _jitter_cost_per_type:
+
+Cost per constraint type
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Before and after optimization, the log prints, for each constraint type (tie
+points, anchor points, heights from DEM, GCP, camera position, smoothness,
+etc.), the number of residual blocks, their cost, and the percent of the total
+cost. The robust loss is applied, so the result is the effective weight of
+each constraint type. This shows which constraint dominates the solution, and
+can help with setting the weights and uncertainties.
+
 .. _jitter_cam_offsets:
 
 Changes in camera positions

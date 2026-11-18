@@ -122,6 +122,8 @@ jitter_solve (:numref:`jitter_solve`):
     of triangulated points, ground control points, and anchor points for large
     networks (:numref:`jitter_anchor_points`).
   * Added the option ``--orientation-uncertainty`` (:numref:`jitter_options`).
+  * Print the cost of each constraint type and its percent of the total, before
+    and after optimization (:numref:`jitter_cost_per_type`).
   * The GCP report was reorganized to match ``bundle_adjust``, giving the
     ground-plane and height offset of each optimized GCP from its input position
     (:numref:`ba_gcp_report`).

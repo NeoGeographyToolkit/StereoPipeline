@@ -25,9 +25,13 @@
 #include <vw/BundleAdjustment/ControlNetwork.h>
 #include <vw/BundleAdjustment/ControlNetworkLoader.h>
 #include <vw/Cartography/BathyData.h>
+#include <vw/Core/Exception.h>
+#include <vw/Core/Log.h>
 #include <vw/Math/Functors.h>
 #include <vw/Math/Statistics.h>
 
+#include <iomanip>
+#include <sstream>
 #include <string>
 
 using namespace vw;
@@ -1096,4 +1100,60 @@ void saveJitterResiduals(ceres::Problem                             & problem,
   mean_pixel_residuals = mean_pixel_residual_norm;
 }
 
-} // end namespace asp 
+// Record under the given name the residual blocks added after the last term,
+// up to the given end. Nothing is recorded if no blocks were added.
+void recordCostTerm(std::string const& name, int end,
+                    std::vector<asp::CostTerm> & terms) {
+
+  int begin = 0;
+  if (!terms.empty())
+    begin = terms.back().end;
+  if (end > begin)
+    terms.push_back(asp::CostTerm(name, begin, end));
+}
+
+// Print the cost of each constraint type and its percent of the total cost.
+// The robust loss is applied, so this is the effective weight of each type.
+// Return the cost per term.
+std::vector<double> reportCostPerTerm(ceres::Problem & problem,
+                                      std::vector<asp::CostTerm> const& terms,
+                                      std::string const& when, int num_threads) {
+
+  // The blocks are returned in the order they were added
+  std::vector<ceres::ResidualBlockId> blocks;
+  problem.GetResidualBlocks(&blocks);
+
+  std::vector<double> costs(terms.size(), 0.0);
+  double total = 0.0;
+  for (size_t it = 0; it < terms.size(); it++) {
+    if (terms[it].begin < 0 || terms[it].end > int(blocks.size()))
+      vw::vw_throw(vw::ArgumentErr() << "Cost term out of range: "
+                   << terms[it].name << ".\n");
+    ceres::Problem::EvaluateOptions eval_options;
+    eval_options.apply_loss_function = true;
+    eval_options.num_threads = num_threads;
+    eval_options.residual_blocks.assign(blocks.begin() + terms[it].begin,
+                                        blocks.begin() + terms[it].end);
+    problem.Evaluate(eval_options, &costs[it], NULL, NULL, NULL);
+    total += costs[it];
+  }
+
+  std::ostringstream os;
+  os << "Cost per constraint type, " << when << ":\n";
+  os << "  type, number of residual blocks, cost, percent of total\n";
+  for (size_t it = 0; it < terms.size(); it++) {
+    double percent = 0.0;
+    if (total > 0.0)
+      percent = 100.0 * costs[it] / total;
+    os << "  " << terms[it].name << ", " << terms[it].end - terms[it].begin << ", "
+       << std::setprecision(6) << costs[it] << ", "
+       << std::fixed << std::setprecision(2) << percent << std::defaultfloat << "\n";
+  }
+  os << "  total cost: " << std::setprecision(6) << total << "\n";
+  vw::vw_out() << os.str();
+
+  return costs;
+}
+
+} // end namespace asp
+ 
