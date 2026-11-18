@@ -957,6 +957,10 @@ They can be combined, as in ``--intrinsics-to-float 'velocity final_pose'``.
 This invocation cannot be combined with ``--fixed-distortion-indices``.
 Supported as of build 2026/11 (:numref:`release`).
 
+The solved camera orientation rotates the poses at the start and end of the
+scan together, so the camera turns rigidly. Floating ``final_pose`` also
+changes the rotation of the camera during the scan.
+
 The ``velocity`` can be shared across all cameras with ``--intrinsics-to-share
 velocity``. It is shared across the whole run. It is not possible to have more
 than one group of cameras, with velocity shared only within each group. Sharing

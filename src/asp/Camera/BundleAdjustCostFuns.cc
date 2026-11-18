@@ -209,6 +209,9 @@ vw::Vector2  BaOpticalBarCam::evaluate(std::vector<double const*> const param_bl
     final_pose[0] = raw_intrin[6];
     final_pose[1] = raw_intrin[7];
     final_pose[2] = raw_intrin[8];
+    // Rotate the sweep end pose along with the start pose
+    final_pose = rigidOpticalBarFinalPose(m_underlying_camera->camera_pose(),
+                                          correction.pose(), final_pose);
     // When the velocity is shared, it comes from the extra block, not the
     // per-camera distortion slots (which are frozen).
     if (m_shared_velocity) {

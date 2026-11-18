@@ -28,6 +28,7 @@
 
 #include <vw/Camera/CameraModel.h>
 #include <vw/Math/Matrix.h>
+#include <vw/Math/Quaternion.h>
 #include <vw/Math/Vector.h>
 
 #include <boost/shared_ptr.hpp>
@@ -47,6 +48,12 @@ namespace asp {
 vw::PinholeModel transformedPinholeCamera(int camera_index,
                                           asp::BaState const& ba_state,
                                           vw::PinholeModel const& in_cam);
+
+// The solver moves the sweep start pose of an optical bar camera. Apply the
+// same rotation to the sweep end pose, so the camera rotates rigidly.
+vw::Vector3 rigidOpticalBarFinalPose(vw::Quat const& orig_init_pose,
+                                     vw::Quat const& new_init_pose,
+                                     vw::Vector3 const& final_pose);
 
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.

@@ -77,6 +77,16 @@ vw::PinholeModel transformedPinholeCamera(int camera_index,
   return out_cam;
 }
 
+// The solver moves the sweep start pose of an optical bar camera. Apply the
+// same rotation to the sweep end pose, so the camera rotates rigidly.
+vw::Vector3 rigidOpticalBarFinalPose(vw::Quat const& orig_init_pose,
+                                     vw::Quat const& new_init_pose,
+                                     vw::Vector3 const& final_pose) {
+  vw::Quat rot = new_init_pose * vw::inverse(orig_init_pose);
+  vw::Quat final_quat = rot * vw::axis_angle_to_quaternion(final_pose);
+  return final_quat.axis_angle();
+}
+
 // Given an input optical bar camera and param changes, apply those, returning
 // the new camera.
 vw::OpticalBarModel
@@ -91,6 +101,9 @@ transformedOpticalBarCamera(int camera_index,
   double const* center_ptr    = ba_state.get_intrinsic_center_ptr    (camera_index);
   double const* focus_ptr     = ba_state.get_intrinsic_focus_ptr     (camera_index);
   double const* intrinsic_ptr = ba_state.get_intrinsic_distortion_ptr(camera_index);
+
+  // The sweep start pose before the update
+  vw::Quat orig_init_pose = in_cam.camera_pose();
 
   // Update position and pose
   CameraAdjustment pos_pose_info(pos_pose_ptr);
@@ -107,6 +120,8 @@ transformedOpticalBarCamera(int camera_index,
   if (out_cam.get_have_velocity_vec()) {
     vw::Vector3 vel(intrinsic_ptr[3], intrinsic_ptr[4], intrinsic_ptr[5]);
     vw::Vector3 final_pose(intrinsic_ptr[6], intrinsic_ptr[7], intrinsic_ptr[8]);
+    final_pose = rigidOpticalBarFinalPose(orig_init_pose, pos_pose_info.pose(),
+                                          final_pose);
     out_cam.set_velocity(vel);
     out_cam.set_final_pose(final_pose);
   }
