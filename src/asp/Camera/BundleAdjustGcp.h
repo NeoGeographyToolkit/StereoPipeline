@@ -67,7 +67,7 @@ void transform_cameras_with_indiv_image_gcp
    std::vector<vw::CamPtr> & camera_models);
 
 // The GCP-based camera initializations and transforms work only for pinhole
-// cameras with --inline-adjustments, and not with --camera-position-file. Throw
+// cameras with --inline-adjustments, and not with --camera-positions. Throw
 // if any is requested otherwise, as then it would have no effect.
 void checkGcpInitCameraType(asp::BACameraType camera_type,
                             bool have_camera_position_file,
