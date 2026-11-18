@@ -958,8 +958,8 @@ This invocation cannot be combined with ``--fixed-distortion-indices``.
 Supported as of build 2026/11 (:numref:`release`).
 
 The solved camera orientation rotates the poses at the start and end of the
-scan together, so the camera turns rigidly. Floating ``final_pose`` also
-changes the rotation of the camera during the scan.
+scan together, so the camera turns rigidly. Floating ``final_pose`` (as part of
+intrinsics) allows additional independent optimization of this parameter.
 
 The ``velocity`` can be shared across all cameras with ``--intrinsics-to-share
 velocity``. It is shared across the whole run. It is not possible to have more

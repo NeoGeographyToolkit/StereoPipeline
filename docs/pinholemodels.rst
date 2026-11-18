@@ -667,8 +667,8 @@ speed is in meters per second, and the Earth radius and mean surface
 elevation are in meters. 
 
 As of build 2026/11 (:numref:`release`), the pixel pitch along columns (x) and
-rows (y) can differ. Then both are set, as ``pitch = 6.97e-06 7.0e-06``. A single
-value applies to both.
+rows (y) can differ. Example: ``pitch = 6.97e-06 7.0e-06`` (x pitch followed by
+y pitch). A single value can be used if they are equal.
 
 The initial camera center ``iC`` is in meters (in ECEF coordinates),
 and the rotation matrix ``iR`` stores the absolute pose, that is,

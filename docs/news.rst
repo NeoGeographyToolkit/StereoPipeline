@@ -63,9 +63,9 @@ bundle_adjust (:numref:`bundle_adjust`):
   * For optical bar cameras, the velocity can be shared across all cameras of a
     block with ``--intrinsics-to-share velocity`` (:numref:`kh9_controls`).
   * Bug fix: for optical bar cameras with a velocity vector, the solved camera
-    orientation now rotates the sweep start and end poses together, rather than
-    only the start pose. The sweep end pose was also misread for right-to-left
-    scans.
+    orientation now rotates the start and end poses together (while still
+    allowing the end pose to float separately if desired). The start pose is now
+    also read correctly for right-to-left scans.
 
 parallel_stereo (:numref:`parallel_stereo`):
   * Added the ``--mapproject`` option, to mapproject the raw input images onto a

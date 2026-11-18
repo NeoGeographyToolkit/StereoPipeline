@@ -187,6 +187,45 @@ TEST(OpticalBarRigid, TransformedCameraIsRigid) {
   }
 }
 
+// A global similarity transform, as with --initial-transform, moves each camera
+// center and ray along the sweep as it moves the ground. A ground point must
+// project to the same pixel after both are transformed.
+TEST(OpticalBarRigid, ApplyTransform) {
+  vw::Quat rot = vw::axis_angle_to_quaternion(vw::Vector3(0.2, -0.1, 0.3));
+  vw::Matrix3x3 R = rot.rotation_matrix();
+  vw::Vector3 T(1.0e5, -2.0e5, 3.0e5);
+  double scale = 1.5;
+  for (int s = 0; s < 2; s++) {
+    bool scan_left_to_right = (s == 0);
+    vw::OpticalBarModel cam = makeOpticalBarCam(scan_left_to_right);
+    vw::OpticalBarModel out_cam = cam;
+    out_cam.apply_transform(R, T, scale);
+
+    double range = 2.0e5;
+    double max_angle = 0.0, max_ctr_diff = 0.0, max_pix_diff = 0.0;
+    std::vector<vw::Vector2> pixels = samplePixels(cam);
+    for (size_t i = 0; i < pixels.size(); i++) {
+      vw::Vector3 ctr = cam.camera_center(pixels[i]);
+      vw::Vector3 dir = cam.pixel_to_vector(pixels[i]);
+
+      vw::Vector3 expected_dir = R * dir;
+      vw::Vector3 out_dir = out_cam.pixel_to_vector(pixels[i]);
+      double angle = vw::norm_2(vw::cross_prod(expected_dir, out_dir));
+      max_angle = std::max(max_angle, angle);
+
+      vw::Vector3 out_ctr = out_cam.camera_center(pixels[i]);
+      max_ctr_diff = std::max(max_ctr_diff, vw::norm_2(scale * R * ctr + T - out_ctr));
+
+      vw::Vector3 pt = ctr + range * dir;
+      vw::Vector2 pix = out_cam.point_to_pixel(scale * R * pt + T);
+      max_pix_diff = std::max(max_pix_diff, vw::norm_2(pix - pixels[i]));
+    }
+    EXPECT_LT(max_angle, 1e-12);
+    EXPECT_LT(max_ctr_diff, 1e-6);
+    EXPECT_LT(max_pix_diff, 1e-3);
+  }
+}
+
 // The cost function sees the same rigidly rotated camera. A point placed along
 // a rotated ray must project back to its pixel.
 TEST(OpticalBarRigid, CostFunctionIsRigid) {
