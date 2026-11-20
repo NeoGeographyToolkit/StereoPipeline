@@ -128,6 +128,7 @@ jitter_solve (:numref:`jitter_solve`):
     ground-plane and height offset of each optimized GCP from its input position
     (:numref:`ba_gcp_report`).
   * Added the option ``--fixed-image-list``.
+  * Added orbital constraints for linescan cameras (:numref:`jitter_orbit`).
   * Added ``--heights-from-dem-list``, to constrain the triangulated points
     against several sites.
   * The ``--anchor-weight`` option is deprecated in favor of

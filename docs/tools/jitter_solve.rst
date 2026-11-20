@@ -224,6 +224,50 @@ aspects of the solution, one should try these options.
 
 Values for these are suggested in :numref:`jitter_options`.
 
+.. _jitter_orbit:
+
+Orbit constraint
+^^^^^^^^^^^^^^^^
+
+Images acquired in sequence from one satellite pass have their camera centers on
+one orbit. A solve that constrains each camera on its own can let the cameras
+drift off that common path. The option ``--orbital-group-list`` pulls the
+position samples of all linescan cameras in a group to one smooth curve, both
+within each camera and across cameras. Example::
+
+    jitter_solve                       \
+      --orbital-group-list group.txt   \
+      --orbit-uncertainty 10,10        \
+      {other options}
+
+The file ``group.txt`` lists the images on one pass, one per line, with the same
+names as the input images. For more than one pass, pass a comma-separated list
+of such files. Each image can be in at most one group.
+
+The orbit is modeled as a curve in ECEF, in a frame with the origin at the mean
+of the group's position samples. The along-track axis is their main direction,
+the up axis is the radial direction at the origin, and the across-track axis is
+perpendicular to both. The across-track and vertical offsets are each a
+polynomial in the along-track coordinate, of degree 2 by default (option
+``--orbit-polynomial-degree``). Degree 2 is adequate over a few hundred
+kilometers. The curve is first fit to the input position samples, and then
+optimized together with the cameras.
+
+For each position sample, the across-track and vertical deviations from the
+curve are divided by the two values of ``--orbit-uncertainty`` (1 sigma, in
+meters) and added to the cost function. The along-track position is not
+constrained, so a camera can slide along the curve. The option
+``--orbit-uncertainty-power`` makes the constraint rise more steeply past the
+uncertainty, as for ``--camera-position-uncertainty``.
+
+If the position samples are far from one curve, use a much looser
+``--camera-position-uncertainty``.
+
+The deviations before and after the solve are printed, and are saved per
+position sample and per camera (:numref:`jitter_orbit_dev`).
+
+This constraint is only for CSM linescan cameras, and cannot be used with a rig.
+
 Resampling the poses
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -2204,6 +2248,21 @@ This program writes, just like ``bundle_adjust``, a report file that records the
 changes in camera position (:numref:`ba_camera_offsets`). This can help with
 adjusting camera constraints (:numref:`jitter_camera`).
 
+.. _jitter_orbit_dev:
+
+Deviation from the orbit
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+With ``--orbital-group-list`` (:numref:`jitter_orbit`), the across-track and
+vertical deviation of each camera position sample from the orbit curve of its
+group, in meters, before and after the jitter solve, is saved in::
+
+    {output-prefix}-orbit_deviations.csv
+
+Per camera, the root mean square and maximum absolute deviations are saved in::
+
+    {output-prefix}-orbit_deviation_stats.txt
+
 .. _jitter_orientation_offsets:
 
 Changes in camera orientations
@@ -2577,6 +2636,25 @@ Command-line options for jitter_solve
     A higher value makes the cost function rise more steeply when
     ``--camera-position-uncertainty`` is close to being violated. Must be at least
     2. See :numref:`ba_cam_constraints` for details.
+
+--orbital-group-list <string (default: "")>
+    Pull the position samples of the linescan cameras in each group to one
+    smooth orbit curve. Pass a comma-separated list of files, each listing the
+    images of one group. Set the strength with ``--orbit-uncertainty``. See
+    :numref:`jitter_orbit`.
+
+--orbit-uncertainty <string (default: "")>
+    The horizontal (across-track) and vertical uncertainty, in meters (1 sigma),
+    of the camera position samples relative to the orbit curve. Two values,
+    separated by a comma. See :numref:`jitter_orbit`.
+
+--orbit-uncertainty-power <double (default: 2.0)>
+    A higher value makes the orbit constraint rise more steeply past
+    ``--orbit-uncertainty``. Must be at least 2. See :numref:`jitter_orbit`.
+
+--orbit-polynomial-degree <int (default: 2)>
+    The degree of the polynomial in the along-track coordinate that models the
+    orbit curve, in ECEF. Can be 1, 2, or 3. See :numref:`jitter_orbit`.
 
 --camera-position-weight <double (default: 0.0)>
     A soft constraint to keep the camera positions close to the original values.

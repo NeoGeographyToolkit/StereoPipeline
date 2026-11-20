@@ -39,6 +39,11 @@ namespace asp {
 // return true with sigma unchanged. Shared by bundle_adjust and jitter_solve.
 bool sanitizePixelSigma(vw::Vector2 & pixel_sigma);
 
+// Residual for a normalized motion x, used by the position uncertainty
+// constraints, and its derivative. For power 2 these are x and 1.
+double posUncResidual(double x, double power);
+double posUncDerivative(double x, double power);
+
 /// A ceres cost function. The residual is the difference between the
 /// observed 3D point and the current (floating) 3D point, normalized by
 /// xyz_sigma. 

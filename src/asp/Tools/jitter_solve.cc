@@ -35,6 +35,7 @@
 #include <asp/IsisIO/BundleAdjustIsis.h>
 #include <asp/Camera/JitterSolveCostFuns.h>
 #include <asp/Camera/JitterSolveUtils.h>
+#include <asp/Camera/JitterSolveOrbit.h>
 #include <asp/Camera/BaseCostFuns.h>
 #include <asp/Rig/RigConfig.h>
 #include <asp/Camera/JitterSolveRigUtils.h>
@@ -108,6 +109,10 @@ struct Options: public asp::BaBaseOptions {
   int max_anchor_points_total; // computed from the ratio, not a direct option
   std::map<int, int> cam2group;
   std::set<int> fixed_cameras_indices;
+  std::string orbit_uncertainty_str;
+  vw::Vector2 orbit_uncertainty;
+  double orbit_uncertainty_power;
+  int orbit_polynomial_degree;
 };
 
 void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
@@ -298,6 +303,23 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
      "A higher value makes the cost function rise more steeply when "
      "--camera-position-uncertainty is close to being violated. Must be at least 2. "
      "See the documentation for details.")
+    ("orbital-group-list", po::value(&opt.orbital_group_list)->default_value(""),
+     "Pull the position samples of the linescan cameras in each group to one smooth "
+     "orbit curve. Pass a comma-separated list of files, each listing the images of "
+     "one group. Set the strength with --orbit-uncertainty.")
+    ("orbit-uncertainty",
+     po::value(&opt.orbit_uncertainty_str)->default_value(""),
+     "The horizontal (across-track) and vertical uncertainty, in meters (1 sigma), of "
+     "the camera position samples relative to the orbit curve. Two values, separated "
+     "by a comma.")
+    ("orbit-uncertainty-power",
+     po::value(&opt.orbit_uncertainty_power)->default_value(2.0),
+     "A higher value makes the orbit constraint rise more steeply past "
+     "--orbit-uncertainty. Must be at least 2.")
+    ("orbit-polynomial-degree",
+     po::value(&opt.orbit_polynomial_degree)->default_value(2),
+     "The degree of the polynomial in the along-track coordinate that models the "
+     "orbit curve, in ECEF. Can be 1, 2, or 3.")
     ("camera-position-weight", po::value(&opt.camera_position_weight)->default_value(0.0),
      "A soft constraint to keep the camera positions close to the original values. "
      "It is meant to prevent a wholesale shift of the cameras. It can impede "
@@ -791,6 +813,27 @@ void handle_arguments(int argc, char *argv[], Options& opt, rig::RigSet & rig) {
     vw_throw(ArgumentErr() << "Must have at least one pass.\n");
 
   bool have_rig = !opt.rig_config.empty();
+
+  // The orbit constraint
+  if (!opt.orbital_group_list.empty()) {
+    std::vector<double> vals = vw::str_to_std_vec(opt.orbit_uncertainty_str, ",");
+    if (vals.size() != 2 || vals[0] <= 0 || vals[1] <= 0)
+      vw_throw(ArgumentErr() << "With --orbital-group-list, set --orbit-uncertainty "
+               << "to two positive values separated by a comma.\n");
+    opt.orbit_uncertainty = vw::Vector2(vals[0], vals[1]);
+    if (opt.orbit_uncertainty_power < 2.0)
+      vw_throw(ArgumentErr() << "The value of --orbit-uncertainty-power must be at "
+               << "least 2.\n");
+    if (opt.orbit_polynomial_degree < 1 || opt.orbit_polynomial_degree > 3)
+      vw_throw(ArgumentErr() << "The value of --orbit-polynomial-degree must be 1, "
+               << "2, or 3.\n");
+    if (have_rig)
+      vw_throw(ArgumentErr() << "The options --orbital-group-list and --rig-config "
+               << "cannot be used together.\n");
+  } else if (!opt.orbit_uncertainty_str.empty()) {
+    vw_throw(ArgumentErr() << "The option --orbit-uncertainty needs "
+             << "--orbital-group-list.\n");
+  }
   if (have_rig) {
     bool have_rig_transforms = opt.use_initial_rig_transforms;
     rig::readRigConfig(opt.rig_config, have_rig_transforms, rig);
@@ -1213,6 +1256,23 @@ void jitterSolvePass(int                                 pass,
   asp::recordCostTerm("camera position weight", problem.NumResidualBlocks(),
                       cost_terms);
 
+  // Pull the position samples of each orbital group to one orbit curve. The
+  // curve is fit to the current samples at the start of each pass.
+  std::vector<asp::OrbitGroup> orbit_groups;
+  std::vector<std::vector<asp::OrbitSampleDev>> init_orbit_devs;
+  if (!opt.orbital_group_list.empty()) {
+    asp::buildOrbitGroups(opt.orbital_group_list, opt.orbit_polynomial_degree,
+                          opt.image_files, csm_models,
+                          orbit_groups); // output
+    asp::orbitDeviations(orbit_groups, csm_models, init_orbit_devs);
+    asp::printOrbitDeviations("Initial", init_orbit_devs);
+    asp::addOrbitConstraint(csm_models, opt.orbit_uncertainty,
+                            opt.orbit_uncertainty_power,
+                            // Outputs
+                            orbit_groups, weight_per_residual, problem);
+  }
+  asp::recordCostTerm("orbit", problem.NumResidualBlocks(), cost_terms);
+
   // Add constraints to keep quat norm close to 1, and make rotations 
   // not change too much.
   // TODO(oalexan1): Need to parameterize the rotations with axis angle, then
@@ -1400,6 +1460,15 @@ void jitterSolvePass(int                                 pass,
                               propagate_errors, horizontal_stddev_vec,
                               save_clean_matches, opt.match_files,
                               stereo_settings().matches_as_txt);
+  }
+
+  // Deviation of the position samples from the orbit curve
+  if (!orbit_groups.empty()) {
+    std::vector<std::vector<asp::OrbitSampleDev>> final_orbit_devs;
+    asp::orbitDeviations(orbit_groups, csm_models, final_orbit_devs);
+    asp::printOrbitDeviations("Final", final_orbit_devs);
+    asp::saveOrbitDeviations(opt.out_prefix, opt.image_files, orbit_groups,
+                             init_orbit_devs, final_orbit_devs);
   }
 
   // Compute the change in camera centers
